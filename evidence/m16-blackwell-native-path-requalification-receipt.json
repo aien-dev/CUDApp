@@ -1,0 +1,81 @@
+{
+  "milestone": "M16",
+  "qualification_status": "PASS",
+  "supersedes": {
+    "original_qualification_commit": "f72e2974793a288c5dd910180f4685deffa31bb7",
+    "original_qualification_status": "SUPERSEDED / FAILED INDEPENDENT RUNTIME AUDIT",
+    "receipt": "evidence/m16-blackwell-native-path-receipt.json"
+  },
+  "implementation_commit": "a2c0d7fbc03f7ce91fcb6389312a0ee8630322cd",
+  "evidence_dir": "evidence/m16-requalification",
+  "target_machine": "NVIDIA DGX Spark (spark)",
+  "hardware_identity": {
+    "chip": "NVIDIA GB10 (Grace Blackwell)",
+    "architecture": "Blackwell",
+    "sm_version": "0xa04 (SM 10.0a / 12.0a)",
+    "gpu_id": "0xf0100",
+    "pci_bus_id": "0000000f:01:00.0",
+    "stream_id": "0x0100",
+    "memory_type": "Unified LPDDR5x (128 GiB)"
+  },
+  "kernel": "7.0.0-1019-nvidia",
+  "compiler": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+  "driver_version": "580.173.02",
+  "foreign_runtime_audit": {
+    "linked_libraries": "libc only",
+    "cuda_driver_api_symbols": 0,
+    "cuda_runtime_api_symbols": 0,
+    "live_proc_maps_libcuda": 0
+  },
+  "concurrency_result": {
+    "status": "PASS",
+    "contexts": [
+      {
+        "context": "A",
+        "token": "0x40000002",
+        "fifo_va": "0x1000000000",
+        "marker_va": "0x1004111000",
+        "observed_payload": "0x16000001"
+      },
+      {
+        "context": "B",
+        "token": "0x40000003",
+        "fifo_va": "0x1100000000",
+        "marker_va": "0x1104111000",
+        "observed_payload": "0x16000002"
+      }
+    ],
+    "collision_free": true
+  },
+  "causality_result": {
+    "status": "PASS",
+    "trials_total": 5,
+    "trials_passed": 5,
+    "negative_control": {
+      "doorbell": "withheld",
+      "interval_ms": 100,
+      "marker_value": "0x00000000",
+      "expected": "0x00000000"
+    },
+    "positive_control": {
+      "doorbell": "rung",
+      "token": "0x40000002",
+      "marker_value": "0x16c0ffee",
+      "expected": "0x16c0ffee"
+    }
+  },
+  "gates": {
+    "M16_RAW_RM_CLIENT_PASS": true,
+    "M16_DYNAMIC_RESOURCE_DISCOVERY_PASS": true,
+    "M16_GPFIFO_ENCODING_PASS": true,
+    "M16_NEGATIVE_CAUSALITY_PASS": true,
+    "M16_DOORBELL_EXECUTION_PASS": true,
+    "M16_DEVICE_COMPLETION_PASS": true,
+    "M16_CONCURRENT_CONTEXT_PASS": true,
+    "M16_NO_LIBCUDA_LINK_PASS": true,
+    "M16_NO_CUDA_SYMBOL_PASS": true,
+    "M16_NO_LIBCUDA_RUNTIME_PASS": true,
+    "M16_EVIDENCE_DURABILITY_PASS": true,
+    "M16_RECEIPT_PASS": true
+  }
+}
