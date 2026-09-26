@@ -73,7 +73,8 @@ typedef enum {
     OP_NOT        = 0x0B,
     OP_SELECT     = 0x0C,
     OP_CONCAT     = 0x0D,
-    OP_SLICE      = 0x0E
+    OP_SLICE      = 0x0E,
+    OP_COMPILE    = 0x0F
 } OpCode;
 
 typedef enum {
