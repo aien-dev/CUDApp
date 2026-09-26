@@ -66,9 +66,13 @@ int omega_blackwell_build_qmd1(uint32_t *qmd1_words, const OmegaBlackwellQmdConf
     if (!qmd1_words || !cfg) return -1;
     memset(qmd1_words, 0, OMEGA_BW_QMD_BYTES);
 
-    uint32_t threads = cfg->threads_per_block ? cfg->threads_per_block : 64;
-    uint32_t grid_x  = cfg->grid_width ? cfg->grid_width : (cfg->num_elements + threads - 1) / threads;
-    if (grid_x == 0) grid_x = 1;
+    uint32_t tx = cfg->threads_x ? cfg->threads_x : (cfg->threads_per_block ? cfg->threads_per_block : 64);
+    uint32_t ty = cfg->threads_y ? cfg->threads_y : 1;
+    uint32_t tz = 1;
+    uint32_t gx = cfg->grid_x ? cfg->grid_x : (cfg->grid_width ? cfg->grid_width : (cfg->num_elements + tx - 1) / tx);
+    if (gx == 0) gx = 1;
+    uint32_t gy = cfg->grid_y ? cfg->grid_y : 1;
+    uint32_t gz = 1;
 
     /* Word 4: QMD_GROUP_ID=0x3f, QMD_TYPE=2 (GRID_CTA) */
     qmd1_words[4] = 0x013f0000;
@@ -101,9 +105,11 @@ int omega_blackwell_build_qmd1(uint32_t *qmd1_words, const OmegaBlackwellQmdConf
     qmd1_words[32] = (uint32_t)(cfg->code_va >> 4);
     qmd1_words[33] = (uint32_t)(((cfg->code_va >> 36) & 0x1fffff) | (0xa << 21));
 
-    /* Words 34-35: CTA thread dimensions, 16 registers, 1 barrier */
-    qmd1_words[34] = (threads & 0xffff) | (1u << 16);
-    qmd1_words[35] = 0x00021001;
+    /* Words 34-35: CTA thread dimensions, registers, 1 barrier */
+    qmd1_words[34] = (tx & 0xffff) | ((ty & 0xffff) << 16);
+    uint32_t gpr = cfg->gpr_count ? cfg->gpr_count : 16;
+    if (gpr < 16) gpr = 16;
+    qmd1_words[35] = (tz & 0xff) | ((gpr & 0x1ff) << 8) | (1u << 17);
 
     /* Word 36: Shared memory config (8 shifted 7 = 1024 bytes) */
     qmd1_words[36] = 0x04b44808;
@@ -112,9 +118,9 @@ int omega_blackwell_build_qmd1(uint32_t *qmd1_words, const OmegaBlackwellQmdConf
     qmd1_words[37] = 0x00000000;
 
     /* Words 39-41: Grid dimensions */
-    qmd1_words[39] = grid_x;
-    qmd1_words[40] = 1;
-    qmd1_words[41] = 1;
+    qmd1_words[39] = gx;
+    qmd1_words[40] = gy;
+    qmd1_words[41] = gz;
 
     /* Words 42-43: Constant Buffer 0 (cbank_va, size 1024 bytes -> 0x40 shifted 19) */
     qmd1_words[42] = (uint32_t)(cfg->cbank_va >> 6);
@@ -169,6 +175,34 @@ int omega_blackwell_build_cbank_args(uint32_t *args_words, uint64_t a_va, uint64
     args_words[5] = (uint32_t)(c_va >> 32);
     args_words[6] = n;
 
+    return 0;
+}
+
+int omega_blackwell_build_cbank_driver_2d(uint32_t *cbank_words, uint64_t cbank_va,
+                                         uint32_t threads_x, uint32_t threads_y,
+                                         uint32_t grid_x, uint32_t grid_y) {
+    if (!cbank_words) return -1;
+    if (omega_blackwell_build_cbank_driver(cbank_words, cbank_va) != 0) return -1;
+    if (threads_x > 0) cbank_words[216] = threads_x;
+    if (threads_y > 0) cbank_words[217] = threads_y;
+    if (grid_x > 0) cbank_words[220] = grid_x;
+    if (grid_y > 0) cbank_words[221] = grid_y;
+    return 0;
+}
+
+int omega_blackwell_build_cbank_args_matmul(uint32_t *args_words, uint64_t a_va, uint64_t b_va,
+                                           uint64_t c_va, uint32_t m, uint32_t k, uint32_t n) {
+    if (!args_words) return -1;
+    args_words[0] = (uint32_t)a_va;
+    args_words[1] = (uint32_t)(a_va >> 32);
+    args_words[2] = (uint32_t)b_va;
+    args_words[3] = (uint32_t)(b_va >> 32);
+    args_words[4] = (uint32_t)c_va;
+    args_words[5] = (uint32_t)(c_va >> 32);
+    args_words[6] = m;
+    args_words[7] = k;
+    args_words[8] = n;
+    args_words[9] = 0;
     return 0;
 }
 

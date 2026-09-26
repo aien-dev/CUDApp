@@ -4,6 +4,7 @@
 #include "omega_types.h"
 #include "omega_vector.h"
 #include "omega_blackwell_realize.h"
+#include "omega_blackwell_matmul.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -27,6 +28,22 @@ typedef struct {
     bool zero_libcuda_runtime;
 } OmegaBlackwellVectorExecution;
 
+typedef struct {
+    char target_chip[64];
+    uint32_t sm_architecture;
+    uint32_t m, k, n;
+    uint64_t launch_timestamp_ns;
+    uint64_t completion_timestamp_ns;
+    uint64_t elapsed_ns;
+    uint32_t completion_marker;
+    uint32_t intermediate_semaphore;
+    bool parity_verified;
+    size_t mismatch_count;
+    bool zero_libcuda_linkage;
+    bool zero_cuda_symbols;
+    bool zero_libcuda_runtime;
+} OmegaBlackwellMatMulExecution;
+
 /* Execute vector addition on physical GB10 silicon through frozen M16 native submission */
 int omega_blackwell_execute_vector(const OmegaVectorSpec *spec,
                                   const OmegaBlackwellRealization *real,
@@ -34,6 +51,14 @@ int omega_blackwell_execute_vector(const OmegaVectorSpec *spec,
                                   const uint32_t *h_b,
                                   uint32_t *h_c_out,
                                   OmegaBlackwellVectorExecution *exec_info);
+
+/* Execute dynamic matrix multiplication on physical GB10 silicon through frozen M16 native submission */
+int omega_blackwell_execute_matmul(const OmegaMatMulSpec *spec,
+                                  const OmegaBlackwellKernel *kernel,
+                                  const uint32_t *h_a,
+                                  const uint32_t *h_b,
+                                  uint32_t *h_c_out,
+                                  OmegaBlackwellMatMulExecution *exec_info);
 
 /* Validate that omegatool binary has zero dynamic linkage to libcuda.so or libcudart.so */
 int omega_blackwell_verify_zero_libcuda_linkage(const char *binary_path);
