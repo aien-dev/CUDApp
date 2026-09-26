@@ -53,6 +53,16 @@ int omega_blackwell_execute_vector(const OmegaVectorSpec *spec,
                                   OmegaBlackwellVectorExecution *exec_info);
 
 /* Execute dynamic matrix multiplication on physical GB10 silicon through frozen M16 native submission */
+/* Execute dynamic tensor matrix multiplication on physical GB10 silicon through frozen M16 native submission */
+int omega_blackwell_execute_matmul_tensor(const OmegaMatMulSpec *spec,
+                                         const OmegaBlackwellKernel *kernel,
+                                         const void *h_a,
+                                         const void *h_b,
+                                         float *h_c_out,
+                                         OmegaBlackwellMatMulExecution *exec_info,
+                                         float *out_max_abs_err,
+                                         float *out_max_rel_err);
+
 int omega_blackwell_execute_matmul(const OmegaMatMulSpec *spec,
                                   const OmegaBlackwellKernel *kernel,
                                   const uint32_t *h_a,

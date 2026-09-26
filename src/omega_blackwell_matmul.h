@@ -50,6 +50,16 @@ int omega_matmul_spec_init(OmegaMatMulSpec *spec, uint32_t m, uint32_t k, uint32
 /* Mathematical CPU reference oracle for verification (zero tolerance) */
 int omega_matmul_cpu_oracle_i32(const uint32_t *a, const uint32_t *b, uint32_t *c, uint32_t m, uint32_t k, uint32_t n);
 
+/* Mathematical CPU reference oracle for FP16 and BF16 tensor matrix multiplication */
+int omega_matmul_cpu_oracle_f16(const uint16_t *a, const uint16_t *b, float *c, uint32_t m, uint32_t k, uint32_t n);
+int omega_matmul_cpu_oracle_bf16(const uint16_t *a, const uint16_t *b, float *c, uint32_t m, uint32_t k, uint32_t n);
+
+/* Format conversion functions */
+float omega_fp16_to_fp32(uint16_t h);
+float omega_bf16_to_fp32(uint16_t b);
+uint16_t omega_fp32_to_fp16(float f);
+uint16_t omega_fp32_to_bf16(float f);
+
 /* Dynamic sm_121 code generator: transforms G_S semantic spec into machine code */
 int omega_blackwell_codegen_matmul(const OmegaMatMulSpec *spec, OmegaBlackwellKernel *kernel);
 

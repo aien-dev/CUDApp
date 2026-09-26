@@ -53,6 +53,82 @@ int omega_matmul_cpu_oracle_i32(const uint32_t *a, const uint32_t *b, uint32_t *
     return 0;
 }
 
+
+float omega_fp16_to_fp32(uint16_t h) {
+    uint32_t sign = (uint32_t)(h & 0x8000) << 16;
+    uint32_t exp  = (uint32_t)(h & 0x7c00) >> 10;
+    uint32_t mant = (uint32_t)(h & 0x03ff);
+    uint32_t val;
+    if (exp == 0) {
+        if (mant == 0) {
+            val = sign;
+        } else {
+            exp = 1;
+            while ((mant & 0x0400) == 0) {
+                mant <<= 1;
+                exp--;
+            }
+            mant &= 0x03ff;
+            val = sign | ((exp + (127 - 15)) << 23) | (mant << 13);
+        }
+    } else if (exp == 31) {
+        val = sign | 0x7f800000 | (mant << 13);
+    } else {
+        val = sign | ((exp + (127 - 15)) << 23) | (mant << 13);
+    }
+    float f;
+    memcpy(&f, &val, 4);
+    return f;
+}
+
+float omega_bf16_to_fp32(uint16_t b) {
+    uint32_t val = (uint32_t)b << 16;
+    float f;
+    memcpy(&f, &val, 4);
+    return f;
+}
+
+uint16_t omega_fp32_to_fp16(float f) {
+    _Float16 h = (_Float16)f;
+    uint16_t u;
+    memcpy(&u, &h, 2);
+    return u;
+}
+
+uint16_t omega_fp32_to_bf16(float f) {
+    __bf16 b = (__bf16)f;
+    uint16_t u;
+    memcpy(&u, &b, 2);
+    return u;
+}
+
+int omega_matmul_cpu_oracle_f16(const uint16_t *a, const uint16_t *b, float *c, uint32_t m, uint32_t k, uint32_t n) {
+    if (!a || !b || !c || m == 0 || k == 0 || n == 0) return -1;
+    for (uint32_t i = 0; i < m; i++) {
+        for (uint32_t j = 0; j < n; j++) {
+            float sum = 0.0f;
+            for (uint32_t p = 0; p < k; p++) {
+                sum += omega_fp16_to_fp32(a[i * k + p]) * omega_fp16_to_fp32(b[p * n + j]);
+            }
+            c[i * n + j] = sum;
+        }
+    }
+    return 0;
+}
+
+int omega_matmul_cpu_oracle_bf16(const uint16_t *a, const uint16_t *b, float *c, uint32_t m, uint32_t k, uint32_t n) {
+    if (!a || !b || !c || m == 0 || k == 0 || n == 0) return -1;
+    for (uint32_t i = 0; i < m; i++) {
+        for (uint32_t j = 0; j < n; j++) {
+            float sum = 0.0f;
+            for (uint32_t p = 0; p < k; p++) {
+                sum += omega_bf16_to_fp32(a[i * k + p]) * omega_bf16_to_fp32(b[p * n + j]);
+            }
+            c[i * n + j] = sum;
+        }
+    }
+    return 0;
+}
 void omega_blackwell_kernel_free(OmegaBlackwellKernel *kernel) {
     if (!kernel) return;
     if (kernel->code) {
@@ -93,6 +169,8 @@ int omega_blackwell_codegen_matmul(const OmegaMatMulSpec *spec, OmegaBlackwellKe
     if (!spec || !kernel) return -1;
     if (spec->precision == OMEGA_MATMUL_PRECISION_INT32) {
         return omega_blackwell_codegen_matmul_i32(spec, kernel);
+    } else if (spec->precision == OMEGA_MATMUL_PRECISION_FP16 || spec->precision == OMEGA_MATMUL_PRECISION_BF16) {
+        return omega_blackwell_codegen_matmul_tensor(spec, kernel);
     }
     return -1;
 }
