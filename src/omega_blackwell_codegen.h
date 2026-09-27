@@ -48,6 +48,21 @@ typedef enum {
     BW_IR_ATOMG_EXCH_STRONG_SYS,
     BW_IR_ISETP_GE_U32, /* ISETP.GE.U32.AND P0, PT, Ra, Rb, PT */
     BW_IR_LOP3_XOR,     /* LOP3.LUT Rd, Ra, Rb, RZ, 0x3c, !PT */
+    BW_IR_FADD,         /* FADD Rd, Ra, Rb */
+    BW_IR_FSUB,         /* FSUB Rd, Ra, Rb (FADD Rd, Ra, -Rb) */
+    BW_IR_FMUL,         /* FMUL Rd, Ra, Rb */
+    BW_IR_FFMA,         /* FFMA Rd, Ra, Rb, Rc (Rd = Ra * Rb + Rc) */
+    BW_IR_FSETP,        /* FSETP.cond.AND P0, PT, Ra, Rb, PT */
+    BW_IR_FSEL,         /* FSEL Rd, Ra, Rb, P0 */
+    BW_IR_FMNMX_MIN,    /* FMNMX Rd, Ra, Rb, PT (minimum) */
+    BW_IR_FMNMX_MAX,    /* FMNMX Rd, Ra, Rb, !PT (maximum) */
+    BW_IR_I2FP,         /* I2FP.F32.S32 Rd, Ra */
+    BW_IR_F2I,          /* F2I.TRUNC.NTZ Rd, Ra */
+    BW_IR_MUFU_RCP,     /* MUFU.RCP Rd, Ra */
+    BW_IR_MUFU_RSQ,     /* MUFU.RSQ Rd, Ra */
+    BW_IR_SHFL_DOWN,    /* SHFL.DOWN PT, Rd, Ra, offset, 0x1f */
+    BW_IR_LDS,          /* LDS Rd, [Ra] */
+    BW_IR_STS,          /* STS [Ra], Rb */
     BW_IR_EXIT,         /* EXIT */
     BW_IR_BRA           /* BRA. imm = signed instruction delta; predicate_p0 / predicate_not select @P0 or @!P0 */
 } BlackwellIROpcode;
