@@ -769,6 +769,18 @@ int nvrm_close(Nvrm *rm) {
         if (uvm(rm, rm->fd_uvm, UVM_UNREGISTER_GPU, &p, &p.rmStatus)) rm->faulted = 1;
         rm->gpu_registered = 0;
     }
+    /* Free root children explicitly so a clean close proves every RM object
+     * was accepted for release; parent teardown alone hides leaked handles. */
+    if (rm->usermode && rm_free(rm, rm->subdevice, rm->usermode)) rm->faulted = 1;
+    rm->usermode = 0;
+    if (rm->vaspace && rm_free(rm, rm->device, rm->vaspace)) rm->faulted = 1;
+    rm->vaspace = 0;
+    if (rm->virtmem && rm_free(rm, rm->device, rm->virtmem)) rm->faulted = 1;
+    rm->virtmem = 0;
+    if (rm->subdevice && rm_free(rm, rm->device, rm->subdevice)) rm->faulted = 1;
+    rm->subdevice = 0;
+    if (rm->device && rm_free(rm, rm->root, rm->device)) rm->faulted = 1;
+    rm->device = 0;
     if (rm->root && rm_free(rm, rm->root, rm->root)) rm->faulted = 1;
     rm->root = 0;
     if (rm->fd_dev > 0) close(rm->fd_dev);
