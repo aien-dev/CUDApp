@@ -7,6 +7,7 @@
 
 #include <errno.h>
 #include <stddef.h>
+#include <stdatomic.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -58,6 +59,8 @@ static int nv_ioctl(int fd, unsigned nr, void *arg, size_t sz) {
     return ioctl(fd, NV_IOWR(nr, sz), arg);
 }
 
+static int uvm(Nvrm *rm, int fd, unsigned long cmd, void *params, NV_STATUS *st);
+
 static int rm_alloc(Nvrm *rm, uint32_t parent, uint32_t cls, void *params, uint32_t psz, uint32_t *out) {
     NVOS21_PARAMETERS p;
     memset(&p, 0, sizeof p);
@@ -70,17 +73,54 @@ static int rm_alloc(Nvrm *rm, uint32_t parent, uint32_t cls, void *params, uint3
     if (nv_ioctl(rm->fd_ctl, NV_ESC_RM_ALLOC, &p, sizeof p) != 0)
         return fail(rm, "RM_ALLOC class 0x%x ioctl errno %d", cls, errno);
     if (p.status != 0) return fail(rm, "RM_ALLOC class 0x%x status 0x%x", cls, p.status);
+    rm->rm_alloc_accepted++;
     *out = p.hObjectNew;
     return 0;
 }
 
-static void rm_free(Nvrm *rm, uint32_t parent, uint32_t obj) {
+static int rm_free(Nvrm *rm, uint32_t parent, uint32_t obj) {
+    if (!obj) return 0;
+    if (rm->inject_rm_free_failure) {
+        rm->inject_rm_free_failure = 0;
+        return fail(rm, "injected RM_FREE failure for handle 0x%x", obj);
+    }
     NVOS00_PARAMETERS f;
     memset(&f, 0, sizeof f);
     f.hRoot = rm->root;
     f.hObjectParent = parent;
     f.hObjectOld = obj;
-    (void)nv_ioctl(rm->fd_ctl, NV_ESC_RM_FREE, &f, sizeof f);
+    if (nv_ioctl(rm->fd_ctl, NV_ESC_RM_FREE, &f, sizeof f) != 0)
+        return fail(rm, "RM_FREE handle 0x%x errno %d", obj, errno);
+    if (f.status != NV_OK) return fail(rm, "RM_FREE handle 0x%x status 0x%x", obj, f.status);
+    rm->rm_free_accepted++;
+    return 0;
+}
+
+static int uvm_free_checked(Nvrm *rm, uint64_t va, uint64_t size) {
+    if (rm->inject_uvm_free_failure) {
+        rm->inject_uvm_free_failure = 0;
+        return fail(rm, "injected UVM_FREE failure for VA 0x%lx", (unsigned long)va);
+    }
+    UVM_FREE_PARAMS uf;
+    memset(&uf, 0, sizeof uf);
+    uf.base = va;
+    uf.length = size;
+    return uvm(rm, rm->fd_uvm, UVM_FREE, &uf, &uf.rmStatus);
+}
+
+static int dma_unmap_checked(Nvrm *rm, uint32_t hmem, uint64_t va, uint64_t size) {
+    NVOS47_PARAMETERS p;
+    memset(&p, 0, sizeof p);
+    p.hClient = rm->root;
+    p.hDevice = rm->device;
+    p.hDma = rm->virtmem;
+    p.hMemory = hmem;
+    p.dmaOffset = va;
+    p.size = size;
+    if (nv_ioctl(rm->fd_ctl, NV_ESC_RM_UNMAP_MEMORY_DMA, &p, sizeof p) != 0)
+        return fail(rm, "RM_UNMAP_MEMORY_DMA errno %d", errno);
+    if (p.status != NV_OK) return fail(rm, "RM_UNMAP_MEMORY_DMA status 0x%x", p.status);
+    return 0;
 }
 
 static int rm_control(Nvrm *rm, uint32_t obj, uint32_t cmd, void *params, uint32_t psz) {
@@ -137,11 +177,29 @@ static void *map_to_cpu(Nvrm *rm, uint32_t hmem, uint64_t size, void *target, ui
 }
 
 static _Atomic uint64_t g_va_counter = 0x1000000000ull;
+static atomic_flag g_va_slots_lock = ATOMIC_FLAG_INIT;
+static uint64_t g_va_recycled[1024];
+static uint32_t g_va_recycled_count;
+
+static uint64_t acquire_va_slot(void) {
+    while (atomic_flag_test_and_set_explicit(&g_va_slots_lock, memory_order_acquire)) { }
+    uint64_t base = g_va_recycled_count ? g_va_recycled[--g_va_recycled_count] : 0;
+    atomic_flag_clear_explicit(&g_va_slots_lock, memory_order_release);
+    if (!base) base = atomic_fetch_add_explicit(&g_va_counter, 0x100000000ull, memory_order_relaxed);
+    return base;
+}
+
+static void recycle_va_slot(uint64_t base) {
+    while (atomic_flag_test_and_set_explicit(&g_va_slots_lock, memory_order_acquire)) { }
+    if (g_va_recycled_count < 1024) g_va_recycled[g_va_recycled_count++] = base;
+    atomic_flag_clear_explicit(&g_va_slots_lock, memory_order_release);
+}
 
 int nvrm_open(Nvrm *rm) {
     memset(rm, 0, sizeof *rm);
     rm->next_handle = 0xcf000001u;
-    rm->va_next = __atomic_fetch_add(&g_va_counter, 0x100000000ull, __ATOMIC_SEQ_CST);
+    rm->va_next = acquire_va_slot();
+    rm->va_slot_base = rm->va_next;
     rm->fd_ctl = open("/dev/nvidiactl", O_RDWR | O_CLOEXEC);
     rm->fd_uvm = open("/dev/nvidia-uvm", O_RDWR | O_CLOEXEC);
     rm->fd_uvm2 = open("/dev/nvidia-uvm", O_RDWR | O_CLOEXEC);
@@ -238,6 +296,7 @@ int nvrm_open(Nvrm *rm) {
     memcpy(rg.gpu_uuid.uuid, rm->gpu_uuid, 16);
     rg.rmCtrlFd = -1;
     if (uvm(rm, rm->fd_uvm, UVM_REGISTER_GPU, &rg, &rg.rmStatus)) return -1;
+    rm->gpu_registered = 1;
     UVM_REGISTER_GPU_VASPACE_PARAMS rv;
     memset(&rv, 0, sizeof rv);
     memcpy(rv.gpuUuid.uuid, rm->gpu_uuid, 16);
@@ -245,18 +304,30 @@ int nvrm_open(Nvrm *rm) {
     rv.hClient = rm->root;
     rv.hVaSpace = rm->vaspace;
     if (uvm(rm, rm->fd_uvm, UVM_REGISTER_GPU_VASPACE, &rv, &rv.rmStatus)) return -1;
+    rm->vas_registered = 1;
     return 0;
 }
 
 /* Return a freed VA range to the sorted, coalesced free list. */
-static void va_release(Nvrm *rm, uint64_t va, uint64_t size) {
+static int va_release(Nvrm *rm, uint64_t va, uint64_t size) {
+    uint64_t end;
+    if (!size || __builtin_add_overflow(va, size, &end)) {
+        rm->faulted = 1;
+        return fail(rm, "invalid VA release extent");
+    }
     uint32_t pos = 0;
     while (pos < rm->free_count && rm->free_list[pos].va < va) pos++;
+    if ((pos && rm->free_list[pos - 1].va + rm->free_list[pos - 1].size > va) ||
+        (pos < rm->free_count && end > rm->free_list[pos].va)) {
+        rm->faulted = 1;
+        return fail(rm, "overlapping VA release extent");
+    }
 
     if (rm->free_count >= NVRM_MAX_FREE) {
         /* Free-list table full: leak this VA range (address space only --
          * no RM object, CPU mapping, or UVM range remains associated with it). */
-        return;
+        rm->faulted = 1;
+        return fail(rm, "VA free-list full; VA 0x%lx quarantined", (unsigned long)va);
     }
     for (uint32_t i = rm->free_count; i > pos; i--) rm->free_list[i] = rm->free_list[i - 1];
     rm->free_list[pos].va = va;
@@ -275,6 +346,7 @@ static void va_release(Nvrm *rm, uint64_t va, uint64_t size) {
         for (uint32_t i = pos; i + 1 < rm->free_count; i++) rm->free_list[i] = rm->free_list[i + 1];
         rm->free_count--;
     }
+    return 0;
 }
 
 static uint64_t va_take(Nvrm *rm, uint64_t size, uint64_t align) {
@@ -284,11 +356,15 @@ static uint64_t va_take(Nvrm *rm, uint64_t size, uint64_t align) {
     for (uint32_t i = 0; i < rm->free_count; i++) {
         uint64_t base = rm->free_list[i].va;
         uint64_t sz = rm->free_list[i].size;
-        uint64_t aligned = (base + align - 1) & ~(align - 1);
+        uint64_t rounded;
+        uint64_t range_end;
+        if (__builtin_add_overflow(base, align - 1, &rounded) ||
+            __builtin_add_overflow(base, sz, &range_end)) return 0;
+        uint64_t aligned = rounded & ~(align - 1);
         uint64_t pad = aligned - base;
-        if (sz < pad + size) continue;
-        uint64_t used_end = aligned + size;
-        uint64_t range_end = base + sz;
+        if (pad > sz || size > sz - pad) continue;
+        uint64_t used_end;
+        if (__builtin_add_overflow(aligned, size, &used_end)) return 0;
 
         if (pad == 0 && used_end == range_end) {
             /* Exact fit: remove entry i. */
@@ -307,23 +383,30 @@ static uint64_t va_take(Nvrm *rm, uint64_t size, uint64_t align) {
                 rm->free_list[i + 1].size = range_end - used_end;
                 rm->free_count++;
             }
-            /* If the table is full, the trailing remainder is leaked (address
-             * space only), matching va_release()'s degenerate-case handling. */
+            else if (used_end < range_end) {
+                /* Preserve the range intact rather than silently losing VA. */
+                rm->free_list[i].size = sz;
+                continue;
+            }
         }
         return aligned;
     }
 
-    uint64_t va = (rm->va_next + align - 1) & ~(align - 1);
-    rm->va_next = va + size;
+    uint64_t rounded;
+    if (__builtin_add_overflow(rm->va_next, align - 1, &rounded)) return 0;
+    uint64_t va = rounded & ~(align - 1);
+    if (__builtin_add_overflow(va, size, &rm->va_next)) return 0;
     return va;
 }
 
-static int uvm_map(Nvrm *rm, uint64_t va, uint64_t size, uint32_t hmem) {
+static int uvm_map(Nvrm *rm, uint64_t va, uint64_t size, uint32_t hmem,
+                   uint8_t *uvm_created, uint8_t *dma_mapped) {
     UVM_CREATE_EXTERNAL_RANGE_PARAMS cr;
     memset(&cr, 0, sizeof cr);
     cr.base = va;
     cr.length = size;
     if (uvm(rm, rm->fd_uvm, UVM_CREATE_EXTERNAL_RANGE, &cr, &cr.rmStatus)) return -1;
+    *uvm_created = 1;
 
     NVOS46_PARAMETERS d;
     memset(&d, 0, sizeof d);
@@ -337,6 +420,7 @@ static int uvm_map(Nvrm *rm, uint64_t va, uint64_t size, uint32_t hmem) {
     if (nv_ioctl(rm->fd_ctl, NV_ESC_RM_MAP_MEMORY_DMA, &d, sizeof d) != 0 || d.status != 0)
         return fail(rm, "RM_MAP_MEMORY_DMA errno %d status 0x%x", errno, d.status);
     if (d.dmaOffset != va) return fail(rm, "dmaOffset mismatch");
+    *dma_mapped = 1;
 
     static UVM_MAP_EXTERNAL_ALLOCATION_PARAMS ma;
     memset(&ma, 0, sizeof ma);
@@ -351,14 +435,30 @@ static int uvm_map(Nvrm *rm, uint64_t va, uint64_t size, uint32_t hmem) {
     return uvm(rm, rm->fd_uvm, UVM_MAP_EXTERNAL_ALLOCATION, &ma, &ma.rmStatus);
 }
 
+static void quarantine_allocation(Nvrm *rm, uint32_t h, uint64_t va, uint64_t size,
+                                  void *cpu, uint8_t uvm_live, uint8_t dma_live) {
+    NvrmLiveAlloc *e = &rm->live[rm->live_count++];
+    *e = (NvrmLiveAlloc){ .handle = h, .va = va, .size = size, .cpu = cpu,
+                         .uvm_live = uvm_live, .dma_live = dma_live,
+                         .rm_live = 1, .cpu_live = 1, .quarantined = 1 };
+    rm->faulted = 1;
+}
+
 /* Coherent, CPU-mapped, GPU-mapped buffer at one shared virtual address. */
 int nvrm_alloc(Nvrm *rm, uint64_t size, NvrmMem *out) {
+    if (!rm || !out || !size || rm->faulted || size > SIZE_MAX - 0xfffULL)
+        return rm ? fail(rm, "invalid or overflowed allocation size") : -1;
     size = (size + 0xfff) & ~0xfffull;
     if (rm->live_count >= NVRM_MAX_LIVE) return fail(rm, "live allocation table full (%d)", NVRM_MAX_LIVE);
     uint64_t va = va_take(rm, size, 0x1000);
+    if (!va) return fail(rm, "GPU VA exhausted or overflowed");
     /* Reserve the CPU range first so the fixed mapping can never clobber anything. */
     void *res = mmap((void *)va, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
-    if (res != (void *)va) return fail(rm, "VA 0x%lx unavailable", (unsigned long)va);
+    if (res != (void *)va) {
+        if (res != MAP_FAILED) munmap(res, size);
+        rm->faulted = 1;
+        return fail(rm, "VA 0x%lx unavailable", (unsigned long)va);
+    }
 
     NV_MEMORY_ALLOCATION_PARAMS mp;
     memset(&mp, 0, sizeof mp);
@@ -375,25 +475,20 @@ int nvrm_alloc(Nvrm *rm, uint64_t size, NvrmMem *out) {
     mp.limit = size - 1;
     uint32_t h;
     if (rm_alloc(rm, rm->device, NV01_MEMORY_SYSTEM, &mp, sizeof mp, &h)) {
-        munmap(res, size);
+        if (munmap(res, size) != 0) rm->faulted = 1;
+        rm->faulted = 1; /* unknown driver state: do not recycle this VA */
         return -1;
     }
     void *cpu = map_to_cpu(rm, h, size, (void *)va, 0, 1);
     if (cpu != (void *)va) {
         char why[sizeof rm->err];
         memcpy(why, rm->err, sizeof why);
-        rm_free(rm, rm->device, h);
-        munmap(res, size);
+        quarantine_allocation(rm, h, va, size, (void *)va, 0, 0);
         return fail(rm, "cpu map at 0x%lx failed: %s", (unsigned long)va, why);
     }
-    if (uvm_map(rm, va, size, h)) {
-        UVM_FREE_PARAMS uf;
-        memset(&uf, 0, sizeof uf);
-        uf.base = va;
-        uf.length = size;
-        (void)ioctl(rm->fd_uvm, UVM_FREE, &uf);  /* drop the external range if it was created */
-        rm_free(rm, rm->device, h);
-        munmap(cpu, size);
+    uint8_t uvm_created = 0, dma_mapped = 0;
+    if (uvm_map(rm, va, size, h, &uvm_created, &dma_mapped)) {
+        quarantine_allocation(rm, h, va, size, cpu, uvm_created, dma_mapped);
         return -1;
     }
     out->handle = h;
@@ -405,6 +500,11 @@ int nvrm_alloc(Nvrm *rm, uint64_t size, NvrmMem *out) {
     rm->live[rm->live_count].handle = h;
     rm->live[rm->live_count].va = va;
     rm->live[rm->live_count].size = size;
+    rm->live[rm->live_count].cpu = cpu;
+    rm->live[rm->live_count].uvm_live = 1;
+    rm->live[rm->live_count].dma_live = 1;
+    rm->live[rm->live_count].rm_live = 1;
+    rm->live[rm->live_count].cpu_live = 1;
     rm->live_count++;
     return 0;
 }
@@ -423,35 +523,68 @@ int nvrm_free(Nvrm *rm, NvrmMem *m) {
     int idx = -1;
     for (uint32_t i = 0; i < rm->live_count; i++) {
         if (rm->live[i].va == m->va && rm->live[i].handle == m->handle && rm->live[i].size == m->size) {
+            if (idx >= 0) { rm->faulted = 1; return fail(rm, "duplicate live allocation table entry"); }
             idx = (int)i;
-            break;
         }
     }
     if (idx < 0)
         return fail(rm, "nvrm_free: va 0x%lx handle 0x%x size 0x%lx is not a live allocation",
                     (unsigned long)m->va, m->handle, (unsigned long)m->size);
 
-    UVM_FREE_PARAMS uf;
-    memset(&uf, 0, sizeof uf);
-    uf.base = m->va;
-    uf.length = m->size;
-    (void)ioctl(rm->fd_uvm, UVM_FREE, &uf);
-
-    rm_free(rm, rm->device, m->handle);
-
-    munmap(m->cpu, m->size);
+    NvrmLiveAlloc *live = &rm->live[idx];
+    if (live->cpu != m->cpu || !m->cpu || !m->size ||
+        (m->va & 0xfff) || (m->size & 0xfff)) {
+        rm->faulted = 1;
+        return fail(rm, "nvrm_free: allocation table identity corrupt");
+    }
+    /* Every completed step is irreversible. Preserve the stage flags if the
+     * next step fails, and quarantine the VA until all releases are proven. */
+    if (live->uvm_live) {
+        if (uvm_free_checked(rm, m->va, m->size) != 0) {
+            live->quarantined = 1;
+            rm->faulted = 1;
+            return -1;
+        }
+        live->uvm_live = 0;
+    }
+    if (live->dma_live) {
+        if (dma_unmap_checked(rm, m->handle, m->va, m->size) != 0) {
+            live->quarantined = 1;
+            rm->faulted = 1;
+            return -1;
+        }
+        live->dma_live = 0;
+    }
+    if (live->rm_live) {
+        if (rm_free(rm, rm->device, m->handle) != 0) {
+            live->quarantined = 1;
+            rm->faulted = 1;
+            return -1;
+        }
+        live->rm_live = 0;
+    }
+    if (live->cpu_live) {
+        if (munmap(m->cpu, m->size) != 0) {
+            live->quarantined = 1;
+            rm->faulted = 1;
+            return fail(rm, "munmap VA 0x%lx errno %d", (unsigned long)m->va, errno);
+        }
+        live->cpu_live = 0;
+    }
 
     /* Remove from the live table (swap with last). */
     rm->live[idx] = rm->live[rm->live_count - 1];
     rm->live_count--;
 
-    va_release(rm, m->va, m->size);
+    if (va_release(rm, m->va, m->size) != 0) return -1;
 
     memset(m, 0, sizeof *m);
     return 0;
 }
 
 int nvrm_channel(Nvrm *rm) {
+    if (!rm || rm->faulted || rm->chgroup || rm->channel_registered)
+        return rm ? fail(rm, "channel construction requires clean state") : -1;
     NV_CHANNEL_GROUP_ALLOCATION_PARAMETERS cg;
     memset(&cg, 0, sizeof cg);
     cg.engineType = NV2080_ENGINE_TYPE_GRAPHICS;
@@ -492,12 +625,57 @@ int nvrm_channel(Nvrm *rm) {
     rc.hClient = rm->root;
     rc.hChannel = rm->gpfifo;
     rc.base = va_take(rm, 0x4000000, 0x1000);
+    if (!rc.base) { rm->faulted = 1; return fail(rm, "channel VA exhausted"); }
     rc.length = 0x4000000;
-    if (uvm(rm, rm->fd_uvm, UVM_REGISTER_CHANNEL, &rc, &rc.rmStatus)) return -1;
+    rm->channel_va = rc.base;
+    rm->channel_va_size = rc.length;
+    if (uvm(rm, rm->fd_uvm, UVM_REGISTER_CHANNEL, &rc, &rc.rmStatus)) {
+        rm->faulted = 1;
+        return -1;
+    }
+    rm->channel_registered = 1;
 
     NVA06C_CTRL_GPFIFO_SCHEDULE_PARAMS sch = { .bEnable = 1 };
     if (rm_control(rm, rm->chgroup, NVA06C_CTRL_CMD_GPFIFO_SCHEDULE, &sch, sizeof sch)) return -1;
+    rm->put = 0;
+    rm->retired = 0;
     return 0;
+}
+
+int nvrm_channel_destroy(Nvrm *rm) {
+    if (!rm) return -1;
+    if (rm->channel_registered) {
+        UVM_UNREGISTER_CHANNEL_PARAMS p;
+        memset(&p, 0, sizeof p);
+        memcpy(p.gpuUuid.uuid, rm->gpu_uuid, sizeof rm->gpu_uuid);
+        p.hClient = rm->root;
+        p.hChannel = rm->gpfifo;
+        if (uvm(rm, rm->fd_uvm, UVM_UNREGISTER_CHANNEL, &p, &p.rmStatus)) {
+            rm->faulted = 1;
+            return -1;
+        }
+        rm->channel_registered = 0;
+    }
+    if (rm->compute_obj && rm_free(rm, rm->gpfifo, rm->compute_obj)) goto failed;
+    rm->compute_obj = 0;
+    if (rm->gpfifo && rm_free(rm, rm->chgroup, rm->gpfifo)) goto failed;
+    rm->gpfifo = 0;
+    if (rm->ctxshare && rm_free(rm, rm->chgroup, rm->ctxshare)) goto failed;
+    rm->ctxshare = 0;
+    if (rm->chgroup && rm_free(rm, rm->device, rm->chgroup)) goto failed;
+    rm->chgroup = 0;
+    if (rm->fifo.handle && nvrm_free(rm, &rm->fifo)) goto failed;
+    if (rm->notifier.handle && nvrm_free(rm, &rm->notifier)) goto failed;
+    if (rm->channel_va_size) {
+        if (va_release(rm, rm->channel_va, rm->channel_va_size) != 0) goto failed;
+        rm->channel_va = 0;
+        rm->channel_va_size = 0;
+    }
+    rm->put = rm->retired = 0;
+    return 0;
+failed:
+    rm->faulted = 1;
+    return -1;
 }
 
 /* GP entry per clc96f.h: ENTRY0 GET 31:2 (VA low, dword aligned), ENTRY1 GET_HI 7:0,
@@ -511,8 +689,11 @@ volatile uint32_t *nvrm_userd_gpput(Nvrm *rm) {
 }
 
 int nvrm_enqueue(Nvrm *rm, const NvrmMem *pb, uint32_t off, uint32_t nwords) {
+    if (!rm || !pb || rm->faulted || !rm->gpfifo || !rm->fifo.cpu || rm->entries < 2)
+        return rm ? fail(rm, "channel not ready") : -1;
     if ((off & 3u) || nwords == 0 || nwords > 0x1fffff || (uint64_t)off + (uint64_t)nwords * 4u > pb->size)
         return fail(rm, "bad pushbuffer span");
+    if (pb->va > UINT64_MAX - off) return fail(rm, "pushbuffer VA overflow");
     /* Blackwell USERD documents no GPGet (clc96f.h), so consumption is tracked by the
      * caller via nvrm_retire() after it observes completion. Never overrun unretired entries. */
     if (rm->put - rm->retired >= rm->entries - 1) return fail(rm, "GPFIFO full: %u entries unretired", rm->put - rm->retired);
@@ -539,17 +720,50 @@ int nvrm_submit(Nvrm *rm, const NvrmMem *pb, uint32_t off, uint32_t nwords) {
     return 0;
 }
 
-void nvrm_close(Nvrm *rm) {
-    if (rm->root) {
-        NVOS00_PARAMETERS f;
-        memset(&f, 0, sizeof f);
-        f.hRoot = rm->root;
-        f.hObjectParent = rm->root;
-        f.hObjectOld = rm->root;
-        nv_ioctl(rm->fd_ctl, NV_ESC_RM_FREE, &f, sizeof f);
+int nvrm_close(Nvrm *rm) {
+    if (!rm) return -1;
+    if (rm->root && nvrm_channel_destroy(rm)) rm->faulted = 1;
+    /* Release every remaining allocation, including caller-owned buffers and
+     * allocations left behind by an interrupted construction path. */
+    for (uint32_t i = rm->live_count; i > 0;) {
+        NvrmLiveAlloc e = rm->live[--i];
+        NvrmMem m = { .handle = e.handle, .va = e.va, .size = e.size, .cpu = e.cpu };
+        if (nvrm_free(rm, &m) != 0) {
+            rm->faulted = 1;
+            /* Closing the client tears down driver state. The CPU mapping is
+             * process state, so explicitly unmap it even on teardown error. */
+            if (e.cpu_live && e.cpu) (void)munmap(e.cpu, e.size);
+        } else if (i < rm->live_count) i++;
     }
+    if (rm->usermode_cpu) {
+        if (munmap(rm->usermode_cpu, 0x10000) != 0) rm->faulted = 1;
+        rm->usermode_cpu = NULL;
+        rm->doorbell = NULL;
+    }
+    if (rm->vas_registered) {
+        UVM_UNREGISTER_GPU_VASPACE_PARAMS p;
+        memset(&p, 0, sizeof p);
+        memcpy(p.gpuUuid.uuid, rm->gpu_uuid, sizeof rm->gpu_uuid);
+        if (uvm(rm, rm->fd_uvm, UVM_UNREGISTER_GPU_VASPACE, &p, &p.rmStatus)) rm->faulted = 1;
+        rm->vas_registered = 0;
+    }
+    if (rm->gpu_registered) {
+        UVM_UNREGISTER_GPU_PARAMS p;
+        memset(&p, 0, sizeof p);
+        memcpy(p.gpu_uuid.uuid, rm->gpu_uuid, sizeof rm->gpu_uuid);
+        if (uvm(rm, rm->fd_uvm, UVM_UNREGISTER_GPU, &p, &p.rmStatus)) rm->faulted = 1;
+        rm->gpu_registered = 0;
+    }
+    if (rm->root && rm_free(rm, rm->root, rm->root)) rm->faulted = 1;
+    rm->root = 0;
     if (rm->fd_dev > 0) close(rm->fd_dev);
     if (rm->fd_uvm2 > 0) close(rm->fd_uvm2);
     if (rm->fd_uvm > 0) close(rm->fd_uvm);
     if (rm->fd_ctl > 0) close(rm->fd_ctl);
+    if (!rm->faulted && rm->live_count == 0 && !rm->channel_registered &&
+        rm->va_slot_base && rm->va_next >= rm->va_slot_base &&
+        rm->va_next - rm->va_slot_base <= 0x100000000ull)
+        recycle_va_slot(rm->va_slot_base);
+    rm->va_slot_base = 0;
+    return rm->faulted ? -1 : 0;
 }

@@ -15,6 +15,7 @@ typedef struct {
     Nvrm rm;
     NvrmMem pb_mem;
     NvrmMem marker_mem;
+    NvrmMem legacy_allocs[64];
 } M16NativeContext;
 
 /* Open RM client, device, VA space, and query card state */
@@ -22,6 +23,7 @@ int  m16_native_open(M16NativeContext *ctx);
 
 /* Allocate coherent unified memory mapped identically in CPU and GPU VA */
 int  m16_native_alloc_memory(M16NativeContext *ctx, size_t size, void **cpu_addr, uint64_t *gpu_va);
+int  m16_native_free_memory(M16NativeContext *ctx, void *cpu_addr);
 
 /* Create channel group, context share, GPFIFO ring, and schedule channel */
 int  m16_native_create_channel(M16NativeContext *ctx);
@@ -47,6 +49,6 @@ int  m16_native_wait_marker(volatile uint32_t *marker, uint32_t expected, uint64
 int  m16_native_wait_marker_ge(volatile uint32_t *marker, uint32_t target, uint64_t timeout_ms);
 
 /* Free all RM objects, mappings, and close file descriptors */
-void m16_native_close(M16NativeContext *ctx);
+int  m16_native_close(M16NativeContext *ctx);
 
 #endif /* M16_NATIVE_H */

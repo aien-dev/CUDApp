@@ -39,6 +39,12 @@ typedef struct {
     uint32_t handle;
     uint64_t va;
     uint64_t size;
+    void *cpu;
+    uint8_t uvm_live;
+    uint8_t dma_live;
+    uint8_t rm_live;
+    uint8_t cpu_live;
+    uint8_t quarantined;
 } NvrmLiveAlloc;
 
 typedef struct {
@@ -60,10 +66,22 @@ typedef struct {
     uint32_t put;                   /* entries enqueued (monotonic) */
     uint32_t retired;               /* entries the caller has seen complete */
     uint64_t va_next;
+    uint64_t va_slot_base;
     NvrmVaRange   free_list[NVRM_MAX_FREE];  /* sorted ascending by va, coalesced */
     uint32_t      free_count;
     NvrmLiveAlloc live[NVRM_MAX_LIVE];
     uint32_t      live_count;
+    uint64_t      channel_va;
+    uint64_t      channel_va_size;
+    uint8_t       channel_registered;
+    uint8_t       gpu_registered;
+    uint8_t       vas_registered;
+    uint8_t       faulted;
+    /* Fault injection applies once at the driver wrapper boundary. */
+    uint8_t       inject_uvm_free_failure;
+    uint8_t       inject_rm_free_failure;
+    uint64_t      rm_alloc_accepted;
+    uint64_t      rm_free_accepted;
     char     err[256];
 } Nvrm;
 
@@ -77,6 +95,7 @@ int  nvrm_alloc(Nvrm *rm, uint64_t size, NvrmMem *out);
  * Zeroes *m on success. */
 int  nvrm_free(Nvrm *rm, NvrmMem *m);
 int  nvrm_channel(Nvrm *rm);
+int  nvrm_channel_destroy(Nvrm *rm);
 /* Write a GP entry and advance USERD GPPut; does NOT ring the doorbell. */
 int  nvrm_enqueue(Nvrm *rm, const NvrmMem *pb, uint32_t off_bytes, uint32_t nwords);
 /* Mark entries [.., upto) complete; the caller must have observed their completion. */
@@ -87,7 +106,7 @@ void nvrm_ring(Nvrm *rm);
 int  nvrm_submit(Nvrm *rm, const NvrmMem *pb, uint32_t off_bytes, uint32_t nwords);
 uint64_t nvrm_gp_entry(uint64_t va, uint32_t nwords);
 volatile uint32_t *nvrm_userd_gpput(Nvrm *rm);
-void nvrm_close(Nvrm *rm);
+int  nvrm_close(Nvrm *rm);
 
 /* Pushbuffer method header (non-incrementing=1, incrementing=2 / SEC_OP_INC_METHOD) */
 static inline uint32_t nvrm_mthd(uint32_t subc, uint32_t mthd, uint32_t count) {

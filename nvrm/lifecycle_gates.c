@@ -188,6 +188,49 @@ static int gate_alloc_after_free_reuses_va(Nvrm *rm) {
     return ok ? 0 : -1;
 }
 
+static int gate_injected_free_failure(int uvm_failure) {
+    Nvrm rm;
+    if (nvrm_open(&rm) != 0) return -1;
+    NvrmMem m;
+    if (nvrm_alloc(&rm, 0x4000, &m) != 0) { nvrm_close(&rm); return -1; }
+    uint64_t va = m.va;
+    uint32_t free_before = rm.free_count;
+    if (uvm_failure) rm.inject_uvm_free_failure = 1;
+    else rm.inject_rm_free_failure = 1;
+    int refused = nvrm_free(&rm, &m) != 0 && rm.faulted &&
+                  m.handle != 0 && rm.live_count == 1 &&
+                  rm.free_count == free_before;
+    NvrmMem other;
+    refused = refused && nvrm_alloc(&rm, 0x4000, &other) != 0;
+    int recovered_release = nvrm_free(&rm, &m) == 0 &&
+                            rm.free_count > free_before && rm.free_list[rm.free_count - 1].va <= va;
+    nvrm_close(&rm);
+    return refused && recovered_release ? 0 : -1;
+}
+
+static int gate_corrupt_table_refusal(void) {
+    Nvrm rm;
+    if (nvrm_open(&rm) != 0) return -1;
+    NvrmMem m;
+    if (nvrm_alloc(&rm, 0x4000, &m) != 0) { nvrm_close(&rm); return -1; }
+    void *cpu = rm.live[0].cpu;
+    rm.live[0].cpu = NULL;
+    int refused = nvrm_free(&rm, &m) != 0 && rm.faulted && rm.live_count == 1 && m.handle;
+    rm.live[0].cpu = cpu;
+    int released = nvrm_free(&rm, &m) == 0;
+    nvrm_close(&rm);
+    return refused && released ? 0 : -1;
+}
+
+static int gate_allocation_overflow(Nvrm *rm) {
+    NvrmMem m = {0};
+    uint32_t before = rm->live_count;
+    uint64_t va_before = rm->va_next;
+    return (nvrm_alloc(rm, UINT64_MAX, &m) != 0 &&
+           nvrm_alloc(rm, 0, &m) != 0 &&
+           rm->live_count == before && rm->va_next == va_before) ? 0 : -1;
+}
+
 /* ---- M16_WAIT_GE_SERIAL --------------------------------------------------
  * Pure CPU unit test, no hardware dependency: synthetic marker + serial
  * (RFC 1982 style) comparison against a target that has wrapped past 0.
@@ -295,10 +338,13 @@ int main(void) {
     gate_result("NVRM_FREE_UNMAPS", gate_free_unmaps(&rm) == 0);
     gate_result("NVRM_FREE_IDEMPOTENT_AND_STALE", gate_idempotent_and_stale(&rm) == 0);
     gate_result("NVRM_ALLOC_AFTER_FREE_REUSES_VA", gate_alloc_after_free_reuses_va(&rm) == 0);
+    gate_result("NVRM_ALLOCATION_OVERFLOW_REFUSED", gate_allocation_overflow(&rm) == 0);
     gate_result("GPU_SUBMIT_AFTER_CHURN", gate_gpu_submit_after_churn(&rm) == 0);
 
-    printf("TOTAL: %d PASSED: %d FAILED: %d\n", g_total, g_passed, g_failed);
-
     nvrm_close(&rm);
+    gate_result("UVM_FREE_FAILURE_QUARANTINES", gate_injected_free_failure(1) == 0);
+    gate_result("RM_FREE_FAILURE_QUARANTINES", gate_injected_free_failure(0) == 0);
+    gate_result("CORRUPT_TABLE_REFUSED", gate_corrupt_table_refusal() == 0);
+    printf("TOTAL: %d PASSED: %d FAILED: %d\n", g_total, g_passed, g_failed);
     return (g_failed == 0) ? 0 : 1;
 }

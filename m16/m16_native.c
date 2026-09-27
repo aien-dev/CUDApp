@@ -14,16 +14,31 @@
 int m16_native_open(M16NativeContext *ctx) {
     if (!ctx) return -1;
     memset(ctx, 0, sizeof(*ctx));
-    return nvrm_open(&ctx->rm);
+    if (nvrm_open(&ctx->rm) == 0) return 0;
+    nvrm_close(&ctx->rm);
+    return -1;
 }
 
 int m16_native_alloc_memory(M16NativeContext *ctx, size_t size, void **cpu_addr, uint64_t *gpu_va) {
     if (!ctx || !cpu_addr || !gpu_va) return -1;
-    NvrmMem mem;
-    if (nvrm_alloc(&ctx->rm, size, &mem) != 0) return -1;
-    *cpu_addr = mem.cpu;
-    *gpu_va = mem.va;
-    return 0;
+    for (size_t i = 0; i < sizeof ctx->legacy_allocs / sizeof ctx->legacy_allocs[0]; i++) {
+        NvrmMem *mem = &ctx->legacy_allocs[i];
+        if (mem->handle) continue;
+        if (nvrm_alloc(&ctx->rm, size, mem) != 0) return -1;
+        *cpu_addr = mem->cpu;
+        *gpu_va = mem->va;
+        return 0;
+    }
+    return -1;
+}
+
+int m16_native_free_memory(M16NativeContext *ctx, void *cpu_addr) {
+    if (!ctx || !cpu_addr) return -1;
+    for (size_t i = 0; i < sizeof ctx->legacy_allocs / sizeof ctx->legacy_allocs[0]; i++) {
+        if (ctx->legacy_allocs[i].cpu == cpu_addr && ctx->legacy_allocs[i].handle)
+            return nvrm_free(&ctx->rm, &ctx->legacy_allocs[i]);
+    }
+    return -1;
 }
 
 int m16_native_create_channel(M16NativeContext *ctx) {
@@ -53,7 +68,7 @@ int m16_native_build_release(uint32_t *words, uint64_t marker_va, uint32_t paylo
 
 int m16_native_enqueue_methods(M16NativeContext *ctx, const uint32_t *methods, size_t count) {
     if (!ctx || !methods || count == 0) return -1;
-    if (count * sizeof(uint32_t) > ctx->pb_mem.size) return -1;
+    if (count > UINT32_MAX || count > ctx->pb_mem.size / sizeof(uint32_t)) return -1;
     memcpy(ctx->pb_mem.cpu, methods, count * sizeof(uint32_t));
     __asm__ volatile("dsb sy" ::: "memory");
     return nvrm_enqueue(&ctx->rm, &ctx->pb_mem, 0, (uint32_t)count);
@@ -76,19 +91,14 @@ static uint64_t now_ns(void) {
 }
 
 int m16_native_wait_marker(volatile uint32_t *marker, uint32_t expected, uint64_t timeout_ms) {
-    if (!marker) return -1;
-    uint64_t end = now_ns() + timeout_ms * 1000000ull;
-    while (now_ns() < end) {
-        if (*marker == expected) return 0;
-        usleep(50);
-        __asm__ volatile("yield");
-    }
-    return (*marker == expected) ? 0 : -1;
+    return m16_native_wait_marker_ge(marker, expected, timeout_ms);
 }
 
 int m16_native_wait_marker_ge(volatile uint32_t *marker, uint32_t target, uint64_t timeout_ms) {
     if (!marker) return -1;
-    uint64_t end = now_ns() + timeout_ms * 1000000ull;
+    uint64_t duration, end;
+    if (__builtin_mul_overflow(timeout_ms, 1000000ull, &duration) ||
+        __builtin_add_overflow(now_ns(), duration, &end)) end = UINT64_MAX;
     while (now_ns() < end) {
         if ((int32_t)(*marker - target) >= 0) return 0;
         usleep(50);
@@ -97,8 +107,6 @@ int m16_native_wait_marker_ge(volatile uint32_t *marker, uint32_t target, uint64
     return ((int32_t)(*marker - target) >= 0) ? 0 : -1;
 }
 
-void m16_native_close(M16NativeContext *ctx) {
-    if (ctx) {
-        nvrm_close(&ctx->rm);
-    }
+int m16_native_close(M16NativeContext *ctx) {
+    return ctx ? nvrm_close(&ctx->rm) : -1;
 }
