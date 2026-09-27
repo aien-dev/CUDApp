@@ -86,6 +86,17 @@ int m16_native_wait_marker(volatile uint32_t *marker, uint32_t expected, uint64_
     return (*marker == expected) ? 0 : -1;
 }
 
+int m16_native_wait_marker_ge(volatile uint32_t *marker, uint32_t target, uint64_t timeout_ms) {
+    if (!marker) return -1;
+    uint64_t end = now_ns() + timeout_ms * 1000000ull;
+    while (now_ns() < end) {
+        if ((int32_t)(*marker - target) >= 0) return 0;
+        usleep(50);
+        __asm__ volatile("yield");
+    }
+    return ((int32_t)(*marker - target) >= 0) ? 0 : -1;
+}
+
 void m16_native_close(M16NativeContext *ctx) {
     if (ctx) {
         nvrm_close(&ctx->rm);

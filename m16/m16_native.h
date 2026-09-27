@@ -41,6 +41,11 @@ int  m16_native_submit_methods(M16NativeContext *ctx, const uint32_t *methods, s
 /* Poll coherent marker until it equals expected value or timeout_ms expires */
 int  m16_native_wait_marker(volatile uint32_t *marker, uint32_t expected, uint64_t timeout_ms);
 
+/* Poll coherent marker until (int32_t)(*marker - target) >= 0 (monotonic,
+ * serial-number compare per RFC 1982: correct across uint32_t wraparound)
+ * or timeout_ms expires. Returns 0 once satisfied, -1 on timeout. */
+int  m16_native_wait_marker_ge(volatile uint32_t *marker, uint32_t target, uint64_t timeout_ms);
+
 /* Free all RM objects, mappings, and close file descriptors */
 void m16_native_close(M16NativeContext *ctx);
 

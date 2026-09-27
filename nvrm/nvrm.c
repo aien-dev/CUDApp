@@ -248,7 +248,71 @@ int nvrm_open(Nvrm *rm) {
     return 0;
 }
 
+/* Return a freed VA range to the sorted, coalesced free list. */
+static void va_release(Nvrm *rm, uint64_t va, uint64_t size) {
+    uint32_t pos = 0;
+    while (pos < rm->free_count && rm->free_list[pos].va < va) pos++;
+
+    if (rm->free_count >= NVRM_MAX_FREE) {
+        /* Free-list table full: leak this VA range (address space only --
+         * no RM object, CPU mapping, or UVM range remains associated with it). */
+        return;
+    }
+    for (uint32_t i = rm->free_count; i > pos; i--) rm->free_list[i] = rm->free_list[i - 1];
+    rm->free_list[pos].va = va;
+    rm->free_list[pos].size = size;
+    rm->free_count++;
+
+    /* Coalesce with the following entry. */
+    if (pos + 1 < rm->free_count && rm->free_list[pos].va + rm->free_list[pos].size == rm->free_list[pos + 1].va) {
+        rm->free_list[pos].size += rm->free_list[pos + 1].size;
+        for (uint32_t i = pos + 1; i + 1 < rm->free_count; i++) rm->free_list[i] = rm->free_list[i + 1];
+        rm->free_count--;
+    }
+    /* Coalesce with the preceding entry. */
+    if (pos > 0 && rm->free_list[pos - 1].va + rm->free_list[pos - 1].size == rm->free_list[pos].va) {
+        rm->free_list[pos - 1].size += rm->free_list[pos].size;
+        for (uint32_t i = pos; i + 1 < rm->free_count; i++) rm->free_list[i] = rm->free_list[i + 1];
+        rm->free_count--;
+    }
+}
+
 static uint64_t va_take(Nvrm *rm, uint64_t size, uint64_t align) {
+    /* First-fit reuse from the free list (sorted ascending by va), splitting
+     * off any leading alignment pad or trailing remainder as smaller free
+     * entries. Falls back to the bump allocator when nothing fits. */
+    for (uint32_t i = 0; i < rm->free_count; i++) {
+        uint64_t base = rm->free_list[i].va;
+        uint64_t sz = rm->free_list[i].size;
+        uint64_t aligned = (base + align - 1) & ~(align - 1);
+        uint64_t pad = aligned - base;
+        if (sz < pad + size) continue;
+        uint64_t used_end = aligned + size;
+        uint64_t range_end = base + sz;
+
+        if (pad == 0 && used_end == range_end) {
+            /* Exact fit: remove entry i. */
+            for (uint32_t j = i; j + 1 < rm->free_count; j++) rm->free_list[j] = rm->free_list[j + 1];
+            rm->free_count--;
+        } else if (pad == 0) {
+            /* Consume from the front: shrink entry i. */
+            rm->free_list[i].va = used_end;
+            rm->free_list[i].size = range_end - used_end;
+        } else {
+            /* Leading pad remains free at entry i. */
+            rm->free_list[i].size = pad;
+            if (used_end < range_end && rm->free_count < NVRM_MAX_FREE) {
+                for (uint32_t j = rm->free_count; j > i + 1; j--) rm->free_list[j] = rm->free_list[j - 1];
+                rm->free_list[i + 1].va = used_end;
+                rm->free_list[i + 1].size = range_end - used_end;
+                rm->free_count++;
+            }
+            /* If the table is full, the trailing remainder is leaked (address
+             * space only), matching va_release()'s degenerate-case handling. */
+        }
+        return aligned;
+    }
+
     uint64_t va = (rm->va_next + align - 1) & ~(align - 1);
     rm->va_next = va + size;
     return va;
@@ -290,6 +354,7 @@ static int uvm_map(Nvrm *rm, uint64_t va, uint64_t size, uint32_t hmem) {
 /* Coherent, CPU-mapped, GPU-mapped buffer at one shared virtual address. */
 int nvrm_alloc(Nvrm *rm, uint64_t size, NvrmMem *out) {
     size = (size + 0xfff) & ~0xfffull;
+    if (rm->live_count >= NVRM_MAX_LIVE) return fail(rm, "live allocation table full (%d)", NVRM_MAX_LIVE);
     uint64_t va = va_take(rm, size, 0x1000);
     /* Reserve the CPU range first so the fixed mapping can never clobber anything. */
     void *res = mmap((void *)va, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
@@ -336,6 +401,53 @@ int nvrm_alloc(Nvrm *rm, uint64_t size, NvrmMem *out) {
     out->size = size;
     out->cpu = cpu;
     memset(cpu, 0, size);
+
+    rm->live[rm->live_count].handle = h;
+    rm->live[rm->live_count].va = va;
+    rm->live[rm->live_count].size = size;
+    rm->live_count++;
+    return 0;
+}
+
+/* Reverse of nvrm_alloc(): drop the UVM external range, free the RM memory
+ * object, unmap the CPU range, and return the VA range to the free list. */
+int nvrm_free(Nvrm *rm, NvrmMem *m) {
+    if (!rm || !m) return -1;
+
+    /* Idempotent: freeing an already-zeroed NvrmMem is a silent no-op. */
+    if (m->handle == 0 && m->va == 0 && m->size == 0 && m->cpu == NULL) return 0;
+
+    /* Reject anything that is not a currently-live allocation (e.g. a stale
+     * copy of an NvrmMem that was already freed elsewhere) without touching
+     * the driver at all. */
+    int idx = -1;
+    for (uint32_t i = 0; i < rm->live_count; i++) {
+        if (rm->live[i].va == m->va && rm->live[i].handle == m->handle && rm->live[i].size == m->size) {
+            idx = (int)i;
+            break;
+        }
+    }
+    if (idx < 0)
+        return fail(rm, "nvrm_free: va 0x%lx handle 0x%x size 0x%lx is not a live allocation",
+                    (unsigned long)m->va, m->handle, (unsigned long)m->size);
+
+    UVM_FREE_PARAMS uf;
+    memset(&uf, 0, sizeof uf);
+    uf.base = m->va;
+    uf.length = m->size;
+    (void)ioctl(rm->fd_uvm, UVM_FREE, &uf);
+
+    rm_free(rm, rm->device, m->handle);
+
+    munmap(m->cpu, m->size);
+
+    /* Remove from the live table (swap with last). */
+    rm->live[idx] = rm->live[rm->live_count - 1];
+    rm->live_count--;
+
+    va_release(rm, m->va, m->size);
+
+    memset(m, 0, sizeof *m);
     return 0;
 }
 

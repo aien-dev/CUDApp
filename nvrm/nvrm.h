@@ -14,12 +14,32 @@
 
 #define NVRM_MAX_MEM 16
 
+/* Capacity of the free-VA-range table (nvrm_free / va_take reuse) and the
+ * live-allocation table (nvrm_free validation). Separate from NVRM_MAX_MEM,
+ * which no caller currently uses, so existing behavior is unaffected. */
+#define NVRM_MAX_FREE 4096
+#define NVRM_MAX_LIVE 4096
+
 typedef struct {
     uint32_t handle;
     uint64_t va;      /* identical GPU and CPU virtual address */
     uint64_t size;
     void    *cpu;     /* CPU mapping (== (void *)va) */
 } NvrmMem;
+
+/* One coalesced free VA range available for reuse by va_take(). */
+typedef struct {
+    uint64_t va;
+    uint64_t size;
+} NvrmVaRange;
+
+/* One outstanding allocation, tracked so nvrm_free() can tell a real,
+ * still-live NvrmMem apart from a stale/duplicate copy. */
+typedef struct {
+    uint32_t handle;
+    uint64_t va;
+    uint64_t size;
+} NvrmLiveAlloc;
 
 typedef struct {
     int fd_ctl, fd_dev, fd_uvm, fd_uvm2;
@@ -40,11 +60,22 @@ typedef struct {
     uint32_t put;                   /* entries enqueued (monotonic) */
     uint32_t retired;               /* entries the caller has seen complete */
     uint64_t va_next;
+    NvrmVaRange   free_list[NVRM_MAX_FREE];  /* sorted ascending by va, coalesced */
+    uint32_t      free_count;
+    NvrmLiveAlloc live[NVRM_MAX_LIVE];
+    uint32_t      live_count;
     char     err[256];
 } Nvrm;
 
 int  nvrm_open(Nvrm *rm);
 int  nvrm_alloc(Nvrm *rm, uint64_t size, NvrmMem *out);
+/* Reverse of nvrm_alloc: drops the UVM external range, frees the RM memory
+ * object, unmaps the CPU range, and returns the VA range for reuse by a
+ * later nvrm_alloc. Idempotent on an already-zeroed NvrmMem (returns 0,
+ * no syscalls). Returns -1 and sets rm->err, without touching the driver,
+ * if *m does not match a currently-live allocation (e.g. a stale copy).
+ * Zeroes *m on success. */
+int  nvrm_free(Nvrm *rm, NvrmMem *m);
 int  nvrm_channel(Nvrm *rm);
 /* Write a GP entry and advance USERD GPPut; does NOT ring the doorbell. */
 int  nvrm_enqueue(Nvrm *rm, const NvrmMem *pb, uint32_t off_bytes, uint32_t nwords);
