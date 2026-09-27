@@ -62,6 +62,9 @@ static int nv_ioctl(int fd, unsigned nr, void *arg, size_t sz) {
 static int uvm(Nvrm *rm, int fd, unsigned long cmd, void *params, NV_STATUS *st);
 
 static int rm_alloc(Nvrm *rm, uint32_t parent, uint32_t cls, void *params, uint32_t psz, uint32_t *out) {
+    if (rm->rm_alloc_accepted == UINT64_MAX ||
+        (cls != NV01_ROOT_CLIENT && rm->next_handle == UINT32_MAX))
+        return fail(rm, "RM handle or accounting space exhausted");
     NVOS21_PARAMETERS p;
     memset(&p, 0, sizeof p);
     p.hRoot = rm->root;
@@ -80,6 +83,7 @@ static int rm_alloc(Nvrm *rm, uint32_t parent, uint32_t cls, void *params, uint3
 
 static int rm_free(Nvrm *rm, uint32_t parent, uint32_t obj) {
     if (!obj) return 0;
+    if (rm->rm_free_accepted == UINT64_MAX) return fail(rm, "RM free accounting exhausted");
     if (rm->inject_rm_free_failure) {
         rm->inject_rm_free_failure = 0;
         return fail(rm, "injected RM_FREE failure for handle 0x%x", obj);
@@ -185,7 +189,17 @@ static uint64_t acquire_va_slot(void) {
     while (atomic_flag_test_and_set_explicit(&g_va_slots_lock, memory_order_acquire)) { }
     uint64_t base = g_va_recycled_count ? g_va_recycled[--g_va_recycled_count] : 0;
     atomic_flag_clear_explicit(&g_va_slots_lock, memory_order_release);
-    if (!base) base = atomic_fetch_add_explicit(&g_va_counter, 0x100000000ull, memory_order_relaxed);
+    if (!base) {
+        uint64_t old = atomic_load_explicit(&g_va_counter, memory_order_relaxed);
+        for (;;) {
+            if (old > UINT64_MAX - 0x100000000ull) return 0;
+            if (atomic_compare_exchange_weak_explicit(&g_va_counter, &old,
+                    old + 0x100000000ull, memory_order_relaxed, memory_order_relaxed)) {
+                base = old;
+                break;
+            }
+        }
+    }
     return base;
 }
 
@@ -199,6 +213,7 @@ int nvrm_open(Nvrm *rm) {
     memset(rm, 0, sizeof *rm);
     rm->next_handle = 0xcf000001u;
     rm->va_next = acquire_va_slot();
+    if (!rm->va_next) return fail(rm, "VA slot space exhausted");
     rm->va_slot_base = rm->va_next;
     rm->fd_ctl = open("/dev/nvidiactl", O_RDWR | O_CLOEXEC);
     rm->fd_uvm = open("/dev/nvidia-uvm", O_RDWR | O_CLOEXEC);
