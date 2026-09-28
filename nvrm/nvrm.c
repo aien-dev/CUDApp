@@ -459,8 +459,22 @@ static void quarantine_allocation(Nvrm *rm, uint32_t h, uint64_t va, uint64_t si
     rm->faulted = 1;
 }
 
+static int alloc_with_cacheability(Nvrm *rm, uint64_t size, NvrmMem *out, uint32_t gpu_cacheable);
+
 /* Coherent, CPU-mapped, GPU-mapped buffer at one shared virtual address. */
 int nvrm_alloc(Nvrm *rm, uint64_t size, NvrmMem *out) {
+    return alloc_with_cacheability(rm, size, out, NVOS32_ATTR2_GPU_CACHEABLE_YES);
+}
+
+/* Same buffer, but the graphics chip does not keep it in its L2. The CPU
+ * mapping is already uncached, so a CPU store reaches memory; without this a
+ * resident chip program polling the buffer keeps reading its own L2 copy and
+ * never sees the store. For memory both sides poll, not for bulk data. */
+int nvrm_alloc_gpu_uncached(Nvrm *rm, uint64_t size, NvrmMem *out) {
+    return alloc_with_cacheability(rm, size, out, NVOS32_ATTR2_GPU_CACHEABLE_NO);
+}
+
+static int alloc_with_cacheability(Nvrm *rm, uint64_t size, NvrmMem *out, uint32_t gpu_cacheable) {
     if (!rm || !out || !size || rm->faulted || size > SIZE_MAX - 0xfffULL)
         return rm ? fail(rm, "invalid or overflowed allocation size") : -1;
     size = (size + 0xfff) & ~0xfffull;
@@ -483,7 +497,7 @@ int nvrm_alloc(Nvrm *rm, uint64_t size, NvrmMem *out) {
                NVOS32_ALLOC_FLAGS_ALIGNMENT_FORCE | NVOS32_ALLOC_FLAGS_IGNORE_BANK_PLACEMENT;
     /* GB10 has no local video memory: everything is coherent system memory. */
     mp.attr = (NVOS32_ATTR_PHYSICALITY_ALLOW_NONCONTIGUOUS << 27) | (NVOS32_ATTR_LOCATION_PCI << 25);
-    mp.attr2 = (NVOS32_ATTR2_GPU_CACHEABLE_YES << 2) | NVOS32_ATTR2_ZBC_PREFER_NO_ZBC;
+    mp.attr2 = (gpu_cacheable << 2) | NVOS32_ATTR2_ZBC_PREFER_NO_ZBC;
     mp.format = 6;
     mp.size = size;
     mp.alignment = 0x1000;

@@ -114,3 +114,6 @@ static inline uint32_t nvrm_mthd(uint32_t subc, uint32_t mthd, uint32_t count) {
 }
 
 #endif
+/* As nvrm_alloc, but the graphics chip does not cache it in L2. For memory
+ * that a resident chip program polls while the CPU writes it. */
+int nvrm_alloc_gpu_uncached(Nvrm *rm, uint64_t size, NvrmMem *out);
