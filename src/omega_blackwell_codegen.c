@@ -387,6 +387,14 @@ static int encode_single_insn(const BlackwellIRInsn *insn, const OmegaRegAlloc *
             w[3] = insn->control ? insn->control : 0x000fe200;
             break;
 
+        case BW_IR_STG_EF:
+            /* STG.E.MMIO.GPU. Uncached store, meant to be visible without a fence. */
+            w[0] = 0x7986 | ((uint32_t)(src1 & 0xff) << 24);
+            w[1] = (uint32_t)(src2 & 0xff);
+            w[2] = 0x0c111900 | (uint32_t)(ureg & 0xff);
+            w[3] = insn->control ? insn->control : 0x000fe200;
+            break;
+
         case BW_IR_IADD3:
             /* IADD3 Rd, PT, PT, Ra, Rb, Rc */
             w[0] = 0x7210 | ((uint32_t)(dst & 0xff) << 16) | ((uint32_t)(src1 & 0xff) << 24);
@@ -430,6 +438,85 @@ static int encode_single_insn(const BlackwellIRInsn *insn, const OmegaRegAlloc *
             w[3] = insn->control ? insn->control : 0x000f2200;
             break;
 
+        case BW_IR_LDG_STRONG_SYS:
+            /* LDG.E.STRONG.SYS. Same shape as LDG.E; w[2] carries the
+             * system-scope bits (0x0c1e1900 -> 0x0c1f5900). */
+            w[0] = 0x7981 | ((uint32_t)(dst & 0xff) << 16) | ((uint32_t)(src1 & 0xff) << 24);
+            w[1] = (uint32_t)(ureg & 0xff);
+            w[2] = 0x0c1f5900;
+            w[3] = insn->control ? insn->control : 0x000f2200;
+            break;
+
+        case BW_IR_LDG_MMIO:
+            /* LDG.E.EF. Drop the cached line, then load. */
+            w[0] = 0x7981 | ((uint32_t)(dst & 0xff) << 16) | ((uint32_t)(src1 & 0xff) << 24);
+            w[1] = (uint32_t)(ureg & 0xff);
+            w[2] = 0x0c0e1900;
+            w[3] = insn->control ? insn->control : 0x000f2200;
+            break;
+
+        case BW_IR_STG_STRONG_SYS:
+            w[0] = 0x7986 | ((uint32_t)(src1 & 0xff) << 24);
+            if (insn->predicate_p0) {
+                uint32_t pred = insn->predicate_not ? 0x8u : 0x0u;
+                w[0] = (w[0] & ~0xF000u) | (pred << 12);
+            }
+            w[1] = (uint32_t)(src2 & 0xff);
+            w[2] = 0x0c115900 | (uint32_t)(ureg & 0xff);
+            w[3] = insn->control ? insn->control : 0x000fe200;
+            break;
+
+        case BW_IR_MEMBAR_ALL_SYS:
+            w[0] = 0x00007992;
+            w[1] = 0x00000000;
+            w[2] = 0x0000b000;
+            w[3] = insn->control ? insn->control : 0x000fec00;
+            break;
+
+        case BW_IR_MEMBAR_SC_SYS:
+            w[0] = 0x00007992;
+            w[1] = 0x00000000;
+            w[2] = 0x00003000;
+            w[3] = insn->control ? insn->control : 0x000fec00;
+            break;
+
+        case BW_IR_CCTL_IVALL:
+            w[0] = 0xff00798f;
+            w[1] = 0x00000000;
+            w[2] = 0x02000000;
+            w[3] = insn->control ? insn->control : 0x000fe800;
+            break;
+
+        case BW_IR_ATOMG_ADD_STRONG_SYS:
+            w[0] = 0x79a8 | ((uint32_t)(dst & 0xff) << 16) | ((uint32_t)(src1 & 0xff) << 24);
+            w[1] = (uint32_t)(src2 & 0xff) | 0x80000000u;
+            w[2] = 0x081f5100 | (uint32_t)(ureg & 0xff);
+            w[3] = insn->control ? insn->control : 0x00321e00;
+            break;
+
+        case BW_IR_ATOMG_EXCH_STRONG_SYS:
+            w[0] = 0x79a8 | ((uint32_t)(dst & 0xff) << 16) | ((uint32_t)(src1 & 0xff) << 24);
+            w[1] = (uint32_t)(src2 & 0xff) | 0x80000000u;
+            w[2] = 0x0c1f5100 | (uint32_t)(ureg & 0xff);
+            w[3] = insn->control ? insn->control : 0x00321e00;
+            break;
+
+        case BW_IR_ISETP_GE_U32:
+            /* ISETP.GE.U32.AND P0, PT, Ra, Rb, PT. Checked with nvdisasm -b SM121. */
+            w[0] = 0x720c | ((uint32_t)(src1 & 0xff) << 24);
+            w[1] = (uint32_t)(src2 & 0xff);
+            w[2] = 0x03f06070;
+            w[3] = insn->control ? insn->control : 0x001fda00;
+            break;
+
+        case BW_IR_LOP3_XOR:
+            /* LOP3.LUT Rd, Ra, Rb, RZ, 0x3c, !PT. Checked with nvdisasm -b SM121. */
+            w[0] = 0x7212 | ((uint32_t)(dst & 0xff) << 16) | ((uint32_t)(src1 & 0xff) << 24);
+            w[1] = (uint32_t)(src2 & 0xff);
+            w[2] = 0x078e3cff;
+            w[3] = insn->control ? insn->control : 0x001fca00;
+            break;
+
         case BW_IR_EXIT:
             w[0] = insn->predicate_p0 ? 0x0000094d : 0x0000794d;
             w[1] = 0x00000000;
@@ -437,12 +524,28 @@ static int encode_single_insn(const BlackwellIRInsn *insn, const OmegaRegAlloc *
             w[3] = 0x000fea00;
             break;
 
-        case BW_IR_BRA:
-            w[0] = 0x00fc7947;
-            w[1] = 0xfffffffc;
-            w[2] = 0x0383ffff;
-            w[3] = 0x000fc000;
+        case BW_IR_BRA: {
+            /* sm_121 BRA. Distance is (target - this) - 1, split across the
+             * low six bits at instruction bits 18..23 and the rest at bit 34.
+             * Predicate bits 12..15: 7 = always, 0 = @P0, 8 = @!P0.
+             * A zero delta with no predicate keeps the self-branch word the
+             * existing kernels already emit after EXIT. */
+            int32_t delta = (int32_t)insn->imm;
+            int32_t rel = delta - 1;
+            uint32_t pred_field = 0x7u;
+            if (insn->predicate_p0)
+                pred_field = insn->predicate_not ? 0x8u : 0x0u;
+            w[0] = 0x947u | (pred_field << 12) | (((uint32_t)rel & 0x3fu) << 18);
+            w[1] = (uint32_t)(rel >> 6) << 2;
+            w[2] = (rel < 0) ? 0x0383ffffu : 0x03800000u;
+            if (insn->control)
+                w[3] = insn->control;
+            else if (delta == 0 && !insn->predicate_p0)
+                w[3] = 0x000fc000u;
+            else
+                w[3] = 0x000fea00u;
             break;
+        }
 
         default:
             return -1;
@@ -1071,6 +1174,23 @@ int omega_blackwell_verify_codegen_fixtures(void) {
     BlackwellIRInsn insn_ldg16 = { .op = BW_IR_LDG_E_U16, .dst_vreg = 0, .src1_vreg = 1, .ureg = 0 };
     if (encode_single_insn(&insn_ldg16, &ra, w) != 0) return -31;
     if (w[0] != 0x04027981 || w[1] != 4 || w[2] != 0x0c1e1500 || w[3] != 0x000f2200) return -32;
+
+    /* A zero-delta branch stays the self-branch the matmul kernels already emit. */
+    BlackwellIRInsn insn_bra0 = { .op = BW_IR_BRA };
+    if (encode_single_insn(&insn_bra0, &ra, w) != 0) return -33;
+    if (w[0] != 0x00fc7947 || w[1] != 0xfffffffc || w[2] != 0x0383ffff || w[3] != 0x000fc000) return -34;
+
+    BlackwellIRInsn insn_ge = { .op = BW_IR_ISETP_GE_U32, .src1_vreg = 1, .src2_vreg = 2 };
+    if (encode_single_insn(&insn_ge, &ra, w) != 0) return -35;
+    if (w[0] != (0x720c | (4 << 24)) || w[1] != 6 || w[2] != 0x03f06070) return -36;
+
+    BlackwellIRInsn insn_xor = { .op = BW_IR_LOP3_XOR, .dst_vreg = 1, .src1_vreg = 0, .src2_vreg = 2 };
+    if (encode_single_insn(&insn_xor, &ra, w) != 0) return -37;
+    if (w[0] != (0x7212 | (4 << 16) | (2 << 24)) || w[1] != 6 || w[2] != 0x078e3cff) return -38;
+
+    BlackwellIRInsn insn_ldg_ss = { .op = BW_IR_LDG_STRONG_SYS, .dst_vreg = 0, .src1_vreg = 1, .ureg = 0 };
+    if (encode_single_insn(&insn_ldg_ss, &ra, w) != 0) return -39;
+    if (w[0] != (0x7981 | (2 << 16) | (4 << 24)) || w[1] != 4 || w[2] != 0x0c1f5900) return -40;
 
     return 0;
 }

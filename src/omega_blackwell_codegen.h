@@ -29,14 +29,27 @@ typedef enum {
     BW_IR_ISETP_GE,     /* ISETP.GE P0, PT, Ra, Rb/imm, PT */
     BW_IR_LDG_E,        /* LDG.E Rd, desc[URd][Ra.64] */
     BW_IR_STG_E,        /* STG.E desc[URd][Ra.64], Rb */
+    BW_IR_STG_EF,       /* STG.E.EF: evict the line so the other side can see it */
     BW_IR_IADD3,        /* IADD3 Rd, PT, PT, Ra, Rb, Rc */
     BW_IR_HMMA_F16,     /* HMMA.16816.F32 Rd, Ra, Rb, Rc (FP16 input, FP32 accumulator) */
     BW_IR_HMMA_BF16,    /* HMMA.16816.F32.BF16 Rd, Ra, Rb, Rc (BF16 input, FP32 accumulator) */
     BW_IR_SHF_R,        /* SHF.R.U32.HI Rd, RZ, imm, Ra */
     BW_IR_LOP3_AND,     /* LOP3.LUT Rd, Ra, imm, RZ, 0xc0, !PT (Bitwise AND) */
     BW_IR_LDG_E_U16,    /* LDG.E.U16 Rd, desc[URd][Ra.64] */
+    /* System-scope ordering. Encodings checked against the sm_121 disassembler.
+     * A host build of these opcodes is not a graphics-chip result. */
+    BW_IR_LDG_STRONG_SYS,
+    BW_IR_LDG_MMIO,     /* LDG.E.MMIO.GPU: do not keep a stale cached copy */
+    BW_IR_STG_STRONG_SYS,
+    BW_IR_MEMBAR_ALL_SYS,
+    BW_IR_MEMBAR_SC_SYS,
+    BW_IR_CCTL_IVALL,
+    BW_IR_ATOMG_ADD_STRONG_SYS,
+    BW_IR_ATOMG_EXCH_STRONG_SYS,
+    BW_IR_ISETP_GE_U32, /* ISETP.GE.U32.AND P0, PT, Ra, Rb, PT */
+    BW_IR_LOP3_XOR,     /* LOP3.LUT Rd, Ra, Rb, RZ, 0x3c, !PT */
     BW_IR_EXIT,         /* EXIT */
-    BW_IR_BRA           /* BRA target */
+    BW_IR_BRA           /* BRA. imm = signed instruction delta; predicate_p0 / predicate_not select @P0 or @!P0 */
 } BlackwellIROpcode;
 
 /* Special Register Identifiers */
@@ -55,10 +68,13 @@ typedef struct {
     int src2_vreg;      /* Virtual source 2 register (-1 if none / immediate mode) */
     int src3_vreg;      /* Virtual source 3 register (-1 if none / RZ) */
     int ureg;           /* Uniform register (-1 if none) */
-    uint32_t imm;       /* Immediate value / constant bank offset / SR code */
+    uint32_t imm;       /* Immediate value / constant bank offset / SR code.
+                         * For BW_IR_BRA: signed instruction delta (target minus
+                         * this instruction). 0 branches to itself. */
     uint32_t control;   /* Bundle control word */
     bool is_uniform;    /* True if targets/uses uniform registers */
-    bool predicate_p0;  /* True if predicated on @P0 */
+    bool predicate_p0;  /* True if predicated on P0 */
+    bool predicate_not; /* With predicate_p0, encode @!P0 */
     uint8_t dst_subreg; /* Subregister offset (0..3) within register bundle */
     uint8_t src1_subreg;
     uint8_t src2_subreg;
