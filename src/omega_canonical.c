@@ -41,18 +41,29 @@ int omega_parse_hex_semantic_id(const char *hex, SemanticId *out_id) {
     return 0;
 }
 
+uint8_t omega_canonical_object_version(uint8_t kind) {
+    return kind == KIND_EFFECT ? OMEGA_EFFECT_VERSION : OMEGA_VERSION;
+}
+
+int omega_canonical_check_header(uint8_t version, uint8_t kind) {
+    if (kind == KIND_EFFECT && version == OMEGA_VERSION) return OMEGA_CANON_ERR_EFFECT_V1;
+    if (version != omega_canonical_object_version(kind)) return OMEGA_CANON_ERR_VERSION;
+    return OMEGA_CANON_OK;
+}
+
 int omega_canonical_encode(const OmegaObject *obj, uint8_t *out_buf, size_t max_len, size_t *out_len) {
     if (!obj || !out_buf || !out_len) return -1;
 
     size_t pos = 0;
 
-    /* 1. Header: magic "OMG0" (0x4F, 0x4D, 0x47, 0x30), version 0x01, kind */
+    /* 1. Header: magic "OMG0" (0x4F, 0x4D, 0x47, 0x30), object encoding
+     *    version of the kind (0x02 effect, 0x01 otherwise), kind */
     if (pos + 6 > max_len) return -1;
     out_buf[pos++] = 0x4F;
     out_buf[pos++] = 0x4D;
     out_buf[pos++] = 0x47;
     out_buf[pos++] = 0x30;
-    out_buf[pos++] = OMEGA_VERSION;
+    out_buf[pos++] = omega_canonical_object_version((uint8_t)obj->kind);
     out_buf[pos++] = (uint8_t)obj->kind;
 
     /* 2. Attributes (sorted by key ascending) */

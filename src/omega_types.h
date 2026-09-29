@@ -12,7 +12,8 @@
 #include <stdbool.h>
 
 #define OMEGA_MAGIC 0x30474D4F /* "OMG0" in little-endian / network bytes: 0x4F,0x4D,0x47,0x30 */
-#define OMEGA_VERSION 0x01
+#define OMEGA_VERSION 0x01          /* object encoding version of every kind except KIND_EFFECT */
+#define OMEGA_EFFECT_VERSION 0x02   /* object encoding version of KIND_EFFECT (spec/effect-cap64-migration.md) */
 #define OMEGA_ID_BYTES 32
 #define OMEGA_MAX_ATTRIBUTES 32
 #define OMEGA_MAX_RELATIONS 64
@@ -157,14 +158,22 @@ typedef struct {
     SemanticId operands[4];
 } ApplyPayload;
 
+/* In-memory view of an effect. It is NOT the canonical payload: the payload
+ * bytes of a KIND_EFFECT object are the explicit 178-byte big-endian layout
+ * written by omega_effect_payload_encode and read (strictly) by
+ * omega_effect_payload_decode (spec/effect-cap64-migration.md). Never memcpy
+ * this struct into or out of OmegaObject.payload. */
+#define OMEGA_EFFECT_PARAM_MAX 128
+#define OMEGA_EFFECT_PAYLOAD_LEN 178        /* v2 wire length */
+#define OMEGA_EFFECT_LEGACY_V1_LEN 176      /* old host-struct image with a 32-bit generation */
 typedef struct {
     uint16_t resource_class;
     uint16_t operation_code;
     uint32_t capability_slot;
-    uint32_t capability_generation;
+    uint64_t capability_generation;         /* full AIENOS generation, all 64 bits */
     SemanticId capability_ref;
     uint16_t param_len;
-    uint8_t param_bytes[128];
+    uint8_t param_bytes[OMEGA_EFFECT_PARAM_MAX];
 } EffectPayload;
 
 typedef struct {

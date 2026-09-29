@@ -250,7 +250,99 @@ OmegaObject* omega_build_apply(OmegaGraph *g, const SemanticId *op_id, const Sem
     return obj;
 }
 
-OmegaObject* omega_build_effect(OmegaGraph *g, uint16_t res_class, uint16_t op_code, uint32_t cap_slot, uint32_t cap_gen) {
+/* ---- effect payload v2 (spec/effect-cap64-migration.md) ---- */
+
+static void eff_put16(uint8_t *p, uint16_t v) { p[0] = (uint8_t)(v >> 8); p[1] = (uint8_t)v; }
+static void eff_put32(uint8_t *p, uint32_t v) {
+    for (int i = 0; i < 4; i++) p[i] = (uint8_t)(v >> (24 - 8 * i));
+}
+static void eff_put64(uint8_t *p, uint64_t v) {
+    for (int i = 0; i < 8; i++) p[i] = (uint8_t)(v >> (56 - 8 * i));
+}
+static uint16_t eff_get16(const uint8_t *p) { return (uint16_t)(((uint16_t)p[0] << 8) | p[1]); }
+static uint32_t eff_get32(const uint8_t *p) {
+    uint32_t v = 0;
+    for (int i = 0; i < 4; i++) v = (v << 8) | p[i];
+    return v;
+}
+static uint64_t eff_get64(const uint8_t *p) {
+    uint64_t v = 0;
+    for (int i = 0; i < 8; i++) v = (v << 8) | p[i];
+    return v;
+}
+
+enum {
+    EFF_OFF_RESOURCE = 0x00, EFF_OFF_OPERATION = 0x02, EFF_OFF_SLOT = 0x04,
+    EFF_OFF_GENERATION = 0x08, EFF_OFF_CAP_REF = 0x10, EFF_OFF_PARAM_LEN = 0x30,
+    EFF_OFF_PARAMS = 0x32
+};
+_Static_assert(EFF_OFF_PARAMS + OMEGA_EFFECT_PARAM_MAX == OMEGA_EFFECT_PAYLOAD_LEN,
+               "effect payload v2 is 178 bytes");
+_Static_assert(OMEGA_EFFECT_PAYLOAD_LEN != OMEGA_EFFECT_LEGACY_V1_LEN, "v1 and v2 lengths differ");
+
+int omega_effect_payload_encode(const EffectPayload *eff, uint8_t out[OMEGA_EFFECT_PAYLOAD_LEN]) {
+    if (!eff || !out) return OMEGA_EFFECT_ERR_ARG;
+    eff_put16(out + EFF_OFF_RESOURCE, eff->resource_class);
+    eff_put16(out + EFF_OFF_OPERATION, eff->operation_code);
+    eff_put32(out + EFF_OFF_SLOT, eff->capability_slot);
+    eff_put64(out + EFF_OFF_GENERATION, eff->capability_generation);
+    memcpy(out + EFF_OFF_CAP_REF, eff->capability_ref.bytes, OMEGA_ID_BYTES);
+    eff_put16(out + EFF_OFF_PARAM_LEN, eff->param_len);
+    memcpy(out + EFF_OFF_PARAMS, eff->param_bytes, OMEGA_EFFECT_PARAM_MAX);
+    return OMEGA_EFFECT_OK;
+}
+
+int omega_effect_payload_decode(const uint8_t *bytes, size_t len, EffectPayload *out) {
+    if (out) memset(out, 0, sizeof *out);
+    if (!bytes || !out) return OMEGA_EFFECT_ERR_ARG;
+    if (len == OMEGA_EFFECT_LEGACY_V1_LEN) return OMEGA_EFFECT_ERR_LEGACY_V1;
+    if (len != OMEGA_EFFECT_PAYLOAD_LEN) return OMEGA_EFFECT_ERR_LENGTH;
+    EffectPayload e;
+    memset(&e, 0, sizeof e);
+    e.resource_class = eff_get16(bytes + EFF_OFF_RESOURCE);
+    e.operation_code = eff_get16(bytes + EFF_OFF_OPERATION);
+    e.capability_slot = eff_get32(bytes + EFF_OFF_SLOT);
+    e.capability_generation = eff_get64(bytes + EFF_OFF_GENERATION);
+    memcpy(e.capability_ref.bytes, bytes + EFF_OFF_CAP_REF, OMEGA_ID_BYTES);
+    e.param_len = eff_get16(bytes + EFF_OFF_PARAM_LEN);
+    if (e.resource_class == 0) return OMEGA_EFFECT_ERR_RESOURCE;
+    if (e.param_len > OMEGA_EFFECT_PARAM_MAX) return OMEGA_EFFECT_ERR_PARAM_LEN;
+    for (size_t i = e.param_len; i < OMEGA_EFFECT_PARAM_MAX; i++)
+        if (bytes[EFF_OFF_PARAMS + i] != 0) return OMEGA_EFFECT_ERR_PADDING;
+    memcpy(e.param_bytes, bytes + EFF_OFF_PARAMS, e.param_len);
+    *out = e;
+    return OMEGA_EFFECT_OK;
+}
+
+int omega_effect_write(OmegaObject *obj, const EffectPayload *eff) {
+    if (!obj || !eff || obj->kind != KIND_EFFECT) return OMEGA_EFFECT_ERR_ARG;
+    int rc = omega_effect_payload_encode(eff, obj->payload);
+    if (rc != OMEGA_EFFECT_OK) return rc;
+    obj->payload_len = OMEGA_EFFECT_PAYLOAD_LEN;
+    return OMEGA_EFFECT_OK;
+}
+
+int omega_effect_read(const OmegaObject *obj, EffectPayload *out) {
+    if (out) memset(out, 0, sizeof *out);
+    if (!obj || !out || obj->kind != KIND_EFFECT) return OMEGA_EFFECT_ERR_ARG;
+    if (obj->payload_len > OMEGA_MAX_PAYLOAD_LEN) return OMEGA_EFFECT_ERR_LENGTH;
+    return omega_effect_payload_decode(obj->payload, obj->payload_len, out);
+}
+
+const char *omega_effect_strerror(int code) {
+    switch (code) {
+    case OMEGA_EFFECT_OK: return "ok";
+    case OMEGA_EFFECT_ERR_ARG: return "not an effect object";
+    case OMEGA_EFFECT_ERR_LENGTH: return "effect payload length is not 178 bytes";
+    case OMEGA_EFFECT_ERR_LEGACY_V1: return "legacy v1 effect payload (32-bit generation) refused";
+    case OMEGA_EFFECT_ERR_RESOURCE: return "effect resource class is 0 (invalid resource)";
+    case OMEGA_EFFECT_ERR_PARAM_LEN: return "effect param_len exceeds 128";
+    case OMEGA_EFFECT_ERR_PADDING: return "effect parameter padding is not zero";
+    default: return "unknown effect error";
+    }
+}
+
+OmegaObject* omega_build_effect(OmegaGraph *g, uint16_t res_class, uint16_t op_code, uint32_t cap_slot, uint64_t cap_gen) {
     OmegaObject *obj = omega_graph_add_object(g, KIND_EFFECT);
     if (!obj) return NULL;
     EffectPayload eff;
@@ -259,8 +351,7 @@ OmegaObject* omega_build_effect(OmegaGraph *g, uint16_t res_class, uint16_t op_c
     eff.operation_code = op_code;
     eff.capability_slot = cap_slot;
     eff.capability_generation = cap_gen;
-    memcpy(obj->payload, &eff, sizeof(eff));
-    obj->payload_len = sizeof(eff);
+    omega_effect_write(obj, &eff);
     omega_compute_semantic_id(obj);
     return obj;
 }
