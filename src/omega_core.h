@@ -30,6 +30,11 @@ OmegaObject* omega_build_type_cap_ref(OmegaGraph *g);
 OmegaObject* omega_build_val_bool(OmegaGraph *g, const SemanticId *bool_type_id, bool val);
 OmegaObject* omega_build_val_uint(OmegaGraph *g, const SemanticId *uint_type_id, uint16_t width, uint64_t val);
 
+/* Program parameter (spec/program-identity.md 2.2): KIND_VALUE, attribute
+ * "omega.param" = index (u16 big-endian), ValuePayload{type_id, byte_len 0}.
+ * Carries the position, never the source name; never equal to a literal. */
+OmegaObject* omega_build_param(OmegaGraph *g, const SemanticId *type_id, uint16_t index);
+
 /* Builders for operations and applications */
 OmegaObject* omega_build_op_binary(OmegaGraph *g, OpCode op, OverflowPolicy ov, const SemanticId *type_id);
 OmegaObject* omega_build_apply(OmegaGraph *g, const SemanticId *op_id, const SemanticId *arg1, const SemanticId *arg2);

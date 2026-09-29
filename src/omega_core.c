@@ -215,6 +215,21 @@ OmegaObject* omega_build_val_uint(OmegaGraph *g, const SemanticId *uint_type_id,
     return obj;
 }
 
+OmegaObject* omega_build_param(OmegaGraph *g, const SemanticId *type_id, uint16_t index) {
+    OmegaObject *obj = omega_graph_add_object(g, KIND_VALUE);
+    if (!obj) return NULL;
+    uint8_t idx[2] = { (uint8_t)(index >> 8), (uint8_t)index };
+    if (omega_object_add_attribute(obj, "omega.param", idx, sizeof idx) != 0) return NULL;
+    ValuePayload vp;
+    memset(&vp, 0, sizeof(vp));
+    if (type_id) memcpy(vp.type_id.bytes, type_id->bytes, OMEGA_ID_BYTES);
+    vp.byte_len = 0;
+    memcpy(obj->payload, &vp, sizeof(vp));
+    obj->payload_len = sizeof(vp);
+    omega_compute_semantic_id(obj);
+    return obj;
+}
+
 OmegaObject* omega_build_op_binary(OmegaGraph *g, OpCode op, OverflowPolicy ov, const SemanticId *type_id) {
     OmegaObject *obj = omega_graph_add_object(g, KIND_OPERATION);
     if (!obj) return NULL;
