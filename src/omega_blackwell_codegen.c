@@ -515,6 +515,8 @@ static int encode_single_insn(const BlackwellIRInsn *insn, const OmegaRegAlloc *
             w[1] = (uint32_t)(src2 & 0xff);
             w[2] = 0x078e3cff;
             w[3] = insn->control ? insn->control : 0x001fca00;
+            break;
+
         case BW_IR_FADD:
             /* FADD Rd, Ra, Rb */
             w[0] = 0x7221U | ((uint32_t)(dst & 0xff) << 16) | ((uint32_t)(src1 & 0xff) << 24);
