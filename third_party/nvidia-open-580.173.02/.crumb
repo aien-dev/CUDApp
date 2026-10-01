@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0.0",
+  "name": "third_party/nvidia-open-580.173.02",
+  "layer": "third_party/nvidia-open-580.173.02",
+  "purpose": "Directory third_party/nvidia-open-580.173.02. Purpose not yet described by a human.",
+  "above": {
+    "name": "third_party",
+    "path": ".."
+  },
+  "below": [
+    {
+      "name": "kernel-open",
+      "role": ""
+    },
+    {
+      "name": "src",
+      "role": ""
+    }
+  ],
+  "extensions": {
+    "seed": {
+      "purpose_auto": "Directory third_party/nvidia-open-580.173.02. Purpose not yet described by a human.",
+      "files": [
+        "COPYING",
+        "SHA256SUMS"
+      ]
+    },
+    "owner_lane": "",
+    "provenance": {
+      "source": "backfill",
+      "total_commits": 1,
+      "ledger_cap": 20,
+      "entries": [
+        {
+          "source": "backfill-git",
+          "sha": "b64753d",
+          "timestamp": "2026-09-26T08:16:00-05:00",
+          "author": "aien-dev",
+          "subject": "fix(m16): corrective requalification of native Blackwell path without libcuda (#11)",
+          "pr": 11
+        }
+      ]
+    }
+  }
+}

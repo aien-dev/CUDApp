@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0.0",
+  "name": "third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl/ctrl0000",
+  "layer": "third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl/ctrl0000",
+  "purpose": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl/ctrl0000. Purpose not yet described by a human.",
+  "above": {
+    "name": "third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl",
+    "path": ".."
+  },
+  "extensions": {
+    "seed": {
+      "purpose_auto": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl/ctrl0000. Purpose not yet described by a human.",
+      "files": [
+        "ctrl0000base.h",
+        "ctrl0000gpu.h",
+        "ctrl0000system.h"
+      ]
+    },
+    "owner_lane": "",
+    "provenance": {
+      "source": "backfill",
+      "total_commits": 1,
+      "ledger_cap": 20,
+      "entries": [
+        {
+          "source": "backfill-git",
+          "sha": "b64753d",
+          "timestamp": "2026-09-26T08:16:00-05:00",
+          "author": "aien-dev",
+          "subject": "fix(m16): corrective requalification of native Blackwell path without libcuda (#11)",
+          "pr": 11
+        }
+      ]
+    }
+  }
+}
