@@ -22,7 +22,8 @@ typedef struct {
     OmegaBlackwellQmdConfig qmd_cfg;
 } OmegaBlackwellRealization;
 
-/* Get canonical machine ID for NVIDIA DGX Spark Blackwell GB10 SM */
+/* Machine PROFILE digest for the Blackwell GB10 SM target (same on every GB10).
+ * Not a machine identity: see AienMachineId (src/runtime/aien_machine_id.h). */
 int omega_blackwell_get_machine_id(SemanticId *out_machine_id);
 
 /* Bind an OmegaVectorSpec to Blackwell sm_121 hardware realization */
