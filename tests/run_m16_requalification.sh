@@ -140,29 +140,37 @@ fi
 
 # 6. Capture live /proc/maps snapshot during execution
 echo -e "\n[*] Step 6: Capturing live /proc/maps snapshot..."
-python3 -c '
-import subprocess, time, sys
-
-proc = subprocess.Popen(["./m16/m16_requalify"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-maps_content = ""
-for _ in range(50):
-    try:
-        with open(f"/proc/{proc.pid}/maps", "r") as f:
-            maps_content = f.read()
-            if maps_content:
-                break
-    except FileNotFoundError:
-        pass
-    time.sleep(0.005)
-
-out, err = proc.communicate()
-if "libcuda" in maps_content or "libcudart" in maps_content:
-    print("FATAL: libcuda mapped in live process!", file=sys.stderr)
-    sys.exit(1)
-
-with open("evidence/m16-requalification/runtime-maps.log", "w") as f:
-    f.write(maps_content)
-'
+# capture_runtime_maps BIN OUT: start BIN and poll /proc/<pid>/maps up to 50
+# times (5 ms apart) while it runs, wait for BIN (exit status ignored). Refuse if
+# libcuda appears in ANY snapshot; else write the last non-empty snapshot to OUT.
+# (The retired python3 helper stopped at the first non-empty read, which can be
+# taken before the dynamic loader maps any library; polling for the whole run
+# makes the no-libcuda check see the loaded process.)
+capture_runtime_maps() {
+  local bin="$1" out="$2" snap="$2.snap" last="$2.last" seen="$2.seen" pid i=0
+  : > "$last"
+  : > "$seen"
+  "$bin" > /dev/null 2>&1 &
+  pid=$!
+  while [ "$i" -lt 50 ] && kill -0 "$pid" 2>/dev/null; do
+    if cat "/proc/$pid/maps" > "$snap" 2>/dev/null && [ -s "$snap" ]; then
+      cat "$snap" >> "$seen"
+      mv "$snap" "$last"
+    fi
+    sleep 0.005
+    i=$((i + 1))
+  done
+  wait "$pid" || true
+  rm -f "$snap"
+  if grep -q "libcuda" "$seen"; then
+    rm -f "$last" "$seen"
+    echo "FATAL: libcuda mapped in live process!" >&2
+    exit 1
+  fi
+  rm -f "$seen"
+  mv "$last" "$out"
+}
+capture_runtime_maps ./m16/m16_requalify "$EVIDENCE_DIR/runtime-maps.log"
 
 if [ -s "$EVIDENCE_DIR/runtime-maps.log" ] && ! grep -Eiq "libcuda|libcudart" "$EVIDENCE_DIR/runtime-maps.log"; then
   GATE_NO_LIBCUDA_RUNTIME=true
