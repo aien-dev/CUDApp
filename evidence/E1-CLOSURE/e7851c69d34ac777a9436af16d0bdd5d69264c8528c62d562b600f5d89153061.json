@@ -1,0 +1,110 @@
+{
+  "candidate_trees_clean": {
+    "omega": true,
+    "physics": true
+  },
+  "chip_qualified_candidate_git_commit": "fb36109d39bdf0ad55d5b683643c9a4a7b19b0fc",
+  "chip_ran_on": "candidate",
+  "constituents": {
+    "campaign_log_sha256": "0b3b8399302dd2c2f6df799cabd95301f201a5cd9dc2b814995e70fd43c19101",
+    "gate5": {
+      "hardware_descriptor_digest": "91684948286bd0f1e34caca4cb2d8f9b43d45d0f7ede39ba1a26e32559e53ce4",
+      "receipt_digest": "3b8f599518bd5f686a4b7b1ae97369f1f3930cc5734b76ac507d262c2a7a927f",
+      "schema": "AIEN_OMEGA_NUMERIC_0_V1",
+      "status": "PASS",
+      "tests": 26
+    },
+    "host_rerun": {
+      "lines": [
+        "GB10-COMPILE",
+        "NUMERIC-HOST",
+        "PROGRAM",
+        "TRANSC",
+        "MANIFEST",
+        "HOSTALL"
+      ],
+      "omega_commit": "40d1ea378617403727f35868742dc4dd3d60515b",
+      "schema": "AIEN_E1_HOST_RERUN_V1",
+      "sha256": "e2206f44234f49dc741711f7d565c37addb65aa48833c2585e5d3f8afd9720cb",
+      "status": "PASS"
+    },
+    "ldst": {
+      "chip_log_sha256": "d246700bdfd4c7081dd226ba8295abb0b68373f2ccb12b8d34b5eaa065e4edee",
+      "device_errors": 0,
+      "specs_passed": 148,
+      "status": "PASS"
+    },
+    "mean_mutant": {
+      "log_sha256": "6718c615bbea67ea135679606a020c8ce9474b2eacd7dbae560e1c1a8bc438c6",
+      "mean_mismatches": 49,
+      "result": "KILLED"
+    },
+    "reduce": {
+      "cases": 380,
+      "mismatches": 0,
+      "ops": [
+        "SUM",
+        "MAX",
+        "MIN",
+        "MEAN"
+      ],
+      "sha256": "3faff6c5e763223d9b1388b2e9120000145b205e5d424d5995b54b50aa3c95b0",
+      "status": "PASS",
+      "suite": "E1_REDUCE_GB10_PARITY"
+    },
+    "transc": {
+      "exhaustive": true,
+      "gate": "E1-TRANSC-GB10",
+      "inputs_checked": 21474836480,
+      "mismatches": 0,
+      "ops": [
+        "SIN",
+        "COS",
+        "ERF",
+        "GELU",
+        "RSQRT"
+      ],
+      "per_op": 4294967296,
+      "sha256": "a2f1401631e5386ed0d5689960a4580be08aba0163c76a51ad9a037e72f6b3a6",
+      "status": "PASS"
+    },
+    "transc_prior": {
+      "exhaustive": true,
+      "gate": "E1-TRANSC-GB10",
+      "kernel_digests_equal_candidate": true,
+      "mismatches": 0,
+      "omega_commit": "4863803a47f25f6548c8d9dfacb60e8c4b9ab145",
+      "ops": [
+        "EXP2",
+        "LOG2",
+        "SIGMOID",
+        "TANH"
+      ],
+      "per_op": 4294967296,
+      "sha256": "96fbc78df41fb62244e9d16cd59531182f64a01fb8c5ef1e02c8dadb8be6f556",
+      "status": "PASS"
+    },
+    "uncertain_completions": 0
+  },
+  "digest_meaning": "integrity only, not authenticity: re-hash the constituents named here",
+  "e1_artifact_set": {
+    "chip_class_byte_identical": true,
+    "host_class_files_differ": 1,
+    "host_tier_rerun_on_main": "PASS",
+    "manifest_sha256": "216fd3c944880e4e1498722f0e9a003f9b38267f41b5269fb0cd1c807451e26a"
+  },
+  "gate": "E1_NUMERICAL_CLOSURE",
+  "merged_main_git_commit": "40d1ea378617403727f35868742dc4dd3d60515b",
+  "physics_candidate_git_commit": "e95e3ed2a86fe4bffe4d954fa94c27dfb5284280",
+  "rebuilt_on_main_equals_chip_binary": {
+    "GATE5": "ac5a6bcac4148cba6b80052146926745d3c06688cb247705aa10b6479e747974",
+    "LDST_main_rebuild": "78df5ae39bd862d3a600d20ceac950f63d5b0e7465204441b37926c51b81dbdf",
+    "REDUCE": "c56eaa50f73717c8b9e3a4944aca2e77e37ea39ff832d44ede337e7d8f835128",
+    "TRANSC": "9cdea45899af90449d4be00ca8d396dffea48928ba9cb2c0f4c5492b19e1d37f"
+  },
+  "receipt_digest": "e7851c69d34ac777a9436af16d0bdd5d69264c8528c62d562b600f5d89153061",
+  "schema": "AIEN_E1_CLOSURE_V1",
+  "status": "PASS",
+  "timestamp_utc": "2026-10-02T23:17:40.703954Z",
+  "whole_repository_trees_identical": false
+}
