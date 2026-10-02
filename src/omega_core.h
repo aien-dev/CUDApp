@@ -22,6 +22,7 @@ OmegaObject* omega_build_type_bool(OmegaGraph *g);
 OmegaObject* omega_build_type_uint(OmegaGraph *g, uint16_t width);
 OmegaObject* omega_build_type_signed_int(OmegaGraph *g, uint16_t width);
 OmegaObject* omega_build_type_bitvector(OmegaGraph *g, uint16_t width);
+OmegaObject* omega_build_type_fp32(OmegaGraph *g);   /* TYPE_FP32, width 32 */
 OmegaObject* omega_build_type_byte(OmegaGraph *g);
 OmegaObject* omega_build_type_sequence(OmegaGraph *g, const SemanticId *elem_type, uint32_t len);
 OmegaObject* omega_build_type_cap_ref(OmegaGraph *g);

@@ -125,6 +125,19 @@ OmegaObject* omega_build_type_signed_int(OmegaGraph *g, uint16_t width) {
     return obj;
 }
 
+OmegaObject* omega_build_type_fp32(OmegaGraph *g) {
+    OmegaObject *obj = omega_graph_add_object(g, KIND_TYPE);
+    if (!obj) return NULL;
+    TypePayload tp;
+    memset(&tp, 0, sizeof(tp));
+    tp.tag = TYPE_FP32;
+    tp.width = 32;
+    memcpy(obj->payload, &tp, sizeof(tp));
+    obj->payload_len = sizeof(tp);
+    omega_compute_semantic_id(obj);
+    return obj;
+}
+
 OmegaObject* omega_build_type_bitvector(OmegaGraph *g, uint16_t width) {
     OmegaObject *obj = omega_graph_add_object(g, KIND_TYPE);
     if (!obj) return NULL;

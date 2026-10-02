@@ -56,7 +56,8 @@ typedef enum {
     TYPE_RESOURCE           = 0x0A,
     TYPE_CAPABILITY_REF     = 0x0B,
     TYPE_EFFECT_INTENT_REF  = 0x0C,
-    TYPE_EFFECT_RECEIPT_REF = 0x0D
+    TYPE_EFFECT_RECEIPT_REF = 0x0D,
+    TYPE_FP32               = 0x0E   /* IEEE 754 binary32, width 32 (spec/program-fp32.md) */
 } TypeTag;
 
 typedef enum {
@@ -75,7 +76,8 @@ typedef enum {
     OP_SELECT     = 0x0C,
     OP_CONCAT     = 0x0D,
     OP_SLICE      = 0x0E,
-    OP_COMPILE    = 0x0F
+    OP_COMPILE    = 0x0F,
+    OP_CONVERT    = 0x10   /* unary, u32 <-> FP32, declared by the operation's input and output types */
 } OpCode;
 
 typedef enum {
