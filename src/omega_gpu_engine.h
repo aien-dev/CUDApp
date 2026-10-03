@@ -28,8 +28,10 @@
  * the result, and blocks every later omega_gpu_execute call in this process,
  * which then returns UNCERTAIN_COMPLETION_BLOCKED.
  *
- * STATUS: A2b stub. omega_gpu_execute launches nothing yet. It validates its
- * arguments and reports INTERNAL_INVARIANT at step NOT_IMPLEMENTED. This cut is
+ * STATUS: A3a engine core. omega_gpu_execute drives the backend table below
+ * through the whole state machine; only a fake backend exists (host tests).
+ * With no backend set it still returns INTERNAL_INVARIANT at step
+ * NOT_IMPLEMENTED. The real Blackwell backend is a later cut (A3b). This cut is
  * not chip-qualified (host NOT_RUN, chip NOT_RUN).
  */
 #ifndef OMEGA_GPU_ENGINE_H
@@ -199,7 +201,7 @@ typedef struct {
     void *ctx; /* passed to every callback; owned by the backend */
     int (*open_device)(void *ctx);
     int (*create_channel)(void *ctx);
-    int (*alloc)(void *ctx, int role, size_t bytes);
+    int (*alloc)(void *ctx, int role, size_t bytes); /* SCRATCH gets bytes == 0: the backend sizes it */
     int (*copy_in)(void *ctx, int role, const void *src, size_t bytes);
     int (*fill_poison)(void *ctx, const uint32_t *words, size_t count); /* device-side output pre-fill */
     int (*build)(void *ctx, const OmegaGpuJob *job);                    /* descriptors, QMD, pushbuffer */
@@ -233,6 +235,11 @@ void omega_gpu_engine_test_reset_block(void);
 /* TEST ONLY. Forces the blocked state so tests can exercise the blocked
  * result without a real uncertain completion. */
 void omega_gpu_engine_test_force_block(void);
+
+/* TEST ONLY. Replaces the millisecond clock the engine uses to measure
+ * waited_ms (default: CLOCK_MONOTONIC). NULL restores the default. Not thread
+ * safe: set it before any job runs. Lets host tests assert exact waited_ms. */
+void omega_gpu_engine_test_set_clock(uint64_t (*now_ms)(void));
 
 /* Static name strings, never NULL. Out-of-range values give "UNKNOWN". */
 const char *omega_gpu_engine_failure_name(int failure);

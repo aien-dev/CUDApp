@@ -1,5 +1,7 @@
-/* Omega GPU Engine A2b: the stub returns its defined results, every enum name
- * is distinct, and the uncertain-completion block functions behave as specified. */
+/* Omega GPU Engine compile check: the header and the A3a core compile, every enum name
+ * is distinct, argument and backend-table refusals return their defined results, the
+ * uncertain-completion block functions behave as specified, and a no-op backend reaches
+ * SUCCESS. */
 #include "omega_gpu_engine.h"
 #include <stdio.h>
 #include <string.h>
@@ -115,7 +117,7 @@ int main(void)
     CHECK(omega_gpu_execute(&bad_job, &r) == OMEGA_GPU_ENGINE_INTERNAL_INVARIANT);
     expect_result(&r, OMEGA_GPU_ENGINE_INTERNAL_INVARIANT, OMEGA_GPU_ENGINE_STEP_NOT_IMPLEMENTED);
 
-    /* Backend table: incomplete is refused, complete reaches the stub result, NULL clears. */
+    /* Backend table: incomplete is refused, complete runs the core to SUCCESS, NULL clears. */
     OmegaGpuBackend be = {
         .ctx = NULL, .open_device = f_ctx, .create_channel = f_ctx, .alloc = f_alloc,
         .copy_in = f_in, .fill_poison = f_poison, .build = f_build, .submit = f_ctx,
@@ -124,9 +126,16 @@ int main(void)
         .close = f_ctx,
     };
     omega_gpu_engine_set_backend(&be);
+    /* The A3a core now runs the whole state machine: the all-success no-op backend
+     * (copy-out leaves the output zeros, which differ from the poison words 1..4)
+     * reaches SUCCESS. The full state machine is tested in tests/test_omega_gpu_engine.c. */
+    omega_gpu_engine_test_set_clock(NULL); /* NULL keeps the default clock */
     memset(&r, 0x7f, sizeof r);
-    CHECK(omega_gpu_execute(&job, &r) == OMEGA_GPU_ENGINE_INTERNAL_INVARIANT);
-    expect_result(&r, OMEGA_GPU_ENGINE_INTERNAL_INVARIANT, OMEGA_GPU_ENGINE_STEP_NOT_IMPLEMENTED);
+    CHECK(omega_gpu_execute(&job, &r) == OMEGA_GPU_ENGINE_OK);
+    CHECK(r.failure == OMEGA_GPU_ENGINE_OK && r.failed_step == OMEGA_GPU_ENGINE_STEP_NONE);
+    CHECK(r.last_state == OMEGA_GPU_ENGINE_STATE_SUCCESS && r.wait == OMEGA_GPU_ENGINE_WAIT_NONE);
+    CHECK(r.retained == 0 && r.cleanup_failed == 0);
+    CHECK(r.n_outputs == 1u && r.output_unchanged_words[0] == 0);
     be.close = NULL;
     memset(&r, 0x7f, sizeof r);
     CHECK(omega_gpu_execute(&job, &r) == OMEGA_GPU_ENGINE_INTERNAL_INVARIANT);

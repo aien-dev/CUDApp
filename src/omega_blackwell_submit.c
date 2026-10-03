@@ -2,6 +2,8 @@
 #include "omega_blackwell_submit.h"
 #include "omega_blackwell_qmd.h"
 #include "omega_blackwell_encoder.h"
+#include "omega_blackwell_engine.h"
+#include "omega_gpu_engine.h"
 #include "m16_native.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,189 +42,90 @@ int omega_blackwell_execute_vector(const OmegaVectorSpec *spec,
         exec_info->zero_cuda_symbols = (omega_blackwell_verify_zero_cuda_symbols(NULL) == 0);
         exec_info->zero_libcuda_runtime = (omega_blackwell_verify_zero_libcuda_runtime() == 0);
     }
+    /* This executor no longer talks to the device itself. It builds the program
+     * and the poison words on the host, hands the job to omega_gpu_execute with
+     * the Blackwell backend (src/omega_blackwell_engine.c), and then does the
+     * arithmetic check here. The engine only checks that no output word is still
+     * equal to its poison word; it never judges the math. */
 
-    M16NativeContext ctx;
-    if (m16_native_open(&ctx) != 0) { return -1; }
-    if (m16_native_create_channel(&ctx) != 0) { m16_native_close(&ctx); return -1; }
-
-    /* Allocate larger pushbuffer ring for unified method stream */
-    NvrmMem large_pb;
-    if (nvrm_alloc(&ctx.rm, 0x10000, &large_pb) != 0) { m16_native_close(&ctx); return -1; }
-    ctx.pb_mem = large_pb;
-
-    /* Allocate device-visible UVM buffers */
-    NvrmMem code_mem, cbank_mem, a_mem, b_mem, c_mem, marker_mem, qmd_mem;
-    size_t vector_bytes = (n * sizeof(uint32_t) + 0xFFFULL) & ~0xFFFULL;
-    if (vector_bytes < 0x1000) vector_bytes = 0x1000;
-
-    if (nvrm_alloc(&ctx.rm, 0x1000, &code_mem) != 0) { m16_native_close(&ctx); return -1; }
-    if (nvrm_alloc(&ctx.rm, 0x1000, &cbank_mem) != 0) { m16_native_close(&ctx); return -1; }
-    if (nvrm_alloc(&ctx.rm, vector_bytes, &a_mem) != 0) { m16_native_close(&ctx); return -1; }
-    if (nvrm_alloc(&ctx.rm, vector_bytes, &b_mem) != 0) { m16_native_close(&ctx); return -1; }
-    if (nvrm_alloc(&ctx.rm, vector_bytes, &c_mem) != 0) { m16_native_close(&ctx); return -1; }
-    if (nvrm_alloc(&ctx.rm, 0x1000, &marker_mem) != 0) { m16_native_close(&ctx); return -1; }
-    if (nvrm_alloc(&ctx.rm, 0x10000, &qmd_mem) != 0) { m16_native_close(&ctx); return -1; }
-    
-
-    /* Emit machine code into code_mem */
+    /* Program bytes. Capacity 0x1000 as before (the code page was 0x1000). */
+    uint8_t code[0x1000];
     size_t encoded_len = 0;
-    if (omega_blackwell_encode_vecadd(code_mem.cpu, code_mem.size, &encoded_len) != 0) {
-        m16_native_close(&ctx);
+    if (omega_blackwell_encode_vecadd(code, sizeof(code), &encoded_len) != 0 || encoded_len == 0) return -1;
+
+    /* Poison words. The expected output word is computed here, on the host,
+     * before launch: expected[i] = (a[i] + b[i]) mod 2^32 (the same sum
+     * omega_vector_verify_oracle uses). The poison word is the bit complement of
+     * it. A word and its bit complement always differ, so a poison word can
+     * never equal the expected output word at the same position. If the device
+     * leaves a word unwritten the engine sees poison and reports
+     * OUTPUT_UNCHANGED. (This replaces the old constant OMEGA_VECTOR_POISON_VALUE,
+     * which could in principle collide with a legitimate sum.) */
+    uint32_t *poison = (uint32_t *)malloc((size_t)n * sizeof(uint32_t));
+    if (!poison) return -1;
+    for (size_t i = 0; i < n; i++) {
+        poison[i] = ~(uint32_t)(h_a[i] + h_b[i]);
+    }
+
+    OmegaGpuJob job;
+    OmegaGpuResult res;
+    memset(&job, 0, sizeof(job));
+    job.program = code;
+    job.program_len = encoded_len;
+    job.layout = OMEGA_GPU_LAYOUT_VECTOR_1D;
+    job.element_count = n;
+    job.input_a = h_a;
+    job.input_a_len = (size_t)n * sizeof(uint32_t);
+    job.input_b = h_b;
+    job.input_b_len = (size_t)n * sizeof(uint32_t);
+    job.output = h_c_out;
+    job.output_len = (size_t)n * sizeof(uint32_t);
+    job.poison = poison;
+    job.poison_count = n;
+    /* 5000 ms is the marker wait this executor always used (the old
+     * m16_native_wait_marker(..., 5000) call). The same limit is used for the
+     * second marker and the semaphore, which the old code did not wait for, and
+     * for the barrier, which has no wait. flags 0 means every protection ON:
+     * the L2 flush and second marker are now part of this launch. */
+    job.timeouts.marker_ms = 5000;
+    job.timeouts.release_semaphore_ms = 5000;
+    job.timeouts.marker2_ms = 5000;
+    job.timeouts.visibility_ms = 5000;
+    job.flags = 0;
+
+    omega_gpu_engine_set_backend(omega_blackwell_engine_backend());
+    int erc = omega_gpu_execute(&job, &res);
+    free(poison);
+    if (erc != OMEGA_GPU_ENGINE_OK) {
+        fprintf(stderr, "GB10_VECTOR_FAIL failure=%s step=%s state=%s drv_rc=%d errno=%d text=\"%s\"\n",
+                omega_gpu_engine_failure_name(res.failure), omega_gpu_engine_step_name(res.failed_step),
+                omega_gpu_engine_state_name(res.last_state), res.drv_rc, res.err_no, res.drv_text);
         return -1;
     }
 
-    /* Populate input buffers A, B and initialize C with poison */
-    memcpy(a_mem.cpu, h_a, n * sizeof(uint32_t));
-    memcpy(b_mem.cpu, h_b, n * sizeof(uint32_t));
-    uint32_t *c_dev = (uint32_t *)c_mem.cpu;
-    for (size_t i = 0; i < n; i++) {
-        c_dev[i] = OMEGA_VECTOR_POISON_VALUE;
-    }
-
-    /* Build driver cbank data and kernel arguments */
-    uint32_t cbank_data[OMEGA_BW_CBANK_DRIVER_WORDS];
-    omega_blackwell_build_cbank_driver(cbank_data, cbank_mem.va);
-
-    uint32_t cbank_args[OMEGA_BW_CBANK_ARGS_WORDS];
-    omega_blackwell_build_cbank_args(cbank_args, a_mem.va, b_mem.va, c_mem.va, n);
-
-    /* Direct coherent CPU copy into cbank_mem */
-    memcpy(cbank_mem.cpu, cbank_data, sizeof(cbank_data));
-    memcpy((uint8_t *)cbank_mem.cpu + 0x380, cbank_args, sizeof(cbank_args));
-
-    /* Configure and build QMD 0 & QMD 1 */
-    uint64_t qmd0_va = qmd_mem.va;
-    uint64_t qmd1_va = qmd_mem.va + 0x1000;
-    uint64_t sem_va  = qmd_mem.va + 0x2000;
-    uint64_t scratch_va = qmd_mem.va + 0x4000;
-
-    OmegaBlackwellQmdConfig qmd_cfg = {
-        .code_va = code_mem.va,
-        .cbank_va = cbank_mem.va,
-        .scratch_va = scratch_va,
-        .sem_va = sem_va,
-        .qmd0_va = qmd0_va,
-        .qmd1_va = qmd1_va,
-        .num_elements = n,
-        .threads_per_block = 64,
-        .grid_width = (n + 63) / 64
-    };
-    if (qmd_cfg.grid_width == 0) qmd_cfg.grid_width = 1;
-
-    uint32_t qmd0_words[OMEGA_BW_QMD_WORDS];
-    uint32_t qmd1_words[OMEGA_BW_QMD_WORDS];
-    omega_blackwell_build_qmd0(qmd0_words, qmd0_va, qmd1_va);
-    omega_blackwell_build_qmd1(qmd1_words, &qmd_cfg);
-
-    /* Verify QMD structural invariants before submission */
-    if (omega_blackwell_verify_qmd_invariants(qmd1_words) != 0) { m16_native_close(&ctx); return -1; }
-
-    memcpy(qmd_mem.cpu, qmd0_words, sizeof(qmd0_words));
-    memcpy((uint8_t *)qmd_mem.cpu + 0x1000, qmd1_words, sizeof(qmd1_words));
-
-    /* Initialize synchronization semaphores in coherent memory */
-    volatile uint32_t *hsem = (volatile uint32_t *)((uint8_t *)qmd_mem.cpu + 0x2000);
-    volatile uint32_t *hmarker = (volatile uint32_t *)marker_mem.cpu;
-    *hsem = 0;
-    *hmarker = 0;
-    __asm__ volatile("dsb sy" ::: "memory");
-
-    /* Assemble unified pushbuffer (481 words) */
-    uint32_t pb[1024];
-    size_t pb_len = 0;
-
-    /* 1. Setup words (18 words) */
-    memcpy(&pb[pb_len], SETUP_WORDS, sizeof(SETUP_WORDS));
-    pb_len += sizeof(SETUP_WORDS) / 4;
-
-    /* 2. Cbank driver data upload (224 words via DMA) */
-    pb[pb_len++] = nvrm_mthd(1, 0x0188, 2);
-    pb[pb_len++] = (uint32_t)(cbank_mem.va >> 32);
-    pb[pb_len++] = (uint32_t)cbank_mem.va;
-    pb[pb_len++] = nvrm_mthd(1, 0x0180, 2);
-    pb[pb_len++] = 0x00000380;
-    pb[pb_len++] = 0x00000001;
-    pb[pb_len++] = nvrm_mthd(1, 0x01b0, 1);
-    pb[pb_len++] = 0x00000041;
-    pb[pb_len++] = (224 << 16) | (1 << 13) | (0x01b4 >> 2) | (6u << 28);
-    memcpy(&pb[pb_len], cbank_data, 224 * 4);
-    pb_len += 224;
-
-    /* 3. Kernel args upload (7 words via DMA) */
-    pb[pb_len++] = nvrm_mthd(1, 0x0188, 2);
-    pb[pb_len++] = (uint32_t)((cbank_mem.va + 0x380) >> 32);
-    pb[pb_len++] = (uint32_t)(cbank_mem.va + 0x380);
-    pb[pb_len++] = nvrm_mthd(1, 0x0180, 2);
-    pb[pb_len++] = 0x0000001c;
-    pb[pb_len++] = 0x00000001;
-    pb[pb_len++] = nvrm_mthd(1, 0x01b0, 1);
-    pb[pb_len++] = 0x00000041;
-    pb[pb_len++] = (7 << 16) | (1 << 13) | (0x01b4 >> 2) | (6u << 28);
-    memcpy(&pb[pb_len], cbank_args, 7 * 4);
-    pb_len += 7;
-
-    /* 4. Inline QMD 0 (98 words: 2 addr + 96 QMD words) */
-    pb[pb_len++] = (98 << 16) | (1 << 13) | (0x0318 >> 2) | (2u << 28);
-    pb[pb_len++] = (1u << 30) | (uint32_t)((qmd0_va >> 40) & 0x1ff);
-    pb[pb_len++] = (uint32_t)(qmd0_va >> 8);
-    memcpy(&pb[pb_len], qmd0_words, 96 * 4);
-    pb_len += 96;
-
-    /* 5. Intermediate semaphore upload (1 word = 5 via DMA) */
-    pb[pb_len++] = nvrm_mthd(1, 0x0188, 2);
-    pb[pb_len++] = (uint32_t)(sem_va >> 32);
-    pb[pb_len++] = (uint32_t)sem_va;
-    pb[pb_len++] = nvrm_mthd(1, 0x0180, 2);
-    pb[pb_len++] = 0x00000004;
-    pb[pb_len++] = 0x00000001;
-    pb[pb_len++] = nvrm_mthd(1, 0x01b0, 1);
-    pb[pb_len++] = 0x00000041;
-    pb[pb_len++] = (1 << 16) | (1 << 13) | (0x01b4 >> 2) | (6u << 28);
-    pb[pb_len++] = OMEGA_BW_SEMAPHORE_INTERMEDIATE_INIT;
-
-    /* 6. Inline QMD 1 (98 words: 2 addr + 96 QMD words) */
-    pb[pb_len++] = (98 << 16) | (1 << 13) | (0x0318 >> 2) | (2u << 28);
-    pb[pb_len++] = (1u << 30) | (uint32_t)((qmd1_va >> 40) & 0x1ff);
-    pb[pb_len++] = (uint32_t)(qmd1_va >> 8);
-    memcpy(&pb[pb_len], qmd1_words, 96 * 4);
-    pb_len += 96;
-
-    /* 7. Subchannel 0 completion release (WFI) */
-    pb[pb_len++] = nvrm_mthd(0, 0x005c, 5);
-    pb[pb_len++] = (uint32_t)marker_mem.va;
-    pb[pb_len++] = (uint32_t)(marker_mem.va >> 32);
-    pb[pb_len++] = OMEGA_BW_MARKER_COMPLETION_PAYLOAD;
-    pb[pb_len++] = 0;
-    pb[pb_len++] = 0x1 | (1u << 20); // RELEASE | WFI
-
-    /* Record timestamp and submit methods to hardware GPFIFO ring */
-    uint64_t t_start = current_time_ns();
-    if (m16_native_submit_methods(&ctx, pb, pb_len) != 0) { m16_native_close(&ctx); return -1; }
-
-    /* Wait for hardware completion marker */
-    if (m16_native_wait_marker(hmarker, OMEGA_BW_MARKER_COMPLETION_PAYLOAD, 5000) != 0) { m16_native_close(&ctx); return -1; }
-    uint64_t t_end = current_time_ns();
-
-    /* Validate intermediate semaphore updated to 6 */
-    if (*hsem != OMEGA_BW_SEMAPHORE_INTERMEDIATE_DONE) { m16_native_close(&ctx); return -1; }
-
-    /* Copy device output back to host */
-    memcpy(h_c_out, c_mem.cpu, n * sizeof(uint32_t));
+    /* The engine returns only pass or fail. The marker, the semaphore and the
+     * timestamps come from what the backend observed in its own wait callbacks
+     * (the engine result carries them only on failure). Both values were
+     * already required by the backend; checked again here because the gates
+     * depend on them: marker payload 0x44444444, semaphore DONE (6). */
+    OmegaBlackwellEngineRunInfo info;
+    omega_blackwell_engine_run_info(&info);
+    if (info.marker != OMEGA_BW_MARKER_COMPLETION_PAYLOAD) return -1;
+    if (info.semaphore != OMEGA_BW_SEMAPHORE_INTERMEDIATE_DONE) return -1;
 
     /* Verify against OMEGA semantic oracle */
     size_t mismatch_idx = 0;
     int parity_res = omega_vector_verify_oracle(h_a, h_b, h_c_out, n, &mismatch_idx);
 
     if (exec_info) {
-        exec_info->launch_timestamp_ns = t_start;
-        exec_info->completion_timestamp_ns = t_end;
-        exec_info->elapsed_ns = (t_end > t_start) ? (t_end - t_start) : 0;
-        exec_info->completion_marker = *hmarker;
-        exec_info->intermediate_semaphore = *hsem;
+        exec_info->launch_timestamp_ns = info.launch_ns;
+        exec_info->completion_timestamp_ns = info.marker_done_ns;
+        exec_info->elapsed_ns = (info.marker_done_ns > info.launch_ns) ? (info.marker_done_ns - info.launch_ns) : 0;
+        exec_info->completion_marker = info.marker;
+        exec_info->intermediate_semaphore = info.semaphore;
         exec_info->parity_verified = (parity_res == 0);
     }
 
-    m16_native_close(&ctx);
     return parity_res;
 }
 

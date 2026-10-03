@@ -44,7 +44,9 @@ typedef struct {
     bool zero_libcuda_runtime;
 } OmegaBlackwellMatMulExecution;
 
-/* Execute vector addition on physical GB10 silicon through frozen M16 native submission */
+/* Execute vector addition on physical GB10 silicon. Since cut A3b1 (DRAFT, chip-unproven) the
+ * device sequence runs through omega_gpu_execute with the Blackwell backend in
+ * src/omega_blackwell_engine.c; this wrapper keeps the host oracle and the result fields. */
 int omega_blackwell_execute_vector(const OmegaVectorSpec *spec,
                                   const OmegaBlackwellRealization *real,
                                   const uint32_t *h_a,
