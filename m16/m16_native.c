@@ -44,8 +44,9 @@ int m16_native_free_memory(M16NativeContext *ctx, void *cpu_addr) {
 int m16_native_create_channel(M16NativeContext *ctx) {
     if (!ctx) return -1;
     if (nvrm_channel(&ctx->rm) != 0) return -1;
-    /* Preallocate pushbuffer memory (4 KiB) */
-    if (nvrm_alloc(&ctx->rm, 0x1000, &ctx->pb_mem) != 0) return -1;
+    /* The CPU rewrites this command buffer between retired submissions.
+     * Bypass the GPU cache so the next submission reads the new commands. */
+    if (nvrm_alloc_gpu_uncached(&ctx->rm, 0x1000, &ctx->pb_mem) != 0) return -1;
     return 0;
 }
 

@@ -625,7 +625,10 @@ int nvrm_channel(Nvrm *rm) {
     if (rm_alloc(rm, rm->chgroup, FERMI_CONTEXT_SHARE_A, &cs, sizeof cs, &rm->ctxshare)) return -1;
 
     rm->entries = 1024;
-    if (nvrm_alloc(rm, 0x10000, &rm->fifo)) return -1;
+    /* CPU publishes new queue entries and USERD GPPut after each completion.
+     * A GPU-cached allocation can retain their previous contents on GB10;
+     * CPU store barriers alone do not invalidate that cached copy. */
+    if (nvrm_alloc_gpu_uncached(rm, 0x10000, &rm->fifo)) return -1;
     if (nvrm_alloc(rm, 0x100000, &rm->notifier)) return -1;
 
     NV_CHANNEL_ALLOC_PARAMS gp;
