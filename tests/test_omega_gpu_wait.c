@@ -232,6 +232,31 @@ static int scenario(const char *name, WaitFn fx, WaitFn sq, int which) {
     return g_fail - before;
 }
 
+/* CHIPWAIT-1c: QUEUE_WRAP marker2 pattern (src/omega_world_gates.c). Every entry of a
+ * batch but the last writes its dispatch_id to marker2; the last writes the sentinel
+ * 0x46464646. A sequence wait for the sentinel must not accept dispatch ids (even a
+ * high one), and must pass when the sentinel lands. */
+static int sentinel_batch(void) {
+    volatile uint32_t w2 = 0;
+    Fake f;
+    omega_gpu_wait_cfg_t cfg;
+    omega_gpu_wait_report_t r;
+    int before = g_fail;
+    setup(&f, &cfg);
+    for (uint32_t id = 1; id <= 15; id++) sched(&f, id, &w2, 3000u + id);
+    bool ok = omega_gpu_wait_sequence(&w2, 0x46464646u, &r, &cfg);
+    CHECK(!ok && r.result == OMEGA_GPU_WAIT_STALLED && r.last_observed == 3015u,
+          "sentinel: dispatch ids alone must not satisfy the sentinel wait (got %d, observed %u)", r.result, r.last_observed);
+    w2 = 0;
+    setup(&f, &cfg);
+    for (uint32_t id = 1; id <= 15; id++) sched(&f, id, &w2, 3000u + id);
+    sched(&f, 16, &w2, 0x46464646u);
+    ok = omega_gpu_wait_sequence(&w2, 0x46464646u, &r, &cfg);
+    CHECK(ok && r.result == OMEGA_GPU_WAIT_PASS && r.last_observed == 0x46464646u,
+          "sentinel: last entry's sentinel passes (got %d, observed %u)", r.result, r.last_observed);
+    return g_fail - before;
+}
+
 typedef struct {
     const char *label;
     WaitFn fx, sq;
@@ -243,6 +268,7 @@ int main(void) {
         int bad = scenario(names[s], omega_gpu_wait_fixed, omega_gpu_wait_sequence, s);
         printf("real  %-28s %s\n", names[s], bad ? "FAIL" : "ok");
     }
+    { int bad = sentinel_batch(); printf("real  %-28s %s\n", "queue_wrap_sentinel", bad ? "FAIL" : "ok"); }
     int real_fail = g_fail;
 
     const Mutant muts[] = {
