@@ -5,6 +5,7 @@
 #include "omega_blackwell_engine.h"
 #include "omega_gpu_engine.h"
 #include "m16_native.h"
+#include "omega_gpu_wait.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -130,6 +131,30 @@ int omega_blackwell_execute_vector(const OmegaVectorSpec *spec,
     }
 
     return parity_res;
+}
+
+/* CHIPWAIT-2: the two direct launchers wait through the shared primitive
+ * (src/omega_gpu_wait.c): exact-value wait on the marker with marker2 required
+ * (marker2 lands only after the L2 flush, so the output is in memory), progress
+ * stall 5000 ms (the old budget), hard total 600000 ms. One tagged line on failure.
+ * The engine-routed launcher keeps the engine's own timed waits. */
+static int bw_wait_one(const char *site, const char *what, volatile uint32_t *w, uint32_t want,
+                       volatile uint32_t *m2, uint32_t m2want) {
+    omega_gpu_wait_cfg_t cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    cfg.progress_timeout_ms = 5000;
+    cfg.total_timeout_ms = 600000;
+    cfg.marker2 = m2;
+    cfg.marker2_want = m2want;
+    omega_gpu_wait_report_t r;
+    if (omega_gpu_wait_fixed(w, want, &r, &cfg)) return 0;
+    fprintf(stderr,
+            "BW_WAIT_FAIL site=%s wait=%s kind=%s result=%s expected=0x%x observed=0x%x "
+            "marker2_observed=0x%x elapsed_ns=%llu progress_count=%llu polls=%llu\n",
+            site, what, omega_gpu_wait_kind_name(r.wait_kind), omega_gpu_wait_result_name(r.result),
+            r.expected, r.last_observed, r.last_marker2, (unsigned long long)r.elapsed_ns,
+            (unsigned long long)r.progress_count, (unsigned long long)r.polls);
+    return -1;
 }
 
 int omega_blackwell_execute_matmul(const OmegaMatMulSpec *spec,
@@ -339,9 +364,8 @@ int omega_blackwell_execute_matmul(const OmegaMatMulSpec *spec,
     if (m16_native_submit_methods(&ctx, pb, pb_len) != 0) { m16_native_close(&ctx); return -1; }
 
     /* Wait for hardware completion marker */
-    if (m16_native_wait_marker(hmarker, OMEGA_BW_MARKER_COMPLETION_PAYLOAD, 5000) != 0) { m16_native_close(&ctx); return -1; }
-    /* C3: the second release lands only after the L2 flush, so the output is in memory. */
-    if (m16_native_wait_marker(hmarker2, OMEGA_BW_MARKER2_PAYLOAD, 5000) != 0) { m16_native_close(&ctx); return -1; }
+    /* CHIPWAIT-2: marker with marker2 required (C3: the second release lands only after the L2 flush). */
+    if (bw_wait_one(__func__, "marker", hmarker, OMEGA_BW_MARKER_COMPLETION_PAYLOAD, hmarker2, OMEGA_BW_MARKER2_PAYLOAD) != 0) { m16_native_close(&ctx); return -1; }
     __asm__ volatile("dsb sy" ::: "memory");
     uint64_t t_end = current_time_ns();
 
@@ -580,9 +604,8 @@ int omega_blackwell_execute_matmul_tensor(const OmegaMatMulSpec *spec,
     uint64_t t_start = current_time_ns();
     if (m16_native_submit_methods(&ctx, pb, pb_len) != 0) { m16_native_close(&ctx); return -1; }
 
-    if (m16_native_wait_marker(hmarker, OMEGA_BW_MARKER_COMPLETION_PAYLOAD, 5000) != 0) { m16_native_close(&ctx); return -1; }
-    /* C3: the second release lands only after the L2 flush, so the output is in memory. */
-    if (m16_native_wait_marker(hmarker2, OMEGA_BW_MARKER2_PAYLOAD, 5000) != 0) { m16_native_close(&ctx); return -1; }
+    /* CHIPWAIT-2: marker with marker2 required (C3: the second release lands only after the L2 flush). */
+    if (bw_wait_one(__func__, "marker", hmarker, OMEGA_BW_MARKER_COMPLETION_PAYLOAD, hmarker2, OMEGA_BW_MARKER2_PAYLOAD) != 0) { m16_native_close(&ctx); return -1; }
     __asm__ volatile("dsb sy" ::: "memory");
     uint64_t t_end = current_time_ns();
 
