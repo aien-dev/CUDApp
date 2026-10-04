@@ -5,9 +5,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define OMEGA_BW_MATMUL_MAX_M   1024
-#define OMEGA_BW_MATMUL_MAX_K   1024
-#define OMEGA_BW_MATMUL_MAX_N   1024
+#define OMEGA_BW_MATMUL_MAX_M   8192
+#define OMEGA_BW_MATMUL_MAX_K   16384
+#define OMEGA_BW_MATMUL_MAX_N   262144
 
 /* Precision modes for Milestone 18 tensor matrix multiplication */
 typedef enum {

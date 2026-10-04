@@ -161,6 +161,21 @@ int omega_blackwell_codegen_matmul_i32(const OmegaMatMulSpec *spec, OmegaBlackwe
 int omega_blackwell_codegen_matmul_tensor_prog(const OmegaMatMulSpec *spec, BlackwellIRProgram *prog);
 int omega_blackwell_codegen_matmul_tensor(const OmegaMatMulSpec *spec, OmegaBlackwellKernel *kernel);
 
+/* FB-1 cut 1b: looped Tensor Core matmul. One warp per CTA. CTA (x, y) owns row
+ * tile y (16 rows) and column tiles x, x + grid_x, x + 2 grid_x, ... (8 columns
+ * each); the whole K dimension is accumulated in the HMMA accumulator on the
+ * chip (no host K slicing). Requires M % 16 == 0, N % 8 == 0, K % 16 == 0 and
+ * 1 <= grid_x <= N / 8. The kernel does not depend on M (rows come from
+ * CTAID.Y), so one kernel serves every row count of a (K, N, grid_x) triple.
+ * Uses only instructions already present in the chip-proven single-tile kernel
+ * plus the predicated backward BRA and ISETP.GE this IR already encodes.
+ * mutant != 0 drops the last K step (test oracle: the wrong kernel must be
+ * caught by the parity test; never set in production). */
+int omega_blackwell_codegen_matmul_tensor_loop_prog(const OmegaMatMulSpec *spec, uint32_t grid_x,
+                                                    int mutant, BlackwellIRProgram *prog);
+int omega_blackwell_codegen_matmul_tensor_loop(const OmegaMatMulSpec *spec, uint32_t grid_x,
+                                               int mutant, OmegaBlackwellKernel *kernel);
+
 /* Unit test for instruction encoding bitfield fixtures (Gate 3) */
 int omega_blackwell_verify_codegen_fixtures(void);
 

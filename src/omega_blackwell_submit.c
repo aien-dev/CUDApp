@@ -13,7 +13,6 @@
 
 /* Second completion marker payload for the C3 tail (marker page + 0x10), the same value as
  * src/omega_blackwell_engine.c BE_MARKER2_PAYLOAD and src/omega_numeric_divsqrt_gb10.c:1152. */
-#define OMEGA_BW_MARKER2_PAYLOAD 0x46464646u
 
 static const uint32_t SETUP_WORDS[18] = {
     0x20012061, 0x0000cec0, 0x20012092, 0x00000001, 0x200120a8, 0x0000000f, 0x2001255d, 0x00000003,
