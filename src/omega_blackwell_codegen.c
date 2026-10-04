@@ -667,9 +667,74 @@ static int encode_single_insn(const BlackwellIRInsn *insn, const OmegaRegAlloc *
             break;
         }
 
+        case BW_IR_MUFU_EX2:
+            /* MUFU.EX2 Rd, Ra. nvdisasm 13.0 -b SM121: 0x7308 with sub-op 0x0800 decodes
+             * "MUFU.EX2 R2, R4" (RCP is 0x1000, RSQ 0x1400 above). */
+            w[0] = 0x7308U | ((uint32_t)(dst & 0xff) << 16);
+            w[1] = (uint32_t)(src1 & 0xff);
+            w[2] = 0x00000800;
+            w[3] = insn->control ? insn->control : 0x000e2400;
+            break;
+
+        case BW_IR_BAR_SYNC:
+            /* BAR.SYNC.DEFER_BLOCKING 0x0: the exact words src/omega_numeric.c:885 runs on
+             * the chip (nvdisasm: "BAR.SYNC.DEFER_BLOCKING 0x0"). No registers. */
+            w[0] = 0x00007b1dU;
+            w[1] = 0x00000000;
+            w[2] = 0x00010000;
+            w[3] = insn->control ? insn->control : 0x000fec00;
+            break;
+
+        case BW_IR_LDS32:
+            /* LDS Rd, [Ra+URZ] (32-bit), the src/omega_numeric.c:886 form. */
+            w[0] = 0x7984U | ((uint32_t)(dst & 0xff) << 16) | ((uint32_t)(src1 & 0xff) << 24);
+            w[1] = 0x000000ff;
+            w[2] = 0x08000800;
+            w[3] = insn->control ? insn->control : 0x000e2800;
+            break;
+
+        case BW_IR_STS32:
+            /* STS [Ra+URZ], Rb (32-bit), the src/omega_numeric.c:884 form. */
+            w[0] = 0x7988U | ((uint32_t)(src1 & 0xff) << 24);
+            w[1] = (uint32_t)(src2 & 0xff);
+            w[2] = 0x080008ffU;
+            w[3] = insn->control ? insn->control : 0x000fe200;
+            break;
+
         default:
             return -1;
     }
+    return 0;
+}
+
+/* FB-1 cut 4: word-level fixtures for the four additive ops (checked against the
+ * nvdisasm decodes recorded in docs/numeric/FB1_CUT4_ELEMENTWISE.md). 0 = all good. */
+int omega_blackwell_verify_codegen_fixtures_fb1cut4(void) {
+    OmegaRegAlloc ra;
+    memset(&ra, 0, sizeof(ra));
+    ra.vreg_to_phys[0] = 2;  /* R2 */
+    ra.vreg_to_phys[1] = 4;  /* R4 */
+    ra.vreg_to_phys[2] = 9;  /* R9 */
+    ra.vreg_to_phys[3] = 10; /* R10 */
+    ra.vreg_to_phys[4] = 8;  /* R8 */
+    uint32_t w[4];
+
+    /* MUFU.EX2 R2, R4 */
+    BlackwellIRInsn ex2 = { .op = BW_IR_MUFU_EX2, .dst_vreg = 0, .src1_vreg = 1 };
+    if (encode_single_insn(&ex2, &ra, w) != 0) return -1;
+    if (w[0] != 0x00027308U || w[1] != 4 || w[2] != 0x00000800U) return -2;
+    /* BAR.SYNC.DEFER_BLOCKING 0x0 */
+    BlackwellIRInsn bar = { .op = BW_IR_BAR_SYNC };
+    if (encode_single_insn(&bar, &ra, w) != 0) return -3;
+    if (w[0] != 0x00007b1dU || w[1] != 0 || w[2] != 0x00010000U || w[3] != 0x000fec00U) return -4;
+    /* LDS R9, [R10+URZ] */
+    BlackwellIRInsn lds = { .op = BW_IR_LDS32, .dst_vreg = 2, .src1_vreg = 3 };
+    if (encode_single_insn(&lds, &ra, w) != 0) return -5;
+    if (w[0] != 0x0a097984U || w[1] != 0xff || w[2] != 0x08000800U) return -6;
+    /* STS [R8+URZ], R2 */
+    BlackwellIRInsn sts = { .op = BW_IR_STS32, .src1_vreg = 4, .src2_vreg = 0 };
+    if (encode_single_insn(&sts, &ra, w) != 0) return -7;
+    if (w[0] != 0x08007988U || w[1] != 2 || w[2] != 0x080008ffU) return -8;
     return 0;
 }
 

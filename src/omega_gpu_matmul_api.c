@@ -251,8 +251,9 @@ static int launch(const CacheSlot *ks, uint64_t a_va, uint64_t b_va, uint64_t c_
      * 128x16x512 hung, all after the eighth distinct kernel). Method and bits
      * from NVIDIA open-gpu-doc classes/compute/clcec0.h (BLACKWELL_COMPUTE_B):
      * NVCEC0_INVALIDATE_SHADER_CACHES 0x021c, INSTRUCTION 0:0, DATA 4:4,
-     * CONSTANT 12:12 (the 0x021c form waits for idle first). */
-    pb[n++] = nvrm_mthd(1, 0x021c, 1); pb[n++] = (1u << 0) | (1u << 4) | (1u << 12);
+     * CONSTANT 12:12 (the 0x021c form waits for idle first). Shared constants in
+     * omega_blackwell_submit.h so every launcher emits the same words. */
+    pb[n++] = nvrm_mthd(1, OMEGA_BW_MTHD_INVALIDATE_SHADER_CACHES, 1); pb[n++] = OMEGA_BW_INVALIDATE_SHADER_CACHES_ALL;
     /* constant bank 0: driver words then our arguments at 0x380 (inline upload, same as cut 1) */
     pb[n++] = nvrm_mthd(1, 0x0188, 2); pb[n++] = (uint32_t)(g.cbank.va >> 32); pb[n++] = (uint32_t)g.cbank.va;
     pb[n++] = nvrm_mthd(1, 0x0180, 2); pb[n++] = 0x00000380; pb[n++] = 0x00000001;

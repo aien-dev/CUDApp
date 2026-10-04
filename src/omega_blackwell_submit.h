@@ -11,6 +11,16 @@
 
 #define OMEGA_BW_MARKER_COMPLETION_PAYLOAD 0x44444444U
 #define OMEGA_BW_MARKER2_PAYLOAD 0x46464646u /* C3 second release, after the L2 flush */
+/* Shader-cache invalidate, emitted as the first compute method of every launch that
+ * uploads kernel code (cut 1b finding: the SM instruction cache is not coherent with
+ * host writes; after a kernel-cache slot was evicted and its code address reused, the
+ * chip ran stale instructions). Method and bits from NVIDIA open-gpu-doc
+ * classes/compute/clcec0.h (BLACKWELL_COMPUTE_B): NVCEC0_INVALIDATE_SHADER_CACHES 0x021c,
+ * _INSTRUCTION 0:0, _DATA 4:4, _CONSTANT 12:12. The shipped driver tree's clcec0.h is a
+ * 30-line class-id stub and does not list the method; chip-proven by receipt
+ * FB1-CUT1B-4345406 (18/18 parity after the fix). Emit: nvrm_mthd(1, MTHD, 1), ALL. */
+#define OMEGA_BW_MTHD_INVALIDATE_SHADER_CACHES 0x021cu
+#define OMEGA_BW_INVALIDATE_SHADER_CACHES_ALL ((1u << 0) | (1u << 4) | (1u << 12))
 #define OMEGA_BW_SEMAPHORE_INTERMEDIATE_INIT 5U
 #define OMEGA_BW_SEMAPHORE_INTERMEDIATE_DONE 6U
 
