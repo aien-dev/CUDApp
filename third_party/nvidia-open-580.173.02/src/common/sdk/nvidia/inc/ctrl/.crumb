@@ -1,8 +1,4 @@
 {
-  "schema_version": "1.0.0",
-  "name": "third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl",
-  "layer": "third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl",
-  "purpose": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl. Purpose not yet described by a human.",
   "above": {
     "name": "third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc",
     "path": ".."
@@ -30,8 +26,66 @@
     }
   ],
   "extensions": {
+    "generated": {
+      "children": [
+        {
+          "digest": "eacb592cb12ebfd43f2f0be422992b9265f2cd5bbfbcce78d6b9b02936a9eb80",
+          "last_commit": "b64753d",
+          "name": "ctrl0000",
+          "purpose": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl/ctrl0000. Purpose no"
+        },
+        {
+          "digest": "0651f80871a082cce813d34b07c57f521c671f994e305ec43f9fb7a04a121fea",
+          "last_commit": "b64753d",
+          "name": "ctrl0073",
+          "purpose": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl/ctrl0073. Purpose no"
+        },
+        {
+          "digest": "6b48858fc0ab491092824cf3906b1a9059bb302c5bf85a6b2172853c11380f01",
+          "last_commit": "b64753d",
+          "name": "ctrl0080",
+          "purpose": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl/ctrl0080. Purpose no"
+        },
+        {
+          "digest": "e1ef697fcab894fd2b7f605e2d4795cbf2a47c6ac112e5872213e45254be0c2c",
+          "last_commit": "b64753d",
+          "name": "ctrl2080",
+          "purpose": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl/ctrl2080. Purpose no"
+        },
+        {
+          "digest": "f8e0e602ebd293a1fc76c1b40cceb37cc6e1e07e9a976944a337c7db5758f1bb",
+          "last_commit": "b64753d",
+          "name": "ctrla06f",
+          "purpose": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl/ctrla06f. Purpose no"
+        }
+      ],
+      "children_root": "sha256:a5ae89937300c375a24d1f3349cea867c6616cace80e95d68747acfd0ea39a1b",
+      "compiled_at": "2026-10-04T13:47:27Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:eca44626244a019cb3a3590159ebfaaac980be14ea3c78987e8f6823f7218dc2",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 25,
+      "generated_at_commit": "e0be0e765af3353984b65f8c822a5bb9616272de",
+      "source_tree": "sha256:6f753325bd3d734125a7bbbd20828eeb4763db90b948db19eb773d1bfc953994"
+    },
+    "owner_lane": "",
+    "provenance": {
+      "entries": [
+        {
+          "author": "aien-dev",
+          "pr": 11,
+          "sha": "b64753d",
+          "source": "backfill-git",
+          "subject": "fix(m16): corrective requalification of native Blackwell path without libcuda (#11)",
+          "timestamp": "2026-09-26T08:16:00-05:00"
+        }
+      ],
+      "ledger_cap": 20,
+      "source": "backfill",
+      "total_commits": 1
+    },
     "seed": {
-      "purpose_auto": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl. Purpose not yet described by a human.",
       "files": [
         "ctrl30f1.h",
         "ctrl906f.h",
@@ -39,23 +93,12 @@
         "ctrla06c.h",
         "ctrlc36f.h",
         "ctrlxxxx.h"
-      ]
-    },
-    "owner_lane": "",
-    "provenance": {
-      "source": "backfill",
-      "total_commits": 1,
-      "ledger_cap": 20,
-      "entries": [
-        {
-          "source": "backfill-git",
-          "sha": "b64753d",
-          "timestamp": "2026-09-26T08:16:00-05:00",
-          "author": "aien-dev",
-          "subject": "fix(m16): corrective requalification of native Blackwell path without libcuda (#11)",
-          "pr": 11
-        }
-      ]
+      ],
+      "purpose_auto": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl. Purpose not yet described by a human."
     }
-  }
+  },
+  "layer": "third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl",
+  "name": "third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl",
+  "purpose": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl. Purpose not yet described by a human.",
+  "schema_version": "1.0.0"
 }

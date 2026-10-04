@@ -1,8 +1,4 @@
 {
-  "schema_version": "1.0.0",
-  "name": "third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc",
-  "layer": "third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc",
-  "purpose": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc. Purpose not yet described by a human.",
   "above": {
     "name": "third_party/nvidia-open-580.173.02",
     "path": "../../../../.."
@@ -22,8 +18,54 @@
     }
   ],
   "extensions": {
+    "generated": {
+      "children": [
+        {
+          "digest": "6b1d9047ab9513dc4c7e11774d0b387e4519e03793811a9db1d40570d3213041",
+          "last_commit": "b64753d",
+          "name": "alloc",
+          "purpose": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/alloc. Purpose not yet de"
+        },
+        {
+          "digest": "4c4fb7cfec90f9aeadcf10bdb8190e21bd01dfdebc609314b0025192a649f324",
+          "last_commit": "b64753d",
+          "name": "class",
+          "purpose": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/class. Purpose not yet de"
+        },
+        {
+          "digest": "eca44626244a019cb3a3590159ebfaaac980be14ea3c78987e8f6823f7218dc2",
+          "last_commit": "b64753d",
+          "name": "ctrl",
+          "purpose": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl. Purpose not yet des"
+        }
+      ],
+      "children_root": "sha256:2b1cd5a10c1dade6f841280e2d799373aad96eb07c7f50d15461401c30eb61e7",
+      "compiled_at": "2026-10-04T13:47:27Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:e84ac08773c5f8c57312e87f637a58e633a267e56ab5d3e373cb9a24adb4d136",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 57,
+      "generated_at_commit": "e0be0e765af3353984b65f8c822a5bb9616272de",
+      "source_tree": "sha256:5bac34f23c8fa0a9e4a416c1656c872ccacf1d4b2834f43a5bffc6cba3c11312"
+    },
+    "owner_lane": "",
+    "provenance": {
+      "entries": [
+        {
+          "author": "aien-dev",
+          "pr": 11,
+          "sha": "b64753d",
+          "source": "backfill-git",
+          "subject": "fix(m16): corrective requalification of native Blackwell path without libcuda (#11)",
+          "timestamp": "2026-09-26T08:16:00-05:00"
+        }
+      ],
+      "ledger_cap": 20,
+      "source": "backfill",
+      "total_commits": 1
+    },
     "seed": {
-      "purpose_auto": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc. Purpose not yet described by a human.",
       "files": [
         "cc_drv.h",
         "cpuopsys.h",
@@ -38,23 +80,12 @@
         "nvstatuscodes.h",
         "nvtypes.h",
         "rs_access.h"
-      ]
-    },
-    "owner_lane": "",
-    "provenance": {
-      "source": "backfill",
-      "total_commits": 1,
-      "ledger_cap": 20,
-      "entries": [
-        {
-          "source": "backfill-git",
-          "sha": "b64753d",
-          "timestamp": "2026-09-26T08:16:00-05:00",
-          "author": "aien-dev",
-          "subject": "fix(m16): corrective requalification of native Blackwell path without libcuda (#11)",
-          "pr": 11
-        }
-      ]
+      ],
+      "purpose_auto": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc. Purpose not yet described by a human."
     }
-  }
+  },
+  "layer": "third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc",
+  "name": "third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc",
+  "purpose": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc. Purpose not yet described by a human.",
+  "schema_version": "1.0.0"
 }

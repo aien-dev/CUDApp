@@ -1,36 +1,48 @@
 {
-  "schema_version": "1.0.0",
-  "name": "third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl/ctrl0000",
-  "layer": "third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl/ctrl0000",
-  "purpose": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl/ctrl0000. Purpose not yet described by a human.",
   "above": {
     "name": "third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl",
     "path": ".."
   },
   "extensions": {
+    "generated": {
+      "children": [],
+      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiled_at": "2026-10-04T13:47:27Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:eacb592cb12ebfd43f2f0be422992b9265f2cd5bbfbcce78d6b9b02936a9eb80",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 3,
+      "generated_at_commit": "e0be0e765af3353984b65f8c822a5bb9616272de",
+      "source_tree": "sha256:f6ade6539d311b4fed6ad1c48546a57309f449b60a9995ba4217dc83d89339ea"
+    },
+    "owner_lane": "",
+    "provenance": {
+      "entries": [
+        {
+          "author": "aien-dev",
+          "pr": 11,
+          "sha": "b64753d",
+          "source": "backfill-git",
+          "subject": "fix(m16): corrective requalification of native Blackwell path without libcuda (#11)",
+          "timestamp": "2026-09-26T08:16:00-05:00"
+        }
+      ],
+      "ledger_cap": 20,
+      "source": "backfill",
+      "total_commits": 1
+    },
     "seed": {
-      "purpose_auto": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl/ctrl0000. Purpose not yet described by a human.",
       "files": [
         "ctrl0000base.h",
         "ctrl0000gpu.h",
         "ctrl0000system.h"
-      ]
-    },
-    "owner_lane": "",
-    "provenance": {
-      "source": "backfill",
-      "total_commits": 1,
-      "ledger_cap": 20,
-      "entries": [
-        {
-          "source": "backfill-git",
-          "sha": "b64753d",
-          "timestamp": "2026-09-26T08:16:00-05:00",
-          "author": "aien-dev",
-          "subject": "fix(m16): corrective requalification of native Blackwell path without libcuda (#11)",
-          "pr": 11
-        }
-      ]
+      ],
+      "purpose_auto": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl/ctrl0000. Purpose not yet described by a human."
     }
-  }
+  },
+  "layer": "third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl/ctrl0000",
+  "name": "third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl/ctrl0000",
+  "purpose": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc/ctrl/ctrl0000. Purpose not yet described by a human.",
+  "schema_version": "1.0.0"
 }

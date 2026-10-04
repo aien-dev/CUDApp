@@ -1,8 +1,4 @@
 {
-  "schema_version": "1.0.0",
-  "name": "third_party/nvidia-open-580.173.02",
-  "layer": "third_party/nvidia-open-580.173.02",
-  "purpose": "Directory third_party/nvidia-open-580.173.02. Purpose not yet described by a human.",
   "above": {
     "name": "third_party",
     "path": ".."
@@ -18,28 +14,44 @@
     }
   ],
   "extensions": {
-    "seed": {
-      "purpose_auto": "Directory third_party/nvidia-open-580.173.02. Purpose not yet described by a human.",
-      "files": [
-        "COPYING",
-        "SHA256SUMS"
-      ]
+    "generated": {
+      "children": [],
+      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiled_at": "2026-10-04T13:47:27Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:f868e96a89e9f5d71e6243a5ccbb0aa690e99feccb7ceddee5a40bbc412cbd58",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 69,
+      "generated_at_commit": "e0be0e765af3353984b65f8c822a5bb9616272de",
+      "source_tree": "sha256:a7cf927570805606944f84b683cc89e7ced0708fa4e3023ae6f844a082d32611"
     },
     "owner_lane": "",
     "provenance": {
-      "source": "backfill",
-      "total_commits": 1,
-      "ledger_cap": 20,
       "entries": [
         {
-          "source": "backfill-git",
-          "sha": "b64753d",
-          "timestamp": "2026-09-26T08:16:00-05:00",
           "author": "aien-dev",
+          "pr": 11,
+          "sha": "b64753d",
+          "source": "backfill-git",
           "subject": "fix(m16): corrective requalification of native Blackwell path without libcuda (#11)",
-          "pr": 11
+          "timestamp": "2026-09-26T08:16:00-05:00"
         }
-      ]
+      ],
+      "ledger_cap": 20,
+      "source": "backfill",
+      "total_commits": 1
+    },
+    "seed": {
+      "files": [
+        "COPYING",
+        "SHA256SUMS"
+      ],
+      "purpose_auto": "Directory third_party/nvidia-open-580.173.02. Purpose not yet described by a human."
     }
-  }
+  },
+  "layer": "third_party/nvidia-open-580.173.02",
+  "name": "third_party/nvidia-open-580.173.02",
+  "purpose": "Directory third_party/nvidia-open-580.173.02. Purpose not yet described by a human.",
+  "schema_version": "1.0.0"
 }
