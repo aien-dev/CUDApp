@@ -237,13 +237,22 @@ static void gen_attention(Em *e, const KSpec *k) {
     int j = V(e), s = V(e), koff = V(e);
     int bi = V(e), sl = V(e), ta = V64(e), blk = V(e), ka = V64(e), dot = V(e), d = V(e);
     int x = V(e), lo = V(e), hi = V(e), qa = V(e), qb = V(e), q0 = V(e), q1 = V(e), ka2 = V64(e), j1 = V(e);
+    int dneg = V(e), over = V(e), ot = V(e), ctxm1 = V(e), cm1 = V(e), cninf = V(e), nb = V(e), ns = V(e);
+    movi(e, cm1, 0xFFFFFFFFu); iadd3(e, ctxm1, ctx, cm1); movi(e, cninf, F32_NEG_INF);
     loop_begin(e);
     int Lout = here(e);
+    /* No branch here: a warp split by "j >= ctx" stays split (the IR has no reconvergence
+     * instruction) and the SHFL reductions below then read inactive lanes, which is undefined
+     * (wrong dims tid >= tail on the chip, 2026-10-04). over = (j >= ctx) as 0/1 from the sign of
+     * ctx-1-j; out-of-range lanes read token `base` (always < ctx here) and their score
+     * is forced to -inf after the dot product with s = -max(-s, nb), nb = -inf or +inf. */
     iadd3(e, j, base, tid);
     movi(e, s, F32_NEG_INF);
     movrz(e, koff);
-    isetp_ge_u32(e, j, ctx);
-    int bA = bra_fwd_if_p0(e);
+    imadi(e, dneg, j, 0xFFFFFFFFu, ctxm1); /* ctx - 1 - j */
+    shri(e, over, dneg, 31);
+    imadr(e, ot, over, tid, NOREG);
+    imadi(e, j, ot, 0xFFFFFFFFu, j);       /* j - over*tid */
     /* phase A: token j */
     shri(e, bi, j, k->log2bs);
     lop3andi(e, sl, j, (1u << k->log2bs) - 1u);
@@ -289,7 +298,8 @@ static void gen_attention(Em *e, const KSpec *k) {
     bra_back_if_not_p0(e, Lin);
     loop_end(e);
     e_fmul(e, s, dot, scale);
-    patch_fwd(e, bA);
+    imadi(e, nb, over, 0x80000000u, cninf); /* over ? +inf : -inf (bits) */
+    e_fsub(e, ns, zero, s); e_fmax(e, ns, ns, nb); e_fsub(e, s, zero, ns);
     sts32(e, sOff, s);
     sts32(e, oOff, koff);
 

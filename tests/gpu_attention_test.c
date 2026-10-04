@@ -257,11 +257,13 @@ static int chip(const char *out_path) {
     uint32_t seed = 0xfb1c0005u;
     const uint32_t hd = 64;
     const struct { uint32_t nqh, nkv; const char *model; } shapes[2] = { { 32, 4, "tinyllama" }, { 32, 8, "llama32_1b" } };
-    const uint32_t ctxs[4] = { 1, 17, 256, 2048 };
+    /* 65, 129, 300 and 1000 end in a partial 64-token chunk after whole ones: the case that
+     * caught the diverged-warp shuffle on the chip (2026-10-04); 1, 17, 128, 256, 2048 did not. */
+    const uint32_t ctxs[9] = { 1, 17, 256, 2048, 65, 128, 129, 300, 1000 };
     const int no_mutants[1] = { 0 };
 
     /* 1. contiguous f32 KV (gqa_attention) */
-    for (int sh = 0; sh < 2; sh++) for (int ci = 0; ci < 4; ci++) {
+    for (int sh = 0; sh < 2; sh++) for (int ci = 0; ci < 9; ci++) {
         uint32_t nqh = shapes[sh].nqh, nkv = shapes[sh].nkv, seq = ctxs[ci];
         size_t n = (size_t)nqh * hd, nkvs = (size_t)seq * nkv * hd;
         float *q = malloc(n * 4), *kc = malloc(nkvs * 4), *vc = malloc(nkvs * 4), *got = malloc(n * 4), *want = malloc(n * 4), *again = malloc(n * 4);
@@ -309,7 +311,7 @@ static int chip(const char *out_path) {
         record(c, out); free(q); free(kc); free(vc); free(got); free(want);
     }
     /* 3. paged bf16 KV, block size 16, 2 layers (layer 1 under test), scattered block ids */
-    for (int sh = 0; sh < 2; sh++) for (int ci = 0; ci < 4; ci++) {
+    for (int sh = 0; sh < 2; sh++) for (int ci = 0; ci < 9; ci++) {
         uint32_t nqh = shapes[sh].nqh, nkv = shapes[sh].nkv, ctx = ctxs[ci], bs = 16, layers = 2, layer = 1;
         uint32_t nblk = (ctx + bs - 1) / bs, pool_blocks = nblk + 7;
         OmegaGpuKvLayout ly = layout_for(pool_blocks, bs, layers, nkv, hd);
@@ -391,7 +393,11 @@ static int chip(const char *out_path) {
  * loop handling is under test too) for every CTA of a launch: 64 threads, 1 KB shared,
  * host pointers as addresses, SHFL and BAR as lockstep points (all threads of the CTA
  * must sit at the same instruction). EX2 and RCP are exact here; the chip's are approximate. */
-typedef struct { uint32_t r[256]; int pc; int p0; int done; } SimThr;
+/* path: hash of every branch decision so far. The IR has no reconvergence instruction
+ * (no BSSY/BSYNC/WARPSYNC), so once a warp splits it may stay split on the chip, and a
+ * SHFL reading an inactive lane is undefined (CUDA guide, warp shuffle functions). Every
+ * SHFL therefore requires one path across the warp, or the simulator stops with error 7. */
+typedef struct { uint32_t r[256]; int pc; int p0; int done; uint64_t path; } SimThr;
 static uint32_t sim_cbank[256];
 static uint8_t sim_shared[1024];
 #define SIM_T 64
@@ -415,6 +421,7 @@ static int sim_step(SimThr *t, const BlackwellIRProgram *p, uint32_t tid, uint32
         case BW_IR_EXIT: if (!in->predicate_p0 || t->p0) { t->done = 1; return 0; } break;
         case BW_IR_BRA: {
             int take = !in->predicate_p0 || (in->predicate_not ? !t->p0 : t->p0);
+            t->path = t->path * 1000003u + (((uint64_t)t->pc << 1) | (uint64_t)take);
             if (take) { if ((int32_t)in->imm == 0) { g_sim_err = 2; t->done = 1; return 0; } t->pc += (int32_t)in->imm; continue; }
             break; }
         case BW_IR_MOV_IMM: wr(t, in->dst_vreg, in->imm, p); break;
@@ -476,6 +483,8 @@ static int sim_launch(const void *progv, const OmegaGpuAttnLaunch *L, OmegaGpuAt
             if (g_sim_err) break;
             const BlackwellIRInsn *in = &p->insns[pc];
             if (in->op == BW_IR_SHFL_DOWN) {
+                for (int i = 0; i < SIM_T; i++) if (!th[i].done && !th[i & ~31].done && th[i].path != th[i & ~31].path) g_sim_err = 7;
+                if (g_sim_err) break;
                 uint32_t src[SIM_T];
                 for (int i = 0; i < SIM_T; i++) src[i] = rd(&th[i], in->src1_vreg, p);
                 for (int i = 0; i < SIM_T; i++) { int lane = i & 31, from = lane + (int)(in->imm & 31); wr(&th[i], in->dst_vreg, from < 32 ? src[(i & ~31) + from] : src[i], p); }
