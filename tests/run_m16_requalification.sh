@@ -56,7 +56,7 @@ echo -e "\n[*] Step 1: Compiling M16 binaries..."
     -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc \
     -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm \
     -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include \
-    nvrm/nvrm.c m16/m16_native.c m16/m16_concurrent.c -o m16/m16_concurrent
+    nvrm/nvrm.c m16/m16_native.c m16/m16_gpu_wait.c m16/m16_concurrent.c -o m16/m16_concurrent
 } > "$EVIDENCE_DIR/build.log" 2>&1
 
 if [ -x m16/m16_requalify ] && [ -x m16/m16_concurrent ]; then
@@ -357,6 +357,8 @@ sha256sum \
   "$REPO_ROOT/m16/m16_native.c" \
   "$REPO_ROOT/m16/m16_requalify.c" \
   "$REPO_ROOT/m16/m16_concurrent.c" \
+  "$REPO_ROOT/m16/m16_gpu_wait.h" \
+  "$REPO_ROOT/m16/m16_gpu_wait.c" \
   "$REPO_ROOT/nvrm/nvrm.h" \
   "$REPO_ROOT/nvrm/nvrm.c" \
   "$REPO_ROOT/tests/run_m16_requalification.sh" \
