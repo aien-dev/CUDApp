@@ -83,7 +83,9 @@ static bool wait_core(omega_gpu_wait_kind_t kind, volatile uint32_t *word, uint3
             rpt->elapsed_ns = now - start;
             return false;
         }
+#ifndef OMEGA_GPU_WAIT_MUTANT_NO_READ_BARRIER
         barrier(cfg->hook_ctx);
+#endif
         m = *word;
         if (cfg->marker2) m2 = *cfg->marker2;
         if (cfg->snapshot) cfg->snapshot(cfg->snapshot_ctx, snap);
@@ -101,7 +103,12 @@ static bool wait_core(omega_gpu_wait_kind_t kind, volatile uint32_t *word, uint3
         if (changed && !first) {
             rpt->progress_count++;
             rpt->last_progress_ns = now;
+#ifndef OMEGA_GPU_WAIT_MUTANT_STALL_NO_RESET
             stall_deadline = now + stall_ns;
+#endif
+#ifdef OMEGA_GPU_WAIT_MUTANT_PROGRESS_EXTENDS_HARD
+            hard_deadline = now + total_ns;
+#endif
         }
         bool ok = kind == OMEGA_GPU_WAIT_FIXED ? (m == expected) : ((int32_t)(m - expected) >= 0);
         if (ok && (!cfg->marker2 || m2 == cfg->marker2_want)) {

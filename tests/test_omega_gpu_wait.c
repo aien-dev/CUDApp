@@ -19,6 +19,9 @@ typedef struct {
     int nsched;
     uint32_t invalid_value; /* valid() rejects this value when nonzero */
     int abort_at;           /* abort() true once relaxes >= abort_at when nonzero */
+    uint64_t snaps;         /* polls seen by the snapshot hook (it runs right after the reads) */
+    uint64_t last_snap_barriers;
+    uint64_t order_violations; /* polls whose reads were not preceded by a fresh barrier */
 } Fake;
 
 static uint64_t fk_now(void *c) { return ((Fake *)c)->t_ns; }
@@ -29,6 +32,13 @@ static void fk_relax(void *c) {
     f->t_ns += f->step_ns;
     for (int i = 0; i < f->nsched; i++)
         if (f->at[i] == f->relaxes) *f->target[i] = f->value[i];
+}
+static void fk_snapshot(void *c, uint32_t out[2]) {
+    Fake *f = c;
+    out[0] = out[1] = 0;
+    f->snaps++;
+    if (f->barriers <= f->last_snap_barriers) f->order_violations++;
+    f->last_snap_barriers = f->barriers;
 }
 static bool fk_valid(void *c, uint32_t v) { return !((Fake *)c)->invalid_value || v != ((Fake *)c)->invalid_value; }
 static bool fk_abort(void *c) { Fake *f = c; return f->abort_at && f->relaxes >= (uint64_t)f->abort_at; }
@@ -180,9 +190,14 @@ static int scenario(const char *name, WaitFn fx, WaitFn sq, int which) {
         break;
     case S_BARRIER:
         sched(&f, 5, &w, 1);
+        cfg.snapshot = fk_snapshot; /* runs after the reads of each poll: marks where the read happened */
+        cfg.snapshot_ctx = &f;
         ok = sq(&w, 1, &r, &cfg);
         CHECK(ok && r.polls > 0 && f.barriers >= r.polls + 1, "%s: barriers %llu polls %llu", name,
               (unsigned long long)f.barriers, (unsigned long long)r.polls);
+        CHECK(f.snaps == r.polls && f.order_violations == 0, "%s: a barrier must precede every read (%llu of %llu polls unordered)", name,
+              (unsigned long long)f.order_violations, (unsigned long long)f.snaps);
+        CHECK(f.barriers > f.last_snap_barriers, "%s: barrier after the PASS observation", name);
         break;
     case S_HARD_DEADLINE:
         cfg.total_timeout_ms = 200;
