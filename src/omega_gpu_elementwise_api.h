@@ -25,6 +25,11 @@
  *             MUFU.EX2(g * -log2(e)) and MUFU.RCP (approximate units), the
  *             oracle computes in f64. Tolerance is stated per op in the test.
  *
+ * Cut 4b (2026-10-04): the device, channel and launch scratch are the process-wide
+ * session shared with the matmul and attention APIs (omega_gpu_session.h): one open
+ * per process instead of one per call (~40 ms), kernels resident after first use,
+ * staging buffers reused at their high-water mark. Calls serialise on one lock.
+ *
  * Launch envelope: at most OMEGA_GPU_EW_MAX_CTAS CTAs per launch (the matmul
  * sweep of 2026-10-03 lost whole tiles at 128 CTAs, investigation I42); the
  * API splits larger work on the host and makes several launches.
@@ -78,6 +83,7 @@ typedef struct {
     uint32_t ctas_last_launch;
     char target_chip[64];
     uint32_t sm_architecture;
+    uint64_t call_ns;           /* cut 4b: wall time of the whole API call (staging, launches, copy-out) */
 } OmegaGpuEwInfo;
 
 /* out[r*dim + i] = x[r*dim + i] * scale_r * weight[i]; scale_r = 1/sqrt(mean_i(x^2) + eps). */
@@ -117,6 +123,10 @@ void omega_gpu_elementwise_test_set_mutant(int op);
 
 const char *omega_gpu_elementwise_rc_name(int rc);
 void omega_gpu_elementwise_cache_clear(void);
+
+/* Stage name of the most recent CHIP_FAIL ("" if none), shared with the other GPU APIs
+ * (omega_gpu_session_last_error); an open failure carries the driver text. */
+const char *omega_gpu_elementwise_last_error(void);
 
 #ifdef __cplusplus
 }

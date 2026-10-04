@@ -4,6 +4,8 @@
  *                                               nvdisasm listing check when /usr/local/cuda/bin/nvdisasm exists
  *   ./gpu_elementwise_test --out receipt.json   chip gate: every op against the host oracle, then its mutant
  *                                               (a deliberately wrong kernel) which the same check must catch
+ *   ./gpu_elementwise_test --timing --out t.json cut 4b gate: persistent device, 100 calls each of rmsnorm 1x2048
+ *                                               and swiglu 5632 under 0.5 ms median, one device open per process
  *
  * Oracles re-state aien-sovereign-core crates/aien-inference-abi/src/tensor.rs (main 5fdab70) in C:
  * rmsnorm sums in f64, rope computes cos/sin in f64 and casts to f32 before f32 math, swiglu is f64.
@@ -17,6 +19,7 @@
  */
 #include "omega_gpu_elementwise_api.h"
 #include "omega_blackwell_codegen.h"
+#include "omega_gpu_session.h"
 #include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
@@ -309,20 +312,74 @@ static int chip(const char *out_path) {
         record(c, out);
         free(x); free(w); free(u); free(got); free(want); free(ch); free(sh); free(xu); free(gu);
     }
+    /* cut 4b: the whole battery (clean and mutant kernels, cache clears) ran on ONE device open */
+    CHECK(omega_gpu_session_open_count() == 1, "device opened once for the battery (opens=%u)", omega_gpu_session_open_count());
+    printf("device_opens=%u\n", omega_gpu_session_open_count());
     if (out) {
-        fprintf(out, "],\"checks\":%d,\"failed\":%d,\"verdict\":\"%s\"}\n", g_checks, g_failed, g_failed == 0 ? "OMEGA_GPU_ELEMENTWISE_PASS" : "OMEGA_GPU_ELEMENTWISE_FAIL");
+        fprintf(out, "],\"device_opens\":%u,\"checks\":%d,\"failed\":%d,\"verdict\":\"%s\"}\n", omega_gpu_session_open_count(), g_checks, g_failed, g_failed == 0 ? "OMEGA_GPU_ELEMENTWISE_PASS" : "OMEGA_GPU_ELEMENTWISE_FAIL");
         fclose(out);
     }
     return 0;
 }
 
+/* ------------------------------------------------------------ timing gate (cut 4b) */
+/* The persistent device: 100 calls each of rmsnorm 1x2048 and swiglu 5632 (the TinyLlama
+ * decode shapes), every call checked against the oracle, median wall time per call under
+ * 0.5 ms (cut 4 opened and closed the device per call: ~40 ms). The device must have been
+ * opened exactly once in this process. */
+static int cmp_d(const void *a, const void *b) { double x = *(const double *)a, y = *(const double *)b; return x < y ? -1 : x > y; }
+static double now_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec * 1e3 + t.tv_nsec / 1e6; }
+static int timing(const char *out_path) {
+    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
+    if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_ELEMENTWISE_TIMING_V1\",\"gate_median_ms\":0.5,\"calls\":100,\"cases\":[");
+    uint32_t seed = 0xfb1c004bu;
+    enum { N = 100 };
+    for (int t = 0; t < 2; t++) {
+        const char *name = t == 0 ? "rmsnorm_1x2048" : "swiglu_5632";
+        size_t n = t == 0 ? 2048 : 5632;
+        float *a = malloc(n * 4), *b = malloc(n * 4), *got = malloc(n * 4), *want = malloc(n * 4);
+        for (size_t i = 0; i < n; i++) { a[i] = frand(&seed, -3.0f, 3.0f); b[i] = t == 0 ? frand(&seed, 0.5f, 1.5f) : frand(&seed, -2.0f, 2.0f); }
+        if (t == 0) oracle_rmsnorm(a, b, 1e-5f, want, n); else oracle_swiglu(a, b, want, n);
+        double samples[N]; int ok_calls = 0; size_t bad_total = 0; double worst = 0; uint64_t chip_sum = 0; int rc_last = 0;
+        OmegaGpuEwInfo info;
+        /* warm-up: first call opens the device and generates the kernel (not timed) */
+        int rc0 = t == 0 ? omega_gpu_rmsnorm_f32(1, (uint32_t)n, a, b, 1e-5f, got, &info) : omega_gpu_swiglu_f32((uint32_t)n, a, b, got, &info);
+        double first_ms = info.call_ns / 1e6;
+        CHECK(rc0 == OMEGA_GPU_EW_OK, "%s first call rc=%s err=\"%s\"", name, omega_gpu_elementwise_rc_name(rc0), omega_gpu_elementwise_last_error());
+        for (int i = 0; i < N; i++) {
+            double t0 = now_ms();
+            int rc = t == 0 ? omega_gpu_rmsnorm_f32(1, (uint32_t)n, a, b, 1e-5f, got, &info) : omega_gpu_swiglu_f32((uint32_t)n, a, b, got, &info);
+            samples[i] = now_ms() - t0;
+            double w; size_t bad = compare(got, want, n, 1e-5, 1e-6, &w);
+            if (w > worst) worst = w;
+            bad_total += bad; chip_sum += info.elapsed_ns; rc_last = rc;
+            if (rc == OMEGA_GPU_EW_OK && bad == 0) ok_calls++;
+        }
+        qsort(samples, N, sizeof samples[0], cmp_d);
+        double median = samples[N / 2], p90 = samples[N * 9 / 10], mn = samples[0], mx = samples[N - 1];
+        uint32_t opens = omega_gpu_session_open_count();
+        int pass = ok_calls == N && bad_total == 0 && median < 0.5 && opens == 1;
+        CHECK(pass, "timing %s ok_calls=%d/%d violations=%zu median_ms=%.3f opens=%u last_rc=%s err=\"%s\"", name, ok_calls, N, bad_total, median, opens, omega_gpu_elementwise_rc_name(rc_last), omega_gpu_elementwise_last_error());
+        printf("%s timing %s first_call_ms=%.3f ok_calls=%d/%d violations=%zu worst_scaled_err=%g median_ms=%.3f p90_ms=%.3f min_ms=%.3f max_ms=%.3f chip_us_mean=%.1f device_opens=%u\n",
+               pass ? "PASS" : "FAIL", name, first_ms, ok_calls, N, bad_total, worst, median, p90, mn, mx, chip_sum / 1e3 / N, opens);
+        if (out) fprintf(out, "%s{\"case\":\"%s\",\"first_call_ms\":%.3f,\"ok_calls\":%d,\"violations\":%zu,\"worst_scaled_err\":%g,\"median_ms\":%.4f,\"p90_ms\":%.4f,\"min_ms\":%.4f,\"max_ms\":%.4f,\"chip_us_mean\":%.1f,\"device_opens\":%u,\"pass\":%s}",
+                         t ? "," : "", name, first_ms, ok_calls, bad_total, worst, median, p90, mn, mx, chip_sum / 1e3 / N, opens, pass ? "true" : "false");
+        free(a); free(b); free(got); free(want);
+    }
+    if (out) { fprintf(out, "],\"checks\":%d,\"failed\":%d,\"verdict\":\"%s\"}\n", g_checks, g_failed, g_failed == 0 ? "OMEGA_GPU_ELEMENTWISE_TIMING_PASS" : "OMEGA_GPU_ELEMENTWISE_TIMING_FAIL"); fclose(out); }
+    return 0;
+}
+
 int main(int argc, char **argv) {
-    const char *out_path = NULL; int host = 0;
+    const char *out_path = NULL; int host = 0, timing_mode = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--host-only") == 0) host = 1;
+        else if (strcmp(argv[i], "--timing") == 0) timing_mode = 1;
         else if (strcmp(argv[i], "--out") == 0 && i + 1 < argc) out_path = argv[++i];
     }
     if (host) host_only();
+    else if (timing_mode) { if (timing(out_path) != 0) return 2; }
     else if (chip(out_path) != 0) return 2;
     printf("%s: %d checks, %d failed\n", g_failed ? "FAIL" : "PASS", g_checks, g_failed);
     return g_failed ? 1 : 0;

@@ -21,9 +21,8 @@
 #include "omega_blackwell_codegen.h"
 #include "omega_blackwell_qmd.h"
 #include "omega_blackwell_submit.h"
-#include "m16_native.h"
+#include "omega_gpu_session.h"
 #include "sha256.h"
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -365,188 +364,135 @@ static int build_kernel(OmegaGpuEwOp op, int mutant, OmegaBlackwellKernel *kerne
 
 /* --------------------------------------------------------- kernel cache */
 
+/* One kernel per (op, mutant); the device copy is uploaded once and stays
+ * resident for the process (cut 4b: no per-call code page). */
+typedef struct { int used; int op; int mutant; OmegaBlackwellKernel kernel; NvrmMem code; } Slot;
 static int g_mutant_op; /* 0 = none */
-typedef struct { int used; int op; int mutant; OmegaBlackwellKernel kernel; } Slot;
 static Slot g_cache[8];
-static pthread_mutex_t g_mu = PTHREAD_MUTEX_INITIALIZER;
+static OmegaGpuScratch g_a, g_b, g_c; /* staging, grown to the high-water mark, reused per call */
+static bool g_hooked;
+#define LOCK() omega_gpu_session_lock()
+#define UNLOCK() omega_gpu_session_unlock()
+
+static void cache_clear_locked(void) {
+    for (size_t i = 0; i < sizeof g_cache / sizeof g_cache[0]; i++)
+        if (g_cache[i].used) { free(g_cache[i].kernel.code); omega_gpu_session_free(&g_cache[i].code); memset(&g_cache[i], 0, sizeof g_cache[i]); }
+}
 
 void omega_gpu_elementwise_cache_clear(void) {
-    pthread_mutex_lock(&g_mu);
-    for (size_t i = 0; i < sizeof g_cache / sizeof g_cache[0]; i++)
-        if (g_cache[i].used) { free(g_cache[i].kernel.code); memset(&g_cache[i], 0, sizeof g_cache[i]); }
-    pthread_mutex_unlock(&g_mu);
+    LOCK();
+    cache_clear_locked();
+    UNLOCK();
+}
+
+/* Called by the session (lock held, device still open) right before it closes. */
+static void on_session_close(void) {
+    cache_clear_locked();
+    omega_gpu_session_scratch_free(&g_a); omega_gpu_session_scratch_free(&g_b); omega_gpu_session_scratch_free(&g_c);
 }
 
 void omega_gpu_elementwise_test_set_mutant(int op) {
-    pthread_mutex_lock(&g_mu);
+    LOCK();
     g_mutant_op = op;
-    pthread_mutex_unlock(&g_mu);
-    omega_gpu_elementwise_cache_clear();
+    cache_clear_locked();
+    UNLOCK();
 }
 
-static int kernel_for(OmegaGpuEwOp op, OmegaBlackwellKernel *out, bool *hit) {
-    pthread_mutex_lock(&g_mu);
+/* Caller holds the lock. Builds the kernel if needed; uploads the device copy when a
+ * device is open (upload = false lets the host-only codegen path run without a chip). */
+static int kernel_for(OmegaGpuEwOp op, bool upload, Slot **out, bool *hit) {
     int mutant = (g_mutant_op == (int)op);
+    Slot *s = NULL;
     for (size_t i = 0; i < sizeof g_cache / sizeof g_cache[0]; i++)
-        if (g_cache[i].used && g_cache[i].op == (int)op && g_cache[i].mutant == mutant) {
-            *out = g_cache[i].kernel; *hit = true; pthread_mutex_unlock(&g_mu); return OMEGA_GPU_EW_OK;
-        }
-    OmegaBlackwellKernel k;
-    int rc = build_kernel(op, mutant, &k);
-    if (rc == OMEGA_GPU_EW_OK) {
-        for (size_t i = 0; i < sizeof g_cache / sizeof g_cache[0]; i++)
-            if (!g_cache[i].used) { g_cache[i].used = 1; g_cache[i].op = (int)op; g_cache[i].mutant = mutant; g_cache[i].kernel = k; break; }
-        *out = k; *hit = false;
+        if (g_cache[i].used && g_cache[i].op == (int)op && g_cache[i].mutant == mutant) { s = &g_cache[i]; *hit = true; break; }
+    if (!s) {
+        OmegaBlackwellKernel k;
+        int rc = build_kernel(op, mutant, &k);
+        if (rc != OMEGA_GPU_EW_OK) return rc;
+        size_t slot = 0;
+        for (size_t i = 0; i < sizeof g_cache / sizeof g_cache[0]; i++) if (!g_cache[i].used) { slot = i; break; }
+        s = &g_cache[slot];
+        if (s->used) { free(s->kernel.code); omega_gpu_session_free(&s->code); } /* full: evict slot 0 */
+        memset(s, 0, sizeof *s);
+        s->used = 1; s->op = (int)op; s->mutant = mutant; s->kernel = k;
+        *hit = false;
     }
-    pthread_mutex_unlock(&g_mu);
-    return rc;
+    if (upload && !s->code.cpu) {
+        if (omega_gpu_session_alloc(s->kernel.code_size, &s->code) != 0) return OMEGA_GPU_EW_CHIP_FAIL;
+        memcpy(s->code.cpu, s->kernel.code, s->kernel.code_size);
+        __asm__ volatile("dsb sy" ::: "memory");
+    }
+    *out = s;
+    return OMEGA_GPU_EW_OK;
 }
 
 int omega_gpu_elementwise_codegen(OmegaGpuEwOp op, const uint32_t *dims, float eps, OmegaBlackwellKernel *kernel) {
     (void)dims; (void)eps; /* kernels read their shape from the argument words */
     if (!kernel) return OMEGA_GPU_EW_BAD_ARGS;
-    pthread_mutex_lock(&g_mu);
+    LOCK();
     int mutant = (g_mutant_op == (int)op);
-    pthread_mutex_unlock(&g_mu);
+    UNLOCK();
     return build_kernel(op, mutant, kernel);
 }
+
+const char *omega_gpu_elementwise_last_error(void) { return omega_gpu_session_last_error(); }
 
 /* ------------------------------------------------------------ launcher */
 
 #define EW_POISON 0xffbadbadu /* a NaN pattern no kernel here produces on purpose */
-#define EW_MARKER2_PAYLOAD 0x46464646u /* same value as omega_blackwell_submit.c and the engine */
 #define EW_WAIT_MS 600000ull /* like main's load/store launchers; a 5 s wait failed under contention (omega#198) */
-
-static const uint32_t SETUP_WORDS[18] = {
-    0x20012061, 0x0000cec0, 0x20012092, 0x00000001, 0x200120a8, 0x0000000f, 0x2001255d, 0x00000003,
-    0x2001255e, 0x20000000, 0x2001255f, 0x000fffff, 0x20012557, 0x00000003, 0x20012558, 0x22000000,
-    0x20012559, 0x00000000,
-};
 
 static uint64_t now_ns(void) {
     struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t);
     return (uint64_t)t.tv_sec * 1000000000ULL + (uint64_t)t.tv_nsec;
 }
-static size_t page_round(size_t b) { b = (b + 0xFFFULL) & ~0xFFFULL; return b < 0x1000 ? 0x1000 : b; }
 
-/* One launch: a and b in, c out (c_bytes/4 words, poison-filled first). Cloned
- * from omega_blackwell_execute_matmul_tensor: every buffer GPU-uncached, first
- * marker, L2_FLUSH_DIRTY, second marker, then readback and the poison scan. */
-static int run_abc(const OmegaBlackwellKernel *kernel,
-                   const void *a, size_t a_bytes, const void *b, size_t b_bytes,
+/* Caller holds the lock. Opens the shared device on first use. */
+static int dev_open_locked(void) {
+    if (!g_hooked) { (void)omega_gpu_session_on_close(on_session_close); g_hooked = true; }
+    return omega_gpu_session_open() ? OMEGA_GPU_EW_OK : OMEGA_GPU_EW_CHIP_FAIL;
+}
+
+/* One launch: a and b staged in, c out (c_bytes/4 words, poison-filled first), through
+ * the shared session (omega_gpu_session_launch: shader-cache invalidate, constant bank,
+ * QMD0/QMD1, first marker, L2_FLUSH_DIRTY, second marker), then readback and the
+ * poison scan. b may be NULL when b_fill wrote the staging buffer already. */
+static int run_abc(const Slot *ks, const void *a, size_t a_bytes, const void *b, size_t b_bytes,
                    void *c, size_t c_bytes, uint32_t threads_x, uint32_t grid_x,
                    const uint32_t params[4], OmegaGpuEwInfo *info) {
-    M16NativeContext ctx;
-    if (m16_native_open(&ctx) != 0) return OMEGA_GPU_EW_CHIP_FAIL;
-    if (m16_native_create_channel(&ctx) != 0) { m16_native_close(&ctx); return OMEGA_GPU_EW_CHIP_FAIL; }
-    NvrmMem large_pb;
-    if (nvrm_alloc_gpu_uncached(&ctx.rm, 0x10000, &large_pb) != 0) { m16_native_close(&ctx); return OMEGA_GPU_EW_CHIP_FAIL; }
-    ctx.pb_mem = large_pb;
-
-    NvrmMem code_mem, cbank_mem, a_mem, b_mem, c_mem, marker_mem, qmd_mem;
-#define EW_ALLOC(mem, bytes) if (nvrm_alloc_gpu_uncached(&ctx.rm, (bytes), &(mem)) != 0) { m16_native_close(&ctx); return OMEGA_GPU_EW_CHIP_FAIL; }
-    EW_ALLOC(code_mem, page_round(kernel->code_size));
-    EW_ALLOC(cbank_mem, 0x1000);
-    EW_ALLOC(a_mem, page_round(a_bytes));
-    EW_ALLOC(b_mem, page_round(b_bytes));
-    EW_ALLOC(c_mem, page_round(c_bytes));
-    EW_ALLOC(marker_mem, 0x1000);
-    EW_ALLOC(qmd_mem, 0x10000);
-#undef EW_ALLOC
-    memcpy(code_mem.cpu, kernel->code, kernel->code_size);
-    memcpy(a_mem.cpu, a, a_bytes);
-    memcpy(b_mem.cpu, b, b_bytes);
+    if (omega_gpu_session_scratch(&g_a, a_bytes) || omega_gpu_session_scratch(&g_b, b_bytes) || omega_gpu_session_scratch(&g_c, c_bytes))
+        return OMEGA_GPU_EW_CHIP_FAIL;
+    memcpy(g_a.mem.cpu, a, a_bytes);
+    if (b) memcpy(g_b.mem.cpu, b, b_bytes);
     size_t c_words = c_bytes / 4;
-    uint32_t *c_dev = (uint32_t *)c_mem.cpu;
+    uint32_t *c_dev = (uint32_t *)g_c.mem.cpu;
     for (size_t i = 0; i < c_words; i++) c_dev[i] = EW_POISON;
+    __asm__ volatile("dsb sy" ::: "memory");
 
-    uint32_t cbank_data[OMEGA_BW_CBANK_DRIVER_WORDS];
-    omega_blackwell_build_cbank_driver_2d(cbank_data, cbank_mem.va, threads_x, 1, grid_x, 1);
-    uint32_t cbank_args[OMEGA_BW_CBANK_MATMUL_ARGS_WORDS];
-    cbank_args[0] = (uint32_t)a_mem.va; cbank_args[1] = (uint32_t)(a_mem.va >> 32);
-    cbank_args[2] = (uint32_t)b_mem.va; cbank_args[3] = (uint32_t)(b_mem.va >> 32);
-    cbank_args[4] = (uint32_t)c_mem.va; cbank_args[5] = (uint32_t)(c_mem.va >> 32);
-    cbank_args[6] = params[0]; cbank_args[7] = params[1]; cbank_args[8] = params[2]; cbank_args[9] = params[3];
-    memcpy(cbank_mem.cpu, cbank_data, sizeof(cbank_data));
-    memcpy((uint8_t *)cbank_mem.cpu + 0x380, cbank_args, sizeof(cbank_args));
-
-    uint64_t qmd0_va = qmd_mem.va, qmd1_va = qmd_mem.va + 0x1000, sem_va = qmd_mem.va + 0x2000, scratch_va = qmd_mem.va + 0x4000;
-    OmegaBlackwellQmdConfig qmd_cfg = {
-        .code_va = code_mem.va, .cbank_va = cbank_mem.va, .scratch_va = scratch_va, .sem_va = sem_va,
-        .qmd0_va = qmd0_va, .qmd1_va = qmd1_va, .num_elements = c_words, .threads_per_block = threads_x,
-        .grid_width = grid_x, .threads_x = threads_x, .threads_y = 1, .grid_x = grid_x, .grid_y = 1,
-        .gpr_count = EW_GPR_BUDGET
+    uint32_t args[OMEGA_BW_CBANK_MATMUL_ARGS_WORDS];
+    args[0] = (uint32_t)g_a.mem.va; args[1] = (uint32_t)(g_a.mem.va >> 32);
+    args[2] = (uint32_t)g_b.mem.va; args[3] = (uint32_t)(g_b.mem.va >> 32);
+    args[4] = (uint32_t)g_c.mem.va; args[5] = (uint32_t)(g_c.mem.va >> 32);
+    args[6] = params[0]; args[7] = params[1]; args[8] = params[2]; args[9] = params[3];
+    OmegaGpuLaunch L = {
+        .code_va = ks->code.va, .gpr_count = EW_GPR_BUDGET, .threads_x = threads_x, .threads_y = 1,
+        .grid_x = grid_x, .grid_y = 1, .num_elements = c_words,
+        .args = args, .n_args = OMEGA_BW_CBANK_MATMUL_ARGS_WORDS, .timeout_ms = EW_WAIT_MS,
     };
-    uint32_t qmd0_words[OMEGA_BW_QMD_WORDS], qmd1_words[OMEGA_BW_QMD_WORDS];
-    omega_blackwell_build_qmd0(qmd0_words, qmd0_va, qmd1_va);
-    omega_blackwell_build_qmd1(qmd1_words, &qmd_cfg);
-    if (omega_blackwell_verify_qmd_invariants(qmd1_words) != 0) { m16_native_close(&ctx); return OMEGA_GPU_EW_CHIP_FAIL; }
-    memcpy(qmd_mem.cpu, qmd0_words, sizeof(qmd0_words));
-    memcpy((uint8_t *)qmd_mem.cpu + 0x1000, qmd1_words, sizeof(qmd1_words));
+    uint64_t elapsed = 0; uint32_t marker = 0;
+    if (omega_gpu_session_launch(&L, &elapsed, &marker) != 0) return OMEGA_GPU_EW_CHIP_FAIL;
 
-    volatile uint32_t *hsem = (volatile uint32_t *)((uint8_t *)qmd_mem.cpu + 0x2000);
-    volatile uint32_t *hmarker = (volatile uint32_t *)marker_mem.cpu;
-    volatile uint32_t *hmarker2 = (volatile uint32_t *)((uint8_t *)marker_mem.cpu + 0x10);
-    *hsem = 0; *hmarker = 0; *hmarker2 = 0;
-    __asm__ volatile("dsb sy" ::: "memory");
-
-    uint32_t pb[1024];
-    size_t n = 0;
-    memcpy(&pb[n], SETUP_WORDS, sizeof(SETUP_WORDS)); n += sizeof(SETUP_WORDS) / 4;
-    /* Every launch uploads fresh code into a freshly allocated page, so the code address
-     * of the previous (different) kernel is routinely reused: exactly the stale-SM-icache
-     * case cut 1b hit. Invalidate before the kernel (constants in omega_blackwell_submit.h). */
-    pb[n++] = nvrm_mthd(1, OMEGA_BW_MTHD_INVALIDATE_SHADER_CACHES, 1); pb[n++] = OMEGA_BW_INVALIDATE_SHADER_CACHES_ALL;
-    pb[n++] = nvrm_mthd(1, 0x0188, 2); pb[n++] = (uint32_t)(cbank_mem.va >> 32); pb[n++] = (uint32_t)cbank_mem.va;
-    pb[n++] = nvrm_mthd(1, 0x0180, 2); pb[n++] = 0x00000380; pb[n++] = 0x00000001;
-    pb[n++] = nvrm_mthd(1, 0x01b0, 1); pb[n++] = 0x00000041;
-    pb[n++] = (224 << 16) | (1 << 13) | (0x01b4 >> 2) | (6u << 28);
-    memcpy(&pb[n], cbank_data, 224 * 4); n += 224;
-    pb[n++] = nvrm_mthd(1, 0x0188, 2); pb[n++] = (uint32_t)((cbank_mem.va + 0x380) >> 32); pb[n++] = (uint32_t)(cbank_mem.va + 0x380);
-    pb[n++] = nvrm_mthd(1, 0x0180, 2); pb[n++] = 0x00000028; pb[n++] = 0x00000001;
-    pb[n++] = nvrm_mthd(1, 0x01b0, 1); pb[n++] = 0x00000041;
-    pb[n++] = (10 << 16) | (1 << 13) | (0x01b4 >> 2) | (6u << 28);
-    memcpy(&pb[n], cbank_args, 10 * 4); n += 10;
-    pb[n++] = (98 << 16) | (1 << 13) | (0x0318 >> 2) | (2u << 28);
-    pb[n++] = (1u << 30) | (uint32_t)((qmd0_va >> 40) & 0x1ff); pb[n++] = (uint32_t)(qmd0_va >> 8);
-    memcpy(&pb[n], qmd0_words, 96 * 4); n += 96;
-    pb[n++] = nvrm_mthd(1, 0x0188, 2); pb[n++] = (uint32_t)(sem_va >> 32); pb[n++] = (uint32_t)sem_va;
-    pb[n++] = nvrm_mthd(1, 0x0180, 2); pb[n++] = 0x00000004; pb[n++] = 0x00000001;
-    pb[n++] = nvrm_mthd(1, 0x01b0, 1); pb[n++] = 0x00000041;
-    pb[n++] = (1 << 16) | (1 << 13) | (0x01b4 >> 2) | (6u << 28);
-    pb[n++] = OMEGA_BW_SEMAPHORE_INTERMEDIATE_INIT;
-    pb[n++] = (98 << 16) | (1 << 13) | (0x0318 >> 2) | (2u << 28);
-    pb[n++] = (1u << 30) | (uint32_t)((qmd1_va >> 40) & 0x1ff); pb[n++] = (uint32_t)(qmd1_va >> 8);
-    memcpy(&pb[n], qmd1_words, 96 * 4); n += 96;
-    pb[n++] = nvrm_mthd(0, 0x005c, 5);
-    pb[n++] = (uint32_t)marker_mem.va; pb[n++] = (uint32_t)(marker_mem.va >> 32);
-    pb[n++] = OMEGA_BW_MARKER_COMPLETION_PAYLOAD; pb[n++] = 0; pb[n++] = 0x1 | (1u << 20);
-    /* C3 tail: L2_FLUSH_DIRTY, then the second release the host waits for before reading */
-    pb[n++] = nvrm_mthd(0, 0x0028, 4); pb[n++] = 0; pb[n++] = 0; pb[n++] = 0; pb[n++] = (0x10u << 27);
-    pb[n++] = nvrm_mthd(0, 0x005c, 5);
-    pb[n++] = (uint32_t)(marker_mem.va + 0x10); pb[n++] = (uint32_t)((marker_mem.va + 0x10) >> 32);
-    pb[n++] = EW_MARKER2_PAYLOAD; pb[n++] = 0; pb[n++] = 0x1 | (1u << 20);
-
-    uint64_t t0 = now_ns();
-    if (m16_native_submit_methods(&ctx, pb, n) != 0) { m16_native_close(&ctx); return OMEGA_GPU_EW_CHIP_FAIL; }
-    if (m16_native_wait_marker(hmarker, OMEGA_BW_MARKER_COMPLETION_PAYLOAD, EW_WAIT_MS) != 0) { m16_native_close(&ctx); return OMEGA_GPU_EW_CHIP_FAIL; }
-    if (m16_native_wait_marker(hmarker2, EW_MARKER2_PAYLOAD, EW_WAIT_MS) != 0) { m16_native_close(&ctx); return OMEGA_GPU_EW_CHIP_FAIL; }
-    __asm__ volatile("dsb sy" ::: "memory");
-    uint64_t t1 = now_ns();
-    if (*hsem != OMEGA_BW_SEMAPHORE_INTERMEDIATE_DONE) { m16_native_close(&ctx); return OMEGA_GPU_EW_CHIP_FAIL; }
-
-    memcpy(c, c_mem.cpu, c_bytes);
+    memcpy(c, g_c.mem.cpu, c_bytes);
     uint32_t unwritten = 0;
     for (size_t i = 0; i < c_words; i++) if (((uint32_t *)c)[i] == EW_POISON) unwritten++;
     if (info) {
         info->chip_calls++;
-        info->elapsed_ns += (t1 > t0) ? (t1 - t0) : 0;
-        info->completion_marker = *hmarker;
+        info->elapsed_ns += elapsed;
+        info->completion_marker = marker;
         info->unwritten_words += unwritten;
         info->threads_per_cta = threads_x;
         info->ctas_last_launch = grid_x;
     }
-    m16_native_close(&ctx);
     return unwritten ? OMEGA_GPU_EW_UNWRITTEN : OMEGA_GPU_EW_OK;
 }
 
@@ -562,73 +508,85 @@ static void info_begin(OmegaGpuEwInfo *info, const OmegaBlackwellKernel *k, bool
     info->sm_architecture = 121;
 }
 static uint32_t f2u(float f) { uint32_t u; memcpy(&u, &f, 4); return u; }
+static void info_end(OmegaGpuEwInfo *info, uint64_t t0) { if (info) info->call_ns = now_ns() - t0; }
+
+/* Common prologue of every chip entry: lock, open, kernel (resident), info. */
+static int begin(OmegaGpuEwOp op, Slot **ks, OmegaGpuEwInfo *info) {
+    LOCK();
+    int rc = dev_open_locked();
+    bool hit = false;
+    if (rc == OMEGA_GPU_EW_OK) rc = kernel_for(op, true, ks, &hit);
+    if (rc != OMEGA_GPU_EW_OK) { UNLOCK(); return rc; }
+    info_begin(info, &(*ks)->kernel, hit);
+    return OMEGA_GPU_EW_OK;
+}
 
 int omega_gpu_rmsnorm_f32(uint32_t rows, uint32_t dim, const float *x, const float *weight,
                           float eps, float *out, OmegaGpuEwInfo *info) {
+    uint64_t t0 = now_ns();
     if (!x || !weight || !out || rows == 0 || dim == 0 || dim % OMEGA_GPU_EW_THREADS != 0) return OMEGA_GPU_EW_BAD_ARGS;
     if (dim > OMEGA_GPU_EW_MAX_DIM) return OMEGA_GPU_EW_TOO_LARGE;
-    OmegaBlackwellKernel k; bool hit = false;
-    int rc = kernel_for(OMEGA_GPU_EW_RMSNORM, &k, &hit);
+    Slot *k = NULL;
+    int rc = begin(OMEGA_GPU_EW_RMSNORM, &k, info);
     if (rc != OMEGA_GPU_EW_OK) return rc;
-    info_begin(info, &k, hit);
     uint32_t params[4] = { dim / OMEGA_GPU_EW_THREADS, f2u(1.0f / (float)dim), f2u(eps), dim };
-    for (uint32_t r0 = 0; r0 < rows; r0 += OMEGA_GPU_EW_MAX_CTAS) {
+    for (uint32_t r0 = 0; r0 < rows && rc == OMEGA_GPU_EW_OK; r0 += OMEGA_GPU_EW_MAX_CTAS) {
         uint32_t nr = rows - r0 < OMEGA_GPU_EW_MAX_CTAS ? rows - r0 : OMEGA_GPU_EW_MAX_CTAS;
         size_t bytes = (size_t)nr * dim * 4;
-        rc = run_abc(&k, x + (size_t)r0 * dim, bytes, weight, (size_t)dim * 4, out + (size_t)r0 * dim, bytes,
+        rc = run_abc(k, x + (size_t)r0 * dim, bytes, weight, (size_t)dim * 4, out + (size_t)r0 * dim, bytes,
                      OMEGA_GPU_EW_THREADS, nr, params, info);
-        if (rc != OMEGA_GPU_EW_OK) return rc;
     }
-    return OMEGA_GPU_EW_OK;
+    UNLOCK();
+    info_end(info, t0);
+    return rc;
 }
 
 int omega_gpu_rope_f32(uint32_t heads, uint32_t head_dim, const float *v,
                        const float *cos_half, const float *sin_half, float *out, OmegaGpuEwInfo *info) {
+    uint64_t t0 = now_ns();
     if (!v || !cos_half || !sin_half || !out || heads == 0 || head_dim < 2 || (head_dim & 1)) return OMEGA_GPU_EW_BAD_ARGS;
     if (head_dim > 2048) return OMEGA_GPU_EW_TOO_LARGE;
-    OmegaBlackwellKernel k; bool hit = false;
-    int rc = kernel_for(OMEGA_GPU_EW_ROPE, &k, &hit);
+    Slot *k = NULL;
+    int rc = begin(OMEGA_GPU_EW_ROPE, &k, info);
     if (rc != OMEGA_GPU_EW_OK) return rc;
-    info_begin(info, &k, hit);
     uint32_t half = head_dim / 2;
-    uint32_t hchunk = OMEGA_GPU_EW_MAX_CTAS;
-    size_t chunk_elems = (size_t)hchunk * head_dim;
-    float *table = malloc(chunk_elems * sizeof *table);
-    float *tmp = malloc(chunk_elems * sizeof *tmp);
-    if (!table || !tmp) { free(table); free(tmp); return OMEGA_GPU_EW_CHIP_FAIL; }
-    for (uint32_t h = 0; h < hchunk; h++) {
-        memcpy(table + (size_t)h * head_dim, cos_half, half * sizeof *table);
-        memcpy(table + (size_t)h * head_dim + half, sin_half, half * sizeof *table);
-    }
     uint32_t params[4] = { head_dim, half, 0, 0 };
-    for (uint32_t h0 = 0; h0 < heads; h0 += hchunk) {
-        uint32_t nh = heads - h0 < hchunk ? heads - h0 : hchunk;
+    for (uint32_t h0 = 0; h0 < heads && rc == OMEGA_GPU_EW_OK; h0 += OMEGA_GPU_EW_MAX_CTAS) {
+        uint32_t nh = heads - h0 < OMEGA_GPU_EW_MAX_CTAS ? heads - h0 : OMEGA_GPU_EW_MAX_CTAS;
         size_t bytes = (size_t)nh * head_dim * 4;
-        /* through tmp so out may alias v */
-        rc = run_abc(&k, v + (size_t)h0 * head_dim, bytes, table, bytes, tmp, bytes, half, nh, params, info);
-        if (rc != OMEGA_GPU_EW_OK) break;
-        memcpy(out + (size_t)h0 * head_dim, tmp, bytes);
+        /* table: cos in the first half of each head, sin in the second, written straight into
+         * the staging buffer (one copy per head of this launch) */
+        if (omega_gpu_session_scratch(&g_b, bytes) != 0) { rc = OMEGA_GPU_EW_CHIP_FAIL; break; }
+        float *table = g_b.mem.cpu;
+        for (uint32_t h = 0; h < nh; h++) {
+            memcpy(table + (size_t)h * head_dim, cos_half, half * sizeof *table);
+            memcpy(table + (size_t)h * head_dim + half, sin_half, half * sizeof *table);
+        }
+        /* out may alias v: v is copied into the staging buffer before the result lands in out */
+        rc = run_abc(k, v + (size_t)h0 * head_dim, bytes, NULL, bytes, out + (size_t)h0 * head_dim, bytes, half, nh, params, info);
     }
-    free(table); free(tmp);
+    UNLOCK();
+    info_end(info, t0);
     return rc;
 }
 
 static int run_1d(OmegaGpuEwOp op, uint32_t n, const void *a, const void *b, void *c, OmegaGpuEwInfo *info) {
-    OmegaBlackwellKernel k; bool hit = false;
-    int rc = kernel_for(op, &k, &hit);
+    uint64_t t0 = now_ns();
+    Slot *k = NULL;
+    int rc = begin(op, &k, info);
     if (rc != OMEGA_GPU_EW_OK) return rc;
-    info_begin(info, &k, hit);
     const uint32_t chunk = OMEGA_GPU_EW_MAX_CTAS * OMEGA_GPU_EW_THREADS;
-    for (uint32_t i0 = 0; i0 < n; i0 += chunk) {
+    for (uint32_t i0 = 0; i0 < n && rc == OMEGA_GPU_EW_OK; i0 += chunk) {
         uint32_t ni = n - i0 < chunk ? n - i0 : chunk;
         uint32_t grid = (ni + OMEGA_GPU_EW_THREADS - 1) / OMEGA_GPU_EW_THREADS;
         uint32_t params[4] = { ni, 0, 0, 0 };
         size_t bytes = (size_t)ni * 4;
-        rc = run_abc(&k, (const uint8_t *)a + (size_t)i0 * 4, bytes, b ? (const uint8_t *)b + (size_t)i0 * 4 : a, bytes,
+        rc = run_abc(k, (const uint8_t *)a + (size_t)i0 * 4, bytes, b ? (const uint8_t *)b + (size_t)i0 * 4 : a, bytes,
                      (uint8_t *)c + (size_t)i0 * 4, bytes, OMEGA_GPU_EW_THREADS, grid, params, info);
-        if (rc != OMEGA_GPU_EW_OK) return rc;
     }
-    return OMEGA_GPU_EW_OK;
+    UNLOCK();
+    info_end(info, t0);
+    return rc;
 }
 
 int omega_gpu_swiglu_f32(uint32_t n, const float *gate, const float *up, float *out, OmegaGpuEwInfo *info) {

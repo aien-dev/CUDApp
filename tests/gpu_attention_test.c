@@ -2,6 +2,8 @@
  *
  *   ./gpu_attention_test --host-only          refusals, codegen (both kernel families and every
  *                                             mutant), register budget, nvdisasm listing check
+ *   ./gpu_attention_test --timing [--out r.json] cut 4b gate: 1 query x 32 heads x 2048 ctx, 100 calls
+ *                                             through the persistent session, median under 3 ms
  *   ./gpu_attention_test --out receipt.json   chip gate: every shape against the host oracle, the
  *                                             mutants (deliberately wrong kernels) which the same
  *                                             check must catch, a negative control, timings
@@ -22,6 +24,7 @@
  * exponent (3e-5 absolute per score), so it uses 1e-3 relative + 1e-4 absolute.
  */
 #include "omega_gpu_attention_api.h"
+#include "omega_gpu_session.h"
 #include "omega_blackwell_codegen.h"
 #include <inttypes.h>
 #include <math.h>
@@ -32,6 +35,7 @@
 #include <unistd.h>
 
 static int g_checks, g_failed;
+static int g_sim_mode; /* --sim: the host simulator never opens the device */
 #define CHECK(cond, ...) do { g_checks++; if (!(cond)) { g_failed++; printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
 
 static uint32_t lcg(uint32_t *s) { *s = *s * 1664525u + 1013904223u; return *s; }
@@ -371,10 +375,12 @@ static int chip(const char *out_path) {
         CHECK(g_mutant_run[m] > 0 && g_mutant_caught[m] == g_mutant_run[m], "mutant %s caught %d of %d runs", mutant_name(m), g_mutant_caught[m], g_mutant_run[m]);
         printf("mutant %s: caught %d of %d\n", mutant_name(m), g_mutant_caught[m], g_mutant_run[m]);
     }
+    CHECK(omega_gpu_session_open_count() == (g_sim_mode ? 0u : 1u), "device opened %s for the battery (opens=%u)", g_sim_mode ? "never (simulator)" : "once", omega_gpu_session_open_count());
+    printf("device_opens=%u\n", omega_gpu_session_open_count());
     if (out) {
         fprintf(out, "],\"mutants\":{");
         for (int m = 1; m <= 4; m++) fprintf(out, "%s\"%s\":{\"run\":%d,\"caught\":%d}", m > 1 ? "," : "", mutant_name(m), g_mutant_run[m], g_mutant_caught[m]);
-        fprintf(out, "},\"checks\":%d,\"failed\":%d,\"verdict\":\"%s\"}\n", g_checks, g_failed, g_failed == 0 ? "OMEGA_GPU_ATTENTION_PASS" : "OMEGA_GPU_ATTENTION_FAIL");
+        fprintf(out, "},\"device_opens\":%u,\"checks\":%d,\"failed\":%d,\"verdict\":\"%s\"}\n", omega_gpu_session_open_count(), g_checks, g_failed, g_failed == 0 ? "OMEGA_GPU_ATTENTION_PASS" : "OMEGA_GPU_ATTENTION_FAIL");
         fclose(out);
     }
     return 0;
@@ -483,15 +489,66 @@ static int sim_launch(const void *progv, const OmegaGpuAttnLaunch *L, OmegaGpuAt
     return unwritten ? OMEGA_GPU_ATTN_UNWRITTEN : OMEGA_GPU_ATTN_OK;
 }
 
+
+/* ---------------------------------------------------- timing (cut 4b) */
+/* One query step of TinyLlama attention at context 2048 (32 q heads, 4 kv heads,
+ * f32 KV) 100 times through the persistent session, every call checked against the
+ * oracle; gate: median wall time per call under 3 ms, one device open per process. */
+static double now_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec * 1e3 + t.tv_nsec / 1e6; }
+static int cmp_d(const void *a, const void *b) { double x = *(const double *)a, y = *(const double *)b; return x < y ? -1 : x > y; }
+static int timing(const char *out_path) {
+    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
+    enum { N = 100 };
+    const uint32_t hd = 64, nqh = 32, nkv = 4, seq = 2048;
+    const char *name = "gqa_f32_tinyllama_32q4kv_ctx2048";
+    if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_ATTENTION_TIMING_V1\",\"gate_median_ms\":3.0,\"calls\":%d,\"cases\":[", N);
+    uint32_t seed = 0xfb1c004bu;
+    size_t n = (size_t)nqh * hd, nkvs = (size_t)seq * nkv * hd;
+    float *q = malloc(n * 4), *kc = malloc(nkvs * 4), *vc = malloc(nkvs * 4), *got = malloc(n * 4), *want = malloc(n * 4);
+    for (size_t i = 0; i < n; i++) q[i] = frand(&seed, -1.0f, 1.0f);
+    for (size_t i = 0; i < nkvs; i++) { kc[i] = frand(&seed, -1.0f, 1.0f); vc[i] = frand(&seed, -1.0f, 1.0f); }
+    oracle_gqa(q, kc, vc, seq, nqh, nkv, hd, want);
+    double samples[N]; int ok_calls = 0; size_t bad_total = 0; double worst = 0; uint64_t chip_sum = 0; int rc_last = 0;
+    OmegaGpuAttnInfo info;
+    /* warm-up: the first call opens the device and generates the kernel (not timed) */
+    int rc0 = omega_gpu_gqa_attention_f32(q, kc, vc, seq, nqh, nkv, hd, got, &info);
+    double first_ms = info.call_ns / 1e6;
+    CHECK(rc0 == OMEGA_GPU_ATTN_OK, "%s first call rc=%s err=\"%s\"", name, omega_gpu_attention_rc_name(rc0), omega_gpu_attention_last_error());
+    for (int i = 0; i < N; i++) {
+        double t0 = now_ms();
+        int rc = omega_gpu_gqa_attention_f32(q, kc, vc, seq, nqh, nkv, hd, got, &info);
+        samples[i] = now_ms() - t0;
+        double w; size_t bad = compare(got, want, n, 2e-4, 2e-5, &w);
+        if (w > worst) worst = w;
+        bad_total += bad; chip_sum += info.elapsed_ns; rc_last = rc;
+        if (rc == OMEGA_GPU_ATTN_OK && bad == 0) ok_calls++;
+    }
+    qsort(samples, N, sizeof samples[0], cmp_d);
+    double median = samples[N / 2], p90 = samples[N * 9 / 10], mn = samples[0], mx = samples[N - 1];
+    uint32_t opens = omega_gpu_session_open_count();
+    int pass = ok_calls == N && bad_total == 0 && median < 3.0 && opens == 1;
+    CHECK(pass, "timing %s ok_calls=%d/%d violations=%zu median_ms=%.3f opens=%u last_rc=%s err=\"%s\"", name, ok_calls, N, bad_total, median, opens, omega_gpu_attention_rc_name(rc_last), omega_gpu_attention_last_error());
+    printf("%s timing %s first_call_ms=%.3f ok_calls=%d/%d violations=%zu worst_scaled_err=%g median_ms=%.3f p90_ms=%.3f min_ms=%.3f max_ms=%.3f chip_us_mean=%.1f device_opens=%u\n",
+           pass ? "PASS" : "FAIL", name, first_ms, ok_calls, N, bad_total, worst, median, p90, mn, mx, chip_sum / 1e3 / N, opens);
+    if (out) fprintf(out, "{\"case\":\"%s\",\"first_call_ms\":%.3f,\"ok_calls\":%d,\"violations\":%zu,\"worst_scaled_err\":%g,\"median_ms\":%.4f,\"p90_ms\":%.4f,\"min_ms\":%.4f,\"max_ms\":%.4f,\"chip_us_mean\":%.1f,\"device_opens\":%u,\"pass\":%s}",
+                     name, first_ms, ok_calls, bad_total, worst, median, p90, mn, mx, chip_sum / 1e3 / N, opens, pass ? "true" : "false");
+    free(q); free(kc); free(vc); free(got); free(want);
+    if (out) { fprintf(out, "],\"checks\":%d,\"failed\":%d,\"verdict\":\"%s\"}\n", g_checks, g_failed, g_failed == 0 ? "OMEGA_GPU_ATTENTION_TIMING_PASS" : "OMEGA_GPU_ATTENTION_TIMING_FAIL"); fclose(out); }
+    return 0;
+}
+
 int main(int argc, char **argv) {
-    const char *out_path = NULL; int host = 0, sim = 0;
+    const char *out_path = NULL; int host = 0, sim = 0, timing_mode = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--host-only") == 0) host = 1;
         else if (strcmp(argv[i], "--sim") == 0) sim = 1;
+        else if (strcmp(argv[i], "--timing") == 0) timing_mode = 1;
         else if (strcmp(argv[i], "--out") == 0 && i + 1 < argc) out_path = argv[++i];
     }
-    if (sim) omega_gpu_attention_test_set_simulator(sim_launch);
+    if (sim) { g_sim_mode = 1; omega_gpu_attention_test_set_simulator(sim_launch); }
     if (host) host_only();
+    else if (timing_mode) { if (timing(out_path) != 0) return 2; }
     else if (chip(out_path) != 0) return 2;
     printf("%s: %d checks, %d failed\n", g_failed ? "FAIL" : "PASS", g_checks, g_failed);
     return g_failed ? 1 : 0;

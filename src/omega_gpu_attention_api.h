@@ -42,10 +42,16 @@
  * src/omega_blackwell_qmd.c word 36); the kernel uses exactly 4 x 256 bytes for
  * head_dim 64, so head_dim is fixed at 64 in this cut (TinyLlama and Llama-3.2-1B).
  *
- * Staging (this cut): the host copies q, the referenced KV blocks' layer slice, the
- * (compacted, renumbered) block tables and the context lengths into GPU-uncached
- * buffers for each launch and copies the result back. The kernel itself walks the
- * block table; a resident pool handle is a later cut.
+ * Staging: the host copies q, the referenced KV blocks' layer slice, the (compacted,
+ * renumbered) block tables and the context lengths into GPU-uncached staging buffers
+ * for each launch and copies the result back. The kernel itself walks the block
+ * table; a resident pool handle is a later cut.
+ *
+ * Cut 4b (2026-10-04): the device, channel and launch scratch are the process-wide
+ * session shared with the matmul and elementwise APIs (omega_gpu_session.h): one
+ * open per process instead of one per call (~40 ms), kernels resident after first
+ * use, staging buffers reused at their high-water mark (the KV slice is written
+ * straight into the device staging buffer). Calls serialise on one lock.
  */
 #include <stdbool.h>
 #include <stddef.h>
@@ -118,6 +124,10 @@ int omega_gpu_paged_attention_batch_bf16(const float *q, const void *pool, const
 
 const char *omega_gpu_attention_rc_name(int rc);
 void omega_gpu_attention_cache_clear(void);
+
+/* Stage name of the most recent CHIP_FAIL ("" if none), shared with the other GPU APIs
+ * (omega_gpu_session_last_error); an open failure carries the driver text. */
+const char *omega_gpu_attention_last_error(void);
 
 /* Test hooks. Mutants are deliberately wrong kernels the parity test must catch;
  * never set in production. */
