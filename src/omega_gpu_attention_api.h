@@ -45,7 +45,10 @@
  * Staging: the host copies q, the referenced KV blocks' layer slice, the (compacted,
  * renumbered) block tables and the context lengths into GPU-uncached staging buffers
  * for each launch and copies the result back. The kernel itself walks the block
- * table; a resident pool handle is a later cut.
+ * table; a resident pool handle is a later cut. Since the attention hardening cut
+ * (2026-10-04) a launch stages each physical block's layer slice once however many
+ * sequences of the batch reference it (shared CoW prefixes), and OmegaGpuAttnInfo
+ * reports the bytes staged against the per-sequence (naive) figure.
  *
  * Cut 4b (2026-10-04): the device, channel and launch scratch are the process-wide
  * session shared with the matmul and elementwise APIs (omega_gpu_session.h): one
@@ -100,7 +103,16 @@ typedef struct {
     uint32_t ctas_last_launch, threads_per_cta;
     char target_chip[64];
     uint32_t sm_architecture;
+    /* Appended (attention hardening cut, 2026-10-04): transfer accounting for the call.
+     * Existing field order above is ABI; sovereign-core mirrors this struct field for field. */
+    uint64_t kv_bytes_staged;   /* KV layer-slice bytes actually copied into staging (sum over launches) */
+    uint64_t kv_bytes_naive;    /* what per-sequence staging would have copied (every sequence its own blocks) */
+    uint32_t kv_blocks_logical; /* block references summed over sequences, truncated to each context */
+    uint32_t kv_blocks_unique;  /* distinct (physical block, layer) slices staged, summed over launches */
+    uint64_t q_bytes, tab_bytes, out_bytes; /* q, block-table/context and result traffic (sum over launches) */
+    uint32_t kv_source;         /* OMEGA_GPU_ATTN_KV_STAGED; a resident pool is a later cut */
 } OmegaGpuAttnInfo;
+#define OMEGA_GPU_ATTN_KV_STAGED 0u
 
 /* Contiguous f32 KV (TensorBackend::gqa_attention). q and out: [num_q_heads][head_dim]. */
 int omega_gpu_gqa_attention_f32(const float *q, const float *k_cache, const float *v_cache,
@@ -172,6 +184,14 @@ typedef struct {
 struct BlackwellIRProgramTag;
 typedef int (*OmegaGpuAttnSim)(const void *prog /* const BlackwellIRProgram * */, const OmegaGpuAttnLaunch *L, OmegaGpuAttnInfo *info);
 void omega_gpu_attention_test_set_simulator(OmegaGpuAttnSim sim);
+
+/* Shared-prefix staging dedupe (attention hardening cut, 2026-10-04): within one launch
+ * every (physical block, layer) slice referenced by the batch is staged once, keyed by the
+ * physical block id, and every sequence's compact table points at that one staged slot.
+ * On by default. `false` selects the legacy per-sequence staging (every sequence copies
+ * its own blocks), kept as the reference fallback and as the negative control of the
+ * staging-byte tests. Test hook; never cleared in production. */
+void omega_gpu_attention_test_set_dedupe(bool on);
 
 #ifdef __cplusplus
 }

@@ -4,6 +4,9 @@
  *                                             mutant), register budget, nvdisasm listing check
  *   ./gpu_attention_test --timing [--out r.json] cut 4b gate: 1 query x 32 heads x 2048 ctx, 100 calls
  *                                             through the persistent session, median under 3 ms
+ *   ./gpu_attention_test --sweep [--out s.json]  head-scaling sweep: paged bf16 at head_dim 64 over q heads
+ *                                             1..64 x every kv-head divisor x ctx 256/2048, parity + timings
+ *                                             (receipt OMEGA_GPU_ATTENTION_SWEEP_V1; --sim marks host timings)
  *   ./gpu_attention_test --out receipt.json   chip gate: every shape against the host oracle, the
  *                                             mutants (deliberately wrong kernels, all of
  *                                             1 .. OMEGA_GPU_ATTN_MUTANT_COUNT-1) which the same
@@ -217,7 +220,12 @@ static void host_only(void) {
 
 /* ------------------------------------------------------------- chip gate */
 typedef struct { const char *name; size_t n; int rc; size_t bad; double worst; int pass; uint64_t chip_ns, call_ns; uint32_t calls, unwritten;
-                 int mutants_run, mutants_caught; char mutant_note[400]; } Case;
+                 int mutants_run, mutants_caught; char mutant_note[400];
+                 uint64_t kv_staged, kv_naive; uint32_t blk_logical, blk_unique; } Case;
+static void case_info(Case *c, const OmegaGpuAttnInfo *i) {
+    c->chip_ns = i->elapsed_ns; c->call_ns = i->call_ns; c->calls = i->chip_calls; c->unwritten = i->unwritten_words;
+    c->kv_staged = i->kv_bytes_staged; c->kv_naive = i->kv_bytes_naive; c->blk_logical = i->kv_blocks_logical; c->blk_unique = i->kv_blocks_unique;
+}
 static Case g_cases[32]; static int g_ncases;
 static int g_mutant_caught[OMEGA_GPU_ATTN_MUTANT_COUNT], g_mutant_run[OMEGA_GPU_ATTN_MUTANT_COUNT];
 
@@ -225,12 +233,13 @@ static void record(Case c, FILE *out) {
     g_cases[g_ncases++] = c;
     CHECK(c.pass, "%s rc=%s violations=%zu worst=%g", c.name, omega_gpu_attention_rc_name(c.rc), c.bad, c.worst);
     CHECK(c.mutants_caught == c.mutants_run, "%s mutants caught %d of %d (%s)", c.name, c.mutants_caught, c.mutants_run, c.mutant_note);
-    printf("%s %s n=%zu rc=%s violations=%zu worst_scaled_err=%g chip_ns=%" PRIu64 " call_ns=%" PRIu64 " calls=%u unwritten=%u | mutants %d/%d %s\n",
+    printf("%s %s n=%zu rc=%s violations=%zu worst_scaled_err=%g chip_ns=%" PRIu64 " call_ns=%" PRIu64 " calls=%u unwritten=%u kv_staged=%" PRIu64 "/%" PRIu64 " blocks=%u/%u | mutants %d/%d %s\n",
            c.pass && c.mutants_caught == c.mutants_run ? "PASS" : "FAIL", c.name, c.n, omega_gpu_attention_rc_name(c.rc), c.bad, c.worst, c.chip_ns, c.call_ns, c.calls, c.unwritten,
-           c.mutants_caught, c.mutants_run, c.mutant_note);
-    if (out) fprintf(out, "%s{\"case\":\"%s\",\"n\":%zu,\"rc\":\"%s\",\"violations\":%zu,\"worst_scaled_err\":%g,\"pass\":%s,\"chip_elapsed_ns\":%" PRIu64 ",\"call_ns\":%" PRIu64 ",\"chip_calls\":%u,\"unwritten_words\":%u,\"mutants_run\":%d,\"mutants_caught\":%d,\"mutant_note\":\"%s\"}",
+           c.kv_staged, c.kv_naive, c.blk_unique, c.blk_logical, c.mutants_caught, c.mutants_run, c.mutant_note);
+    if (out) fprintf(out, "%s{\"case\":\"%s\",\"n\":%zu,\"rc\":\"%s\",\"violations\":%zu,\"worst_scaled_err\":%g,\"pass\":%s,\"chip_elapsed_ns\":%" PRIu64 ",\"call_ns\":%" PRIu64 ",\"chip_calls\":%u,\"unwritten_words\":%u,"
+                     "\"kv_bytes_staged\":%" PRIu64 ",\"kv_bytes_naive\":%" PRIu64 ",\"kv_blocks_unique\":%u,\"kv_blocks_logical\":%u,\"mutants_run\":%d,\"mutants_caught\":%d,\"mutant_note\":\"%s\"}",
                      g_ncases > 1 ? "," : "", c.name, c.n, omega_gpu_attention_rc_name(c.rc), c.bad, c.worst, c.pass ? "true" : "false", c.chip_ns, c.call_ns, c.calls, c.unwritten,
-                     c.mutants_run, c.mutants_caught, c.mutant_note);
+                     c.kv_staged, c.kv_naive, c.blk_unique, c.blk_logical, c.mutants_run, c.mutants_caught, c.mutant_note);
 }
 
 static const char *mutant_name(int m) { return omega_gpu_attention_mutant_name((OmegaGpuAttnMutant)m); }
@@ -285,7 +294,7 @@ static int chip(const char *out_path) {
         GqaCtx gc = { q, kc, vc, seq, nqh, nkv };
         c.rc = run_gqa(&gc, got, &info);
         c.bad = compare(got, want, n, 2e-4, 2e-5, &c.worst);
-        c.pass = c.rc == OMEGA_GPU_ATTN_OK && c.bad == 0; c.chip_ns = info.elapsed_ns; c.call_ns = info.call_ns; c.calls = info.chip_calls; c.unwritten = info.unwritten_words;
+        c.pass = c.rc == OMEGA_GPU_ATTN_OK && c.bad == 0; case_info(&c, &info);
         if (ci == 3) {
             OmegaGpuAttnInfo i2; int rc2 = run_gqa(&gc, again, &i2);
             CHECK(rc2 == OMEGA_GPU_ATTN_OK && i2.kernel_cache_hit && memcmp(got, again, n * 4) == 0, "%s repeat run (cache hit) is bit-identical", name);
@@ -314,7 +323,7 @@ static int chip(const char *out_path) {
         OmegaGpuAttnInfo info; GqaCtx gc = { q, kc, vc, seq, nqh, nkv };
         c.rc = run_gqa(&gc, got, &info);
         c.bad = compare(got, want, n, 1e-3, 1e-4, &c.worst);
-        c.pass = c.rc == OMEGA_GPU_ATTN_OK && c.bad == 0; c.chip_ns = info.elapsed_ns; c.call_ns = info.call_ns; c.calls = info.chip_calls; c.unwritten = info.unwritten_words;
+        c.pass = c.rc == OMEGA_GPU_ATTN_OK && c.bad == 0; case_info(&c, &info);
         static const int ms[2] = { OMEGA_GPU_ATTN_MUTANT_NO_MAX, 0 };
         run_mutants(&c, ms, run_gqa, &gc, got, want, n, 1e-3, 1e-4);
         record(c, out); free(q); free(kc); free(vc); free(got); free(want);
@@ -332,7 +341,7 @@ static int chip(const char *out_path) {
         OmegaGpuAttnInfo info; GqaCtx gc = { q, kc, vc, seq, nqh, nkv };
         c.rc = run_gqa(&gc, got, &info);
         c.bad = compare(got, want, n, 2e-4, 2e-5, &c.worst);
-        c.pass = c.rc == OMEGA_GPU_ATTN_OK && c.bad == 0; c.chip_ns = info.elapsed_ns; c.call_ns = info.call_ns; c.calls = info.chip_calls; c.unwritten = info.unwritten_words;
+        c.pass = c.rc == OMEGA_GPU_ATTN_OK && c.bad == 0; case_info(&c, &info);
         static const int ms_q[2] = { OMEGA_GPU_ATTN_MUTANT_Q_ROW, 0 };
         static const int ms_o[3] = { OMEGA_GPU_ATTN_MUTANT_OUT_ROW, OMEGA_GPU_ATTN_MUTANT_KV_HEAD, 0 };
         run_mutants(&c, ms_q, run_gqa, &gc, got, want, n, 2e-4, 2e-5);
@@ -364,7 +373,7 @@ static int chip(const char *out_path) {
         OmegaGpuAttnInfo info; PagedCtx pc = { q, pool, &ly, ids, nblk, ctx, layer, nqh, nkv };
         c.rc = run_paged(&pc, got, &info);
         c.bad = compare(got, want, n, 2e-4, 2e-5, &c.worst);
-        c.pass = c.rc == OMEGA_GPU_ATTN_OK && c.bad == 0; c.chip_ns = info.elapsed_ns; c.call_ns = info.call_ns; c.calls = info.chip_calls; c.unwritten = info.unwritten_words;
+        c.pass = c.rc == OMEGA_GPU_ATTN_OK && c.bad == 0; case_info(&c, &info);
         if (ci == 3) {
             /* NO_MAX cannot overflow on unit-scale scores (softmax is shift invariant); it is caught by the large-score gqa case */
             static const int ms3[6] = { OMEGA_GPU_ATTN_MUTANT_KV_HEAD, OMEGA_GPU_ATTN_MUTANT_SLOT, OMEGA_GPU_ATTN_MUTANT_NO_RESCALE, OMEGA_GPU_ATTN_MUTANT_Q_ROW, OMEGA_GPU_ATTN_MUTANT_OUT_ROW, 0 };
@@ -402,12 +411,64 @@ static int chip(const char *out_path) {
         OmegaGpuAttnInfo info; BatchCtx bc = { q, pool, &ly, tables, ctxs2, maxb, nseq, layer, nqh, nkv };
         c.rc = run_batch(&bc, got, &info);
         c.bad = compare(got, want, n, 2e-4, 2e-5, &c.worst);
-        c.pass = c.rc == OMEGA_GPU_ATTN_OK && c.bad == 0; c.chip_ns = info.elapsed_ns; c.call_ns = info.call_ns; c.calls = info.chip_calls; c.unwritten = info.unwritten_words;
+        c.pass = c.rc == OMEGA_GPU_ATTN_OK && c.bad == 0; case_info(&c, &info);
         int zeros = 1; for (size_t i = 0; i < (size_t)nqh * hd; i++) if (got[(size_t)nqh * hd + i] != 0.0f) zeros = 0;
         CHECK(zeros, "batch: the empty sequence is all zeros");
         static const int ms[5] = { OMEGA_GPU_ATTN_MUTANT_KV_HEAD, OMEGA_GPU_ATTN_MUTANT_SLOT, OMEGA_GPU_ATTN_MUTANT_Q_ROW, OMEGA_GPU_ATTN_MUTANT_OUT_ROW, 0 };
         run_mutants(&c, ms, run_batch, &bc, got, want, n, 2e-4, 2e-5);
+        /* all 7 referenced blocks are distinct here, so dedupe stages exactly the naive figure */
+        CHECK(c.blk_logical == 7 && c.blk_unique == 7 && c.kv_staged == c.kv_naive && c.kv_staged == 7ull * ly.layer_stride_bytes, "batch: 7 distinct blocks staged once each (%u/%u, %" PRIu64 " bytes)", c.blk_unique, c.blk_logical, c.kv_staged);
         record(c, out); free(pool); free(tables); free(q); free(got); free(want);
+    }
+    /* 5. branch-heavy batch (attention hardening cut): four sequences share the same 10 physical
+     * prefix blocks (160 tokens, scattered ids) and own private tails of 1..3 blocks ending in a
+     * partial 64-token chunk. The shared prefix must be staged once per launch, keyed by the
+     * physical block id. Two head shapes: 8q/2kv puts all four sequences in one launch
+     * (unique = 10 + 9 tails), 32q/8kv splits them two per launch (unique = 2*10 + 9).
+     * Negative control: the legacy per-sequence staging (test hook) copies the prefix four
+     * times and the byte-reduction check must flag it. */
+    for (int sh = 0; sh < 2; sh++) {
+        uint32_t nqh = sh ? 32 : 8, nkv = sh ? 8 : 2, bs = 16, layers = 2, layer = 1, nseq = 4, prefix_blocks = 10, pool_blocks = 64;
+        uint32_t expect_unique = sh ? 2 * prefix_blocks + 9 : prefix_blocks + 9;
+        uint32_t maxb = prefix_blocks + 3;
+        OmegaGpuKvLayout ly = layout_for(pool_blocks, bs, layers, nkv, hd);
+        uint8_t *pool = malloc(ly.pool_bytes); uint16_t *pw = (uint16_t *)pool;
+        for (size_t i = 0; i < ly.pool_bytes / 2; i++) pw[i] = f2bf(frand(&seed, -1.0f, 1.0f));
+        int32_t *tables = malloc((size_t)nseq * maxb * 4);
+        for (size_t i = 0; i < (size_t)nseq * maxb; i++) tables[i] = -1;
+        const uint32_t tails[4] = { 1, 2, 3, 3 };                 /* private blocks per sequence: 9 in all */
+        const int32_t ctxs5[4] = { 165, 180, 193, 207 };          /* 160 + 5, 20, 33, 47: every last chunk partial */
+        for (uint32_t s = 0; s < nseq; s++) {
+            for (uint32_t b = 0; b < prefix_blocks; b++) tables[s * maxb + b] = (int32_t)((b * 5 + 7) % pool_blocks); /* same scattered physical prefix */
+            for (uint32_t b = 0; b < tails[s]; b++) tables[s * maxb + prefix_blocks + b] = (int32_t)(50 + s * 3 + b);   /* private, distinct */
+        }
+        size_t n = (size_t)nseq * nqh * hd;
+        float *q = malloc(n * 4), *got = malloc(n * 4), *want = malloc(n * 4), *legacy = malloc(n * 4);
+        for (size_t i = 0; i < n; i++) q[i] = frand(&seed, -1.0f, 1.0f);
+        oracle_batch(q, pool, &ly, tables, ctxs5, maxb, nseq, layer, nqh, nkv, hd, want);
+        char name[96]; snprintf(name, sizeof name, "paged_bf16_shared_prefix_4seq_%uq%ukv_10pre", nqh, nkv);
+        Case c = { .name = strdup(name), .n = n };
+        OmegaGpuAttnInfo info; BatchCtx bc = { q, pool, &ly, tables, ctxs5, maxb, nseq, layer, nqh, nkv };
+        c.rc = run_batch(&bc, got, &info);
+        c.bad = compare(got, want, n, 2e-4, 2e-5, &c.worst);
+        c.pass = c.rc == OMEGA_GPU_ATTN_OK && c.bad == 0; case_info(&c, &info);
+        uint32_t logical = 4 * prefix_blocks + 9;
+        CHECK(c.blk_logical == logical && c.blk_unique == expect_unique, "%s: %u logical references, %u unique staged (expected %u/%u)", name, c.blk_logical, c.blk_unique, logical, expect_unique);
+        CHECK(c.kv_naive == (uint64_t)logical * ly.layer_stride_bytes && c.kv_staged == (uint64_t)expect_unique * ly.layer_stride_bytes && c.kv_staged < c.kv_naive,
+              "%s: staged %" PRIu64 " < naive %" PRIu64 " bytes (saved %" PRIu64 ")", name, c.kv_staged, c.kv_naive, c.kv_naive - c.kv_staged);
+        CHECK(info.kv_source == OMEGA_GPU_ATTN_KV_STAGED && info.q_bytes == n * 4 && info.out_bytes == n * 4 && info.tab_bytes > 0, "%s: q/out/table traffic accounted (q=%" PRIu64 " out=%" PRIu64 " tab=%" PRIu64 ")", name, info.q_bytes, info.out_bytes, info.tab_bytes);
+        /* negative control: legacy per-sequence staging duplicates the shared prefix; same answer, more bytes */
+        omega_gpu_attention_test_set_dedupe(false);
+        OmegaGpuAttnInfo li; int lrc = run_batch(&bc, legacy, &li);
+        omega_gpu_attention_test_set_dedupe(true);
+        double lw; size_t lbad = compare(legacy, want, n, 2e-4, 2e-5, &lw);
+        CHECK(lrc == OMEGA_GPU_ATTN_OK && lbad == 0, "%s legacy staging: parity (rc=%s bad=%zu)", name, omega_gpu_attention_rc_name(lrc), lbad);
+        CHECK(li.kv_blocks_unique == logical && li.kv_bytes_staged == li.kv_bytes_naive && li.kv_bytes_staged > c.kv_staged,
+              "%s negative control: duplicated prefix staging is flagged (legacy staged %" PRIu64 " == naive %" PRIu64 ", dedupe %" PRIu64 ")", name, li.kv_bytes_staged, li.kv_bytes_naive, c.kv_staged);
+        CHECK(memcmp(got, legacy, n * 4) == 0, "%s: dedupe and legacy staging are bit-identical", name);
+        static const int ms5[3] = { OMEGA_GPU_ATTN_MUTANT_KV_HEAD, OMEGA_GPU_ATTN_MUTANT_SLOT, 0 };
+        run_mutants(&c, ms5, run_batch, &bc, got, want, n, 2e-4, 2e-5);
+        record(c, out); free(pool); free(tables); free(q); free(got); free(want); free(legacy);
     }
     /* every mutant the API knows (1 .. COUNT-1) ran at least once and was caught every time;
      * a mutant added to the enum without a battery entry fails here */
@@ -585,17 +646,114 @@ static int timing(const char *out_path) {
     return 0;
 }
 
+/* ------------------------------------------------ head-scaling sweep (attention hardening cut)
+ * `--sweep [--out sweep.json]`: the production paged bf16 path at head_dim 64 over query-head
+ * counts 1, 2, 4, 8, 16, 24, 32, 64 and every divisor as the kv-head count, at context 256
+ * (latency) and 2048 (bandwidth), block size 16, scattered block ids. Points whose GQA ratio
+ * is not a power of two are mathematically legal (the generic contract allows them) but
+ * outside the current kernel envelope (codegen selects the kv head with a shift): they are
+ * called anyway, must be refused with BAD_ARGS, and are recorded as
+ * "unsupported_by_kernel_envelope" (no chip time). Every supported point is checked against
+ * the host oracle on its first call, then warmed and timed over N calls (median / p90 of the
+ * whole call and of the chip kernel time). Gates: parity, no unwritten word, one device open,
+ * every call OK; the timings are evidence, not a threshold. Only quantities the stack measures
+ * are recorded; SM occupancy, bandwidth utilisation and cache hit rates are not observable
+ * through this path and are reported as unavailable. Under --sim the timings are host-simulator
+ * timings and the receipt says so. */
+static int sweep(const char *out_path) {
+    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
+    const int N = g_sim_mode ? 1 : 20;
+    const uint32_t hd = 64, bs = 16, layers = 1, layer = 0;
+    static const uint32_t qheads[8] = { 1, 2, 4, 8, 16, 24, 32, 64 };
+    static const uint32_t ctxs[2] = { 256, 2048 };
+    uint32_t seed = 0xfb1c05eeu;
+    if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_ATTENTION_SWEEP_V1\",\"path\":\"paged_bf16\",\"head_dim\":%u,\"block_size\":%u,\"timed_calls\":%d,\"host_simulator\":%s,"
+                     "\"tolerances\":{\"rel\":2e-4,\"abs\":2e-5},\"hardware_counters\":\"unavailable (SM occupancy, bandwidth utilisation, cache hit rates are not observable through this path)\",\"points\":[",
+                     hd, bs, N, g_sim_mode ? "true" : "false");
+    int npoints = 0, supported = 0, unsupported = 0;
+    double *samples = malloc((size_t)N * sizeof *samples), *ksamples = malloc((size_t)N * sizeof *ksamples);
+    for (int qi = 0; qi < 8; qi++) for (uint32_t nkv = 1; nkv <= qheads[qi]; nkv++) {
+        uint32_t nqh = qheads[qi];
+        if (nqh % nkv) continue;
+        uint32_t ratio = nqh / nkv; int pow2 = (ratio & (ratio - 1)) == 0;
+        for (int ci = 0; ci < 2; ci++) {
+            uint32_t ctx = ctxs[ci], nblk = (ctx + bs - 1) / bs, pool_blocks = nblk + 5;
+            OmegaGpuKvLayout ly = layout_for(pool_blocks, bs, layers, nkv, hd);
+            uint8_t *pool = malloc(ly.pool_bytes); uint16_t *pw = (uint16_t *)pool;
+            for (size_t i = 0; i < ly.pool_bytes / 2; i++) pw[i] = f2bf(frand(&seed, -1.0f, 1.0f));
+            uint32_t *ids = malloc(nblk * 4);
+            for (uint32_t b = 0; b < nblk; b++) ids[b] = (b * 7 + 3) % pool_blocks;
+            size_t n = (size_t)nqh * hd;
+            float *q = malloc(n * 4), *got = malloc(n * 4), *want = malloc(n * 4);
+            for (size_t i = 0; i < n; i++) q[i] = frand(&seed, -1.0f, 1.0f);
+            OmegaGpuAttnInfo info; memset(&info, 0, sizeof info);
+            int rc = omega_gpu_paged_attention_bf16(q, pool, &ly, ids, nblk, ctx, layer, nqh, nkv, hd, got, &info);
+            const char *klass; int pass; size_t bad = 0; double worst = 0; int ok_calls = 0; uint32_t unwritten = 0, cache_hits = 0; double med = 0, p90 = 0, kmed = 0, kp90 = 0;
+            if (!pow2) {
+                klass = "unsupported_by_kernel_envelope";
+                pass = rc == OMEGA_GPU_ATTN_BAD_ARGS; unsupported++;
+                CHECK(pass, "sweep %uq/%ukv ctx %u: ratio %u (not a power of two) refused with BAD_ARGS (got %s)", nqh, nkv, ctx, ratio, omega_gpu_attention_rc_name(rc));
+            } else {
+                klass = "supported"; supported++;
+                oracle_paged(q, pool, &ly, ids, nblk, ctx, layer, nqh, nkv, hd, want);
+                bad = compare(got, want, n, 2e-4, 2e-5, &worst);
+                unwritten = info.unwritten_words;
+                uint64_t kv_staged = info.kv_bytes_staged, kv_naive = info.kv_bytes_naive, qb = info.q_bytes, tb = info.tab_bytes, ob = info.out_bytes;
+                uint32_t launches = info.chip_calls, ctas = info.ctas_last_launch, blk_l = info.kv_blocks_logical, blk_u = info.kv_blocks_unique, kv_src = info.kv_source;
+                for (int i = 0; i < N; i++) {
+                    OmegaGpuAttnInfo ti;
+                    int trc = omega_gpu_paged_attention_bf16(q, pool, &ly, ids, nblk, ctx, layer, nqh, nkv, hd, got, &ti);
+                    samples[i] = ti.call_ns / 1e6; ksamples[i] = ti.elapsed_ns / 1e6;
+                    double w; size_t b2 = compare(got, want, n, 2e-4, 2e-5, &w);
+                    if (w > worst) worst = w;
+                    bad += b2; unwritten += ti.unwritten_words; cache_hits += ti.kernel_cache_hit;
+                    if (trc == OMEGA_GPU_ATTN_OK && b2 == 0) ok_calls++;
+                }
+                qsort(samples, (size_t)N, sizeof samples[0], cmp_d); qsort(ksamples, (size_t)N, sizeof ksamples[0], cmp_d);
+                med = samples[N / 2]; p90 = samples[N * 9 / 10]; kmed = ksamples[N / 2]; kp90 = ksamples[N * 9 / 10];
+                pass = rc == OMEGA_GPU_ATTN_OK && bad == 0 && ok_calls == N && unwritten == 0 && cache_hits == (uint32_t)N;
+                CHECK(pass, "sweep %uq/%ukv ctx %u: rc=%s violations=%zu ok_calls=%d/%d unwritten=%u cache_hits=%u", nqh, nkv, ctx, omega_gpu_attention_rc_name(rc), bad, ok_calls, N, unwritten, cache_hits);
+                printf("%s sweep %2uq/%2ukv ratio %2u ctx %4u: launches=%u ctas=%u call_ms med=%.3f p90=%.3f kernel_ms med=%.3f p90=%.3f kv_staged=%" PRIu64 " (naive %" PRIu64 ") blocks=%u/%u q=%" PRIu64 " tab=%" PRIu64 " out=%" PRIu64 " worst=%g\n",
+                       pass ? "PASS" : "FAIL", nqh, nkv, ratio, ctx, launches, ctas, med, p90, kmed, kp90, kv_staged, kv_naive, blk_u, blk_l, qb, tb, ob, worst);
+                if (out) fprintf(out, "%s{\"q_heads\":%u,\"kv_heads\":%u,\"gqa_ratio\":%u,\"head_dim\":%u,\"context\":%u,\"q_width\":%zu,\"out_width\":%zu,\"class\":\"%s\",\"rc\":\"%s\",\"pass\":%s,"
+                                 "\"violations\":%zu,\"worst_scaled_err\":%g,\"unwritten_words\":%u,\"launches_per_call\":%u,\"ctas_last_launch\":%u,\"threads_per_cta\":%u,"
+                                 "\"call_ms_median\":%.4f,\"call_ms_p90\":%.4f,\"kernel_ms_median\":%.4f,\"kernel_ms_p90\":%.4f,\"kernel_cache_hits\":%u,\"first_call_cache_hit\":%s,"
+                                 "\"kv_bytes_staged\":%" PRIu64 ",\"kv_bytes_naive\":%" PRIu64 ",\"kv_blocks_logical\":%u,\"kv_blocks_unique\":%u,\"q_bytes\":%" PRIu64 ",\"tab_bytes\":%" PRIu64 ",\"out_bytes\":%" PRIu64 ",\"kv_source\":\"%s\"}",
+                                 npoints ? "," : "", nqh, nkv, ratio, hd, ctx, n, n, klass, omega_gpu_attention_rc_name(rc), pass ? "true" : "false", bad, worst, unwritten, launches, ctas, info.threads_per_cta,
+                                 med, p90, kmed, kp90, cache_hits, info.kernel_cache_hit ? "true" : "false", kv_staged, kv_naive, blk_l, blk_u, qb, tb, ob, kv_src == OMEGA_GPU_ATTN_KV_STAGED ? "staged" : "resident");
+                npoints++;
+            }
+            if (!pow2) {
+                printf("%s sweep %2uq/%2ukv ratio %2u ctx %4u: %s (rc=%s)\n", pass ? "PASS" : "FAIL", nqh, nkv, ratio, ctx, klass, omega_gpu_attention_rc_name(rc));
+                if (out) fprintf(out, "%s{\"q_heads\":%u,\"kv_heads\":%u,\"gqa_ratio\":%u,\"head_dim\":%u,\"context\":%u,\"q_width\":%zu,\"out_width\":%zu,\"class\":\"%s\",\"rc\":\"%s\",\"pass\":%s}",
+                                 npoints ? "," : "", nqh, nkv, ratio, hd, ctx, n, n, klass, omega_gpu_attention_rc_name(rc), pass ? "true" : "false");
+                npoints++;
+            }
+            free(pool); free(ids); free(q); free(got); free(want);
+        }
+    }
+    free(samples); free(ksamples);
+    uint32_t opens = omega_gpu_session_open_count();
+    CHECK(opens == (g_sim_mode ? 0u : 1u), "sweep: device opened %s (opens=%u)", g_sim_mode ? "never (simulator)" : "once", opens);
+    printf("sweep: %d points (%d supported, %d unsupported by the kernel envelope), device_opens=%u\n", npoints, supported, unsupported, opens);
+    if (out) { fprintf(out, "],\"points_total\":%d,\"points_supported\":%d,\"points_unsupported\":%d,\"device_opens\":%u,\"checks\":%d,\"failed\":%d,\"verdict\":\"%s\"}\n", npoints, supported, unsupported, opens, g_checks, g_failed, g_failed == 0 ? "OMEGA_GPU_ATTENTION_SWEEP_PASS" : "OMEGA_GPU_ATTENTION_SWEEP_FAIL"); fclose(out); }
+    return 0;
+}
+
 int main(int argc, char **argv) {
-    const char *out_path = NULL; int host = 0, sim = 0, timing_mode = 0;
+    const char *out_path = NULL; int host = 0, sim = 0, timing_mode = 0, sweep_mode = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--host-only") == 0) host = 1;
         else if (strcmp(argv[i], "--sim") == 0) sim = 1;
         else if (strcmp(argv[i], "--timing") == 0) timing_mode = 1;
+        else if (strcmp(argv[i], "--sweep") == 0) sweep_mode = 1;
         else if (strcmp(argv[i], "--out") == 0 && i + 1 < argc) out_path = argv[++i];
     }
     if (sim) { g_sim_mode = 1; omega_gpu_attention_test_set_simulator(sim_launch); }
     if (host) host_only();
     else if (timing_mode) { if (timing(out_path) != 0) return 2; }
+    else if (sweep_mode) { if (sweep(out_path) != 0) return 2; }
     else if (chip(out_path) != 0) return 2;
     printf("%s: %d checks, %d failed\n", g_failed ? "FAIL" : "PASS", g_checks, g_failed);
     return g_failed ? 1 : 0;

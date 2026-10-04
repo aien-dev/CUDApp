@@ -422,6 +422,7 @@ static int build_kernel(const KSpec *k, OmegaBlackwellKernel *kernel, BlackwellI
 /* One kernel per KSpec; the device copy is uploaded once and stays resident for
  * the process (cut 4b). The IR program is kept for the host simulator. */
 static int g_mutant;
+static bool g_dedupe = true; /* shared-prefix staging dedupe; false = legacy per-sequence staging (test hook) */
 typedef struct { int used; KSpec k; OmegaBlackwellKernel kernel; BlackwellIRProgram *prog; NvrmMem code; } Slot;
 static OmegaGpuAttnSim g_sim;
 static Slot g_cache[8];
@@ -431,6 +432,7 @@ static bool g_hooked;
 #define UNLOCK() omega_gpu_session_unlock()
 
 void omega_gpu_attention_test_set_simulator(OmegaGpuAttnSim sim) { LOCK(); g_sim = sim; UNLOCK(); }
+void omega_gpu_attention_test_set_dedupe(bool on) { LOCK(); g_dedupe = on; UNLOCK(); }
 
 static void cache_clear_locked(void) {
     for (size_t i = 0; i < sizeof g_cache / sizeof g_cache[0]; i++)
@@ -568,8 +570,10 @@ static int run_launch(const Slot *ks, const Launch *L, OmegaGpuAttnInfo *info) {
     return unwritten ? OMEGA_GPU_ATTN_UNWRITTEN : OMEGA_GPU_ATTN_OK;
 }
 
-/* Caller holds the lock. */
+/* Caller holds the lock. Accounts the launch's q / table / output traffic (the KV
+ * staging bytes are accounted where the slices are copied). */
 static int launch(const Slot *ks, const Launch *L, OmegaGpuAttnInfo *info) {
+    if (info) { info->q_bytes += L->q_bytes; info->tab_bytes += L->tab_bytes; info->out_bytes += L->out_bytes; info->kv_source = OMEGA_GPU_ATTN_KV_STAGED; }
     if (g_sim) return g_sim(ks->prog, L, info);
     return run_launch(ks, L, info);
 }
@@ -633,6 +637,7 @@ int omega_gpu_gqa_attention_f32(const float *q, const float *k_cache, const floa
     if (!pool) { UNLOCK(); return OMEGA_GPU_ATTN_CHIP_FAIL; }
     memcpy(pool, k_cache, plane);
     memcpy(pool + plane, v_cache, plane);
+    if (info) { info->kv_bytes_staged += 2 * plane; info->kv_bytes_naive += 2 * plane; info->kv_blocks_logical += 1; info->kv_blocks_unique += 1; } /* one contiguous pseudo-block */
     uint32_t tab[2] = { 0, seq_len }; /* table row {0}, then the context length at byte 4 */
     Launch L = {
         .q = q, .q_bytes = n_out * 4, .pool = pool, .pool_bytes = 2 * plane, .tab = tab, .tab_bytes = sizeof tab,
@@ -681,26 +686,66 @@ static int paged_core(const float *q, const uint8_t *pool, const OmegaGpuKvLayou
     if (seqs_per_launch == 0) seqs_per_launch = 1;
     uint32_t maxb = 1;
     for (uint32_t s = 0; s < num_seqs; s++) if (n_blocks[s] > maxb) maxb = n_blocks[s];
+    /* Dedupe map: physical block id -> staged slot of the current launch (-1 = not staged yet),
+     * plus the list of ids touched by the launch (in slot order) so the reset is O(unique). */
+    int32_t *slot_of = NULL; uint32_t *touched = NULL;
+    if (g_dedupe) {
+        size_t nb = ly->num_blocks ? ly->num_blocks : 1;
+        slot_of = malloc(nb * sizeof *slot_of);
+        touched = malloc(nb * sizeof *touched);
+        if (!slot_of || !touched) { free(slot_of); free(touched); free(eff); UNLOCK(); return OMEGA_GPU_ATTN_CHIP_FAIL; }
+        memset(slot_of, 0xff, nb * sizeof *slot_of); /* every entry -1 */
+    }
     for (uint32_t s0 = 0; s0 < num_seqs && rc == OMEGA_GPU_ATTN_OK; s0 += seqs_per_launch) {
         uint32_t ns = num_seqs - s0 < seqs_per_launch ? num_seqs - s0 : seqs_per_launch;
-        /* stage the referenced blocks' layer slice, renumbered in table order */
+        /* logical references: every sequence's blocks up to its (truncated) context */
         uint32_t total = 0;
         for (uint32_t s = 0; s < ns; s++) total += eff[s0 + s] ? (eff[s0 + s] + ly->block_size - 1) / ly->block_size : 0;
-        uint64_t staged_bytes = (uint64_t)(total ? total : 1) * ly->layer_stride_bytes;
-        if (staged_bytes > 0xffffffffull) { rc = OMEGA_GPU_ATTN_TOO_LARGE; break; }
-        void *host_tmp = NULL;
-        uint8_t *staged = stage_target((size_t)staged_bytes, &host_tmp);
         uint32_t *tab = calloc((size_t)ns * maxb + ns, sizeof *tab);
-        if (!staged || !tab) { free(host_tmp); free(tab); rc = OMEGA_GPU_ATTN_CHIP_FAIL; break; }
+        if (!tab) { rc = OMEGA_GPU_ATTN_CHIP_FAIL; break; }
+        /* pass 1: assign staged slots. Dedupe keys on the PHYSICAL block id (not the table
+         * position): a CoW prefix block shared by several branches gets one slot. Each
+         * sequence's compact table keeps its own block order and truncated context. */
         uint32_t g = 0;
         for (uint32_t s = 0; s < ns; s++) {
             uint32_t need = eff[s0 + s] ? (eff[s0 + s] + ly->block_size - 1) / ly->block_size : 0;
-            for (uint32_t b = 0; b < need; b++, g++) {
-                const uint8_t *src = pool + (size_t)tables[s0 + s][b] * ly->block_stride_bytes + (size_t)layer_idx * ly->layer_stride_bytes;
-                memcpy(staged + (size_t)g * ly->layer_stride_bytes, src, (size_t)ly->layer_stride_bytes);
-                tab[(size_t)s * maxb + b] = g;
+            for (uint32_t b = 0; b < need; b++) {
+                uint32_t id = tables[s0 + s][b];
+                if (g_dedupe) {
+                    if (slot_of[id] < 0) { slot_of[id] = (int32_t)g; touched[g] = id; g++; }
+                    tab[(size_t)s * maxb + b] = (uint32_t)slot_of[id];
+                } else {
+                    tab[(size_t)s * maxb + b] = g++; /* legacy: one slot per reference */
+                }
             }
             tab[(size_t)ns * maxb + s] = eff[s0 + s];
+        }
+        uint64_t staged_bytes = (uint64_t)(g ? g : 1) * ly->layer_stride_bytes;
+        if (staged_bytes > 0xffffffffull) { free(tab); rc = OMEGA_GPU_ATTN_TOO_LARGE; break; }
+        void *host_tmp = NULL;
+        uint8_t *staged = stage_target((size_t)staged_bytes, &host_tmp);
+        if (!staged) { free(tab); rc = OMEGA_GPU_ATTN_CHIP_FAIL; break; }
+        /* pass 2: copy each staged slot's (physical block, layer) slice exactly once */
+        if (g_dedupe) {
+            for (uint32_t u = 0; u < g; u++) {
+                const uint8_t *src = pool + (size_t)touched[u] * ly->block_stride_bytes + (size_t)layer_idx * ly->layer_stride_bytes;
+                memcpy(staged + (size_t)u * ly->layer_stride_bytes, src, (size_t)ly->layer_stride_bytes);
+                slot_of[touched[u]] = -1; /* reset for the next launch */
+            }
+        } else {
+            uint32_t w = 0;
+            for (uint32_t s = 0; s < ns; s++) {
+                uint32_t need = eff[s0 + s] ? (eff[s0 + s] + ly->block_size - 1) / ly->block_size : 0;
+                for (uint32_t b = 0; b < need; b++, w++) {
+                    const uint8_t *src = pool + (size_t)tables[s0 + s][b] * ly->block_stride_bytes + (size_t)layer_idx * ly->layer_stride_bytes;
+                    memcpy(staged + (size_t)w * ly->layer_stride_bytes, src, (size_t)ly->layer_stride_bytes);
+                }
+            }
+        }
+        if (info) {
+            info->kv_blocks_logical += total; info->kv_blocks_unique += g;
+            info->kv_bytes_staged += (uint64_t)g * ly->layer_stride_bytes;
+            info->kv_bytes_naive += (uint64_t)total * ly->layer_stride_bytes;
         }
         Launch L = {
             .q = q + (size_t)s0 * row, .q_bytes = (size_t)ns * row * 4, .pool = staged, .pool_bytes = (size_t)staged_bytes,
@@ -713,7 +758,7 @@ static int paged_core(const float *q, const uint8_t *pool, const OmegaGpuKvLayou
         free(host_tmp); free(tab);
     }
     UNLOCK();
-    free(eff);
+    free(eff); free(slot_of); free(touched);
     if (info) info->call_ns = now_ns() - t0;
     return rc;
 }
