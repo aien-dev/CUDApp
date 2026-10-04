@@ -5,7 +5,8 @@
  *   ./gpu_attention_test --timing [--out r.json] cut 4b gate: 1 query x 32 heads x 2048 ctx, 100 calls
  *                                             through the persistent session, median under 3 ms
  *   ./gpu_attention_test --out receipt.json   chip gate: every shape against the host oracle, the
- *                                             mutants (deliberately wrong kernels) which the same
+ *                                             mutants (deliberately wrong kernels, all of
+ *                                             1 .. OMEGA_GPU_ATTN_MUTANT_COUNT-1) which the same
  *                                             check must catch, a negative control, timings
  *
  * Oracles re-state aien-sovereign-core crates/aien-inference-abi/src/backend.rs (main 8b5caed) in C:
@@ -189,18 +190,26 @@ static void host_only(void) {
         int rc = omega_gpu_attention_codegen(f32 != 0, f32 ? 12 : 4, 3, &k);
         CHECK(rc == OMEGA_GPU_ATTN_OK && k.code_size > 0 && k.gpr_count <= 64, "%s kernel generated (rc %s, %zu insns, %u gprs)", name, omega_gpu_attention_rc_name(rc), k.insn_count, k.gpr_count);
         printf("codegen %s: %zu insns, %u gprs, %u ugprs\n", name, k.insn_count, k.gpr_count, k.uniform_gpr_count);
-        uint8_t digest[32]; memcpy(digest, k.code_digest, 32);
+        /* every mutant (1 .. COUNT-1) is a distinct kernel: different from the baseline and from
+         * every other mutant, named, and inside the register budget */
+        uint8_t digests[OMEGA_GPU_ATTN_MUTANT_COUNT][32]; memcpy(digests[0], k.code_digest, 32);
         free(k.code);
-        for (int m = 1; m <= 4; m++) {
+        for (int m = 1; m < OMEGA_GPU_ATTN_MUTANT_COUNT; m++) {
             omega_gpu_attention_test_set_mutant((OmegaGpuAttnMutant)m);
             memset(&k, 0, sizeof k);
-            CHECK(omega_gpu_attention_codegen(f32 != 0, f32 ? 12 : 4, 3, &k) == OMEGA_GPU_ATTN_OK && memcmp(digest, k.code_digest, 32) != 0, "%s mutant %d kernel differs", name, m);
+            int mrc = omega_gpu_attention_codegen(f32 != 0, f32 ? 12 : 4, 3, &k);
+            CHECK(mrc == OMEGA_GPU_ATTN_OK && k.gpr_count <= 64, "%s mutant %s generated (rc %s, %u gprs)", name, omega_gpu_attention_mutant_name((OmegaGpuAttnMutant)m), omega_gpu_attention_rc_name(mrc), k.gpr_count);
+            CHECK(strcmp(omega_gpu_attention_mutant_name((OmegaGpuAttnMutant)m), "?") != 0, "mutant %d has a name", m);
+            memcpy(digests[m], k.code_digest, 32);
             free(k.code);
             omega_gpu_attention_test_set_mutant(OMEGA_GPU_ATTN_MUTANT_NONE);
+            for (int o = 0; o < m; o++)
+                CHECK(memcmp(digests[o], digests[m], 32) != 0, "%s mutant %s kernel differs from %s", name, omega_gpu_attention_mutant_name((OmegaGpuAttnMutant)m), omega_gpu_attention_mutant_name((OmegaGpuAttnMutant)o));
         }
+        CHECK(strcmp(omega_gpu_attention_mutant_name(OMEGA_GPU_ATTN_MUTANT_COUNT), "?") == 0, "COUNT has no name");
         /* a different shape key is a different kernel */
         memset(&k, 0, sizeof k);
-        CHECK(omega_gpu_attention_codegen(f32 != 0, f32 ? 12 : 4, 2, &k) == OMEGA_GPU_ATTN_OK && memcmp(digest, k.code_digest, 32) != 0, "%s log2gqa 2 kernel differs from log2gqa 3", name);
+        CHECK(omega_gpu_attention_codegen(f32 != 0, f32 ? 12 : 4, 2, &k) == OMEGA_GPU_ATTN_OK && memcmp(digests[0], k.code_digest, 32) != 0, "%s log2gqa 2 kernel differs from log2gqa 3", name);
         free(k.code);
         CHECK(nvdisasm_check(f32 != 0, name, f32 ? must_f32 : must_bf16, f32 ? 11 : 14) == 0, "%s nvdisasm listing decodes and shows the expected instructions", name);
     }
@@ -208,9 +217,9 @@ static void host_only(void) {
 
 /* ------------------------------------------------------------- chip gate */
 typedef struct { const char *name; size_t n; int rc; size_t bad; double worst; int pass; uint64_t chip_ns, call_ns; uint32_t calls, unwritten;
-                 int mutants_run, mutants_caught; char mutant_note[160]; } Case;
+                 int mutants_run, mutants_caught; char mutant_note[400]; } Case;
 static Case g_cases[32]; static int g_ncases;
-static int g_mutant_caught[5], g_mutant_run[5];
+static int g_mutant_caught[OMEGA_GPU_ATTN_MUTANT_COUNT], g_mutant_run[OMEGA_GPU_ATTN_MUTANT_COUNT];
 
 static void record(Case c, FILE *out) {
     g_cases[g_ncases++] = c;
@@ -224,12 +233,12 @@ static void record(Case c, FILE *out) {
                      c.mutants_run, c.mutants_caught, c.mutant_note);
 }
 
-static const char *mutant_name(int m) { static const char *n[5] = { "none", "NO_MAX", "KV_HEAD", "SLOT", "NO_RESCALE" }; return n[m]; }
+static const char *mutant_name(int m) { return omega_gpu_attention_mutant_name((OmegaGpuAttnMutant)m); }
 
 /* Runs the mutants listed in `ms` (terminated by 0) through `run` and counts the catches. */
 typedef int (*RunFn)(void *ctx, float *got, OmegaGpuAttnInfo *info);
 static void run_mutants(Case *c, const int *ms, RunFn run, void *ctx, float *got, const float *want, size_t n, double rel, double abs_tol) {
-    size_t pos = 0;
+    size_t pos = strlen(c->mutant_note); /* appends: a case may call this more than once */
     for (int i = 0; ms[i]; i++) {
         OmegaGpuAttnInfo info; double w;
         omega_gpu_attention_test_set_mutant((OmegaGpuAttnMutant)ms[i]);
@@ -286,7 +295,7 @@ static int chip(const char *out_path) {
             size_t neg = compare(got, wrong, n, 2e-4, 2e-5, &w2);
             CHECK(neg > n / 2, "%s negative control: wrong expectation flagged (%zu of %zu)", name, neg, n);
             free(wrong);
-            static const int ms[3] = { OMEGA_GPU_ATTN_MUTANT_SLOT, OMEGA_GPU_ATTN_MUTANT_NO_RESCALE, 0 };
+            static const int ms[5] = { OMEGA_GPU_ATTN_MUTANT_SLOT, OMEGA_GPU_ATTN_MUTANT_NO_RESCALE, OMEGA_GPU_ATTN_MUTANT_Q_ROW, OMEGA_GPU_ATTN_MUTANT_OUT_ROW, 0 };
             run_mutants(&c, ms, run_gqa, &gc, got, want, n, 2e-4, 2e-5);
         } else if (ci == 1 && sh == 1) {
             static const int ms[2] = { OMEGA_GPU_ATTN_MUTANT_KV_HEAD, 0 };
@@ -310,6 +319,33 @@ static int chip(const char *out_path) {
         run_mutants(&c, ms, run_gqa, &gc, got, want, n, 1e-3, 1e-4);
         record(c, out); free(q); free(kc); free(vc); free(got); free(want);
     }
+    /* 2b. MHA (16q/16kv, ratio 1, ctx 300 = 4 full chunks + a partial one): the head-wiring
+     * mutants Q_ROW and OUT_ROW are observably different here (Q_ROW keeps kv head h, OUT_ROW
+     * lands on kv head h^1), unlike GQA where both swap the same pair of outputs. */
+    {
+        uint32_t nqh = 16, nkv = 16, seq = 300; size_t n = (size_t)nqh * hd, nkvs = (size_t)seq * nkv * hd;
+        float *q = malloc(n * 4), *kc = malloc(nkvs * 4), *vc = malloc(nkvs * 4), *got = malloc(n * 4), *want = malloc(n * 4), *got_q = malloc(n * 4);
+        for (size_t i = 0; i < n; i++) q[i] = frand(&seed, -1.0f, 1.0f);
+        for (size_t i = 0; i < nkvs; i++) { kc[i] = frand(&seed, -1.0f, 1.0f); vc[i] = frand(&seed, -1.0f, 1.0f); }
+        oracle_gqa(q, kc, vc, seq, nqh, nkv, hd, want);
+        Case c = { .name = "gqa_f32_mha_16q16kv_ctx300", .n = n };
+        OmegaGpuAttnInfo info; GqaCtx gc = { q, kc, vc, seq, nqh, nkv };
+        c.rc = run_gqa(&gc, got, &info);
+        c.bad = compare(got, want, n, 2e-4, 2e-5, &c.worst);
+        c.pass = c.rc == OMEGA_GPU_ATTN_OK && c.bad == 0; c.chip_ns = info.elapsed_ns; c.call_ns = info.call_ns; c.calls = info.chip_calls; c.unwritten = info.unwritten_words;
+        static const int ms_q[2] = { OMEGA_GPU_ATTN_MUTANT_Q_ROW, 0 };
+        static const int ms_o[3] = { OMEGA_GPU_ATTN_MUTANT_OUT_ROW, OMEGA_GPU_ATTN_MUTANT_KV_HEAD, 0 };
+        run_mutants(&c, ms_q, run_gqa, &gc, got, want, n, 2e-4, 2e-5);
+        memcpy(got_q, got, n * 4); /* Q_ROW output */
+        run_mutants(&c, ms_o, run_gqa, &gc, got, want, n, 2e-4, 2e-5);
+        /* `got` now holds the KV_HEAD output; rerun OUT_ROW alone to compare it with Q_ROW */
+        omega_gpu_attention_test_set_mutant(OMEGA_GPU_ATTN_MUTANT_OUT_ROW);
+        OmegaGpuAttnInfo i3; int rc3 = run_gqa(&gc, got, &i3);
+        omega_gpu_attention_test_set_mutant(OMEGA_GPU_ATTN_MUTANT_NONE);
+        double wq; size_t differ = compare(got, got_q, n, 2e-4, 2e-5, &wq);
+        CHECK(rc3 == OMEGA_GPU_ATTN_OK && differ > n / 2, "mha: Q_ROW and OUT_ROW outputs are distinct wrong answers (%zu of %zu differ)", differ, n);
+        record(c, out); free(q); free(kc); free(vc); free(got); free(want); free(got_q);
+    }
     /* 3. paged bf16 KV, block size 16, 2 layers (layer 1 under test), scattered block ids */
     for (int sh = 0; sh < 2; sh++) for (int ci = 0; ci < 9; ci++) {
         uint32_t nqh = shapes[sh].nqh, nkv = shapes[sh].nkv, ctx = ctxs[ci], bs = 16, layers = 2, layer = 1;
@@ -331,7 +367,7 @@ static int chip(const char *out_path) {
         c.pass = c.rc == OMEGA_GPU_ATTN_OK && c.bad == 0; c.chip_ns = info.elapsed_ns; c.call_ns = info.call_ns; c.calls = info.chip_calls; c.unwritten = info.unwritten_words;
         if (ci == 3) {
             /* NO_MAX cannot overflow on unit-scale scores (softmax is shift invariant); it is caught by the large-score gqa case */
-            static const int ms3[4] = { OMEGA_GPU_ATTN_MUTANT_KV_HEAD, OMEGA_GPU_ATTN_MUTANT_SLOT, OMEGA_GPU_ATTN_MUTANT_NO_RESCALE, 0 };
+            static const int ms3[6] = { OMEGA_GPU_ATTN_MUTANT_KV_HEAD, OMEGA_GPU_ATTN_MUTANT_SLOT, OMEGA_GPU_ATTN_MUTANT_NO_RESCALE, OMEGA_GPU_ATTN_MUTANT_Q_ROW, OMEGA_GPU_ATTN_MUTANT_OUT_ROW, 0 };
             run_mutants(&c, ms3, run_paged, &pc, got, want, n, 2e-4, 2e-5);
         } else if (ci == 1) {
             static const int ms[3] = { OMEGA_GPU_ATTN_MUTANT_KV_HEAD, OMEGA_GPU_ATTN_MUTANT_SLOT, 0 };
@@ -369,19 +405,21 @@ static int chip(const char *out_path) {
         c.pass = c.rc == OMEGA_GPU_ATTN_OK && c.bad == 0; c.chip_ns = info.elapsed_ns; c.call_ns = info.call_ns; c.calls = info.chip_calls; c.unwritten = info.unwritten_words;
         int zeros = 1; for (size_t i = 0; i < (size_t)nqh * hd; i++) if (got[(size_t)nqh * hd + i] != 0.0f) zeros = 0;
         CHECK(zeros, "batch: the empty sequence is all zeros");
-        static const int ms[3] = { OMEGA_GPU_ATTN_MUTANT_KV_HEAD, OMEGA_GPU_ATTN_MUTANT_SLOT, 0 };
+        static const int ms[5] = { OMEGA_GPU_ATTN_MUTANT_KV_HEAD, OMEGA_GPU_ATTN_MUTANT_SLOT, OMEGA_GPU_ATTN_MUTANT_Q_ROW, OMEGA_GPU_ATTN_MUTANT_OUT_ROW, 0 };
         run_mutants(&c, ms, run_batch, &bc, got, want, n, 2e-4, 2e-5);
         record(c, out); free(pool); free(tables); free(q); free(got); free(want);
     }
-    for (int m = 1; m <= 4; m++) {
+    /* every mutant the API knows (1 .. COUNT-1) ran at least once and was caught every time;
+     * a mutant added to the enum without a battery entry fails here */
+    for (int m = 1; m < OMEGA_GPU_ATTN_MUTANT_COUNT; m++) {
         CHECK(g_mutant_run[m] > 0 && g_mutant_caught[m] == g_mutant_run[m], "mutant %s caught %d of %d runs", mutant_name(m), g_mutant_caught[m], g_mutant_run[m]);
         printf("mutant %s: caught %d of %d\n", mutant_name(m), g_mutant_caught[m], g_mutant_run[m]);
     }
     CHECK(omega_gpu_session_open_count() == (g_sim_mode ? 0u : 1u), "device opened %s for the battery (opens=%u)", g_sim_mode ? "never (simulator)" : "once", omega_gpu_session_open_count());
     printf("device_opens=%u\n", omega_gpu_session_open_count());
     if (out) {
-        fprintf(out, "],\"mutants\":{");
-        for (int m = 1; m <= 4; m++) fprintf(out, "%s\"%s\":{\"run\":%d,\"caught\":%d}", m > 1 ? "," : "", mutant_name(m), g_mutant_run[m], g_mutant_caught[m]);
+        fprintf(out, "],\"mutant_count\":%d,\"mutants\":{", OMEGA_GPU_ATTN_MUTANT_COUNT - 1);
+        for (int m = 1; m < OMEGA_GPU_ATTN_MUTANT_COUNT; m++) fprintf(out, "%s\"%s\":{\"run\":%d,\"caught\":%d}", m > 1 ? "," : "", mutant_name(m), g_mutant_run[m], g_mutant_caught[m]);
         fprintf(out, "},\"device_opens\":%u,\"checks\":%d,\"failed\":%d,\"verdict\":\"%s\"}\n", omega_gpu_session_open_count(), g_checks, g_failed, g_failed == 0 ? "OMEGA_GPU_ATTENTION_PASS" : "OMEGA_GPU_ATTENTION_FAIL");
         fclose(out);
     }

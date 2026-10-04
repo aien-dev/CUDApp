@@ -136,9 +136,17 @@ typedef enum {
     OMEGA_GPU_ATTN_MUTANT_NO_MAX,     /* softmax without the running-max subtraction (overflows for large scores) */
     OMEGA_GPU_ATTN_MUTANT_KV_HEAD,    /* reads kv head (h / ratio) ^ 1 */
     OMEGA_GPU_ATTN_MUTANT_SLOT,       /* K read from slot (t + 1) % block_size while V keeps slot t (K/V mismatch) */
-    OMEGA_GPU_ATTN_MUTANT_NO_RESCALE  /* the accumulator is not rescaled when the max moves between chunks */
+    OMEGA_GPU_ATTN_MUTANT_NO_RESCALE, /* the accumulator is not rescaled when the max moves between chunks */
+    /* Head-wiring mutants (attention hardening cut, 2026-10-04). Both swap the rows of
+     * query heads h and h ^ 1, so they need num_q_heads even (>= 2); never run them on a
+     * one-head shape (row h ^ 1 of the last sequence would be past the buffer). */
+    OMEGA_GPU_ATTN_MUTANT_Q_ROW,      /* q loaded from query-head row h ^ 1 (kv head and output row stay h) */
+    OMEGA_GPU_ATTN_MUTANT_OUT_ROW,    /* the correct result for head h stored in flattened output row h ^ 1 */
+    OMEGA_GPU_ATTN_MUTANT_COUNT       /* one past the last mutant: every battery enumerates 1 .. COUNT-1 */
 } OmegaGpuAttnMutant;
 void omega_gpu_attention_test_set_mutant(OmegaGpuAttnMutant m);
+/* "none", "NO_MAX", ... ; "?" past COUNT. The table is checked against COUNT at compile time. */
+const char *omega_gpu_attention_mutant_name(OmegaGpuAttnMutant m);
 
 /* Generate a kernel without launching (host tests, nvdisasm listings).
  * log2_block_size: shift for token -> block; log2_gqa: shift for query head -> kv head. */

@@ -197,15 +197,26 @@ static void gen_attention(Em *e, const KSpec *k) {
     movi(e, c1, 1); movi(e, c4, 4); movi(e, c32, 32); movi(e, c64, 64);
     movi(e, c256, SH_S); movi(e, c512, SH_O); movi(e, c768, SH_R); movi(e, c896, SH_R + 128); movrz(e, zero);
 
-    /* q[tid] -> shared; out address kept for the end */
+    /* q[tid] -> shared; out address kept for the end. Row = seq * num_q_heads + head for
+     * both q and out (flattened head-major, the oracle's layout). The head-wiring mutants
+     * swap the row of head h with h ^ 1 on one side only. */
     int tid4 = V(e), qrow = V(e), qoff = V(e), qaddr = V64(e), qv = V(e), oaddr = V64(e);
+    int hq = h, ho = h;
+    if (k->mutant == OMEGA_GPU_ATTN_MUTANT_Q_ROW) { hq = V(e); lop3xor(e, hq, h, c1); }
+    if (k->mutant == OMEGA_GPU_ATTN_MUTANT_OUT_ROW) { ho = V(e); lop3xor(e, ho, h, c1); }
     imadi(e, tid4, tid, 4, NOREG);
-    imadr(e, qrow, seq, p_nqh, h);
+    imadr(e, qrow, seq, p_nqh, hq);
     imadi(e, qoff, qrow, HD * 4, tid4);
     wide(e, qaddr, qoff, 1, A);
     ldg(e, qv, qaddr, udesc);
     sts32(e, tid4, qv); /* SH_Q + tid*4 */
-    wide(e, oaddr, qoff, 1, C);
+    if (ho == hq) wide(e, oaddr, qoff, 1, C);
+    else {
+        int orow = V(e), ooff = V(e);
+        imadr(e, orow, seq, p_nqh, ho);
+        imadi(e, ooff, orow, HD * 4, tid4);
+        wide(e, oaddr, ooff, 1, C);
+    }
 
     /* kv head offset, this sequence's table row and context length */
     int kvh = V(e), kvoff = V(e), t1 = V(e), tab = V64(e), ca = V64(e), ctx = V(e), vb = V64(e);
@@ -743,6 +754,15 @@ int omega_gpu_paged_attention_batch_bf16(const float *q, const void *pool, const
     for (uint32_t s = 0; s < num_seqs; s++) free(tables[s]);
     free(tables); free(nb); free(cx);
     return rc;
+}
+
+static const char *const k_mutant_names[OMEGA_GPU_ATTN_MUTANT_COUNT] = {
+    "none", "NO_MAX", "KV_HEAD", "SLOT", "NO_RESCALE", "Q_ROW", "OUT_ROW"
+};
+_Static_assert(sizeof k_mutant_names / sizeof k_mutant_names[0] == OMEGA_GPU_ATTN_MUTANT_COUNT, "mutant name table");
+
+const char *omega_gpu_attention_mutant_name(OmegaGpuAttnMutant m) {
+    return (m >= 0 && m < OMEGA_GPU_ATTN_MUTANT_COUNT && k_mutant_names[m]) ? k_mutant_names[m] : "?";
 }
 
 const char *omega_gpu_attention_rc_name(int rc) {
