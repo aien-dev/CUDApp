@@ -267,6 +267,35 @@ typedef struct { const float *q; const uint8_t *pool; const OmegaGpuKvLayout *ly
 static int run_paged(void *p, float *got, OmegaGpuAttnInfo *info) { PagedCtx *c = p; return omega_gpu_paged_attention_bf16(c->q, c->pool, c->ly, c->ids, c->nids, c->ctx, c->layer, c->nqh, c->nkv, 64, got, info); }
 typedef struct { const float *q; const uint8_t *pool; const OmegaGpuKvLayout *ly; const int32_t *tables, *ctxs; uint32_t maxb, nseq, layer, nqh, nkv; } BatchCtx;
 static int run_batch(void *p, float *got, OmegaGpuAttnInfo *info) { BatchCtx *c = p; return omega_gpu_paged_attention_batch_bf16(c->q, c->pool, c->ly, c->tables, c->ctxs, c->maxb, c->nseq, c->layer, c->nqh, c->nkv, 64, got, info); }
+/* single vs batched parity and repeat (L6-KV, CAND-0 coverage): each sequence of a batch, run
+ * alone through the single-sequence entry point with the batch's own rules applied by hand
+ * (negative table entries removed, ctx <= 0 -> 0), must equal its row of the batched output bit
+ * for bit (same kernel, same per-CTA inputs; the batch only shares staging). Then the batch is
+ * called again with the same inputs: kernel cache hit, bit-identical output, identical staging
+ * counters. `got` must hold the batched output of `bc`. */
+static void batch_single_repeat_checks(const char *name, const BatchCtx *bc, const float *got, const Case *c) {
+    size_t row = (size_t)bc->nqh * 64, n = (size_t)bc->nseq * row;
+    float *one = malloc(row * 4), *again = malloc(n * 4);
+    uint32_t *ids = malloc((bc->maxb ? bc->maxb : 1) * 4);
+    for (uint32_t s = 0; s < bc->nseq; s++) {
+        uint32_t nb = 0;
+        for (uint32_t b = 0; b < bc->maxb; b++) { int32_t v = bc->tables[(size_t)s * bc->maxb + b]; if (v >= 0) ids[nb++] = (uint32_t)v; }
+        uint32_t ctx = bc->ctxs[s] > 0 ? (uint32_t)bc->ctxs[s] : 0;
+        for (size_t i = 0; i < row; i++) one[i] = -7.0f; /* poison: an unwritten row cannot match */
+        OmegaGpuAttnInfo si;
+        int src = omega_gpu_paged_attention_bf16(bc->q + (size_t)s * row, bc->pool, bc->ly, ids, nb, ctx, bc->layer, bc->nqh, bc->nkv, 64, one, &si);
+        CHECK(src == OMEGA_GPU_ATTN_OK && memcmp(one, got + (size_t)s * row, row * 4) == 0,
+              "%s: sequence %u alone (single entry point, %u blocks, ctx %u) is bit-identical to its batched row (rc=%s)", name, s, nb, ctx, omega_gpu_attention_rc_name(src));
+    }
+    OmegaGpuAttnInfo ri;
+    int rrc = omega_gpu_paged_attention_batch_bf16(bc->q, bc->pool, bc->ly, bc->tables, bc->ctxs, bc->maxb, bc->nseq, bc->layer, bc->nqh, bc->nkv, 64, again, &ri);
+    CHECK(rrc == OMEGA_GPU_ATTN_OK && ri.kernel_cache_hit && memcmp(again, got, n * 4) == 0 && ri.kv_bytes_staged == c->kv_staged && ri.kv_bytes_naive == c->kv_naive
+              && ri.kv_blocks_unique == c->blk_unique && ri.kv_blocks_logical == c->blk_logical,
+          "%s: repeated batch call is a cache hit, bit-identical, same staging counters (rc=%s hit=%d staged %" PRIu64 "/%" PRIu64 ")",
+          name, omega_gpu_attention_rc_name(rrc), (int)ri.kernel_cache_hit, ri.kv_bytes_staged, c->kv_staged);
+    free(one); free(again); free(ids);
+}
+
 
 static int chip(const char *out_path) {
     FILE *out = out_path ? fopen(out_path, "w") : NULL;
@@ -414,6 +443,7 @@ static int chip(const char *out_path) {
         c.pass = c.rc == OMEGA_GPU_ATTN_OK && c.bad == 0; case_info(&c, &info);
         int zeros = 1; for (size_t i = 0; i < (size_t)nqh * hd; i++) if (got[(size_t)nqh * hd + i] != 0.0f) zeros = 0;
         CHECK(zeros, "batch: the empty sequence is all zeros");
+        batch_single_repeat_checks(c.name, &bc, got, &c);
         static const int ms[5] = { OMEGA_GPU_ATTN_MUTANT_KV_HEAD, OMEGA_GPU_ATTN_MUTANT_SLOT, OMEGA_GPU_ATTN_MUTANT_Q_ROW, OMEGA_GPU_ATTN_MUTANT_OUT_ROW, 0 };
         run_mutants(&c, ms, run_batch, &bc, got, want, n, 2e-4, 2e-5);
         /* all 7 referenced blocks are distinct here, so dedupe stages exactly the naive figure */
@@ -466,6 +496,7 @@ static int chip(const char *out_path) {
         CHECK(li.kv_blocks_unique == logical && li.kv_bytes_staged == li.kv_bytes_naive && li.kv_bytes_staged > c.kv_staged,
               "%s negative control: duplicated prefix staging is flagged (legacy staged %" PRIu64 " == naive %" PRIu64 ", dedupe %" PRIu64 ")", name, li.kv_bytes_staged, li.kv_bytes_naive, c.kv_staged);
         CHECK(memcmp(got, legacy, n * 4) == 0, "%s: dedupe and legacy staging are bit-identical", name);
+        batch_single_repeat_checks(name, &bc, got, &c);
         static const int ms5[3] = { OMEGA_GPU_ATTN_MUTANT_KV_HEAD, OMEGA_GPU_ATTN_MUTANT_SLOT, 0 };
         run_mutants(&c, ms5, run_batch, &bc, got, want, n, 2e-4, 2e-5);
         record(c, out); free(pool); free(tables); free(q); free(got); free(want); free(legacy);
