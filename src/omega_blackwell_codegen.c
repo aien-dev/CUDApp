@@ -667,6 +667,42 @@ static int encode_single_insn(const BlackwellIRInsn *insn, const OmegaRegAlloc *
             break;
         }
 
+        case BW_IR_BSSY: {
+            /* BSSY.RECONVERGENT Bn, target (omega #308). nvcc 13.0.88 -arch=sm_121:
+             *   [0070] BSSY.RECONVERGENT B0, 0x140 ; 0x000000c000007945 0x000fe20003800200
+             * opcode 0x945 (NAK sm70_encode.rs:4165), barrier id at bits 16..19 (set_bar_dst
+             * 16..20), guard predicate at bits 12..15 like BRA, relative byte offset
+             * target - (this + 16) at bit 32 (NAK: field 34.. in 4-byte units), the cond
+             * predicate PT at bits 87..89 (0x0380 << 16 in w[2]) and bit 73 (0x200 in w[2]),
+             * which the disassembler prints as .RECONVERGENT; nvcc sets it on every BSSY/BSYNC
+             * for sm_121 and Mesa NAK does not. We follow nvcc. The target is the instruction
+             * after the matching BSYNC, so the delta is at least 2; smaller is refused. */
+            int32_t delta = (int32_t)insn->imm;
+            if (delta < 2 || insn->bar_reg >= BW_RECONV_MAX_BAR) return -1;
+            uint32_t pred_field = 0x7u;
+            if (insn->predicate_p0)
+                pred_field = insn->predicate_not ? 0x8u : 0x0u;
+            w[0] = 0x945u | (pred_field << 12) | ((uint32_t)insn->bar_reg << 16);
+            w[1] = (uint32_t)(delta - 1) * 16u;
+            w[2] = 0x03800200u;
+            w[3] = insn->control ? insn->control : 0x000fe200u;
+            break;
+        }
+
+        case BW_IR_BSYNC: {
+            /* BSYNC.RECONVERGENT Bn: [0130] BSYNC.RECONVERGENT B0 ; 0x0000000000007941 0x000fea0003800200
+             * opcode 0x941 (NAK sm70_encode.rs:4179), barrier id bits 16..19, cond PT, bit 73. */
+            if (insn->bar_reg >= BW_RECONV_MAX_BAR) return -1;
+            uint32_t pred_field = 0x7u;
+            if (insn->predicate_p0)
+                pred_field = insn->predicate_not ? 0x8u : 0x0u;
+            w[0] = 0x941u | (pred_field << 12) | ((uint32_t)insn->bar_reg << 16);
+            w[1] = 0;
+            w[2] = 0x03800200u;
+            w[3] = insn->control ? insn->control : 0x000fea00u;
+            break;
+        }
+
         case BW_IR_MUFU_EX2:
             /* MUFU.EX2 Rd, Ra. nvdisasm 13.0 -b SM121: 0x7308 with sub-op 0x0800 decodes
              * "MUFU.EX2 R2, R4" (RCP is 0x1000, RSQ 0x1400 above). */
@@ -774,6 +810,58 @@ int omega_blackwell_verify_codegen_fixtures_intops(void) {
         if (encode_single_insn(&in, &ra, w) != 0) return -(2 * i + 1);
         if (w[0] != fx[i].w0 || w[1] != fx[i].w1 || w[2] != fx[i].w2) return -(2 * i + 2);
     }
+    return 0;
+}
+
+int omega_blackwell_encode_one(const BlackwellIRInsn *insn, uint32_t w[4]) {
+    if (!insn || !w) return -1;
+    OmegaRegAlloc ra;
+    memset(&ra, 0, sizeof ra);
+    for (int i = 0; i < BW_MAX_VREGS; i++) ra.vreg_to_phys[i] = i;
+    for (int i = 0; i < BW_MAX_UVREGS; i++) ra.uvreg_to_phys[i] = i;
+    return encode_single_insn(insn, &ra, w);
+}
+
+/* omega #308: BSSY / BSYNC golden words. Oracle: nvcc 13.0.88 -arch=sm_121 -cubin -O3 on the
+ * kernels in docs/gpu-reconvergence-308.md, cuobjdump -sass (low 64-bit word, then high; the
+ * top 23 bits of the high word are the control word and are not compared here):
+ *   k_loop   [0070] BSSY.RECONVERGENT B0, 0x140 ; 0x000000c000007945 0x000fe20003800200  (delta 13)
+ *   k_nested [0070] BSSY.RECONVERGENT B0, 0x300 ; 0x0000028000007945 0x000fe20003800200  (delta 41)
+ *   k_break  [0070] BSSY.RECONVERGENT B0, 0x110 ; 0x0000009000007945 0x000fe20003800200  (delta 10)
+ *   k_loop   [0130] BSYNC.RECONVERGENT B0 ;        0x0000000000007941 0x000fea0003800200
+ * Barrier ids other than B0 and the predicated forms are decoded by tools/reconv_nvdisasm_check.sh
+ * (nvdisasm -b SM121 text), not by this table. */
+int omega_blackwell_verify_codegen_fixtures_reconv(void) {
+    static const struct { BlackwellIROpcode op; int delta; int bar; uint32_t w0, w1, w2; } fx[] = {
+        { BW_IR_BSSY, 13, 0, 0x00007945U, 0x000000c0U, 0x03800200U },
+        { BW_IR_BSSY, 41, 0, 0x00007945U, 0x00000280U, 0x03800200U },
+        { BW_IR_BSSY, 10, 0, 0x00007945U, 0x00000090U, 0x03800200U },
+        { BW_IR_BSYNC, 0, 0, 0x00007941U, 0x00000000U, 0x03800200U },
+    };
+    for (int i = 0; i < (int)(sizeof fx / sizeof fx[0]); i++) {
+        BlackwellIRInsn in;
+        memset(&in, 0, sizeof in);
+        in.op = fx[i].op; in.dst_vreg = -1; in.src1_vreg = -1; in.src2_vreg = -1; in.src3_vreg = -1; in.ureg = -1;
+        in.imm = (uint32_t)fx[i].delta; in.bar_reg = (uint8_t)fx[i].bar;
+        uint32_t w[4];
+        if (omega_blackwell_encode_one(&in, w) != 0) return -(2 * i + 1);
+        if (w[0] != fx[i].w0 || w[1] != fx[i].w1 || w[2] != fx[i].w2) return -(2 * i + 2);
+        /* control word defaults mirror nvcc's: BSSY 0x000fe200, BSYNC 0x000fea00 */
+        if (w[3] != (fx[i].op == BW_IR_BSSY ? 0x000fe200U : 0x000fea00U)) return -(2 * i + 2);
+    }
+    /* refusals: a BSSY must name a later instruction (delta >= 2), barrier ids stop at B15 */
+    BlackwellIRInsn bad; uint32_t w[4];
+    memset(&bad, 0, sizeof bad); bad.op = BW_IR_BSSY; bad.dst_vreg = bad.src1_vreg = bad.src2_vreg = bad.src3_vreg = bad.ureg = -1;
+    bad.imm = 1; bad.bar_reg = 0;
+    if (omega_blackwell_encode_one(&bad, w) == 0) return -101;
+    bad.imm = (uint32_t)-3;
+    if (omega_blackwell_encode_one(&bad, w) == 0) return -102;
+    bad.imm = 5; bad.bar_reg = 16;
+    if (omega_blackwell_encode_one(&bad, w) == 0) return -103;
+    bad.op = BW_IR_BSYNC; bad.imm = 0; bad.bar_reg = 16;
+    if (omega_blackwell_encode_one(&bad, w) == 0) return -104;
+    bad.bar_reg = 15;
+    if (omega_blackwell_encode_one(&bad, w) != 0 || w[0] != (0x00007941U | (15U << 16))) return -105;
     return 0;
 }
 

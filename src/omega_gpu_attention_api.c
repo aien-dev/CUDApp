@@ -25,6 +25,7 @@
  */
 #include "omega_gpu_attention_api.h"
 #include "omega_blackwell_codegen.h"
+#include "omega_bw_reconv.h"
 #include "omega_blackwell_qmd.h"
 #include "omega_blackwell_submit.h"
 #include "omega_gpu_session.h"
@@ -45,7 +46,7 @@
 #define SB_RD 1u
 #define SB_UGPR 2u
 
-enum { K_FIXED, K_PRED, K_VAR, K_UVAR, K_STORE, K_SYNC, K_EXIT, K_BRA };
+enum { K_FIXED, K_PRED, K_VAR, K_UVAR, K_STORE, K_SYNC, K_EXIT, K_BRA, K_BSSY, K_BSYNC };
 
 #define AT_MAX_LOOPS 8
 typedef struct {
@@ -54,6 +55,8 @@ typedef struct {
     int err;
     int loop_start[AT_MAX_LOOPS], loop_end[AT_MAX_LOOPS];
     int n_loops, depth, stack[AT_MAX_LOOPS];
+    BwRegions rg;  /* structured reconvergence regions (omega #308) */
+    int rg_mutant; /* test only: 1 = drop the BSYNC at join (the 2026-10-04 bug shape; host sim must catch it) */
 } Em;
 
 static void emit(Em *e, BlackwellIRInsn in, int kind) {
@@ -67,6 +70,9 @@ static void emit(Em *e, BlackwellIRInsn in, int kind) {
     case K_SYNC:  in.control = CW(6, SB_NONE, SB_NONE, wait); e->pending = 0; break;
     case K_EXIT:  in.control = CW(5, SB_NONE, SB_NONE, wait); e->pending = in.predicate_p0 ? wait : 0; break;
     case K_BRA:   in.control = CW(5, SB_NONE, SB_NONE, wait); e->pending = in.predicate_p0 ? wait : 0; break;
+    /* stall counts as nvcc 13.0.88 writes them for sm_121 (see src/omega_gpu_elementwise_api.c) */
+    case K_BSSY:  in.control = CW(1, SB_NONE, SB_NONE, wait) | CW_YIELD; e->pending = 0; break;
+    case K_BSYNC: in.control = CW(5, SB_NONE, SB_NONE, wait) | CW_YIELD; e->pending = 0; break;
     default: e->err = -1; return;
     }
     if (omega_bw_ir_append(e->p, &in) < 0) e->err = -1;
@@ -109,15 +115,49 @@ static void e_fmul(Em *e, int d, int a, int b) { BlackwellIRInsn i = I0(BW_IR_FM
 static void e_ffma(Em *e, int d, int a, int b, int c) { BlackwellIRInsn i = I0(BW_IR_FFMA); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; i.src3_vreg = c; emit(e, i, K_FIXED); }
 static void e_fmax(Em *e, int d, int a, int b) { BlackwellIRInsn i = I0(BW_IR_FMNMX_MAX); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; emit(e, i, K_FIXED); }
 static void mufu(Em *e, BlackwellIROpcode op, int d, int a) { BlackwellIRInsn i = I0(op); i.dst_vreg = d; i.src1_vreg = a; emit(e, i, K_VAR); }
-static void shfl_down(Em *e, int d, int a, uint32_t off) { BlackwellIRInsn i = I0(BW_IR_SHFL_DOWN); i.dst_vreg = d; i.src1_vreg = a; i.imm = off; emit(e, i, K_VAR); }
+/* SHFL and BAR.SYNC are refused inside an open reconvergence region (omega #308): on a split
+ * warp they read inactive lanes / count a partial warp, which is what produced wrong dims on
+ * the chip on 2026-10-04. The build fails closed instead. */
+static int in_region(Em *e) { if (e->rg.depth > 0) { e->err = -1; return 1; } return 0; }
+static void shfl_down(Em *e, int d, int a, uint32_t off) { if (in_region(e)) return; BlackwellIRInsn i = I0(BW_IR_SHFL_DOWN); i.dst_vreg = d; i.src1_vreg = a; i.imm = off; emit(e, i, K_VAR); }
 static void sts32(Em *e, int addr, int val) { BlackwellIRInsn i = I0(BW_IR_STS32); i.src1_vreg = addr; i.src2_vreg = val; emit(e, i, K_STORE); }
 static void lds32(Em *e, int d, int addr) { BlackwellIRInsn i = I0(BW_IR_LDS32); i.dst_vreg = d; i.src1_vreg = addr; emit(e, i, K_VAR); }
-static void bar_sync(Em *e) { emit(e, I0(BW_IR_BAR_SYNC), K_SYNC); }
+static void bar_sync(Em *e) { if (in_region(e)) return; emit(e, I0(BW_IR_BAR_SYNC), K_SYNC); }
 static void isetp_ge_u32(Em *e, int a, int b) { BlackwellIRInsn i = I0(BW_IR_ISETP_GE_U32); i.src1_vreg = a; i.src2_vreg = b; emit(e, i, K_PRED); }
 static void bra_back_if_not_p0(Em *e, int target) { BlackwellIRInsn i = I0(BW_IR_BRA); i.predicate_p0 = true; i.predicate_not = true; i.imm = (uint32_t)(target - here(e)); emit(e, i, K_BRA); }
 /* @P0 BRA forward; the target is patched in when known */
 static int bra_fwd_if_p0(Em *e) { int at = here(e); BlackwellIRInsn i = I0(BW_IR_BRA); i.predicate_p0 = true; i.imm = 0; emit(e, i, K_BRA); return at; }
 static void patch_fwd(Em *e, int at) { if (at >= 0 && (size_t)at < e->p->count) e->p->insns[at].imm = (uint32_t)(here(e) - at); else e->err = -1; }
+
+/* ---- structured reconvergence regions (omega #308); same API as the elementwise emitter ---- */
+enum { RX_ALWAYS, RX_IF_P0, RX_IF_NOT_P0 };
+static int region_begin(Em *e) {
+    int bar = bw_regions_next_bar(&e->rg);
+    if (bar < 0) { e->err = -1; return -1; }
+    int at = here(e);
+    BlackwellIRInsn i = I0(BW_IR_BSSY); i.bar_reg = (uint8_t)bar; i.imm = 2; emit(e, i, K_BSSY);
+    if (bw_regions_begin(&e->rg, at) < 0) e->err = -1;
+    return bar;
+}
+static void region_exit(Em *e, int cond) {
+    int at = here(e);
+    BlackwellIRInsn i = I0(BW_IR_BRA); i.imm = 1;
+    if (cond != RX_ALWAYS) { i.predicate_p0 = true; i.predicate_not = (cond == RX_IF_NOT_P0); }
+    emit(e, i, K_BRA);
+    if (bw_regions_exit(&e->rg, at) < 0) e->err = -1;
+}
+static void region_join(Em *e) {
+    if (e->rg.depth <= 0) { e->err = -1; return; }
+    int d = e->rg.depth - 1, bsync = here(e);
+    BlackwellIRInsn i = I0(e->rg_mutant == 1 ? BW_IR_NOP : BW_IR_BSYNC); i.bar_reg = (uint8_t)d; emit(e, i, K_BSYNC);
+    if (e->rg_mutant == 1) {
+        BwRegions *r = &e->rg; r->depth--;
+        e->p->insns[r->bssy_at[d]].imm = (uint32_t)(bsync + 1 - r->bssy_at[d]);
+        for (int k = 0; k < r->n_exits[d]; k++) e->p->insns[r->exits[d][k]].imm = (uint32_t)(bsync - r->exits[d][k]);
+        return;
+    }
+    if (bw_regions_join(&e->rg, e->p, bsync) != d) e->err = -1;
+}
 static void tail(Em *e) {
     emit(e, I0(BW_IR_EXIT), K_EXIT);
     BlackwellIRInsn self = I0(BW_IR_BRA);
@@ -179,7 +219,11 @@ static int check_loop_invariant(const Em *e) {
 #define SH_R 768u
 #define F32_NEG_INF 0xff800000u
 
-typedef struct { bool f32; uint32_t log2bs, log2gqa; int mutant; } KSpec;
+/* divergent (omega #308 regression R2): 0 = production branch-free chunk loop; 1 = the
+ * lane-dependent "j >= ctx" branch restored inside a reconvergence region (BSSY/BSYNC) so
+ * the SHFL reductions run on a joined warp; 2 = the same with the BSYNC dropped (the
+ * 2026-10-04 bug shape, a negative control the host simulator must catch). */
+typedef struct { bool f32; uint32_t log2bs, log2gqa; int mutant; int divergent; } KSpec;
 
 static void gen_attention(Em *e, const KSpec *k) {
     const uint32_t elem = k->f32 ? 4u : 2u;
@@ -260,10 +304,19 @@ static void gen_attention(Em *e, const KSpec *k) {
     iadd3(e, j, base, tid);
     movi(e, s, F32_NEG_INF);
     movrz(e, koff);
-    imadi(e, dneg, j, 0xFFFFFFFFu, ctxm1); /* ctx - 1 - j */
-    shri(e, over, dneg, 31);
-    imadr(e, ot, over, tid, NOREG);
-    imadi(e, j, ot, 0xFFFFFFFFu, j);       /* j - over*tid */
+    if (k->divergent) {
+        /* omega #308 R2: the lane-dependent branch, inside a reconvergence region. Lanes with
+         * j >= ctx skip phase A (s stays -inf, koff 0); the BSYNC at region_join rejoins them
+         * before the SHFL reductions below. divergent == 2 drops that BSYNC (negative control). */
+        region_begin(e);
+        isetp_ge_u32(e, j, ctx);
+        region_exit(e, RX_IF_P0);
+    } else {
+        imadi(e, dneg, j, 0xFFFFFFFFu, ctxm1); /* ctx - 1 - j */
+        shri(e, over, dneg, 31);
+        imadr(e, ot, over, tid, NOREG);
+        imadi(e, j, ot, 0xFFFFFFFFu, j);       /* j - over*tid */
+    }
     /* phase A: token j */
     shri(e, bi, j, k->log2bs);
     lop3andi(e, sl, j, (1u << k->log2bs) - 1u);
@@ -309,8 +362,12 @@ static void gen_attention(Em *e, const KSpec *k) {
     bra_back_if_not_p0(e, Lin);
     loop_end(e);
     e_fmul(e, s, dot, scale);
-    imadi(e, nb, over, 0x80000000u, cninf); /* over ? +inf : -inf (bits) */
-    e_fsub(e, ns, zero, s); e_fmax(e, ns, ns, nb); e_fsub(e, s, zero, ns);
+    if (k->divergent) {
+        region_join(e); /* every lane back before the cross-lane reductions */
+    } else {
+        imadi(e, nb, over, 0x80000000u, cninf); /* over ? +inf : -inf (bits) */
+        e_fsub(e, ns, zero, s); e_fmax(e, ns, ns, nb); e_fsub(e, s, zero, ns);
+    }
     sts32(e, sOff, s);
     sts32(e, oOff, koff);
 
@@ -388,8 +445,10 @@ static int build_kernel(const KSpec *k, OmegaBlackwellKernel *kernel, BlackwellI
     if (!prog) return OMEGA_GPU_ATTN_CODEGEN_FAIL;
     omega_bw_ir_init(prog);
     Em e; memset(&e, 0, sizeof e); e.p = prog;
+    e.rg_mutant = (k->divergent == 2) ? 1 : 0;
     gen_attention(&e, k);
     if (e.depth != 0) e.err = -1;
+    if (e.rg.depth != 0) e.err = -1; /* a region left open has no join: refuse the build */
     int rc = OMEGA_GPU_ATTN_CODEGEN_FAIL;
     int ra_rc = (e.err == 0) ? omega_bw_regalloc_solve(prog) : -1;
     int loop_rc = (ra_rc == 0) ? check_loop_invariant(&e) : -1;
@@ -422,6 +481,7 @@ static int build_kernel(const KSpec *k, OmegaBlackwellKernel *kernel, BlackwellI
 /* One kernel per KSpec; the device copy is uploaded once and stays resident for
  * the process (cut 4b). The IR program is kept for the host simulator. */
 static int g_mutant;
+static int g_divergent; /* omega #308 R2 test hook: see KSpec.divergent */
 static bool g_dedupe = true; /* shared-prefix staging dedupe; false = legacy per-sequence staging (test hook) */
 typedef struct { int used; KSpec k; OmegaBlackwellKernel kernel; BlackwellIRProgram *prog; NvrmMem code; } Slot;
 static OmegaGpuAttnSim g_sim;
@@ -462,10 +522,10 @@ void omega_gpu_attention_test_set_mutant(OmegaGpuAttnMutant m) {
 /* Caller holds the lock. Builds the kernel if needed; uploads the device copy when
  * `upload` (the chip path; the simulator never needs one). */
 static int kernel_for(bool f32, uint32_t log2bs, uint32_t log2gqa, bool upload, Slot **out, bool *hit) {
-    KSpec k = { .f32 = f32, .log2bs = log2bs, .log2gqa = log2gqa, .mutant = g_mutant };
+    KSpec k = { .f32 = f32, .log2bs = log2bs, .log2gqa = log2gqa, .mutant = g_mutant, .divergent = g_divergent };
     Slot *s = NULL;
     for (size_t i = 0; i < sizeof g_cache / sizeof g_cache[0]; i++)
-        if (g_cache[i].used && g_cache[i].k.f32 == k.f32 && g_cache[i].k.log2bs == k.log2bs && g_cache[i].k.log2gqa == k.log2gqa && g_cache[i].k.mutant == k.mutant) { /* field compare: memcmp would read struct padding */
+        if (g_cache[i].used && g_cache[i].k.f32 == k.f32 && g_cache[i].k.log2bs == k.log2bs && g_cache[i].k.log2gqa == k.log2gqa && g_cache[i].k.mutant == k.mutant && g_cache[i].k.divergent == k.divergent) { /* field compare: memcmp would read struct padding */
             s = &g_cache[i]; *hit = true; break;
         }
     if (!s) {
@@ -492,7 +552,7 @@ static int kernel_for(bool f32, uint32_t log2bs, uint32_t log2gqa, bool upload, 
 int omega_gpu_attention_codegen(bool kv_f32, uint32_t log2_block_size, uint32_t log2_gqa, OmegaBlackwellKernel *kernel) {
     if (!kernel || log2_block_size > 16 || log2_gqa > 6) return OMEGA_GPU_ATTN_BAD_ARGS;
     LOCK();
-    KSpec k = { .f32 = kv_f32, .log2bs = log2_block_size, .log2gqa = log2_gqa, .mutant = g_mutant };
+    KSpec k = { .f32 = kv_f32, .log2bs = log2_block_size, .log2gqa = log2_gqa, .mutant = g_mutant, .divergent = g_divergent };
     UNLOCK();
     return build_kernel(&k, kernel, NULL);
 }
@@ -820,4 +880,13 @@ const char *omega_gpu_attention_rc_name(int rc) {
     case OMEGA_GPU_ATTN_UNWRITTEN: return "UNWRITTEN";
     default: return "UNKNOWN";
     }
+}
+
+/* omega #308 R2 test hook: 0 production, 1 lane-dependent branch inside a reconvergence
+ * region, 2 the same with the BSYNC dropped (negative control). Clears the kernel cache. */
+void omega_gpu_attention_test_set_divergent(int mode) {
+    LOCK();
+    g_divergent = (mode < 0 || mode > 2) ? 0 : mode;
+    cache_clear_locked();
+    UNLOCK();
 }

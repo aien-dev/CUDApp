@@ -30,6 +30,7 @@
 #include "omega_gpu_attention_api.h"
 #include "omega_gpu_session.h"
 #include "omega_blackwell_codegen.h"
+#include "bw_warp_sim.h" /* omega #308: SIMT warp simulator for --divergent */
 #include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
@@ -40,6 +41,7 @@
 
 static int g_checks, g_failed;
 static int g_sim_mode; /* --sim: the host simulator never opens the device */
+static int g_divergent; /* --divergent (omega #308 R2): the j >= ctx branch inside a BSSY/BSYNC region */
 #define CHECK(cond, ...) do { g_checks++; if (!(cond)) { g_failed++; printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
 
 static uint32_t lcg(uint32_t *s) { *s = *s * 1664525u + 1013904223u; return *s; }
@@ -185,8 +187,9 @@ static void host_only(void) {
     free(pool);
     CHECK(strcmp(omega_gpu_attention_rc_name(OMEGA_GPU_ATTN_UNWRITTEN), "UNWRITTEN") == 0, "rc name");
 
-    static const char *const must_bf16[] = { "MUFU.EX2", "MUFU.RCP", "FMNMX", "BAR.SYNC", "SHFL.DOWN", "@P0 BRA", "@!P0 BRA", "LDG.E.U16", "LDG.E ", "LDS R", "STS [R", "STG.E", "LOP3.LUT", "SHF.R.U32.HI" };
-    static const char *const must_f32[] = { "MUFU.EX2", "MUFU.RCP", "FMNMX", "BAR.SYNC", "SHFL.DOWN", "@P0 BRA", "@!P0 BRA", "LDG.E ", "LDS R", "STS [R", "STG.E" };
+    /* with --divergent the listing must also show the region ops (last two entries) */
+    static const char *const must_bf16[] = { "MUFU.EX2", "MUFU.RCP", "FMNMX", "BAR.SYNC", "SHFL.DOWN", "@P0 BRA", "@!P0 BRA", "LDG.E.U16", "LDG.E ", "LDS R", "STS [R", "STG.E", "LOP3.LUT", "SHF.R.U32.HI", "BSSY", "BSYNC" };
+    static const char *const must_f32[] = { "MUFU.EX2", "MUFU.RCP", "FMNMX", "BAR.SYNC", "SHFL.DOWN", "@P0 BRA", "@!P0 BRA", "LDG.E ", "LDS R", "STS [R", "STG.E", "BSSY", "BSYNC" };
     for (int f32 = 0; f32 < 2; f32++) {
         const char *name = f32 ? "gqa_f32" : "paged_bf16";
         OmegaBlackwellKernel k; memset(&k, 0, sizeof k);
@@ -214,7 +217,7 @@ static void host_only(void) {
         memset(&k, 0, sizeof k);
         CHECK(omega_gpu_attention_codegen(f32 != 0, f32 ? 12 : 4, 2, &k) == OMEGA_GPU_ATTN_OK && memcmp(digests[0], k.code_digest, 32) != 0, "%s log2gqa 2 kernel differs from log2gqa 3", name);
         free(k.code);
-        CHECK(nvdisasm_check(f32 != 0, name, f32 ? must_f32 : must_bf16, f32 ? 11 : 14) == 0, "%s nvdisasm listing decodes and shows the expected instructions", name);
+        CHECK(nvdisasm_check(f32 != 0, name, f32 ? must_f32 : must_bf16, (f32 ? 11 : 14) + (g_divergent ? 2 : 0)) == 0, "%s nvdisasm listing decodes and shows the expected instructions", name);
     }
 }
 
@@ -772,16 +775,71 @@ static int sweep(const char *out_path) {
     return 0;
 }
 
+/* ------------------------------------------------------------ warp simulator (omega #308)
+ * The per-thread simulator above has no model of a warp (its SHFL rule is "one path across the
+ * warp or error 7"). With --divergent the kernel carries a real lane-dependent branch inside a
+ * BSSY/BSYNC region, and every launch runs through tests/bw_warp_sim.h instead: 32-lane
+ * fragments, barrier registers, SHFL/BAR participation. Each launch runs in both fragment
+ * orders and the two outputs must be bit-identical. */
+static uint64_t g_ws_issues, g_ws_launches;
+static int ws_attn_launch(const void *progv, const OmegaGpuAttnLaunch *L, OmegaGpuAttnInfo *info) {
+    const BlackwellIRProgram *p = progv;
+    uint32_t *outw = L->out; size_t nw = L->out_bytes / 4;
+    uint32_t *copy = malloc(L->out_bytes);
+    int err = 0; char msg[240] = "";
+    for (int order = 0; order < 2 && !err && copy; order++) {
+        WsSim s; memset(&s, 0, sizeof s);
+        s.p = p; s.threads = SIM_T; s.smem = sim_shared; s.smem_bytes = sizeof sim_shared; s.order = order;
+        uint64_t qa = (uintptr_t)L->q, pa = (uintptr_t)L->pool, oa = (uintptr_t)L->out, ta = (uintptr_t)L->tab;
+        s.cbank[0x380 / 4] = (uint32_t)qa; s.cbank[0x380 / 4 + 1] = (uint32_t)(qa >> 32);
+        s.cbank[0x388 / 4] = (uint32_t)pa; s.cbank[0x388 / 4 + 1] = (uint32_t)(pa >> 32);
+        s.cbank[0x390 / 4] = (uint32_t)oa; s.cbank[0x390 / 4 + 1] = (uint32_t)(oa >> 32);
+        s.cbank[0x398 / 4] = (uint32_t)ta; s.cbank[0x398 / 4 + 1] = (uint32_t)(ta >> 32);
+        memcpy(&s.cbank[0x3a0 / 4], L->params, sizeof L->params);
+        for (size_t i = 0; i < nw; i++) outw[i] = 0xffbadbadu;
+        err = ws_run(&s, L->grid_x, L->grid_y);
+        if (err) { snprintf(msg, sizeof msg, "order %d: %s", order, s.msg); break; }
+        g_ws_issues += s.warp_issues;
+        if (order == 0) memcpy(copy, outw, L->out_bytes);
+        else if (memcmp(copy, outw, L->out_bytes) != 0) { err = -1; snprintf(msg, sizeof msg, "the fragment order changed the result"); }
+    }
+    free(copy);
+    g_ws_launches++;
+    uint32_t unwritten = 0; for (size_t i = 0; i < nw; i++) if (outw[i] == 0xffbadbadu) unwritten++;
+    if (info) { info->chip_calls++; info->unwritten_words += unwritten; info->ctas_last_launch = L->grid_x * L->grid_y; info->threads_per_cta = SIM_T; }
+    if (err) { printf("warp simulator error: %s\n", msg); return OMEGA_GPU_ATTN_CHIP_FAIL; }
+    return unwritten ? OMEGA_GPU_ATTN_UNWRITTEN : OMEGA_GPU_ATTN_OK;
+}
+/* Negative control for --divergent --sim: mode 2 builds the same kernel with the BSYNC dropped;
+ * the warp simulator must reject it (the whole point of the simulator: the old one could not). */
+static void divergent_negative_control(void) {
+    enum { SEQ = 65, NQH = 8, NKV = 2, HD = 64 };
+    float *q = malloc(NQH * HD * 4), *kv = malloc((size_t)SEQ * NKV * HD * 4), *out = malloc(NQH * HD * 4);
+    uint32_t seed = 0x308u;
+    for (int i = 0; i < NQH * HD; i++) q[i] = frand(&seed, -1.0f, 1.0f);
+    for (size_t i = 0; i < (size_t)SEQ * NKV * HD; i++) kv[i] = frand(&seed, -1.0f, 1.0f);
+    omega_gpu_attention_test_set_divergent(2);
+    int rc = omega_gpu_gqa_attention_f32(q, kv, kv, SEQ, NQH, NKV, HD, out, NULL);
+    omega_gpu_attention_test_set_divergent(1);
+    CHECK(rc == OMEGA_GPU_ATTN_CHIP_FAIL, "divergent mode 2 (BSYNC dropped) rejected by the warp simulator (rc %s)", omega_gpu_attention_rc_name(rc));
+    int rc1 = omega_gpu_gqa_attention_f32(q, kv, kv, SEQ, NQH, NKV, HD, out, NULL);
+    CHECK(rc1 == OMEGA_GPU_ATTN_OK, "divergent mode 1 (regioned branch) runs clean on the same input (rc %s)", omega_gpu_attention_rc_name(rc1));
+    free(q); free(kv); free(out);
+}
+
 int main(int argc, char **argv) {
     const char *out_path = NULL; int host = 0, sim = 0, timing_mode = 0, sweep_mode = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--host-only") == 0) host = 1;
         else if (strcmp(argv[i], "--sim") == 0) sim = 1;
+        else if (strcmp(argv[i], "--divergent") == 0) g_divergent = 1;
         else if (strcmp(argv[i], "--timing") == 0) timing_mode = 1;
         else if (strcmp(argv[i], "--sweep") == 0) sweep_mode = 1;
         else if (strcmp(argv[i], "--out") == 0 && i + 1 < argc) out_path = argv[++i];
     }
-    if (sim) { g_sim_mode = 1; omega_gpu_attention_test_set_simulator(sim_launch); }
+    if (g_divergent) omega_gpu_attention_test_set_divergent(1);
+    if (sim) { g_sim_mode = 1; omega_gpu_attention_test_set_simulator(g_divergent ? ws_attn_launch : sim_launch); }
+    if (sim && g_divergent && !host) divergent_negative_control();
     if (host) host_only();
     else if (timing_mode) { if (timing(out_path) != 0) return 2; }
     else if (sweep_mode) { if (sweep(out_path) != 0) return 2; }

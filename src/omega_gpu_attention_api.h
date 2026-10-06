@@ -157,6 +157,12 @@ typedef enum {
     OMEGA_GPU_ATTN_MUTANT_COUNT       /* one past the last mutant: every battery enumerates 1 .. COUNT-1 */
 } OmegaGpuAttnMutant;
 void omega_gpu_attention_test_set_mutant(OmegaGpuAttnMutant m);
+
+/* TEST ONLY (omega #308 regression R2). 0 = production branch-free chunk loop; 1 = the
+ * lane-dependent j >= ctx branch restored inside a BSSY/BSYNC reconvergence region;
+ * 2 = that kernel with the BSYNC dropped (negative control: the host simulator must refuse
+ * it). Clears the kernel cache. */
+void omega_gpu_attention_test_set_divergent(int mode);
 /* "none", "NO_MAX", ... ; "?" past COUNT. The table is checked against COUNT at compile time. */
 const char *omega_gpu_attention_mutant_name(OmegaGpuAttnMutant m);
 

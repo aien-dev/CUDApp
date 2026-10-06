@@ -63,7 +63,28 @@ typedef enum {
     OMEGA_GPU_EW_PRIME_SIEVE, /* prime race (2026-10-05): word-parallel odd-only sieve, codegen only
                                * here; launched by bench/prime_race/gb10_native.c (argument words in
                                * gen_prime_sieve's comment) */
-    OMEGA_GPU_EW_PRIME_SIEVE_SHARED /* the same sieve with the table staged in shared memory (C3) */
+    OMEGA_GPU_EW_PRIME_SIEVE_SHARED, /* the same sieve with the table staged in shared memory (C3) */
+    /* Structured warp reconvergence (omega #308). The four sieves below are the production sieve
+     * with its lane-dependent loops put back inside BSSY/BSYNC regions (regression R1): DIV1 wraps
+     * the original mark loop (omega 888a011), DIV2 also wraps the prime loop (nested regions). */
+    OMEGA_GPU_EW_PRIME_SIEVE_DIV1,
+    OMEGA_GPU_EW_PRIME_SIEVE_SHARED_DIV1,
+    OMEGA_GPU_EW_PRIME_SIEVE_DIV2,
+    OMEGA_GPU_EW_PRIME_SIEVE_SHARED_DIV2,
+    /* Probes for omega_gpu_reconv_probe_u32 (u32 in a, b; u32 out; oracle in tests/gpu_reconv_test.c) */
+    OMEGA_GPU_EW_RC_DIAMOND,   /* R3: if/else, sides of different length, SHFL after the join */
+    OMEGA_GPU_EW_RC_LOOPBREAK, /* R4: loop with a lane-dependent break */
+    OMEGA_GPU_EW_RC_NESTED,    /* R5: a lane-dependent loop region inside an if region */
+    OMEGA_GPU_EW_RC_EXIT_BAR,  /* R6: lanes past the end + STS/BAR.SYNC/LDS exchange + SHFL, lanes exit last */
+    OMEGA_GPU_EW_RC_DEPTH16,   /* 16 nested regions: every barrier register B0..B15 in use */
+    /* Codegen refusals: omega_gpu_elementwise_codegen_ir must return CODEGEN_FAIL for each */
+    OMEGA_GPU_EW_RC_REFUSE_DEPTH17,        /* a 17th nested region: no barrier register left */
+    OMEGA_GPU_EW_RC_REFUSE_EXIT_SHFL,      /* lanes EXIT, then BAR.SYNC/SHFL on the rest */
+    OMEGA_GPU_EW_RC_REFUSE_EXIT_IN_REGION, /* EXIT inside an open region */
+    OMEGA_GPU_EW_RC_REFUSE_BAR_IN_REGION,  /* BAR.SYNC inside an open region */
+    OMEGA_GPU_EW_RC_REFUSE_SHFL_IN_REGION, /* SHFL inside an open region */
+    OMEGA_GPU_EW_RC_REFUSE_UNCLOSED,       /* region begun, never joined */
+    OMEGA_GPU_EW_RC_REFUSE_JOIN_ONLY       /* BSYNC with no BSSY */
 } OmegaGpuEwOp;
 
 /* Shape rules (checked, refused with BAD_ARGS / TOO_LARGE):
@@ -108,6 +129,11 @@ int omega_gpu_swiglu_f32(uint32_t n, const float *gate, const float *up, float *
 /* Probes. ex2: out[i] = 2^x[i]. xchg: out[i] = x[i ^ (OMEGA_GPU_EW_THREADS-1)] within each CTA. */
 int omega_gpu_ex2_f32(uint32_t n, const float *x, float *out, OmegaGpuEwInfo *info);
 int omega_gpu_shared_xchg_u32(uint32_t n, const uint32_t *x, uint32_t *out, OmegaGpuEwInfo *info);
+/* Reconvergence probes (op = one of OMEGA_GPU_EW_RC_DIAMOND .. OMEGA_GPU_EW_RC_DEPTH16, else
+ * BAD_ARGS). n >= 1, any n: lanes past the end take part in the warp step and exit before
+ * their store. out[i] = r_i + 4099 * r_(i+1 in warp); r per op in src/omega_gpu_elementwise_api.c. */
+int omega_gpu_reconv_probe_u32(OmegaGpuEwOp op, uint32_t n, const uint32_t *a, const uint32_t *b,
+                               uint32_t *out, OmegaGpuEwInfo *info);
 
 /* Generate (without launching) the kernel for one op. Kernels read their shape
  * from the argument words, so one kernel per op serves every shape; dims and eps
@@ -117,7 +143,9 @@ int omega_gpu_shared_xchg_u32(uint32_t n, const uint32_t *x, uint32_t *out, Omeg
 int omega_gpu_elementwise_codegen(OmegaGpuEwOp op, const uint32_t *dims, float eps,
                                   OmegaBlackwellKernel *kernel);
 
-/* Same, with the mutant chosen by the caller (0 = production kernel) and, when prog is
+/* Same, with the mutant chosen by the caller (0 = production kernel, 1 = the op's math mutant,
+ * 2 = the reconvergence join (BSYNC) dropped, 3 = the BSSY names the wrong join; 2 and 3 change
+ * only kernels that open a region, the host simulator must catch both) and, when prog is
  * not NULL, a copy of the allocated IR program (a BlackwellIRProgram, post register
  * allocation) for a host IR simulator. Does not touch the device or the kernel cache.
  * Caller frees kernel->code. */
@@ -131,6 +159,10 @@ int omega_gpu_elementwise_codegen_ir(OmegaGpuEwOp op, int mutant, void *prog,
  *   RMSNORM: the warp tree drops its last SHFL step (half the lanes go missing).
  *   ROPE: out0 = q0*cos + q1*sin.  SWIGLU: exp(+g) instead of exp(-g). */
 void omega_gpu_elementwise_test_set_mutant(int op);
+/* TEST ONLY. Like test_set_mutant, choosing the mutant number (1 math, 2 join dropped, 3 join
+ * corrupted) that the next launch of `op` builds; lets a chip test observe what a missing
+ * reconvergence does (the simulator must have flagged it first). */
+void omega_gpu_elementwise_test_set_mutant_level(int op, int level);
 
 const char *omega_gpu_elementwise_rc_name(int rc);
 void omega_gpu_elementwise_cache_clear(void);

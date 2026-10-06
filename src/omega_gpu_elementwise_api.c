@@ -19,6 +19,7 @@
  */
 #include "omega_gpu_elementwise_api.h"
 #include "omega_blackwell_codegen.h"
+#include "omega_bw_reconv.h"
 #include "omega_blackwell_qmd.h"
 #include "omega_blackwell_submit.h"
 #include "omega_gpu_session.h"
@@ -38,7 +39,7 @@
 #define SB_RD 1u   /* store source-register read barrier */
 #define SB_UGPR 2u /* uniform-register results (LDCU) */
 
-enum { K_FIXED, K_PRED, K_VAR, K_UVAR, K_STORE, K_SYNC, K_EXIT, K_BRA };
+enum { K_FIXED, K_PRED, K_VAR, K_UVAR, K_STORE, K_SYNC, K_EXIT, K_BRA, K_BSSY, K_BSYNC };
 
 #define EW_MAX_LOOPS 4
 typedef struct {
@@ -49,6 +50,11 @@ typedef struct {
     int n_loops;
     int open_start[EW_MAX_LOOPS]; /* starts of loops begun and not yet ended (nesting stack) */
     int depth;
+    BwRegions rg;     /* structured reconvergence regions (omega #308) */
+    int rg_mutant;    /* test only: 1 = drop the BSYNC at join, 2 = corrupt the BSSY target (host sim must catch both) */
+    int exited;       /* a predicated EXIT was emitted: some lanes of a warp may be gone */
+    int exit_sync_ok; /* test only: lets a kernel put SHFL/BAR after a predicated EXIT (the negative control R6) */
+    int test_path;    /* building for omega_gpu_elementwise_codegen_ir (host tests), never for a launch */
 } Em;
 
 static void emit(Em *e, BlackwellIRInsn in, int kind) {
@@ -63,6 +69,12 @@ static void emit(Em *e, BlackwellIRInsn in, int kind) {
     /* a predicated EXIT or BRA that falls through must not be the only waiter */
     case K_EXIT:  in.control = CW(5, SB_NONE, SB_NONE, wait); e->pending = in.predicate_p0 ? wait : 0; break;
     case K_BRA:   in.control = CW(5, SB_NONE, SB_NONE, wait); e->pending = in.predicate_p0 ? wait : 0; break;
+    /* BSSY / BSYNC read no registers; the stall counts (1 and 5, both with yield) are the ones
+     * nvcc 13.0.88 writes for sm_121 (docs/gpu-reconvergence-308.md). They wait on everything
+     * pending so that, as for every branch here, nothing is in flight across a control edge
+     * and the straight-line scoreboard walk in the tests stays valid. */
+    case K_BSSY:  in.control = CW(1, SB_NONE, SB_NONE, wait) | CW_YIELD; e->pending = 0; break;
+    case K_BSYNC: in.control = CW(5, SB_NONE, SB_NONE, wait) | CW_YIELD; e->pending = 0; break;
     default: e->err = -1; return;
     }
     if (omega_bw_ir_append(e->p, &in) < 0) e->err = -1; /* append returns the index */
@@ -119,12 +131,23 @@ static void fsub(Em *e, int d, int a, int b) { BlackwellIRInsn i = I0(BW_IR_FSUB
 static void fmul(Em *e, int d, int a, int b) { BlackwellIRInsn i = I0(BW_IR_FMUL); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; emit(e, i, K_FIXED); }
 static void ffma(Em *e, int d, int a, int b, int c) { BlackwellIRInsn i = I0(BW_IR_FFMA); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; i.src3_vreg = c; emit(e, i, K_FIXED); }
 static void mufu(Em *e, BlackwellIROpcode op, int d, int a) { BlackwellIRInsn i = I0(op); i.dst_vreg = d; i.src1_vreg = a; emit(e, i, K_VAR); }
-static void shfl_down(Em *e, int d, int a, uint32_t off) { BlackwellIRInsn i = I0(BW_IR_SHFL_DOWN); i.dst_vreg = d; i.src1_vreg = a; i.imm = off; emit(e, i, K_VAR); }
+/* Cross-lane and warp-ending ops are refused inside an open reconvergence region (omega #308):
+ * a SHFL or BAR.SYNC reached by a split warp reads inactive lanes / counts a partial warp
+ * (undefined; the 2026-10-04 attention bug), and a lane that EXITs inside a region can no
+ * longer be joined. The build fails closed instead of emitting such code. */
+/* Cross-lane instructions (SHFL, BAR.SYNC) need the whole warp present. The emitter refuses
+ * them (fails the build) inside an open reconvergence region, where lanes may be on different
+ * paths, and after a predicated EXIT, where lanes may be gone for good: a SHFL then reads
+ * inactive lanes (undefined on the chip, the attention failure of 2026-10-04). A kernel that
+ * must drop lanes before a cross-lane step clamps them instead and exits them afterwards. */
+static int warp_split(Em *e) { if (e->rg.depth > 0 || (e->exited && !e->exit_sync_ok)) { e->err = -1; return 1; } return 0; }
+static void shfl_down(Em *e, int d, int a, uint32_t off) { if (warp_split(e)) return; BlackwellIRInsn i = I0(BW_IR_SHFL_DOWN); i.dst_vreg = d; i.src1_vreg = a; i.imm = off; emit(e, i, K_VAR); }
 static void sts32(Em *e, int addr, int val) { BlackwellIRInsn i = I0(BW_IR_STS32); i.src1_vreg = addr; i.src2_vreg = val; emit(e, i, K_STORE); }
 static void lds32(Em *e, int d, int addr) { BlackwellIRInsn i = I0(BW_IR_LDS32); i.dst_vreg = d; i.src1_vreg = addr; emit(e, i, K_VAR); }
-static void bar_sync(Em *e) { emit(e, I0(BW_IR_BAR_SYNC), K_SYNC); }
+static void bar_sync(Em *e) { if (warp_split(e)) return; emit(e, I0(BW_IR_BAR_SYNC), K_SYNC); }
 static void isetp_ge_u32(Em *e, int a, int b) { BlackwellIRInsn i = I0(BW_IR_ISETP_GE_U32); i.src1_vreg = a; i.src2_vreg = b; emit(e, i, K_PRED); }
-static void exit_if_p0(Em *e) { BlackwellIRInsn i = I0(BW_IR_EXIT); i.predicate_p0 = true; emit(e, i, K_EXIT); }
+/* An EXIT inside a region would leave the barrier waiting for a lane that never comes: refused. */
+static void exit_if_p0(Em *e) { if (e->rg.depth > 0) { e->err = -1; return; } e->exited = 1; BlackwellIRInsn i = I0(BW_IR_EXIT); i.predicate_p0 = true; emit(e, i, K_EXIT); }
 static void bra_back_if_not_p0(Em *e, int target) { BlackwellIRInsn i = I0(BW_IR_BRA); i.predicate_p0 = true; i.predicate_not = true; i.imm = (uint32_t)(target - here(e)); emit(e, i, K_BRA); }
 static void tail(Em *e) {
     emit(e, I0(BW_IR_EXIT), K_EXIT);
@@ -336,6 +359,45 @@ static int bra_fwd_if_p0(Em *e) { int at = here(e); BlackwellIRInsn i = I0(BW_IR
 static void bra_patch_here(Em *e, int at) { if (e->err == 0 && at >= 0 && at < here(e)) e->p->insns[at].imm = (uint32_t)(here(e) - at); else e->err = -1; }
 static void bra_always(Em *e, int target) { BlackwellIRInsn i = I0(BW_IR_BRA); i.imm = (uint32_t)(target - here(e)); emit(e, i, K_BRA); }
 
+/* ---- structured reconvergence regions (omega #308; bookkeeping in omega_bw_reconv.h) ----
+ * region_begin: BSSY Bd (d = nesting depth), fails closed when no barrier register is left.
+ * region_exit:  a forward branch out of the innermost region, patched to its BSYNC at join
+ *               (RX_ALWAYS, RX_IF_P0, RX_IF_NOT_P0).
+ * region_join:  BSYNC Bd; patches the BSSY to the instruction after it and every exit to it.
+ * Usage: divergent loop  = region_begin; L: isetp; region_exit(RX_IF_P0); body; bra_always(L); region_join.
+ *        if/else diamond = region_begin; isetp; t = bra_fwd_if_p0; then; region_exit(RX_ALWAYS);
+ *                          bra_patch_here(t); else; region_join. */
+enum { RX_ALWAYS, RX_IF_P0, RX_IF_NOT_P0 };
+static int region_begin(Em *e) {
+    int bar = bw_regions_next_bar(&e->rg);
+    if (bar < 0) { e->err = -1; return -1; }
+    int at = here(e);
+    BlackwellIRInsn i = I0(BW_IR_BSSY); i.bar_reg = (uint8_t)bar; i.imm = 2; emit(e, i, K_BSSY);
+    if (bw_regions_begin(&e->rg, at) < 0) e->err = -1;
+    return bar;
+}
+static void region_exit(Em *e, int cond) {
+    int at = here(e);
+    BlackwellIRInsn i = I0(BW_IR_BRA); i.imm = 1;
+    if (cond != RX_ALWAYS) { i.predicate_p0 = true; i.predicate_not = (cond == RX_IF_NOT_P0); }
+    emit(e, i, K_BRA);
+    if (bw_regions_exit(&e->rg, at) < 0) e->err = -1;
+}
+static void region_join(Em *e) {
+    if (e->rg.depth <= 0) { e->err = -1; return; }
+    int d = e->rg.depth - 1, bsync = here(e);
+    BlackwellIRInsn i = I0(e->rg_mutant == 1 ? BW_IR_NOP : BW_IR_BSYNC); i.bar_reg = (uint8_t)d; emit(e, i, K_BSYNC);
+    if (e->rg_mutant == 1) {
+        /* negative control (host sim only): the join is a NOP; patch as the real join would */
+        BwRegions *r = &e->rg; r->depth--;
+        e->p->insns[r->bssy_at[d]].imm = (uint32_t)(bsync + 1 - r->bssy_at[d]);
+        for (int k = 0; k < r->n_exits[d]; k++) e->p->insns[r->exits[d][k]].imm = (uint32_t)(bsync - r->exits[d][k]);
+        return;
+    }
+    if (bw_regions_join(&e->rg, e->p, bsync) != d) e->err = -1;
+    if (e->rg_mutant == 2) e->p->insns[e->rg.bssy_at[d]].imm += 1; /* negative control: BSSY names the wrong join */
+}
+
 /* Word-parallel odd-only sieve (docs: handoff 2026-10-05 DESIGN "GPU kernel (native)").
  * Thread t owns 32-bit output words w = t, t + S, t + 2S, ... (S = P1 = threads launched;
  * the I42 envelope caps a launch at OMEGA_GPU_EW_MAX_CTAS CTAs, so a grid-stride loop
@@ -365,8 +427,14 @@ static void bra_always(Em *e, int target) { BlackwellIRInsn i = I0(BW_IR_BRA); i
  * (3 per entry). The CTA first copies the table into shared memory at offset 0 (thread t copies
  * words t, t + 128, ...), BAR_SYNC, then the prime loop reads shared memory (LDS) instead of
  * uncached global memory. Every thread reaches the barrier: the w >= nwords exit comes after
- * it. The launch must declare at least 4 * P4 bytes of shared memory. */
-static void gen_prime_sieve(Em *e, int mutant, int staged) {
+ * it. The launch must declare at least 4 * P4 bytes of shared memory.
+ *
+ * divergent (omega #308, regression R1): 0 = the warp-uniform mark loop above (campaign C5).
+ * 1 = the original lane-dependent mark loop (omega 888a011: `while j < 32 { acc |= 1 << j; j += p }`)
+ * wrapped in a reconvergence region. 2 = as 1, and the prime loop (whose break `k0 >= base + 32`
+ * is also lane-dependent: every lane sieves a different word) wrapped in an outer region, so the
+ * mark loop's region nests inside it (B0 outer, B1 inner). */
+static void gen_prime_sieve(Em *e, int mutant, int staged, int divergent) {
     Pro pr = prologue(e);
     int nwords = V(e), stride = V(e), lastw = V(e), tailinv = V(e);
     int one = V(e), c32 = V(e), cm1 = V(e), w = V(e);
@@ -379,10 +447,16 @@ static void gen_prime_sieve(Em *e, int mutant, int staged) {
         ldc32(e, twords, ARG_P4);
         movi(e, c4, 4); movi(e, c8, 8); movi(e, c12, 12);
         imadi(e, i, pr.tid, 1, NOREG);
+        /* The staging loop's trip count differs per thread (thread t copies words t, t+128, ...),
+         * so its exit splits the warp. The divergent variants rejoin the warp before BAR.SYNC
+         * (a barrier is not a reconvergence point: the fragments would stay split for the rest
+         * of the kernel). The production kernel keeps the 2026-10-05 C3 form unchanged. */
+        if (divergent) region_begin(e);
         loop_begin(e); /* staging loop */
         int ls = here(e);
         isetp_ge_u32(e, i, twords);
-        int sdone = bra_fwd_if_p0(e);
+        int sdone = -1;
+        if (divergent) region_exit(e, RX_IF_P0); else sdone = bra_fwd_if_p0(e);
         addr4(e, ga, i, pr.pa);
         ldg(e, val, ga, pr.udesc);
         imadi(e, sa, i, 4, NOREG);
@@ -390,7 +464,7 @@ static void gen_prime_sieve(Em *e, int mutant, int staged) {
         imadi(e, i, one, OMEGA_GPU_EW_THREADS, i);
         bra_always(e, ls);
         loop_end(e);
-        bra_patch_here(e, sdone);
+        if (divergent) region_join(e); else bra_patch_here(e, sdone);
         bar_sync(e);
     }
     imadi(e, w, pr.cta, OMEGA_GPU_EW_THREADS, pr.tid);
@@ -413,6 +487,7 @@ static void gen_prime_sieve(Em *e, int mutant, int staged) {
     movrz(e, acc);
     if (staged) movrz(e, ptr); else widei(e, ptr, one, 0, pr.pa);
 
+    if (divergent >= 2) region_begin(e); /* outer region: the prime loop's break is lane-dependent */
     loop_begin(e); /* prime loop */
     int lp = here(e);
     /* one memory round trip per prime: all three entry words load together (C2a). The
@@ -425,7 +500,8 @@ static void gen_prime_sieve(Em *e, int mutant, int staged) {
         else ld_group(e, BW_IR_LDG_E, 3, dsts, adrs, pr.udesc);
     }
     isetp_ge_u32(e, k0, basep32);
-    int brk = bra_fwd_if_p0(e);
+    int brk = -1;
+    if (divergent >= 2) region_exit(e, RX_IF_P0); else brk = bra_fwd_if_p0(e);
     imadi(e, negp, p, 0xffffffffu, NOREG);       /* -p */
     imadi(e, d, k0, 0xffffffffu, base);          /* base - k0 */
     shr_i(e, neg, d, 31);
@@ -446,27 +522,43 @@ static void gen_prime_sieve(Em *e, int mutant, int staged) {
      * same ceil(32/p) steps and the warp never splits here (all active lanes are on the same
      * prime). Bits past this word are masked out instead of branched around. The old loop ran
      * "while j < 32", a lane-dependent branch with no reconvergence point. */
-    movrz(e, tt);
-    loop_begin(e);
-    int li = here(e);
-    isetp_ge_u32(e, tt, c32);
-    int done = bra_fwd_if_p0(e);
-    iadd3(e, jj, j, tt);
-    lop3lut(e, sh, jj, c31, NOREG, 0xc0);        /* jj & 31 */
-    shl_r(e, bit, one, sh);
-    iadd3(e, t, jj, cm32);
-    shr_i(e, z, t, 31);                          /* jj < 32 (j <= p + 31, far below 2^31) */
-    imadi(e, m, z, 0xffffffffu, NOREG);          /* all ones when jj < 32, else 0 */
-    lop3lut(e, acc, acc, bit, m, 0xf8);          /* acc | (bit & m) */
-    iadd3(e, tt, tt, p);
-    bra_always(e, li);
-    loop_end(e);
-    bra_patch_here(e, done);
+    if (divergent) {
+        /* R1: the 888a011 mark loop, lane-dependent trip count, inside a region. Each lane
+         * leaves at its own iteration (the exit jumps to the BSYNC) and the warp reunites there. */
+        region_begin(e);
+        loop_begin(e);
+        int li = here(e);
+        isetp_ge_u32(e, j, c32);
+        region_exit(e, RX_IF_P0);
+        shl_r(e, bit, one, j);
+        lop3lut(e, acc, acc, bit, NOREG, 0xfc);  /* acc | bit */
+        iadd3(e, j, j, p);
+        bra_always(e, li);
+        loop_end(e);
+        region_join(e);
+    } else {
+        movrz(e, tt);
+        loop_begin(e);
+        int li = here(e);
+        isetp_ge_u32(e, tt, c32);
+        int done = bra_fwd_if_p0(e);
+        iadd3(e, jj, j, tt);
+        lop3lut(e, sh, jj, c31, NOREG, 0xc0);    /* jj & 31 */
+        shl_r(e, bit, one, sh);
+        iadd3(e, t, jj, cm32);
+        shr_i(e, z, t, 31);                      /* jj < 32 (j <= p + 31, far below 2^31) */
+        imadi(e, m, z, 0xffffffffu, NOREG);      /* all ones when jj < 32, else 0 */
+        lop3lut(e, acc, acc, bit, m, 0xf8);      /* acc | (bit & m) */
+        iadd3(e, tt, tt, p);
+        bra_always(e, li);
+        loop_end(e);
+        bra_patch_here(e, done);
+    }
 
     if (staged) iadd3(e, ptr, ptr, c12); else widei(e, ptr, one, 12, ptr);
     bra_always(e, lp);
     loop_end(e);
-    bra_patch_here(e, brk);
+    if (divergent >= 2) region_join(e); else bra_patch_here(e, brk);
 
     iadd3(e, t, w, cm1);
     shr_i(e, z, t, 31);                          /* w == 0: the number 1 is not prime */
@@ -485,6 +577,166 @@ static void gen_prime_sieve(Em *e, int mutant, int staged) {
     bra_back_if_not_p0(e, lw);
     loop_end(e);
     tail(e);
+}
+
+/* ---- reconvergence probes (omega #308, regressions R3..R6 and the resource bound) ----
+ * All: a, b = u32 inputs, out = u32, P0 = n; 128 threads, grid ceil(n/128); launched by
+ * omega_gpu_reconv_probe_u32. A lane past n clamps its index to n-1 so that it loads valid
+ * data and takes part in the warp-wide SHFL; it exits only after the SHFL, before its store.
+ * Each probe computes a per-lane r on divergent paths, joins, then
+ *     out[i] = r + 4099 * s,  s = r of lane (lane+1) in the same warp (SHFL.DOWN 1; lane 31: own r)
+ * so a lane that joined late, never, or with the wrong value shows in the neighbour's word too.
+ * The host oracle is rc_oracle in tests/gpu_reconv_test.c. */
+typedef struct { Pro pr; int n, i, idx, x, y, r, s, one, cm1; } Rp;
+static Rp rp_begin(Em *e) {
+    Rp k; memset(&k, 0, sizeof k);
+    k.pr = prologue(e);
+    k.n = V(e); k.i = V(e); k.idx = V(e); k.x = V(e); k.y = V(e); k.r = V(e); k.s = V(e); k.one = V(e); k.cm1 = V(e);
+    int nm1 = V(e), d = V(e), neg = V(e), off = V64(e);
+    ldc32(e, k.n, ARG_P0);
+    movi(e, k.one, 1); movi(e, k.cm1, 0xffffffffu);
+    imadi(e, k.i, k.pr.cta, OMEGA_GPU_EW_THREADS, k.pr.tid);
+    iadd3(e, nm1, k.n, k.cm1);                   /* n - 1 */
+    imadi(e, d, k.i, 0xffffffffu, nm1);          /* (n - 1) - i, top bit set when i > n - 1 */
+    shr_i(e, neg, d, 31);
+    imadr(e, k.idx, neg, d, k.i);                /* i, or n - 1 when past the end */
+    addr4(e, off, k.idx, k.pr.pa); ldg(e, k.x, off, k.pr.udesc);
+    addr4(e, off, k.idx, k.pr.pb); ldg(e, k.y, off, k.pr.udesc);
+    return k;
+}
+static void rp_end(Em *e, const Rp *k) {
+    int out = V(e), off = V64(e);
+    shfl_down(e, k->s, k->r, 1);
+    imadi(e, out, k->s, 4099, k->r);
+    isetp_ge_u32(e, k->i, k->n);
+    exit_if_p0(e);
+    addr4(e, off, k->i, k->pr.pc);
+    stg(e, off, out, k->pr.udesc);
+    tail(e);
+}
+/* R3: if/else with sides of different length. x >= y: r = f(x, y) (5 steps); else r = x + 1.
+ * Math mutant: the long side is one too big. */
+static void gen_rc_diamond(Em *e, int mutant) {
+    Rp k = rp_begin(e);
+    int t = V(e), u = V(e);
+    region_begin(e);
+    isetp_ge_u32(e, k.x, k.y);
+    int els = bra_fwd_if_p0(e);
+    iadd3(e, k.r, k.x, k.one);                   /* short side */
+    region_exit(e, RX_ALWAYS);
+    bra_patch_here(e, els);
+    imadi(e, t, k.x, 3, k.y);                    /* long side: t = 3x + y */
+    lop3xor(e, u, t, k.x);                       /* u = t ^ x */
+    imadi(e, k.r, u, 5, k.one);                  /* r = 5u + 1 */
+    shr_i(e, t, k.r, 3);
+    iadd3(e, k.r, k.r, t);                       /* r += r >> 3 */
+    if (mutant) iadd3(e, k.r, k.r, k.one);
+    region_join(e);
+    rp_end(e, &k);
+}
+/* The lane-dependent loop shared by R4 and R5: v = x & 255, step = (y & 15) + 1,
+ * while v < 256 { v += step; cnt += 1 }. Math mutant: the bound is 255. Emits the region. */
+static void rc_count_loop(Em *e, const Rp *k, int mutant, int v, int cnt) {
+    int st = V(e), bound = V(e), c255 = V(e), c15 = V(e);
+    movi(e, c255, 255); movi(e, c15, 15); movi(e, bound, mutant ? 255 : 256);
+    lop3lut(e, v, k->x, c255, NOREG, 0xc0);
+    lop3lut(e, st, k->y, c15, NOREG, 0xc0);
+    iadd3(e, st, st, k->one);
+    movrz(e, cnt);
+    region_begin(e);
+    loop_begin(e);
+    int L = here(e);
+    isetp_ge_u32(e, v, bound);
+    region_exit(e, RX_IF_P0);
+    iadd3(e, v, v, st);
+    iadd3(e, cnt, cnt, k->one);
+    bra_always(e, L);
+    loop_end(e);
+    region_join(e);
+}
+/* R4: lane-dependent loop exit (break). r = 256 * cnt + v. */
+static void gen_rc_loopbreak(Em *e, int mutant) {
+    Rp k = rp_begin(e);
+    int v = V(e), cnt = V(e);
+    rc_count_loop(e, &k, mutant, v, cnt);
+    imadi(e, k.r, cnt, 256, v);
+    rp_end(e, &k);
+}
+/* R5: nested divergence. Odd x: r = 7 (skips the inner region). Even x: the R4 loop inside the
+ * outer region, r = 256 * cnt + v + 100. */
+static void gen_rc_nested(Em *e, int mutant) {
+    Rp k = rp_begin(e);
+    int v = V(e), cnt = V(e), low = V(e), c100 = V(e);
+    movi(e, k.r, 7); movi(e, c100, 100);
+    lop3lut(e, low, k.x, k.one, NOREG, 0xc0);    /* x & 1 */
+    region_begin(e);
+    isetp_ge_u32(e, low, k.one);
+    region_exit(e, RX_IF_P0);
+    rc_count_loop(e, &k, mutant, v, cnt);
+    imadi(e, k.r, cnt, 256, v);
+    iadd3(e, k.r, k.r, c100);
+    region_join(e);
+    rp_end(e, &k);
+}
+/* R6: lanes past the end, a divergent region, then a CTA-wide exchange and the warp SHFL.
+ * xv = x | 1 computed on divergent paths (even lanes take the branch), every thread stores xv
+ * to its shared slot, BAR.SYNC, reads its partner's (tid ^ 1), r = 3x + partner_xv.
+ * Production form: lanes past n are clamped and exit after the SHFL (correct). early_exit
+ * (mutant 1): lanes past n EXIT first, as a naive kernel would; the emitter refuses that
+ * (BAR/SHFL after a predicated EXIT). Only the host-test build path (codegen_ir) may bypass the
+ * refusal, so the simulator can show what the kernel would do (SHFL_EXITED); a launch never can. */
+static void gen_rc_exit_bar(Em *e, int early_exit) {
+    Rp k = rp_begin(e);
+    int saddr = V(e), paddr = V(e), yv = V(e), xv = V(e), low = V(e);
+    if (early_exit) {
+        e->exit_sync_ok = early_exit == 1 && e->test_path;
+        isetp_ge_u32(e, k.i, k.n);
+        exit_if_p0(e);
+    }
+    imadi(e, xv, k.x, 1, NOREG);
+    lop3lut(e, low, k.x, k.one, NOREG, 0xc0);    /* x & 1 */
+    region_begin(e);
+    isetp_ge_u32(e, low, k.one);
+    region_exit(e, RX_IF_P0);                    /* odd lanes leave */
+    iadd3(e, xv, xv, k.one);                     /* even lanes: xv = x + 1 */
+    region_join(e);
+    imadi(e, saddr, k.pr.tid, 4, NOREG);
+    sts32(e, saddr, xv);
+    bar_sync(e);
+    lop3xor(e, paddr, k.pr.tid, k.one);
+    imadi(e, paddr, paddr, 4, NOREG);
+    lds32(e, yv, paddr);
+    imadi(e, k.r, k.x, 3, yv);
+    rp_end(e, &k);
+}
+/* Barrier-register bound: `levels` nested regions, each leaving lanes with x >= y out and adding 1
+ * for the others: r = x + levels * (x < y). 16 levels must build (B0..B15); 17 must be refused. */
+static void gen_rc_depth(Em *e, int levels) {
+    Rp k = rp_begin(e);
+    imadi(e, k.r, k.x, 1, NOREG);
+    for (int d = 0; d < levels; d++) {
+        region_begin(e);
+        isetp_ge_u32(e, k.x, k.y);
+        region_exit(e, RX_IF_P0);
+        iadd3(e, k.r, k.r, k.one);
+    }
+    for (int d = 0; d < levels; d++) region_join(e);
+    rp_end(e, &k);
+}
+/* Codegen refusals (each must come back CODEGEN_FAIL; a kernel with a split warp at a
+ * cross-lane step must never reach the chip). */
+static void gen_rc_refuse(Em *e, OmegaGpuEwOp which) {
+    Rp k = rp_begin(e);
+    switch (which) {
+    case OMEGA_GPU_EW_RC_REFUSE_EXIT_IN_REGION: region_begin(e); isetp_ge_u32(e, k.i, k.n); exit_if_p0(e); region_join(e); break;
+    case OMEGA_GPU_EW_RC_REFUSE_BAR_IN_REGION: region_begin(e); bar_sync(e); region_join(e); break;
+    case OMEGA_GPU_EW_RC_REFUSE_SHFL_IN_REGION: region_begin(e); shfl_down(e, k.s, k.x, 1); region_join(e); break;
+    case OMEGA_GPU_EW_RC_REFUSE_UNCLOSED: region_begin(e); isetp_ge_u32(e, k.x, k.y); region_exit(e, RX_IF_P0); break; /* no join */
+    case OMEGA_GPU_EW_RC_REFUSE_JOIN_ONLY: region_join(e); break; /* BSYNC without BSSY */
+    default: e->err = -1; break;
+    }
+    imadi(e, k.r, k.x, 1, NOREG);
+    rp_end(e, &k);
 }
 
 /* A value first defined inside a loop body may not be read after the loop
@@ -546,21 +798,40 @@ static void schedule_fixed_pairs(BlackwellIRProgram *p) {
     }
 }
 
-static int build_kernel(OmegaGpuEwOp op, int mutant, OmegaBlackwellKernel *kernel, BlackwellIRProgram *prog_out) {
+static int build_kernel(OmegaGpuEwOp op, int mutant, OmegaBlackwellKernel *kernel, BlackwellIRProgram *prog_out, int test_path) {
     BlackwellIRProgram *prog = calloc(1, sizeof *prog);
     if (!prog) return OMEGA_GPU_EW_CODEGEN_FAIL;
     omega_bw_ir_init(prog);
-    Em e; memset(&e, 0, sizeof e); e.p = prog;
+    Em e; memset(&e, 0, sizeof e); e.p = prog; e.test_path = test_path;
+    /* mutant 1 = the op's math mutant (as before); 2 = the join (BSYNC) dropped; 3 = the BSSY
+     * names the wrong join. 2 and 3 only change kernels that open a region. */
+    e.rg_mutant = mutant == 2 ? 1 : mutant == 3 ? 2 : 0;
+    int math = mutant == 1;
     switch (op) {
-    case OMEGA_GPU_EW_EX2: gen_ex2(&e, mutant); break;
-    case OMEGA_GPU_EW_XCHG: gen_xchg(&e, mutant); break;
-    case OMEGA_GPU_EW_RMSNORM: gen_rmsnorm(&e, mutant); break;
-    case OMEGA_GPU_EW_ROPE: gen_rope(&e, mutant); break;
-    case OMEGA_GPU_EW_SWIGLU: gen_swiglu(&e, mutant); break;
-    case OMEGA_GPU_EW_PRIME_SIEVE: gen_prime_sieve(&e, mutant, 0); break;
-    case OMEGA_GPU_EW_PRIME_SIEVE_SHARED: gen_prime_sieve(&e, mutant, 1); break;
+    case OMEGA_GPU_EW_EX2: gen_ex2(&e, math); break;
+    case OMEGA_GPU_EW_XCHG: gen_xchg(&e, math); break;
+    case OMEGA_GPU_EW_RMSNORM: gen_rmsnorm(&e, math); break;
+    case OMEGA_GPU_EW_ROPE: gen_rope(&e, math); break;
+    case OMEGA_GPU_EW_SWIGLU: gen_swiglu(&e, math); break;
+    case OMEGA_GPU_EW_PRIME_SIEVE: gen_prime_sieve(&e, math, 0, 0); break;
+    case OMEGA_GPU_EW_PRIME_SIEVE_SHARED: gen_prime_sieve(&e, math, 1, 0); break;
+    case OMEGA_GPU_EW_PRIME_SIEVE_DIV1: gen_prime_sieve(&e, math, 0, 1); break;
+    case OMEGA_GPU_EW_PRIME_SIEVE_SHARED_DIV1: gen_prime_sieve(&e, math, 1, 1); break;
+    case OMEGA_GPU_EW_PRIME_SIEVE_DIV2: gen_prime_sieve(&e, math, 0, 2); break;
+    case OMEGA_GPU_EW_PRIME_SIEVE_SHARED_DIV2: gen_prime_sieve(&e, math, 1, 2); break;
+    case OMEGA_GPU_EW_RC_DIAMOND: gen_rc_diamond(&e, math); break;
+    case OMEGA_GPU_EW_RC_LOOPBREAK: gen_rc_loopbreak(&e, math); break;
+    case OMEGA_GPU_EW_RC_NESTED: gen_rc_nested(&e, math); break;
+    case OMEGA_GPU_EW_RC_EXIT_BAR: gen_rc_exit_bar(&e, math); break;
+    case OMEGA_GPU_EW_RC_REFUSE_EXIT_SHFL: gen_rc_exit_bar(&e, 2); break;
+    case OMEGA_GPU_EW_RC_DEPTH16: gen_rc_depth(&e, BW_RECONV_MAX_BAR); break;
+    case OMEGA_GPU_EW_RC_REFUSE_DEPTH17: gen_rc_depth(&e, BW_RECONV_MAX_BAR + 1); break;
+    case OMEGA_GPU_EW_RC_REFUSE_EXIT_IN_REGION: case OMEGA_GPU_EW_RC_REFUSE_BAR_IN_REGION:
+    case OMEGA_GPU_EW_RC_REFUSE_SHFL_IN_REGION: case OMEGA_GPU_EW_RC_REFUSE_UNCLOSED:
+    case OMEGA_GPU_EW_RC_REFUSE_JOIN_ONLY: gen_rc_refuse(&e, op); break;
     default: e.err = -1; break;
     }
+    if (e.rg.depth != 0) e.err = -1; /* a region left open has no join: refuse the build */
     schedule_fixed_pairs(prog);
     int rc = OMEGA_GPU_EW_CODEGEN_FAIL;
     int ra_rc = (e.err == 0) ? omega_bw_regalloc_solve(prog) : -1;
@@ -599,6 +870,7 @@ static int build_kernel(OmegaGpuEwOp op, int mutant, OmegaBlackwellKernel *kerne
  * resident for the process (cut 4b: no per-call code page). */
 typedef struct { int used; int op; int mutant; OmegaBlackwellKernel kernel; NvrmMem code; } Slot;
 static int g_mutant_op; /* 0 = none */
+static int g_mutant_level = 1; /* the mutant number built for g_mutant_op (1 math, 2 join dropped, 3 join corrupted) */
 static Slot g_cache[8];
 static OmegaGpuScratch g_a, g_b, g_c; /* staging, grown to the high-water mark, reused per call */
 static bool g_hooked;
@@ -624,7 +896,13 @@ static void on_session_close(void) {
 
 void omega_gpu_elementwise_test_set_mutant(int op) {
     LOCK();
-    g_mutant_op = op;
+    g_mutant_op = op; g_mutant_level = 1;
+    cache_clear_locked();
+    UNLOCK();
+}
+void omega_gpu_elementwise_test_set_mutant_level(int op, int level) {
+    LOCK();
+    g_mutant_op = op; g_mutant_level = level < 1 ? 1 : level > 3 ? 3 : level;
     cache_clear_locked();
     UNLOCK();
 }
@@ -632,13 +910,13 @@ void omega_gpu_elementwise_test_set_mutant(int op) {
 /* Caller holds the lock. Builds the kernel if needed; uploads the device copy when a
  * device is open (upload = false lets the host-only codegen path run without a chip). */
 static int kernel_for(OmegaGpuEwOp op, bool upload, Slot **out, bool *hit) {
-    int mutant = (g_mutant_op == (int)op);
+    int mutant = (g_mutant_op == (int)op) ? g_mutant_level : 0;
     Slot *s = NULL;
     for (size_t i = 0; i < sizeof g_cache / sizeof g_cache[0]; i++)
         if (g_cache[i].used && g_cache[i].op == (int)op && g_cache[i].mutant == mutant) { s = &g_cache[i]; *hit = true; break; }
     if (!s) {
         OmegaBlackwellKernel k;
-        int rc = build_kernel(op, mutant, &k, NULL);
+        int rc = build_kernel(op, mutant, &k, NULL, 0);
         if (rc != OMEGA_GPU_EW_OK) return rc;
         size_t slot = 0;
         for (size_t i = 0; i < sizeof g_cache / sizeof g_cache[0]; i++) if (!g_cache[i].used) { slot = i; break; }
@@ -661,14 +939,15 @@ int omega_gpu_elementwise_codegen(OmegaGpuEwOp op, const uint32_t *dims, float e
     (void)dims; (void)eps; /* kernels read their shape from the argument words */
     if (!kernel) return OMEGA_GPU_EW_BAD_ARGS;
     LOCK();
-    int mutant = (g_mutant_op == (int)op);
+    int mutant = (g_mutant_op == (int)op) ? g_mutant_level : 0;
     UNLOCK();
-    return build_kernel(op, mutant, kernel, NULL);
+    return build_kernel(op, mutant, kernel, NULL, 0);
 }
 
 int omega_gpu_elementwise_codegen_ir(OmegaGpuEwOp op, int mutant, void *prog, OmegaBlackwellKernel *kernel) {
     if (!kernel) return OMEGA_GPU_EW_BAD_ARGS;
-    return build_kernel(op, mutant ? 1 : 0, kernel, (BlackwellIRProgram *)prog);
+    if (mutant < 0 || mutant > 3) return OMEGA_GPU_EW_BAD_ARGS;
+    return build_kernel(op, mutant, kernel, (BlackwellIRProgram *)prog, 1);
 }
 
 const char *omega_gpu_elementwise_last_error(void) { return omega_gpu_session_last_error(); }
@@ -836,6 +1115,15 @@ int omega_gpu_ex2_f32(uint32_t n, const float *x, float *out, OmegaGpuEwInfo *in
 int omega_gpu_shared_xchg_u32(uint32_t n, const uint32_t *x, uint32_t *out, OmegaGpuEwInfo *info) {
     if (!x || !out || n == 0 || n % OMEGA_GPU_EW_THREADS != 0) return OMEGA_GPU_EW_BAD_ARGS;
     return run_1d(OMEGA_GPU_EW_XCHG, n, x, NULL, out, info);
+}
+int omega_gpu_reconv_probe_u32(OmegaGpuEwOp op, uint32_t n, const uint32_t *a, const uint32_t *b, uint32_t *out, OmegaGpuEwInfo *info) {
+    if (!a || !b || !out || n == 0) return OMEGA_GPU_EW_BAD_ARGS;
+    switch (op) {
+    case OMEGA_GPU_EW_RC_DIAMOND: case OMEGA_GPU_EW_RC_LOOPBREAK: case OMEGA_GPU_EW_RC_NESTED:
+    case OMEGA_GPU_EW_RC_EXIT_BAR: case OMEGA_GPU_EW_RC_DEPTH16: break;
+    default: return OMEGA_GPU_EW_BAD_ARGS;
+    }
+    return run_1d(op, n, a, b, out, info);
 }
 
 const char *omega_gpu_elementwise_rc_name(int rc) {

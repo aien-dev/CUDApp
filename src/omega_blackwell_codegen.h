@@ -81,9 +81,24 @@ typedef enum {
                          * truth table over Ra = 0xf0, Rb = 0xcc, Rc = 0xaa (a|b = 0xfc, ~(a|b) = 0x03) */
     BW_IR_SHF_L_U32,    /* SHF.L.U32 Rd, Ra, Rb, RZ: Rd = Ra << Rb, register amount (the form nvcc emits
                          * for PTX shl.b32). Amounts >= 32 are NOT chip-verified: callers keep Rb < 32 */
-    BW_IR_IMAD_HI_U32   /* IMAD.HI.U32 Rd, Ra, Rb, Rc: Rd = hi32(Ra * Rb) + Rc mod 2^32 (nvcc emits this
+    BW_IR_IMAD_HI_U32,  /* IMAD.HI.U32 Rd, Ra, Rb, Rc: Rd = hi32(Ra * Rb) + Rc mod 2^32 (nvcc emits this
                          * word for __umulhi(a, b) + c) */
+    /* Structured warp reconvergence (omega #308, 2026-10-05), additive. Words matched against
+     * nvcc 13.0.88 -arch=sm_121 output (BSSY.RECONVERGENT / BSYNC.RECONVERGENT; the oracle
+     * kernels are listed in docs/gpu-reconvergence-308.md) and the Mesa NAK encoder
+     * (sm70_encode.rs OpBSSy 0x945 / OpBSync 0x941, barrier register at bits 16..19).
+     * bar_reg selects B0..B15. BSSY arms the barrier for the lanes executing it and names
+     * the join point; BSYNC waits for every armed lane that has not exited, then the warp
+     * continues as one. imm of BSSY = signed instruction delta to the join point (the
+     * instruction after the BSYNC), like BW_IR_BRA; the encoder refuses deltas < 1. */
+    BW_IR_BSSY,
+    BW_IR_BSYNC
 } BlackwellIROpcode;
+
+/* Barrier (reconvergence) registers: the sm_121 BSSY/BSYNC words carry a 4-bit barrier id
+ * (NAK sm70_encode.rs set_bar_dst(16..20)), so B0..B15 are encodable. How many the chip
+ * provides is not documented to us; chip tests nest to BW_RECONV_CHIP_TESTED_DEPTH. */
+#define BW_RECONV_MAX_BAR 16
 
 /* Special Register Identifiers */
 typedef enum {
@@ -112,6 +127,7 @@ typedef struct {
     uint8_t src1_subreg;
     uint8_t src2_subreg;
     uint8_t src3_subreg;
+    uint8_t bar_reg;    /* BW_IR_BSSY / BW_IR_BSYNC: barrier register B0..B15 */
 } BlackwellIRInsn;
 
 /* Live Interval for Bounded Linear Register Allocation */
@@ -202,6 +218,14 @@ int omega_blackwell_verify_codegen_fixtures_fb1cut4(void);
 
 /* Prime race cut: golden words for LOP3_LUT, SHF_L_U32, IMAD_HI_U32 (0 = pass) */
 int omega_blackwell_verify_codegen_fixtures_intops(void);
+
+/* omega #308: golden words for BSSY / BSYNC (nvcc 13.0.88 sm_121 oracle), plus the
+ * encoder's refusals (negative delta, barrier id > 15). 0 = pass. */
+int omega_blackwell_verify_codegen_fixtures_reconv(void);
+
+/* omega #308: encodes one instruction with a given physical register map of
+ * identity (vreg n -> Rn) so offline tools can disassemble single words. 0 = ok. */
+int omega_blackwell_encode_one(const BlackwellIRInsn *insn, uint32_t w[4]);
 
 /* Unit test for bounded register allocation live intervals and bounds enforcement (Gate 4) */
 int omega_blackwell_test_regalloc_bounds(void);
