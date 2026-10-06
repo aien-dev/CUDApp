@@ -60,9 +60,10 @@ typedef enum {
     OMEGA_GPU_EW_RMSNORM,
     OMEGA_GPU_EW_ROPE,
     OMEGA_GPU_EW_SWIGLU,
-    OMEGA_GPU_EW_PRIME_SIEVE  /* prime race (2026-10-05): word-parallel odd-only sieve, codegen only
+    OMEGA_GPU_EW_PRIME_SIEVE, /* prime race (2026-10-05): word-parallel odd-only sieve, codegen only
                                * here; launched by bench/prime_race/gb10_native.c (argument words in
                                * gen_prime_sieve's comment) */
+    OMEGA_GPU_EW_PRIME_SIEVE_SHARED /* the same sieve with the table staged in shared memory (C3) */
 } OmegaGpuEwOp;
 
 /* Shape rules (checked, refused with BAD_ARGS / TOO_LARGE):

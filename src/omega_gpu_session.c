@@ -36,6 +36,21 @@ static uint64_t now_ns(void) {
     clock_gettime(CLOCK_MONOTONIC, &t);
     return (uint64_t)t.tv_sec * 1000000000ull + (uint64_t)t.tv_nsec;
 }
+
+/* Marker wait. With spin_us, the host first re-reads the uncached marker word back to back (with
+ * the ARM yield hint) so a launch that finishes inside the window is seen within about one read,
+ * instead of after a 50 us sleep that Linux timer slack stretches further. Past the window it is
+ * the same m16 sleep-poll as before, with the full timeout, so a stuck launch still latches. */
+static int session_wait(volatile uint32_t *m, uint32_t want, uint64_t timeout_ms, uint32_t spin_us) {
+    if (spin_us) {
+        const uint64_t end = now_ns() + (uint64_t)spin_us * 1000u;
+        do {
+            if ((int32_t)(*m - want) >= 0) return 0;
+            __asm__ volatile("yield" ::: "memory");
+        } while (now_ns() < end);
+    }
+    return m16_native_wait_marker(m, want, timeout_ms);
+}
 static size_t page_up(size_t b) { b = (b + PAGE - 1) & ~(PAGE - 1); return b < PAGE ? PAGE : b; }
 
 const char *omega_gpu_session_last_error(void) { return g_err; }
@@ -132,7 +147,8 @@ static uint32_t round_up(uint32_t v, uint32_t q) { return (v + q - 1) / q * q; }
 
 int omega_gpu_session_launch(const OmegaGpuLaunch *L, uint64_t *elapsed_ns, uint32_t *marker_out) {
     if (!g_open || g_blocked) { omega_gpu_session_set_error(g_blocked ? "process latched" : "launch without open device"); return -1; }
-    if (!L || !L->args || L->n_args == 0 || L->n_args > OMEGA_GPU_SESSION_MAX_ARGS || L->threads_x == 0 || L->grid_x == 0 || L->grid_y == 0) {
+    if (!L || !L->args || L->n_args == 0 || L->n_args > OMEGA_GPU_SESSION_MAX_ARGS || L->threads_x == 0 || L->grid_x == 0 || L->grid_y == 0 ||
+        L->spin_us > OMEGA_GPU_SESSION_MAX_SPIN_US) {
         omega_gpu_session_set_error("launch arguments"); return -1;
     }
     const uint32_t threads_y = L->threads_y ? L->threads_y : 1;
@@ -148,10 +164,11 @@ int omega_gpu_session_launch(const OmegaGpuLaunch *L, uint64_t *elapsed_ns, uint
         .qmd0_va = qmd0_va, .qmd1_va = qmd1_va, .num_elements = L->num_elements,
         .threads_per_block = L->threads_x, .grid_width = L->grid_x * L->grid_y, .threads_x = L->threads_x, .threads_y = threads_y,
         .grid_x = L->grid_x, .grid_y = L->grid_y, .gpr_count = gpr,
+        .shared_bytes = L->shared_bytes,
     };
     uint32_t qmd0_words[OMEGA_BW_QMD_WORDS], qmd1_words[OMEGA_BW_QMD_WORDS];
     omega_blackwell_build_qmd0(qmd0_words, qmd0_va, qmd1_va);
-    omega_blackwell_build_qmd1(qmd1_words, &cfg);
+    if (omega_blackwell_build_qmd1(qmd1_words, &cfg) != 0) { omega_gpu_session_set_error("qmd build (shared_bytes)"); return -1; }
     if (omega_blackwell_verify_qmd_invariants(qmd1_words) != 0) { omega_gpu_session_set_error("qmd invariants"); return -1; }
     memcpy(g_s.qmd.cpu, qmd0_words, sizeof qmd0_words);
     memcpy((uint8_t *)g_s.qmd.cpu + 0x1000, qmd1_words, sizeof qmd1_words);
@@ -206,8 +223,8 @@ int omega_gpu_session_launch(const OmegaGpuLaunch *L, uint64_t *elapsed_ns, uint
 
     uint64_t t0 = now_ns();
     if (m16_native_submit_methods(&g_s.ctx, pb, n) != 0) { fail_rm("submit_methods", &g_s.ctx.rm); return -1; }
-    if (m16_native_wait_marker(hmarker, OMEGA_BW_MARKER_COMPLETION_PAYLOAD, L->timeout_ms) != 0 ||
-        m16_native_wait_marker(hmarker2, OMEGA_BW_MARKER2_PAYLOAD, L->timeout_ms) != 0) {
+    if (session_wait(hmarker, OMEGA_BW_MARKER_COMPLETION_PAYLOAD, L->timeout_ms, L->spin_us) != 0 ||
+        session_wait(hmarker2, OMEGA_BW_MARKER2_PAYLOAD, L->timeout_ms, L->spin_us) != 0) {
         g_blocked = true; /* uncertain completion: keep everything, refuse every later call */
         omega_gpu_session_set_error("marker wait timed out (latched)");
         return -1;

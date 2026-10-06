@@ -111,8 +111,11 @@ int omega_blackwell_build_qmd1(uint32_t *qmd1_words, const OmegaBlackwellQmdConf
     if (gpr < 16) gpr = 16;
     qmd1_words[35] = (tz & 0xff) | ((gpr & 0x1ff) << 8) | (1u << 17);
 
-    /* Word 36: Shared memory config (8 shifted 7 = 1024 bytes) */
-    qmd1_words[36] = 0x04b44808;
+    /* Word 36: SHARED_MEMORY_SIZE_SHIFTED7 in bits 10:0 (default 8 = 1024 bytes), then the
+     * MIN/MAX/TARGET_SM_CONFIG_SHARED_MEM_SIZE fields (9, 26, 9) kept as they were. */
+    if (cfg->shared_bytes > OMEGA_BW_QMD_MAX_SHARED_BYTES) return -1;
+    uint32_t smem7 = cfg->shared_bytes ? (cfg->shared_bytes + 127u) / 128u : 8u;
+    qmd1_words[36] = (0x04b44808u & ~0x7ffu) | smem7;
 
     /* Word 37: SHADER_LOCAL_MEMORY_HIGH_SIZE_SHIFTED4 = 0 (SKEDCHECK05 compliance) */
     qmd1_words[37] = 0x00000000;

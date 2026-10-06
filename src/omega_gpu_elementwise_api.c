@@ -11,11 +11,11 @@
  *     a scoreboard; the producer stalls >= 2 and the consumer waits on that SB;
  *   - a fixed-latency result (FADD FMUL FFMA IMAD IADD3 MOV LOP3 SHF) has no
  *     scoreboard: the producer stalls >= 5 before its consumer (we use 6);
- *   - a predicate producer (ISETP) stalls 13 before @P0 use (the codegen default);
+ *   - a predicate producer (ISETP) stalls 14 before @P0 use (NAK SM120 padding);
  *   - stores (STG, STS) set a read barrier so the next instruction cannot overwrite
  *     the source register early.
  * The emitter below serialises: every instruction waits on everything still
- * pending. Slow and safe; speed is a later cut.
+ * pending. A final local pass tightens supported adjacent ALU pairs to 5 cycles.
  */
 #include "omega_gpu_elementwise_api.h"
 #include "omega_blackwell_codegen.h"
@@ -55,7 +55,7 @@ static void emit(Em *e, BlackwellIRInsn in, int kind) {
     uint32_t wait = e->pending;
     switch (kind) {
     case K_FIXED: in.control = CW(6, SB_NONE, SB_NONE, wait); e->pending = 0; break;
-    case K_PRED:  in.control = CW(13, SB_NONE, SB_NONE, wait); e->pending = 0; break;
+    case K_PRED:  in.control = CW(14, SB_NONE, SB_NONE, wait); e->pending = 0; break;
     case K_VAR:   in.control = CW(4, SB_GPR, SB_NONE, wait) | CW_YIELD; e->pending = 1u << SB_GPR; break;
     case K_UVAR:  in.control = CW(4, SB_UGPR, SB_NONE, wait) | CW_YIELD; e->pending = 1u << SB_UGPR; break;
     case K_STORE: in.control = CW(4, SB_NONE, SB_RD, wait) | CW_YIELD; e->pending = 1u << SB_RD; break;
@@ -95,6 +95,24 @@ static void lop3xor(Em *e, int dst, int a, int b) { BlackwellIRInsn i = I0(BW_IR
 /* dst64 = idx * 4 + ptr64 (byte address of element idx) */
 static void addr4(Em *e, int dst64, int idx, int ptr64) { BlackwellIRInsn i = I0(BW_IR_IMAD_WIDE); i.dst_vreg = dst64; i.src1_vreg = idx; i.imm = 4; i.src3_vreg = ptr64; emit(e, i, K_FIXED); }
 static void ldg(Em *e, int dst, int addr64, int udesc) { BlackwellIRInsn i = I0(BW_IR_LDG_E); i.dst_vreg = dst; i.src1_vreg = addr64; i.ureg = udesc; emit(e, i, K_VAR); }
+/* Independent loads (LDG_E from global, or LDS32 from shared memory with ureg NOREG) issued
+ * back to back (campaign C2a, 2026-10-05). The first load
+ * waits on whatever is pending; the others wait on nothing, so all n are in flight together.
+ * Every load sets SB_GPR (a counting scoreboard), so the next instruction waits once for all
+ * of them instead of once per load. Fails the build if a load address is a destination of the
+ * group or a destination repeats (the later loads would read an operand still in flight). */
+static void ld_group(Em *e, BlackwellIROpcode op, int n, const int *dst, const int *addr, int ureg) {
+    for (int i = 0; i < n; i++)
+        for (int k = 0; k < n; k++)
+            if (addr[i] == dst[k] || (k != i && dst[i] == dst[k])) { e->err = -1; return; }
+    for (int i = 0; i < n; i++) {
+        if (op != BW_IR_LDG_E && op != BW_IR_LDS32) { e->err = -1; return; }
+        BlackwellIRInsn in = I0(op); in.dst_vreg = dst[i]; in.src1_vreg = addr[i]; in.ureg = ureg;
+        if (i == 0) { emit(e, in, K_VAR); continue; }
+        in.control = CW(4, SB_GPR, SB_NONE, 0) | CW_YIELD; /* nonzero, so the encoder keeps it */
+        if (omega_bw_ir_append(e->p, &in) < 0) e->err = -1;
+    }
+}
 static void stg(Em *e, int addr64, int val, int udesc) { BlackwellIRInsn i = I0(BW_IR_STG_E); i.src1_vreg = addr64; i.src2_vreg = val; i.ureg = udesc; emit(e, i, K_STORE); }
 static void fadd(Em *e, int d, int a, int b) { BlackwellIRInsn i = I0(BW_IR_FADD); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; emit(e, i, K_FIXED); }
 static void fsub(Em *e, int d, int a, int b) { BlackwellIRInsn i = I0(BW_IR_FSUB); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; emit(e, i, K_FIXED); }
@@ -145,6 +163,7 @@ static void loop_end(Em *e) {
 #define ARG_P1 0x39cu
 #define ARG_P2 0x3a0u
 #define ARG_P3 0x3a4u
+#define ARG_P4 0x3a8u
 #define DESC_OFF 0x358u
 
 typedef struct { int udesc, pa, pb, pc, tid, cta; } Pro;
@@ -340,38 +359,73 @@ static void bra_always(Em *e, int target) { BlackwellIRInsn i = I0(BW_IR_BRA); i
  *   j += jadd; while j < 32 { acc |= 1 << j; j += p }
  * then acc |= (w == 0) (the number 1), word = ~(acc | (w == last ? ~tailmask : 0)).
  * Branch-free except the loop branches. Mutant: drops the j fix (j = p - r unreduced), so words where
- * base - k0 is a multiple of p (or q overshot) mark the wrong bits. */
-static void gen_prime_sieve(Em *e, int mutant) {
+ * base - k0 is a multiple of p (or q overshot) mark the wrong bits.
+ *
+ * staged = 1 (OMEGA_GPU_EW_PRIME_SIEVE_SHARED, campaign C3): P4 = table words, sentinel included
+ * (3 per entry). The CTA first copies the table into shared memory at offset 0 (thread t copies
+ * words t, t + 128, ...), BAR_SYNC, then the prime loop reads shared memory (LDS) instead of
+ * uncached global memory. Every thread reaches the barrier: the w >= nwords exit comes after
+ * it. The launch must declare at least 4 * P4 bytes of shared memory. */
+static void gen_prime_sieve(Em *e, int mutant, int staged) {
     Pro pr = prologue(e);
     int nwords = V(e), stride = V(e), lastw = V(e), tailinv = V(e);
     int one = V(e), c32 = V(e), cm1 = V(e), w = V(e);
     ldc32(e, nwords, ARG_P0); ldc32(e, stride, ARG_P1); ldc32(e, lastw, ARG_P2); ldc32(e, tailinv, ARG_P3);
     movi(e, one, 1); movi(e, c32, 32); movi(e, cm1, 0xffffffffu);
+    int c4 = -1, c8 = -1, c12 = -1;
+    if (staged) {
+        int twords = V(e), i = V(e), ga = V64(e), val = V(e), sa = V(e);
+        c4 = V(e); c8 = V(e); c12 = V(e);
+        ldc32(e, twords, ARG_P4);
+        movi(e, c4, 4); movi(e, c8, 8); movi(e, c12, 12);
+        imadi(e, i, pr.tid, 1, NOREG);
+        loop_begin(e); /* staging loop */
+        int ls = here(e);
+        isetp_ge_u32(e, i, twords);
+        int sdone = bra_fwd_if_p0(e);
+        addr4(e, ga, i, pr.pa);
+        ldg(e, val, ga, pr.udesc);
+        imadi(e, sa, i, 4, NOREG);
+        sts32(e, sa, val);
+        imadi(e, i, one, OMEGA_GPU_EW_THREADS, i);
+        bra_always(e, ls);
+        loop_end(e);
+        bra_patch_here(e, sdone);
+        bar_sync(e);
+    }
     imadi(e, w, pr.cta, OMEGA_GPU_EW_THREADS, pr.tid);
     isetp_ge_u32(e, w, nwords);
     exit_if_p0(e);
 
-    int base = V(e), basep32 = V(e), acc = V(e), ptr = V64(e), a64 = V64(e);
+    /* ptr, a64, a64m: global addresses, or (staged) 32-bit shared offsets */
+    int base = V(e), basep32 = V(e), acc = V(e);
+    int ptr = staged ? V(e) : V64(e), a64 = staged ? V(e) : V64(e), a64m = staged ? V(e) : V64(e);
     int p = V(e), magic = V(e), k0 = V(e), negp = V(e), d = V(e), neg = V(e), nd = V(e), dpos = V(e), jadd = V(e);
     int q = V(e), r = V(e), j = V(e), t = V(e), z = V(e), bit = V(e);
     int e1 = V(e), m = V(e), word = V(e), oaddr = V64(e);
+    int tt = V(e), jj = V(e), sh = V(e), c31 = V(e), cm32 = V(e);
+    movi(e, c31, 31); movi(e, cm32, 0xffffffe0u);
 
     loop_begin(e); /* word loop */
     int lw = here(e);
     imadi(e, base, w, 32, NOREG);
     iadd3(e, basep32, base, c32);
     movrz(e, acc);
-    widei(e, ptr, one, 0, pr.pa);
+    if (staged) movrz(e, ptr); else widei(e, ptr, one, 0, pr.pa);
 
     loop_begin(e); /* prime loop */
     int lp = here(e);
-    widei(e, a64, one, 8, ptr);
-    ldg(e, k0, a64, pr.udesc);
+    /* one memory round trip per prime: all three entry words load together (C2a). The
+     * sentinel entry is a whole entry, so loading p and magic before the k0 test is in bounds. */
+    if (staged) { iadd3(e, a64, ptr, c8); iadd3(e, a64m, ptr, c4); }
+    else { widei(e, a64, one, 8, ptr); widei(e, a64m, one, 4, ptr); }
+    {
+        const int dsts[3] = { k0, p, magic }, adrs[3] = { a64, ptr, a64m };
+        if (staged) ld_group(e, BW_IR_LDS32, 3, dsts, adrs, NOREG);
+        else ld_group(e, BW_IR_LDG_E, 3, dsts, adrs, pr.udesc);
+    }
     isetp_ge_u32(e, k0, basep32);
     int brk = bra_fwd_if_p0(e);
-    ldg(e, p, ptr, pr.udesc);
-    widei(e, a64, one, 4, ptr);
-    ldg(e, magic, a64, pr.udesc);
     imadi(e, negp, p, 0xffffffffu, NOREG);       /* -p */
     imadi(e, d, k0, 0xffffffffu, base);          /* base - k0 */
     shr_i(e, neg, d, 31);
@@ -388,18 +442,28 @@ static void gen_prime_sieve(Em *e, int mutant) {
     }
     iadd3(e, j, j, jadd);
 
-    loop_begin(e); /* mark loop */
+    /* mark loop (campaign C5): the trip count depends only on p, so every active lane runs the
+     * same ceil(32/p) steps and the warp never splits here (all active lanes are on the same
+     * prime). Bits past this word are masked out instead of branched around. The old loop ran
+     * "while j < 32", a lane-dependent branch with no reconvergence point. */
+    movrz(e, tt);
+    loop_begin(e);
     int li = here(e);
-    isetp_ge_u32(e, j, c32);
+    isetp_ge_u32(e, tt, c32);
     int done = bra_fwd_if_p0(e);
-    shl_r(e, bit, one, j);
-    lop3lut(e, acc, acc, bit, NOREG, 0xfc);      /* acc | bit */
-    iadd3(e, j, j, p);
+    iadd3(e, jj, j, tt);
+    lop3lut(e, sh, jj, c31, NOREG, 0xc0);        /* jj & 31 */
+    shl_r(e, bit, one, sh);
+    iadd3(e, t, jj, cm32);
+    shr_i(e, z, t, 31);                          /* jj < 32 (j <= p + 31, far below 2^31) */
+    imadi(e, m, z, 0xffffffffu, NOREG);          /* all ones when jj < 32, else 0 */
+    lop3lut(e, acc, acc, bit, m, 0xf8);          /* acc | (bit & m) */
+    iadd3(e, tt, tt, p);
     bra_always(e, li);
     loop_end(e);
     bra_patch_here(e, done);
 
-    widei(e, ptr, one, 12, ptr);
+    if (staged) iadd3(e, ptr, ptr, c12); else widei(e, ptr, one, 12, ptr);
     bra_always(e, lp);
     loop_end(e);
     bra_patch_here(e, brk);
@@ -443,6 +507,45 @@ static int check_loop_invariant(const Em *e) {
 
 #define EW_GPR_BUDGET 64u /* the QMD declares 64 registers, as the matmul launcher does */
 
+/* Mesa NAK sm120_instr_latencies.rs + sm100/reg_raw.csv: ALU/dual-ALU pairs
+ * and FMA/FMA pairs need 4 + 1 cycles; mixed pairs need 5 + 1. CSV rows are
+ * READERS, columns WRITERS (see lat_rs_gen.py), not the reverse. IMAD.WIDE
+ * has operand-specific latencies and is deliberately excluded here.
+ *
+ * Retain at least 5 cycles after every fixed producer. Thus the next reader
+ * uses the pair-specific bound and later readers are >= 9 cycles away (the
+ * next instruction in a tightened pair is itself fixed). No instruction,
+ * branch target, wait, barrier assignment or register allocation is changed.
+ * IADD3's encoder still supplies its historical control word; do not pretend
+ * to schedule that producer here. Its existing 5-cycle delay is unchanged.
+ *
+ * Predicate-to-guard uses NAK paw_latency -> raw(write, None): reader
+ * RedirectedFp64, writer Dualalu = 13, plus SM120's 1 = 14, in emit above.
+ * NVIDIA's public ISA docs are silent about SASS control-word semantics.
+ */
+static int fixed_pair_class(BlackwellIROpcode op) {
+    switch (op) {
+    case BW_IR_MOV_RZ: case BW_IR_MOV_IMM: case BW_IR_IADD3:
+    case BW_IR_LOP3_XOR: case BW_IR_LOP3_LUT:
+    case BW_IR_SHF_R: case BW_IR_SHF_L_U32: return 1;
+    case BW_IR_IMAD: case BW_IR_IMAD_HI_U32:
+    case BW_IR_FADD: case BW_IR_FSUB: case BW_IR_FMUL: case BW_IR_FFMA: return 2;
+    default: return 0;
+    }
+}
+
+static void schedule_fixed_pairs(BlackwellIRProgram *p) {
+    for (size_t i = 0; i + 1 < p->count; i++) {
+        BlackwellIRInsn *a = &p->insns[i];
+        const BlackwellIRInsn *b = &p->insns[i + 1];
+        int cls = fixed_pair_class(a->op);
+        if (!cls || cls != fixed_pair_class(b->op) || a->op == BW_IR_IADD3 ||
+            a->predicate_p0 || b->predicate_p0 || ((a->control >> 9) & 15u) != 6)
+            continue;
+        a->control = (a->control & ~(15u << 9)) | (5u << 9);
+    }
+}
+
 static int build_kernel(OmegaGpuEwOp op, int mutant, OmegaBlackwellKernel *kernel, BlackwellIRProgram *prog_out) {
     BlackwellIRProgram *prog = calloc(1, sizeof *prog);
     if (!prog) return OMEGA_GPU_EW_CODEGEN_FAIL;
@@ -454,9 +557,11 @@ static int build_kernel(OmegaGpuEwOp op, int mutant, OmegaBlackwellKernel *kerne
     case OMEGA_GPU_EW_RMSNORM: gen_rmsnorm(&e, mutant); break;
     case OMEGA_GPU_EW_ROPE: gen_rope(&e, mutant); break;
     case OMEGA_GPU_EW_SWIGLU: gen_swiglu(&e, mutant); break;
-    case OMEGA_GPU_EW_PRIME_SIEVE: gen_prime_sieve(&e, mutant); break;
+    case OMEGA_GPU_EW_PRIME_SIEVE: gen_prime_sieve(&e, mutant, 0); break;
+    case OMEGA_GPU_EW_PRIME_SIEVE_SHARED: gen_prime_sieve(&e, mutant, 1); break;
     default: e.err = -1; break;
     }
+    schedule_fixed_pairs(prog);
     int rc = OMEGA_GPU_EW_CODEGEN_FAIL;
     int ra_rc = (e.err == 0) ? omega_bw_regalloc_solve(prog) : -1;
     int loop_rc = (ra_rc == 0) ? check_loop_invariant(&e) : -1;
