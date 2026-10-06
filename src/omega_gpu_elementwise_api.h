@@ -59,7 +59,10 @@ typedef enum {
     OMEGA_GPU_EW_XCHG,        /* out[i] = a[i ^ (T-1)] inside each CTA (probe for STS/BAR.SYNC/LDS) */
     OMEGA_GPU_EW_RMSNORM,
     OMEGA_GPU_EW_ROPE,
-    OMEGA_GPU_EW_SWIGLU
+    OMEGA_GPU_EW_SWIGLU,
+    OMEGA_GPU_EW_PRIME_SIEVE  /* prime race (2026-10-05): word-parallel odd-only sieve, codegen only
+                               * here; launched by bench/prime_race/gb10_native.c (argument words in
+                               * gen_prime_sieve's comment) */
 } OmegaGpuEwOp;
 
 /* Shape rules (checked, refused with BAD_ARGS / TOO_LARGE):
@@ -112,6 +115,13 @@ int omega_gpu_shared_xchg_u32(uint32_t n, const uint32_t *x, uint32_t *out, Omeg
  * budget. Caller frees kernel->code. */
 int omega_gpu_elementwise_codegen(OmegaGpuEwOp op, const uint32_t *dims, float eps,
                                   OmegaBlackwellKernel *kernel);
+
+/* Same, with the mutant chosen by the caller (0 = production kernel) and, when prog is
+ * not NULL, a copy of the allocated IR program (a BlackwellIRProgram, post register
+ * allocation) for a host IR simulator. Does not touch the device or the kernel cache.
+ * Caller frees kernel->code. */
+int omega_gpu_elementwise_codegen_ir(OmegaGpuEwOp op, int mutant, void *prog,
+                                     OmegaBlackwellKernel *kernel);
 
 /* TEST ONLY. Selects a deliberately wrong kernel for one op (0 clears). Each
  * mutant changes the math by far more than the op's tolerance, so a parity

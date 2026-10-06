@@ -701,8 +701,78 @@ static int encode_single_insn(const BlackwellIRInsn *insn, const OmegaRegAlloc *
             w[3] = insn->control ? insn->control : 0x000fe200;
             break;
 
+        /* Prime race cut (2026-10-05). An absent operand is RZ for these three ops. */
+        case BW_IR_LOP3_LUT: {
+            /* LOP3.LUT Rd, Ra, Rb, Rc, imm8, !PT. LOP3_XOR above is this form with Rc = RZ, LUT 0x3c. */
+            uint32_t a = (insn->src1_vreg >= 0) ? (uint32_t)(src1 & 0xff) : 0xffU;
+            uint32_t b = (insn->src2_vreg >= 0) ? (uint32_t)(src2 & 0xff) : 0xffU;
+            w[0] = 0x7212U | ((uint32_t)(dst & 0xff) << 16) | (a << 24);
+            w[1] = b;
+            w[2] = 0x078e0000U | ((insn->imm & 0xffU) << 8) | (uint32_t)(src3 & 0xff);
+            w[3] = insn->control ? insn->control : 0x001fca00;
+            break;
+        }
+
+        case BW_IR_SHF_L_U32: {
+            /* SHF.L.U32 Rd, Ra, Rb, Rc: register-amount form (0x7219) of SHF_R's 0x7819, with the
+             * .R (w[2] bit 12) and .HI (bit 16) flags clear. Rc is the funnel high word (RZ). */
+            uint32_t a = (insn->src1_vreg >= 0) ? (uint32_t)(src1 & 0xff) : 0xffU;
+            uint32_t b = (insn->src2_vreg >= 0) ? (uint32_t)(src2 & 0xff) : 0xffU;
+            w[0] = 0x7219U | ((uint32_t)(dst & 0xff) << 16) | (a << 24);
+            w[1] = b;
+            w[2] = 0x00000600U | (uint32_t)(src3 & 0xff);
+            w[3] = insn->control ? insn->control : 0x001fca00;
+            break;
+        }
+
+        case BW_IR_IMAD_HI_U32: {
+            /* IMAD.HI.U32 Rd, Ra, Rb, Rc: opcode 0x227 with the IMAD.WIDE.U32 modifier word. */
+            uint32_t a = (insn->src1_vreg >= 0) ? (uint32_t)(src1 & 0xff) : 0xffU;
+            uint32_t b = (insn->src2_vreg >= 0) ? (uint32_t)(src2 & 0xff) : 0xffU;
+            w[0] = 0x7227U | ((uint32_t)(dst & 0xff) << 16) | (a << 24);
+            w[1] = b;
+            w[2] = 0x078e0000U | (uint32_t)(src3 & 0xff);
+            w[3] = insn->control ? insn->control : 0x001fca00;
+            break;
+        }
+
         default:
             return -1;
+    }
+    return 0;
+}
+
+/* Prime race cut (2026-10-05): golden words for LOP3_LUT, SHF_L_U32 and IMAD_HI_U32.
+ * Each expected (w0, w1, w2) is the low 96 bits of an instruction nvcc 13.0.88 emitted
+ * for sm_121 (nvcc -arch=sm_121 -cubin, cuobjdump -sass; source and dump in
+ * bench/prime_race/tests/encoding_oracle.md). Control words (w3) are scheduler output and
+ * not compared. nvcc is an offline oracle only; nothing here links CUDA. 0 = all good. */
+int omega_blackwell_verify_codegen_fixtures_intops(void) {
+    OmegaRegAlloc ra;
+    memset(&ra, 0, sizeof(ra));
+    static const int phys[] = { 0, 2, 6, 7, 9, 11, 13 };
+    for (int i = 0; i < (int)(sizeof phys / sizeof phys[0]); i++) ra.vreg_to_phys[i] = phys[i];
+    enum { R0 = 0, R2, R6, R7, R9, R11, R13, RZ = -1 };
+    static const struct {
+        BlackwellIROpcode op; int d, a, b, c; uint32_t imm; uint32_t w0, w1, w2; const char *text;
+    } fx[] = {
+        { BW_IR_LOP3_LUT, R9, R7, R0, RZ, 0xfc, 0x07097212U, 0x00000000U, 0x078efcffU, "LOP3.LUT R9, R7, R0, RZ, 0xfc, !PT" },
+        { BW_IR_LOP3_LUT, R11, R6, R7, R0, 0x78, 0x060b7212U, 0x00000007U, 0x078e7800U, "LOP3.LUT R11, R6, R7, R0, 0x78, !PT" },
+        { BW_IR_LOP3_LUT, R13, R6, R7, R0, 0x10, 0x060d7212U, 0x00000007U, 0x078e1000U, "LOP3.LUT R13, R6, R7, R0, 0x10, !PT" },
+        { BW_IR_LOP3_LUT, R7, RZ, R9, RZ, 0x33, 0xff077212U, 0x00000009U, 0x078e33ffU, "LOP3.LUT R7, RZ, R9, RZ, 0x33, !PT" },
+        { BW_IR_SHF_L_U32, R7, R9, R2, RZ, 0, 0x09077219U, 0x00000002U, 0x000006ffU, "SHF.L.U32 R7, R9, R2, RZ" },
+        { BW_IR_SHF_L_U32, R7, R0, R7, RZ, 0, 0x00077219U, 0x00000007U, 0x000006ffU, "SHF.L.U32 R7, R0, R7, RZ" },
+        { BW_IR_IMAD_HI_U32, R9, R9, R0, R6, 0, 0x09097227U, 0x00000000U, 0x078e0006U, "IMAD.HI.U32 R9, R9, R0, R6" },
+        { BW_IR_IMAD_HI_U32, R7, R0, R7, RZ, 0, 0x00077227U, 0x00000007U, 0x078e00ffU, "IMAD.HI.U32 R7, R0, R7, RZ" },
+    };
+    for (int i = 0; i < (int)(sizeof fx / sizeof fx[0]); i++) {
+        BlackwellIRInsn in;
+        memset(&in, 0, sizeof in);
+        in.op = fx[i].op; in.dst_vreg = fx[i].d; in.src1_vreg = fx[i].a; in.src2_vreg = fx[i].b;
+        in.src3_vreg = fx[i].c; in.ureg = -1; in.imm = fx[i].imm;
+        uint32_t w[4];
+        if (encode_single_insn(&in, &ra, w) != 0) return -(2 * i + 1);
+        if (w[0] != fx[i].w0 || w[1] != fx[i].w1 || w[2] != fx[i].w2) return -(2 * i + 2);
     }
     return 0;
 }

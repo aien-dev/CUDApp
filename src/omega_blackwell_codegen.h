@@ -71,7 +71,18 @@ typedef enum {
     BW_IR_MUFU_EX2,     /* MUFU.EX2 Rd, Ra (2^x, approximate: PTX ex2.approx.f32 bound 2^-22.5 rel) */
     BW_IR_BAR_SYNC,     /* BAR.SYNC.DEFER_BLOCKING 0x0 (CTA barrier 0; the QMD declares 1 barrier) */
     BW_IR_LDS32,        /* LDS Rd, [Ra+URZ]  32-bit shared load  (BW_IR_LDS encodes LDS.U8: byte) */
-    BW_IR_STS32         /* STS [Ra+URZ], Rb  32-bit shared store (BW_IR_STS encodes STS.U8: byte) */
+    BW_IR_STS32,        /* STS [Ra+URZ], Rb  32-bit shared store (BW_IR_STS encodes STS.U8: byte) */
+    /* Prime race cut (2026-10-05), additive, general integer ops. Words derived from the
+     * register forms of LOP3_XOR / SHF_R / IMAD and matched word for word against
+     * nvcc 13.0.88 -arch=sm_121 -cubin + cuobjdump -sass (offline oracle only; see
+     * omega_blackwell_verify_codegen_fixtures_intops). For these three ops an operand
+     * vreg of -1 encodes RZ (not R0). */
+    BW_IR_LOP3_LUT,     /* LOP3.LUT Rd, Ra, Rb, Rc, imm8, !PT: Rd = LUT(Ra, Rb, Rc). imm & 0xff is the
+                         * truth table over Ra = 0xf0, Rb = 0xcc, Rc = 0xaa (a|b = 0xfc, ~(a|b) = 0x03) */
+    BW_IR_SHF_L_U32,    /* SHF.L.U32 Rd, Ra, Rb, RZ: Rd = Ra << Rb, register amount (the form nvcc emits
+                         * for PTX shl.b32). Amounts >= 32 are NOT chip-verified: callers keep Rb < 32 */
+    BW_IR_IMAD_HI_U32   /* IMAD.HI.U32 Rd, Ra, Rb, Rc: Rd = hi32(Ra * Rb) + Rc mod 2^32 (nvcc emits this
+                         * word for __umulhi(a, b) + c) */
 } BlackwellIROpcode;
 
 /* Special Register Identifiers */
@@ -188,6 +199,9 @@ int omega_blackwell_verify_codegen_fixtures(void);
 
 /* FB-1 cut 4: fixtures for MUFU_EX2, BAR_SYNC, LDS32, STS32 (0 = pass) */
 int omega_blackwell_verify_codegen_fixtures_fb1cut4(void);
+
+/* Prime race cut: golden words for LOP3_LUT, SHF_L_U32, IMAD_HI_U32 (0 = pass) */
+int omega_blackwell_verify_codegen_fixtures_intops(void);
 
 /* Unit test for bounded register allocation live intervals and bounds enforcement (Gate 4) */
 int omega_blackwell_test_regalloc_bounds(void);

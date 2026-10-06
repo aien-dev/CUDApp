@@ -47,6 +47,8 @@ typedef struct {
     int err;
     int loop_start[EW_MAX_LOOPS], loop_end[EW_MAX_LOOPS];
     int n_loops;
+    int open_start[EW_MAX_LOOPS]; /* starts of loops begun and not yet ended (nesting stack) */
+    int depth;
 } Em;
 
 static void emit(Em *e, BlackwellIRInsn in, int kind) {
@@ -112,15 +114,19 @@ static void tail(Em *e) {
     self.control = 0x000fc000u;
     if (omega_bw_ir_append(e->p, &self) < 0) e->err = -1;
 }
-static void loop_begin(Em *e) { if (e->n_loops < EW_MAX_LOOPS) e->loop_start[e->n_loops] = here(e); }
+/* Loops may nest (prime race cut): begin pushes the start, end pops it, so the inner
+ * loop is closed (and its liveness fixed) first. For the single-level loops above this
+ * is exactly the old behaviour. */
+static void loop_begin(Em *e) { if (e->depth >= EW_MAX_LOOPS) { e->err = -1; return; } e->open_start[e->depth++] = here(e); }
 /* Closing a loop: every value defined before the loop and read inside it stays
  * live until the back-branch, otherwise the linear-scan allocator (which knows
  * nothing about back-edges) would hand its register to a body temporary whose
  * first definition comes after the value's last textual use (e.g. the scale y
  * in rmsnorm pass 2), and the next iteration would read garbage. */
 static void loop_end(Em *e) {
-    if (e->n_loops >= EW_MAX_LOOPS) { e->err = -1; return; }
-    int start = e->loop_start[e->n_loops], end = here(e) - 1;
+    if (e->n_loops >= EW_MAX_LOOPS || e->depth <= 0) { e->err = -1; return; }
+    int start = e->open_start[--e->depth], end = here(e) - 1;
+    e->loop_start[e->n_loops] = start;
     e->loop_end[e->n_loops] = end;
     e->n_loops++;
     OmegaRegAlloc *ra = &e->p->regalloc;
@@ -299,6 +305,124 @@ static void gen_swiglu(Em *e, int mutant) {
     tail(e);
 }
 
+/* ------------------------------------------- prime race sieve (2026-10-05) */
+static void lop3lut(Em *e, int d, int a, int b, int c, uint32_t lut) { BlackwellIRInsn i = I0(BW_IR_LOP3_LUT); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; i.src3_vreg = c; i.imm = lut & 0xffu; emit(e, i, K_FIXED); }
+static void shl_r(Em *e, int d, int a, int n) { BlackwellIRInsn i = I0(BW_IR_SHF_L_U32); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = n; emit(e, i, K_FIXED); }
+static void shr_i(Em *e, int d, int a, uint32_t n) { BlackwellIRInsn i = I0(BW_IR_SHF_R); i.dst_vreg = d; i.src1_vreg = a; i.imm = n; emit(e, i, K_FIXED); }
+static void imadhi(Em *e, int d, int a, int b) { BlackwellIRInsn i = I0(BW_IR_IMAD_HI_U32); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; emit(e, i, K_FIXED); }
+/* dst64 = a * imm + c64 (IMAD.WIDE.U32 immediate form) */
+static void widei(Em *e, int dst64, int a, uint32_t imm, int c64) { BlackwellIRInsn i = I0(BW_IR_IMAD_WIDE); i.dst_vreg = dst64; i.src1_vreg = a; i.imm = imm; i.src3_vreg = c64; emit(e, i, K_FIXED); }
+/* @P0 BRA forward; returns the instruction index for bra_patch_here */
+static int bra_fwd_if_p0(Em *e) { int at = here(e); BlackwellIRInsn i = I0(BW_IR_BRA); i.predicate_p0 = true; i.imm = 1; emit(e, i, K_BRA); return at; }
+static void bra_patch_here(Em *e, int at) { if (e->err == 0 && at >= 0 && at < here(e)) e->p->insns[at].imm = (uint32_t)(here(e) - at); else e->err = -1; }
+static void bra_always(Em *e, int target) { BlackwellIRInsn i = I0(BW_IR_BRA); i.imm = (uint32_t)(target - here(e)); emit(e, i, K_BRA); }
+
+/* Word-parallel odd-only sieve (docs: handoff 2026-10-05 DESIGN "GPU kernel (native)").
+ * Thread t owns 32-bit output words w = t, t + S, t + 2S, ... (S = P1 = threads launched;
+ * the I42 envelope caps a launch at OMEGA_GPU_EW_MAX_CTAS CTAs, so a grid-stride loop
+ * replaces one thread per word). Every word has exactly one writer; no atomics.
+ * Bit j of word w is the odd number 2(32w + j) + 1.
+ * Arguments: a (0x380) = prime table, entries {p, magic = ceil(2^32 / p), k0 = (p*p - 1)/2}
+ * (12 bytes, ascending p, odd primes <= isqrt(limit)) followed by ONE sentinel entry with
+ * k0 = 0xffffffff that ends every scan; c (0x390) = output words;
+ * P0 = nwords, P1 = S, P2 = last word index, P3 = ~tailmask (bits past the last odd).
+ * Range: limit < 2^32 (so base, k0 < 2^31 and the sign-bit tricks below hold).
+ * Per word: base = 32w; for each prime while k0 < base + 32:
+ *   d = base - k0; neg = d >> 31 (k0 > base); dpos = neg ? 0 : d; jadd = neg ? k0 - base : 0
+ *   q = hi32(dpos * magic)  (= floor(dpos/p) or one more: magic is rounded up)
+ *   r = dpos - q*p                            (q one too big -> r = (dpos mod p) - p, wrapped)
+ *   j = p - r; j -= p * ((r - 1) >> 31)       (r == 0 -> 0; wrapped r -> p - (dpos mod p))
+ * One fix covers both cases: with q one too big, dpos mod p >= p - dpos*e/2^32 > p/2 > 0
+ * (e = magic*p - 2^32 < p, dpos < 2^31), so the true remainder is never 0 there and
+ * p - r - p = p - (dpos mod p) is the right offset. A separate "r += p if wrapped" step was
+ * removed after a negative control showed it changes no output (host sim, limit 1e7, where
+ * the overshoot occurs 268 times; bench/prime_race/tests magic_model).
+ *   j += jadd; while j < 32 { acc |= 1 << j; j += p }
+ * then acc |= (w == 0) (the number 1), word = ~(acc | (w == last ? ~tailmask : 0)).
+ * Branch-free except the loop branches. Mutant: drops the j fix (j = p - r unreduced), so words where
+ * base - k0 is a multiple of p (or q overshot) mark the wrong bits. */
+static void gen_prime_sieve(Em *e, int mutant) {
+    Pro pr = prologue(e);
+    int nwords = V(e), stride = V(e), lastw = V(e), tailinv = V(e);
+    int one = V(e), c32 = V(e), cm1 = V(e), w = V(e);
+    ldc32(e, nwords, ARG_P0); ldc32(e, stride, ARG_P1); ldc32(e, lastw, ARG_P2); ldc32(e, tailinv, ARG_P3);
+    movi(e, one, 1); movi(e, c32, 32); movi(e, cm1, 0xffffffffu);
+    imadi(e, w, pr.cta, OMEGA_GPU_EW_THREADS, pr.tid);
+    isetp_ge_u32(e, w, nwords);
+    exit_if_p0(e);
+
+    int base = V(e), basep32 = V(e), acc = V(e), ptr = V64(e), a64 = V64(e);
+    int p = V(e), magic = V(e), k0 = V(e), negp = V(e), d = V(e), neg = V(e), nd = V(e), dpos = V(e), jadd = V(e);
+    int q = V(e), r = V(e), j = V(e), t = V(e), z = V(e), bit = V(e);
+    int e1 = V(e), m = V(e), word = V(e), oaddr = V64(e);
+
+    loop_begin(e); /* word loop */
+    int lw = here(e);
+    imadi(e, base, w, 32, NOREG);
+    iadd3(e, basep32, base, c32);
+    movrz(e, acc);
+    widei(e, ptr, one, 0, pr.pa);
+
+    loop_begin(e); /* prime loop */
+    int lp = here(e);
+    widei(e, a64, one, 8, ptr);
+    ldg(e, k0, a64, pr.udesc);
+    isetp_ge_u32(e, k0, basep32);
+    int brk = bra_fwd_if_p0(e);
+    ldg(e, p, ptr, pr.udesc);
+    widei(e, a64, one, 4, ptr);
+    ldg(e, magic, a64, pr.udesc);
+    imadi(e, negp, p, 0xffffffffu, NOREG);       /* -p */
+    imadi(e, d, k0, 0xffffffffu, base);          /* base - k0 */
+    shr_i(e, neg, d, 31);
+    imadi(e, nd, d, 0xffffffffu, NOREG);         /* -d */
+    imadr(e, dpos, neg, nd, d);                  /* d - neg*d */
+    imadr(e, jadd, neg, nd, NOREG);              /* neg * (k0 - base) */
+    imadhi(e, q, dpos, magic);
+    imadr(e, r, q, negp, dpos);                  /* dpos - q*p */
+    imadi(e, j, r, 0xffffffffu, p);              /* p - r */
+    if (!mutant) {
+        iadd3(e, t, r, cm1);
+        shr_i(e, z, t, 31);                      /* r == 0, or r wrapped (q one too big) */
+        imadr(e, j, z, negp, j);                 /* j - p */
+    }
+    iadd3(e, j, j, jadd);
+
+    loop_begin(e); /* mark loop */
+    int li = here(e);
+    isetp_ge_u32(e, j, c32);
+    int done = bra_fwd_if_p0(e);
+    shl_r(e, bit, one, j);
+    lop3lut(e, acc, acc, bit, NOREG, 0xfc);      /* acc | bit */
+    iadd3(e, j, j, p);
+    bra_always(e, li);
+    loop_end(e);
+    bra_patch_here(e, done);
+
+    widei(e, ptr, one, 12, ptr);
+    bra_always(e, lp);
+    loop_end(e);
+    bra_patch_here(e, brk);
+
+    iadd3(e, t, w, cm1);
+    shr_i(e, z, t, 31);                          /* w == 0: the number 1 is not prime */
+    lop3lut(e, acc, acc, z, NOREG, 0xfc);
+    lop3xor(e, e1, w, lastw);
+    iadd3(e, t, e1, cm1);
+    shr_i(e, z, t, 31);                          /* w == last word */
+    imadr(e, m, z, tailinv, NOREG);
+    lop3lut(e, word, acc, m, NOREG, 0x03);       /* ~(acc | m) */
+    addr4(e, oaddr, w, pr.pc);
+    stg(e, oaddr, word, pr.udesc);
+    /* IMAD, not IADD3: the IADD3 encoder ignores the scheduler control word (fixed
+     * 0x010fca00), so right after a store it would not wait on the read barrier */
+    imadr(e, w, stride, one, w);
+    isetp_ge_u32(e, w, nwords);
+    bra_back_if_not_p0(e, lw);
+    loop_end(e);
+    tail(e);
+}
+
 /* A value first defined inside a loop body may not be read after the loop
  * before it is written again: the allocator could have let a later body
  * temporary share its register, and the last iteration's value would be lost. */
@@ -319,7 +443,7 @@ static int check_loop_invariant(const Em *e) {
 
 #define EW_GPR_BUDGET 64u /* the QMD declares 64 registers, as the matmul launcher does */
 
-static int build_kernel(OmegaGpuEwOp op, int mutant, OmegaBlackwellKernel *kernel) {
+static int build_kernel(OmegaGpuEwOp op, int mutant, OmegaBlackwellKernel *kernel, BlackwellIRProgram *prog_out) {
     BlackwellIRProgram *prog = calloc(1, sizeof *prog);
     if (!prog) return OMEGA_GPU_EW_CODEGEN_FAIL;
     omega_bw_ir_init(prog);
@@ -330,6 +454,7 @@ static int build_kernel(OmegaGpuEwOp op, int mutant, OmegaBlackwellKernel *kerne
     case OMEGA_GPU_EW_RMSNORM: gen_rmsnorm(&e, mutant); break;
     case OMEGA_GPU_EW_ROPE: gen_rope(&e, mutant); break;
     case OMEGA_GPU_EW_SWIGLU: gen_swiglu(&e, mutant); break;
+    case OMEGA_GPU_EW_PRIME_SIEVE: gen_prime_sieve(&e, mutant); break;
     default: e.err = -1; break;
     }
     int rc = OMEGA_GPU_EW_CODEGEN_FAIL;
@@ -350,6 +475,7 @@ static int build_kernel(OmegaGpuEwOp op, int mutant, OmegaBlackwellKernel *kerne
             kernel->gpr_count = prog->regalloc.peak_gpr_usage;
             kernel->uniform_gpr_count = prog->regalloc.peak_ugpr_usage;
             sha256_hash(kernel->code, kernel->code_size, kernel->code_digest);
+            if (prog_out) *prog_out = *prog;
             rc = OMEGA_GPU_EW_OK;
         } else {
 #ifdef OMEGA_EW_DEBUG
@@ -407,7 +533,7 @@ static int kernel_for(OmegaGpuEwOp op, bool upload, Slot **out, bool *hit) {
         if (g_cache[i].used && g_cache[i].op == (int)op && g_cache[i].mutant == mutant) { s = &g_cache[i]; *hit = true; break; }
     if (!s) {
         OmegaBlackwellKernel k;
-        int rc = build_kernel(op, mutant, &k);
+        int rc = build_kernel(op, mutant, &k, NULL);
         if (rc != OMEGA_GPU_EW_OK) return rc;
         size_t slot = 0;
         for (size_t i = 0; i < sizeof g_cache / sizeof g_cache[0]; i++) if (!g_cache[i].used) { slot = i; break; }
@@ -432,7 +558,12 @@ int omega_gpu_elementwise_codegen(OmegaGpuEwOp op, const uint32_t *dims, float e
     LOCK();
     int mutant = (g_mutant_op == (int)op);
     UNLOCK();
-    return build_kernel(op, mutant, kernel);
+    return build_kernel(op, mutant, kernel, NULL);
+}
+
+int omega_gpu_elementwise_codegen_ir(OmegaGpuEwOp op, int mutant, void *prog, OmegaBlackwellKernel *kernel) {
+    if (!kernel) return OMEGA_GPU_EW_BAD_ARGS;
+    return build_kernel(op, mutant ? 1 : 0, kernel, (BlackwellIRProgram *)prog);
 }
 
 const char *omega_gpu_elementwise_last_error(void) { return omega_gpu_session_last_error(); }
