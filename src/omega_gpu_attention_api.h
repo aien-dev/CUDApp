@@ -41,9 +41,9 @@
  * Shared memory: the QMD declares 16 * head_dim bytes (clcec0qmd.h SHARED_MEMORY_SIZE_SHIFTED7,
  * src/omega_blackwell_qmd.c word 36); the kernel uses exactly 4 arrays of head_dim words:
  * 1024 bytes for head_dim 64 (TinyLlama, Llama-3.2-1B; the QMD default) and 2048 bytes for
- * head_dim 128 (Qwen3-4B, CPU phase: host simulators only, GB10 parity NOT_RUN). head_dim is a
- * kernel parameter (64 or 128): threads per CTA = head_dim = chunk size, one warp partial per
- * 32 threads in the softmax reductions.
+ * head_dim 128 (Qwen3-4B; GB10 parity PASS 126/0 at 7dd92dc, evidence/FB1-CUT5-HD128-7dd92dc).
+ * head_dim is a kernel parameter (64 or 128): threads per CTA = head_dim = chunk size, one warp
+ * partial per 32 threads in the softmax reductions.
  *
  * Staging: the host copies q, the referenced KV blocks' layer slice, the (compacted,
  * renumbered) block tables and the context lengths into GPU-uncached staging buffers
