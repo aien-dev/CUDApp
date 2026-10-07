@@ -70,3 +70,17 @@ build/test_omega_gpu_engine_gb10.o: tests/test_omega_gpu_engine_gb10.c src/omega
 	@mkdir -p build
 	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -ffp-contract=off -fno-fast-math -pthread -Isrc $(GPU_ENGINE_PHYS_INC) -c -o $@ tests/test_omega_gpu_engine_gb10.c
 test-gpu-engine-gb10-compile: build/test_omega_gpu_engine_gb10.o
+
+# Measurement (sc#277): driver allocations and frees made by the REAL session + matmul + attention
+# APIs while serving a Qwen3-4B-shaped sequence, against the simulated driver. Host only, no device.
+# Prints MEASURE lines; asserts only bookkeeping. Links no physics C sources, only its headers.
+GPU_SERVE_ALLOC_SRCS = src/omega_gpu_session.c src/omega_gpu_matmul_api.c src/omega_gpu_attention_api.c \
+	src/omega_gpu_wait.c src/omega_blackwell_codegen.c src/omega_blackwell_encoder.c src/omega_blackwell_qmd.c \
+	src/omega_blackwell_matmul.c src/sha256.c
+build/gpu_serving_alloc_count_test: tests/gpu_serving_alloc_count_test.c tests/fake_m16_native.c tests/fake_m16_native.h $(GPU_SERVE_ALLOC_SRCS)
+	@mkdir -p build
+	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -ffp-contract=off -Isrc -Itests $(GPU_ENGINE_PHYS_INC) \
+		-o $@ tests/gpu_serving_alloc_count_test.c tests/fake_m16_native.c $(GPU_SERVE_ALLOC_SRCS) -lm
+.PHONY: test-gpu-serving-alloc
+test-gpu-serving-alloc: build/gpu_serving_alloc_count_test
+	./build/gpu_serving_alloc_count_test

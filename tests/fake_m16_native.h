@@ -63,7 +63,12 @@ enum { FK_W_UNKNOWN = 0, FK_W_MARKER1, FK_W_MARKER2, FK_W_SEM, FK_W_COUNT };
 
 enum { FK_ALLOC_FAIL = 0, FK_ALLOC_NO_CPU, FK_ALLOC_SHORT, FK_ALLOC_MISALIGNED };
 enum { FK_SYNC_NORMAL = 0, FK_SYNC_NEVER, FK_SYNC_OVERSHOOT };
-enum { FK_KERNEL_OK = 0, FK_KERNEL_NO_WRITE, FK_KERNEL_HALF, FK_KERNEL_WRONG };
+/* FK_KERNEL_SKIP: run no kernel at all and only release the completion semaphore (for tests that count
+ * driver calls with kernels the fake does not model, such as the matmul and attention launches). */
+enum { FK_KERNEL_OK = 0, FK_KERNEL_NO_WRITE, FK_KERNEL_HALF, FK_KERNEL_WRONG, FK_KERNEL_SKIP };
+
+#define FK_SIZE_LOG 8192
+#define FK_LIVE_MAX 128 /* live driver buffers the fake can track at once */
 
 typedef struct {
     int kind;
@@ -78,6 +83,7 @@ typedef struct {
     int channel_fail;
     int submit_fail;
     int close_fail;
+    uint64_t alloc_max;   /* largest nvrm_alloc the fake grants, 0 = the default 1 MiB */
     int alloc_fail_nth;   /* 1-based nvrm_alloc call that misbehaves, 0 = none */
     int alloc_mode;       /* FK_ALLOC_* for that call */
     int free_fail_nth;    /* 1-based real nvrm_free call that fails, 0 = none */
@@ -134,6 +140,11 @@ typedef struct {
     int wait_n[FK_W_COUNT];
     uint64_t wait_ms[FK_W_COUNT];
     uint32_t wait_expected[FK_W_COUNT];
+
+    uint64_t alloc_size_log[FK_SIZE_LOG]; /* size asked by the nth granted nvrm_alloc (0-based), first FK_SIZE_LOG only */
+    int alloc_size_n;
+    uint64_t free_size_log[FK_SIZE_LOG];  /* size of the nth real nvrm_free */
+    int free_size_n;
 
     FakeEvent ev[FK_EV_MAX];
     int nev;

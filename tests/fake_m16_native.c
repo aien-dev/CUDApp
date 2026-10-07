@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define FK_LIVE_MAX 64
 
 FakeDriver fk;
 
@@ -152,6 +151,12 @@ static void run_kernel(const uint32_t *q)
     uint32_t *c = (uint32_t *)(uintptr_t)(((uint64_t)args[5] << 32) | args[4]);
     uint32_t n = args[6];
     uint64_t sem = ((uint64_t)q[16] << 32) | q[15];
+
+    if (fk.kernel_mode == FK_KERNEL_SKIP) { /* the kernel is not modelled: count the launch, release the semaphore */
+        fk.kernel_ran++;
+        if (fk.sem_mode != FK_SYNC_NEVER) *word_at(sem) = q[17] + (fk.sem_mode == FK_SYNC_OVERSHOOT ? 1u : 0u);
+        return;
+    }
     uint64_t count = n < threads ? n : threads;
     uint32_t i;
     int ok = 1;
@@ -320,7 +325,7 @@ int nvrm_alloc(Nvrm *rm, uint64_t size, NvrmMem *out)
     int mode = -1;
     fk.alloc_calls++;
     logev(FK_EV_ALLOC, size, 0, 0);
-    if (!out || size == 0 || size > 0x100000u) return -1;
+    if (!out || size == 0 || size > (fk.alloc_max ? fk.alloc_max : 0x100000u)) return -1;
     if (fk.alloc_fail_nth != 0 && fk.alloc_fail_nth == fk.alloc_calls) {
         mode = fk.alloc_mode;
         if (mode == FK_ALLOC_FAIL) return inject(rm, -1);
@@ -332,6 +337,8 @@ int nvrm_alloc(Nvrm *rm, uint64_t size, NvrmMem *out)
     out->cpu = p;
     out->va = (uint64_t)(uintptr_t)p;
     live_add(out->handle, p);
+    if (fk.alloc_size_n < FK_SIZE_LOG) fk.alloc_size_log[fk.alloc_size_n] = size;
+    fk.alloc_size_n++;
     if (fk.alloc_calls >= 1 && fk.alloc_calls <= 16) fk.alloc_va[fk.alloc_calls - 1] = out->va;
     if (mode == FK_ALLOC_NO_CPU) out->cpu = NULL;
     else if (mode == FK_ALLOC_SHORT) out->size = size / 2u;
@@ -352,6 +359,8 @@ int nvrm_free(Nvrm *rm, NvrmMem *m)
     fk.free_calls++;
     logev(FK_EV_FREE, m->handle, 0, 0);
     if (fk.free_fail_nth != 0 && fk.free_fail_nth == fk.free_calls) return inject(rm, -1);
+    if (fk.free_size_n < FK_SIZE_LOG) fk.free_size_log[fk.free_size_n] = m->size;
+    fk.free_size_n++;
     if (!live_release(m->handle)) {
         fk.double_free++;
         errno = EINVAL;
