@@ -7,6 +7,7 @@
  * is now a parameter. Nothing about the sequence changed in this cut.
  */
 #include "omega_gpu_session.h"
+#include "omega_gpu_code_alloc.h"
 #include "omega_blackwell_qmd.h"
 #include "omega_blackwell_submit.h"
 #include "nvrm.h"
@@ -70,6 +71,14 @@ int omega_gpu_session_is_blocked(void) { return g_blocked ? 1 : 0; }
 int omega_gpu_session_alloc(size_t bytes, NvrmMem *out) {
     if (!g_open || g_blocked) { omega_gpu_session_set_error("alloc without open device"); return -1; }
     if (nvrm_alloc_gpu_uncached(&g_s.ctx.rm, page_up(bytes), out) != 0) { fail_rm("nvrm_alloc_gpu_uncached", &g_s.ctx.rm); memset(out, 0, sizeof *out); return -1; }
+    return 0;
+}
+
+int omega_gpu_session_alloc_code(size_t code_size, NvrmMem *out) {
+    size_t bytes = omega_gpu_code_alloc_bytes(code_size);
+    if (bytes == 0) { omega_gpu_session_set_error("code size overflow"); memset(out, 0, sizeof *out); return -1; }
+    if (omega_gpu_session_alloc(bytes, out) != 0) return -1;
+    memset((uint8_t *)out->cpu + code_size, 0, bytes - code_size);
     return 0;
 }
 

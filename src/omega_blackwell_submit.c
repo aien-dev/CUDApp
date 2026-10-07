@@ -11,6 +11,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include "omega_gpu_code_alloc.h"
 
 /* Second completion marker payload for the C3 tail (marker page + 0x10), the same value as
  * src/omega_blackwell_engine.c BE_MARKER2_PAYLOAD and src/omega_numeric_divsqrt_gb10.c:1152. */
@@ -197,8 +198,8 @@ int omega_blackwell_execute_matmul(const OmegaMatMulSpec *spec,
     if (b_bytes < 0x1000) b_bytes = 0x1000;
     size_t c_bytes = ((size_t)spec->m * spec->n * sizeof(uint32_t) + 0xFFFULL) & ~0xFFFULL;
     if (c_bytes < 0x1000) c_bytes = 0x1000;
-    size_t code_bytes = (kernel->code_size + 0xFFFULL) & ~0xFFFULL;
-    if (code_bytes < 0x1000) code_bytes = 0x1000;
+    size_t code_bytes = omega_gpu_code_alloc_bytes(kernel->code_size); /* code + 2 KB prefetch tail, page rounded */
+    if (code_bytes == 0) return -1;
 
     NvrmMem code_mem, cbank_mem, a_mem, b_mem, c_mem, marker_mem, qmd_mem;
     if (nvrm_alloc_gpu_uncached(&ctx.rm, code_bytes, &code_mem) != 0) { m16_native_close(&ctx); return -1; }
@@ -211,6 +212,7 @@ int omega_blackwell_execute_matmul(const OmegaMatMulSpec *spec,
 
     /* Copy dynamic machine code into code_mem */
     memcpy(code_mem.cpu, kernel->code, kernel->code_size);
+    memset((uint8_t *)code_mem.cpu + kernel->code_size, 0, code_bytes - kernel->code_size);
 
     /* Populate input buffers A, B and initialize C with poison */
     memcpy(a_mem.cpu, h_a, (size_t)spec->m * spec->k * sizeof(uint32_t));
@@ -448,8 +450,8 @@ int omega_blackwell_execute_matmul_tensor(const OmegaMatMulSpec *spec,
     if (b_bytes < 0x1000) b_bytes = 0x1000;
     size_t c_bytes = ((c_elems * 4) + 0xFFFULL) & ~0xFFFULL;
     if (c_bytes < 0x1000) c_bytes = 0x1000;
-    size_t code_bytes = (kernel->code_size + 0xFFFULL) & ~0xFFFULL;
-    if (code_bytes < 0x1000) code_bytes = 0x1000;
+    size_t code_bytes = omega_gpu_code_alloc_bytes(kernel->code_size); /* code + 2 KB prefetch tail, page rounded */
+    if (code_bytes == 0) return -1;
 
     NvrmMem code_mem, cbank_mem, a_mem, b_mem, c_mem, marker_mem, qmd_mem;
     if (nvrm_alloc_gpu_uncached(&ctx.rm, code_bytes, &code_mem) != 0) { m16_native_close(&ctx); return -1; }
@@ -462,6 +464,7 @@ int omega_blackwell_execute_matmul_tensor(const OmegaMatMulSpec *spec,
 
     /* Copy dynamic machine code into code_mem */
     memcpy(code_mem.cpu, kernel->code, kernel->code_size);
+    memset((uint8_t *)code_mem.cpu + kernel->code_size, 0, code_bytes - kernel->code_size);
 
     /* Populate input buffers A, B and initialize C with poison */
     memcpy(a_mem.cpu, h_a, a_elems * 2);

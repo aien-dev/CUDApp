@@ -92,6 +92,9 @@ int omega_gpu_session_is_blocked(void);
 
 /* Caller holds the lock, device open. GPU-uncached allocation, page rounded. */
 int omega_gpu_session_alloc(size_t bytes, NvrmMem *out);
+/* Caller holds the lock, device open. A GPU code buffer for code_size bytes with the 2 KB instruction
+ * prefetch tail (omega_gpu_code_alloc.h), the tail zero-filled; the caller copies the code to out->cpu. */
+int omega_gpu_session_alloc_code(size_t code_size, NvrmMem *out);
 void omega_gpu_session_free(NvrmMem *m); /* no-op when latched or closed; zeroes *m */
 
 /* Caller holds the lock, device open. Makes s->mem at least `bytes` long

@@ -147,7 +147,7 @@ static int kernel_for(uint32_t kp, uint32_t np, uint32_t grid_x, CacheSlot **out
     if (omega_blackwell_codegen_matmul_tensor_loop(&spec, grid_x, g.mutant, &kernel) != 0 || !kernel.code || kernel.code_size == 0)
         return OMEGA_GPU_MATMUL_CODEGEN_FAIL;
     NvrmMem code;
-    if (omega_gpu_session_alloc(kernel.code_size, &code) != 0) { omega_blackwell_kernel_free(&kernel); return OMEGA_GPU_MATMUL_CHIP_FAIL; }
+    if (omega_gpu_session_alloc_code(kernel.code_size, &code) != 0) { omega_blackwell_kernel_free(&kernel); return OMEGA_GPU_MATMUL_CHIP_FAIL; }
     memcpy(code.cpu, kernel.code, kernel.code_size);
     CacheSlot *s = &g.cache[g.cache_next];
     g.cache_next = (g.cache_next + 1) % CACHE_SLOTS;

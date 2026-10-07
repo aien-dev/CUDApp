@@ -541,7 +541,7 @@ static int kernel_for(bool f32, uint32_t log2bs, uint32_t log2gqa, bool upload, 
         *hit = false;
     }
     if (upload && !s->code.cpu) {
-        if (omega_gpu_session_alloc(s->kernel.code_size, &s->code) != 0) return OMEGA_GPU_ATTN_CHIP_FAIL;
+        if (omega_gpu_session_alloc_code(s->kernel.code_size, &s->code) != 0) return OMEGA_GPU_ATTN_CHIP_FAIL;
         memcpy(s->code.cpu, s->kernel.code, s->kernel.code_size);
         __asm__ volatile("dsb sy" ::: "memory");
     }
