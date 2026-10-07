@@ -25,7 +25,8 @@
 #include <string.h>
 #include <time.h>
 
-#define CACHE_SLOTS 8
+#define CACHE_SLOTS 8      /* default kernel cache slots; raised only by omega_gpu_matmul_reserve */
+#define CACHE_SLOTS_MAX 32 /* storage for the opt-in larger cache (a code buffer is a few KB) */
 #define FRAG_PACK_TILES 64u /* column tiles per host packing chunk at upload */
 #define MARKER_TIMEOUT_MS 20000ull /* a 1x2048x128256 call is ~0.1 s; 20 s is a stall, not a slow run */
 #define POISON_F32 (-999.0f)
@@ -51,9 +52,10 @@ static struct {
     int oracle, mutant;
     uint32_t unroll; /* test override of the fragment kernel unroll; 0 = omega_matmul_frag_unroll */
     bool hooked;
-    CacheSlot cache[CACHE_SLOTS];
+    CacheSlot cache[CACHE_SLOTS_MAX];
     unsigned cache_next;
-} g = { .cta_budget = OMEGA_GPU_MATMUL_MAX_CTAS, .oracle = 1 };
+    unsigned slots; /* active kernel cache slots, <= CACHE_SLOTS_MAX */
+} g = { .cta_budget = OMEGA_GPU_MATMUL_MAX_CTAS, .oracle = 1, .slots = CACHE_SLOTS };
 
 #define FAILAT(s) (omega_gpu_session_set_error(s), 1)
 const char *omega_gpu_matmul_last_error(void) { return omega_gpu_session_last_error(); }
@@ -83,7 +85,7 @@ int omega_gpu_matmul_is_blocked(void) { return omega_gpu_session_is_blocked(); }
 /* ---- device-side state (caller holds the session lock) ---- */
 
 static void cache_clear_locked(void) {
-    for (unsigned i = 0; i < CACHE_SLOTS; i++) {
+    for (unsigned i = 0; i < CACHE_SLOTS_MAX; i++) {
         CacheSlot *s = &g.cache[i];
         if (!s->valid) continue;
         omega_blackwell_kernel_free(&s->kernel);
@@ -98,6 +100,7 @@ static void on_session_close(void) {
     cache_clear_locked();
     omega_gpu_session_scratch_free(&g.a_buf);
     omega_gpu_session_scratch_free(&g.c_buf);
+    g.slots = CACHE_SLOTS; /* a serving reservation ends with the device */
 }
 
 static OmegaGpuSession *dev_open_locked(void) {
@@ -122,6 +125,44 @@ void omega_gpu_matmul_set_cta_budget(uint32_t ctas) {
 
 uint32_t omega_gpu_matmul_cta_budget(void) { return g.cta_budget; }
 
+/* ---- opt-in serving reservation (see the header) ---- */
+
+int omega_gpu_matmul_reserve(uint32_t max_rows, uint32_t max_k, uint32_t max_n, uint32_t max_n_one_row, uint32_t kernel_slots) {
+    if (max_rows == 0 || max_k == 0 || max_n == 0) { omega_gpu_session_set_error("matmul reserve: zero bound"); return OMEGA_GPU_MATMUL_BAD_ARGS; }
+    if (max_rows > OMEGA_BW_MATMUL_MAX_M || max_k > OMEGA_BW_MATMUL_MAX_K || max_n > OMEGA_BW_MATMUL_MAX_N || max_n_one_row > OMEGA_BW_MATMUL_MAX_N ||
+        kernel_slots > CACHE_SLOTS_MAX) {
+        omega_gpu_session_set_error("matmul reserve: bound past the matmul envelope");
+        return OMEGA_GPU_MATMUL_TOO_LARGE;
+    }
+    const size_t mp = round_up(max_rows, OMEGA_GPU_MATMUL_TILE_M), kp = round_up(max_k, OMEGA_GPU_MATMUL_TILE_K);
+    size_t c_bytes = mp * round_up(max_n, OMEGA_GPU_MATMUL_TILE_N) * 4u;
+    if (max_n_one_row) { /* a call of up to 16 rows (one row tile) may be wider than the batch width: lm_head */
+        size_t one = (size_t)OMEGA_GPU_MATMUL_TILE_M * round_up(max_n_one_row, OMEGA_GPU_MATMUL_TILE_N) * 4u;
+        if (one > c_bytes) c_bytes = one;
+    }
+    omega_gpu_session_lock();
+    int rc = OMEGA_GPU_MATMUL_OK;
+    if (!dev_open_locked()) rc = OMEGA_GPU_MATMUL_CHIP_FAIL;
+    else if (omega_gpu_session_scratch_reserve(&g.a_buf, mp * kp * 2u) != 0 || omega_gpu_session_scratch_reserve(&g.c_buf, c_bytes) != 0) {
+        /* roll back this API's own buffers: a failed reserve leaves nothing flagged */
+        omega_gpu_session_scratch_unreserve(&g.a_buf); omega_gpu_session_scratch_unreserve(&g.c_buf);
+        rc = OMEGA_GPU_MATMUL_CHIP_FAIL;
+    }
+    else if (kernel_slots > g.slots) { /* grow only; the cache restarts empty */
+        cache_clear_locked();
+        g.slots = kernel_slots;
+    }
+    omega_gpu_session_unlock();
+    return rc;
+}
+
+void omega_gpu_matmul_unreserve(void) {
+    omega_gpu_session_lock();
+    omega_gpu_session_scratch_unreserve(&g.a_buf);
+    omega_gpu_session_scratch_unreserve(&g.c_buf);
+    omega_gpu_session_unlock();
+}
+
 void omega_gpu_matmul_set_oracle(int on) { g.oracle = on ? 1 : 0; }
 
 void omega_gpu_matmul_test_set_mutant(int on) {
@@ -141,7 +182,7 @@ void omega_gpu_matmul_test_set_unroll(uint32_t unroll) {
 /* ---- kernel cache (caller holds the lock, device open) ---- */
 
 static int kernel_for(uint32_t kp, uint32_t np, uint32_t grid_x, CacheSlot **out, bool *hit) {
-    for (unsigned i = 0; i < CACHE_SLOTS; i++) {
+    for (unsigned i = 0; i < g.slots; i++) {
         CacheSlot *s = &g.cache[i];
         if (s->valid && s->kp == kp && s->np == np && s->grid_x == grid_x && s->mutant == g.mutant) {
             *out = s; *hit = true;
@@ -163,7 +204,7 @@ static int kernel_for(uint32_t kp, uint32_t np, uint32_t grid_x, CacheSlot **out
     if (omega_gpu_session_alloc_code(kernel.code_size, &code) != 0) { omega_blackwell_kernel_free(&kernel); return OMEGA_GPU_MATMUL_CHIP_FAIL; }
     memcpy(code.cpu, kernel.code, kernel.code_size);
     CacheSlot *s = &g.cache[g.cache_next];
-    g.cache_next = (g.cache_next + 1) % CACHE_SLOTS;
+    g.cache_next = (g.cache_next + 1) % g.slots;
     if (s->valid) { omega_blackwell_kernel_free(&s->kernel); omega_gpu_session_free(&s->code); }
     s->valid = true; s->kp = kp; s->np = np; s->grid_x = grid_x; s->mutant = g.mutant;
     s->spec = spec; s->kernel = kernel; s->code = code;
@@ -263,8 +304,12 @@ static int matmul_core(uint32_t m, const uint16_t *a, const OmegaGpuTensor *b, f
         strncpy(info->target_chip, "NVIDIA DGX Spark (Grace Blackwell GB10)", sizeof info->target_chip - 1);
         info->sm_architecture = 121;
     }
-    if (omega_gpu_session_scratch(&g.a_buf, (size_t)mp * kp * 2u) != 0 || omega_gpu_session_scratch(&g.c_buf, (size_t)mp * np * 4u) != 0) {
-        omega_gpu_session_unlock(); return OMEGA_GPU_MATMUL_CHIP_FAIL;
+    int src = omega_gpu_session_scratch(&g.a_buf, (size_t)mp * kp * 2u);
+    if (src == 0) src = omega_gpu_session_scratch(&g.c_buf, (size_t)mp * np * 4u);
+    if (src != 0) {
+        omega_gpu_session_unlock();
+        /* a serving reservation refuses growth loudly (TOO_LARGE, error text names the sizes); anything else is a driver failure */
+        return src == OMEGA_GPU_SESSION_SCRATCH_RESERVED ? OMEGA_GPU_MATMUL_TOO_LARGE : OMEGA_GPU_MATMUL_CHIP_FAIL;
     }
     /* activation rows in, fragment order (omega_matmul_frag_pack_a), zero padded, packed on the
      * host and copied in order into the uncached buffer; result rows poisoned */

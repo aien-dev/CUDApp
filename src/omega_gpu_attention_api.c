@@ -594,10 +594,12 @@ static int dev_open_locked(void) {
 /* Where a call stages the KV slice it is about to hand the kernel: straight into the
  * device staging buffer on the chip path (one copy), a host buffer under the simulator.
  * Caller holds the lock; the result is valid until the next staging call. */
-static void *stage_target(size_t bytes, void **host_tmp) {
+static void *stage_target(size_t bytes, void **host_tmp, int *fail_rc) {
     *host_tmp = NULL;
+    *fail_rc = OMEGA_GPU_ATTN_CHIP_FAIL;
     if (g_sim) { *host_tmp = malloc(bytes ? bytes : 1); return *host_tmp; }
-    if (omega_gpu_session_scratch(&g_pool, bytes) != 0) return NULL;
+    int r = omega_gpu_session_scratch(&g_pool, bytes);
+    if (r != 0) { if (r == OMEGA_GPU_SESSION_SCRATCH_RESERVED) *fail_rc = OMEGA_GPU_ATTN_TOO_LARGE; return NULL; } /* reserved bound exceeded: loud, no allocation */
     return g_pool.mem.cpu;
 }
 
@@ -605,9 +607,11 @@ static void *stage_target(size_t bytes, void **host_tmp) {
  * invalidate, constant bank, QMD0/QMD1, first marker, L2_FLUSH_DIRTY, second marker),
  * then readback and the poison scan. L->pool may already be the pool staging buffer. */
 static int run_launch(const Slot *ks, const Launch *L, OmegaGpuAttnInfo *info) {
-    if (omega_gpu_session_scratch(&g_q, L->q_bytes) || omega_gpu_session_scratch(&g_tab, L->tab_bytes) ||
-        omega_gpu_session_scratch(&g_out, L->out_bytes) || (L->pool != g_pool.mem.cpu && omega_gpu_session_scratch(&g_pool, L->pool_bytes)))
-        return OMEGA_GPU_ATTN_CHIP_FAIL;
+    int sr = omega_gpu_session_scratch(&g_q, L->q_bytes);
+    if (!sr) sr = omega_gpu_session_scratch(&g_tab, L->tab_bytes);
+    if (!sr) sr = omega_gpu_session_scratch(&g_out, L->out_bytes);
+    if (!sr && L->pool != g_pool.mem.cpu) sr = omega_gpu_session_scratch(&g_pool, L->pool_bytes);
+    if (sr) return sr == OMEGA_GPU_SESSION_SCRATCH_RESERVED ? OMEGA_GPU_ATTN_TOO_LARGE : OMEGA_GPU_ATTN_CHIP_FAIL;
     memcpy(g_q.mem.cpu, L->q, L->q_bytes);
     if (L->pool != g_pool.mem.cpu) memcpy(g_pool.mem.cpu, L->pool, L->pool_bytes);
     memcpy(g_tab.mem.cpu, L->tab, L->tab_bytes);
@@ -650,6 +654,50 @@ static int launch(const Slot *ks, const Launch *L, OmegaGpuAttnInfo *info) {
     if (info) { info->q_bytes += L->q_bytes; info->tab_bytes += L->tab_bytes; info->out_bytes += L->out_bytes; info->kv_source = OMEGA_GPU_ATTN_KV_STAGED; }
     if (g_sim) return g_sim(ks->prog, L, info);
     return run_launch(ks, L, info);
+}
+
+/* ---- opt-in serving reservation (see the header) ---- */
+
+static int check_heads(uint32_t num_q_heads, uint32_t num_kv_heads, uint32_t head_dim, uint32_t *log2gqa);
+static int log2_exact(uint32_t v, uint32_t *out);
+
+int omega_gpu_attention_reserve(uint32_t max_context, uint32_t max_seqs, uint32_t num_q_heads, uint32_t num_kv_heads, uint32_t head_dim, uint32_t kv_block_size) {
+    uint32_t log2gqa, log2bs;
+    if (max_context == 0 || max_seqs == 0) { omega_gpu_session_set_error("attention reserve: zero bound"); return OMEGA_GPU_ATTN_BAD_ARGS; }
+    if (kv_block_size && log2_exact(kv_block_size, &log2bs) != 0) { omega_gpu_session_set_error("attention reserve: block size not a power of two"); return OMEGA_GPU_ATTN_BAD_ARGS; }
+    int rc = check_heads(num_q_heads, num_kv_heads, head_dim, &log2gqa);
+    if (rc != OMEGA_GPU_ATTN_OK) { omega_gpu_session_set_error("attention reserve: bad head shape"); return rc; }
+    /* KV staging, worst case over the two paths, per sequence: contiguous f32 holds both planes for max_context tokens
+     * (2 * ctx * kvh * hd * 4); paged bf16 stages whole blocks of both planes (round_up(ctx, block) * kvh * hd * 4), which
+     * is the larger one when max_context is under half a block. */
+    size_t per_seq = 2u * max_context * (size_t)num_kv_heads * head_dim * 4u;
+    if (kv_block_size) {
+        size_t paged = ((size_t)max_context + kv_block_size - 1) / kv_block_size * kv_block_size * num_kv_heads * head_dim * 4u;
+        if (paged > per_seq) per_seq = paged;
+    }
+    const size_t pool = per_seq * max_seqs;
+    const size_t qo = (size_t)max_seqs * num_q_heads * head_dim * 4u;
+    const size_t tab = ((size_t)max_seqs * max_context + max_seqs) * 4u;
+    LOCK();
+    rc = OMEGA_GPU_ATTN_OK;
+    if (g_sim) rc = OMEGA_GPU_ATTN_OK; /* the simulator stages in host memory: nothing to reserve */
+    else if (dev_open_locked() != OMEGA_GPU_ATTN_OK) rc = OMEGA_GPU_ATTN_CHIP_FAIL;
+    else if (omega_gpu_session_scratch_reserve(&g_pool, pool) || omega_gpu_session_scratch_reserve(&g_q, qo) ||
+             omega_gpu_session_scratch_reserve(&g_out, qo) || omega_gpu_session_scratch_reserve(&g_tab, tab < 8 ? 8 : tab)) {
+        /* roll back this API's own buffers: a failed reserve leaves nothing flagged (growth allowed as before) */
+        omega_gpu_session_scratch_unreserve(&g_pool); omega_gpu_session_scratch_unreserve(&g_q);
+        omega_gpu_session_scratch_unreserve(&g_out); omega_gpu_session_scratch_unreserve(&g_tab);
+        rc = OMEGA_GPU_ATTN_CHIP_FAIL;
+    }
+    UNLOCK();
+    return rc;
+}
+
+void omega_gpu_attention_unreserve(void) {
+    LOCK();
+    omega_gpu_session_scratch_unreserve(&g_pool); omega_gpu_session_scratch_unreserve(&g_q);
+    omega_gpu_session_scratch_unreserve(&g_out); omega_gpu_session_scratch_unreserve(&g_tab);
+    UNLOCK();
 }
 
 /* ------------------------------------------------------- public entries */
@@ -710,8 +758,9 @@ int omega_gpu_gqa_attention_f32(const float *q, const float *k_cache, const floa
     if (rc != OMEGA_GPU_ATTN_OK) return rc;
     size_t plane = (size_t)seq_len * num_kv_heads * HD * 4;
     void *host_tmp = NULL;
-    uint8_t *pool = stage_target(2 * plane, &host_tmp);
-    if (!pool) { UNLOCK(); return OMEGA_GPU_ATTN_CHIP_FAIL; }
+    int stage_rc;
+    uint8_t *pool = stage_target(2 * plane, &host_tmp, &stage_rc);
+    if (!pool) { UNLOCK(); return stage_rc; }
     memcpy(pool, k_cache, plane);
     memcpy(pool + plane, v_cache, plane);
     if (info) { info->kv_bytes_staged += 2 * plane; info->kv_bytes_naive += 2 * plane; info->kv_blocks_logical += 1; info->kv_blocks_unique += 1; } /* one contiguous pseudo-block */
@@ -801,8 +850,9 @@ static int paged_core(const float *q, const uint8_t *pool, const OmegaGpuKvLayou
         uint64_t staged_bytes = (uint64_t)(g ? g : 1) * ly->layer_stride_bytes;
         if (staged_bytes > 0xffffffffull) { free(tab); rc = OMEGA_GPU_ATTN_TOO_LARGE; break; }
         void *host_tmp = NULL;
-        uint8_t *staged = stage_target((size_t)staged_bytes, &host_tmp);
-        if (!staged) { free(tab); rc = OMEGA_GPU_ATTN_CHIP_FAIL; break; }
+        int stage_rc;
+        uint8_t *staged = stage_target((size_t)staged_bytes, &host_tmp, &stage_rc);
+        if (!staged) { free(tab); rc = stage_rc; break; }
         /* pass 2: copy each staged slot's (physical block, layer) slice exactly once */
         if (g_dedupe) {
             for (uint32_t u = 0; u < g; u++) {

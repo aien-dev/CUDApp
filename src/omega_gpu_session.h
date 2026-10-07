@@ -58,6 +58,7 @@ typedef struct {
     NvrmMem mem;
     size_t cap;        /* usable bytes */
     size_t high_water; /* largest request so far */
+    bool reserved;     /* serving reservation active: a request past cap is refused, never allocated (omega_gpu_session_scratch_reserve) */
 } OmegaGpuScratch;
 
 /* One launch: a kernel already resident at code_va, the argument words for
@@ -107,6 +108,13 @@ void omega_gpu_session_free(NvrmMem *m); /* no-op when latched or closed; zeroes
 /* Caller holds the lock, device open. Makes s->mem at least `bytes` long
  * (reallocated when it grows; contents are not kept). */
 int omega_gpu_session_scratch(OmegaGpuScratch *s, size_t bytes);
+/* Caller holds the lock, device open. Allocates s->mem for `bytes` now and marks it reserved: from then on
+ * omega_gpu_session_scratch(s, n) with n <= the reserved capacity never touches the driver, and with n past it
+ * returns OMEGA_GPU_SESSION_SCRATCH_RESERVED (-2) with a clear error and no allocation. 0 on success, -1 on
+ * allocation failure (not reserved then). Cleared by omega_gpu_session_scratch_free (device close) or _unreserve. */
+#define OMEGA_GPU_SESSION_SCRATCH_RESERVED (-2)
+int omega_gpu_session_scratch_reserve(OmegaGpuScratch *s, size_t bytes);
+void omega_gpu_session_scratch_unreserve(OmegaGpuScratch *s);
 void omega_gpu_session_scratch_free(OmegaGpuScratch *s);
 
 /* Caller holds the lock, device open, not latched. Submits one launch and waits

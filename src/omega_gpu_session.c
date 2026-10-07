@@ -95,6 +95,12 @@ void omega_gpu_session_free(NvrmMem *m) {
 }
 
 int omega_gpu_session_scratch(OmegaGpuScratch *s, size_t bytes) {
+    if (s->reserved && (bytes > s->cap || !s->mem.cpu)) {
+        char msg[128];
+        snprintf(msg, sizeof msg, "serving reservation exceeded: need %zu bytes, reserved %zu", bytes, s->cap);
+        omega_gpu_session_set_error(msg);
+        return OMEGA_GPU_SESSION_SCRATCH_RESERVED;
+    }
     if (bytes > s->high_water) s->high_water = bytes;
     if (s->cap >= bytes && s->mem.cpu) return 0;
     omega_gpu_session_free(&s->mem);
@@ -107,7 +113,17 @@ int omega_gpu_session_scratch(OmegaGpuScratch *s, size_t bytes) {
 void omega_gpu_session_scratch_free(OmegaGpuScratch *s) {
     omega_gpu_session_free(&s->mem);
     s->cap = 0;
+    s->reserved = false;
 }
+
+int omega_gpu_session_scratch_reserve(OmegaGpuScratch *s, size_t bytes) {
+    s->reserved = false; /* grow normally first */
+    if (omega_gpu_session_scratch(s, bytes) != 0) return -1;
+    s->reserved = true;
+    return 0;
+}
+
+void omega_gpu_session_scratch_unreserve(OmegaGpuScratch *s) { s->reserved = false; }
 
 static void free_session_buffers(void) {
     omega_gpu_session_free(&g_s.qmd); omega_gpu_session_free(&g_s.marker);

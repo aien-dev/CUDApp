@@ -132,6 +132,18 @@ const char *omega_gpu_matmul_last_error(void);
 void omega_gpu_matmul_set_cta_budget(uint32_t ctas);
 uint32_t omega_gpu_matmul_cta_budget(void);
 
+/* OPT-IN serving reservation (omega_gpu_reserve_serving in omega_gpu_serving.h calls this). Allocates the
+ * activation and result staging buffers once for calls of up to max_rows rows over weights up to max_k x max_n
+ * (max_n_one_row, 0 = none: a wider n allowed for calls of at most 16 rows, e.g. lm_head), and makes the kernel
+ * cache kernel_slots deep (0 or <= 8 = unchanged; at most 32). From then on a call that fits never allocates
+ * staging; a call that does not fit returns OMEGA_GPU_MATMUL_TOO_LARGE with omega_gpu_matmul_last_error() saying
+ * "serving reservation exceeded", and asks the driver for nothing. Never called = behaviour unchanged. The kernel
+ * cache still builds each NEW shape once (one small code buffer); a slot count at least the number of distinct
+ * shapes keeps them for good. 0 on success, else an OMEGA_GPU_MATMUL_* code. */
+int omega_gpu_matmul_reserve(uint32_t max_rows, uint32_t max_k, uint32_t max_n, uint32_t max_n_one_row, uint32_t kernel_slots);
+/* Drop the reservation flag (buffers stay allocated, growth is allowed again). */
+void omega_gpu_matmul_unreserve(void);
+
 /* Host oracle on the non-resident calls (default on). */
 void omega_gpu_matmul_set_oracle(int on);
 
