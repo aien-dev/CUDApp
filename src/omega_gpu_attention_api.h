@@ -38,9 +38,12 @@
  *
  * Launch envelope: at most OMEGA_GPU_ATTN_MAX_CTAS CTAs per launch (investigation
  * I42, same as cuts 1b and 4): grid = (num_q_heads, sequences per launch).
- * Shared memory: the QMD declares 1024 bytes (clcec0qmd.h SHARED_MEMORY_SIZE_SHIFTED7,
- * src/omega_blackwell_qmd.c word 36); the kernel uses exactly 4 x 256 bytes for
- * head_dim 64, so head_dim is fixed at 64 in this cut (TinyLlama and Llama-3.2-1B).
+ * Shared memory: the QMD declares 16 * head_dim bytes (clcec0qmd.h SHARED_MEMORY_SIZE_SHIFTED7,
+ * src/omega_blackwell_qmd.c word 36); the kernel uses exactly 4 arrays of head_dim words:
+ * 1024 bytes for head_dim 64 (TinyLlama, Llama-3.2-1B; the QMD default) and 2048 bytes for
+ * head_dim 128 (Qwen3-4B, CPU phase: host simulators only, GB10 parity NOT_RUN). head_dim is a
+ * kernel parameter (64 or 128): threads per CTA = head_dim = chunk size, one warp partial per
+ * 32 threads in the softmax reductions.
  *
  * Staging: the host copies q, the referenced KV blocks' layer slice, the (compacted,
  * renumbered) block tables and the context lengths into GPU-uncached staging buffers
@@ -67,13 +70,14 @@ extern "C" {
 enum {
     OMEGA_GPU_ATTN_OK = 0,
     OMEGA_GPU_ATTN_BAD_ARGS = -1,     /* NULL pointer, zero dimension, head mapping or block id out of range */
-    OMEGA_GPU_ATTN_TOO_LARGE = -2,    /* head_dim != 64, num_q_heads > 64, context past the envelope */
+    OMEGA_GPU_ATTN_TOO_LARGE = -2,    /* head_dim not in {64, 128}, num_q_heads > 64, context past the envelope */
     OMEGA_GPU_ATTN_CODEGEN_FAIL = -3, /* our codegen refused or exceeded the register budget */
     OMEGA_GPU_ATTN_CHIP_FAIL = -4,    /* device open, alloc, submit, marker or release failed */
     OMEGA_GPU_ATTN_UNWRITTEN = -5     /* output words still equal to their poison after the run */
 };
 
-#define OMEGA_GPU_ATTN_HEAD_DIM 64u      /* threads per CTA = head_dim (one thread per dimension / per token of a chunk) */
+#define OMEGA_GPU_ATTN_HEAD_DIM 64u      /* the original head_dim; threads per CTA = head_dim (one thread per dimension / per token of a chunk) */
+#define OMEGA_GPU_ATTN_HEAD_DIM_128 128u /* the second supported head_dim (Qwen3-4B) */
 #define OMEGA_GPU_ATTN_MAX_CTAS 64u
 #define OMEGA_GPU_ATTN_MAX_Q_HEADS 64u
 #define OMEGA_GPU_ATTN_MAX_GQA_CTX 4096u /* contiguous path: one block of 2^12 slots */
@@ -170,6 +174,11 @@ const char *omega_gpu_attention_mutant_name(OmegaGpuAttnMutant m);
  * log2_block_size: shift for token -> block; log2_gqa: shift for query head -> kv head. */
 int omega_gpu_attention_codegen(bool kv_f32, uint32_t log2_block_size, uint32_t log2_gqa,
                                 OmegaBlackwellKernel *kernel);
+
+/* The same with an explicit head_dim (64 or 128; anything else is TOO_LARGE). The 4-argument
+ * omega_gpu_attention_codegen above is head_dim 64 and emits the same bytes as before head_dim 128 existed. */
+int omega_gpu_attention_codegen_hd(bool kv_f32, uint32_t log2_block_size, uint32_t log2_gqa, uint32_t head_dim,
+                                   OmegaBlackwellKernel *kernel);
 
 /* One launch as the launcher sees it (test hook below). Pointers are host buffers;
  * params are the eight argument words after the four buffer addresses:

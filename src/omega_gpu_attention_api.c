@@ -9,8 +9,8 @@
  * argument rules (dropped tokens past the table, negative table entries, zero
  * context) on the host.
  *
- * One CTA per (query head, sequence), 64 threads (= head_dim). The context is
- * walked in chunks of 64 tokens:
+ * One CTA per (query head, sequence), head_dim threads (64 or 128; the text below says 64, the
+ * constants scale with KSpec.hd). The context is walked in chunks of head_dim tokens:
  *   phase A  thread t owns token base+t: block lookup, K dot q (f32 FFMA), s = dot * scale
  *            (scale folds 1/sqrt(d) and log2 e), s and the token's byte offset go to shared;
  *   reduce   chunk max (SHFL.DOWN tree per warp, lane partials to shared, BAR.SYNC, 2 LDS),
@@ -20,8 +20,9 @@
  * Then out[d] = acc * RCP(l). The first chunk sees m = -inf, so alpha = EX2(-inf) = 0 and
  * the initial l and acc drop out (PTX ISA ex2.approx: ex2(-Inf) = +0).
  *
- * Shared memory (1024 bytes, the QMD's declared size): [0,256) q, [256,512) s then p,
- * [512,768) token byte offsets, [768,1024) warp partials for the reductions.
+ * Shared memory (16 * head_dim bytes; hd 64: 1024 bytes, the QMD default): [0,4hd) q, [4hd,8hd) s then p,
+ * [8hd,12hd) token byte offsets, [12hd,16hd) warp partials for the reductions (hd 64: 0, 256, 512,
+ * 768; hd 128: 0, 512, 1024, 1536; the partials of warp w are read at 12hd + 128w).
  */
 #include "omega_gpu_attention_api.h"
 #include "omega_blackwell_codegen.h"
@@ -212,22 +213,22 @@ static int check_loop_invariant(const Em *e) {
 #define ARG_WORDS 16u
 #define DESC_OFF 0x358u
 
-#define HD OMEGA_GPU_ATTN_HEAD_DIM
+/* Head dimension is a kernel parameter (64 or 128, see KSpec.hd). Shared memory is four arrays of hd words:
+ * q at SH_Q, s then p at hd*4, token byte offsets at hd*8, warp partials at hd*12 (hd 64: 0, 256, 512, 768,
+ * the layout of every cut before head_dim 128). */
 #define SH_Q 0u
-#define SH_S 256u
-#define SH_O 512u
-#define SH_R 768u
 #define F32_NEG_INF 0xff800000u
 
 /* divergent (omega #308 regression R2): 0 = production branch-free chunk loop; 1 = the
  * lane-dependent "j >= ctx" branch restored inside a reconvergence region (BSSY/BSYNC) so
  * the SHFL reductions run on a joined warp; 2 = the same with the BSYNC dropped (the
  * 2026-10-04 bug shape, a negative control the host simulator must catch). */
-typedef struct { bool f32; uint32_t log2bs, log2gqa; int mutant; int divergent; } KSpec;
+typedef struct { bool f32; uint32_t log2bs, log2gqa; int mutant; int divergent; uint32_t hd; } KSpec;
 
 static void gen_attention(Em *e, const KSpec *k) {
     const uint32_t elem = k->f32 ? 4u : 2u;
     const uint32_t kstep = k->f32 ? 8u : 4u; /* bytes per inner iteration: two dims */
+    const uint32_t HD = k->hd, SH_S = HD * 4u, SH_O = HD * 8u, SH_R = HD * 12u; /* warps per CTA: HD / 32 */
     int udesc = UV64(e), A = V64(e), B = V64(e), C = V64(e), D = V64(e);
     int tid = V(e), h = V(e), seq = V(e);
     int p_maxb = V(e), scale = V(e), p_bstride = V(e), p_tstride = V(e), p_kvp = V(e), p_hstride = V(e), p_nqh = V(e), p_ctxoff = V(e);
@@ -238,8 +239,13 @@ static void gen_attention(Em *e, const KSpec *k) {
     s2r(e, tid, BW_SR_TID_X); s2r(e, h, BW_SR_CTAID_X); s2r(e, seq, BW_SR_CTAID_Y);
 
     int c1 = V(e), c4 = V(e), c32 = V(e), c64 = V(e), c256 = V(e), c512 = V(e), c768 = V(e), c896 = V(e), zero = V(e);
-    movi(e, c1, 1); movi(e, c4, 4); movi(e, c32, 32); movi(e, c64, 64);
+    /* c32 / c64 keep their hd 64 names: the inner (dim pair) loop trip count HD / 2 and the chunk size HD */
+    movi(e, c1, 1); movi(e, c4, 4); movi(e, c32, HD / 2); movi(e, c64, HD);
     movi(e, c256, SH_S); movi(e, c512, SH_O); movi(e, c768, SH_R); movi(e, c896, SH_R + 128); movrz(e, zero);
+    /* warp partials 2 and 3 (lane 0 of warps 2 and 3): only a 128-thread CTA has them. Created and emitted only
+     * when HD == 128, so the hd 64 program (vreg numbering, instruction sequence) is exactly the one before. */
+    int c1024 = -1, c1152 = -1, rc_ = -1, rd_ = -1;
+    if (HD == 128) { c1024 = V(e); c1152 = V(e); rc_ = V(e); rd_ = V(e); movi(e, c1024, SH_R + 256); movi(e, c1152, SH_R + 384); }
 
     /* q[tid] -> shared; out address kept for the end. Row = seq * num_q_heads + head for
      * both q and out (flattened head-major, the oracle's layout). The head-wiring mutants
@@ -380,6 +386,7 @@ static void gen_attention(Em *e, const KSpec *k) {
     bar_sync(e);
     lds32(e, ra, c768); lds32(e, rb, c896);
     e_fmax(e, mc, ra, rb);
+    if (HD == 128) { lds32(e, rc_, c1024); lds32(e, rd_, c1152); e_fmax(e, mc, mc, rc_); e_fmax(e, mc, mc, rd_); }
     e_fmax(e, Mn, M, mc);
     if (k->mutant == OMEGA_GPU_ATTN_MUTANT_NO_MAX) {
         movf(e, alpha, 1.0f);
@@ -400,6 +407,7 @@ static void gen_attention(Em *e, const KSpec *k) {
     bar_sync(e);
     lds32(e, ra, c768); lds32(e, rb, c896);
     e_fadd(e, lc, ra, rb);
+    if (HD == 128) { lds32(e, rc_, c1024); lds32(e, rd_, c1152); e_fadd(e, lc, lc, rc_); e_fadd(e, lc, lc, rd_); }
     e_ffma(e, L, L, alpha, lc);
     if (k->mutant != OMEGA_GPU_ATTN_MUTANT_NO_RESCALE) e_fmul(e, acc, acc, alpha);
 
@@ -521,11 +529,11 @@ void omega_gpu_attention_test_set_mutant(OmegaGpuAttnMutant m) {
 
 /* Caller holds the lock. Builds the kernel if needed; uploads the device copy when
  * `upload` (the chip path; the simulator never needs one). */
-static int kernel_for(bool f32, uint32_t log2bs, uint32_t log2gqa, bool upload, Slot **out, bool *hit) {
-    KSpec k = { .f32 = f32, .log2bs = log2bs, .log2gqa = log2gqa, .mutant = g_mutant, .divergent = g_divergent };
+static int kernel_for(bool f32, uint32_t log2bs, uint32_t log2gqa, uint32_t hd, bool upload, Slot **out, bool *hit) {
+    KSpec k = { .f32 = f32, .log2bs = log2bs, .log2gqa = log2gqa, .mutant = g_mutant, .divergent = g_divergent, .hd = hd };
     Slot *s = NULL;
     for (size_t i = 0; i < sizeof g_cache / sizeof g_cache[0]; i++)
-        if (g_cache[i].used && g_cache[i].k.f32 == k.f32 && g_cache[i].k.log2bs == k.log2bs && g_cache[i].k.log2gqa == k.log2gqa && g_cache[i].k.mutant == k.mutant && g_cache[i].k.divergent == k.divergent) { /* field compare: memcmp would read struct padding */
+        if (g_cache[i].used && g_cache[i].k.f32 == k.f32 && g_cache[i].k.log2bs == k.log2bs && g_cache[i].k.log2gqa == k.log2gqa && g_cache[i].k.mutant == k.mutant && g_cache[i].k.divergent == k.divergent && g_cache[i].k.hd == k.hd) { /* field compare: memcmp would read struct padding */
             s = &g_cache[i]; *hit = true; break;
         }
     if (!s) {
@@ -549,12 +557,17 @@ static int kernel_for(bool f32, uint32_t log2bs, uint32_t log2gqa, bool upload, 
     return OMEGA_GPU_ATTN_OK;
 }
 
-int omega_gpu_attention_codegen(bool kv_f32, uint32_t log2_block_size, uint32_t log2_gqa, OmegaBlackwellKernel *kernel) {
+int omega_gpu_attention_codegen_hd(bool kv_f32, uint32_t log2_block_size, uint32_t log2_gqa, uint32_t head_dim, OmegaBlackwellKernel *kernel) {
     if (!kernel || log2_block_size > 16 || log2_gqa > 6) return OMEGA_GPU_ATTN_BAD_ARGS;
+    if (head_dim != 64u && head_dim != 128u) return OMEGA_GPU_ATTN_TOO_LARGE;
     LOCK();
-    KSpec k = { .f32 = kv_f32, .log2bs = log2_block_size, .log2gqa = log2_gqa, .mutant = g_mutant, .divergent = g_divergent };
+    KSpec k = { .f32 = kv_f32, .log2bs = log2_block_size, .log2gqa = log2_gqa, .mutant = g_mutant, .divergent = g_divergent, .hd = head_dim };
     UNLOCK();
     return build_kernel(&k, kernel, NULL);
+}
+
+int omega_gpu_attention_codegen(bool kv_f32, uint32_t log2_block_size, uint32_t log2_gqa, OmegaBlackwellKernel *kernel) {
+    return omega_gpu_attention_codegen_hd(kv_f32, log2_block_size, log2_gqa, OMEGA_GPU_ATTN_HEAD_DIM, kernel);
 }
 
 const char *omega_gpu_attention_last_error(void) { return omega_gpu_session_last_error(); }
@@ -609,7 +622,7 @@ static int run_launch(const Slot *ks, const Launch *L, OmegaGpuAttnInfo *info) {
     args[6] = (uint32_t)g_tab.mem.va; args[7] = (uint32_t)(g_tab.mem.va >> 32);
     memcpy(&args[8], L->params, sizeof L->params);
     OmegaGpuLaunch GL = {
-        .code_va = ks->code.va, .gpr_count = AT_GPR_BUDGET, .threads_x = HD, .threads_y = 1,
+        .code_va = ks->code.va, .gpr_count = AT_GPR_BUDGET, .threads_x = ks->k.hd, .threads_y = 1, .shared_bytes = 16u * ks->k.hd, /* 4 arrays of hd words: 1024 B for hd 64 (the QMD default), 2048 B for hd 128 */
         .grid_x = L->grid_x, .grid_y = L->grid_y, .num_elements = out_words,
         .args = args, .n_args = ARG_WORDS, .timeout_ms = AT_WAIT_MS,
     };
@@ -624,7 +637,7 @@ static int run_launch(const Slot *ks, const Launch *L, OmegaGpuAttnInfo *info) {
         info->elapsed_ns += elapsed;
         info->completion_marker = marker;
         info->unwritten_words += unwritten;
-        info->threads_per_cta = HD;
+        info->threads_per_cta = ks->k.hd;
         info->ctas_last_launch = L->grid_x * L->grid_y;
     }
     return unwritten ? OMEGA_GPU_ATTN_UNWRITTEN : OMEGA_GPU_ATTN_OK;
@@ -655,22 +668,24 @@ static int log2_exact(uint32_t v, uint32_t *out) {
     uint32_t l = 0; while ((1u << l) != v) l++;
     *out = l; return 0;
 }
-static float score_scale(void) { return (float)(1.4426950408889634 / sqrt((double)HD)); }
+/* log2(e) / sqrt(head_dim) with the square roots as literals (8 and 11.313708498984761 = sqrt(128), both exactly what sqrt() returns):
+ * the library must not need libm (omegatool links without -lm; a constant head_dim folded sqrt away, a runtime one does not). */
+static float score_scale(uint32_t hd) { return (float)(1.4426950408889634 / (hd == 128u ? 11.313708498984761 : 8.0)); }
 
 /* Common head-shape checks; returns log2 of the gqa ratio. */
 static int check_heads(uint32_t num_q_heads, uint32_t num_kv_heads, uint32_t head_dim, uint32_t *log2gqa) {
     if (num_q_heads == 0 || num_kv_heads == 0 || head_dim == 0) return OMEGA_GPU_ATTN_BAD_ARGS;
-    if (head_dim != HD || num_q_heads > OMEGA_GPU_ATTN_MAX_Q_HEADS) return OMEGA_GPU_ATTN_TOO_LARGE;
+    if ((head_dim != 64u && head_dim != 128u) || num_q_heads > OMEGA_GPU_ATTN_MAX_Q_HEADS) return OMEGA_GPU_ATTN_TOO_LARGE;
     if (num_q_heads % num_kv_heads != 0 || log2_exact(num_q_heads / num_kv_heads, log2gqa) != 0) return OMEGA_GPU_ATTN_BAD_ARGS;
     return OMEGA_GPU_ATTN_OK;
 }
 
 /* Common prologue of every chip entry (lock held on success): device, kernel, info. */
-static int begin(bool f32, uint32_t log2bs, uint32_t log2gqa, Slot **ks, OmegaGpuAttnInfo *info) {
+static int begin(bool f32, uint32_t log2bs, uint32_t log2gqa, uint32_t hd, Slot **ks, OmegaGpuAttnInfo *info) {
     LOCK();
     int rc = g_sim ? OMEGA_GPU_ATTN_OK : dev_open_locked();
     bool hit = false;
-    if (rc == OMEGA_GPU_ATTN_OK) rc = kernel_for(f32, log2bs, log2gqa, !g_sim, ks, &hit);
+    if (rc == OMEGA_GPU_ATTN_OK) rc = kernel_for(f32, log2bs, log2gqa, hd, !g_sim, ks, &hit);
     if (rc != OMEGA_GPU_ATTN_OK) { UNLOCK(); return rc; }
     info_begin(info, &(*ks)->kernel, hit);
     return OMEGA_GPU_ATTN_OK;
@@ -685,11 +700,12 @@ int omega_gpu_gqa_attention_f32(const float *q, const float *k_cache, const floa
     int rc = check_heads(num_q_heads, num_kv_heads, head_dim, &log2gqa);
     if (rc != OMEGA_GPU_ATTN_OK) return rc;
     if (seq_len > OMEGA_GPU_ATTN_MAX_GQA_CTX) return OMEGA_GPU_ATTN_TOO_LARGE;
+    const uint32_t HD = head_dim;
     size_t n_out = (size_t)num_q_heads * HD;
     if (seq_len == 0) { memset(out, 0, n_out * 4); if (info) { memset(info, 0, sizeof *info); info->call_ns = now_ns() - t0; } return OMEGA_GPU_ATTN_OK; }
     Slot *ks = NULL;
     const uint32_t log2bs = 12; /* one block of 4096 slots */
-    rc = begin(true, log2bs, log2gqa, &ks, info);
+    rc = begin(true, log2bs, log2gqa, HD, &ks, info);
     if (rc != OMEGA_GPU_ATTN_OK) return rc;
     size_t plane = (size_t)seq_len * num_kv_heads * HD * 4;
     void *host_tmp = NULL;
@@ -702,7 +718,7 @@ int omega_gpu_gqa_attention_f32(const float *q, const float *k_cache, const floa
     Launch L = {
         .q = q, .q_bytes = n_out * 4, .pool = pool, .pool_bytes = 2 * plane, .tab = tab, .tab_bytes = sizeof tab,
         .out = out, .out_bytes = n_out * 4, .grid_x = num_q_heads, .grid_y = 1,
-        .params = { 1, f2u(score_scale()), (uint32_t)(2 * plane), num_kv_heads * HD * 4, (uint32_t)plane, HD * 4, num_q_heads, 4 }
+        .params = { 1, f2u(score_scale(HD)), (uint32_t)(2 * plane), num_kv_heads * HD * 4, (uint32_t)plane, HD * 4, num_q_heads, 4 }
     };
     rc = launch(ks, &L, info);
     free(host_tmp);
@@ -721,6 +737,7 @@ static int paged_core(const float *q, const uint8_t *pool, const OmegaGpuKvLayou
     uint32_t log2gqa, log2bs;
     int rc = check_heads(num_q_heads, num_kv_heads, head_dim, &log2gqa);
     if (rc != OMEGA_GPU_ATTN_OK) return rc;
+    const uint32_t HD = head_dim;
     if (!ly || layer_idx >= ly->num_layers || log2_exact(ly->block_size, &log2bs) != 0) return OMEGA_GPU_ATTN_BAD_ARGS;
     /* the oracle addresses heads as kv_head * head_dim * 2 inside a token: the layout must agree */
     if (ly->head_stride_bytes != HD * 2 || ly->token_stride_bytes != (uint64_t)num_kv_heads * HD * 2 ||
@@ -740,7 +757,7 @@ static int paged_core(const float *q, const uint8_t *pool, const OmegaGpuKvLayou
         }
     }
     Slot *ks = NULL;
-    rc = begin(false, log2bs, log2gqa, &ks, info);
+    rc = begin(false, log2bs, log2gqa, HD, &ks, info);
     if (rc != OMEGA_GPU_ATTN_OK) { free(eff); return rc; }
     uint32_t seqs_per_launch = OMEGA_GPU_ATTN_MAX_CTAS / num_q_heads;
     if (seqs_per_launch == 0) seqs_per_launch = 1;
@@ -811,7 +828,7 @@ static int paged_core(const float *q, const uint8_t *pool, const OmegaGpuKvLayou
             .q = q + (size_t)s0 * row, .q_bytes = (size_t)ns * row * 4, .pool = staged, .pool_bytes = (size_t)staged_bytes,
             .tab = tab, .tab_bytes = ((size_t)ns * maxb + ns) * 4, .out = out + (size_t)s0 * row, .out_bytes = (size_t)ns * row * 4,
             .grid_x = num_q_heads, .grid_y = ns,
-            .params = { maxb, f2u(score_scale()), (uint32_t)ly->layer_stride_bytes, (uint32_t)ly->token_stride_bytes,
+            .params = { maxb, f2u(score_scale(HD)), (uint32_t)ly->layer_stride_bytes, (uint32_t)ly->token_stride_bytes,
                         (uint32_t)ly->kv_plane_stride_bytes, (uint32_t)ly->head_stride_bytes, num_q_heads, ns * maxb * 4 }
         };
         rc = launch(ks, &L, info);

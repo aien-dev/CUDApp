@@ -1,0 +1,5 @@
+omega 7dd92dc3f9db1a21aeedc7f38b629e5ce4358d4e dirty=0
+physics 6d7cf0d4d8eb2cda7b512100ff6058e25dbb3ddf
+580.173.02
+7.0.0-1019-nvidia
+xid_lines_before=2

@@ -1,0 +1,74 @@
+PASS sweep  1q/ 1kv ratio  1 ctx  256: launches=1 ctas=1 call_ms med=0.103 p90=0.104 kernel_ms med=0.103 p90=0.103 kv_staged=12288 (naive 65536) blocks=3/16 q=256 tab=68 out=256 worst=0.00162825
+PASS sweep  1q/ 1kv ratio  1 ctx 2048: launches=1 ctas=1 call_ms med=0.410 p90=0.411 kernel_ms med=0.408 p90=0.409 kv_staged=77824 (naive 524288) blocks=19/128 q=256 tab=516 out=256 worst=0.00286577
+PASS sweep  2q/ 1kv ratio  2 ctx  256: launches=1 ctas=2 call_ms med=0.104 p90=0.104 kernel_ms med=0.103 p90=0.104 kv_staged=12288 (naive 65536) blocks=3/16 q=512 tab=68 out=512 worst=0.00274735
+PASS sweep  2q/ 1kv ratio  2 ctx 2048: launches=1 ctas=2 call_ms med=0.410 p90=0.410 kernel_ms med=0.408 p90=0.408 kv_staged=77824 (naive 524288) blocks=19/128 q=512 tab=516 out=512 worst=0.00293219
+PASS sweep  2q/ 2kv ratio  1 ctx  256: launches=1 ctas=2 call_ms med=0.104 p90=0.104 kernel_ms med=0.103 p90=0.104 kv_staged=24576 (naive 131072) blocks=3/16 q=512 tab=68 out=512 worst=0.00285429
+PASS sweep  2q/ 2kv ratio  1 ctx 2048: launches=1 ctas=2 call_ms med=0.410 p90=0.412 kernel_ms med=0.408 p90=0.409 kv_staged=155648 (naive 1048576) blocks=19/128 q=512 tab=516 out=512 worst=0.00344759
+PASS sweep  4q/ 1kv ratio  4 ctx  256: launches=1 ctas=4 call_ms med=0.104 p90=0.105 kernel_ms med=0.103 p90=0.104 kv_staged=12288 (naive 65536) blocks=3/16 q=1024 tab=68 out=1024 worst=0.00195521
+PASS sweep  4q/ 1kv ratio  4 ctx 2048: launches=1 ctas=4 call_ms med=0.410 p90=0.410 kernel_ms med=0.408 p90=0.409 kv_staged=77824 (naive 524288) blocks=19/128 q=1024 tab=516 out=1024 worst=0.00455218
+PASS sweep  4q/ 2kv ratio  2 ctx  256: launches=1 ctas=4 call_ms med=0.104 p90=0.104 kernel_ms med=0.103 p90=0.103 kv_staged=24576 (naive 131072) blocks=3/16 q=1024 tab=68 out=1024 worst=0.00195668
+PASS sweep  4q/ 2kv ratio  2 ctx 2048: launches=1 ctas=4 call_ms med=0.410 p90=0.412 kernel_ms med=0.408 p90=0.409 kv_staged=155648 (naive 1048576) blocks=19/128 q=1024 tab=516 out=1024 worst=0.00429287
+PASS sweep  4q/ 4kv ratio  1 ctx  256: launches=1 ctas=4 call_ms med=0.104 p90=0.104 kernel_ms med=0.103 p90=0.103 kv_staged=49152 (naive 262144) blocks=3/16 q=1024 tab=68 out=1024 worst=0.00208557
+PASS sweep  4q/ 4kv ratio  1 ctx 2048: launches=1 ctas=4 call_ms med=0.412 p90=0.413 kernel_ms med=0.408 p90=0.409 kv_staged=311296 (naive 2097152) blocks=19/128 q=1024 tab=516 out=1024 worst=0.00447204
+PASS sweep  8q/ 1kv ratio  8 ctx  256: launches=1 ctas=8 call_ms med=0.104 p90=0.161 kernel_ms med=0.103 p90=0.161 kv_staged=12288 (naive 65536) blocks=3/16 q=2048 tab=68 out=2048 worst=0.00244755
+PASS sweep  8q/ 1kv ratio  8 ctx 2048: launches=1 ctas=8 call_ms med=0.409 p90=0.410 kernel_ms med=0.407 p90=0.409 kv_staged=77824 (naive 524288) blocks=19/128 q=2048 tab=516 out=2048 worst=0.00561397
+PASS sweep  8q/ 2kv ratio  4 ctx  256: launches=1 ctas=8 call_ms med=0.104 p90=0.105 kernel_ms med=0.103 p90=0.104 kv_staged=24576 (naive 131072) blocks=3/16 q=2048 tab=68 out=2048 worst=0.00277137
+PASS sweep  8q/ 2kv ratio  4 ctx 2048: launches=1 ctas=8 call_ms med=0.411 p90=0.412 kernel_ms med=0.408 p90=0.409 kv_staged=155648 (naive 1048576) blocks=19/128 q=2048 tab=516 out=2048 worst=0.00478059
+PASS sweep  8q/ 4kv ratio  2 ctx  256: launches=1 ctas=8 call_ms med=0.104 p90=0.105 kernel_ms med=0.103 p90=0.104 kv_staged=49152 (naive 262144) blocks=3/16 q=2048 tab=68 out=2048 worst=0.00220051
+PASS sweep  8q/ 4kv ratio  2 ctx 2048: launches=1 ctas=8 call_ms med=0.412 p90=0.413 kernel_ms med=0.408 p90=0.409 kv_staged=311296 (naive 2097152) blocks=19/128 q=2048 tab=516 out=2048 worst=0.0051977
+PASS sweep  8q/ 8kv ratio  1 ctx  256: launches=1 ctas=8 call_ms med=0.105 p90=0.105 kernel_ms med=0.103 p90=0.103 kv_staged=98304 (naive 524288) blocks=3/16 q=2048 tab=68 out=2048 worst=0.00240979
+PASS sweep  8q/ 8kv ratio  1 ctx 2048: launches=1 ctas=8 call_ms med=0.416 p90=0.417 kernel_ms med=0.408 p90=0.409 kv_staged=622592 (naive 4194304) blocks=19/128 q=2048 tab=516 out=2048 worst=0.00466806
+PASS sweep 16q/ 1kv ratio 16 ctx  256: launches=1 ctas=16 call_ms med=0.104 p90=0.104 kernel_ms med=0.103 p90=0.103 kv_staged=12288 (naive 65536) blocks=3/16 q=4096 tab=68 out=4096 worst=0.00249826
+PASS sweep 16q/ 1kv ratio 16 ctx 2048: launches=1 ctas=16 call_ms med=0.409 p90=0.411 kernel_ms med=0.407 p90=0.409 kv_staged=77824 (naive 524288) blocks=19/128 q=4096 tab=516 out=4096 worst=0.00536905
+PASS sweep 16q/ 2kv ratio  8 ctx  256: launches=1 ctas=16 call_ms med=0.104 p90=0.105 kernel_ms med=0.103 p90=0.103 kv_staged=24576 (naive 131072) blocks=3/16 q=4096 tab=68 out=4096 worst=0.00239844
+PASS sweep 16q/ 2kv ratio  8 ctx 2048: launches=1 ctas=16 call_ms med=0.411 p90=0.412 kernel_ms med=0.408 p90=0.409 kv_staged=155648 (naive 1048576) blocks=19/128 q=4096 tab=516 out=4096 worst=0.00570392
+PASS sweep 16q/ 4kv ratio  4 ctx  256: launches=1 ctas=16 call_ms med=0.105 p90=0.105 kernel_ms med=0.103 p90=0.104 kv_staged=49152 (naive 262144) blocks=3/16 q=4096 tab=68 out=4096 worst=0.00278498
+PASS sweep 16q/ 4kv ratio  4 ctx 2048: launches=1 ctas=16 call_ms med=0.413 p90=0.414 kernel_ms med=0.408 p90=0.409 kv_staged=311296 (naive 2097152) blocks=19/128 q=4096 tab=516 out=4096 worst=0.00518169
+PASS sweep 16q/ 8kv ratio  2 ctx  256: launches=1 ctas=16 call_ms med=0.105 p90=0.106 kernel_ms med=0.103 p90=0.104 kv_staged=98304 (naive 524288) blocks=3/16 q=4096 tab=68 out=4096 worst=0.00262688
+PASS sweep 16q/ 8kv ratio  2 ctx 2048: launches=1 ctas=16 call_ms med=0.417 p90=0.418 kernel_ms med=0.408 p90=0.409 kv_staged=622592 (naive 4194304) blocks=19/128 q=4096 tab=516 out=4096 worst=0.0059316
+PASS sweep 16q/16kv ratio  1 ctx  256: launches=1 ctas=16 call_ms med=0.106 p90=0.106 kernel_ms med=0.103 p90=0.103 kv_staged=196608 (naive 1048576) blocks=3/16 q=4096 tab=68 out=4096 worst=0.00239914
+PASS sweep 16q/16kv ratio  1 ctx 2048: launches=1 ctas=16 call_ms med=0.424 p90=0.426 kernel_ms med=0.408 p90=0.410 kv_staged=1245184 (naive 8388608) blocks=19/128 q=4096 tab=516 out=4096 worst=0.00553838
+PASS sweep 24q/ 1kv ratio 24 ctx  256: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 1kv ratio 24 ctx 2048: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 2kv ratio 12 ctx  256: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 2kv ratio 12 ctx 2048: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 3kv ratio  8 ctx  256: launches=1 ctas=24 call_ms med=0.105 p90=0.106 kernel_ms med=0.103 p90=0.104 kv_staged=36864 (naive 196608) blocks=3/16 q=6144 tab=68 out=6144 worst=0.00306755
+PASS sweep 24q/ 3kv ratio  8 ctx 2048: launches=1 ctas=24 call_ms med=0.616 p90=0.617 kernel_ms med=0.612 p90=0.613 kv_staged=233472 (naive 1572864) blocks=19/128 q=6144 tab=516 out=6144 worst=0.00539717
+PASS sweep 24q/ 4kv ratio  6 ctx  256: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 4kv ratio  6 ctx 2048: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 6kv ratio  4 ctx  256: launches=1 ctas=24 call_ms med=0.105 p90=0.107 kernel_ms med=0.103 p90=0.104 kv_staged=73728 (naive 393216) blocks=3/16 q=6144 tab=68 out=6144 worst=0.00326846
+PASS sweep 24q/ 6kv ratio  4 ctx 2048: launches=1 ctas=24 call_ms med=0.619 p90=0.720 kernel_ms med=0.612 p90=0.713 kv_staged=466944 (naive 3145728) blocks=19/128 q=6144 tab=516 out=6144 worst=0.00527248
+PASS sweep 24q/ 8kv ratio  3 ctx  256: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 8kv ratio  3 ctx 2048: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/12kv ratio  2 ctx  256: launches=1 ctas=24 call_ms med=0.106 p90=0.106 kernel_ms med=0.103 p90=0.103 kv_staged=147456 (naive 786432) blocks=3/16 q=6144 tab=68 out=6144 worst=0.00338069
+PASS sweep 24q/12kv ratio  2 ctx 2048: launches=1 ctas=24 call_ms med=0.626 p90=0.726 kernel_ms med=0.612 p90=0.712 kv_staged=933888 (naive 6291456) blocks=19/128 q=6144 tab=516 out=6144 worst=0.00538782
+PASS sweep 24q/24kv ratio  1 ctx  256: launches=1 ctas=24 call_ms med=0.107 p90=0.108 kernel_ms med=0.103 p90=0.103 kv_staged=294912 (naive 1572864) blocks=3/16 q=6144 tab=68 out=6144 worst=0.00259323
+PASS sweep 24q/24kv ratio  1 ctx 2048: launches=1 ctas=24 call_ms med=0.539 p90=0.546 kernel_ms med=0.510 p90=0.512 kv_staged=1867776 (naive 12582912) blocks=19/128 q=6144 tab=516 out=6144 worst=0.00737519
+PASS sweep 32q/ 1kv ratio 32 ctx  256: launches=1 ctas=32 call_ms med=0.105 p90=0.105 kernel_ms med=0.103 p90=0.103 kv_staged=12288 (naive 65536) blocks=3/16 q=8192 tab=68 out=8192 worst=0.00241453
+PASS sweep 32q/ 1kv ratio 32 ctx 2048: launches=1 ctas=32 call_ms med=0.411 p90=0.412 kernel_ms med=0.408 p90=0.409 kv_staged=77824 (naive 524288) blocks=19/128 q=8192 tab=516 out=8192 worst=0.00525453
+PASS sweep 32q/ 2kv ratio 16 ctx  256: launches=1 ctas=32 call_ms med=0.105 p90=0.106 kernel_ms med=0.103 p90=0.103 kv_staged=24576 (naive 131072) blocks=3/16 q=8192 tab=68 out=8192 worst=0.0031327
+PASS sweep 32q/ 2kv ratio 16 ctx 2048: launches=1 ctas=32 call_ms med=0.412 p90=0.413 kernel_ms med=0.408 p90=0.409 kv_staged=155648 (naive 1048576) blocks=19/128 q=8192 tab=516 out=8192 worst=0.00648224
+PASS sweep 32q/ 4kv ratio  8 ctx  256: launches=1 ctas=32 call_ms med=0.106 p90=0.107 kernel_ms med=0.103 p90=0.104 kv_staged=49152 (naive 262144) blocks=3/16 q=8192 tab=68 out=8192 worst=0.00316999
+PASS sweep 32q/ 4kv ratio  8 ctx 2048: launches=1 ctas=32 call_ms med=0.413 p90=0.414 kernel_ms med=0.408 p90=0.409 kv_staged=311296 (naive 2097152) blocks=19/128 q=8192 tab=516 out=8192 worst=0.00599161
+PASS sweep 32q/ 8kv ratio  4 ctx  256: launches=1 ctas=32 call_ms med=0.106 p90=0.106 kernel_ms med=0.103 p90=0.103 kv_staged=98304 (naive 524288) blocks=3/16 q=8192 tab=68 out=8192 worst=0.00278167
+PASS sweep 32q/ 8kv ratio  4 ctx 2048: launches=1 ctas=32 call_ms med=0.418 p90=0.419 kernel_ms med=0.408 p90=0.409 kv_staged=622592 (naive 4194304) blocks=19/128 q=8192 tab=516 out=8192 worst=0.005897
+PASS sweep 32q/16kv ratio  2 ctx  256: launches=1 ctas=32 call_ms med=0.107 p90=0.108 kernel_ms med=0.103 p90=0.104 kv_staged=196608 (naive 1048576) blocks=3/16 q=8192 tab=68 out=8192 worst=0.00268895
+PASS sweep 32q/16kv ratio  2 ctx 2048: launches=1 ctas=32 call_ms med=0.428 p90=0.432 kernel_ms med=0.409 p90=0.410 kv_staged=1245184 (naive 8388608) blocks=19/128 q=8192 tab=516 out=8192 worst=0.00571167
+PASS sweep 32q/32kv ratio  1 ctx  256: launches=1 ctas=32 call_ms med=0.109 p90=0.110 kernel_ms med=0.103 p90=0.103 kv_staged=393216 (naive 2097152) blocks=3/16 q=8192 tab=68 out=8192 worst=0.00256581
+PASS sweep 32q/32kv ratio  1 ctx 2048: launches=1 ctas=32 call_ms med=0.451 p90=0.455 kernel_ms med=0.409 p90=0.410 kv_staged=2490368 (naive 16777216) blocks=19/128 q=8192 tab=516 out=8192 worst=0.00647965
+PASS sweep 64q/ 1kv ratio 64 ctx  256: launches=1 ctas=64 call_ms med=0.107 p90=0.107 kernel_ms med=0.103 p90=0.103 kv_staged=12288 (naive 65536) blocks=3/16 q=16384 tab=68 out=16384 worst=0.00332208
+PASS sweep 64q/ 1kv ratio 64 ctx 2048: launches=1 ctas=64 call_ms med=0.413 p90=0.414 kernel_ms med=0.408 p90=0.409 kv_staged=77824 (naive 524288) blocks=19/128 q=16384 tab=516 out=16384 worst=0.00559141
+PASS sweep 64q/ 2kv ratio 32 ctx  256: launches=1 ctas=64 call_ms med=0.107 p90=0.108 kernel_ms med=0.103 p90=0.104 kv_staged=24576 (naive 131072) blocks=3/16 q=16384 tab=68 out=16384 worst=0.00286709
+PASS sweep 64q/ 2kv ratio 32 ctx 2048: launches=1 ctas=64 call_ms med=1.042 p90=1.125 kernel_ms med=1.030 p90=1.120 kv_staged=155648 (naive 1048576) blocks=19/128 q=16384 tab=516 out=16384 worst=0.00639622
+PASS sweep 64q/ 4kv ratio 16 ctx  256: launches=1 ctas=64 call_ms med=0.112 p90=0.116 kernel_ms med=0.105 p90=0.108 kv_staged=49152 (naive 262144) blocks=3/16 q=16384 tab=68 out=16384 worst=0.00399345
+PASS sweep 64q/ 4kv ratio 16 ctx 2048: launches=1 ctas=64 call_ms med=1.033 p90=1.047 kernel_ms med=1.020 p90=1.030 kv_staged=311296 (naive 2097152) blocks=19/128 q=16384 tab=516 out=16384 worst=0.00618912
+PASS sweep 64q/ 8kv ratio  8 ctx  256: launches=1 ctas=64 call_ms med=0.107 p90=0.110 kernel_ms med=0.103 p90=0.103 kv_staged=98304 (naive 524288) blocks=3/16 q=16384 tab=68 out=16384 worst=0.0028507
+PASS sweep 64q/ 8kv ratio  8 ctx 2048: launches=1 ctas=64 call_ms med=1.030 p90=1.034 kernel_ms med=1.019 p90=1.021 kv_staged=622592 (naive 4194304) blocks=19/128 q=16384 tab=516 out=16384 worst=0.00529008
+PASS sweep 64q/16kv ratio  4 ctx  256: launches=1 ctas=64 call_ms med=0.109 p90=0.109 kernel_ms med=0.103 p90=0.104 kv_staged=196608 (naive 1048576) blocks=3/16 q=16384 tab=68 out=16384 worst=0.00272721
+PASS sweep 64q/16kv ratio  4 ctx 2048: launches=1 ctas=64 call_ms med=1.042 p90=1.072 kernel_ms med=1.019 p90=1.043 kv_staged=1245184 (naive 8388608) blocks=19/128 q=16384 tab=516 out=16384 worst=0.00565958
+PASS sweep 64q/32kv ratio  2 ctx  256: launches=1 ctas=64 call_ms med=0.110 p90=0.127 kernel_ms med=0.103 p90=0.110 kv_staged=393216 (naive 2097152) blocks=3/16 q=16384 tab=68 out=16384 worst=0.00282842
+PASS sweep 64q/32kv ratio  2 ctx 2048: launches=1 ctas=64 call_ms med=1.081 p90=1.139 kernel_ms med=1.020 p90=1.048 kv_staged=2490368 (naive 16777216) blocks=19/128 q=16384 tab=516 out=16384 worst=0.00670759
+PASS sweep 64q/64kv ratio  1 ctx  256: launches=1 ctas=64 call_ms med=0.116 p90=0.118 kernel_ms med=0.103 p90=0.104 kv_staged=786432 (naive 4194304) blocks=3/16 q=16384 tab=68 out=16384 worst=0.00284045
+PASS sweep 64q/64kv ratio  1 ctx 2048: launches=1 ctas=64 call_ms med=1.169 p90=1.263 kernel_ms med=1.026 p90=1.122 kv_staged=4980736 (naive 33554432) blocks=19/128 q=16384 tab=516 out=16384 worst=0.00870193
+sweep: 72 points (64 supported, 8 unsupported by the kernel envelope), device_opens=1
+PASS: 73 checks, 0 failed

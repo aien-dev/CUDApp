@@ -1,0 +1,5 @@
+Linux spark-b87b 7.0.0-1019-nvidia #19~24.04.2-Ubuntu SMP PREEMPT_DYNAMIC Sun Sep  6 18:35:11 UTC 2 aarch64 aarch64 aarch64 GNU/Linux
+NVIDIA GB10, 580.173.02
+omega 7dd92dc3f9db1a21aeedc7f38b629e5ce4358d4e (0 uncommitted paths)
+physics 6d7cf0d4d8eb2cda7b512100ff6058e25dbb3ddf
+2026-10-07T03:14:27Z
