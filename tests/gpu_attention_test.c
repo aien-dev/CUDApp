@@ -534,8 +534,9 @@ static int chip(const char *out_path) {
  * loop handling is under test too) for every CTA of a launch: 64 threads, 1 KB shared,
  * host pointers as addresses, SHFL and BAR as lockstep points (all threads of the CTA
  * must sit at the same instruction). EX2 and RCP are exact here; the chip's are approximate. */
-/* path: hash of every branch decision so far. The IR has no reconvergence instruction
- * (no BSSY/BSYNC/WARPSYNC), so once a warp splits it may stay split on the chip, and a
+/* path: hash of every branch decision so far. The attention kernels use no reconvergence
+ * region (the IR has BSSY/BSYNC since omega #310, omega_bw_reconv.h; the --divergent mode
+ * below covers them), so once a warp splits it may stay split on the chip, and a
  * SHFL reading an inactive lane is undefined (CUDA guide, warp shuffle functions). Every
  * SHFL therefore requires one path across the warp, or the simulator stops with error 7. */
 typedef struct { uint32_t r[256]; int pc; int p0; int done; uint64_t path; } SimThr;

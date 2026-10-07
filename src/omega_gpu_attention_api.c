@@ -302,11 +302,12 @@ static void gen_attention(Em *e, const KSpec *k) {
     movi(e, cm1, 0xFFFFFFFFu); iadd3(e, ctxm1, ctx, cm1); movi(e, cninf, F32_NEG_INF);
     loop_begin(e);
     int Lout = here(e);
-    /* No branch here: a warp split by "j >= ctx" stays split (the IR has no reconvergence
-     * instruction) and the SHFL reductions below then read inactive lanes, which is undefined
-     * (wrong dims tid >= tail on the chip, 2026-10-04). over = (j >= ctx) as 0/1 from the sign of
-     * ctx-1-j; out-of-range lanes read token `base` (always < ctx here) and their score
-     * is forced to -inf after the dot product with s = -max(-s, nb), nb = -inf or +inf. */
+    /* No branch here: a warp split by "j >= ctx" without a BSSY/BSYNC region stays split, and
+     * the SHFL reductions below then read inactive lanes, which is undefined (wrong dims
+     * tid >= tail on the chip, 2026-10-04). The IR has BSSY/BSYNC regions since omega #310
+     * (omega_bw_reconv.h); this kernel stays branchless and does not use them.
+     * over = (j >= ctx) as 0/1 from the sign of ctx-1-j; out-of-range lanes read token `base`
+     * (always < ctx here) and their score is forced to -inf after the dot product with s = -max(-s, nb), nb = -inf or +inf. */
     iadd3(e, j, base, tid);
     movi(e, s, F32_NEG_INF);
     movrz(e, koff);
