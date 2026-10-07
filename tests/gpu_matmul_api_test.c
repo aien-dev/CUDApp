@@ -6,6 +6,7 @@
  *   ./gpu_matmul_api_test --mutant --out r.json       wrong kernel (last K step dropped) must FAIL parity;
  *                                                     exit 0 when every shape caught it ("mutant killed")
  *   ./gpu_matmul_api_test --cta-budget N ...          run with a different CTA budget (I42 experiment)
+ *   ./gpu_matmul_api_test --spin-us N ...             marker-wait spin window for every launch (omega#328)
  *
  * Shapes come from OMEGA_GPU_MATMUL_SHAPES ("m,k,n;m,k,n;..."), default below.
  * Pass rule per shape: rc OK, parity verified by the API oracle, end-to-end error < 1e-5 relative to
@@ -13,6 +14,7 @@
  * chip's f32 accumulator differ), second call hits the kernel cache and agrees bit for bit.
  */
 #include "omega_gpu_matmul_api.h"
+#include "omega_gpu_session.h"
 #include "omega_blackwell_codegen.h"
 #include "omega_blackwell_matmul.h"
 #include <inttypes.h>
@@ -64,6 +66,13 @@ static void host_only(void) {
     CHECK(omega_gpu_matmul_f32(16, 16, 16, NULL, b, c, &info) == OMEGA_GPU_MATMUL_BAD_ARGS, "NULL a refused");
     CHECK(omega_gpu_matmul_f32(OMEGA_BW_MATMUL_MAX_M + 1, 16, 16, a, b, c, &info) == OMEGA_GPU_MATMUL_TOO_LARGE, "m over limit refused");
     CHECK(omega_gpu_matmul_bf16(16, OMEGA_BW_MATMUL_MAX_K + 1, 16, (uint16_t *)a, (uint16_t *)b, c, NULL) == OMEGA_GPU_MATMUL_TOO_LARGE, "k over limit refused (NULL info ok)");
+    /* session spin window (omega#328): in-range value kept, out-of-range refused unchanged, 0 restores */
+    const uint32_t spin0 = omega_gpu_session_spin_us();
+    CHECK(omega_gpu_session_set_spin_us(2000) == 0 && omega_gpu_session_spin_us() == 2000, "spin window 2000 us set");
+    CHECK(omega_gpu_session_set_spin_us(OMEGA_GPU_SESSION_MAX_SPIN_US + 1) == -1 && omega_gpu_session_spin_us() == 2000,
+          "spin window over the maximum refused, setting unchanged");
+    CHECK(omega_gpu_session_set_spin_us(0) == 0 && omega_gpu_session_spin_us() == 0, "spin window 0 restores the sleep-poll");
+    omega_gpu_session_set_spin_us(spin0);
     CHECK(omega_gpu_matmul_bf16(16, 16, OMEGA_BW_MATMUL_MAX_N + 1, (uint16_t *)a, (uint16_t *)b, c, NULL) == OMEGA_GPU_MATMUL_TOO_LARGE, "n over limit refused");
     CHECK(OMEGA_BW_MATMUL_MAX_N >= 128256 && OMEGA_BW_MATMUL_MAX_K >= 8192 && OMEGA_BW_MATMUL_MAX_M >= 2048, "limits cover Llama shapes (vocab 128256, ffn 8192)");
     OmegaGpuTensor *t = NULL;
@@ -172,7 +181,7 @@ static int cmp_double(const void *x, const void *y) { double a = *(const double 
 static int timing(const char *shapes, const char *out_path) {
     FILE *out = out_path ? fopen(out_path, "w") : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
-    if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_MATMUL_API_TIMING_V1\",\"cta_budget\":%u,\"calls\":100,\"shapes\":[", omega_gpu_matmul_cta_budget());
+    if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_MATMUL_API_TIMING_V1\",\"cta_budget\":%u,\"spin_us\":%u,\"calls\":100,\"shapes\":[", omega_gpu_matmul_cta_budget(), omega_gpu_session_spin_us());
     char *copy = strdup(shapes); char *save = NULL; int first = 1;
     for (char *tok = strtok_r(copy, ";", &save); tok; tok = strtok_r(NULL, ";", &save)) {
         unsigned m, k, n;
@@ -242,6 +251,9 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--mutant") == 0) mutant = 1;
         else if (strcmp(argv[i], "--timing") == 0) do_timing = 1;
         else if (strcmp(argv[i], "--cta-budget") == 0 && i + 1 < argc) omega_gpu_matmul_set_cta_budget((uint32_t)strtoul(argv[++i], NULL, 10));
+        else if (strcmp(argv[i], "--spin-us") == 0 && i + 1 < argc) {
+            if (omega_gpu_session_set_spin_us((uint32_t)strtoul(argv[++i], NULL, 10)) != 0) { fprintf(stderr, "--spin-us out of range\n"); return 2; }
+        }
         else if (strcmp(argv[i], "--out") == 0 && i + 1 < argc) out_path = argv[++i];
     }
     const char *shapes = getenv("OMEGA_GPU_MATMUL_SHAPES");

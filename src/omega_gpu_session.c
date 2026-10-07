@@ -28,6 +28,7 @@ static const uint32_t SETUP_WORDS[18] = {
 static pthread_mutex_t g_mu = PTHREAD_MUTEX_INITIALIZER;
 static OmegaGpuSession g_s;
 static bool g_open, g_blocked;
+static uint32_t g_spin_us; /* omega_gpu_session_set_spin_us; 0 = sleep-poll only */
 static char g_err[320] = "";
 static void (*g_hooks[8])(void);
 static unsigned g_nhooks;
@@ -67,6 +68,12 @@ void omega_gpu_session_lock(void) { pthread_mutex_lock(&g_mu); }
 void omega_gpu_session_unlock(void) { pthread_mutex_unlock(&g_mu); }
 bool omega_gpu_session_is_open(void) { return g_open; }
 int omega_gpu_session_is_blocked(void) { return g_blocked ? 1 : 0; }
+int omega_gpu_session_set_spin_us(uint32_t us) {
+    if (us > OMEGA_GPU_SESSION_MAX_SPIN_US) return -1;
+    __atomic_store_n(&g_spin_us, us, __ATOMIC_RELAXED);
+    return 0;
+}
+uint32_t omega_gpu_session_spin_us(void) { return __atomic_load_n(&g_spin_us, __ATOMIC_RELAXED); }
 
 int omega_gpu_session_alloc(size_t bytes, NvrmMem *out) {
     if (!g_open || g_blocked) { omega_gpu_session_set_error("alloc without open device"); return -1; }
@@ -230,10 +237,11 @@ int omega_gpu_session_launch(const OmegaGpuLaunch *L, uint64_t *elapsed_ns, uint
     pb[n++] = (uint32_t)(g_s.marker.va + 0x10); pb[n++] = (uint32_t)((g_s.marker.va + 0x10) >> 32);
     pb[n++] = OMEGA_BW_MARKER2_PAYLOAD; pb[n++] = 0; pb[n++] = 0x1 | (1u << 20);
 
+    const uint32_t spin_us = L->spin_us ? L->spin_us : omega_gpu_session_spin_us();
     uint64_t t0 = now_ns();
     if (m16_native_submit_methods(&g_s.ctx, pb, n) != 0) { fail_rm("submit_methods", &g_s.ctx.rm); return -1; }
-    if (session_wait(hmarker, OMEGA_BW_MARKER_COMPLETION_PAYLOAD, L->timeout_ms, L->spin_us) != 0 ||
-        session_wait(hmarker2, OMEGA_BW_MARKER2_PAYLOAD, L->timeout_ms, L->spin_us) != 0) {
+    if (session_wait(hmarker, OMEGA_BW_MARKER_COMPLETION_PAYLOAD, L->timeout_ms, spin_us) != 0 ||
+        session_wait(hmarker2, OMEGA_BW_MARKER2_PAYLOAD, L->timeout_ms, spin_us) != 0) {
         g_blocked = true; /* uncertain completion: keep everything, refuse every later call */
         omega_gpu_session_set_error("marker wait timed out (latched)");
         return -1;

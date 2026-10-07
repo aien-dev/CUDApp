@@ -90,6 +90,13 @@ bool omega_gpu_session_is_open(void);
 /* 1 once an uncertain completion has latched this process. */
 int omega_gpu_session_is_blocked(void);
 
+/* Process-wide marker-wait spin window, used by every launch whose own spin_us is 0
+ * (the matmul, elementwise and attention APIs leave it 0). 0 (the default) keeps the
+ * 50 us sleep-poll, which Linux timer slack rounds to about 102 us per launch on GB10
+ * (omega#328). 0 on success, -1 above OMEGA_GPU_SESSION_MAX_SPIN_US (setting unchanged). */
+int omega_gpu_session_set_spin_us(uint32_t us);
+uint32_t omega_gpu_session_spin_us(void);
+
 /* Caller holds the lock, device open. GPU-uncached allocation, page rounded. */
 int omega_gpu_session_alloc(size_t bytes, NvrmMem *out);
 /* Caller holds the lock, device open. A GPU code buffer for code_size bytes with the 2 KB instruction
