@@ -92,7 +92,12 @@ typedef enum {
      * continues as one. imm of BSSY = signed instruction delta to the join point (the
      * instruction after the BSYNC), like BW_IR_BRA; the encoder refuses deltas < 1. */
     BW_IR_BSSY,
-    BW_IR_BSYNC
+    BW_IR_BSYNC,
+    /* Fragment-major matmul (omega #328, 2026-10-07), additive. Words matched against nvcc 13.0.88
+     * -arch=sm_121 (omega_blackwell_verify_codegen_fixtures_fragmm). imm = signed byte offset,
+     * -2^23 .. 2^23-1; dst is a register pair (64) or an aligned quad (128). */
+    BW_IR_LDG_E_64,     /* LDG.E.64 Rd:Rd+1, desc[URd][Ra.64+imm] */
+    BW_IR_LDG_E_128     /* LDG.E.128 Rd..Rd+3, desc[URd][Ra.64+imm] */
 } BlackwellIROpcode;
 
 /* Barrier (reconvergence) registers: the sm_121 BSSY/BSYNC words carry a 4-bit barrier id
@@ -210,6 +215,32 @@ int omega_blackwell_codegen_matmul_tensor_loop_prog(const OmegaMatMulSpec *spec,
 int omega_blackwell_codegen_matmul_tensor_loop(const OmegaMatMulSpec *spec, uint32_t grid_x,
                                                int mutant, OmegaBlackwellKernel *kernel);
 
+/* omega #328: fragment-major tensor matmul. Same grid, C layout (row-major f32) and argument
+ * words as the looped kernel; A and B are in fragment order instead of row-major:
+ *   A (mp x kp, from omega_matmul_frag_pack_a): block (mt, ks) of 256 bf16 at ((mt*KS + ks)*32
+ *     + lane)*8, lane = group*4 + tig, holding A[r][c], A[r][c+1], A[r+8][c], A[r+8][c+1],
+ *     A[r][c+8], A[r][c+9], A[r+8][c+8], A[r+8][c+9] with r = 16mt + group, c = 16ks + 2tig;
+ *   B (kp x np, from omega_matmul_frag_pack_b): block (nt, ks) of 128 bf16 at ((nt*KS + ks)*32
+ *     + lane)*4 holding B[k][j], B[k+1][j], B[k+8][j], B[k+9][j] with k = 16ks + 2tig,
+ *     j = 8nt + group;  KS = kp / 16, entries outside the real matrix are zero.
+ * One LDG.E.128 (A) and one LDG.E.64 (B) per K step; `unroll` (1, 2, 4 or 8, dividing KS)
+ * steps of loads are issued before the HMMA chain. mutant != 0 drops the last pass (test
+ * oracle only). Each tile occupies 16*kp (A) and 8*kp (B) elements, so a row-tile offset into
+ * A is the same in bytes as for row-major A. */
+int omega_blackwell_codegen_matmul_frag_prog(const OmegaMatMulSpec *spec, uint32_t grid_x, uint32_t unroll,
+                                             int mutant, BlackwellIRProgram *prog);
+int omega_blackwell_codegen_matmul_frag(const OmegaMatMulSpec *spec, uint32_t grid_x, uint32_t unroll,
+                                        int mutant, OmegaBlackwellKernel *kernel);
+/* The largest of 4, 2, 1 that divides kp / 16 (unroll 8 is generated for experiments only: it
+ * did not complete on the GB10, see the definition). */
+uint32_t omega_matmul_frag_unroll(uint32_t kp);
+/* a: m x k row-major. dst: mp x kp elements, fully written (zero padding). */
+void omega_matmul_frag_pack_a(const uint16_t *a, uint32_t m, uint32_t k, uint32_t mp, uint32_t kp, uint16_t *dst);
+/* b: k x n row-major. dst: the column tiles [nt0, nt1), (nt1 - nt0) * kp * 8 elements, fully
+ * written; it is the part of the packed tensor starting at element nt0 * kp * 8. */
+void omega_matmul_frag_pack_b(const uint16_t *b, uint32_t k, uint32_t n, uint32_t kp,
+                              uint32_t nt0, uint32_t nt1, uint16_t *dst);
+
 /* Unit test for instruction encoding bitfield fixtures (Gate 3) */
 int omega_blackwell_verify_codegen_fixtures(void);
 
@@ -218,6 +249,9 @@ int omega_blackwell_verify_codegen_fixtures_fb1cut4(void);
 
 /* Prime race cut: golden words for LOP3_LUT, SHF_L_U32, IMAD_HI_U32 (0 = pass) */
 int omega_blackwell_verify_codegen_fixtures_intops(void);
+
+/* omega #328: golden words for LDG.E.64 / LDG.E.128 with offsets and the timed NOP (0 = pass) */
+int omega_blackwell_verify_codegen_fixtures_fragmm(void);
 
 /* omega #308: golden words for BSSY / BSYNC (nvcc 13.0.88 sm_121 oracle), plus the
  * encoder's refusals (negative delta, barrier id > 15). 0 = pass. */

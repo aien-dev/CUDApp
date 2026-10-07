@@ -139,6 +139,9 @@ void omega_gpu_matmul_set_oracle(int on);
  * dropped) so the parity test can prove it catches a wrong kernel. Clears the
  * kernel cache. Production code must never call this. */
 void omega_gpu_matmul_test_set_mutant(int on);
+/* Test only: force the fragment kernel unroll (1, 2, 4 or 8; it must divide kp / 16 or the call
+ * fails CODEGEN_FAIL); 0 restores the automatic choice. Clears the kernel cache. */
+void omega_gpu_matmul_test_set_unroll(uint32_t unroll);
 
 #ifdef __cplusplus
 }

@@ -7,6 +7,7 @@
  *                                                     exit 0 when every shape caught it ("mutant killed")
  *   ./gpu_matmul_api_test --cta-budget N ...          run with a different CTA budget (I42 experiment)
  *   ./gpu_matmul_api_test --spin-us N ...             marker-wait spin window for every launch (omega#328)
+ *   ./gpu_matmul_api_test --unroll N ...              force the fragment kernel unroll (omega #328 experiment)
  *
  * Shapes come from OMEGA_GPU_MATMUL_SHAPES ("m,k,n;m,k,n;..."), default below.
  * Pass rule per shape: rc OK, parity verified by the API oracle, end-to-end error < 1e-5 relative to
@@ -59,6 +60,87 @@ static double e2e_max_rel(uint32_t m, uint32_t k, uint32_t n, const float *a, co
     return worst;
 }
 
+/* omega #328 fragment-major kernel, host only. The unpack below is written from the PTX ISA
+ * table for mma.m16n8k16 (.bf16 A: a0,a1 row g cols 2t,2t+1; a2,a3 row g+8; a4,a5 row g cols
+ * 2t+8,2t+9; a6,a7 row g+8. B: b0,b1 rows 2t,2t+1 col g; b2,b3 rows 2t+8,2t+9; g = lane>>2,
+ * t = lane&3), independently of the packers: pack then unpack must give the matrix back. */
+static void frag_host_checks(void) {
+    CHECK(omega_blackwell_verify_codegen_fixtures_fragmm() == 0, "fragment matmul golden words (rc %d)", omega_blackwell_verify_codegen_fixtures_fragmm());
+    struct { uint32_t m, k, n; } sh[] = { {1, 16, 8}, {1, 40, 13}, {17, 48, 24}, {33, 2560, 72}, {5, 160, 1000} };
+    for (size_t s = 0; s < sizeof sh / sizeof sh[0]; s++) {
+        const uint32_t m = sh[s].m, k = sh[s].k, n = sh[s].n;
+        const uint32_t mp = (m + 15) / 16 * 16, kp = (k + 15) / 16 * 16, np = (n + 7) / 8 * 8, KS = kp / 16, NT = np / 8;
+        uint16_t *a = malloc((size_t)m * k * 2), *b = malloc((size_t)k * n * 2);
+        uint16_t *pa = malloc((size_t)mp * kp * 2), *pb = malloc((size_t)kp * np * 2);
+        uint32_t seed = 7 + (uint32_t)s;
+        for (size_t i = 0; i < (size_t)m * k; i++) a[i] = (uint16_t)(1 + lcg(&seed) % 60000);
+        for (size_t i = 0; i < (size_t)k * n; i++) b[i] = (uint16_t)(1 + lcg(&seed) % 60000);
+        omega_matmul_frag_pack_a(a, m, k, mp, kp, pa);
+        /* B in two uneven chunks, as the upload does in FRAG_PACK_TILES steps */
+        uint32_t split = NT / 2;
+        omega_matmul_frag_pack_b(b, k, n, kp, 0, split, pb);
+        omega_matmul_frag_pack_b(b, k, n, kp, split, NT, pb + (size_t)split * kp * 8);
+        size_t bad_a = 0, bad_b = 0;
+        for (uint32_t mt = 0; mt < mp / 16; mt++)
+            for (uint32_t ks = 0; ks < KS; ks++)
+                for (uint32_t lane = 0; lane < 32; lane++) {
+                    const uint32_t gg = lane >> 2, t = lane & 3;
+                    const uint32_t rows[8] = { gg, gg, gg + 8, gg + 8, gg, gg, gg + 8, gg + 8 };
+                    const uint32_t cols[8] = { 2 * t, 2 * t + 1, 2 * t, 2 * t + 1, 2 * t + 8, 2 * t + 9, 2 * t + 8, 2 * t + 9 };
+                    for (int e = 0; e < 8; e++) {
+                        uint32_t r = mt * 16 + rows[e], c = ks * 16 + cols[e];
+                        uint16_t want = (r < m && c < k) ? a[(size_t)r * k + c] : 0;
+                        if (pa[(((size_t)mt * KS + ks) * 32 + lane) * 8 + e] != want) bad_a++;
+                    }
+                }
+        for (uint32_t nt = 0; nt < NT; nt++)
+            for (uint32_t ks = 0; ks < KS; ks++)
+                for (uint32_t lane = 0; lane < 32; lane++) {
+                    const uint32_t gg = lane >> 2, t = lane & 3;
+                    const uint32_t rows[4] = { 2 * t, 2 * t + 1, 2 * t + 8, 2 * t + 9 };
+                    for (int e = 0; e < 4; e++) {
+                        uint32_t r = ks * 16 + rows[e], c = nt * 8 + gg;
+                        uint16_t want = (r < k && c < n) ? b[(size_t)r * n + c] : 0;
+                        if (pb[(((size_t)nt * KS + ks) * 32 + lane) * 4 + e] != want) bad_b++;
+                    }
+                }
+        CHECK(bad_a == 0 && bad_b == 0, "fragment pack round trip %ux%ux%u (A bad %zu, B bad %zu)", m, k, n, bad_a, bad_b);
+        free(a); free(b); free(pa); free(pb);
+    }
+    /* the kernel generates for every padded Qwen3-4B and Llama-3.2-1B decode shape at the API's unroll */
+    struct { uint32_t k, n, gx; } ok[] = { {16, 8, 1}, {2560, 4096, 256}, {2560, 1024, 128}, {4096, 2560, 256}, {2560, 9728, 256},
+                                          {9728, 2560, 256}, {2560, 151936, 256}, {2048, 8192, 64}, {8192, 2048, 64},
+                                          {2048, 128256, 64}, {16384, 262144, 64}, {48, 16, 2} };
+    for (size_t i = 0; i < sizeof ok / sizeof ok[0]; i++) {
+        OmegaMatMulSpec spec; OmegaBlackwellKernel kernel; memset(&kernel, 0, sizeof kernel);
+        const uint32_t u = omega_matmul_frag_unroll(ok[i].k);
+        int rc = omega_matmul_spec_init(&spec, 16, ok[i].k, ok[i].n, OMEGA_MATMUL_PRECISION_BF16) == 0 &&
+                 omega_blackwell_codegen_matmul_frag(&spec, ok[i].gx, u, 0, &kernel) == 0 && kernel.code_size > 0;
+        CHECK(rc, "fragment kernel K=%u N=%u gx=%u unroll=%u generated", ok[i].k, ok[i].n, ok[i].gx, u);
+        CHECK(kernel.gpr_count <= 64, "fragment kernel K=%u N=%u unroll=%u fits 64 registers (got %u)", ok[i].k, ok[i].n, u, kernel.gpr_count);
+        if (i == 1) printf("fragment kernel K=2560 N=4096 unroll %u: %zu instructions, %u registers\n", u, kernel.insn_count, kernel.gpr_count);
+        OmegaBlackwellKernel mut; memset(&mut, 0, sizeof mut);
+        if (omega_blackwell_codegen_matmul_frag(&spec, ok[i].gx, u, 1, &mut) == 0) {
+            CHECK(memcmp(mut.code_digest, kernel.code_digest, 32) != 0, "fragment mutant differs K=%u N=%u", ok[i].k, ok[i].n);
+            omega_blackwell_kernel_free(&mut);
+        } else CHECK(ok[i].k / 16 / u < 2, "fragment mutant refused only with one pass (K=%u)", ok[i].k);
+        omega_blackwell_kernel_free(&kernel);
+    }
+    CHECK(omega_matmul_frag_unroll(2560) == 4 && omega_matmul_frag_unroll(48) == 1 && omega_matmul_frag_unroll(64) == 4 &&
+          omega_matmul_frag_unroll(32) == 2 && omega_matmul_frag_unroll(128) == 4, "unroll choice (capped at 4)");
+    {   /* unroll 8 still generates (experiments) */
+        OmegaMatMulSpec s8; OmegaBlackwellKernel k8; memset(&k8, 0, sizeof k8);
+        CHECK(omega_matmul_spec_init(&s8, 16, 2560, 4096, OMEGA_MATMUL_PRECISION_BF16) == 0 &&
+              omega_blackwell_codegen_matmul_frag(&s8, 256, 8, 0, &k8) == 0 && k8.code_size > 0, "unroll 8 generates");
+        omega_blackwell_kernel_free(&k8);
+    }
+    OmegaMatMulSpec spec; OmegaBlackwellKernel kernel; memset(&kernel, 0, sizeof kernel);
+    CHECK(omega_matmul_spec_init(&spec, 16, 48, 16, OMEGA_MATMUL_PRECISION_BF16) == 0 &&
+          omega_blackwell_codegen_matmul_frag(&spec, 1, 2, 0, &kernel) != 0, "unroll not dividing K/16 refused");
+    CHECK(omega_blackwell_codegen_matmul_frag(&spec, 1, 3, 0, &kernel) != 0, "unroll 3 refused");
+    CHECK(omega_blackwell_codegen_matmul_frag(&spec, 3, 1, 0, &kernel) != 0, "fragment grid_x beyond the column tiles refused");
+}
+
 static void host_only(void) {
     float a[16 * 16] = {0}, b[16 * 16] = {0}, c[16 * 16] = {0};
     OmegaGpuMatmulInfo info;
@@ -106,6 +188,7 @@ static void host_only(void) {
     memset(&kernel, 0, sizeof kernel);
     CHECK(omega_matmul_spec_init(&spec, 16, 16, 8, OMEGA_MATMUL_PRECISION_BF16) == 0 && omega_blackwell_codegen_matmul(&spec, &kernel) == 0 && kernel.code_size > 0, "16x16x8 single-tile kernel generated");
     omega_blackwell_kernel_free(&kernel);
+    frag_host_checks();
     omega_gpu_matmul_cache_clear();
 }
 
@@ -254,6 +337,7 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--spin-us") == 0 && i + 1 < argc) {
             if (omega_gpu_session_set_spin_us((uint32_t)strtoul(argv[++i], NULL, 10)) != 0) { fprintf(stderr, "--spin-us out of range\n"); return 2; }
         }
+        else if (strcmp(argv[i], "--unroll") == 0 && i + 1 < argc) omega_gpu_matmul_test_set_unroll((uint32_t)strtoul(argv[++i], NULL, 10));
         else if (strcmp(argv[i], "--out") == 0 && i + 1 < argc) out_path = argv[++i];
     }
     const char *shapes = getenv("OMEGA_GPU_MATMUL_SHAPES");
