@@ -82,11 +82,11 @@ typedef struct {
 } Phase;
 
 typedef struct { uint32_t kp, np, gx; } Key;
-static Key g_seen[64];
+static Key g_seen[128];
 static int g_nseen;
 static int seen(uint32_t kp, uint32_t np, uint32_t gx) {
     for (int i = 0; i < g_nseen; i++) if (g_seen[i].kp == kp && g_seen[i].np == np && g_seen[i].gx == gx) return 1;
-    if (g_nseen < 64) { g_seen[g_nseen].kp = kp; g_seen[g_nseen].np = np; g_seen[g_nseen].gx = gx; g_nseen++; }
+    if (g_nseen < 128) { g_seen[g_nseen].kp = kp; g_seen[g_nseen].np = np; g_seen[g_nseen].gx = gx; g_nseen++; }
     return 0;
 }
 
@@ -318,6 +318,129 @@ static int rollback_mode(void) {
 /* mode: "plain" (default) = today's measurement, no reservation; "reserve" = reserve after warm-up and
  * ASSERT zero driver traffic while serving; "reserve-skip" = the same asserts without the call (must FAIL: the red run);
  * "bounds" = refusal behaviour. */
+/* ---- sweep: the sovereign-core daemon's bounds (sc#311, sc#277). Every row count 1..256 over every weight
+ * shape is a distinct (kp, np, grid_x) for some rows, because grid_x is baked into the kernel and depends on
+ * the row tiles. prepare = 1: prepare each (rows, shape) and seal, then serving must make no driver call and an
+ * unprepared shape is refused. prepare = 0 (control, kernel_slots 32 as before): the cache wraps and serving
+ * allocates, which this mode must report as a failure. */
+#define SWEEP_ROWS 256u
+static int sweep_mode(int prepare) {
+    W_Q = upload(HID, QDIM); W_K = upload(HID, KVDIM); W_O = upload(QDIM, HID);
+    W_G = upload(HID, INTER); W_D = upload(INTER, HID); W_LM = upload(HID, VOCAB);
+    OmegaGpuTensor *odd = upload(HID, 512); /* a shape the server never prepares */
+    OmegaGpuTensor *w[6] = {W_Q, W_K, W_O, W_G, W_D, W_LM};
+    float *x = calloc((size_t)SWEEP_ROWS * INTER, sizeof *x), *y = calloc((size_t)SWEEP_ROWS * VOCAB, sizeof *y);
+    CHECK(x && y, "sweep buffers");
+    if (g_fail) return 1;
+    OmegaGpuServingBounds b = QWEN3_4B_BOUNDS;
+    b.max_rows = SWEEP_ROWS; b.max_n = VOCAB; b.max_n_one_row = VOCAB; b.kernel_slots = prepare ? 128 : 32;
+    CHECK(omega_gpu_reserve_serving(&b) == 0, "reserve failed: %s", omega_gpu_matmul_last_error());
+    if (prepare) {
+        int a0 = fk.alloc_calls;
+        for (unsigned i = 0; i < 6; i++) {
+            uint32_t k, n;
+            omega_gpu_tensor_shape(w[i], &k, &n);
+            for (uint32_t m = 1; m <= SWEEP_ROWS; m++) {
+                int rc = omega_gpu_matmul_prepare(m, k, n);
+                CHECK(rc == OMEGA_GPU_MATMUL_OK, "prepare m=%u %ux%u rc=%d %s", m, k, n, rc, omega_gpu_matmul_last_error());
+            }
+        }
+        printf("MEASURE sweep prepare: %d driver allocations (one code buffer per distinct kernel)\n", fk.alloc_calls - a0);
+        omega_gpu_serving_seal();
+    }
+    g_nseen = 0;
+    OmegaGpuAllocStats st0, st1;
+    omega_gpu_session_alloc_stats(&st0);
+    int a0 = fk.alloc_calls, too_large = 0, other = 0;
+    for (unsigned pass = 0; pass < 2; pass++)
+        for (uint32_t m = 1; m <= SWEEP_ROWS; m++)
+            for (unsigned i = 0; i < 6; i++) {
+                OmegaGpuMatmulInfo info;
+                int rc = omega_gpu_matmul_resident_f32(m, x, w[i], y, &info);
+                if (rc == OMEGA_GPU_MATMUL_TOO_LARGE) too_large++;
+                else if (rc != OMEGA_GPU_MATMUL_OK && rc != OMEGA_GPU_MATMUL_CHIP_FAIL) other++; /* CHIP_FAIL = fake kernel skips writes */
+                if (rc != OMEGA_GPU_MATMUL_TOO_LARGE) (void)seen(info.padded_k, info.padded_n, info.grid_x);
+            }
+    int made = fk.alloc_calls - a0;
+    omega_gpu_session_alloc_stats(&st1);
+    CHECK((int)(st1.allocs - st0.allocs) == made, "session alloc stats %llu != driver %d",
+          (unsigned long long)(st1.allocs - st0.allocs), made);
+    printf("MEASURE sweep serving (rows 1..%u x 6 shapes, twice): %d driver allocations, %d distinct kernels, %d refused, %d other\n",
+           SWEEP_ROWS, made, g_nseen, too_large, other);
+    CHECK(made == 0, "serving made %d driver allocations", made);
+    CHECK(too_large == 0 && other == 0, "serving refused %d, other rc %d", too_large, other);
+    CHECK(g_nseen == 95, "distinct kernels %d, expected 95 for Qwen3-4B at CTA budget 256", g_nseen);
+    if (prepare) {
+        int a1 = fk.alloc_calls;
+        OmegaGpuMatmulInfo info;
+        int rc = omega_gpu_matmul_resident_f32(1, x, odd, y, &info);
+        CHECK(rc == OMEGA_GPU_MATMUL_TOO_LARGE && strstr(omega_gpu_matmul_last_error(), "not prepared"),
+              "unprepared shape rc=%d %s", rc, omega_gpu_matmul_last_error());
+        CHECK(fk.alloc_calls == a1, "unprepared shape asked the driver for memory");
+        omega_gpu_serving_release();
+        rc = omega_gpu_matmul_resident_f32(1, x, odd, y, &info);
+        CHECK(rc != OMEGA_GPU_MATMUL_TOO_LARGE, "release did not lift the seal: %s", omega_gpu_matmul_last_error());
+    }
+    free(x); free(y);
+    printf("gpu_serving_alloc_count_test sweep%s: %s (%d failed checks)\n", prepare ? "" : "-skip", g_fail ? "FAIL" : "PASS", g_fail);
+    return g_fail ? 1 : 0;
+}
+
+/* ---- pin: a full cache of prepared kernels is never evicted. 9 slots, 9 prepared kernels (W_Q at 16..144 rows:
+ * 9 row tiles, 9 distinct grid_x), then an unprepared call BEFORE any seal must be refused with no driver call,
+ * and every prepared kernel must still hit. */
+static int pin_mode(void) {
+    W_Q = upload(HID, QDIM); W_K = upload(HID, KVDIM);
+    float *x = calloc((size_t)144 * HID, sizeof *x), *y = calloc((size_t)144 * QDIM, sizeof *y);
+    CHECK(x && y, "pin buffers");
+    if (g_fail) return 1;
+    OmegaGpuServingBounds b = QWEN3_4B_BOUNDS;
+    b.max_rows = 144; b.kernel_slots = 9;
+    CHECK(omega_gpu_reserve_serving(&b) == 0, "reserve failed: %s", omega_gpu_matmul_last_error());
+    for (uint32_t m = 16; m <= 144; m += 16) {
+        int rc = omega_gpu_matmul_prepare(m, HID, QDIM);
+        CHECK(rc == OMEGA_GPU_MATMUL_OK, "prepare m=%u rc=%d %s", m, rc, omega_gpu_matmul_last_error());
+    }
+    int a0 = fk.alloc_calls;
+    OmegaGpuMatmulInfo info;
+    int rc = omega_gpu_matmul_resident_f32(1, x, W_K, y, &info);
+    CHECK(rc == OMEGA_GPU_MATMUL_TOO_LARGE && strstr(omega_gpu_matmul_last_error(), "prepared kernel"),
+          "unprepared call with a full pinned cache: rc=%d %s", rc, omega_gpu_matmul_last_error());
+    CHECK(fk.alloc_calls == a0, "refused call asked the driver for memory");
+    for (uint32_t m = 16; m <= 144; m += 16) {
+        rc = omega_gpu_matmul_resident_f32(m, x, W_Q, y, &info);
+        CHECK(rc != OMEGA_GPU_MATMUL_TOO_LARGE && info.kernel_cache_hit, "prepared m=%u evicted (rc=%d hit=%d)", m, rc, info.kernel_cache_hit);
+    }
+    CHECK(fk.alloc_calls == a0, "prepared kernels rebuilt: %d driver allocations", fk.alloc_calls - a0);
+    free(x); free(y);
+    printf("gpu_serving_alloc_count_test pin: %s (%d failed checks)\n", g_fail ? "FAIL" : "PASS", g_fail);
+    return g_fail ? 1 : 0;
+}
+
+
+/* Sealed without a serving reservation: the scratch buffers could still grow, so every matmul call
+ * must be refused by name before any driver allocation (review of omega#338). */
+static int seal_bare_mode(void) {
+    W_Q = upload(HID, QDIM);
+    float *x = calloc((size_t)144 * HID, sizeof *x), *y = calloc((size_t)144 * QDIM, sizeof *y);
+    CHECK(x && y, "seal-bare buffers");
+    if (g_fail) return 1;
+    int rc = omega_gpu_matmul_prepare(16, HID, QDIM);
+    CHECK(rc == OMEGA_GPU_MATMUL_OK, "prepare m=16 rc=%d %s", rc, omega_gpu_matmul_last_error());
+    omega_gpu_matmul_seal(1);
+    int a0 = fk.alloc_calls;
+    OmegaGpuMatmulInfo info;
+    rc = omega_gpu_matmul_resident_f32(144, x, W_Q, y, &info);
+    CHECK(rc == OMEGA_GPU_MATMUL_TOO_LARGE && strstr(omega_gpu_matmul_last_error(), "without a scratch reservation"),
+          "sealed, unreserved, larger call: rc=%d %s", rc, omega_gpu_matmul_last_error());
+    CHECK(fk.alloc_calls == a0, "sealed call without a reservation asked the driver for memory (%d)", fk.alloc_calls - a0);
+    omega_gpu_matmul_seal(0);
+    rc = omega_gpu_matmul_resident_f32(16, x, W_Q, y, &info);
+    CHECK(rc != OMEGA_GPU_MATMUL_TOO_LARGE, "unsealed call still refused: rc=%d %s", rc, omega_gpu_matmul_last_error());
+    free(x); free(y);
+    printf("gpu_serving_alloc_count_test seal-bare: %s (%d failed checks)\n", g_fail ? "FAIL" : "PASS", g_fail);
+    return g_fail ? 1 : 0;
+}
 int main(int argc, char **argv) {
     const char *mode = argc > 1 ? argv[1] : "plain";
     const int do_reserve = strcmp(mode, "reserve") == 0, assert_zero = do_reserve || strcmp(mode, "reserve-skip") == 0;
@@ -339,6 +462,10 @@ int main(int argc, char **argv) {
     if (strcmp(mode, "bounds") == 0) return bounds_mode();
     if (strcmp(mode, "bounds-block") == 0) return bounds_block_mode();
     if (strcmp(mode, "rollback") == 0) return rollback_mode();
+    if (strcmp(mode, "sweep") == 0) return sweep_mode(1);
+    if (strcmp(mode, "pin") == 0) return pin_mode();
+    if (strcmp(mode, "seal-bare") == 0) return seal_bare_mode();
+    if (strcmp(mode, "sweep-skip") == 0) return sweep_mode(0);
 
     begin(&ph[np], "LOAD (session+6 weights)");
     W_Q = upload(HID, QDIM); W_K = upload(HID, KVDIM); W_O = upload(QDIM, HID);

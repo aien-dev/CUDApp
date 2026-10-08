@@ -75,9 +75,25 @@ int omega_gpu_session_set_spin_us(uint32_t us) {
 }
 uint32_t omega_gpu_session_spin_us(void) { return __atomic_load_n(&g_spin_us, __ATOMIC_RELAXED); }
 
+/* driver allocations made through this session (omega_gpu_session_alloc_stats) */
+static OmegaGpuAllocStats g_stats;
+
+void omega_gpu_session_alloc_stats(OmegaGpuAllocStats *out) {
+    if (!out) return;
+    out->allocs = __atomic_load_n(&g_stats.allocs, __ATOMIC_RELAXED);
+    out->alloc_bytes = __atomic_load_n(&g_stats.alloc_bytes, __ATOMIC_RELAXED);
+    out->alloc_failures = __atomic_load_n(&g_stats.alloc_failures, __ATOMIC_RELAXED);
+    out->frees = __atomic_load_n(&g_stats.frees, __ATOMIC_RELAXED);
+}
+
 int omega_gpu_session_alloc(size_t bytes, NvrmMem *out) {
     if (!g_open || g_blocked) { omega_gpu_session_set_error("alloc without open device"); return -1; }
-    if (nvrm_alloc_gpu_uncached(&g_s.ctx.rm, page_up(bytes), out) != 0) { fail_rm("nvrm_alloc_gpu_uncached", &g_s.ctx.rm); memset(out, 0, sizeof *out); return -1; }
+    if (nvrm_alloc_gpu_uncached(&g_s.ctx.rm, page_up(bytes), out) != 0) {
+        __atomic_add_fetch(&g_stats.alloc_failures, 1, __ATOMIC_RELAXED);
+        fail_rm("nvrm_alloc_gpu_uncached", &g_s.ctx.rm); memset(out, 0, sizeof *out); return -1;
+    }
+    __atomic_add_fetch(&g_stats.allocs, 1, __ATOMIC_RELAXED);
+    __atomic_add_fetch(&g_stats.alloc_bytes, (uint64_t)page_up(bytes), __ATOMIC_RELAXED);
     return 0;
 }
 
@@ -90,7 +106,10 @@ int omega_gpu_session_alloc_code(size_t code_size, NvrmMem *out) {
 }
 
 void omega_gpu_session_free(NvrmMem *m) {
-    if (m->cpu && g_open && !g_blocked) (void)nvrm_free(&g_s.ctx.rm, m);
+    if (m->cpu && g_open && !g_blocked) {
+        (void)nvrm_free(&g_s.ctx.rm, m);
+        __atomic_add_fetch(&g_stats.frees, 1, __ATOMIC_RELAXED);
+    }
     memset(m, 0, sizeof *m);
 }
 

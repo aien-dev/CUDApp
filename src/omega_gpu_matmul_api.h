@@ -135,12 +135,22 @@ uint32_t omega_gpu_matmul_cta_budget(void);
 /* OPT-IN serving reservation (omega_gpu_reserve_serving in omega_gpu_serving.h calls this). Allocates the
  * activation and result staging buffers once for calls of up to max_rows rows over weights up to max_k x max_n
  * (max_n_one_row, 0 = none: a wider n allowed for calls of at most 16 rows, e.g. lm_head), and makes the kernel
- * cache kernel_slots deep (0 or <= 8 = unchanged; at most 32). From then on a call that fits never allocates
+ * cache kernel_slots deep (0 or <= 8 = unchanged; at most 128). From then on a call that fits never allocates
  * staging; a call that does not fit returns OMEGA_GPU_MATMUL_TOO_LARGE with omega_gpu_matmul_last_error() saying
  * "serving reservation exceeded", and asks the driver for nothing. Never called = behaviour unchanged. The kernel
  * cache still builds each NEW shape once (one small code buffer); a slot count at least the number of distinct
  * shapes keeps them for good. 0 on success, else an OMEGA_GPU_MATMUL_* code. */
 int omega_gpu_matmul_reserve(uint32_t max_rows, uint32_t max_k, uint32_t max_n, uint32_t max_n_one_row, uint32_t kernel_slots);
+
+/* OPT-IN, after omega_gpu_matmul_reserve: build now the kernel a call of m rows over a k x n weight will use, and
+ * pin it (a prepared kernel is never evicted). The kernel cache key bakes in grid_x, which depends on the row
+ * count, so a server prepares every (row count, weight shape) it will run; repeated keys are cache hits. Refused
+ * with TOO_LARGE, before any build or driver call, when every slot already holds a prepared kernel. */
+int omega_gpu_matmul_prepare(uint32_t m, uint32_t k, uint32_t n);
+/* on = 1: from now on a call whose kernel is not cached is refused with OMEGA_GPU_MATMUL_TOO_LARGE ("serving
+ * reservation exceeded: matmul kernel ... was not prepared") and asks the driver for nothing. 0 lifts it; closing
+ * the device also ends it. */
+void omega_gpu_matmul_seal(int on);
 /* Drop the reservation flag (buffers stay allocated, growth is allowed again). */
 void omega_gpu_matmul_unreserve(void);
 

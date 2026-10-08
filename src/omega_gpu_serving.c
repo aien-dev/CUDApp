@@ -12,7 +12,10 @@ int omega_gpu_reserve_serving(const OmegaGpuServingBounds *b) {
     return rc;
 }
 
+void omega_gpu_serving_seal(void) { omega_gpu_matmul_seal(1); }
+
 void omega_gpu_serving_release(void) {
+    omega_gpu_matmul_seal(0);
     omega_gpu_attention_unreserve();
     omega_gpu_matmul_unreserve();
 }

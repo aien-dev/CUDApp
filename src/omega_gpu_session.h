@@ -141,6 +141,17 @@ void omega_gpu_session_close(void);
 /* Device opens so far in this process (diagnostics; a persistent session shows 1). */
 uint32_t omega_gpu_session_open_count(void);
 
+/* Driver allocations made through omega_gpu_session_alloc (every GPU API buffer, tensor, scratch growth and kernel
+ * code buffer) since the process started, for measurement: a serving daemon reads it after warm-up and per request
+ * to show that serving asks the driver for nothing. Covers this session layer only, not other engines. */
+typedef struct {
+    uint64_t allocs;          /* successful driver allocations */
+    uint64_t alloc_bytes;     /* their page-rounded bytes */
+    uint64_t alloc_failures;  /* driver refusals (e.g. NV_ERR_NO_MEMORY) */
+    uint64_t frees;           /* driver frees */
+} OmegaGpuAllocStats;
+void omega_gpu_session_alloc_stats(OmegaGpuAllocStats *out);
+
 #ifdef __cplusplus
 }
 #endif
