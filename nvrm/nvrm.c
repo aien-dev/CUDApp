@@ -55,27 +55,33 @@ static int fail(Nvrm *rm, const char *fmt, ...) {
     return -1;
 }
 
-/* MemAvailable from /proc/meminfo in kB, or 0 when it cannot be read. An
- * RM_ALLOC refused with NV_ERR_NO_MEMORY is only explained next to the size
- * asked for and the host's free memory at that moment (sovereign-core #239). */
-static unsigned long long mem_available_kb(void) {
+/* One /proc/meminfo value in kB, or 0 when it cannot be read. An RM_ALLOC
+ * refused with NV_ERR_NO_MEMORY is only explained next to the size asked for
+ * and the host's memory at that moment (sovereign-core #239). Both numbers
+ * matter: the RM system-memory path failed on low MemFree while MemAvailable
+ * was high (omega#327, two arms), so MemAvailable alone would read as fine. */
+static unsigned long long meminfo_kb(const char *key) {
     FILE *f = fopen("/proc/meminfo", "r");
     if (!f) return 0;
     char line[256];
     unsigned long long kb = 0;
-    while (fgets(line, sizeof line, f))
-        if (sscanf(line, "MemAvailable: %llu kB", &kb) == 1) break;
+    size_t klen = strlen(key);
+    while (fgets(line, sizeof line, f)) {
+        if (strncmp(line, key, klen) != 0 || line[klen] != ':') continue;
+        if (sscanf(line + klen + 1, " %llu kB", &kb) != 1) kb = 0;
+        break;
+    }
     fclose(f);
     return kb;
 }
 
 /* Rewrite rm->err after a failed memory RM_ALLOC so it also carries the
- * requested size and MemAvailable. */
+ * requested size, MemFree and MemAvailable. */
 static int fail_alloc_context(Nvrm *rm, uint64_t size) {
     char prev[sizeof rm->err];
     memcpy(prev, rm->err, sizeof prev);
-    return fail(rm, "%s for %llu bytes, MemAvailable %llu kB", prev, (unsigned long long)size,
-                mem_available_kb());
+    return fail(rm, "%s for %llu bytes, MemFree %llu kB, MemAvailable %llu kB", prev,
+                (unsigned long long)size, meminfo_kb("MemFree"), meminfo_kb("MemAvailable"));
 }
 
 static int nv_ioctl(int fd, unsigned nr, void *arg, size_t sz) {
