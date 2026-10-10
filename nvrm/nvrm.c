@@ -55,6 +55,29 @@ static int fail(Nvrm *rm, const char *fmt, ...) {
     return -1;
 }
 
+/* MemAvailable from /proc/meminfo in kB, or 0 when it cannot be read. An
+ * RM_ALLOC refused with NV_ERR_NO_MEMORY is only explained next to the size
+ * asked for and the host's free memory at that moment (sovereign-core #239). */
+static unsigned long long mem_available_kb(void) {
+    FILE *f = fopen("/proc/meminfo", "r");
+    if (!f) return 0;
+    char line[256];
+    unsigned long long kb = 0;
+    while (fgets(line, sizeof line, f))
+        if (sscanf(line, "MemAvailable: %llu kB", &kb) == 1) break;
+    fclose(f);
+    return kb;
+}
+
+/* Rewrite rm->err after a failed memory RM_ALLOC so it also carries the
+ * requested size and MemAvailable. */
+static int fail_alloc_context(Nvrm *rm, uint64_t size) {
+    char prev[sizeof rm->err];
+    memcpy(prev, rm->err, sizeof prev);
+    return fail(rm, "%s for %llu bytes, MemAvailable %llu kB", prev, (unsigned long long)size,
+                mem_available_kb());
+}
+
 static int nv_ioctl(int fd, unsigned nr, void *arg, size_t sz) {
     return ioctl(fd, NV_IOWR(nr, sz), arg);
 }
@@ -75,7 +98,9 @@ static int rm_alloc(Nvrm *rm, uint32_t parent, uint32_t cls, void *params, uint3
     p.paramsSize = psz;
     if (nv_ioctl(rm->fd_ctl, NV_ESC_RM_ALLOC, &p, sizeof p) != 0)
         return fail(rm, "RM_ALLOC class 0x%x ioctl errno %d", cls, errno);
-    if (p.status != 0) return fail(rm, "RM_ALLOC class 0x%x status 0x%x", cls, p.status);
+    if (p.status != 0)
+        return fail(rm, "RM_ALLOC class 0x%x status 0x%x%s", cls, p.status,
+                    p.status == NV_ERR_NO_MEMORY ? " (NV_ERR_NO_MEMORY)" : "");
     rm->rm_alloc_accepted++;
     *out = p.hObjectNew;
     return 0;
@@ -506,7 +531,7 @@ static int alloc_with_cacheability(Nvrm *rm, uint64_t size, NvrmMem *out, uint32
     if (rm_alloc(rm, rm->device, NV01_MEMORY_SYSTEM, &mp, sizeof mp, &h)) {
         if (munmap(res, size) != 0) rm->faulted = 1;
         rm->faulted = 1; /* unknown driver state: do not recycle this VA */
-        return -1;
+        return fail_alloc_context(rm, size);
     }
     void *cpu = map_to_cpu(rm, h, size, (void *)va, 0, 1);
     if (cpu != (void *)va) {
