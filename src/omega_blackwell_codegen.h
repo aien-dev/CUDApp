@@ -237,6 +237,17 @@ int omega_blackwell_codegen_matmul_frag(const OmegaMatMulSpec *spec, uint32_t gr
 /* The largest of 4, 2, 1 that divides kp / 16 (unroll 8 is generated for experiments only: it
  * did not complete on the GB10, see the definition). */
 uint32_t omega_matmul_frag_unroll(uint32_t kp);
+/* 2026-10-12: blocked fragment kernel for prefill rows. One warp owns rt row tiles x ct column tiles
+ * (rt in 1, 2, 4, 8; ct in 1, 2, 4; 2 <= rt*ct <= 16; unroll 1 or 2 with unroll*(rt+ct) <= 8; nt % ct == 0;
+ * grid_x <= nt/ct). Same packing, argument words and C layout as the single-tile kernel; a CTA's
+ * row block is rt row tiles (grid_y = row tiles / rt). mutant != 0 drops the last K pass. */
+int omega_blackwell_codegen_matmul_frag_block_prog(const OmegaMatMulSpec *spec, uint32_t grid_x, uint32_t unroll,
+                                                   uint32_t rt, uint32_t ct, int mutant, BlackwellIRProgram *prog);
+int omega_blackwell_codegen_matmul_frag_block(const OmegaMatMulSpec *spec, uint32_t grid_x, uint32_t unroll,
+                                              uint32_t rt, uint32_t ct, int mutant, OmegaBlackwellKernel *kernel);
+/* rt, ct for mt row tiles and nt column tiles (1, 1 = the single-tile kernel), and the unroll the API uses */
+void omega_matmul_frag_block_shape(uint32_t mt, uint32_t nt, uint32_t *rt, uint32_t *ct);
+uint32_t omega_matmul_frag_block_unroll(uint32_t kp, uint32_t rt, uint32_t ct);
 /* a: m x k row-major. dst: mp x kp elements, fully written (zero padding). */
 void omega_matmul_frag_pack_a(const uint16_t *a, uint32_t m, uint32_t k, uint32_t mp, uint32_t kp, uint16_t *dst);
 /* b: k x n row-major. dst: the column tiles [nt0, nt1), (nt1 - nt0) * kp * 8 elements, fully

@@ -379,13 +379,18 @@ static int encode_single_insn(const BlackwellIRInsn *insn, const OmegaRegAlloc *
             w[3] = insn->control ? insn->control : 0x000f2200;
             break;
 
-        case BW_IR_STG_E:
-            /* STG.E desc[URd][Ra.64], Rb */
+        case BW_IR_STG_E: {
+            /* STG.E desc[URd][Ra.64+imm], Rb. imm = signed 24-bit byte offset at bits 40..63 (w[1] bits
+             * 8..31), as for LDG; words from nvcc 13.0.88 -arch=sm_121 (omega_blackwell_verify_codegen_fixtures_fragmm,
+             * 2026-10-12: STG.E desc[UR4][R4.64+0x4], R9 = 0x0000040904007986 0x000fe8000c101904). */
+            int32_t off = (int32_t)insn->imm;
+            if (off < -(1 << 23) || off >= (1 << 23)) return -1;
             w[0] = 0x7986 | ((uint32_t)(src1 & 0xff) << 24);
-            w[1] = (uint32_t)(src2 & 0xff);
+            w[1] = (uint32_t)(src2 & 0xff) | (((uint32_t)off & 0xffffffU) << 8);
             w[2] = 0x0c101900 | (uint32_t)(ureg & 0xff);
             w[3] = insn->control ? insn->control : 0x000fe200;
             break;
+        }
 
         case BW_IR_STG_EF:
             /* STG.E.MMIO.GPU. Uncached store, meant to be visible without a fence. */
@@ -877,6 +882,13 @@ int omega_blackwell_verify_codegen_fixtures_fragmm(void) {
         { BW_IR_LDS128, 4, 20, -1, -1, -1, 0, 0, 0x14047984U, 0x00000000U, 0x00000c00U, 0, "LDS.128 R4, [R20]" },
         { BW_IR_LDS128, 8, 20, -1, -1, -1, 0x40, 0, 0x14087984U, 0x00004000U, 0x00000c00U, 0, "LDS.128 R8, [R20+0x40]" },
         { BW_IR_LDS128, 12, 20, -1, -1, -1, 0x100, 0, 0x140c7984U, 0x00010000U, 0x00000c00U, 0, "LDS.128 R12, [R20+0x100]" },
+        /* STG.E with an immediate offset (blocked prefill matmul, 2026-10-12): nvcc 13.0.88 -arch=sm_121 on float stores
+         * at register + constant offsets (~/.claude/jobs/ade3c837/tmp/stg-oracle/stg.cu); the second word is the
+         * offset-free STG word with UR4 */
+        { BW_IR_STG_E, -1, 4, 8, -1, 4, 0, 0, 0x04007986U, 0x00000008U, 0x0c101904U, 0, "STG.E desc[UR4][R4.64], R8" },
+        { BW_IR_STG_E, -1, 4, 9, -1, 4, 0x4, 0, 0x04007986U, 0x00000409U, 0x0c101904U, 0, "STG.E desc[UR4][R4.64+0x4], R9" },
+        { BW_IR_STG_E, -1, 4, 10, -1, 4, 0x4000, 0, 0x04007986U, 0x0040000aU, 0x0c101904U, 0, "STG.E desc[UR4][R4.64+0x4000], R10" },
+        { BW_IR_STG_E, -1, 6, 11, -1, 4, 0xfff00000u, 0, 0x06007986U, 0xf000000bU, 0x0c101904U, 0, "STG.E desc[UR4][R6.64+-0x100000], R11" },
     };
     for (int i = 0; i < (int)(sizeof fx / sizeof fx[0]); i++) {
         BlackwellIRInsn in;
@@ -1893,6 +1905,213 @@ int omega_blackwell_codegen_matmul_frag(const OmegaMatMulSpec *spec, uint32_t gr
  * loads on SB2 and again with A on SB2 and B on SB4 (2026-10-07 07:50Z and 07:54Z, omega #328),
  * while unroll 4 (48 registers) ran every Qwen3 decode shape correctly. Cause UNKNOWN; the next
  * experiment is the unroll-4 kernel launched with 72 declared registers (one variable). */
+/* ---- 2026-10-12: row/column-blocked fragment kernel (prefill rows) ------------------------
+ *
+ * The kernel above gives one warp one 16x8 output tile: every B fragment is streamed once per row
+ * tile and every A fragment once per column tile, so at m = 128 on GB10 the three Qwen3-8B prefill
+ * shapes move about 4.7 GB per call at the DRAM rate (128x4096x24576: 20.9 ms, 2026-10-12 baseline).
+ * Here one warp owns RT row tiles x CT column tiles (RT*CT accumulators) over all of K: per K step
+ * it loads RT A fragments and CT B fragments and runs RT*CT HMMAs, so each loaded fragment feeds
+ * RT (B) or CT (A) tensor ops. Same packing, grid rules and C layout as the kernel above: the A
+ * fragments of row tile i sit at +i*KS*512 bytes, the B fragments of column tile j at +j*KS*256,
+ * both immediate offsets of the same cursors; the C tile (i, j) is at +i*16*N*4 + j*32 bytes from
+ * the two row pointers (STG.E immediate offsets, fixtures in omega_blackwell_verify_codegen_fixtures_fragmm).
+ * Loads per pass stay at or under 8 (unroll*(RT+CT)), the count the proven unroll-4 kernel issues;
+ * unroll 8 of that kernel (16 loads per pass) never completed on the GB10 and the cause is UNKNOWN,
+ * so this kernel does not go past that envelope. The HMMA chain keeps the dependent-chain control
+ * words (stall 15 then NOP stall 14) although the RT*CT accumulators are independent: a longer stall
+ * is never wrong, and the loads dominate the pass. CTA = one warp, as above; a grid of
+ * (grid_x, row blocks); column blocks advance by grid_x per pass of the column loop. */
+int omega_blackwell_codegen_matmul_frag_block_prog(const OmegaMatMulSpec *spec, uint32_t grid_x, uint32_t unroll,
+                                                   uint32_t rt, uint32_t ct, int mutant, BlackwellIRProgram *prog) {
+    if (!spec || !prog) return -1;
+    if (spec->m == 0 || spec->k == 0 || spec->n == 0) return -1;
+    if (spec->precision != OMEGA_MATMUL_PRECISION_FP16 && spec->precision != OMEGA_MATMUL_PRECISION_BF16) return -1;
+    if (spec->m % 16 != 0 || spec->n % 8 != 0 || spec->k % 16 != 0) return -1;
+    if (rt != 1 && rt != 2 && rt != 4 && rt != 8) return -1;
+    if (ct != 1 && ct != 2 && ct != 4) return -1;
+    if (rt * ct > 16 || rt * ct < 2) return -1; /* 1x1 is the kernel above */
+    if (unroll != 1 && unroll != 2) return -1;
+    if (unroll * (rt + ct) > 8) return -1;
+    const uint32_t K = spec->k, N = spec->n, NT = N / 8, KS = K / 16;
+    if (KS % unroll != 0 || NT % ct != 0) return -1;
+    const uint32_t ITERS = KS / unroll, NB = NT / ct;
+    if (grid_x == 0 || grid_x > NB) return -1;
+    if (mutant && ITERS < 2) return -1;
+    /* every index and immediate below must fit: 32 bits for the index arithmetic, signed 24 bits for
+     * the load/store offsets (rows up to OMEGA_BW_MATMUL_MAX_M) */
+    if ((uint64_t)NT * KS * 32u > 0xffffffffull || (uint64_t)(OMEGA_BW_MATMUL_MAX_M / 16u) * KS * 32u > 0xffffffffull ||
+        (uint64_t)grid_x * ct * KS * 256u > 0xffffffffull || (uint64_t)N * 32u > 0xffffffffull ||
+        (uint64_t)OMEGA_BW_MATMUL_MAX_M * N > 0xffffffffull)
+        return -1;
+    if ((uint64_t)(rt - 1) * KS * 512u + (unroll - 1) * 512u >= (1ull << 23) ||
+        (uint64_t)(ct - 1) * KS * 256u + (unroll - 1) * 256u >= (1ull << 23) ||
+        (uint64_t)(rt - 1) * 16u * N * 4u + (ct - 1) * 32u + 4u >= (1ull << 23))
+        return -1;
+
+    omega_bw_ir_init(prog);
+    int v_ptr_a = omega_bw_ir_alloc_vreg64(prog), v_ptr_b = omega_bw_ir_alloc_vreg64(prog), v_ptr_c = omega_bw_ir_alloc_vreg64(prog);
+    int uv_desc = omega_bw_ir_alloc_uvreg64(prog);
+    int v_tid = omega_bw_ir_alloc_vreg(prog), v_ctaid_x = omega_bw_ir_alloc_vreg(prog), v_ctaid_y = omega_bw_ir_alloc_vreg(prog);
+    int v_group = omega_bw_ir_alloc_vreg(prog), v_tig = omega_bw_ir_alloc_vreg(prog), v_tcol2 = omega_bw_ir_alloc_vreg(prog);
+    int v_r0 = omega_bw_ir_alloc_vreg(prog), v_r1 = omega_bw_ir_alloc_vreg(prog), v_c1 = omega_bw_ir_alloc_vreg(prog);
+    int v_idx = omega_bw_ir_alloc_vreg(prog), v_col = omega_bw_ir_alloc_vreg(prog), v_cnt = omega_bw_ir_alloc_vreg(prog);
+    int v_pa = omega_bw_ir_alloc_vreg64(prog), v_pbcol = omega_bw_ir_alloc_vreg64(prog);
+    int v_pc0 = omega_bw_ir_alloc_vreg64(prog), v_pc1 = omega_bw_ir_alloc_vreg64(prog);
+    int v_pac = omega_bw_ir_alloc_vreg64(prog), v_pbc = omega_bw_ir_alloc_vreg64(prog);
+    int v_rd[16], v_ra[2][8], v_rb[2][4];
+    for (uint32_t t = 0; t < rt * ct; t++) v_rd[t] = omega_bw_ir_alloc_vreg128(prog);
+    for (uint32_t u = 0; u < unroll; u++) {
+        for (uint32_t i = 0; i < rt; i++) v_ra[u][i] = omega_bw_ir_alloc_vreg128(prog);
+        for (uint32_t j = 0; j < ct; j++) v_rb[u][j] = omega_bw_ir_alloc_vreg64(prog);
+    }
+    if (v_rb[unroll - 1][ct - 1] < 0 || v_ra[unroll - 1][rt - 1] < 0 || v_rd[rt * ct - 1] < 0 || uv_desc < 0) return -1;
+
+    const uint32_t CTRL_STG_RDBAR3 = 0x0007e200u, CTRL_IMADW_WAIT3 = 0x009fcc00u, CTRL_MOVRZ_WAIT3 = 0x008fe200u;
+
+    /* prologue: descriptor, pointers, ids (as the kernel above; a CTA's row block is rt row tiles) */
+    BW_APPEND(prog, .op = BW_IR_LDCU64, .dst_vreg = uv_desc, .imm = 0x358, .is_uniform = true);
+    BW_APPEND(prog, .op = BW_IR_LDC64, .dst_vreg = v_ptr_a, .imm = 0x380);
+    BW_APPEND(prog, .op = BW_IR_LDC64, .dst_vreg = v_ptr_b, .imm = 0x388);
+    BW_APPEND(prog, .op = BW_IR_LDC64, .dst_vreg = v_ptr_c, .imm = 0x390);
+    BW_APPEND(prog, .op = BW_IR_S2R, .dst_vreg = v_tid, .imm = BW_SR_TID_X);
+    BW_APPEND(prog, .op = BW_IR_S2R, .dst_vreg = v_ctaid_x, .imm = BW_SR_CTAID_X);
+    BW_APPEND(prog, .op = BW_IR_S2R, .dst_vreg = v_ctaid_y, .imm = BW_SR_CTAID_Y);
+    BW_APPEND(prog, .op = BW_IR_MOV_IMM, .dst_vreg = v_c1, .imm = 1);
+    BW_APPEND(prog, .op = BW_IR_SHF_R, .dst_vreg = v_group, .src1_vreg = v_tid, .imm = 2);
+    BW_APPEND(prog, .op = BW_IR_LOP3_AND, .dst_vreg = v_tig, .src1_vreg = v_tid, .imm = 3);
+    BW_APPEND(prog, .op = BW_IR_IMAD, .dst_vreg = v_tcol2, .src1_vreg = v_tig, .src2_vreg = -1, .imm = 2, .src3_vreg = -1);
+    /* r0 = ctaid_y * 16 * rt + group: row of this lane in row tile 0 of the block; r1 = r0 + 8 */
+    BW_APPEND(prog, .op = BW_IR_IMAD, .dst_vreg = v_r0, .src1_vreg = v_ctaid_y, .src2_vreg = -1, .imm = 16u * rt, .src3_vreg = v_group);
+    BW_APPEND(prog, .op = BW_IR_IMAD, .dst_vreg = v_r1, .src1_vreg = v_c1, .src2_vreg = -1, .imm = 8, .src3_vreg = v_r0);
+    /* pa = A + (ctaid_y * rt * KS * 32 + tid) * 16: row tile 0 of this block, this lane's 16 bytes of step 0 */
+    BW_APPEND(prog, .op = BW_IR_IMAD, .dst_vreg = v_idx, .src1_vreg = v_ctaid_y, .src2_vreg = -1, .imm = rt * KS * 32u, .src3_vreg = v_tid);
+    BW_APPEND(prog, .op = BW_IR_IMAD_WIDE, .dst_vreg = v_pa, .src1_vreg = v_idx, .src2_vreg = -1, .imm = 16, .src3_vreg = v_ptr_a);
+    /* col = ctaid_x * ct: first column tile of this CTA's first column block */
+    BW_APPEND(prog, .op = BW_IR_IMAD, .dst_vreg = v_col, .src1_vreg = v_ctaid_x, .src2_vreg = -1, .imm = ct, .src3_vreg = -1);
+    /* pbcol = B + (col * KS * 32 + tid) * 8: column tile col, this lane's 8 bytes of step 0 */
+    BW_APPEND(prog, .op = BW_IR_IMAD, .dst_vreg = v_idx, .src1_vreg = v_col, .src2_vreg = -1, .imm = KS * 32u, .src3_vreg = v_tid);
+    BW_APPEND(prog, .op = BW_IR_IMAD_WIDE, .dst_vreg = v_pbcol, .src1_vreg = v_idx, .src2_vreg = -1, .imm = 8, .src3_vreg = v_ptr_b);
+    /* pc0 = C + (r0*N + col*8 + tcol2)*4 ; pc1 with r1 */
+    BW_APPEND(prog, .op = BW_IR_IMAD, .dst_vreg = v_idx, .src1_vreg = v_r0, .src2_vreg = -1, .imm = N, .src3_vreg = v_tcol2);
+    BW_APPEND(prog, .op = BW_IR_IMAD, .dst_vreg = v_idx, .src1_vreg = v_col, .src2_vreg = -1, .imm = 8, .src3_vreg = v_idx);
+    BW_APPEND(prog, .op = BW_IR_IMAD_WIDE, .dst_vreg = v_pc0, .src1_vreg = v_idx, .src2_vreg = -1, .imm = 4, .src3_vreg = v_ptr_c);
+    BW_APPEND(prog, .op = BW_IR_IMAD, .dst_vreg = v_idx, .src1_vreg = v_r1, .src2_vreg = -1, .imm = N, .src3_vreg = v_tcol2);
+    BW_APPEND(prog, .op = BW_IR_IMAD, .dst_vreg = v_idx, .src1_vreg = v_col, .src2_vreg = -1, .imm = 8, .src3_vreg = v_idx);
+    BW_APPEND(prog, .op = BW_IR_IMAD_WIDE, .dst_vreg = v_pc1, .src1_vreg = v_idx, .src2_vreg = -1, .imm = 4, .src3_vreg = v_ptr_c);
+
+    /* ---- column-block loop: zero the rt*ct accumulators (the first MOV waits SB3: the previous
+     * block's stores have read them), rewind the K cursors ---- */
+    const int L_col = (int)prog->count;
+    for (uint32_t t = 0; t < rt * ct; t++)
+        for (uint32_t s = 0; s < 4; s++)
+            BW_APPEND(prog, .op = BW_IR_MOV_RZ, .dst_vreg = v_rd[t], .dst_subreg = (int)s,
+                      .control = (t == 0 && s == 0) ? CTRL_MOVRZ_WAIT3 : 0);
+    BW_APPEND(prog, .op = BW_IR_IMAD_WIDE, .dst_vreg = v_pac, .src1_vreg = v_c1, .src2_vreg = -1, .imm = 0, .src3_vreg = v_pa);
+    BW_APPEND(prog, .op = BW_IR_IMAD_WIDE, .dst_vreg = v_pbc, .src1_vreg = v_c1, .src2_vreg = -1, .imm = 0, .src3_vreg = v_pbcol);
+    BW_APPEND(prog, .op = BW_IR_MOV_IMM, .dst_vreg = v_cnt, .imm = mutant ? ITERS - 1 : ITERS);
+
+    /* ---- K loop: `unroll` steps of (rt A + ct B) loads, then the rt*ct*unroll HMMAs ---- */
+    const int L_k = (int)prog->count;
+    for (uint32_t u = 0; u < unroll; u++) {
+        for (uint32_t i = 0; i < rt; i++)
+            BW_APPEND(prog, .op = BW_IR_LDG_E_128, .dst_vreg = v_ra[u][i], .src1_vreg = v_pac, .src2_vreg = -1, .src3_vreg = -1,
+                      .ureg = uv_desc, .imm = u * 512u + i * KS * 512u, .control = BW_FRAG_CTRL_LDG_A);
+        for (uint32_t j = 0; j < ct; j++)
+            BW_APPEND(prog, .op = BW_IR_LDG_E_64, .dst_vreg = v_rb[u][j], .src1_vreg = v_pbc, .src2_vreg = -1, .src3_vreg = -1,
+                      .ureg = uv_desc, .imm = u * 256u + j * KS * 256u, .control = BW_FRAG_CTRL_LDG_B);
+    }
+    const BlackwellIROpcode hmma = (spec->precision == OMEGA_MATMUL_PRECISION_BF16) ? BW_IR_HMMA_BF16 : BW_IR_HMMA_F16;
+    for (uint32_t u = 0; u < unroll; u++)
+        for (uint32_t i = 0; i < rt; i++)
+            for (uint32_t j = 0; j < ct; j++) {
+                const int rd = v_rd[i * ct + j];
+                BW_APPEND(prog, .op = hmma, .dst_vreg = rd, .src1_vreg = v_ra[u][i], .src2_vreg = v_rb[u][j], .src3_vreg = rd,
+                          .control = BW_FRAG_CTRL_HMMA);
+                BW_APPEND(prog, .op = BW_IR_NOP, .dst_vreg = -1, .src1_vreg = -1, .src2_vreg = -1, .src3_vreg = -1, .ureg = -1,
+                          .control = BW_FRAG_CTRL_NOP);
+            }
+    BW_APPEND(prog, .op = BW_IR_IMAD_WIDE, .dst_vreg = v_pac, .src1_vreg = v_c1, .src2_vreg = -1, .imm = unroll * 512u, .src3_vreg = v_pac);
+    BW_APPEND(prog, .op = BW_IR_IMAD_WIDE, .dst_vreg = v_pbc, .src1_vreg = v_c1, .src2_vreg = -1, .imm = unroll * 256u, .src3_vreg = v_pbc);
+    BW_APPEND(prog, .op = BW_IR_IMAD, .dst_vreg = v_cnt, .src1_vreg = v_c1, .src2_vreg = -1, .imm = 0xffffffffu, .src3_vreg = v_cnt);
+    BW_APPEND(prog, .op = BW_IR_ISETP_GE, .dst_vreg = -1, .src1_vreg = v_cnt, .src2_vreg = -1, .imm = 1, .src3_vreg = -1);
+    {
+        int here = (int)prog->count;
+        BW_APPEND(prog, .op = BW_IR_BRA, .imm = (uint32_t)(int32_t)(L_k - here), .predicate_p0 = true);
+    }
+    const int L_k_end = (int)prog->count - 1;
+
+    /* ---- store the rt*ct tiles: tile (i, j) at +i*16*N*4 + j*32 bytes from pc0 (rows r0) and pc1 (rows r1) ---- */
+    for (uint32_t i = 0; i < rt; i++)
+        for (uint32_t j = 0; j < ct; j++) {
+            const int rd = v_rd[i * ct + j];
+            const uint32_t off = i * 16u * N * 4u + j * 32u;
+            BW_APPEND(prog, .op = BW_IR_STG_E, .src1_vreg = v_pc0, .src2_vreg = rd, .src2_subreg = 0, .src3_vreg = -1, .ureg = uv_desc, .imm = off, .control = CTRL_STG_RDBAR3);
+            BW_APPEND(prog, .op = BW_IR_STG_E, .src1_vreg = v_pc0, .src2_vreg = rd, .src2_subreg = 1, .src3_vreg = -1, .ureg = uv_desc, .imm = off + 4u, .control = CTRL_STG_RDBAR3);
+            BW_APPEND(prog, .op = BW_IR_STG_E, .src1_vreg = v_pc1, .src2_vreg = rd, .src2_subreg = 2, .src3_vreg = -1, .ureg = uv_desc, .imm = off, .control = CTRL_STG_RDBAR3);
+            BW_APPEND(prog, .op = BW_IR_STG_E, .src1_vreg = v_pc1, .src2_vreg = rd, .src2_subreg = 3, .src3_vreg = -1, .ureg = uv_desc, .imm = off + 4u, .control = CTRL_STG_RDBAR3);
+        }
+    /* next column block: col += grid_x*ct ; C by grid_x*ct*8 f32 (waits SB3 first) ; B by grid_x*ct tiles of KS*256 bytes */
+    BW_APPEND(prog, .op = BW_IR_IMAD, .dst_vreg = v_col, .src1_vreg = v_c1, .src2_vreg = -1, .imm = grid_x * ct, .src3_vreg = v_col);
+    BW_APPEND(prog, .op = BW_IR_IMAD_WIDE, .dst_vreg = v_pc0, .src1_vreg = v_c1, .src2_vreg = -1, .imm = grid_x * ct * 32u, .src3_vreg = v_pc0, .control = CTRL_IMADW_WAIT3);
+    BW_APPEND(prog, .op = BW_IR_IMAD_WIDE, .dst_vreg = v_pc1, .src1_vreg = v_c1, .src2_vreg = -1, .imm = grid_x * ct * 32u, .src3_vreg = v_pc1);
+    BW_APPEND(prog, .op = BW_IR_IMAD_WIDE, .dst_vreg = v_pbcol, .src1_vreg = v_c1, .src2_vreg = -1, .imm = grid_x * ct * KS * 256u, .src3_vreg = v_pbcol);
+    BW_APPEND(prog, .op = BW_IR_ISETP_GE, .dst_vreg = -1, .src1_vreg = v_col, .src2_vreg = -1, .imm = NT, .src3_vreg = -1);
+    {
+        int here = (int)prog->count;
+        BW_APPEND(prog, .op = BW_IR_BRA, .imm = (uint32_t)(int32_t)(L_col - here), .predicate_p0 = true, .predicate_not = true);
+    }
+    const int L_col_end = (int)prog->count - 1;
+    BW_APPEND(prog, .op = BW_IR_EXIT);
+    BW_APPEND(prog, .op = BW_IR_BRA);
+
+    /* loop-carried values live to the end of their loop (as the kernel above) */
+    const int col_carried[] = { v_c1, v_col, v_pa, v_pbcol, v_pc0, v_pc1 };
+    for (size_t i = 0; i < sizeof col_carried / sizeof col_carried[0]; i++) bw_live_until(prog, col_carried[i], L_col_end);
+    for (uint32_t t = 0; t < rt * ct; t++) bw_live_until(prog, v_rd[t], L_col_end);
+    const int k_carried[] = { v_pac, v_pbc, v_cnt };
+    for (size_t i = 0; i < sizeof k_carried / sizeof k_carried[0]; i++) bw_live_until(prog, k_carried[i], L_k_end);
+    bw_keep_alive(prog, L_k, L_k_end, L_k_end);
+    return omega_bw_regalloc_solve(prog);
+}
+
+int omega_blackwell_codegen_matmul_frag_block(const OmegaMatMulSpec *spec, uint32_t grid_x, uint32_t unroll,
+                                              uint32_t rt, uint32_t ct, int mutant, OmegaBlackwellKernel *kernel) {
+    if (!spec || !kernel) return -1;
+    BlackwellIRProgram prog;
+    if (omega_blackwell_codegen_matmul_frag_block_prog(spec, grid_x, unroll, rt, ct, mutant, &prog) != 0) return -1;
+    size_t max_bytes = (size_t)BW_MAX_IR_INSNS * 16u;
+    kernel->code = malloc(max_bytes);
+    if (!kernel->code) return -1;
+    size_t emitted_size = 0;
+    if (omega_bw_encode_program(&prog, kernel->code, max_bytes, &emitted_size) != 0) {
+        free(kernel->code);
+        kernel->code = NULL;
+        return -1;
+    }
+    kernel->code_size = emitted_size;
+    kernel->insn_count = emitted_size / 16;
+    kernel->gpr_count = prog.regalloc.peak_gpr_usage;
+    kernel->uniform_gpr_count = prog.regalloc.peak_ugpr_usage;
+    sha256_hash(kernel->code, kernel->code_size, kernel->code_digest);
+    return 0;
+}
+
+/* The row and column tiles one warp owns in the blocked kernel: the largest of 4, 2, 1 dividing the
+ * row tiles (rt), and for rt > 1 the largest of 4, 2, 1 dividing the column tiles (ct); rt = ct = 1
+ * is the single-tile kernel (decode rows). */
+void omega_matmul_frag_block_shape(uint32_t mt, uint32_t nt, uint32_t *rt, uint32_t *ct) {
+    uint32_t r = mt % 4u == 0 ? 4u : mt % 2u == 0 ? 2u : 1u;
+    *rt = r;
+    *ct = r > 1 ? (nt % 4u == 0 ? 4u : nt % 2u == 0 ? 2u : 1u) : 1u;
+}
+
+/* loads per pass at or under 8 (see the kernel comment): unroll 2 only when 2*(rt+ct) fits and KS is even */
+uint32_t omega_matmul_frag_block_unroll(uint32_t kp, uint32_t rt, uint32_t ct) {
+    const uint32_t ks = kp / 16u;
+    return (ks % 2u == 0 && 2u * (rt + ct) <= 8u) ? 2u : 1u;
+}
+
 uint32_t omega_matmul_frag_unroll(uint32_t kp) {
     const uint32_t ks = kp / 16u;
     return ks % 4u == 0 ? 4u : ks % 2u == 0 ? 2u : 1u;
