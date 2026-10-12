@@ -358,7 +358,9 @@ void omega_gpu_tensor_free(OmegaGpuTensor *t) {
 
 /* ---- the matmul ---- */
 
-static int matmul_core(uint32_t m, const uint16_t *a, const OmegaGpuTensor *b, float *c, OmegaGpuMatmulInfo *info) {
+/* a16 or a32 (exactly one non-NULL): the activation rows as bf16 or as f32, packed into fragment
+ * order in one pass either way (f32 rows are converted while packing, no staging copy) */
+static int matmul_core(uint32_t m, const uint16_t *a16, const float *a32, const OmegaGpuTensor *b, float *c, OmegaGpuMatmulInfo *info) {
     const uint32_t k = b->k, n = b->n, kp = b->kp, np = b->np;
     const uint32_t mp = round_up(m, OMEGA_GPU_MATMUL_TILE_M);
     omega_gpu_session_lock();
@@ -388,11 +390,13 @@ static int matmul_core(uint32_t m, const uint16_t *a, const OmegaGpuTensor *b, f
         /* a serving reservation refuses growth loudly (TOO_LARGE, error text names the sizes); anything else is a driver failure */
         return src == OMEGA_GPU_SESSION_SCRATCH_RESERVED ? OMEGA_GPU_MATMUL_TOO_LARGE : OMEGA_GPU_MATMUL_CHIP_FAIL;
     }
-    /* activation rows in, fragment order (omega_matmul_frag_pack_a), zero padded, packed on the
-     * host and copied in order into the uncached buffer; result rows poisoned */
+    /* activation rows in, fragment order (omega_matmul_frag_pack_a / _f32: f32 rows are converted
+     * while packing, one pass), zero padded, packed on the host and copied in order into the
+     * uncached buffer; result rows poisoned */
     uint16_t *ah = malloc((size_t)mp * kp * sizeof *ah);
     if (!ah) { omega_gpu_session_unlock(); return OMEGA_GPU_MATMUL_BAD_ARGS; }
-    omega_matmul_frag_pack_a(a, m, k, mp, kp, ah);
+    if (a32) omega_matmul_frag_pack_a_f32(a32, m, k, mp, kp, ah);
+    else omega_matmul_frag_pack_a(a16, m, k, mp, kp, ah);
     memcpy(g.a_buf.mem.cpu, ah, (size_t)mp * kp * sizeof *ah);
     free(ah);
     float *cd = g.c_buf.mem.cpu;
@@ -429,7 +433,7 @@ static int resident_entry(uint32_t m, const uint16_t *a, const OmegaGpuTensor *b
     if (info) memset(info, 0, sizeof *info);
     if (!a || !b || !c || m == 0 || !b->mem.cpu) return OMEGA_GPU_MATMUL_BAD_ARGS;
     if (m > OMEGA_BW_MATMUL_MAX_M) return OMEGA_GPU_MATMUL_TOO_LARGE;
-    int rc = matmul_core(m, a, b, c, info);
+    int rc = matmul_core(m, a, NULL, b, c, info);
     if (info) info->call_ns = now_ns() - t0;
     return rc;
 }
@@ -445,12 +449,7 @@ int omega_gpu_matmul_resident_f32(uint32_t m, const float *a, const OmegaGpuTens
     if (info) memset(info, 0, sizeof *info);
     if (!a || !b || !c || m == 0 || !b->mem.cpu) return OMEGA_GPU_MATMUL_BAD_ARGS;
     if (m > OMEGA_BW_MATMUL_MAX_M) return OMEGA_GPU_MATMUL_TOO_LARGE;
-    size_t cnt = (size_t)m * b->k;
-    uint16_t *h = malloc(cnt * sizeof *h);
-    if (!h) return OMEGA_GPU_MATMUL_BAD_ARGS;
-    for (size_t i = 0; i < cnt; i++) h[i] = omega_fp32_to_bf16(a[i]);
-    int rc = matmul_core(m, h, b, c, info);
-    free(h);
+    int rc = matmul_core(m, NULL, a, b, c, info);
     if (info) info->call_ns = now_ns() - t0;
     return rc;
 }
@@ -491,7 +490,7 @@ int omega_gpu_matmul_bf16(uint32_t m, uint32_t k, uint32_t n,
     OmegaGpuTensor *t = NULL;
     int rc = omega_gpu_tensor_upload_bf16(k, n, b, &t);
     if (rc != OMEGA_GPU_MATMUL_OK) return rc;
-    rc = matmul_core(m, a, t, c, info);
+    rc = matmul_core(m, a, NULL, t, c, info);
     omega_gpu_tensor_free(t);
     info->resident = false;
     if (rc == OMEGA_GPU_MATMUL_OK && g.oracle) {

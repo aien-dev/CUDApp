@@ -105,6 +105,24 @@ static void frag_host_checks(void) {
                     }
                 }
         CHECK(bad_a == 0 && bad_b == 0, "fragment pack round trip %ux%ux%u (A bad %zu, B bad %zu)", m, k, n, bad_a, bad_b);
+        /* the fused f32 packer equals convert-then-pack bit for bit (ties, denormals, inf, NaN included) */
+        float *af = malloc((size_t)m * k * sizeof *af);
+        uint16_t *pf = malloc((size_t)mp * kp * 2);
+        for (size_t i = 0; i < (size_t)m * k; i++) {
+            uint32_t bits = lcg(&seed) * 2654435761u;
+            switch (i % 7) {
+            case 0: bits = (bits & 0x807fffffu) | 0x3f800000u; break; /* in [1,2) with every mantissa bit live (rounding ties) */
+            case 1: bits = 0x7f800000u | ((bits >> 9) & 0x7fffffu); break; /* inf (0 payload) or NaN payloads */
+            case 2: bits &= 0x807fffffu; break; /* zero and denormals */
+            default: break;
+            }
+            memcpy(&af[i], &bits, 4);
+            a[i] = omega_fp32_to_bf16(af[i]);
+        }
+        omega_matmul_frag_pack_a(a, m, k, mp, kp, pa);
+        omega_matmul_frag_pack_a_f32(af, m, k, mp, kp, pf);
+        CHECK(memcmp(pa, pf, (size_t)mp * kp * 2) == 0, "fused f32 pack equals convert-then-pack %ux%u", m, k);
+        free(af); free(pf);
         free(a); free(b); free(pa); free(pb);
     }
     /* the kernel generates for every padded Qwen3-4B and Llama-3.2-1B decode shape at the API's unroll */

@@ -250,6 +250,8 @@ void omega_matmul_frag_block_shape(uint32_t mt, uint32_t nt, uint32_t *rt, uint3
 uint32_t omega_matmul_frag_block_unroll(uint32_t kp, uint32_t rt, uint32_t ct);
 /* a: m x k row-major. dst: mp x kp elements, fully written (zero padding). */
 void omega_matmul_frag_pack_a(const uint16_t *a, uint32_t m, uint32_t k, uint32_t mp, uint32_t kp, uint16_t *dst);
+/* the same from f32 rows, converted to bf16 as omega_fp32_to_bf16 does (one pass, no staging copy) */
+void omega_matmul_frag_pack_a_f32(const float *a, uint32_t m, uint32_t k, uint32_t mp, uint32_t kp, uint16_t *dst);
 /* b: k x n row-major. dst: the column tiles [nt0, nt1), (nt1 - nt0) * kp * 8 elements, fully
  * written; it is the part of the packed tensor starting at element nt0 * kp * 8. */
 void omega_matmul_frag_pack_b(const uint16_t *b, uint32_t k, uint32_t n, uint32_t kp,

@@ -2117,17 +2117,52 @@ uint32_t omega_matmul_frag_unroll(uint32_t kp) {
     return ks % 4u == 0 ? 4u : ks % 2u == 0 ? 2u : 1u;
 }
 
+/* A block (mt, ks) holds rows 16mt..16mt+15 and columns 16ks..16ks+15 as 256 bf16 at element
+ * (mt*KS + ks)*256; inside the block, element (rr, cc) sits at lane*8 + e with lane = (rr%8)*4 + (cc%8)/2
+ * and e = (cc/8)*4 + (rr/8)*2 + cc%2 (the HMMA.16816 A fragment order, header comment). The 256-entry
+ * table makes the pack a tile loop with no per-element division (2026-10-12: the per-element form with
+ * six divisions and a conversion call per element was ~2.5 ms per MB of activations at m = 128). */
+static uint16_t g_frag_a_tab[256];
+static void frag_a_tab_init(void) {
+    if (g_frag_a_tab[255]) return;
+    for (uint32_t rr = 0; rr < 16; rr++)
+        for (uint32_t cc = 0; cc < 16; cc++)
+            g_frag_a_tab[rr * 16 + cc] = (uint16_t)((((rr & 7u) * 4u + ((cc & 7u) >> 1)) * 8u) + (cc >> 3) * 4u + (rr >> 3) * 2u + (cc & 1u));
+}
+/* bit for bit what the compiler's (__bf16)f cast gives (gpu_matmul_api_test checks it against
+ * omega_fp32_to_bf16 on ties, denormals, inf and NaN payloads): round to nearest even, a NaN keeps
+ * its top payload bits and is made quiet. gcc 13 on aarch64 emits the cast as a call to the
+ * soft-float routine __truncsfbf2 per element, which was most of the packing cost. */
+static inline uint16_t frag_f32_to_bf16(float f) {
+    uint32_t u;
+    memcpy(&u, &f, 4);
+    if ((u & 0x7f800000u) == 0x7f800000u) return (uint16_t)((u >> 16) | ((u & 0x007fffffu) ? 0x0040u : 0u));
+    return (uint16_t)((u + 0x7fffu + ((u >> 16) & 1u)) >> 16);
+}
+#define FRAG_PACK_A_BODY(LOAD)                                                                          \
+    do {                                                                                                \
+        const uint32_t KS = kp / 16u;                                                                   \
+        frag_a_tab_init();                                                                              \
+        memset(dst, 0, (size_t)mp * kp * sizeof *dst);                                                  \
+        for (uint32_t mt = 0; mt < (m + 15u) / 16u; mt++) {                                             \
+            const uint32_t r1 = m - mt * 16u < 16u ? m - mt * 16u : 16u;                                \
+            for (uint32_t ks = 0; ks < (k + 15u) / 16u; ks++) {                                         \
+                const uint32_t c1 = k - ks * 16u < 16u ? k - ks * 16u : 16u;                            \
+                uint16_t *blk = dst + ((size_t)mt * KS + ks) * 256u;                                    \
+                for (uint32_t rr = 0; rr < r1; rr++) {                                                  \
+                    const uint16_t *tab = g_frag_a_tab + rr * 16u;                                      \
+                    const size_t src = (size_t)(mt * 16u + rr) * k + ks * 16u;                          \
+                    for (uint32_t cc = 0; cc < c1; cc++) blk[tab[cc]] = LOAD(a[src + cc]);              \
+                }                                                                                       \
+            }                                                                                           \
+        }                                                                                               \
+    } while (0)
+#define FRAG_ID(x) (x)
 void omega_matmul_frag_pack_a(const uint16_t *a, uint32_t m, uint32_t k, uint32_t mp, uint32_t kp, uint16_t *dst) {
-    const uint32_t KS = kp / 16u;
-    memset(dst, 0, (size_t)mp * kp * sizeof *dst);
-    for (uint32_t r = 0; r < m; r++) {
-        const uint32_t mt = r / 16u, rr = r % 16u, group = rr % 8u, hi = rr / 8u;
-        for (uint32_t c = 0; c < k; c++) {
-            const uint32_t ks = c / 16u, cc = c % 16u, khi = cc / 8u, tig = (cc % 8u) / 2u, lo = cc % 2u;
-            const size_t lane = group * 4u + tig;
-            dst[(((size_t)mt * KS + ks) * 32u + lane) * 8u + khi * 4u + hi * 2u + lo] = a[(size_t)r * k + c];
-        }
-    }
+    FRAG_PACK_A_BODY(FRAG_ID);
+}
+void omega_matmul_frag_pack_a_f32(const float *a, uint32_t m, uint32_t k, uint32_t mp, uint32_t kp, uint16_t *dst) {
+    FRAG_PACK_A_BODY(frag_f32_to_bf16);
 }
 
 void omega_matmul_frag_pack_b(const uint16_t *b, uint32_t k, uint32_t n, uint32_t kp,
