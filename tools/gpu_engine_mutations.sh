@@ -38,7 +38,7 @@ FREE_SKIPPED|$FILE|s/rc = b->free_buf(b->ctx, role);/rc = 0;/
 CLOSE_SKIPPED|$FILE|s/rc = b->close(b->ctx);/rc = 0;/
 CLEANUP_OVERWRITES_FIRST|$FILE|s/if (result->failure == OMEGA_GPU_ENGINE_OK)/if (1)/
 CLEANUP_FLAG_NOT_SET|$FILE|s/result->cleanup_failed = 1;/(void)0;/
-POISON_FILL_SKIPPED|$FILE|s/errno = 0; rc = b->fill_poison.*/rc = 0; e = 0;/
+POISON_FILL_SKIPPED|$FILE|s/ERRNO_CLEAR(); rc = b->fill_poison.*/rc = 0; e = 0;/
 STATE_PREPARED_SKIPPED|$FILE|s/result->last_state = OMEGA_GPU_ENGINE_STATE_PREPARED;/(void)0;/
 STATE_SUBMITTED_SKIPPED|$FILE|s/result->last_state = OMEGA_GPU_ENGINE_STATE_SUBMITTED;/(void)0;/
 STATE_GPU_COMPLETE_SKIPPED|$FILE|s/result->last_state = OMEGA_GPU_ENGINE_STATE_GPU_COMPLETE;/(void)0;/

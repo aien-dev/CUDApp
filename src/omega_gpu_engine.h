@@ -102,6 +102,7 @@ typedef enum {
     OMEGA_GPU_ENGINE_STEP_SCAN,
     OMEGA_GPU_ENGINE_STEP_FREE,
     OMEGA_GPU_ENGINE_STEP_CLOSE,
+    OMEGA_GPU_ENGINE_STEP_CLOCK_CHECK, /* freestanding build only: no platform clock installed */
     OMEGA_GPU_ENGINE_STEP_COUNT /* not a step: number of names above */
 } OmegaGpuEngineStep;
 
@@ -236,9 +237,16 @@ void omega_gpu_engine_test_reset_block(void);
  * result without a real uncertain completion. */
 void omega_gpu_engine_test_force_block(void);
 
-/* TEST ONLY. Replaces the millisecond clock the engine uses to measure
- * waited_ms (default: CLOCK_MONOTONIC). NULL restores the default. Not thread
- * safe: set it before any job runs. Lets host tests assert exact waited_ms. */
+/* Platform time service. Installs the monotonic millisecond clock the engine
+ * uses to measure waited_ms. Host build: NULL restores CLOCK_MONOTONIC.
+ * Freestanding build (OMEGA_GPU_NO_POSIX, see src/omega_gpu_platform.h):
+ * there is no default; omega_gpu_execute refuses with INTERNAL_INVARIANT at
+ * STEP_CLOCK_CHECK until a clock is installed. Not thread safe: set it before
+ * any job runs. */
+void omega_gpu_engine_set_clock(uint64_t (*now_ms)(void));
+
+/* TEST ONLY. Same as omega_gpu_engine_set_clock; lets host tests assert exact
+ * waited_ms with a fake clock. Kept so existing tests and mutants read as before. */
 void omega_gpu_engine_test_set_clock(uint64_t (*now_ms)(void));
 
 /* Static name strings, never NULL. Out-of-range values give "UNKNOWN". */

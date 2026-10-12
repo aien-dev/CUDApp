@@ -11,7 +11,11 @@
 #                            (tests/fake_m16_native.c); host only, no device, no physics C sources
 #   test-gpu-engine-backend-mutants  (A3b2) one mutant per protection in the backend and the vector wrapper
 #   test-gpu-engine-gb10-compile     (A3b2) compile-only check of tests/test_omega_gpu_engine_gb10.c (Phase B chip test, never run here)
-.PHONY: test-gpu-engine-compile test-gpu-engine test-gpu-engine-mutants test-gpu-engine-backend-compile test-gpu-engine-prod-build test-gpu-engine-sim test-gpu-engine-backend-mutants test-gpu-engine-gb10-compile
+#   gpu-engine-freestanding          (native v1 P07 cut A) the portable GPU files built -ffreestanding with
+#                                    OMEGA_GPU_NO_POSIX: no Linux header, no errno, no clock, no libc beyond mem*/str*
+#   test-gpu-engine-freestanding     the engine contract test and the platform contract test linked against
+#                                    those freestanding objects (host runner, opens no device)
+.PHONY: test-gpu-engine-compile test-gpu-engine test-gpu-engine-mutants test-gpu-engine-backend-compile test-gpu-engine-prod-build test-gpu-engine-sim test-gpu-engine-backend-mutants test-gpu-engine-gb10-compile gpu-engine-freestanding test-gpu-engine-freestanding
 build/test_omega_gpu_engine_compile: tests/test_omega_gpu_engine_compile.c src/omega_gpu_engine.c src/omega_gpu_engine.h
 	@mkdir -p build
 	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Isrc -DOMEGA_NUMERIC_CPU_ONLY -o $@ tests/test_omega_gpu_engine_compile.c src/omega_gpu_engine.c
@@ -97,3 +101,40 @@ test-gpu-serving-alloc: build/gpu_serving_alloc_count_test
 	@if ./build/gpu_serving_alloc_count_test reserve-skip >build/gpu_serving_alloc_count_skip.log 2>&1; then echo "RED RUN PASSED: the zero-allocation assertion does not need the reservation call"; exit 1; fi
 	@if [ "$$(grep -c "^FAIL" build/gpu_serving_alloc_count_skip.log)" -lt 1 ]; then echo "reserve-skip exited nonzero without a FAIL check (crash, not the red assertion)"; exit 1; fi
 	@echo "reserve-skip (no reservation call): fails as required ($$(grep -c "^FAIL" build/gpu_serving_alloc_count_skip.log) failing checks)"
+
+# native v1 P07 cut A (aienos#286 cut A, aien-architecture#190): the freestanding link target.
+# Each file below is compiled with no hosted headers available (-ffreestanding, -fno-builtin,
+# OMEGA_GPU_NO_POSIX) and the partial link of all of them may leave only the mem*/str* symbols
+# undefined. Any other undefined symbol (errno, clock_gettime, printf, malloc, pthread_*, nvrm_*,
+# m16_*) fails the target. This proves the first-compute PATH links without Linux headers or
+# runtime symbols; it proves nothing about device ownership (NOT_RUN until cut B runs on the Spark).
+GPU_FS_DIR = build/gpu_fs
+GPU_FS_CFLAGS = -std=gnu11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin -fno-stack-protector \
+	-DOMEGA_GPU_NO_POSIX -DOMEGA_NUMERIC_CPU_ONLY -Isrc
+GPU_FS_SRCS = src/omega_gpu_engine.c src/omega_gpu_platform.c src/omega_blackwell_encoder.c \
+	src/omega_blackwell_qmd.c src/omega_blackwell_realize.c src/sha256.c
+GPU_FS_OBJS = $(patsubst src/%.c,$(GPU_FS_DIR)/%.o,$(GPU_FS_SRCS))
+GPU_FS_LINK = $(GPU_FS_DIR)/omega_gpu_freestanding.o
+GPU_FS_ALLOWED = memcpy|memmove|memset|memcmp|strlen|strcmp
+
+$(GPU_FS_DIR)/%.o: src/%.c src/omega_gpu_engine.h src/omega_gpu_platform.h
+	@mkdir -p $(GPU_FS_DIR)
+	gcc $(GPU_FS_CFLAGS) -c -o $@ $<
+
+$(GPU_FS_LINK): $(GPU_FS_OBJS)
+	gcc -r -nostdlib -o $@ $(GPU_FS_OBJS)
+	@bad=$$(nm -u $@ | awk '{print $$NF}' | grep -Ev '^(_GLOBAL_OFFSET_TABLE_|($(GPU_FS_ALLOWED)))$$' || true); \
+	if [ -n "$$bad" ]; then echo "freestanding GPU link still needs: $$bad"; rm -f $@; exit 1; fi
+	@echo "freestanding GPU link ($(words $(GPU_FS_SRCS)) files): only $$(nm -u $@ | awk '{print $$NF}' | grep -Ev '^_GLOBAL_OFFSET_TABLE_$$' | sort -u | tr '\n' ' ')undefined"
+gpu-engine-freestanding: $(GPU_FS_LINK)
+
+build/test_omega_gpu_engine_freestanding: tests/test_omega_gpu_engine.c $(GPU_FS_DIR)/omega_gpu_engine.o src/omega_gpu_engine.h
+	@mkdir -p build
+	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Isrc -DOMEGA_NUMERIC_CPU_ONLY -DOMEGA_GPU_NO_POSIX \
+		-o $@ tests/test_omega_gpu_engine.c $(GPU_FS_DIR)/omega_gpu_engine.o
+build/test_omega_gpu_platform: tests/test_omega_gpu_platform.c $(GPU_FS_DIR)/omega_gpu_platform.o src/omega_gpu_platform.h
+	@mkdir -p build
+	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Isrc -o $@ tests/test_omega_gpu_platform.c $(GPU_FS_DIR)/omega_gpu_platform.o
+test-gpu-engine-freestanding: $(GPU_FS_LINK) build/test_omega_gpu_engine_freestanding build/test_omega_gpu_platform
+	./build/test_omega_gpu_engine_freestanding
+	./build/test_omega_gpu_platform

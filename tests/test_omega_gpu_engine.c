@@ -18,6 +18,11 @@
 
 #define N 16u
 #define INJ_ERRNO EIO
+#ifdef OMEGA_GPU_NO_POSIX
+#define EXPECT_ERRNO 0 /* the freestanding engine (make test-gpu-engine-freestanding) records no errno */
+#else
+#define EXPECT_ERRNO INJ_ERRNO
+#endif
 #define DIAG_RC (-1234)
 #define DIAG_TEXT "fake driver text"
 #define LOGMAX 64
@@ -567,7 +572,7 @@ static void case_open_channel_alloc_prepare(void)
         case_begin();
         expect_failure(rc, &r, OMEGA_GPU_ENGINE_DEVICE_OPEN, OMEGA_GPU_ENGINE_STATE_INITIAL,
                        OMEGA_GPU_ENGINE_STEP_OPEN_DEVICE, OMEGA_GPU_ENGINE_WAIT_NONE);
-        expect_passthrough(&r, INJ_ERRNO);
+        expect_passthrough(&r, EXPECT_ERRNO);
         expect_log(want, LOGLEN(want));
         expect_released(&r);
         expect_no_host_output();
@@ -581,7 +586,7 @@ static void case_open_channel_alloc_prepare(void)
         case_begin();
         expect_failure(rc, &r, OMEGA_GPU_ENGINE_CHANNEL_CREATE, OMEGA_GPU_ENGINE_STATE_INITIAL,
                        OMEGA_GPU_ENGINE_STEP_CREATE_CHANNEL, OMEGA_GPU_ENGINE_WAIT_NONE);
-        expect_passthrough(&r, INJ_ERRNO);
+        expect_passthrough(&r, EXPECT_ERRNO);
         expect_log(want, LOGLEN(want));
         expect_released(&r);
         expect_no_host_output();
@@ -596,7 +601,7 @@ static void case_open_channel_alloc_prepare(void)
         case_begin();
         expect_failure(rc, &r, OMEGA_GPU_ENGINE_ALLOC, OMEGA_GPU_ENGINE_STATE_INITIAL,
                        OMEGA_GPU_ENGINE_STEP_ALLOC, OMEGA_GPU_ENGINE_WAIT_NONE);
-        expect_passthrough(&r, INJ_ERRNO);
+        expect_passthrough(&r, EXPECT_ERRNO);
         expect_log(want, LOGLEN(want));
         EXPECT(F.nfree == 2);
         EXPECT(F.free_roles[0] == OMEGA_GPU_BUF_PROGRAM && F.free_roles[1] == OMEGA_GPU_BUF_SCRATCH);
@@ -614,7 +619,7 @@ static void case_open_channel_alloc_prepare(void)
         case_begin();
         expect_failure(rc, &r, OMEGA_GPU_ENGINE_PREPARE, OMEGA_GPU_ENGINE_STATE_INITIAL,
                        OMEGA_GPU_ENGINE_STEP_COPY_IN, OMEGA_GPU_ENGINE_WAIT_NONE);
-        expect_passthrough(&r, INJ_ERRNO);
+        expect_passthrough(&r, EXPECT_ERRNO);
         expect_log(want, LOGLEN(want));
         expect_released(&r);
         case_end("FAIL_PREPARE_COPY_IN");
@@ -628,7 +633,7 @@ static void case_open_channel_alloc_prepare(void)
         case_begin();
         expect_failure(rc, &r, OMEGA_GPU_ENGINE_PREPARE, OMEGA_GPU_ENGINE_STATE_INITIAL,
                        OMEGA_GPU_ENGINE_STEP_FILL_POISON, OMEGA_GPU_ENGINE_WAIT_NONE);
-        expect_passthrough(&r, INJ_ERRNO);
+        expect_passthrough(&r, EXPECT_ERRNO);
         expect_log(want, LOGLEN(want));
         expect_released(&r);
         case_end("FAIL_PREPARE_FILL_POISON");
@@ -642,7 +647,7 @@ static void case_open_channel_alloc_prepare(void)
         case_begin();
         expect_failure(rc, &r, OMEGA_GPU_ENGINE_PREPARE, OMEGA_GPU_ENGINE_STATE_INITIAL,
                        OMEGA_GPU_ENGINE_STEP_BUILD, OMEGA_GPU_ENGINE_WAIT_NONE);
-        expect_passthrough(&r, INJ_ERRNO);
+        expect_passthrough(&r, EXPECT_ERRNO);
         expect_log(want, LOGLEN(want));
         expect_released(&r);
         case_end("FAIL_PREPARE_BUILD");
@@ -663,7 +668,7 @@ static void case_submit_and_visibility(void)
         case_begin();
         expect_failure(rc, &r, OMEGA_GPU_ENGINE_SUBMIT, OMEGA_GPU_ENGINE_STATE_PREPARED,
                        OMEGA_GPU_ENGINE_STEP_SUBMIT, OMEGA_GPU_ENGINE_WAIT_NONE);
-        expect_passthrough(&r, INJ_ERRNO);
+        expect_passthrough(&r, EXPECT_ERRNO);
         expect_log(want, LOGLEN(want));
         EXPECT(F.submit_seen == 0);
         expect_released(&r); /* SUBMIT is a known failure: cleaned up, not blocked */
@@ -678,7 +683,7 @@ static void case_submit_and_visibility(void)
         case_begin();
         expect_failure(rc, &r, OMEGA_GPU_ENGINE_VISIBILITY_WAIT, OMEGA_GPU_ENGINE_STATE_GPU_COMPLETE,
                        OMEGA_GPU_ENGINE_STEP_BARRIER, OMEGA_GPU_ENGINE_WAIT_NONE);
-        expect_passthrough(&r, INJ_ERRNO);
+        expect_passthrough(&r, EXPECT_ERRNO);
         expect_log(want, LOGLEN(want));
         expect_released(&r); /* completion is known: cleaned up, not blocked */
         expect_no_host_output();
@@ -692,7 +697,7 @@ static void case_submit_and_visibility(void)
         case_begin();
         expect_failure(rc, &r, OMEGA_GPU_ENGINE_VISIBILITY_WAIT, OMEGA_GPU_ENGINE_STATE_GPU_COMPLETE,
                        OMEGA_GPU_ENGINE_STEP_COPY_OUT, OMEGA_GPU_ENGINE_WAIT_NONE);
-        expect_passthrough(&r, INJ_ERRNO);
+        expect_passthrough(&r, EXPECT_ERRNO);
         expect_log(want, LOGLEN(want));
         expect_released(&r);
         case_end("FAIL_VISIBILITY_COPY_OUT");
@@ -718,7 +723,7 @@ static void case_uncertain(void)
                        OMEGA_GPU_ENGINE_STEP_WAIT_MARKER, OMEGA_GPU_ENGINE_WAIT_MARKER);
         EXPECT(r.wait_timeout_ms == TMO_MARKER);
         EXPECT(r.waited_ms == 4321u);
-        expect_passthrough(&r, INJ_ERRNO);
+        expect_passthrough(&r, EXPECT_ERRNO);
         expect_log(want, LOGLEN(want));
         expect_retained(&r);
         expect_no_host_output();
@@ -758,7 +763,7 @@ static void case_uncertain(void)
                        OMEGA_GPU_ENGINE_STEP_WAIT_MARKER2, OMEGA_GPU_ENGINE_WAIT_MARKER2);
         EXPECT(r.wait_timeout_ms == TMO_MARKER2);
         EXPECT(r.waited_ms == 2500u);
-        expect_passthrough(&r, INJ_ERRNO);
+        expect_passthrough(&r, EXPECT_ERRNO);
         expect_log(want, LOGLEN(want));
         expect_retained(&r);
         case_end("UNCERTAIN_MARKER2_UNKNOWN_STATE");
@@ -775,7 +780,7 @@ static void case_uncertain(void)
                        OMEGA_GPU_ENGINE_WAIT_RELEASE_SEMAPHORE);
         EXPECT(r.wait_timeout_ms == TMO_RELEASE);
         EXPECT(r.waited_ms == 777u);
-        expect_passthrough(&r, INJ_ERRNO);
+        expect_passthrough(&r, EXPECT_ERRNO);
         expect_log(want, LOGLEN(want));
         expect_retained(&r);
         case_end("UNCERTAIN_RELEASE_DRIVER_FAULT");
@@ -879,7 +884,7 @@ static void case_cleanup_faults(void)
                    OMEGA_GPU_ENGINE_STEP_FREE, OMEGA_GPU_ENGINE_WAIT_NONE);
     EXPECT(r.cleanup_failed == 1);
     EXPECT(r.retained == 0);
-    expect_passthrough(&r, INJ_ERRNO);
+    expect_passthrough(&r, EXPECT_ERRNO);
     EXPECT(F.count[C_FREE] == 5);
     EXPECT(F.count[C_CLOSE] == 1);
     for (i = 0; i < N; i++) EXPECT(host_out[i] == exp_out(i));
@@ -893,7 +898,7 @@ static void case_cleanup_faults(void)
     expect_failure(rc, &r, OMEGA_GPU_ENGINE_CLEANUP, OMEGA_GPU_ENGINE_STATE_OUTPUT_PRODUCED,
                    OMEGA_GPU_ENGINE_STEP_CLOSE, OMEGA_GPU_ENGINE_WAIT_NONE);
     EXPECT(r.cleanup_failed == 1);
-    expect_passthrough(&r, INJ_ERRNO);
+    expect_passthrough(&r, EXPECT_ERRNO);
     EXPECT(F.count[C_FREE] == 5);
     EXPECT(omega_gpu_engine_is_blocked() == 0);
     case_end("CLEANUP_CLOSE_FAILS_AFTER_GOOD_RUN");
@@ -922,7 +927,7 @@ static void case_cleanup_faults(void)
     EXPECT(F.count[C_FREE] == 5);
     EXPECT(F.count[C_CLOSE] == 1);
     EXPECT(F.count[C_DIAG] == 1);
-    expect_passthrough(&r, INJ_ERRNO);
+    expect_passthrough(&r, EXPECT_ERRNO);
     case_end("CLEANUP_FAULT_NEVER_OVERWRITES_FIRST_FAILURE");
 
     /* unchanged output plus a close fault: still OUTPUT_UNCHANGED */
@@ -1100,6 +1105,31 @@ static void case_block_and_backend(void)
     case_end("BACKEND_TABLE_INCOMPLETE_REFUSED");
 }
 
+#ifdef OMEGA_GPU_NO_POSIX
+/* Freestanding engine only: with no platform clock installed every job is
+ * refused before any backend call; installing one through the production
+ * setter makes the same job run. */
+static void case_platform_clock(void)
+{
+    OmegaGpuJob job;
+    OmegaGpuResult r;
+    int rc;
+    reset_all(); make_job(&job);
+    omega_gpu_engine_set_clock(NULL);
+    rc = run(&job, &r);
+    case_begin();
+    expect_failure(rc, &r, OMEGA_GPU_ENGINE_INTERNAL_INVARIANT, OMEGA_GPU_ENGINE_STATE_INITIAL,
+                   OMEGA_GPU_ENGINE_STEP_CLOCK_CHECK, OMEGA_GPU_ENGINE_WAIT_NONE);
+    EXPECT(F.nlog == 0);
+    EXPECT(strcmp(omega_gpu_engine_step_name(r.failed_step), "CLOCK_CHECK") == 0);
+    omega_gpu_engine_set_clock(fake_now);
+    rc = run(&job, &r);
+    EXPECT(rc == OMEGA_GPU_ENGINE_OK);
+    EXPECT(F.nlog > 0);
+    case_end("FREESTANDING_NO_CLOCK_REFUSED_BEFORE_ANY_CALL");
+}
+#endif
+
 int main(void)
 {
     omega_gpu_engine_test_set_clock(fake_now);
@@ -1113,6 +1143,9 @@ int main(void)
     case_cleanup_faults();
     case_invalid_args();
     case_block_and_backend();
+#ifdef OMEGA_GPU_NO_POSIX
+    case_platform_clock();
+#endif
 
     omega_gpu_engine_set_backend(NULL);
     omega_gpu_engine_test_reset_block();

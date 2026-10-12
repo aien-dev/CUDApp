@@ -19,10 +19,21 @@
  */
 #include "omega_gpu_engine.h"
 
-#include <errno.h>
 #include <stdatomic.h>
 #include <string.h>
+#ifdef OMEGA_GPU_NO_POSIX
+/* Freestanding link target (native v1 P07 cut A, aienos#286 cut A): no errno
+ * and no POSIX clock. err_no is always 0, and the millisecond clock must be
+ * installed with omega_gpu_engine_set_clock before any job runs; without one
+ * omega_gpu_execute refuses at STEP_CLOCK_CHECK instead of guessing. */
+#define ERRNO_CLEAR() ((void)0)
+#define ERRNO_READ() 0
+#else
+#include <errno.h>
 #include <time.h>
+#define ERRNO_CLEAR() (errno = 0)
+#define ERRNO_READ() (errno)
+#endif
 
 static const char *const FAILURE_NAMES[OMEGA_GPU_ENGINE_FAILURE_COUNT] = {
     "OK",
@@ -79,11 +90,12 @@ static const char *const STEP_NAMES[OMEGA_GPU_ENGINE_STEP_COUNT] = {
     "SCAN",
     "FREE",
     "CLOSE",
+    "CLOCK_CHECK",
 };
 
 static _Atomic(const OmegaGpuBackend *) g_backend;
 static atomic_int g_blocked;
-static uint64_t (*g_clock)(void); /* test clock, NULL means CLOCK_MONOTONIC */
+static uint64_t (*g_clock)(void); /* installed clock; NULL means CLOCK_MONOTONIC on the host, none when freestanding */
 
 const char *omega_gpu_engine_failure_name(int failure)
 {
@@ -129,11 +141,22 @@ void omega_gpu_engine_test_force_block(void)
     atomic_store(&g_blocked, 1);
 }
 
+void omega_gpu_engine_set_clock(uint64_t (*now_ms)(void))
+{
+    g_clock = now_ms;
+}
+
 void omega_gpu_engine_test_set_clock(uint64_t (*now_ms)(void))
 {
     g_clock = now_ms;
 }
 
+#ifdef OMEGA_GPU_NO_POSIX
+static uint64_t now_ms(void)
+{
+    return g_clock ? g_clock() : 0u; /* unreachable without a clock: omega_gpu_execute refuses first */
+}
+#else
 static uint64_t mono_ms(void)
 {
     struct timespec ts;
@@ -145,6 +168,7 @@ static uint64_t now_ms(void)
 {
     return g_clock ? g_clock() : mono_ms();
 }
+#endif
 
 static int backend_complete(const OmegaGpuBackend *b)
 {
@@ -231,15 +255,15 @@ static int leave(const OmegaGpuBackend *b, const Run *run, OmegaGpuResult *resul
     int e;
     for (role = (int)OMEGA_GPU_BUF_ROLE_COUNT - 1; role >= 0; role--) {
         if (!run->allocated[role]) continue; /* MUT:FREE_UNALLOCATED */
-        errno = 0;
+        ERRNO_CLEAR();
         rc = b->free_buf(b->ctx, role); /* MUT:FREE_SKIPPED */
-        e = errno;
+        e = ERRNO_READ();
         if (rc != 0) cleanup_fault(b, result, OMEGA_GPU_ENGINE_STEP_FREE, e);
     }
     if (run->opened) {
-        errno = 0;
+        ERRNO_CLEAR();
         rc = b->close(b->ctx); /* MUT:CLOSE_SKIPPED */
-        e = errno;
+        e = ERRNO_READ();
         if (rc != 0) cleanup_fault(b, result, OMEGA_GPU_ENGINE_STEP_CLOSE, e);
     }
     return result->failure;
@@ -266,9 +290,9 @@ static int timed_call(int (*fn)(void *, uint64_t), void *ctx, uint64_t ms, uint6
     uint64_t t0 = now_ms();
     uint64_t t1;
     int rc;
-    errno = 0;
+    ERRNO_CLEAR();
     rc = fn(ctx, ms);
-    *err = errno;
+    *err = ERRNO_READ();
     t1 = now_ms();
     *waited_ms = t1 >= t0 ? t1 - t0 : 0u; /* MUT:WAITED_NOT_A_DIFFERENCE */
     return rc;
@@ -277,9 +301,9 @@ static int timed_call(int (*fn)(void *, uint64_t), void *ctx, uint64_t ms, uint6
 static int copy_in_role(const OmegaGpuBackend *b, int role, const void *src, size_t bytes, int *err)
 {
     int rc;
-    errno = 0;
+    ERRNO_CLEAR();
     rc = b->copy_in(b->ctx, role, src, bytes);
-    *err = errno;
+    *err = ERRNO_READ();
     return rc;
 }
 
@@ -324,30 +348,34 @@ int omega_gpu_execute(const OmegaGpuJob *job, OmegaGpuResult *result)
     if (!backend_complete(b)) /* MUT:BACKEND_CHECK_SKIPPED */
         return stop(result, OMEGA_GPU_ENGINE_INTERNAL_INVARIANT,
                     OMEGA_GPU_ENGINE_STEP_BACKEND_CHECK);
+#ifdef OMEGA_GPU_NO_POSIX
+    if (!g_clock) /* no platform clock: waited_ms could not be measured; refuse before touching the device */
+        return stop(result, OMEGA_GPU_ENGINE_INTERNAL_INVARIANT, OMEGA_GPU_ENGINE_STEP_CLOCK_CHECK);
+#endif
     memset(&run, 0, sizeof run);
 
     /* INITIAL -> PREPARED */
-    errno = 0;
+    ERRNO_CLEAR();
     rc = b->open_device(b->ctx);
-    e = errno;
+    e = ERRNO_READ();
     if (rc != 0) {
         (void)fail(b, result, OMEGA_GPU_ENGINE_DEVICE_OPEN, OMEGA_GPU_ENGINE_STEP_OPEN_DEVICE, e);
         return leave(b, &run, result);
     }
     run.opened = 1; /* MUT:OPEN_NOT_TRACKED */
 
-    errno = 0;
+    ERRNO_CLEAR();
     rc = b->create_channel(b->ctx);
-    e = errno;
+    e = ERRNO_READ();
     if (rc != 0) {
         (void)fail(b, result, OMEGA_GPU_ENGINE_CHANNEL_CREATE, OMEGA_GPU_ENGINE_STEP_CREATE_CHANNEL, e);
         return leave(b, &run, result); /* MUT:CLEANUP_SKIPPED_CHANNEL */
     }
 
     for (role = 0; role < (int)OMEGA_GPU_BUF_ROLE_COUNT; role++) {
-        errno = 0;
+        ERRNO_CLEAR();
         rc = b->alloc(b->ctx, role, buf_bytes(job, role));
-        e = errno;
+        e = ERRNO_READ();
         if (rc != 0) {
             (void)fail(b, result, OMEGA_GPU_ENGINE_ALLOC, OMEGA_GPU_ENGINE_STEP_ALLOC, e);
             return leave(b, &run, result); /* MUT:CLEANUP_SKIPPED_ALLOC */
@@ -363,15 +391,15 @@ int omega_gpu_execute(const OmegaGpuJob *job, OmegaGpuResult *result)
         return leave(b, &run, result); /* MUT:CLEANUP_SKIPPED_COPY_IN */
     }
 
-    errno = 0; rc = b->fill_poison(b->ctx, job->poison, job->poison_count); e = errno; /* MUT:POISON_FILL_SKIPPED */
+    ERRNO_CLEAR(); rc = b->fill_poison(b->ctx, job->poison, job->poison_count); e = ERRNO_READ(); /* MUT:POISON_FILL_SKIPPED */
     if (rc != 0) {
         (void)fail(b, result, OMEGA_GPU_ENGINE_PREPARE, OMEGA_GPU_ENGINE_STEP_FILL_POISON, e);
         return leave(b, &run, result);
     }
 
-    errno = 0;
+    ERRNO_CLEAR();
     rc = b->build(b->ctx, job);
-    e = errno;
+    e = ERRNO_READ();
     if (rc != 0) {
         (void)fail(b, result, OMEGA_GPU_ENGINE_PREPARE, OMEGA_GPU_ENGINE_STEP_BUILD, e);
         return leave(b, &run, result);
@@ -379,9 +407,9 @@ int omega_gpu_execute(const OmegaGpuJob *job, OmegaGpuResult *result)
     result->last_state = OMEGA_GPU_ENGINE_STATE_PREPARED; /* MUT:STATE_PREPARED_SKIPPED */
 
     /* PREPARED -> SUBMITTED. A failed submit is a known failure, not an uncertain completion. */
-    errno = 0;
+    ERRNO_CLEAR();
     rc = b->submit(b->ctx);
-    e = errno;
+    e = ERRNO_READ();
     if (rc != 0) {
         (void)fail(b, result, OMEGA_GPU_ENGINE_SUBMIT, OMEGA_GPU_ENGINE_STEP_SUBMIT, e);
         return leave(b, &run, result); /* MUT:CLEANUP_SKIPPED_SUBMIT */
@@ -406,9 +434,9 @@ int omega_gpu_execute(const OmegaGpuJob *job, OmegaGpuResult *result)
         (void)fail(b, result, OMEGA_GPU_ENGINE_VISIBILITY_WAIT, OMEGA_GPU_ENGINE_STEP_BARRIER, e);
         return leave(b, &run, result);
     }
-    errno = 0;
+    ERRNO_CLEAR();
     rc = b->copy_out(b->ctx, job->output, job->output_len);
-    e = errno;
+    e = ERRNO_READ();
     if (rc != 0) {
         (void)fail(b, result, OMEGA_GPU_ENGINE_VISIBILITY_WAIT, OMEGA_GPU_ENGINE_STEP_COPY_OUT, e);
         return leave(b, &run, result);

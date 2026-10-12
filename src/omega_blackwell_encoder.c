@@ -1,6 +1,5 @@
 #include "omega_blackwell_encoder.h"
 #include "sha256.h"
-#include <stdio.h>
 #include <string.h>
 
 /*
@@ -85,9 +84,11 @@ int omega_blackwell_verify_encoder_fixtures(void) {
         return -1;
     }
 
+    static const char HEXDIGITS[16] = "0123456789abcdef";
     char hex[65];
-    for (int i = 0; i < 32; i++) {
-        sprintf(&hex[i * 2], "%02x", digest[i]);
+    for (int i = 0; i < 32; i++) { /* no sprintf: this file is part of the freestanding link target */
+        hex[i * 2] = HEXDIGITS[digest[i] >> 4];
+        hex[i * 2 + 1] = HEXDIGITS[digest[i] & 0x0f];
     }
     hex[64] = 0;
 
