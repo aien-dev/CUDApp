@@ -242,9 +242,10 @@ static int chip(const char *out_path) {
         omega_gpu_elementwise_test_set_mutant(0);
         record(c, out); free(v); free(got); free(want); free(ch); free(sh);
       } }
-    /* 5. swiglu at the model ffn sizes (TinyLlama 5632, Llama-3.2-1B 8192) and an odd tail */
-    { size_t ns[3] = { 5632, 8192, 1000 };
-      for (int t = 0; t < 3; t++) {
+    /* 5. swiglu at the model ffn sizes (TinyLlama 5632, Llama-3.2-1B 8192), an odd tail, one past the
+     * 1024-CTA chunk (two launches) and the Qwen3-8B prefill call 128 x 12288 (twelve launches; cut L) */
+    { size_t ns[5] = { 5632, 8192, 1000, 131073, 1572864 };
+      for (int t = 0; t < 5; t++) {
         size_t n = ns[t];
         float *g = malloc(n * 4), *u = malloc(n * 4), *got = malloc(n * 4), *want = malloc(n * 4);
         for (size_t i = 0; i < n; i++) { g[i] = frand(&seed, -12.0f, 12.0f); u[i] = frand(&seed, -2.0f, 2.0f); }

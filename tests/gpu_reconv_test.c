@@ -42,7 +42,9 @@ static const Probe PROBES[] = {
     { OMEGA_GPU_EW_RC_DEPTH16, "rc_depth16", "B0..B15" },
 };
 #define NPROBES (sizeof PROBES / sizeof PROBES[0])
-static const uint32_t NS[] = { 1, 5, 31, 32, 33, 63, 64, 65, 96, 127, 128, 129, 200, 1000, 4096, 8191, 8192, 8193, 20000 };
+/* 8191..8193 straddled the 64-CTA chunk, 131071..131073 the 1024-CTA chunk (cut L, 2026-10-12) */
+static const uint32_t NS[] = { 1, 5, 31, 32, 33, 63, 64, 65, 96, 127, 128, 129, 200, 1000, 4096, 8191, 8192, 8193, 20000, 131071, 131072, 131073 };
+#define MAXN 131073u
 #define NNS (sizeof NS / sizeof NS[0])
 #define CHUNK (OMEGA_GPU_EW_MAX_CTAS * OMEGA_GPU_EW_THREADS)
 
@@ -318,7 +320,7 @@ static int host_part(void) {
     }
 
     /* 5. simulator: every probe, every n, both fragment orders, exact against the oracle */
-    uint32_t *a = malloc(20000 * 4), *b = malloc(20000 * 4), *got = malloc(20000 * 4), *want = malloc(20000 * 4);
+    uint32_t *a = malloc(MAXN * 4), *b = malloc(MAXN * 4), *got = malloc(MAXN * 4), *want = malloc(MAXN * 4);
     for (size_t i = 0; i < NPROBES; i++) {
         BlackwellIRProgram *p = calloc(1, sizeof *p); OmegaBlackwellKernel k;
         if (codegen(PROBES[i].op, 0, p, &k) != OMEGA_GPU_EW_OK) { free(p); continue; }
@@ -394,7 +396,7 @@ static int chip(const char *out_path, int observe) {
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
     if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_RECONV_V1\",\"issue\":308,\"comparison\":\"exact u32\",\"cases\":[");
     int first = 1;
-    uint32_t *a = malloc(20000 * 4), *b = malloc(20000 * 4), *got = malloc(20000 * 4), *want = malloc(20000 * 4);
+    uint32_t *a = malloc(MAXN * 4), *b = malloc(MAXN * 4), *got = malloc(MAXN * 4), *want = malloc(MAXN * 4);
     for (size_t i = 0; i < NPROBES; i++) {
         for (size_t j = 0; j < NNS; j++) {
             uint32_t n = NS[j]; fill(a, b, n, 0x5050u + n);

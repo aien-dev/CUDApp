@@ -30,9 +30,15 @@
  * per process instead of one per call (~40 ms), kernels resident after first use,
  * staging buffers reused at their high-water mark. Calls serialise on one lock.
  *
- * Launch envelope: at most OMEGA_GPU_EW_MAX_CTAS CTAs per launch (the matmul
- * sweep of 2026-10-03 lost whole tiles at 128 CTAs, investigation I42); the
- * API splits larger work on the host and makes several launches.
+ * Launch envelope: at most OMEGA_GPU_EW_MAX_CTAS CTAs per launch; the API splits
+ * larger work on the host and makes several launches. The cap was 64 from the
+ * 2026-10-03 matmul sweep that lost whole tiles at 128 CTAs (investigation I42,
+ * root cause the GPU-cached completion marker, fixed by the uncached marker +
+ * L2_FLUSH_DIRTY release sequence every launch here goes through). Cut L
+ * (2026-10-12): 1024, the CTA budget the matmul path has run every serving leg
+ * at since; a prefill swiglu of 128 x 12288 was 192 launches of 64 CTAs (1.4 ms
+ * of chip time per call), now 12. The poison scan of every output word is the
+ * lost-tile detector and stays.
  */
 #include <stdbool.h>
 #include <stddef.h>
@@ -94,7 +100,7 @@ typedef enum {
  *   ex2:     n >= 1;  xchg: n % OMEGA_GPU_EW_THREADS == 0 */
 #define OMEGA_GPU_EW_THREADS 128u
 #define OMEGA_GPU_EW_MAX_DIM 16384u
-#define OMEGA_GPU_EW_MAX_CTAS 64u
+#define OMEGA_GPU_EW_MAX_CTAS 1024u
 
 typedef struct {
     uint32_t chip_calls;        /* launches made */
