@@ -6,8 +6,8 @@
 #include <stdint.h>
 #include "omega_blackwell_matmul.h"
 
-#define BW_MAX_IR_INSNS         512
-#define BW_MAX_VREGS            128
+#define BW_MAX_IR_INSNS         1024 /* cut K: the four-head hd 128 attention kernel is ~700 instructions */
+#define BW_MAX_VREGS            256
 #define BW_MAX_UVREGS           32
 #define BW_PHYS_GPR_START       2    /* Reserve R0, R1 */
 #define BW_PHYS_GPR_MAX         128

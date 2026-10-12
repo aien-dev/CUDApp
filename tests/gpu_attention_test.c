@@ -537,9 +537,10 @@ static int chip(const char *out_path) {
             OmegaGpuAttnInfo ai;
             int arc = run_paged(&pc, auto_got, &ai);
             uint32_t chunks = (ctx + hd - 1) / hd, want_log2 = 0;
+            const uint32_t gcta = nqh / omega_gpu_attention_heads_per_cta(hd, 2); /* CTAs per split: cut K groups 4 heads per CTA at hd 128 */
             while (want_log2 < OMEGA_GPU_ATTN_MAX_LOG2SPLIT && (2u << want_log2) <= chunks) want_log2++;
-            CHECK(arc == OMEGA_GPU_ATTN_OK && ai.ctas_last_launch == (nqh << want_log2),
-                  "split auto ctx %u: rc=%s ctas=%u (expected %u)", ctx, omega_gpu_attention_rc_name(arc), ai.ctas_last_launch, nqh << want_log2);
+            CHECK(arc == OMEGA_GPU_ATTN_OK && ai.ctas_last_launch == (gcta << want_log2),
+                  "split auto ctx %u: rc=%s ctas=%u (expected %u)", ctx, omega_gpu_attention_rc_name(arc), ai.ctas_last_launch, gcta << want_log2);
             for (int ls = 0; ls <= (int)OMEGA_GPU_ATTN_MAX_LOG2SPLIT; ls++) {
                 set_split(ls);
                 OmegaGpuAttnInfo fi;
@@ -548,7 +549,7 @@ static int chip(const char *out_path) {
                 c.rc = run_paged(&pc, got, &fi);
                 c.bad = compare(got, want, n, 2e-4, 2e-5, &c.worst);
                 c.pass = c.rc == OMEGA_GPU_ATTN_OK && c.bad == 0; case_info(&c, &fi);
-                CHECK(fi.ctas_last_launch == (nqh << ls) && fi.out_bytes == (uint64_t)nqh * (1u << ls) * (hd + 2) * 4,
+                CHECK(fi.ctas_last_launch == (gcta << ls) && fi.out_bytes == (uint64_t)nqh * (1u << ls) * (hd + 2) * 4,
                       "%s: ctas=%u out_bytes=%llu", name, fi.ctas_last_launch, (unsigned long long)fi.out_bytes);
                 if ((uint32_t)ls >= want_log2) CHECK(memcmp(got, auto_got, n * 4) == 0, "%s equals the automatic choice bit for bit (a larger launch split only adds empty partials)", name);
                 if (ls == 1 && ci == 0) {
@@ -558,8 +559,8 @@ static int chip(const char *out_path) {
                 record(c, out);
             }
             set_split(-1);
-            if (ci == 1 && chunks == 1) CHECK(ai.ctas_last_launch == nqh, "ctx %u: one chunk stays unsplit (%u CTAs)", ctx, ai.ctas_last_launch);
-            else if (ci == 1) CHECK(ai.ctas_last_launch == (nqh << want_log2), "ctx %u: %u chunks -> %u splits (%u CTAs)", ctx, chunks, 1u << want_log2, ai.ctas_last_launch);
+            if (ci == 1 && chunks == 1) CHECK(ai.ctas_last_launch == gcta, "ctx %u: one chunk stays unsplit (%u CTAs)", ctx, ai.ctas_last_launch);
+            else if (ci == 1) CHECK(ai.ctas_last_launch == (gcta << want_log2), "ctx %u: %u chunks -> %u splits (%u CTAs)", ctx, chunks, 1u << want_log2, ai.ctas_last_launch);
             free(pool); free(ids); free(q); free(got); free(want); free(auto_got);
         }
     }
@@ -680,11 +681,11 @@ static int chip(const char *out_path) {
  * SHFL therefore requires one path across the warp, or the simulator stops with error 7. */
 typedef struct { uint32_t r[256]; int pc; int p0; int done; uint64_t path; } SimThr;
 static uint32_t sim_cbank[256];
-static uint8_t sim_shared[4096];
+static uint8_t sim_shared[8192];
 #define SIM_TMAX 128
 #define SIM_T ((int)g_hd) /* threads per CTA = head_dim */
 static uint32_t g_smem_cap; /* negative control: pretend the QMD declared this many bytes (0 = the real 16 * head_dim) */
-#define SIM_SMEM (g_smem_cap ? g_smem_cap : 16u * g_hd) /* the shared memory the QMD declares for this kernel (launcher: shared_bytes = 16 * head_dim) */
+#define SIM_SMEM (g_smem_cap ? g_smem_cap : omega_gpu_attention_test_shared_bytes()) /* the shared memory the QMD declares for this kernel (launcher: shared_bytes_for) */
 static int g_sim_err;
 static int g_trace, g_trace_launch; static uint32_t g_trace_cx;
 static uint32_t rd(const SimThr *t, int v, const BlackwellIRProgram *p) { if (v < 0) return 0; int ph = p->regalloc.vreg_to_phys[v]; return ph < 0 ? 0 : t->r[ph & 0xff]; }
@@ -1135,7 +1136,7 @@ static void hd_codegen_checks(void) {
         /* head_dim 128: encodes, inside the register budget, a different (longer) program */
         OmegaBlackwellKernel k2; memset(&k2, 0, sizeof k2);
         int rc2 = omega_gpu_attention_codegen_hd(p->f32, p->log2bs, p->log2gqa, 128, &k2);
-        CHECK(rc2 == OMEGA_GPU_ATTN_OK && k2.code_size > 0 && k2.gpr_count <= 64 && k2.insn_count > p->insns && memcmp(k2.code_digest, k.code_digest, 32) != 0,
+        CHECK(rc2 == OMEGA_GPU_ATTN_OK && k2.code_size > 0 && k2.gpr_count <= 96 /* AT_GPR_BUDGET; cut K: the four-head kernel peaks at 84 */ && k2.insn_count > p->insns && memcmp(k2.code_digest, k.code_digest, 32) != 0,
               "hd128 %s log2bs %u log2gqa %u: kernel encodes (%zu insns vs %zu, %u gprs)", p->f32 ? "f32 " : "bf16", p->log2bs, p->log2gqa, k2.insn_count, p->insns, k2.gpr_count);
         free(k2.code);
     }

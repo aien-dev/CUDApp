@@ -265,6 +265,10 @@ typedef struct {
 struct BlackwellIRProgramTag;
 typedef int (*OmegaGpuAttnSim)(const void *prog /* const BlackwellIRProgram * */, const OmegaGpuAttnLaunch *L, OmegaGpuAttnInfo *info);
 void omega_gpu_attention_test_set_simulator(OmegaGpuAttnSim sim);
+/* The shared memory the launcher declares for the kernel the simulator is running (set before each simulated launch). */
+uint32_t omega_gpu_attention_test_shared_bytes(void);
+/* Query heads one CTA serves (cut K): hd 128 groups min(2^log2_gqa, 4) heads of one kv head; hd 64 keeps one head per CTA. */
+uint32_t omega_gpu_attention_heads_per_cta(uint32_t head_dim, uint32_t log2_gqa);
 
 /* Shared-prefix staging dedupe (attention hardening cut, 2026-10-04): within one launch
  * every (physical block, layer) slice referenced by the batch is staged once, keyed by the

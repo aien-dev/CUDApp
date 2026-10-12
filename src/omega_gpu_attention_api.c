@@ -268,9 +268,22 @@ typedef struct { bool f32; uint32_t log2bs, log2gqa; int mutant; int divergent; 
  * an unnormalised partial (acc[hd], running max, running sum; an empty slice writes acc 0, max -inf) and the host
  * combines them, also when split == 0. */
 
+/* cut K (2026-10-12, GQA group): at head_dim 128 one CTA serves the GC query heads of one kv head, GC =
+ * min(2^log2gqa, 4), so every K and V byte of a launch is read once instead of once per query head. The KV
+ * pool is GPU-uncached (host-written), so the four CTAs of a GQA group were four DRAM reads of the same
+ * bytes: 21 MB per call at 1268 tokens, the memory ceiling (sc leg smoke-ctx-chunk: 152 us per call).
+ * Grid x is the head group (num_q_heads / GC CTAs per sequence and split). Shared memory: q, scores and
+ * warp partials per head, token offsets once. GC = 1 (every hd 64 kernel, hd 128 with gqa 1) emits exactly
+ * the program before this cut (digest fixtures). */
+static uint32_t heads_per_cta(uint32_t hd, uint32_t log2gqa) { return hd == 128u ? (1u << (log2gqa < 2u ? log2gqa : 2u)) : 1u; }
+static uint32_t shared_bytes_for(uint32_t hd, uint32_t log2gqa) { return (3u * heads_per_cta(hd, log2gqa) + 1u) * hd * 4u; }
+uint32_t omega_gpu_attention_heads_per_cta(uint32_t head_dim, uint32_t log2_gqa) { return heads_per_cta(head_dim, log2_gqa); }
+
 static void gen_attention(Em *e, const KSpec *k) {
     const uint32_t elem = k->f32 ? 4u : 2u;
-    const uint32_t HD = k->hd, SH_S = HD * 4u, SH_O = HD * 8u, SH_R = HD * 12u; /* warps per CTA: HD / 32 */
+    const uint32_t HD = k->hd, GC = heads_per_cta(HD, k->log2gqa), log2gc = GC == 4u ? 2u : GC == 2u ? 1u : 0u;
+    const uint32_t HB = HD * 4u; /* bytes of one per-head shared array */
+    const uint32_t SH_S = GC * HB, SH_O = 2u * GC * HB, SH_R = SH_O + HB; /* warps per CTA: HD / 32 */
     int udesc = UV64(e), A = V64(e), B = V64(e), C = V64(e), D = V64(e);
     int tid = V(e), h = V(e), seq = V(e);
     int p_maxb = V(e), scale = V(e), p_bstride = V(e), p_tstride = V(e), p_kvp = V(e), p_hstride = V(e), p_nqh = V(e), p_ctxoff = V(e);
@@ -297,30 +310,46 @@ static void gen_attention(Em *e, const KSpec *k) {
 
     /* q[tid] -> shared; out address kept for the end. Row = seq * num_q_heads + head for
      * both q and out (flattened head-major, the oracle's layout). The head-wiring mutants
-     * swap the row of head h with h ^ 1 on one side only. */
-    int tid4 = V(e), qrow = V(e), qoff = V(e), qaddr = V64(e), qv = V(e), oaddr = V64(e);
+     * swap the row of head h with h ^ 1 on one side only. GC > 1: head g of the group is
+     * h * GC + g; q goes to SH_Q + g * HB; the output rows are derived in the epilogue. */
+    int tid4 = V(e), qrow = V(e), qoff = V(e), qaddr = V64(e), qv = V(e), oaddr = GC == 1 ? V64(e) : -1;
     int hq = h, ho = h;
-    if (k->mutant == OMEGA_GPU_ATTN_MUTANT_Q_ROW) { hq = V(e); lop3xor(e, hq, h, c1); }
-    if (k->mutant == OMEGA_GPU_ATTN_MUTANT_OUT_ROW) { ho = V(e); lop3xor(e, ho, h, c1); }
+    if (GC == 1 && k->mutant == OMEGA_GPU_ATTN_MUTANT_Q_ROW) { hq = V(e); lop3xor(e, hq, h, c1); }
+    if (GC == 1 && k->mutant == OMEGA_GPU_ATTN_MUTANT_OUT_ROW) { ho = V(e); lop3xor(e, ho, h, c1); }
     imadi(e, tid4, tid, 4, NOREG);
-    imadr(e, qrow, seq, p_nqh, hq);
-    imadi(e, qoff, qrow, HD * 4, tid4);
-    wide(e, qaddr, qoff, 1, A);
-    ldg(e, qv, qaddr, udesc);
-    sts32(e, tid4, qv); /* SH_Q + tid*4 */
-    if (!part) { /* direct output address; partial mode derives its row in the epilogue */
-        if (ho == hq) wide(e, oaddr, qoff, 1, C);
-        else {
-            int orow = V(e), ooff = V(e);
-            imadr(e, orow, seq, p_nqh, ho);
-            imadi(e, ooff, orow, HD * 4, tid4);
-            wide(e, oaddr, ooff, 1, C);
+    if (GC == 1) {
+        imadr(e, qrow, seq, p_nqh, hq);
+        imadi(e, qoff, qrow, HD * 4, tid4);
+        wide(e, qaddr, qoff, 1, A);
+        ldg(e, qv, qaddr, udesc);
+        sts32(e, tid4, qv); /* SH_Q + tid*4 */
+        if (!part) { /* direct output address; partial mode derives its row in the epilogue */
+            if (ho == hq) wide(e, oaddr, qoff, 1, C);
+            else {
+                int orow = V(e), ooff = V(e);
+                imadr(e, orow, seq, p_nqh, ho);
+                imadi(e, ooff, orow, HD * 4, tid4);
+                wide(e, oaddr, ooff, 1, C);
+            }
+        }
+    } else {
+        int h0 = V(e), hg = V(e), qsh = V(e);
+        imadi(e, h0, h, GC, NOREG);
+        for (uint32_t g = 0; g < GC; g++) {
+            imadi(e, hg, c1, g, h0);
+            if (k->mutant == OMEGA_GPU_ATTN_MUTANT_Q_ROW) lop3xor(e, hg, hg, c1);
+            imadr(e, qrow, seq, p_nqh, hg);
+            imadi(e, qoff, qrow, HD * 4, tid4);
+            wide(e, qaddr, qoff, 1, A);
+            ldg(e, qv, qaddr, udesc);
+            imadi(e, qsh, c1, g * HB, tid4);
+            sts32(e, qsh, qv);
         }
     }
 
     /* kv head offset, this sequence's table row and context length */
     int kvh = V(e), kvoff = V(e), t1 = V(e), tab = V64(e), ca = V64(e), ctx = V(e), vb = V64(e);
-    shri(e, kvh, h, k->log2gqa);
+    shri(e, kvh, h, k->log2gqa - log2gc); /* GC heads per CTA: kv head = (h * GC) >> log2gqa */
     if (k->mutant == OMEGA_GPU_ATTN_MUTANT_KV_HEAD) lop3xor(e, kvh, kvh, c1);
     imadr(e, kvoff, kvh, p_hstride, NOREG);
     imadr(e, t1, seq, p_maxb, NOREG);
@@ -360,20 +389,31 @@ static void gen_attention(Em *e, const KSpec *k) {
     wide(e, vb, tid, elem, B);
     wide(e, vb, p_kvp, 1, vb);
 
-    int M = V(e), L = V(e), acc = V(e), base = V(e), sOff = V(e), oOff = V(e), rOff = V(e);
-    movi(e, M, F32_NEG_INF);
-    if (k->mutant == OMEGA_GPU_ATTN_MUTANT_NO_MAX) movrz(e, L); else movf(e, L, 1.0f); /* alpha = 0 on the first chunk clears it */
-    movrz(e, acc); if (part) iadd3(e, base, kb, zero); else movrz(e, base);
+    /* running max, sum and accumulator per head of the group (GC = 1: one of each, as before) */
+    int M[4], L[4], acc[4];
+    for (uint32_t g = 0; g < GC; g++) M[g] = V(e);
+    for (uint32_t g = 0; g < GC; g++) L[g] = V(e);
+    for (uint32_t g = 0; g < GC; g++) acc[g] = V(e);
+    int base = V(e), sOff = V(e), oOff = V(e), rOff = V(e);
+    for (uint32_t g = 0; g < GC; g++) movi(e, M[g], F32_NEG_INF);
+    for (uint32_t g = 0; g < GC; g++) { if (k->mutant == OMEGA_GPU_ATTN_MUTANT_NO_MAX) movrz(e, L[g]); else movf(e, L[g], 1.0f); } /* alpha = 0 on the first chunk clears it */
+    for (uint32_t g = 0; g < GC; g++) movrz(e, acc[g]);
+    if (part) iadd3(e, base, kb, zero); else movrz(e, base);
     iadd3(e, sOff, tid4, c256); iadd3(e, oOff, tid4, c512); iadd3(e, rOff, tid4, c768);
     bar_sync(e); /* q visible to every thread */
     if (part) isetp_ge_u32(e, kb, kend); else isetp_ge_u32(e, zero, ctx); /* empty range: out = 0 (an empty partial) */
     int bZ = bra_fwd_if_p0(e);
 
     /* ---------------- chunk loop ---------------- */
-    int j = V(e), s = V(e), koff = V(e);
-    int bi = V(e), sl = V(e), ta = V64(e), blk = V(e), ka = V64(e), dot = V(e), d = V(e);
+    int j = V(e), s[4], koff;
+    for (uint32_t g = 0; g < GC; g++) s[g] = V(e);
+    koff = V(e);
+    int bi = V(e), sl = V(e), ta = V64(e), blk = V(e), ka = V64(e), dot[4], d;
+    for (uint32_t g = 0; g < GC; g++) dot[g] = V(e);
+    d = V(e);
     int lo = V(e), hi = V(e), qa = V(e), j1 = V(e);
     int dneg = V(e), over = V(e), ot = V(e), ctxm1 = V(e), cm1 = V(e), cninf = V(e), nb = V(e), ns = V(e);
+    int tsh = GC > 1 ? V(e) : -1; /* per-head shared address temporary (GC > 1 only) */
     movi(e, cm1, 0xFFFFFFFFu); iadd3(e, ctxm1, lim, cm1); movi(e, cninf, F32_NEG_INF);
     loop_begin(e);
     int Lout = here(e);
@@ -384,7 +424,7 @@ static void gen_attention(Em *e, const KSpec *k) {
      * over = (j >= ctx) as 0/1 from the sign of ctx-1-j; out-of-range lanes read token `base`
      * (always < ctx here) and their score is forced to -inf after the dot product with s = -max(-s, nb), nb = -inf or +inf. */
     iadd3(e, j, base, tid);
-    movi(e, s, F32_NEG_INF);
+    for (uint32_t g = 0; g < GC; g++) movi(e, s[g], F32_NEG_INF);
     movrz(e, koff);
     if (k->divergent) {
         /* omega #308 R2: the lane-dependent branch, inside a reconvergence region. Lanes with
@@ -424,29 +464,33 @@ static void gen_attention(Em *e, const KSpec *k) {
      * bf16, 8 dims f32) with the first half of the matching q slice as 128-bit shared loads on SB_LD2, one
      * wait; then the second half of q, one more (short) wait. The serial loop before paid one global
      * latency per dim pair. Two halves keep the pass inside AT_GPR_BUDGET (the whole slice at once is
-     * 65 to 76 registers). qa = d * 4 is the shared byte offset of q[d]. */
+     * 65 to 76 registers). qa = d * 4 is the shared byte offset of q[d]. GC > 1: the same K pass feeds
+     * every head of the group, each from its own q slice at SH_Q + g * HB (cut K). */
     const uint32_t dims = k->f32 ? 8u : 16u; /* dims per pass: 32 bytes of K either way */
     const uint32_t nq = dims / 4u;           /* q quads per pass, loaded in two halves */
     int kx[2], qq[4];
     kx[0] = V128(e); kx[1] = V128(e);
     for (uint32_t i = 0; i < nq; i++) qq[i] = V128(e);
-    movrz(e, dot); movrz(e, d);
+    for (uint32_t g = 0; g < GC; g++) movrz(e, dot[g]);
+    movrz(e, d);
     loop_begin(e);
     int Lin = here(e);
     imadi(e, qa, d, 4, NOREG);
     ldg128_b(e, kx[0], ka, 0u, udesc, SB_GPR);
     ldg128_b(e, kx[1], ka, 16u, udesc, SB_GPR);
-    for (int h = 0; h < 2; h++) {
-        for (uint32_t i = 0; i < nq / 2u; i++) { uint32_t qi = (uint32_t)h * (nq / 2u) + i; lds128_b(e, qq[qi], qa, qi * 16u, SB_LD2); }
-        if (k->f32) {
-            for (int s = 0; s < 4; s++) e_ffma_s(e, dot, qq[h], s, kx[h], s, dot); /* dim h*4+s */
-        } else {
-            for (int s = 0; s < 4; s++) {
-                int pi = h * 4 + s; /* bf16 pair: dims 2*pi (low half) and 2*pi+1 (high half) */
-                imadi_s(e, lo, kx[h], s, 0x10000u, NOREG);   /* low bf16 -> f32: bits << 16 */
-                lop3andi_s(e, hi, kx[h], s, 0xffff0000u);    /* high bf16 -> f32: keep the top half */
-                e_ffma_s(e, dot, qq[pi / 2], (pi % 2) * 2, lo, 0, dot);
-                e_ffma_s(e, dot, qq[pi / 2], (pi % 2) * 2 + 1, hi, 0, dot);
+    for (uint32_t g = 0; g < GC; g++) {
+        for (int hh = 0; hh < 2; hh++) {
+            for (uint32_t i = 0; i < nq / 2u; i++) { uint32_t qi = (uint32_t)hh * (nq / 2u) + i; lds128_b(e, qq[qi], qa, g * HB + qi * 16u, SB_LD2); }
+            if (k->f32) {
+                for (int s4 = 0; s4 < 4; s4++) e_ffma_s(e, dot[g], qq[hh], s4, kx[hh], s4, dot[g]); /* dim hh*4+s4 */
+            } else {
+                for (int s4 = 0; s4 < 4; s4++) {
+                    int pi = hh * 4 + s4; /* bf16 pair: dims 2*pi (low half) and 2*pi+1 (high half) */
+                    imadi_s(e, lo, kx[hh], s4, 0x10000u, NOREG);   /* low bf16 -> f32: bits << 16 */
+                    lop3andi_s(e, hi, kx[hh], s4, 0xffff0000u);    /* high bf16 -> f32: keep the top half */
+                    e_ffma_s(e, dot[g], qq[pi / 2], (pi % 2) * 2, lo, 0, dot[g]);
+                    e_ffma_s(e, dot[g], qq[pi / 2], (pi % 2) * 2 + 1, hi, 0, dot[g]);
+                }
             }
         }
     }
@@ -455,56 +499,85 @@ static void gen_attention(Em *e, const KSpec *k) {
     isetp_ge_u32(e, d, c64);
     bra_back_if_not_p0(e, Lin);
     loop_end(e);
-    e_fmul(e, s, dot, scale);
+    for (uint32_t g = 0; g < GC; g++) e_fmul(e, s[g], dot[g], scale);
     if (k->divergent) {
         region_join(e); /* every lane back before the cross-lane reductions */
     } else {
         imadi(e, nb, over, 0x80000000u, cninf); /* over ? +inf : -inf (bits) */
-        e_fsub(e, ns, zero, s); e_fmax(e, ns, ns, nb); e_fsub(e, s, zero, ns);
+        for (uint32_t g = 0; g < GC; g++) { e_fsub(e, ns, zero, s[g]); e_fmax(e, ns, ns, nb); e_fsub(e, s[g], zero, ns); }
     }
-    sts32(e, sOff, s);
+    for (uint32_t g = 0; g < GC; g++) {
+        if (g == 0) sts32(e, sOff, s[0]);
+        else { imadi(e, tsh, c1, g * HB, sOff); sts32(e, tsh, s[g]); }
+    }
     sts32(e, oOff, koff);
 
-    /* chunk max */
-    int t = V(e), mw = V(e), ra = V(e), rb = V(e), mc = V(e), Mn = V(e), diff = V(e), alpha = V(e), parg = V(e), p = V(e), sw = V(e), lc = V(e);
+    /* chunk max, per head */
+    int t = V(e), mw = V(e), ra = V(e), rb = V(e), mc = V(e), Mn = V(e), diff = V(e), alpha[4], parg, p, sw, lc;
+    alpha[0] = V(e); parg = V(e); p = V(e); sw = V(e); lc = V(e);
+    for (uint32_t g = 1; g < GC; g++) alpha[g] = V(e);
     static const uint32_t steps[5] = { 16, 8, 4, 2, 1 };
-    shfl_down(e, t, s, steps[0]); e_fmax(e, mw, s, t);
-    for (int i = 1; i < 5; i++) { shfl_down(e, t, mw, steps[i]); e_fmax(e, mw, mw, t); }
-    sts32(e, rOff, mw);
+    for (uint32_t g = 0; g < GC; g++) {
+        shfl_down(e, t, s[g], steps[0]); e_fmax(e, mw, s[g], t);
+        for (int i = 1; i < 5; i++) { shfl_down(e, t, mw, steps[i]); e_fmax(e, mw, mw, t); }
+        if (g == 0) sts32(e, rOff, mw);
+        else { imadi(e, tsh, c1, g * HB, rOff); sts32(e, tsh, mw); }
+    }
     bar_sync(e);
-    lds32(e, ra, c768); lds32(e, rb, c896);
-    e_fmax(e, mc, ra, rb);
-    if (HD == 128) { lds32(e, rc_, c1024); lds32(e, rd_, c1152); e_fmax(e, mc, mc, rc_); e_fmax(e, mc, mc, rd_); }
-    e_fmax(e, Mn, M, mc);
-    if (k->mutant == OMEGA_GPU_ATTN_MUTANT_NO_MAX) {
-        movf(e, alpha, 1.0f);
-        mufu(e, BW_IR_MUFU_EX2, p, s);
-        e_fmax(e, M, Mn, mc);
-    } else {
-        e_fsub(e, diff, M, Mn);
-        mufu(e, BW_IR_MUFU_EX2, alpha, diff);
-        e_fmax(e, M, Mn, mc); /* M = Mn */
-        e_fsub(e, parg, s, Mn);
-        mufu(e, BW_IR_MUFU_EX2, p, parg);
+    for (uint32_t g = 0; g < GC; g++) {
+        const int pg = GC == 1 ? p : s[g]; /* GC > 1: p overwrites the score register of its head */
+        if (g == 0) { lds32(e, ra, c768); lds32(e, rb, c896); }
+        else { imadi(e, tsh, c1, g * HB, c768); lds32(e, ra, tsh); imadi(e, tsh, c1, g * HB, c896); lds32(e, rb, tsh); }
+        e_fmax(e, mc, ra, rb);
+        if (HD == 128) {
+            if (g == 0) { lds32(e, rc_, c1024); lds32(e, rd_, c1152); }
+            else { imadi(e, tsh, c1, g * HB, c1024); lds32(e, rc_, tsh); imadi(e, tsh, c1, g * HB, c1152); lds32(e, rd_, tsh); }
+            e_fmax(e, mc, mc, rc_); e_fmax(e, mc, mc, rd_);
+        }
+        e_fmax(e, Mn, M[g], mc);
+        if (k->mutant == OMEGA_GPU_ATTN_MUTANT_NO_MAX) {
+            movf(e, alpha[g], 1.0f);
+            mufu(e, BW_IR_MUFU_EX2, pg, s[g]);
+            e_fmax(e, M[g], Mn, mc);
+        } else {
+            e_fsub(e, diff, M[g], Mn);
+            mufu(e, BW_IR_MUFU_EX2, alpha[g], diff);
+            e_fmax(e, M[g], Mn, mc); /* M = Mn */
+            e_fsub(e, parg, s[g], Mn);
+            mufu(e, BW_IR_MUFU_EX2, pg, parg);
+        }
     }
     bar_sync(e); /* everyone has read the max partials before they are overwritten */
-    sts32(e, sOff, p);
-    shfl_down(e, t, p, steps[0]); e_fadd(e, sw, p, t);
-    for (int i = 1; i < 5; i++) { shfl_down(e, t, sw, steps[i]); e_fadd(e, sw, sw, t); }
-    sts32(e, rOff, sw);
+    for (uint32_t g = 0; g < GC; g++) {
+        const int pg = GC == 1 ? p : s[g];
+        if (g == 0) sts32(e, sOff, pg);
+        else { imadi(e, tsh, c1, g * HB, sOff); sts32(e, tsh, pg); }
+        shfl_down(e, t, pg, steps[0]); e_fadd(e, sw, pg, t);
+        for (int i = 1; i < 5; i++) { shfl_down(e, t, sw, steps[i]); e_fadd(e, sw, sw, t); }
+        if (g == 0) sts32(e, rOff, sw);
+        else { imadi(e, tsh, c1, g * HB, rOff); sts32(e, tsh, sw); }
+    }
     bar_sync(e);
-    lds32(e, ra, c768); lds32(e, rb, c896);
-    e_fadd(e, lc, ra, rb);
-    if (HD == 128) { lds32(e, rc_, c1024); lds32(e, rd_, c1152); e_fadd(e, lc, lc, rc_); e_fadd(e, lc, lc, rd_); }
-    e_ffma(e, L, L, alpha, lc);
-    if (k->mutant != OMEGA_GPU_ATTN_MUTANT_NO_RESCALE) e_fmul(e, acc, acc, alpha);
+    for (uint32_t g = 0; g < GC; g++) {
+        if (g == 0) { lds32(e, ra, c768); lds32(e, rb, c896); }
+        else { imadi(e, tsh, c1, g * HB, c768); lds32(e, ra, tsh); imadi(e, tsh, c1, g * HB, c896); lds32(e, rb, tsh); }
+        e_fadd(e, lc, ra, rb);
+        if (HD == 128) {
+            if (g == 0) { lds32(e, rc_, c1024); lds32(e, rd_, c1152); }
+            else { imadi(e, tsh, c1, g * HB, c1024); lds32(e, rc_, tsh); imadi(e, tsh, c1, g * HB, c1152); lds32(e, rd_, tsh); }
+            e_fadd(e, lc, lc, rc_); e_fadd(e, lc, lc, rd_);
+        }
+        e_ffma(e, L[g], L[g], alpha[g], lc);
+        if (k->mutant != OMEGA_GPU_ATTN_MUTANT_NO_RESCALE) e_fmul(e, acc[g], acc[g], alpha[g]);
+    }
 
     /* phase B (batched, 2026-10-12): dimension tid over the chunk's tokens, AT_TOK tokens per pass. The
      * token offsets of a pass come in two 128-bit shared loads (SB_LD2, one wait), then each V address is
      * computed into one register pair while the earlier V loads are in flight (emit_fixed_in_batch: the
      * read barrier orders the overwrite after the load has read it) and its load issued on SB_GPR or
      * SB_LD3; the p values follow as two more shared loads on SB_LD2; one wait for all of it. A token past
-     * ctx inside a pass has p = 0 and the offset of a real token (phase A), so it adds exactly 0. */
+     * ctx inside a pass has p = 0 and the offset of a real token (phase A), so it adds exactly 0.
+     * GC > 1: one V load per token feeds every head's accumulator from that head's p slice (cut K). */
     enum { AT_TOK = 8 };
     int kk = V(e), tt = V(e), oa = V(e), pa = V(e), ko4[2], pv4[2], va = V64(e), v[AT_TOK];
     for (int i = 0; i < 2; i++) { ko4[i] = V128(e); pv4[i] = V128(e); }
@@ -524,10 +597,18 @@ static void gen_attention(Em *e, const KSpec *k) {
         uint32_t sb = (i < AT_TOK / 2) ? SB_GPR : SB_LD3;
         if (k->f32) ldg_b(e, v[i], va, udesc, sb); else ldg16_b(e, v[i], va, udesc, sb);
     }
-    for (int i = 0; i < 2; i++) lds128_b(e, pv4[i], pa, (uint32_t)i * 16u, SB_LD2);
-    for (int i = 0; i < AT_TOK; i++) {
-        if (!k->f32) imadi(e, v[i], v[i], 0x10000u, NOREG);
-        e_ffma_s(e, acc, pv4[i / 4], i % 4, v[i], 0, acc);
+    if (GC == 1) {
+        for (int i = 0; i < 2; i++) lds128_b(e, pv4[i], pa, (uint32_t)i * 16u, SB_LD2);
+        for (int i = 0; i < AT_TOK; i++) {
+            if (!k->f32) imadi(e, v[i], v[i], 0x10000u, NOREG);
+            e_ffma_s(e, acc[0], pv4[i / 4], i % 4, v[i], 0, acc[0]);
+        }
+    } else {
+        if (!k->f32) for (int i = 0; i < AT_TOK; i++) imadi(e, v[i], v[i], 0x10000u, NOREG);
+        for (uint32_t g = 0; g < GC; g++) {
+            for (int i = 0; i < 2; i++) lds128_b(e, pv4[i], pa, g * HB + (uint32_t)i * 16u, SB_LD2);
+            for (int i = 0; i < AT_TOK; i++) e_ffma_s(e, acc[g], pv4[i / 4], i % 4, v[i], 0, acc[g]);
+        }
     }
     imadi(e, kk, c1, AT_TOK, kk);
     isetp_ge_u32(e, kk, c64);
@@ -541,37 +622,77 @@ static void gen_attention(Em *e, const KSpec *k) {
     loop_end(e);
 
     patch_fwd(e, bZ);
-    if (part) {
+    if (part && GC == 1) {
         /* partial row (seq * nqh + out head) * S + split: acc[HD] unnormalised, then M and L at words HD and HD + 1
          * (every lane stores the same CTA-wide M and L). Everything is re-derived here from the CTA ids and the
          * constant bank so no extra value lives across the chunk loop (the hd 128 kernel sits at the register budget). */
-        int cy = V(e), sq = V(e), sp = V(e), hh = V(e), nq = V(e), t4 = V(e), prow = V(e), poff = V(e);
+        int cy = V(e), sq = V(e), sp = V(e), hh = V(e), nq_ = V(e), t4 = V(e), prow = V(e), poff = V(e);
         int paddr = V64(e), maddr = V64(e), laddr = V64(e), Cp = V64(e);
-        s2r(e, cy, BW_SR_CTAID_Y); s2r(e, hh, BW_SR_CTAID_X); ldc32(e, nq, ARG_NQH); ldc64(e, Cp, ARG_OUT);
+        s2r(e, cy, BW_SR_CTAID_Y); s2r(e, hh, BW_SR_CTAID_X); ldc32(e, nq_, ARG_NQH); ldc64(e, Cp, ARG_OUT);
         if (k->mutant == OMEGA_GPU_ATTN_MUTANT_OUT_ROW) lop3xor(e, hh, hh, c1);
         if (LS) { lop3andi(e, sp, cy, S - 1u); shri(e, sq, cy, LS); } else { movrz(e, sp); iadd3(e, sq, cy, zero); }
-        imadr(e, prow, sq, nq, hh);
+        imadr(e, prow, sq, nq_, hh);
         imadi(e, prow, prow, S, sp);
         imadi(e, t4, tid, 4, NOREG);
         imadi(e, poff, prow, (HD + 2u) * 4u, t4);
         wide(e, paddr, poff, 1, Cp);
-        stg(e, paddr, acc, udesc);
+        stg(e, paddr, acc[0], udesc);
         imadi(e, poff, prow, (HD + 2u) * 4u, NOREG);
         wide(e, maddr, poff, 1, Cp);
         wide(e, maddr, c64, 4, maddr);
-        stg(e, maddr, M, udesc);
+        stg(e, maddr, M[0], udesc);
         wide(e, laddr, c1, 4, maddr);
-        stg(e, laddr, L, udesc);
-    } else {
+        stg(e, laddr, L[0], udesc);
+    } else if (part) {
+        /* GC heads: row (seq * nqh + h * GC + g) * S + split for head g (OUT_ROW: g ^ 1 on the output side) */
+        int cy = V(e), sq = V(e), sp = V(e), h0 = V(e), hg = V(e), nq_ = V(e), t4 = V(e), prow = V(e), poff = V(e);
+        int paddr = V64(e), maddr = V64(e), laddr = V64(e), Cp = V64(e);
+        s2r(e, cy, BW_SR_CTAID_Y); s2r(e, h0, BW_SR_CTAID_X); ldc32(e, nq_, ARG_NQH); ldc64(e, Cp, ARG_OUT);
+        imadi(e, h0, h0, GC, NOREG);
+        if (LS) { lop3andi(e, sp, cy, S - 1u); shri(e, sq, cy, LS); } else { movrz(e, sp); iadd3(e, sq, cy, zero); }
+        imadi(e, t4, tid, 4, NOREG);
+        for (uint32_t g = 0; g < GC; g++) {
+            imadi(e, hg, c1, g, h0);
+            if (k->mutant == OMEGA_GPU_ATTN_MUTANT_OUT_ROW) lop3xor(e, hg, hg, c1);
+            imadr(e, prow, sq, nq_, hg);
+            imadi(e, prow, prow, S, sp);
+            imadi(e, poff, prow, (HD + 2u) * 4u, t4);
+            wide(e, paddr, poff, 1, Cp);
+            stg(e, paddr, acc[g], udesc);
+            imadi(e, poff, prow, (HD + 2u) * 4u, NOREG);
+            wide(e, maddr, poff, 1, Cp);
+            wide(e, maddr, c64, 4, maddr);
+            stg(e, maddr, M[g], udesc);
+            wide(e, laddr, c1, 4, maddr);
+            stg(e, laddr, L[g], udesc);
+        }
+    } else if (GC == 1) {
         int inv = V(e), o = V(e);
-        mufu(e, BW_IR_MUFU_RCP, inv, L);
-        e_fmul(e, o, acc, inv);
+        mufu(e, BW_IR_MUFU_RCP, inv, L[0]);
+        e_fmul(e, o, acc[0], inv);
         stg(e, oaddr, o, udesc);
+    } else {
+        /* direct output, GC heads: row seq * nqh + h * GC + g (OUT_ROW: g ^ 1), re-derived from the CTA ids */
+        int inv = V(e), o = V(e), cy = V(e), h0 = V(e), hg = V(e), nq_ = V(e), t4 = V(e), orow = V(e), ooff = V(e);
+        int oa64 = V64(e), Cp = V64(e);
+        s2r(e, cy, BW_SR_CTAID_Y); s2r(e, h0, BW_SR_CTAID_X); ldc32(e, nq_, ARG_NQH); ldc64(e, Cp, ARG_OUT);
+        imadi(e, h0, h0, GC, NOREG);
+        imadi(e, t4, tid, 4, NOREG);
+        for (uint32_t g = 0; g < GC; g++) {
+            imadi(e, hg, c1, g, h0);
+            if (k->mutant == OMEGA_GPU_ATTN_MUTANT_OUT_ROW) lop3xor(e, hg, hg, c1);
+            imadr(e, orow, cy, nq_, hg);
+            imadi(e, ooff, orow, HD * 4, t4);
+            wide(e, oa64, ooff, 1, Cp);
+            mufu(e, BW_IR_MUFU_RCP, inv, L[g]);
+            e_fmul(e, o, acc[g], inv);
+            stg(e, oa64, o, udesc);
+        }
     }
     tail(e);
 }
 
-#define AT_GPR_BUDGET 64u
+#define AT_GPR_BUDGET 96u /* cut K: the GQA-group hd 128 kernel carries four heads of running state (the matmul blocked kernels launch at 108) */
 
 static int build_kernel(const KSpec *k, OmegaBlackwellKernel *kernel, BlackwellIRProgram **keep) {
     BlackwellIRProgram *prog = calloc(1, sizeof *prog);
@@ -627,6 +748,8 @@ static bool g_hooked;
 #define UNLOCK() omega_gpu_session_unlock()
 
 void omega_gpu_attention_test_set_simulator(OmegaGpuAttnSim sim) { LOCK(); g_sim = sim; UNLOCK(); }
+static uint32_t g_sim_shared_bytes; /* shared bytes the launcher would declare for the kernel the simulator is running */
+uint32_t omega_gpu_attention_test_shared_bytes(void) { return g_sim_shared_bytes; }
 void omega_gpu_attention_test_set_dedupe(bool on) { LOCK(); g_dedupe = on; UNLOCK(); }
 void omega_gpu_attention_test_set_split(int log2split) { LOCK(); g_split = (log2split >= 0 && log2split <= (int)OMEGA_GPU_ATTN_MAX_LOG2SPLIT) ? log2split : -1; UNLOCK(); }
 
@@ -797,7 +920,7 @@ static int run_launch(const Slot *ks, const Launch *L, OmegaGpuAttnInfo *info) {
     args[6] = (uint32_t)g_tab.mem.va; args[7] = (uint32_t)(g_tab.mem.va >> 32);
     memcpy(&args[8], L->params, sizeof L->params);
     OmegaGpuLaunch GL = {
-        .code_va = ks->code.va, .gpr_count = AT_GPR_BUDGET, .threads_x = ks->k.hd, .threads_y = 1, .shared_bytes = 16u * ks->k.hd, /* 4 arrays of hd words: 1024 B for hd 64 (the QMD default), 2048 B for hd 128 */
+        .code_va = ks->code.va, .gpr_count = AT_GPR_BUDGET, .threads_x = ks->k.hd, .threads_y = 1, .shared_bytes = shared_bytes_for(ks->k.hd, ks->k.log2gqa), /* (3 GC + 1) arrays of hd words: 1024 B for hd 64, 2048 B for hd 128 gqa 1, 6656 B for hd 128 gqa 4 */
         .grid_x = L->grid_x, .grid_y = L->grid_y, .num_elements = out_words,
         .args = args, .n_args = ARG_WORDS, .timeout_ms = AT_WAIT_MS,
     };
@@ -825,7 +948,7 @@ static int launch(const Slot *ks, const Launch *L, OmegaGpuAttnInfo *info) {
         info->q_bytes += L->q_bytes; info->tab_bytes += L->tab_bytes; info->out_bytes += L->out_bytes;
         info->kv_source = L->pool_va ? OMEGA_GPU_ATTN_KV_RESIDENT : OMEGA_GPU_ATTN_KV_STAGED;
     }
-    if (g_sim) return g_sim(ks->prog, L, info);
+    if (g_sim) { g_sim_shared_bytes = shared_bytes_for(ks->k.hd, ks->k.log2gqa); return g_sim(ks->prog, L, info); }
     return run_launch(ks, L, info);
 }
 
@@ -968,7 +1091,7 @@ int omega_gpu_gqa_attention_f32(const float *q, const float *k_cache, const floa
     uint32_t tab[2] = { 0, seq_len }; /* table row {0}, then the context length at byte 4 */
     Launch L = {
         .q = q, .q_bytes = n_out * 4, .pool = pool, .pool_bytes = 2 * plane, .tab = tab, .tab_bytes = sizeof tab,
-        .out = out, .out_bytes = n_out * 4, .grid_x = num_q_heads, .grid_y = 1,
+        .out = out, .out_bytes = n_out * 4, .grid_x = num_q_heads / heads_per_cta(HD, log2gqa), .grid_y = 1,
         .params = { 1, f2u(score_scale(HD)), (uint32_t)(2 * plane), num_kv_heads * HD * 4, (uint32_t)plane, HD * 4, num_q_heads, 4 }
     };
     rc = launch(ks, &L, info);
@@ -1024,7 +1147,7 @@ int omega_gpu_gqa_attention_rows_f32(const float *q, const float *k_cache, const
         Launch L = {
             .q = q + (size_t)r0 * row, .q_bytes = (size_t)nr * row * 4, .pool = pool, .pool_bytes = 2 * plane,
             .tab = tab, .tab_bytes = (size_t)2 * nr * 4, .out = out + (size_t)r0 * row, .out_bytes = (size_t)nr * row * 4,
-            .grid_x = num_q_heads, .grid_y = nr,
+            .grid_x = num_q_heads / heads_per_cta(HD, log2gqa), .grid_y = nr,
             .params = { 1, f2u(score_scale(HD)), (uint32_t)(2 * plane), num_kv_heads * HD * 4, (uint32_t)plane, HD * 4, num_q_heads, nr * 4 }
         };
         rc = launch(ks, &L, info);
@@ -1170,7 +1293,7 @@ static int paged_core(const float *q, const uint8_t *pool, const OmegaGpuKvLayou
                 .pool = (const uint8_t *)pool + (size_t)layer_idx * ly->layer_stride_bytes, .pool_bytes = 0,
                 .tab = tab, .tab_bytes = ((size_t)ns * maxb + ns) * 4,
                 .out = part, .out_bytes = (size_t)ns * num_q_heads * S * (HD + 2) * 4,
-                .grid_x = num_q_heads, .grid_y = ns * S,
+                .grid_x = num_q_heads / heads_per_cta(HD, log2gqa), .grid_y = ns * S,
                 .params = { maxb, f2u(score_scale(HD)), (uint32_t)ly->block_stride_bytes, (uint32_t)ly->token_stride_bytes,
                             (uint32_t)ly->kv_plane_stride_bytes, (uint32_t)ly->head_stride_bytes, num_q_heads, ns * maxb * 4 },
                 .pool_va = g_resident.va + (uint64_t)layer_idx * ly->layer_stride_bytes,
@@ -1229,7 +1352,7 @@ static int paged_core(const float *q, const uint8_t *pool, const OmegaGpuKvLayou
             .q = q + (size_t)s0 * row, .q_bytes = (size_t)ns * row * 4, .pool = staged, .pool_bytes = (size_t)staged_bytes,
             .tab = tab, .tab_bytes = ((size_t)ns * maxb + ns) * 4,
             .out = part, .out_bytes = (size_t)ns * num_q_heads * S * (HD + 2) * 4,
-            .grid_x = num_q_heads, .grid_y = ns * S,
+            .grid_x = num_q_heads / heads_per_cta(HD, log2gqa), .grid_y = ns * S,
             .params = { maxb, f2u(score_scale(HD)), (uint32_t)ly->layer_stride_bytes, (uint32_t)ly->token_stride_bytes,
                         (uint32_t)ly->kv_plane_stride_bytes, (uint32_t)ly->head_stride_bytes, num_q_heads, ns * maxb * 4 }
         };
