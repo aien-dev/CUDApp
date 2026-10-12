@@ -48,7 +48,9 @@
  * Staging: the host copies q, the referenced KV blocks' layer slice, the (compacted,
  * renumbered) block tables and the context lengths into GPU-uncached staging buffers
  * for each launch and copies the result back. The kernel itself walks the block
- * table; a resident pool handle is a later cut. Since the attention hardening cut
+ * table. Resident pool (2026-10-12): a paged call whose pool pointer is the allocation
+ * omega_gpu_attention_pool_alloc returned reads the KV in place instead (no staging; see
+ * that declaration for the one rule). Since the attention hardening cut
  * (2026-10-04) a launch stages each physical block's layer slice once however many
  * sequences of the batch reference it (shared CoW prefixes), and OmegaGpuAttnInfo
  * reports the bytes staged against the per-sequence (naive) figure.
@@ -114,9 +116,10 @@ typedef struct {
     uint32_t kv_blocks_logical; /* block references summed over sequences, truncated to each context */
     uint32_t kv_blocks_unique;  /* distinct (physical block, layer) slices staged, summed over launches */
     uint64_t q_bytes, tab_bytes, out_bytes; /* q, block-table/context and result traffic (sum over launches) */
-    uint32_t kv_source;         /* OMEGA_GPU_ATTN_KV_STAGED; a resident pool is a later cut */
+    uint32_t kv_source;         /* OMEGA_GPU_ATTN_KV_STAGED (slices copied per call) or OMEGA_GPU_ATTN_KV_RESIDENT (read in place) */
 } OmegaGpuAttnInfo;
 #define OMEGA_GPU_ATTN_KV_STAGED 0u
+#define OMEGA_GPU_ATTN_KV_RESIDENT 1u
 
 /* Contiguous f32 KV (TensorBackend::gqa_attention). q and out: [num_q_heads][head_dim]. */
 int omega_gpu_gqa_attention_f32(const float *q, const float *k_cache, const float *v_cache,
@@ -151,6 +154,20 @@ int omega_gpu_paged_attention_batch_bf16(const float *q, const void *pool, const
                                          uint32_t max_blocks_per_seq, uint32_t num_seqs, uint32_t layer_idx,
                                          uint32_t num_q_heads, uint32_t num_kv_heads, uint32_t head_dim,
                                          float *out, OmegaGpuAttnInfo *info);
+
+/* Resident KV pool (2026-10-12). One GPU-uncached, host-visible allocation of `bytes` that the caller
+ * writes its paged bf16 KV into directly (sovereign-core's pool buffer). A paged call whose `pool`
+ * pointer is this allocation reads the KV in place: nothing is staged, the block table carries the
+ * physical block ids and the kernel's block stride is the layout's block stride. The kernel forms
+ * block_id * block_stride + the in-block offsets in 32 bits, so a call takes the resident path only
+ * when block_stride_bytes and, for every block it references, block_id * block_stride_bytes +
+ * layer_stride_bytes fit in 32 bits, and the layout's pool_bytes fit the allocation; otherwise that
+ * call stages exactly as before. OmegaGpuAttnInfo.kv_source says which path ran. One pool per
+ * process: a second alloc is refused (BAD_ARGS) until omega_gpu_attention_pool_free. The alloc opens
+ * the session (CHIP_FAIL carries the driver text in omega_gpu_attention_last_error()); under the host
+ * simulator it is plain host memory. The caller must not free the pool while a call is in flight. */
+int omega_gpu_attention_pool_alloc(size_t bytes, void **cpu);
+void omega_gpu_attention_pool_free(void);
 
 const char *omega_gpu_attention_rc_name(int rc);
 void omega_gpu_attention_cache_clear(void);
@@ -228,6 +245,7 @@ typedef struct {
     void *out; size_t out_bytes;
     uint32_t grid_x, grid_y;
     uint32_t params[8];
+    uint64_t pool_va; /* resident pool: chip address of the layer base (`pool` is its host mapping, pool_bytes 0); 0 = stage `pool` */
 } OmegaGpuAttnLaunch;
 
 /* Host simulator hook (tests): when set, every launch runs the allocated IR program
@@ -244,6 +262,10 @@ void omega_gpu_attention_test_set_simulator(OmegaGpuAttnSim sim);
  * its own blocks), kept as the reference fallback and as the negative control of the
  * staging-byte tests. Test hook; never cleared in production. */
 void omega_gpu_attention_test_set_dedupe(bool on);
+
+/* The resident pool's per-block fit rule (see omega_gpu_attention_pool_alloc), exposed so the
+ * 4 GiB edge can be checked without allocating a 4 GiB pool. Test hook. */
+bool omega_gpu_attention_test_resident_fits(const OmegaGpuKvLayout *layout, uint32_t block_id);
 
 #ifdef __cplusplus
 }

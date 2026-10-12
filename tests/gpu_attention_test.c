@@ -441,6 +441,14 @@ static int chip(const char *out_path) {
         CHECK(rc3 == OMEGA_GPU_ATTN_OK && differ > n / 2, "mha: Q_ROW and OUT_ROW outputs are distinct wrong answers (%zu of %zu differ)", differ, n);
         record(c, out); free(q); free(kc); free(vc); free(got); free(want); free(got_q);
     }
+    /* resident fit rule at the 32-bit edge (Qwen3-8B geometry: 36 layers, 8 kv heads x 128, block 16), no allocation */
+    {
+        OmegaGpuKvLayout big = layout_for(4096, 16, 36, 8, 128);
+        uint32_t id_ok = (uint32_t)((0xffffffffull - big.layer_stride_bytes) / big.block_stride_bytes);
+        CHECK(omega_gpu_attention_test_resident_fits(&big, id_ok) && !omega_gpu_attention_test_resident_fits(&big, id_ok + 1),
+              "resident fit rule at the 4 GiB edge: block %u fits, %u does not (block stride %llu)", id_ok, id_ok + 1,
+              (unsigned long long)big.block_stride_bytes);
+    }
     /* 3. paged bf16 KV, block size 16, 2 layers (layer 1 under test), scattered block ids */
     for (int sh = 0; sh < 2; sh++) for (int ci = 0; ci < 9; ci++) {
         uint32_t nqh = shapes[sh].nqh, nkv = shapes[sh].nkv, ctx = ctxs[ci], bs = 16, layers = 2, layer = 1;
@@ -459,6 +467,27 @@ static int chip(const char *out_path) {
         OmegaGpuAttnInfo info; PagedCtx pc = { q, pool, &ly, ids, nblk, ctx, layer, nqh, nkv };
         c.rc = run_paged(&pc, got, &info);
         c.bad = compare(got, want, n, 2e-4, 2e-5, &c.worst);
+        /* Resident pool (2026-10-12): the same bytes in omega's own allocation, read in place. Same kernel,
+         * same data, only the addressing differs: bit-identical to the staged result just computed (which is
+         * the negative control: a plain host pool reports STAGED), nothing staged, info says RESIDENT. */
+        if (c.rc == OMEGA_GPU_ATTN_OK) {
+            void *rp = NULL;
+            int arc = omega_gpu_attention_pool_alloc(ly.pool_bytes, &rp);
+            CHECK(arc == OMEGA_GPU_ATTN_OK && rp, "%s: resident pool alloc rc=%d (%s)", name, arc, omega_gpu_attention_last_error());
+            if (arc == OMEGA_GPU_ATTN_OK) {
+                memcpy(rp, pool, ly.pool_bytes);
+                float *got_r = malloc(n * 4); OmegaGpuAttnInfo ri;
+                PagedCtx rpc = { q, rp, &ly, ids, nblk, ctx, layer, nqh, nkv };
+                int rrc = run_paged(&rpc, got_r, &ri);
+                int same = memcmp(got_r, got, n * 4) == 0;
+                CHECK(rrc == OMEGA_GPU_ATTN_OK && ri.kv_source == OMEGA_GPU_ATTN_KV_RESIDENT && ri.kv_bytes_staged == 0 &&
+                      info.kv_source == OMEGA_GPU_ATTN_KV_STAGED && same,
+                      "%s: resident pool rc=%d source=%u staged=%llu (control source=%u) bit-identical=%d", name, rrc, ri.kv_source,
+                      (unsigned long long)ri.kv_bytes_staged, info.kv_source, same);
+                free(got_r);
+            }
+            omega_gpu_attention_pool_free();
+        }
         c.pass = c.rc == OMEGA_GPU_ATTN_OK && c.bad == 0; case_info(&c, &info);
         if (ci == 3) {
             /* NO_MAX cannot overflow on unit-scale scores (softmax is shift invariant); it is caught by the large-score gqa case */
