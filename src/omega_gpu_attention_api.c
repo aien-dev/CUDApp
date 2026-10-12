@@ -330,16 +330,16 @@ static void gen_attention(Em *e, const KSpec *k) {
     wide(e, ca, t1, 1, D);
     ldg(e, ctx, ca, udesc);
     if (part) {
-        /* This sequence's own split count s_own = min(S, pow2floor(chunks / 2)), chunks = ceil(ctx / HD), from its own
+        /* This sequence's own split count s_own = min(S, pow2floor(chunks)), chunks = ceil(ctx / HD), from its own
          * context alone (the host picks the launch S the same way over the batch); per = roundup(ceil(ctx / s_own), HD)
          * whole chunks per split; this CTA's slice is [kb, kend), kend = min(ctx, kb + per) through the sign bit of
          * ctx - (kb + per). Splits past s_own get kb >= kend: an empty partial. Branch-free: candidate 2^c replaces
-         * per when chunks / 2 >= 2^c; the candidates nest, so the largest that fits wins. */
+         * per when chunks >= 2^c; the candidates nest, so the largest that fits wins. */
         int per = V(e), x = V(e), cand = V(e), dd = V(e), lt = V(e), cH1 = V(e), cK = V(e);
         kb = V(e); kend = V(e);
         movi(e, cH1, HD - 1u);
         iadd3(e, per, ctx, cH1); lop3andi(e, per, per, ~(HD - 1u)); /* roundup(ctx, HD): one split takes it all */
-        shri(e, x, per, log2hd + 1u);                                /* chunks / 2 */
+        shri(e, x, per, log2hd);                                     /* chunks (cut J: one whole chunk per split) */
         for (uint32_t c = 1; c <= LS; c++) {
             movi(e, cK, (1u << c) - 1u); iadd3(e, cand, ctx, cK); shri(e, cand, cand, c);
             iadd3(e, cand, cand, cH1); lop3andi(e, cand, cand, ~(HD - 1u)); /* roundup(ceil(ctx / 2^c), HD) */
@@ -849,13 +849,21 @@ int omega_gpu_attention_reserve(uint32_t max_context, uint32_t max_seqs, uint32_
         if (paged > per_seq) per_seq = paged;
     }
     const size_t pool = per_seq * max_seqs;
-    const size_t qo = (size_t)max_seqs * num_q_heads * head_dim * 4u;
+    /* q rows for every sequence, and the output buffer sized for the paged path's partials of one launch
+     * (cut J: up to 2^MAX_LOG2SPLIT partials of head_dim + 2 words per (sequence, head), at most
+     * MAX_CTAS / num_q_heads sequences per launch; the rows reserve usually asks for more). */
+    const size_t q_bytes = (size_t)max_seqs * num_q_heads * head_dim * 4u;
+    size_t launch_seqs = OMEGA_GPU_ATTN_MAX_CTAS / num_q_heads;
+    if (launch_seqs == 0) launch_seqs = 1;
+    if (launch_seqs > max_seqs) launch_seqs = max_seqs;
+    const size_t partials = launch_seqs * num_q_heads * ((size_t)1u << OMEGA_GPU_ATTN_MAX_LOG2SPLIT) * ((size_t)head_dim + 2u) * 4u;
+    const size_t qo = q_bytes > partials ? q_bytes : partials;
     const size_t tab = ((size_t)max_seqs * max_context + max_seqs) * 4u;
     LOCK();
     rc = OMEGA_GPU_ATTN_OK;
     if (g_sim) rc = OMEGA_GPU_ATTN_OK; /* the simulator stages in host memory: nothing to reserve */
     else if (dev_open_locked() != OMEGA_GPU_ATTN_OK) rc = OMEGA_GPU_ATTN_CHIP_FAIL;
-    else if (omega_gpu_session_scratch_reserve(&g_pool, pool) || omega_gpu_session_scratch_reserve(&g_q, qo) ||
+    else if (omega_gpu_session_scratch_reserve(&g_pool, pool) || omega_gpu_session_scratch_reserve(&g_q, q_bytes) ||
              omega_gpu_session_scratch_reserve(&g_out, qo) || omega_gpu_session_scratch_reserve(&g_tab, tab < 8 ? 8 : tab)) {
         /* roll back this API's own buffers: a failed reserve leaves nothing flagged (growth allowed as before) */
         omega_gpu_session_scratch_unreserve(&g_pool); omega_gpu_session_scratch_unreserve(&g_q);
@@ -1031,9 +1039,9 @@ int omega_gpu_gqa_attention_rows_f32(const float *q, const float *k_cache, const
 /* Paged path shared by the single and batched entries. tables[s] has n_blocks[s] entries
  * (already filtered of negatives), ctx[s] the context length. */
 /* cut F: a sequence's own split count from its context alone (the kernel computes the same): log2 of the largest
- * power of two <= min(2^MAX_LOG2SPLIT, chunks / 2), chunks = ceil(ctx / HD). */
+ * power of two <= min(2^MAX_LOG2SPLIT, chunks), chunks = ceil(ctx / HD) (cut J: one whole chunk per split; cut F took two). */
 static uint32_t own_log2split(uint32_t ctx, uint32_t HD) {
-    uint32_t x = ((ctx + HD - 1) / HD) / 2, l = 0;
+    uint32_t x = (ctx + HD - 1) / HD, l = 0;
     while (l < OMEGA_GPU_ATTN_MAX_LOG2SPLIT && (2u << l) <= x) l++;
     return l;
 }
@@ -1110,7 +1118,7 @@ static int paged_core(const float *q, const uint8_t *pool, const OmegaGpuKvLayou
     }
     uint32_t seqs_per_launch = OMEGA_GPU_ATTN_MAX_CTAS / num_q_heads;
     if (seqs_per_launch == 0) seqs_per_launch = 1;
-    /* cut F: split each (sequence, head) over 2^log2split CTAs along the context: at least two whole chunks per
+    /* cut F: split each (sequence, head) over 2^log2split CTAs along the context: at least one whole chunk per
      * split, from the longest context in the call, within the split launch bound (the test hook forces it). */
     uint32_t log2split = 0;
     if (g_split >= 0) log2split = (uint32_t)g_split;

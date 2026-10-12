@@ -2,6 +2,8 @@
  *
  *   ./gpu_attention_test --host-only          refusals, codegen (both kernel families and every
  *                                             mutant), register budget, nvdisasm listing check
+ *   ./gpu_attention_test --split-timing [--hd 128] [--spin-us N] [--out r.json]  paged bf16 32q/8kv at ATTN_SPLIT_CTX
+ *                                             (default 1268): 100 calls per forced split 1,2,4,8 + auto, parity
  *   ./gpu_attention_test --timing [--out r.json] cut 4b gate: 1 query x 32 heads x 2048 ctx, 100 calls
  *                                             through the persistent session, median under 3 ms
  *   ./gpu_attention_test --sweep [--out s.json]  head-scaling sweep: paged bf16 at head_dim 64 over q heads
@@ -251,12 +253,22 @@ static const char *mutant_name(int m) { return omega_gpu_attention_mutant_name((
 
 /* Runs the mutants listed in `ms` (terminated by 0) through `run` and counts the catches. */
 typedef int (*RunFn)(void *ctx, float *got, OmegaGpuAttnInfo *info);
+/* The forced launch split the battery currently holds (the engine hook has no getter); -1 = automatic. */
+static int g_forced_split = -1;
+static void set_split(int log2split) { g_forced_split = log2split; omega_gpu_attention_test_set_split(log2split); }
+
 static void run_mutants(Case *c, const int *ms, RunFn run, void *ctx, float *got, const float *want, size_t n, double rel, double abs_tol) {
     size_t pos = strlen(c->mutant_note); /* appends: a case may call this more than once */
     for (int i = 0; ms[i]; i++) {
         OmegaGpuAttnInfo info; double w;
         omega_gpu_attention_test_set_mutant((OmegaGpuAttnMutant)ms[i]);
+        /* cut J (one chunk per split): a paged call at up to 16 chunks gives every CTA one chunk, so the in-kernel
+         * rescale between chunks never runs and the NO_RESCALE mutant would be invisible. That mutant runs with the
+         * whole context in one CTA per head (forced split 1), where the rescale happens on every chunk after the first. */
+        const int one_cta = ms[i] == OMEGA_GPU_ATTN_MUTANT_NO_RESCALE;
+        if (one_cta) omega_gpu_attention_test_set_split(0);
         int rc = run(ctx, got, &info);
+        if (one_cta) omega_gpu_attention_test_set_split(g_forced_split);
         size_t bad = compare(got, want, n, rel, abs_tol, &w);
         int caught = rc != OMEGA_GPU_ATTN_OK || bad > 0;
         omega_gpu_attention_test_set_mutant(OMEGA_GPU_ATTN_MUTANT_NONE);
@@ -504,8 +516,8 @@ static int chip(const char *out_path) {
         record(c, out); free(pool); free(ids); free(q); free(got); free(want);
     }
     /* 3b. context split (cut F): the 32q/8kv shape at ctx 1000 under every forced split against the oracle, the
-     * CTA count per launch grows with the split, the automatic choice at this context is 4 (hd 128: 8 chunks) or
-     * 8 (hd 64: 16 chunks), and a short context (ctx 100, one chunk) stays unsplit. A forced launch split at or above
+     * CTA count per launch grows with the split, the automatic choice at this context is 8 (hd 128: 8 chunks) or
+     * 16 (hd 64: 16 chunks; cut J, one chunk per split), and a short context (ctx 100, one chunk) stays unsplit. A forced launch split at or above
      * the sequence's own count gives the same bits (the extra CTAs write empty partials that add exact zeros). */
     {
         uint32_t nqh = 32, nkv = 8, bs = 16, layers = 2, layer = 1;
@@ -525,11 +537,11 @@ static int chip(const char *out_path) {
             OmegaGpuAttnInfo ai;
             int arc = run_paged(&pc, auto_got, &ai);
             uint32_t chunks = (ctx + hd - 1) / hd, want_log2 = 0;
-            while (want_log2 < OMEGA_GPU_ATTN_MAX_LOG2SPLIT && (2u << want_log2) <= chunks / 2) want_log2++;
+            while (want_log2 < OMEGA_GPU_ATTN_MAX_LOG2SPLIT && (2u << want_log2) <= chunks) want_log2++;
             CHECK(arc == OMEGA_GPU_ATTN_OK && ai.ctas_last_launch == (nqh << want_log2),
                   "split auto ctx %u: rc=%s ctas=%u (expected %u)", ctx, omega_gpu_attention_rc_name(arc), ai.ctas_last_launch, nqh << want_log2);
             for (int ls = 0; ls <= (int)OMEGA_GPU_ATTN_MAX_LOG2SPLIT; ls++) {
-                omega_gpu_attention_test_set_split(ls);
+                set_split(ls);
                 OmegaGpuAttnInfo fi;
                 char name[96]; snprintf(name, sizeof name, "paged_bf16_split%d_32q8kv_ctx%u", 1 << ls, ctx);
                 Case c = { .name = strdup(name), .n = n };
@@ -545,8 +557,9 @@ static int chip(const char *out_path) {
                 } else run_mutants(&c, no_mutants, run_paged, &pc, got, want, n, 2e-4, 2e-5);
                 record(c, out);
             }
-            omega_gpu_attention_test_set_split(-1);
-            if (ci == 1) CHECK(ai.ctas_last_launch == nqh, "ctx %u: one chunk stays unsplit (%u CTAs)", ctx, ai.ctas_last_launch);
+            set_split(-1);
+            if (ci == 1 && chunks == 1) CHECK(ai.ctas_last_launch == nqh, "ctx %u: one chunk stays unsplit (%u CTAs)", ctx, ai.ctas_last_launch);
+            else if (ci == 1) CHECK(ai.ctas_last_launch == (nqh << want_log2), "ctx %u: %u chunks -> %u splits (%u CTAs)", ctx, chunks, 1u << want_log2, ai.ctas_last_launch);
             free(pool); free(ids); free(q); free(got); free(want); free(auto_got);
         }
     }
@@ -619,9 +632,9 @@ static int chip(const char *out_path) {
         CHECK(c.blk_logical == logical && c.blk_unique == expect_unique, "%s: %u logical references, %u unique staged (expected %u/%u)", name, c.blk_logical, c.blk_unique, logical, expect_unique);
         CHECK(c.kv_naive == (uint64_t)logical * ly.layer_stride_bytes && c.kv_staged == (uint64_t)expect_unique * ly.layer_stride_bytes && c.kv_staged < c.kv_naive,
               "%s: staged %" PRIu64 " < naive %" PRIu64 " bytes (saved %" PRIu64 ")", name, c.kv_staged, c.kv_naive, c.kv_naive - c.kv_staged);
-        /* cut F: the output traffic is the partials, launch split = the largest own split in the call (hd 64: ctx 193 and 207 are 4 chunks, 2 splits; hd 128: 1) */
+        /* cut F: the output traffic is the partials, launch split = the largest own split in the call (cut J: hd 64: ctx 193 and 207 are 4 chunks, 4 splits; hd 128: 2 chunks, 2 splits) */
         uint32_t ls_max = 0;
-        for (uint32_t s = 0; s < nseq; s++) { uint32_t x = (((uint32_t)ctxs5[s] + hd - 1) / hd) / 2, l = 0; while (l < OMEGA_GPU_ATTN_MAX_LOG2SPLIT && (2u << l) <= x) l++; if (l > ls_max) ls_max = l; }
+        for (uint32_t s = 0; s < nseq; s++) { uint32_t x = ((uint32_t)ctxs5[s] + hd - 1) / hd, l = 0; while (l < OMEGA_GPU_ATTN_MAX_LOG2SPLIT && (2u << l) <= x) l++; if (l > ls_max) ls_max = l; }
         const uint64_t out_expect = (uint64_t)nseq * nqh * (1u << ls_max) * (hd + 2) * 4;
         CHECK(info.kv_source == OMEGA_GPU_ATTN_KV_STAGED && info.q_bytes == n * 4 && info.out_bytes == out_expect && info.tab_bytes > 0, "%s: q/out/table traffic accounted (q=%" PRIu64 " out=%" PRIu64 " tab=%" PRIu64 ")", name, info.q_bytes, info.out_bytes, info.tab_bytes);
         /* negative control: legacy per-sequence staging duplicates the shared prefix; same answer, more bytes */
@@ -780,6 +793,66 @@ static int sim_launch(const void *progv, const OmegaGpuAttnLaunch *L, OmegaGpuAt
  * oracle; gate: median wall time per call under 3 ms, one device open per process. */
 static double now_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec * 1e3 + t.tv_nsec / 1e6; }
 static int cmp_d(const void *a, const void *b) { double x = *(const double *)a, y = *(const double *)b; return x < y ? -1 : x > y; }
+/* --split-timing: the paged bf16 decode shape (32 q / 8 kv heads at the current head_dim, one sequence, context
+ * ATTN_SPLIT_CTX, default 1268: the campaign's document tasks) through the persistent session, 100 calls per
+ * forced launch split 1, 2, 4, 8 and the automatic choice; median wall and mean chip time per call, every call
+ * against the oracle. A measurement for the decode-speed work (2026-10-12): whether the kernel's time at this
+ * context falls with more CTAs per (sequence, head) or stays flat (bandwidth bound: the four query heads of a
+ * kv head each read its slice). */
+static int split_timing(const char *out_path) {
+    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
+    enum { N = 100 };
+    const uint32_t hd = g_hd, nqh = 32, nkv = 8, bs = 16, layers = 2, layer = 1;
+    const char *ce = getenv("ATTN_SPLIT_CTX");
+    const uint32_t ctx = ce && atoi(ce) > 0 ? (uint32_t)atoi(ce) : 1268u;
+    const uint32_t nblk = (ctx + bs - 1) / bs, pool_blocks = nblk + 3;
+    uint32_t seed = 0x5b17c0deu;
+    OmegaGpuKvLayout ly = layout_for(pool_blocks, bs, layers, nkv, hd);
+    uint8_t *pool = malloc(ly.pool_bytes); uint16_t *pw = (uint16_t *)pool;
+    for (size_t i = 0; i < ly.pool_bytes / 2; i++) pw[i] = f2bf(frand(&seed, -1.0f, 1.0f));
+    uint32_t *ids = malloc(nblk * 4);
+    for (uint32_t b = 0; b < nblk; b++) ids[b] = (b * 5 + 1) % pool_blocks;
+    const size_t n = (size_t)nqh * hd;
+    float *q = malloc(n * 4), *got = malloc(n * 4), *want = malloc(n * 4);
+    for (size_t i = 0; i < n; i++) q[i] = frand(&seed, -1.0f, 1.0f);
+    oracle_paged(q, pool, &ly, ids, nblk, ctx, layer, nqh, nkv, hd, want);
+    PagedCtx pc = { q, pool, &ly, ids, nblk, ctx, layer, nqh, nkv };
+    if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_ATTENTION_SPLIT_TIMING_V1\",\"hd\":%u,\"ctx\":%u,\"calls\":%d,\"spin_us\":%u,\"cases\":[",
+                     hd, ctx, N, omega_gpu_session_spin_us());
+    int first = 1;
+    for (int ls = -1; ls <= (int)OMEGA_GPU_ATTN_MAX_LOG2SPLIT; ls++) {
+        set_split(ls);
+        OmegaGpuAttnInfo info;
+        int rc0 = run_paged(&pc, got, &info); /* warm-up: opens the device, generates this split's kernel */
+        CHECK(rc0 == OMEGA_GPU_ATTN_OK, "split-timing split=%d first call rc=%s err=\"%s\"", ls, omega_gpu_attention_rc_name(rc0), omega_gpu_attention_last_error());
+        double samples[N]; int ok_calls = 0; size_t bad_total = 0; double worst = 0; uint64_t chip_sum = 0;
+        for (int i = 0; i < N; i++) {
+            double t0 = now_ms();
+            int rc = run_paged(&pc, got, &info);
+            samples[i] = now_ms() - t0;
+            double w; size_t bad = compare(got, want, n, 2e-4, 2e-5, &w);
+            if (w > worst) worst = w;
+            bad_total += bad; chip_sum += info.elapsed_ns;
+            if (rc == OMEGA_GPU_ATTN_OK && bad == 0) ok_calls++;
+        }
+        qsort(samples, N, sizeof samples[0], cmp_d);
+        const double median = samples[N / 2], p90 = samples[N * 9 / 10], mn = samples[0], mx = samples[N - 1];
+        const int pass = ok_calls == N && bad_total == 0;
+        CHECK(pass, "split-timing split=%d ctx=%u ok_calls=%d/%d violations=%zu", ls, ctx, ok_calls, N, bad_total);
+        printf("%s split-timing split=%s ctas=%u ctx=%u ok_calls=%d/%d worst_scaled_err=%g median_ms=%.3f p90_ms=%.3f min_ms=%.3f max_ms=%.3f chip_us_mean=%.1f\n",
+               pass ? "PASS" : "FAIL", ls < 0 ? "auto" : (const char *[]){ "1", "2", "4", "8", "16" }[ls], info.ctas_last_launch, ctx, ok_calls, N, worst,
+               median, p90, mn, mx, chip_sum / 1e3 / N);
+        if (out) fprintf(out, "%s{\"split\":%d,\"ctas\":%u,\"ok_calls\":%d,\"violations\":%zu,\"worst_scaled_err\":%g,\"median_ms\":%.4f,\"p90_ms\":%.4f,\"min_ms\":%.4f,\"max_ms\":%.4f,\"chip_us_mean\":%.1f,\"pass\":%s}",
+                         first ? "" : ",", ls, info.ctas_last_launch, ok_calls, bad_total, worst, median, p90, mn, mx, chip_sum / 1e3 / N, pass ? "true" : "false");
+        first = 0;
+    }
+    set_split(-1);
+    free(pool); free(ids); free(q); free(got); free(want);
+    if (out) { fprintf(out, "],\"checks\":%d,\"failed\":%d,\"verdict\":\"%s\"}\n", g_checks, g_failed, g_failed == 0 ? "OMEGA_GPU_ATTENTION_SPLIT_TIMING_PASS" : "OMEGA_GPU_ATTENTION_SPLIT_TIMING_FAIL"); fclose(out); }
+    return 0;
+}
+
 static int timing(const char *out_path) {
     FILE *out = out_path ? fopen(out_path, "w") : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
@@ -1079,22 +1152,27 @@ static void hd_codegen_checks(void) {
 
 
 int main(int argc, char **argv) {
-    const char *out_path = NULL; int host = 0, sim = 0, timing_mode = 0, sweep_mode = 0;
+    const char *out_path = NULL; int host = 0, sim = 0, timing_mode = 0, sweep_mode = 0, split_timing_mode = 0;
+    uint32_t spin_us = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--host-only") == 0) host = 1;
         else if (strcmp(argv[i], "--sim") == 0) sim = 1;
         else if (strcmp(argv[i], "--divergent") == 0) g_divergent = 1;
         else if (strcmp(argv[i], "--timing") == 0) timing_mode = 1;
+        else if (strcmp(argv[i], "--split-timing") == 0) split_timing_mode = 1;
         else if (strcmp(argv[i], "--sweep") == 0) sweep_mode = 1;
         else if (strcmp(argv[i], "--hd") == 0 && i + 1 < argc) g_hd = (uint32_t)atoi(argv[++i]);
+        else if (strcmp(argv[i], "--spin-us") == 0 && i + 1 < argc) spin_us = (uint32_t)atoi(argv[++i]);
         else if (strcmp(argv[i], "--out") == 0 && i + 1 < argc) out_path = argv[++i];
     }
     if (g_hd != 64 && g_hd != 128) { printf("--hd must be 64 or 128\n"); return 2; }
-    if (g_hd == 128 && (timing_mode || sweep_mode)) { printf("--hd 128 supports the battery and --host-only (timing and sweep are head_dim 64 only)\n"); return 2; }
+    if (g_hd == 128 && (timing_mode || sweep_mode)) { printf("--hd 128 supports the battery, --split-timing and --host-only (timing and sweep are head_dim 64 only)\n"); return 2; }
+    if (spin_us && omega_gpu_session_set_spin_us(spin_us) != 0) { printf("--spin-us %u refused\n", spin_us); return 2; }
     if (g_divergent) omega_gpu_attention_test_set_divergent(1);
     if (sim) { g_sim_mode = 1; omega_gpu_attention_test_set_simulator(g_divergent ? ws_attn_launch : sim_launch); }
     if (sim && g_divergent && !host) divergent_negative_control();
     if (host) { host_only(); hd_codegen_checks(); }
+    else if (split_timing_mode) { if (split_timing(out_path) != 0) return 2; }
     else if (timing_mode) { if (timing(out_path) != 0) return 2; }
     else if (sweep_mode) { if (sweep(out_path) != 0) return 2; }
     else { if (chip(out_path) != 0) return 2; if (g_hd == 128) hd128_checks(); }

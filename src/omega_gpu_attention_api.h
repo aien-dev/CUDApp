@@ -84,12 +84,13 @@ enum {
 #define OMEGA_GPU_ATTN_HEAD_DIM_128 128u /* the second supported head_dim (Qwen3-4B) */
 #define OMEGA_GPU_ATTN_MAX_CTAS 64u
 /* Cut F (2026-10-12): a paged call splits each (sequence, head) over up to 2^MAX_LOG2SPLIT CTAs along the context
- * (whole chunks each, at least two chunks per split; the launch takes the largest count in the batch) within
+ * (whole chunks each, at least one chunk per split since cut J, 2026-10-12, which also raised the cap from 8 to 16: at
+ * 1268 tokens the busiest CTA went from three chunks to two; the launch takes the largest count in the batch) within
  * SPLIT_MAX_CTAS CTAs per launch (the rows path proved 1024 on the chip); the CTAs write unnormalised partials
  * (acc[head_dim], running max, running sum) that the host combines, also when the split is 1 (the gqa f32 and rows
  * kernels keep the direct output and are byte for byte the ones before). Each sequence picks its own split count
  * from its own context, so a result never depends on the other sequences in a launch. */
-#define OMEGA_GPU_ATTN_MAX_LOG2SPLIT 3u
+#define OMEGA_GPU_ATTN_MAX_LOG2SPLIT 4u
 #define OMEGA_GPU_ATTN_SPLIT_MAX_CTAS 1024u
 #define OMEGA_GPU_ATTN_MAX_Q_HEADS 64u
 #define OMEGA_GPU_ATTN_MAX_GQA_CTX 4096u /* contiguous path: one block of 2^12 slots */
