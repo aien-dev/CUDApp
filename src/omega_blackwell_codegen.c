@@ -2182,6 +2182,23 @@ void omega_matmul_frag_pack_a_f32(const float *a, uint32_t m, uint32_t k, uint32
 void omega_matmul_frag_pack_a_row0(const uint16_t *a, uint32_t k, uint32_t kp, uint16_t *dst) {
     FRAG_PACK_A_ROW0_BODY(FRAG_ID);
 }
+size_t omega_matmul_result_sentinels(float *cd, uint32_t m, uint32_t n, uint32_t np, float poison, int set) {
+    /* one word per 16 x 8 fragment tile that holds a real output word: the tile's last real row and column */
+    size_t count = 0;
+    if (m == 0 || n == 0) return 0;
+    const uint32_t mt = (m + 15u) / 16u, nt = (n + 7u) / 8u;
+    for (uint32_t ti = 0; ti < mt; ti++) {
+        uint32_t r = ti * 16u + 15u; if (r >= m) r = m - 1u;
+        float *row = cd + (size_t)r * np;
+        for (uint32_t tj = 0; tj < nt; tj++) {
+            uint32_t c = tj * 8u + 7u; if (c >= n) c = n - 1u;
+            if (set) { row[c] = poison; count++; }
+            else if (row[c] == poison) count++;
+        }
+    }
+    return count;
+}
+
 void omega_matmul_frag_pack_a_row0_f32(const float *a, uint32_t k, uint32_t kp, uint16_t *dst) {
     FRAG_PACK_A_ROW0_BODY(frag_f32_to_bf16);
 }

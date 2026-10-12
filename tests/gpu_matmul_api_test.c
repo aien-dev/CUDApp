@@ -64,7 +64,40 @@ static double e2e_max_rel(uint32_t m, uint32_t k, uint32_t n, const float *a, co
  * table for mma.m16n8k16 (.bf16 A: a0,a1 row g cols 2t,2t+1; a2,a3 row g+8; a4,a5 row g cols
  * 2t+8,2t+9; a6,a7 row g+8. B: b0,b1 rows 2t,2t+1 col g; b2,b3 rows 2t+8,2t+9; g = lane>>2,
  * t = lane&3), independently of the packers: pack then unpack must give the matrix back. */
+/* Result sentinels: one poison word per 16 x 8 fragment tile that holds a real output word, inside the
+ * tile's real rows and columns; the scan counts exactly the survivors. */
+static void sentinel_host_checks(void) {
+    static const uint32_t shapes[][2] = { { 1u, 24576u }, { 1u, 4096u }, { 16u, 151936u }, { 128u, 24576u }, { 116u, 4096u }, { 3u, 20u }, { 17u, 9u } };
+    const float poison = -999.0f;
+    for (size_t s = 0; s < sizeof shapes / sizeof shapes[0]; s++) {
+        const uint32_t m = shapes[s][0], n = shapes[s][1], mp = (m + 15u) / 16u * 16u, np = (n + 7u) / 8u * 8u;
+        const uint32_t mt = (m + 15u) / 16u, nt = (n + 7u) / 8u;
+        float *cd = calloc((size_t)mp * np, sizeof *cd);
+        const size_t set = omega_matmul_result_sentinels(cd, m, n, np, poison, 1);
+        CHECK(set == (size_t)mt * nt, "sentinel count m=%u n=%u: %zu != %u", m, n, set, mt * nt);
+        /* every fragment tile with a real word holds exactly one sentinel, inside its real rows and columns */
+        size_t tiles_ok = 0, outside = 0;
+        for (uint32_t ti = 0; ti < mt; ti++)
+            for (uint32_t tj = 0; tj < nt; tj++) {
+                size_t in_tile = 0;
+                for (uint32_t r = ti * 16u; r < ti * 16u + 16u; r++)
+                    for (uint32_t c = tj * 8u; c < tj * 8u + 8u; c++)
+                        if (cd[(size_t)r * np + c] == poison) { if (r < m && c < n) in_tile++; else outside++; }
+                if (in_tile == 1) tiles_ok++;
+            }
+        CHECK(tiles_ok == (size_t)mt * nt && outside == 0, "sentinel placement m=%u n=%u: %zu tiles ok, %zu outside", m, n, tiles_ok, outside);
+        CHECK(omega_matmul_result_sentinels(cd, m, n, np, poison, 0) == set, "sentinel scan m=%u n=%u: all survive", m, n);
+        /* clearing one tile's sentinel removes exactly one survivor; a fully written result has none */
+        cd[(size_t)(m - 1u) * np + (n - 1u)] = 0.0f;
+        CHECK(omega_matmul_result_sentinels(cd, m, n, np, poison, 0) == set - 1u, "sentinel scan m=%u n=%u: one cleared", m, n);
+        for (size_t i = 0; i < (size_t)mp * np; i++) cd[i] = 1.5f;
+        CHECK(omega_matmul_result_sentinels(cd, m, n, np, poison, 0) == 0, "sentinel scan m=%u n=%u: none survive", m, n);
+        free(cd);
+    }
+}
+
 static void frag_host_checks(void) {
+    sentinel_host_checks();
     /* row-0 pack (one-row decode call): a full one-row pack of A2 equals a full pack of A1 followed by the
      * row-0 pack of A2, bf16 and f32 inputs, including a width with padding columns */
     {

@@ -415,8 +415,12 @@ static int matmul_core(uint32_t m, const uint16_t *a16, const float *a32, const 
         else omega_matmul_frag_pack_a(a16, m, k, mp, kp, ad);
         g.a_row0_ready = one_row; g.a_row0_kp = kp; g.a_row0_cpu = ad;
     }
+    /* result sentinels: one poison word per 16 x 8 fragment tile holding a real output word, at the tile's
+     * last real row and column (omega_matmul_result_sentinels). The kernel stores a tile as one straight-line
+     * run of STG.E words, so a tile whose sentinel survives was never stored. Poisoning and scanning every
+     * word was three passes over m x np (12.6 MB at m = 128, n = 24576: about 2 ms per prefill call, 2026-10-12). */
     float *cd = g.c_buf.mem.cpu;
-    for (size_t i = 0; i < (size_t)m * np; i++) cd[i] = POISON_F32;
+    omega_matmul_result_sentinels(cd, m, n, np, POISON_F32, 1);
     __asm__ volatile("dsb sy" ::: "memory");
 
     for (uint32_t r0 = 0; r0 < mp && rc == OMEGA_GPU_MATMUL_OK; r0 += rows_per_launch) {
@@ -431,14 +435,10 @@ static int matmul_core(uint32_t m, const uint16_t *a16, const float *a32, const 
         if (info) info->chip_calls++;
     }
     if (rc == OMEGA_GPU_MATMUL_OK) {
-        /* the chip must have written every real output word (poison check, as the engine does) */
-        size_t unchanged = 0;
-        for (uint32_t r = 0; r < m; r++) {
-            const float *row = &cd[(size_t)r * np];
-            for (uint32_t j = 0; j < n; j++) if (row[j] == POISON_F32) unchanged++;
-            memcpy(&c[(size_t)r * n], row, (size_t)n * sizeof *c);
-        }
+        /* the chip must have stored every fragment tile with a real output word (sentinel check) */
+        size_t unchanged = omega_matmul_result_sentinels(cd, m, n, np, POISON_F32, 0);
         if (unchanged && FAILAT("output poison survived")) rc = OMEGA_GPU_MATMUL_CHIP_FAIL;
+        else for (uint32_t r = 0; r < m; r++) memcpy(&c[(size_t)r * n], &cd[(size_t)r * np], (size_t)n * sizeof *c);
     }
     omega_gpu_session_unlock();
     return rc;

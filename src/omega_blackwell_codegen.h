@@ -256,6 +256,12 @@ void omega_matmul_frag_pack_a_f32(const float *a, uint32_t m, uint32_t k, uint32
  * zeros past k); the caller tracks that the zeros are there (omega_gpu_matmul_api.c, m = 1 path). */
 void omega_matmul_frag_pack_a_row0(const uint16_t *a, uint32_t k, uint32_t kp, uint16_t *dst);
 void omega_matmul_frag_pack_a_row0_f32(const float *a, uint32_t k, uint32_t kp, uint16_t *dst);
+/* Result sentinels (host side of the poison check): one word per 16 x 8 fragment tile that holds a real
+ * output word, at the tile's last real row and column, in the row-major m x np result. set != 0 writes
+ * poison into every sentinel and returns their count; set == 0 returns how many still hold poison. The
+ * kernel's epilogue stores a fragment tile as one straight-line run of STG.E words, so a tile whose
+ * sentinel survived was never stored. */
+size_t omega_matmul_result_sentinels(float *cd, uint32_t m, uint32_t n, uint32_t np, float poison, int set);
 /* b: k x n row-major. dst: the column tiles [nt0, nt1), (nt1 - nt0) * kp * 8 elements, fully
  * written; it is the part of the packed tensor starting at element nt0 * kp * 8. */
 void omega_matmul_frag_pack_b(const uint16_t *b, uint32_t k, uint32_t n, uint32_t kp,
