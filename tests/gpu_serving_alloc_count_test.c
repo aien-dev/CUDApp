@@ -34,6 +34,7 @@
 #include <string.h>
 
 #include "fake_m16_native.h"
+#include "nvrm.h" /* the session reaches the fake driver through the Linux reference platform (P07 cut C) */
 #include "omega_gpu_attention_api.h"
 #include "omega_gpu_matmul_api.h"
 #include "omega_gpu_serving.h"

@@ -77,7 +77,8 @@ typedef struct {
     /* Optional: return true to stop the wait (ABORTED). */
     bool (*abort)(void *ctx);
     /* Test hooks. NULL means the real ones (CLOCK_MONOTONIC, dsb, yield).
-     * hook_ctx is passed to now_ns, barrier, relax, valid and abort. */
+     * hook_ctx is passed to now_ns, barrier, relax, valid and abort. The freestanding build (OMEGA_GPU_NO_POSIX)
+     * has no default clock: now_ns is required there (the platform clock) and a wait without it is INVALID_STATE. */
     uint64_t (*now_ns)(void *ctx);
     void (*barrier)(void *ctx);
     void (*relax)(void *ctx);

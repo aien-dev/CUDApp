@@ -15,16 +15,12 @@
  */
 #include "omega_gpu_matmul_api.h"
 #include "omega_gpu_session.h"
+#include "omega_gpu_fmt.h"
 #include "omega_blackwell_codegen.h"
 #include "omega_blackwell_matmul.h"
 #include "omega_blackwell_qmd.h"
 #include "omega_blackwell_submit.h"
-#include "nvrm.h"
-#include <math.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
-#include <time.h>
 
 #define CACHE_SLOTS 8      /* default kernel cache slots; raised only by omega_gpu_matmul_reserve */
 #define CACHE_SLOTS_MAX 128 /* storage for the opt-in larger cache (a code buffer is a few KB); Qwen3-4B serving needs 95 */
@@ -35,7 +31,7 @@
 
 struct OmegaGpuTensor {
     uint32_t k, n, kp, np;
-    NvrmMem mem; /* kp x np bf16 in fragment order (omega_matmul_frag_pack_b) */
+    OmegaGpuMem mem; /* kp x np bf16 in fragment order (omega_matmul_frag_pack_b) */
 };
 
 typedef struct {
@@ -46,7 +42,7 @@ typedef struct {
     int mutant;
     OmegaMatMulSpec spec;
     OmegaBlackwellKernel kernel;
-    NvrmMem code; /* resident copy of kernel.code */
+    OmegaGpuMem code; /* resident copy of kernel.code */
 } CacheSlot;
 
 static struct {
@@ -69,11 +65,8 @@ static struct {
 #define FAILAT(s) (omega_gpu_session_set_error(s), 1)
 const char *omega_gpu_matmul_last_error(void) { return omega_gpu_session_last_error(); }
 
-static uint64_t now_ns(void) {
-    struct timespec t;
-    clock_gettime(CLOCK_MONOTONIC, &t);
-    return (uint64_t)t.tv_sec * 1000000000ull + (uint64_t)t.tv_nsec;
-}
+static uint64_t now_ns(void) { return omega_gpu_session_now_ns(); } /* the platform clock (CLOCK_NS) */
+static inline double abs_d(double x) { return x < 0.0 ? -x : x; }
 
 static uint32_t round_up(uint32_t v, uint32_t q) { return (v + q - 1) / q * q; }
 
@@ -97,8 +90,7 @@ static void cache_clear_locked(void) {
     for (unsigned i = 0; i < CACHE_SLOTS_MAX; i++) {
         CacheSlot *s = &g.cache[i];
         if (!s->valid) continue;
-        omega_blackwell_kernel_free(&s->kernel);
-        omega_gpu_session_free(&s->code);
+        omega_gpu_session_free(&s->code); /* kernel.code points into it */
         memset(s, 0, sizeof *s);
     }
     g.cache_next = 0;
@@ -254,7 +246,7 @@ static int kernel_for(uint32_t kp, uint32_t np, uint32_t grid_x, uint32_t rt, ui
     }
     if (g.sealed) {
         char e[160];
-        snprintf(e, sizeof e, "serving reservation exceeded: matmul kernel kp=%u np=%u grid_x=%u rt=%u ct=%u was not prepared", kp, np, grid_x, rt, ct);
+        omega_gpu_fmt(e, sizeof e, "serving reservation exceeded: matmul kernel kp=%u np=%u grid_x=%u rt=%u ct=%u was not prepared", kp, np, grid_x, rt, ct);
         omega_gpu_session_set_error(e);
         return OMEGA_GPU_MATMUL_TOO_LARGE;
     }
@@ -278,14 +270,22 @@ static int kernel_for(uint32_t kp, uint32_t np, uint32_t grid_x, uint32_t rt, ui
     uint32_t unroll = blocked ? omega_matmul_frag_block_unroll(kp, rt, ct) : g.unroll ? g.unroll : omega_matmul_frag_unroll(kp);
     /* the mutant drops the last pass, so it needs two: halve the unroll of a one-pass shape */
     if (g.mutant && (blocked || !g.unroll)) while (unroll > 1 && kp / 16u / unroll < 2) unroll /= 2;
-    int cg = blocked ? omega_blackwell_codegen_matmul_frag_block(&spec, grid_x, unroll, rt, ct, g.mutant, &kernel)
-                     : omega_blackwell_codegen_matmul_frag(&spec, grid_x, unroll, g.mutant, &kernel);
-    if (cg != 0 || !kernel.code || kernel.code_size == 0)
-        return OMEGA_GPU_MATMUL_CODEGEN_FAIL;
-    NvrmMem code;
-    if (omega_gpu_session_alloc_code(kernel.code_size, &code) != 0) { omega_blackwell_kernel_free(&kernel); return OMEGA_GPU_MATMUL_CHIP_FAIL; }
-    memcpy(code.cpu, kernel.code, kernel.code_size);
-    if (s->valid) { omega_blackwell_kernel_free(&s->kernel); omega_gpu_session_free(&s->code); }
+    /* P07 cut C: the program is built in host memory and encoded straight into the device code buffer, sized
+     * exactly (omega_bw_program_code_bytes: the bytes the allocating generators produce, cut A.2 proves them
+     * identical). kernel.code then points into that buffer and owns nothing. */
+    BlackwellIRProgram *prog = omega_gpu_host_calloc(1, sizeof *prog);
+    if (!prog) { omega_gpu_session_set_error("matmul codegen: host memory"); return OMEGA_GPU_MATMUL_CODEGEN_FAIL; }
+    int cg = blocked ? omega_blackwell_codegen_matmul_frag_block_prog(&spec, grid_x, unroll, rt, ct, g.mutant, prog)
+                     : omega_blackwell_codegen_matmul_frag_prog(&spec, grid_x, unroll, g.mutant, prog);
+    const size_t need = cg == 0 ? omega_bw_program_code_bytes(prog) : 0;
+    if (cg != 0 || need == 0) { omega_gpu_host_free(prog); return OMEGA_GPU_MATMUL_CODEGEN_FAIL; }
+    OmegaGpuMem code;
+    if (omega_gpu_session_alloc_code(need, &code) != 0) { omega_gpu_host_free(prog); return OMEGA_GPU_MATMUL_CHIP_FAIL; }
+    cg = omega_blackwell_kernel_encode_into(prog, code.cpu, need, &kernel);
+    omega_gpu_host_free(prog);
+    if (cg != 0 || !kernel.code || kernel.code_size != need) { omega_gpu_session_free(&code); return OMEGA_GPU_MATMUL_CODEGEN_FAIL; }
+    if (omega_gpu_session_sync_to_gpu(&code) != 0) { omega_gpu_session_free(&code); return OMEGA_GPU_MATMUL_CHIP_FAIL; }
+    if (s->valid) omega_gpu_session_free(&s->code);
     s->valid = true; s->pinned = false; s->kp = kp; s->np = np; s->grid_x = grid_x; s->rt = rt; s->ct = ct; s->mutant = g.mutant;
     s->spec = spec; s->kernel = kernel; s->code = code;
     *out = s; *hit = false;
@@ -318,27 +318,27 @@ int omega_gpu_tensor_upload_bf16(uint32_t k, uint32_t n, const uint16_t *b, Omeg
     if (out) *out = NULL;
     if (!b || !out || k == 0 || n == 0) return OMEGA_GPU_MATMUL_BAD_ARGS;
     if (k > OMEGA_BW_MATMUL_MAX_K || n > OMEGA_BW_MATMUL_MAX_N) return OMEGA_GPU_MATMUL_TOO_LARGE;
-    OmegaGpuTensor *t = calloc(1, sizeof *t);
+    OmegaGpuTensor *t = omega_gpu_host_calloc(1, sizeof *t);
     if (!t) return OMEGA_GPU_MATMUL_BAD_ARGS;
     t->k = k; t->n = n; t->kp = round_up(k, OMEGA_GPU_MATMUL_TILE_K); t->np = round_up(n, OMEGA_GPU_MATMUL_TILE_N);
     /* fragment order (omega_matmul_frag_pack_b), packed on the host FRAG_PACK_TILES column
      * tiles at a time and copied in order into the uncached device buffer */
     const uint32_t nt = t->np / 8u;
-    uint16_t *h = malloc((size_t)FRAG_PACK_TILES * t->kp * 8u * sizeof *h);
-    if (!h) { free(t); return OMEGA_GPU_MATMUL_BAD_ARGS; }
+    uint16_t *h = omega_gpu_host_alloc((size_t)FRAG_PACK_TILES * t->kp * 8u * sizeof *h);
+    if (!h) { omega_gpu_host_free(t); return OMEGA_GPU_MATMUL_BAD_ARGS; }
     int rc = OMEGA_GPU_MATMUL_OK;
     omega_gpu_session_lock();
     if (!dev_open_locked() || omega_gpu_session_alloc((size_t)t->kp * t->np * 2u, &t->mem) != 0) rc = OMEGA_GPU_MATMUL_CHIP_FAIL;
     omega_gpu_session_unlock();
-    if (rc != OMEGA_GPU_MATMUL_OK) { free(h); free(t); return rc; }
+    if (rc != OMEGA_GPU_MATMUL_OK) { omega_gpu_host_free(h); omega_gpu_host_free(t); return rc; }
     uint16_t *d = t->mem.cpu;
     for (uint32_t nt0 = 0; nt0 < nt; nt0 += FRAG_PACK_TILES) {
         const uint32_t nt1 = nt - nt0 < FRAG_PACK_TILES ? nt : nt0 + FRAG_PACK_TILES;
         omega_matmul_frag_pack_b(b, k, n, t->kp, nt0, nt1, h);
         memcpy(&d[(size_t)nt0 * t->kp * 8u], h, (size_t)(nt1 - nt0) * t->kp * 8u * sizeof *h);
     }
-    free(h);
-    __asm__ volatile("dsb sy" ::: "memory");
+    omega_gpu_host_free(h);
+    if (omega_gpu_session_sync_to_gpu(&t->mem) != 0) { omega_gpu_tensor_free(t); return OMEGA_GPU_MATMUL_CHIP_FAIL; }
     *out = t;
     return OMEGA_GPU_MATMUL_OK;
 }
@@ -348,11 +348,11 @@ int omega_gpu_tensor_upload_f32(uint32_t k, uint32_t n, const float *b, OmegaGpu
     if (!b || !out || k == 0 || n == 0) return OMEGA_GPU_MATMUL_BAD_ARGS;
     if (k > OMEGA_BW_MATMUL_MAX_K || n > OMEGA_BW_MATMUL_MAX_N) return OMEGA_GPU_MATMUL_TOO_LARGE;
     size_t cnt = (size_t)k * n;
-    uint16_t *h = malloc(cnt * sizeof *h);
+    uint16_t *h = omega_gpu_host_alloc(cnt * sizeof *h);
     if (!h) return OMEGA_GPU_MATMUL_BAD_ARGS;
     for (size_t i = 0; i < cnt; i++) h[i] = omega_fp32_to_bf16(b[i]);
     int rc = omega_gpu_tensor_upload_bf16(k, n, h, out);
-    free(h);
+    omega_gpu_host_free(h);
     return rc;
 }
 
@@ -361,7 +361,7 @@ void omega_gpu_tensor_free(OmegaGpuTensor *t) {
     omega_gpu_session_lock();
     omega_gpu_session_free(&t->mem);
     omega_gpu_session_unlock();
-    free(t);
+    omega_gpu_host_free(t);
 }
 
 /* ---- the matmul ---- */
@@ -381,7 +381,7 @@ static int matmul_core(uint32_t m, const uint16_t *a16, const float *a32, const 
         info->m = m; info->k = k; info->n = n; info->padded_m = mp; info->padded_n = np; info->padded_k = kp;
         info->k_slices = 1; info->rows_per_call = rows_per_launch; info->grid_x = grid_x; info->grid_y = grid_y_full;
         info->resident = true; info->kernel_cache_hit = true;
-        strncpy(info->target_chip, "NVIDIA DGX Spark (Grace Blackwell GB10)", sizeof info->target_chip - 1);
+        (void)omega_gpu_fmt(info->target_chip, sizeof info->target_chip, "%s", "NVIDIA DGX Spark (Grace Blackwell GB10)");
         info->sm_architecture = 121;
     }
     if (g.sealed && !(g.a_buf.reserved && g.c_buf.reserved)) {
@@ -421,7 +421,7 @@ static int matmul_core(uint32_t m, const uint16_t *a16, const float *a32, const 
      * word was three passes over m x np (12.6 MB at m = 128, n = 24576: about 2 ms per prefill call, 2026-10-12). */
     float *cd = g.c_buf.mem.cpu;
     omega_matmul_result_sentinels(cd, m, n, np, POISON_F32, 1);
-    __asm__ volatile("dsb sy" ::: "memory");
+    if (omega_gpu_session_sync_to_gpu(&g.a_buf.mem) != 0 || omega_gpu_session_sync_to_gpu(&g.c_buf.mem) != 0) rc = OMEGA_GPU_MATMUL_CHIP_FAIL;
 
     for (uint32_t r0 = 0; r0 < mp && rc == OMEGA_GPU_MATMUL_OK; r0 += rows_per_launch) {
         uint32_t rows = mp - r0 < rows_per_launch ? mp - r0 : rows_per_launch;
@@ -434,6 +434,7 @@ static int matmul_core(uint32_t m, const uint16_t *a16, const float *a32, const 
                     grid_x, grid_y, info ? &info->elapsed_ns : NULL, info ? &info->completion_marker : NULL);
         if (info) info->chip_calls++;
     }
+    if (rc == OMEGA_GPU_MATMUL_OK && omega_gpu_session_sync_to_cpu(&g.c_buf.mem) != 0) rc = OMEGA_GPU_MATMUL_CHIP_FAIL;
     if (rc == OMEGA_GPU_MATMUL_OK) {
         /* the chip must have stored every fragment tile with a real output word (sentinel check) */
         size_t unchanged = omega_matmul_result_sentinels(cd, m, n, np, POISON_F32, 0);
@@ -480,9 +481,9 @@ static void oracle(uint32_t m, uint32_t k, uint32_t n, const uint16_t *a, const 
             double acc = 0.0, scale = 0.0;
             for (uint32_t t = 0; t < k; t++) {
                 double p = (double)omega_bf16_to_fp32(a[(size_t)i * k + t]) * (double)omega_bf16_to_fp32(b[(size_t)t * n + j]);
-                acc += p; scale += fabs(p);
+                acc += p; scale += abs_d(p);
             }
-            double d = fabs(acc - (double)c[(size_t)i * n + j]);
+            double d = abs_d(acc - (double)c[(size_t)i * n + j]);
             double rel = d / (scale > 1e-6 ? scale : 1e-6);
             if ((float)d > max_abs) max_abs = (float)d;
             if ((float)rel > max_rel) max_rel = (float)rel;
@@ -525,13 +526,13 @@ int omega_gpu_matmul_f32(uint32_t m, uint32_t k, uint32_t n,
     if (m > OMEGA_BW_MATMUL_MAX_M || k > OMEGA_BW_MATMUL_MAX_K || n > OMEGA_BW_MATMUL_MAX_N)
         return OMEGA_GPU_MATMUL_TOO_LARGE;
     size_t na = (size_t)m * k, nb = (size_t)k * n;
-    uint16_t *ab = malloc(na * sizeof *ab);
-    uint16_t *bb = malloc(nb * sizeof *bb);
-    if (!ab || !bb) { free(ab); free(bb); return OMEGA_GPU_MATMUL_BAD_ARGS; }
+    uint16_t *ab = omega_gpu_host_alloc(na * sizeof *ab);
+    uint16_t *bb = omega_gpu_host_alloc(nb * sizeof *bb);
+    if (!ab || !bb) { omega_gpu_host_free(ab); omega_gpu_host_free(bb); return OMEGA_GPU_MATMUL_BAD_ARGS; }
     for (size_t i = 0; i < na; i++) ab[i] = omega_fp32_to_bf16(a[i]);
     for (size_t i = 0; i < nb; i++) bb[i] = omega_fp32_to_bf16(b[i]);
     int rc = omega_gpu_matmul_bf16(m, k, n, ab, bb, c, info);
-    free(ab);
-    free(bb);
+    omega_gpu_host_free(ab);
+    omega_gpu_host_free(bb);
     return rc;
 }

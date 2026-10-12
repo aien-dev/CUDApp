@@ -868,7 +868,7 @@ static int build_kernel(OmegaGpuEwOp op, int mutant, OmegaBlackwellKernel *kerne
 
 /* One kernel per (op, mutant); the device copy is uploaded once and stays
  * resident for the process (cut 4b: no per-call code page). */
-typedef struct { int used; int op; int mutant; OmegaBlackwellKernel kernel; NvrmMem code; } Slot;
+typedef struct { int used; int op; int mutant; OmegaBlackwellKernel kernel; OmegaGpuMem code; } Slot;
 static int g_mutant_op; /* 0 = none */
 static int g_mutant_level = 1; /* the mutant number built for g_mutant_op (1 math, 2 join dropped, 3 join corrupted) */
 static Slot g_cache[8];

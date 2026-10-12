@@ -39,7 +39,7 @@
 #include <stdint.h>
 
 #define OMEGA_GPU_PLATFORM_ABI_MAJOR 1u
-#define OMEGA_GPU_PLATFORM_ABI_MINOR 0u
+#define OMEGA_GPU_PLATFORM_ABI_MINOR 1u /* 1.1 (P07 cut C session part): DEVICE, QUEUE, CLOCK_NS, HOST_MEM; COMPLETION is poll_word */
 
 /* ---- typed handles ------------------------------------------------------ */
 
@@ -95,12 +95,21 @@ enum {
     OMEGA_GPU_SVC_MMIO = 1u << 3,       /* bounded register access by device handle and region */
     OMEGA_GPU_SVC_DMA = 1u << 4,        /* device-visible memory with CPU view, GPU VA and bus address */
     OMEGA_GPU_SVC_SYNC = 1u << 5,       /* explicit CPU<->GPU visibility (cache maintenance, flush) */
-    OMEGA_GPU_SVC_COMPLETION = 1u << 6, /* wait on an uncached word (polling) */
+    OMEGA_GPU_SVC_COMPLETION = 1u << 6, /* POLL an uncached word (poll_word); polling is never an interrupt */
     OMEGA_GPU_SVC_IRQ = 1u << 7,        /* real device interrupt wait; polling never counts */
     OMEGA_GPU_SVC_REQUIRED_V1 = OMEGA_GPU_SVC_TIME | OMEGA_GPU_SVC_WAIT | OMEGA_GPU_SVC_LOCK |
                                 OMEGA_GPU_SVC_MMIO | OMEGA_GPU_SVC_DMA | OMEGA_GPU_SVC_SYNC |
                                 OMEGA_GPU_SVC_COMPLETION,
-    OMEGA_GPU_SVC_ALL = (1u << 8) - 1u
+    /* ABI 1.1: what the persistent GPU session (src/omega_gpu_session.c) needs on top of v1 */
+    OMEGA_GPU_SVC_DEVICE = 1u << 8,     /* open / close one device context, driver text of the last failure */
+    OMEGA_GPU_SVC_QUEUE = 1u << 9,      /* submission queue over a BUF_QUEUE ring: open, submit, retire, close */
+    OMEGA_GPU_SVC_CLOCK_NS = 1u << 10,  /* monotonic nanosecond clock (launch timing) */
+    OMEGA_GPU_SVC_HOST_MEM = 1u << 11,  /* CPU-only memory for tables and staging (never device-visible) */
+    OMEGA_GPU_SVC_REQUIRED_SESSION = OMEGA_GPU_SVC_TIME | OMEGA_GPU_SVC_WAIT | OMEGA_GPU_SVC_LOCK |
+                                     OMEGA_GPU_SVC_DMA | OMEGA_GPU_SVC_SYNC | OMEGA_GPU_SVC_COMPLETION |
+                                     OMEGA_GPU_SVC_DEVICE | OMEGA_GPU_SVC_QUEUE | OMEGA_GPU_SVC_CLOCK_NS |
+                                     OMEGA_GPU_SVC_HOST_MEM,
+    OMEGA_GPU_SVC_ALL = (1u << 12) - 1u
 };
 
 typedef struct {
@@ -131,10 +140,14 @@ typedef enum {
     OMEGA_GPU_PLAT_REFUSED_CACHE_POLICY,    /* host-polled buffer asked to be GPU-cached */
     OMEGA_GPU_PLAT_REFUSED_LIMIT,           /* a capability limit would be exceeded */
     OMEGA_GPU_PLAT_REFUSED_BUSY,            /* concurrency limit reached */
+    OMEGA_GPU_PLAT_REFUSED_DEVICE,          /* 1.1: the device or its driver refused (diag_text says why) */
     OMEGA_GPU_PLAT_REFUSAL_COUNT
 } OmegaGpuPlatformRefusal;
 
 const char *omega_gpu_platform_refusal_name(int refusal); /* static strings, never NULL */
+
+/* poll_word result when the word did not reach the value in time (not a refusal: nothing was wrong with the call). */
+#define OMEGA_GPU_POLL_TIMED_OUT 100
 
 /* ---- the platform service table ----------------------------------------- */
 
@@ -155,11 +168,33 @@ typedef struct {
     /* SYNC: explicit visibility over a byte range of one buffer. */
     int (*sync_cpu_to_gpu)(void *ctx, OmegaGpuBufferHandle buf, uint64_t offset, uint64_t len);
     int (*sync_gpu_to_cpu)(void *ctx, OmegaGpuBufferHandle buf, uint64_t offset, uint64_t len);
-    /* COMPLETION: poll one uncached 32-bit word until it equals expected or timeout_ms passes. */
-    int (*wait_word)(void *ctx, OmegaGpuBufferHandle buf, uint64_t offset, uint32_t expected,
+    /* COMPLETION, by POLLING (never an interrupt): read one GPU-uncached 32-bit word of a HOST_POLLED buffer until
+     * it has reached expected in serial-number order, (int32_t)(word - expected) >= 0 (the m16_native_wait_marker
+     * rule), or timeout_ms passes. 0 reached, OMEGA_GPU_POLL_TIMED_OUT not reached, else a refusal. *observed is
+     * the last value read. A timeout says nothing about the device: the work may still be running. */
+    int (*poll_word)(void *ctx, OmegaGpuBufferHandle buf, uint64_t offset, uint32_t expected,
                      uint64_t timeout_ms, uint32_t *observed);
     /* IRQ: NULL unless OMEGA_GPU_SVC_IRQ is claimed. */
     int (*irq_wait)(void *ctx, OmegaGpuDeviceHandle dev, uint64_t timeout_ms);
+    /* ---- ABI 1.1 ---- */
+    /* DEVICE: open the device context with this ordinal (0 = the one GB10), close it. Closing makes every buffer and
+     * queue handle of the device stale. diag_text: driver text of the most recent failure, "" if none, never NULL. */
+    int (*device_open)(void *ctx, uint32_t ordinal, OmegaGpuDeviceHandle *out);
+    int (*device_close)(void *ctx, OmegaGpuDeviceHandle dev);
+    const char *(*diag_text)(void *ctx);
+    /* QUEUE: a submission queue whose ring is a BUF_QUEUE buffer of the same device. queue_submit copies nwords method
+     * words into the ring and rings the doorbell (one GPFIFO entry); queue_retire marks every submitted entry consumed
+     * and is called only after the caller saw that work complete. A refused queue_submit rang no doorbell: nothing of it is in
+     * flight (m16_native_submit_methods fails before nvrm_ring). */
+    int (*queue_open)(void *ctx, OmegaGpuDeviceHandle dev, OmegaGpuBufferHandle ring, OmegaGpuQueueHandle *out);
+    int (*queue_close)(void *ctx, OmegaGpuQueueHandle q);
+    int (*queue_submit)(void *ctx, OmegaGpuQueueHandle q, const uint32_t *words, uint32_t nwords);
+    int (*queue_retire)(void *ctx, OmegaGpuQueueHandle q);
+    /* CLOCK_NS */
+    uint64_t (*time_now_ns)(void *ctx);
+    /* HOST_MEM: NULL on refusal; host_free(NULL) is a no-op. */
+    void *(*host_alloc)(void *ctx, size_t bytes);
+    void (*host_free)(void *ctx, void *p);
 } OmegaGpuPlatform;
 
 /* ---- contract checks (pure, freestanding) -------------------------------- */
@@ -172,6 +207,9 @@ int omega_gpu_platform_negotiate(const OmegaGpuPlatformCaps *provided, const Ome
  * outside caps->services is NULL (no undeclared service, no fallback); the
  * v1 required set is present. */
 int omega_gpu_platform_check(const OmegaGpuPlatform *p, const OmegaGpuPlatformCaps *caps);
+/* The same, requiring the service set `required` (for example OMEGA_GPU_SVC_REQUIRED_SESSION) instead of the v1 set.
+ * omega_gpu_platform_check(p, caps) is omega_gpu_platform_check_for(p, caps, OMEGA_GPU_SVC_REQUIRED_V1). */
+int omega_gpu_platform_check_for(const OmegaGpuPlatform *p, const OmegaGpuPlatformCaps *caps, uint32_t required);
 
 /* Buffer descriptor rules: kind known, length non-zero and within caps,
  * rights non-empty and consistent with the kind, host-polled means
@@ -180,7 +218,7 @@ int omega_gpu_platform_check_buffer(const OmegaGpuBufferDesc *d, const OmegaGpuP
 
 /* ---- handle table (index + generation) ----------------------------------- */
 
-#define OMEGA_GPU_HANDLE_SLOTS 64u
+#define OMEGA_GPU_HANDLE_SLOTS 1024u /* 1.1: a serving session holds one buffer per weight tensor (Qwen3-8B: ~260) */
 
 typedef struct {
     uint32_t generation[OMEGA_GPU_HANDLE_SLOTS]; /* next generation to issue for the slot; starts at 1 */

@@ -35,7 +35,7 @@ static void full_platform(OmegaGpuPlatform *p)
     memset(p, 0, sizeof *p);
     p->time_now_ms = f_now; p->wait_ms = f_wait; p->lock = f_lock; p->unlock = f_lock;
     p->mmio_read32 = f_rd; p->mmio_write32 = f_wr; p->dma_alloc = f_alloc; p->dma_free = f_free;
-    p->sync_cpu_to_gpu = f_sync; p->sync_gpu_to_cpu = f_sync; p->wait_word = f_word;
+    p->sync_cpu_to_gpu = f_sync; p->sync_gpu_to_cpu = f_sync; p->poll_word = f_word;
 }
 
 static void caps_v1(OmegaGpuPlatformCaps *c)
@@ -82,7 +82,7 @@ static void case_negotiate(void)
     p.services |= OMEGA_GPU_SVC_IRQ;
     EXPECT(omega_gpu_platform_negotiate(&p, &r) == OMEGA_GPU_PLAT_OK);
     /* unknown service bits are malformed */
-    p.services |= 1u << 9;
+    p.services |= 1u << 12; /* the first bit past ABI 1.1 */
     EXPECT(omega_gpu_platform_negotiate(&p, &r) == OMEGA_GPU_PLAT_REFUSED_ARGS);
     /* every limit */
     caps_v1(&p); caps_v1(&r); r.max_devices = 2;      EXPECT(omega_gpu_platform_negotiate(&p, &r) == OMEGA_GPU_PLAT_REFUSED_LIMIT);
@@ -117,7 +117,7 @@ static void case_check_table(void)
     full_platform(&p); p.mmio_write32 = NULL;    EXPECT(omega_gpu_platform_check(&p, &c) == OMEGA_GPU_PLAT_REFUSED_NULL_SERVICE);
     full_platform(&p); p.dma_free = NULL;        EXPECT(omega_gpu_platform_check(&p, &c) == OMEGA_GPU_PLAT_REFUSED_NULL_SERVICE);
     full_platform(&p); p.sync_gpu_to_cpu = NULL; EXPECT(omega_gpu_platform_check(&p, &c) == OMEGA_GPU_PLAT_REFUSED_NULL_SERVICE);
-    full_platform(&p); p.wait_word = NULL;       EXPECT(omega_gpu_platform_check(&p, &c) == OMEGA_GPU_PLAT_REFUSED_NULL_SERVICE);
+    full_platform(&p); p.poll_word = NULL;       EXPECT(omega_gpu_platform_check(&p, &c) == OMEGA_GPU_PLAT_REFUSED_NULL_SERVICE);
     /* IRQ: claimed needs irq_wait; polling-only platforms do not claim it and must not carry one */
     full_platform(&p); c.services |= OMEGA_GPU_SVC_IRQ;
     EXPECT(omega_gpu_platform_check(&p, &c) == OMEGA_GPU_PLAT_REFUSED_NULL_SERVICE);
@@ -128,6 +128,58 @@ static void case_check_table(void)
     case_end("SERVICE_TABLE_MATCHES_CLAIMS_NO_HIDDEN_FALLBACK");
 }
 
+
+/* ABI 1.1: the services the persistent GPU session requires (OMEGA_GPU_SVC_REQUIRED_SESSION). */
+static int f_dopen(void *c, uint32_t o, OmegaGpuDeviceHandle *d) { (void)c; (void)o; d->index = 0; d->generation = 1; return 0; }
+static int f_dclose(void *c, OmegaGpuDeviceHandle d) { (void)c; (void)d; return 0; }
+static const char *f_diag(void *c) { (void)c; return ""; }
+static int f_qopen(void *c, OmegaGpuDeviceHandle d, OmegaGpuBufferHandle r, OmegaGpuQueueHandle *q) { (void)c; (void)d; (void)r; q->index = 0; q->generation = 1; return 0; }
+static int f_qclose(void *c, OmegaGpuQueueHandle q) { (void)c; (void)q; return 0; }
+static int f_qsubmit(void *c, OmegaGpuQueueHandle q, const uint32_t *w, uint32_t n) { (void)c; (void)q; (void)w; (void)n; return 0; }
+static int f_qretire(void *c, OmegaGpuQueueHandle q) { (void)c; (void)q; return 0; }
+static uint64_t f_ns(void *c) { (void)c; return 1u; }
+static void *f_halloc(void *c, size_t b) { (void)c; (void)b; return NULL; }
+static void f_hfree(void *c, void *p) { (void)c; (void)p; }
+static void session_platform(OmegaGpuPlatform *p, OmegaGpuPlatformCaps *c)
+{
+    full_platform(p);
+    p->mmio_read32 = NULL; p->mmio_write32 = NULL; /* the session needs no MMIO: a platform without it is fine */
+    p->device_open = f_dopen; p->device_close = f_dclose; p->diag_text = f_diag;
+    p->queue_open = f_qopen; p->queue_close = f_qclose; p->queue_submit = f_qsubmit; p->queue_retire = f_qretire;
+    p->time_now_ns = f_ns; p->host_alloc = f_halloc; p->host_free = f_hfree;
+    caps_v1(c);
+    c->services = OMEGA_GPU_SVC_REQUIRED_SESSION;
+}
+
+static void case_session_services(void)
+{
+    OmegaGpuPlatform p;
+    OmegaGpuPlatformCaps c;
+    case_begin();
+    EXPECT(OMEGA_GPU_PLATFORM_ABI_MINOR == 1u);
+    EXPECT(!(OMEGA_GPU_SVC_REQUIRED_SESSION & (OMEGA_GPU_SVC_IRQ | OMEGA_GPU_SVC_MMIO)));
+    session_platform(&p, &c);
+    EXPECT(omega_gpu_platform_check_for(&p, &c, OMEGA_GPU_SVC_REQUIRED_SESSION) == OMEGA_GPU_PLAT_OK);
+    /* the v1 check still demands MMIO, so a session-only platform is not a v1 device-owner platform */
+    EXPECT(omega_gpu_platform_check(&p, &c) == OMEGA_GPU_PLAT_REFUSED_MISSING_SERVICE);
+    EXPECT(omega_gpu_platform_check_for(&p, &c, OMEGA_GPU_SVC_ALL + 1u) == OMEGA_GPU_PLAT_REFUSED_ARGS);
+    /* each new service: a missing function is refused */
+    session_platform(&p, &c); p.device_close = NULL;  EXPECT(omega_gpu_platform_check_for(&p, &c, OMEGA_GPU_SVC_REQUIRED_SESSION) == OMEGA_GPU_PLAT_REFUSED_NULL_SERVICE);
+    session_platform(&p, &c); p.diag_text = NULL;     EXPECT(omega_gpu_platform_check_for(&p, &c, OMEGA_GPU_SVC_REQUIRED_SESSION) == OMEGA_GPU_PLAT_REFUSED_NULL_SERVICE);
+    session_platform(&p, &c); p.queue_retire = NULL;  EXPECT(omega_gpu_platform_check_for(&p, &c, OMEGA_GPU_SVC_REQUIRED_SESSION) == OMEGA_GPU_PLAT_REFUSED_NULL_SERVICE);
+    session_platform(&p, &c); p.time_now_ns = NULL;   EXPECT(omega_gpu_platform_check_for(&p, &c, OMEGA_GPU_SVC_REQUIRED_SESSION) == OMEGA_GPU_PLAT_REFUSED_NULL_SERVICE);
+    session_platform(&p, &c); p.host_free = NULL;     EXPECT(omega_gpu_platform_check_for(&p, &c, OMEGA_GPU_SVC_REQUIRED_SESSION) == OMEGA_GPU_PLAT_REFUSED_NULL_SERVICE);
+    /* a required service not claimed is missing; a function of an unclaimed service is a hidden path */
+    session_platform(&p, &c); c.services &= ~OMEGA_GPU_SVC_QUEUE;
+    EXPECT(omega_gpu_platform_check_for(&p, &c, OMEGA_GPU_SVC_REQUIRED_SESSION) == OMEGA_GPU_PLAT_REFUSED_MISSING_SERVICE);
+    EXPECT(omega_gpu_platform_check_for(&p, &c, c.services) == OMEGA_GPU_PLAT_REFUSED_ARGS);
+    /* polling never claims IRQ: a session platform with an irq_wait it does not claim is refused */
+    session_platform(&p, &c); p.irq_wait = f_irq;
+    EXPECT(omega_gpu_platform_check_for(&p, &c, OMEGA_GPU_SVC_REQUIRED_SESSION) == OMEGA_GPU_PLAT_REFUSED_ARGS);
+    EXPECT(omega_gpu_platform_negotiate(&c, &c) == OMEGA_GPU_PLAT_OK);
+    EXPECT(OMEGA_GPU_POLL_TIMED_OUT >= (int)OMEGA_GPU_PLAT_REFUSAL_COUNT);
+    case_end("SESSION_SERVICES_ABI_1_1_POLLING_NOT_IRQ");
+}
 static void case_buffers(void)
 {
     OmegaGpuBufferDesc d;
@@ -223,8 +275,8 @@ static void case_handles(void)
     /* table capacity */
     omega_gpu_handles_init(&t);
     for (n = 0; n < OMEGA_GPU_HANDLE_SLOTS; n++)
-        EXPECT(omega_gpu_handles_open(&t, OMEGA_GPU_HANDLE_BUF_DATA, 1, 1000, 1000, &i, &g) == OMEGA_GPU_PLAT_OK);
-    EXPECT(omega_gpu_handles_open(&t, OMEGA_GPU_HANDLE_BUF_DATA, 1, 1000, 1000, &i, &g) == OMEGA_GPU_PLAT_REFUSED_LIMIT);
+        EXPECT(omega_gpu_handles_open(&t, OMEGA_GPU_HANDLE_BUF_DATA, 1, OMEGA_GPU_HANDLE_SLOTS + 1u, OMEGA_GPU_HANDLE_SLOTS + 1u, &i, &g) == OMEGA_GPU_PLAT_OK);
+    EXPECT(omega_gpu_handles_open(&t, OMEGA_GPU_HANDLE_BUF_DATA, 1, OMEGA_GPU_HANDLE_SLOTS + 1u, OMEGA_GPU_HANDLE_SLOTS + 1u, &i, &g) == OMEGA_GPU_PLAT_REFUSED_LIMIT);
     /* a wrapped generation retires the slot instead of reissuing generation 0 */
     omega_gpu_handles_init(&t);
     t.generation[0] = 0xFFFFFFFFu;
@@ -247,7 +299,7 @@ static void case_sizes(void)
     EXPECT(sizeof(OmegaGpuQueueHandle) == 8u);
     EXPECT(sizeof(OmegaGpuVa) == 8u && sizeof(OmegaGpuBusAddr) == 8u);
     EXPECT(sizeof(OmegaCpuView) == sizeof(void *) + sizeof(size_t));
-    EXPECT(OMEGA_GPU_SVC_REQUIRED_V1 == (OMEGA_GPU_SVC_ALL & ~OMEGA_GPU_SVC_IRQ));
+    EXPECT((OMEGA_GPU_SVC_REQUIRED_V1 | OMEGA_GPU_SVC_IRQ) == 0xFFu); /* the v1 bits; 1.1 adds 8..11 */
     case_end("HANDLE_AND_ADDRESS_SHAPES");
 }
 
@@ -256,6 +308,7 @@ int main(void)
     case_names();
     case_negotiate();
     case_check_table();
+    case_session_services();
     case_buffers();
     case_handles();
     case_sizes();

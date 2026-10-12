@@ -1,14 +1,21 @@
 #include "omega_gpu_wait.h"
 
 #include <string.h>
-#include <time.h>
 
+#ifndef OMEGA_GPU_NO_POSIX
+#include <time.h>
 static uint64_t real_now_ns(void *ctx) {
     (void)ctx;
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec;
 }
+#define DEFAULT_NOW_NS real_now_ns
+#else
+/* P07 cut C: the freestanding build has no clock of its own; the caller passes the platform clock
+ * (cfg->now_ns, e.g. OmegaGpuPlatform.time_now_ns) and a wait without one is refused (INVALID_STATE). */
+#define DEFAULT_NOW_NS NULL
+#endif
 
 static void real_barrier(void *ctx) {
     (void)ctx;
@@ -56,7 +63,11 @@ static bool wait_core(omega_gpu_wait_kind_t kind, volatile uint32_t *word, uint3
         cfg = &zero;
     }
 
-    uint64_t (*now_ns)(void *) = cfg->now_ns ? cfg->now_ns : real_now_ns;
+    uint64_t (*now_ns)(void *) = cfg->now_ns ? cfg->now_ns : DEFAULT_NOW_NS;
+    if (!now_ns) {
+        rpt->result = OMEGA_GPU_WAIT_INVALID_STATE; /* no clock: a bounded wait cannot be bounded */
+        return false;
+    }
     void (*barrier)(void *) = cfg->barrier ? cfg->barrier : real_barrier;
     void (*relax)(void *) = cfg->relax ? cfg->relax : real_relax;
     uint64_t total_ns = 1000000ull * (cfg->total_timeout_ms ? cfg->total_timeout_ms : OMEGA_GPU_WAIT_DEFAULT_TOTAL_MS);

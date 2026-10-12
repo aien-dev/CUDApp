@@ -18,6 +18,7 @@ static const char *const REFUSAL_NAMES[OMEGA_GPU_PLAT_REFUSAL_COUNT] = {
     "REFUSED_CACHE_POLICY",
     "REFUSED_LIMIT",
     "REFUSED_BUSY",
+    "REFUSED_DEVICE",
 };
 
 const char *omega_gpu_platform_refusal_name(int refusal)
@@ -52,12 +53,18 @@ static int svc(uint32_t services, uint32_t bit, int present_all, int present_any
 
 int omega_gpu_platform_check(const OmegaGpuPlatform *p, const OmegaGpuPlatformCaps *caps)
 {
+    return omega_gpu_platform_check_for(p, caps, OMEGA_GPU_SVC_REQUIRED_V1);
+}
+
+int omega_gpu_platform_check_for(const OmegaGpuPlatform *p, const OmegaGpuPlatformCaps *caps, uint32_t required)
+{
     int rc;
     uint32_t s;
     if (!p || !caps) return OMEGA_GPU_PLAT_REFUSED_ARGS;
     s = caps->services;
     if (s & ~OMEGA_GPU_SVC_ALL) return OMEGA_GPU_PLAT_REFUSED_ARGS;
-    if ((s & OMEGA_GPU_SVC_REQUIRED_V1) != OMEGA_GPU_SVC_REQUIRED_V1) return OMEGA_GPU_PLAT_REFUSED_MISSING_SERVICE;
+    if (required & ~OMEGA_GPU_SVC_ALL) return OMEGA_GPU_PLAT_REFUSED_ARGS;
+    if ((s & required) != required) return OMEGA_GPU_PLAT_REFUSED_MISSING_SERVICE;
     if ((rc = svc(s, OMEGA_GPU_SVC_TIME, p->time_now_ms != 0, p->time_now_ms != 0)) != 0) return rc;
     if ((rc = svc(s, OMEGA_GPU_SVC_WAIT, p->wait_ms != 0, p->wait_ms != 0)) != 0) return rc;
     if ((rc = svc(s, OMEGA_GPU_SVC_LOCK, p->lock != 0 && p->unlock != 0, p->lock != 0 || p->unlock != 0)) != 0)
@@ -71,8 +78,19 @@ int omega_gpu_platform_check(const OmegaGpuPlatform *p, const OmegaGpuPlatformCa
     if ((rc = svc(s, OMEGA_GPU_SVC_SYNC, p->sync_cpu_to_gpu != 0 && p->sync_gpu_to_cpu != 0,
                   p->sync_cpu_to_gpu != 0 || p->sync_gpu_to_cpu != 0)) != 0)
         return rc;
-    if ((rc = svc(s, OMEGA_GPU_SVC_COMPLETION, p->wait_word != 0, p->wait_word != 0)) != 0) return rc;
+    if ((rc = svc(s, OMEGA_GPU_SVC_COMPLETION, p->poll_word != 0, p->poll_word != 0)) != 0) return rc;
     if ((rc = svc(s, OMEGA_GPU_SVC_IRQ, p->irq_wait != 0, p->irq_wait != 0)) != 0) return rc;
+    if ((rc = svc(s, OMEGA_GPU_SVC_DEVICE, p->device_open != 0 && p->device_close != 0 && p->diag_text != 0,
+                  p->device_open != 0 || p->device_close != 0 || p->diag_text != 0)) != 0)
+        return rc;
+    if ((rc = svc(s, OMEGA_GPU_SVC_QUEUE,
+                  p->queue_open != 0 && p->queue_close != 0 && p->queue_submit != 0 && p->queue_retire != 0,
+                  p->queue_open != 0 || p->queue_close != 0 || p->queue_submit != 0 || p->queue_retire != 0)) != 0)
+        return rc;
+    if ((rc = svc(s, OMEGA_GPU_SVC_CLOCK_NS, p->time_now_ns != 0, p->time_now_ns != 0)) != 0) return rc;
+    if ((rc = svc(s, OMEGA_GPU_SVC_HOST_MEM, p->host_alloc != 0 && p->host_free != 0,
+                  p->host_alloc != 0 || p->host_free != 0)) != 0)
+        return rc;
     return OMEGA_GPU_PLAT_OK;
 }
 
