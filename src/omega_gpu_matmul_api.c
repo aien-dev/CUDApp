@@ -51,6 +51,11 @@ typedef struct {
 
 static struct {
     OmegaGpuScratch a_buf, c_buf; /* activation and result staging, grown to the high-water mark */
+    /* a_buf holds a full one-row pack (rows 1..15 of every block zero) at width a_row0_kp in the
+     * allocation a_row0_cpu: the next one-row call of that width writes row 0 only. Cleared by any
+     * other pack and whenever the buffer is freed. */
+    bool a_row0_ready; uint32_t a_row0_kp; const void *a_row0_cpu;
+    uint64_t a_row0_hits; /* one-row calls that wrote row 0 only (test hook) */
     uint32_t cta_budget;
     int oracle, mutant;
     uint32_t unroll; /* test override of the fragment kernel unroll; 0 = omega_matmul_frag_unroll */
@@ -102,6 +107,7 @@ static void cache_clear_locked(void) {
 /* Called by the session (lock held, device still open) right before it closes. */
 static void on_session_close(void) {
     cache_clear_locked();
+    g.a_row0_ready = false;
     omega_gpu_session_scratch_free(&g.a_buf);
     omega_gpu_session_scratch_free(&g.c_buf);
     g.slots = CACHE_SLOTS; /* a serving reservation ends with the device */
@@ -209,6 +215,8 @@ void omega_gpu_matmul_test_set_mutant(int on) {
     cache_clear_locked();
     omega_gpu_session_unlock();
 }
+
+uint64_t omega_gpu_matmul_test_a_row0_hits(void) { return g.a_row0_hits; }
 
 void omega_gpu_matmul_test_set_unroll(uint32_t unroll) {
     omega_gpu_session_lock();
@@ -391,14 +399,22 @@ static int matmul_core(uint32_t m, const uint16_t *a16, const float *a32, const 
         return src == OMEGA_GPU_SESSION_SCRATCH_RESERVED ? OMEGA_GPU_MATMUL_TOO_LARGE : OMEGA_GPU_MATMUL_CHIP_FAIL;
     }
     /* activation rows in, fragment order (omega_matmul_frag_pack_a / _f32: f32 rows are converted
-     * while packing, one pass), zero padded, packed on the host and copied in order into the
-     * uncached buffer; result rows poisoned */
-    uint16_t *ah = malloc((size_t)mp * kp * sizeof *ah);
-    if (!ah) { omega_gpu_session_unlock(); return OMEGA_GPU_MATMUL_BAD_ARGS; }
-    if (a32) omega_matmul_frag_pack_a_f32(a32, m, k, mp, kp, ah);
-    else omega_matmul_frag_pack_a(a16, m, k, mp, kp, ah);
-    memcpy(g.a_buf.mem.cpu, ah, (size_t)mp * kp * sizeof *ah);
-    free(ah);
+     * while packing, one pass), zero padded, packed on the host straight into the uncached buffer
+     * (the CPU side of that memory is ordinary cached memory; dsb below orders it before the launch);
+     * result rows poisoned. A one-row call (decode) writes row 0 only when the buffer already holds
+     * a full one-row pack of this width (rows 1..15 of every block zero): the 15 zero rows are not
+     * rewritten per token. */
+    uint16_t *ad = g.a_buf.mem.cpu;
+    const bool one_row = m == 1 && mp == 16u;
+    if (one_row && g.a_row0_ready && g.a_row0_kp == kp && g.a_row0_cpu == ad) {
+        if (a32) omega_matmul_frag_pack_a_row0_f32(a32, k, kp, ad);
+        else omega_matmul_frag_pack_a_row0(a16, k, kp, ad);
+        g.a_row0_hits++;
+    } else {
+        if (a32) omega_matmul_frag_pack_a_f32(a32, m, k, mp, kp, ad);
+        else omega_matmul_frag_pack_a(a16, m, k, mp, kp, ad);
+        g.a_row0_ready = one_row; g.a_row0_kp = kp; g.a_row0_cpu = ad;
+    }
     float *cd = g.c_buf.mem.cpu;
     for (size_t i = 0; i < (size_t)m * np; i++) cd[i] = POISON_F32;
     __asm__ volatile("dsb sy" ::: "memory");

@@ -164,6 +164,8 @@ void omega_gpu_matmul_test_set_mutant(int on);
 /* Test only: force the fragment kernel unroll (1, 2, 4 or 8; it must divide kp / 16 or the call
  * fails CODEGEN_FAIL); 0 restores the automatic choice. Clears the kernel cache. */
 void omega_gpu_matmul_test_set_unroll(uint32_t unroll);
+/* Test hook: one-row calls so far that wrote only row 0 into a buffer already zero in rows 1..15. */
+uint64_t omega_gpu_matmul_test_a_row0_hits(void);
 
 #ifdef __cplusplus
 }

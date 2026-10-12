@@ -2165,6 +2165,27 @@ void omega_matmul_frag_pack_a_f32(const float *a, uint32_t m, uint32_t k, uint32
     FRAG_PACK_A_BODY(frag_f32_to_bf16);
 }
 
+/* Row 0 only, every column of every K block (zeros past k): for a one-row call whose buffer already
+ * holds zeros in rows 1..15 of every block from an earlier full pack of the same width. */
+#define FRAG_PACK_A_ROW0_BODY(LOAD)                                                                     \
+    do {                                                                                                \
+        const uint32_t KS = kp / 16u;                                                                   \
+        frag_a_tab_init();                                                                              \
+        const uint16_t *tab = g_frag_a_tab;                                                             \
+        for (uint32_t ks = 0; ks < KS; ks++) {                                                          \
+            uint16_t *blk = dst + (size_t)ks * 256u;                                                    \
+            const uint32_t c0 = ks * 16u, c1 = k - c0 < 16u ? k - c0 : 16u;                             \
+            for (uint32_t cc = 0; cc < c1; cc++) blk[tab[cc]] = LOAD(a[c0 + cc]);                       \
+            for (uint32_t cc = c1; cc < 16u; cc++) blk[tab[cc]] = 0;                                    \
+        }                                                                                               \
+    } while (0)
+void omega_matmul_frag_pack_a_row0(const uint16_t *a, uint32_t k, uint32_t kp, uint16_t *dst) {
+    FRAG_PACK_A_ROW0_BODY(FRAG_ID);
+}
+void omega_matmul_frag_pack_a_row0_f32(const float *a, uint32_t k, uint32_t kp, uint16_t *dst) {
+    FRAG_PACK_A_ROW0_BODY(frag_f32_to_bf16);
+}
+
 void omega_matmul_frag_pack_b(const uint16_t *b, uint32_t k, uint32_t n, uint32_t kp,
                               uint32_t nt0, uint32_t nt1, uint16_t *dst) {
     const uint32_t KS = kp / 16u;

@@ -65,6 +65,27 @@ static double e2e_max_rel(uint32_t m, uint32_t k, uint32_t n, const float *a, co
  * 2t+8,2t+9; a6,a7 row g+8. B: b0,b1 rows 2t,2t+1 col g; b2,b3 rows 2t+8,2t+9; g = lane>>2,
  * t = lane&3), independently of the packers: pack then unpack must give the matrix back. */
 static void frag_host_checks(void) {
+    /* row-0 pack (one-row decode call): a full one-row pack of A2 equals a full pack of A1 followed by the
+     * row-0 pack of A2, bf16 and f32 inputs, including a width with padding columns */
+    {
+        const uint32_t ks[] = { 4096u, 40u };
+        for (size_t i = 0; i < 2; i++) {
+            const uint32_t k = ks[i], kp = (k + 15u) / 16u * 16u;
+            float *a1 = malloc(k * sizeof *a1), *a2 = malloc(k * sizeof *a2);
+            uint16_t *b1 = malloc(k * 2), *b2 = malloc(k * 2), *full = malloc((size_t)16 * kp * 2), *inc = malloc((size_t)16 * kp * 2);
+            uint32_t seed = 77u + k;
+            fill(a1, k, &seed); fill(a2, k, &seed);
+            for (uint32_t j = 0; j < k; j++) { b1[j] = omega_fp32_to_bf16(a1[j]); b2[j] = omega_fp32_to_bf16(a2[j]); }
+            omega_matmul_frag_pack_a(b2, 1, k, 16, kp, full);
+            omega_matmul_frag_pack_a(b1, 1, k, 16, kp, inc);
+            omega_matmul_frag_pack_a_row0(b2, k, kp, inc);
+            CHECK(memcmp(full, inc, (size_t)16 * kp * 2) == 0, "row-0 pack bf16 k=%u equals the full one-row pack", k);
+            omega_matmul_frag_pack_a_f32(a1, 1, k, 16, kp, inc);
+            omega_matmul_frag_pack_a_row0_f32(a2, k, kp, inc);
+            CHECK(memcmp(full, inc, (size_t)16 * kp * 2) == 0, "row-0 pack f32 k=%u equals the full one-row pack", k);
+            free(a1); free(a2); free(b1); free(b2); free(full); free(inc);
+        }
+    }
     CHECK(omega_blackwell_verify_codegen_fixtures_fragmm() == 0, "fragment matmul golden words (rc %d)", omega_blackwell_verify_codegen_fixtures_fragmm());
     struct { uint32_t m, k, n; } sh[] = { {1, 16, 8}, {1, 40, 13}, {17, 48, 24}, {33, 2560, 72}, {5, 160, 1000} };
     for (size_t s = 0; s < sizeof sh / sizeof sh[0]; s++) {
@@ -253,6 +274,37 @@ static void host_only(void) {
     omega_gpu_matmul_cache_clear();
 }
 
+/* One-row calls reuse the zero padding rows of the activation buffer: a second one-row call of the same
+ * width writes row 0 only (hook counts it) and still matches the oracle with a different A; a wider
+ * call in between, or another width, forces a full pack again. */
+static void one_row_repack_checks(void) {
+    const uint32_t k = 4096, n = 256;
+    float *a = malloc((size_t)32 * k * sizeof *a), *b = malloc((size_t)k * n * sizeof *b), *c = malloc((size_t)32 * n * sizeof *c);
+    uint32_t seed = 0x10c0u;
+    fill(a, (size_t)32 * k, &seed); fill(b, (size_t)k * n, &seed);
+    OmegaGpuMatmulInfo info;
+    const uint64_t h0 = omega_gpu_matmul_test_a_row0_hits();
+    int rc1 = omega_gpu_matmul_f32(1, k, n, a, b, c, &info);
+    CHECK(rc1 == OMEGA_GPU_MATMUL_OK && info.parity_verified, "one-row call 1 (full pack) rc=%s parity=%d", omega_gpu_matmul_rc_name(rc1), info.parity_verified);
+    const uint64_t h1 = omega_gpu_matmul_test_a_row0_hits();
+    int rc2 = omega_gpu_matmul_f32(1, k, n, a + k, b, c, &info);
+    const uint64_t h2 = omega_gpu_matmul_test_a_row0_hits();
+    CHECK(rc2 == OMEGA_GPU_MATMUL_OK && info.parity_verified, "one-row call 2 (row 0 only, new A) rc=%s parity=%d", omega_gpu_matmul_rc_name(rc2), info.parity_verified);
+    CHECK(h1 == h0 && h2 == h1 + 1, "row-0 path taken on the second one-row call only (hits %" PRIu64 " %" PRIu64 " %" PRIu64 ")", h0, h1, h2);
+    int rc3 = omega_gpu_matmul_f32(32, k, n, a, b, c, &info);
+    CHECK(rc3 == OMEGA_GPU_MATMUL_OK && info.parity_verified, "32-row call between rc=%s parity=%d", omega_gpu_matmul_rc_name(rc3), info.parity_verified);
+    int rc4 = omega_gpu_matmul_f32(1, k, n, a + 2 * (size_t)k, b, c, &info);
+    const uint64_t h4 = omega_gpu_matmul_test_a_row0_hits();
+    CHECK(rc4 == OMEGA_GPU_MATMUL_OK && info.parity_verified && h4 == h2, "one-row call after a wider call packs in full (hits %" PRIu64 ")", h4);
+    int rc5 = omega_gpu_matmul_f32(1, k, n, a + 3 * (size_t)k, b, c, &info);
+    const uint64_t h5 = omega_gpu_matmul_test_a_row0_hits();
+    CHECK(rc5 == OMEGA_GPU_MATMUL_OK && info.parity_verified && h5 == h4 + 1, "one-row call after a one-row call writes row 0 only (hits %" PRIu64 ")", h5);
+    int rc6 = omega_gpu_matmul_f32(1, 64, n, a, b, c, &info);
+    const uint64_t h6 = omega_gpu_matmul_test_a_row0_hits();
+    CHECK(rc6 == OMEGA_GPU_MATMUL_OK && info.parity_verified && h6 == h5, "one-row call of another width packs in full (hits %" PRIu64 ")", h6);
+    free(a); free(b); free(c);
+}
+
 static int chip_sweep(const char *shapes, const char *out_path, int mutant) {
     FILE *out = out_path ? fopen(out_path, "w") : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
@@ -412,6 +464,7 @@ int main(int argc, char **argv) {
     else if (do_timing) rc = timing(shapes ? shapes : TIMING_SHAPES, out_path);
     else if (mutant) { omega_gpu_matmul_test_set_mutant(1); rc = chip_sweep(shapes ? shapes : MUTANT_SHAPES, out_path, 1); omega_gpu_matmul_test_set_mutant(0); }
     else rc = chip_sweep(shapes ? shapes : DEFAULT_SHAPES, out_path, 0);
+    if (!host && !do_timing && !mutant && !omega_gpu_matmul_is_blocked()) one_row_repack_checks();
     if (!omega_gpu_matmul_is_blocked()) omega_gpu_device_close();
     if (rc) return 2;
     printf("%s: %d checks, %d failed%s\n", g_failed ? "FAIL" : "PASS", g_checks, g_failed, mutant ? (g_failed ? " (mutant SURVIVED)" : " (mutant killed)") : "");
