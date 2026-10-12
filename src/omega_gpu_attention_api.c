@@ -756,6 +756,26 @@ int omega_gpu_attention_reserve(uint32_t max_context, uint32_t max_seqs, uint32_
     return rc;
 }
 
+int omega_gpu_attention_reserve_rows(uint32_t max_rows, uint32_t num_q_heads, uint32_t head_dim) {
+    if (max_rows == 0 || num_q_heads == 0 || num_q_heads > OMEGA_GPU_ATTN_MAX_Q_HEADS || (head_dim != 64u && head_dim != 128u)) {
+        omega_gpu_session_set_error("attention reserve rows: bad bound");
+        return OMEGA_GPU_ATTN_BAD_ARGS;
+    }
+    uint32_t per = OMEGA_GPU_ATTN_ROWS_MAX_CTAS / num_q_heads;
+    if (per == 0) per = 1;
+    if (per > max_rows) per = max_rows;
+    const size_t qo = (size_t)per * num_q_heads * head_dim * 4u, tab = (size_t)per * 8u;
+    LOCK();
+    int rc = OMEGA_GPU_ATTN_OK;
+    if (g_sim) rc = OMEGA_GPU_ATTN_OK;
+    else if (dev_open_locked() != OMEGA_GPU_ATTN_OK) rc = OMEGA_GPU_ATTN_CHIP_FAIL;
+    else if ((qo > g_q.cap && omega_gpu_session_scratch_reserve(&g_q, qo)) ||
+             (qo > g_out.cap && omega_gpu_session_scratch_reserve(&g_out, qo)) ||
+             (tab > g_tab.cap && omega_gpu_session_scratch_reserve(&g_tab, tab)))
+        rc = OMEGA_GPU_ATTN_CHIP_FAIL; /* growth failed; whatever grew stays reserved at its larger size */
+    UNLOCK();
+    return rc;
+}
 void omega_gpu_attention_unreserve(void) {
     LOCK();
     omega_gpu_session_scratch_unreserve(&g_pool); omega_gpu_session_scratch_unreserve(&g_q);
@@ -834,6 +854,64 @@ int omega_gpu_gqa_attention_f32(const float *q, const float *k_cache, const floa
         .params = { 1, f2u(score_scale(HD)), (uint32_t)(2 * plane), num_kv_heads * HD * 4, (uint32_t)plane, HD * 4, num_q_heads, 4 }
     };
     rc = launch(ks, &L, info);
+    free(host_tmp);
+    UNLOCK();
+    if (info) info->call_ns = now_ns() - t0;
+    return rc;
+}
+
+/* Rows per launch of the rows path: the CTA bound, then (under a reservation) what the q buffer holds. Caller holds the lock. */
+static uint32_t rows_per_launch(uint32_t num_rows, uint32_t num_q_heads, size_t row_bytes) {
+    uint32_t per = OMEGA_GPU_ATTN_ROWS_MAX_CTAS / num_q_heads;
+    if (per == 0) per = 1;
+    if (per > num_rows) per = num_rows;
+    if (!g_sim && g_q.reserved && g_q.cap >= row_bytes) {
+        size_t fit = g_q.cap / row_bytes;
+        if (fit < per) per = (uint32_t)fit;
+    }
+    return per;
+}
+
+int omega_gpu_gqa_attention_rows_f32(const float *q, const float *k_cache, const float *v_cache,
+                                     uint32_t base_len, uint32_t num_rows, uint32_t num_q_heads,
+                                     uint32_t num_kv_heads, uint32_t head_dim, float *out, OmegaGpuAttnInfo *info) {
+    uint64_t t0 = now_ns();
+    if (!q || !k_cache || !v_cache || !out || num_rows == 0) return OMEGA_GPU_ATTN_BAD_ARGS;
+    uint32_t log2gqa;
+    int rc = check_heads(num_q_heads, num_kv_heads, head_dim, &log2gqa);
+    if (rc != OMEGA_GPU_ATTN_OK) return rc;
+    if ((uint64_t)base_len + num_rows > OMEGA_GPU_ATTN_MAX_GQA_CTX) return OMEGA_GPU_ATTN_TOO_LARGE;
+    const uint32_t HD = head_dim, total = base_len + num_rows;
+    const size_t row = (size_t)num_q_heads * HD;
+    Slot *ks = NULL;
+    const uint32_t log2bs = 12; /* one block of 4096 slots, as the single-row call */
+    rc = begin(true, log2bs, log2gqa, HD, &ks, info);
+    if (rc != OMEGA_GPU_ATTN_OK) return rc;
+    /* the whole context (every row's keys are a prefix of it) staged once */
+    size_t plane = (size_t)total * num_kv_heads * HD * 4;
+    void *host_tmp = NULL;
+    int stage_rc;
+    uint8_t *pool = stage_target(2 * plane, &host_tmp, &stage_rc);
+    if (!pool) { UNLOCK(); return stage_rc; }
+    memcpy(pool, k_cache, plane);
+    memcpy(pool + plane, v_cache, plane);
+    if (info) { info->kv_bytes_staged += 2 * plane; info->kv_bytes_naive += (uint64_t)num_rows * 2 * plane; info->kv_blocks_logical += num_rows; info->kv_blocks_unique += 1; }
+    const uint32_t per = rows_per_launch(num_rows, num_q_heads, row * 4);
+    /* table of one launch: per block ids (all 0: the one staged block), then per context lengths */
+    uint32_t *tab = calloc(2 * (size_t)per, sizeof *tab);
+    if (!tab) { free(host_tmp); UNLOCK(); return OMEGA_GPU_ATTN_CHIP_FAIL; }
+    for (uint32_t r0 = 0; r0 < num_rows && rc == OMEGA_GPU_ATTN_OK; r0 += per) {
+        const uint32_t nr = num_rows - r0 < per ? num_rows - r0 : per;
+        for (uint32_t i = 0; i < nr; i++) { tab[i] = 0; tab[nr + i] = base_len + r0 + i + 1; }
+        Launch L = {
+            .q = q + (size_t)r0 * row, .q_bytes = (size_t)nr * row * 4, .pool = pool, .pool_bytes = 2 * plane,
+            .tab = tab, .tab_bytes = (size_t)2 * nr * 4, .out = out + (size_t)r0 * row, .out_bytes = (size_t)nr * row * 4,
+            .grid_x = num_q_heads, .grid_y = nr,
+            .params = { 1, f2u(score_scale(HD)), (uint32_t)(2 * plane), num_kv_heads * HD * 4, (uint32_t)plane, HD * 4, num_q_heads, nr * 4 }
+        };
+        rc = launch(ks, &L, info);
+    }
+    free(tab);
     free(host_tmp);
     UNLOCK();
     if (info) info->call_ns = now_ns() - t0;

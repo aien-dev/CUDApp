@@ -7,6 +7,10 @@ int omega_gpu_reserve_serving(const OmegaGpuServingBounds *b) {
     if (!b) return OMEGA_GPU_MATMUL_BAD_ARGS;
     int rc = omega_gpu_attention_reserve(b->max_context, b->max_seqs ? b->max_seqs : 1, b->num_q_heads, b->num_kv_heads, b->head_dim, b->kv_block_size);
     if (rc != 0) return rc;
+    if (b->max_rows > 1) { /* the prompt read's rows path (omega_gpu_gqa_attention_rows_f32): q/out/table for a chunk of rows */
+        rc = omega_gpu_attention_reserve_rows(b->max_rows, b->num_q_heads, b->head_dim);
+        if (rc != 0) { omega_gpu_attention_unreserve(); return rc; }
+    }
     rc = omega_gpu_matmul_reserve(b->max_rows, b->max_k, b->max_n, b->max_n_one_row ? b->max_n_one_row : b->max_n, b->kernel_slots);
     if (rc != 0) omega_gpu_attention_unreserve(); /* the matmul half failed: do not leave half a reservation active */
     return rc;

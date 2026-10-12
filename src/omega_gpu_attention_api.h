@@ -123,6 +123,20 @@ int omega_gpu_gqa_attention_f32(const float *q, const float *k_cache, const floa
                                 uint32_t seq_len, uint32_t num_q_heads, uint32_t num_kv_heads,
                                 uint32_t head_dim, float *out, OmegaGpuAttnInfo *info);
 
+/* Contiguous f32 KV, many query rows in one call (the prompt read, 2026-10-12). q and out are
+ * [num_rows][num_q_heads][head_dim]; k_cache and v_cache hold base_len + num_rows tokens as
+ * [token][num_kv_heads][head_dim]. Row i attends over the first base_len + i + 1 tokens (causal:
+ * its own token and everything before it). The KV is staged once per call; the rows go to the
+ * chip in launches of up to OMEGA_GPU_ATTN_ROWS_MAX_CTAS / num_q_heads rows (grid y = row, the
+ * same kernel as omega_gpu_gqa_attention_f32, so one row per launch is bit-identical to that
+ * call). Under a serving reservation the rows per launch are also bounded by the q buffer
+ * omega_gpu_attention_reserve_rows sized. base_len + num_rows <= OMEGA_GPU_ATTN_MAX_GQA_CTX. */
+#define OMEGA_GPU_ATTN_ROWS_MAX_CTAS 1024u
+int omega_gpu_gqa_attention_rows_f32(const float *q, const float *k_cache, const float *v_cache,
+                                     uint32_t base_len, uint32_t num_rows, uint32_t num_q_heads,
+                                     uint32_t num_kv_heads, uint32_t head_dim, float *out,
+                                     OmegaGpuAttnInfo *info);
+
 /* Paged bf16 KV (TensorBackend::paged_attention). pool points at the pool base. */
 int omega_gpu_paged_attention_bf16(const float *q, const void *pool, const OmegaGpuKvLayout *layout,
                                    const uint32_t *block_ids, uint32_t num_block_ids,
@@ -155,6 +169,13 @@ void omega_gpu_attention_cache_clear(void);
  * written the outputs of the earlier chunks: treat TOO_LARGE as "output incomplete". If the reserve fails part way it
  * rolls back: none of this API's buffers stays flagged. 0 on success, else an OMEGA_GPU_ATTN_* code. */
 int omega_gpu_attention_reserve(uint32_t max_context, uint32_t max_seqs, uint32_t num_q_heads, uint32_t num_kv_heads, uint32_t head_dim, uint32_t kv_block_size);
+/* Grows the reservation's q, output and table buffers (never shrinks them) so that
+ * omega_gpu_gqa_attention_rows_f32 can send min(max_rows, OMEGA_GPU_ATTN_ROWS_MAX_CTAS / num_q_heads)
+ * rows per launch. The KV staging pool is untouched: the rows of one call share one staged context,
+ * which omega_gpu_attention_reserve already sized for max_context tokens. Call it after
+ * omega_gpu_attention_reserve (omega_gpu_reserve_serving does, with its max_rows). Without it the
+ * rows path still works under a reservation, in launches of as many rows as the q buffer holds. */
+int omega_gpu_attention_reserve_rows(uint32_t max_rows, uint32_t num_q_heads, uint32_t head_dim);
 void omega_gpu_attention_unreserve(void);
 
 /* Stage name of the most recent CHIP_FAIL ("" if none), shared with the other GPU APIs

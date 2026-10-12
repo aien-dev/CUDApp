@@ -231,7 +231,7 @@ static void case_info(Case *c, const OmegaGpuAttnInfo *i) {
     c->chip_ns = i->elapsed_ns; c->call_ns = i->call_ns; c->calls = i->chip_calls; c->unwritten = i->unwritten_words;
     c->kv_staged = i->kv_bytes_staged; c->kv_naive = i->kv_bytes_naive; c->blk_logical = i->kv_blocks_logical; c->blk_unique = i->kv_blocks_unique;
 }
-static Case g_cases[32]; static int g_ncases;
+static Case g_cases[64]; static int g_ncases;
 static int g_mutant_caught[OMEGA_GPU_ATTN_MUTANT_COUNT], g_mutant_run[OMEGA_GPU_ATTN_MUTANT_COUNT];
 
 static void record(Case c, FILE *out) {
@@ -268,6 +268,8 @@ static void run_mutants(Case *c, const int *ms, RunFn run, void *ctx, float *got
 
 typedef struct { const float *q, *kc, *vc; uint32_t seq, nqh, nkv; } GqaCtx;
 static int run_gqa(void *p, float *got, OmegaGpuAttnInfo *info) { GqaCtx *c = p; return omega_gpu_gqa_attention_f32(c->q, c->kc, c->vc, c->seq, c->nqh, c->nkv, g_hd, got, info); }
+typedef struct { const float *q, *kc, *vc; uint32_t base, nr, nqh, nkv; } RowsCtx;
+static int run_rows(void *p, float *got, OmegaGpuAttnInfo *info) { RowsCtx *c = p; return omega_gpu_gqa_attention_rows_f32(c->q, c->kc, c->vc, c->base, c->nr, c->nqh, c->nkv, g_hd, got, info); }
 typedef struct { const float *q; const uint8_t *pool; const OmegaGpuKvLayout *ly; const uint32_t *ids; uint32_t nids, ctx, layer, nqh, nkv; } PagedCtx;
 static int run_paged(void *p, float *got, OmegaGpuAttnInfo *info) { PagedCtx *c = p; return omega_gpu_paged_attention_bf16(c->q, c->pool, c->ly, c->ids, c->nids, c->ctx, c->layer, c->nqh, c->nkv, g_hd, got, info); }
 typedef struct { const float *q; const uint8_t *pool; const OmegaGpuKvLayout *ly; const int32_t *tables, *ctxs; uint32_t maxb, nseq, layer, nqh, nkv; } BatchCtx;
@@ -351,6 +353,50 @@ static int chip(const char *out_path) {
             run_mutants(&c, ms, run_gqa, &gc, got, want, n, 2e-4, 2e-5);
         } else run_mutants(&c, no_mutants, run_gqa, &gc, got, want, n, 2e-4, 2e-5);
         record(c, out); free(q); free(kc); free(vc); free(got); free(want); free(again);
+    }
+    /* 1b. rows path (prompt read, 2026-10-12): base_len tokens already in the KV, then num_rows
+     * query rows in one call; row i attends over base_len + i + 1 tokens. Expected per row from
+     * oracle_gqa on that prefix. 40 rows at 32 q heads exceed the 1024-CTA launch bound: 2 launches. */
+    for (int sh = 0; sh < 2; sh++) for (int ri = 0; ri < 3; ri++) {
+        static const uint32_t bases[3] = { 0, 17, 300 }, nrows[3] = { 1, 5, 40 };
+        uint32_t nqh = shapes[sh].nqh, nkv = shapes[sh].nkv, base = bases[ri], nr = nrows[ri], total = base + nr;
+        size_t row = (size_t)nqh * hd, n = row * nr, nkvs = (size_t)total * nkv * hd;
+        float *q = malloc(n * 4), *kc = malloc(nkvs * 4), *vc = malloc(nkvs * 4), *got = malloc(n * 4), *want = malloc(n * 4);
+        for (size_t i = 0; i < n; i++) q[i] = frand(&seed, -1.0f, 1.0f);
+        for (size_t i = 0; i < nkvs; i++) { kc[i] = frand(&seed, -1.0f, 1.0f); vc[i] = frand(&seed, -1.0f, 1.0f); }
+        for (uint32_t i = 0; i < nr; i++) oracle_gqa(q + i * row, kc, vc, base + i + 1, nqh, nkv, hd, want + i * row);
+        char name[96]; snprintf(name, sizeof name, "gqa_rows_f32_%s_%uq%ukv_base%u_rows%u", shapes[sh].model, nqh, nkv, base, nr);
+        Case c = { .name = strdup(name), .n = n };
+        OmegaGpuAttnInfo info;
+        RowsCtx rx = { q, kc, vc, base, nr, nqh, nkv };
+        c.rc = run_rows(&rx, got, &info);
+        c.bad = compare(got, want, n, 2e-4, 2e-5, &c.worst);
+        c.pass = c.rc == OMEGA_GPU_ATTN_OK && c.bad == 0; case_info(&c, &info);
+        if (nr == 1) {
+            /* one row is the single-row call, bit for bit */
+            float *one = malloc(row * 4); OmegaGpuAttnInfo i1;
+            int rc1 = omega_gpu_gqa_attention_f32(q, kc, vc, total, nqh, nkv, hd, one, &i1);
+            CHECK(rc1 == OMEGA_GPU_ATTN_OK && memcmp(got, one, row * 4) == 0, "%s equals omega_gpu_gqa_attention_f32 bit for bit", name);
+            free(one);
+        }
+        if (nr == 40) {
+            CHECK(info.chip_calls == 2, "%s 40 rows x %u heads go in 2 launches (got %u)", name, nqh, info.chip_calls);
+            CHECK(info.kv_bytes_staged == 2 * nkvs * 4, "%s KV staged once (%" PRIu64 " bytes, expected %zu)", name, info.kv_bytes_staged, 2 * nkvs * 4);
+            /* negative control: every row scored over the whole context (no causal cut) must be flagged */
+            float *wrong = malloc(n * 4); double w2;
+            for (uint32_t i = 0; i < nr; i++) oracle_gqa(q + i * row, kc, vc, total, nqh, nkv, hd, wrong + i * row);
+            size_t neg = compare(got, wrong, n, 2e-4, 2e-5, &w2);
+            CHECK(neg > n / 4, "%s negative control: non-causal expectation flagged (%zu of %zu)", name, neg, n);
+            free(wrong);
+            static const int ms[5] = { OMEGA_GPU_ATTN_MUTANT_SLOT, OMEGA_GPU_ATTN_MUTANT_NO_RESCALE, OMEGA_GPU_ATTN_MUTANT_Q_ROW, OMEGA_GPU_ATTN_MUTANT_OUT_ROW, 0 };
+            run_mutants(&c, ms, run_rows, &rx, got, want, n, 2e-4, 2e-5);
+        } else run_mutants(&c, no_mutants, run_rows, &rx, got, want, n, 2e-4, 2e-5);
+        record(c, out); free(q); free(kc); free(vc); free(got); free(want);
+    }
+    {   /* rows path refusals */
+        float d[1]; OmegaGpuAttnInfo i0;
+        CHECK(omega_gpu_gqa_attention_rows_f32(d, d, d, 0, 0, 32, 4, hd, d, &i0) == OMEGA_GPU_ATTN_BAD_ARGS, "rows: zero rows refused");
+        CHECK(omega_gpu_gqa_attention_rows_f32(d, d, d, OMEGA_GPU_ATTN_MAX_GQA_CTX, 1, 32, 4, hd, d, &i0) == OMEGA_GPU_ATTN_TOO_LARGE, "rows: base + rows past the context bound refused");
     }
     /* 2. large scores (q scaled by 200): the softmax without the running max overflows */
     {
