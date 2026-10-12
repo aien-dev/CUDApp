@@ -196,6 +196,33 @@ int omega_bw_regalloc_solve(BlackwellIRProgram *prog);
 /* Encodes scheduled IR program into 128-bit sm_121 machine code */
 int omega_bw_encode_program(const BlackwellIRProgram *prog, uint8_t *code_buf, size_t max_len, size_t *out_len);
 
+/* ---- native v1 P07 cut A.2: allocation-free code generation (aienos#286) ----------------------------
+ * The freestanding build (OMEGA_GPU_NO_POSIX, make gpu-engine-freestanding) has no allocator: the caller
+ * supplies the code buffer and its capacity. Build the program with one of the *_prog generators, then
+ * encode it with omega_blackwell_kernel_encode_into. The hosted allocating generators below encode through
+ * the same function, so both builds emit the same bytes (make test-codegen-freestanding).
+ *
+ * omega_bw_program_code_bytes: the exact bytes the encoder writes for prog (padded to 8 instructions,
+ * at least 32), 0 for NULL.
+ * omega_blackwell_kernel_encode_into: zeroes *kernel, then encodes prog into code_buf. Refuses with
+ * OMEGA_BW_CODE_BUFFER_TOO_SMALL, writing no byte of code_buf, when code_cap is below
+ * omega_bw_program_code_bytes(prog); -1 for NULL arguments or an instruction the encoder rejects. On
+ * success kernel->code points INTO the caller's buffer: the kernel owns nothing, the caller keeps
+ * code_buf alive as long as the kernel is used and never passes such a kernel to
+ * omega_blackwell_kernel_free (which exists only in the hosted build). */
+#define OMEGA_BW_CODE_BUFFER_TOO_SMALL (-2)
+#define OMEGA_BW_CODE_CAP_SMALL 4096u                          /* cap of the tensor, tensor_loop and frag generators */
+#define OMEGA_BW_CODE_CAP_MAX ((size_t)BW_MAX_IR_INSNS * 16u)  /* cap of frag_block; no program encodes past it */
+size_t omega_bw_program_code_bytes(const BlackwellIRProgram *prog);
+int omega_blackwell_kernel_encode_into(const BlackwellIRProgram *prog, uint8_t *code_buf, size_t code_cap,
+                                       OmegaBlackwellKernel *kernel);
+/* The integer generator's program (K <= 32); the allocating omega_blackwell_codegen_matmul_i32 encodes it. */
+int omega_blackwell_codegen_matmul_i32_prog(const OmegaMatMulSpec *spec, BlackwellIRProgram *prog);
+
+/* The allocating generators (omega_blackwell_codegen_matmul_i32, _tensor, _tensor_loop, _frag, _frag_block),
+ * omega_blackwell_codegen_matmul, omega_blackwell_kernel_free and omega_blackwell_test_codegen_variation exist
+ * only in the hosted build. */
+
 /* Top-level dynamic code generator for integer matrix multiplication */
 int omega_blackwell_codegen_matmul_i32(const OmegaMatMulSpec *spec, OmegaBlackwellKernel *kernel);
 

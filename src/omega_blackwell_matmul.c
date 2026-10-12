@@ -1,6 +1,8 @@
 #include "omega_blackwell_matmul.h"
 #include "sha256.h"
+#ifndef OMEGA_GPU_NO_POSIX
 #include <stdlib.h>
+#endif
 #include <string.h>
 
 int omega_matmul_spec_init(OmegaMatMulSpec *spec, uint32_t m, uint32_t k, uint32_t n, OmegaMatMulPrecision precision) {
@@ -96,10 +98,20 @@ uint16_t omega_fp32_to_fp16(float f) {
 }
 
 uint16_t omega_fp32_to_bf16(float f) {
+#ifndef OMEGA_GPU_NO_POSIX
     __bf16 b = (__bf16)f;
     uint16_t u;
     memcpy(&u, &b, 2);
     return u;
+#else
+    /* Freestanding (cut A.2): the __bf16 cast calls libgcc __truncsfbf2. Same rounding in integer form:
+     * round to nearest even, NaN kept quiet with its sign and top payload bits. The hosted cast and this
+     * path agree on every one of the 2^32 inputs (make test-codegen-freestanding, bf16 sweep). */
+    uint32_t u;
+    memcpy(&u, &f, 4);
+    if ((u & 0x7f800000u) == 0x7f800000u && (u & 0x007fffffu)) return (uint16_t)((u >> 16) | 0x0040u);
+    return (uint16_t)((u + 0x7fffu + ((u >> 16) & 1u)) >> 16);
+#endif
 }
 
 int omega_matmul_cpu_oracle_f16(const uint16_t *a, const uint16_t *b, float *c, uint32_t m, uint32_t k, uint32_t n) {
@@ -129,6 +141,7 @@ int omega_matmul_cpu_oracle_bf16(const uint16_t *a, const uint16_t *b, float *c,
     }
     return 0;
 }
+#ifndef OMEGA_GPU_NO_POSIX /* frees what the hosted allocating generators malloc (omega_blackwell_codegen.h, cut A.2) */
 void omega_blackwell_kernel_free(OmegaBlackwellKernel *kernel) {
     if (!kernel) return;
     if (kernel->code) {
@@ -138,6 +151,7 @@ void omega_blackwell_kernel_free(OmegaBlackwellKernel *kernel) {
     kernel->code_size = 0;
     kernel->insn_count = 0;
 }
+#endif
 
 int omega_blackwell_bind_matmul_realization(const OmegaMatMulSpec *spec, const OmegaBlackwellKernel *kernel, OmegaBlackwellRealizationIdentity *id) {
     if (!spec || !kernel || !id) return -1;
@@ -165,6 +179,7 @@ int omega_blackwell_bind_matmul_realization(const OmegaMatMulSpec *spec, const O
 
 #include "omega_blackwell_codegen.h"
 
+#ifndef OMEGA_GPU_NO_POSIX
 int omega_blackwell_codegen_matmul(const OmegaMatMulSpec *spec, OmegaBlackwellKernel *kernel) {
     if (!spec || !kernel) return -1;
     if (spec->precision == OMEGA_MATMUL_PRECISION_INT32) {
@@ -174,3 +189,4 @@ int omega_blackwell_codegen_matmul(const OmegaMatMulSpec *spec, OmegaBlackwellKe
     }
     return -1;
 }
+#endif

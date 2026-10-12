@@ -13,6 +13,7 @@
 #   test-gpu-engine-gb10-compile     (A3b2) compile-only check of tests/test_omega_gpu_engine_gb10.c (Phase B chip test, never run here)
 #   gpu-engine-freestanding          (native v1 P07 cut A) the portable GPU files built -ffreestanding with
 #                                    OMEGA_GPU_NO_POSIX: no Linux header, no errno, no clock, no libc beyond mem*/str*
+#   test-codegen-freestanding        (cut A.2) codegen hosted vs freestanding byte-identical, bounded code buffers
 #   test-gpu-engine-freestanding     the engine contract test and the platform contract test linked against
 #                                    those freestanding objects (host runner, opens no device)
 .PHONY: test-gpu-engine-compile test-gpu-engine test-gpu-engine-mutants test-gpu-engine-backend-compile test-gpu-engine-prod-build test-gpu-engine-sim test-gpu-engine-backend-mutants test-gpu-engine-gb10-compile gpu-engine-freestanding test-gpu-engine-freestanding
@@ -111,13 +112,13 @@ test-gpu-serving-alloc: build/gpu_serving_alloc_count_test
 GPU_FS_DIR = build/gpu_fs
 GPU_FS_CFLAGS = -std=gnu11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin -fno-stack-protector \
 	-DOMEGA_GPU_NO_POSIX -DOMEGA_NUMERIC_CPU_ONLY -Isrc
-GPU_FS_SRCS = src/omega_gpu_engine.c src/omega_gpu_platform.c src/omega_blackwell_encoder.c \
-	src/omega_blackwell_qmd.c src/omega_blackwell_realize.c src/sha256.c
+GPU_FS_SRCS = src/omega_gpu_engine.c src/omega_gpu_platform.c src/omega_blackwell_encoder.c src/omega_blackwell_codegen.c \
+	src/omega_blackwell_matmul.c src/omega_blackwell_qmd.c src/omega_blackwell_realize.c src/sha256.c
 GPU_FS_OBJS = $(patsubst src/%.c,$(GPU_FS_DIR)/%.o,$(GPU_FS_SRCS))
 GPU_FS_LINK = $(GPU_FS_DIR)/omega_gpu_freestanding.o
 GPU_FS_ALLOWED = memcpy|memmove|memset|memcmp|strlen|strcmp
 
-$(GPU_FS_DIR)/%.o: src/%.c src/omega_gpu_engine.h src/omega_gpu_platform.h
+$(GPU_FS_DIR)/%.o: src/%.c src/omega_gpu_engine.h src/omega_gpu_platform.h src/omega_blackwell_codegen.h src/omega_blackwell_matmul.h
 	@mkdir -p $(GPU_FS_DIR)
 	gcc $(GPU_FS_CFLAGS) -c -o $@ $<
 
@@ -138,3 +139,36 @@ build/test_omega_gpu_platform: tests/test_omega_gpu_platform.c $(GPU_FS_DIR)/ome
 test-gpu-engine-freestanding: $(GPU_FS_LINK) build/test_omega_gpu_engine_freestanding build/test_omega_gpu_platform
 	./build/test_omega_gpu_engine_freestanding
 	./build/test_omega_gpu_platform
+
+# native v1 P07 cut A.2 (aienos#286): code generation joins the freestanding link above with a caller-owned
+# code buffer (omega_blackwell_kernel_encode_into, no allocator). The same test source is built hosted (the
+# allocating generators) and freestanding (the *_prog generators into a caller buffer); their instruction
+# stream dumps of every fixture must be byte-identical (cmp). The freestanding run then checks the bounded
+# buffer contract, the golden-word fixture verifiers on the freestanding object and the bf16 rounding path on
+# all 2^32 inputs. The allowlist control links a malloc caller into the freestanding object and requires the
+# nm -u check to refuse it (a check that can never fail proves nothing).
+.PHONY: test-codegen-freestanding test-gpu-fs-allowlist-control
+CODEGEN_FS_TEST_DEPS = tests/test_omega_codegen_freestanding.c src/omega_blackwell_codegen.h src/omega_blackwell_matmul.h
+build/test_codegen_hosted: $(CODEGEN_FS_TEST_DEPS) src/omega_blackwell_codegen.c src/omega_blackwell_matmul.c src/sha256.c
+	@mkdir -p build
+	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Isrc -o $@ tests/test_omega_codegen_freestanding.c \
+		src/omega_blackwell_codegen.c src/omega_blackwell_matmul.c src/sha256.c
+build/test_codegen_freestanding: $(CODEGEN_FS_TEST_DEPS) $(GPU_FS_LINK)
+	@mkdir -p build
+	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Isrc -DOMEGA_GPU_NO_POSIX -o $@ tests/test_omega_codegen_freestanding.c \
+		$(GPU_FS_DIR)/omega_blackwell_codegen.o $(GPU_FS_DIR)/omega_blackwell_matmul.o $(GPU_FS_DIR)/sha256.o
+test-codegen-freestanding: build/test_codegen_hosted build/test_codegen_freestanding test-gpu-fs-allowlist-control
+	./build/test_codegen_hosted --dump > build/codegen_dump_hosted.txt
+	./build/test_codegen_freestanding --dump > build/codegen_dump_freestanding.txt
+	cmp build/codegen_dump_hosted.txt build/codegen_dump_freestanding.txt
+	@echo "codegen dumps byte-identical: $$(grep -c '^fixture ' build/codegen_dump_hosted.txt) fixtures, $$(grep -v -E '^(fixture|digest) ' build/codegen_dump_hosted.txt | tr -d '\n' | wc -c | awk '{print $$1/2}') code bytes"
+	./build/test_codegen_freestanding
+
+test-gpu-fs-allowlist-control: $(GPU_FS_LINK)
+	@mkdir -p $(GPU_FS_DIR)/control
+	printf 'void *malloc(unsigned long);\nvoid *omega_gpu_fs_control(void) { return malloc(16); }\n' > $(GPU_FS_DIR)/control/canary.c
+	gcc $(GPU_FS_CFLAGS) -c -o $(GPU_FS_DIR)/control/canary.o $(GPU_FS_DIR)/control/canary.c
+	gcc -r -nostdlib -o $(GPU_FS_DIR)/control/with_canary.o $(GPU_FS_OBJS) $(GPU_FS_DIR)/control/canary.o
+	@bad=$$(nm -u $(GPU_FS_DIR)/control/with_canary.o | awk '{print $$NF}' | grep -Ev '^(_GLOBAL_OFFSET_TABLE_|($(GPU_FS_ALLOWED)))$$' || true); \
+	if [ "$$bad" != "malloc" ]; then echo "allowlist control: expected exactly malloc refused, got '$$bad'"; exit 1; fi; \
+	echo "allowlist control: a malloc caller is refused by the nm -u check (as required)"
