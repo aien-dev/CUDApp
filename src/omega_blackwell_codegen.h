@@ -97,7 +97,10 @@ typedef enum {
      * -arch=sm_121 (omega_blackwell_verify_codegen_fixtures_fragmm). imm = signed byte offset,
      * -2^23 .. 2^23-1; dst is a register pair (64) or an aligned quad (128). */
     BW_IR_LDG_E_64,     /* LDG.E.64 Rd:Rd+1, desc[URd][Ra.64+imm] */
-    BW_IR_LDG_E_128     /* LDG.E.128 Rd..Rd+3, desc[URd][Ra.64+imm] */
+    BW_IR_LDG_E_128,    /* LDG.E.128 Rd..Rd+3, desc[URd][Ra.64+imm] */
+    /* Batched attention loads (2026-10-12). Words matched against nvcc 13.0.88 -arch=sm_121
+     * (omega_blackwell_verify_codegen_fixtures_fragmm). imm = unsigned byte offset < 2^23; dst an aligned quad. */
+    BW_IR_LDS128        /* LDS.128 Rd..Rd+3, [Ra+imm] */
 } BlackwellIROpcode;
 
 /* Barrier (reconvergence) registers: the sm_121 BSSY/BSYNC words carry a 4-bit barrier id

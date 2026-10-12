@@ -46,6 +46,9 @@
 #define SB_GPR 0u
 #define SB_RD 1u
 #define SB_UGPR 2u
+#define SB_LD2 4u       /* second scoreboard for batched loads (the matmul kernel's B-load word, omega #328) */
+#define SB_LD3 3u       /* third: phase B keeps shared loads and the two halves of the V loads on separate scoreboards */
+#define AT_BATCH_MAX 4  /* loads in flight per scoreboard: 4 complete on the chip, 8 never did (omega #328) */
 
 enum { K_FIXED, K_PRED, K_VAR, K_UVAR, K_STORE, K_SYNC, K_EXIT, K_BRA, K_BSSY, K_BSYNC };
 
@@ -53,6 +56,8 @@ enum { K_FIXED, K_PRED, K_VAR, K_UVAR, K_STORE, K_SYNC, K_EXIT, K_BRA, K_BSSY, K
 typedef struct {
     BlackwellIRProgram *p;
     uint32_t pending;
+    uint32_t batch;      /* scoreboards the open load batch is filling (no wait on them inside the batch) */
+    int batch_n[8];      /* loads issued per scoreboard in the open batch */
     int err;
     int loop_start[AT_MAX_LOOPS], loop_end[AT_MAX_LOOPS];
     int n_loops, depth, stack[AT_MAX_LOOPS];
@@ -62,6 +67,7 @@ typedef struct {
 
 static void emit(Em *e, BlackwellIRInsn in, int kind) {
     uint32_t wait = e->pending;
+    e->batch = 0; memset(e->batch_n, 0, sizeof e->batch_n); /* an ordinary instruction waits on the whole batch */
     switch (kind) {
     case K_FIXED: in.control = CW(6, SB_NONE, SB_NONE, wait); e->pending = 0; break;
     case K_PRED:  in.control = CW(13, SB_NONE, SB_NONE, wait); e->pending = 0; break;
@@ -81,6 +87,7 @@ static void emit(Em *e, BlackwellIRInsn in, int kind) {
 
 static int V(Em *e) { int v = omega_bw_ir_alloc_vreg(e->p); if (v < 0) e->err = -1; return v; }
 static int V64(Em *e) { int v = omega_bw_ir_alloc_vreg64(e->p); if (v < 0) e->err = -1; return v; }
+static int V128(Em *e) { int v = omega_bw_ir_alloc_vreg128(e->p); if (v < 0) e->err = -1; return v; }
 static int UV64(Em *e) { int v = omega_bw_ir_alloc_uvreg64(e->p); if (v < 0) e->err = -1; return v; }
 static int here(const Em *e) { return (int)e->p->count; }
 
@@ -108,7 +115,38 @@ static void shri(Em *e, int dst, int a, uint32_t imm) { BlackwellIRInsn i = I0(B
 /* dst64 = idx * imm + base64 (byte address) */
 static void wide(Em *e, int dst64, int idx, uint32_t imm, int base64) { BlackwellIRInsn i = I0(BW_IR_IMAD_WIDE); i.dst_vreg = dst64; i.src1_vreg = idx; i.imm = imm; i.src3_vreg = base64; emit(e, i, K_FIXED); }
 static void ldg(Em *e, int dst, int addr64, int udesc) { BlackwellIRInsn i = I0(BW_IR_LDG_E); i.dst_vreg = dst; i.src1_vreg = addr64; i.ureg = udesc; emit(e, i, K_VAR); }
-static void ldg16(Em *e, int dst, int addr64, int udesc) { BlackwellIRInsn i = I0(BW_IR_LDG_E_U16); i.dst_vreg = dst; i.src1_vreg = addr64; i.ureg = udesc; emit(e, i, K_VAR); }
+/* Batched loads (2026-10-12, long-context finding): every load above waits on the previous one, so
+ * phase A paid one global latency per dim pair and phase B one per token (~6 GB/s at 1268 ctx). A
+ * batched load sets `sb` and waits on every pending scoreboard except the ones the open batch is
+ * filling (and SB_RD, its read barrier), so up to AT_BATCH_MAX loads per scoreboard are in flight.
+ * The next ordinary instruction (emit) waits on all of them. SB_RD covers the address register: the
+ * allocator may hand that register to a later load's data before this load has read it. */
+static void emit_batched(Em *e, BlackwellIRInsn in, uint32_t sb) {
+    if (sb >= 8 || e->batch_n[sb] >= AT_BATCH_MAX) { e->err = -1; return; }
+    in.control = CW(4, sb, SB_RD, e->pending & ~e->batch) | CW_YIELD;
+    e->batch |= (1u << sb) | (1u << SB_RD); e->batch_n[sb]++;
+    e->pending |= (1u << sb) | (1u << SB_RD);
+    if (omega_bw_ir_append(e->p, &in) < 0) e->err = -1;
+}
+/* A fixed-latency instruction inside an open load batch: it waits on the batch's read barrier (its
+ * destination may be a load's address register, which the load may read late) but not on the loads'
+ * data, so the address of the next load is computed while the earlier loads are in flight. Only for
+ * instructions that read no result of the open batch. */
+static void emit_fixed_in_batch(Em *e, BlackwellIRInsn in) {
+    uint32_t wait = (e->pending & ~e->batch) | (e->batch ? (1u << SB_RD) : 0u);
+    in.control = CW(6, SB_NONE, SB_NONE, wait);
+    if (omega_bw_ir_append(e->p, &in) < 0) e->err = -1;
+}
+static void ldg128_b(Em *e, int dst128, int addr64, uint32_t imm, int udesc, uint32_t sb) { BlackwellIRInsn i = I0(BW_IR_LDG_E_128); i.dst_vreg = dst128; i.src1_vreg = addr64; i.imm = imm; i.ureg = udesc; emit_batched(e, i, sb); }
+static void ldg_b(Em *e, int dst, int addr64, int udesc, uint32_t sb) { BlackwellIRInsn i = I0(BW_IR_LDG_E); i.dst_vreg = dst; i.src1_vreg = addr64; i.ureg = udesc; emit_batched(e, i, sb); }
+static void ldg16_b(Em *e, int dst, int addr64, int udesc, uint32_t sb) { BlackwellIRInsn i = I0(BW_IR_LDG_E_U16); i.dst_vreg = dst; i.src1_vreg = addr64; i.ureg = udesc; emit_batched(e, i, sb); }
+static void lds128_b(Em *e, int dst128, int addr, uint32_t imm, uint32_t sb) { BlackwellIRInsn i = I0(BW_IR_LDS128); i.dst_vreg = dst128; i.src1_vreg = addr; i.imm = imm; emit_batched(e, i, sb); }
+/* sub-register operands of a quad */
+static void e_ffma_s(Em *e, int d, int a, int as, int b, int bs, int c) { BlackwellIRInsn i = I0(BW_IR_FFMA); i.dst_vreg = d; i.src1_vreg = a; i.src1_subreg = (uint8_t)as; i.src2_vreg = b; i.src2_subreg = (uint8_t)bs; i.src3_vreg = c; emit(e, i, K_FIXED); }
+static void imadi_s(Em *e, int dst, int a, int as, uint32_t imm, int c) { BlackwellIRInsn i = I0(BW_IR_IMAD); i.dst_vreg = dst; i.src1_vreg = a; i.src1_subreg = (uint8_t)as; i.imm = imm; i.src3_vreg = c; emit(e, i, K_FIXED); }
+static void lop3andi_s(Em *e, int dst, int a, int as, uint32_t imm) { BlackwellIRInsn i = I0(BW_IR_LOP3_AND); i.dst_vreg = dst; i.src1_vreg = a; i.src1_subreg = (uint8_t)as; i.imm = imm; emit(e, i, K_FIXED); }
+static void wide_s(Em *e, int dst64, int idx, int is, uint32_t imm, int base64) { BlackwellIRInsn i = I0(BW_IR_IMAD_WIDE); i.dst_vreg = dst64; i.src1_vreg = idx; i.src1_subreg = (uint8_t)is; i.imm = imm; i.src3_vreg = base64; emit(e, i, K_FIXED); }
+static void wide_s_b(Em *e, int dst64, int idx, int is, uint32_t imm, int base64) { BlackwellIRInsn i = I0(BW_IR_IMAD_WIDE); i.dst_vreg = dst64; i.src1_vreg = idx; i.src1_subreg = (uint8_t)is; i.imm = imm; i.src3_vreg = base64; emit_fixed_in_batch(e, i); }
 static void stg(Em *e, int addr64, int val, int udesc) { BlackwellIRInsn i = I0(BW_IR_STG_E); i.src1_vreg = addr64; i.src2_vreg = val; i.ureg = udesc; emit(e, i, K_STORE); }
 static void e_fadd(Em *e, int d, int a, int b) { BlackwellIRInsn i = I0(BW_IR_FADD); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; emit(e, i, K_FIXED); }
 static void e_fsub(Em *e, int d, int a, int b) { BlackwellIRInsn i = I0(BW_IR_FSUB); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; emit(e, i, K_FIXED); }
@@ -227,7 +265,6 @@ typedef struct { bool f32; uint32_t log2bs, log2gqa; int mutant; int divergent; 
 
 static void gen_attention(Em *e, const KSpec *k) {
     const uint32_t elem = k->f32 ? 4u : 2u;
-    const uint32_t kstep = k->f32 ? 8u : 4u; /* bytes per inner iteration: two dims */
     const uint32_t HD = k->hd, SH_S = HD * 4u, SH_O = HD * 8u, SH_R = HD * 12u; /* warps per CTA: HD / 32 */
     int udesc = UV64(e), A = V64(e), B = V64(e), C = V64(e), D = V64(e);
     int tid = V(e), h = V(e), seq = V(e);
@@ -297,7 +334,7 @@ static void gen_attention(Em *e, const KSpec *k) {
     /* ---------------- chunk loop ---------------- */
     int j = V(e), s = V(e), koff = V(e);
     int bi = V(e), sl = V(e), ta = V64(e), blk = V(e), ka = V64(e), dot = V(e), d = V(e);
-    int x = V(e), lo = V(e), hi = V(e), qa = V(e), qb = V(e), q0 = V(e), q1 = V(e), ka2 = V64(e), j1 = V(e);
+    int lo = V(e), hi = V(e), qa = V(e), j1 = V(e);
     int dneg = V(e), over = V(e), ot = V(e), ctxm1 = V(e), cm1 = V(e), cninf = V(e), nb = V(e), ns = V(e);
     movi(e, cm1, 0xFFFFFFFFu); iadd3(e, ctxm1, ctx, cm1); movi(e, cninf, F32_NEG_INF);
     loop_begin(e);
@@ -345,27 +382,39 @@ static void gen_attention(Em *e, const KSpec *k) {
         iadd3(e, koff, koff, kvoff);
         wide(e, ka, koff, 1, B);
     }
+    /* phase A inner loop (batched, 2026-10-12): two 128-bit global loads of K per pass on SB_GPR (16 dims
+     * bf16, 8 dims f32) with the first half of the matching q slice as 128-bit shared loads on SB_LD2, one
+     * wait; then the second half of q, one more (short) wait. The serial loop before paid one global
+     * latency per dim pair. Two halves keep the pass inside AT_GPR_BUDGET (the whole slice at once is
+     * 65 to 76 registers). qa = d * 4 is the shared byte offset of q[d]. */
+    const uint32_t dims = k->f32 ? 8u : 16u; /* dims per pass: 32 bytes of K either way */
+    const uint32_t nq = dims / 4u;           /* q quads per pass, loaded in two halves */
+    int kx[2], qq[4];
+    kx[0] = V128(e); kx[1] = V128(e);
+    for (uint32_t i = 0; i < nq; i++) qq[i] = V128(e);
     movrz(e, dot); movrz(e, d);
     loop_begin(e);
     int Lin = here(e);
-    if (k->f32) {
-        ldg(e, lo, ka, udesc);
-        wide(e, ka2, c1, 4, ka);
-        ldg(e, hi, ka2, udesc);
-    } else {
-        ldg(e, x, ka, udesc);
-        imadi(e, lo, x, 0x10000u, NOREG);   /* low bf16 -> f32: bits << 16 */
-        lop3andi(e, hi, x, 0xffff0000u);    /* high bf16 -> f32: keep the top half */
+    imadi(e, qa, d, 4, NOREG);
+    ldg128_b(e, kx[0], ka, 0u, udesc, SB_GPR);
+    ldg128_b(e, kx[1], ka, 16u, udesc, SB_GPR);
+    for (int h = 0; h < 2; h++) {
+        for (uint32_t i = 0; i < nq / 2u; i++) { uint32_t qi = (uint32_t)h * (nq / 2u) + i; lds128_b(e, qq[qi], qa, qi * 16u, SB_LD2); }
+        if (k->f32) {
+            for (int s = 0; s < 4; s++) e_ffma_s(e, dot, qq[h], s, kx[h], s, dot); /* dim h*4+s */
+        } else {
+            for (int s = 0; s < 4; s++) {
+                int pi = h * 4 + s; /* bf16 pair: dims 2*pi (low half) and 2*pi+1 (high half) */
+                imadi_s(e, lo, kx[h], s, 0x10000u, NOREG);   /* low bf16 -> f32: bits << 16 */
+                lop3andi_s(e, hi, kx[h], s, 0xffff0000u);    /* high bf16 -> f32: keep the top half */
+                e_ffma_s(e, dot, qq[pi / 2], (pi % 2) * 2, lo, 0, dot);
+                e_ffma_s(e, dot, qq[pi / 2], (pi % 2) * 2 + 1, hi, 0, dot);
+            }
+        }
     }
-    imadi(e, qa, d, 8, NOREG);
-    lds32(e, q0, qa);
-    iadd3(e, qb, qa, c4);
-    lds32(e, q1, qb);
-    e_ffma(e, dot, q0, lo, dot);
-    e_ffma(e, dot, q1, hi, dot);
-    wide(e, ka, c1, kstep, ka);
-    iadd3(e, d, d, c1);
-    isetp_ge_u32(e, d, c32);
+    wide(e, ka, c1, 32u, ka);
+    imadi(e, d, c1, dims, d);
+    isetp_ge_u32(e, d, c64);
     bra_back_if_not_p0(e, Lin);
     loop_end(e);
     e_fmul(e, s, dot, scale);
@@ -412,8 +461,16 @@ static void gen_attention(Em *e, const KSpec *k) {
     e_ffma(e, L, L, alpha, lc);
     if (k->mutant != OMEGA_GPU_ATTN_MUTANT_NO_RESCALE) e_fmul(e, acc, acc, alpha);
 
-    /* phase B: dimension tid over the chunk's tokens */
-    int kk = V(e), tt = V(e), oa = V(e), ko = V(e), pa = V(e), pv = V(e), va = V64(e), v = V(e);
+    /* phase B (batched, 2026-10-12): dimension tid over the chunk's tokens, AT_TOK tokens per pass. The
+     * token offsets of a pass come in two 128-bit shared loads (SB_LD2, one wait), then each V address is
+     * computed into one register pair while the earlier V loads are in flight (emit_fixed_in_batch: the
+     * read barrier orders the overwrite after the load has read it) and its load issued on SB_GPR or
+     * SB_LD3; the p values follow as two more shared loads on SB_LD2; one wait for all of it. A token past
+     * ctx inside a pass has p = 0 and the offset of a real token (phase A), so it adds exactly 0. */
+    enum { AT_TOK = 8 };
+    int kk = V(e), tt = V(e), oa = V(e), pa = V(e), ko4[2], pv4[2], va = V64(e), v[AT_TOK];
+    for (int i = 0; i < 2; i++) { ko4[i] = V128(e); pv4[i] = V128(e); }
+    for (int i = 0; i < AT_TOK; i++) v[i] = V(e);
     movrz(e, kk);
     loop_begin(e);
     int LB = here(e);
@@ -421,14 +478,20 @@ static void gen_attention(Em *e, const KSpec *k) {
     isetp_ge_u32(e, tt, ctx);
     int bB = bra_fwd_if_p0(e);
     imadi(e, oa, kk, 4, c512);
-    lds32(e, ko, oa);
     imadi(e, pa, kk, 4, c256);
-    lds32(e, pv, pa);
-    wide(e, va, ko, 1, vb);
-    if (k->f32) ldg(e, v, va, udesc);
-    else { ldg16(e, v, va, udesc); imadi(e, v, v, 0x10000u, NOREG); }
-    e_ffma(e, acc, pv, v, acc);
-    iadd3(e, kk, kk, c1);
+    for (int i = 0; i < 2; i++) lds128_b(e, ko4[i], oa, (uint32_t)i * 16u, SB_LD2);
+    for (int i = 0; i < AT_TOK; i++) {
+        if (i == 0) wide_s(e, va, ko4[0], 0, 1, vb); /* ordinary: waits for the offsets */
+        else wide_s_b(e, va, ko4[i / 4], i % 4, 1, vb);
+        uint32_t sb = (i < AT_TOK / 2) ? SB_GPR : SB_LD3;
+        if (k->f32) ldg_b(e, v[i], va, udesc, sb); else ldg16_b(e, v[i], va, udesc, sb);
+    }
+    for (int i = 0; i < 2; i++) lds128_b(e, pv4[i], pa, (uint32_t)i * 16u, SB_LD2);
+    for (int i = 0; i < AT_TOK; i++) {
+        if (!k->f32) imadi(e, v[i], v[i], 0x10000u, NOREG);
+        e_ffma_s(e, acc, pv4[i / 4], i % 4, v[i], 0, acc);
+    }
+    imadi(e, kk, c1, AT_TOK, kk);
     isetp_ge_u32(e, kk, c64);
     bra_back_if_not_p0(e, LB);
     loop_end(e);

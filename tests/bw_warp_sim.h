@@ -104,6 +104,9 @@ static uint32_t ws_rd(const WsLane *l, int v, const BlackwellIRProgram *p) { if 
 static uint64_t ws_rd64(const WsLane *l, int v, const BlackwellIRProgram *p) { if (v < 0) return 0; int ph = p->regalloc.vreg_to_phys[v] & 0xff; return (uint64_t)l->r[ph] | ((uint64_t)l->r[(ph + 1) & 0xff] << 32); }
 static void ws_wr(WsLane *l, int v, uint32_t x, const BlackwellIRProgram *p) { if (v < 0) return; int ph = p->regalloc.vreg_to_phys[v]; if (ph >= 0) l->r[ph & 0xff] = x; }
 static void ws_wr64(WsLane *l, int v, uint64_t x, const BlackwellIRProgram *p) { if (v < 0) return; int ph = p->regalloc.vreg_to_phys[v] & 0xff; l->r[ph] = (uint32_t)x; l->r[(ph + 1) & 0xff] = (uint32_t)(x >> 32); }
+/* sub-register operands (quad/pair lanes, BlackwellIRInsn.*_subreg) */
+static uint32_t ws_rds(const WsLane *l, int v, unsigned sub, const BlackwellIRProgram *p) { if (v < 0) return 0; int ph = p->regalloc.vreg_to_phys[v]; return ph < 0 ? 0 : l->r[(ph + sub) & 0xff]; }
+static void ws_wrs(WsLane *l, int v, unsigned sub, uint32_t x, const BlackwellIRProgram *p) { if (v < 0) return; int ph = p->regalloc.vreg_to_phys[v]; if (ph >= 0) l->r[(ph + sub) & 0xff] = x; }
 static float ws_u2f(uint32_t u) { float f; memcpy(&f, &u, 4); return f; }
 static uint32_t ws_f2u(float f) { uint32_t u; memcpy(&u, &f, 4); return u; }
 static uint32_t ws_lut3(uint32_t lut, uint32_t a, uint32_t b, uint32_t c) {
@@ -125,39 +128,41 @@ static int ws_popc(uint32_t m) { return __builtin_popcount(m); }
 /* One lane, one non-control instruction. */
 static void ws_lane_exec(WsSim *s, WsLane *l, const BlackwellIRInsn *in, int pc, uint32_t tid, uint32_t cx, uint32_t cy) {
     const BlackwellIRProgram *p = s->p;
-    uint32_t a = ws_rd(l, in->src1_vreg, p), b = ws_rd(l, in->src2_vreg, p), c = ws_rd(l, in->src3_vreg, p);
+    uint32_t a = ws_rds(l, in->src1_vreg, in->src1_subreg, p), b = ws_rds(l, in->src2_vreg, in->src2_subreg, p), c = ws_rds(l, in->src3_vreg, in->src3_subreg, p);
     switch (in->op) {
     case BW_IR_NOP: break;
-    case BW_IR_S2R: ws_wr(l, in->dst_vreg, in->imm == BW_SR_TID_X ? tid : in->imm == BW_SR_CTAID_X ? cx : in->imm == BW_SR_CTAID_Y ? cy : 0, p); break;
-    case BW_IR_LDC: ws_wr(l, in->dst_vreg, s->cbank[(in->imm / 4) & 0xff], p); break;
+    case BW_IR_S2R: ws_wrs(l, in->dst_vreg, in->dst_subreg, in->imm == BW_SR_TID_X ? tid : in->imm == BW_SR_CTAID_X ? cx : in->imm == BW_SR_CTAID_Y ? cy : 0, p); break;
+    case BW_IR_LDC: ws_wrs(l, in->dst_vreg, in->dst_subreg, s->cbank[(in->imm / 4) & 0xff], p); break;
     case BW_IR_LDC64: ws_wr64(l, in->dst_vreg, (uint64_t)s->cbank[(in->imm / 4) & 0xff] | ((uint64_t)s->cbank[(in->imm / 4 + 1) & 0xff] << 32), p); break;
     case BW_IR_LDCU64: case BW_IR_LDCU: break; /* memory descriptor: not modelled */
-    case BW_IR_MOV_IMM: ws_wr(l, in->dst_vreg, in->imm, p); break;
-    case BW_IR_MOV_RZ: ws_wr(l, in->dst_vreg, 0, p); break;
-    case BW_IR_IMAD: ws_wr(l, in->dst_vreg, in->src2_vreg >= 0 ? a * b + c : a * in->imm + c, p); break;
+    case BW_IR_MOV_IMM: ws_wrs(l, in->dst_vreg, in->dst_subreg, in->imm, p); break;
+    case BW_IR_MOV_RZ: ws_wrs(l, in->dst_vreg, in->dst_subreg, 0, p); break;
+    case BW_IR_IMAD: ws_wrs(l, in->dst_vreg, in->dst_subreg, in->src2_vreg >= 0 ? a * b + c : a * in->imm + c, p); break;
     case BW_IR_IMAD_WIDE: ws_wr64(l, in->dst_vreg, (uint64_t)a * in->imm + ws_rd64(l, in->src3_vreg, p), p); break;
-    case BW_IR_IMAD_HI_U32: ws_wr(l, in->dst_vreg, (uint32_t)(((uint64_t)a * b) >> 32) + c, p); break;
-    case BW_IR_IADD3: ws_wr(l, in->dst_vreg, a + b, p); break; /* the encoder's IADD3 has Rc = RZ */
-    case BW_IR_SHF_R: ws_wr(l, in->dst_vreg, a >> (in->imm & 31), p); break;
-    case BW_IR_SHF_L_U32: if (b >= 32) { ws_fail(s, WS_E_SHIFT, pc, "SHF.L.U32 amount >= 32 (not chip-verified)"); return; } ws_wr(l, in->dst_vreg, a << b, p); break;
-    case BW_IR_LOP3_AND: ws_wr(l, in->dst_vreg, a & in->imm, p); break;
-    case BW_IR_LOP3_XOR: ws_wr(l, in->dst_vreg, a ^ b, p); break;
-    case BW_IR_LOP3_LUT: ws_wr(l, in->dst_vreg, ws_lut3(in->imm & 0xff, a, b, c), p); break;
+    case BW_IR_IMAD_HI_U32: ws_wrs(l, in->dst_vreg, in->dst_subreg, (uint32_t)(((uint64_t)a * b) >> 32) + c, p); break;
+    case BW_IR_IADD3: ws_wrs(l, in->dst_vreg, in->dst_subreg, a + b, p); break; /* the encoder's IADD3 has Rc = RZ */
+    case BW_IR_SHF_R: ws_wrs(l, in->dst_vreg, in->dst_subreg, a >> (in->imm & 31), p); break;
+    case BW_IR_SHF_L_U32: if (b >= 32) { ws_fail(s, WS_E_SHIFT, pc, "SHF.L.U32 amount >= 32 (not chip-verified)"); return; } ws_wrs(l, in->dst_vreg, in->dst_subreg, a << b, p); break;
+    case BW_IR_LOP3_AND: ws_wrs(l, in->dst_vreg, in->dst_subreg, a & in->imm, p); break;
+    case BW_IR_LOP3_XOR: ws_wrs(l, in->dst_vreg, in->dst_subreg, a ^ b, p); break;
+    case BW_IR_LOP3_LUT: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_lut3(in->imm & 0xff, a, b, c), p); break;
     case BW_IR_ISETP_GE_U32: l->p0 = a >= b; break;
-    case BW_IR_LDG_E: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; uint32_t x; memcpy(&x, (const void *)(uintptr_t)ad, 4); ws_wr(l, in->dst_vreg, x, p); break; }
-    case BW_IR_LDG_E_U16: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 2, pc)) return; uint16_t x; memcpy(&x, (const void *)(uintptr_t)ad, 2); ws_wr(l, in->dst_vreg, x, p); break; }
+    case BW_IR_LDG_E: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; uint32_t x; memcpy(&x, (const void *)(uintptr_t)ad, 4); ws_wrs(l, in->dst_vreg, in->dst_subreg, x, p); break; }
+    case BW_IR_LDG_E_U16: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 2, pc)) return; uint16_t x; memcpy(&x, (const void *)(uintptr_t)ad, 2); ws_wrs(l, in->dst_vreg, in->dst_subreg, x, p); break; }
     case BW_IR_STG_E: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; memcpy((void *)(uintptr_t)ad, &b, 4); break; }
-    case BW_IR_LDS32: { uint32_t *m = ws_smem(s, a, pc); if (!m) return; ws_wr(l, in->dst_vreg, *m, p); break; }
+    case BW_IR_LDG_E_64: case BW_IR_LDG_E_128: { unsigned n = in->op == BW_IR_LDG_E_64 ? 8u : 16u; uint64_t ad = ws_rd64(l, in->src1_vreg, p) + (uint64_t)(int64_t)(int32_t)in->imm; if (!ws_mem_ok(s, ad, n, pc)) return; if (ad & (n - 1)) { ws_fail(s, WS_E_MEM, pc, "wide global load not naturally aligned"); return; } uint32_t x[4]; memcpy(x, (const void *)(uintptr_t)ad, n); for (unsigned i = 0; i < n / 4; i++) ws_wrs(l, in->dst_vreg, i, x[i], p); break; }
+    case BW_IR_LDS128: { uint32_t ad = a + in->imm; if (ad & 15u) { ws_fail(s, WS_E_SMEM, pc, "LDS.128 address not 16-byte aligned"); return; } for (unsigned i = 0; i < 4; i++) { uint32_t *m = ws_smem(s, ad + 4u * i, pc); if (!m) return; ws_wrs(l, in->dst_vreg, i, *m, p); } break; }
+    case BW_IR_LDS32: { uint32_t *m = ws_smem(s, a, pc); if (!m) return; ws_wrs(l, in->dst_vreg, in->dst_subreg, *m, p); break; }
     case BW_IR_STS32: { uint32_t *m = ws_smem(s, a, pc); if (!m) return; *m = b; break; }
-    case BW_IR_FADD: ws_wr(l, in->dst_vreg, ws_f2u(ws_u2f(a) + ws_u2f(b)), p); break;
-    case BW_IR_FSUB: ws_wr(l, in->dst_vreg, ws_f2u(ws_u2f(a) - ws_u2f(b)), p); break;
-    case BW_IR_FMUL: ws_wr(l, in->dst_vreg, ws_f2u(ws_u2f(a) * ws_u2f(b)), p); break;
-    case BW_IR_FFMA: ws_wr(l, in->dst_vreg, ws_f2u(fmaf(ws_u2f(a), ws_u2f(b), ws_u2f(c))), p); break;
-    case BW_IR_FMNMX_MAX: ws_wr(l, in->dst_vreg, ws_f2u(fmaxf(ws_u2f(a), ws_u2f(b))), p); break;
-    case BW_IR_FMNMX_MIN: ws_wr(l, in->dst_vreg, ws_f2u(fminf(ws_u2f(a), ws_u2f(b))), p); break;
-    case BW_IR_MUFU_EX2: ws_wr(l, in->dst_vreg, ws_f2u(exp2f(ws_u2f(a))), p); break;
-    case BW_IR_MUFU_RCP: ws_wr(l, in->dst_vreg, ws_f2u(1.0f / ws_u2f(a)), p); break;
-    case BW_IR_MUFU_RSQ: ws_wr(l, in->dst_vreg, ws_f2u(1.0f / sqrtf(ws_u2f(a))), p); break;
+    case BW_IR_FADD: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_u2f(a) + ws_u2f(b)), p); break;
+    case BW_IR_FSUB: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_u2f(a) - ws_u2f(b)), p); break;
+    case BW_IR_FMUL: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_u2f(a) * ws_u2f(b)), p); break;
+    case BW_IR_FFMA: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fmaf(ws_u2f(a), ws_u2f(b), ws_u2f(c))), p); break;
+    case BW_IR_FMNMX_MAX: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fmaxf(ws_u2f(a), ws_u2f(b))), p); break;
+    case BW_IR_FMNMX_MIN: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fminf(ws_u2f(a), ws_u2f(b))), p); break;
+    case BW_IR_MUFU_EX2: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(exp2f(ws_u2f(a))), p); break;
+    case BW_IR_MUFU_RCP: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(1.0f / ws_u2f(a)), p); break;
+    case BW_IR_MUFU_RSQ: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(1.0f / sqrtf(ws_u2f(a))), p); break;
     default: ws_fail(s, WS_E_OP, pc, "opcode not modelled"); return;
     }
 }

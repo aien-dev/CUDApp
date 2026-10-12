@@ -735,6 +735,19 @@ static int encode_single_insn(const BlackwellIRInsn *insn, const OmegaRegAlloc *
             w[3] = insn->control ? insn->control : 0x000fec00;
             break;
 
+        case BW_IR_LDS128: {
+            /* LDS.128 Rd..Rd+3, [Ra+imm]. nvcc 13.0.88 -arch=sm_121 words (fixtures below):
+             *   LDS.128 R4, [R20] ;        0x0000000014047984 0x000fe80000000c00
+             *   LDS.128 R8, [R20+0x40] ;   0x0000400014087984 0x000e280000000c00
+             * imm = byte offset at w[1] bits 8..31; size field 6 (128) at w[2] bits 9..11. */
+            if (insn->imm >= (1u << 23)) return -1;
+            w[0] = 0x7984U | ((uint32_t)(dst & 0xff) << 16) | ((uint32_t)(src1 & 0xff) << 24);
+            w[1] = (insn->imm & 0xffffffU) << 8;
+            w[2] = 0x00000c00U;
+            w[3] = insn->control ? insn->control : 0x000fe800;
+            break;
+        }
+
         case BW_IR_LDS32:
             /* LDS Rd, [Ra+URZ] (32-bit), the src/omega_numeric.c:886 form. */
             w[0] = 0x7984U | ((uint32_t)(dst & 0xff) << 16) | ((uint32_t)(src1 & 0xff) << 24);
@@ -859,6 +872,11 @@ int omega_blackwell_verify_codegen_fixtures_fragmm(void) {
         { BW_IR_LDG_E_128, 20, 32, -1, -1, 8, 0x1000, 0, 0x20147981U, 0x00100008U, 0x0c1e1d00U, 0, "LDG.E.128 R20, desc[UR8][R32.64+0x1000]" },
         { BW_IR_HMMA_BF16, 8, 12, 6, 8, -1, 0, 0, 0x0c08723cU, 0x00000006U, 0x00041808U, 0, "HMMA.16816.F32.BF16 R8, R12, R6, R8" },
         { BW_IR_NOP, -1, -1, -1, -1, -1, 0, 0x000fdc00U, 0x00007918U, 0, 0, 0x000fdc00U, "NOP (stall 14)" },
+        /* LDS.128 with an immediate offset (attention batched loads, 2026-10-12): nvcc 13.0.88 -arch=sm_121 on
+         * float4 shared reads at register + constant offsets (fixture source in the omega speed/attention-batched-loads PR) */
+        { BW_IR_LDS128, 4, 20, -1, -1, -1, 0, 0, 0x14047984U, 0x00000000U, 0x00000c00U, 0, "LDS.128 R4, [R20]" },
+        { BW_IR_LDS128, 8, 20, -1, -1, -1, 0x40, 0, 0x14087984U, 0x00004000U, 0x00000c00U, 0, "LDS.128 R8, [R20+0x40]" },
+        { BW_IR_LDS128, 12, 20, -1, -1, -1, 0x100, 0, 0x140c7984U, 0x00010000U, 0x00000c00U, 0, "LDS.128 R12, [R20+0x100]" },
     };
     for (int i = 0; i < (int)(sizeof fx / sizeof fx[0]); i++) {
         BlackwellIRInsn in;

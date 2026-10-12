@@ -190,8 +190,8 @@ static void host_only(void) {
     CHECK(strcmp(omega_gpu_attention_rc_name(OMEGA_GPU_ATTN_UNWRITTEN), "UNWRITTEN") == 0, "rc name");
 
     /* with --divergent the listing must also show the region ops (last two entries) */
-    static const char *const must_bf16[] = { "MUFU.EX2", "MUFU.RCP", "FMNMX", "BAR.SYNC", "SHFL.DOWN", "@P0 BRA", "@!P0 BRA", "LDG.E.U16", "LDG.E ", "LDS R", "STS [R", "STG.E", "LOP3.LUT", "SHF.R.U32.HI", "BSSY", "BSYNC" };
-    static const char *const must_f32[] = { "MUFU.EX2", "MUFU.RCP", "FMNMX", "BAR.SYNC", "SHFL.DOWN", "@P0 BRA", "@!P0 BRA", "LDG.E ", "LDS R", "STS [R", "STG.E", "BSSY", "BSYNC" };
+    static const char *const must_bf16[] = { "MUFU.EX2", "MUFU.RCP", "FMNMX", "BAR.SYNC", "SHFL.DOWN", "@P0 BRA", "@!P0 BRA", "LDG.E.U16", "LDG.E ", "LDG.E.128", "LDS.128", "LDS R", "STS [R", "STG.E", "LOP3.LUT", "SHF.R.U32.HI", "BSSY", "BSYNC" };
+    static const char *const must_f32[] = { "MUFU.EX2", "MUFU.RCP", "FMNMX", "BAR.SYNC", "SHFL.DOWN", "@P0 BRA", "@!P0 BRA", "LDG.E ", "LDG.E.128", "LDS.128", "LDS R", "STS [R", "STG.E", "BSSY", "BSYNC" };
     for (int f32 = 0; f32 < 2; f32++) {
         const char *name = f32 ? "gqa_f32" : "paged_bf16";
         OmegaBlackwellKernel k; memset(&k, 0, sizeof k);
@@ -552,6 +552,8 @@ static uint32_t rd(const SimThr *t, int v, const BlackwellIRProgram *p) { if (v 
 static uint64_t rd64(const SimThr *t, int v, const BlackwellIRProgram *p) { if (v < 0) return 0; int ph = p->regalloc.vreg_to_phys[v] & 0xff; return (uint64_t)t->r[ph] | ((uint64_t)t->r[ph + 1] << 32); }
 static void wr(SimThr *t, int v, uint32_t x, const BlackwellIRProgram *p) { if (v < 0) return; int ph = p->regalloc.vreg_to_phys[v]; if (ph >= 0) t->r[ph & 0xff] = x; }
 static void wr64(SimThr *t, int v, uint64_t x, const BlackwellIRProgram *p) { if (v < 0) return; int ph = p->regalloc.vreg_to_phys[v] & 0xff; t->r[ph] = (uint32_t)x; t->r[ph + 1] = (uint32_t)(x >> 32); }
+static uint32_t rds(const SimThr *t, int v, unsigned sub, const BlackwellIRProgram *p) { if (v < 0) return 0; int ph = p->regalloc.vreg_to_phys[v]; return ph < 0 ? 0 : t->r[(ph + sub) & 0xff]; }
+static void wrs(SimThr *t, int v, unsigned sub, uint32_t x, const BlackwellIRProgram *p) { if (v < 0) return; int ph = p->regalloc.vreg_to_phys[v]; if (ph >= 0) t->r[(ph + sub) & 0xff] = x; }
 static float u2f(uint32_t u) { float f; memcpy(&f, &u, 4); return f; }
 static uint32_t f2u_(float f) { uint32_t u; memcpy(&u, &f, 4); return u; }
 /* run one thread until it reaches a SHFL or BAR (not executed) or EXIT; returns 1 if parked at a sync op */
@@ -560,7 +562,7 @@ static int sim_step(SimThr *t, const BlackwellIRProgram *p, uint32_t tid, uint32
         if (t->done) return 0;
         if (t->pc < 0 || (size_t)t->pc >= p->count) { g_sim_err = 1; t->done = 1; return 0; }
         const BlackwellIRInsn *in = &p->insns[t->pc];
-        uint32_t a = rd(t, in->src1_vreg, p), b = rd(t, in->src2_vreg, p), c = rd(t, in->src3_vreg, p);
+        uint32_t a = rds(t, in->src1_vreg, in->src1_subreg, p), b = rds(t, in->src2_vreg, in->src2_subreg, p), c = rds(t, in->src3_vreg, in->src3_subreg, p);
         switch (in->op) {
         case BW_IR_SHFL_DOWN: case BW_IR_BAR_SYNC: return 1;
         case BW_IR_EXIT: if (!in->predicate_p0 || t->p0) { t->done = 1; return 0; } break;
@@ -569,31 +571,33 @@ static int sim_step(SimThr *t, const BlackwellIRProgram *p, uint32_t tid, uint32
             t->path = t->path * 1000003u + (((uint64_t)t->pc << 1) | (uint64_t)take);
             if (take) { if ((int32_t)in->imm == 0) { g_sim_err = 2; t->done = 1; return 0; } t->pc += (int32_t)in->imm; continue; }
             break; }
-        case BW_IR_MOV_IMM: wr(t, in->dst_vreg, in->imm, p); break;
-        case BW_IR_MOV_RZ: wr(t, in->dst_vreg, 0, p); break;
-        case BW_IR_S2R: wr(t, in->dst_vreg, in->imm == BW_SR_TID_X ? tid : in->imm == BW_SR_CTAID_X ? cx : in->imm == BW_SR_CTAID_Y ? cy : 0, p); break;
-        case BW_IR_LDC: wr(t, in->dst_vreg, sim_cbank[in->imm / 4], p); break;
+        case BW_IR_MOV_IMM: wrs(t, in->dst_vreg, in->dst_subreg, in->imm, p); break;
+        case BW_IR_MOV_RZ: wrs(t, in->dst_vreg, in->dst_subreg, 0, p); break;
+        case BW_IR_S2R: wrs(t, in->dst_vreg, in->dst_subreg, in->imm == BW_SR_TID_X ? tid : in->imm == BW_SR_CTAID_X ? cx : in->imm == BW_SR_CTAID_Y ? cy : 0, p); break;
+        case BW_IR_LDC: wrs(t, in->dst_vreg, in->dst_subreg, sim_cbank[in->imm / 4], p); break;
         case BW_IR_LDC64: wr64(t, in->dst_vreg, (uint64_t)sim_cbank[in->imm / 4] | ((uint64_t)sim_cbank[in->imm / 4 + 1] << 32), p); break;
         case BW_IR_LDCU64: break; /* memory descriptor: not modelled */
-        case BW_IR_IMAD: wr(t, in->dst_vreg, in->src2_vreg >= 0 ? a * b + c : a * in->imm + c, p); break;
+        case BW_IR_IMAD: wrs(t, in->dst_vreg, in->dst_subreg, in->src2_vreg >= 0 ? a * b + c : a * in->imm + c, p); break;
         case BW_IR_IMAD_WIDE: wr64(t, in->dst_vreg, (uint64_t)a * in->imm + rd64(t, in->src3_vreg, p), p); break;
-        case BW_IR_IADD3: wr(t, in->dst_vreg, a + b, p); break;
-        case BW_IR_SHF_R: wr(t, in->dst_vreg, a >> (in->imm & 31), p); break;
-        case BW_IR_LOP3_AND: wr(t, in->dst_vreg, a & in->imm, p); break;
-        case BW_IR_LOP3_XOR: wr(t, in->dst_vreg, a ^ b, p); break;
+        case BW_IR_IADD3: wrs(t, in->dst_vreg, in->dst_subreg, a + b, p); break;
+        case BW_IR_SHF_R: wrs(t, in->dst_vreg, in->dst_subreg, a >> (in->imm & 31), p); break;
+        case BW_IR_LOP3_AND: wrs(t, in->dst_vreg, in->dst_subreg, a & in->imm, p); break;
+        case BW_IR_LOP3_XOR: wrs(t, in->dst_vreg, in->dst_subreg, a ^ b, p); break;
         case BW_IR_ISETP_GE_U32: t->p0 = a >= b; break;
-        case BW_IR_LDG_E: { uint32_t x; memcpy(&x, (const void *)(uintptr_t)rd64(t, in->src1_vreg, p), 4); wr(t, in->dst_vreg, x, p); break; }
-        case BW_IR_LDG_E_U16: { uint16_t x; memcpy(&x, (const void *)(uintptr_t)rd64(t, in->src1_vreg, p), 2); wr(t, in->dst_vreg, x, p); break; }
+        case BW_IR_LDG_E: { uint32_t x; memcpy(&x, (const void *)(uintptr_t)rd64(t, in->src1_vreg, p), 4); wrs(t, in->dst_vreg, in->dst_subreg, x, p); break; }
+        case BW_IR_LDG_E_U16: { uint16_t x; memcpy(&x, (const void *)(uintptr_t)rd64(t, in->src1_vreg, p), 2); wrs(t, in->dst_vreg, in->dst_subreg, x, p); break; }
         case BW_IR_STG_E: memcpy((void *)(uintptr_t)rd64(t, in->src1_vreg, p), &b, 4); break;
-        case BW_IR_LDS32: { uint32_t x; if (a + 4 > SIM_SMEM) { g_sim_err = 3; t->done = 1; return 0; } memcpy(&x, sim_shared + a, 4); wr(t, in->dst_vreg, x, p); break; }
+        case BW_IR_LDG_E_64: case BW_IR_LDG_E_128: { unsigned n = in->op == BW_IR_LDG_E_64 ? 8u : 16u; uint64_t ad = rd64(t, in->src1_vreg, p) + (uint64_t)(int64_t)(int32_t)in->imm; if (ad & (n - 1)) { g_sim_err = 5; t->done = 1; return 0; } uint32_t x[4]; memcpy(x, (const void *)(uintptr_t)ad, n); for (unsigned i = 0; i < n / 4; i++) wrs(t, in->dst_vreg, i, x[i], p); break; }
+        case BW_IR_LDS128: { uint32_t ad = a + in->imm; if ((ad & 15u) || ad + 16 > SIM_SMEM) { g_sim_err = 3; t->done = 1; return 0; } for (unsigned i = 0; i < 4; i++) { uint32_t x; memcpy(&x, sim_shared + ad + 4u * i, 4); wrs(t, in->dst_vreg, i, x, p); } break; }
+        case BW_IR_LDS32: { uint32_t x; if (a + 4 > SIM_SMEM) { g_sim_err = 3; t->done = 1; return 0; } memcpy(&x, sim_shared + a, 4); wrs(t, in->dst_vreg, in->dst_subreg, x, p); break; }
         case BW_IR_STS32: if (a + 4 > SIM_SMEM) { g_sim_err = 3; t->done = 1; return 0; } memcpy(sim_shared + a, &b, 4); break;
-        case BW_IR_FADD: wr(t, in->dst_vreg, f2u_(u2f(a) + u2f(b)), p); break;
-        case BW_IR_FSUB: wr(t, in->dst_vreg, f2u_(u2f(a) - u2f(b)), p); break;
-        case BW_IR_FMUL: wr(t, in->dst_vreg, f2u_(u2f(a) * u2f(b)), p); break;
-        case BW_IR_FFMA: wr(t, in->dst_vreg, f2u_(fmaf(u2f(a), u2f(b), u2f(c))), p); break;
-        case BW_IR_FMNMX_MAX: wr(t, in->dst_vreg, f2u_(fmaxf(u2f(a), u2f(b))), p); break;
-        case BW_IR_MUFU_EX2: wr(t, in->dst_vreg, f2u_(exp2f(u2f(a))), p); break;
-        case BW_IR_MUFU_RCP: wr(t, in->dst_vreg, f2u_(1.0f / u2f(a)), p); break;
+        case BW_IR_FADD: wrs(t, in->dst_vreg, in->dst_subreg, f2u_(u2f(a) + u2f(b)), p); break;
+        case BW_IR_FSUB: wrs(t, in->dst_vreg, in->dst_subreg, f2u_(u2f(a) - u2f(b)), p); break;
+        case BW_IR_FMUL: wrs(t, in->dst_vreg, in->dst_subreg, f2u_(u2f(a) * u2f(b)), p); break;
+        case BW_IR_FFMA: wrs(t, in->dst_vreg, in->dst_subreg, f2u_(fmaf(u2f(a), u2f(b), u2f(c))), p); break;
+        case BW_IR_FMNMX_MAX: wrs(t, in->dst_vreg, in->dst_subreg, f2u_(fmaxf(u2f(a), u2f(b))), p); break;
+        case BW_IR_MUFU_EX2: wrs(t, in->dst_vreg, in->dst_subreg, f2u_(exp2f(u2f(a))), p); break;
+        case BW_IR_MUFU_RCP: wrs(t, in->dst_vreg, in->dst_subreg, f2u_(1.0f / u2f(a)), p); break;
         default: g_sim_err = 100 + (int)in->op; t->done = 1; return 0;
         }
         if (g_trace && tid == 0 && cx == g_trace_cx && cy == 0 && g_trace_launch == 1) { uint32_t dv = rd(t, in->dst_vreg, p); printf("T pc=%d op=%d dst=v%d(r%d)=%08x f=%g p0=%d a=%08x b=%08x c=%08x\n", t->pc, (int)in->op, in->dst_vreg, in->dst_vreg >= 0 ? p->regalloc.vreg_to_phys[in->dst_vreg] : -1, dv, u2f(dv), t->p0, a, b, c); }
@@ -904,16 +908,16 @@ static void hd128_checks(void) {
 }
 
 /* head_dim 64 byte-identity pin and head_dim 128 codegen facts (CPU only, no device, no simulator).
- * The digests are SHA-256 of the encoded kernel bytes as emitted by origin/main c0369e6 (before head_dim
- * 128 existed); any change to the head_dim 64 program changes a digest and fails here. */
+ * The digests are SHA-256 of the encoded kernel bytes as emitted by the batched-load program of 2026-10-12
+ * (speed/attention-batched-loads; before it, main c0369e6 was pinned at 160 instructions); any change to the head_dim 64 program changes a digest and fails here. */
 typedef struct { bool f32; uint32_t log2bs, log2gqa; size_t insns; const char *sha256; } Pin;
 static const Pin k_pins64[] = {
-    { false, 4, 3, 160, "6e2b1ea2ca58327391287177e606a5317422e06301e5a8c75d2ce45eed20ff2b" }, 
-    { false, 4, 2, 160, "230443d951335a363614bac31c5ce6be9f42ab6192e450851c7238efcc383868" }, 
-    { false, 4, 0, 160, "a0629e402901f5ae4ee07f893f032793774c444f0646db8f40f0d8f943bf4c97" }, 
-    { true, 12, 3, 160, "c3dc2fbbdfafc9ad0aee4213590bc75b21f122ade285d0f9ce3cbf9a76a23a30" }, 
-    { true, 12, 2, 160, "90fb6c755be466a9b37fd3b817a6ae43016e15b0c35c45bb37da40aa73ca5ba4" }, 
-    { true, 12, 0, 160, "a5443e2b274b2b9c620f54f9aa05aefef9e05956450144e0e31046d32a5b62a9" },
+    { false, 4, 3, 216, "44d27fae78ea21ee77fd7a0ebd2ebfcac52e9e45a81de84b035868092e13e424" }, 
+    { false, 4, 2, 216, "3bc79d4a54fd0d82024b376dfdb718e8326431917251f13f5c44be6ba8eb6f0c" }, 
+    { false, 4, 0, 216, "83eca9872e32c17321d2f8ec6a6ec92638ed72b136d8958cda5cdfc451c01ef8" }, 
+    { true, 12, 3, 184, "b6a25d8739185bbd944bfcc1ec174abb24ce46529f06c56f8d5ac77bf6883ddd" }, 
+    { true, 12, 2, 184, "46a2b82ebcb55237f4a7585679b42ac9558c7a434e8e80ccef6cc0bfaed8fcb9" }, 
+    { true, 12, 0, 184, "970db9533c836eca7c86783875a2ad898cd69bc3070cae418cc92b3ce2dbbd9c" },
 };
 static void hex_digest(const uint8_t d[32], char out[65]) { for (int i = 0; i < 32; i++) snprintf(out + 2 * i, 3, "%02x", d[i]); }
 static void hd_codegen_checks(void) {
@@ -923,7 +927,7 @@ static void hd_codegen_checks(void) {
         OmegaBlackwellKernel k; memset(&k, 0, sizeof k);
         int rc = omega_gpu_attention_codegen_hd(p->f32, p->log2bs, p->log2gqa, 64, &k);
         hex_digest(k.code_digest, hex);
-        CHECK(rc == OMEGA_GPU_ATTN_OK && k.insn_count == p->insns && strcmp(hex, p->sha256) == 0, "hd64 %s log2bs %u log2gqa %u: encoded kernel is byte-identical to main c0369e6 (%zu insns, sha256 %.12s)", p->f32 ? "f32 " : "bf16", p->log2bs, p->log2gqa, k.insn_count, hex);
+        CHECK(rc == OMEGA_GPU_ATTN_OK && k.insn_count == p->insns && strcmp(hex, p->sha256) == 0, "hd64 %s log2bs %u log2gqa %u: encoded kernel is byte-identical to the pinned program (%zu insns, sha256 %s)", p->f32 ? "f32 " : "bf16", p->log2bs, p->log2gqa, k.insn_count, hex);
         free(k.code);
         /* the 4-argument entry point is the same kernel */
         OmegaBlackwellKernel k4; memset(&k4, 0, sizeof k4);
