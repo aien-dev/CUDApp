@@ -36,8 +36,10 @@
  * the top half of an f32); bf16 V by LDG.E.U16 and the same shift. f32 K/V are
  * read directly. Tolerances are stated and justified in tests/gpu_attention_test.c.
  *
- * Launch envelope: at most OMEGA_GPU_ATTN_MAX_CTAS CTAs per launch (investigation
- * I42, same as cuts 1b and 4): grid = (num_q_heads, sequences per launch).
+ * Launch envelope: at most OMEGA_GPU_ATTN_MAX_CTAS / num_q_heads sequences per launch (investigation
+ * I42, same as cuts 1b and 4): grid = (num_q_heads, sequences per launch * context splits); the paged
+ * path adds up to 2^OMEGA_GPU_ATTN_MAX_LOG2SPLIT context splits per (sequence, head) within
+ * OMEGA_GPU_ATTN_SPLIT_MAX_CTAS (cut F, the rows path proved 1024 CTAs on the chip).
  * Shared memory: the QMD declares 16 * head_dim bytes (clcec0qmd.h SHARED_MEMORY_SIZE_SHIFTED7,
  * src/omega_blackwell_qmd.c word 36); the kernel uses exactly 4 arrays of head_dim words:
  * 1024 bytes for head_dim 64 (TinyLlama, Llama-3.2-1B; the QMD default) and 2048 bytes for
@@ -81,6 +83,14 @@ enum {
 #define OMEGA_GPU_ATTN_HEAD_DIM 64u      /* the original head_dim; threads per CTA = head_dim (one thread per dimension / per token of a chunk) */
 #define OMEGA_GPU_ATTN_HEAD_DIM_128 128u /* the second supported head_dim (Qwen3-4B) */
 #define OMEGA_GPU_ATTN_MAX_CTAS 64u
+/* Cut F (2026-10-12): a paged call splits each (sequence, head) over up to 2^MAX_LOG2SPLIT CTAs along the context
+ * (whole chunks each, at least two chunks per split; the launch takes the largest count in the batch) within
+ * SPLIT_MAX_CTAS CTAs per launch (the rows path proved 1024 on the chip); the CTAs write unnormalised partials
+ * (acc[head_dim], running max, running sum) that the host combines, also when the split is 1 (the gqa f32 and rows
+ * kernels keep the direct output and are byte for byte the ones before). Each sequence picks its own split count
+ * from its own context, so a result never depends on the other sequences in a launch. */
+#define OMEGA_GPU_ATTN_MAX_LOG2SPLIT 3u
+#define OMEGA_GPU_ATTN_SPLIT_MAX_CTAS 1024u
 #define OMEGA_GPU_ATTN_MAX_Q_HEADS 64u
 #define OMEGA_GPU_ATTN_MAX_GQA_CTX 4096u /* contiguous path: one block of 2^12 slots */
 
@@ -262,6 +272,8 @@ void omega_gpu_attention_test_set_simulator(OmegaGpuAttnSim sim);
  * its own blocks), kept as the reference fallback and as the negative control of the
  * staging-byte tests. Test hook; never cleared in production. */
 void omega_gpu_attention_test_set_dedupe(bool on);
+/* Test hook: force the context split (log2, 0 = one CTA per head) on every paged call; -1 = automatic. */
+void omega_gpu_attention_test_set_split(int log2split);
 
 /* The resident pool's per-block fit rule (see omega_gpu_attention_pool_alloc), exposed so the
  * 4 GiB edge can be checked without allocating a 4 GiB pool. Test hook. */

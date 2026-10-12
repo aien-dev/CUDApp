@@ -261,7 +261,12 @@ static int check_loop_invariant(const Em *e) {
  * lane-dependent "j >= ctx" branch restored inside a reconvergence region (BSSY/BSYNC) so
  * the SHFL reductions run on a joined warp; 2 = the same with the BSYNC dropped (the
  * 2026-10-04 bug shape, a negative control the host simulator must catch). */
-typedef struct { bool f32; uint32_t log2bs, log2gqa; int mutant; int divergent; uint32_t hd; } KSpec;
+typedef struct { bool f32; uint32_t log2bs, log2gqa; int mutant; int divergent; uint32_t hd; int split; } KSpec;
+/* split (cut F, 2026-10-12): -1 = direct output (the gqa f32 and rows callers; byte for byte the kernel before).
+ * 0..MAX_LOG2SPLIT = the paged path: 2^split CTAs share one (sequence, head). Each sequence derives its own split
+ * count from its own context (so its result never depends on the other sequences in the launch), every CTA writes
+ * an unnormalised partial (acc[hd], running max, running sum; an empty slice writes acc 0, max -inf) and the host
+ * combines them, also when split == 0. */
 
 static void gen_attention(Em *e, const KSpec *k) {
     const uint32_t elem = k->f32 ? 4u : 2u;
@@ -274,6 +279,12 @@ static void gen_attention(Em *e, const KSpec *k) {
     ldc32(e, p_maxb, ARG_MAXB); ldc32(e, scale, ARG_SCALE); ldc32(e, p_bstride, ARG_BSTRIDE); ldc32(e, p_tstride, ARG_TSTRIDE);
     ldc32(e, p_kvp, ARG_KVP); ldc32(e, p_hstride, ARG_HSTRIDE); ldc32(e, p_nqh, ARG_NQH); ldc32(e, p_ctxoff, ARG_CTXOFF);
     s2r(e, tid, BW_SR_TID_X); s2r(e, h, BW_SR_CTAID_X); s2r(e, seq, BW_SR_CTAID_Y);
+
+    /* cut F, partial mode: grid y = sequence * S + split; the split index picks this CTA's slice of the context (below) */
+    const bool part = k->split >= 0;
+    const uint32_t LS = part ? (uint32_t)k->split : 0u, S = 1u << LS, log2hd = (HD == 128u) ? 7u : 6u;
+    int split = -1, kb = -1, kend = -1;
+    if (part) { split = V(e); if (LS) { lop3andi(e, split, seq, S - 1u); shri(e, seq, seq, LS); } else movrz(e, split); }
 
     int c1 = V(e), c4 = V(e), c32 = V(e), c64 = V(e), c256 = V(e), c512 = V(e), c768 = V(e), c896 = V(e), zero = V(e);
     /* c32 / c64 keep their hd 64 names: the inner (dim pair) loop trip count HD / 2 and the chunk size HD */
@@ -297,12 +308,14 @@ static void gen_attention(Em *e, const KSpec *k) {
     wide(e, qaddr, qoff, 1, A);
     ldg(e, qv, qaddr, udesc);
     sts32(e, tid4, qv); /* SH_Q + tid*4 */
-    if (ho == hq) wide(e, oaddr, qoff, 1, C);
-    else {
-        int orow = V(e), ooff = V(e);
-        imadr(e, orow, seq, p_nqh, ho);
-        imadi(e, ooff, orow, HD * 4, tid4);
-        wide(e, oaddr, ooff, 1, C);
+    if (!part) { /* direct output address; partial mode derives its row in the epilogue */
+        if (ho == hq) wide(e, oaddr, qoff, 1, C);
+        else {
+            int orow = V(e), ooff = V(e);
+            imadr(e, orow, seq, p_nqh, ho);
+            imadi(e, ooff, orow, HD * 4, tid4);
+            wide(e, oaddr, ooff, 1, C);
+        }
     }
 
     /* kv head offset, this sequence's table row and context length */
@@ -316,6 +329,31 @@ static void gen_attention(Em *e, const KSpec *k) {
     imadi(e, t1, seq, 4, p_ctxoff);
     wide(e, ca, t1, 1, D);
     ldg(e, ctx, ca, udesc);
+    if (part) {
+        /* This sequence's own split count s_own = min(S, pow2floor(chunks / 2)), chunks = ceil(ctx / HD), from its own
+         * context alone (the host picks the launch S the same way over the batch); per = roundup(ceil(ctx / s_own), HD)
+         * whole chunks per split; this CTA's slice is [kb, kend), kend = min(ctx, kb + per) through the sign bit of
+         * ctx - (kb + per). Splits past s_own get kb >= kend: an empty partial. Branch-free: candidate 2^c replaces
+         * per when chunks / 2 >= 2^c; the candidates nest, so the largest that fits wins. */
+        int per = V(e), x = V(e), cand = V(e), dd = V(e), lt = V(e), cH1 = V(e), cK = V(e);
+        kb = V(e); kend = V(e);
+        movi(e, cH1, HD - 1u);
+        iadd3(e, per, ctx, cH1); lop3andi(e, per, per, ~(HD - 1u)); /* roundup(ctx, HD): one split takes it all */
+        shri(e, x, per, log2hd + 1u);                                /* chunks / 2 */
+        for (uint32_t c = 1; c <= LS; c++) {
+            movi(e, cK, (1u << c) - 1u); iadd3(e, cand, ctx, cK); shri(e, cand, cand, c);
+            iadd3(e, cand, cand, cH1); lop3andi(e, cand, cand, ~(HD - 1u)); /* roundup(ceil(ctx / 2^c), HD) */
+            movi(e, cK, 0u - (1u << c)); iadd3(e, dd, x, cK); shri(e, lt, dd, 31);  /* lt = (x < 2^c) */
+            imadi(e, dd, cand, 0xFFFFFFFFu, per);                                    /* per - cand */
+            imadr(e, per, lt, dd, cand);                                             /* lt ? per : cand */
+        }
+        imadr(e, kb, split, per, NOREG);
+        iadd3(e, kend, kb, per);
+        imadi(e, dd, kend, 0xFFFFFFFFu, ctx);
+        shri(e, lt, dd, 31);
+        imadr(e, kend, lt, dd, kend);
+    }
+    const int lim = part ? kend : ctx; /* the end of this CTA's token range */
     /* V column base for dimension tid: pool + kv plane + tid * elem. The kv head offset is
      * already inside the per-token offset phase A leaves in shared memory (found by the host
      * simulator: adding it here too read V from the wrong head for every kv head but 0). */
@@ -325,10 +363,10 @@ static void gen_attention(Em *e, const KSpec *k) {
     int M = V(e), L = V(e), acc = V(e), base = V(e), sOff = V(e), oOff = V(e), rOff = V(e);
     movi(e, M, F32_NEG_INF);
     if (k->mutant == OMEGA_GPU_ATTN_MUTANT_NO_MAX) movrz(e, L); else movf(e, L, 1.0f); /* alpha = 0 on the first chunk clears it */
-    movrz(e, acc); movrz(e, base);
+    movrz(e, acc); if (part) iadd3(e, base, kb, zero); else movrz(e, base);
     iadd3(e, sOff, tid4, c256); iadd3(e, oOff, tid4, c512); iadd3(e, rOff, tid4, c768);
     bar_sync(e); /* q visible to every thread */
-    isetp_ge_u32(e, zero, ctx); /* ctx == 0: out = 0 */
+    if (part) isetp_ge_u32(e, kb, kend); else isetp_ge_u32(e, zero, ctx); /* empty range: out = 0 (an empty partial) */
     int bZ = bra_fwd_if_p0(e);
 
     /* ---------------- chunk loop ---------------- */
@@ -336,7 +374,7 @@ static void gen_attention(Em *e, const KSpec *k) {
     int bi = V(e), sl = V(e), ta = V64(e), blk = V(e), ka = V64(e), dot = V(e), d = V(e);
     int lo = V(e), hi = V(e), qa = V(e), j1 = V(e);
     int dneg = V(e), over = V(e), ot = V(e), ctxm1 = V(e), cm1 = V(e), cninf = V(e), nb = V(e), ns = V(e);
-    movi(e, cm1, 0xFFFFFFFFu); iadd3(e, ctxm1, ctx, cm1); movi(e, cninf, F32_NEG_INF);
+    movi(e, cm1, 0xFFFFFFFFu); iadd3(e, ctxm1, lim, cm1); movi(e, cninf, F32_NEG_INF);
     loop_begin(e);
     int Lout = here(e);
     /* No branch here: a warp split by "j >= ctx" without a BSSY/BSYNC region stays split, and
@@ -353,7 +391,7 @@ static void gen_attention(Em *e, const KSpec *k) {
          * j >= ctx skip phase A (s stays -inf, koff 0); the BSYNC at region_join rejoins them
          * before the SHFL reductions below. divergent == 2 drops that BSYNC (negative control). */
         region_begin(e);
-        isetp_ge_u32(e, j, ctx);
+        isetp_ge_u32(e, j, lim);
         region_exit(e, RX_IF_P0);
     } else {
         imadi(e, dneg, j, 0xFFFFFFFFu, ctxm1); /* ctx - 1 - j */
@@ -475,7 +513,7 @@ static void gen_attention(Em *e, const KSpec *k) {
     loop_begin(e);
     int LB = here(e);
     iadd3(e, tt, base, kk);
-    isetp_ge_u32(e, tt, ctx);
+    isetp_ge_u32(e, tt, lim);
     int bB = bra_fwd_if_p0(e);
     imadi(e, oa, kk, 4, c512);
     imadi(e, pa, kk, 4, c256);
@@ -498,15 +536,38 @@ static void gen_attention(Em *e, const KSpec *k) {
     patch_fwd(e, bB);
     bar_sync(e); /* phase B reads of s/p and offsets finish before the next chunk writes them */
     iadd3(e, base, base, c64);
-    isetp_ge_u32(e, base, ctx);
+    isetp_ge_u32(e, base, lim);
     bra_back_if_not_p0(e, Lout);
     loop_end(e);
 
     patch_fwd(e, bZ);
-    int inv = V(e), o = V(e);
-    mufu(e, BW_IR_MUFU_RCP, inv, L);
-    e_fmul(e, o, acc, inv);
-    stg(e, oaddr, o, udesc);
+    if (part) {
+        /* partial row (seq * nqh + out head) * S + split: acc[HD] unnormalised, then M and L at words HD and HD + 1
+         * (every lane stores the same CTA-wide M and L). Everything is re-derived here from the CTA ids and the
+         * constant bank so no extra value lives across the chunk loop (the hd 128 kernel sits at the register budget). */
+        int cy = V(e), sq = V(e), sp = V(e), hh = V(e), nq = V(e), t4 = V(e), prow = V(e), poff = V(e);
+        int paddr = V64(e), maddr = V64(e), laddr = V64(e), Cp = V64(e);
+        s2r(e, cy, BW_SR_CTAID_Y); s2r(e, hh, BW_SR_CTAID_X); ldc32(e, nq, ARG_NQH); ldc64(e, Cp, ARG_OUT);
+        if (k->mutant == OMEGA_GPU_ATTN_MUTANT_OUT_ROW) lop3xor(e, hh, hh, c1);
+        if (LS) { lop3andi(e, sp, cy, S - 1u); shri(e, sq, cy, LS); } else { movrz(e, sp); iadd3(e, sq, cy, zero); }
+        imadr(e, prow, sq, nq, hh);
+        imadi(e, prow, prow, S, sp);
+        imadi(e, t4, tid, 4, NOREG);
+        imadi(e, poff, prow, (HD + 2u) * 4u, t4);
+        wide(e, paddr, poff, 1, Cp);
+        stg(e, paddr, acc, udesc);
+        imadi(e, poff, prow, (HD + 2u) * 4u, NOREG);
+        wide(e, maddr, poff, 1, Cp);
+        wide(e, maddr, c64, 4, maddr);
+        stg(e, maddr, M, udesc);
+        wide(e, laddr, c1, 4, maddr);
+        stg(e, laddr, L, udesc);
+    } else {
+        int inv = V(e), o = V(e);
+        mufu(e, BW_IR_MUFU_RCP, inv, L);
+        e_fmul(e, o, acc, inv);
+        stg(e, oaddr, o, udesc);
+    }
     tail(e);
 }
 
@@ -557,7 +618,8 @@ static int g_divergent; /* omega #308 R2 test hook: see KSpec.divergent */
 static bool g_dedupe = true; /* shared-prefix staging dedupe; false = legacy per-sequence staging (test hook) */
 typedef struct { int used; KSpec k; OmegaBlackwellKernel kernel; BlackwellIRProgram *prog; NvrmMem code; } Slot;
 static OmegaGpuAttnSim g_sim;
-static Slot g_cache[8];
+static Slot g_cache[16]; /* split variants (cut F) multiply the shapes in flight */
+static int g_split = -1; /* test hook: forced log2split (0..OMEGA_GPU_ATTN_MAX_LOG2SPLIT), -1 = chosen per launch from the context */
 static OmegaGpuScratch g_q, g_pool, g_tab, g_out; /* staging, grown to the high-water mark, reused per call */
 static NvrmMem g_resident; /* the resident KV pool (omega_gpu_attention_pool_alloc); cpu NULL = none */
 static bool g_hooked;
@@ -566,6 +628,7 @@ static bool g_hooked;
 
 void omega_gpu_attention_test_set_simulator(OmegaGpuAttnSim sim) { LOCK(); g_sim = sim; UNLOCK(); }
 void omega_gpu_attention_test_set_dedupe(bool on) { LOCK(); g_dedupe = on; UNLOCK(); }
+void omega_gpu_attention_test_set_split(int log2split) { LOCK(); g_split = (log2split >= 0 && log2split <= (int)OMEGA_GPU_ATTN_MAX_LOG2SPLIT) ? log2split : -1; UNLOCK(); }
 
 /* ---- resident KV pool (see the header) ---- */
 
@@ -636,11 +699,11 @@ void omega_gpu_attention_test_set_mutant(OmegaGpuAttnMutant m) {
 
 /* Caller holds the lock. Builds the kernel if needed; uploads the device copy when
  * `upload` (the chip path; the simulator never needs one). */
-static int kernel_for(bool f32, uint32_t log2bs, uint32_t log2gqa, uint32_t hd, bool upload, Slot **out, bool *hit) {
-    KSpec k = { .f32 = f32, .log2bs = log2bs, .log2gqa = log2gqa, .mutant = g_mutant, .divergent = g_divergent, .hd = hd };
+static int kernel_for(bool f32, uint32_t log2bs, uint32_t log2gqa, uint32_t hd, int split, bool upload, Slot **out, bool *hit) {
+    KSpec k = { .f32 = f32, .log2bs = log2bs, .log2gqa = log2gqa, .mutant = g_mutant, .divergent = g_divergent, .hd = hd, .split = split };
     Slot *s = NULL;
     for (size_t i = 0; i < sizeof g_cache / sizeof g_cache[0]; i++)
-        if (g_cache[i].used && g_cache[i].k.f32 == k.f32 && g_cache[i].k.log2bs == k.log2bs && g_cache[i].k.log2gqa == k.log2gqa && g_cache[i].k.mutant == k.mutant && g_cache[i].k.divergent == k.divergent && g_cache[i].k.hd == k.hd) { /* field compare: memcmp would read struct padding */
+        if (g_cache[i].used && g_cache[i].k.f32 == k.f32 && g_cache[i].k.log2bs == k.log2bs && g_cache[i].k.log2gqa == k.log2gqa && g_cache[i].k.mutant == k.mutant && g_cache[i].k.divergent == k.divergent && g_cache[i].k.hd == k.hd && g_cache[i].k.split == k.split) { /* field compare: memcmp would read struct padding */
             s = &g_cache[i]; *hit = true; break;
         }
     if (!s) {
@@ -668,7 +731,7 @@ int omega_gpu_attention_codegen_hd(bool kv_f32, uint32_t log2_block_size, uint32
     if (!kernel || log2_block_size > 16 || log2_gqa > 6) return OMEGA_GPU_ATTN_BAD_ARGS;
     if (head_dim != 64u && head_dim != 128u) return OMEGA_GPU_ATTN_TOO_LARGE;
     LOCK();
-    KSpec k = { .f32 = kv_f32, .log2bs = log2_block_size, .log2gqa = log2_gqa, .mutant = g_mutant, .divergent = g_divergent, .hd = head_dim };
+    KSpec k = { .f32 = kv_f32, .log2bs = log2_block_size, .log2gqa = log2_gqa, .mutant = g_mutant, .divergent = g_divergent, .hd = head_dim, .split = -1 };
     UNLOCK();
     return build_kernel(&k, kernel, NULL);
 }
@@ -860,11 +923,11 @@ static int check_heads(uint32_t num_q_heads, uint32_t num_kv_heads, uint32_t hea
 }
 
 /* Common prologue of every chip entry (lock held on success): device, kernel, info. */
-static int begin(bool f32, uint32_t log2bs, uint32_t log2gqa, uint32_t hd, Slot **ks, OmegaGpuAttnInfo *info) {
+static int begin(bool f32, uint32_t log2bs, uint32_t log2gqa, uint32_t hd, int split, Slot **ks, OmegaGpuAttnInfo *info) {
     LOCK();
     int rc = g_sim ? OMEGA_GPU_ATTN_OK : dev_open_locked();
     bool hit = false;
-    if (rc == OMEGA_GPU_ATTN_OK) rc = kernel_for(f32, log2bs, log2gqa, hd, !g_sim, ks, &hit);
+    if (rc == OMEGA_GPU_ATTN_OK) rc = kernel_for(f32, log2bs, log2gqa, hd, split, !g_sim, ks, &hit);
     if (rc != OMEGA_GPU_ATTN_OK) { UNLOCK(); return rc; }
     info_begin(info, &(*ks)->kernel, hit);
     return OMEGA_GPU_ATTN_OK;
@@ -884,7 +947,7 @@ int omega_gpu_gqa_attention_f32(const float *q, const float *k_cache, const floa
     if (seq_len == 0) { memset(out, 0, n_out * 4); if (info) { memset(info, 0, sizeof *info); info->call_ns = now_ns() - t0; } return OMEGA_GPU_ATTN_OK; }
     Slot *ks = NULL;
     const uint32_t log2bs = 12; /* one block of 4096 slots */
-    rc = begin(true, log2bs, log2gqa, HD, &ks, info);
+    rc = begin(true, log2bs, log2gqa, HD, -1, &ks, info);
     if (rc != OMEGA_GPU_ATTN_OK) return rc;
     size_t plane = (size_t)seq_len * num_kv_heads * HD * 4;
     void *host_tmp = NULL;
@@ -932,7 +995,7 @@ int omega_gpu_gqa_attention_rows_f32(const float *q, const float *k_cache, const
     const size_t row = (size_t)num_q_heads * HD;
     Slot *ks = NULL;
     const uint32_t log2bs = 12; /* one block of 4096 slots, as the single-row call */
-    rc = begin(true, log2bs, log2gqa, HD, &ks, info);
+    rc = begin(true, log2bs, log2gqa, HD, -1, &ks, info);
     if (rc != OMEGA_GPU_ATTN_OK) return rc;
     /* the whole context (every row's keys are a prefix of it) staged once */
     size_t plane = (size_t)total * num_kv_heads * HD * 4;
@@ -967,6 +1030,57 @@ int omega_gpu_gqa_attention_rows_f32(const float *q, const float *k_cache, const
 
 /* Paged path shared by the single and batched entries. tables[s] has n_blocks[s] entries
  * (already filtered of negatives), ctx[s] the context length. */
+/* cut F: a sequence's own split count from its context alone (the kernel computes the same): log2 of the largest
+ * power of two <= min(2^MAX_LOG2SPLIT, chunks / 2), chunks = ceil(ctx / HD). */
+static uint32_t own_log2split(uint32_t ctx, uint32_t HD) {
+    uint32_t x = ((ctx + HD - 1) / HD) / 2, l = 0;
+    while (l < OMEGA_GPU_ATTN_MAX_LOG2SPLIT && (2u << l) <= x) l++;
+    return l;
+}
+
+/* 2^x in float without the math library (the engine archive also links where there is none): round x to the
+ * nearest integer n, 2^f on f in [-0.5, 0.5] by the Cephes exp2f polynomial, scale by 2^n through the exponent
+ * bits. x <= -127 (so also -inf, an empty split) is 0. The combine only passes x <= 0. */
+static float host_exp2(float x) {
+    if (x <= -127.0f) return 0.0f;
+    if (x > 127.0f) x = 127.0f;
+    int n = (int)(x + (x < 0.0f ? -0.5f : 0.5f));
+    const float f = x - (float)n;
+    float px = 1.535336188319500e-4f;
+    px = px * f + 1.339887440266574e-3f;
+    px = px * f + 9.618437357674640e-3f;
+    px = px * f + 5.550332471162809e-2f;
+    px = px * f + 2.402264791363012e-1f;
+    px = px * f + 6.931472028550421e-1f;
+    px = 1.0f + f * px;
+    if (n < -126) { px *= 0.5f; n = -126; }
+    union { uint32_t u; float f; } sc;
+    sc.u = (uint32_t)(n + 127) << 23;
+    return px * sc.f;
+}
+
+/* cut F: fold the per-split partials of each (sequence, head) row into out. w_s = 2^(M_s - max M): the kernel's
+ * running max and sum live in the log2 domain (scale carries log2 e, MUFU.EX2). A row whose every split is empty
+ * (context 0) is 0. */
+static void combine_splits(const float *part, float *out, size_t rows, uint32_t S, uint32_t HD) {
+    const size_t pw = (size_t)HD + 2;
+    for (size_t r = 0; r < rows; r++) {
+        const float *p = part + r * S * pw;
+        float *o = out + r * HD;
+        float mx = -INFINITY;
+        for (uint32_t s = 0; s < S; s++) if (p[s * pw + HD] > mx) mx = p[s * pw + HD];
+        if (!(mx > -INFINITY)) { memset(o, 0, (size_t)HD * 4); continue; }
+        float w[1u << OMEGA_GPU_ATTN_MAX_LOG2SPLIT], lsum = 0.0f;
+        for (uint32_t s = 0; s < S; s++) { w[s] = host_exp2(p[s * pw + HD] - mx); lsum += w[s] * p[s * pw + HD + 1]; }
+        const float inv = 1.0f / lsum;
+        for (uint32_t d = 0; d < HD; d++) {
+            float a = 0.0f;
+            for (uint32_t s = 0; s < S; s++) a += w[s] * p[s * pw + d];
+            o[d] = a * inv;
+        }
+    }
+}
+
 static int paged_core(const float *q, const uint8_t *pool, const OmegaGpuKvLayout *ly,
                       const uint32_t *const *tables, const uint32_t *n_blocks, const uint32_t *ctx,
                       uint32_t num_seqs, uint32_t layer_idx, uint32_t num_q_heads, uint32_t num_kv_heads,
@@ -994,11 +1108,20 @@ static int paged_core(const float *q, const uint8_t *pool, const OmegaGpuKvLayou
             if (id >= ly->num_blocks || id * ly->block_stride_bytes + (uint64_t)(layer_idx + 1) * ly->layer_stride_bytes > ly->pool_bytes) { free(eff); return OMEGA_GPU_ATTN_BAD_ARGS; }
         }
     }
-    Slot *ks = NULL;
-    rc = begin(false, log2bs, log2gqa, HD, &ks, info);
-    if (rc != OMEGA_GPU_ATTN_OK) { free(eff); return rc; }
     uint32_t seqs_per_launch = OMEGA_GPU_ATTN_MAX_CTAS / num_q_heads;
     if (seqs_per_launch == 0) seqs_per_launch = 1;
+    /* cut F: split each (sequence, head) over 2^log2split CTAs along the context: at least two whole chunks per
+     * split, from the longest context in the call, within the split launch bound (the test hook forces it). */
+    uint32_t log2split = 0;
+    if (g_split >= 0) log2split = (uint32_t)g_split;
+    else for (uint32_t s = 0; s < num_seqs; s++) { uint32_t l = own_log2split(eff[s], HD); if (l > log2split) log2split = l; }
+    while (log2split && ((uint64_t)num_q_heads * seqs_per_launch << log2split) > OMEGA_GPU_ATTN_SPLIT_MAX_CTAS) log2split--;
+    const uint32_t S = 1u << log2split;
+    float *part = malloc((size_t)seqs_per_launch * num_q_heads * S * (HD + 2) * 4); /* the partials of one launch */
+    if (!part) { free(eff); return OMEGA_GPU_ATTN_CHIP_FAIL; }
+    Slot *ks = NULL;
+    rc = begin(false, log2bs, log2gqa, HD, (int)log2split, &ks, info);
+    if (rc != OMEGA_GPU_ATTN_OK) { free(eff); free(part); return rc; }
     uint32_t maxb = 1;
     for (uint32_t s = 0; s < num_seqs; s++) if (n_blocks[s] > maxb) maxb = n_blocks[s];
     /* Resident pool (2026-10-12): the caller's pool IS omega's allocation. Read it in place when the
@@ -1037,13 +1160,15 @@ static int paged_core(const float *q, const uint8_t *pool, const OmegaGpuKvLayou
             Launch L = {
                 .q = q + (size_t)s0 * row, .q_bytes = (size_t)ns * row * 4,
                 .pool = (const uint8_t *)pool + (size_t)layer_idx * ly->layer_stride_bytes, .pool_bytes = 0,
-                .tab = tab, .tab_bytes = ((size_t)ns * maxb + ns) * 4, .out = out + (size_t)s0 * row, .out_bytes = (size_t)ns * row * 4,
-                .grid_x = num_q_heads, .grid_y = ns,
+                .tab = tab, .tab_bytes = ((size_t)ns * maxb + ns) * 4,
+                .out = part, .out_bytes = (size_t)ns * num_q_heads * S * (HD + 2) * 4,
+                .grid_x = num_q_heads, .grid_y = ns * S,
                 .params = { maxb, f2u(score_scale(HD)), (uint32_t)ly->block_stride_bytes, (uint32_t)ly->token_stride_bytes,
                             (uint32_t)ly->kv_plane_stride_bytes, (uint32_t)ly->head_stride_bytes, num_q_heads, ns * maxb * 4 },
                 .pool_va = g_resident.va + (uint64_t)layer_idx * ly->layer_stride_bytes,
             };
             rc = launch(ks, &L, info);
+            if (rc == OMEGA_GPU_ATTN_OK) combine_splits(part, out + (size_t)s0 * row, (size_t)ns * num_q_heads, S, HD);
             free(tab);
             continue;
         }
@@ -1094,16 +1219,18 @@ static int paged_core(const float *q, const uint8_t *pool, const OmegaGpuKvLayou
         }
         Launch L = {
             .q = q + (size_t)s0 * row, .q_bytes = (size_t)ns * row * 4, .pool = staged, .pool_bytes = (size_t)staged_bytes,
-            .tab = tab, .tab_bytes = ((size_t)ns * maxb + ns) * 4, .out = out + (size_t)s0 * row, .out_bytes = (size_t)ns * row * 4,
-            .grid_x = num_q_heads, .grid_y = ns,
+            .tab = tab, .tab_bytes = ((size_t)ns * maxb + ns) * 4,
+            .out = part, .out_bytes = (size_t)ns * num_q_heads * S * (HD + 2) * 4,
+            .grid_x = num_q_heads, .grid_y = ns * S,
             .params = { maxb, f2u(score_scale(HD)), (uint32_t)ly->layer_stride_bytes, (uint32_t)ly->token_stride_bytes,
                         (uint32_t)ly->kv_plane_stride_bytes, (uint32_t)ly->head_stride_bytes, num_q_heads, ns * maxb * 4 }
         };
         rc = launch(ks, &L, info);
+        if (rc == OMEGA_GPU_ATTN_OK) combine_splits(part, out + (size_t)s0 * row, (size_t)ns * num_q_heads, S, HD);
         free(host_tmp); free(tab);
     }
     UNLOCK();
-    free(eff); free(slot_of); free(touched);
+    free(eff); free(slot_of); free(touched); free(part);
     if (info) info->call_ns = now_ns() - t0;
     return rc;
 }

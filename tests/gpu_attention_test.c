@@ -503,6 +503,53 @@ static int chip(const char *out_path) {
         } else run_mutants(&c, no_mutants, run_paged, &pc, got, want, n, 2e-4, 2e-5);
         record(c, out); free(pool); free(ids); free(q); free(got); free(want);
     }
+    /* 3b. context split (cut F): the 32q/8kv shape at ctx 1000 under every forced split against the oracle, the
+     * CTA count per launch grows with the split, the automatic choice at this context is 4 (hd 128: 8 chunks) or
+     * 8 (hd 64: 16 chunks), and a short context (ctx 100, one chunk) stays unsplit. A forced launch split at or above
+     * the sequence's own count gives the same bits (the extra CTAs write empty partials that add exact zeros). */
+    {
+        uint32_t nqh = 32, nkv = 8, bs = 16, layers = 2, layer = 1;
+        const uint32_t cx[2] = { 1000, 100 };
+        for (int ci = 0; ci < 2; ci++) {
+            uint32_t ctx = cx[ci], nblk = (ctx + bs - 1) / bs, pool_blocks = nblk + 3;
+            OmegaGpuKvLayout ly = layout_for(pool_blocks, bs, layers, nkv, hd);
+            uint8_t *pool = malloc(ly.pool_bytes); uint16_t *pw = (uint16_t *)pool;
+            for (size_t i = 0; i < ly.pool_bytes / 2; i++) pw[i] = f2bf(frand(&seed, -1.0f, 1.0f));
+            uint32_t *ids = malloc(nblk * 4);
+            for (uint32_t b = 0; b < nblk; b++) ids[b] = (b * 5 + 1) % pool_blocks;
+            size_t n = (size_t)nqh * hd;
+            float *q = malloc(n * 4), *got = malloc(n * 4), *want = malloc(n * 4), *auto_got = malloc(n * 4);
+            for (size_t i = 0; i < n; i++) q[i] = frand(&seed, -1.0f, 1.0f);
+            oracle_paged(q, pool, &ly, ids, nblk, ctx, layer, nqh, nkv, hd, want);
+            PagedCtx pc = { q, pool, &ly, ids, nblk, ctx, layer, nqh, nkv };
+            OmegaGpuAttnInfo ai;
+            int arc = run_paged(&pc, auto_got, &ai);
+            uint32_t chunks = (ctx + hd - 1) / hd, want_log2 = 0;
+            while (want_log2 < OMEGA_GPU_ATTN_MAX_LOG2SPLIT && (2u << want_log2) <= chunks / 2) want_log2++;
+            CHECK(arc == OMEGA_GPU_ATTN_OK && ai.ctas_last_launch == (nqh << want_log2),
+                  "split auto ctx %u: rc=%s ctas=%u (expected %u)", ctx, omega_gpu_attention_rc_name(arc), ai.ctas_last_launch, nqh << want_log2);
+            for (int ls = 0; ls <= (int)OMEGA_GPU_ATTN_MAX_LOG2SPLIT; ls++) {
+                omega_gpu_attention_test_set_split(ls);
+                OmegaGpuAttnInfo fi;
+                char name[96]; snprintf(name, sizeof name, "paged_bf16_split%d_32q8kv_ctx%u", 1 << ls, ctx);
+                Case c = { .name = strdup(name), .n = n };
+                c.rc = run_paged(&pc, got, &fi);
+                c.bad = compare(got, want, n, 2e-4, 2e-5, &c.worst);
+                c.pass = c.rc == OMEGA_GPU_ATTN_OK && c.bad == 0; case_info(&c, &fi);
+                CHECK(fi.ctas_last_launch == (nqh << ls) && fi.out_bytes == (uint64_t)nqh * (1u << ls) * (hd + 2) * 4,
+                      "%s: ctas=%u out_bytes=%llu", name, fi.ctas_last_launch, (unsigned long long)fi.out_bytes);
+                if ((uint32_t)ls >= want_log2) CHECK(memcmp(got, auto_got, n * 4) == 0, "%s equals the automatic choice bit for bit (a larger launch split only adds empty partials)", name);
+                if (ls == 1 && ci == 0) {
+                    static const int ms[3] = { OMEGA_GPU_ATTN_MUTANT_KV_HEAD, OMEGA_GPU_ATTN_MUTANT_SLOT, 0 };
+                    run_mutants(&c, ms, run_paged, &pc, got, want, n, 2e-4, 2e-5);
+                } else run_mutants(&c, no_mutants, run_paged, &pc, got, want, n, 2e-4, 2e-5);
+                record(c, out);
+            }
+            omega_gpu_attention_test_set_split(-1);
+            if (ci == 1) CHECK(ai.ctas_last_launch == nqh, "ctx %u: one chunk stays unsplit (%u CTAs)", ctx, ai.ctas_last_launch);
+            free(pool); free(ids); free(q); free(got); free(want); free(auto_got);
+        }
+    }
     /* 4. batch: three sequences (short, empty, truncated by its table), a negative table entry, table rows of 16 */
     {
         uint32_t nqh = 32, nkv = 8, bs = 16, layers = 3, layer = 2, maxb = 16, nseq = 3, pool_blocks = 40;
@@ -572,7 +619,11 @@ static int chip(const char *out_path) {
         CHECK(c.blk_logical == logical && c.blk_unique == expect_unique, "%s: %u logical references, %u unique staged (expected %u/%u)", name, c.blk_logical, c.blk_unique, logical, expect_unique);
         CHECK(c.kv_naive == (uint64_t)logical * ly.layer_stride_bytes && c.kv_staged == (uint64_t)expect_unique * ly.layer_stride_bytes && c.kv_staged < c.kv_naive,
               "%s: staged %" PRIu64 " < naive %" PRIu64 " bytes (saved %" PRIu64 ")", name, c.kv_staged, c.kv_naive, c.kv_naive - c.kv_staged);
-        CHECK(info.kv_source == OMEGA_GPU_ATTN_KV_STAGED && info.q_bytes == n * 4 && info.out_bytes == n * 4 && info.tab_bytes > 0, "%s: q/out/table traffic accounted (q=%" PRIu64 " out=%" PRIu64 " tab=%" PRIu64 ")", name, info.q_bytes, info.out_bytes, info.tab_bytes);
+        /* cut F: the output traffic is the partials, launch split = the largest own split in the call (hd 64: ctx 193 and 207 are 4 chunks, 2 splits; hd 128: 1) */
+        uint32_t ls_max = 0;
+        for (uint32_t s = 0; s < nseq; s++) { uint32_t x = (((uint32_t)ctxs5[s] + hd - 1) / hd) / 2, l = 0; while (l < OMEGA_GPU_ATTN_MAX_LOG2SPLIT && (2u << l) <= x) l++; if (l > ls_max) ls_max = l; }
+        const uint64_t out_expect = (uint64_t)nseq * nqh * (1u << ls_max) * (hd + 2) * 4;
+        CHECK(info.kv_source == OMEGA_GPU_ATTN_KV_STAGED && info.q_bytes == n * 4 && info.out_bytes == out_expect && info.tab_bytes > 0, "%s: q/out/table traffic accounted (q=%" PRIu64 " out=%" PRIu64 " tab=%" PRIu64 ")", name, info.q_bytes, info.out_bytes, info.tab_bytes);
         /* negative control: legacy per-sequence staging duplicates the shared prefix; same answer, more bytes */
         omega_gpu_attention_test_set_dedupe(false);
         OmegaGpuAttnInfo li; int lrc = run_batch(&bc, legacy, &li);
