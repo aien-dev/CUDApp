@@ -21,17 +21,25 @@ typedef struct {
     OmegaGpuMem code;
 } Slot;
 
+#define MAX_LAUNCH_LOG 256u
+
 static struct {
     bool hooked;
-    Slot slot;
+    Slot slot[3];                 /* one per OMEGA_PATTN_MODE_* */
     uint32_t warps;
     int mutant;
+    int fused;                    /* 1: 64-token fused chunks (cut 1 path); 0 (default): APPEND + ATTEND launch pairs */
     bool have_bufs;
+    uint32_t buf_rows;            /* host-entry staging capacity in tokens */
     OmegaGpuMem qkv, out;
+    uint64_t launch_ns[MAX_LAUNCH_LOG];
+    uint32_t n_launch;            /* launches of the last call (log keeps the first MAX_LAUNCH_LOG) */
 } g;
 
-static void slot_clear_locked(void) { if (g.slot.valid) omega_gpu_session_free(&g.slot.code); memset(&g.slot, 0, sizeof g.slot); }
-static void on_session_close(void) { memset(&g.slot, 0, sizeof g.slot); g.have_bufs = false; memset(&g.qkv, 0, sizeof g.qkv); memset(&g.out, 0, sizeof g.out); }
+static void slot_clear_locked(void) {
+    for (unsigned i = 0; i < 3; i++) { if (g.slot[i].valid) omega_gpu_session_free(&g.slot[i].code); memset(&g.slot[i], 0, sizeof g.slot[i]); }
+}
+static void on_session_close(void) { memset(g.slot, 0, sizeof g.slot); g.have_bufs = false; g.buf_rows = 0; memset(&g.qkv, 0, sizeof g.qkv); memset(&g.out, 0, sizeof g.out); }
 static OmegaGpuSession *dev_open_locked(void) {
     if (!g.hooked) { (void)omega_gpu_session_on_close(on_session_close); g.hooked = true; }
     return omega_gpu_session_open();
@@ -39,10 +47,19 @@ static OmegaGpuSession *dev_open_locked(void) {
 
 void omega_gpu_prefill_attn_set_warps(uint32_t warps) { omega_gpu_session_lock(); g.warps = warps; slot_clear_locked(); omega_gpu_session_unlock(); }
 void omega_gpu_prefill_attn_test_set_mutant(int mutant) { omega_gpu_session_lock(); g.mutant = mutant; slot_clear_locked(); omega_gpu_session_unlock(); }
+void omega_gpu_prefill_attn_set_fused(int fused) { omega_gpu_session_lock(); g.fused = fused ? 1 : 0; omega_gpu_session_unlock(); }
+uint32_t omega_gpu_prefill_attn_test_launch_ns(uint64_t *ns, uint32_t cap) {
+    omega_gpu_session_lock();
+    uint32_t n = g.n_launch < MAX_LAUNCH_LOG ? g.n_launch : MAX_LAUNCH_LOG;
+    for (uint32_t i = 0; i < n && i < cap; i++) ns[i] = g.launch_ns[i];
+    uint32_t total = g.n_launch;
+    omega_gpu_session_unlock();
+    return total;
+}
 void omega_gpu_prefill_attn_release(void) {
     omega_gpu_session_lock();
     slot_clear_locked();
-    if (g.have_bufs) { omega_gpu_session_free(&g.qkv); omega_gpu_session_free(&g.out); g.have_bufs = false; }
+    if (g.have_bufs) { omega_gpu_session_free(&g.qkv); omega_gpu_session_free(&g.out); g.have_bufs = false; g.buf_rows = 0; }
     omega_gpu_session_unlock();
 }
 
@@ -61,9 +78,10 @@ size_t omega_gpu_prefill_attn_encode(const OmegaPrefillAttnSpec *spec, uint8_t *
 }
 
 static int kernel_for(const OmegaPrefillAttnSpec *spec, Slot **out, bool *hit) {
-    Slot *s = &g.slot;
+    Slot *s = &g.slot[spec->mode];
     if (s->valid && memcmp(&s->spec, spec, sizeof *spec) == 0) { *out = s; *hit = true; return OMEGA_GPU_DATTN_OK; }
-    slot_clear_locked();
+    if (s->valid) omega_gpu_session_free(&s->code);
+    memset(s, 0, sizeof *s);
     BlackwellIRProgram *prog = omega_gpu_host_calloc(1, sizeof *prog);
     if (!prog) { omega_gpu_session_set_error("prefill attn codegen: host memory"); return OMEGA_GPU_DATTN_CODEGEN_FAIL; }
     int cg = omega_blackwell_codegen_prefill_attn_prog(spec, prog);
@@ -90,71 +108,131 @@ static int kernel_for(const OmegaPrefillAttnSpec *spec, Slot **out, bool *hit) {
     return OMEGA_GPU_DATTN_OK;
 }
 
-static int bufs_locked(void) {
-    if (g.have_bufs) return 0;
-    if (omega_gpu_session_alloc((size_t)OMEGA_PATTN_CHUNK * OMEGA_PATTN_QKV_WORDS * 4u, &g.qkv) != 0) return -1;
-    if (omega_gpu_session_alloc((size_t)OMEGA_PATTN_CHUNK * OMEGA_PATTN_OUT_WORDS * 4u, &g.out) != 0) { omega_gpu_session_free(&g.qkv); return -1; }
-    memset(g.qkv.cpu, 0, (size_t)OMEGA_PATTN_CHUNK * OMEGA_PATTN_QKV_WORDS * 4u);
-    g.have_bufs = true;
+/* host-entry staging for `rows` tokens (grown on demand, contents not kept) */
+static int bufs_locked(uint32_t rows) {
+    if (g.have_bufs && g.buf_rows >= rows) return 0;
+    if (g.have_bufs) { omega_gpu_session_free(&g.qkv); omega_gpu_session_free(&g.out); g.have_bufs = false; g.buf_rows = 0; }
+    if (omega_gpu_session_alloc((size_t)rows * OMEGA_PATTN_QKV_WORDS * 4u, &g.qkv) != 0) return -1;
+    if (omega_gpu_session_alloc((size_t)rows * OMEGA_PATTN_OUT_WORDS * 4u, &g.out) != 0) { omega_gpu_session_free(&g.qkv); return -1; }
+    g.have_bufs = true; g.buf_rows = rows;
     return 0;
+}
+
+typedef struct { OmegaGpuDecodeAttnCacheView v; uint32_t ue, uo, uq; OmegaPrefillAttnSpec base; } Run;
+
+static int prepare(OmegaGpuDecodeAttnCache *c, uint32_t layer, uint32_t pos0, uint32_t m, float eps, float out_scale, Run *r) {
+    memset(r, 0, sizeof *r);
+    if (!c || m == 0 || omega_gpu_decode_attn_cache_view(c, layer, &r->v) != OMEGA_GPU_DATTN_OK) return OMEGA_GPU_DATTN_BAD_ARGS;
+    if (pos0 > r->v.max_pos || m > r->v.max_pos - pos0) return OMEGA_GPU_DATTN_BAD_ARGS;
+    r->base.warps = g.warps ? g.warps : OMEGA_GPU_PATTN_WARPS; r->base.mutant = g.mutant;
+    if (!omega_pattn_spec_ok(&r->base)) return OMEGA_GPU_DATTN_BAD_ARGS;
+    float qk_f = (float)(0.08838834764831845 * 1.4426950408889634); /* log2(e) / sqrt(128) */
+    memcpy(&r->ue, &eps, 4); memcpy(&r->uo, &out_scale, 4); memcpy(&r->uq, &qk_f, 4);
+    return OMEGA_GPU_DATTN_OK;
+}
+
+/* lock held, device open: one launch of `mode` over tokens pos0 .. pos0+mc-1 whose qkv / out rows start at the VAs */
+static int launch_locked(const Run *r, uint32_t mode, uint64_t qkv_va, uint64_t out_va, uint32_t p0, uint32_t mc,
+                         OmegaGpuPrefillAttnInfo *info) {
+    OmegaPrefillAttnSpec spec = r->base; spec.mode = mode;
+    Slot *ks = NULL; bool hit = false;
+    int rc = kernel_for(&spec, &ks, &hit);
+    if (rc != OMEGA_GPU_DATTN_OK) return rc;
+    const uint32_t W = spec.warps;
+    uint32_t args[OMEGA_PATTN_ARGS_WORDS];
+    memset(args, 0, sizeof args);
+#define A64(i, val) do { uint64_t _x = (val); args[i] = (uint32_t)_x; args[(i) + 1] = (uint32_t)(_x >> 32); } while (0)
+    A64(0, qkv_va); A64(2, r->v.k_va); A64(4, r->v.v_va); A64(6, r->v.rope_va); A64(8, r->v.q_norm_va); A64(10, r->v.k_norm_va); A64(12, out_va);
+#undef A64
+    args[14] = p0; args[15] = mc; args[16] = r->v.max_pos * OMEGA_DATTN_ROW_BYTES; args[17] = r->ue; args[18] = r->uo; args[19] = r->uq;
+    OmegaGpuLaunch L = {
+        .code_va = ks->code.va, .gpr_count = omega_bw_gpr_declared(ks->kernel.gpr_count),
+        .threads_x = 32u * W, .threads_y = 1, .grid_x = (mc + W - 1u) / W, .grid_y = OMEGA_GPU_DATTN_KV_HEADS,
+        .num_elements = (size_t)mc * OMEGA_PATTN_OUT_WORDS,
+        .args = args, .n_args = OMEGA_PATTN_ARGS_WORDS, .timeout_ms = MARKER_TIMEOUT_MS,
+        .shared_bytes = OMEGA_PATTN_SHARED_BYTES,
+    };
+    if (!omega_bw_gpr_declared_ok(L.gpr_count, ks->kernel.gpr_count)) { omega_gpu_session_set_error("declared registers below peak + 2: refusing to launch"); return OMEGA_GPU_DATTN_CHIP_FAIL; }
+    uint64_t el = 0; uint32_t marker = 0;
+    if (omega_gpu_session_launch(&L, &el, &marker) != 0) return OMEGA_GPU_DATTN_CHIP_FAIL;
+    if (g.n_launch < MAX_LAUNCH_LOG) g.launch_ns[g.n_launch] = el;
+    g.n_launch++;
+    if (info) {
+        if (info->chunks == 0) { info->grid_x = L.grid_x; info->grid_y = L.grid_y; info->threads = L.threads_x; info->splits = 1; info->per_split = p0 + mc; info->kernel_cache_hit = hit; }
+        else info->kernel_cache_hit &= hit;
+        info->chunks++; info->elapsed_ns += el;
+    }
+    return OMEGA_GPU_DATTN_OK;
+}
+
+/* lock held, device open: all the launches for tokens pos0 .. pos0+m-1, rows at the VAs (device memory, row strides
+ * 5120 / 4096 f32). Split (default): one APPEND then one ATTEND launch over all m tokens. Fused: 64-token chunks. */
+static int run_locked(const Run *r, uint32_t pos0, uint32_t m, uint64_t qkv_va, uint64_t out_va, OmegaGpuPrefillAttnInfo *info) {
+    int rc = OMEGA_GPU_DATTN_OK;
+    if (!g.fused) {
+        rc = launch_locked(r, OMEGA_PATTN_MODE_APPEND, qkv_va, out_va, pos0, m, info);
+        if (rc == OMEGA_GPU_DATTN_OK) rc = launch_locked(r, OMEGA_PATTN_MODE_ATTEND, qkv_va, out_va, pos0, m, info);
+        return rc;
+    }
+    for (uint32_t done = 0; done < m && rc == OMEGA_GPU_DATTN_OK; done += OMEGA_PATTN_CHUNK) {
+        const uint32_t mc = m - done < OMEGA_PATTN_CHUNK ? m - done : OMEGA_PATTN_CHUNK;
+        rc = launch_locked(r, OMEGA_PATTN_MODE_FUSED, qkv_va + (uint64_t)done * OMEGA_PATTN_QKV_WORDS * 4u,
+                           out_va + (uint64_t)done * OMEGA_PATTN_OUT_WORDS * 4u, pos0 + done, mc, info);
+    }
+    return rc;
+}
+
+static void info_head(OmegaGpuPrefillAttnInfo *info, uint32_t layer, uint32_t pos0, uint32_t m) {
+    if (!info) return;
+    memset(info, 0, sizeof *info);
+    info->layer = layer; info->pos0 = pos0; info->m = m;
 }
 
 int omega_gpu_prefill_attn(OmegaGpuDecodeAttnCache *c, uint32_t layer, uint32_t pos0, uint32_t m, const float *qkv, float eps,
                            float out_scale, float *out, OmegaGpuPrefillAttnInfo *info) {
     uint64_t t0 = omega_gpu_session_now_ns();
-    if (info) memset(info, 0, sizeof *info);
-    OmegaGpuDecodeAttnCacheView v;
-    if (!c || !qkv || !out || m == 0 || omega_gpu_decode_attn_cache_view(c, layer, &v) != OMEGA_GPU_DATTN_OK) return OMEGA_GPU_DATTN_BAD_ARGS;
-    if (pos0 > v.max_pos || m > v.max_pos - pos0) return OMEGA_GPU_DATTN_BAD_ARGS;
-    OmegaPrefillAttnSpec spec; memset(&spec, 0, sizeof spec);
-    spec.warps = g.warps ? g.warps : OMEGA_GPU_PATTN_WARPS; spec.mutant = g.mutant;
-    if (!omega_pattn_spec_ok(&spec)) return OMEGA_GPU_DATTN_BAD_ARGS;
-    const uint32_t W = spec.warps, chunks = (m + OMEGA_PATTN_CHUNK - 1u) / OMEGA_PATTN_CHUNK;
+    info_head(info, layer, pos0, m);
+    Run r;
+    if (!qkv || !out) return OMEGA_GPU_DATTN_BAD_ARGS;
+    int rc = prepare(c, layer, pos0, m, eps, out_scale, &r);
+    if (rc != OMEGA_GPU_DATTN_OK) return rc;
+    const uint32_t pass = g.fused ? OMEGA_PATTN_CHUNK : OMEGA_GPU_PATTN_HOST_PASS;
 
     omega_gpu_session_lock();
-    int rc = OMEGA_GPU_DATTN_OK;
     if (!dev_open_locked()) { omega_gpu_session_unlock(); return OMEGA_GPU_DATTN_CHIP_FAIL; }
-    Slot *ks = NULL; bool hit = false;
-    rc = kernel_for(&spec, &ks, &hit);
-    if (rc == OMEGA_GPU_DATTN_OK && bufs_locked() != 0) rc = OMEGA_GPU_DATTN_CHIP_FAIL;
-    if (info) {
-        uint32_t mc0 = m < OMEGA_PATTN_CHUNK ? m : OMEGA_PATTN_CHUNK;
-        info->layer = layer; info->pos0 = pos0; info->m = m; info->chunks = chunks;
-        info->grid_x = (mc0 + W - 1u) / W; info->grid_y = OMEGA_GPU_DATTN_KV_HEADS; info->threads = 32u * W;
-        info->splits = 1; info->per_split = pos0 + mc0;
-        info->kernel_cache_hit = hit;
-    }
-    float eps_f = eps, os_f = out_scale, qk_f = (float)(0.08838834764831845 * 1.4426950408889634); /* log2(e) / sqrt(128) */
-    uint32_t ue, uo, uq; memcpy(&ue, &eps_f, 4); memcpy(&uo, &os_f, 4); memcpy(&uq, &qk_f, 4);
-    for (uint32_t ch = 0; ch < chunks && rc == OMEGA_GPU_DATTN_OK; ch++) {
-        const uint32_t p0 = pos0 + ch * OMEGA_PATTN_CHUNK, mc = m - ch * OMEGA_PATTN_CHUNK < OMEGA_PATTN_CHUNK ? m - ch * OMEGA_PATTN_CHUNK : OMEGA_PATTN_CHUNK;
-        memcpy(g.qkv.cpu, qkv + (size_t)ch * OMEGA_PATTN_CHUNK * OMEGA_PATTN_QKV_WORDS, (size_t)mc * OMEGA_PATTN_QKV_WORDS * 4u);
+    g.n_launch = 0;
+    if (bufs_locked(m < pass ? m : pass) != 0) rc = OMEGA_GPU_DATTN_CHIP_FAIL;
+    for (uint32_t done = 0; done < m && rc == OMEGA_GPU_DATTN_OK; done += pass) {
+        const uint32_t mp = m - done < pass ? m - done : pass;
+        memcpy(g.qkv.cpu, qkv + (size_t)done * OMEGA_PATTN_QKV_WORDS, (size_t)mp * OMEGA_PATTN_QKV_WORDS * 4u);
         float *od = g.out.cpu;
-        for (size_t i = 0; i < (size_t)mc * OMEGA_PATTN_OUT_WORDS; i++) od[i] = POISON_F32;
+        for (size_t i = 0; i < (size_t)mp * OMEGA_PATTN_OUT_WORDS; i++) od[i] = POISON_F32;
         if (omega_gpu_session_sync_to_gpu(&g.qkv) != 0 || omega_gpu_session_sync_to_gpu(&g.out) != 0) { rc = OMEGA_GPU_DATTN_CHIP_FAIL; break; }
-        uint32_t args[OMEGA_PATTN_ARGS_WORDS];
-        memset(args, 0, sizeof args);
-#define A64(i, val) do { uint64_t _x = (val); args[i] = (uint32_t)_x; args[(i) + 1] = (uint32_t)(_x >> 32); } while (0)
-        A64(0, g.qkv.va); A64(2, v.k_va); A64(4, v.v_va); A64(6, v.rope_va); A64(8, v.q_norm_va); A64(10, v.k_norm_va); A64(12, g.out.va);
-#undef A64
-        args[14] = p0; args[15] = mc; args[16] = v.max_pos * OMEGA_DATTN_ROW_BYTES; args[17] = ue; args[18] = uo; args[19] = uq;
-        OmegaGpuLaunch L = {
-            .code_va = ks->code.va, .gpr_count = omega_bw_gpr_declared(ks->kernel.gpr_count),
-            .threads_x = 32u * W, .threads_y = 1, .grid_x = (mc + W - 1u) / W, .grid_y = OMEGA_GPU_DATTN_KV_HEADS,
-            .num_elements = (size_t)mc * OMEGA_PATTN_OUT_WORDS,
-            .args = args, .n_args = OMEGA_PATTN_ARGS_WORDS, .timeout_ms = MARKER_TIMEOUT_MS,
-            .shared_bytes = OMEGA_PATTN_SHARED_BYTES,
-        };
-        uint64_t el = 0; uint32_t marker = 0;
-        if (!omega_bw_gpr_declared_ok(L.gpr_count, ks->kernel.gpr_count)) { omega_gpu_session_set_error("declared registers below peak + 2: refusing to launch"); rc = OMEGA_GPU_DATTN_CHIP_FAIL; break; }
-        if (omega_gpu_session_launch(&L, &el, &marker) != 0) { rc = OMEGA_GPU_DATTN_CHIP_FAIL; break; }
-        if (info) info->elapsed_ns += el;
+        rc = run_locked(&r, pos0 + done, mp, g.qkv.va, g.out.va, info);
+        if (rc != OMEGA_GPU_DATTN_OK) break;
         if (omega_gpu_session_sync_to_cpu(&g.out) != 0) { rc = OMEGA_GPU_DATTN_CHIP_FAIL; break; }
         size_t unchanged = 0;
-        for (size_t i = 0; i < (size_t)mc * OMEGA_PATTN_OUT_WORDS; i++) if (od[i] == POISON_F32) unchanged++;
+        for (size_t i = 0; i < (size_t)mp * OMEGA_PATTN_OUT_WORDS; i++) if (od[i] == POISON_F32) unchanged++;
         if (unchanged) { omega_gpu_session_set_error("prefill attn: output poison survived"); rc = OMEGA_GPU_DATTN_CHIP_FAIL; break; }
-        memcpy(out + (size_t)ch * OMEGA_PATTN_CHUNK * OMEGA_PATTN_OUT_WORDS, od, (size_t)mc * OMEGA_PATTN_OUT_WORDS * 4u);
+        memcpy(out + (size_t)done * OMEGA_PATTN_OUT_WORDS, od, (size_t)mp * OMEGA_PATTN_OUT_WORDS * 4u);
     }
+    omega_gpu_session_unlock();
+    if (info) info->call_ns = omega_gpu_session_now_ns() - t0;
+    return rc;
+}
+
+int omega_gpu_prefill_attn_dev(OmegaGpuDecodeAttnCache *c, uint32_t layer, uint32_t pos0, uint32_t m, uint64_t qkv_va, float eps,
+                               float out_scale, uint64_t out_va, OmegaGpuPrefillAttnInfo *info) {
+    uint64_t t0 = omega_gpu_session_now_ns();
+    info_head(info, layer, pos0, m);
+    Run r;
+    if (!qkv_va || !out_va || (qkv_va & 15u) || (out_va & 15u)) return OMEGA_GPU_DATTN_BAD_ARGS;
+    int rc = prepare(c, layer, pos0, m, eps, out_scale, &r);
+    if (rc != OMEGA_GPU_DATTN_OK) return rc;
+    omega_gpu_session_lock();
+    if (!dev_open_locked()) { omega_gpu_session_unlock(); return OMEGA_GPU_DATTN_CHIP_FAIL; }
+    g.n_launch = 0;
+    rc = run_locked(&r, pos0, m, qkv_va, out_va, info);
     omega_gpu_session_unlock();
     if (info) info->call_ns = omega_gpu_session_now_ns() - t0;
     return rc;

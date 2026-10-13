@@ -141,18 +141,19 @@ static void rows_vs_emu(const Case *c, const uint16_t *kc, const uint16_t *vc, s
 static void host_only(void) {
     char msg[200];
     CHECK(omega_tc_patch_selftest(msg, sizeof msg) == 0, "placeholder self-test: %s", msg);
-    for (uint32_t w = 4; w <= 8; w += 4) for (int m = 0; m <= 4; m++) {
-        OmegaPrefillAttnSpec s = { w, m }; uint32_t n = 0, gp = 0, ph = 0;
+    for (uint32_t w = 4; w <= 8; w += 4) for (uint32_t md = 0; md <= 2; md++) for (int m = 0; m <= 4; m++) {
+        OmegaPrefillAttnSpec s = { w, m, md }; uint32_t n = 0, gp = 0, ph = 0;
         int rc = omega_prefill_attn_prog_stats(&s, &n, &gp, &ph);
-        CHECK(rc == 0 && n <= 1024 && omega_bw_gpr_declared(gp) <= 128, "codegen warps %u mutant %d: rc %d insns %u gprs %u", w, m, rc, n, gp);
+        CHECK(rc == 0 && n <= 1024 && omega_bw_gpr_declared(gp) <= 128, "codegen warps %u mode %u mutant %d: rc %d insns %u gprs %u", w, md, m, rc, n, gp);
         static uint8_t code[1024 * 16]; uint32_t kg = 0; int np = -1;
         size_t sz = omega_gpu_prefill_attn_encode(&s, code, sizeof code, &kg, &np);
-        CHECK(sz > 0 && np == (int)ph, "encode+patch warps %u mutant %d: size %zu patched %d of %u", w, m, sz, np, ph);
-        if (rc == 0 && m == 0) printf("codegen warps %u: %u instructions, %u registers (declared %u, %u threads -> %u of 65536), %u placeholders patched\n",
-                                      w, n, gp, omega_bw_gpr_declared(gp), 32 * w, 32 * w * omega_bw_gpr_declared(gp), ph);
+        CHECK(sz > 0 && np == (int)ph, "encode+patch warps %u mode %u mutant %d: size %zu patched %d of %u", w, md, m, sz, np, ph);
+        if (rc == 0 && m == 0) printf("codegen warps %u mode %u: %u instructions, %u registers (declared %u, %u threads -> %u of 65536), %u placeholders patched\n",
+                                      w, md, n, gp, omega_bw_gpr_declared(gp), 32 * w, 32 * w * omega_bw_gpr_declared(gp), ph);
     }
-    { OmegaPrefillAttnSpec s = { 2, 0 }; CHECK(omega_prefill_attn_prog_stats(&s, NULL, NULL, NULL) != 0, "warps 2 refused");
-      s.warps = 8; s.mutant = 5; CHECK(omega_prefill_attn_prog_stats(&s, NULL, NULL, NULL) != 0, "mutant 5 refused"); }
+    { OmegaPrefillAttnSpec s = { 2, 0, 0 }; CHECK(omega_prefill_attn_prog_stats(&s, NULL, NULL, NULL) != 0, "warps 2 refused");
+      s.warps = 8; s.mutant = 5; CHECK(omega_prefill_attn_prog_stats(&s, NULL, NULL, NULL) != 0, "mutant 5 refused");
+      s.mutant = 0; s.mode = 3; CHECK(omega_prefill_attn_prog_stats(&s, NULL, NULL, NULL) != 0, "mode 3 refused"); }
     CHECK(omega_gpu_prefill_attn(NULL, 0, 0, 1, NULL, EPS, 1.0f, NULL, NULL) == OMEGA_GPU_DATTN_BAD_ARGS, "NULL cache refused");
     CHECK(OMEGA_PATTN_SHARED_BYTES <= 16384u, "shared memory within the QMD cap");
     /* reference sanity: a single token at position 0 returns its own v row (rounded) */
@@ -167,44 +168,64 @@ static void host_only(void) {
 
 /* ------------------------------------------------------------- simulator */
 static uint64_t g_sim_issues;
-/* runs the API's chunk loop through the simulator on host buffers; kv: [K plane | V plane] holding the history */
-static int sim_call(const BlackwellIRProgram *prog, uint32_t W, const Case *c, uint8_t *kv, size_t plane, const float *rope, const float *norms,
-                    float out_scale, float *out, int order, char *msg, size_t n) {
-    static float qbuf[OMEGA_PATTN_CHUNK * QKVW], obuf[OMEGA_PATTN_CHUNK * OUTW];
+/* one simulated launch of prog over tokens p0 .. p0+mc-1 whose rows are qbuf / obuf (host memory) */
+static int sim_launch(const BlackwellIRProgram *prog, uint32_t W, const Case *c, uint8_t *kv, size_t plane, const float *rope, const float *norms,
+                      float out_scale, float *qbuf, float *obuf, uint32_t p0, uint32_t mc, int order, char *msg, size_t n) {
     static uint8_t smem[OMEGA_PATTN_SHARED_BYTES];
-    const uint32_t chunks = (c->m + 63) / 64;
-    for (uint32_t ch = 0; ch < chunks; ch++) {
-        const uint32_t p0 = c->pos0 + ch * 64, mc = c->m - ch * 64 < 64 ? c->m - ch * 64 : 64;
-        memset(qbuf, 0, sizeof qbuf);
-        memcpy(qbuf, c->qkv + (size_t)ch * 64 * QKVW, (size_t)mc * QKVW * 4);
-        for (size_t i = 0; i < (size_t)64 * OUTW; i++) obuf[i] = -999.0f;
-        WsSim s; memset(&s, 0, sizeof s);
-        s.p = prog; s.threads = 32 * W; s.order = order; s.smem = smem; s.smem_bytes = sizeof smem;
-        uint64_t A[7] = { (uintptr_t)qbuf, (uintptr_t)kv, (uintptr_t)(kv + plane), (uintptr_t)rope, (uintptr_t)norms, (uintptr_t)(norms + 128), (uintptr_t)obuf };
-        for (unsigned i = 0; i < 7; i++) { s.cbank[(0x380 + 8 * i) / 4] = (uint32_t)A[i]; s.cbank[(0x380 + 8 * i) / 4 + 1] = (uint32_t)(A[i] >> 32); }
-        float fe = EPS, fo = out_scale, fq = (float)((1.0 / sqrt(128.0)) * 1.4426950408889634);
-        s.cbank[OMEGA_PATTN_ARG_POS0 / 4] = p0; s.cbank[OMEGA_PATTN_ARG_MC / 4] = mc; s.cbank[OMEGA_PATTN_ARG_KV_STRIDE / 4] = c->max_pos * 256;
-        memcpy(&s.cbank[OMEGA_PATTN_ARG_EPS / 4], &fe, 4); memcpy(&s.cbank[OMEGA_PATTN_ARG_OUT_SCALE / 4], &fo, 4); memcpy(&s.cbank[OMEGA_PATTN_ARG_QK_SCALE / 4], &fq, 4);
-        s.nranges = 5;
-        s.ranges[0].lo = (uintptr_t)qbuf; s.ranges[0].hi = (uintptr_t)qbuf + sizeof qbuf;
-        s.ranges[1].lo = (uintptr_t)kv; s.ranges[1].hi = (uintptr_t)kv + 2 * plane;
-        s.ranges[2].lo = (uintptr_t)rope; s.ranges[2].hi = (uintptr_t)rope + (size_t)c->max_pos * 512;
-        s.ranges[3].lo = (uintptr_t)norms; s.ranges[3].hi = (uintptr_t)norms + 1024;
-        s.ranges[4].lo = (uintptr_t)obuf; s.ranges[4].hi = (uintptr_t)obuf + sizeof obuf;
-        int err = ws_run(&s, (mc + W - 1) / W, 4);
-        if (err) { snprintf(msg, n, "chunk %u: %s (pc %d)", ch, s.msg, s.err_pc); return -1; }
-        g_sim_issues += s.warp_issues;
-        size_t unwritten = 0; for (size_t i = 0; i < (size_t)mc * OUTW; i++) if (obuf[i] == -999.0f) unwritten++;
-        if (unwritten) { snprintf(msg, n, "chunk %u: %zu output words never written", ch, unwritten); return -1; }
-        memcpy(out + (size_t)ch * 64 * OUTW, obuf, (size_t)mc * OUTW * 4);
-    }
+    WsSim s; memset(&s, 0, sizeof s);
+    s.p = prog; s.threads = 32 * W; s.order = order; s.smem = smem; s.smem_bytes = sizeof smem;
+    uint64_t A[7] = { (uintptr_t)qbuf, (uintptr_t)kv, (uintptr_t)(kv + plane), (uintptr_t)rope, (uintptr_t)norms, (uintptr_t)(norms + 128), (uintptr_t)obuf };
+    for (unsigned i = 0; i < 7; i++) { s.cbank[(0x380 + 8 * i) / 4] = (uint32_t)A[i]; s.cbank[(0x380 + 8 * i) / 4 + 1] = (uint32_t)(A[i] >> 32); }
+    float fe = EPS, fo = out_scale, fq = (float)((1.0 / sqrt(128.0)) * 1.4426950408889634);
+    s.cbank[OMEGA_PATTN_ARG_POS0 / 4] = p0; s.cbank[OMEGA_PATTN_ARG_MC / 4] = mc; s.cbank[OMEGA_PATTN_ARG_KV_STRIDE / 4] = c->max_pos * 256;
+    memcpy(&s.cbank[OMEGA_PATTN_ARG_EPS / 4], &fe, 4); memcpy(&s.cbank[OMEGA_PATTN_ARG_OUT_SCALE / 4], &fo, 4); memcpy(&s.cbank[OMEGA_PATTN_ARG_QK_SCALE / 4], &fq, 4);
+    s.nranges = 5;
+    s.ranges[0].lo = (uintptr_t)qbuf; s.ranges[0].hi = (uintptr_t)qbuf + (size_t)mc * QKVW * 4;
+    s.ranges[1].lo = (uintptr_t)kv; s.ranges[1].hi = (uintptr_t)kv + 2 * plane;
+    s.ranges[2].lo = (uintptr_t)rope; s.ranges[2].hi = (uintptr_t)rope + (size_t)c->max_pos * 512;
+    s.ranges[3].lo = (uintptr_t)norms; s.ranges[3].hi = (uintptr_t)norms + 1024;
+    s.ranges[4].lo = (uintptr_t)obuf; s.ranges[4].hi = (uintptr_t)obuf + (size_t)mc * OUTW * 4;
+    int err = ws_run(&s, (mc + W - 1) / W, 4);
+    if (err) { snprintf(msg, n, "launch at %u: %s (pc %d)", p0, s.msg, s.err_pc); return -1; }
+    g_sim_issues += s.warp_issues;
     return 0;
 }
-static int sim_point(uint32_t W, int mutant, uint32_t max_pos, uint32_t pos0, uint32_t m, float qscale, uint32_t seed, int orders,
+/* runs the API's launch plan through the simulator on host buffers; kv: [K plane | V plane] holding the history.
+ * progs[mode]; split: one APPEND + one ATTEND launch over all m tokens, else fused 64-token chunks */
+static int sim_call(BlackwellIRProgram *const progs[3], int split, uint32_t W, const Case *c, uint8_t *kv, size_t plane, const float *rope, const float *norms,
+                    float out_scale, float *out, int order, char *msg, size_t n) {
+    float *qbuf = aligned_alloc(16, (size_t)c->m * QKVW * 4), *obuf = aligned_alloc(16, (size_t)c->m * OUTW * 4);
+    memcpy(qbuf, c->qkv, (size_t)c->m * QKVW * 4);
+    for (size_t i = 0; i < (size_t)c->m * OUTW; i++) obuf[i] = -999.0f;
+    int err = 0;
+    if (split) {
+        err = sim_launch(progs[OMEGA_PATTN_MODE_APPEND], W, c, kv, plane, rope, norms, out_scale, qbuf, obuf, c->pos0, c->m, order, msg, n);
+        /* APPEND writes no output */
+        for (size_t i = 0; i < (size_t)c->m * OUTW && !err; i++) if (obuf[i] != -999.0f) { err = -1; snprintf(msg, n, "APPEND launch wrote output word %zu", i); }
+        if (!err) err = sim_launch(progs[OMEGA_PATTN_MODE_ATTEND], W, c, kv, plane, rope, norms, out_scale, qbuf, obuf, c->pos0, c->m, order, msg, n);
+    } else {
+        for (uint32_t done = 0; done < c->m && !err; done += 64) {
+            const uint32_t mc = c->m - done < 64 ? c->m - done : 64;
+            err = sim_launch(progs[OMEGA_PATTN_MODE_FUSED], W, c, kv, plane, rope, norms, out_scale, qbuf + (size_t)done * QKVW, obuf + (size_t)done * OUTW,
+                             c->pos0 + done, mc, order, msg, n);
+        }
+    }
+    if (!err) {
+        size_t unwritten = 0; for (size_t i = 0; i < (size_t)c->m * OUTW; i++) if (obuf[i] == -999.0f) unwritten++;
+        if (unwritten) { snprintf(msg, n, "%zu output words never written", unwritten); err = -1; }
+        else memcpy(out, obuf, (size_t)c->m * OUTW * 4);
+    }
+    free(qbuf); free(obuf);
+    return err;
+}
+static int sim_point(uint32_t W, int mutant, int split, uint32_t max_pos, uint32_t pos0, uint32_t m, float qscale, uint32_t seed, int orders,
                      char *msg, size_t n, double *worst, size_t *bad) {
-    static BlackwellIRProgram prog;
-    OmegaPrefillAttnSpec spec = { W, mutant };
-    if (omega_blackwell_codegen_prefill_attn_prog(&spec, &prog) != 0) { snprintf(msg, n, "codegen refused"); return -1; }
+    static BlackwellIRProgram p0, p1, p2;
+    BlackwellIRProgram *const progs[3] = { &p0, &p1, &p2 };
+    for (uint32_t md = 0; md < 3; md++) {
+        OmegaPrefillAttnSpec spec = { W, mutant, md };
+        if (omega_blackwell_codegen_prefill_attn_prog(&spec, progs[md]) != 0) { snprintf(msg, n, "codegen refused (mode %u)", md); return -1; }
+    }
     Case c; case_make(&c, max_pos, pos0, m, seed, qscale);
     size_t plane = (size_t)4 * max_pos * 256 + OMEGA_DATTN_PLANE_SLACK;
     uint8_t *kv = aligned_alloc(16, 2 * plane);
@@ -215,7 +236,7 @@ static int sim_point(uint32_t W, int mutant, uint32_t max_pos, uint32_t pos0, ui
     for (int order = 0; order < orders && !err; order++) {
         memset(kv, 0, 2 * plane);
         memcpy(kv, c.kc, (size_t)4 * max_pos * 256); memcpy(kv + plane, c.vc, (size_t)4 * max_pos * 256);
-        err = sim_call(&prog, W, &c, kv, plane, rope, norms, 1.0f, out, order, msg, n);
+        err = sim_call(progs, split, W, &c, kv, plane, rope, norms, 1.0f, out, order, msg, n);
         if (!err && order == 0) memcpy(copy, out, (size_t)m * OUTW * 4);
         else if (!err && memcmp(copy, out, (size_t)m * OUTW * 4) != 0) { err = -1; snprintf(msg, n, "the fragment order changed the result"); }
     }
@@ -231,32 +252,38 @@ static int sim_point(uint32_t W, int mutant, uint32_t max_pos, uint32_t pos0, ui
 }
 static void sim_battery(void) {
     char msg[300]; double worst; size_t bad;
-    struct { uint32_t w, max_pos, pos0, m; float qs; int orders; const char *name; } pts[] = {
-        { 8, 256, 0, 1, 1.0f, 2, "one token at position 0" },
-        { 8, 256, 0, 5, 1.0f, 2, "5 tokens from 0 (partial CTA)" },
-        { 4, 256, 37, 19, 1.0f, 2, "19 tokens from 37, warps 4" },
-        { 8, 256, 37, 19, 4.0f, 1, "19 tokens from 37, sharp q (x4)" },
-        { 8, 256, 100, 64, 1.0f, 1, "64 tokens from 100 (full chunk)" },
-        { 8, 512, 0, 70, 1.0f, 1, "70 tokens from 0 (two chunks)" },
-        { 4, 512, 200, 33, 1.0f, 1, "33 tokens from 200, warps 4" },
+    struct { uint32_t w, max_pos, pos0, m; float qs; int orders, split; const char *name; } pts[] = {
+        { 8, 256, 0, 1, 1.0f, 2, 0, "one token at position 0" },
+        { 8, 256, 0, 5, 1.0f, 2, 0, "5 tokens from 0 (partial CTA)" },
+        { 4, 256, 37, 19, 1.0f, 2, 0, "19 tokens from 37, warps 4" },
+        { 8, 256, 37, 19, 4.0f, 1, 0, "19 tokens from 37, sharp q (x4)" },
+        { 8, 256, 100, 64, 1.0f, 1, 0, "64 tokens from 100 (full chunk)" },
+        { 8, 512, 0, 70, 1.0f, 1, 0, "70 tokens from 0 (two chunks)" },
+        { 4, 512, 200, 33, 1.0f, 1, 0, "33 tokens from 200, warps 4" },
+        { 8, 256, 0, 1, 1.0f, 2, 1, "split: one token at position 0" },
+        { 8, 256, 0, 5, 1.0f, 2, 1, "split: 5 tokens from 0" },
+        { 4, 256, 37, 19, 1.0f, 2, 1, "split: 19 tokens from 37, warps 4" },
+        { 8, 512, 0, 70, 1.0f, 1, 1, "split: 70 tokens from 0" },
+        { 8, 512, 37, 141, 4.0f, 1, 1, "split: 141 tokens from 37, sharp q" },
     };
     for (size_t i = 0; i < sizeof pts / sizeof pts[0]; i++) {
-        int err = sim_point(pts[i].w, 0, pts[i].max_pos, pts[i].pos0, pts[i].m, pts[i].qs, 100 + (uint32_t)i, pts[i].orders, msg, sizeof msg, &worst, &bad);
+        int err = sim_point(pts[i].w, 0, pts[i].split, pts[i].max_pos, pts[i].pos0, pts[i].m, pts[i].qs, 100 + (uint32_t)i, pts[i].orders, msg, sizeof msg, &worst, &bad);
         CHECK(err == 0 && bad == 0, "sim %s: %s", pts[i].name, msg);
         printf("sim %-40s W=%u: %s %s\n", pts[i].name, pts[i].w, err ? "ERROR" : bad ? "MISMATCH" : "ok", msg);
         fflush(stdout);
     }
-    for (int m = 1; m <= 4; m++) {
-        int err = sim_point(8, m, 256, 40, 24, 1.0f, 200, 1, msg, sizeof msg, &worst, &bad);
+    for (int split = 0; split <= 1; split++) for (int m = 1; m <= 4; m++) {
+        int err = sim_point(8, m, split, 256, 40, 24, 1.0f, 200, 1, msg, sizeof msg, &worst, &bad);
         int caught = err != 0 || bad > 0;
-        CHECK(caught, "sim mutant %d NOT caught (%s)", m, msg);
-        printf("sim mutant %d at 24 tokens from 40: %s (%s)\n", m, caught ? "caught" : "MISSED", msg);
+        CHECK(caught, "sim %s mutant %d NOT caught (%s)", split ? "split" : "fused", m, msg);
+        printf("sim %s mutant %d at 24 tokens from 40: %s (%s)\n", split ? "split" : "fused", m, caught ? "caught" : "MISSED", msg);
     }
     printf("sim: %" PRIu64 " warp issues in total\n", g_sim_issues);
 }
 
 /* ------------------------------------------------------------- chip */
 static FILE *g_json;
+static int g_warm;  /* untimed calls before each timing series (--warm N) */
 static int cache_with_history(const Case *c, OmegaGpuDecodeAttnCache **out) {
     int rc = omega_gpu_decode_attn_cache_alloc(1, c->max_pos, THETA, out);
     if (rc != OMEGA_GPU_DATTN_OK) return rc;
@@ -302,7 +329,18 @@ static int chip_point(uint32_t max_pos, uint32_t pos0, uint32_t m, float qscale,
     double pre_med = 0, dec_ms = 0;
     if (reps > 0) {
         uint64_t *t = malloc(sizeof(uint64_t) * reps), *tc = malloc(sizeof(uint64_t) * reps);
-        for (int r = 0; r < reps; r++) { omega_gpu_prefill_attn(pc, 0, pos0, m, c.qkv, EPS, out_scale, out2, &info); t[r] = info.elapsed_ns; tc[r] = info.call_ns; }
+        static uint64_t lns[256], worst_l[256]; uint32_t worst_n = 0; uint64_t worst_t = 0;
+        for (int r = 0; r < g_warm; r++) omega_gpu_prefill_attn(pc, 0, pos0, m, c.qkv, EPS, out_scale, out2, NULL);
+        printf("  reps chip ms (in order, %d untimed warm calls first):", g_warm);
+        for (int r = 0; r < reps; r++) {
+            omega_gpu_prefill_attn(pc, 0, pos0, m, c.qkv, EPS, out_scale, out2, &info); t[r] = info.elapsed_ns; tc[r] = info.call_ns;
+            uint32_t nl = omega_gpu_prefill_attn_test_launch_ns(lns, 256);
+            printf(" %.3f", t[r] / 1e6);
+            if (t[r] > worst_t) { worst_t = t[r]; worst_n = nl < 256 ? nl : 256; memcpy(worst_l, lns, worst_n * sizeof *lns); }
+        }
+        printf("\n  slowest rep, per launch ms (%u launches):", worst_n);
+        for (uint32_t i = 0; i < worst_n; i++) printf(" %.3f", worst_l[i] / 1e6);
+        printf("\n");
         qsort(t, reps, sizeof *t, cmp_u64); qsort(tc, reps, sizeof *tc, cmp_u64);
         pre_med = t[reps / 2] / 1e6;
         double flops = 0; for (uint32_t i = 0; i < m; i++) flops += 4.0 * 32 * 128 * (pos0 + i + 1.0);
@@ -339,6 +377,69 @@ done:
     free(out); free(out2); free(dout); free(kc); free(vc); free(dk); free(dv); case_free(&c);
     return ok;
 }
+/* device-resident entry: qkv and out in session buffers (GPU VAs); output and rows must equal the host entry's bit for bit */
+static int dev_buf(size_t bytes, OmegaGpuMem *m) {
+    omega_gpu_session_lock();
+    int rc = omega_gpu_session_open() ? omega_gpu_session_alloc(bytes, m) : -1;
+    omega_gpu_session_unlock();
+    return rc;
+}
+static int chip_dev(uint32_t max_pos, uint32_t pos0, uint32_t m, uint32_t seed, int reps) {
+    Case c; case_make(&c, max_pos, pos0, m, seed, 1.0f);
+    OmegaGpuDecodeAttnCache *hc = NULL, *dc = NULL;
+    float *hout = malloc((size_t)m * OUTW * 4);
+    uint16_t *hk = malloc((size_t)4 * max_pos * 256), *hv = malloc((size_t)4 * max_pos * 256);
+    uint16_t *dk = malloc((size_t)4 * max_pos * 256), *dv = malloc((size_t)4 * max_pos * 256);
+    OmegaGpuMem q, o; memset(&q, 0, sizeof q); memset(&o, 0, sizeof o);
+    int ok = 1;
+    OmegaGpuPrefillAttnInfo info, dinfo;
+    int rc = cache_with_history(&c, &hc);
+    if (rc == OMEGA_GPU_DATTN_OK) rc = cache_with_history(&c, &dc);
+    if (rc == OMEGA_GPU_DATTN_OK) rc = omega_gpu_prefill_attn(hc, 0, pos0, m, c.qkv, EPS, 1.0f, hout, &info);
+    CHECK(rc == OMEGA_GPU_DATTN_OK, "dev point %u+%u: host entry rc %s", pos0, m, omega_gpu_decode_attn_rc_name(rc));
+    if (rc != OMEGA_GPU_DATTN_OK) { ok = 0; goto done; }
+    CHECK(dev_buf((size_t)m * QKVW * 4, &q) == 0 && dev_buf((size_t)m * OUTW * 4, &o) == 0, "dev point: session buffers");
+    if (!q.cpu || !o.cpu) { ok = 0; goto done; }
+    memcpy(q.cpu, c.qkv, (size_t)m * QKVW * 4);
+    float *od = o.cpu; for (size_t i = 0; i < (size_t)m * OUTW; i++) od[i] = -999.0f;
+    omega_gpu_session_lock(); omega_gpu_session_sync_to_gpu(&q); omega_gpu_session_sync_to_gpu(&o); omega_gpu_session_unlock();
+    /* negative control: misaligned and zero VAs are refused before any launch */
+    CHECK(omega_gpu_prefill_attn_dev(dc, 0, pos0, m, q.va + 4, EPS, 1.0f, o.va, NULL) == OMEGA_GPU_DATTN_BAD_ARGS, "dev: misaligned qkv VA refused");
+    CHECK(omega_gpu_prefill_attn_dev(dc, 0, pos0, m, q.va, EPS, 1.0f, 0, NULL) == OMEGA_GPU_DATTN_BAD_ARGS, "dev: zero out VA refused");
+    rc = omega_gpu_prefill_attn_dev(dc, 0, pos0, m, q.va, EPS, 1.0f, o.va, &dinfo);
+    CHECK(rc == OMEGA_GPU_DATTN_OK, "dev point %u+%u: rc %s (%s)", pos0, m, omega_gpu_decode_attn_rc_name(rc), omega_gpu_decode_attn_last_error());
+    if (rc != OMEGA_GPU_DATTN_OK) { ok = 0; goto done; }
+    omega_gpu_session_lock(); omega_gpu_session_sync_to_cpu(&o); omega_gpu_session_unlock();
+    size_t unw = 0, diff = 0;
+    for (size_t i = 0; i < (size_t)m * OUTW; i++) { if (od[i] == -999.0f) unw++; else if (memcmp(&od[i], &hout[i], 4)) diff++; }
+    CHECK(read_rows(hc, &c, hk, hv) == 0 && read_rows(dc, &c, dk, dv) == 0, "dev point: read rows");
+    size_t rk = 0, rv = 0;
+    for (size_t i = 0; i < (size_t)4 * max_pos * 128; i++) { rk += hk[i] != dk[i]; rv += hv[i] != dv[i]; }
+    CHECK(unw == 0 && diff == 0, "dev point %u+%u: %zu outputs unwritten, %zu differ from the host entry", pos0, m, unw, diff);
+    CHECK(rk == 0 && rv == 0, "dev point %u+%u: cache rows differ from the host entry: k %zu v %zu", pos0, m, rk, rv);
+    ok &= unw == 0 && diff == 0 && rk == 0 && rv == 0;
+    printf("chip dev pos0 %5u m %5u: outputs vs host entry: %zu unwritten, %zu differ; rows k %zu v %zu differ; launches %u grid %ux%u; chip %.3f ms call %.3f ms\n",
+           pos0, m, unw, diff, rk, rv, dinfo.chunks, dinfo.grid_x, dinfo.grid_y, dinfo.elapsed_ns / 1e6, dinfo.call_ns / 1e6);
+    if (reps > 0) {
+        uint64_t *t = malloc(sizeof(uint64_t) * reps), *tc = malloc(sizeof(uint64_t) * reps);
+        for (int r = 0; r < g_warm; r++) omega_gpu_prefill_attn_dev(dc, 0, pos0, m, q.va, EPS, 1.0f, o.va, NULL);
+        printf("  dev reps chip ms:");
+        for (int r = 0; r < reps; r++) { omega_gpu_prefill_attn_dev(dc, 0, pos0, m, q.va, EPS, 1.0f, o.va, &dinfo); t[r] = dinfo.elapsed_ns; tc[r] = dinfo.call_ns; printf(" %.3f", t[r] / 1e6); }
+        qsort(t, reps, sizeof *t, cmp_u64); qsort(tc, reps, sizeof *tc, cmp_u64);
+        double flops = 0; for (uint32_t i = 0; i < m; i++) flops += 4.0 * 32 * 128 * (pos0 + i + 1.0);
+        printf("\n  timing dev pos0 %u m %u: chip median %.3f ms (min %.3f) call median %.3f ms; %.2f useful TFLOPS on chip time\n",
+               pos0, m, t[reps / 2] / 1e6, t[0] / 1e6, tc[reps / 2] / 1e6, flops / (t[reps / 2] * 1e-9) / 1e12);
+        if (g_json) fprintf(g_json, "  {\"dev\": 1, \"pos0\": %u, \"m\": %u, \"chip_ms_median\": %.4f, \"chip_ms_min\": %.4f, \"call_ms_median\": %.4f, \"out_diff\": %zu, \"rows_diff\": %zu},\n",
+                            pos0, m, t[reps / 2] / 1e6, t[0] / 1e6, tc[reps / 2] / 1e6, diff, rk + rv);
+        free(t); free(tc);
+    }
+done:
+    omega_gpu_session_lock(); if (q.cpu) omega_gpu_session_free(&q); if (o.cpu) omega_gpu_session_free(&o); omega_gpu_session_unlock();
+    if (hc) omega_gpu_decode_attn_cache_free(hc);
+    if (dc) omega_gpu_decode_attn_cache_free(dc);
+    free(hout); free(hk); free(hv); free(dk); free(dv); case_free(&c);
+    return ok;
+}
 static void chip_mutants(void) {
     for (int mu = 1; mu <= 4; mu++) {
         omega_gpu_prefill_attn_test_set_mutant(mu);
@@ -364,7 +465,7 @@ static void chip_mutants(void) {
 }
 
 int main(int argc, char **argv) {
-    int host = 0, sim = 0, reps = 9, quick = 0; const char *json = NULL; uint32_t warps = 0;
+    int host = 0, sim = 0, reps = 9, quick = 0, fused = 0, timing_only = 0; const char *json = NULL; uint32_t warps = 0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--host-only")) host = 1;
         else if (!strcmp(argv[i], "--sim")) sim = 1;
@@ -372,7 +473,10 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--reps") && i + 1 < argc) reps = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--warps") && i + 1 < argc) warps = (uint32_t)atoi(argv[++i]);
         else if (!strcmp(argv[i], "--out") && i + 1 < argc) json = argv[++i];
-        else { fprintf(stderr, "usage: %s [--host-only | --sim | [--quick] [--reps N] [--warps 4|8] [--out receipt.json]]\n", argv[0]); return 2; }
+        else if (!strcmp(argv[i], "--fused")) fused = 1;
+        else if (!strcmp(argv[i], "--timing-only")) timing_only = 1;
+        else if (!strcmp(argv[i], "--warm") && i + 1 < argc) g_warm = atoi(argv[++i]);
+        else { fprintf(stderr, "usage: %s [--host-only | --sim | [--quick] [--reps N] [--warps 4|8] [--fused] [--warm N] [--timing-only] [--out receipt.json]]\n", argv[0]); return 2; }
     }
     host_only();
     if (sim) sim_battery();
@@ -380,6 +484,12 @@ int main(int argc, char **argv) {
         if (json) { g_json = fopen(json, "w"); if (g_json) fprintf(g_json, "{\"test\": \"gpu_prefill_attn\", \"points\": [\n"); }
         if (warps) omega_gpu_prefill_attn_set_warps(warps);
         int ok = 1;
+        if (fused) omega_gpu_prefill_attn_set_fused(1);
+        printf("path: %s, warps %u, warm %d\n", fused ? "fused 64-token chunks" : "split APPEND + ATTEND", warps ? warps : OMEGA_GPU_PATTN_WARPS, g_warm);
+        if (timing_only) {
+            ok &= chip_point(4096, 0, 2048, 1.0f, 8, 0, 1.0f, reps);
+            ok &= chip_dev(4096, 0, 2048, 8, reps);
+        } else {
         ok &= chip_point(256, 0, 1, 1.0f, 1, 1, 1.0f, 0);
         ok &= chip_point(256, 37, 19, 1.0f, 2, 1, 1.0f, 0);
         ok &= chip_point(256, 0, 64, 1.0f, 3, 1, 1.0f, reps);
@@ -390,7 +500,10 @@ int main(int argc, char **argv) {
             ok &= chip_point(4096, 4032, 64, 1.0f, 7, 1, 1.0f, reps);
             ok &= chip_point(4096, 0, 2048, 1.0f, 8, 0, 1.0f, reps);
         }
+        ok &= chip_dev(512, 100, 70, 11, 0);
+        if (!quick) { ok &= chip_dev(4096, 0, 2048, 8, reps); ok &= chip_dev(8192, 4096, 1500, 12, reps); }
         chip_mutants();
+        }
         (void)ok;
         if (g_json) { fprintf(g_json, "  {}\n], \"checks\": %d, \"failed\": %d}\n", g_checks, g_failed); fclose(g_json); }
     }

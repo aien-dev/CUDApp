@@ -25,6 +25,9 @@
  *   skipped when the whole block is at or below the tile's first token), online softmax in log2 units (EX2), O
  *   rescaled by alpha = EX2(m_old - m_new), P packed to bf16 (F2FP), O += P V (2 k-steps x 8 n-tiles).
  * Epilogue: l summed over the quad (SHFL.BFLY), out = O * RCP(l) * out_scale for tokens < mc.
+ * Split modes (spec.mode, 2026-10-13 cut 3): an APPEND launch then an ATTEND launch over the same mc tokens do the
+ * fused kernel's work with no redundant appends, so one pair of launches can cover a whole prompt (grid ceil(mc/W) x 4)
+ * instead of 64-token chunks of 8 x 4 CTAs. The appended rows are the same instruction sequence (identical bits).
  *
  * The host simulator (tests/bw_warp_sim_pa.h) runs the kernel with the chip-exact HMMA model; EX2/RSQ/RCP are
  * exact there and approximate on the chip. A simulator pass is never a chip result.
@@ -58,7 +61,13 @@ typedef struct {
     uint32_t warps;  /* 4 or 8 (tokens per CTA) */
     int mutant;      /* TEST ONLY. 0 none; 1 no RoPE on q and k; 2 no causal mask; 3 the new K/V are not written;
                       * 4 O is never rescaled by alpha. Each must be caught by the gates. */
+    uint32_t mode;   /* OMEGA_PATTN_MODE_*: 0 fused (append + attend, chunks of <= 64 tokens);
+                      * 1 append only: CTA (cx, cy) appends just its own tokens cx*W .. cx*W+W-1 (< mc), then exits;
+                      * 2 attend only: no append (a mode-1 launch over the same tokens ran before), any mc >= 1. */
 } OmegaPrefillAttnSpec;
+#define OMEGA_PATTN_MODE_FUSED 0u
+#define OMEGA_PATTN_MODE_APPEND 1u
+#define OMEGA_PATTN_MODE_ATTEND 2u
 
 int omega_pattn_spec_ok(const OmegaPrefillAttnSpec *spec);
 /* Builds the register-allocated IR program. 0 ok, -1 refused or over BW_MAX_IR_INSNS / BW_MAX_VREGS. */

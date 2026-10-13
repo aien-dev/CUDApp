@@ -200,7 +200,7 @@ static void norm_rope(Em *e, const NR *n, int x4, int w4, int cos4, int sin4, in
 }
 
 int omega_pattn_spec_ok(const OmegaPrefillAttnSpec *s) {
-    return s && (s->warps == 4u || s->warps == 8u) && s->mutant >= 0 && s->mutant <= 4;
+    return s && (s->warps == 4u || s->warps == 8u) && s->mutant >= 0 && s->mutant <= 4 && s->mode <= OMEGA_PATTN_MODE_ATTEND;
 }
 
 int omega_blackwell_codegen_prefill_attn_prog(const OmegaPrefillAttnSpec *spec, BlackwellIRProgram *prog) {
@@ -258,15 +258,18 @@ int omega_blackwell_codegen_prefill_attn_prog(const OmegaPrefillAttnSpec *spec, 
     #define CLAMP_TOK(tok, lim) do { int _d = V(e), _o = V(e); if (e->err) return -1; \
         imadi(e, R(_d), R(tok), 0xffffffffu, lim); shr(e, _o, _d, 31); imadr(e, tokc, _o, _d, tok); } while (0)
 
-    /* ---- K/V append: chunk tokens 0 .. nk-1 (every CTA, identical bits) ---- */
-    {
+    /* ---- K/V append: chunk tokens 0 .. nk-1 (every CTA, identical bits); APPEND mode: only cxw .. nk-1 (one per warp);
+     *      ATTEND mode: none (the APPEND launch wrote them) ---- */
+    const bool APPEND = spec->mode == OMEGA_PATTN_MODE_APPEND;
+    if (spec->mode != OMEGA_PATTN_MODE_ATTEND) {
         int kw4 = V128(e), k4 = V128(e), v4 = V128(e), nkm1 = V(e);
         if (e->err) return -1;
         imadw(e, ad64, lane, 16u, pkn);
         ldg_wide(e, BW_IR_LDG_E_128, kw4, ad64, 0, udesc, 1);
         imadi(e, R(nkm1), R(one), 0xffffffffu, nk);
-        imadi(e, R(cnt), R(one), W - 1u, nk); shr(e, cnt, cnt, LW);   /* ceil(nk / W) >= 1 */
-        mov(e, R(item), R(warp));
+        if (APPEND) { movi(e, R(cnt), 1u); iadd(e, item, warp, cxw); }
+        else { imadi(e, R(cnt), R(one), W - 1u, nk); shr(e, cnt, cnt, LW);   /* ceil(nk / W) >= 1 */
+               mov(e, R(item), R(warp)); }
         const int L_k = here(e);
         loop_begin(e);
         CLAMP_TOK(item, nkm1);
@@ -295,6 +298,12 @@ int omega_blackwell_codegen_prefill_attn_prog(const OmegaPrefillAttnSpec *spec, 
         bra_if_p0(e, L_k);
         loop_end(e);
         membar(e);
+        if (APPEND) {
+            (void)h0;
+            tail(e);
+            if (e->err) return -1;
+            return omega_bw_regalloc_solve(prog) != 0 ? -1 : 0;
+        }
         bar_sync(e);
     }
 
