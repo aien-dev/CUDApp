@@ -155,12 +155,13 @@ static void host_only(void) {
     static const uint32_t ks[] = { 128, 256, 768, 2048, 4096, 16384 };
     static const uint32_t lbs[] = { 8, 16 }, rows[] = { 1, 2, 4, 8 };
     uint32_t worst_insns = 0, worst_gprs = 0; int built = 0;
-    for (size_t a = 0; a < sizeof ks / sizeof ks[0]; a++) for (size_t b = 0; b < 2; b++) for (size_t c = 0; c < 4; c++) for (int m = 0; m <= 3; m++) {
+    for (size_t a = 0; a < sizeof ks / sizeof ks[0]; a++) for (size_t b = 0; b < 2; b++) for (size_t c = 0; c < 4; c++) for (int m = 0; m <= 3; m++) for (int deep = 0; deep < 2; deep++) {
         OmegaFp8GemvSpec sp = { .k = ks[a], .lane_bytes = lbs[b], .rows = rows[c], .warps = 8, .mutant = m };
         uint32_t ni, ng;
         if (ks[a] % (32 * lbs[b])) { CHECK(omega_fp8_gemv_prog_stats(&sp, &ni, &ng) != 0, "k=%u lb=%u must be refused", ks[a], lbs[b]); continue; }
+        if (deep) { sp.depth = ks[a] / (32 * lbs[b]); if (sp.depth * sp.rows * lbs[b] > 128 || ks[a] > 4096) { CHECK(omega_fp8_gemv_prog_stats(&sp, &ni, &ng) != 0, "deep k=%u lb=%u rows=%u must be refused", ks[a], lbs[b], rows[c]); continue; } }
         int rc = omega_fp8_gemv_prog_stats(&sp, &ni, &ng);
-        CHECK(rc == 0, "codegen k=%u lb=%u rows=%u mutant=%d", ks[a], lbs[b], rows[c], m);
+        CHECK(rc == 0, "codegen k=%u lb=%u rows=%u mutant=%d deep=%d", ks[a], lbs[b], rows[c], m, deep);
         if (rc == 0) { built++; if (ni > worst_insns) worst_insns = ni; if (ng > worst_gprs) worst_gprs = ng; }
     }
     printf("codegen: %d kernels built, largest %u IR instructions, peak %u GPRs\n", built, worst_insns, worst_gprs);
@@ -184,6 +185,8 @@ static void host_only(void) {
     /* 5. nvdisasm listing of the production shapes */
     { OmegaFp8GemvSpec a = { .k = 2048, .lane_bytes = 16, .rows = 8, .warps = 8 }, b = { .k = 768, .lane_bytes = 8, .rows = 2, .warps = 8 };
       CHECK(nvdisasm_check(&a, "k2048_lb16_r8") == 0, "nvdisasm listing k=2048");
+      OmegaFp8GemvSpec d = { .k = 2048, .lane_bytes = 16, .rows = 1, .warps = 8, .depth = 4 };
+      CHECK(nvdisasm_check(&d, "k2048_lb16_r1_deep4") == 0, "nvdisasm listing deep k=2048");
       CHECK(nvdisasm_check(&b, "k768_lb8_r2") == 0, "nvdisasm listing k=768"); }
 }
 
@@ -213,6 +216,7 @@ static int sim_gemv(const OmegaFp8GemvSpec *spec, const Weights *W, uint32_t gro
     for (int order = 0; order < 2 && !err; order++) {
         WsSim s; memset(&s, 0, sizeof s);
         s.p = &prog; s.threads = 32 * spec->warps; s.order = order;
+        static uint8_t smem[OMEGA_FP8_MAX_K * 4]; s.smem = smem; s.smem_bytes = omega_fp8_gemv_shared_bytes(spec); /* the bytes the launch declares (0: any shared access fails) */
         uint64_t ta = (uintptr_t)tab, xa = (uintptr_t)xf, ya = (uintptr_t)yd;
         s.cbank[OMEGA_FP8_ARG_TAB / 4] = (uint32_t)ta; s.cbank[OMEGA_FP8_ARG_TAB / 4 + 1] = (uint32_t)(ta >> 32);
         s.cbank[OMEGA_FP8_ARG_X / 4] = (uint32_t)xa; s.cbank[OMEGA_FP8_ARG_X / 4 + 1] = (uint32_t)(xa >> 32);
@@ -294,13 +298,17 @@ static void sim_battery(uint32_t cta_budget) {
         for (uint32_t g = 0; g < p->groups; g++) ids[g] = lcg(&st) % p->experts;
         float *x = malloc((size_t)p->x_rows * p->k * 4); for (size_t j = 0; j < (size_t)p->x_rows * p->k; j++) x[j] = frand(&st, -1.0f, 1.0f);
         float *y = malloc((size_t)p->groups * p->n * 4);
+        /* every point runs the step-by-step kernel (depth 0) and, when the row fits, the deep kernel (depth = KS) */
+        for (int deep = 0; deep < 2; deep++) {
         OmegaFp8GemvSpec sp = { .k = p->k, .lane_bytes = p->lb, .rows = p->rows, .warps = p->warps };
+        if (deep) { sp.depth = omega_fp8_gemv_steps(&sp); if (sp.depth * sp.rows * sp.lane_bytes > 128 || p->k % (32 * p->warps) || p->k > 512 * p->warps) continue; }
+        char nm[96]; snprintf(nm, sizeof nm, "%s%s", p->name, deep ? " deep" : "");
         double t0 = now_ms();
         int rc = sim_gemv(&sp, &W, p->groups, ids, x, p->x_rows, y, cta_budget, 0, msg, sizeof msg);
         size_t bad = 0; double worst = rc == 0 ? parity(&W, p->groups, ids, x, p->x_rows, y, &bad) : 1.0;
         if (worst > worst_all) worst_all = worst;
-        CHECK(rc == 0 && bad == 0, "sim %s: rc=%d bad=%zu worst_rel=%.3e %s", p->name, rc, bad, worst, msg);
-        printf("sim %-45s rc=%d worst_rel=%.3e bad=%zu (%.0f ms)\n", p->name, rc, worst, bad, now_ms() - t0);
+        CHECK(rc == 0 && bad == 0, "sim %s: rc=%d bad=%zu worst_rel=%.3e %s", nm, rc, bad, worst, msg);
+        printf("sim %-45s rc=%d worst_rel=%.3e bad=%zu (%.0f ms)\n", nm, rc, worst, bad, now_ms() - t0);
         /* mutants on the two grouped points and the first two single points: each must be caught */
         if (i == 1 || i == 4 || i == 7 || i == 8) {
             for (int m = 1; m <= 4; m++) {
@@ -314,9 +322,10 @@ static void sim_battery(uint32_t cta_budget) {
                     int distinct = 0; for (uint32_t g = 0; g + 1 < p->groups; g += 2) if (ids[g] != ids[g ^ 1]) distinct = 1;
                     if (!distinct) { printf("sim %s mutant 3: ids pairwise equal, control skipped\n", p->name); continue; }
                 }
-                CHECK(caught, "sim %s mutant %d NOT caught (worst_rel=%.3e)", p->name, m, worst);
-                printf("sim %-45s mutant %d: %s (rc=%d bad=%zu worst_rel=%.3e)\n", p->name, m, caught ? "caught" : "MISSED", rc, bad, worst);
+                CHECK(caught, "sim %s mutant %d NOT caught (worst_rel=%.3e)", nm, m, worst);
+                printf("sim %-45s mutant %d: %s (rc=%d bad=%zu worst_rel=%.3e)\n", nm, m, caught ? "caught" : "MISSED", rc, bad, worst);
             }
+        }
         }
         free(x); free(y); weights_free(&W);
     }
@@ -411,13 +420,13 @@ static int chip_run(const char *out_path, uint32_t reps) {
         uint64_t med_el = 0, med_cl = 0; double gbs = 0.0, gbs_call = 0.0;
         if (done) { qsort(el, done, sizeof *el, cmp_u64); qsort(cl, done, sizeof *cl, cmp_u64); med_el = el[done / 2]; med_cl = cl[done / 2];
                     gbs = med_el ? (double)(info.weight_bytes + info.scale_bytes) / (double)med_el : 0.0; gbs_call = med_cl ? (double)(info.weight_bytes + info.scale_bytes) / (double)med_cl : 0.0; }
-        printf("chip %-32s rc=%-9s bad=%zu worst_rel=%.3e grid=%ux%u lb=%u rows=%u warps=%u bytes=%" PRIu64 " upload=%.1fms chip_med=%.1fus (%.1f GB/s) call_med=%.1fus (%.1f GB/s) reps=%u\n",
-               p->name, omega_gpu_fp8_rc_name(rc), bad, worst, info.grid_x, info.grid_y, info.lane_bytes, info.rows_per_warp, info.warps_per_cta,
+        printf("chip %-32s rc=%-9s bad=%zu worst_rel=%.3e grid=%ux%u lb=%u rows=%u warps=%u depth=%u bytes=%" PRIu64 " upload=%.1fms chip_med=%.1fus (%.1f GB/s) call_med=%.1fus (%.1f GB/s) reps=%u\n",
+               p->name, omega_gpu_fp8_rc_name(rc), bad, worst, info.grid_x, info.grid_y, info.lane_bytes, info.rows_per_warp, info.warps_per_cta, info.depth,
                info.weight_bytes + info.scale_bytes, up_ms, med_el / 1e3, gbs, med_cl / 1e3, gbs_call, done);
         if (out) fprintf(out, "%s{\"name\":\"%s\",\"experts\":%u,\"n\":%u,\"k\":%u,\"groups\":%u,\"x_rows\":%u,\"rc\":\"%s\",\"bad\":%zu,\"worst_rel\":%.3e,\"second_call_identical\":%d,"
-                         "\"grid_x\":%u,\"grid_y\":%u,\"lane_bytes\":%u,\"rows_per_warp\":%u,\"warps_per_cta\":%u,\"bytes\":%" PRIu64 ",\"upload_ms\":%.2f,\"chip_median_ns\":%" PRIu64 ",\"gbps_chip\":%.2f,\"call_median_ns\":%" PRIu64 ",\"gbps_call\":%.2f,\"reps\":%u,\"marker\":%u,\"evict\":%d}",
+                         "\"grid_x\":%u,\"grid_y\":%u,\"lane_bytes\":%u,\"rows_per_warp\":%u,\"warps_per_cta\":%u,\"depth\":%u,\"bytes\":%" PRIu64 ",\"upload_ms\":%.2f,\"chip_median_ns\":%" PRIu64 ",\"gbps_chip\":%.2f,\"call_median_ns\":%" PRIu64 ",\"gbps_call\":%.2f,\"reps\":%u,\"marker\":%u,\"evict\":%d}",
                          first ? "" : ",", p->name, p->experts, p->n, p->k, p->groups, p->x_rows, omega_gpu_fp8_rc_name(rc), bad, worst, same,
-                         info.grid_x, info.grid_y, info.lane_bytes, info.rows_per_warp, info.warps_per_cta, info.weight_bytes + info.scale_bytes, up_ms, med_el, gbs, med_cl, gbs_call, done, info.completion_marker, g_evict);
+                         info.grid_x, info.grid_y, info.lane_bytes, info.rows_per_warp, info.warps_per_cta, info.depth, info.weight_bytes + info.scale_bytes, up_ms, med_el, gbs, med_cl, gbs_call, done, info.completion_marker, g_evict);
         first = 0;
         free(el); free(cl);
         /* mutants on the first grouped point and the gate shape: each must be caught on the chip */
@@ -445,7 +454,7 @@ static int chip_run(const char *out_path, uint32_t reps) {
 }
 
 int main(int argc, char **argv) {
-    int host = 0, sim = 0; const char *out_path = NULL; uint32_t reps = 20, lb = 0, rows = 0, warps = 0, budget = 0, spin = 2000;
+    int host = 0, sim = 0; const char *out_path = NULL; uint32_t reps = 20, lb = 0, rows = 0, warps = 0, budget = 0, spin = 2000, depth = 0; int depth_set = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--host-only") == 0) host = 1;
         else if (strcmp(argv[i], "--sim") == 0) sim = 1;
@@ -455,6 +464,7 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--rows") == 0 && i + 1 < argc) rows = (uint32_t)atoi(argv[++i]);
         else if (strcmp(argv[i], "--warps") == 0 && i + 1 < argc) warps = (uint32_t)atoi(argv[++i]);
         else if (strcmp(argv[i], "--cta-budget") == 0 && i + 1 < argc) budget = (uint32_t)atoi(argv[++i]);
+        else if (strcmp(argv[i], "--depth") == 0 && i + 1 < argc) { depth_set = 1; depth = (uint32_t)atoi(argv[++i]); }
         else if (strcmp(argv[i], "--spin-us") == 0 && i + 1 < argc) spin = (uint32_t)atoi(argv[++i]);
         else if (strcmp(argv[i], "--no-evict") == 0) g_evict = 0;
         else { printf("unknown argument %s\n", argv[i]); return 2; }
@@ -464,6 +474,7 @@ int main(int argc, char **argv) {
     if (!host && !sim) {
         if (lb || rows || warps) omega_gpu_fp8_set_shape(lb, rows, warps);
         if (budget) omega_gpu_fp8_set_cta_budget(budget);
+        if (depth_set) omega_gpu_fp8_set_depth(1, depth);
         (void)omega_gpu_session_set_spin_us(spin);
         chip_run(out_path, reps ? reps : 1);
         omega_gpu_session_close();

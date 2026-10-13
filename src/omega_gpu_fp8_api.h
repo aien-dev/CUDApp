@@ -50,6 +50,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "omega_blackwell_codegen_moe.h" /* OmegaFp8GemvSpec (depth query) */
 
 #ifdef __cplusplus
 extern "C" {
@@ -70,6 +71,7 @@ enum {
 typedef struct {
     uint32_t experts, n, k, groups;
     uint32_t lane_bytes, rows_per_warp, warps_per_cta; /* kernel shape chosen for the call */
+    uint32_t depth;             /* 0: step-by-step kernel; D: deep kernel, D K steps of loads in flight, x' in shared memory */
     uint32_t grid_x, grid_y, steps;
     uint64_t weight_bytes;      /* e4m3 bytes the launch reads (groups * n * k) */
     uint64_t scale_bytes;       /* f32 scale words it reads */
@@ -105,6 +107,11 @@ void omega_gpu_fp8_cache_clear(void);
 /* ---- measurement knobs (tests; each clears the kernel cache) ---- */
 /* Kernel shape override: lane_bytes 8/16, rows 1/2/4/8, warps 1..8; 0 = automatic. */
 void omega_gpu_fp8_set_shape(uint32_t lane_bytes, uint32_t rows_per_warp, uint32_t warps_per_cta);
+/* Kernel depth override: set = 0 automatic (deep whenever the row fits: rows * k <= 4096), set = 1 forces `depth`
+ * (0 = step-by-step kernel). Each call clears the kernel cache. */
+void omega_gpu_fp8_set_depth(int set, uint32_t depth);
+/* The depth the automatic choice makes for a spec (k, lane_bytes, rows, warps filled in). */
+uint32_t omega_gpu_fp8_depth_for(const OmegaFp8GemvSpec *spec);
 /* CTAs per group row per launch (default OMEGA_GPU_FP8_MAX_CTAS; 0 restores it). */
 void omega_gpu_fp8_set_cta_budget(uint32_t ctas);
 /* TEST ONLY: deliberately wrong kernels (1 scale dropped, 2 scale block never advances, 3 group table entry

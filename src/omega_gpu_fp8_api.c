@@ -31,6 +31,7 @@ static struct {
     OmegaGpuMem tab; /* group table, OMEGA_GPU_FP8_MAX_GROUPS * 16 bytes */
     uint32_t cta_budget;
     uint32_t lane_bytes, rows, warps; /* overrides, 0 = automatic */
+    int depth_set; uint32_t depth;    /* depth override (depth_set: 0 = automatic) */
     int mutant, no_fold, sealed;
     bool hooked;
     Slot cache[CACHE_SLOTS];
@@ -73,6 +74,7 @@ void omega_gpu_fp8_cache_clear(void) { omega_gpu_session_lock(); cache_clear_loc
 void omega_gpu_fp8_set_shape(uint32_t lb, uint32_t rows, uint32_t warps) {
     omega_gpu_session_lock(); g.lane_bytes = lb; g.rows = rows; g.warps = warps; cache_clear_locked(); omega_gpu_session_unlock();
 }
+void omega_gpu_fp8_set_depth(int set, uint32_t depth) { omega_gpu_session_lock(); g.depth_set = set; g.depth = depth; cache_clear_locked(); omega_gpu_session_unlock(); }
 void omega_gpu_fp8_set_cta_budget(uint32_t ctas) { omega_gpu_session_lock(); g.cta_budget = ctas ? ctas : OMEGA_GPU_FP8_MAX_CTAS; cache_clear_locked(); omega_gpu_session_unlock(); }
 void omega_gpu_fp8_test_set_mutant(int m) { omega_gpu_session_lock(); g.mutant = m; cache_clear_locked(); omega_gpu_session_unlock(); }
 void omega_gpu_fp8_test_set_no_fold(int on) { g.no_fold = on ? 1 : 0; }
@@ -130,10 +132,20 @@ static int kernel_for(const OmegaFp8GemvSpec *spec, Slot **out, bool *hit) {
     return OMEGA_GPU_FP8_OK;
 }
 
+/* Deep kernel (x' staged in shared memory, every load of the row issued at once) whenever the whole row fits
+ * the budgets (rows * KS * lane_bytes <= 128, i.e. rows * k <= 4096) and the staging rounds are exact; else the step-by-step kernel. */
+uint32_t omega_gpu_fp8_depth_for(const OmegaFp8GemvSpec *spec) {
+    if (g.depth_set) return g.depth;
+    uint32_t ks = spec->k / (32u * spec->lane_bytes);
+    if (ks * spec->rows * spec->lane_bytes > 128u || spec->k % (32u * spec->warps) || spec->k > 512u * spec->warps) return 0;
+    return ks;
+}
+
 static void spec_for(uint32_t k, uint32_t n, OmegaFp8GemvSpec *spec) {
     memset(spec, 0, sizeof *spec);
     spec->k = k;
     omega_gpu_fp8_shape_for(k, n, &spec->lane_bytes, &spec->rows, &spec->warps);
+    spec->depth = omega_gpu_fp8_depth_for(spec);
     spec->mutant = g.mutant;
 }
 
@@ -240,7 +252,7 @@ static int gemv_core(const OmegaGpuFp8Tensor *t, uint32_t groups, const uint32_t
     args[6] = RG; args[7] = x_rows == 1 ? 0u : k * 4u; args[8] = n * 4u; args[9] = grid_x * spec.warps;
     if (info) {
         info->experts = t->experts; info->n = n; info->k = k; info->groups = groups;
-        info->lane_bytes = spec.lane_bytes; info->rows_per_warp = spec.rows; info->warps_per_cta = spec.warps;
+        info->lane_bytes = spec.lane_bytes; info->rows_per_warp = spec.rows; info->warps_per_cta = spec.warps; info->depth = spec.depth;
         info->grid_x = grid_x; info->grid_y = groups; info->steps = omega_fp8_gemv_steps(&spec);
         info->weight_bytes = (uint64_t)groups * wstride; info->scale_bytes = (uint64_t)groups * sstride;
         info->kernel_cache_hit = hit;
@@ -253,6 +265,7 @@ static int gemv_core(const OmegaGpuFp8Tensor *t, uint32_t groups, const uint32_t
             .threads_x = 32u * spec.warps, .threads_y = 1, .grid_x = grid_x, .grid_y = groups,
             .num_elements = (size_t)groups * n,
             .args = args, .n_args = OMEGA_FP8_ARGS_WORDS, .timeout_ms = MARKER_TIMEOUT_MS,
+            .shared_bytes = omega_fp8_gemv_shared_bytes(&spec),
         };
         if (omega_gpu_session_launch(&L, info ? &info->elapsed_ns : NULL, info ? &info->completion_marker : NULL) != 0) rc = OMEGA_GPU_FP8_CHIP_FAIL;
     }

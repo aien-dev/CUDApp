@@ -77,6 +77,12 @@ typedef struct {
     uint32_t lane_bytes; /* 8 or 16 weight bytes per lane per step (LDG.E.64 / LDG.E.128); k must be a multiple of 256 */
     uint32_t rows;       /* rows per warp: 1, 2, 4 or 8 */
     uint32_t warps;      /* warps per CTA: 1 .. 8 */
+    uint32_t depth;      /* 0: one K step per loop iteration, x read from global memory each step.
+                          * D >= 1: "deep" kernel: the CTA stages its group's x' row in shared memory once
+                          * (k * 4 bytes, BAR.SYNC), then every loop iteration issues the weight and scale
+                          * loads of D consecutive K steps before using any of them (D x more bytes in
+                          * flight per warp); x comes from shared memory (LDS.128). Needs KS % D == 0,
+                          * rows * D * lane_bytes <= 128, k % (32 * warps) == 0 and k <= 512 * warps (staging rounds). */
     int mutant;          /* 0 production; 1, 2, 3 as above */
 } OmegaFp8GemvSpec;
 
@@ -88,6 +94,9 @@ int omega_blackwell_codegen_fp8_gemv(const OmegaFp8GemvSpec *spec, OmegaBlackwel
 
 /* K steps the kernel runs: k / (32 * lane_bytes). 0 when the spec is refused. */
 uint32_t omega_fp8_gemv_steps(const OmegaFp8GemvSpec *spec);
+
+/* Shared memory bytes the launch must declare: k * 4 for a deep kernel, 0 otherwise. */
+uint32_t omega_fp8_gemv_shared_bytes(const OmegaFp8GemvSpec *spec);
 
 /* The IR instruction count and peak GPR count of the solved program (for budgets in tests). */
 int omega_fp8_gemv_prog_stats(const OmegaFp8GemvSpec *spec, uint32_t *insns, uint32_t *gprs);

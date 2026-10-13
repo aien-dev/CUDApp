@@ -23,7 +23,7 @@
 #define NOREG (-1)
 #define MAX_LOOPS 4
 
-enum { K_FIXED, K_PRED, K_VAR, K_VAR_MORE, K_UVAR, K_STORE, K_EXIT, K_BRA, K_BSSY, K_BSYNC };
+enum { K_FIXED, K_PRED, K_VAR, K_VAR_MORE, K_UVAR, K_STORE, K_SYNC, K_EXIT, K_BRA, K_BSSY, K_BSYNC };
 
 typedef struct {
     BlackwellIRProgram *p;
@@ -43,6 +43,7 @@ static void emit(Em *e, BlackwellIRInsn in, int kind) {
     case K_VAR_MORE: in.control = CW(4, SB_GPR, SB_NONE, 0) | CW_YIELD; e->pending |= 1u << SB_GPR; break;
     case K_UVAR:  in.control = CW(4, SB_UGPR, SB_NONE, wait) | CW_YIELD; e->pending = 1u << SB_UGPR; break;
     case K_STORE: in.control = CW(4, SB_NONE, SB_RD, wait) | CW_YIELD; e->pending = 1u << SB_RD; break;
+    case K_SYNC:  in.control = CW(6, SB_NONE, SB_NONE, wait); e->pending = 0; break; /* BAR.SYNC after the STS: the attention kernel's chip-proven pattern */
     case K_EXIT:  in.control = CW(5, SB_NONE, SB_NONE, wait); e->pending = in.predicate_p0 ? wait : 0; break;
     case K_BRA:   in.control = CW(5, SB_NONE, SB_NONE, wait); e->pending = in.predicate_p0 ? wait : 0; break;
     case K_BSSY:  in.control = CW(1, SB_NONE, SB_NONE, wait) | CW_YIELD; e->pending = 0; break;
@@ -83,6 +84,9 @@ static void ldg_wide(Em *e, BlackwellIROpcode op, int d, int addr64, uint32_t im
 }
 static void ldg32(Em *e, int d, int addr64, int udesc, int first) { BlackwellIRInsn i = I0(BW_IR_LDG_E); i.dst_vreg = d; i.src1_vreg = addr64; i.ureg = udesc; emit(e, i, first ? K_VAR : K_VAR_MORE); }
 static void stg(Em *e, int addr64, uint32_t imm, int val, int udesc) { BlackwellIRInsn i = I0(BW_IR_STG_E); i.src1_vreg = addr64; i.src2_vreg = val; i.imm = imm; i.ureg = udesc; emit(e, i, K_STORE); }
+static void lds128(Em *e, int d128, int addr, uint32_t imm, int first) { BlackwellIRInsn i = I0(BW_IR_LDS128); i.dst_vreg = d128; i.src1_vreg = addr; i.imm = imm; emit(e, i, first ? K_VAR : K_VAR_MORE); }
+static void sts32(Em *e, int addr, int val) { BlackwellIRInsn i = I0(BW_IR_STS32); i.src1_vreg = addr; i.src2_vreg = val; emit(e, i, K_STORE); }
+static void bar_sync(Em *e) { emit(e, I0(BW_IR_BAR_SYNC), K_SYNC); }
 static void fadd(Em *e, int d, int a, int b) { BlackwellIRInsn i = I0(BW_IR_FADD); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; emit(e, i, K_FIXED); }
 /* d = a * b[bsub] + c */
 static void ffma(Em *e, int d, int a, int b, unsigned bsub, int c) { BlackwellIRInsn i = I0(BW_IR_FFMA); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; i.src2_subreg = (uint8_t)bsub; i.src3_vreg = c; emit(e, i, K_FIXED); }
@@ -124,12 +128,18 @@ static int spec_ok(const OmegaFp8GemvSpec *s) {
     if (s->warps < 1 || s->warps > 8) return 0;
     if (s->k == 0 || s->k > OMEGA_FP8_MAX_K || s->k % OMEGA_FP8_BLOCK || s->k % (32u * s->lane_bytes)) return 0;
     if (s->mutant < 0 || s->mutant > 3) return 0;
+    if (s->depth) { /* deep kernel: staging rounds (32-bit words, one per thread per round) must be exact and few */
+        uint32_t ks = s->k / (32u * s->lane_bytes);
+        if (s->depth > 16 || ks % s->depth || s->rows * s->depth * s->lane_bytes > 128u) return 0; /* <= 128 weight bytes per lane per iteration: instruction and register budgets */
+        if (s->k % (32u * s->warps) || s->k > 512u * s->warps) return 0;
+    }
     /* row offsets of a step must fit the 24-bit signed LDG immediate */
     if ((uint64_t)(s->rows - 1) * s->k + s->lane_bytes >= (1u << 23)) return 0;
     return 1;
 }
 
 uint32_t omega_fp8_gemv_steps(const OmegaFp8GemvSpec *spec) { return spec_ok(spec) ? spec->k / (32u * spec->lane_bytes) : 0; }
+uint32_t omega_fp8_gemv_shared_bytes(const OmegaFp8GemvSpec *spec) { return spec_ok(spec) && spec->depth ? spec->k * 4u : 0u; }
 
 /* e4m3 byte i of word w -> f32 bits (value * 2^-120): ((b & 0x7F) << 20) | ((b & 0x80) << 24) */
 static void decode_byte(Em *e, int f, int wq, unsigned word, unsigned i, int u, int a, int s) {
@@ -179,12 +189,32 @@ int omega_blackwell_codegen_fp8_gemv_prog(const OmegaFp8GemvSpec *spec, Blackwel
     shr(e, slane, lane, 0, (uint32_t)log2lpb); imadi(e, slane, slane, 0, 4, NOREG); /* scale word of this lane in a step */
     imadi(e, rg, cx, 0, W, warp);                   /* first row group of this warp */
 
+    const uint32_t D = spec->depth ? spec->depth : 1u; /* K steps per loop iteration */
+    const int deep = spec->depth != 0;
     int pw = V64(e), ps = V64(e), pxc = V64(e), pyr = V64(e), pya = V64(e), srg = V(e), cnt = V(e);
-    int acc[8], wq[8], xq[4]; /* xq[word]: the 4 x floats of weight word `word` (one 16-byte quad each) */
-    for (uint32_t r = 0; r < R; r++) { acc[r] = V(e); wq[r] = LB == 16 ? V128(e) : V64(e); }
+    int acc[8], wq[8][16], xq[4], sc[16], psd[16], xl = -1, xl0 = -1;
+    /* xq[word]: the 4 x floats of weight word `word` (one 16-byte quad each); wq[r][s]: row r, step s of the iteration */
+    for (uint32_t r = 0; r < R; r++) { acc[r] = V(e); for (uint32_t s = 0; s < D; s++) wq[r][s] = LB == 16 ? V128(e) : V64(e); }
     for (uint32_t q = 0; q < WORDS; q++) xq[q] = V128(e);
-    int sc = V(e), dot = V(e), u = V(e), a = V(e), s = V(e), f = V(e), t = V(e);
+    for (uint32_t s = 0; s < D; s++) { sc[s] = V(e); psd[s] = V64(e); }
+    int dot = V(e), u = V(e), a = V(e), sg = V(e), f = V(e), t = V(e);
     if (e->err) return -1;
+
+    if (deep) {
+        /* ---- stage this group's x' row in shared memory (k floats), one 32-bit word per thread per round ---- */
+        const uint32_t rounds = K / (32u * W);
+        int pxt = V64(e), sa0 = V(e), sa = V(e), pxs[16], xst[16];
+        for (uint32_t j = 0; j < rounds; j++) { pxs[j] = V64(e); xst[j] = V(e); }
+        xl = V(e); xl0 = V(e);
+        if (e->err) return -1;
+        imadw(e, pxt, tid, 4, xrow);
+        imadi(e, sa0, tid, 0, 4, NOREG);
+        for (uint32_t j = 0; j < rounds; j++) imadw(e, pxs[j], one, j * 128u * W, pxt);
+        for (uint32_t j = 0; j < rounds; j++) ldg32(e, xst[j], pxs[j], udesc, j == 0);
+        for (uint32_t j = 0; j < rounds; j++) { imadi(e, sa, one, 0, j * 128u * W, sa0); sts32(e, sa, xst[j]); }
+        bar_sync(e);
+        imadi(e, xl0, lane, 0, LB * 4u, NOREG);     /* this lane's x' chunk of step 0, shared byte offset */
+    }
 
     /* ---- row-group loop ---- */
     const int L_rg = here(e);
@@ -194,32 +224,37 @@ int omega_blackwell_codegen_fp8_gemv_prog(const OmegaFp8GemvSpec *spec, Blackwel
     imadw(e, pw, rg, R * K, wbase); imadw(e, pw, wlane, 1, pw);
     shr(e, srg, rg, 0, (uint32_t)log2rows_per_block);
     imadw(e, ps, srg, KB * 4u, sbase); imadw(e, ps, slane, 1, ps);
-    imadw(e, pxc, one, 0, xlane);
+    if (!deep) imadw(e, pxc, one, 0, xlane); else imadi(e, xl, xl0, 0, 1, NOREG);
     for (uint32_t r = 0; r < R; r++) movrz(e, acc[r]);
-    movi(e, cnt, KS);
+    movi(e, cnt, KS / D);
 
-    /* ---- K loop ---- */
+    /* ---- K loop: D steps per iteration, every load of the iteration issued before any use ---- */
     const int L_k = here(e);
     loop_begin(e);
     {
         int first = 1;
-        for (uint32_t q = 0; q < WORDS; q++) { ldg_wide(e, BW_IR_LDG_E_128, xq[q], pxc, q * 16u, udesc, first); first = 0; }
-        ldg32(e, sc, ps, udesc, 0);
-        for (uint32_t r = 0; r < R; r++) ldg_wide(e, ldw, wq[r], pw, r * K, udesc, 0);
+        if (!deep) { for (uint32_t q = 0; q < WORDS; q++) { ldg_wide(e, BW_IR_LDG_E_128, xq[q], pxc, q * 16u, udesc, first); first = 0; } }
+        for (uint32_t s = 0; s < D; s++) imadw(e, psd[s], one, spec->mutant == 2 ? 0u : s * BPS * 4u, ps);
+        for (uint32_t s = 0; s < D; s++) for (uint32_t r = 0; r < R; r++) { ldg_wide(e, ldw, wq[r][s], pw, r * K + s * 32u * LB, udesc, first); first = 0; }
+        for (uint32_t s = 0; s < D; s++) ldg32(e, sc[s], psd[s], udesc, 0);
     }
-    for (uint32_t r = 0; r < R; r++) {
-        movrz(e, dot);
-        for (uint32_t word = 0; word < WORDS; word++)
-            for (unsigned i = 0; i < 4; i++) {
-                decode_byte(e, f, wq[r], word, i, u, a, s);
-                ffma(e, dot, f, xq[word], i, dot);
-            }
-        if (spec->mutant == 1) fadd(e, acc[r], acc[r], dot);
-        else ffma(e, acc[r], dot, sc, 0, acc[r]);
+    for (uint32_t s = 0; s < D; s++) {
+        if (deep) { int first = 1; for (uint32_t q = 0; q < WORDS; q++) { lds128(e, xq[q], xl, s * 128u * LB + q * 16u, first); first = 0; } }
+        for (uint32_t r = 0; r < R; r++) {
+            movrz(e, dot);
+            for (uint32_t word = 0; word < WORDS; word++)
+                for (unsigned i = 0; i < 4; i++) {
+                    decode_byte(e, f, wq[r][s], word, i, u, a, sg);
+                    ffma(e, dot, f, xq[word], i, dot);
+                }
+            if (spec->mutant == 1) fadd(e, acc[r], acc[r], dot);
+            else ffma(e, acc[r], dot, sc[s], 0, acc[r]);
+        }
     }
-    imadw(e, pw, one, 32u * LB, pw);
-    imadw(e, pxc, one, 32u * LB * 4u, pxc);
-    imadw(e, ps, one, spec->mutant == 2 ? 0u : BPS * 4u, ps);
+    imadw(e, pw, one, D * 32u * LB, pw);
+    if (!deep) imadw(e, pxc, one, 32u * LB * 4u, pxc);
+    imadw(e, ps, one, spec->mutant == 2 ? 0u : D * BPS * 4u, ps);
+    if (deep) imadi(e, xl, one, 0, D * 128u * LB, xl);
     imadi(e, cnt, one, 0, 0xffffffffu, cnt);
     isetp_ge_u32(e, cnt, one);
     bra_if_p0(e, L_k);
