@@ -284,6 +284,7 @@ static int chip_run(const char *out_path, uint32_t reps) {
                 size_t mb = 0; double mw = 0; uint16_t k2[512], v2[512];
                 if (r == OMEGA_GPU_DATTN_OK) { mb = parity(&c, y2, 1.0f, &mw, k2, v2); }
                 int caught = r != OMEGA_GPU_DATTN_OK || mb > 0;
+                if (m == 4 && info.grid_x == 1) { printf("chip %-24s mutant 4: inert (1 split, the combine is not exercised)\n", pts[i].name); omega_gpu_decode_attn_test_set_mutant(0); continue; }
                 CHECK(caught, "chip mutant %d NOT caught", m);
                 printf("chip %-24s mutant %d: %s (rc=%s bad=%zu worst=%.3f)\n", pts[i].name, m, caught ? "caught" : "MISSED", omega_gpu_decode_attn_rc_name(r), mb, mw);
                 if (out) fprintf(out, ",{\"name\":\"%s mutant %d\",\"caught\":%d,\"rc\":\"%s\",\"bad\":%zu,\"worst_of_tol\":%.3f}", pts[i].name, m, caught, omega_gpu_decode_attn_rc_name(r), mb, mw);
