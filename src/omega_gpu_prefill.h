@@ -53,6 +53,31 @@ int omega_gpu_pf_kernel_locked(const OmegaPfKey *key, OmegaPfGen gen, OmegaPfKer
 int omega_gpu_pf_launch_locked(const OmegaPfKernel *k, uint32_t threads, uint32_t grid_x, uint32_t grid_y, uint32_t shared_bytes,
                                const uint32_t *args, uint32_t n_args, uint64_t *ns);
 int omega_gpu_pf_open_locked(void); /* opens the device, registers the hook: OMEGA_GPU_PF_OK or CHIP_FAIL */
+
+/* ---- GEMM v2 (omega_gpu_pfgemm.c, kernels omega_blackwell_codegen_tc2.h) ----
+ * Weights live in device buffers in the kernel's PHYSICAL row order with the per-8-row ratio table (tc2 header).
+ * Layout PLAIN: rows unchanged. Layout SWIGLU: w is [E][2I][k] with the I gate rows first then the I up rows (scales
+ * [E][2I/128][k/128]); physical row p = 16G + h holds gate (h < 8) or up (h >= 8) of intermediate index
+ * i = perm(8G + h % 8), perm = the (0,2,1,3) group permutation, so the SwiGLU epilogue writes act rows in stored order. */
+#ifndef OMEGA_GPU_PF_LAYOUTS
+#define OMEGA_GPU_PF_LAYOUTS
+enum { OMEGA_GPU_PF_PLAIN = 0, OMEGA_GPU_PF_SWIGLU = 1 };
+#endif
+typedef struct { OmegaGpuMem w, r; uint32_t experts, n, k, layout; } OmegaPfWeights;
+/* w: experts * n * k e4m3 bytes; scale_inv: experts * (n/128) * (k/128) bf16 (checkpoint weight_scale_inv) */
+int omega_gpu_pf_weights_upload(uint32_t experts, uint32_t n, uint32_t k, const uint8_t *w, const uint16_t *scale_inv, uint32_t layout, OmegaPfWeights *out);
+void omega_gpu_pf_weights_free(OmegaPfWeights *w);
+/* the host-side physical form (tests and emulation): pw experts * n * k, ratio experts * (n/8) * (k/128 + 1) f32 */
+int omega_gpu_pf_weights_host_form(uint32_t experts, uint32_t n, uint32_t k, const uint8_t *w, const uint16_t *scale_inv, uint32_t layout, uint8_t *pw, float *ratio);
+uint32_t omega_gpu_pf_gemm_bm(void); /* rows per tile */
+/* tile table (32-byte entries) for rows sorted by expert: counts[e] rows of expert e; returns the tile count (<= max) or 0 */
+uint32_t omega_gpu_pf_gemm_tiles(const OmegaPfWeights *w, const uint32_t *counts, void *tab, uint32_t max);
+/* one launch. rowidx_va 0 = direct rows (row r reads x row r). x: bf16 stored rows of k (rows to row0+bm-1 readable);
+ * y: f32 rows of n (PLAIN) or bf16 act rows of n/2 (SWIGLU). */
+int omega_gpu_pf_gemm(const OmegaPfWeights *w, uint64_t tiles_va, uint32_t ntiles, uint64_t rowidx_va, uint64_t x_va, uint64_t y_va, uint64_t *ns);
+/* measurement knobs (0 restores): rt, warps, aqn; test-only mutant */
+void omega_gpu_pf_gemm_set_shape(uint32_t rt, uint32_t warps, uint32_t aqn);
+void omega_gpu_pf_gemm_test_set_mutant(int m);
 #ifdef __cplusplus
 }
 #endif
