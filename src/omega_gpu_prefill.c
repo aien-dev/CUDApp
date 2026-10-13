@@ -2,6 +2,7 @@
 #include "omega_gpu_prefill.h"
 #include "omega_blackwell_codegen_pf.h"
 #include "omega_blackwell_codegen_tc.h"
+#include "omega_blackwell_codegen_qmma.h"
 #include "omega_gpu_platform.h"
 #include "omega_gpu_fmt.h"
 #include <string.h>
@@ -91,6 +92,7 @@ int omega_gpu_pf_kernel_locked(const OmegaPfKey *key, OmegaPfGen gen, OmegaPfKer
     OmegaBlackwellKernel kernel;
     cg = omega_blackwell_kernel_encode_into(prog, code.cpu, need, &kernel);
     if (cg == 0 && omega_tc_patch_code(prog, code.cpu, need) < 0) cg = -1;
+    if (cg == 0 && omega_qmma_patch_code(prog, code.cpu, need) < 0) cg = -1;
     omega_gpu_host_free(prog);
     if (cg != 0 || kernel.code_size != need) { omega_gpu_session_free(&code); omega_gpu_session_set_error("prefill encode failed"); return OMEGA_GPU_PF_CODEGEN_FAIL; }
     if (omega_gpu_session_sync_to_gpu(&code) != 0) { omega_gpu_session_free(&code); return OMEGA_GPU_PF_CHIP_FAIL; }
