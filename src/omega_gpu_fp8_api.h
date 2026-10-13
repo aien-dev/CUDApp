@@ -95,6 +95,12 @@ int omega_gpu_fp8_gemv_f32(const OmegaGpuFp8Tensor *t, uint32_t expert, const fl
 int omega_gpu_fp8_gemv_bf16(const OmegaGpuFp8Tensor *t, uint32_t expert, const uint16_t *x, float *y, OmegaGpuFp8Info *info);
 int omega_gpu_fp8_gemv_grouped_f32(const OmegaGpuFp8Tensor *t, uint32_t groups, const uint32_t *expert_ids,
                                    const float *x, uint32_t x_rows, float *y, OmegaGpuFp8Info *info);
+/* Device-resident inputs (OWN-30B router, 2026-10-13): the group table ({w_va, s_va} per group, `groups` entries) and
+ * the single x' row (f32, k values, already * 2^64) are read from tab_va / x_va, which another launch (the router)
+ * wrote; no host copy of either. y and the poison check as above. */
+int omega_gpu_fp8_gemv_grouped_dev(const OmegaGpuFp8Tensor *t, uint32_t groups, uint64_t tab_va, uint64_t x_va, float *y, OmegaGpuFp8Info *info);
+/* Device addresses of one expert's weights and scales (for a directory the router copies from). */
+int omega_gpu_fp8_tensor_entry(const OmegaGpuFp8Tensor *t, uint32_t expert, uint64_t *w_va, uint64_t *s_va);
 
 /* Serving: build and pin the kernel for width k (the one the automatic shape choice uses for that k). */
 int omega_gpu_fp8_prepare(uint32_t k);
