@@ -237,7 +237,7 @@ static size_t qcompare(const QProb *p, const void *y, const uint32_t *rows, uint
         const uint32_t i = rows[q]; qemu_row(p, i, yf, ya);
         if (p->layout == OMEGA_GPU_PF_PLAIN) { const uint32_t *g = (const uint32_t *)y + (size_t)i * p->n; for (uint32_t c = 0; c < p->n; c++) if (g[c] != f2u(yf[c])) { if (getenv("PFDBG") && bad < 6) printf("  row %u col %u got %.9g want %.9g\n", i, c, u2f(g[c]), yf[c]); bad++; } }
         else { const uint16_t *g = (const uint16_t *)y + (size_t)i * (p->n / 2);
-            for (uint32_t c = 0; c < p->n / 2; c++) if (g[c] != ya[c]) { int d = abs((int)g[c] - (int)ya[c]); if (d <= tol_ulp && ((g[c] ^ ya[c]) & 0x8000) == 0) { if (ulp1) (*ulp1)++; } else { if (getenv("PFDBG") && bad < 6) printf("  row %u act %u got %04x want %04x\n", i, c, g[c], ya[c]); bad++; } } }
+            for (uint32_t c = 0; c < p->n / 2; c++) if (g[c] != ya[c]) { int d = abs((int)g[c] - (int)ya[c]); if (d <= tol_ulp && ((g[c] ^ ya[c]) & 0x8000) == 0) { if (ulp1) (*ulp1)++; } else { if (getenv("PFDBG") && bad < 12) { const uint32_t G = c / 8, mm = c % 8; printf("  row %u act %u got %04x want %04x (g %.9g u %.9g)\n", i, c, g[c], ya[c], qemu_phys(p, i, 16 * G + mm), qemu_phys(p, i, 16 * G + 8 + mm)); } bad++; } } }
     }
     free(yf); free(ya);
     return bad;
