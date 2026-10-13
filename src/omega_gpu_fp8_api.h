@@ -105,7 +105,7 @@ const char *omega_gpu_fp8_last_error(void);
 void omega_gpu_fp8_cache_clear(void);
 
 /* ---- measurement knobs (tests; each clears the kernel cache) ---- */
-/* Kernel shape override: lane_bytes 8/16, rows 1/2/4/8, warps 1..8; 0 = automatic. */
+/* Kernel shape override: lane_bytes 8/16, rows 1/2/4/8, warps 1..32; 0 = automatic. */
 void omega_gpu_fp8_set_shape(uint32_t lane_bytes, uint32_t rows_per_warp, uint32_t warps_per_cta);
 /* Kernel depth override: set = 0 automatic (deep for a single projection of at most 4 MiB whose row fits: rows * k <= 4096), set = 1 forces `depth`
  * (0 = step-by-step kernel). Each call clears the kernel cache. */

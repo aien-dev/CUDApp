@@ -129,13 +129,13 @@ static int spec_ok(const OmegaFp8GemvSpec *s) {
     if (!s) return 0;
     if (s->lane_bytes != 8 && s->lane_bytes != 16) return 0; /* LDG.E (32-bit) carries no immediate offset: no 4-byte lanes */
     if (s->rows != 1 && s->rows != 2 && s->rows != 4 && s->rows != 8) return 0;
-    if (s->warps < 1 || s->warps > 8) return 0;
+    if (s->warps < 1 || s->warps > 32) return 0; /* threads_x = 32 * warps <= 1024 */
     if (s->k == 0 || s->k > OMEGA_FP8_MAX_K || s->k % OMEGA_FP8_BLOCK || s->k % (32u * s->lane_bytes)) return 0;
     if (s->mutant < 0 || s->mutant > 3) return 0;
     if (s->depth) { /* deep kernel: staging rounds (32-bit words, one per thread per round) must be exact and few */
         uint32_t ks = s->k / (32u * s->lane_bytes);
         if (s->depth > 16 || ks % s->depth || s->rows * s->depth * s->lane_bytes > 128u) return 0; /* <= 128 weight bytes per lane per iteration: instruction and register budgets */
-        if (s->k % (32u * s->warps) || s->k > 512u * s->warps) return 0;
+        if (s->k > 512u * s->warps) return 0; /* at most 16 staging rounds; a partial last round is clamped */
     }
     /* row offsets of a step must fit the 24-bit signed LDG immediate */
     if ((uint64_t)(s->rows - 1) * s->k + s->lane_bytes >= (1u << 23)) return 0;
@@ -143,7 +143,7 @@ static int spec_ok(const OmegaFp8GemvSpec *s) {
 }
 
 uint32_t omega_fp8_gemv_steps(const OmegaFp8GemvSpec *spec) { return spec_ok(spec) ? spec->k / (32u * spec->lane_bytes) : 0; }
-uint32_t omega_fp8_gemv_shared_bytes(const OmegaFp8GemvSpec *spec) { return spec_ok(spec) && spec->depth ? spec->k * 4u : 0u; }
+uint32_t omega_fp8_gemv_shared_bytes(const OmegaFp8GemvSpec *spec) { return spec_ok(spec) && spec->depth ? spec->k * 4u + 16u : 0u; } /* + one dummy slot for the clamped threads of a partial round */
 
 /* e4m3 byte i of word w -> f32 bits (value * 2^-120): ((b & 0x7F) << 20) | ((b & 0x80) << 24) */
 static void decode_byte(Em *e, int f, int wq, unsigned word, unsigned i, int u, int a, int s) {
@@ -206,16 +206,33 @@ int omega_blackwell_codegen_fp8_gemv_prog(const OmegaFp8GemvSpec *spec, Blackwel
 
     if (deep) {
         /* ---- stage this group's x' row in shared memory (k floats), one 32-bit word per thread per round ---- */
-        const uint32_t rounds = K / (32u * W);
-        int pxt = V64(e), sa0 = V(e), sa = V(e), pxs[16], xst[16];
+        const uint32_t rounds = (K + 32u * W - 1u) / (32u * W);
+        int pxt = V64(e), sa0 = V(e), sa = V(e), sap = V(e), pxs[16], xst[16], kq = V(e), over = V(e), tq = V(e), qs = V(e), qg = V(e);
         for (uint32_t j = 0; j < rounds; j++) { pxs[j] = V64(e); xst[j] = V(e); }
         xl = V(e); xl0 = V(e);
         if (e->err) return -1;
         imadw(e, pxt, tid, 4, xrow);
         imadi(e, sa0, tid, 0, 4, NOREG);
         for (uint32_t j = 0; j < rounds; j++) imadw(e, pxs[j], one, j * 128u * W, pxt);
+        if (K % (32u * W)) {
+            /* partial last round: word q = tid + j * 32 W may pass K. over = (q >= K) as 0/1 = (K - 1 - q) >> 31;
+             * the load is clamped to x[K - 1] and the store to the dummy slot K (never read). */
+            const uint32_t j = rounds - 1u;
+            imadi(e, kq, tid, 0, 1, NOREG); imadi(e, kq, one, 0, j * 32u * W, kq);          /* q */
+            imadi(e, tq, kq, 0, 0xffffffffu, NOREG); imadi(e, tq, one, 0, K - 1u, tq);     /* K - 1 - q */
+            shr(e, over, tq, 0, 31);                                                        /* 1 iff q >= K */
+            imadi(e, tq, kq, 0, 1, NOREG); imadi(e, tq, one, 0, (uint32_t)(0u - K), tq);   /* q - K */
+            imadr(e, qs, over, tq, NOREG); imadi(e, qs, qs, 0, 0xffffffffu, kq);           /* q - over * (q - K): K when over */
+            imadi(e, qg, tq, 0, 1, NOREG); imadi(e, qg, one, 0, 1, qg);                   /* q - K + 1 */
+            imadr(e, qg, over, qg, NOREG); imadi(e, qg, qg, 0, 0xffffffffu, kq);           /* K - 1 when over */
+            imadw(e, pxs[j], qg, 4, xrow);
+            imadi(e, sap, qs, 0, 4, NOREG);
+        }
         for (uint32_t j = 0; j < rounds; j++) ldg32(e, xst[j], pxs[j], udesc, j == 0);
-        for (uint32_t j = 0; j < rounds; j++) { imadi(e, sa, one, 0, j * 128u * W, sa0); sts32(e, sa, xst[j]); }
+        for (uint32_t j = 0; j < rounds; j++) {
+            if (K % (32u * W) && j == rounds - 1u) { sts32(e, sap, xst[j]); continue; }
+            imadi(e, sa, one, 0, j * 128u * W, sa0); sts32(e, sa, xst[j]);
+        }
         bar_sync(e);
         imadi(e, xl0, lane, 0, LB * 4u, NOREG);     /* this lane's x' chunk of step 0, shared byte offset */
     }

@@ -76,7 +76,7 @@ typedef struct {
     uint32_t k;          /* input columns: multiple of 128 and of 32 * lane_bytes, <= OMEGA_FP8_MAX_K */
     uint32_t lane_bytes; /* 8 or 16 weight bytes per lane per step (LDG.E.64 / LDG.E.128); k must be a multiple of 256 */
     uint32_t rows;       /* rows per warp: 1, 2, 4 or 8 */
-    uint32_t warps;      /* warps per CTA: 1 .. 8 */
+    uint32_t warps;      /* warps per CTA: 1 .. 32 (the host simulator runs up to 8) */
     uint32_t depth;      /* 0: one K step per loop iteration, x read from global memory each step.
                           * D >= 1: "deep" kernel: the CTA stages its group's x' row in shared memory once
                           * (k * 4 bytes, BAR.SYNC), then every loop iteration issues the weight and scale

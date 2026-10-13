@@ -169,7 +169,7 @@ static void host_only(void) {
     { OmegaFp8GemvSpec bad = { .k = 192, .lane_bytes = 8, .rows = 1, .warps = 1 }; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "k not a multiple of 128 refused");
       bad.k = 256; bad.lane_bytes = 4; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "lane_bytes 4 refused (LDG.E has no immediate offset)"); bad.lane_bytes = 8;
       bad.k = 2048; bad.rows = 3; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "rows 3 refused");
-      bad.rows = 8; bad.warps = 9; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "warps 9 refused");
+      bad.rows = 8; bad.warps = 33; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "warps 33 refused");
       bad.warps = 8; bad.lane_bytes = 32; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "lane_bytes 32 refused");
       bad.lane_bytes = 16; bad.k = 32768; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "k past the limit refused"); }
 
@@ -288,6 +288,7 @@ static void sim_battery(uint32_t cta_budget) {
         { 4, 256, 2048, 4, 1, 16, 8, 8, "4 experts shared x (gate+up)" },
         { 6, 256, 768, 8, 8, 8, 4, 8, "8 groups per-group x, repeated ids (down)" },
         { 3, 128, 256, 2, 2, 8, 8, 4, "2 groups per-group x" },
+        { 2, 256, 768, 2, 2, 8, 1, 7, "k768 w7: partial staging round (deep)" },
     };
     const size_t npts = sizeof pts / sizeof pts[0];
     double worst_all = 0.0;
@@ -301,7 +302,7 @@ static void sim_battery(uint32_t cta_budget) {
         /* every point runs the step-by-step kernel (depth 0) and, when the row fits, the deep kernel (depth = KS) */
         for (int deep = 0; deep < 2; deep++) {
         OmegaFp8GemvSpec sp = { .k = p->k, .lane_bytes = p->lb, .rows = p->rows, .warps = p->warps };
-        if (deep) { sp.depth = omega_fp8_gemv_steps(&sp); if (sp.depth * sp.rows * sp.lane_bytes > 128 || p->k % (32 * p->warps) || p->k > 512 * p->warps) continue; }
+        if (deep) { sp.depth = omega_fp8_gemv_steps(&sp); if (sp.depth * sp.rows * sp.lane_bytes > 128 || p->k > 512 * p->warps) continue; }
         char nm[96]; snprintf(nm, sizeof nm, "%s%s", p->name, deep ? " deep" : "");
         double t0 = now_ms();
         int rc = sim_gemv(&sp, &W, p->groups, ids, x, p->x_rows, y, cta_budget, 0, msg, sizeof msg);
