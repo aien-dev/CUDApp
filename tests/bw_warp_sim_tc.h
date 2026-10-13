@@ -51,7 +51,7 @@
 #include "omega_blackwell_codegen_qmma.h"
 #include "bw_qmma_model.h"
 /* QMMA arithmetic used by the simulator (W-L1G): set by the test to the chip-measured model (gpu_qmma_probe_test) */
-static QmmaModel ws_qmma_model = { 32, 24, 0, 0, 0 };
+static QmmaModel ws_qmma_model = { 32, 26, 0, 2, 0 }; /* chip-exact 262144/262144, evidence OWN30B-L1G-QMMA-PFGEMM-c742aa13 */
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
