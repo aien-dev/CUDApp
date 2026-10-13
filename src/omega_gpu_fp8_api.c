@@ -80,12 +80,12 @@ void omega_gpu_fp8_seal(int on) { omega_gpu_session_lock(); g.sealed = on ? 1 : 
 
 /* ---- shape choice ---- */
 
-/* Largest lane width dividing k (16 for k % 512 == 0: one LDG.E.128 per row per step); rows per warp so
- * that at least ~512 warps have a row group (bandwidth needs loads in flight), else fewer rows per warp. */
+/* Largest lane width dividing k (16 for k % 512 == 0: one LDG.E.128 per row per step); one row per warp:
+ * the chip sweep (evidence/OWN30B-FP8-GEMV-7ce5dd4b-*, rows 1/2/4/8 one variable at a time) measured rows = 1
+ * fastest at every shape (more warps and CTAs in flight on the same bytes beats fewer, wider warps). */
 void omega_gpu_fp8_shape_for(uint32_t k, uint32_t n, uint32_t *lane_bytes, uint32_t *rows, uint32_t *warps) {
     uint32_t lb = k % 512u == 0 ? 16u : 8u; /* k % 256 == 0 is required (codegen refuses otherwise) */
-    uint32_t r = 8;
-    while (r > 1 && n / r < 512u) r /= 2;
+    uint32_t r = 1; (void)n;
     if (lane_bytes) *lane_bytes = g.lane_bytes ? g.lane_bytes : lb;
     if (rows) *rows = g.rows ? g.rows : r;
     if (warps) *warps = g.warps ? g.warps : 8u;

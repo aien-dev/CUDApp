@@ -326,6 +326,16 @@ static void sim_battery(uint32_t cta_budget) {
 /* ------------------------------------------------------------------- chip */
 typedef struct { uint32_t experts, n, k, groups, x_rows; const char *name; int parity_check; } ChipPoint;
 
+static int g_evict = 1; /* stream 512 MB through the host caches between upload and timing (nvrm.c:433: freshly written
+                          host memory is served from the CPU caches by snooping and reads faster) */
+static void evict_host_caches(void) {
+    static uint8_t *buf; const size_t sz = 512u << 20; static uint8_t pass;
+    if (!buf) buf = malloc(sz);
+    if (!buf) return;
+    memset(buf, ++pass, sz);
+    volatile uint64_t sum = 0; for (size_t i = 0; i < sz; i += 64) sum += buf[i];
+}
+
 static int chip_run(const char *out_path, uint32_t reps) {
     FILE *out = out_path ? fopen(out_path, "w") : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 1; }
@@ -393,6 +403,7 @@ static int chip_run(const char *out_path, uint32_t reps) {
         /* timing: median of reps */
         uint64_t *el = calloc(reps, sizeof *el), *cl = calloc(reps, sizeof *cl);
         uint32_t done = 0;
+        if (g_evict) evict_host_caches();
         for (uint32_t r = 0; r < reps && ok; r++) {
             OmegaGpuFp8Info ti; if (omega_gpu_fp8_gemv_grouped_f32(t, p->groups, ids, x, p->x_rows, y2, &ti) != OMEGA_GPU_FP8_OK) break;
             el[r] = ti.elapsed_ns; cl[r] = ti.call_ns; done++;
@@ -404,9 +415,9 @@ static int chip_run(const char *out_path, uint32_t reps) {
                p->name, omega_gpu_fp8_rc_name(rc), bad, worst, info.grid_x, info.grid_y, info.lane_bytes, info.rows_per_warp, info.warps_per_cta,
                info.weight_bytes + info.scale_bytes, up_ms, med_el / 1e3, gbs, med_cl / 1e3, gbs_call, done);
         if (out) fprintf(out, "%s{\"name\":\"%s\",\"experts\":%u,\"n\":%u,\"k\":%u,\"groups\":%u,\"x_rows\":%u,\"rc\":\"%s\",\"bad\":%zu,\"worst_rel\":%.3e,\"second_call_identical\":%d,"
-                         "\"grid_x\":%u,\"grid_y\":%u,\"lane_bytes\":%u,\"rows_per_warp\":%u,\"warps_per_cta\":%u,\"bytes\":%" PRIu64 ",\"upload_ms\":%.2f,\"chip_median_ns\":%" PRIu64 ",\"gbps_chip\":%.2f,\"call_median_ns\":%" PRIu64 ",\"gbps_call\":%.2f,\"reps\":%u,\"marker\":%u}",
+                         "\"grid_x\":%u,\"grid_y\":%u,\"lane_bytes\":%u,\"rows_per_warp\":%u,\"warps_per_cta\":%u,\"bytes\":%" PRIu64 ",\"upload_ms\":%.2f,\"chip_median_ns\":%" PRIu64 ",\"gbps_chip\":%.2f,\"call_median_ns\":%" PRIu64 ",\"gbps_call\":%.2f,\"reps\":%u,\"marker\":%u,\"evict\":%d}",
                          first ? "" : ",", p->name, p->experts, p->n, p->k, p->groups, p->x_rows, omega_gpu_fp8_rc_name(rc), bad, worst, same,
-                         info.grid_x, info.grid_y, info.lane_bytes, info.rows_per_warp, info.warps_per_cta, info.weight_bytes + info.scale_bytes, up_ms, med_el, gbs, med_cl, gbs_call, done, info.completion_marker);
+                         info.grid_x, info.grid_y, info.lane_bytes, info.rows_per_warp, info.warps_per_cta, info.weight_bytes + info.scale_bytes, up_ms, med_el, gbs, med_cl, gbs_call, done, info.completion_marker, g_evict);
         first = 0;
         free(el); free(cl);
         /* mutants on the first grouped point and the gate shape: each must be caught on the chip */
@@ -445,6 +456,7 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--warps") == 0 && i + 1 < argc) warps = (uint32_t)atoi(argv[++i]);
         else if (strcmp(argv[i], "--cta-budget") == 0 && i + 1 < argc) budget = (uint32_t)atoi(argv[++i]);
         else if (strcmp(argv[i], "--spin-us") == 0 && i + 1 < argc) spin = (uint32_t)atoi(argv[++i]);
+        else if (strcmp(argv[i], "--no-evict") == 0) g_evict = 0;
         else { printf("unknown argument %s\n", argv[i]); return 2; }
     }
     if (host) host_only();
