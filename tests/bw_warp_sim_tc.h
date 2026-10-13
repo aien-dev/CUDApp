@@ -47,6 +47,7 @@
 
 #include "omega_blackwell_codegen.h"
 #include "bw_hmma_model.h"
+#include "omega_blackwell_codegen_tc.h"
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -119,6 +120,7 @@ static uint32_t ws_rds(const WsLane *l, int v, unsigned sub, const BlackwellIRPr
 static void ws_wrs(WsLane *l, int v, unsigned sub, uint32_t x, const BlackwellIRProgram *p) { if (v < 0) return; int ph = p->regalloc.vreg_to_phys[v]; if (ph >= 0) l->r[(ph + sub) & 0xff] = x; }
 static float ws_u2f(uint32_t u) { float f; memcpy(&f, &u, 4); return f; }
 static uint32_t ws_f2u(float f) { uint32_t u; memcpy(&u, &f, 4); return u; }
+static uint32_t ws_bf16_rn(uint32_t u) { if ((u & 0x7fffffffu) > 0x7f800000u) return 0x7fc0u; return (u + 0x7fffu + ((u >> 16) & 1u)) >> 16; } /* f32 bits -> bf16 bits, round to nearest even */
 static uint32_t ws_lut3(uint32_t lut, uint32_t a, uint32_t b, uint32_t c) {
     uint32_t r = 0;
     for (int i = 0; i < 8; i++) if (lut >> i & 1) r |= ((i & 4) ? a : ~a) & ((i & 2) ? b : ~b) & ((i & 1) ? c : ~c);
@@ -169,7 +171,9 @@ static void ws_lane_exec(WsSim *s, WsLane *l, const BlackwellIRInsn *in, int pc,
     case BW_IR_FSUB: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_u2f(a) - ws_u2f(b)), p); break;
     case BW_IR_FMUL: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_u2f(a) * ws_u2f(b)), p); break;
     case BW_IR_FFMA: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fmaf(ws_u2f(a), ws_u2f(b), ws_u2f(c))), p); break;
-    case BW_IR_FMNMX_MAX: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fmaxf(ws_u2f(a), ws_u2f(b))), p); break;
+    case BW_IR_FMNMX_MAX:
+        if (in->imm == OMEGA_TC_MARK_F2FP) { ws_wrs(l, in->dst_vreg, in->dst_subreg, (ws_bf16_rn(a) << 16) | ws_bf16_rn(b), p); break; } /* F2FP.BF16.F32.PACK_AB placeholder */
+        ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fmaxf(ws_u2f(a), ws_u2f(b))), p); break;
     case BW_IR_FMNMX_MIN: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fminf(ws_u2f(a), ws_u2f(b))), p); break;
     case BW_IR_MUFU_EX2: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(exp2f(ws_u2f(a))), p); break;
     case BW_IR_MUFU_RCP: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(1.0f / ws_u2f(a)), p); break;
@@ -278,7 +282,10 @@ static int ws_run_warp(WsSim *s, WsWarp *w, uint32_t warp, uint32_t cx, uint32_t
             if (mask != live) { ws_fail(s, WS_E_SHFL_SPLIT, pc, "SHFL on a split warp"); return -1; }
             uint32_t src[WS_WARP];
             for (int L = 0; L < WS_WARP; L++) src[L] = ws_rd(&w->lane[L], in->src1_vreg, p);
-            for (int L = 0; L < WS_WARP; L++) { int from = L + (int)(in->imm & 31); ws_wr(&w->lane[L], in->dst_vreg, from < WS_WARP ? src[from] : src[L], p); }
+            for (int L = 0; L < WS_WARP; L++) {
+                int from = (in->imm & OMEGA_TC_MARK_BFLY) ? (L ^ (int)(in->imm & 31)) : L + (int)(in->imm & 31); /* BFLY placeholder (omega_blackwell_codegen_tc.h) */
+                ws_wr(&w->lane[L], in->dst_vreg, from < WS_WARP ? src[from] : src[L], p);
+            }
             f->pc = pc + 1;
             break;
         }

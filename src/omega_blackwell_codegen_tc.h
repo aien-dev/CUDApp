@@ -71,6 +71,27 @@ void omega_tcgemm_permute_x(const float *x, uint32_t k, uint16_t *out);
 /* e4m3 code -> the bf16 bits the kernel feeds the HMMA (value * 2^-120) */
 uint16_t omega_tcgemm_w_bf16(uint8_t code);
 
+/* tensor-core peak microbenchmark: each thread runs `iters` x `chains` HMMA.16816.F32.BF16 (A = B = 1.0, C chained per
+ * accumulator, `stall` cycles between issues), then stores its chains x 4 accumulators at out (arg 0x380) + (ctaid * threads +
+ * tid) * 16 * chains. Every stored value must be 16 * iters (a hazard on a chained accumulator shows as a wrong value). */
+int omega_blackwell_codegen_tc_peak_prog(uint32_t iters, uint32_t chains, uint32_t stall, uint32_t threads, BlackwellIRProgram *prog);
+
+/* ---- opcodes the shared encoder lacks, emitted as same-footprint placeholders and patched after encoding ----
+ * SHFL.BFLY PT, Rd, Ra, lane, 0x1f: a BW_IR_SHFL_DOWN whose imm carries OMEGA_TC_MARK_BFLY; the patch sets bit 26 of word 1
+ *   (nvcc 13.0.88 sm_121 oracle, investigations/2026-10-13-t3-mma-oracle/attn/fa_ops.sass: SHFL.BFLY PT, R5, R0, 0x1, 0x1f =
+ *   0x0c201f0000057f89 / 0x004e2800000e0000; the shared encoder's SHFL.DOWN word 1 is 0x08001f00 | lane << 21).
+ * F2FP.BF16.F32.PACK_AB Rd, Ra, Rb (Rd = bf16_rn(Ra) << 16 | bf16_rn(Rb)): a BW_IR_FMNMX_MAX whose imm is OMEGA_TC_MARK_F2FP;
+ *   the patch rewrites the opcode to 0x723e and word 2 to 0x000010ff (oracle: F2FP.BF16.F32.PACK_AB R9, R3, R0 =
+ *   0x000000000309723e / 0x000fe200000010ff; registers stay at Rd 16..23, Ra 24..31, Rb 32..39 as FMNMX). F2FP needs no
+ *   scoreboard in the oracle (fixed latency), as FMNMX. */
+#define OMEGA_TC_MARK_BFLY 0x80000000u
+#define OMEGA_TC_MARK_F2FP 0x46320000u
+/* patch the encoded code (len bytes, one 16-byte word per IR instruction); returns the number patched or -1 on a word that
+ * does not hold the expected placeholder bits */
+int omega_tc_patch_code(const BlackwellIRProgram *prog, uint8_t *code, size_t len);
+/* encoder self-test: placeholders encoded and patched against the oracle words (register fields excluded); 0 = pass */
+int omega_tc_patch_selftest(char *msg, size_t msgn);
+
 #ifdef __cplusplus
 }
 #endif

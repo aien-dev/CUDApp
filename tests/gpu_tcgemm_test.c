@@ -108,6 +108,7 @@ static int host_only(void) {
         unsigned e = (c >> 3) & 15, m = c & 7; double v = e ? ldexp(1.0 + m / 8.0, (int)e - 7) : ldexp(m / 8.0, -6); if (c & 0x80) v = -v;
         if ((double)u2f((uint32_t)omega_tcgemm_w_bf16((uint8_t)c) << 16) != ldexp(v, -120)) { printf("decode code %02x wrong\n", c); fail++; }
     }
+    { char pm[200]; int pr = omega_tc_patch_selftest(pm, sizeof pm); printf("placeholder patch self-test: %s (%s)\n", pr ? "FAIL" : "ok", pm); if (pr) fail++; }
     /* production shapes: instructions and registers (declared = peak + 2 rounded to 8 <= 128; 32 * warps * declared <= 65536) */
     static const OmegaTcGemmSpec shapes[] = {
         { 2048, 4, 2, 8, 0 }, { 768, 4, 2, 8, 0 }, { 4096, 4, 2, 8, 0 }, { 2048, 4, 1, 8, 0 }, { 2048, 2, 2, 4, 0 }, { 2048, 4, 2, 4, 0 }, { 768, 4, 2, 4, 0 },

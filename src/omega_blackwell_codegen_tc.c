@@ -7,6 +7,7 @@
  *   a consumer of an HMMA result (dependent HMMA, store): HMMA stall 15 then NOP stall 13..14 (about 29 cycles), as
  *   omega_blackwell_verify_codegen_fixtures_fragmm records. */
 #include "omega_blackwell_codegen_tc.h"
+#include "omega_gpu_fmt.h"
 #include <string.h>
 
 /* the full emitter set is shared by the probe and the GEMM generator; not every kernel uses every helper */
@@ -356,6 +357,93 @@ int omega_blackwell_codegen_tcgemm_prog(const OmegaTcGemmSpec *spec, BlackwellIR
         bsync(e);
         patch_bra(e, bra_skip, at_bsync);
         patch_bra(e, at_bssy, at_bsync + 1);
+    }
+    tail(e);
+    if (e->err) return -1;
+    return omega_bw_regalloc_solve(prog);
+}
+
+/* ---------------------------------------------------------------- placeholder opcodes (header: OMEGA_TC_MARK_*) */
+static void shfl_bfly(Em *e, int d, int a, uint32_t lane) { shfl_down(e, d, a, OMEGA_TC_MARK_BFLY | (lane & 31u)); }
+static void f2fp_pack(Em *e, int d, int hi, int lo) { BlackwellIRInsn i = I0(BW_IR_FMNMX_MAX); i.dst_vreg = d; i.src1_vreg = hi; i.src2_vreg = lo; i.imm = OMEGA_TC_MARK_F2FP; emit(e, i, K_FIXED); }
+
+static uint32_t rd32(const uint8_t *p) { return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24; }
+static void wr32(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); p[2] = (uint8_t)(v >> 16); p[3] = (uint8_t)(v >> 24); }
+int omega_tc_patch_code(const BlackwellIRProgram *prog, uint8_t *code, size_t len) {
+    if (!prog || !code || len < prog->count * 16u) return -1;
+    int n = 0;
+    for (size_t i = 0; i < prog->count; i++) {
+        const BlackwellIRInsn *in = &prog->insns[i]; uint8_t *w = code + i * 16u;
+        if (in->op == BW_IR_SHFL_DOWN && (in->imm & OMEGA_TC_MARK_BFLY)) {
+            uint32_t w0 = rd32(w), w1 = rd32(w + 4);
+            if ((w0 & 0xffffu) != 0x7f89u || (w1 & 0xfc0000ffu) != 0x08000000u || (w1 & 0x0000ff00u) != 0x1f00u) return -1;
+            wr32(w + 4, w1 | 0x04000000u); n++;
+        } else if (in->op == BW_IR_FMNMX_MAX && in->imm == OMEGA_TC_MARK_F2FP) {
+            uint32_t w0 = rd32(w), w1 = rd32(w + 4), w2 = rd32(w + 8);
+            if ((w0 & 0xffffu) != 0x7209u || (w1 & 0xffffff00u) != 0 || w2 != 0x07800000u) return -1;
+            wr32(w, (w0 & 0xffff0000u) | 0x723eu); wr32(w + 8, 0x000010ffu); n++;
+        }
+    }
+    return n;
+}
+
+int omega_tc_patch_selftest(char *msg, size_t msgn) {
+    static BlackwellIRProgram p; static uint8_t buf[64 * 16]; size_t len = 0;
+    omega_bw_ir_init(&p);
+    Em em; memset(&em, 0, sizeof em); em.p = &p; Em *e = &em;
+    int udesc = UV64(e), py = V64(e), tid = V(e), a = V(e), b = V(e), c = V(e), d = V(e);
+    if (e->err) { omega_gpu_fmt(msg, msgn, "vregs"); return -1; }
+    ldcu64(e, udesc, 0x358); ldc64(e, py, 0x380); s2r(e, tid, BW_SR_TID_X);
+    shfl_bfly(e, a, tid, 1); shfl_bfly(e, b, a, 2); shfl_down(e, c, b, 1);
+    f2fp_pack(e, d, a, c);
+    imadw(e, py, tid, 4u, py); stg(e, py, 0, d, udesc); stg(e, py, 128, b, udesc);
+    tail(e);
+    if (e->err || omega_bw_regalloc_solve(&p) != 0 || omega_bw_encode_program(&p, buf, sizeof buf, &len) != 0) { omega_gpu_fmt(msg, msgn, "build/encode failed"); return -1; }
+    int np = omega_tc_patch_code(&p, buf, len);
+    if (np != 3) { omega_gpu_fmt(msg, msgn, "patched %d placeholders, expected 3", np); return -1; }
+    int seen = 0;
+    for (size_t i = 0; i < p.count; i++) {
+        const uint8_t *w = buf + i * 16u; uint32_t w0 = rd32(w), w1 = rd32(w + 4), w2 = rd32(w + 8);
+        const BlackwellIRInsn *in = &p.insns[i];
+        if (in->op == BW_IR_SHFL_DOWN) {
+            /* oracle words with the register bytes (16..31 of word 0) masked: BFLY lane 1 0x0c201f00, lane 2 0x0c401f00; DOWN 1 0x08201f00 */
+            uint32_t lane = in->imm & 31u, want = ((in->imm & OMEGA_TC_MARK_BFLY) ? 0x0c001f00u : 0x08001f00u) | lane << 21;
+            if ((w0 & 0xffffu) != 0x7f89u || w1 != want || w2 != 0x000e0000u) { omega_gpu_fmt(msg, msgn, "SHFL word %zu: %08x %08x %08x", i, w0, w1, w2); return -1; }
+            seen++;
+        } else if (in->op == BW_IR_FMNMX_MAX) {
+            if ((w0 & 0xffffu) != 0x723eu || (w1 & 0xffffff00u) != 0 || w2 != 0x000010ffu) { omega_gpu_fmt(msg, msgn, "F2FP word %zu: %08x %08x %08x", i, w0, w1, w2); return -1; }
+            seen++;
+        }
+    }
+    if (seen != 4) { omega_gpu_fmt(msg, msgn, "saw %d of 4 checked words", seen); return -1; }
+    omega_gpu_fmt(msg, msgn, "SHFL.BFLY x2, SHFL.DOWN x1, F2FP.BF16.F32.PACK_AB x1 match the oracle bits");
+    return 0;
+}
+
+int omega_blackwell_codegen_tc_peak_prog(uint32_t iters, uint32_t chains, uint32_t stall, uint32_t threads, BlackwellIRProgram *prog) {
+    if (!prog || iters == 0 || chains == 0 || chains > 16 || stall == 0 || stall > 15 || threads == 0 || threads % 32 || threads > 1024) return -1;
+    omega_bw_ir_init(prog);
+    Em em; memset(&em, 0, sizeof em); em.p = prog; Em *e = &em;
+    int udesc = UV64(e), py = V64(e), tid = V(e), cta = V(e), one = V(e), cnt = V(e), a = V128(e), b = V64(e), acc[16];
+    for (uint32_t c = 0; c < chains; c++) acc[c] = V128(e);
+    if (e->err) return -1;
+    ldcu64(e, udesc, 0x358); ldc64(e, py, 0x380); s2r(e, tid, BW_SR_TID_X); s2r(e, cta, BW_SR_CTAID_X);
+    movi(e, one, 1);
+    for (unsigned q = 0; q < 4; q++) { BlackwellIRInsn m = I0(BW_IR_MOV_IMM); m.dst_vreg = a; m.dst_subreg = (uint8_t)q; m.imm = 0x3f803f80u; emit(e, m, K_FIXED); }
+    for (unsigned q = 0; q < 2; q++) { BlackwellIRInsn m = I0(BW_IR_MOV_IMM); m.dst_vreg = b; m.dst_subreg = (uint8_t)q; m.imm = 0x3f803f80u; emit(e, m, K_FIXED); }
+    for (uint32_t c = 0; c < chains; c++) for (unsigned q = 0; q < 4; q++) { BlackwellIRInsn mz = I0(BW_IR_MOV_RZ); mz.dst_vreg = acc[c]; mz.dst_subreg = (uint8_t)q; emit(e, mz, K_FIXED); }
+    movi(e, cnt, iters);
+    const int L = here(e);
+    loop_begin(e);
+    for (uint32_t c = 0; c < chains; c++) hmma(e, acc[c], a, b, acc[c], stall);
+    imadi(e, cnt, one, 0, 0xffffffffu, cnt);
+    isetp_ge_u32(e, cnt, one);
+    bra_if_p0(e, L);
+    loop_end(e);
+    nop(e, 15); nop(e, 15);
+    {   int t = V(e); if (e->err) return -1;
+        imadi(e, t, cta, 0, threads, tid); imadw(e, py, t, 16u * chains, py);
+        for (uint32_t c = 0; c < chains; c++) for (unsigned q = 0; q < 4; q++) { BlackwellIRInsn st = I0(BW_IR_STG_E); st.src1_vreg = py; st.src2_vreg = acc[c]; st.src2_subreg = (uint8_t)q; st.imm = c * 16u + 4u * q; st.ureg = udesc; emit(e, st, K_STORE); }
     }
     tail(e);
     if (e->err) return -1;
