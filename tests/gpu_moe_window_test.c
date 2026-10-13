@@ -105,6 +105,10 @@ static int chip(const char *out_path, int calls, int small) {
         { 2048, 1536 * 128, 1, 1536, 8, "gate_up_128_experts", 1 },
         { 768, 2048 * 128, 1, 2048, 8, "down_128_experts", 1 },
         { 2048, 1536 * 16, 16, 1536, 8, "gate_up_16_experts_m16", 0 },
+        /* one variable: the same 1536-wide window on a standalone one-expert tensor (one spare tile so the
+         * skew control stays inside the allocation); compares against the window inside the 16/128-expert tensors */
+        { 2048, 1536 + 8, 1, 1536, 1, "gate_up_1_expert_standalone", 0 },
+        { 768, 2048 + 8, 1, 2048, 1, "down_1_expert_standalone", 0 },
     };
     int first = 1;
     for (size_t ci = 0; ci < sizeof cases / sizeof cases[0]; ci++) {
