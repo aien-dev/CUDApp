@@ -107,11 +107,12 @@ void omega_gpu_fp8_cache_clear(void);
 /* ---- measurement knobs (tests; each clears the kernel cache) ---- */
 /* Kernel shape override: lane_bytes 8/16, rows 1/2/4/8, warps 1..8; 0 = automatic. */
 void omega_gpu_fp8_set_shape(uint32_t lane_bytes, uint32_t rows_per_warp, uint32_t warps_per_cta);
-/* Kernel depth override: set = 0 automatic (deep whenever the row fits: rows * k <= 4096), set = 1 forces `depth`
+/* Kernel depth override: set = 0 automatic (deep for a single projection of at most 4 MiB whose row fits: rows * k <= 4096), set = 1 forces `depth`
  * (0 = step-by-step kernel). Each call clears the kernel cache. */
 void omega_gpu_fp8_set_depth(int set, uint32_t depth);
-/* The depth the automatic choice makes for a spec (k, lane_bytes, rows, warps filled in). */
-uint32_t omega_gpu_fp8_depth_for(const OmegaFp8GemvSpec *spec);
+/* The depth the automatic choice makes for a spec (k, lane_bytes, rows, warps filled in), n rows, `groups` experts:
+ * deep only for a single projection of at most 4 MiB of weights (measured, see omega_gpu_fp8_api.c). */
+uint32_t omega_gpu_fp8_depth_for(const OmegaFp8GemvSpec *spec, uint32_t n, uint32_t groups);
 /* CTAs per group row per launch (default OMEGA_GPU_FP8_MAX_CTAS; 0 restores it). */
 void omega_gpu_fp8_set_cta_budget(uint32_t ctas);
 /* Diagnosis: declare `pad` registers beyond the kernel's peak in the QMD (0 = exact peak). */

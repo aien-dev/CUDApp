@@ -142,23 +142,27 @@ static int kernel_for(const OmegaFp8GemvSpec *spec, Slot **out, bool *hit) {
 
 /* Deep kernel (x' staged in shared memory, every load of the row issued at once) whenever the whole row fits
  * the budgets (rows * KS * lane_bytes <= 128, i.e. rows * k <= 4096) and the staging rounds are exact; else the step-by-step kernel. */
-uint32_t omega_gpu_fp8_depth_for(const OmegaFp8GemvSpec *spec) {
+uint32_t omega_gpu_fp8_depth_for(const OmegaFp8GemvSpec *spec, uint32_t n, uint32_t groups) {
     if (g.depth_set) return g.depth;
     uint32_t ks = spec->k / (32u * spec->lane_bytes);
     if (ks * spec->rows * spec->lane_bytes > 128u || spec->k % (32u * spec->warps) || spec->k > 512u * spec->warps) return 0;
+    /* Measured (evidence OWN30B-FP8-GEMV-fc05176a-*, main vs depth0 in one run): the deep kernel wins on single
+     * projections up to a few MB (gate+up 1536x2048: 30 us vs 51; k_proj: 30 vs 44) and loses on the grouped
+     * 8-expert launches (its per-CTA x staging re-reads 8 KB per CTA: 188 us vs 150) and on o_proj (79 vs 64). */
+    if (groups != 1u || (uint64_t)n * spec->k > (4u << 20)) return 0;
     return ks;
 }
 
-static void spec_for(uint32_t k, uint32_t n, OmegaFp8GemvSpec *spec) {
+static void spec_for(uint32_t k, uint32_t n, uint32_t groups, OmegaFp8GemvSpec *spec) {
     memset(spec, 0, sizeof *spec);
     spec->k = k;
     omega_gpu_fp8_shape_for(k, n, &spec->lane_bytes, &spec->rows, &spec->warps);
-    spec->depth = omega_gpu_fp8_depth_for(spec);
+    spec->depth = omega_gpu_fp8_depth_for(spec, n, groups);
     spec->mutant = g.mutant;
 }
 
 int omega_gpu_fp8_prepare(uint32_t k) {
-    OmegaFp8GemvSpec spec; spec_for(k, 1u << 20, &spec);
+    OmegaFp8GemvSpec spec; spec_for(k, 1u << 20, 1, &spec);
     omega_gpu_session_lock();
     int rc = OMEGA_GPU_FP8_OK;
     if (!dev_open_locked()) rc = OMEGA_GPU_FP8_CHIP_FAIL;
@@ -222,7 +226,7 @@ static int gemv_core(const OmegaGpuFp8Tensor *t, uint32_t groups, const uint32_t
     if (groups > OMEGA_GPU_FP8_MAX_GROUPS) return OMEGA_GPU_FP8_TOO_LARGE;
     for (uint32_t gi = 0; gi < groups; gi++) if (ids[gi] >= t->experts) return OMEGA_GPU_FP8_BAD_ARGS;
     const uint32_t n = t->n, k = t->k;
-    OmegaFp8GemvSpec spec; spec_for(k, n, &spec);
+    OmegaFp8GemvSpec spec; spec_for(k, n, groups, &spec);
     if (n % spec.rows) return OMEGA_GPU_FP8_CODEGEN_FAIL;
     const uint32_t RG = n / spec.rows;
     uint32_t grid_x = (RG + spec.warps - 1) / spec.warps;
