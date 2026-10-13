@@ -1,5 +1,6 @@
 /*
- * omega_gpu_decode_attn_api.c: resident KV cache, RoPE table, launch and host reference for the one-launch decode
+ * omega_gpu_decode_attn_api.c: resident KV cache, RoPE table and launch for the one-launch decode attention (the
+ * double-precision host reference lives in tests/gpu_decode_attn_test.c so the library links without libm). See
  * attention (see the header). Session use mirrors omega_gpu_fp8_api.c: every buffer from omega_gpu_session_alloc
  * (GPU-uncached, host-visible), sync_to_gpu after host writes, sync_to_cpu before host reads, one
  * omega_gpu_session_launch per call.
@@ -7,7 +8,7 @@
 #include "omega_gpu_decode_attn_api.h"
 #include "omega_gpu_session.h"
 #include "omega_gpu_fmt.h"
-#include <math.h>
+#include "omega_gpu_hostmath.h"
 #include <string.h>
 
 #define MARKER_TIMEOUT_MS 20000ull
@@ -67,55 +68,11 @@ uint16_t omega_dattn_bf16_rne(float f) {
 float omega_dattn_bf16_f32(uint16_t b) { uint32_t x = (uint32_t)b << 16; float f; memcpy(&f, &x, 4); return f; }
 void omega_dattn_rope_row(uint32_t pos, double theta, float *row128) {
     for (unsigned i = 0; i < 64; i++) {
-        double inv = pow(theta, -(double)(2 * i) / 128.0), ang = (double)pos * inv;
-        row128[i] = (float)cos(ang); row128[64 + i] = (float)sin(ang);
+        double inv = omega_hostmath_pow(theta, -(double)(2 * i) / 128.0), ang = (double)pos * inv, s, c;
+        omega_hostmath_sincos(ang, &s, &c);
+        row128[i] = (float)c; row128[64 + i] = (float)s;
     }
 }
-/* RMSNorm + RoPE of one head (double), in place; cs: cos[64], sn: sin[64] */
-static void norm_rope(double *x, const float *w, float eps, const double *cs, const double *sn, int rope) {
-    double ss = 0; for (unsigned i = 0; i < 128; i++) ss += x[i] * x[i];
-    double r = 1.0 / sqrt(ss / 128.0 + (double)eps);
-    for (unsigned i = 0; i < 128; i++) x[i] = x[i] * r * (double)w[i];
-    if (!rope) return;
-    double y[128];
-    for (unsigned i = 0; i < 64; i++) { y[i] = x[i] * cs[i] - x[i + 64] * sn[i]; y[i + 64] = x[i + 64] * cs[i] + x[i] * sn[i]; }
-    memcpy(x, y, sizeof y);
-}
-void omega_decode_attn_reference(const float *qkv, const uint16_t *kc, const uint16_t *vc, uint32_t max_pos, uint32_t pos,
-                                 const float *q_norm, const float *k_norm, float eps, double rope_theta, float out_scale,
-                                 double *out, uint16_t *k_new, uint16_t *v_new) {
-    double cs[64], sn[64];
-    for (unsigned i = 0; i < 64; i++) { double ang = (double)pos * pow(rope_theta, -(double)(2 * i) / 128.0); cs[i] = cos(ang); sn[i] = sin(ang); }
-    const double qscale = 1.0 / sqrt(128.0);
-    for (unsigned gk = 0; gk < 4; gk++) {
-        double k[128];
-        for (unsigned i = 0; i < 128; i++) k[i] = qkv[4096 + gk * 128 + i];
-        norm_rope(k, k_norm, eps, cs, sn, 1);
-        for (unsigned i = 0; i < 128; i++) { k_new[gk * 128 + i] = omega_dattn_bf16_rne((float)k[i]); v_new[gk * 128 + i] = omega_dattn_bf16_rne(qkv[4096 + 512 + gk * 128 + i]); }
-    }
-    double *p = (double *)omega_gpu_host_calloc((size_t)pos + 1, sizeof(double));
-    for (unsigned h = 0; h < 32; h++) {
-        unsigned gk = h / 8;
-        double q[128];
-        for (unsigned i = 0; i < 128; i++) q[i] = qkv[h * 128 + i];
-        norm_rope(q, q_norm, eps, cs, sn, 1);
-        double mx = -1e300;
-        for (uint32_t t = 0; t <= pos; t++) {
-            const uint16_t *kr = t == pos ? k_new + gk * 128 : kc + ((size_t)gk * max_pos + t) * 128;
-            double s = 0; for (unsigned i = 0; i < 128; i++) s += q[i] * (double)omega_dattn_bf16_f32(kr[i]);
-            s *= qscale; p[t] = s; if (s > mx) mx = s;
-        }
-        double l = 0; for (uint32_t t = 0; t <= pos; t++) { p[t] = exp(p[t] - mx); l += p[t]; }
-        double o[128]; memset(o, 0, sizeof o);
-        for (uint32_t t = 0; t <= pos; t++) {
-            const uint16_t *vr = t == pos ? v_new + gk * 128 : vc + ((size_t)gk * max_pos + t) * 128;
-            for (unsigned i = 0; i < 128; i++) o[i] += p[t] * (double)omega_dattn_bf16_f32(vr[i]);
-        }
-        for (unsigned i = 0; i < 128; i++) out[h * 128 + i] = o[i] / l * (double)out_scale;
-    }
-    omega_gpu_host_free(p);
-}
-
 /* ---- cache ---- */
 int omega_gpu_decode_attn_cache_alloc(uint32_t layers, uint32_t max_pos, double rope_theta, OmegaGpuDecodeAttnCache **out) {
     if (!out) return OMEGA_GPU_DATTN_BAD_ARGS;
@@ -237,7 +194,7 @@ int omega_gpu_decode_attn(OmegaGpuDecodeAttnCache *c, uint32_t layer, uint32_t p
 
     uint32_t args[OMEGA_DATTN_ARGS_WORDS];
     const uint64_t kc = c->kv[layer].va, vc = kc + c->plane_bytes, nm = c->norms.va + (uint64_t)layer * 1024;
-    float fe = eps, fo = out_scale, fq = (float)((1.0 / sqrt(128.0)) * 1.4426950408889634);
+    float fe = eps, fo = out_scale, fq = (float)(0.08838834764831845 * 1.4426950408889634); /* log2(e) / sqrt(128) */
     uint32_t ue, uo, uq; memcpy(&ue, &fe, 4); memcpy(&uo, &fo, 4); memcpy(&uq, &fq, 4);
 #define A64(i, v) do { args[i] = (uint32_t)(v); args[(i) + 1] = (uint32_t)((v) >> 32); } while (0)
     A64(0, c->qkv.va); A64(2, kc); A64(4, vc); A64(6, c->rope.va); A64(8, nm); A64(10, nm + 512); A64(12, c->out.va); A64(14, c->part.va); A64(16, c->cnt.va);

@@ -1,0 +1,83 @@
+#ifndef OMEGA_BLACKWELL_CODEGEN_ROUTER_H
+#define OMEGA_BLACKWELL_CODEGEN_ROUTER_H
+/*
+ * omega_blackwell_codegen_router: the MoE router of Qwen3-30B-A3B in ONE launch per layer (OWN-30B cut 8 item 2,
+ * 2026-10-13). RMSNorm of the residual row, router logits (128 experts x 2048, bf16 weights), softmax, top-8,
+ * renormalisation per config.json `norm_topk_prob` (true for this checkpoint: the 8 weights are the softmax of
+ * the 8 selected logits; with the flag off they are the full 128-way softmax probabilities of the selected
+ * experts), and the outputs the next launch needs without a host round trip:
+ *   - x'[2048] f32 = RMSNorm(x) * out_scale (2^64 makes it the x' row of the grouped FP8 gate+up GEMV);
+ *   - the grouped GEMV's group tables: entry g = directory[id_g] for the gate+up and the down tensors, each
+ *     directory a device table of 128 x {w_va u64, s_va u64} built once per layer from the resident FP8 tensors;
+ *   - ids[8] u32 and weights[8] f32 (descending by logit) for the host combine.
+ *
+ * Grid 1 x 1, `warps` warps (8, 16 or 32). Per CTA:
+ *   phase 1  thread t: E = 64 / warps consecutive x values and norm weights; sum of squares reduced per warp
+ *            (SHFL.DOWN) and across warps through shared memory; r = RSQ(ss / 2048 + eps); xn = x * r * w staged
+ *            in shared memory (f32 [2048]) and stored * out_scale to x'.
+ *   phase 2  warp w computes the logits of experts w, w + warps, ...: lane L streams bytes [L*16, +16) of each
+ *            256-column step of the expert's bf16 row (8 steps, `depth` of them in flight), widens the bf16 pairs
+ *            by shift / mask, FFMAs against xn from shared memory (LDS.128), warp-reduces, lane 0 stores the
+ *            logit to shared memory.
+ *   phase 3  every warp redundantly (uniform barriers): lane L holds logits 4L..4L+3; 8 rounds of argmax: warp max
+ *            by FMNMX.MAX, then the lowest index among the lanes holding that value (an integer "not equal" flag
+ *            lifts the index candidates of the others above every real index, FMNMX.MIN picks the winner), the
+ *            winner's logit is masked to -1e30. Selected logits and ids go to shared memory. Then the full
+ *            128-way softmax sum (for norm_topk_prob = false) and the weights e_r = EX2((l_r - l_0) * log2 e) /
+ *            den, den = sum of the 8 (flag on) or of all 128 (flag off).
+ *   epilogue warp 0: lane 0 stores the 8 weights; lanes 0..7 store id_g and copy the two directory entries of
+ *            id_g into the two group tables (4 x STG.E each).
+ *
+ * Only ops the attention and FP8 kernels already run on the chip are used (no FSETP / FSEL; the simulator does
+ * not model them either). The host simulator (tests/bw_warp_sim_k.h) runs the 8-warp kernel.
+ */
+#include "omega_blackwell_codegen.h"
+#include <stdint.h>
+
+#define OMEGA_ROUTER_HIDDEN 2048u
+#define OMEGA_ROUTER_EXPERTS 128u
+#define OMEGA_ROUTER_TOPK 8u
+#define OMEGA_ROUTER_STEPS 8u                 /* 256 bf16 columns per step */
+#define OMEGA_ROUTER_ROW_BYTES (OMEGA_ROUTER_HIDDEN * 2u)
+#define OMEGA_ROUTER_DIR_BYTES (OMEGA_ROUTER_EXPERTS * 16u)
+#define OMEGA_ROUTER_TAB_BYTES (OMEGA_ROUTER_TOPK * 16u)
+
+/* constant bank: addresses at 0x380 + 8n, then the scalars */
+#define OMEGA_ROUTER_ARG_X 0x380u       /* f32 [2048] residual row */
+#define OMEGA_ROUTER_ARG_GATE 0x388u    /* bf16 [128][2048] router weight */
+#define OMEGA_ROUTER_ARG_NORM 0x390u    /* f32 [2048] post_attention_layernorm weight */
+#define OMEGA_ROUTER_ARG_XOUT 0x398u    /* f32 [2048] x' = RMSNorm(x) * out_scale */
+#define OMEGA_ROUTER_ARG_IDS 0x3a0u     /* u32 [8] */
+#define OMEGA_ROUTER_ARG_WTS 0x3a8u     /* f32 [8] */
+#define OMEGA_ROUTER_ARG_DIR_GU 0x3b0u  /* u64 [128][2] gate+up directory {w_va, s_va} */
+#define OMEGA_ROUTER_ARG_DIR_DN 0x3b8u  /* u64 [128][2] down directory */
+#define OMEGA_ROUTER_ARG_TAB_GU 0x3c0u  /* u64 [8][2] group table written for the gate+up launch */
+#define OMEGA_ROUTER_ARG_TAB_DN 0x3c8u  /* u64 [8][2] group table written for the down launch */
+#define OMEGA_ROUTER_ARG_EPS 0x3d0u     /* f32 rms eps */
+#define OMEGA_ROUTER_ARG_OUT_SCALE 0x3d4u /* f32 */
+#define OMEGA_ROUTER_ARG_NORM_TOPK 0x3d8u /* u32 0 or 1 (config.json norm_topk_prob) */
+#define OMEGA_ROUTER_ARGS_WORDS 23u
+
+/* shared memory map (bytes) */
+#define OMEGA_ROUTER_SM_XN 0u           /* xn[2048] f32: 8192 */
+#define OMEGA_ROUTER_SM_LOGIT 8192u     /* logits[128] f32: 512 */
+#define OMEGA_ROUTER_SM_RED 8704u       /* per-warp partial sums [32]: 128 */
+#define OMEGA_ROUTER_SM_BC 8832u        /* broadcast words: 16 */
+#define OMEGA_ROUTER_SM_SEL 8848u       /* selected ids u32 [8]: 32 */
+#define OMEGA_ROUTER_SM_SELV 8880u      /* selected logits f32 [8]: 32 */
+#define OMEGA_ROUTER_SHARED_BYTES 8912u
+
+typedef struct {
+    uint32_t warps;  /* 8, 16 or 32 */
+    uint32_t depth;  /* weight steps in flight per warp: 1, 2, 4 or 8 */
+    int mutant;      /* TEST ONLY. 0 none; 1 RMSNorm without the weight; 2 the mask after each argmax round removes
+                      * expert id ^ 1 (the winner can be picked again); 3 the directory entries copied are those of
+                      * id ^ 1; 4 the weights are not normalised (den = 1). */
+} OmegaRouterSpec;
+
+/* Builds the register-allocated IR program into *prog. 0 ok, -1 refused. */
+int omega_blackwell_codegen_router_prog(const OmegaRouterSpec *spec, BlackwellIRProgram *prog);
+/* Instruction and peak-register counts (host, no device). */
+int omega_router_prog_stats(const OmegaRouterSpec *spec, uint32_t *insns, uint32_t *gprs);
+
+#endif
