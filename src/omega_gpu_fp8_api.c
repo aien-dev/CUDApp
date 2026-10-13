@@ -29,7 +29,7 @@ typedef struct {
 static struct {
     OmegaGpuScratch x_buf, y_buf;
     OmegaGpuMem tab; /* group table, OMEGA_GPU_FP8_MAX_GROUPS * 16 bytes */
-    uint32_t cta_budget;
+    uint32_t cta_budget; int cta_budget_set;
     uint32_t lane_bytes, rows, warps; /* overrides, 0 = automatic */
     int depth_set; uint32_t depth;    /* depth override (depth_set: 0 = automatic) */
     uint32_t gpr_pad;                 /* registers declared beyond the kernel's peak (diagnosis knob) */
@@ -77,7 +77,7 @@ void omega_gpu_fp8_set_shape(uint32_t lb, uint32_t rows, uint32_t warps) {
 }
 void omega_gpu_fp8_set_depth(int set, uint32_t depth) { omega_gpu_session_lock(); g.depth_set = set; g.depth = depth; cache_clear_locked(); omega_gpu_session_unlock(); }
 void omega_gpu_fp8_set_gpr_pad(uint32_t pad) { omega_gpu_session_lock(); g.gpr_pad = pad; omega_gpu_session_unlock(); }
-void omega_gpu_fp8_set_cta_budget(uint32_t ctas) { omega_gpu_session_lock(); g.cta_budget = ctas ? ctas : OMEGA_GPU_FP8_MAX_CTAS; cache_clear_locked(); omega_gpu_session_unlock(); }
+void omega_gpu_fp8_set_cta_budget(uint32_t ctas) { omega_gpu_session_lock(); g.cta_budget_set = ctas != 0; g.cta_budget = ctas ? ctas : OMEGA_GPU_FP8_MAX_CTAS; cache_clear_locked(); omega_gpu_session_unlock(); }
 void omega_gpu_fp8_test_set_mutant(int m) { omega_gpu_session_lock(); g.mutant = m; cache_clear_locked(); omega_gpu_session_unlock(); }
 void omega_gpu_fp8_test_set_no_fold(int on) { g.no_fold = on ? 1 : 0; }
 void omega_gpu_fp8_seal(int on) { omega_gpu_session_lock(); g.sealed = on ? 1 : 0; omega_gpu_session_unlock(); }
@@ -103,6 +103,23 @@ void omega_gpu_fp8_shape_for(uint32_t k, uint32_t n, uint32_t *lane_bytes, uint3
  * that was not a multiple of 8, so the hardware's rounding hid the rule. */
 static uint32_t gpr_declared(uint32_t peak) { return ((peak + 1u + 7u) / 8u) * 8u; }
 
+/* Register file: a CTA of 32 * warps threads must fit the SM's 65536 registers at the declared count. Measured
+ * (chip, 2026-10-13, kernel log Xid 13): the deep k=2048 kernel (72 declared) at 32 warps faults, 73728 > 65536. */
+static bool register_file_fits(uint32_t warps, uint32_t peak) {
+    uint32_t decl = gpr_declared(peak);
+    if ((uint64_t)32u * warps * decl <= 65536u) return true;
+    char e[160]; omega_gpu_fmt(e, sizeof e, "fp8 kernel: %u warps x %u declared registers exceed the 65536-register file", warps, decl);
+    omega_gpu_session_set_error(e);
+    return false;
+}
+
+int omega_gpu_fp8_kernel_fits(const OmegaFp8GemvSpec *spec, uint32_t *declared) {
+    uint32_t peak = 0;
+    if (!spec || omega_fp8_gemv_prog_stats(spec, NULL, &peak) != 0) { omega_gpu_session_set_error("fp8 codegen refused the shape"); return OMEGA_GPU_FP8_CODEGEN_FAIL; }
+    if (declared) *declared = gpr_declared(peak);
+    return register_file_fits(spec->warps, peak) ? OMEGA_GPU_FP8_OK : OMEGA_GPU_FP8_TOO_LARGE;
+}
+
 static int kernel_for(const OmegaFp8GemvSpec *spec, Slot **out, bool *hit) {
     for (unsigned i = 0; i < CACHE_SLOTS; i++) {
         Slot *s = &g.cache[i];
@@ -126,6 +143,7 @@ static int kernel_for(const OmegaFp8GemvSpec *spec, Slot **out, bool *hit) {
     int cg = omega_blackwell_codegen_fp8_gemv_prog(spec, prog);
     size_t need = cg == 0 ? omega_bw_program_code_bytes(prog) : 0;
     if (cg != 0 || need == 0) { omega_gpu_host_free(prog); omega_gpu_session_set_error("fp8 codegen refused the shape"); return OMEGA_GPU_FP8_CODEGEN_FAIL; }
+    if (!register_file_fits(spec->warps, prog->regalloc.peak_gpr_usage)) { omega_gpu_host_free(prog); return OMEGA_GPU_FP8_TOO_LARGE; }
     OmegaGpuMem code;
     if (omega_gpu_session_alloc_code(need, &code) != 0) { omega_gpu_host_free(prog); return OMEGA_GPU_FP8_CHIP_FAIL; }
     OmegaBlackwellKernel kernel;
@@ -150,6 +168,9 @@ uint32_t omega_gpu_fp8_depth_for(const OmegaFp8GemvSpec *spec, uint32_t n, uint3
      * projections up to a few MB (gate+up 1536x2048: 30 us vs 51; k_proj: 30 vs 44) and loses on the grouped
      * 8-expert launches (its per-CTA x staging re-reads 8 KB per CTA: 188 us vs 150) and on o_proj (79 vs 64). */
     if (groups != 1u || (uint64_t)n * spec->k > (4u << 20)) return 0;
+    OmegaFp8GemvSpec deep = *spec; deep.depth = ks; deep.mutant = 0;
+    uint32_t peak = 0;
+    if (omega_fp8_gemv_prog_stats(&deep, NULL, &peak) != 0 || (uint64_t)32u * spec->warps * gpr_declared(peak) > 65536u) return 0;
     return ks;
 }
 
@@ -157,6 +178,10 @@ static void spec_for(uint32_t k, uint32_t n, uint32_t groups, OmegaFp8GemvSpec *
     memset(spec, 0, sizeof *spec);
     spec->k = k;
     omega_gpu_fp8_shape_for(k, n, &spec->lane_bytes, &spec->rows, &spec->warps);
+    /* Grouped launches (8 experts): 32 warps per CTA and few CTAs per group (OMEGA_GPU_FP8_GROUPED_CTAS, one per SM
+     * for 8 groups) measured fastest: down 2048x768 x 8 went from 181 us (256 x 8 CTAs of 8 warps) to 90 us
+     * (4..6 x 8 CTAs of 32 warps); gate+up 146 -> 140 us (probe logs listed in ~/handoffs/own30b-K-report.md). */
+    if (groups > 1u && !g.warps) spec->warps = 32u;
     spec->depth = omega_gpu_fp8_depth_for(spec, n, groups);
     spec->mutant = g.mutant;
 }
@@ -230,7 +255,8 @@ static int gemv_core(const OmegaGpuFp8Tensor *t, uint32_t groups, const uint32_t
     if (n % spec.rows) return OMEGA_GPU_FP8_CODEGEN_FAIL;
     const uint32_t RG = n / spec.rows;
     uint32_t grid_x = (RG + spec.warps - 1) / spec.warps;
-    if (grid_x > g.cta_budget) grid_x = g.cta_budget;
+    uint32_t budget = g.cta_budget_set ? g.cta_budget : (groups > 1u ? OMEGA_GPU_FP8_GROUPED_CTAS : OMEGA_GPU_FP8_MAX_CTAS);
+    if (grid_x > budget) grid_x = budget;
     if (grid_x == 0) grid_x = 1;
 
     omega_gpu_session_lock();

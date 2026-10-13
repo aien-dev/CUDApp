@@ -172,6 +172,17 @@ static void host_only(void) {
       bad.rows = 8; bad.warps = 33; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "warps 33 refused");
       bad.warps = 8; bad.lane_bytes = 32; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "lane_bytes 32 refused");
       bad.lane_bytes = 16; bad.k = 32768; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "k past the limit refused"); }
+    /* Register file (chip-found 2026-10-13): 32 * warps * declared registers must be <= 65536; the API refuses the launch.
+     * The deep k=2048 kernel at 32 warps (72 declared x 1024 threads = 73728) faulted on the chip with Xid 13. */
+    { OmegaFp8GemvSpec deep = { .k = 2048, .lane_bytes = 16, .rows = 1, .warps = 32, .depth = 4 }; uint32_t gp = 0;
+      CHECK(omega_fp8_gemv_prog_stats(&deep, NULL, &gp) == 0, "deep4 k2048 encodes");
+      uint32_t decl = ((gp + 1u + 7u) / 8u) * 8u;
+      CHECK(32u * 32u * decl > 65536u, "deep4 k2048 at 32 warps needs %u declared registers x 1024 threads: over the 65536 file", decl);
+      uint32_t de = 0; int rf = omega_gpu_fp8_kernel_fits(&deep, &de);
+      CHECK(rf == OMEGA_GPU_FP8_TOO_LARGE && de == decl, "API refuses the register-file overflow (rc %d, declared %u): %s", rf, de, omega_gpu_fp8_last_error());
+      deep.warps = 16; CHECK(omega_gpu_fp8_kernel_fits(&deep, NULL) == OMEGA_GPU_FP8_OK, "the same kernel at 16 warps fits");
+      deep.depth = 0; deep.warps = 32; CHECK(omega_gpu_fp8_kernel_fits(&deep, NULL) == OMEGA_GPU_FP8_OK, "the classic kernel at 32 warps fits");
+      deep.depth = 4; CHECK(omega_gpu_fp8_depth_for(&deep, 2048, 1) == 0, "automatic depth falls back to classic when deep would overflow the register file"); }
 
     /* 4. API refusals that need no device */
     { OmegaGpuFp8Tensor *t = NULL; uint8_t w[128 * 128]; uint16_t s[1] = { bf16_of(1.0f) }; memset(w, 0x38, sizeof w);

@@ -66,7 +66,8 @@ enum {
 };
 
 #define OMEGA_GPU_FP8_MAX_GROUPS 64u
-#define OMEGA_GPU_FP8_MAX_CTAS 256u /* default CTA budget per group row; the elementwise and attention rows paths proved 1024 */
+#define OMEGA_GPU_FP8_MAX_CTAS 256u /* default CTA budget per group for a single projection; the elementwise and attention rows paths proved 1024 */
+#define OMEGA_GPU_FP8_GROUPED_CTAS 6u /* CTAs per group for a grouped launch (32 warps each): measured best for 8 experts */
 
 typedef struct {
     uint32_t experts, n, k, groups;
@@ -113,7 +114,10 @@ void omega_gpu_fp8_set_depth(int set, uint32_t depth);
 /* The depth the automatic choice makes for a spec (k, lane_bytes, rows, warps filled in), n rows, `groups` experts:
  * deep only for a single projection of at most 4 MiB of weights (measured, see omega_gpu_fp8_api.c). */
 uint32_t omega_gpu_fp8_depth_for(const OmegaFp8GemvSpec *spec, uint32_t n, uint32_t groups);
-/* CTAs per group row per launch (default OMEGA_GPU_FP8_MAX_CTAS; 0 restores it). */
+/* Register-file check for a spec (chip-found rule: 32 * warps * declared registers <= 65536, declared = peak + 1 rounded
+ * up to 8). OK, TOO_LARGE (last_error names the counts) or CODEGEN_FAIL. The automatic depth choice and every build apply it. */
+int omega_gpu_fp8_kernel_fits(const OmegaFp8GemvSpec *spec, uint32_t *declared);
+/* CTAs per group per launch (0 restores the automatic choice: MAX_CTAS single, GROUPED_CTAS grouped). */
 void omega_gpu_fp8_set_cta_budget(uint32_t ctas);
 /* Diagnosis: declare `pad` registers beyond the kernel's peak in the QMD (0 = exact peak). */
 void omega_gpu_fp8_set_gpr_pad(uint32_t pad);
