@@ -52,4 +52,15 @@ static float qm_e4m3(uint8_t c) {
     float v = e ? ldexpf(1.0f + (float)mm / 8.0f, e - 7) : ldexpf((float)mm / 8.0f, -6);
     return s ? -v : v;
 }
+/* f32 -> e4m3, round to nearest even, saturate to +-448 (PTX cvt.rn.satfinite; NaN handled by the caller) */
+static uint8_t qm_e4m3_rne_sat(float f) {
+    uint8_t s = signbit(f) ? 0x80 : 0; double a = fabs((double)f);
+    if (isinf(f) || a > 448.0) return s | 0x7e;
+    if (a < ldexp(1.0, -6)) return s | (uint8_t)rint(a * 512.0);
+    int e; double m = frexp(a, &e); m *= 2.0; e -= 1; /* a = m * 2^e, m in [1, 2) */
+    double mm = rint((m - 1.0) * 8.0);
+    if (mm >= 8.0) { mm = 0.0; e++; }
+    if (e + 7 > 15 || (((e + 7) << 3) | (int)mm) > 0x7e) return s | 0x7e;
+    return s | (uint8_t)(((e + 7) << 3) | (int)mm);
+}
 #endif

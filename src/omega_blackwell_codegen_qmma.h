@@ -28,6 +28,11 @@
 extern "C" {
 #endif
 #define OMEGA_QMMA_MARK 0x51303832u
+/* F2FP.SATFINITE.E4M3.F32.PACK_AB_MERGE_C Rd, Ra, Rb, RZ: emitted as BW_IR_FMNMX_MAX with imm OMEGA_QMMA_MARK_F2E4; the patch sets
+ * opcode 0x7209 -> 0x723e and word 2 0x07800000 -> 0x048070ff (oracle investigations/2026-10-14-qmma-oracle/cvt.sass:
+ * F2FP.SATFINITE.E4M3.F32.PACK_AB_MERGE_C R7, R7, R0, RZ = 0x000000000707723e / 0x004fca00048070ff). Result low 16 bits:
+ * e4m3(Ra) << 8 | e4m3(Rb) (INFERRED from the chip-verified bf16 PACK_AB; the cvt probe checks), high 16 bits 0. */
+#define OMEGA_QMMA_MARK_F2E4 0x46453433u
 int omega_qmma_is_mark(const BlackwellIRInsn *in);
 /* patch every QMMA placeholder in the encoded code (one 16-byte word per IR instruction); returns the number patched,
  * or -1 when a marked word does not hold the expected HMMA bits */
@@ -36,6 +41,8 @@ int omega_qmma_patch_code(const BlackwellIRProgram *prog, uint8_t *code, size_t 
 int omega_qmma_patch_selftest(char *msg, size_t msgn);
 int omega_blackwell_codegen_qmma_probe_prog(int mutant, uint32_t wait_nops, BlackwellIRProgram *prog);
 int omega_blackwell_codegen_qmma_peak_prog(uint32_t iters, uint32_t chains, uint32_t stall, uint32_t threads, BlackwellIRProgram *prog);
+/* convert probe: thread i converts the f32 pair at arg0 + 8i (Ra = first, Rb = second) and stores the u32 result at arg1 + 4i */
+int omega_blackwell_codegen_f2e4_probe_prog(BlackwellIRProgram *prog);
 #ifdef __cplusplus
 }
 #endif

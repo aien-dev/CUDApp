@@ -84,6 +84,8 @@ static int host_only(void) {
         int groups[] = { 0, 1, 2, 4, 8, 16, 32 };
         for (int gi = 0; gi < 7; gi++) for (int rn = 0; rn < 2; rn++) { QmmaModel m = { groups[gi], 24, rn, 0, 0 }; if (qm_dot32(&m, a, b, c) != (float)ex) fail++; }
     }
+    for (int c = 0; c < 256; c++) if ((c & 0x7f) != 0x7f && qm_e4m3_rne_sat(qm_e4m3((uint8_t)c)) != c) { printf("e4m3 round trip FAIL at %02x\n", c); fail++; }
+    if (qm_e4m3_rne_sat(500.0f) != 0x7e || qm_e4m3_rne_sat(ldexpf(1.0f, -10)) != 0 || qm_e4m3_rne_sat(ldexpf(3.0f, -10)) != 2 || qm_e4m3_rne_sat(1.0625f) != 0x38) { printf("e4m3 rounding FAIL\n"); fail++; }
     { static Case c; gen_case(&c, 6); uint32_t in[320]; to_frag(&c, in); if ((in[0] & 0xff) != c.A[0][0] || ((in[1] >> 8) & 0xff) != c.A[8][1] || ((in[128 + 5 * 2 + 1] >> 24) & 0xff) != c.B[16 + 4 + 3][1]) fail++; }
     static BlackwellIRProgram p;
     if (omega_blackwell_codegen_qmma_probe_prog(0, 4, &p) != 0 || omega_blackwell_codegen_qmma_peak_prog(64, 16, 2, 128, &p) != 0) { printf("codegen refused\n"); fail++; }
@@ -128,6 +130,55 @@ done:
     omega_gpu_session_unlock();
     free(prog);
     return rc;
+}
+
+
+/* convert probe: NP pairs through F2FP.SATFINITE.E4M3; byte order and rounding against qm_e4m3_rne_sat */
+#define NP (1u << 20)
+static float cvt_input(uint32_t i) {
+    switch (i % 8) {
+    case 0: return u2f((rnd() & 0x80000000u) | (uint32_t)(127 - 14 + (int)(rnd() % 25)) << 23 | (rnd() & 0x7fffff));      /* 2^-14 .. 2^10, full mantissa */
+    case 1: { uint8_t c = (uint8_t)(rnd() & 0xff); if ((c & 0x7f) >= 0x7e) c = 0x10; float a = qm_e4m3(c), b = qm_e4m3((uint8_t)(c + 1)); return (a + b) * 0.5f; } /* exact ties */
+    case 2: return u2f((rnd() & 0x80000000u) | (rnd() & 0x7fffff) | (uint32_t)(127 - 12 + (int)(rnd() % 4)) << 23);     /* subnormal e4m3 range */
+    case 3: { static const uint32_t sp[] = { 0, 0x80000000u, 0x43e00000u, 0x43e80000u, 0x43e7ffffu, 0x7f800000u, 0xff800000u, 0x3a800000u, 0x3a000000u, 0x00000001u, 0x447a0000u, 0xc3e10000u }; return u2f(sp[rnd() % 12]); }
+    default: return u2f((rnd() & 0x80000000u) | (uint32_t)(127 - 8 + (int)(rnd() % 17)) << 23 | (rnd() & 0x7fffff));
+    }
+}
+static int cvt_probe(void) {
+    static BlackwellIRProgram p; int fail = 0;
+    if (omega_blackwell_codegen_f2e4_probe_prog(&p) != 0) { printf("cvt codegen refused\n"); return 1; }
+    float *x = malloc((size_t)NP * 8); for (uint32_t i = 0; i < 2 * NP; i++) x[i] = cvt_input(i);
+    omega_gpu_session_lock();
+    OmegaGpuMem code = { 0 }, in = { 0 }, out = { 0 };
+    if (!omega_gpu_session_open() || load_code(&p, &code) != 0 || omega_gpu_session_alloc((size_t)NP * 8, &in) != 0 || omega_gpu_session_alloc((size_t)NP * 4, &out) != 0) { printf("cvt setup failed: %s\n", omega_gpu_session_last_error()); fail = 1; goto done; }
+    memcpy(in.cpu, x, (size_t)NP * 8); memset(out.cpu, 0xa5, (size_t)NP * 4);
+    {   uint32_t args[4] = { (uint32_t)in.va, (uint32_t)(in.va >> 32), (uint32_t)out.va, (uint32_t)(out.va >> 32) };
+        OmegaGpuLaunch L = { .code_va = code.va, .gpr_count = 64, .threads_x = 128, .threads_y = 1, .grid_x = NP / 128u, .grid_y = 1, .num_elements = NP, .args = args, .n_args = 4, .timeout_ms = 10000 };
+        uint64_t ns = 0;
+        if (omega_gpu_session_sync_to_gpu(&in) || omega_gpu_session_sync_to_gpu(&out) || omega_gpu_session_launch(&L, &ns, NULL) || omega_gpu_session_sync_to_cpu(&out)) { printf("cvt launch failed: %s\n", omega_gpu_session_last_error()); fail = 1; goto done; } }
+    {   const uint32_t *o = out.cpu; size_t hi_ab = 0, hi_ba = 0, upper = 0, nan_n = 0, n = 0, tie_ab = 0, ties = 0; uint32_t first_bad = 0xffffffffu;
+        for (uint32_t i = 0; i < NP; i++) {
+            float a = x[2 * i], b = x[2 * i + 1];
+            if (isnan(a) || isnan(b)) { nan_n++; continue; }
+            n++; if (o[i] >> 16) upper++;
+            uint32_t ab = (uint32_t)qm_e4m3_rne_sat(a) << 8 | qm_e4m3_rne_sat(b), ba = (uint32_t)qm_e4m3_rne_sat(b) << 8 | qm_e4m3_rne_sat(a);
+            if ((o[i] & 0xffff) == ab) hi_ab++; else if (first_bad == 0xffffffffu) first_bad = i;
+            if ((o[i] & 0xffff) == ba) hi_ba++;
+            if (i % 4 == 1 || (2 * i + 1) % 8 == 1) { ties++; if ((o[i] & 0xffff) == ab) tie_ab++; }
+        }
+        printf("cvt probe: %zu pairs; Ra->high byte matches %zu, Ra->low byte matches %zu; upper 16 bits nonzero %zu; ties %zu of %zu exact\n", n, hi_ab, hi_ba, upper, tie_ab, ties);
+        if (first_bad != 0xffffffffu) printf("  first miss pair %u: %a %a -> chip %04x want %04x\n", first_bad, x[2 * first_bad], x[2 * first_bad + 1], o[first_bad] & 0xffff, (uint32_t)qm_e4m3_rne_sat(x[2 * first_bad]) << 8 | qm_e4m3_rne_sat(x[2 * first_bad + 1]));
+        printf("CVT_PROBE: %s\n", hi_ab == n && upper == 0 ? "e4m3(Ra) << 8 | e4m3(Rb), RNE satfinite, exact on every pair" : "MISMATCH");
+        if (hi_ab != n || upper) fail = 1;
+        (void)nan_n;
+    }
+done:
+    if (code.cpu) omega_gpu_session_free(&code);
+    if (in.cpu) omega_gpu_session_free(&in);
+    if (out.cpu) omega_gpu_session_free(&out);
+    omega_gpu_session_unlock();
+    free(x);
+    return fail;
 }
 
 static int cmp_u64(const void *a, const void *b) { uint64_t x = *(const uint64_t *)a, y = *(const uint64_t *)b; return x < y ? -1 : x > y; }
@@ -228,7 +279,8 @@ int main(int argc, char **argv) {
     if (ok && best == ow) printf("QMMA_PROBE: model=group %d keep %d %s nominal %d csep %d exact %zu/%zu\n", bm.group, bm.keep, bm.rn ? "RN" : "RZ", bm.nominal, bm.csep, best, ow);
     else printf("QMMA_PROBE: NO EXACT MODEL (best group %d keep %d %s nominal %d csep %d: %zu/%zu)%s\n", bm.group, bm.keep, bm.rn ? "RN" : "RZ", bm.nominal, bm.csep, best, ow, ok ? "" : " and plausibility/layout/control FAILED");
     int pf = do_peak ? peak() : 0;
-    fail = !ok || best != ow || pf;
+    int cf = replay ? 0 : cvt_probe();
+    fail = !ok || best != ow || pf || cf;
     printf("GPU_QMMA_PROBE: %s\n", fail ? "FAIL" : "PASS");
     free(in); free(out); free(outm); free(out2);
     return fail;
