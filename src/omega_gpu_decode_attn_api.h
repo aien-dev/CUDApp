@@ -20,7 +20,7 @@
  *        Returns OMEGA_GPU_DATTN_OK or a code below; the chip failure text is in omega_gpu_decode_attn_last_error().
  *   Test helpers: cache_write moves `count` consecutive bf16 K and V rows (128 each) of a layer and KV head into the
  *   cache in one sync; cache_read returns one row of each.
- *   The host reference omega_decode_attn_reference is the double-precision oracle the tests compare against.
+ *   The double-precision oracle the tests compare against (omega_decode_attn_reference) is defined in the test.
  *
  * Launch shape: grid (splits, 4), 256 threads, splits = ceil((pos + 1) / per_split), per_split a multiple of 256
  * (default OMEGA_GPU_DATTN_PER_SPLIT; omega_gpu_decode_attn_set_per_split overrides). Every buffer is GPU-uncached
@@ -83,11 +83,7 @@ uint16_t omega_dattn_bf16_rne(float f);
 float omega_dattn_bf16_f32(uint16_t b);
 /* RoPE table row for `pos`: cos[64] then sin[64], f32 from double, inv_freq[i] = theta^(-2i/128) */
 void omega_dattn_rope_row(uint32_t pos, double theta, float *row128);
-/* Double-precision reference of the whole layer step. kc/vc: this layer's bf16 planes [4][max_pos][128] holding
- * positions 0..pos-1; out: [32*128] doubles (already * out_scale); k_new/v_new: the bf16 rows the kernel must have
- * appended at pos ([4][128] each). The reference rounds its k_new/v_new to bf16 and attends over the rounded values. */
-void omega_decode_attn_reference(const float *qkv, const uint16_t *kc, const uint16_t *vc, uint32_t max_pos, uint32_t pos,
-                                 const float *q_norm, const float *k_norm, float eps, double rope_theta, float out_scale,
-                                 double *out, uint16_t *k_new, uint16_t *v_new);
+/* The double-precision reference of the whole layer step (omega_decode_attn_reference) lives in
+ * tests/gpu_decode_attn_test.c: it needs libm and the library links without it. */
 
 #endif

@@ -13,6 +13,7 @@
  */
 #include "omega_gpu_decode_attn_api.h"
 #include "omega_gpu_session.h"
+#include "omega_gpu_hostmath.h"
 #include "bw_warp_sim_k.h"
 #include <inttypes.h>
 #include <math.h>
@@ -51,6 +52,92 @@ static void case_make(Case *c, uint32_t max_pos, uint32_t pos, uint32_t seed, fl
     }
 }
 static void case_free(Case *c) { free(c->kc); free(c->vc); }
+
+/* ---- double-precision oracle (test-owned: it uses libm, which the library does not link) ----
+ * RMSNorm + RoPE of one head (double), in place; cs: cos[64], sn: sin[64] */
+static void norm_rope(double *x, const float *w, float eps, const double *cs, const double *sn, int rope) {
+    double ss = 0; for (unsigned i = 0; i < 128; i++) ss += x[i] * x[i];
+    double r = 1.0 / sqrt(ss / 128.0 + (double)eps);
+    for (unsigned i = 0; i < 128; i++) x[i] = x[i] * r * (double)w[i];
+    if (!rope) return;
+    double y[128];
+    for (unsigned i = 0; i < 64; i++) { y[i] = x[i] * cs[i] - x[i + 64] * sn[i]; y[i + 64] = x[i + 64] * cs[i] + x[i] * sn[i]; }
+    memcpy(x, y, sizeof y);
+}
+/* Reference of the whole layer step. kc/vc: this layer's bf16 planes [4][max_pos][128] holding positions 0..pos-1;
+ * out: [32*128] doubles (already * out_scale); k_new/v_new: the bf16 rows the kernel must have appended at pos
+ * ([4][128] each). The reference rounds its k_new/v_new to bf16 and attends over the rounded values. */
+static void omega_decode_attn_reference(const float *qkv, const uint16_t *kc, const uint16_t *vc, uint32_t max_pos, uint32_t pos,
+                                        const float *q_norm, const float *k_norm, float eps, double rope_theta, float out_scale,
+                                        double *out, uint16_t *k_new, uint16_t *v_new) {
+    double cs[64], sn[64];
+    for (unsigned i = 0; i < 64; i++) { double ang = (double)pos * pow(rope_theta, -(double)(2 * i) / 128.0); cs[i] = cos(ang); sn[i] = sin(ang); }
+    const double qscale = 1.0 / sqrt(128.0);
+    for (unsigned gk = 0; gk < 4; gk++) {
+        double k[128];
+        for (unsigned i = 0; i < 128; i++) k[i] = qkv[4096 + gk * 128 + i];
+        norm_rope(k, k_norm, eps, cs, sn, 1);
+        for (unsigned i = 0; i < 128; i++) { k_new[gk * 128 + i] = omega_dattn_bf16_rne((float)k[i]); v_new[gk * 128 + i] = omega_dattn_bf16_rne(qkv[4096 + 512 + gk * 128 + i]); }
+    }
+    double *p = calloc((size_t)pos + 1, sizeof(double));
+    for (unsigned h = 0; h < 32; h++) {
+        unsigned gk = h / 8;
+        double q[128];
+        for (unsigned i = 0; i < 128; i++) q[i] = qkv[h * 128 + i];
+        norm_rope(q, q_norm, eps, cs, sn, 1);
+        double mx = -1e300;
+        for (uint32_t t = 0; t <= pos; t++) {
+            const uint16_t *kr = t == pos ? k_new + gk * 128 : kc + ((size_t)gk * max_pos + t) * 128;
+            double s = 0; for (unsigned i = 0; i < 128; i++) s += q[i] * (double)omega_dattn_bf16_f32(kr[i]);
+            s *= qscale; p[t] = s; if (s > mx) mx = s;
+        }
+        double l = 0; for (uint32_t t = 0; t <= pos; t++) { p[t] = exp(p[t] - mx); l += p[t]; }
+        double o[128]; memset(o, 0, sizeof o);
+        for (uint32_t t = 0; t <= pos; t++) {
+            const uint16_t *vr = t == pos ? v_new + gk * 128 : vc + ((size_t)gk * max_pos + t) * 128;
+            for (unsigned i = 0; i < 128; i++) o[i] += p[t] * (double)omega_dattn_bf16_f32(vr[i]);
+        }
+        for (unsigned i = 0; i < 128; i++) out[h * 128 + i] = o[i] / l * (double)out_scale;
+    }
+    free(p);
+}
+
+/* the library's libm-free host math against libm: RoPE rows bit-equal or within one f32 ulp, double values close */
+static void host_math_vs_libm(void) {
+    uint32_t s = 77; unsigned flips = 0, worse = 0; double maxd = 0;
+    static const uint32_t fixed[] = { 0, 1, 2, 3, 100, 255, 256, 4095, 4096, 8191, 32767, 32768, 65535 };
+    for (unsigned n = 0; n < 1000 + sizeof fixed / sizeof fixed[0]; n++) {
+        uint32_t pos = n < sizeof fixed / sizeof fixed[0] ? fixed[n] : lcg(&s) % 65536u;
+        float row[128]; omega_dattn_rope_row(pos, THETA, row);
+        for (unsigned i = 0; i < 64; i++) {
+            double ang = (double)pos * pow(THETA, -(double)(2 * i) / 128.0);
+            float c = (float)cos(ang), sn = (float)sin(ang);
+            uint32_t a, b; memcpy(&a, &row[i], 4); memcpy(&b, &c, 4);
+            int dc = (int)a - (int)b; memcpy(&a, &row[64 + i], 4); memcpy(&b, &sn, 4); int ds = (int)a - (int)b;
+            if (dc < -1 || dc > 1 || ds < -1 || ds > 1) worse++; else if (dc || ds) flips++;
+        }
+    }
+    CHECK(worse == 0, "rope rows vs libm: %u entries differ by more than one f32 ulp", worse);
+    printf("rope rows vs libm: 1013 positions x 64 dims, %u one-ulp differences, %u worse\n", flips, worse);
+    for (unsigned n = 0; n < 200000; n++) {
+        double a = ((double)(lcg(&s) % 2000001u) - 1000000.0) * (n & 1 ? 1.0 : 1e-6), hs, hc;
+        omega_hostmath_sincos(a, &hs, &hc);
+        double d = fabs(hs - sin(a)); if (d > maxd) maxd = d; d = fabs(hc - cos(a)); if (d > maxd) maxd = d;
+    }
+    CHECK(maxd < 1e-14, "hostmath sincos vs libm over |a| <= 1e6: max abs diff %.3g", maxd);
+    double maxr = 0;
+    for (unsigned n = 0; n < 200000; n++) {
+        double b = 1e-6 + (double)(lcg(&s) % 100000000u) * 1e-1, e = ((double)(lcg(&s) % 20001u) - 10000.0) / 10000.0 * 4.0;
+        double h = omega_hostmath_pow(b, e), l = pow(b, e), r = fabs(h - l) / l; if (r > maxr) maxr = r;
+        h = omega_hostmath_exp(e * 20.0); l = exp(e * 20.0); r = fabs(h - l) / l; if (r > maxr) maxr = r;
+        h = omega_hostmath_log(b); l = log(b); r = fabs(h - l) / (1.0 + fabs(l)); if (r > maxr) maxr = r;
+    }
+    CHECK(maxr < 1e-13, "hostmath pow/exp/log vs libm: max rel diff %.3g", maxr);
+    printf("hostmath vs libm: sincos max abs %.3g, pow/exp/log max rel %.3g\n", maxd, maxr);
+    CHECK(omega_hostmath_exp(0.0) == 1.0 && omega_hostmath_log(1.0) == 0.0 && omega_hostmath_pow(THETA, 0.0) == 1.0, "hostmath identities");
+    CHECK(omega_hostmath_log(-1.0) != omega_hostmath_log(-1.0) && omega_hostmath_exp(-800.0) == 0.0, "hostmath log(-1) is NaN, exp(-800) is 0");
+}
+
 /* compares out (f32 [4096]) against the reference; returns the number of elements outside the tolerance and the worst ratio */
 static size_t parity(const Case *c, const float *out, float out_scale, double *worst, uint16_t *k_new, uint16_t *v_new) {
     double *ref = malloc(4096 * sizeof(double));
@@ -84,6 +171,7 @@ static void host_only(void) {
     omega_dattn_rope_row(100, THETA, row);
     CHECK(fabs((double)row[0] - cos(100.0)) < 1e-6 && fabs((double)row[64] - sin(100.0)) < 1e-6, "rope row 100 dim 0 is cos/sin(100)");
     CHECK(fabs((double)row[63] - cos(100.0 * pow(THETA, -126.0 / 128.0))) < 1e-6, "rope row 100 dim 63 uses theta^(-126/128)");
+    host_math_vs_libm();
     /* reference sanity: context 1 returns v_new (rounded), whatever q and k */
     { Case c; case_make(&c, 256, 0, 11, 1.0f); double *ref = malloc(4096 * sizeof(double)); uint16_t kn[512], vn[512];
       omega_decode_attn_reference(c.qkv, c.kc, c.vc, 256, 0, c.qn, c.kn, EPS, THETA, 1.0f, ref, kn, vn);
