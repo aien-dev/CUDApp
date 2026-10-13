@@ -266,7 +266,7 @@ int omega_blackwell_codegen_decode_attn_prog(const OmegaDecodeAttnSpec *spec, Bl
         bf16_of(e, h0, S(v4, 2), c7fff, tb); bf16_of(e, h1, S(v4, 3), c7fff, tb); imadi(e, R(ts), R(h1), 65536u, h0);
     }
     /* cache row address of position pos for this lane */
-    imadi(e, R(t1), R(pos), OMEGA_DATTN_ROW_BYTES, cyk); imadi(e, R(t1), R(lane), 16u, t1);
+    imadi(e, R(t1), R(pos), OMEGA_DATTN_ROW_BYTES, cyk); imadi(e, R(t1), R(lane), 8u, t1);          /* 4 bf16 = 8 bytes per lane */
     /* key = (splits - 1 - cx) + warp: zero only for warp 0 of the last split */
     imadi(e, R(t2), R(cx), 0xffffffffu, splitsm1);
     if (MUT != 3) {
@@ -343,8 +343,12 @@ int omega_blackwell_codegen_decode_attn_prog(const OmegaDecodeAttnSpec *spec, Bl
     imadi(e, R(sa), R(tid), 32u, smS);
     for (unsigned h = 0; h < 8; h++) { imadi(e, R(t1), R(one), h * 4u, sa); sts32(e, t1, R(sc[h])); }
     bar_sync(e);
-    /* V pass: this warp's positions cb + warp + 8 i, i < n = max(0, ceil((end - cb - warp) / 8)) */
-    imadi(e, R(t1), R(cb), 0xffffffffu, end);        /* end - cb */
+    /* V pass: this warp's positions cb + warp + 8 i, i < n = max(0, ceil((min(end, cb + 256) - cb - warp) / 8)) */
+    imadi(e, R(t1), R(one), OMEGA_DATTN_CHUNK, cb);     /* cb + 256 */
+    imadi(e, R(t2), R(t1), 0xffffffffu, end);           /* end - (cb + 256) */
+    shr(e, over, t2, 31);                               /* 1 when the chunk is cut short by end */
+    imadr(e, t2, over, t2, t1);                         /* cend = min(end, cb + 256) */
+    imadi(e, R(t1), R(cb), 0xffffffffu, t2);            /* cend - cb */
     imadi(e, R(t1), R(t1), 1u, negwarp);              /* x = end - cb - warp */
     shr(e, over, t1, 31);
     imadi(e, R(n), R(one), 7u, t1);
