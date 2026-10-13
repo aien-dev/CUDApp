@@ -449,3 +449,33 @@ int omega_blackwell_codegen_tc_peak_prog(uint32_t iters, uint32_t chains, uint32
     if (e->err) return -1;
     return omega_bw_regalloc_solve(prog);
 }
+
+int omega_blackwell_codegen_tc_bw_prog(uint32_t iters, uint32_t groups, uint32_t threads, BlackwellIRProgram *prog) {
+    if (!prog || iters == 0 || groups == 0 || threads == 0 || threads % 32 || threads > 1024) return -1;
+    omega_bw_ir_init(prog);
+    Em em; memset(&em, 0, sizeof em); em.p = prog; Em *e = &em;
+    int udesc = UV64(e), px = V64(e), py = V64(e), tid = V(e), cta = V(e), one = V(e), cnt = V(e), grp = V(e), t = V(e), acc = V(e), ld[8];
+    for (int q = 0; q < 8; q++) ld[q] = V128(e);
+    if (e->err) return -1;
+    ldcu64(e, udesc, 0x358); ldc64(e, px, 0x380); ldc64(e, py, 0x388); s2r(e, tid, BW_SR_TID_X); s2r(e, cta, BW_SR_CTAID_X);
+    movi(e, one, 1); movrz(e, acc);
+    /* grp = cta % groups (cta - (cta / groups) * groups via the unsigned high multiply is not needed: groups is 1 or the grid) */
+    if (groups == 1) movrz(e, grp); else imadi(e, grp, cta, 0, 1u, NOREG);
+    imadw(e, px, grp, iters * threads * 128u, px);
+    imadi(e, t, tid, 0, 16u, NOREG); imadw(e, px, t, 1, px);
+    movi(e, cnt, iters);
+    const int L = here(e);
+    loop_begin(e);
+    for (int q = 0; q < 8; q++) ldg_wide(e, BW_IR_LDG_E_128, ld[q], px, (uint32_t)q * threads * 16u, udesc, q == 0);
+    for (int q = 0; q < 8; q++) for (unsigned s = 0; s < 4; s++) { BlackwellIRInsn x = I0(BW_IR_LOP3_XOR); x.dst_vreg = acc; x.src1_vreg = acc; x.src2_vreg = ld[q]; x.src2_subreg = (uint8_t)s; emit(e, x, K_FIXED); }
+    imadw(e, px, one, threads * 128u, px);
+    imadi(e, cnt, one, 0, 0xffffffffu, cnt);
+    isetp_ge_u32(e, cnt, one);
+    bra_if_p0(e, L);
+    loop_end(e);
+    imadi(e, t, cta, 0, threads, tid); imadw(e, py, t, 4u, py);
+    stg(e, py, 0, acc, udesc);
+    tail(e);
+    if (e->err) return -1;
+    return omega_bw_regalloc_solve(prog);
+}

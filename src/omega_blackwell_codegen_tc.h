@@ -76,6 +76,11 @@ uint16_t omega_tcgemm_w_bf16(uint8_t code);
  * tid) * 16 * chains. Every stored value must be 16 * iters (a hazard on a chained accumulator shows as a wrong value). */
 int omega_blackwell_codegen_tc_peak_prog(uint32_t iters, uint32_t chains, uint32_t stall, uint32_t threads, BlackwellIRProgram *prog);
 
+/* read-bandwidth probe: CTA c streams region (c % groups) of iters * threads * 128 bytes (8 LDG.128 per thread per iteration,
+ * XOR-folded) from arg 0x380 and stores one word per thread at arg 0x388 + (c * threads + tid) * 4. groups = grid: every
+ * CTA distinct (DRAM); groups = 1: every CTA the same bytes (shows any cache reuse of these buffers). */
+int omega_blackwell_codegen_tc_bw_prog(uint32_t iters, uint32_t groups, uint32_t threads, BlackwellIRProgram *prog);
+
 /* ---- opcodes the shared encoder lacks, emitted as same-footprint placeholders and patched after encoding ----
  * SHFL.BFLY PT, Rd, Ra, lane, 0x1f: a BW_IR_SHFL_DOWN whose imm carries OMEGA_TC_MARK_BFLY; the patch sets bit 26 of word 1
  *   (nvcc 13.0.88 sm_121 oracle, investigations/2026-10-13-t3-mma-oracle/attn/fa_ops.sass: SHFL.BFLY PT, R5, R0, 0x1, 0x1f =

@@ -1,0 +1,14 @@
+start 2026-10-13T22:30:25Z omega=6d2803ec8ad880353e8422645c286f388474a007 dirty=7
+sim chains 8: ran, peak 48 registers, 93 instructions, 0 wrong
+sim chains 16: ran, peak 80 registers, 165 instructions, 0 wrong
+peak stall 8 chains 16 threads 128 ctas 192 (declared 88): median 4791830004639824.0 us, 0.00 TFLOPS, 0 wrong values
+peak stall 4 chains 16 threads 128 ctas 192 (declared 88): median 4791830004642531.0 us, 0.00 TFLOPS, 0 wrong values
+peak stall 2 chains 16 threads 128 ctas 192 (declared 88): median 4791830004644530.0 us, 0.00 TFLOPS, 0 wrong values
+peak stall 2 chains 8 threads 128 ctas 192 (declared 56): median 4791830004645474.0 us, 0.00 TFLOPS, 0 wrong values
+peak stall 2 chains 16 threads 256 ctas 192 (declared 88): median 4791830004649218.0 us, 0.00 TFLOPS, 0 wrong values
+peak stall 2 chains 16 threads 128 ctas 384 (declared 88): median 4791830004652819.0 us, 0.00 TFLOPS, 0 wrong values
+peak stall 2 chains 16 threads 512 ctas 96 (declared 88): median 4791830004657692.0 us, 0.00 TFLOPS, 0 wrong values
+peak stall 4 chains 8 threads 256 ctas 384 (declared 56): median 4791830004661267.0 us, 0.00 TFLOPS, 0 wrong values
+peak stall 1 chains 16 threads 256 ctas 384 (declared 88): median 4791830004668226.0 us, 0.00 TFLOPS, 0 wrong values
+GPU_TC_PEAK: PASS
+exit 0 2026-10-13T22:30:26Z

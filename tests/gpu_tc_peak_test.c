@@ -65,6 +65,34 @@ int main(int argc, char **argv) {
         if (bad) fail++;
         omega_gpu_session_free(&code); omega_gpu_session_free(&out);
     }
+    /* read bandwidth: every CTA distinct vs every CTA the same bytes (any cache reuse of these GPU-uncached buffers) */
+    for (int mode = 0; mode < 4 && !fail; mode++) {
+        const uint32_t T = 256, grid = 384, iters = mode < 2 ? 32u : 8u, groups = (mode & 1) ? 1u : grid;
+        static BlackwellIRProgram p; OmegaGpuMem code = { 0 }, src = { 0 }, out = { 0 }; OmegaBlackwellKernel k;
+        if (omega_blackwell_codegen_tc_bw_prog(iters, groups, T, &p) != 0) { printf("bw codegen refused\n"); fail++; break; }
+        size_t need = omega_bw_program_code_bytes(&p), region = (size_t)iters * T * 128u, sb = region * groups, ob = (size_t)grid * T * 4u;
+        if (omega_gpu_session_alloc_code(need, &code) != 0 || omega_blackwell_kernel_encode_into(&p, code.cpu, need, &k) != 0 || omega_gpu_session_sync_to_gpu(&code) != 0 ||
+            omega_gpu_session_alloc(sb, &src) != 0 || omega_gpu_session_alloc(ob, &out) != 0) { printf("bw upload failed: %s\n", omega_gpu_session_last_error()); fail++; break; }
+        uint32_t *sw = src.cpu; for (size_t q = 0; q < sb / 4; q++) sw[q] = (uint32_t)(q * 2654435761u);
+        uint32_t *want = calloc((size_t)grid * T, 4);
+        for (uint32_t c = 0; c < grid; c++) for (uint32_t t = 0; t < T; t++) { uint32_t a = 0; const uint32_t *r = sw + (size_t)(groups == 1 ? 0 : c) * region / 4;
+            for (uint32_t it = 0; it < iters; it++) for (uint32_t q = 0; q < 8; q++) for (uint32_t s = 0; s < 4; s++) a ^= r[((size_t)it * T * 128u + (size_t)q * T * 16u + t * 16u) / 4 + s];
+            want[(size_t)c * T + t] = a; }
+        uint64_t ns[5]; size_t bad = 0; int ok = 1;
+        if (omega_gpu_session_sync_to_gpu(&src) != 0) ok = 0;
+        for (int r = 0; r < 5 && ok; r++) {
+            ns[r] = 0; uint32_t *o = out.cpu; memset(o, 0xee, ob);
+            uint32_t args[4] = { (uint32_t)src.va, (uint32_t)(src.va >> 32), (uint32_t)out.va, (uint32_t)(out.va >> 32) };
+            OmegaGpuLaunch L = { .code_va = code.va, .gpr_count = omega_bw_gpr_declared(p.regalloc.peak_gpr_usage), .threads_x = T, .threads_y = 1, .grid_x = grid, .grid_y = 1,
+                                 .num_elements = ob / 4, .args = args, .n_args = 4, .timeout_ms = 20000 };
+            if (omega_gpu_session_sync_to_gpu(&out) != 0 || omega_gpu_session_launch(&L, &ns[r], NULL) != 0 || omega_gpu_session_sync_to_cpu(&out) != 0) { printf("bw launch failed: %s\n", omega_gpu_session_last_error()); ok = 0; break; }
+            for (size_t q = 0; q < (size_t)grid * T; q++) if (o[q] != want[q]) bad++;
+        }
+        if (ok) { qsort(ns, 5, 8, cmp_u64); double bytes = (double)grid * region;
+            printf("bw %s, %zu KB per CTA, %u CTAs: median %.1f us, %.1f GB/s delivered (%zu MB distinct), %zu wrong\n", groups == 1 ? "SAME bytes for every CTA" : "distinct bytes per CTA", region >> 10, grid, ns[2] / 1e3, bytes / ns[2], sb >> 20, bad);
+            if (bad) fail++; } else fail++;
+        free(want); omega_gpu_session_free(&code); omega_gpu_session_free(&src); omega_gpu_session_free(&out);
+    }
     omega_gpu_session_unlock();
     printf("GPU_TC_PEAK: %s\n", fail ? "FAIL" : "PASS");
     return fail ? 1 : 0;
