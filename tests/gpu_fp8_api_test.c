@@ -96,6 +96,7 @@ static int nvdisasm_check(const OmegaFp8GemvSpec *spec, const char *name) {
         if (!strstr(line, "/*") || !strstr(line, "*/")) continue; /* every address line */
         insns++;
         if (strstr(line, "?") || strstr(line, "error")) bad++;
+        if (strstr(line, ".FTZ")) { printf("  %s: flush-to-zero instruction: %s", name, line); bad++; } /* e4m3 subnormals travel as f32 subnormals */
         for (int i = 0; i < 8; i++) if (strstr(line, must[i])) seen[i] = 1;
     }
     fclose(l);
@@ -109,12 +110,16 @@ static int nvdisasm_check(const OmegaFp8GemvSpec *spec, const char *name) {
 static void host_only(void) {
     /* 1. exhaustive conversion: kernel bits * 2^120 == reference, bit for bit, for every non-NaN code;
      *    sign of zero preserved; NaN codes are exactly 0x7f and 0xff and are refused by the scan */
-    int exact = 0, nan_codes = 0, zero_sign_ok = 0;
+    int exact = 0, nan_codes = 0, zero_sign_ok = 0, f32_subnormal = 0;
     for (int b = 0; b < 256; b++) {
         float ref = omega_fp8_e4m3_ref((uint8_t)b);
         uint32_t kb = omega_fp8_e4m3_kernel_bits((uint8_t)b);
         float kf; memcpy(&kf, &kb, 4);
-        float kv = ldexpf(kf, 120); /* exact: a power-of-two scaling of a normal f32 */
+        /* the kernel-side f32 is subnormal exactly for the e4m3 subnormal codes (exponent field 0, mantissa != 0):
+         * the chip must not flush them (no .FTZ instruction in the listing, chip one-hot test) */
+        if ((kb & 0x7f800000u) == 0 && (kb & 0x007fffffu) != 0) { f32_subnormal++; CHECK((b & 0x78) == 0 && (b & 7) != 0, "code 0x%02x maps to an f32 subnormal but is not an e4m3 subnormal", b); }
+        else CHECK((b & 0x78) != 0 || (b & 7) == 0, "e4m3 subnormal code 0x%02x maps to a normal f32", b);
+        float kv = ldexpf(kf, 120); /* exact: a power-of-two scaling (host, no flush to zero) */
         if (isnan(ref)) { nan_codes++; CHECK(omega_fp8_e4m3_is_nan((uint8_t)b), "code 0x%02x is NaN in the reference and must be flagged", b); continue; }
         CHECK(!omega_fp8_e4m3_is_nan((uint8_t)b), "code 0x%02x is finite in the reference and must not be flagged", b);
         uint32_t rb, vb; memcpy(&rb, &ref, 4); memcpy(&vb, &kv, 4);
@@ -125,6 +130,8 @@ static void host_only(void) {
         CHECK(ldexpf(ldexpf(kf, OMEGA_FP8_X_EXP), OMEGA_FP8_SCALE_EXP) == ref, "code 0x%02x: split fold not exact", b);
     }
     CHECK(exact == 254 && nan_codes == 2 && zero_sign_ok == 2, "conversion: %d exact, %d NaN codes, %d zero signs (want 254, 2, 2)", exact, nan_codes, zero_sign_ok);
+    CHECK(f32_subnormal == 14, "f32-subnormal kernel values: %d (want 14: +-0x01..0x07)", f32_subnormal);
+    printf("conversion: %d/256 exact, %d NaN codes refused, %d codes travel as f32 subnormals (2^-129 .. 7 * 2^-129): the chip must not flush them\n", exact, nan_codes, f32_subnormal);
     /* subnormal spot values from the e4m3 definition */
     CHECK(omega_fp8_e4m3_ref(0x01) == ldexpf(1.0f, -9) && omega_fp8_e4m3_ref(0x07) == 7.0f * ldexpf(1.0f, -9), "subnormal spot values");
     CHECK(omega_fp8_e4m3_ref(0x7e) == 448.0f && omega_fp8_e4m3_ref(0xfe) == -448.0f && omega_fp8_e4m3_ref(0x38) == 1.0f, "normal spot values");
@@ -146,9 +153,9 @@ static void host_only(void) {
 
     /* 3. codegen: every shape builds inside the budgets; refusals */
     static const uint32_t ks[] = { 128, 256, 768, 2048, 4096, 16384 };
-    static const uint32_t lbs[] = { 4, 8, 16 }, rows[] = { 1, 2, 4, 8 };
+    static const uint32_t lbs[] = { 8, 16 }, rows[] = { 1, 2, 4, 8 };
     uint32_t worst_insns = 0, worst_gprs = 0; int built = 0;
-    for (size_t a = 0; a < sizeof ks / sizeof ks[0]; a++) for (size_t b = 0; b < 3; b++) for (size_t c = 0; c < 4; c++) for (int m = 0; m <= 3; m++) {
+    for (size_t a = 0; a < sizeof ks / sizeof ks[0]; a++) for (size_t b = 0; b < 2; b++) for (size_t c = 0; c < 4; c++) for (int m = 0; m <= 3; m++) {
         OmegaFp8GemvSpec sp = { .k = ks[a], .lane_bytes = lbs[b], .rows = rows[c], .warps = 8, .mutant = m };
         uint32_t ni, ng;
         if (ks[a] % (32 * lbs[b])) { CHECK(omega_fp8_gemv_prog_stats(&sp, &ni, &ng) != 0, "k=%u lb=%u must be refused", ks[a], lbs[b]); continue; }
@@ -158,7 +165,8 @@ static void host_only(void) {
     }
     printf("codegen: %d kernels built, largest %u IR instructions, peak %u GPRs\n", built, worst_insns, worst_gprs);
     CHECK(worst_insns <= BW_MAX_IR_INSNS && worst_gprs <= 128, "budgets");
-    { OmegaFp8GemvSpec bad = { .k = 192, .lane_bytes = 4, .rows = 1, .warps = 1 }; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "k not a multiple of 128 refused");
+    { OmegaFp8GemvSpec bad = { .k = 192, .lane_bytes = 8, .rows = 1, .warps = 1 }; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "k not a multiple of 128 refused");
+      bad.k = 256; bad.lane_bytes = 4; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "lane_bytes 4 refused (LDG.E has no immediate offset)"); bad.lane_bytes = 8;
       bad.k = 2048; bad.rows = 3; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "rows 3 refused");
       bad.rows = 8; bad.warps = 9; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "warps 9 refused");
       bad.warps = 8; bad.lane_bytes = 32; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "lane_bytes 32 refused");
@@ -240,12 +248,12 @@ static void sim_battery(uint32_t cta_budget) {
     /* 1. one-hot conversion through the kernel: 254 rows, row r holds code r at column 0 (NaN codes replaced by
      *    0x00), x = e_0, scale 1: y[r] must equal the reference exactly (zero rows compare as 0) */
     {
-        Weights W; W.experts = 1; W.n = 256; W.k = 128;
-        W.w = aligned_alloc(64, 256 * 128); memset(W.w, 0, 256 * 128);
-        W.s = malloc(2 * 2); W.s[0] = bf16_of(1.0f); W.s[1] = bf16_of(1.0f);
-        for (int r = 0; r < 256; r++) W.w[r * 128] = omega_fp8_e4m3_is_nan((uint8_t)r) ? 0 : (uint8_t)r;
-        float x[128] = { 0 }; x[0] = 1.0f; float y[256]; uint32_t id = 0;
-        OmegaFp8GemvSpec sp = { .k = 128, .lane_bytes = 4, .rows = 8, .warps = 4 };
+        Weights W; W.experts = 1; W.n = 256; W.k = 256;
+        W.w = aligned_alloc(64, 256 * 256); memset(W.w, 0, 256 * 256);
+        W.s = malloc(4 * 2); for (int b = 0; b < 4; b++) W.s[b] = bf16_of(1.0f);
+        for (int r = 0; r < 256; r++) W.w[r * 256] = omega_fp8_e4m3_is_nan((uint8_t)r) ? 0 : (uint8_t)r;
+        float x[256] = { 0 }; x[0] = 1.0f; float y[256]; uint32_t id = 0;
+        OmegaFp8GemvSpec sp = { .k = 256, .lane_bytes = 8, .rows = 8, .warps = 4 };
         int rc = sim_gemv(&sp, &W, 1, &id, x, 1, y, cta_budget, 0, msg, sizeof msg);
         CHECK(rc == 0, "one-hot sim run: %s", msg);
         int exact = 0;
@@ -256,9 +264,9 @@ static void sim_battery(uint32_t cta_budget) {
         printf("sim one-hot conversion: %d/256 rows exact\n", exact);
         /* x on the other lanes/words: code at column c, x = e_c for c in {1, 17, 127} on one row each */
         for (int t = 0; t < 3; t++) {
-            const int cols[3] = { 1, 17, 127 }; const uint8_t codes[3] = { 0xc0, 0x05, 0x7e };
-            memset(W.w, 0, 256 * 128); W.w[3 * 128 + cols[t]] = codes[t];
-            memset(x, 0, sizeof x); x[cols[t]] = -2.5f; W.s[0] = bf16_of(0.75f);
+            const int cols[3] = { 1, 17, 255 }; const uint8_t codes[3] = { 0xc0, 0x05, 0x7e };
+            memset(W.w, 0, 256 * 256); W.w[3 * 256 + cols[t]] = codes[t];
+            memset(x, 0, sizeof x); x[cols[t]] = -2.5f; for (int b = 0; b < 4; b++) W.s[b] = bf16_of(0.75f);
             rc = sim_gemv(&sp, &W, 1, &id, x, 1, y, cta_budget, 0, msg, sizeof msg);
             CHECK(rc == 0 && y[3] == omega_fp8_e4m3_ref(codes[t]) * -2.5f * 0.75f, "one-hot column %d code 0x%02x: %a vs %a (%s)", cols[t], codes[t], rc == 0 ? y[3] : 0.0f, omega_fp8_e4m3_ref(codes[t]) * -2.5f * 0.75f, msg);
         }
@@ -266,10 +274,10 @@ static void sim_battery(uint32_t cta_budget) {
     }
     /* 2. parity battery */
     static const SimPoint pts[] = {
-        { 1, 128, 128, 1, 1, 4, 1, 1, "k128 lb4 r1 w1" },
+        { 1, 128, 256, 1, 1, 8, 1, 1, "k256 lb8 r1 w1" },
         { 1, 256, 256, 1, 1, 8, 2, 2, "k256 lb8 r2 w2" },
         { 1, 256, 768, 1, 1, 8, 4, 8, "k768 lb8 r4 w8 (down shape width)" },
-        { 1, 256, 768, 1, 1, 4, 8, 8, "k768 lb4 r8" },
+        { 1, 256, 768, 1, 1, 8, 8, 8, "k768 lb8 r8" },
         { 1, 384, 2048, 1, 1, 16, 8, 8, "k2048 lb16 r8 w8 (gate shape width)" },
         { 1, 128, 2048, 1, 1, 16, 1, 8, "k2048 lb16 r1" },
         { 1, 256, 512, 1, 1, 16, 2, 3, "k512 lb16 r2 w3 (odd warps, tail row groups)" },
@@ -297,6 +305,7 @@ static void sim_battery(uint32_t cta_budget) {
         if (i == 1 || i == 4 || i == 7 || i == 8) {
             for (int m = 1; m <= 4; m++) {
                 if (m == 3 && p->groups == 1) continue; /* group swap needs two groups */
+                if (m == 2 && omega_fp8_gemv_steps(&sp) < 2) { printf("sim %s mutant 2: one K step, control not applicable\n", p->name); continue; }
                 OmegaFp8GemvSpec ms = sp; ms.mutant = m == 4 ? 0 : m;
                 rc = sim_gemv(&ms, &W, p->groups, ids, x, p->x_rows, y, cta_budget, m == 4, msg, sizeof msg);
                 bad = 0; worst = rc == 0 ? parity(&W, p->groups, ids, x, p->x_rows, y, &bad) : 1.0;
@@ -322,7 +331,7 @@ static int chip_run(const char *out_path, uint32_t reps) {
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 1; }
     if (out) fprintf(out, "{\"test\":\"OMEGA_GPU_FP8_GEMV\",\"points\":[");
     static const ChipPoint pts[] = {
-        { 1, 128, 128, 1, 1, "k128 n128", 1 },
+        { 1, 128, 256, 1, 1, "k256 n128", 1 },
         { 1, 256, 768, 1, 1, "k768 n256", 1 },
         { 1, 384, 2048, 1, 1, "k2048 n384", 1 },
         { 1, 768, 2048, 1, 1, "gate 768x2048", 1 },
@@ -337,8 +346,31 @@ static int chip_run(const char *out_path, uint32_t reps) {
         { 16, 1536, 2048, 8, 1, "8 of 16 experts gate+up", 1 },
         { 1, 16384, 2048, 1, 1, "large 16384x2048", 1 },
     };
+    /* 0. one-hot conversion on the chip: row r holds code r at column 0 (NaN codes as 0x00), x = e_0, scale 1.
+     *    y[r] must equal the reference bit for bit. The e4m3 subnormal codes 0x01..0x07 (and negatives) travel
+     *    through the FFMA chain as f32 subnormals (e4m3 * 2^-120); a flush-to-zero FFMA would return 0 here. */
+    int one_hot_exact = -1;
+    {
+        uint8_t *w = calloc(256, 256); uint16_t s[4]; float x[256] = { 0 }, y[256]; OmegaGpuFp8Tensor *t = NULL;
+        for (int b = 0; b < 4; b++) s[b] = bf16_of(1.0f);
+        for (int r = 0; r < 256; r++) w[r * 256] = omega_fp8_e4m3_is_nan((uint8_t)r) ? 0 : (uint8_t)r;
+        x[0] = 1.0f;
+        int rc = omega_gpu_fp8_tensor_upload(1, 256, 256, w, s, &t);
+        if (rc == OMEGA_GPU_FP8_OK) rc = omega_gpu_fp8_gemv_f32(t, 0, x, y, NULL);
+        one_hot_exact = 0;
+        if (rc == OMEGA_GPU_FP8_OK) for (int r = 0; r < 256; r++) {
+            float ref = omega_fp8_e4m3_is_nan((uint8_t)r) ? 0.0f : omega_fp8_e4m3_ref((uint8_t)r);
+            if (y[r] == ref) one_hot_exact++; else CHECK(0, "chip one-hot code 0x%02x: kernel %a, reference %a", r, y[r], ref);
+        }
+        CHECK(rc == OMEGA_GPU_FP8_OK && one_hot_exact == 256, "chip one-hot conversion: rc=%s exact=%d/256", omega_gpu_fp8_rc_name(rc), one_hot_exact);
+        printf("chip one-hot conversion: rc=%s %d/256 rows exact (subnormal codes 0x01..0x07 included: no flush to zero)\n", omega_gpu_fp8_rc_name(rc), one_hot_exact);
+        if (out) fprintf(out, "{\"name\":\"one-hot conversion\",\"rc\":\"%s\",\"exact_rows\":%d,\"of\":256}", omega_gpu_fp8_rc_name(rc), one_hot_exact);
+        if (t) omega_gpu_fp8_tensor_free(t);
+        free(w);
+    }
     const size_t npts = sizeof pts / sizeof pts[0];
     int first = 1;
+    first = out ? 0 : 1;
     for (size_t i = 0; i < npts; i++) {
         const ChipPoint *p = &pts[i];
         Weights W; weights_make(&W, p->experts, p->n, p->k, 5000 + (uint32_t)i);
