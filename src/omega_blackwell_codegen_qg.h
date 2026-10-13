@@ -35,10 +35,11 @@ int omega_blackwell_codegen_pq_prog(const OmegaPqSpec *s, BlackwellIRProgram *pr
  * chunk acc = fma(T, sa * sw, acc) in f32 (sa a power of two, so sa * sw is exact). Step v of chunk h: lane t's 16 bytes
  * 64h + 16t .. +15 of both the activation row and the weight row; bytes 8v .. 8v+3 are logical k 4t .. 4t+3 of the QMMA and
  * bytes 8v+4 .. 8v+7 logical k 16+4t .. 16+4t+3 (A and B alike, so no K permutation is stored anywhere).
- * Weights: e4m3 rows of k in the PHYSICAL row order of the upload (omega_gpu_prefill.h), scale table per expert
- * [n / 16][KB][2] f32 (sw of the warp's two 8-row column tiles side by side). Activations: e4m3 rows of k (xq) + f32 scales
- * [rows][KB] (xs), the quantiser's output. Output F32: y f32 rows of n. SWIGLU (natural order): column tile 0 of a warp is
- * gate rows, tile 1 the matching up rows; act[row][n0w / 2 + 2t + q] = bf16_rn(silu(g) * u), no extra scale.
+ * Weights: read IN PLACE from an omega_gpu_fp8_api tensor (no second copy): e4m3 rows of k in checkpoint order, scales
+ * [n / 128][KB] f32 * 2^56 per expert; the kernel uses sw = S * 2^-56 (exact: the checkpoint bf16 scale). Activations: e4m3 rows of k (xq) + f32 scales
+ * [rows][KB] (xs), the quantiser's output. Output F32: y f32 rows of n (warp columns n0w .. n0w+15). SWIGLU (n = 2I, gate rows
+ * 0 .. I-1 then up rows I .. 2I-1, as the checkpoint): column tile 0 of a warp is gate rows n0w / 2 .. +7, tile 1 the up rows I later; act[row][n0w / 2 + 2t + q] = bf16_rn(g * rcp(2^min(-g log2 e, 125) + 1) * u), no extra scale
+ * (the cap keeps the reciprocal normal: for g < -86.6 the result is g * 2^-125 * u instead of a flushed or subnormal value).
  * Tile entry (32 bytes): { w_va u64, s_va u64, row0 u32, cnt u32 (1 .. 16 rt), pad u64 }; rows past cnt are not stored.
  * Constant bank 0x380: tiles, rowidx (ignored when direct), xq, y, xs (u64 each), n u32 at 0x3a8.
  * Grid: n / (warps * 16) x tiles; 32 * warps threads; shared 2 * (16 rt * 64 + 16 rt * 4) bytes.

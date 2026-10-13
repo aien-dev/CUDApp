@@ -83,14 +83,16 @@ void omega_gpu_pf_gemm_test_set_mutant(int m);
  * scales); semantics in omega_blackwell_codegen_qg.h */
 int omega_gpu_pf_quant(uint32_t k, uint32_t in_type, uint32_t rows, uint64_t x_va, uint64_t q_va, uint64_t s_va, uint64_t *ns);
 void omega_gpu_pf_quant_test_set_mutant(int m);
-/* grouped GEMM on QMMA: weights in natural physical order (PLAIN, or SWIGLU_NAT: physical row 16G + h holds gate (h < 8) or up (h >= 8)
- * of intermediate index 8G + h % 8, so act column = 8G + 2t + q) with the sw table [E][n/16][k/128][2] f32 (r buffer).
- * xq: e4m3 rows of k, xs: f32 [rows][k/128] power-of-two scales (omega_gpu_pf_quant). y: f32 rows of n or bf16 act rows of n/2. */
-int omega_gpu_pf_qweights_upload(uint32_t experts, uint32_t n, uint32_t k, const uint8_t *w, const uint16_t *scale_inv, uint32_t layout, OmegaPfWeights *out);
-int omega_gpu_pf_qweights_host_form(uint32_t experts, uint32_t n, uint32_t k, const uint8_t *w, const uint16_t *scale_inv, uint32_t layout, uint8_t *pw, float *sw);
+/* grouped GEMM on QMMA, weights read in place from an FP8 GEMV tensor (omega_gpu_fp8_api.h, checkpoint row order, no copy).
+ * layout PLAIN: y f32 rows of n. layout SWIGLU_NAT: the tensor is [E][2I][k] gate rows then up rows; y = bf16 act rows of I = n/2,
+ * act[i] = silu(gate_i) * up_i (capped exponent, omega_blackwell_codegen_qg.h). xq: e4m3 rows of k, xs: f32 [rows][k/128]
+ * power-of-two scales (omega_gpu_pf_quant). Rows grouped by expert: counts[e] rows of expert e, tile table from qgemm_tiles. */
+typedef struct OmegaGpuFp8Tensor OmegaGpuFp8Tensor;
 uint32_t omega_gpu_pf_qgemm_bm(void);
-uint32_t omega_gpu_pf_qgemm_tiles(const OmegaPfWeights *w, const uint32_t *counts, void *tab, uint32_t max);
-int omega_gpu_pf_qgemm(const OmegaPfWeights *w, uint64_t tiles_va, uint32_t ntiles, uint64_t rowidx_va, uint64_t xq_va, uint64_t xs_va, uint64_t y_va, uint64_t *ns);
+uint32_t omega_gpu_pf_qgemm_tiles(const OmegaGpuFp8Tensor *t, const uint32_t *counts, void *tab, uint32_t max);
+/* the same from per-expert base addresses of a GEMV-layout copy (e.g. a GPU-cached device buffer) */
+uint32_t omega_gpu_pf_qgemm_tiles_va(uint32_t experts, const uint64_t *w_va, const uint64_t *s_va, const uint32_t *counts, void *tab, uint32_t max);
+int omega_gpu_pf_qgemm(uint32_t n, uint32_t k, uint32_t layout, uint64_t tiles_va, uint32_t ntiles, uint64_t rowidx_va, uint64_t xq_va, uint64_t xs_va, uint64_t y_va, uint64_t *ns);
 void omega_gpu_pf_qgemm_set_shape(uint32_t rt, uint32_t warps, uint32_t wait); /* knobs (all 0 restores rt 4, warps 8, wait 45) */
 void omega_gpu_pf_qgemm_test_set_mutant(int m);
 #ifdef __cplusplus
