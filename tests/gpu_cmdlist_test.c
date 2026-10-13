@@ -82,7 +82,7 @@ static void glue_fill(Glue *g, uint32_t seed, int tie) {
 
 /* ---- kernels ---- */
 typedef struct { BlackwellIRProgram prog; OmegaGpuMem code; uint32_t gpr; int built; } Kern;
-static Kern K_axpy, K_res_an, K_res_cn, K_sw, K_am0, K_am1, K_res_m1, K_res_m2, K_sw_m1, K_am_m1, K_axpy_big;
+static Kern K_axpy, K_res_an, K_res_cn, K_sw, K_am0, K_am1, K_res_m1, K_res_m2, K_res_cn_m1, K_sw_m1, K_am_m1, K_axpy_big;
 
 static int kern_prog(Kern *k, const OmegaDecSpec *sp) { k->built = 0; return omega_blackwell_codegen_dec_prog(sp, &k->prog); }
 static int kern_upload(Kern *k) {
@@ -110,6 +110,7 @@ static int specs_build(void) {
     memset(&s, 0, sizeof s); s.kind = OMEGA_DEC_RES; s.mode = OMEGA_DEC_RES_COMBINE | OMEGA_DEC_RES_NORM; if (kern_prog(&K_res_cn, &s)) return -1;
     memset(&s, 0, sizeof s); s.kind = OMEGA_DEC_RES; s.mode = OMEGA_DEC_RES_ADD | OMEGA_DEC_RES_NORM; s.mutant = 1; if (kern_prog(&K_res_m1, &s)) return -1;
     memset(&s, 0, sizeof s); s.kind = OMEGA_DEC_RES; s.mode = OMEGA_DEC_RES_COMBINE | OMEGA_DEC_RES_NORM; s.mutant = 2; if (kern_prog(&K_res_m2, &s)) return -1;
+    memset(&s, 0, sizeof s); s.kind = OMEGA_DEC_RES; s.mode = OMEGA_DEC_RES_COMBINE | OMEGA_DEC_RES_NORM; s.mutant = 1; if (kern_prog(&K_res_cn_m1, &s)) return -1;
     memset(&s, 0, sizeof s); s.kind = OMEGA_DEC_SWIGLU; if (kern_prog(&K_sw, &s)) return -1;
     memset(&s, 0, sizeof s); s.kind = OMEGA_DEC_SWIGLU; s.mutant = 1; if (kern_prog(&K_sw_m1, &s)) return -1;
     memset(&s, 0, sizeof s); s.kind = OMEGA_DEC_ARGMAX; s.mode = 0; if (kern_prog(&K_am0, &s)) return -1;
@@ -233,7 +234,7 @@ static int chip_run(const char *out_path, uint32_t reps) {
     OmegaGpuCmdList *cl = NULL;
     if (omega_gpu_cmdlist_create(OMEGA_GPU_CMDLIST_MAX_LAUNCHES, &cl) != 0) return chip_fail("cmdlist create");
     omega_gpu_session_lock();
-    Kern *ks[] = { &K_axpy, &K_axpy_big, &K_res_an, &K_res_cn, &K_res_m1, &K_res_m2, &K_sw, &K_sw_m1, &K_am0, &K_am1, &K_am_m1 };
+    Kern *ks[] = { &K_axpy, &K_axpy_big, &K_res_an, &K_res_cn, &K_res_m1, &K_res_m2, &K_res_cn_m1, &K_sw, &K_sw_m1, &K_am0, &K_am1, &K_am_m1 };
     for (unsigned i = 0; i < sizeof ks / sizeof ks[0]; i++) if (kern_upload(ks[i])) { omega_gpu_session_unlock(); return chip_fail("kernel upload"); }
     OmegaGpuMem bx, ba, bx0;
     const size_t big = (size_t)AXPY_BIG_STRIDE * AXPY_BIG_ITERS * 4u;
@@ -362,7 +363,9 @@ static int chip_run(const char *out_path, uint32_t reps) {
         g.ov = g.logits + AM_PAD; g.oi = (uint32_t *)(g.ov + OMEGA_DEC_ARGMAX_SPAN); float *ov2 = (float *)(g.oi + OMEGA_DEC_ARGMAX_SPAN); uint32_t *oi2 = (uint32_t *)(ov2 + OMEGA_DEC_ARGMAX_SPAN);
 #define VA(ptr) (va + (uint64_t)((const uint8_t *)(ptr) - (const uint8_t *)p))
         static float x_after_an[H], y_an[H], y_cn[H], act_ref[TK * INTER], x_after_cn[H];
-        for (int mut = 0; mut < 4; mut++) { /* 0 real; 1 res mutant 1 in slot 0; 2 res mutant 2 in slot 2; 3 argmax mutant */
+        /* 0 real; 1 norm-without-weight in slot 2 (the norm whose output is compared: slot 0 norm output is overwritten by
+         * slot 2, chip run r2 showed a slot-0 mutant cannot show); 2 combine skips expert 7 in slot 2; 3 argmax mutant */
+        for (int mut = 0; mut < 4; mut++) {
             for (int tie = mut == 0 ? 0 : 1; tie < 2; tie++) { /* mutants run on the tie case: the max sits in a j == 7 slot */
                 glue_fill(&g, 400 + tie, tie);
                 memcpy(x_after_an, g.x, sizeof x_after_an); ref_res(OMEGA_DEC_RES_ADD | OMEGA_DEC_RES_NORM, x_after_an, g.a8, g.w, g.nw, y_an, EPS, 1.0f);
@@ -377,7 +380,7 @@ static int chip_run(const char *out_path, uint32_t reps) {
                 put64(a1, OMEGA_DEC_AM_V, VA(g.ov)); put64(a1, OMEGA_DEC_AM_I, VA(g.oi)); put64(a1, OMEGA_DEC_AM_OV, VA(ov2)); put64(a1, OMEGA_DEC_AM_OI, VA(oi2));
                 OmegaGpuLaunch l[5]; memset(l, 0, sizeof l);
                 for (int i = 0; i < 5; i++) { l[i].threads_x = OMEGA_DEC_THREADS; l[i].threads_y = 1; l[i].grid_y = 1; l[i].timeout_ms = 20000; }
-                Kern *k0 = mut == 1 ? &K_res_m1 : &K_res_an, *k2 = mut == 2 ? &K_res_m2 : &K_res_cn, *k3 = mut == 3 ? &K_am_m1 : &K_am0;
+                Kern *k0 = &K_res_an, *k2 = mut == 1 ? &K_res_cn_m1 : mut == 2 ? &K_res_m2 : &K_res_cn, *k3 = mut == 3 ? &K_am_m1 : &K_am0;
                 l[0].code_va = k0->code.va; l[0].gpr_count = k0->gpr; l[0].grid_x = 1; l[0].num_elements = H; l[0].args = ra; l[0].n_args = OMEGA_DEC_RES_WORDS;
                 l[1].code_va = K_sw.code.va; l[1].gpr_count = K_sw.gpr; l[1].grid_x = INTER / OMEGA_DEC_THREADS; l[1].grid_y = TK; l[1].num_elements = TK * INTER; l[1].args = sa; l[1].n_args = OMEGA_DEC_SW_WORDS;
                 l[2].code_va = k2->code.va; l[2].gpr_count = k2->gpr; l[2].grid_x = 1; l[2].num_elements = H; l[2].args = rb; l[2].n_args = OMEGA_DEC_RES_WORDS;
