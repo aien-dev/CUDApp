@@ -5,6 +5,7 @@
 #include "omega_gpu_session.h"
 #include "omega_gpu_fmt.h"
 #include <string.h>
+#include <stdlib.h>
 
 #define CACHE_SLOTS 8
 #define MARKER_TIMEOUT_MS 20000ull
@@ -78,13 +79,16 @@ int omega_gpu_fp8gemm_kernel_fits(const OmegaFp8GemmSpec *spec, uint32_t *declar
 void omega_gpu_fp8gemm_shape_for(uint32_t k, uint32_t *mt, uint32_t *warps, uint32_t *lane_bytes) {
     uint32_t lb = k % 512u == 0 ? 16u : 8u;
     if (lane_bytes) *lane_bytes = lb;
-    if (mt) *mt = g.mt ? g.mt : 8u; /* 8 rows per pass (16 KB of shared memory at lane 16) */
+    /* default 4 rows per pass: chip sweep 2026-10-13, gate|up 3.5 ms at 4 vs 6.0 ms at 8 (8 rows fill the 16 KB of shared memory and run at half the rate) */
+    if (mt) *mt = g.mt ? g.mt : 4u;
     if (warps) *warps = g.warps ? g.warps : 16u;
 }
-static void spec_for(uint32_t k, OmegaFp8GemmSpec *spec) {
+/* dense = a few distinct experts with many rows each (qkv, o): 8 rows per pass measured best there */
+static void spec_for(uint32_t k, uint32_t segs, OmegaFp8GemmSpec *spec) {
     memset(spec, 0, sizeof *spec);
     spec->k = k;
     omega_gpu_fp8gemm_shape_for(k, &spec->mt, &spec->warps, &spec->lane_bytes);
+    if (!g.mt && segs < 8u) spec->mt = 8u;
     spec->mutant = g.mutant;
 }
 
@@ -120,22 +124,26 @@ static int kernel_for(const OmegaFp8GemmSpec *spec, Slot **out, bool *hit) {
 }
 
 int omega_gpu_fp8gemm_prepare(uint32_t k) {
-    OmegaFp8GemmSpec spec; spec_for(k, &spec);
+    /* both variants: many experts (4 rows per pass) and dense (8 rows per pass) */
+    OmegaFp8GemmSpec sp[2]; spec_for(k, 64u, &sp[0]); spec_for(k, 1u, &sp[1]);
     omega_gpu_session_lock();
     int rc = OMEGA_GPU_FP8GEMM_OK;
     if (!dev_open_locked()) rc = OMEGA_GPU_FP8GEMM_CHIP_FAIL;
-    else { Slot *s = NULL; bool hit = false; rc = kernel_for(&spec, &s, &hit); if (rc == OMEGA_GPU_FP8GEMM_OK) s->pinned = true; }
+    else for (int v = 0; v < 2 && rc == OMEGA_GPU_FP8GEMM_OK; v++) { Slot *s = NULL; bool hit = false; rc = kernel_for(&sp[v], &s, &hit); if (rc == OMEGA_GPU_FP8GEMM_OK) s->pinned = true; }
     omega_gpu_session_unlock();
     return rc;
 }
 
 /* x' = x * 2^64 in the kernel's lane layout: column c = s*32*LB + L*LB + w*4 + e  ->  index s*32*LB + (w*32 + L)*4 + e */
 void omega_fp8gemm_permute_x(const float *x, uint32_t k, uint32_t lb, float *out) {
-    const uint32_t row = 32u * lb;
-    for (uint32_t c = 0; c < k; c++) {
-        uint32_t s = c / row, r = c % row, L = r / lb, j = r % lb, w = j / 4u, e = j % 4u;
-        out[s * row + (w * 32u + L) * 4u + e] = x[c] * 18446744073709551616.0f;
-    }
+    const uint32_t row = 32u * lb, nw = lb / 4u;
+    for (uint32_t s0 = 0; s0 + row <= k; s0 += row)
+        for (uint32_t L = 0; L < 32u; L++)
+            for (uint32_t w = 0; w < nw; w++) {
+                const float *src = x + s0 + L * lb + w * 4u; float *dst = out + s0 + (w * 32u + L) * 4u;
+                dst[0] = src[0] * 18446744073709551616.0f; dst[1] = src[1] * 18446744073709551616.0f;
+                dst[2] = src[2] * 18446744073709551616.0f; dst[3] = src[3] * 18446744073709551616.0f;
+            }
 }
 
 typedef struct { uint64_t w_va, s_va; uint32_t row0, cnt; uint32_t pad[2]; } SegEntry;
@@ -155,7 +163,7 @@ static int gemm_core(const OmegaGpuFp8Tensor *t, uint32_t M, const uint32_t *ids
         if (i == 0 || ids[i] != ids[i - 1]) segs++;
     }
     if (segs > OMEGA_GPU_FP8GEMM_MAX_SEGMENTS) return OMEGA_GPU_FP8GEMM_TOO_LARGE;
-    OmegaFp8GemmSpec spec; spec_for(k, &spec);
+    OmegaFp8GemmSpec spec; spec_for(k, segs, &spec);
     const uint32_t MT = spec.mt, W = spec.warps;
     uint32_t grid_x = (n + W - 1) / W;
     uint32_t budget = g.ctas ? g.ctas : (segs >= 64u ? 2u : segs >= 8u ? 12u : 96u);
@@ -187,12 +195,21 @@ static int gemm_core(const OmegaGpuFp8Tensor *t, uint32_t M, const uint32_t *ids
     }
     float *xd = g.x_buf.mem.cpu, *yd = g.y_buf.mem.cpu;
     {
-        float tmp[OMEGA_FP8_MAX_K];
+        float tmp[OMEGA_FP8_MAX_K], tp[OMEGA_FP8_MAX_K]; /* permute in cached memory, then one sequential copy: element-wise writes into the uncached buffer cost 2.8 ms per 4 MB */
+        /* a source row routed to several experts (top-k) is permuted once and copied after: the permuted rows are kept in cached memory */
+        float *pc = ((size_t)x_rows * k * 4u <= (16u << 20)) ? malloc((size_t)x_rows * k * 4u) : NULL;
+        unsigned char *have = pc ? calloc(x_rows, 1) : NULL;
         for (uint32_t i = 0; i < M; i++) {
-            if (x32) memcpy(tmp, x32 + (size_t)trow[i] * k, (size_t)k * 4u);
-            else for (uint32_t c = 0; c < k; c++) { uint32_t b = (uint32_t)x16[(size_t)trow[i] * k + c] << 16; memcpy(&tmp[c], &b, 4); }
-            omega_fp8gemm_permute_x(tmp, k, spec.lane_bytes, xd + (size_t)i * k);
+            const uint32_t r = trow[i];
+            if (have && have[r]) { memcpy(xd + (size_t)i * k, pc + (size_t)r * k, (size_t)k * 4u); continue; }
+            if (x32) memcpy(tmp, x32 + (size_t)r * k, (size_t)k * 4u);
+            else for (uint32_t c = 0; c < k; c++) { uint32_t b = (uint32_t)x16[(size_t)r * k + c] << 16; memcpy(&tmp[c], &b, 4); }
+            float *dst = have ? pc + (size_t)r * k : tp;
+            omega_fp8gemm_permute_x(tmp, k, spec.lane_bytes, dst);
+            if (have) have[r] = 1;
+            memcpy(xd + (size_t)i * k, dst, (size_t)k * 4u);
         }
+        free(pc); free(have);
         memset(xd + (size_t)M * k, 0, (size_t)MT * k * 4u);
     }
     for (size_t i = 0; i < (size_t)M * n; i++) yd[i] = POISON_F32;
