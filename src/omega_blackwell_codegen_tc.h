@@ -27,6 +27,50 @@ extern "C" {
 #define OMEGA_TC_PROBE_OUT_BYTES 512u
 int omega_blackwell_codegen_tc_probe_prog(int mutant, BlackwellIRProgram *prog);
 
+/* ---- grouped FP8 GEMM on tensor cores (cut 1: e4m3 weights decoded to bf16 in registers, HMMA.16816.F32.BF16) ----
+ *   y[row0 + r][c] = sum_kb S'[c/128][kb] * ( sum_{k in kb} w(W[c][k]) * x(X[rowidx[row0 + r]][k]) )
+ * w(e) = e4m3 value * 2^-120 as bf16 bits ((e & 0x7F) << 4 | (e & 0x80) << 8: exact, subnormal codes become bf16 subnormals,
+ * which the HMMA honours: evidence OWN30B-T3-HMMA-MODEL), x = bf16(x * 2^64), S' = scale * 2^56 (the FP8 GEMV's fold, so
+ * the true value is recovered). Per 128-wide K block: 8 HMMA steps into a zeroed temporary, then acc = fma(tmp, S', acc).
+ *
+ * Physical K order. Within every aligned group of 4 elements (k = 4q .. 4q+3) the activations are STORED as
+ * [x(4q), x(4q+2), x(4q+1), x(4q+3)] (bf16, row-major otherwise): omega_tcgemm_permute_x. Weights stay in checkpoint order.
+ * HMMA step (chunk c of 64 elements, s = 0..3) consumes the 16 elements c*64 + 16t + 4s + j (t = 0..3 lane%4, j = 0..3);
+ * lane t's weight bytes j = 0,2 form B register 0 and j = 1,3 register 1, so one e4m3 word decodes into both B registers
+ * with 8 integer ops, and the matching activation words arrive in order. The fused 16-term HMMA sum does not depend on the
+ * order of its terms (tests/bw_hmma_model.h), so the result depends only on the step grouping above.
+ *
+ * Tile table (device, ctaid.y = tile, 32 bytes each, the FP8 GEMM's segment entry): { w_va u64, s_va u64, row0 u32, cnt u32,
+ * pad[8] } with 1 <= cnt <= 16*rt; rows row0 .. row0+cnt-1 of the sorted row space belong to one expert.
+ * rowidx (device u32): sorted row -> source row of X; entries row0 .. row0 + 16*rt - 1 must be readable for every tile (the
+ * host pads with valid rows; rows past cnt are computed and not stored).
+ * Constant bank 0 (cbank + 0x380): tiles u64, rowidx u64, x u64 (bf16 rows of k), y u64 (f32 rows of n), n u32.
+ * Grid: grid_x = n / (warps * 8 * ct) (exact), grid_y = tiles. CTA: 32 * warps threads; shared 2 * 16 * rt * 128 bytes.
+ * mutant (tests only): 1 drops the block scale, 2 never advances the scale pointer, 3 row tile i reads tile i^1 (rt >= 2),
+ * 4 drops the last 64-element chunk of every 128 block. Each must be caught. */
+typedef struct {
+    uint32_t k;     /* multiple of 128, 128 .. 16384 */
+    uint32_t rt;    /* row tiles (16 rows) per CTA: 1, 2 or 4 */
+    uint32_t ct;    /* column tiles (8 weight rows) per warp: 1, 2 or 4; rt * ct >= 4 */
+    uint32_t warps; /* 1, 2, 4 or 8; (16 * rt * 8) % (32 * warps) == 0 */
+    int mutant;
+} OmegaTcGemmSpec;
+#define OMEGA_TCGEMM_ARG_TILES 0x380u
+#define OMEGA_TCGEMM_ARG_ROWIDX 0x388u
+#define OMEGA_TCGEMM_ARG_X 0x390u
+#define OMEGA_TCGEMM_ARG_Y 0x398u
+#define OMEGA_TCGEMM_ARG_N 0x3a0u
+#define OMEGA_TCGEMM_ARGS_WORDS 9u
+#define OMEGA_TCGEMM_TILE_BYTES 32u
+int omega_tcgemm_spec_ok(const OmegaTcGemmSpec *spec);
+uint32_t omega_tcgemm_shared_bytes(const OmegaTcGemmSpec *spec);
+uint32_t omega_tcgemm_span(const OmegaTcGemmSpec *spec); /* weight rows per CTA */
+int omega_blackwell_codegen_tcgemm_prog(const OmegaTcGemmSpec *spec, BlackwellIRProgram *prog);
+/* x (k values) -> the stored bf16 row: RNE bf16 of x * 2^64 in the (0,2,1,3) group order */
+void omega_tcgemm_permute_x(const float *x, uint32_t k, uint16_t *out);
+/* e4m3 code -> the bf16 bits the kernel feeds the HMMA (value * 2^-120) */
+uint16_t omega_tcgemm_w_bf16(uint8_t code);
+
 #ifdef __cplusplus
 }
 #endif
