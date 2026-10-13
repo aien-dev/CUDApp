@@ -277,8 +277,7 @@ int omega_blackwell_codegen_router_prog(const OmegaRouterSpec *spec, BlackwellIR
     imadi(e, R(lane4), R(lane), 4u, NOREG);
     for (unsigned j = 0; j < 4; j++) {
         imadi(e, R(ej[j]), R(one), j, lane4);
-        lop3(e, fj[j], ej[j], c2p23, NOREG, 0xfcu);
-        fsub(e, R(fj[j]), R(fj[j]), R(c2p23));          /* float(ej) */
+        lop3(e, fj[j], ej[j], c2p23, NOREG, 0xfcu);         /* bits 0x4B000000 | ej = the float 2^23 + ej: monotonic in ej, never zero */
     }
     movi(e, bc, OMEGA_ROUTER_SM_BC); movi(e, bc4, OMEGA_ROUTER_SM_BC + 4u);
     movrz(e, R(r)); movi(e, c8, OMEGA_ROUTER_TOPK);
@@ -292,10 +291,10 @@ int omega_blackwell_codegen_router_prog(const OmegaRouterSpec *spec, BlackwellIR
     lane0_sts(e, lane, one, bc, R(lm));
     bar_sync(e);
     lds32(e, R(mr), bc, 1);
-    /* lowest index holding it: candidate = float(ej) when equal, else a huge float */
+    /* lowest index holding it: candidate = 2^23 + ej when equal, else lifted by 0x30000000 (about 6e35, still positive) */
     for (unsigned j = 0; j < 4; j++) {
         ne_of(e, ne, S(vq, j), R(mr), t1, t2);
-        imadi(e, R(cj), R(ne), 0x3C000000u, fj[j]);
+        imadi(e, R(cj), R(ne), 0x30000000u, fj[j]);
         if (j == 0) mov(e, R(lc), R(cj)); else fminn(e, R(lc), R(lc), R(cj));
     }
     warp_min(e, lc, ts);
@@ -304,8 +303,7 @@ int omega_blackwell_codegen_router_prog(const OmegaRouterSpec *spec, BlackwellIR
     { Region rg = region_skip_if_p0(e); sts32(e, bc4, R(lc)); sts32(e, sa, R(mr)); region_end(e, rg); }
     bar_sync(e);
     lds32(e, R(ci), bc4, 1);
-    fadd(e, R(ci), R(ci), R(c2p23));
-    andi(e, R(ci), R(ci), 0x7fu);                         /* the chosen expert id */
+    andi(e, R(ci), R(ci), 0x7fu);                         /* the chosen expert id: the low bits of 2^23 + ej */
     imadi(e, R(sa), R(r), 4u, NOREG); imadi(e, R(sa), R(one), OMEGA_ROUTER_SM_SEL, sa);
     lane0_sts(e, lane, one, sa, R(ci));
     if (MUT == 2) xorr(e, R(cm), R(ci), R(one)); else mov(e, R(cm), R(ci));
