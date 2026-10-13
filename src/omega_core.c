@@ -43,13 +43,16 @@ const OmegaObject* omega_graph_find_object_const(const OmegaGraph *g, const Sema
 
 int omega_object_add_attribute(OmegaObject *obj, const char *key, const uint8_t *val, uint16_t val_len) {
     if (!obj || !key || obj->attr_count >= OMEGA_MAX_ATTRIBUTES) return -1;
+    /* Fields are part of the semantic identity: refuse what does not fit. */
+    size_t key_len = 0;
+    while (key_len < OMEGA_MAX_KEY_LEN && key[key_len] != '\0') key_len++;
+    if (key_len >= OMEGA_MAX_KEY_LEN || val_len > OMEGA_MAX_VAL_LEN) return -1;
     OmegaAttribute *attr = &obj->attributes[obj->attr_count++];
-    strncpy(attr->key, key, OMEGA_MAX_KEY_LEN - 1);
-    attr->key[OMEGA_MAX_KEY_LEN - 1] = '\0';
+    memcpy(attr->key, key, key_len);
+    attr->key[key_len] = '\0';
     if (val && val_len > 0) {
-        uint16_t copy_len = val_len < OMEGA_MAX_VAL_LEN ? val_len : OMEGA_MAX_VAL_LEN;
-        memcpy(attr->value, val, copy_len);
-        attr->val_len = copy_len;
+        memcpy(attr->value, val, val_len);
+        attr->val_len = val_len;
     } else {
         attr->val_len = 0;
     }
@@ -66,9 +69,10 @@ int omega_object_add_relation(OmegaObject *obj, RelationKind kind, const Semanti
 
 int omega_object_add_constraint(OmegaObject *obj, ConstraintKind kind, const uint8_t *payload, uint16_t payload_len) {
     if (!obj || obj->const_count >= OMEGA_MAX_CONSTRAINTS) return -1;
+    if (payload_len > sizeof(obj->constraints[0].payload)) return -1;
     OmegaConstraint *c = &obj->constraints[obj->const_count++];
     c->kind = (uint16_t)kind;
-    c->payload_len = payload_len < 128 ? payload_len : 128;
+    c->payload_len = payload_len;
     if (payload && c->payload_len > 0) {
         memcpy(c->payload, payload, c->payload_len);
     }
