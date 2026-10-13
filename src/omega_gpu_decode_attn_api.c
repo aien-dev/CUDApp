@@ -42,7 +42,7 @@ static OmegaGpuSession *dev_open_locked(void) {
     if (!g.hooked) { (void)omega_gpu_session_on_close(on_session_close); g.hooked = true; }
     return omega_gpu_session_open();
 }
-static uint32_t gpr_declared(uint32_t peak) { return ((peak + 1u + 7u) / 8u) * 8u; } /* chip rule, see omega_gpu_fp8_api.c */
+static uint32_t gpr_declared(uint32_t peak) { return omega_bw_gpr_declared(peak); } /* peak + 2 rounded up to 8: the chip hung at peak + 1 (omega_blackwell_codegen.h) */
 
 void omega_gpu_decode_attn_set_depth(uint32_t depth) { omega_gpu_session_lock(); g.depth = depth; slot_clear_locked(); omega_gpu_session_unlock(); }
 void omega_gpu_decode_attn_set_per_split(uint32_t per_split) { omega_gpu_session_lock(); g.per_split = per_split; omega_gpu_session_unlock(); }
@@ -214,7 +214,8 @@ int omega_gpu_decode_attn(OmegaGpuDecodeAttnCache *c, uint32_t layer, uint32_t p
             .args = args, .n_args = OMEGA_DATTN_ARGS_WORDS, .timeout_ms = MARKER_TIMEOUT_MS,
             .shared_bytes = OMEGA_DATTN_SHARED_BYTES,
         };
-        if (omega_gpu_session_launch(&L, info ? &info->elapsed_ns : NULL, info ? &info->completion_marker : NULL) != 0) rc = OMEGA_GPU_DATTN_CHIP_FAIL;
+        if (!omega_bw_gpr_declared_ok(L.gpr_count, ks->kernel.gpr_count)) { omega_gpu_session_set_error("declared registers below peak + 2: refusing to launch"); rc = OMEGA_GPU_DATTN_CHIP_FAIL; }
+        else if (omega_gpu_session_launch(&L, info ? &info->elapsed_ns : NULL, info ? &info->completion_marker : NULL) != 0) rc = OMEGA_GPU_DATTN_CHIP_FAIL;
     }
     if (rc == OMEGA_GPU_DATTN_OK && (omega_gpu_session_sync_to_cpu(&c->out) != 0 || omega_gpu_session_sync_to_cpu(&c->cnt) != 0)) rc = OMEGA_GPU_DATTN_CHIP_FAIL;
     if (rc == OMEGA_GPU_DATTN_OK) {

@@ -183,11 +183,12 @@ static int launch(const MoeCacheSlot *ks, uint64_t a_va, uint64_t b_va, uint64_t
     uint32_t cbank_args[OMEGA_BW_CBANK_MATMUL_ARGS_WORDS];
     omega_blackwell_build_cbank_args_matmul(cbank_args, a_va, b_va, c_va, grid_y * 16u * ks->rt, ks->kp, ks->np);
     OmegaGpuLaunch L = {
-        .code_va = ks->code.va, .gpr_count = ks->kernel.gpr_count,
+        .code_va = ks->code.va, .gpr_count = omega_bw_gpr_declared(ks->kernel.gpr_count), /* peak + 2 rounded up to 8 (the session passed the raw peak before) */
         .threads_x = 32, .threads_y = 1, .grid_x = grid_x, .grid_y = grid_y,
         .num_elements = (size_t)grid_x * grid_y * 128u,
         .args = cbank_args, .n_args = OMEGA_BW_CBANK_MATMUL_ARGS_WORDS, .timeout_ms = MARKER_TIMEOUT_MS,
     };
+    if (!omega_bw_gpr_declared_ok(L.gpr_count, ks->kernel.gpr_count)) { omega_gpu_session_set_error("declared registers below peak + 2: refusing to launch"); return OMEGA_GPU_MATMUL_CHIP_FAIL; }
     return omega_gpu_session_launch(&L, elapsed_ns, marker_out) == 0 ? OMEGA_GPU_MATMUL_OK : OMEGA_GPU_MATMUL_CHIP_FAIL;
 }
 

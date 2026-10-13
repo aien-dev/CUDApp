@@ -72,7 +72,7 @@ void omega_gpu_bf16_test_set_mutant(int m) { omega_gpu_session_lock(); g.mutant 
 
 /* Declared registers: peak + 1 rounded up to 8; a CTA must fit the 65536-register file (chip-found rules, see
  * omega_gpu_fp8_api.c and ~/handoffs/own30b-K-report.md). */
-static uint32_t gpr_declared(uint32_t peak) { return ((peak + 1u + 7u) / 8u) * 8u; }
+static uint32_t gpr_declared(uint32_t peak) { return omega_bw_gpr_declared(peak); } /* peak + 2 rounded up to 8: the chip hung at peak + 1 (omega_blackwell_codegen.h) */
 static bool register_file_fits(uint32_t warps, uint32_t peak) {
     uint32_t decl = gpr_declared(peak);
     if ((uint64_t)32u * warps * decl <= 65536u) return true;
@@ -233,7 +233,8 @@ static int gemv_core(const OmegaGpuBf16Tensor *t, const float *x32, const uint16
             .args = args, .n_args = OMEGA_BF16_ARGS_WORDS, .timeout_ms = MARKER_TIMEOUT_MS,
             .shared_bytes = omega_bf16_gemv_shared_bytes(&spec),
         };
-        if (omega_gpu_session_launch(&L, info ? &info->elapsed_ns : NULL, info ? &info->completion_marker : NULL) != 0) rc = OMEGA_GPU_BF16_CHIP_FAIL;
+        if (!omega_bw_gpr_declared_ok(L.gpr_count, ks->kernel.gpr_count)) { omega_gpu_session_set_error("declared registers below peak + 2: refusing to launch"); rc = OMEGA_GPU_BF16_CHIP_FAIL; }
+        else if (omega_gpu_session_launch(&L, info ? &info->elapsed_ns : NULL, info ? &info->completion_marker : NULL) != 0) rc = OMEGA_GPU_BF16_CHIP_FAIL;
     }
     if (rc == OMEGA_GPU_BF16_OK && omega_gpu_session_sync_to_cpu(&g.y_buf.mem) != 0) rc = OMEGA_GPU_BF16_CHIP_FAIL;
     if (rc == OMEGA_GPU_BF16_OK) {

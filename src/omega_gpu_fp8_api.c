@@ -101,7 +101,7 @@ void omega_gpu_fp8_shape_for(uint32_t k, uint32_t n, uint32_t *lane_bytes, uint3
  * (evidence OWN30B-FP8-GEMV-c4006391, kernel log Xid 13 "Out Of Range Register"): a kernel whose peak is
  * exactly 64 (top register R63) and declares 64 faults; declaring 65 runs. Every earlier kernel had a peak
  * that was not a multiple of 8, so the hardware's rounding hid the rule. */
-static uint32_t gpr_declared(uint32_t peak) { return ((peak + 1u + 7u) / 8u) * 8u; }
+static uint32_t gpr_declared(uint32_t peak) { return omega_bw_gpr_declared(peak); } /* peak + 2 rounded up to 8: the chip hung at peak + 1 (omega_blackwell_codegen.h) */
 
 /* Register file: a CTA of 32 * warps threads must fit the SM's 65536 registers at the declared count. Measured
  * (chip, 2026-10-13, kernel log Xid 13): the deep k=2048 kernel (72 declared) at 32 warps faults, 73728 > 65536. */
@@ -307,7 +307,8 @@ static int gemv_core(const OmegaGpuFp8Tensor *t, uint32_t groups, const uint32_t
             .args = args, .n_args = OMEGA_FP8_ARGS_WORDS, .timeout_ms = MARKER_TIMEOUT_MS,
             .shared_bytes = omega_fp8_gemv_shared_bytes(&spec),
         };
-        if (omega_gpu_session_launch(&L, info ? &info->elapsed_ns : NULL, info ? &info->completion_marker : NULL) != 0) rc = OMEGA_GPU_FP8_CHIP_FAIL;
+        if (L.gpr_count < ks->kernel.gpr_count + 2u) { omega_gpu_session_set_error("declared registers below peak + 2: refusing to launch"); rc = OMEGA_GPU_FP8_CHIP_FAIL; }
+        else if (omega_gpu_session_launch(&L, info ? &info->elapsed_ns : NULL, info ? &info->completion_marker : NULL) != 0) rc = OMEGA_GPU_FP8_CHIP_FAIL;
     }
     if (rc == OMEGA_GPU_FP8_OK && omega_gpu_session_sync_to_cpu(&g.y_buf.mem) != 0) rc = OMEGA_GPU_FP8_CHIP_FAIL;
     if (rc == OMEGA_GPU_FP8_OK) {

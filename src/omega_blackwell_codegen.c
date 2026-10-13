@@ -2522,3 +2522,7 @@ int omega_blackwell_test_codegen_variation(void) {
     return 0;
 }
 #endif
+
+/* Declared registers: peak + 2 rounded up to 8 (see omega_blackwell_codegen.h for the chip evidence). */
+uint32_t omega_bw_gpr_declared(uint32_t peak) { return ((peak + 2u + 7u) / 8u) * 8u; }
+int omega_bw_gpr_declared_ok(uint32_t declared, uint32_t peak) { return declared % 8u == 0u && declared >= peak + 2u; }

@@ -275,6 +275,16 @@ int omega_blackwell_codegen_matmul_frag_block(const OmegaMatMulSpec *spec, uint3
 /* rt, ct for mt row tiles and nt column tiles (1, 1 = the single-tile kernel), and the unroll the API uses */
 void omega_matmul_frag_block_shape(uint32_t mt, uint32_t nt, uint32_t *rt, uint32_t *ct);
 uint32_t omega_matmul_frag_block_unroll(uint32_t kp, uint32_t rt, uint32_t ct);
+
+/* Registers to declare in the QMD for a kernel whose allocator peak (OmegaLiveInterval count, regalloc.peak_gpr_usage)
+ * is `peak`: peak + 2, rounded up to a multiple of 8 (the session raises anything below 64 to 64).
+ * Chip evidence (OWN-30B, 2026-10-13): the fp8 grouped GEMM (lane 8, 8 rows) with peak 103 declared 104 (= peak + 1
+ * rounded up, the earlier rule) hung the chip in 7 of 7 runs; the same program declared 112 ran every gate. Earlier
+ * evidence: peak 64 declared 64 faulted (Xid 13 Out Of Range Register). Declared >= peak + 2 has run everywhere else
+ * (router peak 46 declared 48). The exact minimum is UNKNOWN (declarations are multiples of 8); the rule is INFERRED. */
+uint32_t omega_bw_gpr_declared(uint32_t peak);
+/* 1 iff `declared` is a legal declaration for `peak`: a multiple of 8 and >= peak + 2. Launchers refuse otherwise. */
+int omega_bw_gpr_declared_ok(uint32_t declared, uint32_t peak);
 /* a: m x k row-major. dst: mp x kp elements, fully written (zero padding). */
 void omega_matmul_frag_pack_a(const uint16_t *a, uint32_t m, uint32_t k, uint32_t mp, uint32_t kp, uint16_t *dst);
 /* the same from f32 rows, converted to bf16 as omega_fp32_to_bf16 does (one pass, no staging copy) */
