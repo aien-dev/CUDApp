@@ -48,6 +48,10 @@
 #include "omega_blackwell_codegen.h"
 #include "bw_hmma_model.h"
 #include "omega_blackwell_codegen_tc.h"
+#include "omega_blackwell_codegen_qmma.h"
+#include "bw_qmma_model.h"
+/* QMMA arithmetic used by the simulator (W-L1G): set by the test to the chip-measured model (gpu_qmma_probe_test) */
+static QmmaModel ws_qmma_model = { 32, 24, 0, 0, 0 };
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -173,6 +177,7 @@ static void ws_lane_exec(WsSim *s, WsLane *l, const BlackwellIRInsn *in, int pc,
     case BW_IR_FFMA: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fmaf(ws_u2f(a), ws_u2f(b), ws_u2f(c))), p); break;
     case BW_IR_FMNMX_MAX:
         if (in->imm == OMEGA_TC_MARK_F2FP) { ws_wrs(l, in->dst_vreg, in->dst_subreg, (ws_bf16_rn(a) << 16) | ws_bf16_rn(b), p); break; } /* F2FP.BF16.F32.PACK_AB placeholder */
+        if (in->imm == OMEGA_QMMA_MARK_F2E4) { ws_wrs(l, in->dst_vreg, in->dst_subreg, (uint32_t)qm_e4m3_rne_sat(ws_u2f(a)) << 8 | qm_e4m3_rne_sat(ws_u2f(b)), p); break; } /* F2FP.SATFINITE.E4M3 placeholder (NaN not modelled) */
         ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fmaxf(ws_u2f(a), ws_u2f(b))), p); break;
     case BW_IR_FMNMX_MIN: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fminf(ws_u2f(a), ws_u2f(b))), p); break;
     case BW_IR_MUFU_EX2: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(exp2f(ws_u2f(a))), p); break;
@@ -292,6 +297,25 @@ static int ws_run_warp(WsSim *s, WsWarp *w, uint32_t warp, uint32_t cx, uint32_t
         case BW_IR_HMMA_BF16: {
             if (w->exited) { ws_fail(s, WS_E_SHFL_EXITED, pc, "HMMA on a warp with exited lanes"); return -1; }
             if (mask != live) { ws_fail(s, WS_E_SHFL_SPLIT, pc, "HMMA on a split warp"); return -1; }
+            if (in->imm == OMEGA_QMMA_MARK) { /* QMMA.16832.F32.E4M3.E4M3 (fragment layout: omega_blackwell_codegen_qmma.h) */
+                static float QA[16][32], QB[32][8], QC[16][8];
+                for (int L = 0; L < WS_WARP; L++) {
+                    int gg = L / 4, tt = L % 4; const WsLane *ln = &w->lane[L];
+                    for (unsigned q = 0; q < 4; q++) { uint32_t av = ws_rds(ln, in->src1_vreg, in->src1_subreg + q, p); int r = gg + (q & 1u ? 8 : 0), k0 = 4 * tt + (q & 2u ? 16 : 0);
+                        for (int j = 0; j < 4; j++) QA[r][k0 + j] = qm_e4m3((uint8_t)(av >> (8 * j))); }
+                    for (unsigned q = 0; q < 2; q++) { uint32_t bv = ws_rds(ln, in->src2_vreg, in->src2_subreg + q, p); int k0 = 4 * tt + 16 * (int)q;
+                        for (int j = 0; j < 4; j++) QB[k0 + j][gg] = qm_e4m3((uint8_t)(bv >> (8 * j))); }
+                    for (unsigned q = 0; q < 4; q++) QC[gg + (q >= 2 ? 8 : 0)][2 * tt + (int)(q & 1u)] = in->src3_vreg >= 0 ? ws_u2f(ws_rds(ln, in->src3_vreg, in->src3_subreg + q, p)) : 0.0f;
+                }
+                for (int L = 0; L < WS_WARP; L++) {
+                    int gg = L / 4, tt = L % 4;
+                    for (unsigned q = 0; q < 4; q++) { int rr = gg + (q >= 2 ? 8 : 0), nn = 2 * tt + (int)(q & 1u); float av[32], bv[32];
+                        for (int k = 0; k < 32; k++) { av[k] = QA[rr][k]; bv[k] = QB[k][nn]; }
+                        ws_wrs(&w->lane[L], in->dst_vreg, q, ws_f2u(qm_dot32(&ws_qmma_model, av, bv, QC[rr][nn])), p); }
+                }
+                f->pc = pc + 1;
+                break;
+            }
             static const HmmaModel gb10 = { 16, 2, 0, 2, 0 };
             float A[16][16], B[16][8], C[16][8];
             for (int L = 0; L < WS_WARP; L++) {

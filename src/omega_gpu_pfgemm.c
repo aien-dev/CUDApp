@@ -104,3 +104,24 @@ int omega_gpu_pf_gemm(const OmegaPfWeights *w, uint64_t tiles_va, uint32_t ntile
     omega_gpu_session_unlock();
     return rc;
 }
+
+/* ---- native FP8 path (W-L1G): activation quantiser (omega_blackwell_codegen_qg.h) ---- */
+#include "omega_blackwell_codegen_qg.h"
+#define KIND_PQ 3u
+static int pq_mutant;
+void omega_gpu_pf_quant_test_set_mutant(int m) { pq_mutant = m; }
+static int gen_pq(const OmegaPfKey *key, void *prog) { OmegaPqSpec s; memcpy(&s, key->words, sizeof s); return omega_blackwell_codegen_pq_prog(&s, prog); }
+int omega_gpu_pf_quant(uint32_t k, uint32_t in_type, uint32_t rows, uint64_t x_va, uint64_t q_va, uint64_t s_va, uint64_t *ns) {
+    OmegaPqSpec s; memset(&s, 0, sizeof s); s.k = k; s.in_type = in_type; s.mutant = pq_mutant;
+    if (!omega_pq_spec_ok(&s) || !x_va || !q_va || !s_va) return OMEGA_GPU_PF_BAD_ARGS;
+    if (rows == 0) return OMEGA_GPU_PF_OK;
+    OmegaPfKey key; memset(&key, 0, sizeof key); key.kind = KIND_PQ; memcpy(key.words, &s, sizeof s);
+    const uint32_t args[OMEGA_PQ_ARGS_WORDS] = { (uint32_t)x_va, (uint32_t)(x_va >> 32), (uint32_t)q_va, (uint32_t)(q_va >> 32), (uint32_t)s_va, (uint32_t)(s_va >> 32) };
+    omega_gpu_session_lock();
+    int rc = omega_gpu_pf_open_locked();
+    OmegaPfKernel kern;
+    if (rc == OMEGA_GPU_PF_OK) rc = omega_gpu_pf_kernel_locked(&key, gen_pq, &kern);
+    if (rc == OMEGA_GPU_PF_OK) rc = omega_gpu_pf_launch_locked(&kern, 32u * (k / 128u), rows, 1, 0, args, OMEGA_PQ_ARGS_WORDS, ns);
+    omega_gpu_session_unlock();
+    return rc;
+}

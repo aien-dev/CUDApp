@@ -78,6 +78,11 @@ int omega_gpu_pf_gemm(const OmegaPfWeights *w, uint64_t tiles_va, uint32_t ntile
 /* measurement knobs (0 restores): rt, warps, aqn; test-only mutant */
 void omega_gpu_pf_gemm_set_shape(uint32_t rt, uint32_t warps, uint32_t aqn);
 void omega_gpu_pf_gemm_test_set_mutant(int m);
+/* ---- native FP8 path (W-L1G) ----
+ * activation quantiser: x (f32 or bf16 rows of k, in_type OMEGA_QG_IN_*) -> q (e4m3 rows of k) + s (f32 [rows][k/128] power-of-two
+ * scales); semantics in omega_blackwell_codegen_qg.h */
+int omega_gpu_pf_quant(uint32_t k, uint32_t in_type, uint32_t rows, uint64_t x_va, uint64_t q_va, uint64_t s_va, uint64_t *ns);
+void omega_gpu_pf_quant_test_set_mutant(int m);
 #ifdef __cplusplus
 }
 #endif
