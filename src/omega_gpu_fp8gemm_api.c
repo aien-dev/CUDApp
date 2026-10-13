@@ -60,7 +60,7 @@ void omega_gpu_fp8gemm_set_shape(uint32_t mt, uint32_t warps) { omega_gpu_sessio
 void omega_gpu_fp8gemm_set_cta_budget(uint32_t c) { omega_gpu_session_lock(); g.ctas = c; omega_gpu_session_unlock(); }
 void omega_gpu_fp8gemm_test_set_mutant(int m) { omega_gpu_session_lock(); g.mutant = m; cache_clear_locked(); omega_gpu_session_unlock(); }
 
-static uint32_t gpr_declared(uint32_t peak) { return ((peak + 1u + 7u) / 8u) * 8u; }
+static uint32_t gpr_declared(uint32_t peak) { return ((peak + 2u + 7u) / 8u) * 8u; } /* one register more than the proven rule: peak+1 landed exactly on a multiple of 8 at lane 8 / mt 8 and the chip hung */
 static bool register_file_fits(uint32_t warps, uint32_t peak) {
     uint32_t decl = gpr_declared(peak);
     if ((uint64_t)32u * warps * decl <= 65536u) return true;

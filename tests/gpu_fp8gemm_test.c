@@ -267,7 +267,8 @@ static void run_shape(const Shape *S, uint32_t reps, uint32_t seed) {
             omega_gpu_fp8gemm_test_set_mutant(m);
             rc = omega_gpu_fp8gemm_f32(t, M, ids, trow, x, xrows, y2, NULL);
             size_t b = 0; if (rc == 0) for (size_t i = 0; i < (size_t)M * S->n; i++) if (memcmp(&y[i], &y2[i], 4) != 0) b++;
-            int caught = rc != 0 || b != 0;
+            if (rc != 0) printf("chip mutant %d: call returned %s: %s\n", m, omega_gpu_fp8gemm_rc_name(rc), omega_gpu_fp8gemm_last_error());
+            int caught = rc == 0 && b != 0;
             if (m == 2 && info.k / (32u * info.lane_bytes) < 2) caught = 1; /* single-step k: mutant 2 has no effect by construction */
             CHECK(caught, "%s: chip mutant %d must be caught", S->name, m);
             printf("chip mutant %d: %s (%zu of %zu outputs differ)\n", m, caught ? "caught" : "NOT CAUGHT", b, (size_t)M * S->n);
@@ -278,7 +279,7 @@ static void run_shape(const Shape *S, uint32_t reps, uint32_t seed) {
         uint64_t *ce = malloc(reps * 8), *cc = malloc(reps * 8); uint32_t done = 0;
         for (uint32_t i = 0; i < reps; i++) {
             if (g_evict) evict_host_caches();
-            if (omega_gpu_fp8gemm_f32(t, M, ids, trow, x, xrows, y2, &info) != 0) break;
+            { int r3 = omega_gpu_fp8gemm_f32(t, M, ids, trow, x, xrows, y2, &info); if (r3 != 0) { printf("timing call %u: %s: %s\n", i, omega_gpu_fp8gemm_rc_name(r3), omega_gpu_fp8gemm_last_error()); break; } }
             ce[done] = info.elapsed_ns; cc[done] = info.call_ns; done++;
         }
         CHECK(done == reps, "%s timing loop completed %u of %u", S->name, done, reps);
@@ -334,8 +335,8 @@ int main(int argc, char **argv) {
         if (ctas) omega_gpu_fp8gemm_set_cta_budget(ctas);
         (void)omega_gpu_session_set_spin_us(spin);
         if (out_path) { g_out = fopen(out_path, "w"); if (g_out) fprintf(g_out, "{\"receipt\":\"OMEGA_GPU_FP8GEMM_V1\",\"reps\":%u,\"evict\":%d,\"tokens\":%u,\"spin_us\":%u,\"points\":[", reps ? reps : 1, g_evict, tokens, omega_gpu_session_spin_us()); }
-        Shape shapes[] = { { "gateup", 128, 1536, 2048, tokens, 8 }, { "down", 128, 2048, 768, tokens, 8 }, { "qkv", 1, 5120, 2048, tokens, 1 }, { "o", 1, 2048, 4096, tokens, 1 } };
-        for (unsigned i = 0; i < 4; i++) if (!strcmp(shape, "all") || !strcmp(shape, shapes[i].name)) run_shape(&shapes[i], reps ? reps : 1, 1000 + i);
+        Shape shapes[] = { { "gateup", 128, 1536, 2048, tokens, 8 }, { "down", 128, 2048, 768, tokens, 8 }, { "qkv", 1, 5120, 2048, tokens, 1 }, { "o", 1, 2048, 4096, tokens, 1 }, { "d768", 1, 2048, 768, tokens, 1 } };
+        for (unsigned i = 0; i < 5; i++) if ((!strcmp(shape, "all") && i < 4) || !strcmp(shape, shapes[i].name)) run_shape(&shapes[i], reps ? reps : 1, 1000 + i);
         if (g_out) { fprintf(g_out, "],\"checks\":%d,\"failed\":%d,\"verdict\":\"%s\"}\n", g_checks, g_failed, g_failed ? "FAIL" : "PASS"); fclose(g_out); }
         omega_gpu_session_close();
     }

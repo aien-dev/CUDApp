@@ -200,7 +200,7 @@ int omega_blackwell_codegen_fp8gemm_prog(const OmegaFp8GemmSpec *spec, Blackwell
     int rg = V(e), over = V(e), t1 = V(e), d = V(e), tmp = V(e), rgc = V(e), lo = V(e);
     int pw = V64(e), ps = V64(e), pyrg = V64(e), rowp = V(e), rem = V(e), pc = V(e);
     int xrp = V64(e), xs = V64(e), pwc = V64(e), psc = V64(e), cntk = V(e), pyr = V64(e), pya = V64(e), t = V(e), tq = V(e), fl = V(e), sv = V(e);
-    int acc[16], dot[16], xq[4], wq[2], sc[2], fr[4], u = V(e), a = V(e), sg = V(e);
+    int acc[16], dot[16], xq[4], wq[2], sc[2], fr[4], u = V(e), a = V(e), sg = V(e), onef = V(e), dum = V(e);
     for (uint32_t m = 0; m < MT; m++) { acc[m] = V(e); dot[m] = V(e); }
     for (int q = 0; q < 4; q++) xq[q] = V128(e);
     for (int b = 0; b < 2; b++) { wq[b] = LB == 16 ? V128(e) : V64(e); sc[b] = V(e); }
@@ -286,8 +286,9 @@ int omega_blackwell_codegen_fp8gemm_prog(const OmegaFp8GemmSpec *spec, Blackwell
                 for (uint32_t q = 0; q < nb; q++) for (unsigned i = 0; i < 4; i++) ffma(e, dot[m0 + q], fr[i], xq[q], i, dot[m0 + q]);
             }
         }
+        if (spec->mutant == 1) { movi(e, onef, 0x3f800000u); ffma(e, dum, sc[cur], onef, 0, onef); } /* scales dropped, but the scale load stays consumed */
         for (uint32_t m = 0; m < MT; m++) {
-            if (spec->mutant == 1) fadd(e, acc[m], acc[m], dot[m]);
+            if (spec->mutant == 1) ffma(e, acc[m], dot[m], onef, 0, acc[m]);
             else ffma(e, acc[m], dot[m], sc[cur], 0, acc[m]);
         }
         bar_sync(e);
