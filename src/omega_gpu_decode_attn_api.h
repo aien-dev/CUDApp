@@ -68,6 +68,14 @@ int omega_gpu_decode_attn_cache_write(OmegaGpuDecodeAttnCache *c, uint32_t layer
                                       const uint16_t *k_bf16, const uint16_t *v_bf16); /* count rows from pos, one sync */
 int omega_gpu_decode_attn_cache_read(OmegaGpuDecodeAttnCache *c, uint32_t layer, uint32_t kv_head, uint32_t pos,
                                      uint16_t *k_bf16, uint16_t *v_bf16);
+/* Read-only view of a layer of the cache for the prefill attention (omega_gpu_prefill_attn_api.h): device addresses only. */
+typedef struct {
+    uint32_t layers, max_pos;
+    uint64_t k_va, v_va;        /* K and V plane bases of `layer` (row (kv_head, pos) at + (kv_head * max_pos + pos) * 256) */
+    uint64_t rope_va;           /* f32 [max_pos][cos 64 | sin 64] */
+    uint64_t q_norm_va, k_norm_va; /* f32 [128] each for `layer` */
+} OmegaGpuDecodeAttnCacheView;
+int omega_gpu_decode_attn_cache_view(const OmegaGpuDecodeAttnCache *c, uint32_t layer, OmegaGpuDecodeAttnCacheView *out);
 const char *omega_gpu_decode_attn_last_error(void);
 const char *omega_gpu_decode_attn_rc_name(int rc);
 
