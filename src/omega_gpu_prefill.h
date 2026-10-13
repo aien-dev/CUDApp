@@ -61,7 +61,7 @@ int omega_gpu_pf_open_locked(void); /* opens the device, registers the hook: OME
  * i = perm(8G + h % 8), perm = the (0,2,1,3) group permutation, so the SwiGLU epilogue writes act rows in stored order. */
 #ifndef OMEGA_GPU_PF_LAYOUTS
 #define OMEGA_GPU_PF_LAYOUTS
-enum { OMEGA_GPU_PF_PLAIN = 0, OMEGA_GPU_PF_SWIGLU = 1 };
+enum { OMEGA_GPU_PF_PLAIN = 0, OMEGA_GPU_PF_SWIGLU = 1, OMEGA_GPU_PF_SWIGLU_NAT = 2 };
 #endif
 typedef struct { OmegaGpuMem w, r; uint32_t experts, n, k, layout; } OmegaPfWeights;
 /* w: experts * n * k e4m3 bytes; scale_inv: experts * (n/128) * (k/128) bf16 (checkpoint weight_scale_inv) */
@@ -83,6 +83,16 @@ void omega_gpu_pf_gemm_test_set_mutant(int m);
  * scales); semantics in omega_blackwell_codegen_qg.h */
 int omega_gpu_pf_quant(uint32_t k, uint32_t in_type, uint32_t rows, uint64_t x_va, uint64_t q_va, uint64_t s_va, uint64_t *ns);
 void omega_gpu_pf_quant_test_set_mutant(int m);
+/* grouped GEMM on QMMA: weights in natural physical order (PLAIN, or SWIGLU_NAT: physical row 16G + h holds gate (h < 8) or up (h >= 8)
+ * of intermediate index 8G + h % 8, so act column = 8G + 2t + q) with the sw table [E][n/16][k/128][2] f32 (r buffer).
+ * xq: e4m3 rows of k, xs: f32 [rows][k/128] power-of-two scales (omega_gpu_pf_quant). y: f32 rows of n or bf16 act rows of n/2. */
+int omega_gpu_pf_qweights_upload(uint32_t experts, uint32_t n, uint32_t k, const uint8_t *w, const uint16_t *scale_inv, uint32_t layout, OmegaPfWeights *out);
+int omega_gpu_pf_qweights_host_form(uint32_t experts, uint32_t n, uint32_t k, const uint8_t *w, const uint16_t *scale_inv, uint32_t layout, uint8_t *pw, float *sw);
+uint32_t omega_gpu_pf_qgemm_bm(void);
+uint32_t omega_gpu_pf_qgemm_tiles(const OmegaPfWeights *w, const uint32_t *counts, void *tab, uint32_t max);
+int omega_gpu_pf_qgemm(const OmegaPfWeights *w, uint64_t tiles_va, uint32_t ntiles, uint64_t rowidx_va, uint64_t xq_va, uint64_t xs_va, uint64_t y_va, uint64_t *ns);
+void omega_gpu_pf_qgemm_set_shape(uint32_t rt, uint32_t warps, uint32_t wait); /* knobs (all 0 restores rt 4, warps 8, wait 45) */
+void omega_gpu_pf_qgemm_test_set_mutant(int m);
 #ifdef __cplusplus
 }
 #endif

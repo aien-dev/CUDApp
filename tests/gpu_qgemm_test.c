@@ -147,19 +147,276 @@ static int pq_chip(uint32_t tokens, int reps) {
     return fail;
 }
 
+/* ---------------- grouped GEMM on QMMA ---------------- */
+static const QmmaModel GB10Q = { 32, 26, 0, 2, 0 }; /* chip-exact, evidence OWN30B-L1G-QMMA-PFGEMM-c742aa13 */
+typedef struct {
+    uint32_t E, n, k, M, xr, layout, direct, pad;
+    uint8_t *w, *pw, *xq;  /* original / physical weights, quantised activations (xr + pad rows) */
+    uint16_t *sbf;         /* scale_inv bf16 */
+    float *sw, *xs, *x;    /* weight scale table, activation scales (xr + pad rows), true activations */
+    uint32_t *eid, *src, *counts;
+} QProb;
+static uint8_t rand_e4m3(void) { for (;;) { uint8_t c = (uint8_t)rnd(); if ((c & 0x7f) != 0x7f) return c; } }
+static void qprob_make(QProb *p, uint32_t E, uint32_t n, uint32_t k, uint32_t M, uint32_t xr, uint32_t layout, uint32_t direct, uint32_t pad) {
+    memset(p, 0, sizeof *p);
+    p->E = E; p->n = n; p->k = k; p->M = M; p->xr = direct ? M : xr; p->layout = layout; p->direct = direct; p->pad = pad;
+    const uint32_t KB = k / 128, XR = p->xr + pad;
+    const size_t wn = (size_t)E * n * k, sn = (size_t)E * (n / 128) * KB;
+    p->w = malloc(wn); p->pw = malloc(wn); p->sbf = malloc(sn * 2); p->sw = calloc((size_t)E * (n / 8) * KB, 4);
+    p->x = calloc((size_t)XR * k, 4); p->xq = calloc((size_t)XR * k, 1); p->xs = malloc((size_t)XR * KB * 4);
+    p->eid = malloc(M * 4); p->src = malloc(M * 4); p->counts = calloc(E, 4);
+    for (size_t i = 0; i < wn; i++) p->w[i] = rand_e4m3();
+    for (size_t i = 0; i < sn; i++) { float s = ldexpf(1.0f + (float)(rnd() & 127) / 128.0f, -(int)(rnd() % 12) - 4); p->sbf[i] = (uint16_t)(f2u(s) >> 16); }
+    if (omega_gpu_pf_qweights_host_form(E, n, k, p->w, p->sbf, layout, p->pw, p->sw) != 0) { printf("q host form refused\n"); exit(2); }
+    for (size_t i = 0; i < (size_t)p->xr * k; i++) p->x[i] = rand_act();
+    if (p->xr > 3) memset(p->x + 3 * (size_t)k, 0, k * 4);
+    for (uint32_t r = 0; r < XR; r++) pq_ref(p->x + (size_t)r * k, k, p->xq + (size_t)r * k, p->xs + (size_t)r * KB, 0);
+    uint32_t i = 0;
+    for (uint32_t e = 0; e < E && i < M; e++) { uint32_t c = e + 1 == E ? M - i : (uint32_t)((uint64_t)(rnd() % 2000) * 2 * M / (2000ull * E)); if (c > M - i) c = M - i; for (uint32_t q = 0; q < c; q++) p->eid[i + q] = e; p->counts[e] = c; i += c; }
+    for (uint32_t q = 0; q < M; q++) p->src[q] = direct ? q : rnd() % p->xr;
+}
+static void qprob_free(QProb *p) { free(p->w); free(p->pw); free(p->xq); free(p->sbf); free(p->sw); free(p->xs); free(p->x); free(p->eid); free(p->src); free(p->counts); }
+
+/* the kernel's arithmetic for output row i, physical column c */
+static float qemu_phys(const QProb *p, uint32_t i, uint32_t c) {
+    const uint32_t k = p->k, KB = k / 128, e = p->eid[i], s = p->src[i];
+    const uint8_t *xr = p->xq + (size_t)s * k, *wr = p->pw + ((size_t)e * p->n + c) * k;
+    const float *swt = p->sw + ((size_t)e * (p->n / 16) + c / 16) * KB * 2 + (c / 8) % 2;
+    float acc = 0.0f;
+    for (uint32_t kb = 0; kb < KB; kb++) {
+        const float sc = p->xs[(size_t)s * KB + kb] * swt[2 * kb];
+        for (uint32_t h = 0; h < 2; h++) {
+            float T = 0.0f;
+            for (uint32_t v = 0; v < 2; v++) {
+                float av[32], bv[32];
+                for (uint32_t t = 0; t < 4; t++) for (uint32_t j = 0; j < 4; j++) {
+                    const uint32_t o = 128 * kb + 64 * h + 16 * t + 8 * v + j;
+                    av[4 * t + j] = qm_e4m3(xr[o]); bv[4 * t + j] = qm_e4m3(wr[o]);
+                    av[16 + 4 * t + j] = qm_e4m3(xr[o + 4]); bv[16 + 4 * t + j] = qm_e4m3(wr[o + 4]);
+                }
+                T = qm_dot32(&GB10Q, av, bv, T);
+            }
+            acc = fmaf(T, sc, acc);
+        }
+    }
+    return acc;
+}
+static uint16_t qswiglu_bits(float g, float u) {
+    float t = g * u2f(0xbfb8aa3bu), ex = exp2f(t), d = ex + 1.0f, r = 1.0f / d, o = g * r;
+    o = o * u;
+    return bf16_rn(o);
+}
+static void qemu_row(const QProb *p, uint32_t i, float *yf, uint16_t *ya) {
+    if (p->layout == OMEGA_GPU_PF_PLAIN) { for (uint32_t c = 0; c < p->n; c++) yf[c] = qemu_phys(p, i, c); return; }
+    for (uint32_t a = 0; a < p->n / 2; a++) { uint32_t G = a / 8, m = a % 8; ya[a] = qswiglu_bits(qemu_phys(p, i, 16 * G + m), qemu_phys(p, i, 16 * G + 8 + m)); }
+}
+/* double oracle on the ORIGINAL weights and the dequantised activations: logical output col (PLAIN) or gate/up of index a */
+static double qoracle(const QProb *p, uint32_t i, uint32_t col, double *mag) {
+    const uint32_t k = p->k, KB = k / 128, e = p->eid[i], s = p->src[i];
+    double acc = 0, m = 0;
+    for (uint32_t j = 0; j < k; j++) {
+        const double sw = u2f((uint32_t)p->sbf[((size_t)e * (p->n / 128) + col / 128) * KB + j / 128] << 16);
+        const double t = (double)qm_e4m3(p->w[((size_t)e * p->n + col) * k + j]) * sw * qm_e4m3(p->xq[(size_t)s * k + j]) * p->xs[(size_t)s * KB + j / 128];
+        acc += t; m += fabs(t);
+    }
+    *mag = m; return acc;
+}
+
+typedef struct { uint64_t w_va, s_va; uint32_t row0, cnt; uint64_t pad; } QTile;
+static uint32_t qmake_tiles(const QProb *p, uint32_t bm, QTile *t) {
+    uint32_t nt = 0, row = 0; const uint32_t KB = p->k / 128;
+    for (uint32_t e = 0; e < p->E; e++) { for (uint32_t r = 0; r < p->counts[e]; r += bm) {
+        t[nt].w_va = (uintptr_t)(p->pw + (size_t)e * p->n * p->k); t[nt].s_va = (uintptr_t)(p->sw + (size_t)e * (p->n / 8) * KB);
+        t[nt].row0 = row + r; t[nt].cnt = p->counts[e] - r < bm ? p->counts[e] - r : bm; t[nt].pad = 0; nt++; } row += p->counts[e]; }
+    return nt;
+}
+static size_t qcompare(const QProb *p, const void *y, const uint32_t *rows, uint32_t nrows, int tol_ulp, size_t *ulp1) {
+    size_t bad = 0; if (ulp1) *ulp1 = 0;
+    float *yf = malloc(p->n * 4); uint16_t *ya = malloc(p->n);
+    for (uint32_t q = 0; q < nrows; q++) {
+        const uint32_t i = rows[q]; qemu_row(p, i, yf, ya);
+        if (p->layout == OMEGA_GPU_PF_PLAIN) { const uint32_t *g = (const uint32_t *)y + (size_t)i * p->n; for (uint32_t c = 0; c < p->n; c++) if (g[c] != f2u(yf[c])) { if (getenv("PFDBG") && bad < 6) printf("  row %u col %u got %.9g want %.9g\n", i, c, u2f(g[c]), yf[c]); bad++; } }
+        else { const uint16_t *g = (const uint16_t *)y + (size_t)i * (p->n / 2);
+            for (uint32_t c = 0; c < p->n / 2; c++) if (g[c] != ya[c]) { int d = abs((int)g[c] - (int)ya[c]); if (d <= tol_ulp && ((g[c] ^ ya[c]) & 0x8000) == 0) { if (ulp1) (*ulp1)++; } else { if (getenv("PFDBG") && bad < 6) printf("  row %u act %u got %04x want %04x\n", i, c, g[c], ya[c]); bad++; } } }
+    }
+    free(yf); free(ya);
+    return bad;
+}
+
+static int qg_host(void) {
+    int fail = 0;
+    for (uint32_t layout = 0; layout < 3; layout += 2) {
+        QProb p; qprob_make(&p, 3, 256, 384, 40, 17, layout, 0, 0);
+        double worst = 0;
+        for (uint32_t i = 0; i < p.M; i += 3) {
+            if (layout == OMEGA_GPU_PF_PLAIN) for (uint32_t c = 0; c < p.n; c++) { double m, o = qoracle(&p, i, c, &m); double d = fabs(qemu_phys(&p, i, c) - o) / (m + 1e-30); if (d > worst) worst = d; }
+            else for (uint32_t a = 0; a < p.n / 2; a++) { uint32_t G = a / 8, mm = a % 8; double m1, m2;
+                double og = qoracle(&p, i, a, &m1), ou = qoracle(&p, i, p.n / 2 + a, &m2);
+                double dg = fabs(qemu_phys(&p, i, 16 * G + mm) - og) / (m1 + 1e-30), du = fabs(qemu_phys(&p, i, 16 * G + 8 + mm) - ou) / (m2 + 1e-30);
+                if (dg > worst) worst = dg;
+                if (du > worst) worst = du; }
+        }
+        const int ok = worst < 1e-6;
+        printf("qgemm emulation vs double oracle (%s): worst error %.3g of the sum of |terms| %s\n", layout ? "swiglu_nat" : "plain", worst, ok ? "PASS" : "FAIL");
+        if (!ok) fail++;
+        qprob_free(&p);
+    }
+    return fail;
+}
+
+static int qg_sim_run(const QProb *p, const OmegaQgSpec *sp, int order, void *y, char *msg, size_t msgn) {
+    static BlackwellIRProgram prog;
+    if (omega_blackwell_codegen_qgemm_prog(sp, &prog) != 0) { snprintf(msg, msgn, "codegen refused (spec_ok %d, insns %zu)", omega_qg_spec_ok(sp), prog.count); return -1; }
+    const uint32_t bm = 16u * sp->rt, span = omega_qg_span(sp), KB = p->k / 128;
+    QTile *tiles = calloc(p->M + 1, sizeof *tiles);
+    const uint32_t nt = qmake_tiles(p, bm, tiles);
+    uint32_t *ridx = malloc((p->M + bm) * 4); for (uint32_t i = 0; i < p->M + bm; i++) ridx[i] = i < p->M ? p->src[i] : 0;
+    const size_t ob = p->layout == OMEGA_GPU_PF_PLAIN ? 4 : 1, yb = (size_t)(p->M + bm) * p->n * ob;
+    memset(y, 0xee, yb);
+    uint8_t *smem = malloc(omega_qg_shared_bytes(sp));
+    static WsSim s; memset(&s, 0, sizeof s);
+    s.p = &prog; s.threads = 32u * sp->warps; s.smem = smem; s.smem_bytes = omega_qg_shared_bytes(sp); s.order = order;
+    const uint64_t a[5] = { (uintptr_t)tiles, sp->direct ? 0 : (uintptr_t)ridx, (uintptr_t)p->xq, (uintptr_t)y, (uintptr_t)p->xs };
+    for (int i = 0; i < 5; i++) { s.cbank[(0x380 + 8 * i) / 4] = (uint32_t)a[i]; s.cbank[(0x380 + 8 * i) / 4 + 1] = (uint32_t)(a[i] >> 32); }
+    s.cbank[0x3a8 / 4] = p->n;
+    const size_t XR = p->xr + p->pad;
+    s.ranges[0].lo = (uintptr_t)tiles; s.ranges[0].hi = (uintptr_t)(tiles + nt);
+    s.ranges[1].lo = (uintptr_t)ridx; s.ranges[1].hi = (uintptr_t)(ridx + p->M + bm);
+    s.ranges[2].lo = (uintptr_t)p->xq; s.ranges[2].hi = (uintptr_t)(p->xq + XR * p->k);
+    s.ranges[3].lo = (uintptr_t)y; s.ranges[3].hi = (uintptr_t)y + (size_t)p->M * p->n * ob;
+    s.ranges[4].lo = (uintptr_t)p->pw; s.ranges[4].hi = (uintptr_t)(p->pw + (size_t)p->E * p->n * p->k);
+    s.ranges[5].lo = (uintptr_t)p->sw; s.ranges[5].hi = (uintptr_t)(p->sw + (size_t)p->E * (p->n / 8) * KB);
+    s.ranges[6].lo = (uintptr_t)p->xs; s.ranges[6].hi = (uintptr_t)(p->xs + XR * KB);
+    s.nranges = 7;
+    const int err = ws_run(&s, p->n / span, nt);
+    if (err) snprintf(msg, msgn, "simulator %.150s", s.msg);
+    free(tiles); free(ridx); free(smem);
+    return err ? -1 : 0;
+}
+static int qg_sim(void) {
+    int fail = 0; char msg[200];
+    static const struct { uint32_t E, n, k, M, xr, layout, direct, rt, warps; } cs[] = {
+        { 3, 256, 384, 300, 120, OMEGA_GPU_PF_SWIGLU_NAT, 0, 4, 8 },
+        { 3, 256, 256, 200, 0, OMEGA_GPU_PF_PLAIN, 1, 4, 8 },
+        { 2, 256, 128, 150, 64, OMEGA_GPU_PF_PLAIN, 0, 4, 8 },
+        { 2, 512, 1024, 140, 0, OMEGA_GPU_PF_SWIGLU_NAT, 1, 4, 8 },
+    };
+    for (size_t c = 0; c < sizeof cs / sizeof cs[0]; c++) {
+        const uint32_t bm = 16 * cs[c].rt;
+        QProb p; qprob_make(&p, cs[c].E, cs[c].n, cs[c].k, cs[c].M, cs[c].xr, cs[c].layout, cs[c].direct, bm);
+        OmegaQgSpec sp = { cs[c].k, cs[c].rt, cs[c].warps, cs[c].layout == OMEGA_GPU_PF_PLAIN ? OMEGA_QG_EPI_F32 : OMEGA_QG_EPI_SWIGLU, cs[c].direct, cs[c].n, 45, 0 };
+        uint32_t *rows = malloc(p.M * 4); for (uint32_t i = 0; i < p.M; i++) rows[i] = i;
+        void *y = malloc((size_t)(p.M + bm) * p.n * 4);
+        for (int order = 0; order < 2; order++) {
+            const int rc = qg_sim_run(&p, &sp, order, y, msg, sizeof msg);
+            size_t ulp1 = 0, bad = rc ? 0 : qcompare(&p, y, rows, p.M, 0, &ulp1);
+            printf("sim qgemm case %zu (n %u k %u M %u %s %s rt %u warps %u) order %d: %s, %zu differ\n", c, p.n, p.k, p.M, cs[c].layout ? "swiglu" : "f32",
+                   cs[c].direct ? "direct" : "indexed", cs[c].rt, cs[c].warps, order, rc ? msg : "ran", bad);
+            if (rc || bad) fail++;
+        }
+        if (c == 0 || c == 1) for (int m = 1; m <= 4; m++) {
+            OmegaQgSpec ms = sp; ms.mutant = m;
+            const int rc = qg_sim_run(&p, &ms, 0, y, msg, sizeof msg);
+            const size_t bad = rc ? 0 : qcompare(&p, y, rows, p.M, 0, NULL);
+            printf("sim qgemm case %zu mutant %d: %s\n", c, m, rc ? msg : bad ? "caught" : "NOT CAUGHT");
+            if (rc || !bad) fail++;
+        }
+        free(rows); free(y); qprob_free(&p);
+    }
+    return fail;
+}
+
+static int qg_chip_shape(const char *name, uint32_t tokens, int reps, int check_rows, int mutants) {
+    uint32_t E, n, k, M, xr, layout, direct;
+    if (!strcmp(name, "gateup")) { E = 128; n = 1536; k = 2048; M = tokens * 8; xr = tokens; layout = OMEGA_GPU_PF_SWIGLU_NAT; direct = 0; }
+    else if (!strcmp(name, "down")) { E = 128; n = 2048; k = 768; M = tokens * 8; xr = 0; layout = OMEGA_GPU_PF_PLAIN; direct = 1; }
+    else if (!strcmp(name, "qkv")) { E = 1; n = 5120; k = 2048; M = tokens; xr = tokens; layout = OMEGA_GPU_PF_PLAIN; direct = 0; }
+    else if (!strcmp(name, "o")) { E = 1; n = 2048; k = 4096; M = tokens; xr = tokens; layout = OMEGA_GPU_PF_PLAIN; direct = 0; }
+    else { printf("unknown shape %s\n", name); return 1; }
+    const uint32_t bm = omega_gpu_pf_qgemm_bm(), KB = k / 128;
+    QProb p; qprob_make(&p, E, n, k, M, xr, layout, direct, bm);
+    int fail = 0, rc;
+    OmegaPfWeights wt; OmegaGpuMem xd = { 0 }, sd = { 0 }, yd = { 0 }, tab = { 0 }, ridx = { 0 };
+    const size_t XR = p.xr + bm, ob = layout == OMEGA_GPU_PF_PLAIN ? 4 : 1;
+    rc = omega_gpu_pf_qweights_upload(E, n, k, p.w, p.sbf, layout, &wt);
+    const size_t xb = (XR * k + 15) & ~(size_t)15, sb = (XR * KB * 4 + 15) & ~(size_t)15, yb = (size_t)(M + bm) * n * ob;
+    if (!rc) rc = omega_gpu_pf_alloc_dev(xb, &xd);
+    if (!rc) rc = omega_gpu_pf_alloc_dev(sb, &sd);
+    if (!rc) rc = omega_gpu_pf_alloc_dev(yb, &yd);
+    if (!rc) rc = omega_gpu_pf_upload(&xd, 0, p.xq, XR * k & ~(size_t)15);
+    if (!rc) rc = omega_gpu_pf_upload(&sd, 0, p.xs, XR * KB * 4 & ~(size_t)15);
+    const uint32_t maxt = M / bm + E + 1;
+    if (!rc) rc = omega_gpu_pf_alloc_host((size_t)maxt * 32, &tab);
+    if (!rc) rc = omega_gpu_pf_alloc_host((size_t)(M + bm) * 4, &ridx);
+    if (rc) { printf("%s setup: %s (%s)\n", name, omega_gpu_pf_rc_name(rc), omega_gpu_session_last_error()); qprob_free(&p); return 1; }
+    const uint32_t nt = omega_gpu_pf_qgemm_tiles(&wt, p.counts, tab.cpu, maxt);
+    { uint32_t *ri = ridx.cpu; for (uint32_t i = 0; i < M + bm; i++) ri[i] = i < M ? p.src[i] : 0; }
+    omega_gpu_session_lock(); (void)omega_gpu_session_sync_to_gpu(&tab); (void)omega_gpu_session_sync_to_gpu(&ridx); omega_gpu_session_unlock();
+    const uint64_t rva = direct ? 0 : ridx.va;
+    uint8_t *y1 = malloc(yb), *y2 = calloc(1, yb);
+    uint64_t ns[32] = { 0 };
+    if (reps > 32) reps = 32;
+    for (int r = 0; r < reps && !rc; r++) rc = omega_gpu_pf_qgemm(&wt, tab.va, nt, rva, xd.va, sd.va, yd.va, &ns[r]);
+    if (!rc) rc = omega_gpu_pf_download(&yd, 0, y1, yb & ~(size_t)15);
+    if (!rc) rc = omega_gpu_pf_upload(&yd, 0, y2, yb & ~(size_t)15); /* zero the output, run once more: identical result required */
+    uint64_t ns2 = 0;
+    if (!rc) rc = omega_gpu_pf_qgemm(&wt, tab.va, nt, rva, xd.va, sd.va, yd.va, &ns2);
+    if (!rc) rc = omega_gpu_pf_download(&yd, 0, y2, yb & ~(size_t)15);
+    if (rc) { printf("%s run: %s (%s)\n", name, omega_gpu_pf_rc_name(rc), omega_gpu_session_last_error()); fail++; }
+    else {
+        const size_t outb = (size_t)M * n * ob;
+        printf("%s second launch identical: %s\n", name, memcmp(y1, y2, outb) ? "NO" : "yes");
+        if (memcmp(y1, y2, outb)) fail++;
+        uint32_t *rows = malloc(check_rows * 4); for (int q = 0; q < check_rows; q++) rows[q] = q == 0 ? 0 : q == 1 ? M - 1 : rnd() % M;
+        size_t ulp1 = 0; const size_t bad = qcompare(&p, y1, rows, check_rows, layout == OMEGA_GPU_PF_PLAIN ? 0 : 1, &ulp1);
+        printf("%s bit-identity on %d sampled rows: %zu differ", name, check_rows, bad);
+        if (layout != OMEGA_GPU_PF_PLAIN) printf(" (beyond 1 bf16 ulp; %zu within 1 ulp of %zu)", ulp1, (size_t)check_rows * n / 2);
+        printf("\n");
+        if (bad) fail++;
+        qsort(ns, reps, 8, cmp_u64);
+        const double fl = 2.0 * M * n * k, med = (double)ns[reps / 2];
+        printf("QGEMM %s tokens %u M %u n %u k %u tiles %u: median %.3f ms (min %.3f), %.1f TFLOPS, weights %.0f MB -> %.0f GB/s of distinct weights\n", name, tokens, M, n, k, nt,
+               med / 1e6, ns[0] / 1e6, fl / med / 1e3, (double)E * n * k / 1e6, (double)E * n * k / med);
+        if (mutants) for (int m = 1; m <= 4; m++) {
+            omega_gpu_pf_qgemm_test_set_mutant(m);
+            int mrc = omega_gpu_pf_qgemm(&wt, tab.va, nt, rva, xd.va, sd.va, yd.va, NULL);
+            omega_gpu_pf_qgemm_test_set_mutant(0);
+            if (!mrc) mrc = omega_gpu_pf_download(&yd, 0, y2, yb & ~(size_t)15);
+            const size_t mb = mrc ? 0 : qcompare(&p, y2, rows, check_rows > 8 ? 8 : check_rows, layout == OMEGA_GPU_PF_PLAIN ? 0 : 1, NULL);
+            printf("%s mutant %d: %s\n", name, m, mrc ? "launch failed" : mb ? "caught" : "NOT CAUGHT");
+            if (mrc || !mb) fail++;
+        }
+        free(rows);
+    }
+    free(y1); free(y2);
+    omega_gpu_pf_weights_free(&wt); omega_gpu_pf_free(&xd); omega_gpu_pf_free(&sd); omega_gpu_pf_free(&yd); omega_gpu_pf_free(&tab); omega_gpu_pf_free(&ridx);
+    qprob_free(&p);
+    return fail;
+}
+
 int main(int argc, char **argv) {
-    int host = 1, sim = 1, chip = 0, reps = 7; uint32_t tokens = 3600;
+    int host = 1, sim = 1, chip = 0, reps = 7, rows = 64; uint32_t tokens = 3600, rt = 0, warps = 0, wait = 0, waitset = 0; const char *only = NULL;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--host-only")) sim = 0;
         else if (!strcmp(argv[i], "--sim")) host = 0;
         else if (!strcmp(argv[i], "--chip")) { chip = 1; host = 0; sim = 0; }
         else if (!strcmp(argv[i], "--tokens") && i + 1 < argc) tokens = (uint32_t)atoi(argv[++i]);
         else if (!strcmp(argv[i], "--reps") && i + 1 < argc) reps = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--rows") && i + 1 < argc) rows = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--shape") && i + 1 < argc) only = argv[++i];
+        else if (!strcmp(argv[i], "--rt") && i + 1 < argc) rt = (uint32_t)atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--warps") && i + 1 < argc) warps = (uint32_t)atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--wait") && i + 1 < argc) { wait = (uint32_t)atoi(argv[++i]); waitset = 1; }
     }
     int fail = 0;
-    if (host) fail += pq_host();
-    if (sim) fail += pq_sim();
-    if (chip) fail += pq_chip(tokens, reps);
+    if (host) { fail += pq_host(); fail += qg_host(); }
+    if (sim) { fail += pq_sim(); fail += qg_sim(); }
+    if (chip) {
+        if (rt || warps || waitset) omega_gpu_pf_qgemm_set_shape(rt ? rt : 4, warps ? warps : 8, waitset ? wait : 45);
+        if (!only) fail += pq_chip(tokens, reps);
+        static const char *shapes[] = { "gateup", "down", "qkv", "o" };
+        for (int s = 0; s < 4; s++) if (!only || !strcmp(only, shapes[s])) fail += qg_chip_shape(shapes[s], tokens, reps, rows, !only || s < 2);
+    }
     printf("GPU_QGEMM: %s\n", fail ? "FAIL" : "PASS");
     return fail ? 1 : 0;
 }

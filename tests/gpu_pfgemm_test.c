@@ -187,6 +187,7 @@ static int sim_tests(void) {
         { 3, 256, 256, 70, 20, OMEGA_GPU_PF_PLAIN, 0, 8, 16, 1 }, { 3, 256, 384, 70, 20, OMEGA_GPU_PF_SWIGLU, 0, 8, 16, 1 },
         { 3, 256, 256, 150, 0, OMEGA_GPU_PF_PLAIN, 1, 8, 16, 1 }, { 2, 256, 256, 40, 9, OMEGA_GPU_PF_PLAIN, 0, 4, 8, 2 },
         { 2, 512, 128, 300, 30, OMEGA_GPU_PF_SWIGLU, 0, 8, 16, 2 },
+        { 3, 512, 256, 150, 40, OMEGA_GPU_PF_SWIGLU, 0, 4, 16, 1 }, { 3, 256, 384, 130, 0, OMEGA_GPU_PF_PLAIN, 1, 4, 16, 1 }, /* the chip shape (QMD shared cap) */
     };
     for (size_t c = 0; c < sizeof cs / sizeof cs[0]; c++) {
         Prob p; prob_make(&p, cs[c].E, cs[c].n, cs[c].k, cs[c].M, cs[c].xr, cs[c].layout, cs[c].direct, 16 * cs[c].rt);

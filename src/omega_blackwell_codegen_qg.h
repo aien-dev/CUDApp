@@ -28,6 +28,39 @@ typedef struct { uint32_t k, in_type; int mutant; } OmegaPqSpec;
 #define OMEGA_PQ_ARGS_WORDS 6u
 int omega_pq_spec_ok(const OmegaPqSpec *s);
 int omega_blackwell_codegen_pq_prog(const OmegaPqSpec *s, BlackwellIRProgram *prog);
+
+/* ---- grouped GEMM on QMMA (qgemm) ----
+ *   y[row][c] = sum_kb sum_{h in 0,1} fma-promoted( T(row, c, kb, h) * (sa[src(row)][kb] * sw[c][kb]) )
+ * where T is two chained QMMA steps from zero over the 64-byte chunk h of block kb: T = Q(v1, C = Q(v0, C = 0)), and after each
+ * chunk acc = fma(T, sa * sw, acc) in f32 (sa a power of two, so sa * sw is exact). Step v of chunk h: lane t's 16 bytes
+ * 64h + 16t .. +15 of both the activation row and the weight row; bytes 8v .. 8v+3 are logical k 4t .. 4t+3 of the QMMA and
+ * bytes 8v+4 .. 8v+7 logical k 16+4t .. 16+4t+3 (A and B alike, so no K permutation is stored anywhere).
+ * Weights: e4m3 rows of k in the PHYSICAL row order of the upload (omega_gpu_prefill.h), scale table per expert
+ * [n / 16][KB][2] f32 (sw of the warp's two 8-row column tiles side by side). Activations: e4m3 rows of k (xq) + f32 scales
+ * [rows][KB] (xs), the quantiser's output. Output F32: y f32 rows of n. SWIGLU (natural order): column tile 0 of a warp is
+ * gate rows, tile 1 the matching up rows; act[row][n0w / 2 + 2t + q] = bf16_rn(silu(g) * u), no extra scale.
+ * Tile entry (32 bytes): { w_va u64, s_va u64, row0 u32, cnt u32 (1 .. 16 rt), pad u64 }; rows past cnt are not stored.
+ * Constant bank 0x380: tiles, rowidx (ignored when direct), xq, y, xs (u64 each), n u32 at 0x3a8.
+ * Grid: n / (warps * 16) x tiles; 32 * warps threads; shared 2 * (16 rt * 64 + 16 rt * 4) bytes.
+ * mutant (tests only): 1 drops sa (uses sw only), 2 never advances the sw pointer, 3 row tile i reads tile i^1, 4 drops step 1
+ * of every odd chunk. */
+enum { OMEGA_QG_EPI_F32 = 0, OMEGA_QG_EPI_SWIGLU = 1 };
+typedef struct {
+    uint32_t k;      /* multiple of 128, 128 .. 16384 */
+    uint32_t rt;     /* row tiles of 16: 4 (8 exceeds 128 registers and the 16384-byte QMD shared cap) */
+    uint32_t warps;  /* 8 or 16 */
+    uint32_t epi;    /* OMEGA_QG_EPI_* */
+    uint32_t direct; /* 1: no row index */
+    uint32_t n;      /* output width (weight rows), multiple of warps * 16 */
+    uint32_t wait;   /* stall cycles between a row tile's last QMMA and the first FFMA reading its result */
+    int mutant;
+} OmegaQgSpec;
+#define OMEGA_QG_ARGS_WORDS 11u
+#define OMEGA_QG_TILE_BYTES 32u
+int omega_qg_spec_ok(const OmegaQgSpec *s);
+uint32_t omega_qg_shared_bytes(const OmegaQgSpec *s);
+uint32_t omega_qg_span(const OmegaQgSpec *s);
+int omega_blackwell_codegen_qgemm_prog(const OmegaQgSpec *s, BlackwellIRProgram *prog);
 #ifdef __cplusplus
 }
 #endif
