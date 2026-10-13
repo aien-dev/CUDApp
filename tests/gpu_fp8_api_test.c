@@ -345,6 +345,7 @@ static void evict_host_caches(void) {
     volatile uint64_t sum = 0; for (size_t i = 0; i < sz; i += 64) sum += buf[i];
 }
 
+static const char *g_only; static int g_depth_forced; /* run only the battery points whose name contains this (diagnosis) */
 static int chip_run(const char *out_path, uint32_t reps) {
     FILE *out = out_path ? fopen(out_path, "w") : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 1; }
@@ -381,7 +382,8 @@ static int chip_run(const char *out_path, uint32_t reps) {
             float ref = omega_fp8_e4m3_is_nan((uint8_t)r) ? 0.0f : omega_fp8_e4m3_ref((uint8_t)r);
             if (y[r] == ref) one_hot_exact++; else CHECK(0, "chip one-hot code 0x%02x: kernel %a, reference %a", r, y[r], ref);
         }
-        CHECK(rc == OMEGA_GPU_FP8_OK && one_hot_exact == 256, "chip one-hot conversion: rc=%s exact=%d/256", omega_gpu_fp8_rc_name(rc), one_hot_exact);
+        if (g_depth_forced && rc == OMEGA_GPU_FP8_CODEGEN_FAIL) printf("chip one-hot conversion: skipped (forced depth does not fit k=256)\n");
+        else CHECK(rc == OMEGA_GPU_FP8_OK && one_hot_exact == 256, "chip one-hot conversion: rc=%s exact=%d/256", omega_gpu_fp8_rc_name(rc), one_hot_exact);
         printf("chip one-hot conversion: rc=%s %d/256 rows exact (subnormal codes 0x01..0x07 included: no flush to zero)\n", omega_gpu_fp8_rc_name(rc), one_hot_exact);
         if (out) fprintf(out, "{\"name\":\"one-hot conversion\",\"rc\":\"%s\",\"exact_rows\":%d,\"of\":256}", omega_gpu_fp8_rc_name(rc), one_hot_exact);
         if (t) omega_gpu_fp8_tensor_free(t);
@@ -392,6 +394,7 @@ static int chip_run(const char *out_path, uint32_t reps) {
     first = out ? 0 : 1;
     for (size_t i = 0; i < npts; i++) {
         const ChipPoint *p = &pts[i];
+        if (g_only && !strstr(p->name, g_only)) continue;
         Weights W; weights_make(&W, p->experts, p->n, p->k, 5000 + (uint32_t)i);
         uint32_t ids[8]; uint32_t st = 99 + (uint32_t)i;
         for (uint32_t g = 0; g < p->groups; g++) ids[g] = (p->experts > p->groups ? lcg(&st) % p->experts : (p->groups - 1 - g) % p->experts);
@@ -467,6 +470,8 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--depth") == 0 && i + 1 < argc) { depth_set = 1; depth = (uint32_t)atoi(argv[++i]); }
         else if (strcmp(argv[i], "--spin-us") == 0 && i + 1 < argc) spin = (uint32_t)atoi(argv[++i]);
         else if (strcmp(argv[i], "--no-evict") == 0) g_evict = 0;
+        else if (strcmp(argv[i], "--only") == 0 && i + 1 < argc) g_only = argv[++i];
+        else if (strcmp(argv[i], "--gpr-pad") == 0 && i + 1 < argc) omega_gpu_fp8_set_gpr_pad((uint32_t)atoi(argv[++i]));
         else { printf("unknown argument %s\n", argv[i]); return 2; }
     }
     if (host) host_only();
@@ -474,7 +479,7 @@ int main(int argc, char **argv) {
     if (!host && !sim) {
         if (lb || rows || warps) omega_gpu_fp8_set_shape(lb, rows, warps);
         if (budget) omega_gpu_fp8_set_cta_budget(budget);
-        if (depth_set) omega_gpu_fp8_set_depth(1, depth);
+        if (depth_set) { omega_gpu_fp8_set_depth(1, depth); g_depth_forced = 1; }
         (void)omega_gpu_session_set_spin_us(spin);
         chip_run(out_path, reps ? reps : 1);
         omega_gpu_session_close();

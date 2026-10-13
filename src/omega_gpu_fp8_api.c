@@ -32,6 +32,7 @@ static struct {
     uint32_t cta_budget;
     uint32_t lane_bytes, rows, warps; /* overrides, 0 = automatic */
     int depth_set; uint32_t depth;    /* depth override (depth_set: 0 = automatic) */
+    uint32_t gpr_pad;                 /* registers declared beyond the kernel's peak (diagnosis knob) */
     int mutant, no_fold, sealed;
     bool hooked;
     Slot cache[CACHE_SLOTS];
@@ -75,6 +76,7 @@ void omega_gpu_fp8_set_shape(uint32_t lb, uint32_t rows, uint32_t warps) {
     omega_gpu_session_lock(); g.lane_bytes = lb; g.rows = rows; g.warps = warps; cache_clear_locked(); omega_gpu_session_unlock();
 }
 void omega_gpu_fp8_set_depth(int set, uint32_t depth) { omega_gpu_session_lock(); g.depth_set = set; g.depth = depth; cache_clear_locked(); omega_gpu_session_unlock(); }
+void omega_gpu_fp8_set_gpr_pad(uint32_t pad) { omega_gpu_session_lock(); g.gpr_pad = pad; omega_gpu_session_unlock(); }
 void omega_gpu_fp8_set_cta_budget(uint32_t ctas) { omega_gpu_session_lock(); g.cta_budget = ctas ? ctas : OMEGA_GPU_FP8_MAX_CTAS; cache_clear_locked(); omega_gpu_session_unlock(); }
 void omega_gpu_fp8_test_set_mutant(int m) { omega_gpu_session_lock(); g.mutant = m; cache_clear_locked(); omega_gpu_session_unlock(); }
 void omega_gpu_fp8_test_set_no_fold(int on) { g.no_fold = on ? 1 : 0; }
@@ -94,6 +96,12 @@ void omega_gpu_fp8_shape_for(uint32_t k, uint32_t n, uint32_t *lane_bytes, uint3
 }
 
 /* ---- kernel cache (lock held, device open) ---- */
+
+/* Registers declared in the QMD: the peak plus one, rounded up to a multiple of 8. Measured on the chip
+ * (evidence OWN30B-FP8-GEMV-c4006391, kernel log Xid 13 "Out Of Range Register"): a kernel whose peak is
+ * exactly 64 (top register R63) and declares 64 faults; declaring 65 runs. Every earlier kernel had a peak
+ * that was not a multiple of 8, so the hardware's rounding hid the rule. */
+static uint32_t gpr_declared(uint32_t peak) { return ((peak + 1u + 7u) / 8u) * 8u; }
 
 static int kernel_for(const OmegaFp8GemvSpec *spec, Slot **out, bool *hit) {
     for (unsigned i = 0; i < CACHE_SLOTS; i++) {
@@ -261,7 +269,7 @@ static int gemv_core(const OmegaGpuFp8Tensor *t, uint32_t groups, const uint32_t
     }
     if (rc == OMEGA_GPU_FP8_OK) {
         OmegaGpuLaunch L = {
-            .code_va = ks->code.va, .gpr_count = ks->kernel.gpr_count,
+            .code_va = ks->code.va, .gpr_count = gpr_declared(ks->kernel.gpr_count) + g.gpr_pad,
             .threads_x = 32u * spec.warps, .threads_y = 1, .grid_x = grid_x, .grid_y = groups,
             .num_elements = (size_t)groups * n,
             .args = args, .n_args = OMEGA_FP8_ARGS_WORDS, .timeout_ms = MARKER_TIMEOUT_MS,

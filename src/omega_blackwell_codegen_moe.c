@@ -38,9 +38,13 @@ static void emit(Em *e, BlackwellIRInsn in, int kind) {
     switch (kind) {
     case K_FIXED: in.control = CW(6, SB_NONE, SB_NONE, wait); e->pending = 0; break;
     case K_PRED:  in.control = CW(14, SB_NONE, SB_NONE, wait); e->pending = 0; break;
-    case K_VAR:   in.control = CW(4, SB_GPR, SB_NONE, wait) | CW_YIELD; e->pending = 1u << SB_GPR; break;
+    /* Loads read their address operands late (the read barrier SB_RD): a later instruction must not overwrite an
+     * in-flight load's address register. Every load sets SB_RD and the next load of a batch waits on it (cheap:
+     * the operand read, not the data). Found on the chip: the deep k=2048 kernel hung when the allocator reused a
+     * dead scale address register as the next load's destination (evidence OWN30B-FP8-GEMV-c4006391). */
+    case K_VAR:   in.control = CW(4, SB_GPR, SB_RD, wait) | CW_YIELD; e->pending = (1u << SB_GPR) | (1u << SB_RD); break;
     /* a further load of the same group: waits on nothing, joins the counting scoreboard */
-    case K_VAR_MORE: in.control = CW(4, SB_GPR, SB_NONE, 0) | CW_YIELD; e->pending |= 1u << SB_GPR; break;
+    case K_VAR_MORE: in.control = CW(4, SB_GPR, SB_RD, (e->pending & (1u << SB_RD))) | CW_YIELD; e->pending |= (1u << SB_GPR) | (1u << SB_RD); break;
     case K_UVAR:  in.control = CW(4, SB_UGPR, SB_NONE, wait) | CW_YIELD; e->pending = 1u << SB_UGPR; break;
     case K_STORE: in.control = CW(4, SB_NONE, SB_RD, wait) | CW_YIELD; e->pending = 1u << SB_RD; break;
     case K_SYNC:  in.control = CW(6, SB_NONE, SB_NONE, wait); e->pending = 0; break; /* BAR.SYNC after the STS: the attention kernel's chip-proven pattern */

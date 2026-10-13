@@ -114,6 +114,8 @@ void omega_gpu_fp8_set_depth(int set, uint32_t depth);
 uint32_t omega_gpu_fp8_depth_for(const OmegaFp8GemvSpec *spec);
 /* CTAs per group row per launch (default OMEGA_GPU_FP8_MAX_CTAS; 0 restores it). */
 void omega_gpu_fp8_set_cta_budget(uint32_t ctas);
+/* Diagnosis: declare `pad` registers beyond the kernel's peak in the QMD (0 = exact peak). */
+void omega_gpu_fp8_set_gpr_pad(uint32_t pad);
 /* TEST ONLY: deliberately wrong kernels (1 scale dropped, 2 scale block never advances, 3 group table entry
  * of cy ^ 1). The parity test must catch each. Production never calls this. */
 void omega_gpu_fp8_test_set_mutant(int mutant);
