@@ -49,7 +49,9 @@
 #include <string.h>
 
 #define WS_WARP 32
+#ifndef WS_MAX_THREADS
 #define WS_MAX_THREADS 256
+#endif
 #define WS_MAX_WARPS (WS_MAX_THREADS / WS_WARP)
 #define WS_MAX_FRAGS 64
 #define WS_NBAR BW_RECONV_MAX_BAR
@@ -120,6 +122,7 @@ static uint32_t ws_lut3(uint32_t lut, uint32_t a, uint32_t b, uint32_t c) {
 static int ws_mem_ok(WsSim *s, uint64_t a, unsigned bytes, int pc) {
     if (s->nranges == 0) return 1;
     for (int i = 0; i < s->nranges; i++) if (a >= s->ranges[i].lo && a + bytes <= s->ranges[i].hi) return 1;
+    if (getenv("WS_DBG")) { fprintf(stderr, "bad addr %llx +%u pc %d\n", (unsigned long long)a, bytes, pc); for (int i = 0; i < s->nranges; i++) fprintf(stderr, "  range %d %llx..%llx\n", i, (unsigned long long)s->ranges[i].lo, (unsigned long long)s->ranges[i].hi); }
     ws_fail(s, WS_E_MEM, pc, "global access outside the declared buffers"); return 0;
 }
 static uint32_t *ws_smem(WsSim *s, uint32_t a, int pc) {
@@ -153,7 +156,7 @@ static void ws_lane_exec(WsSim *s, WsLane *l, const BlackwellIRInsn *in, int pc,
     case BW_IR_LDG_E: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; uint32_t x; memcpy(&x, (const void *)(uintptr_t)ad, 4); ws_wrs(l, in->dst_vreg, in->dst_subreg, x, p); break; }
     case BW_IR_LDG_E_U16: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 2, pc)) return; uint16_t x; memcpy(&x, (const void *)(uintptr_t)ad, 2); ws_wrs(l, in->dst_vreg, in->dst_subreg, x, p); break; }
     case BW_IR_STG_E: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; memcpy((void *)(uintptr_t)ad, &b, 4); break; }
-    case BW_IR_LDG_E_64: case BW_IR_LDG_E_128: { unsigned n = in->op == BW_IR_LDG_E_64 ? 8u : 16u; uint64_t ad = ws_rd64(l, in->src1_vreg, p) + (uint64_t)(int64_t)(int32_t)in->imm; if (!ws_mem_ok(s, ad, n, pc)) return; if (ad & (n - 1)) { ws_fail(s, WS_E_MEM, pc, "wide global load not naturally aligned"); return; } uint32_t x[4]; memcpy(x, (const void *)(uintptr_t)ad, n); for (unsigned i = 0; i < n / 4; i++) ws_wrs(l, in->dst_vreg, i, x[i], p); break; }
+    case BW_IR_LDG_E_64: case BW_IR_LDG_E_128: { unsigned n = in->op == BW_IR_LDG_E_64 ? 8u : 16u; uint64_t ad = ws_rd64(l, in->src1_vreg, p) + (uint64_t)(int64_t)(int32_t)in->imm; if (!ws_mem_ok(s, ad, n, pc)) { if (getenv("WS_DBG")) fprintf(stderr, "  tid %u cx %u cy %u\n", tid, cx, cy); return; } if (ad & (n - 1)) { ws_fail(s, WS_E_MEM, pc, "wide global load not naturally aligned"); return; } uint32_t x[4]; memcpy(x, (const void *)(uintptr_t)ad, n); for (unsigned i = 0; i < n / 4; i++) ws_wrs(l, in->dst_vreg, i, x[i], p); break; }
     case BW_IR_LDS128: { uint32_t ad = a + in->imm; if (ad & 15u) { ws_fail(s, WS_E_SMEM, pc, "LDS.128 address not 16-byte aligned"); return; } for (unsigned i = 0; i < 4; i++) { uint32_t *m = ws_smem(s, ad + 4u * i, pc); if (!m) return; ws_wrs(l, in->dst_vreg, i, *m, p); } break; }
     case BW_IR_LDS32: { uint32_t *m = ws_smem(s, a, pc); if (!m) return; ws_wrs(l, in->dst_vreg, in->dst_subreg, *m, p); break; }
     case BW_IR_STS32: { uint32_t *m = ws_smem(s, a, pc); if (!m) return; *m = b; break; }
