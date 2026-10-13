@@ -16,6 +16,11 @@
 #define RING_WORDS (0x10000u / 4u)         /* the session ring: 64 KB */
 #define DEFAULT_TIMEOUT_MS 20000ull
 #define MTHD_WAIT_FOR_IDLE 0x0110u         /* clcec0.h NVCEC0_WAIT_FOR_IDLE */
+/* Completion markers live on the SESSION marker page (OmegaGpuSession.marker, allocated by the session with
+ * OMEGA_GPU_RIGHT_HOST_POLLED, GPU-uncached): the platform refuses poll_word on any buffer without that right
+ * (omega_gpu_platform_linux.c ref_poll_word, chip run cmdlist-r1 2026-10-13: "marker poll refused"), and the session
+ * exposes no polled allocation. The session uses bytes 0..0x1f of the page; this module uses 0x100..0x11f. */
+#define MARKER_OFF 0x100ull
 #define MTHD_SEND_PCAS_A 0x02b4u           /* clcec0.h NVCEC0_SEND_PCAS_A, QMD_ADDRESS_SHIFTED8 */
 #define MTHD_SEND_SIGNALING_PCAS2_B 0x02c0u /* clcec0.h, PCAS_ACTION 3:0 */
 #define PCAS_ACTION_INVALIDATE_COPY_SCHEDULE 3u
@@ -32,7 +37,7 @@ static const uint32_t SETUP_WORDS[18] = {
 
 struct OmegaGpuCmdList {
     uint32_t cap, n;
-    OmegaGpuMem banks, qmds, sems, scratch, marker;
+    OmegaGpuMem banks, qmds, sems, scratch;
     uint32_t *words;      /* host method stream */
     uint32_t words_cap;
     OmegaGpuMem nop_code; /* EXIT kernel used to force the session latch after a timeout */
@@ -79,14 +84,12 @@ int omega_gpu_cmdlist_create(uint32_t cap, OmegaGpuCmdList **out) {
     if (rc == 0 && (omega_gpu_session_alloc((size_t)cap * OMEGA_GPU_CMDLIST_BANK_BYTES, &cl->banks) != 0 ||
                     omega_gpu_session_alloc((size_t)cap * OMEGA_GPU_CMDLIST_QMD_BYTES, &cl->qmds) != 0 ||
                     omega_gpu_session_alloc((size_t)cap * 16u, &cl->sems) != 0 ||
-                    omega_gpu_session_alloc(0x4000, &cl->scratch) != 0 ||
-                    omega_gpu_session_alloc(PAGE, &cl->marker) != 0))
+                    omega_gpu_session_alloc(0x4000, &cl->scratch) != 0))
         rc = -1;
     if (rc == 0 && build_nop(cl) != 0) { omega_gpu_session_set_error("cmdlist create: nop kernel"); rc = -1; }
     if (rc == 0) {
         memset(cl->scratch.cpu, 0, 0x4000);
-        memset(cl->marker.cpu, 0, PAGE);
-        if (omega_gpu_session_sync_to_gpu(&cl->scratch) != 0 || omega_gpu_session_sync_to_gpu(&cl->marker) != 0) rc = -1;
+        if (omega_gpu_session_sync_to_gpu(&cl->scratch) != 0) rc = -1;
     }
     omega_gpu_session_unlock();
     if (rc != 0) { omega_gpu_cmdlist_free(cl); return -1; }
@@ -97,7 +100,7 @@ int omega_gpu_cmdlist_create(uint32_t cap, OmegaGpuCmdList **out) {
 void omega_gpu_cmdlist_free(OmegaGpuCmdList *cl) {
     if (!cl) return;
     omega_gpu_session_lock();
-    OmegaGpuMem *m[] = { &cl->banks, &cl->qmds, &cl->sems, &cl->scratch, &cl->marker, &cl->nop_code };
+    OmegaGpuMem *m[] = { &cl->banks, &cl->qmds, &cl->sems, &cl->scratch, &cl->nop_code };
     for (unsigned i = 0; i < sizeof m / sizeof m[0]; i++) if (m[i]->cpu) omega_gpu_session_free(m[i]);
     omega_gpu_session_unlock();
     omega_gpu_host_free(cl->words);
@@ -151,8 +154,9 @@ static inline void cpu_relax(void) {
 #endif
 }
 
-static int wait_word(const OmegaGpuPlatform *p, OmegaGpuCmdList *cl, uint64_t off, uint32_t want, uint64_t timeout_ms, uint32_t spin_us) {
-    volatile uint32_t *m = (volatile uint32_t *)((uint8_t *)cl->marker.cpu + off);
+static int wait_word(const OmegaGpuPlatform *p, const OmegaGpuMem *marker, uint64_t off, uint32_t want, uint64_t timeout_ms, uint32_t spin_us) {
+    off += MARKER_OFF;
+    volatile uint32_t *m = (volatile uint32_t *)((uint8_t *)marker->cpu + off);
     if (spin_us) {
         const uint64_t end = p->time_now_ns(p->ctx) + (uint64_t)spin_us * 1000u;
         do { if ((int32_t)(*m - want) >= 0) return WAIT_OK; cpu_relax(); } while (p->time_now_ns(p->ctx) < end);
@@ -160,7 +164,7 @@ static int wait_word(const OmegaGpuPlatform *p, OmegaGpuCmdList *cl, uint64_t of
     uint64_t waited = 0;
     for (;;) {
         uint32_t seen = 0;
-        int rc = p->poll_word(p->ctx, cl->marker.handle, off, want, 1, &seen);
+        int rc = p->poll_word(p->ctx, marker->handle, off, want, 1, &seen);
         if (rc == OMEGA_GPU_PLAT_OK) return WAIT_OK;
         if (rc != OMEGA_GPU_POLL_TIMED_OUT) return WAIT_REFUSED;
         if (++waited >= timeout_ms) return WAIT_TIMED_OUT;
@@ -205,6 +209,9 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
     if (omega_gpu_cmdlist_is_latched() || omega_gpu_session_is_blocked()) { omega_gpu_session_set_error("cmdlist submit: latched"); return -1; }
     OmegaGpuSession *s = omega_gpu_session_open();
     if (!s) return -1;
+    if (!s->marker.cpu || s->marker.size < MARKER_OFF + 0x20) { omega_gpu_session_set_error("cmdlist submit: session marker page"); return -1; }
+    const OmegaGpuMem *marker = &s->marker;
+    const uint64_t marker_va = marker->va + MARKER_OFF;
     const uint64_t timeout = o.timeout_ms ? o.timeout_ms : DEFAULT_TIMEOUT_MS;
     const uint32_t spin = o.spin_us ? o.spin_us : omega_gpu_session_spin_us();
     const uint64_t th0 = p->time_now_ns(p->ctx);
@@ -212,12 +219,12 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
     /* semaphores INIT, markers 0, everything the CPU wrote made visible */
     uint32_t *sem = cl->sems.cpu;
     for (uint32_t i = 0; i < cl->n; i++) sem[4 * i] = OMEGA_BW_SEMAPHORE_INTERMEDIATE_INIT;
-    volatile uint32_t *mk = cl->marker.cpu;
+    volatile uint32_t *mk = (volatile uint32_t *)((uint8_t *)marker->cpu + MARKER_OFF);
     mk[0] = 0; mk[4] = 0;
     if (p->sync_cpu_to_gpu(p->ctx, cl->banks.handle, 0, (uint64_t)cl->n * OMEGA_GPU_CMDLIST_BANK_BYTES) != OMEGA_GPU_PLAT_OK ||
         p->sync_cpu_to_gpu(p->ctx, cl->qmds.handle, 0, (uint64_t)cl->n * OMEGA_GPU_CMDLIST_QMD_BYTES) != OMEGA_GPU_PLAT_OK ||
         p->sync_cpu_to_gpu(p->ctx, cl->sems.handle, 0, (uint64_t)cl->n * 16u) != OMEGA_GPU_PLAT_OK ||
-        p->sync_cpu_to_gpu(p->ctx, cl->marker.handle, 0, 0x20) != OMEGA_GPU_PLAT_OK) {
+        p->sync_cpu_to_gpu(p->ctx, marker->handle, MARKER_OFF, 0x20) != OMEGA_GPU_PLAT_OK) {
         omega_gpu_session_set_error("cmdlist submit: sync_cpu_to_gpu"); return -1;
     }
 
@@ -254,22 +261,22 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
                 pb[n++] = bw_mthd(1, MTHD_SEND_SIGNALING_PCAS2_B, 1); pb[n++] = PCAS_ACTION_INVALIDATE_COPY_SCHEDULE;
             }
         }
-        n = emit_tail(pb, n, cl->marker.va);
+        n = emit_tail(pb, n, marker_va);
         if (o.mode != OMEGA_GPU_CMDLIST_INLINE &&
             p->sync_cpu_to_gpu(p->ctx, cl->qmds.handle, 0, (uint64_t)cl->n * OMEGA_GPU_CMDLIST_QMD_BYTES) != OMEGA_GPU_PLAT_OK) {
             omega_gpu_session_set_error("cmdlist submit: sync qmd"); return -1;
         }
         mk[0] = 0; mk[4] = 0;
-        (void)p->sync_cpu_to_gpu(p->ctx, cl->marker.handle, 0, 0x20);
+        (void)p->sync_cpu_to_gpu(p->ctx, marker->handle, MARKER_OFF, 0x20);
         const uint64_t t0 = p->time_now_ns(p->ctx);
         host += t0 - tb;
         if (p->queue_submit(p->ctx, s->queue, pb, (uint32_t)n) != OMEGA_GPU_PLAT_OK) {
             omega_gpu_session_set_error("cmdlist submit: queue_submit refused"); return -1; /* refused: nothing in flight */
         }
-        int w = wait_word(p, cl, 0, OMEGA_BW_MARKER_COMPLETION_PAYLOAD, timeout, spin);
-        if (w == WAIT_OK) w = wait_word(p, cl, 0x10, OMEGA_BW_MARKER2_PAYLOAD, timeout, spin);
+        int w = wait_word(p, marker, 0, OMEGA_BW_MARKER_COMPLETION_PAYLOAD, timeout, spin);
+        if (w == WAIT_OK) w = wait_word(p, marker, 0x10, OMEGA_BW_MARKER2_PAYLOAD, timeout, spin);
         if (w != WAIT_OK) { force_latch(cl, w == WAIT_TIMED_OUT ? "cmdlist: marker wait timed out (latched)" : "cmdlist: marker poll refused (latched)"); return -1; }
-        (void)p->sync_gpu_to_cpu(p->ctx, cl->marker.handle, 0, 0x20);
+        (void)p->sync_gpu_to_cpu(p->ctx, marker->handle, MARKER_OFF, 0x20);
         elapsed += p->time_now_ns(p->ctx) - t0;
         (void)p->queue_retire(p->ctx, s->queue);
         submits++; words += (uint32_t)n; done = end;

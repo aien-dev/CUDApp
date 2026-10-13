@@ -11,6 +11,7 @@
  * What each launch gets (all buffers from omega_gpu_session_alloc, GPU-uncached; nvos.h:1117 read 2026-10-13):
  *   - its own constant bank 0 (1 KB: the 224 driver words patched for this bank, arguments at 0x380), CPU-written;
  *   - its own QMD slot (the session's QMD1 words with this launch's bank and semaphore), CPU-written;
+ *   (completion markers: the session marker page at 0x100, the one page the platform lets the host poll)
  *   - its own release semaphore word, set to INTERMEDIATE_INIT (5) by the CPU and released to DONE (6) by the QMD when
  *     the grid completes. submit() checks every word: a launch that never ran is caught by name (index).
  *
