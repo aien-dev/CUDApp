@@ -138,6 +138,15 @@ void omega_gpu_fp8_set_cta_budget(uint32_t ctas);
 /* 1: tensors uploaded from now on live in GPU-cached memory (read-only weights; omega_gpu_mem_cached.h). Default 0:
  * GPU-uncached like every session buffer. Tensors already uploaded keep their policy. */
 void omega_gpu_fp8_set_weight_cache(int on);
+/* GEMV variant (W-L2c, 2026-10-14): 1 = omega_blackwell_codegen_moe.c (the default, unchanged), 2 = omega_blackwell_codegen_moe2.c
+ * (row-pipelined: the whole row group in flight per warp and the next row group's loads in flight while this one is multiplied;
+ * same arithmetic order, y bit-identical). Read once from AIEN_OMEGA_FP8_GEMV ("2") at the first call unless set here first.
+ * Each call clears the kernel cache. Variant 2 defaults: OMEGA_GPU_FP8_V2_WARPS warps per CTA, OMEGA_GPU_FP8_V2_GROUPED_CTAS CTAs
+ * per group for grouped launches (the shape and budget knobs above still override). */
+void omega_gpu_fp8_set_variant(int variant);
+int omega_gpu_fp8_variant(void);
+#define OMEGA_GPU_FP8_V2_WARPS 16u
+#define OMEGA_GPU_FP8_V2_GROUPED_CTAS 12u
 int omega_gpu_fp8_weight_cache(void);
 /* Diagnosis: declare `pad` registers beyond the kernel's peak in the QMD (0 = exact peak). */
 void omega_gpu_fp8_set_gpr_pad(uint32_t pad);

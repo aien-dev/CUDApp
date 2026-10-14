@@ -6,9 +6,11 @@
 #include "omega_gpu_fp8_api.h"
 #include "omega_gpu_mem_cached.h"
 #include "omega_blackwell_codegen_moe.h"
+#include "omega_blackwell_codegen_moe2.h" /* variant 2 (W-L2c) */
 #include "omega_gpu_session.h"
 #include "omega_gpu_fmt.h"
 #include "omega_gpu_cmdlist.h"
+#include <stdlib.h>
 #include <string.h>
 
 #define CACHE_SLOTS 16
@@ -23,6 +25,7 @@ struct OmegaGpuFp8Tensor {
 
 typedef struct {
     bool valid, pinned;
+    uint32_t variant; /* 1 or 2: which generator built the kernel (part of the cache key) */
     OmegaFp8GemvSpec spec;
     OmegaBlackwellKernel kernel;
     OmegaGpuMem code;
@@ -36,6 +39,7 @@ static struct {
     int depth_set; uint32_t depth;    /* depth override (depth_set: 0 = automatic) */
     uint32_t gpr_pad;                 /* registers declared beyond the kernel's peak (diagnosis knob) */
     int mutant, no_fold, sealed;
+    int variant, variant_set; /* GEMV variant 1 or 2 (omega_gpu_fp8_set_variant / AIEN_OMEGA_FP8_GEMV), read once */
     int weights_cached; /* omega_gpu_fp8_set_weight_cache: uploads after it allocate GPU-cached (read-only weights) */
     bool hooked;
     Slot cache[CACHE_SLOTS];
@@ -86,6 +90,33 @@ void omega_gpu_fp8_test_set_mutant(int m) { omega_gpu_session_lock(); g.mutant =
 void omega_gpu_fp8_test_set_no_fold(int on) { g.no_fold = on ? 1 : 0; }
 void omega_gpu_fp8_seal(int on) { omega_gpu_session_lock(); g.sealed = on ? 1 : 0; omega_gpu_session_unlock(); }
 
+/* ---- GEMV variant (W-L2c): 1 = omega_blackwell_codegen_moe.c (default), 2 = omega_blackwell_codegen_moe2.c (row-pipelined) ---- */
+static int variant_now(void) {
+    if (!g.variant_set) {
+        const char *v = getenv("AIEN_OMEGA_FP8_GEMV");
+        g.variant = (v && v[0] == '2' && v[1] == 0) ? 2 : 1;
+        g.variant_set = 1;
+    }
+    return g.variant;
+}
+void omega_gpu_fp8_set_variant(int variant) {
+    omega_gpu_session_lock();
+    g.variant = variant == 2 ? 2 : 1; g.variant_set = 1;
+    cache_clear_locked();
+    omega_gpu_session_unlock();
+}
+int omega_gpu_fp8_variant(void) { return variant_now(); }
+/* codegen by variant */
+static int prog_for(int variant, const OmegaFp8GemvSpec *spec, BlackwellIRProgram *prog) {
+    return variant == 2 ? omega_blackwell_codegen_fp8_gemv2_prog(spec, prog) : omega_blackwell_codegen_fp8_gemv_prog(spec, prog);
+}
+static int stats_for(int variant, const OmegaFp8GemvSpec *spec, uint32_t *insns, uint32_t *gprs) {
+    return variant == 2 ? omega_fp8_gemv2_prog_stats(spec, insns, gprs) : omega_fp8_gemv_prog_stats(spec, insns, gprs);
+}
+static uint32_t shared_for(int variant, const OmegaFp8GemvSpec *spec) {
+    return variant == 2 ? omega_fp8_gemv2_shared_bytes(spec) : omega_fp8_gemv_shared_bytes(spec);
+}
+
 /* ---- shape choice ---- */
 
 /* Largest lane width dividing k (16 for k % 512 == 0: one LDG.E.128 per row per step); one row per warp:
@@ -119,15 +150,16 @@ static bool register_file_fits(uint32_t warps, uint32_t peak) {
 
 int omega_gpu_fp8_kernel_fits(const OmegaFp8GemvSpec *spec, uint32_t *declared) {
     uint32_t peak = 0;
-    if (!spec || omega_fp8_gemv_prog_stats(spec, NULL, &peak) != 0) { omega_gpu_session_set_error("fp8 codegen refused the shape"); return OMEGA_GPU_FP8_CODEGEN_FAIL; }
+    if (!spec || stats_for(variant_now(), spec, NULL, &peak) != 0) { omega_gpu_session_set_error("fp8 codegen refused the shape"); return OMEGA_GPU_FP8_CODEGEN_FAIL; }
     if (declared) *declared = gpr_declared(peak);
     return register_file_fits(spec->warps, peak) ? OMEGA_GPU_FP8_OK : OMEGA_GPU_FP8_TOO_LARGE;
 }
 
 static int kernel_for(const OmegaFp8GemvSpec *spec, Slot **out, bool *hit) {
+    const uint32_t variant = (uint32_t)variant_now();
     for (unsigned i = 0; i < CACHE_SLOTS; i++) {
         Slot *s = &g.cache[i];
-        if (s->valid && memcmp(&s->spec, spec, sizeof *spec) == 0) { *out = s; *hit = true; return OMEGA_GPU_FP8_OK; }
+        if (s->valid && s->variant == variant && memcmp(&s->spec, spec, sizeof *spec) == 0) { *out = s; *hit = true; return OMEGA_GPU_FP8_OK; }
     }
     if (g.sealed) {
         char e[160];
@@ -146,7 +178,7 @@ static int kernel_for(const OmegaFp8GemvSpec *spec, Slot **out, bool *hit) {
     if (g_rec && s->valid) { omega_gpu_session_set_error("fp8 record: kernel cache miss would evict a resident kernel (warm up before recording)"); return OMEGA_GPU_FP8_TOO_LARGE; }
     BlackwellIRProgram *prog = omega_gpu_host_calloc(1, sizeof *prog);
     if (!prog) { omega_gpu_session_set_error("fp8 codegen: host memory"); return OMEGA_GPU_FP8_CODEGEN_FAIL; }
-    int cg = omega_blackwell_codegen_fp8_gemv_prog(spec, prog);
+    int cg = prog_for((int)variant, spec, prog);
     size_t need = cg == 0 ? omega_bw_program_code_bytes(prog) : 0;
     if (cg != 0 || need == 0) { omega_gpu_host_free(prog); omega_gpu_session_set_error("fp8 codegen refused the shape"); return OMEGA_GPU_FP8_CODEGEN_FAIL; }
     if (!register_file_fits(spec->warps, prog->regalloc.peak_gpr_usage)) { omega_gpu_host_free(prog); return OMEGA_GPU_FP8_TOO_LARGE; }
@@ -159,7 +191,7 @@ static int kernel_for(const OmegaFp8GemvSpec *spec, Slot **out, bool *hit) {
     if (omega_gpu_session_sync_to_gpu(&code) != 0) { omega_gpu_session_free(&code); return OMEGA_GPU_FP8_CHIP_FAIL; }
     if (s->valid) omega_gpu_session_free(&s->code);
     memset(s, 0, sizeof *s);
-    s->valid = true; s->spec = *spec; s->kernel = kernel; s->code = code;
+    s->valid = true; s->variant = variant; s->spec = *spec; s->kernel = kernel; s->code = code;
     *out = s; *hit = false;
     return OMEGA_GPU_FP8_OK;
 }
@@ -188,7 +220,12 @@ static void spec_for(uint32_t k, uint32_t n, uint32_t groups, OmegaFp8GemvSpec *
      * for 8 groups) measured fastest: down 2048x768 x 8 went from 181 us (256 x 8 CTAs of 8 warps) to 90 us
      * (4..6 x 8 CTAs of 32 warps); gate+up 146 -> 140 us (probe logs listed in ~/handoffs/own30b-K-report.md). */
     if (groups > 1u && !g.warps) spec->warps = 32u;
-    spec->depth = omega_gpu_fp8_depth_for(spec, n, groups);
+    if (variant_now() == 2) {
+        /* variant 2 (W-L2c): 16 warps per CTA (two CTAs per SM at its register count) for every launch unless overridden;
+         * the whole row group is always in flight (depth = KS, informational: the generator ignores the field). */
+        if (!g.warps) spec->warps = OMEGA_GPU_FP8_V2_WARPS;
+        spec->depth = spec->k / (32u * spec->lane_bytes);
+    } else spec->depth = omega_gpu_fp8_depth_for(spec, n, groups);
     spec->mutant = g.mutant;
 }
 
@@ -268,7 +305,8 @@ static int gemv_core(const OmegaGpuFp8Tensor *t, uint32_t groups, const uint32_t
     if (n % spec.rows) return OMEGA_GPU_FP8_CODEGEN_FAIL;
     const uint32_t RG = n / spec.rows;
     uint32_t grid_x = (RG + spec.warps - 1) / spec.warps;
-    uint32_t budget = g.cta_budget_set ? g.cta_budget : (groups > 1u ? OMEGA_GPU_FP8_GROUPED_CTAS : OMEGA_GPU_FP8_MAX_CTAS);
+    const int variant = variant_now();
+    uint32_t budget = g.cta_budget_set ? g.cta_budget : (groups > 1u ? (variant == 2 ? OMEGA_GPU_FP8_V2_GROUPED_CTAS : OMEGA_GPU_FP8_GROUPED_CTAS) : OMEGA_GPU_FP8_MAX_CTAS);
     if (grid_x > budget) grid_x = budget;
     if (grid_x == 0) grid_x = 1;
 
@@ -324,7 +362,7 @@ static int gemv_core(const OmegaGpuFp8Tensor *t, uint32_t groups, const uint32_t
             .threads_x = 32u * spec.warps, .threads_y = 1, .grid_x = grid_x, .grid_y = groups,
             .num_elements = (size_t)groups * n,
             .args = args, .n_args = OMEGA_FP8_ARGS_WORDS, .timeout_ms = MARKER_TIMEOUT_MS,
-            .shared_bytes = omega_fp8_gemv_shared_bytes(&spec),
+            .shared_bytes = shared_for(variant, &spec),
         };
         if (L.gpr_count < ks->kernel.gpr_count + 2u) { omega_gpu_session_set_error("declared registers below peak + 2: refusing to launch"); rc = OMEGA_GPU_FP8_CHIP_FAIL; }
         else if (rec) { if (omega_gpu_cmdlist_add(rec, &L) < 0) rc = OMEGA_GPU_FP8_CHIP_FAIL; }
