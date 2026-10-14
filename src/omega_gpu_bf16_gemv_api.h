@@ -64,6 +64,12 @@ void omega_gpu_bf16_tensor_free(OmegaGpuBf16Tensor *t);
 void omega_gpu_bf16_tensor_shape(const OmegaGpuBf16Tensor *t, uint32_t *n, uint32_t *k);
 int omega_gpu_bf16_gemv_f32(const OmegaGpuBf16Tensor *t, const float *x, float *y, OmegaGpuBf16Info *info);
 int omega_gpu_bf16_gemv_bf16(const OmegaGpuBf16Tensor *t, const uint16_t *x, float *y, OmegaGpuBf16Info *info);
+/* Record path (OWN-30B W-L2a, decode graph; omega_gpu_cmdlist.h): the same launch as gemv_f32 appended to cl instead
+ * of submitted. x_va: k f32 on the device (plain, not prescaled); y_va: n f32 written when the list runs. The caller
+ * holds omega_gpu_session_lock(). Nothing staged, poisoned or read back. A kernel cache miss that would evict a resident
+ * kernel is refused (TOO_LARGE): warm the shape up with one non-record call (or omega_gpu_bf16_prepare) first. */
+struct OmegaGpuCmdList;
+int omega_gpu_bf16_gemv_record(struct OmegaGpuCmdList *cl, const OmegaGpuBf16Tensor *t, uint64_t x_va, uint64_t y_va);
 int omega_gpu_bf16_prepare(uint32_t k);
 const char *omega_gpu_bf16_rc_name(int rc);
 const char *omega_gpu_bf16_last_error(void);

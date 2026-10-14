@@ -64,6 +64,17 @@ void omega_gpu_decode_attn_cache_free(OmegaGpuDecodeAttnCache *c);
 int omega_gpu_decode_attn_set_norms(OmegaGpuDecodeAttnCache *c, uint32_t layer, const float *q_norm, const float *k_norm);
 int omega_gpu_decode_attn(OmegaGpuDecodeAttnCache *c, uint32_t layer, uint32_t pos, const float *qkv, float eps,
                           float out_scale, float *out, OmegaGpuDecodeAttnInfo *info);
+/* Record path (OWN-30B W-L2a, decode graph; omega_gpu_cmdlist.h): the launch of omega_gpu_decode_attn appended to cl
+ * instead of submitted. qkv_va: f32 [5120] on the device (the fused q|k|v GEMV output); out_va: f32 [32 * 128] written
+ * * out_scale when the list runs (2^64 = the o_proj FP8 x' row). pos and the split count are fixed at record time.
+ * The caller holds omega_gpu_session_lock(). Nothing staged, poisoned or read back; the split counters rely on the
+ * kernel's own reset (checked after the list by omega_gpu_decode_attn_counters_check). A kernel cache miss that would
+ * evict the resident kernel is refused (warm up with one non-record call first). */
+struct OmegaGpuCmdList;
+int omega_gpu_decode_attn_record(struct OmegaGpuCmdList *cl, OmegaGpuDecodeAttnCache *c, uint32_t layer, uint32_t pos, uint64_t qkv_va,
+                                 float eps, float out_scale, uint64_t out_va);
+/* Caller holds the lock, after the list ran: OK when the four split counters are zero, else CHIP_FAIL. */
+int omega_gpu_decode_attn_counters_check(OmegaGpuDecodeAttnCache *c);
 int omega_gpu_decode_attn_cache_write(OmegaGpuDecodeAttnCache *c, uint32_t layer, uint32_t kv_head, uint32_t pos, uint32_t count,
                                       const uint16_t *k_bf16, const uint16_t *v_bf16); /* count rows from pos, one sync */
 int omega_gpu_decode_attn_cache_read(OmegaGpuDecodeAttnCache *c, uint32_t layer, uint32_t kv_head, uint32_t pos,

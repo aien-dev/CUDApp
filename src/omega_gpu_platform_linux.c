@@ -179,7 +179,8 @@ static int ref_dma_alloc(void *ctx, OmegaGpuDeviceHandle dev, const OmegaGpuBuff
     if (rc == OMEGA_GPU_PLAT_OK) rc = omega_gpu_platform_check_buffer(desc, &g_caps);
     /* GPU-uncached by default. GPU-cached only for DEVICE-PRIVATE data buffers (OWN-30B T3b, 2026-10-13): no CPU_READ, no
      * HOST_POLLED, so the CPU never reads a line the GPU may still hold in L2 (nvos.h:1116 "For system memory this will not be
-     * coherent with direct CPU mappings"); omega_gpu_devmem.h fills them with GPU writes only, so no stale L2 line exists. */
+     * coherent with direct CPU mappings"). omega_gpu_mem_cached.c (OWN-30B L2) writes such a buffer from the CPU exactly once,
+     * before any GPU read, then syncs; omega_gpu_devmem.h (T3b) fills them with GPU writes only. Either way no stale L2 line exists. */
     const int cached = desc->gpu_cache == OMEGA_GPU_CACHE_GPU_CACHED;
     if (rc == OMEGA_GPU_PLAT_OK && cached &&
         (desc->kind != OMEGA_GPU_HANDLE_BUF_DATA || (desc->rights & (OMEGA_GPU_RIGHT_CPU_READ | OMEGA_GPU_RIGHT_HOST_POLLED))))

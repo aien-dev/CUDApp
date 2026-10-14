@@ -8,6 +8,7 @@
 #include "omega_gpu_session.h"
 #include <stdbool.h>
 #include <string.h>
+#include "omega_gpu_cmdlist.h"
 
 #define MARKER_TIMEOUT_MS 20000ull
 #define POISON_F32 (-999.0f)
@@ -43,6 +44,7 @@ static struct {
     uint32_t warps, depth;
     int mutant;
 } g;
+static int g_rec; /* 1 while a record call runs (lock held): kernel_for must not evict */
 
 static void slot_clear_locked(void) { if (g.slot.valid) omega_gpu_session_free(&g.slot.code); memset(&g.slot, 0, sizeof g.slot); }
 static void on_session_close(void) { memset(&g.slot, 0, sizeof g.slot); }
@@ -157,6 +159,7 @@ int omega_gpu_router_read_back(OmegaGpuRouter *r, float *xout, uint64_t *tab_gu,
 static int kernel_for(const OmegaRouterSpec *spec, Slot **out, bool *hit) {
     Slot *s = &g.slot;
     if (s->valid && memcmp(&s->spec, spec, sizeof *spec) == 0) { *out = s; *hit = true; return OMEGA_GPU_ROUTER_OK; }
+    if (g_rec && s->valid) { omega_gpu_session_set_error("router record: kernel cache miss would evict the resident kernel (warm up before recording)"); return OMEGA_GPU_ROUTER_TOO_LARGE; }
     slot_clear_locked();
     BlackwellIRProgram *prog = omega_gpu_host_calloc(1, sizeof *prog);
     if (!prog) { omega_gpu_session_set_error("router codegen: host memory"); return OMEGA_GPU_ROUTER_CODEGEN_FAIL; }
@@ -177,28 +180,35 @@ static int kernel_for(const OmegaRouterSpec *spec, Slot **out, bool *hit) {
     return OMEGA_GPU_ROUTER_OK;
 }
 
-int omega_gpu_router(OmegaGpuRouter *r, uint32_t layer, const float *x, float eps, int norm_topk, float out_scale,
-                     uint32_t *ids, float *weights, OmegaGpuRouterInfo *info) {
+/* rec non-NULL (record path, caller holds the session lock): x is the device row dev_x, the launch is appended to rec
+ * instead of submitted, nothing is staged, poisoned or read back (outputs stay at the launch-buffer addresses). */
+static int router_core(OmegaGpuRouter *r, uint32_t layer, const float *x, float eps, int norm_topk, float out_scale,
+                       uint32_t *ids, float *weights, OmegaGpuRouterInfo *info, OmegaGpuCmdList *rec, uint64_t dev_x) {
     uint64_t t0 = omega_gpu_session_now_ns();
     if (info) memset(info, 0, sizeof *info);
-    if (!r || layer >= r->layers || !x || !ids || !weights) return OMEGA_GPU_ROUTER_BAD_ARGS;
+    if (!r || layer >= r->layers || (rec ? !dev_x : (!x || !ids || !weights))) return OMEGA_GPU_ROUTER_BAD_ARGS;
     OmegaRouterSpec spec; memset(&spec, 0, sizeof spec);
     spec.warps = g.warps ? g.warps : OMEGA_GPU_ROUTER_WARPS; spec.depth = g.depth ? g.depth : OMEGA_GPU_ROUTER_DEPTH; spec.mutant = g.mutant;
 
-    omega_gpu_session_lock();
+    if (!rec) omega_gpu_session_lock();
+#define UNLOCK() do { if (!rec) omega_gpu_session_unlock(); } while (0)
     int rc = OMEGA_GPU_ROUTER_OK;
-    if (!dev_open_locked()) { omega_gpu_session_unlock(); return OMEGA_GPU_ROUTER_CHIP_FAIL; }
+    if (!dev_open_locked()) { UNLOCK(); return OMEGA_GPU_ROUTER_CHIP_FAIL; }
     Slot *ks = NULL; bool hit = false;
+    g_rec = rec != NULL;
     rc = kernel_for(&spec, &ks, &hit);
-    if (rc != OMEGA_GPU_ROUTER_OK) { omega_gpu_session_unlock(); return rc; }
+    g_rec = 0;
+    if (rc != OMEGA_GPU_ROUTER_OK) { UNLOCK(); return rc; }
     uint8_t *b = r->lb.cpu;
-    memcpy(b + LB_X, x, OMEGA_ROUTER_HIDDEN * 4u);
     float *xo = (float *)(b + LB_XOUT), *wd = (float *)(b + LB_WTS);
     uint32_t *idd = (uint32_t *)(b + LB_IDS);
-    for (size_t i = 0; i < OMEGA_ROUTER_HIDDEN; i++) xo[i] = POISON_F32;
-    for (size_t i = 0; i < OMEGA_ROUTER_TOPK; i++) { wd[i] = POISON_F32; idd[i] = POISON_ID; }
-    memset(b + LB_TAB_GU, 0, OMEGA_ROUTER_TAB_BYTES); memset(b + LB_TAB_DN, 0, OMEGA_ROUTER_TAB_BYTES);
-    if (omega_gpu_session_sync_to_gpu(&r->lb) != 0) rc = OMEGA_GPU_ROUTER_CHIP_FAIL;
+    if (!rec) {
+        memcpy(b + LB_X, x, OMEGA_ROUTER_HIDDEN * 4u);
+        for (size_t i = 0; i < OMEGA_ROUTER_HIDDEN; i++) xo[i] = POISON_F32;
+        for (size_t i = 0; i < OMEGA_ROUTER_TOPK; i++) { wd[i] = POISON_F32; idd[i] = POISON_ID; }
+        memset(b + LB_TAB_GU, 0, OMEGA_ROUTER_TAB_BYTES); memset(b + LB_TAB_DN, 0, OMEGA_ROUTER_TAB_BYTES);
+        if (omega_gpu_session_sync_to_gpu(&r->lb) != 0) rc = OMEGA_GPU_ROUTER_CHIP_FAIL;
+    }
 
     uint32_t args[OMEGA_ROUTER_ARGS_WORDS];
     const uint64_t gate = r->gate.va + (uint64_t)layer * OMEGA_ROUTER_EXPERTS * OMEGA_ROUTER_ROW_BYTES;
@@ -206,7 +216,7 @@ int omega_gpu_router(OmegaGpuRouter *r, uint32_t layer, const float *x, float ep
     const uint64_t dgu = r->dir.va + (uint64_t)layer * 2u * OMEGA_ROUTER_DIR_BYTES, ddn = dgu + OMEGA_ROUTER_DIR_BYTES;
     float fe = eps, fo = out_scale; uint32_t ue, uo; memcpy(&ue, &fe, 4); memcpy(&uo, &fo, 4);
 #define A64(i, v) do { args[i] = (uint32_t)(v); args[(i) + 1] = (uint32_t)((v) >> 32); } while (0)
-    A64(0, r->lb.va + LB_X); A64(2, gate); A64(4, norm); A64(6, r->lb.va + LB_XOUT); A64(8, r->lb.va + LB_IDS); A64(10, r->lb.va + LB_WTS);
+    A64(0, rec ? dev_x : r->lb.va + LB_X); A64(2, gate); A64(4, norm); A64(6, r->lb.va + LB_XOUT); A64(8, r->lb.va + LB_IDS); A64(10, r->lb.va + LB_WTS);
     A64(12, dgu); A64(14, ddn); A64(16, r->lb.va + LB_TAB_GU); A64(18, r->lb.va + LB_TAB_DN);
 #undef A64
     args[20] = ue; args[21] = uo; args[22] = norm_topk ? 1u : 0u;
@@ -224,10 +234,11 @@ int omega_gpu_router(OmegaGpuRouter *r, uint32_t layer, const float *x, float ep
             .shared_bytes = OMEGA_ROUTER_SHARED_BYTES,
         };
         if (!omega_bw_gpr_declared_ok(L.gpr_count, ks->kernel.gpr_count)) { omega_gpu_session_set_error("declared registers below peak + 2: refusing to launch"); rc = OMEGA_GPU_ROUTER_CHIP_FAIL; }
+        else if (rec) { if (omega_gpu_cmdlist_add(rec, &L) < 0) rc = OMEGA_GPU_ROUTER_CHIP_FAIL; }
         else if (omega_gpu_session_launch(&L, info ? &info->elapsed_ns : NULL, info ? &info->completion_marker : NULL) != 0) rc = OMEGA_GPU_ROUTER_CHIP_FAIL;
     }
-    if (rc == OMEGA_GPU_ROUTER_OK && omega_gpu_session_sync_to_cpu(&r->lb) != 0) rc = OMEGA_GPU_ROUTER_CHIP_FAIL;
-    if (rc == OMEGA_GPU_ROUTER_OK) {
+    if (rc == OMEGA_GPU_ROUTER_OK && !rec && omega_gpu_session_sync_to_cpu(&r->lb) != 0) rc = OMEGA_GPU_ROUTER_CHIP_FAIL;
+    if (rc == OMEGA_GPU_ROUTER_OK && !rec) {
         size_t unchanged = 0;
         for (size_t i = 0; i < OMEGA_ROUTER_HIDDEN; i++) if (xo[i] == POISON_F32) unchanged++;
         for (size_t i = 0; i < OMEGA_ROUTER_TOPK; i++) if (wd[i] == POISON_F32 || idd[i] == POISON_ID) unchanged++;
@@ -241,7 +252,25 @@ int omega_gpu_router(OmegaGpuRouter *r, uint32_t layer, const float *x, float ep
         else if (tab_zero) { omega_gpu_session_set_error("router: a group table word stayed zero (directory not set?)"); rc = OMEGA_GPU_ROUTER_CHIP_FAIL; }
         else { memcpy(ids, idd, OMEGA_ROUTER_TOPK * 4u); memcpy(weights, wd, OMEGA_ROUTER_TOPK * 4u); }
     }
-    omega_gpu_session_unlock();
+    UNLOCK();
+#undef UNLOCK
     if (info) info->call_ns = omega_gpu_session_now_ns() - t0;
+    return rc;
+}
+
+int omega_gpu_router(OmegaGpuRouter *r, uint32_t layer, const float *x, float eps, int norm_topk, float out_scale,
+                     uint32_t *ids, float *weights, OmegaGpuRouterInfo *info) {
+    return router_core(r, layer, x, eps, norm_topk, out_scale, ids, weights, info, NULL, 0);
+}
+
+/* Record path (OWN-30B W-L2a decode graph): see the header. Caller holds omega_gpu_session_lock(). */
+int omega_gpu_router_record(OmegaGpuCmdList *cl, OmegaGpuRouter *r, uint32_t layer, uint64_t x_va, float eps, int norm_topk,
+                            float out_scale, OmegaGpuRouterDevOut *out) {
+    if (!cl) return OMEGA_GPU_ROUTER_BAD_ARGS;
+    int rc = router_core(r, layer, NULL, eps, norm_topk, out_scale, NULL, NULL, NULL, cl, x_va);
+    if (rc == OMEGA_GPU_ROUTER_OK && out) {
+        out->xout_va = r->lb.va + LB_XOUT; out->ids_va = r->lb.va + LB_IDS; out->wts_va = r->lb.va + LB_WTS;
+        out->tab_gu_va = r->lb.va + LB_TAB_GU; out->tab_dn_va = r->lb.va + LB_TAB_DN;
+    }
     return rc;
 }

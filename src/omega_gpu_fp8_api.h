@@ -99,6 +99,16 @@ int omega_gpu_fp8_gemv_grouped_f32(const OmegaGpuFp8Tensor *t, uint32_t groups, 
  * the single x' row (f32, k values, already * 2^64) are read from tab_va / x_va, which another launch (the router)
  * wrote; no host copy of either. y and the poison check as above. */
 int omega_gpu_fp8_gemv_grouped_dev(const OmegaGpuFp8Tensor *t, uint32_t groups, uint64_t tab_va, uint64_t x_va, float *y, OmegaGpuFp8Info *info);
+/* Record path (OWN-30B W-L2a, decode graph; omega_gpu_cmdlist.h): the same launch as grouped_dev, appended to cl instead
+ * of submitted. tab_va: `groups` {w_va, s_va} entries (omega_gpu_fp8_tensor_entry, or the router's table); x_va: x_rows
+ * rows of k f32 already * 2^64 (1 row shared, or one per group); y_va: groups * n f32, written when the list runs.
+ * The caller holds omega_gpu_session_lock() (do not call another API's non-record entry point while holding it).
+ * Nothing is staged, poisoned or read back: the list's per-launch semaphore check and the caller's end-of-token checks
+ * replace the poison check. A kernel cache miss that would evict a resident kernel is refused (TOO_LARGE): warm the
+ * shape up with one non-record call before recording. */
+struct OmegaGpuCmdList;
+int omega_gpu_fp8_gemv_grouped_record(struct OmegaGpuCmdList *cl, const OmegaGpuFp8Tensor *t, uint32_t groups, uint64_t tab_va,
+                                      uint64_t x_va, uint32_t x_rows, uint64_t y_va);
 /* Device addresses of one expert's weights and scales (for a directory the router copies from). */
 int omega_gpu_fp8_tensor_entry(const OmegaGpuFp8Tensor *t, uint32_t expert, uint64_t *w_va, uint64_t *s_va);
 
@@ -125,6 +135,20 @@ uint32_t omega_gpu_fp8_depth_for(const OmegaFp8GemvSpec *spec, uint32_t n, uint3
 int omega_gpu_fp8_kernel_fits(const OmegaFp8GemvSpec *spec, uint32_t *declared);
 /* CTAs per group per launch (0 restores the automatic choice: MAX_CTAS single, GROUPED_CTAS grouped). */
 void omega_gpu_fp8_set_cta_budget(uint32_t ctas);
+/* 1: tensors uploaded from now on live in GPU-cached memory (read-only weights; omega_gpu_mem_cached.h). Default 0:
+ * GPU-uncached like every session buffer. Tensors already uploaded keep their policy. Never set: the first upload reads env
+ * AIEN_OMEGA_FP8_WEIGHT_CACHE ("1" = cached; W-L2d, so sc can switch it without a code change). */
+void omega_gpu_fp8_set_weight_cache(int on);
+/* GEMV variant (W-L2c, 2026-10-14): 1 = omega_blackwell_codegen_moe.c (the default, unchanged), 2 = omega_blackwell_codegen_moe2.c
+ * (row-pipelined: the whole row group in flight per warp and the next row group's loads in flight while this one is multiplied;
+ * same arithmetic order, y bit-identical). Read once from AIEN_OMEGA_FP8_GEMV ("2") at the first call unless set here first.
+ * Each call clears the kernel cache. Variant 2 defaults: OMEGA_GPU_FP8_V2_WARPS warps per CTA, OMEGA_GPU_FP8_V2_GROUPED_CTAS CTAs
+ * per group for grouped launches (the shape and budget knobs above still override). */
+void omega_gpu_fp8_set_variant(int variant);
+int omega_gpu_fp8_variant(void);
+#define OMEGA_GPU_FP8_V2_WARPS 16u
+#define OMEGA_GPU_FP8_V2_GROUPED_CTAS 12u
+int omega_gpu_fp8_weight_cache(void);
 /* Diagnosis: declare `pad` registers beyond the kernel's peak in the QMD (0 = exact peak). */
 void omega_gpu_fp8_set_gpr_pad(uint32_t pad);
 /* TEST ONLY: deliberately wrong kernels (1 scale dropped, 2 scale block never advances, 3 group table entry

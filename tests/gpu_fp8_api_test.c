@@ -17,6 +17,7 @@
  * scale (sum of |terms|). Host and simulator passes are never chip results.
  */
 #include "omega_gpu_fp8_api.h"
+#include "omega_blackwell_codegen_moe2.h"
 #include "omega_blackwell_codegen_moe.h"
 #include "omega_blackwell_matmul.h"
 #include "omega_gpu_session.h"
@@ -76,11 +77,13 @@ static double parity(const Weights *W, uint32_t groups, const uint32_t *ids, con
 }
 
 /* ------------------------------------------------------------- host-only */
-static int nvdisasm_check(const OmegaFp8GemvSpec *spec, const char *name) {
+static int nvdisasm_check_v(int variant, const OmegaFp8GemvSpec *spec, const char *name);
+static int nvdisasm_check(const OmegaFp8GemvSpec *spec, const char *name) { return nvdisasm_check_v(1, spec, name); }
+static int nvdisasm_check_v(int variant, const OmegaFp8GemvSpec *spec, const char *name) {
     const char *nv = "/usr/local/cuda/bin/nvdisasm";
     if (access(nv, X_OK) != 0) { printf("nvdisasm: not present, listing check skipped for %s\n", name); return 0; }
     OmegaBlackwellKernel k; memset(&k, 0, sizeof k);
-    if (omega_blackwell_codegen_fp8_gemv(spec, &k) != 0) return -1;
+    if ((variant == 2 ? omega_blackwell_codegen_fp8_gemv2(spec, &k) : omega_blackwell_codegen_fp8_gemv(spec, &k)) != 0) return -1;
     char bin[96], lst[96], cmd[320];
     snprintf(bin, sizeof bin, "/tmp/omega_fp8_%s_%d.bin", name, (int)getpid());
     snprintf(lst, sizeof lst, "/tmp/omega_fp8_%s_%d.sass", name, (int)getpid());
@@ -199,16 +202,48 @@ static void host_only(void) {
       OmegaFp8GemvSpec d = { .k = 2048, .lane_bytes = 16, .rows = 1, .warps = 8, .depth = 4 };
       CHECK(nvdisasm_check(&d, "k2048_lb16_r1_deep4") == 0, "nvdisasm listing deep k=2048");
       CHECK(nvdisasm_check(&b, "k768_lb8_r2") == 0, "nvdisasm listing k=768"); }
+
+    /* 6. variant 2 (W-L2c, omega_blackwell_codegen_moe2.c): every OWN-30B width builds inside the budgets at 16 warps,
+     *    the production shapes fit the register file, the whole-row-group rule refuses what it must */
+    {
+        static const uint32_t k2[] = { 768, 2048, 4096 }, r2[] = { 1, 2, 4 };
+        uint32_t worst_i = 0, worst_g = 0; int built2 = 0;
+        for (size_t a = 0; a < 3; a++) for (size_t c = 0; c < 3; c++) for (int m = 0; m <= 3; m++) {
+            OmegaFp8GemvSpec sp = { .k = k2[a], .lane_bytes = k2[a] % 512u == 0 ? 16u : 8u, .rows = r2[c], .warps = 16, .mutant = m };
+            uint32_t ks = sp.k / (32u * sp.lane_bytes), ni = 0, ng = 0;
+            int rc = omega_fp8_gemv2_prog_stats(&sp, &ni, &ng);
+            if (sp.rows * ks * sp.lane_bytes > 128u) { CHECK(rc != 0, "v2 k=%u rows=%u must be refused (row group past 128 bytes per lane)", sp.k, sp.rows); continue; }
+            CHECK(rc == 0 && ni <= BW_MAX_IR_INSNS, "v2 codegen k=%u lb=%u rows=%u mutant=%d: rc %d, %u insns", sp.k, sp.lane_bytes, sp.rows, m, rc, ni);
+            if (rc == 0) { built2++; if (ni > worst_i) worst_i = ni; if (ng > worst_g) worst_g = ng; if (m == 0) printf("v2 codegen k=%u lb=%u rows=%u: %u insns, peak %u GPRs, declared %u\n", sp.k, sp.lane_bytes, sp.rows, ni, ng, omega_bw_gpr_declared(ng)); }
+        }
+        printf("v2 codegen: %d kernels built, largest %u IR instructions, peak %u GPRs\n", built2, worst_i, worst_g);
+        /* the production shapes at the variant's default (16 warps, 1 row) must fit the 65536-register file */
+        omega_gpu_fp8_set_variant(2);
+        static const uint32_t kp[] = { 768, 2048, 4096 };
+        for (size_t a = 0; a < 3; a++) {
+            OmegaFp8GemvSpec sp = { .k = kp[a], .lane_bytes = kp[a] % 512u == 0 ? 16u : 8u, .rows = 1, .warps = OMEGA_GPU_FP8_V2_WARPS };
+            uint32_t decl = 0; int rf = omega_gpu_fp8_kernel_fits(&sp, &decl);
+            CHECK(rf == OMEGA_GPU_FP8_OK && 32u * sp.warps * decl <= 65536u, "v2 k=%u at %u warps fits the register file (rc %d, declared %u)", sp.k, sp.warps, rf, decl);
+            printf("v2 k=%u rows=1 warps=%u: declared %u registers, %u per SM at one CTA\n", sp.k, sp.warps, decl, 32u * sp.warps * decl);
+        }
+        omega_gpu_fp8_set_variant(1);
+        { OmegaFp8GemvSpec bad = { .k = 2048, .lane_bytes = 16, .rows = 1, .warps = 2 }; CHECK(omega_fp8_gemv2_prog_stats(&bad, NULL, NULL) != 0, "v2 k=2048 at 2 warps refused (staging rounds)");
+          bad.warps = 16; bad.k = 16384; CHECK(omega_fp8_gemv2_prog_stats(&bad, NULL, NULL) != 0, "v2 k=16384 refused (row past 128 bytes per lane)");
+          bad.k = 2048; bad.lane_bytes = 8; bad.rows = 2; CHECK(omega_fp8_gemv2_prog_stats(&bad, NULL, NULL) == 0, "v2 k=2048 lb8 rows=2 (128 bytes per lane) builds"); }
+        OmegaFp8GemvSpec v = { .k = 2048, .lane_bytes = 16, .rows = 1, .warps = 16 };
+        CHECK(nvdisasm_check_v(2, &v, "v2_k2048_lb16_r1_w16") == 0, "nvdisasm listing v2 k=2048");
+    }
 }
 
 /* ------------------------------------------------------------- simulator */
 static uint64_t g_sim_issues;
+static int g_sim_variant = 1; /* which generator sim_gemv runs: 1 (omega_blackwell_codegen_moe.c) or 2 (moe2.c, W-L2c) */
 /* Runs the kernel for (W, groups, ids, x, x_rows) on the warp simulator in both fragment orders. Returns 0 and y
  * on success, -1 on a simulator error or an order-dependent result. */
 static int sim_gemv(const OmegaFp8GemvSpec *spec, const Weights *W, uint32_t groups, const uint32_t *ids, const float *x,
                     uint32_t x_rows, float *y, uint32_t cta_budget, int no_fold, char *msg, size_t msglen) {
     static BlackwellIRProgram prog;
-    if (omega_blackwell_codegen_fp8_gemv_prog(spec, &prog) != 0) { snprintf(msg, msglen, "codegen refused"); return -1; }
+    if ((g_sim_variant == 2 ? omega_blackwell_codegen_fp8_gemv2_prog(spec, &prog) : omega_blackwell_codegen_fp8_gemv_prog(spec, &prog)) != 0) { snprintf(msg, msglen, "codegen refused"); return -1; }
     const uint32_t n = W->n, k = W->k, RG = n / spec->rows;
     size_t sc = (size_t)W->experts * (n / 128) * (k / 128);
     float *sf = aligned_alloc(16, ((sc * 4) + 15) & ~(size_t)15);
@@ -227,7 +262,7 @@ static int sim_gemv(const OmegaFp8GemvSpec *spec, const Weights *W, uint32_t gro
     for (int order = 0; order < 2 && !err; order++) {
         WsSim s; memset(&s, 0, sizeof s);
         s.p = &prog; s.threads = 32 * spec->warps; s.order = order;
-        static uint8_t smem[OMEGA_FP8_MAX_K * 4]; s.smem = smem; s.smem_bytes = omega_fp8_gemv_shared_bytes(spec); /* the bytes the launch declares (0: any shared access fails) */
+        static uint8_t smem[OMEGA_FP8_MAX_K * 4]; s.smem = smem; s.smem_bytes = g_sim_variant == 2 ? omega_fp8_gemv2_shared_bytes(spec) : omega_fp8_gemv_shared_bytes(spec); /* the bytes the launch declares (0: any shared access fails) */
         uint64_t ta = (uintptr_t)tab, xa = (uintptr_t)xf, ya = (uintptr_t)yd;
         s.cbank[OMEGA_FP8_ARG_TAB / 4] = (uint32_t)ta; s.cbank[OMEGA_FP8_ARG_TAB / 4 + 1] = (uint32_t)(ta >> 32);
         s.cbank[OMEGA_FP8_ARG_X / 4] = (uint32_t)xa; s.cbank[OMEGA_FP8_ARG_X / 4 + 1] = (uint32_t)(xa >> 32);
@@ -342,6 +377,59 @@ static void sim_battery(uint32_t cta_budget) {
         free(x); free(y); weights_free(&W);
     }
     printf("sim battery: worst relative error %.3e over %zu points, %" PRIu64 " warp issues\n", worst_all, npts, g_sim_issues);
+
+    /* 3. variant 2 (W-L2c): y bit-identical to variant 1 on every point (same arithmetic order), parity against the oracle,
+     *    mutants caught; the identity check is shown to say "no" on a mutant */
+    {
+        static const SimPoint v2pts[] = {
+            { 1, 256, 2048, 1, 1, 16, 1, 8, "v2 k2048 lb16 r1 w8 (gate_up/qkv width)" },
+            { 1, 256, 2048, 1, 1, 16, 2, 8, "v2 k2048 lb16 r2 w8 (128 B per lane)" },
+            { 1, 256, 4096, 1, 1, 16, 1, 8, "v2 k4096 lb16 r1 w8 (o_proj width)" },
+            { 1, 256, 768, 1, 1, 8, 1, 8, "v2 k768 lb8 r1 w8 (down width)" },
+            { 1, 256, 768, 1, 1, 8, 4, 8, "v2 k768 lb8 r4 w8" },
+            { 2, 256, 768, 2, 2, 8, 1, 7, "v2 k768 w7: partial staging round" },
+            { 4, 256, 2048, 4, 1, 16, 1, 8, "v2 4 experts shared x (gate_up)" },
+            { 6, 256, 768, 8, 8, 8, 2, 8, "v2 8 groups per-group x, repeated ids (down)" },
+            { 3, 128, 256, 2, 2, 8, 8, 4, "v2 2 groups per-group x, r8 k256" },
+            { 1, 256, 512, 1, 1, 16, 2, 3, "v2 k512 w3 (odd warps, tail row groups)" },
+        };
+        const size_t n2 = sizeof v2pts / sizeof v2pts[0];
+        int identical = 0;
+        for (size_t i = 0; i < n2; i++) {
+            const SimPoint *p = &v2pts[i];
+            Weights W; weights_make(&W, p->experts, p->n, p->k, 5000 + (uint32_t)i);
+            uint32_t ids[8]; uint32_t st = 177 + (uint32_t)i;
+            for (uint32_t g = 0; g < p->groups; g++) ids[g] = lcg(&st) % p->experts;
+            float *x = malloc((size_t)p->x_rows * p->k * 4); for (size_t j = 0; j < (size_t)p->x_rows * p->k; j++) x[j] = frand(&st, -1.0f, 1.0f);
+            const size_t ny = (size_t)p->groups * p->n;
+            float *y1 = malloc(ny * 4), *y2 = malloc(ny * 4);
+            OmegaFp8GemvSpec sp = { .k = p->k, .lane_bytes = p->lb, .rows = p->rows, .warps = p->warps };
+            g_sim_variant = 1; int rc1 = sim_gemv(&sp, &W, p->groups, ids, x, p->x_rows, y1, cta_budget, 0, msg, sizeof msg);
+            CHECK(rc1 == 0, "v1 reference for %s: %s", p->name, msg);
+            double t0 = now_ms();
+            g_sim_variant = 2; int rc2 = sim_gemv(&sp, &W, p->groups, ids, x, p->x_rows, y2, cta_budget, 0, msg, sizeof msg);
+            size_t bad = 0; double worst = rc2 == 0 ? parity(&W, p->groups, ids, x, p->x_rows, y2, &bad) : 1.0;
+            int same = rc1 == 0 && rc2 == 0 && memcmp(y1, y2, ny * 4) == 0;
+            CHECK(rc2 == 0 && bad == 0 && same, "sim %s: rc=%d bad=%zu worst_rel=%.3e identical_to_v1=%d %s", p->name, rc2, bad, worst, same, msg);
+            if (same) identical++;
+            printf("sim %-48s rc=%d worst_rel=%.3e bad=%zu identical_to_v1=%d (%.0f ms)\n", p->name, rc2, worst, bad, same, now_ms() - t0);
+            if (i == 0 || i == 6 || i == 7) {
+                for (int m = 1; m <= 3; m++) {
+                    if (m == 3 && p->groups == 1) continue;
+                    OmegaFp8GemvSpec ms = sp; ms.mutant = m;
+                    int rcm = sim_gemv(&ms, &W, p->groups, ids, x, p->x_rows, y2, cta_budget, 0, msg, sizeof msg);
+                    bad = 0; worst = rcm == 0 ? parity(&W, p->groups, ids, x, p->x_rows, y2, &bad) : 1.0;
+                    int caught = rcm != 0 || bad > 0, differs = rcm != 0 || memcmp(y1, y2, ny * 4) != 0;
+                    if (m == 3 && rcm == 0) { int distinct = 0; for (uint32_t g = 0; g + 1 < p->groups; g += 2) if (ids[g] != ids[g ^ 1]) distinct = 1; if (!distinct) { printf("sim %s mutant 3: ids pairwise equal, control skipped\n", p->name); continue; } }
+                    CHECK(caught && differs, "sim %s mutant %d NOT caught (bad=%zu worst_rel=%.3e identity says %s)", p->name, m, bad, worst, differs ? "different" : "SAME");
+                    printf("sim %-48s mutant %d: %s (rc=%d bad=%zu worst_rel=%.3e, identity check differs=%d)\n", p->name, m, caught ? "caught" : "MISSED", rcm, bad, worst, differs);
+                }
+            }
+            g_sim_variant = 1;
+            free(x); free(y1); free(y2); weights_free(&W);
+        }
+        printf("sim v2 battery: %d/%zu points bit-identical to variant 1\n", identical, n2);
+    }
 }
 
 /* ------------------------------------------------------------------- chip */
@@ -435,13 +523,13 @@ static int chip_run(const char *out_path, uint32_t reps) {
         uint64_t med_el = 0, med_cl = 0; double gbs = 0.0, gbs_call = 0.0;
         if (done) { qsort(el, done, sizeof *el, cmp_u64); qsort(cl, done, sizeof *cl, cmp_u64); med_el = el[done / 2]; med_cl = cl[done / 2];
                     gbs = med_el ? (double)(info.weight_bytes + info.scale_bytes) / (double)med_el : 0.0; gbs_call = med_cl ? (double)(info.weight_bytes + info.scale_bytes) / (double)med_cl : 0.0; }
-        printf("chip %-32s rc=%-9s bad=%zu worst_rel=%.3e grid=%ux%u lb=%u rows=%u warps=%u depth=%u bytes=%" PRIu64 " upload=%.1fms chip_med=%.1fus (%.1f GB/s) call_med=%.1fus (%.1f GB/s) reps=%u\n",
-               p->name, omega_gpu_fp8_rc_name(rc), bad, worst, info.grid_x, info.grid_y, info.lane_bytes, info.rows_per_warp, info.warps_per_cta, info.depth,
+        printf("chip %-32s variant=%d rc=%-9s bad=%zu worst_rel=%.3e grid=%ux%u lb=%u rows=%u warps=%u depth=%u bytes=%" PRIu64 " upload=%.1fms chip_med=%.1fus (%.1f GB/s) call_med=%.1fus (%.1f GB/s) reps=%u\n",
+               p->name, omega_gpu_fp8_variant(), omega_gpu_fp8_rc_name(rc), bad, worst, info.grid_x, info.grid_y, info.lane_bytes, info.rows_per_warp, info.warps_per_cta, info.depth,
                info.weight_bytes + info.scale_bytes, up_ms, med_el / 1e3, gbs, med_cl / 1e3, gbs_call, done);
         if (out) fprintf(out, "%s{\"name\":\"%s\",\"experts\":%u,\"n\":%u,\"k\":%u,\"groups\":%u,\"x_rows\":%u,\"rc\":\"%s\",\"bad\":%zu,\"worst_rel\":%.3e,\"second_call_identical\":%d,"
-                         "\"grid_x\":%u,\"grid_y\":%u,\"lane_bytes\":%u,\"rows_per_warp\":%u,\"warps_per_cta\":%u,\"depth\":%u,\"bytes\":%" PRIu64 ",\"upload_ms\":%.2f,\"chip_median_ns\":%" PRIu64 ",\"gbps_chip\":%.2f,\"call_median_ns\":%" PRIu64 ",\"gbps_call\":%.2f,\"reps\":%u,\"marker\":%u,\"evict\":%d}",
+                         "\"variant\":%d,\"grid_x\":%u,\"grid_y\":%u,\"lane_bytes\":%u,\"rows_per_warp\":%u,\"warps_per_cta\":%u,\"depth\":%u,\"bytes\":%" PRIu64 ",\"upload_ms\":%.2f,\"chip_median_ns\":%" PRIu64 ",\"gbps_chip\":%.2f,\"call_median_ns\":%" PRIu64 ",\"gbps_call\":%.2f,\"reps\":%u,\"marker\":%u,\"evict\":%d}",
                          first ? "" : ",", p->name, p->experts, p->n, p->k, p->groups, p->x_rows, omega_gpu_fp8_rc_name(rc), bad, worst, same,
-                         info.grid_x, info.grid_y, info.lane_bytes, info.rows_per_warp, info.warps_per_cta, info.depth, info.weight_bytes + info.scale_bytes, up_ms, med_el, gbs, med_cl, gbs_call, done, info.completion_marker, g_evict);
+                         omega_gpu_fp8_variant(), info.grid_x, info.grid_y, info.lane_bytes, info.rows_per_warp, info.warps_per_cta, info.depth, info.weight_bytes + info.scale_bytes, up_ms, med_el, gbs, med_cl, gbs_call, done, info.completion_marker, g_evict);
         first = 0;
         free(el); free(cl);
         /* mutants on the first grouped point and the gate shape: each must be caught on the chip */
@@ -484,6 +572,7 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--no-evict") == 0) g_evict = 0;
         else if (strcmp(argv[i], "--only") == 0 && i + 1 < argc) g_only = argv[++i];
         else if (strcmp(argv[i], "--gpr-pad") == 0 && i + 1 < argc) omega_gpu_fp8_set_gpr_pad((uint32_t)atoi(argv[++i]));
+        else if (strcmp(argv[i], "--variant") == 0 && i + 1 < argc) omega_gpu_fp8_set_variant(atoi(argv[++i])); /* 1 (default) or 2 (W-L2c row-pipelined) */
         else { printf("unknown argument %s\n", argv[i]); return 2; }
     }
     if (host) host_only();

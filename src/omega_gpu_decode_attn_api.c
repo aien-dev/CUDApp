@@ -10,6 +10,7 @@
 #include "omega_gpu_fmt.h"
 #include "omega_gpu_hostmath.h"
 #include <string.h>
+#include "omega_gpu_cmdlist.h"
 
 #define MARKER_TIMEOUT_MS 20000ull
 #define POISON_F32 (-999.0f)
@@ -35,6 +36,7 @@ static struct {
     uint32_t depth, per_split;
     int mutant;
 } g;
+static int g_rec; /* 1 while a record call runs (lock held): kernel_for must not evict */
 
 static void slot_clear_locked(void) { if (g.slot.valid) omega_gpu_session_free(&g.slot.code); memset(&g.slot, 0, sizeof g.slot); }
 static void on_session_close(void) { memset(&g.slot, 0, sizeof g.slot); }
@@ -149,6 +151,7 @@ int omega_gpu_decode_attn_cache_read(OmegaGpuDecodeAttnCache *c, uint32_t layer,
 static int kernel_for(const OmegaDecodeAttnSpec *spec, Slot **out, bool *hit) {
     Slot *s = &g.slot;
     if (s->valid && memcmp(&s->spec, spec, sizeof *spec) == 0) { *out = s; *hit = true; return OMEGA_GPU_DATTN_OK; }
+    if (g_rec && s->valid) { omega_gpu_session_set_error("decode attn record: kernel cache miss would evict the resident kernel (warm up before recording)"); return OMEGA_GPU_DATTN_TOO_LARGE; }
     slot_clear_locked();
     BlackwellIRProgram *prog = omega_gpu_host_calloc(1, sizeof *prog);
     if (!prog) { omega_gpu_session_set_error("decode attn codegen: host memory"); return OMEGA_GPU_DATTN_CODEGEN_FAIL; }
@@ -169,10 +172,15 @@ static int kernel_for(const OmegaDecodeAttnSpec *spec, Slot **out, bool *hit) {
     return OMEGA_GPU_DATTN_OK;
 }
 
-int omega_gpu_decode_attn(OmegaGpuDecodeAttnCache *c, uint32_t layer, uint32_t pos, const float *qkv, float eps, float out_scale, float *out, OmegaGpuDecodeAttnInfo *info) {
+/* rec non-NULL (record path, caller holds the session lock): qkv / out are the device buffers dev_qkv / dev_out, the
+ * launch is appended to rec instead of submitted, nothing is staged, poisoned or read back. The split counters are not
+ * zeroed by the host here: the kernel's last CTA of each KV head resets its own (header); omega_gpu_decode_attn_counters
+ * checks them after the list ran. */
+static int dattn_core(OmegaGpuDecodeAttnCache *c, uint32_t layer, uint32_t pos, const float *qkv, float eps, float out_scale,
+                      float *out, OmegaGpuDecodeAttnInfo *info, OmegaGpuCmdList *rec, uint64_t dev_qkv, uint64_t dev_out) {
     uint64_t t0 = omega_gpu_session_now_ns();
     if (info) memset(info, 0, sizeof *info);
-    if (!c || layer >= c->layers || pos >= c->max_pos || !qkv || !out) return OMEGA_GPU_DATTN_BAD_ARGS;
+    if (!c || layer >= c->layers || pos >= c->max_pos || (rec ? (!dev_qkv || !dev_out) : (!qkv || !out))) return OMEGA_GPU_DATTN_BAD_ARGS;
     const uint32_t per = g.per_split ? g.per_split : OMEGA_GPU_DATTN_PER_SPLIT;
     if (per % OMEGA_DATTN_CHUNK) return OMEGA_GPU_DATTN_BAD_ARGS;
     const uint32_t splits = (pos + per) / per; /* ceil((pos + 1) / per) */
@@ -180,24 +188,30 @@ int omega_gpu_decode_attn(OmegaGpuDecodeAttnCache *c, uint32_t layer, uint32_t p
     OmegaDecodeAttnSpec spec; memset(&spec, 0, sizeof spec);
     spec.depth = g.depth ? g.depth : OMEGA_GPU_DATTN_DEPTH; spec.mutant = g.mutant;
 
-    omega_gpu_session_lock();
+    if (!rec) omega_gpu_session_lock();
+#define UNLOCK() do { if (!rec) omega_gpu_session_unlock(); } while (0)
     int rc = OMEGA_GPU_DATTN_OK;
-    if (!dev_open_locked()) { omega_gpu_session_unlock(); return OMEGA_GPU_DATTN_CHIP_FAIL; }
+    if (!dev_open_locked()) { UNLOCK(); return OMEGA_GPU_DATTN_CHIP_FAIL; }
     Slot *ks = NULL; bool hit = false;
+    g_rec = rec != NULL;
     rc = kernel_for(&spec, &ks, &hit);
-    if (rc != OMEGA_GPU_DATTN_OK) { omega_gpu_session_unlock(); return rc; }
-    memcpy(c->qkv.cpu, qkv, (size_t)OMEGA_GPU_DATTN_QKV_WORDS * 4);
+    g_rec = 0;
+    if (rc != OMEGA_GPU_DATTN_OK) { UNLOCK(); return rc; }
     float *od = c->out.cpu;
-    for (size_t i = 0; i < 32 * 128; i++) od[i] = POISON_F32;
-    memset(c->cnt.cpu, 0, 64);
-    if (omega_gpu_session_sync_to_gpu(&c->qkv) != 0 || omega_gpu_session_sync_to_gpu(&c->out) != 0 || omega_gpu_session_sync_to_gpu(&c->cnt) != 0) rc = OMEGA_GPU_DATTN_CHIP_FAIL;
+    if (!rec) {
+        memcpy(c->qkv.cpu, qkv, (size_t)OMEGA_GPU_DATTN_QKV_WORDS * 4);
+        for (size_t i = 0; i < 32 * 128; i++) od[i] = POISON_F32;
+        memset(c->cnt.cpu, 0, 64);
+        if (omega_gpu_session_sync_to_gpu(&c->qkv) != 0 || omega_gpu_session_sync_to_gpu(&c->out) != 0 || omega_gpu_session_sync_to_gpu(&c->cnt) != 0) rc = OMEGA_GPU_DATTN_CHIP_FAIL;
+    }
 
     uint32_t args[OMEGA_DATTN_ARGS_WORDS];
     const uint64_t kc = c->kv[layer].va, vc = kc + c->plane_bytes, nm = c->norms.va + (uint64_t)layer * 1024;
+    const uint64_t qkv_va = rec ? dev_qkv : c->qkv.va, out_va = rec ? dev_out : c->out.va;
     float fe = eps, fo = out_scale, fq = (float)(0.08838834764831845 * 1.4426950408889634); /* log2(e) / sqrt(128) */
     uint32_t ue, uo, uq; memcpy(&ue, &fe, 4); memcpy(&uo, &fo, 4); memcpy(&uq, &fq, 4);
 #define A64(i, v) do { args[i] = (uint32_t)(v); args[(i) + 1] = (uint32_t)((v) >> 32); } while (0)
-    A64(0, c->qkv.va); A64(2, kc); A64(4, vc); A64(6, c->rope.va); A64(8, nm); A64(10, nm + 512); A64(12, c->out.va); A64(14, c->part.va); A64(16, c->cnt.va);
+    A64(0, qkv_va); A64(2, kc); A64(4, vc); A64(6, c->rope.va); A64(8, nm); A64(10, nm + 512); A64(12, out_va); A64(14, c->part.va); A64(16, c->cnt.va);
 #undef A64
     args[18] = pos; args[19] = per; args[20] = splits; args[21] = (uint32_t)(c->max_pos * OMEGA_DATTN_ROW_BYTES); args[22] = ue; args[23] = uo; args[24] = uq;
     if (info) {
@@ -215,10 +229,11 @@ int omega_gpu_decode_attn(OmegaGpuDecodeAttnCache *c, uint32_t layer, uint32_t p
             .shared_bytes = OMEGA_DATTN_SHARED_BYTES,
         };
         if (!omega_bw_gpr_declared_ok(L.gpr_count, ks->kernel.gpr_count)) { omega_gpu_session_set_error("declared registers below peak + 2: refusing to launch"); rc = OMEGA_GPU_DATTN_CHIP_FAIL; }
+        else if (rec) { if (omega_gpu_cmdlist_add(rec, &L) < 0) rc = OMEGA_GPU_DATTN_CHIP_FAIL; }
         else if (omega_gpu_session_launch(&L, info ? &info->elapsed_ns : NULL, info ? &info->completion_marker : NULL) != 0) rc = OMEGA_GPU_DATTN_CHIP_FAIL;
     }
-    if (rc == OMEGA_GPU_DATTN_OK && (omega_gpu_session_sync_to_cpu(&c->out) != 0 || omega_gpu_session_sync_to_cpu(&c->cnt) != 0)) rc = OMEGA_GPU_DATTN_CHIP_FAIL;
-    if (rc == OMEGA_GPU_DATTN_OK) {
+    if (rc == OMEGA_GPU_DATTN_OK && !rec && (omega_gpu_session_sync_to_cpu(&c->out) != 0 || omega_gpu_session_sync_to_cpu(&c->cnt) != 0)) rc = OMEGA_GPU_DATTN_CHIP_FAIL;
+    if (rc == OMEGA_GPU_DATTN_OK && !rec) {
         size_t unchanged = 0;
         for (size_t i = 0; i < 32 * 128; i++) if (od[i] == POISON_F32) unchanged++;
         const uint32_t *cn = c->cnt.cpu;
@@ -226,7 +241,8 @@ int omega_gpu_decode_attn(OmegaGpuDecodeAttnCache *c, uint32_t layer, uint32_t p
         else if (cn[0] | cn[1] | cn[2] | cn[3]) { omega_gpu_session_set_error("decode attn: a split counter did not return to zero"); rc = OMEGA_GPU_DATTN_CHIP_FAIL; }
         else memcpy(out, od, (size_t)32 * 128 * 4);
     }
-    omega_gpu_session_unlock();
+    UNLOCK();
+#undef UNLOCK
     if (info) info->call_ns = omega_gpu_session_now_ns() - t0;
     return rc;
 }
@@ -238,5 +254,26 @@ int omega_gpu_decode_attn_cache_view(const OmegaGpuDecodeAttnCache *c, uint32_t 
     v->k_va = c->kv[layer].va; v->v_va = c->kv[layer].va + c->plane_bytes;
     v->rope_va = c->rope.va;
     v->q_norm_va = c->norms.va + (uint64_t)layer * 1024u; v->k_norm_va = v->q_norm_va + 512u;
+    return OMEGA_GPU_DATTN_OK;
+}
+
+int omega_gpu_decode_attn(OmegaGpuDecodeAttnCache *c, uint32_t layer, uint32_t pos, const float *qkv, float eps, float out_scale, float *out, OmegaGpuDecodeAttnInfo *info) {
+    return dattn_core(c, layer, pos, qkv, eps, out_scale, out, info, NULL, 0, 0);
+}
+
+/* Record path (OWN-30B W-L2a decode graph): see the header. Caller holds omega_gpu_session_lock(). */
+int omega_gpu_decode_attn_record(OmegaGpuCmdList *cl, OmegaGpuDecodeAttnCache *c, uint32_t layer, uint32_t pos, uint64_t qkv_va,
+                                 float eps, float out_scale, uint64_t out_va) {
+    if (!cl) return OMEGA_GPU_DATTN_BAD_ARGS;
+    return dattn_core(c, layer, pos, NULL, eps, out_scale, NULL, NULL, cl, qkv_va, out_va);
+}
+
+/* After a list ran (caller holds the lock): the four split counters must be back at zero (a non-zero word means a CTA
+ * never arrived). OK or CHIP_FAIL. */
+int omega_gpu_decode_attn_counters_check(OmegaGpuDecodeAttnCache *c) {
+    if (!c || !c->cnt.cpu) return OMEGA_GPU_DATTN_BAD_ARGS;
+    if (omega_gpu_session_sync_to_cpu(&c->cnt) != 0) return OMEGA_GPU_DATTN_CHIP_FAIL;
+    const uint32_t *cn = c->cnt.cpu;
+    if (cn[0] | cn[1] | cn[2] | cn[3]) { omega_gpu_session_set_error("decode attn: a split counter did not return to zero"); return OMEGA_GPU_DATTN_CHIP_FAIL; }
     return OMEGA_GPU_DATTN_OK;
 }
