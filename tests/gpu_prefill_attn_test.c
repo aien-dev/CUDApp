@@ -338,6 +338,8 @@ static FILE *g_json;
 static int g_warm;  /* untimed calls before each timing series (--warm N) */
 static int g_cached;  /* --cached: device-entry checks use omega_gpu_pf_alloc_dev buffers (needs PATTN_HAVE_PF) */
 static int g_mirror_on = 1;
+/* the mirror contract: forget the cache's K/V mirrors before freeing it */
+static void cache_free(OmegaGpuDecodeAttnCache *c) { omega_gpu_prefill_attn_kv_mirror_forget(c); omega_gpu_decode_attn_cache_free(c); }
 static int cache_with_history(const Case *c, OmegaGpuDecodeAttnCache **out) {
     int rc = omega_gpu_decode_attn_cache_alloc(1, c->max_pos, THETA, out);
     if (rc != OMEGA_GPU_DATTN_OK) return rc;
@@ -426,8 +428,8 @@ static int chip_point(uint32_t max_pos, uint32_t pos0, uint32_t m, float qscale,
         } else ok = 0;
     }
 done:
-    if (pc) omega_gpu_decode_attn_cache_free(pc);
-    if (dc) omega_gpu_decode_attn_cache_free(dc);
+    if (pc) cache_free(pc);
+    if (dc) cache_free(dc);
     free(out); free(out2); free(dout); free(kc); free(vc); free(dk); free(dv); case_free(&c);
     return ok;
 }
@@ -510,9 +512,63 @@ done:
 #endif
     { omega_gpu_session_lock(); if (q.cpu) omega_gpu_session_free(&q); if (o.cpu) omega_gpu_session_free(&o); omega_gpu_session_unlock(); }
     free(odh);
-    if (hc) omega_gpu_decode_attn_cache_free(hc);
-    if (dc) omega_gpu_decode_attn_cache_free(dc);
+    if (hc) cache_free(hc);
+    if (dc) cache_free(dc);
     free(hout); free(hk); free(hv); free(dk); free(dv); case_free(&c);
+    return ok;
+}
+/* persistent mirror (cut 5): prefill 300, decode 5, prefill 64, then a foreign rewrite of rows 0..99 and prefill 32.
+ * Cache X runs with the mirror, cache Y without (cut 3 path, the reference). Outputs must be bit-identical, except
+ * the negative control: the rewrite WITHOUT invalidate must make X differ (the stale mirror is visible), and after
+ * invalidate X must match again. */
+static int chip_continuation(void) {
+    if (!omega_gpu_prefill_attn_kv_mirror_available() || !g_mirror_on) { printf("chip continuation: skipped (no mirror in this build or --no-mirror)\n"); return 1; }
+    const uint32_t MP = 1024, NA = 300, ND = 5, NB = 64, NC = 32, N = NA + ND + NB + NC;
+    Case c, junk; case_make(&c, MP, 0, N, 21, 1.0f); case_make(&junk, MP, 100, 1, 22, 1.0f);
+    OmegaGpuDecodeAttnCache *x = NULL, *y = NULL;
+    float *ox = malloc((size_t)N * OUTW * 4), *oy = malloc((size_t)N * OUTW * 4), *ox2 = malloc((size_t)NC * OUTW * 4);
+    int ok = 1, rc = cache_with_history(&c, &x);
+    if (rc == OMEGA_GPU_DATTN_OK) rc = cache_with_history(&c, &y);
+    OmegaGpuDecodeAttnInfo di;
+    OmegaGpuDecodeAttnCache *cs[2] = { x, y };
+    float *os[2] = { ox, oy };
+    for (int k = 0; k < 2 && rc == OMEGA_GPU_DATTN_OK; k++) {
+        omega_gpu_prefill_attn_set_kv_mirror(k == 0);
+        const float *q = c.qkv; float *o = os[k];
+        rc = omega_gpu_prefill_attn(cs[k], 0, 0, NA, q, EPS, 1.0f, o, NULL);
+        for (uint32_t i = 0; i < ND && rc == OMEGA_GPU_DATTN_OK; i++)
+            rc = omega_gpu_decode_attn(cs[k], 0, NA + i, q + (size_t)(NA + i) * QKVW, EPS, 1.0f, o + (size_t)(NA + i) * OUTW, &di);
+        if (rc == OMEGA_GPU_DATTN_OK) rc = omega_gpu_prefill_attn(cs[k], 0, NA + ND, NB, q + (size_t)(NA + ND) * QKVW, EPS, 1.0f, o + (size_t)(NA + ND) * OUTW, NULL);
+    }
+    CHECK(rc == OMEGA_GPU_DATTN_OK, "continuation: rc %s (%s)", omega_gpu_decode_attn_rc_name(rc), omega_gpu_decode_attn_last_error());
+    if (rc != OMEGA_GPU_DATTN_OK) { ok = 0; goto done; }
+    OmegaGpuPrefillAttnMirrorView mv;
+    int vrc = omega_gpu_prefill_attn_kv_mirror_view(x, 0, &mv);
+    CHECK(vrc == OMEGA_GPU_DATTN_OK && mv.valid == NA + ND + NB && mv.kv_stride == MP * 256u, "continuation: mirror view valid %u (want %u) stride %u", mv.valid, NA + ND + NB, mv.kv_stride);
+    size_t d1 = 0; for (size_t i = 0; i < (size_t)(NA + ND + NB) * OUTW; i++) d1 += memcmp(&ox[i], &oy[i], 4) != 0;
+    CHECK(d1 == 0, "continuation: %zu outputs differ, mirror vs no mirror", d1);
+    /* foreign writer: rows 0..99 of head 0 rewritten in both caches */
+    for (int k = 0; k < 2; k++) omega_gpu_decode_attn_cache_write(cs[k], 0, 0, 0, 100, junk.kc, junk.vc);
+    const size_t offC = (size_t)(NA + ND + NB);
+    omega_gpu_prefill_attn_set_kv_mirror(0);
+    rc = omega_gpu_prefill_attn(y, 0, offC, NC, c.qkv + offC * QKVW, EPS, 1.0f, oy + offC * OUTW, NULL);
+    omega_gpu_prefill_attn_set_kv_mirror(1);
+    if (rc == OMEGA_GPU_DATTN_OK) rc = omega_gpu_prefill_attn(x, 0, offC, NC, c.qkv + offC * QKVW, EPS, 1.0f, ox2, NULL);   /* no invalidate */
+    size_t stale = 0; for (size_t i = 0; i < (size_t)NC * OUTW; i++) stale += memcmp(&ox2[i], &oy[offC * OUTW + i], 4) != 0;
+    omega_gpu_prefill_attn_kv_mirror_invalidate(x, UINT32_MAX, 0);
+    if (rc == OMEGA_GPU_DATTN_OK) rc = omega_gpu_prefill_attn(x, 0, offC, NC, c.qkv + offC * QKVW, EPS, 1.0f, ox + offC * OUTW, NULL);
+    size_t d2 = 0; for (size_t i = 0; i < (size_t)NC * OUTW; i++) d2 += memcmp(&ox[offC * OUTW + i], &oy[offC * OUTW + i], 4) != 0;
+    CHECK(rc == OMEGA_GPU_DATTN_OK, "continuation C: rc %s", omega_gpu_decode_attn_rc_name(rc));
+    CHECK(stale > 0, "negative control: a foreign rewrite without invalidate must show (stale mirror), %zu outputs differ", stale);
+    CHECK(d2 == 0, "after invalidate: %zu outputs differ, mirror vs no mirror", d2);
+    printf("chip continuation (prefill %u, decode %u, prefill %u, rewrite, prefill %u): mirror valid %u; outputs differ mirror vs none: %zu; "
+           "stale control %zu differ (must be > 0); after invalidate %zu differ\n", NA, ND, NB, NC, mv.valid, d1, stale, d2);
+    ok &= d1 == 0 && stale > 0 && d2 == 0 && vrc == OMEGA_GPU_DATTN_OK;
+done:
+    omega_gpu_prefill_attn_set_kv_mirror(1);
+    if (x) cache_free(x);
+    if (y) cache_free(y);
+    free(ox); free(oy); free(ox2); case_free(&c); case_free(&junk);
     return ok;
 }
 static void chip_mutants(void) {
@@ -533,7 +589,7 @@ static void chip_mutants(void) {
         }
         CHECK(caught, "chip mutant %d NOT caught", mu);
         printf("chip mutant %d: %s (rc %s, bad %zu, worst %.2f, rows k %zu v %zu)\n", mu, caught ? "caught" : "MISSED", omega_gpu_decode_attn_rc_name(rc), bad, worst, kd, vd);
-        if (pc) omega_gpu_decode_attn_cache_free(pc);
+        if (pc) cache_free(pc);
         free(out); free(kc); free(vc); case_free(&c);
     }
     omega_gpu_prefill_attn_test_set_mutant(0);
@@ -551,9 +607,10 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--fused")) fused = 1;
         else if (!strcmp(argv[i], "--no-mirror")) { omega_gpu_prefill_attn_set_kv_mirror(0); g_mirror_on = 0; }
         else if (!strcmp(argv[i], "--cached") && PATTN_HAVE_PF) g_cached = 1;
+        else if (!strcmp(argv[i], "--mirror-per-call")) omega_gpu_prefill_attn_test_set_mirror_per_call(1);
         else if (!strcmp(argv[i], "--timing-only")) timing_only = 1;
         else if (!strcmp(argv[i], "--warm") && i + 1 < argc) g_warm = atoi(argv[++i]);
-        else { fprintf(stderr, "usage: %s [--host-only | --sim | [--quick] [--reps N] [--warps 4|8] [--fused] [--no-mirror] [--cached] [--warm N] [--timing-only] [--out receipt.json]]\n", argv[0]); return 2; }
+        else { fprintf(stderr, "usage: %s [--host-only | --sim | [--quick] [--reps N] [--warps 4|8] [--fused] [--no-mirror] [--mirror-per-call] [--cached] [--warm N] [--timing-only] [--out receipt.json]]\n", argv[0]); return 2; }
     }
     host_only();
     if (sim) sim_battery();
@@ -568,6 +625,7 @@ int main(int argc, char **argv) {
             ok &= chip_dev(4096, 0, 2048, 8, reps);
             ok &= chip_dev(8192, 4096, 1500, 12, reps);
             ok &= chip_point(4096, 4032, 64, 1.0f, 7, 0, 1.0f, reps);
+            ok &= chip_dev(8192, 4096, 64, 13, reps);
         } else {
         ok &= chip_point(256, 0, 1, 1.0f, 1, 1, 1.0f, 0);
         ok &= chip_point(256, 37, 19, 1.0f, 2, 1, 1.0f, 0);
@@ -581,6 +639,7 @@ int main(int argc, char **argv) {
         }
         ok &= chip_dev(512, 100, 70, 11, 0);
         if (!quick) { ok &= chip_dev(4096, 0, 2048, 8, reps); ok &= chip_dev(8192, 4096, 1500, 12, reps); }
+        ok &= chip_continuation();
         chip_mutants();
         }
         (void)ok;

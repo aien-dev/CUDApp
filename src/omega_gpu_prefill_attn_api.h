@@ -51,6 +51,22 @@ void omega_gpu_prefill_attn_set_fused(int fused);               /* 1: cut-1 path
 /* ATTEND reads a GPU-cached mirror of the layer's K/V (history copied in, new rows written by APPEND to both places).
  * Default on when built with omega_gpu_prefill.h (kv_mirror_available() == 1); a no-op otherwise. */
 void omega_gpu_prefill_attn_set_kv_mirror(int on);
+/* Persistent mirror (cut 5): one per (cache, layer), kept between calls, in the decode cache's EXACT layout
+ * ([K plane | V plane], plane = view.v_va - view.k_va, row (kv_head, pos) at plane + (kv_head * max_pos + pos) * 256, bf16)
+ * but in GPU-cached device memory (omega_gpu_pf_alloc_dev), so the decode kernel can later be pointed at it unchanged.
+ * Rows 0 .. valid-1 equal the cache. A call copies only cache rows valid .. pos0-1 (rows decode appended since) and
+ * writes rows pos0 .. pos0+m-1 to both. CONTRACT for token identity (the mirror cannot see other writers):
+ *  - anyone who rewrites cache rows below a mirror's `valid` other than through this API (a new sequence decoded into a
+ *    used cache, omega_gpu_decode_attn_cache_write, ...) calls omega_gpu_prefill_attn_kv_mirror_invalidate(c, layer
+ *    or UINT32_MAX for all, from_pos) first; appending at positions >= valid (normal decode) needs nothing;
+ *  - before omega_gpu_decode_attn_cache_free(c), call omega_gpu_prefill_attn_kv_mirror_forget(c) (mirrors are keyed by
+ *    the layer's K plane VA; a later cache at the same VA would otherwise inherit stale rows). */
+#define OMEGA_GPU_PATTN_MAX_MIRRORS 128u
+typedef struct { uint64_t k_va, v_va; uint32_t kv_stride, max_pos, valid; } OmegaGpuPrefillAttnMirrorView;
+int omega_gpu_prefill_attn_kv_mirror_view(const OmegaGpuDecodeAttnCache *c, uint32_t layer, OmegaGpuPrefillAttnMirrorView *out);
+void omega_gpu_prefill_attn_kv_mirror_invalidate(const OmegaGpuDecodeAttnCache *c, uint32_t layer, uint32_t from_pos);
+void omega_gpu_prefill_attn_kv_mirror_forget(const OmegaGpuDecodeAttnCache *c);
+void omega_gpu_prefill_attn_test_set_mirror_per_call(int on);  /* TEST: forget mirrored rows before every call (cut 4 cost) */
 int omega_gpu_prefill_attn_kv_mirror_available(void);
 /* launches of the last call (return value) and the chip time of each (first `cap` of at most 256 logged) */
 uint32_t omega_gpu_prefill_attn_test_launch_ns(uint64_t *ns, uint32_t cap);
