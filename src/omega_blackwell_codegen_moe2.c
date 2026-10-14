@@ -142,7 +142,12 @@ int omega_fp8_gemv2_spec_ok(const OmegaFp8GemvSpec *s) {
     return 1;
 }
 
-uint32_t omega_fp8_gemv2_shared_bytes(const OmegaFp8GemvSpec *spec) { return omega_fp8_gemv2_spec_ok(spec) ? spec->k * 4u + 16u : 0u; }
+/* k * 4 for the staged row, plus one 16-byte dummy slot only when the last staging round is partial (clamped threads store there):
+ * k = 4096 at 16 warps is exact and lands on the QMD cap of 16384 bytes (chip: 16400 was refused, receipt OWN30B-FP8-GEMV-V2 r1). */
+uint32_t omega_fp8_gemv2_shared_bytes(const OmegaFp8GemvSpec *spec) {
+    if (!omega_fp8_gemv2_spec_ok(spec)) return 0u;
+    return spec->k * 4u + (spec->k % (32u * spec->warps) ? 16u : 0u);
+}
 
 /* e4m3 byte i of word w -> f32 bits (value * 2^-120): ((b & 0x7F) << 20) | ((b & 0x80) << 24). Variant 1's sequence. */
 static void decode_byte(Em *e, int f, int wq, unsigned word, unsigned i, int u, int a, int s) {

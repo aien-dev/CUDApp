@@ -42,7 +42,7 @@ int omega_blackwell_codegen_fp8_gemv2_prog(const OmegaFp8GemvSpec *spec, Blackwe
 /* 1 if the spec is one this variant builds (shape rules above), 0 otherwise. */
 int omega_fp8_gemv2_spec_ok(const OmegaFp8GemvSpec *spec);
 
-/* Shared memory bytes the launch must declare (k * 4 + 16: the staged x' row plus one dummy slot). 0 when refused. */
+/* Shared memory bytes the launch must declare: k * 4 (the staged x' row) + 16 (a dummy slot, only when the last staging round is partial). 0 when refused. */
 uint32_t omega_fp8_gemv2_shared_bytes(const OmegaFp8GemvSpec *spec);
 
 /* Hosted build: allocate and encode (omega_blackwell_kernel_free releases). */
