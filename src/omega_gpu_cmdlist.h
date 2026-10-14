@@ -53,6 +53,8 @@ typedef struct {
     OmegaGpuCmdListBarrier barrier;
     uint64_t timeout_ms;  /* per submission; 0 = 20000 */
     uint32_t spin_us;     /* marker spin window before the platform poll; 0 = the session's process-wide setting */
+    int stamps;           /* 1: a GPU timestamp report before the first launch and after every launch (after its WAIT_FOR_IDLE), read
+                             back by omega_gpu_cmdlist_stamps. Costs 6 words + the report per launch. 0 = off. */
     int skip_launch;      /* TEST ONLY: >= 1 drops launch (skip_launch - 1) from the method stream (its slot stays
                              recorded), so the per-launch semaphore check must fail. 0 = off. */
 } OmegaGpuCmdListOpts;
@@ -84,6 +86,10 @@ int omega_gpu_cmdlist_add(OmegaGpuCmdList *cl, const OmegaGpuLaunch *L);
 int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opts, OmegaGpuCmdListStats *st);
 /* 1 once a timeout latched this module. */
 int omega_gpu_cmdlist_is_latched(void);
+
+/* After a submit with opts.stamps = 1: out[0] = GPU timestamp (ns, PTIMER) before launch 0, out[i + 1] = after launch i completed
+ * (taken after its WAIT_FOR_IDLE). Returns the count written (launches + 1) or -1 (stamps off, slot unwritten, cap too small). */
+int omega_gpu_cmdlist_stamps(const OmegaGpuCmdList *cl, uint64_t *out, uint32_t cap);
 
 #ifdef __cplusplus
 }

@@ -225,7 +225,7 @@ static OmegaGpuLaunch axpy_launch(const Kern *k, uint32_t *args, uint32_t stride
 }
 static int chip_fail(const char *what) { printf("FAIL: %s: %s\n", what, omega_gpu_session_last_error()); g_checks++; g_failed++; return 1; }
 
-typedef struct { uint32_t L; uint64_t base_ns, pcas_ns, inline_ns, base_wall_ns, pcas_wall_ns, pcas_submits, inline_submits; int pcas_ok, inline_ok; } Row;
+typedef struct { uint32_t L; uint64_t base_ns, pcas_ns, inline_ns, base_wall_ns, pcas_wall_ns, pcas_submits, inline_submits; int pcas_ok, inline_ok; uint64_t stamps_span_ns, stamps_min_ns, stamps_max_ns, stamps_chip_ns; } Row;
 
 static int chip_run(const char *out_path, uint32_t reps) {
     FILE *out = out_path ? fopen(out_path, "w") : NULL;
@@ -288,6 +288,30 @@ static int chip_run(const char *out_path, uint32_t reps) {
         CHECK(ok, "L=%u PCAS list: every rep bit-identical to the baseline, all semaphores DONE", N);
         if (ok) { r->pcas_ns = median_u64(tp, reps); r->pcas_wall_ns = median_u64(tpw, reps); }
         if (omega_gpu_cmdlist_is_latched()) { printf("cmdlist latched; stopping\n"); break; }
+        /* instrument: GPU timestamps around every launch (stamps on), x still identical; stamps off -> accessor refuses */
+        if (ok) {
+            static uint64_t stamps[1025];
+            memcpy(x, x0, sizeof base); omega_gpu_session_sync_to_gpu(&bx);
+            omega_gpu_cmdlist_reset(cl);
+            for (uint32_t l = 0; l < N; l++) (void)omega_gpu_cmdlist_add(cl, &L);
+            OmegaGpuCmdListOpts os = o; os.stamps = 1;
+            int rc = omega_gpu_cmdlist_submit(cl, &os, &st);
+            omega_gpu_session_sync_to_cpu(&bx);
+            int cnt = omega_gpu_cmdlist_stamps(cl, stamps, 1025);
+            int mono = 1; uint64_t mn = UINT64_MAX, mx = 0;
+            for (int i = 1; i < cnt; i++) { if (stamps[i] < stamps[i - 1]) mono = 0; uint64_t d = stamps[i] - stamps[i - 1]; if (d < mn) mn = d; if (d > mx) mx = d; }
+            const uint64_t span = cnt > 1 ? stamps[cnt - 1] - stamps[0] : 0;
+            CHECK(rc == 0 && memcmp(x, base, sizeof base) == 0 && cnt == (int)N + 1 && mono && span > 0 && span <= st.elapsed_ns,
+                  "L=%u stamps on: rc %d, x identical, %d stamps (want %u), monotonic %d, span %.1f us <= chip %.1f us, per launch min %.2f max %.2f us",
+                  N, rc, cnt, N + 1, mono, span / 1e3, st.elapsed_ns / 1e3, mn / 1e3, mx / 1e3);
+            r->stamps_span_ns = span; r->stamps_min_ns = mn; r->stamps_max_ns = mx; r->stamps_chip_ns = st.elapsed_ns;
+            memcpy(x, x0, sizeof base); omega_gpu_session_sync_to_gpu(&bx);
+            omega_gpu_cmdlist_reset(cl);
+            for (uint32_t l = 0; l < N; l++) (void)omega_gpu_cmdlist_add(cl, &L);
+            rc = omega_gpu_cmdlist_submit(cl, &o, &st);
+            cnt = omega_gpu_cmdlist_stamps(cl, stamps, 1025);
+            CHECK(rc == 0 && cnt < 0, "L=%u stamps off: submit rc %d, stamps accessor refuses (%d)", N, rc, cnt);
+        }
         /* INLINE mode (the session's own words per launch, several submissions) */
         o.mode = OMEGA_GPU_CMDLIST_INLINE; ok = 1;
         for (uint32_t rep = 0; rep < reps && ok; rep++) {
@@ -308,8 +332,8 @@ static int chip_run(const char *out_path, uint32_t reps) {
         printf("L=%u: baseline %.1f us/launch (chip %.1f us, wall %.1f us per launch); PCAS %s %.2f us/launch (wall %.2f, %" PRIu64 " submits); INLINE %s %.2f us/launch (%" PRIu64 " submits)\n",
                N, r->base_ns / 1e3 / N, r->base_ns / 1e3 / N, r->base_wall_ns / 1e3 / N, r->pcas_ok ? "ok" : "FAIL", r->pcas_ns / 1e3 / N, r->pcas_wall_ns / 1e3 / N, r->pcas_submits,
                r->inline_ok ? "ok" : "FAIL", r->inline_ns / 1e3 / N, r->inline_submits);
-        if (out) fprintf(out, "%s{\"L\":%u,\"baseline_ns\":%" PRIu64 ",\"baseline_wall_ns\":%" PRIu64 ",\"pcas_ok\":%d,\"pcas_ns\":%" PRIu64 ",\"pcas_wall_ns\":%" PRIu64 ",\"pcas_submits\":%" PRIu64 ",\"inline_ok\":%d,\"inline_ns\":%" PRIu64 ",\"inline_submits\":%" PRIu64 "}",
-                         li ? "," : "", N, r->base_ns, r->base_wall_ns, r->pcas_ok, r->pcas_ns, r->pcas_wall_ns, r->pcas_submits, r->inline_ok, r->inline_ns, r->inline_submits);
+        if (out) fprintf(out, "%s{\"L\":%u,\"baseline_ns\":%" PRIu64 ",\"baseline_wall_ns\":%" PRIu64 ",\"pcas_ok\":%d,\"pcas_ns\":%" PRIu64 ",\"pcas_wall_ns\":%" PRIu64 ",\"pcas_submits\":%" PRIu64 ",\"inline_ok\":%d,\"inline_ns\":%" PRIu64 ",\"inline_submits\":%" PRIu64 ",\"stamps_span_ns\":%" PRIu64 ",\"stamps_min_ns\":%" PRIu64 ",\"stamps_max_ns\":%" PRIu64 ",\"stamps_chip_ns\":%" PRIu64 "}",
+                         li ? "," : "", N, r->base_ns, r->base_wall_ns, r->pcas_ok, r->pcas_ns, r->pcas_wall_ns, r->pcas_submits, r->inline_ok, r->inline_ns, r->inline_submits, r->stamps_span_ns, r->stamps_min_ns, r->stamps_max_ns, r->stamps_chip_ns);
         free(tb); free(tw); free(tp); free(tpw); free(ti);
     }
     if (out) fprintf(out, "],");

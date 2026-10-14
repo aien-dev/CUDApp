@@ -41,6 +41,11 @@ struct OmegaGpuDecodeGraph {
     uint64_t t_begin;
     OmegaGpuDecodeGraphStats acc;
     int flush_each, mutant;
+    /* timeline (set_stamps): one kind per recorded launch and the GPU timestamps around every launch of the last token */
+    int stamps;
+    uint32_t n_kind, tagged_in_list, n_stamp;
+    uint8_t kind[OMEGA_GPU_CMDLIST_MAX_LAUNCHES];
+    uint64_t stamp[OMEGA_GPU_CMDLIST_MAX_LAUNCHES + 1];
 };
 
 static size_t al(size_t v) { return (v + 255u) & ~(size_t)255u; }
@@ -180,18 +185,25 @@ void omega_gpu_decode_graph_vas(const OmegaGpuDecodeGraph *g, OmegaGpuDecodeGrap
 
 /* ---- the list ---- */
 
-static OmegaGpuCmdListOpts list_opts(void) {
+static OmegaGpuCmdListOpts list_opts(const OmegaGpuDecodeGraph *g) {
     OmegaGpuCmdListOpts o; memset(&o, 0, sizeof o);
-    o.mode = OMEGA_GPU_CMDLIST_PCAS; o.barrier = OMEGA_GPU_CMDLIST_BARRIER_WFI; o.timeout_ms = TIMEOUT_MS;
+    o.mode = OMEGA_GPU_CMDLIST_PCAS; o.barrier = OMEGA_GPU_CMDLIST_BARRIER_WFI; o.timeout_ms = TIMEOUT_MS; o.stamps = g->stamps;
     return o;
 }
 
 static int submit_now(OmegaGpuDecodeGraph *g) {
     if (omega_gpu_cmdlist_count(g->cl) == 0) return OMEGA_GPU_DGRAPH_OK;
-    OmegaGpuCmdListOpts o = list_opts();
+    OmegaGpuCmdListOpts o = list_opts(g);
     OmegaGpuCmdListStats st; memset(&st, 0, sizeof st);
     int rc = omega_gpu_cmdlist_submit(g->cl, &o, &st);
     g->acc.launches += st.launches; g->acc.submits += st.submits; g->acc.chip_ns += st.elapsed_ns; g->acc.sems_done += st.sems_done;
+    if (rc == 0 && g->stamps) { /* before reset: the accessor sizes by the list; later submits (flush_each) drop their start slot */
+        uint64_t tmp[OMEGA_GPU_CMDLIST_MAX_LAUNCHES + 1];
+        int cnt = omega_gpu_cmdlist_stamps(g->cl, tmp, OMEGA_GPU_CMDLIST_MAX_LAUNCHES + 1);
+        if (cnt < 0) rc = -1;
+        else { const int from = g->n_stamp == 0 ? 0 : 1; for (int i = from; i < cnt; i++) g->stamp[g->n_stamp++] = tmp[i]; }
+    }
+    g->tagged_in_list = 0;
     omega_gpu_cmdlist_reset(g->cl);
     if (rc != 0) return fail(g, NULL, OMEGA_GPU_DGRAPH_CHIP_FAIL);
     if (st.sems_done != st.launches) {
@@ -201,17 +213,24 @@ static int submit_now(OmegaGpuDecodeGraph *g) {
     return OMEGA_GPU_DGRAPH_OK;
 }
 
+/* kinds for the launches added since the last tag (the timeline) */
+static void tag(OmegaGpuDecodeGraph *g, uint8_t kind) {
+    const uint32_t n = omega_gpu_cmdlist_count(g->cl);
+    for (; g->tagged_in_list < n && g->n_kind < OMEGA_GPU_CMDLIST_MAX_LAUNCHES; g->tagged_in_list++) g->kind[g->n_kind++] = kind;
+}
+
 /* after every recorded launch: flush_each submits it on its own (the comparison path) */
-static int after_op(OmegaGpuDecodeGraph *g, int api_rc) {
+static int after_op(OmegaGpuDecodeGraph *g, uint8_t kind, int api_rc) {
     if (api_rc != 0) return fail(g, NULL, OMEGA_GPU_DGRAPH_CHIP_FAIL);
+    tag(g, kind);
     return g->flush_each ? submit_now(g) : OMEGA_GPU_DGRAPH_OK;
 }
 
-static int add_glue(OmegaGpuDecodeGraph *g, const Kern *k, uint32_t gx, uint32_t gy, size_t elems, const uint32_t *args, uint32_t n_args) {
+static int add_glue(OmegaGpuDecodeGraph *g, uint8_t kind, const Kern *k, uint32_t gx, uint32_t gy, size_t elems, const uint32_t *args, uint32_t n_args) {
     OmegaGpuLaunch L; memset(&L, 0, sizeof L);
     L.code_va = k->code.va; L.gpr_count = k->gpr; L.threads_x = OMEGA_DEC_THREADS; L.threads_y = 1; L.grid_x = gx; L.grid_y = gy;
     L.num_elements = elems; L.args = args; L.n_args = n_args; L.timeout_ms = TIMEOUT_MS;
-    return after_op(g, omega_gpu_cmdlist_add(g->cl, &L) < 0 ? -1 : 0);
+    return after_op(g, kind, omega_gpu_cmdlist_add(g->cl, &L) < 0 ? -1 : 0);
 }
 
 static int res_kernel(const OmegaGpuDecodeGraph *g, uint32_t mode) {
@@ -229,14 +248,15 @@ int omega_gpu_decode_graph_record_res(OmegaGpuDecodeGraph *g, uint32_t mode, uin
     uint32_t a[OMEGA_DEC_RES_WORDS]; memset(a, 0, sizeof a);
     put64(a, OMEGA_DEC_RES_X, x_va); put64(a, OMEGA_DEC_RES_A, a_va); put64(a, OMEGA_DEC_RES_W, w_va); put64(a, OMEGA_DEC_RES_NW, nw_va);
     put64(a, OMEGA_DEC_RES_Y, y_va); putf(a, OMEGA_DEC_RES_EPS, eps); putf(a, OMEGA_DEC_RES_SCALE, scale);
-    return add_glue(g, &g->k[ki], 1, 1, OMEGA_GPU_DGRAPH_HIDDEN, a, OMEGA_DEC_RES_WORDS);
+    const uint8_t kind = ki == K_ADD ? OMEGA_GPU_DGRAPH_K_ADD : ki == K_NORM ? OMEGA_GPU_DGRAPH_K_NORM : OMEGA_GPU_DGRAPH_K_COMBINE;
+    return add_glue(g, kind, &g->k[ki], 1, 1, OMEGA_GPU_DGRAPH_HIDDEN, a, OMEGA_DEC_RES_WORDS);
 }
 
 int omega_gpu_decode_graph_record_swiglu(OmegaGpuDecodeGraph *g, uint64_t gu_va, uint64_t act_va, float scale) {
     if (!g || !g->in_token) return OMEGA_GPU_DGRAPH_BAD_ARGS;
     uint32_t a[OMEGA_DEC_SW_WORDS]; memset(a, 0, sizeof a);
     put64(a, OMEGA_DEC_SW_GU, gu_va); put64(a, OMEGA_DEC_SW_ACT, act_va); putf(a, OMEGA_DEC_SW_SCALE, scale);
-    return add_glue(g, &g->k[g->mutant == 1 ? K_SW_M1 : K_SW], OMEGA_DEC_INTER / OMEGA_DEC_THREADS, OMEGA_DEC_TOPK, (size_t)OMEGA_DEC_TOPK * OMEGA_DEC_INTER, a, OMEGA_DEC_SW_WORDS);
+    return add_glue(g, OMEGA_GPU_DGRAPH_K_SWIGLU, &g->k[g->mutant == 1 ? K_SW_M1 : K_SW], OMEGA_DEC_INTER / OMEGA_DEC_THREADS, OMEGA_DEC_TOPK, (size_t)OMEGA_DEC_TOPK * OMEGA_DEC_INTER, a, OMEGA_DEC_SW_WORDS);
 }
 
 int omega_gpu_decode_graph_begin_token(OmegaGpuDecodeGraph *g, const float *x_embed) {
@@ -245,6 +265,7 @@ int omega_gpu_decode_graph_begin_token(OmegaGpuDecodeGraph *g, const float *x_em
     g->t_begin = omega_gpu_session_now_ns();
     g->in_token = 1; g->failed = 0; g->xq_layer = -1; g->hidden_ready = 0;
     memset(&g->acc, 0, sizeof g->acc);
+    g->n_kind = 0; g->tagged_in_list = 0; g->n_stamp = 0;
     omega_gpu_cmdlist_reset(g->cl);
     if (!omega_gpu_session_open()) return fail(g, NULL, OMEGA_GPU_DGRAPH_CHIP_FAIL);
     uint32_t *tok = cpu_of(g, g->lo.token);
@@ -264,15 +285,15 @@ int omega_gpu_decode_graph_record_layer(OmegaGpuDecodeGraph *g, uint32_t l, uint
     const uint64_t norm_l = va_of(g, g->lo.norms) + (uint64_t)l * OMEGA_GPU_DGRAPH_HIDDEN * 4u, tab = va_of(g, g->lo.tabs) + (uint64_t)l * 32u;
     int rc = OMEGA_GPU_DGRAPH_OK;
     if (g->xq_layer != (int)l) rc = omega_gpu_decode_graph_record_res(g, OMEGA_DEC_RES_NORM, v.x, 0, 0, norm_l, v.xq, eps, SCALE_2P64);
-    if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, omega_gpu_fp8_gemv_grouped_record(g->cl, g->layer[l].qkv, 1, tab, v.xq, 1, v.qkv));
-    if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, omega_gpu_decode_attn_record(g->cl, g->cfg.attn, l, pos, v.qkv, eps, g->mutant == 3 ? 1.0f : SCALE_2P64, v.attn));
-    if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, omega_gpu_fp8_gemv_grouped_record(g->cl, g->layer[l].o, 1, tab + 16u, v.attn, 1, v.o));
+    if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, OMEGA_GPU_DGRAPH_K_QKV, omega_gpu_fp8_gemv_grouped_record(g->cl, g->layer[l].qkv, 1, tab, v.xq, 1, v.qkv));
+    if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, OMEGA_GPU_DGRAPH_K_ATTN, omega_gpu_decode_attn_record(g->cl, g->cfg.attn, l, pos, v.qkv, eps, g->mutant == 3 ? 1.0f : SCALE_2P64, v.attn));
+    if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, OMEGA_GPU_DGRAPH_K_O, omega_gpu_fp8_gemv_grouped_record(g->cl, g->layer[l].o, 1, tab + 16u, v.attn, 1, v.o));
     if (rc == OMEGA_GPU_DGRAPH_OK) rc = omega_gpu_decode_graph_record_res(g, OMEGA_DEC_RES_ADD, v.x, v.o, 0, 0, 0, eps, 1.0f);
     OmegaGpuRouterDevOut r; memset(&r, 0, sizeof r);
-    if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, omega_gpu_router_record(g->cl, g->cfg.router, l, v.x, eps, g->cfg.norm_topk, SCALE_2P64, &r));
-    if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, omega_gpu_fp8_gemv_grouped_record(g->cl, g->layer[l].gu, OMEGA_GPU_DGRAPH_TOPK, r.tab_gu_va, r.xout_va, 1, v.gu));
+    if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, OMEGA_GPU_DGRAPH_K_ROUTER, omega_gpu_router_record(g->cl, g->cfg.router, l, v.x, eps, g->cfg.norm_topk, SCALE_2P64, &r));
+    if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, OMEGA_GPU_DGRAPH_K_GATE_UP, omega_gpu_fp8_gemv_grouped_record(g->cl, g->layer[l].gu, OMEGA_GPU_DGRAPH_TOPK, r.tab_gu_va, r.xout_va, 1, v.gu));
     if (rc == OMEGA_GPU_DGRAPH_OK) rc = omega_gpu_decode_graph_record_swiglu(g, v.gu, v.act, SCALE_2P64);
-    if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, omega_gpu_fp8_gemv_grouped_record(g->cl, g->layer[l].dn, OMEGA_GPU_DGRAPH_TOPK, r.tab_dn_va, v.act, OMEGA_GPU_DGRAPH_TOPK, v.dn));
+    if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, OMEGA_GPU_DGRAPH_K_DOWN, omega_gpu_fp8_gemv_grouped_record(g->cl, g->layer[l].dn, OMEGA_GPU_DGRAPH_TOPK, r.tab_dn_va, v.act, OMEGA_GPU_DGRAPH_TOPK, v.dn));
     if (rc == OMEGA_GPU_DGRAPH_OK) {
         const int last = l + 1 == g->cfg.layers;
         const uint64_t nw = last ? va_of(g, g->lo.fnorm) : norm_l + OMEGA_GPU_DGRAPH_HIDDEN * 4u;
@@ -289,13 +310,13 @@ int omega_gpu_decode_graph_record_final(OmegaGpuDecodeGraph *g) {
     OmegaGpuDecodeGraphVas v; omega_gpu_decode_graph_vas(g, &v);
     int rc = OMEGA_GPU_DGRAPH_OK;
     if (!g->hidden_ready) rc = omega_gpu_decode_graph_record_res(g, OMEGA_DEC_RES_NORM, v.x, 0, 0, va_of(g, g->lo.fnorm), v.hidden, g->cfg.eps, 1.0f);
-    if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, omega_gpu_bf16_gemv_record(g->cl, g->cfg.lm_head, v.hidden, v.logits));
+    if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, OMEGA_GPU_DGRAPH_K_LM_HEAD, omega_gpu_bf16_gemv_record(g->cl, g->cfg.lm_head, v.hidden, v.logits));
     uint32_t a0[OMEGA_DEC_AM_WORDS], a1[OMEGA_DEC_AM_WORDS]; memset(a0, 0, sizeof a0); memset(a1, 0, sizeof a1);
     const uint64_t amv = va_of(g, g->lo.am_v), ami = va_of(g, g->lo.am_i);
     put64(a0, OMEGA_DEC_AM_V, v.logits); put64(a0, OMEGA_DEC_AM_I, 0); put64(a0, OMEGA_DEC_AM_OV, amv); put64(a0, OMEGA_DEC_AM_OI, ami);
     put64(a1, OMEGA_DEC_AM_V, amv); put64(a1, OMEGA_DEC_AM_I, ami); put64(a1, OMEGA_DEC_AM_OV, v.token + 4u); put64(a1, OMEGA_DEC_AM_OI, v.token);
-    if (rc == OMEGA_GPU_DGRAPH_OK) rc = add_glue(g, &g->k[K_AM0], g->am_ctas, 1, (size_t)g->am_ctas * OMEGA_DEC_ARGMAX_SPAN, a0, OMEGA_DEC_AM_WORDS);
-    if (rc == OMEGA_GPU_DGRAPH_OK) rc = add_glue(g, &g->k[K_AM1], 1, 1, OMEGA_DEC_ARGMAX_SPAN, a1, OMEGA_DEC_AM_WORDS);
+    if (rc == OMEGA_GPU_DGRAPH_OK) rc = add_glue(g, OMEGA_GPU_DGRAPH_K_ARGMAX, &g->k[K_AM0], g->am_ctas, 1, (size_t)g->am_ctas * OMEGA_DEC_ARGMAX_SPAN, a0, OMEGA_DEC_AM_WORDS);
+    if (rc == OMEGA_GPU_DGRAPH_OK) rc = add_glue(g, OMEGA_GPU_DGRAPH_K_ARGMAX, &g->k[K_AM1], 1, 1, OMEGA_DEC_ARGMAX_SPAN, a1, OMEGA_DEC_AM_WORDS);
     return rc == OMEGA_GPU_DGRAPH_OK ? rc : fail(g, NULL, rc);
 }
 
@@ -340,4 +361,21 @@ int omega_gpu_decode_graph_read(OmegaGpuDecodeGraph *g, float *x, float *hidden,
     }
     omega_gpu_session_unlock();
     return rc;
+}
+
+/* ---- timeline ---- */
+void omega_gpu_decode_graph_set_stamps(OmegaGpuDecodeGraph *g, int on) { if (g && !g->in_token) g->stamps = on ? 1 : 0; }
+
+int omega_gpu_decode_graph_stamps(const OmegaGpuDecodeGraph *g, uint64_t *stamps, uint8_t *kinds, uint32_t cap) {
+    if (!g || g->in_token || !stamps || !kinds) return OMEGA_GPU_DGRAPH_BAD_ARGS;
+    if (!g->stamps || g->n_stamp != g->n_kind + 1u) { omega_gpu_session_set_error("decode graph: no timeline for the last token (stamps off or it failed)"); return OMEGA_GPU_DGRAPH_BAD_ARGS; }
+    if (cap < g->n_stamp) { omega_gpu_session_set_error("decode graph: timeline buffers too small"); return OMEGA_GPU_DGRAPH_BAD_ARGS; }
+    memcpy(stamps, g->stamp, (size_t)g->n_stamp * sizeof stamps[0]);
+    memcpy(kinds, g->kind, (size_t)g->n_kind);
+    return (int)g->n_kind;
+}
+
+const char *omega_gpu_decode_graph_kind_name(uint8_t kind) {
+    static const char *const names[OMEGA_GPU_DGRAPH_K_COUNT] = { "norm", "qkv", "attn", "o_proj", "res_add", "router", "gate_up", "swiglu", "down", "combine_norm", "lm_head", "argmax" };
+    return kind < OMEGA_GPU_DGRAPH_K_COUNT ? names[kind] : "?";
 }

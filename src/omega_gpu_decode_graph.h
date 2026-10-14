@@ -145,6 +145,21 @@ void omega_gpu_decode_graph_vas(const OmegaGpuDecodeGraph *g, OmegaGpuDecodeGrap
 /* Takes the lock; copies the device x, hidden and logits (vocab values) of the last token; any pointer may be NULL. */
 int omega_gpu_decode_graph_read(OmegaGpuDecodeGraph *g, float *x, float *hidden, float *logits);
 
+/* ---- timeline (measurement) ---- */
+/* One kind per recorded launch, in list order. */
+enum {
+    OMEGA_GPU_DGRAPH_K_NORM = 0, OMEGA_GPU_DGRAPH_K_QKV, OMEGA_GPU_DGRAPH_K_ATTN, OMEGA_GPU_DGRAPH_K_O, OMEGA_GPU_DGRAPH_K_ADD,
+    OMEGA_GPU_DGRAPH_K_ROUTER, OMEGA_GPU_DGRAPH_K_GATE_UP, OMEGA_GPU_DGRAPH_K_SWIGLU, OMEGA_GPU_DGRAPH_K_DOWN, OMEGA_GPU_DGRAPH_K_COMBINE,
+    OMEGA_GPU_DGRAPH_K_LM_HEAD, OMEGA_GPU_DGRAPH_K_ARGMAX, OMEGA_GPU_DGRAPH_K_COUNT
+};
+/* 1: every token also records a GPU timestamp (ns) before the first launch and after each launch (after its WAIT_FOR_IDLE).
+ * Call between tokens. Adds one report per launch to the list. 0 = off (default). */
+void omega_gpu_decode_graph_set_stamps(OmegaGpuDecodeGraph *g, int on);
+/* The last token with stamps on: stamps[0 .. n] (n + 1 values), kinds[0 .. n). Returns n (launches) or BAD_ARGS
+ * (stamps off, the token failed, buffers smaller than launches + 1). Launch i took stamps[i + 1] - stamps[i] ns. */
+int omega_gpu_decode_graph_stamps(const OmegaGpuDecodeGraph *g, uint64_t *stamps, uint8_t *kinds, uint32_t cap);
+const char *omega_gpu_decode_graph_kind_name(uint8_t kind);
+
 /* ---- TEST ONLY ---- */
 /* 1: submit after every launch (same kernels and arguments, one submission each: the batching comparison). */
 void omega_gpu_decode_graph_set_flush_each(OmegaGpuDecodeGraph *g, int on);

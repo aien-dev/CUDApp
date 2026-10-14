@@ -283,6 +283,30 @@ static int chip_run(uint32_t layers, uint32_t vocab, uint32_t reps, int red, con
         int prc = run_graph(gr, &m, &C, &st);
         CHECK(prc == 0 && C.tok == C0.tok && !memcmp(C.logits, C0.logits, (size_t)vocab * 4), "C after the mutants bit-identical to the first C");
 
+        /* timeline instrument: stamps on -> one timestamp per launch, monotonic, span within the chip time; token unchanged; off -> refuses */
+        {
+            static uint64_t sts[OMEGA_GPU_CMDLIST_MAX_LAUNCHES + 1]; static uint8_t kinds[OMEGA_GPU_CMDLIST_MAX_LAUNCHES];
+            omega_gpu_decode_graph_set_stamps(gr, 1);
+            Out S; out_alloc(&S, vocab);
+            int src_ = run_graph(gr, &m, &S, &st);
+            int n = omega_gpu_decode_graph_stamps(gr, sts, kinds, OMEGA_GPU_CMDLIST_MAX_LAUNCHES + 1);
+            int mono = 1; uint64_t per_kind[OMEGA_GPU_DGRAPH_K_COUNT] = { 0 }; uint32_t cnt_kind[OMEGA_GPU_DGRAPH_K_COUNT] = { 0 };
+            for (int i = 0; i < n; i++) { if (sts[i + 1] < sts[i]) mono = 0; if (kinds[i] < OMEGA_GPU_DGRAPH_K_COUNT) { per_kind[kinds[i]] += sts[i + 1] - sts[i]; cnt_kind[kinds[i]]++; } }
+            const uint64_t span = n > 0 ? sts[n] - sts[0] : 0;
+            CHECK(src_ == 0 && n == (int)st.launches && mono && span > 0 && span <= st.chip_ns && S.tok == C0.tok && !memcmp(S.logits, C0.logits, (size_t)vocab * 4),
+                  "timeline: rc %d, %d stamps for %u launches, monotonic %d, span %.1f us <= chip %.1f us, token and logits unchanged", src_, n, st.launches, mono, span / 1e3, st.chip_ns / 1e3);
+            printf("TIMELINE (%u layers, pos %u):", layers, POS);
+            for (unsigned k = 0; k < OMEGA_GPU_DGRAPH_K_COUNT; k++) if (cnt_kind[k]) printf(" %s x%u %.1f us", omega_gpu_decode_graph_kind_name((uint8_t)k), cnt_kind[k], per_kind[k] / 1e3);
+            printf("\n");
+            if (out) { fprintf(out, "\"timeline\":{\"launches\":%d,\"span_ns\":%" PRIu64 ",\"chip_ns\":%" PRIu64 ",\"per_kind_ns\":{", n, span, st.chip_ns);
+                       int first = 1; for (unsigned k = 0; k < OMEGA_GPU_DGRAPH_K_COUNT; k++) if (cnt_kind[k]) { fprintf(out, "%s\"%s\":[%u,%" PRIu64 "]", first ? "" : ",", omega_gpu_decode_graph_kind_name((uint8_t)k), cnt_kind[k], per_kind[k]); first = 0; }
+                       fprintf(out, "}},"); }
+            omega_gpu_decode_graph_set_stamps(gr, 0);
+            int orc = run_graph(gr, &m, &S, &st);
+            int n2 = omega_gpu_decode_graph_stamps(gr, sts, kinds, OMEGA_GPU_CMDLIST_MAX_LAUNCHES + 1);
+            CHECK(orc == 0 && n2 < 0, "timeline off: token rc %d, stamps accessor refuses (%d)", orc, n2);
+            free(S.logits);
+        }
         uint64_t ma = median_u64(ta, reps), mc_ = median_u64(tc, reps), mb = median_u64(tb, reps), mcc = median_u64(cc, reps), mcb = median_u64(cb, reps), mr = median_u64(rcn, reps);
         printf("PER TOKEN (median of %u, %u layers): A host-glue %u launches %.1f us | C one list %u launches %.1f us (chip %.1f us, record %.1f us) | B per-launch submits %u launches %.1f us (chip sum %.1f us)\n",
                reps, layers, la, ma / 1e3, lc, mc_ / 1e3, mcc / 1e3, mr / 1e3, lb, mb / 1e3, mcb / 1e3);

@@ -38,10 +38,13 @@ static const uint32_t SETUP_WORDS[18] = {
 struct OmegaGpuCmdList {
     uint32_t cap, n;
     OmegaGpuMem banks, qmds, sems, scratch;
+    OmegaGpuMem stamps;   /* (cap + 1) x 16 B: compute-class REPORT_SEMAPHORE four-word reports {u64 payload, u64 timestamp}
+                             (mesa clcec0.h 0x0158..0x0168, nvk_query.h), slot 0 = submit start, slot i + 1 = launch i done */
     uint32_t *words;      /* host method stream */
     uint32_t words_cap;
     OmegaGpuMem nop_code; /* EXIT kernel used to force the session latch after a timeout */
     uint32_t nop_gpr;
+    int stamped;          /* the last submit had opts.stamps (the accessor refuses stale stamps from an earlier submit) */
 };
 
 static uint32_t g_latched;
@@ -84,6 +87,7 @@ int omega_gpu_cmdlist_create(uint32_t cap, OmegaGpuCmdList **out) {
     if (rc == 0 && (omega_gpu_session_alloc((size_t)cap * OMEGA_GPU_CMDLIST_BANK_BYTES, &cl->banks) != 0 ||
                     omega_gpu_session_alloc((size_t)cap * OMEGA_GPU_CMDLIST_QMD_BYTES, &cl->qmds) != 0 ||
                     omega_gpu_session_alloc((size_t)cap * 16u, &cl->sems) != 0 ||
+                    omega_gpu_session_alloc((size_t)(cap + 1u) * 16u, &cl->stamps) != 0 ||
                     omega_gpu_session_alloc(0x4000, &cl->scratch) != 0))
         rc = -1;
     if (rc == 0 && build_nop(cl) != 0) { omega_gpu_session_set_error("cmdlist create: nop kernel"); rc = -1; }
@@ -100,7 +104,7 @@ int omega_gpu_cmdlist_create(uint32_t cap, OmegaGpuCmdList **out) {
 void omega_gpu_cmdlist_free(OmegaGpuCmdList *cl) {
     if (!cl) return;
     omega_gpu_session_lock();
-    OmegaGpuMem *m[] = { &cl->banks, &cl->qmds, &cl->sems, &cl->scratch, &cl->nop_code };
+    OmegaGpuMem *m[] = { &cl->banks, &cl->qmds, &cl->sems, &cl->stamps, &cl->scratch, &cl->nop_code };
     for (unsigned i = 0; i < sizeof m / sizeof m[0]; i++) if (m[i]->cpu) omega_gpu_session_free(m[i]);
     omega_gpu_session_unlock();
     omega_gpu_host_free(cl->words);
@@ -194,6 +198,18 @@ static size_t emit_tail(uint32_t *pb, size_t n, uint64_t marker_va) {
 }
 #define TAIL_WORDS 17u
 
+/* Compute-class four-word report {u64 payload = slot, u64 GPU timestamp} to stamps slot `slot` (mesa clcec0.h: PAYLOAD_LOWER 0x0158,
+ * PAYLOAD_UPPER 0x015c, ADDRESS_LOWER 0x0160, ADDRESS_UPPER 0x0164, EXECUTE 0x0168 = OPERATION_RELEASE 0 | STRUCTURE_SIZE_FOUR_WORDS 0).
+ * Ordered after the preceding WAIT_FOR_IDLE, like nvk_query_pool.c timestamp queries. */
+#define MTHD_REPORT_SEMAPHORE_PAYLOAD_LOWER 0x0158u
+#define STAMP_WORDS 6u
+static size_t emit_stamp(uint32_t *pb, size_t n, uint64_t stamps_va, uint32_t slot) {
+    const uint64_t va = stamps_va + (uint64_t)slot * 16u;
+    pb[n++] = bw_mthd(1, MTHD_REPORT_SEMAPHORE_PAYLOAD_LOWER, 5);
+    pb[n++] = slot; pb[n++] = 0; pb[n++] = (uint32_t)va; pb[n++] = (uint32_t)(va >> 32); pb[n++] = 0;
+    return n;
+}
+
 static size_t emit_inline_qmd(uint32_t *pb, size_t n, uint64_t va, const uint32_t *words) {
     pb[n++] = (98u << 16) | (1u << 13) | (0x0318 >> 2) | (2u << 28);
     pb[n++] = (1u << 30) | (uint32_t)((va >> 40) & 0x1ff); pb[n++] = (uint32_t)(va >> 8);
@@ -228,8 +244,16 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
         omega_gpu_session_set_error("cmdlist submit: sync_cpu_to_gpu"); return -1;
     }
 
-    const uint32_t per_launch = o.mode == OMEGA_GPU_CMDLIST_INLINE ? 4u + 2u * 99u : 8u;
-    const uint32_t room = (cl->words_cap - 18u - TAIL_WORDS) / per_launch;
+    const uint32_t per_launch = (o.mode == OMEGA_GPU_CMDLIST_INLINE ? 4u + 2u * 99u : 8u) + (o.stamps ? STAMP_WORDS : 0u);
+    uint64_t *stamp_cpu = cl->stamps.cpu;
+    cl->stamped = o.stamps ? 1 : 0;
+    if (o.stamps) {
+        memset(stamp_cpu, 0xff, (size_t)(cl->n + 1u) * 16u); /* poisoned: a slot the chip never wrote reads all-ones */
+        if (p->sync_cpu_to_gpu(p->ctx, cl->stamps.handle, 0, (uint64_t)(cl->n + 1u) * 16u) != OMEGA_GPU_PLAT_OK) {
+            omega_gpu_session_set_error("cmdlist submit: sync stamps"); return -1;
+        }
+    }
+    const uint32_t room = (cl->words_cap - 18u - TAIL_WORDS - 2u - STAMP_WORDS) / per_launch;
     uint64_t elapsed = 0, host = p->time_now_ns(p->ctx) - th0;
     uint32_t done = 0, submits = 0, words = 0;
     while (done < cl->n) {
@@ -243,6 +267,7 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
             const bool barrier = o.barrier == OMEGA_GPU_CMDLIST_BARRIER_WFI || i == done;
             if (barrier) {
                 pb[n++] = bw_mthd(1, MTHD_WAIT_FOR_IDLE, 1); pb[n++] = 0;
+                if (o.stamps) n = emit_stamp(pb, n, cl->stamps.va, i); /* slot i: launch i - 1 done (slot `done`: submit start) */
                 pb[n++] = bw_mthd(1, OMEGA_BW_MTHD_INVALIDATE_SHADER_CACHES, 1); pb[n++] = OMEGA_BW_INVALIDATE_SHADER_CACHES_ALL;
             }
             const uint64_t q1_va = cl->qmds.va + (uint64_t)i * OMEGA_GPU_CMDLIST_QMD_BYTES;
@@ -260,6 +285,10 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
                 pb[n++] = bw_mthd(1, MTHD_SEND_PCAS_A, 1); pb[n++] = (uint32_t)(q1_va >> 8);
                 pb[n++] = bw_mthd(1, MTHD_SEND_SIGNALING_PCAS2_B, 1); pb[n++] = PCAS_ACTION_INVALIDATE_COPY_SCHEDULE;
             }
+        }
+        if (o.stamps) {
+            pb[n++] = bw_mthd(1, MTHD_WAIT_FOR_IDLE, 1); pb[n++] = 0;
+            n = emit_stamp(pb, n, cl->stamps.va, end); /* slot end: the last launch done */
         }
         n = emit_tail(pb, n, marker_va);
         if (o.mode != OMEGA_GPU_CMDLIST_INLINE &&
@@ -282,6 +311,7 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
         submits++; words += (uint32_t)n; done = end;
     }
     (void)p->sync_gpu_to_cpu(p->ctx, cl->sems.handle, 0, (uint64_t)cl->n * 16u);
+    if (o.stamps) (void)p->sync_gpu_to_cpu(p->ctx, cl->stamps.handle, 0, (uint64_t)(cl->n + 1u) * 16u);
     uint32_t ok = 0; int32_t missing = -1;
     for (uint32_t i = 0; i < cl->n; i++) {
         if (sem[4 * i] == OMEGA_BW_SEMAPHORE_INTERMEDIATE_DONE) ok++;
@@ -290,4 +320,17 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
     if (st) { st->launches = cl->n; st->submits = submits; st->words = words; st->elapsed_ns = elapsed; st->host_ns = host; st->sems_done = ok; st->first_missing = missing; }
     if (missing >= 0) { omega_gpu_session_set_error("cmdlist: a launch semaphore is not DONE (launch did not run)"); return -1; }
     return 0;
+}
+
+int omega_gpu_cmdlist_stamps(const OmegaGpuCmdList *cl, uint64_t *out, uint32_t cap) {
+    if (!cl || !out || !cl->stamps.cpu) { omega_gpu_session_set_error("cmdlist stamps: arguments"); return -1; }
+    if (!cl->stamped) { omega_gpu_session_set_error("cmdlist stamps: the last submit had stamps off"); return -1; }
+    const uint32_t want = cl->n + 1u;
+    if (cap < want) { omega_gpu_session_set_error("cmdlist stamps: out too small"); return -1; }
+    const uint64_t *s = cl->stamps.cpu;
+    for (uint32_t i = 0; i < want; i++) {
+        if (s[2 * i] != (uint64_t)i || s[2 * i + 1] == UINT64_MAX) { omega_gpu_session_set_error("cmdlist stamps: a slot was not written (stamps off, or the launch did not run)"); return -1; }
+        out[i] = s[2 * i + 1];
+    }
+    return (int)want;
 }
