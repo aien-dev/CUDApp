@@ -20,6 +20,7 @@
 #include <string.h>
 
 static int g_checks, g_failed;
+#define EV_N 32768u
 #define CHECK(c, ...) do { g_checks++; if (!(c)) { g_failed++; printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } else { printf("ok: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
 static uint32_t lcg(uint32_t *s) { *s = *s * 1664525u + 1013904223u; return *s; }
 static int cmp_u64(const void *a, const void *b) { uint64_t x = *(const uint64_t *)a, y = *(const uint64_t *)b; return x < y ? -1 : x > y; }
@@ -45,9 +46,9 @@ int main(int argc, char **argv) {
 
     OmegaGpuCmdList *cl = NULL;
     if (omega_gpu_cmdlist_create(8, &cl) != 0) { printf("cmdlist create: %s\n", omega_gpu_session_last_error()); return 1; }
-    OmegaGpuMem tab, xd, yd;
+    OmegaGpuMem tab, xd, yd, ye;
     omega_gpu_session_lock();
-    int arc = omega_gpu_session_alloc(16u, &tab) | omega_gpu_session_alloc((size_t)k * 4u, &xd) | omega_gpu_session_alloc((size_t)nmax * 4u, &yd);
+    int arc = omega_gpu_session_alloc(32u, &tab) | omega_gpu_session_alloc((size_t)k * 4u, &xd) | omega_gpu_session_alloc((size_t)nmax * 4u, &yd) | omega_gpu_session_alloc((size_t)EV_N * 4u, &ye);
     omega_gpu_session_unlock();
     if (arc != 0) { printf("alloc: %s\n", omega_gpu_session_last_error()); return 1; }
     omega_fp8_pack_x_f32(x, k, xd.cpu);
@@ -56,7 +57,18 @@ int main(int argc, char **argv) {
     FILE *out = out_path ? fopen(out_path, "w") : NULL;
     if (out) fprintf(out, "{\"test\":\"OMEGA_GPU_L2_REUSE\",\"k\":%u,\"reps\":%u,\"points\":[", k, reps);
     int first_pt = 1; double ratio_unc_max = 0, ratio_cached_min = 1e9;
-    for (int cached = 0; cached < 2; cached++) {
+    /* evictor: a GPU-cached EV_N x k tensor (67 MB) read first in every list, so "cold" is cold even if L2 keeps lines across submits */
+    OmegaGpuFp8Tensor *ev = NULL;
+    { uint8_t *we = malloc((size_t)EV_N * k); uint16_t *se = malloc((size_t)(EV_N / 128) * (k / 128) * 2);
+      for (size_t i = 0; i < (size_t)EV_N * k; i++) { uint8_t b = (uint8_t)(lcg(&st) >> 24); we[i] = (b & 0x7F) == 0x7F ? 0 : b; }
+      for (size_t i = 0; i < (size_t)(EV_N / 128) * (k / 128); i++) se[i] = 0x3F80;
+      omega_gpu_fp8_set_weight_cache(1);
+      int erc = omega_gpu_fp8_tensor_upload(1, EV_N, k, we, se, &ev);
+      free(we); free(se);
+      float *yev = malloc((size_t)EV_N * 4); if (erc == OMEGA_GPU_FP8_OK) erc = omega_gpu_fp8_gemv_f32(ev, 0, x, yev, NULL); free(yev); /* kernel built + warm */
+      uint64_t *tw = tab.cpu;
+      if (erc != OMEGA_GPU_FP8_OK || omega_gpu_fp8_tensor_entry(ev, 0, &tw[2], &tw[3]) != 0) { printf("evictor upload: %s\n", omega_gpu_fp8_last_error()); return 1; } }
+    for (int pass = 0; pass < 3; pass++) { const int cached = pass > 0, evict = pass != 1; /* (uncached, evict) (cached, no evict) (cached, evict) */
         omega_gpu_fp8_set_weight_cache(cached);
         for (size_t ni = 0; ni < sizeof ns / sizeof ns[0]; ni++) {
             const uint32_t n = ns[ni]; const uint64_t bytes = (uint64_t)n * k + (uint64_t)(n / 128) * (k / 128) * 4u;
@@ -72,25 +84,26 @@ int main(int argc, char **argv) {
                 if (omega_gpu_session_sync_to_gpu(&yd) != 0) { ok = 0; break; }
                 omega_gpu_session_lock();
                 omega_gpu_cmdlist_reset(cl);
+                if (evict && omega_gpu_fp8_gemv_grouped_record(cl, ev, 1, tab.va + 16u, xd.va, 1, ye.va) != 0) { printf("record evictor: %s\n", omega_gpu_fp8_last_error()); ok = 0; }
                 for (int j = 0; j < 2 && ok; j++)
                     if (omega_gpu_fp8_gemv_grouped_record(cl, t, 1, tab.va, xd.va, 1, yd.va) != 0) { printf("record: %s\n", omega_gpu_fp8_last_error()); ok = 0; }
                 OmegaGpuCmdListOpts o; memset(&o, 0, sizeof o); o.mode = OMEGA_GPU_CMDLIST_PCAS; o.barrier = OMEGA_GPU_CMDLIST_BARRIER_WFI_ONLY; o.stamps = 1;
                 OmegaGpuCmdListStats s; memset(&s, 0, sizeof s);
-                uint64_t sts[3]; int cnt = -1;
+                uint64_t sts[4]; int cnt = -1; const int want = evict ? 4 : 3;
                 if (ok && omega_gpu_cmdlist_submit(cl, &o, &s) != 0) { printf("submit: %s\n", omega_gpu_session_last_error()); ok = 0; }
-                if (ok) cnt = omega_gpu_cmdlist_stamps(cl, sts, 3);
+                if (ok) cnt = omega_gpu_cmdlist_stamps(cl, sts, 4);
                 omega_gpu_session_unlock();
-                if (!ok || cnt != 3) { ok = 0; break; }
-                colds[r] = sts[1] - sts[0]; warms[r] = sts[2] - sts[1];
+                if (!ok || cnt != want) { ok = 0; break; }
+                colds[r] = sts[want - 2] - sts[want - 3]; warms[r] = sts[want - 1] - sts[want - 2];
                 if (omega_gpu_session_sync_to_cpu(&yd) != 0) { ok = 0; break; }
                 if (memcmp(y, ref, (size_t)n * 4) != 0) identical = 0;
             }
-            CHECK(ok && identical, "cached=%d n=%u: %u reps ran, y bit-identical to the reference on every rep", cached, n, reps);
+            CHECK(ok && identical, "cached=%d evict=%d n=%u: %u reps ran, y bit-identical to the reference on every rep", cached, evict, n, reps);
             if (ok) {
                 const double c = median(colds, reps) / 1e3, wm = median(warms, reps) / 1e3, ratio = wm / c;
-                printf("L2 cached=%d n=%-5u MB=%.1f cold_us=%.1f warm_us=%.1f ratio=%.3f cold_GB/s=%.1f warm_GB/s=%.1f\n", cached, n, bytes / 1e6, c, wm, ratio, bytes / (c * 1e3), bytes / (wm * 1e3));
-                if (cached) { if (ratio < ratio_cached_min) ratio_cached_min = ratio; } else if (ratio > ratio_unc_max) ratio_unc_max = ratio;
-                if (out) { fprintf(out, "%s{\"cached\":%d,\"n\":%u,\"bytes\":%" PRIu64 ",\"cold_ns\":%" PRIu64 ",\"warm_ns\":%" PRIu64 ",\"identical\":%d}", first_pt ? "" : ",", cached, n, bytes, median(colds, reps), median(warms, reps), identical); first_pt = 0; }
+                printf("L2 cached=%d evict=%d n=%-5u MB=%.1f cold_us=%.1f warm_us=%.1f ratio=%.3f cold_GB/s=%.1f warm_GB/s=%.1f\n", cached, evict, n, bytes / 1e6, c, wm, ratio, bytes / (c * 1e3), bytes / (wm * 1e3));
+                if (cached && evict) { if (ratio < ratio_cached_min) ratio_cached_min = ratio; } else if (!cached && ratio > ratio_unc_max) ratio_unc_max = ratio;
+                if (out) { fprintf(out, "%s{\"cached\":%d,\"evict\":%d,\"n\":%u,\"bytes\":%" PRIu64 ",\"cold_ns\":%" PRIu64 ",\"warm_ns\":%" PRIu64 ",\"identical\":%d}", first_pt ? "" : ",", cached, evict, n, bytes, median(colds, reps), median(warms, reps), identical); first_pt = 0; }
             }
             omega_gpu_fp8_tensor_free(t);
             if (omega_gpu_session_is_blocked()) { printf("session latched: stopping\n"); g_failed++; break; }
@@ -100,6 +113,7 @@ int main(int argc, char **argv) {
     printf("SUMMARY uncached max warm/cold %.3f, cached min warm/cold %.3f\n", ratio_unc_max, ratio_cached_min);
     if (out) { fprintf(out, "],\"uncached_ratio_max\":%.4f,\"cached_ratio_min\":%.4f,\"checks\":%d,\"failed\":%d,\"verdict\":\"%s\"}\n", ratio_unc_max, ratio_cached_min, g_checks, g_failed, g_failed ? "FAIL" : "PASS"); fclose(out); }
     printf("gpu_l2_reuse_test: %d checks, %d failed: %s\n", g_checks, g_failed, g_failed ? "FAIL" : "PASS");
+    omega_gpu_fp8_tensor_free(ev);
     omega_gpu_cmdlist_free(cl);
     free(w); free(sc); free(x); free(ref);
     return g_failed ? 1 : 0;
