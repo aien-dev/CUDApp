@@ -199,9 +199,10 @@ static int host_only(void) {
     return g_failed ? 1 : 0;
 }
 
-static int chip_run(uint32_t layers, uint32_t vocab, uint32_t reps, int red, const char *out_path) {
+static int chip_run(uint32_t layers, uint32_t vocab, uint32_t reps, int red, int cached, const char *out_path) {
     FILE *out = out_path ? fopen(out_path, "w") : NULL;
-    if (out) fprintf(out, "{\"layers\":%u,\"vocab\":%u,\"pos\":%u,\"reps\":%u,\"red\":%d,", layers, vocab, POS, reps, red);
+    if (out) fprintf(out, "{\"layers\":%u,\"vocab\":%u,\"pos\":%u,\"reps\":%u,\"red\":%d,\"cached_weights\":%d,", layers, vocab, POS, reps, red, cached);
+    omega_gpu_fp8_set_weight_cache(cached); /* one variable: the FP8 tensors uploaded below live GPU-cached or not */
     Model m;
     uint64_t t0 = omega_gpu_session_now_ns();
     if (model_build(&m, layers, vocab) != 0) { CHECK(0, "synthetic model build"); return 1; }
@@ -283,6 +284,8 @@ static int chip_run(uint32_t layers, uint32_t vocab, uint32_t reps, int red, con
         int prc = run_graph(gr, &m, &C, &st);
         CHECK(prc == 0 && C.tok == C0.tok && !memcmp(C.logits, C0.logits, (size_t)vocab * 4), "C after the mutants bit-identical to the first C");
 
+        if (out) { uint64_t h = 1469598103934665603ull; const unsigned char *b = (const unsigned char *)C0.logits; for (size_t i = 0; i < (size_t)vocab * 4; i++) { h ^= b[i]; h *= 1099511628211ull; }
+                   fprintf(out, "\"C0_token\":%u,\"C0_logits_fnv\":\"%016" PRIx64 "\",", C0.tok, h); }
         /* timeline instrument: stamps on -> one timestamp per launch, monotonic, span within the chip time; token unchanged; off -> refuses */
         {
             static uint64_t sts[OMEGA_GPU_CMDLIST_MAX_LAUNCHES + 1]; static uint8_t kinds[OMEGA_GPU_CMDLIST_MAX_LAUNCHES];
@@ -319,10 +322,11 @@ static int chip_run(uint32_t layers, uint32_t vocab, uint32_t reps, int red, con
 }
 
 int main(int argc, char **argv) {
-    int host = 0, red = 0; uint32_t reps = 20, layers = 2, vocab = 151936; const char *out = NULL;
+    int host = 0, red = 0, cached = 0; uint32_t reps = 20, layers = 2, vocab = 151936; const char *out = NULL;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--host-only") == 0) host = 1;
         else if (strcmp(argv[i], "--red") == 0) red = 1;
+        else if (strcmp(argv[i], "--cached-weights") == 0) cached = 1;
         else if (strcmp(argv[i], "--reps") == 0 && i + 1 < argc) reps = (uint32_t)atoi(argv[++i]);
         else if (strcmp(argv[i], "--layers") == 0 && i + 1 < argc) layers = (uint32_t)atoi(argv[++i]);
         else if (strcmp(argv[i], "--vocab") == 0 && i + 1 < argc) vocab = (uint32_t)atoi(argv[++i]);
@@ -331,7 +335,7 @@ int main(int argc, char **argv) {
     }
     if (reps == 0) reps = 1;
     if (layers == 0 || layers > 8) layers = 2;
-    int rc = host ? host_only() : chip_run(layers, vocab, reps, red, out);
+    int rc = host ? host_only() : chip_run(layers, vocab, reps, red, cached, out);
     printf("%s: %d checks, %d failed: %s\n", host ? "host-only" : red ? "chip-red" : "chip", g_checks, g_failed, rc ? "FAIL" : "PASS");
     return rc;
 }

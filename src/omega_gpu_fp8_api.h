@@ -135,6 +135,10 @@ uint32_t omega_gpu_fp8_depth_for(const OmegaFp8GemvSpec *spec, uint32_t n, uint3
 int omega_gpu_fp8_kernel_fits(const OmegaFp8GemvSpec *spec, uint32_t *declared);
 /* CTAs per group per launch (0 restores the automatic choice: MAX_CTAS single, GROUPED_CTAS grouped). */
 void omega_gpu_fp8_set_cta_budget(uint32_t ctas);
+/* 1: tensors uploaded from now on live in GPU-cached memory (read-only weights; omega_gpu_mem_cached.h). Default 0:
+ * GPU-uncached like every session buffer. Tensors already uploaded keep their policy. */
+void omega_gpu_fp8_set_weight_cache(int on);
+int omega_gpu_fp8_weight_cache(void);
 /* Diagnosis: declare `pad` registers beyond the kernel's peak in the QMD (0 = exact peak). */
 void omega_gpu_fp8_set_gpr_pad(uint32_t pad);
 /* TEST ONLY: deliberately wrong kernels (1 scale dropped, 2 scale block never advances, 3 group table entry

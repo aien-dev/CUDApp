@@ -4,6 +4,7 @@
  * coherent with direct CPU mappings"), one launch = omega_gpu_session_launch (shader-cache
  * invalidate, constant bank, QMD0/QMD1, marker, L2_FLUSH_DIRTY, second marker on uncached memory). */
 #include "omega_gpu_fp8_api.h"
+#include "omega_gpu_mem_cached.h"
 #include "omega_blackwell_codegen_moe.h"
 #include "omega_gpu_session.h"
 #include "omega_gpu_fmt.h"
@@ -35,6 +36,7 @@ static struct {
     int depth_set; uint32_t depth;    /* depth override (depth_set: 0 = automatic) */
     uint32_t gpr_pad;                 /* registers declared beyond the kernel's peak (diagnosis knob) */
     int mutant, no_fold, sealed;
+    int weights_cached; /* omega_gpu_fp8_set_weight_cache: uploads after it allocate GPU-cached (read-only weights) */
     bool hooked;
     Slot cache[CACHE_SLOTS];
     unsigned next;
@@ -224,7 +226,8 @@ int omega_gpu_fp8_tensor_upload(uint32_t experts, uint32_t n, uint32_t k, const 
     t->experts = experts; t->n = n; t->k = k;
     int rc = OMEGA_GPU_FP8_OK;
     omega_gpu_session_lock();
-    if (!dev_open_locked() || omega_gpu_session_alloc(wbytes, &t->w) != 0 || omega_gpu_session_alloc(scount * 4u, &t->s) != 0) rc = OMEGA_GPU_FP8_CHIP_FAIL;
+    int (*const alloc)(size_t, OmegaGpuMem *) = g.weights_cached ? omega_gpu_session_alloc_cached : omega_gpu_session_alloc;
+    if (!dev_open_locked() || alloc(wbytes, &t->w) != 0 || alloc(scount * 4u, &t->s) != 0) rc = OMEGA_GPU_FP8_CHIP_FAIL;
     omega_gpu_session_unlock();
     if (rc == OMEGA_GPU_FP8_OK) {
         memcpy(t->w.cpu, w, wbytes);
@@ -367,3 +370,7 @@ int omega_gpu_fp8_gemv_grouped_record(OmegaGpuCmdList *cl, const OmegaGpuFp8Tens
     if (!cl) return OMEGA_GPU_FP8_BAD_ARGS;
     return gemv_core(t, groups, NULL, NULL, NULL, x_rows, NULL, NULL, tab_va, x_va, cl, y_va);
 }
+
+/* ---- weight cache policy (OWN-30B L2 kernel-time cut) ---- */
+void omega_gpu_fp8_set_weight_cache(int on) { omega_gpu_session_lock(); g.weights_cached = on ? 1 : 0; omega_gpu_session_unlock(); }
+int omega_gpu_fp8_weight_cache(void) { return g.weights_cached; }
