@@ -200,7 +200,7 @@ static void norm_rope(Em *e, const NR *n, int x4, int w4, int cos4, int sin4, in
 }
 
 int omega_pattn_spec_ok(const OmegaPrefillAttnSpec *s) {
-    return s && (s->warps == 4u || s->warps == 8u) && s->mutant >= 0 && s->mutant <= 4 && s->mode <= OMEGA_PATTN_MODE_ATTEND;
+    return s && (s->warps == 4u || s->warps == 8u) && s->mutant >= 0 && s->mutant <= 4 && s->mode <= OMEGA_PATTN_MODE_ATTEND && (s->mirror == 0 || (s->mirror == 1 && s->mode == OMEGA_PATTN_MODE_APPEND));
 }
 
 int omega_blackwell_codegen_prefill_attn_prog(const OmegaPrefillAttnSpec *spec, BlackwellIRProgram *prog) {
@@ -290,6 +290,14 @@ int omega_blackwell_codegen_prefill_attn_prog(const OmegaPrefillAttnSpec *spec, 
             iadd(e, t1, pos0, item); imadi(e, R(t1), R(t1), 256u, cyk); imadi(e, R(t1), R(lane), 8u, t1);
             imadw(e, ka, t1, 1u, pkc); stg(e, ka, 0, R(w0), udesc); stg(e, ka, 4, R(w1), udesc);
             imadw(e, ka, t1, 1u, pvc); stg(e, ka, 0, R(w2), udesc); stg(e, ka, 4, R(w3), udesc);
+            if (spec->mirror) {   /* the same words into the mirror planes */
+                int pk2 = V64(e), pv2 = V64(e), kvs2 = V(e); if (e->err) return -1;
+                ldc64(e, pk2, OMEGA_PATTN_ARG_KC2); ldc64(e, pv2, OMEGA_PATTN_ARG_VC2); ldc32(e, kvs2, OMEGA_PATTN_ARG_KV_STRIDE2);
+                imadr(e, t2, cy, kvs2, NOREG);
+                iadd(e, t1, pos0, item); imadi(e, R(t1), R(t1), 256u, t2); imadi(e, R(t1), R(lane), 8u, t1);
+                imadw(e, ka, t1, 1u, pk2); stg(e, ka, 0, R(w0), udesc); stg(e, ka, 4, R(w1), udesc);
+                imadw(e, ka, t1, 1u, pv2); stg(e, ka, 0, R(w2), udesc); stg(e, ka, 4, R(w3), udesc);
+            }
             patch_bra(e, b, here(e));
         }
         imadi(e, R(item), R(one), W, item);

@@ -151,7 +151,7 @@ static void host_only(void) {
     char msg[200];
     CHECK(omega_tc_patch_selftest(msg, sizeof msg) == 0, "placeholder self-test: %s", msg);
     for (uint32_t w = 4; w <= 8; w += 4) for (uint32_t md = 0; md <= 2; md++) for (int m = 0; m <= 4; m++) {
-        OmegaPrefillAttnSpec s = { w, m, md }; uint32_t n = 0, gp = 0, ph = 0;
+        OmegaPrefillAttnSpec s = { w, m, md, 0 }; uint32_t n = 0, gp = 0, ph = 0;
         int rc = omega_prefill_attn_prog_stats(&s, &n, &gp, &ph);
         CHECK(rc == 0 && n <= 1024 && omega_bw_gpr_declared(gp) <= 128, "codegen warps %u mode %u mutant %d: rc %d insns %u gprs %u", w, md, m, rc, n, gp);
         static uint8_t code[1024 * 16]; uint32_t kg = 0; int np = -1;
@@ -160,9 +160,13 @@ static void host_only(void) {
         if (rc == 0 && m == 0) printf("codegen warps %u mode %u: %u instructions, %u registers (declared %u, %u threads -> %u of 65536), %u placeholders patched\n",
                                       w, md, n, gp, omega_bw_gpr_declared(gp), 32 * w, 32 * w * omega_bw_gpr_declared(gp), ph);
     }
-    { OmegaPrefillAttnSpec s = { 2, 0, 0 }; CHECK(omega_prefill_attn_prog_stats(&s, NULL, NULL, NULL) != 0, "warps 2 refused");
+    { OmegaPrefillAttnSpec s = { 2, 0, 0, 0 }; CHECK(omega_prefill_attn_prog_stats(&s, NULL, NULL, NULL) != 0, "warps 2 refused");
       s.warps = 8; s.mutant = 5; CHECK(omega_prefill_attn_prog_stats(&s, NULL, NULL, NULL) != 0, "mutant 5 refused");
-      s.mutant = 0; s.mode = 3; CHECK(omega_prefill_attn_prog_stats(&s, NULL, NULL, NULL) != 0, "mode 3 refused"); }
+      s.mutant = 0; s.mode = 3; CHECK(omega_prefill_attn_prog_stats(&s, NULL, NULL, NULL) != 0, "mode 3 refused");
+      s.mode = OMEGA_PATTN_MODE_ATTEND; s.mirror = 1; CHECK(omega_prefill_attn_prog_stats(&s, NULL, NULL, NULL) != 0, "mirror outside APPEND refused");
+      s.mode = OMEGA_PATTN_MODE_APPEND; uint32_t n = 0, gp = 0, ph = 0;
+      CHECK(omega_prefill_attn_prog_stats(&s, &n, &gp, &ph) == 0 && n <= 1024 && omega_bw_gpr_declared(gp) <= 128, "APPEND + mirror in budget: %u insns %u gprs", n, gp);
+      printf("codegen warps 8 APPEND + mirror: %u instructions, %u registers\n", n, gp); }
     CHECK(omega_gpu_prefill_attn(NULL, 0, 0, 1, NULL, EPS, 1.0f, NULL, NULL) == OMEGA_GPU_DATTN_BAD_ARGS, "NULL cache refused");
     CHECK(OMEGA_PATTN_SHARED_BYTES <= 16384u, "shared memory within the QMD cap");
     /* reference sanity: a single token at position 0 returns its own v row (rounded) */
@@ -177,6 +181,8 @@ static void host_only(void) {
 
 /* ------------------------------------------------------------- simulator */
 static uint64_t g_sim_issues;
+/* mirror planes for the simulated APPEND (write) / ATTEND (read) launches */
+static struct { uint8_t *k, *v; uint32_t kvs; size_t plane; int write, read; } g_sm;
 /* one simulated launch of prog over tokens p0 .. p0+mc-1 whose rows are qbuf / obuf (host memory) */
 static int sim_launch(const BlackwellIRProgram *prog, uint32_t W, const Case *c, uint8_t *kv, size_t plane, const float *rope, const float *norms,
                       float out_scale, float *qbuf, float *obuf, uint32_t p0, uint32_t mc, int order, char *msg, size_t n) {
@@ -194,6 +200,20 @@ static int sim_launch(const BlackwellIRProgram *prog, uint32_t W, const Case *c,
     s.ranges[2].lo = (uintptr_t)rope; s.ranges[2].hi = (uintptr_t)rope + (size_t)c->max_pos * 512;
     s.ranges[3].lo = (uintptr_t)norms; s.ranges[3].hi = (uintptr_t)norms + 1024;
     s.ranges[4].lo = (uintptr_t)obuf; s.ranges[4].hi = (uintptr_t)obuf + (size_t)mc * OUTW * 4;
+    if (g_sm.write) {
+        uint64_t k2 = (uintptr_t)g_sm.k, v2 = (uintptr_t)g_sm.v;
+        s.cbank[OMEGA_PATTN_ARG_KC2 / 4] = (uint32_t)k2; s.cbank[OMEGA_PATTN_ARG_KC2 / 4 + 1] = (uint32_t)(k2 >> 32);
+        s.cbank[OMEGA_PATTN_ARG_VC2 / 4] = (uint32_t)v2; s.cbank[OMEGA_PATTN_ARG_VC2 / 4 + 1] = (uint32_t)(v2 >> 32);
+        s.cbank[OMEGA_PATTN_ARG_KV_STRIDE2 / 4] = g_sm.kvs;
+        s.ranges[5].lo = (uintptr_t)g_sm.k; s.ranges[5].hi = (uintptr_t)g_sm.k + 2 * g_sm.plane; s.nranges = 6;
+    }
+    if (g_sm.read) {   /* ATTEND reads only the mirror: the cache range is replaced, so a stray cache read faults */
+        uint64_t k2 = (uintptr_t)g_sm.k, v2 = (uintptr_t)g_sm.v;
+        s.cbank[OMEGA_PATTN_ARG_KC / 4] = (uint32_t)k2; s.cbank[OMEGA_PATTN_ARG_KC / 4 + 1] = (uint32_t)(k2 >> 32);
+        s.cbank[OMEGA_PATTN_ARG_VC / 4] = (uint32_t)v2; s.cbank[OMEGA_PATTN_ARG_VC / 4 + 1] = (uint32_t)(v2 >> 32);
+        s.cbank[OMEGA_PATTN_ARG_KV_STRIDE / 4] = g_sm.kvs;
+        s.ranges[1].lo = (uintptr_t)g_sm.k; s.ranges[1].hi = (uintptr_t)g_sm.k + 2 * g_sm.plane;
+    }
     int err = ws_run(&s, (mc + W - 1) / W, 4);
     if (err) { snprintf(msg, n, "launch at %u: %s (pc %d)", p0, s.msg, s.err_pc); return -1; }
     g_sim_issues += s.warp_issues;
@@ -201,17 +221,36 @@ static int sim_launch(const BlackwellIRProgram *prog, uint32_t W, const Case *c,
 }
 /* runs the API's launch plan through the simulator on host buffers; kv: [K plane | V plane] holding the history.
  * progs[mode]; split: one APPEND + one ATTEND launch over all m tokens, else fused 64-token chunks */
-static int sim_call(BlackwellIRProgram *const progs[3], int split, uint32_t W, const Case *c, uint8_t *kv, size_t plane, const float *rope, const float *norms,
+static int sim_call(BlackwellIRProgram *const progs[4], int split, uint32_t W, const Case *c, uint8_t *kv, size_t plane, const float *rope, const float *norms,
                     float out_scale, float *out, int order, char *msg, size_t n) {
     float *qbuf = aligned_alloc(16, (size_t)c->m * QKVW * 4), *obuf = aligned_alloc(16, (size_t)c->m * OUTW * 4);
     memcpy(qbuf, c->qkv, (size_t)c->m * QKVW * 4);
     for (size_t i = 0; i < (size_t)c->m * OUTW; i++) obuf[i] = -999.0f;
     int err = 0;
     if (split) {
-        err = sim_launch(progs[OMEGA_PATTN_MODE_APPEND], W, c, kv, plane, rope, norms, out_scale, qbuf, obuf, c->pos0, c->m, order, msg, n);
+        uint8_t *mir = NULL;
+        if (split == 2) {   /* the API's mirror plan: history rows copied in, APPEND writes both, ATTEND reads the mirror */
+            const uint32_t P = c->pos0 + c->m, Pr = (P + 31) & ~31u;
+            g_sm.kvs = Pr * 256; g_sm.plane = (size_t)4 * g_sm.kvs;
+            mir = aligned_alloc(16, 2 * g_sm.plane); memset(mir, 0, 2 * g_sm.plane);
+            g_sm.k = mir; g_sm.v = mir + g_sm.plane;
+            for (unsigned h = 0; h < 4; h++) {
+                memcpy(g_sm.k + (size_t)h * g_sm.kvs, kv + (size_t)h * c->max_pos * 256, (size_t)c->pos0 * 256);
+                memcpy(g_sm.v + (size_t)h * g_sm.kvs, kv + plane + (size_t)h * c->max_pos * 256, (size_t)c->pos0 * 256);
+            }
+            g_sm.write = 1;
+        }
+        err = sim_launch(progs[split == 2 ? 3 : OMEGA_PATTN_MODE_APPEND], W, c, kv, plane, rope, norms, out_scale, qbuf, obuf, c->pos0, c->m, order, msg, n);
         /* APPEND writes no output */
         for (size_t i = 0; i < (size_t)c->m * OUTW && !err; i++) if (obuf[i] != -999.0f) { err = -1; snprintf(msg, n, "APPEND launch wrote output word %zu", i); }
+        if (split == 2 && !err) for (unsigned h = 0; h < 4 && !err; h++) {   /* the mirror holds exactly the cache rows 0 .. P-1 */
+            const size_t P = (size_t)c->pos0 + c->m;
+            if (memcmp(g_sm.k + (size_t)h * g_sm.kvs, kv + (size_t)h * c->max_pos * 256, P * 256) ||
+                memcmp(g_sm.v + (size_t)h * g_sm.kvs, kv + plane + (size_t)h * c->max_pos * 256, P * 256)) { err = -1; snprintf(msg, n, "mirror rows of head %u differ from the cache", h); }
+        }
+        g_sm.write = 0; g_sm.read = split == 2;
         if (!err) err = sim_launch(progs[OMEGA_PATTN_MODE_ATTEND], W, c, kv, plane, rope, norms, out_scale, qbuf, obuf, c->pos0, c->m, order, msg, n);
+        g_sm.read = 0; free(mir);
     } else {
         for (uint32_t done = 0; done < c->m && !err; done += 64) {
             const uint32_t mc = c->m - done < 64 ? c->m - done : 64;
@@ -229,10 +268,10 @@ static int sim_call(BlackwellIRProgram *const progs[3], int split, uint32_t W, c
 }
 static int sim_point(uint32_t W, int mutant, int split, uint32_t max_pos, uint32_t pos0, uint32_t m, float qscale, uint32_t seed, int orders,
                      char *msg, size_t n, double *worst, size_t *bad) {
-    static BlackwellIRProgram p0, p1, p2;
-    BlackwellIRProgram *const progs[3] = { &p0, &p1, &p2 };
-    for (uint32_t md = 0; md < 3; md++) {
-        OmegaPrefillAttnSpec spec = { W, mutant, md };
+    static BlackwellIRProgram p0, p1, p2, p3;
+    BlackwellIRProgram *const progs[4] = { &p0, &p1, &p2, &p3 };
+    for (uint32_t md = 0; md < 4; md++) {
+        OmegaPrefillAttnSpec spec = { W, mutant, md == 3 ? OMEGA_PATTN_MODE_APPEND : md, md == 3 };
         if (omega_blackwell_codegen_prefill_attn_prog(&spec, progs[md]) != 0) { snprintf(msg, n, "codegen refused (mode %u)", md); return -1; }
     }
     Case c; case_make(&c, max_pos, pos0, m, seed, qscale);
@@ -274,6 +313,10 @@ static void sim_battery(void) {
         { 4, 256, 37, 19, 1.0f, 2, 1, "split: 19 tokens from 37, warps 4" },
         { 8, 512, 0, 70, 1.0f, 1, 1, "split: 70 tokens from 0" },
         { 8, 512, 37, 141, 4.0f, 1, 1, "split: 141 tokens from 37, sharp q" },
+        { 8, 256, 0, 5, 1.0f, 2, 2, "mirror: 5 tokens from 0" },
+        { 4, 256, 37, 19, 1.0f, 2, 2, "mirror: 19 tokens from 37, warps 4" },
+        { 8, 512, 37, 141, 4.0f, 1, 2, "mirror: 141 tokens from 37, sharp q" },
+        { 8, 512, 300, 45, 1.0f, 1, 2, "mirror: 45 tokens from 300" },
     };
     for (size_t i = 0; i < sizeof pts / sizeof pts[0]; i++) {
         int err = sim_point(pts[i].w, 0, pts[i].split, pts[i].max_pos, pts[i].pos0, pts[i].m, pts[i].qs, 100 + (uint32_t)i, pts[i].orders, msg, sizeof msg, &worst, &bad);
@@ -281,11 +324,11 @@ static void sim_battery(void) {
         printf("sim %-40s W=%u: %s %s\n", pts[i].name, pts[i].w, err ? "ERROR" : bad ? "MISMATCH" : "ok", msg);
         fflush(stdout);
     }
-    for (int split = 0; split <= 1; split++) for (int m = 1; m <= 4; m++) {
+    for (int split = 0; split <= 2; split++) for (int m = 1; m <= 4; m++) {
         int err = sim_point(8, m, split, 256, 40, 24, 1.0f, 200, 1, msg, sizeof msg, &worst, &bad);
         int caught = err != 0 || bad > 0;
-        CHECK(caught, "sim %s mutant %d NOT caught (%s)", split ? "split" : "fused", m, msg);
-        printf("sim %s mutant %d at 24 tokens from 40: %s (%s)\n", split ? "split" : "fused", m, caught ? "caught" : "MISSED", msg);
+        CHECK(caught, "sim %s mutant %d NOT caught (%s)", split == 2 ? "mirror" : split ? "split" : "fused", m, msg);
+        printf("sim %s mutant %d at 24 tokens from 40: %s (%s)\n", split == 2 ? "mirror" : split ? "split" : "fused", m, caught ? "caught" : "MISSED", msg);
     }
     printf("sim: %" PRIu64 " warp issues in total\n", g_sim_issues);
 }
@@ -294,6 +337,7 @@ static void sim_battery(void) {
 static FILE *g_json;
 static int g_warm;  /* untimed calls before each timing series (--warm N) */
 static int g_cached;  /* --cached: device-entry checks use omega_gpu_pf_alloc_dev buffers (needs PATTN_HAVE_PF) */
+static int g_mirror_on = 1;
 static int cache_with_history(const Case *c, OmegaGpuDecodeAttnCache **out) {
     int rc = omega_gpu_decode_attn_cache_alloc(1, c->max_pos, THETA, out);
     if (rc != OMEGA_GPU_DATTN_OK) return rc;
@@ -505,10 +549,11 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--warps") && i + 1 < argc) warps = (uint32_t)atoi(argv[++i]);
         else if (!strcmp(argv[i], "--out") && i + 1 < argc) json = argv[++i];
         else if (!strcmp(argv[i], "--fused")) fused = 1;
+        else if (!strcmp(argv[i], "--no-mirror")) { omega_gpu_prefill_attn_set_kv_mirror(0); g_mirror_on = 0; }
         else if (!strcmp(argv[i], "--cached") && PATTN_HAVE_PF) g_cached = 1;
         else if (!strcmp(argv[i], "--timing-only")) timing_only = 1;
         else if (!strcmp(argv[i], "--warm") && i + 1 < argc) g_warm = atoi(argv[++i]);
-        else { fprintf(stderr, "usage: %s [--host-only | --sim | [--quick] [--reps N] [--warps 4|8] [--fused] [--cached] [--warm N] [--timing-only] [--out receipt.json]]\n", argv[0]); return 2; }
+        else { fprintf(stderr, "usage: %s [--host-only | --sim | [--quick] [--reps N] [--warps 4|8] [--fused] [--no-mirror] [--cached] [--warm N] [--timing-only] [--out receipt.json]]\n", argv[0]); return 2; }
     }
     host_only();
     if (sim) sim_battery();
@@ -517,10 +562,12 @@ int main(int argc, char **argv) {
         if (warps) omega_gpu_prefill_attn_set_warps(warps);
         int ok = 1;
         if (fused) omega_gpu_prefill_attn_set_fused(1);
-        printf("path: %s, warps %u, warm %d, dev buffers %s\n", fused ? "fused 64-token chunks" : "split APPEND + ATTEND", warps ? warps : OMEGA_GPU_PATTN_WARPS, g_warm, g_cached ? "GPU-cached (pf_alloc_dev)" : "session (uncached)");
+        printf("path: %s, warps %u, warm %d, dev buffers %s\n", fused ? "fused 64-token chunks" : g_mirror_on && omega_gpu_prefill_attn_kv_mirror_available() ? "split APPEND + ATTEND, ATTEND reads the GPU-cached K/V mirror" : "split APPEND + ATTEND, ATTEND reads the uncached cache", warps ? warps : OMEGA_GPU_PATTN_WARPS, g_warm, g_cached ? "GPU-cached (pf_alloc_dev)" : "session (uncached)");
         if (timing_only) {
             ok &= chip_point(4096, 0, 2048, 1.0f, 8, 0, 1.0f, reps);
             ok &= chip_dev(4096, 0, 2048, 8, reps);
+            ok &= chip_dev(8192, 4096, 1500, 12, reps);
+            ok &= chip_point(4096, 4032, 64, 1.0f, 7, 0, 1.0f, reps);
         } else {
         ok &= chip_point(256, 0, 1, 1.0f, 1, 1, 1.0f, 0);
         ok &= chip_point(256, 37, 19, 1.0f, 2, 1, 1.0f, 0);

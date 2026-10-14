@@ -48,6 +48,10 @@ void omega_gpu_prefill_attn_set_warps(uint32_t warps);          /* 0 = default (
 void omega_gpu_prefill_attn_test_set_mutant(int mutant);        /* TEST ONLY: OmegaPrefillAttnSpec.mutant */
 #define OMEGA_GPU_PATTN_WARPS 8u
 void omega_gpu_prefill_attn_set_fused(int fused);               /* 1: cut-1 path (64-token fused chunks); 0 (default): APPEND + ATTEND */
+/* ATTEND reads a GPU-cached mirror of the layer's K/V (history copied in, new rows written by APPEND to both places).
+ * Default on when built with omega_gpu_prefill.h (kv_mirror_available() == 1); a no-op otherwise. */
+void omega_gpu_prefill_attn_set_kv_mirror(int on);
+int omega_gpu_prefill_attn_kv_mirror_available(void);
 /* launches of the last call (return value) and the chip time of each (first `cap` of at most 256 logged) */
 uint32_t omega_gpu_prefill_attn_test_launch_ns(uint64_t *ns, uint32_t cap);
 #define OMEGA_GPU_PATTN_HOST_PASS 1024u /* host entry: tokens per staged pass in split mode */

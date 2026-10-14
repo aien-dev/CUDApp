@@ -55,7 +55,10 @@
 #define OMEGA_PATTN_ARG_EPS 0x3c4u         /* f32 */
 #define OMEGA_PATTN_ARG_OUT_SCALE 0x3c8u   /* f32 */
 #define OMEGA_PATTN_ARG_QK_SCALE 0x3ccu    /* f32 (1/sqrt(128)) * log2(e) */
-#define OMEGA_PATTN_ARGS_WORDS 20u
+#define OMEGA_PATTN_ARG_KC2 0x3d0u         /* APPEND with spec.mirror: second K plane base (GPU-cached mirror) */
+#define OMEGA_PATTN_ARG_VC2 0x3d8u         /* second V plane base */
+#define OMEGA_PATTN_ARG_KV_STRIDE2 0x3e0u  /* u32 bytes per KV head plane of the mirror */
+#define OMEGA_PATTN_ARGS_WORDS 25u
 
 typedef struct {
     uint32_t warps;  /* 4 or 8 (tokens per CTA) */
@@ -64,6 +67,8 @@ typedef struct {
     uint32_t mode;   /* OMEGA_PATTN_MODE_*: 0 fused (append + attend, chunks of <= 64 tokens);
                       * 1 append only: CTA (cx, cy) appends just its own tokens cx*W .. cx*W+W-1 (< mc), then exits;
                       * 2 attend only: no append (a mode-1 launch over the same tokens ran before), any mc >= 1. */
+    uint32_t mirror; /* APPEND only: 1 also stores each new row into the mirror planes (ARG_KC2 / VC2 / KV_STRIDE2), e.g. a
+                      * GPU-cached copy of the layer's K/V that the ATTEND launch then reads instead of the uncached cache */
 } OmegaPrefillAttnSpec;
 #define OMEGA_PATTN_MODE_FUSED 0u
 #define OMEGA_PATTN_MODE_APPEND 1u
