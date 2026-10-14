@@ -41,6 +41,7 @@ static struct {
     int mutant, no_fold, sealed;
     int variant, variant_set; /* GEMV variant 1 or 2 (omega_gpu_fp8_set_variant / AIEN_OMEGA_FP8_GEMV), read once */
     int weights_cached; /* omega_gpu_fp8_set_weight_cache: uploads after it allocate GPU-cached (read-only weights) */
+    int weights_cached_set; /* 0: never set, the first upload reads env AIEN_OMEGA_FP8_WEIGHT_CACHE (W-L2d: "1" = cached) */
     bool hooked;
     Slot cache[CACHE_SLOTS];
     unsigned next;
@@ -263,6 +264,7 @@ int omega_gpu_fp8_tensor_upload(uint32_t experts, uint32_t n, uint32_t k, const 
     t->experts = experts; t->n = n; t->k = k;
     int rc = OMEGA_GPU_FP8_OK;
     omega_gpu_session_lock();
+    if (!g.weights_cached_set) { const char *v = getenv("AIEN_OMEGA_FP8_WEIGHT_CACHE"); g.weights_cached = (v && v[0] == '1' && v[1] == 0) ? 1 : 0; g.weights_cached_set = 1; }
     int (*const alloc)(size_t, OmegaGpuMem *) = g.weights_cached ? omega_gpu_session_alloc_cached : omega_gpu_session_alloc;
     if (!dev_open_locked() || alloc(wbytes, &t->w) != 0 || alloc(scount * 4u, &t->s) != 0) rc = OMEGA_GPU_FP8_CHIP_FAIL;
     omega_gpu_session_unlock();
@@ -410,5 +412,5 @@ int omega_gpu_fp8_gemv_grouped_record(OmegaGpuCmdList *cl, const OmegaGpuFp8Tens
 }
 
 /* ---- weight cache policy (OWN-30B L2 kernel-time cut) ---- */
-void omega_gpu_fp8_set_weight_cache(int on) { omega_gpu_session_lock(); g.weights_cached = on ? 1 : 0; omega_gpu_session_unlock(); }
+void omega_gpu_fp8_set_weight_cache(int on) { omega_gpu_session_lock(); g.weights_cached = on ? 1 : 0; g.weights_cached_set = 1; omega_gpu_session_unlock(); }
 int omega_gpu_fp8_weight_cache(void) { return g.weights_cached; }

@@ -173,6 +173,14 @@ void omega_gpu_decode_graph_test_set_mutant(OmegaGpuDecodeGraph *g, int mutant);
 /* TEST ONLY: negative control for the barrier study: lets barrier 1 (none) through, which set_barrier refuses. The token is a
  * dependency chain, so the comparison against the per-launch path (B) must fail. */
 void omega_gpu_decode_graph_test_set_barrier_none(void);
+/* Weight prefetch beside the attention (W-L2d): 1 = each layer records an independent o_proj GEMV on scratch buffers right after
+ * the attention launch (no barrier between them), pulling the o_proj weights into L2 while the attention runs; useful only
+ * with GPU-cached weights (AIEN_OMEGA_FP8_WEIGHT_CACHE=1). Process-wide; env AIEN_OMEGA_DGRAPH_PREFETCH ("1") when never set.
+ * Outputs unchanged by construction (the prefetch writes only its own scratch y). Default 0. */
+void omega_gpu_decode_graph_set_prefetch(int on);
+int omega_gpu_decode_graph_prefetch(void);
+/* TEST ONLY red for the prefetch run: the real o_proj is also marked independent (unordered after the attention): must FAIL. */
+void omega_gpu_decode_graph_test_set_prefetch_red(int on);
 
 #ifdef __cplusplus
 }

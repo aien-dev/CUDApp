@@ -44,6 +44,7 @@ struct OmegaGpuCmdList {
     uint32_t words_cap;
     OmegaGpuMem nop_code; /* EXIT kernel used to force the session latch after a timeout */
     uint32_t nop_gpr;
+    uint8_t *indep;       /* per launch: 1 = shares no data with the launch before it (mark_independent): no barrier before it */
     int stamped;          /* the last submit had opts.stamps (the accessor refuses stale stamps from an earlier submit) */
 };
 
@@ -52,6 +53,11 @@ static uint32_t g_latched;
 int omega_gpu_cmdlist_is_latched(void) { return __atomic_load_n(&g_latched, __ATOMIC_ACQUIRE) ? 1 : 0; }
 uint32_t omega_gpu_cmdlist_count(const OmegaGpuCmdList *cl) { return cl ? cl->n : 0; }
 void omega_gpu_cmdlist_reset(OmegaGpuCmdList *cl) { if (cl) cl->n = 0; }
+int omega_gpu_cmdlist_mark_independent(OmegaGpuCmdList *cl) {
+    if (!cl || cl->n == 0) { omega_gpu_session_set_error("cmdlist mark_independent: no launch recorded"); return -1; }
+    cl->indep[cl->n - 1] = 1;
+    return 0;
+}
 
 static int build_nop(OmegaGpuCmdList *cl) {
     BlackwellIRProgram *prog = omega_gpu_host_calloc(1, sizeof *prog);
@@ -81,7 +87,8 @@ int omega_gpu_cmdlist_create(uint32_t cap, OmegaGpuCmdList **out) {
     cl->cap = cap;
     cl->words_cap = RING_WORDS;
     cl->words = omega_gpu_host_alloc((size_t)cl->words_cap * 4u);
-    int rc = cl->words ? 0 : -1;
+    cl->indep = omega_gpu_host_calloc(cap, 1);
+    int rc = cl->words && cl->indep ? 0 : -1;
     omega_gpu_session_lock();
     if (rc == 0 && !omega_gpu_session_open()) rc = -1;
     if (rc == 0 && (omega_gpu_session_alloc((size_t)cap * OMEGA_GPU_CMDLIST_BANK_BYTES, &cl->banks) != 0 ||
@@ -108,6 +115,7 @@ void omega_gpu_cmdlist_free(OmegaGpuCmdList *cl) {
     for (unsigned i = 0; i < sizeof m / sizeof m[0]; i++) if (m[i]->cpu) omega_gpu_session_free(m[i]);
     omega_gpu_session_unlock();
     omega_gpu_host_free(cl->words);
+    omega_gpu_host_free(cl->indep);
     omega_gpu_host_free(cl);
 }
 
@@ -142,6 +150,7 @@ int omega_gpu_cmdlist_add(OmegaGpuCmdList *cl, const OmegaGpuLaunch *L) {
     uint8_t *qs = (uint8_t *)cl->qmds.cpu + (size_t)i * OMEGA_GPU_CMDLIST_QMD_BYTES;
     memcpy(qs, q1, sizeof q1);
     memcpy(qs + 0x200, q0, sizeof q0);
+    cl->indep[cl->n] = 0;
     cl->n++;
     return (int)i;
 }
@@ -268,7 +277,9 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
         for (uint32_t i = done; i < end; i++) {
             if (o.skip_launch && i == (uint32_t)(o.skip_launch - 1)) continue;
             /* the first launch of a submission always gets the full barrier (CPU-written QMDs, code and banks before it) */
-            const OmegaGpuCmdListBarrier b = i == done ? OMEGA_GPU_CMDLIST_BARRIER_WFI : o.barrier;
+            const int indep = i != done && cl->indep[i]; /* marked independent: no barrier, overlaps the launch before it */
+            const OmegaGpuCmdListBarrier b = i == done ? OMEGA_GPU_CMDLIST_BARRIER_WFI : indep ? OMEGA_GPU_CMDLIST_BARRIER_NONE : o.barrier;
+            if (indep && o.stamps) n = emit_stamp(pb, n, cl->stamps.va, i); /* no WFI: slot i is the front-end time, launch i - 1 may still run */
             if (b != OMEGA_GPU_CMDLIST_BARRIER_NONE) {
                 if (b != OMEGA_GPU_CMDLIST_BARRIER_FLUSH_DATA) { pb[n++] = bw_mthd(1, MTHD_WAIT_FOR_IDLE, 1); pb[n++] = 0; }
                 else { pb[n++] = bw_mthd(1, OMEGA_BW_MTHD_INVALIDATE_SHADER_CACHES, 1); pb[n++] = INVALIDATE_DATA | INVALIDATE_FLUSH_DATA; } /* implicit WFI (NVK) */

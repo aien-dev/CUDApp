@@ -23,7 +23,7 @@ typedef struct { OmegaGpuMem code; uint32_t gpr; } Kern;
 
 /* the one buffer: byte offsets, every region 256-byte aligned (RES/SWIGLU load 16-byte vectors) */
 typedef struct {
-    size_t x, xq, qkv, attn, o, gu, act, dn, hidden, logits, am_v, am_i, token, norms, fnorm, tabs, bytes;
+    size_t x, xq, qkv, attn, o, gu, act, dn, hidden, logits, am_v, am_i, token, norms, fnorm, tabs, pf_x, pf_y, bytes;
 } Layout;
 
 struct OmegaGpuDecodeGraph {
@@ -109,6 +109,7 @@ int omega_gpu_decode_graph_create(const OmegaGpuDecodeGraphConfig *cfg, OmegaGpu
     REG(gu, TK * 2 * I * 4); REG(act, TK * I * 4); REG(dn, TK * H * 4); REG(hidden, H * 4);
     REG(logits, (size_t)g->am_ctas * OMEGA_DEC_ARGMAX_SPAN * 4); REG(am_v, OMEGA_DEC_ARGMAX_SPAN * 4); REG(am_i, OMEGA_DEC_ARGMAX_SPAN * 4);
     REG(token, 16); REG(norms, (size_t)cfg->layers * H * 4); REG(fnorm, H * 4); REG(tabs, (size_t)cfg->layers * 2 * 16);
+    REG(pf_x, OMEGA_GPU_DGRAPH_ATTN * 4); REG(pf_y, H * 4); /* prefetch launch (W-L2d): x read by nothing else, y read by nothing */
 #undef REG
     L->bytes = o;
     int rc = OMEGA_GPU_DGRAPH_OK;
@@ -196,6 +197,17 @@ int omega_gpu_decode_graph_barrier(void) {
     return g_barrier;
 }
 void omega_gpu_decode_graph_test_set_barrier_none(void) { g_barrier = 1; }
+/* weight prefetch (W-L2d): 1 = beside each layer's attention, an independent launch (no barrier before it) runs the o_proj GEMV
+ * on a scratch x into a scratch y, so the o_proj weights stream from DRAM while the latency-bound attention runs and the real
+ * o_proj then reads them from L2 (needs GPU-cached weights: an uncached mapping is never kept in L2, gpu_l2_reuse_test r2).
+ * omega_gpu_decode_graph_set_prefetch, else env AIEN_OMEGA_DGRAPH_PREFETCH ("1"). Read once. Default 0. */
+static int g_prefetch = -1, g_prefetch_red;
+void omega_gpu_decode_graph_set_prefetch(int on) { g_prefetch = on ? 1 : 0; }
+int omega_gpu_decode_graph_prefetch(void) {
+    if (g_prefetch < 0) { const char *e = getenv("AIEN_OMEGA_DGRAPH_PREFETCH"); g_prefetch = (e && e[0] == '1' && e[1] == 0) ? 1 : 0; }
+    return g_prefetch;
+}
+void omega_gpu_decode_graph_test_set_prefetch_red(int on) { g_prefetch_red = on ? 1 : 0; }
 static OmegaGpuCmdListBarrier barrier_now(void) { return (OmegaGpuCmdListBarrier)omega_gpu_decode_graph_barrier(); }
 
 static OmegaGpuCmdListOpts list_opts(const OmegaGpuDecodeGraph *g) {
@@ -300,7 +312,13 @@ int omega_gpu_decode_graph_record_layer(OmegaGpuDecodeGraph *g, uint32_t l, uint
     if (g->xq_layer != (int)l) rc = omega_gpu_decode_graph_record_res(g, OMEGA_DEC_RES_NORM, v.x, 0, 0, norm_l, v.xq, eps, SCALE_2P64);
     if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, OMEGA_GPU_DGRAPH_K_QKV, omega_gpu_fp8_gemv_grouped_record(g->cl, g->layer[l].qkv, 1, tab, v.xq, 1, v.qkv));
     if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, OMEGA_GPU_DGRAPH_K_ATTN, omega_gpu_decode_attn_record(g->cl, g->cfg.attn, l, pos, v.qkv, eps, g->mutant == 3 ? 1.0f : SCALE_2P64, v.attn));
+    if (rc == OMEGA_GPU_DGRAPH_OK && omega_gpu_decode_graph_prefetch()) { /* tagged attn: its time is the overlapped window */
+        int prc = omega_gpu_fp8_gemv_grouped_record(g->cl, g->layer[l].o, 1, tab + 16u, va_of(g, g->lo.pf_x), 1, va_of(g, g->lo.pf_y));
+        if (prc == 0 && omega_gpu_cmdlist_mark_independent(g->cl) != 0) prc = -1;
+        rc = after_op(g, OMEGA_GPU_DGRAPH_K_ATTN, prc);
+    }
     if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, OMEGA_GPU_DGRAPH_K_O, omega_gpu_fp8_gemv_grouped_record(g->cl, g->layer[l].o, 1, tab + 16u, v.attn, 1, v.o));
+    if (rc == OMEGA_GPU_DGRAPH_OK && g_prefetch_red && !g->flush_each && omega_gpu_cmdlist_mark_independent(g->cl) != 0) rc = OMEGA_GPU_DGRAPH_CHIP_FAIL; /* TEST ONLY red: o_proj itself unordered after the attention */
     if (rc == OMEGA_GPU_DGRAPH_OK) rc = omega_gpu_decode_graph_record_res(g, OMEGA_DEC_RES_ADD, v.x, v.o, 0, 0, 0, eps, 1.0f);
     OmegaGpuRouterDevOut r; memset(&r, 0, sizeof r);
     if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, OMEGA_GPU_DGRAPH_K_ROUTER, omega_gpu_router_record(g->cl, g->cfg.router, l, v.x, eps, g->cfg.norm_topk, SCALE_2P64, &r));

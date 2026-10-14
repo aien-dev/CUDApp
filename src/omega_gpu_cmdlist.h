@@ -86,6 +86,11 @@ void omega_gpu_cmdlist_free(OmegaGpuCmdList *cl);
 /* Caller holds the lock. Empties the list (slots are rewritten by the next adds). */
 void omega_gpu_cmdlist_reset(OmegaGpuCmdList *cl);
 uint32_t omega_gpu_cmdlist_count(const OmegaGpuCmdList *cl);
+/* Caller holds the lock. Marks the most recently added launch as sharing NO data with the launch before it (neither reads
+ * what the other writes): submit emits no barrier before it, so the two grids may overlap on the chip (W-L2d: a weight
+ * prefetch beside the latency-bound attention). The launch after it gets the normal barrier, which waits for both.
+ * Ignored for the first launch of a submission. 0 ok, -1 (no launch recorded). */
+int omega_gpu_cmdlist_mark_independent(OmegaGpuCmdList *cl);
 /* Caller holds the lock. Writes the launch's bank and QMD into the next slot. The launch's code must stay resident
  * until submit returns. Returns the launch index, or -1 (full, bad arguments, QMD refused). L->timeout_ms and
  * L->spin_us are ignored (the list has one completion). */

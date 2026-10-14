@@ -136,7 +136,8 @@ int omega_gpu_fp8_kernel_fits(const OmegaFp8GemvSpec *spec, uint32_t *declared);
 /* CTAs per group per launch (0 restores the automatic choice: MAX_CTAS single, GROUPED_CTAS grouped). */
 void omega_gpu_fp8_set_cta_budget(uint32_t ctas);
 /* 1: tensors uploaded from now on live in GPU-cached memory (read-only weights; omega_gpu_mem_cached.h). Default 0:
- * GPU-uncached like every session buffer. Tensors already uploaded keep their policy. */
+ * GPU-uncached like every session buffer. Tensors already uploaded keep their policy. Never set: the first upload reads env
+ * AIEN_OMEGA_FP8_WEIGHT_CACHE ("1" = cached; W-L2d, so sc can switch it without a code change). */
 void omega_gpu_fp8_set_weight_cache(int on);
 /* GEMV variant (W-L2c, 2026-10-14): 1 = omega_blackwell_codegen_moe.c (the default, unchanged), 2 = omega_blackwell_codegen_moe2.c
  * (row-pipelined: the whole row group in flight per warp and the next row group's loads in flight while this one is multiplied;
