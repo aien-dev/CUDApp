@@ -21,6 +21,15 @@
 #include "omega_gpu_session.h"
 #include "omega_blackwell_codegen_tc.h"
 #include "bw_warp_sim_pa.h"
+#if defined(__has_include)
+#if __has_include("omega_gpu_prefill.h")
+#include "omega_gpu_prefill.h"   /* W-L1G device-resident module (integration builds): GPU-cached buffers for the dev check */
+#define PATTN_HAVE_PF 1
+#endif
+#endif
+#ifndef PATTN_HAVE_PF
+#define PATTN_HAVE_PF 0
+#endif
 #include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
@@ -284,6 +293,7 @@ static void sim_battery(void) {
 /* ------------------------------------------------------------- chip */
 static FILE *g_json;
 static int g_warm;  /* untimed calls before each timing series (--warm N) */
+static int g_cached;  /* --cached: device-entry checks use omega_gpu_pf_alloc_dev buffers (needs PATTN_HAVE_PF) */
 static int cache_with_history(const Case *c, OmegaGpuDecodeAttnCache **out) {
     int rc = omega_gpu_decode_attn_cache_alloc(1, c->max_pos, THETA, out);
     if (rc != OMEGA_GPU_DATTN_OK) return rc;
@@ -391,6 +401,7 @@ static int chip_dev(uint32_t max_pos, uint32_t pos0, uint32_t m, uint32_t seed, 
     uint16_t *hk = malloc((size_t)4 * max_pos * 256), *hv = malloc((size_t)4 * max_pos * 256);
     uint16_t *dk = malloc((size_t)4 * max_pos * 256), *dv = malloc((size_t)4 * max_pos * 256);
     OmegaGpuMem q, o; memset(&q, 0, sizeof q); memset(&o, 0, sizeof o);
+    float *odh = NULL;
     int ok = 1;
     OmegaGpuPrefillAttnInfo info, dinfo;
     int rc = cache_with_history(&c, &hc);
@@ -398,18 +409,34 @@ static int chip_dev(uint32_t max_pos, uint32_t pos0, uint32_t m, uint32_t seed, 
     if (rc == OMEGA_GPU_DATTN_OK) rc = omega_gpu_prefill_attn(hc, 0, pos0, m, c.qkv, EPS, 1.0f, hout, &info);
     CHECK(rc == OMEGA_GPU_DATTN_OK, "dev point %u+%u: host entry rc %s", pos0, m, omega_gpu_decode_attn_rc_name(rc));
     if (rc != OMEGA_GPU_DATTN_OK) { ok = 0; goto done; }
+#if PATTN_HAVE_PF
+    if (g_cached) {   /* W-L1G's GPU-cached device-private buffers, filled and read only through GPU copies */
+        CHECK(omega_gpu_pf_alloc_dev((size_t)m * QKVW * 4, &q) == OMEGA_GPU_PF_OK && omega_gpu_pf_alloc_dev((size_t)m * OUTW * 4, &o) == OMEGA_GPU_PF_OK, "dev point: cached device buffers");
+        if (!q.va || !o.va) { ok = 0; goto done; }
+        odh = malloc((size_t)m * OUTW * 4);
+        for (size_t i = 0; i < (size_t)m * OUTW; i++) odh[i] = -999.0f;
+        CHECK(omega_gpu_pf_upload(&q, 0, c.qkv, (size_t)m * QKVW * 4) == OMEGA_GPU_PF_OK && omega_gpu_pf_upload(&o, 0, odh, (size_t)m * OUTW * 4) == OMEGA_GPU_PF_OK, "dev point: upload through the copy kernel");
+    } else
+#endif
+    {
     CHECK(dev_buf((size_t)m * QKVW * 4, &q) == 0 && dev_buf((size_t)m * OUTW * 4, &o) == 0, "dev point: session buffers");
     if (!q.cpu || !o.cpu) { ok = 0; goto done; }
     memcpy(q.cpu, c.qkv, (size_t)m * QKVW * 4);
-    float *od = o.cpu; for (size_t i = 0; i < (size_t)m * OUTW; i++) od[i] = -999.0f;
+    float *op = o.cpu; for (size_t i = 0; i < (size_t)m * OUTW; i++) op[i] = -999.0f;
     omega_gpu_session_lock(); omega_gpu_session_sync_to_gpu(&q); omega_gpu_session_sync_to_gpu(&o); omega_gpu_session_unlock();
+    }
     /* negative control: misaligned and zero VAs are refused before any launch */
     CHECK(omega_gpu_prefill_attn_dev(dc, 0, pos0, m, q.va + 4, EPS, 1.0f, o.va, NULL) == OMEGA_GPU_DATTN_BAD_ARGS, "dev: misaligned qkv VA refused");
     CHECK(omega_gpu_prefill_attn_dev(dc, 0, pos0, m, q.va, EPS, 1.0f, 0, NULL) == OMEGA_GPU_DATTN_BAD_ARGS, "dev: zero out VA refused");
     rc = omega_gpu_prefill_attn_dev(dc, 0, pos0, m, q.va, EPS, 1.0f, o.va, &dinfo);
     CHECK(rc == OMEGA_GPU_DATTN_OK, "dev point %u+%u: rc %s (%s)", pos0, m, omega_gpu_decode_attn_rc_name(rc), omega_gpu_decode_attn_last_error());
     if (rc != OMEGA_GPU_DATTN_OK) { ok = 0; goto done; }
-    omega_gpu_session_lock(); omega_gpu_session_sync_to_cpu(&o); omega_gpu_session_unlock();
+    float *od;
+#if PATTN_HAVE_PF
+    if (g_cached) { CHECK(omega_gpu_pf_download(&o, 0, odh, (size_t)m * OUTW * 4) == OMEGA_GPU_PF_OK, "dev point: download through the copy kernel"); od = odh; }
+    else
+#endif
+    { omega_gpu_session_lock(); omega_gpu_session_sync_to_cpu(&o); omega_gpu_session_unlock(); od = o.cpu; }
     size_t unw = 0, diff = 0;
     for (size_t i = 0; i < (size_t)m * OUTW; i++) { if (od[i] == -999.0f) unw++; else if (memcmp(&od[i], &hout[i], 4)) diff++; }
     CHECK(read_rows(hc, &c, hk, hv) == 0 && read_rows(dc, &c, dk, dv) == 0, "dev point: read rows");
@@ -418,8 +445,8 @@ static int chip_dev(uint32_t max_pos, uint32_t pos0, uint32_t m, uint32_t seed, 
     CHECK(unw == 0 && diff == 0, "dev point %u+%u: %zu outputs unwritten, %zu differ from the host entry", pos0, m, unw, diff);
     CHECK(rk == 0 && rv == 0, "dev point %u+%u: cache rows differ from the host entry: k %zu v %zu", pos0, m, rk, rv);
     ok &= unw == 0 && diff == 0 && rk == 0 && rv == 0;
-    printf("chip dev pos0 %5u m %5u: outputs vs host entry: %zu unwritten, %zu differ; rows k %zu v %zu differ; launches %u grid %ux%u; chip %.3f ms call %.3f ms\n",
-           pos0, m, unw, diff, rk, rv, dinfo.chunks, dinfo.grid_x, dinfo.grid_y, dinfo.elapsed_ns / 1e6, dinfo.call_ns / 1e6);
+    printf("chip dev%s pos0 %5u m %5u: outputs vs host entry: %zu unwritten, %zu differ; rows k %zu v %zu differ; launches %u grid %ux%u; chip %.3f ms call %.3f ms\n",
+           g_cached ? " (cached buffers)" : "", pos0, m, unw, diff, rk, rv, dinfo.chunks, dinfo.grid_x, dinfo.grid_y, dinfo.elapsed_ns / 1e6, dinfo.call_ns / 1e6);
     if (reps > 0) {
         uint64_t *t = malloc(sizeof(uint64_t) * reps), *tc = malloc(sizeof(uint64_t) * reps);
         for (int r = 0; r < g_warm; r++) omega_gpu_prefill_attn_dev(dc, 0, pos0, m, q.va, EPS, 1.0f, o.va, NULL);
@@ -434,7 +461,11 @@ static int chip_dev(uint32_t max_pos, uint32_t pos0, uint32_t m, uint32_t seed, 
         free(t); free(tc);
     }
 done:
-    omega_gpu_session_lock(); if (q.cpu) omega_gpu_session_free(&q); if (o.cpu) omega_gpu_session_free(&o); omega_gpu_session_unlock();
+#if PATTN_HAVE_PF
+    if (g_cached) { if (q.va) omega_gpu_pf_free(&q); if (o.va) omega_gpu_pf_free(&o); } else
+#endif
+    { omega_gpu_session_lock(); if (q.cpu) omega_gpu_session_free(&q); if (o.cpu) omega_gpu_session_free(&o); omega_gpu_session_unlock(); }
+    free(odh);
     if (hc) omega_gpu_decode_attn_cache_free(hc);
     if (dc) omega_gpu_decode_attn_cache_free(dc);
     free(hout); free(hk); free(hv); free(dk); free(dv); case_free(&c);
@@ -474,9 +505,10 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--warps") && i + 1 < argc) warps = (uint32_t)atoi(argv[++i]);
         else if (!strcmp(argv[i], "--out") && i + 1 < argc) json = argv[++i];
         else if (!strcmp(argv[i], "--fused")) fused = 1;
+        else if (!strcmp(argv[i], "--cached") && PATTN_HAVE_PF) g_cached = 1;
         else if (!strcmp(argv[i], "--timing-only")) timing_only = 1;
         else if (!strcmp(argv[i], "--warm") && i + 1 < argc) g_warm = atoi(argv[++i]);
-        else { fprintf(stderr, "usage: %s [--host-only | --sim | [--quick] [--reps N] [--warps 4|8] [--fused] [--warm N] [--timing-only] [--out receipt.json]]\n", argv[0]); return 2; }
+        else { fprintf(stderr, "usage: %s [--host-only | --sim | [--quick] [--reps N] [--warps 4|8] [--fused] [--cached] [--warm N] [--timing-only] [--out receipt.json]]\n", argv[0]); return 2; }
     }
     host_only();
     if (sim) sim_battery();
@@ -485,7 +517,7 @@ int main(int argc, char **argv) {
         if (warps) omega_gpu_prefill_attn_set_warps(warps);
         int ok = 1;
         if (fused) omega_gpu_prefill_attn_set_fused(1);
-        printf("path: %s, warps %u, warm %d\n", fused ? "fused 64-token chunks" : "split APPEND + ATTEND", warps ? warps : OMEGA_GPU_PATTN_WARPS, g_warm);
+        printf("path: %s, warps %u, warm %d, dev buffers %s\n", fused ? "fused 64-token chunks" : "split APPEND + ATTEND", warps ? warps : OMEGA_GPU_PATTN_WARPS, g_warm, g_cached ? "GPU-cached (pf_alloc_dev)" : "session (uncached)");
         if (timing_only) {
             ok &= chip_point(4096, 0, 2048, 1.0f, 8, 0, 1.0f, reps);
             ok &= chip_dev(4096, 0, 2048, 8, reps);
