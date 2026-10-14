@@ -155,6 +155,10 @@ enum {
 /* 1: every token also records a GPU timestamp (ns) before the first launch and after each launch (after its WAIT_FOR_IDLE).
  * Call between tokens. Adds one report per launch to the list. 0 = off (default). */
 void omega_gpu_decode_graph_set_stamps(OmegaGpuDecodeGraph *g, int on);
+/* Barrier between the launches of a token: 0 WFI + invalidate all (default), 2 WFI only, 3 WFI + invalidate data, 4 NVK-style
+ * flush_data (implicit WFI). Process-wide, read once (env AIEN_OMEGA_DGRAPH_BARRIER when never set). 1 (none) is refused. */
+void omega_gpu_decode_graph_set_barrier(int b);
+int omega_gpu_decode_graph_barrier(void);
 /* The last token with stamps on: stamps[0 .. n] (n + 1 values), kinds[0 .. n). Returns n (launches) or BAD_ARGS
  * (stamps off, the token failed, buffers smaller than launches + 1). Launch i took stamps[i + 1] - stamps[i] ns. */
 int omega_gpu_decode_graph_stamps(const OmegaGpuDecodeGraph *g, uint64_t *stamps, uint8_t *kinds, uint32_t cap);

@@ -203,6 +203,9 @@ static size_t emit_tail(uint32_t *pb, size_t n, uint64_t marker_va) {
  * Ordered after the preceding WAIT_FOR_IDLE, like nvk_query_pool.c timestamp queries. */
 #define MTHD_REPORT_SEMAPHORE_PAYLOAD_LOWER 0x0158u
 #define STAMP_WORDS 6u
+/* INVALIDATE_SHADER_CACHES (NVCEC0 0x021c) fields, clc6c0.h:222-236 (same layout on Blackwell): INSTRUCTION 0:0, FLUSH_DATA 2:2, DATA 4:4, CONSTANT 12:12 */
+#define INVALIDATE_DATA (1u << 4)
+#define INVALIDATE_FLUSH_DATA (1u << 2)
 static size_t emit_stamp(uint32_t *pb, size_t n, uint64_t stamps_va, uint32_t slot) {
     const uint64_t va = stamps_va + (uint64_t)slot * 16u;
     pb[n++] = bw_mthd(1, MTHD_REPORT_SEMAPHORE_PAYLOAD_LOWER, 5);
@@ -264,11 +267,14 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
         const uint32_t end = (cl->n - done > room) ? done + room : cl->n;
         for (uint32_t i = done; i < end; i++) {
             if (o.skip_launch && i == (uint32_t)(o.skip_launch - 1)) continue;
-            const bool barrier = o.barrier == OMEGA_GPU_CMDLIST_BARRIER_WFI || i == done;
-            if (barrier) {
-                pb[n++] = bw_mthd(1, MTHD_WAIT_FOR_IDLE, 1); pb[n++] = 0;
+            /* the first launch of a submission always gets the full barrier (CPU-written QMDs, code and banks before it) */
+            const OmegaGpuCmdListBarrier b = i == done ? OMEGA_GPU_CMDLIST_BARRIER_WFI : o.barrier;
+            if (b != OMEGA_GPU_CMDLIST_BARRIER_NONE) {
+                if (b != OMEGA_GPU_CMDLIST_BARRIER_FLUSH_DATA) { pb[n++] = bw_mthd(1, MTHD_WAIT_FOR_IDLE, 1); pb[n++] = 0; }
+                else { pb[n++] = bw_mthd(1, OMEGA_BW_MTHD_INVALIDATE_SHADER_CACHES, 1); pb[n++] = INVALIDATE_DATA | INVALIDATE_FLUSH_DATA; } /* implicit WFI (NVK) */
                 if (o.stamps) n = emit_stamp(pb, n, cl->stamps.va, i); /* slot i: launch i - 1 done (slot `done`: submit start) */
-                pb[n++] = bw_mthd(1, OMEGA_BW_MTHD_INVALIDATE_SHADER_CACHES, 1); pb[n++] = OMEGA_BW_INVALIDATE_SHADER_CACHES_ALL;
+                if (b == OMEGA_GPU_CMDLIST_BARRIER_WFI) { pb[n++] = bw_mthd(1, OMEGA_BW_MTHD_INVALIDATE_SHADER_CACHES, 1); pb[n++] = OMEGA_BW_INVALIDATE_SHADER_CACHES_ALL; }
+                else if (b == OMEGA_GPU_CMDLIST_BARRIER_WFI_DATA) { pb[n++] = bw_mthd(1, OMEGA_BW_MTHD_INVALIDATE_SHADER_CACHES, 1); pb[n++] = INVALIDATE_DATA; }
             }
             const uint64_t q1_va = cl->qmds.va + (uint64_t)i * OMEGA_GPU_CMDLIST_QMD_BYTES;
             if (o.mode == OMEGA_GPU_CMDLIST_INLINE) {
@@ -333,4 +339,15 @@ int omega_gpu_cmdlist_stamps(const OmegaGpuCmdList *cl, uint64_t *out, uint32_t 
         out[i] = s[2 * i + 1];
     }
     return (int)want;
+}
+
+const char *omega_gpu_cmdlist_barrier_name(OmegaGpuCmdListBarrier b) {
+    switch (b) {
+    case OMEGA_GPU_CMDLIST_BARRIER_WFI: return "wfi+inval_all";
+    case OMEGA_GPU_CMDLIST_BARRIER_NONE: return "none";
+    case OMEGA_GPU_CMDLIST_BARRIER_WFI_ONLY: return "wfi_only";
+    case OMEGA_GPU_CMDLIST_BARRIER_WFI_DATA: return "wfi+inval_data";
+    case OMEGA_GPU_CMDLIST_BARRIER_FLUSH_DATA: return "flush_data";
+    }
+    return "?";
 }

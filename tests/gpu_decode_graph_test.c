@@ -322,13 +322,14 @@ static int chip_run(uint32_t layers, uint32_t vocab, uint32_t reps, int red, int
 }
 
 int main(int argc, char **argv) {
-    int host = 0, red = 0, cached = 0, variant = 0; uint32_t cta_budget = 0, sh_lane = 0, sh_rows = 0, sh_warps = 0; uint32_t reps = 20, layers = 2, vocab = 151936; const char *out = NULL;
+    int host = 0, red = 0, cached = 0, variant = 0, barrier = -1; uint32_t cta_budget = 0, sh_lane = 0, sh_rows = 0, sh_warps = 0; uint32_t reps = 20, layers = 2, vocab = 151936; const char *out = NULL;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--host-only") == 0) host = 1;
         else if (strcmp(argv[i], "--red") == 0) red = 1;
         else if (strcmp(argv[i], "--cached-weights") == 0) cached = 1;
         else if (strcmp(argv[i], "--cta-budget") == 0 && i + 1 < argc) cta_budget = (uint32_t)atoi(argv[++i]);
         else if (strcmp(argv[i], "--variant") == 0 && i + 1 < argc) variant = atoi(argv[++i]); /* FP8 GEMV generator: 1 (default) or 2 (W-L2c) */
+        else if (strcmp(argv[i], "--barrier") == 0 && i + 1 < argc) barrier = atoi(argv[++i]); /* per-launch barrier mode (W-L2c): 0 wfi+inval_all, 2 wfi_only, 3 wfi+inval_data, 4 flush_data */
         else if (strcmp(argv[i], "--shape") == 0 && i + 3 < argc) { sh_lane = (uint32_t)atoi(argv[++i]); sh_rows = (uint32_t)atoi(argv[++i]); sh_warps = (uint32_t)atoi(argv[++i]); }
         else if (strcmp(argv[i], "--reps") == 0 && i + 1 < argc) reps = (uint32_t)atoi(argv[++i]);
         else if (strcmp(argv[i], "--layers") == 0 && i + 1 < argc) layers = (uint32_t)atoi(argv[++i]);
@@ -339,9 +340,10 @@ int main(int argc, char **argv) {
     if (reps == 0) reps = 1;
     if (layers == 0 || layers > 8) layers = 2;
     if (variant) omega_gpu_fp8_set_variant(variant);
+    if (barrier >= 0) omega_gpu_decode_graph_set_barrier(barrier);
     if (cta_budget) omega_gpu_fp8_set_cta_budget(cta_budget);               /* one variable per run (timeline sweeps) */
     if (sh_lane) omega_gpu_fp8_set_shape(sh_lane, sh_rows, sh_warps);
-    printf("fp8 knobs: variant %d cta_budget %u shape %u/%u/%u cached %d\n", omega_gpu_fp8_variant(), cta_budget, sh_lane, sh_rows, sh_warps, cached);
+    printf("fp8 knobs: variant %d barrier %d (%s) cta_budget %u shape %u/%u/%u cached %d\n", omega_gpu_fp8_variant(), omega_gpu_decode_graph_barrier(), omega_gpu_cmdlist_barrier_name((OmegaGpuCmdListBarrier)omega_gpu_decode_graph_barrier()), cta_budget, sh_lane, sh_rows, sh_warps, cached);
     int rc = host ? host_only() : chip_run(layers, vocab, reps, red, cached, out);
     printf("%s: %d checks, %d failed: %s\n", host ? "host-only" : red ? "chip-red" : "chip", g_checks, g_failed, rc ? "FAIL" : "PASS");
     return rc;

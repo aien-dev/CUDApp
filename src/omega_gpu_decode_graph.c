@@ -8,6 +8,7 @@
 #include "omega_blackwell_codegen_dec.h"
 #include "omega_gpu_session.h"
 #include "omega_gpu_fmt.h"
+#include <stdlib.h>
 #include <string.h>
 
 #define TIMEOUT_MS 20000ull
@@ -185,9 +186,20 @@ void omega_gpu_decode_graph_vas(const OmegaGpuDecodeGraph *g, OmegaGpuDecodeGrap
 
 /* ---- the list ---- */
 
+/* barrier between the launches of a token (W-L2c launch-cost study): omega_gpu_decode_graph_set_barrier, else env
+ * AIEN_OMEGA_DGRAPH_BARRIER (0 wfi+inval_all = default, 2 wfi_only, 3 wfi+inval_data, 4 flush_data; 1 none is refused: the
+ * token is a dependency chain). Read once. */
+static int g_barrier = -1;
+void omega_gpu_decode_graph_set_barrier(int b) { g_barrier = (b >= 0 && b <= 4 && b != 1) ? b : 0; }
+int omega_gpu_decode_graph_barrier(void) {
+    if (g_barrier < 0) { const char *e = getenv("AIEN_OMEGA_DGRAPH_BARRIER"); omega_gpu_decode_graph_set_barrier(e ? atoi(e) : 0); }
+    return g_barrier;
+}
+static OmegaGpuCmdListBarrier barrier_now(void) { return (OmegaGpuCmdListBarrier)omega_gpu_decode_graph_barrier(); }
+
 static OmegaGpuCmdListOpts list_opts(const OmegaGpuDecodeGraph *g) {
     OmegaGpuCmdListOpts o; memset(&o, 0, sizeof o);
-    o.mode = OMEGA_GPU_CMDLIST_PCAS; o.barrier = OMEGA_GPU_CMDLIST_BARRIER_WFI; o.timeout_ms = TIMEOUT_MS; o.stamps = g->stamps;
+    o.mode = OMEGA_GPU_CMDLIST_PCAS; o.barrier = barrier_now(); o.timeout_ms = TIMEOUT_MS; o.stamps = g->stamps;
     return o;
 }
 

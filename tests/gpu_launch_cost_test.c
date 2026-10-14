@@ -40,7 +40,7 @@ static int make_split(Split *s, uint32_t m, uint32_t n, uint32_t k, const uint8_
 static void free_split(Split *s) { for (uint32_t i = 0; i < s->m; i++) omega_gpu_fp8_tensor_free(s->t[i]); free(s->ref); }
 
 /* one list of m launches, submitted reps times; medians of the stamp span and of the host-seen elapsed; y checked every rep */
-static int time_split(Split *s, OmegaGpuCmdList *cl, OmegaGpuMem *tab, OmegaGpuMem *xd, OmegaGpuMem *yd, int barrier_none,
+static int time_split(Split *s, OmegaGpuCmdList *cl, OmegaGpuMem *tab, OmegaGpuMem *xd, OmegaGpuMem *yd, OmegaGpuCmdListBarrier bar,
                       uint32_t reps, uint64_t *span_med, uint64_t *elapsed_med, uint64_t *first_med, int *identical) {
     const uint32_t m = s->m, n = s->rows * m;
     uint64_t *spans = malloc(reps * 8), *els = malloc(reps * 8), *firsts = malloc(reps * 8);
@@ -57,14 +57,14 @@ static int time_split(Split *s, OmegaGpuCmdList *cl, OmegaGpuMem *tab, OmegaGpuM
         for (uint32_t i = 0; i < m && rc == 0; i++)
             if (omega_gpu_fp8_gemv_grouped_record(cl, s->t[i], 1, tab->va + 16u * i, xd->va, 1, yd->va + (uint64_t)i * s->rows * 4u) != 0) { printf("record m=%u i=%u: %s\n", m, i, omega_gpu_fp8_last_error()); rc = -1; }
         OmegaGpuCmdListOpts o; memset(&o, 0, sizeof o);
-        o.mode = OMEGA_GPU_CMDLIST_PCAS; o.barrier = barrier_none ? OMEGA_GPU_CMDLIST_BARRIER_NONE : OMEGA_GPU_CMDLIST_BARRIER_WFI; o.stamps = 1;
+        o.mode = OMEGA_GPU_CMDLIST_PCAS; o.barrier = bar; o.stamps = 1;
         OmegaGpuCmdListStats st; memset(&st, 0, sizeof st);
-        if (rc == 0 && omega_gpu_cmdlist_submit(cl, &o, &st) != 0) { printf("submit m=%u barrier=%s: %s\n", m, barrier_none ? "none" : "wfi", omega_gpu_session_last_error()); rc = -1; }
-        uint64_t stamps[MAX_M + 1]; int cnt = rc == 0 && !barrier_none ? omega_gpu_cmdlist_stamps(cl, stamps, MAX_M + 1) : -1; /* barrier none: only the first and last stamp exist, so the GPU span is not readable; elapsed (host wall, ~5 us above span) is the comparable figure */
+        if (rc == 0 && omega_gpu_cmdlist_submit(cl, &o, &st) != 0) { printf("submit m=%u barrier=%s: %s\n", m, omega_gpu_cmdlist_barrier_name(bar), omega_gpu_session_last_error()); rc = -1; }
+        uint64_t stamps[MAX_M + 1]; const int none = bar == OMEGA_GPU_CMDLIST_BARRIER_NONE; int cnt = rc == 0 && !none ? omega_gpu_cmdlist_stamps(cl, stamps, MAX_M + 1) : -1; /* barrier none: only the first and last stamp exist, so the GPU span is not readable; elapsed (host wall, ~5 us above span) is the comparable figure */
         omega_gpu_session_unlock();
-        if (rc == 0 && !barrier_none && cnt != (int)m + 1) { printf("stamps m=%u: %d\n", m, cnt); rc = -1; }
+        if (rc == 0 && !none && cnt != (int)m + 1) { printf("stamps m=%u: %d\n", m, cnt); rc = -1; }
         if (rc != 0) break;
-        els[r] = st.elapsed_ns; spans[r] = barrier_none ? 0 : stamps[m] - stamps[0]; firsts[r] = barrier_none ? 0 : stamps[1] - stamps[0];
+        els[r] = st.elapsed_ns; spans[r] = none ? 0 : stamps[m] - stamps[0]; firsts[r] = none ? 0 : stamps[1] - stamps[0];
         if (omega_gpu_session_sync_to_cpu(yd) != 0) { rc = -1; break; }
         if (memcmp(y, s->ref, (size_t)n * 4) != 0) *identical = 0;
     }
@@ -106,22 +106,23 @@ int main(int argc, char **argv) {
     FILE *out = out_path ? fopen(out_path, "w") : NULL;
     if (out) fprintf(out, "{\"test\":\"OMEGA_GPU_LAUNCH_COST\",\"n\":%u,\"k\":%u,\"bytes\":%" PRIu64 ",\"reps\":%u,\"points\":[", n, k, bytes, reps);
     static const uint32_t ms[] = { 1, 2, 4, 8, 16 };
-    double t1[2] = { 0, 0 }; int first_pt = 1;
-    for (int barrier_none = 0; barrier_none < 2; barrier_none++) {
+    double t1[8] = { 0 }; int first_pt = 1;
+    static const OmegaGpuCmdListBarrier bars[] = { OMEGA_GPU_CMDLIST_BARRIER_WFI, OMEGA_GPU_CMDLIST_BARRIER_WFI_ONLY, OMEGA_GPU_CMDLIST_BARRIER_WFI_DATA, OMEGA_GPU_CMDLIST_BARRIER_FLUSH_DATA, OMEGA_GPU_CMDLIST_BARRIER_NONE, OMEGA_GPU_CMDLIST_BARRIER_WFI };
+    for (unsigned bi = 0; bi < sizeof bars / sizeof bars[0]; bi++) { const OmegaGpuCmdListBarrier bar = bars[bi]; const char *bn = omega_gpu_cmdlist_barrier_name(bar); /* WFI first and last: drift control */
         for (size_t mi = 0; mi < sizeof ms / sizeof ms[0]; mi++) {
             Split s;
             if (make_split(&s, ms[mi], n, k, w, sc, x) != 0) { printf("split m=%u failed\n", ms[mi]); g_failed++; free_split(&s); break; }
             uint64_t span = 0, el = 0, first = 0; int identical = 0;
-            int rc = time_split(&s, cl, &tab, &xd, &yd, barrier_none, reps, &span, &el, &first, &identical);
-            CHECK(rc == 0 && identical, "m=%u barrier=%s: %u reps ran, y bit-identical to the one-launch-at-a-time reference on every rep", ms[mi], barrier_none ? "none" : "wfi", reps);
+            int rc = time_split(&s, cl, &tab, &xd, &yd, bar, reps, &span, &el, &first, &identical);
+            CHECK(rc == 0 && identical, "m=%u barrier=%s: %u reps ran, y bit-identical to the one-launch-at-a-time reference on every rep", ms[mi], bn, reps);
             if (rc == 0) {
                 double span_us = span / 1e3, el_us = el / 1e3, per = el_us / ms[mi], gbs = (double)bytes / (double)el; /* elapsed-based: comparable across barrier modes */
-                if (ms[mi] == 1) t1[barrier_none] = el_us;
-                double fixed = ms[mi] > 1 ? (el_us - t1[barrier_none]) / (ms[mi] - 1) : 0.0;
-                printf("COST m=%-2u barrier=%-4s span_us=%.1f per_launch_us=%.1f first_launch_us=%.1f elapsed_us=%.1f GB/s=%.1f fixed_per_extra_launch_us=%.2f\n",
-                       ms[mi], barrier_none ? "none" : "wfi", span_us, per, first / 1e3, el / 1e3, gbs, fixed);
+                if (ms[mi] == 1) t1[bi] = el_us;
+                double fixed = ms[mi] > 1 ? (el_us - t1[bi]) / (ms[mi] - 1) : 0.0;
+                printf("COST m=%-2u barrier=%-14s span_us=%.1f per_launch_us=%.1f first_launch_us=%.1f elapsed_us=%.1f GB/s=%.1f fixed_per_extra_launch_us=%.2f\n",
+                       ms[mi], bn, span_us, per, first / 1e3, el / 1e3, gbs, fixed);
                 if (out) { fprintf(out, "%s{\"m\":%u,\"barrier\":\"%s\",\"span_ns\":%" PRIu64 ",\"first_launch_ns\":%" PRIu64 ",\"elapsed_ns\":%" PRIu64 ",\"gbps\":%.2f,\"fixed_per_extra_launch_us\":%.2f,\"identical\":%d}",
-                                  first_pt ? "" : ",", ms[mi], barrier_none ? "none" : "wfi", span, first, el, gbs, fixed, identical); first_pt = 0; }
+                                  first_pt ? "" : ",", ms[mi], bn, span, first, el, gbs, fixed, identical); first_pt = 0; }
             }
             free_split(&s);
             if (omega_gpu_session_is_blocked()) { printf("session latched: stopping\n"); break; }

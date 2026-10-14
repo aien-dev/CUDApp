@@ -46,7 +46,16 @@ extern "C" {
 #define OMEGA_GPU_CMDLIST_QMD_BYTES 0x400u /* QMD1 at +0, QMD0 (INLINE mode) at +0x200 */
 
 typedef enum { OMEGA_GPU_CMDLIST_PCAS = 0, OMEGA_GPU_CMDLIST_INLINE = 1 } OmegaGpuCmdListMode;
-typedef enum { OMEGA_GPU_CMDLIST_BARRIER_WFI = 0, OMEGA_GPU_CMDLIST_BARRIER_NONE = 1 /* TEST ONLY: negative control */ } OmegaGpuCmdListBarrier;
+/* Barrier before every launch after the first of a submission (the first always gets the full WFI + invalidate ALL):
+ *   WFI        WAIT_FOR_IDLE + INVALIDATE_SHADER_CACHES ALL (instruction, data, constant). The default since cut 1b.
+ *   NONE       nothing (TEST ONLY: negative control; consecutive grids may overlap).
+ *   WFI_ONLY   WAIT_FOR_IDLE, no cache invalidate (W-L2c launch-cost study: isolates the drain from the invalidate).
+ *   WFI_DATA   WAIT_FOR_IDLE + INVALIDATE_SHADER_CACHES {data} (keeps the instruction and constant caches warm).
+ *   FLUSH_DATA INVALIDATE_SHADER_CACHES {data, flush_data} alone, which NVK uses for a storage-write to storage-read
+ *              dependency between dispatches ("This is also implicitly a WFI", nvk_cmd_buffer.c:633). */
+typedef enum { OMEGA_GPU_CMDLIST_BARRIER_WFI = 0, OMEGA_GPU_CMDLIST_BARRIER_NONE = 1 /* TEST ONLY: negative control */,
+               OMEGA_GPU_CMDLIST_BARRIER_WFI_ONLY = 2, OMEGA_GPU_CMDLIST_BARRIER_WFI_DATA = 3, OMEGA_GPU_CMDLIST_BARRIER_FLUSH_DATA = 4 } OmegaGpuCmdListBarrier;
+const char *omega_gpu_cmdlist_barrier_name(OmegaGpuCmdListBarrier b);
 
 typedef struct {
     OmegaGpuCmdListMode mode;
