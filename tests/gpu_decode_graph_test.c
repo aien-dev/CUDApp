@@ -340,7 +340,8 @@ int main(int argc, char **argv) {
     if (reps == 0) reps = 1;
     if (layers == 0 || layers > 8) layers = 2;
     if (variant) omega_gpu_fp8_set_variant(variant);
-    if (barrier >= 0) omega_gpu_decode_graph_set_barrier(barrier);
+    if (barrier == 1) omega_gpu_decode_graph_test_set_barrier_none(); /* negative control: this run MUST FAIL */
+    else if (barrier >= 0) omega_gpu_decode_graph_set_barrier(barrier);
     if (cta_budget) omega_gpu_fp8_set_cta_budget(cta_budget);               /* one variable per run (timeline sweeps) */
     if (sh_lane) omega_gpu_fp8_set_shape(sh_lane, sh_rows, sh_warps);
     printf("fp8 knobs: variant %d barrier %d (%s) cta_budget %u shape %u/%u/%u cached %d\n", omega_gpu_fp8_variant(), omega_gpu_decode_graph_barrier(), omega_gpu_cmdlist_barrier_name((OmegaGpuCmdListBarrier)omega_gpu_decode_graph_barrier()), cta_budget, sh_lane, sh_rows, sh_warps, cached);

@@ -170,6 +170,9 @@ void omega_gpu_decode_graph_set_flush_each(OmegaGpuDecodeGraph *g, int on);
 /* 1 SWIGLU mutant (up half read at +767); 2 COMBINE skips expert 7; 3 wrong wiring: attention written at scale 1
  * instead of 2^64 (the o_proj then sees x' 2^64 too small). 0 none. */
 void omega_gpu_decode_graph_test_set_mutant(OmegaGpuDecodeGraph *g, int mutant);
+/* TEST ONLY: negative control for the barrier study: lets barrier 1 (none) through, which set_barrier refuses. The token is a
+ * dependency chain, so the comparison against the per-launch path (B) must fail. */
+void omega_gpu_decode_graph_test_set_barrier_none(void);
 
 #ifdef __cplusplus
 }

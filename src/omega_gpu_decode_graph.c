@@ -195,6 +195,7 @@ int omega_gpu_decode_graph_barrier(void) {
     if (g_barrier < 0) { const char *e = getenv("AIEN_OMEGA_DGRAPH_BARRIER"); omega_gpu_decode_graph_set_barrier(e ? atoi(e) : 0); }
     return g_barrier;
 }
+void omega_gpu_decode_graph_test_set_barrier_none(void) { g_barrier = 1; }
 static OmegaGpuCmdListBarrier barrier_now(void) { return (OmegaGpuCmdListBarrier)omega_gpu_decode_graph_barrier(); }
 
 static OmegaGpuCmdListOpts list_opts(const OmegaGpuDecodeGraph *g) {
