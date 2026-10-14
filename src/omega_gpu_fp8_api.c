@@ -7,6 +7,7 @@
 #include "omega_blackwell_codegen_moe.h"
 #include "omega_gpu_session.h"
 #include "omega_gpu_fmt.h"
+#include "omega_gpu_cmdlist.h"
 #include <string.h>
 
 #define CACHE_SLOTS 16
@@ -38,6 +39,7 @@ static struct {
     Slot cache[CACHE_SLOTS];
     unsigned next;
 } g = { .cta_budget = OMEGA_GPU_FP8_MAX_CTAS };
+static int g_rec; /* 1 while a record call runs (lock held): kernel_for must not evict */
 
 const char *omega_gpu_fp8_last_error(void) { return omega_gpu_session_last_error(); }
 const char *omega_gpu_fp8_rc_name(int rc) {
@@ -138,6 +140,8 @@ static int kernel_for(const OmegaFp8GemvSpec *spec, Slot **out, bool *hit) {
         if (!c->valid || !c->pinned) { s = c; g.next = (unsigned)((c - g.cache) + 1) % CACHE_SLOTS; }
     }
     if (!s) { omega_gpu_session_set_error("fp8 kernel cache: every slot holds a prepared kernel"); return OMEGA_GPU_FP8_TOO_LARGE; }
+    /* record path: a recorded launch may still point at the slot's code until the list is submitted */
+    if (g_rec && s->valid) { omega_gpu_session_set_error("fp8 record: kernel cache miss would evict a resident kernel (warm up before recording)"); return OMEGA_GPU_FP8_TOO_LARGE; }
     BlackwellIRProgram *prog = omega_gpu_host_calloc(1, sizeof *prog);
     if (!prog) { omega_gpu_session_set_error("fp8 codegen: host memory"); return OMEGA_GPU_FP8_CODEGEN_FAIL; }
     int cg = omega_blackwell_codegen_fp8_gemv_prog(spec, prog);
@@ -243,12 +247,17 @@ void omega_gpu_fp8_tensor_free(OmegaGpuFp8Tensor *t) {
 
 /* ---- the GEMV (lock held inside) ---- */
 
-/* dev_tab / dev_x non-zero: the group table / the x' row already sit on the device (written by the router launch) */
+/* dev_tab / dev_x non-zero: the group table / the x' row already sit on the device (written by the router launch).
+ * rec non-NULL (record path, caller holds the session lock): dev_tab, dev_x and dev_y are required, the launch is
+ * appended to rec instead of submitted, and nothing is staged, poisoned or read back (the list's per-launch semaphore
+ * and the caller's end-of-token checks replace the poison check). */
 static int gemv_core(const OmegaGpuFp8Tensor *t, uint32_t groups, const uint32_t *ids, const float *x32, const uint16_t *x16,
-                     uint32_t x_rows, float *y, OmegaGpuFp8Info *info, uint64_t dev_tab, uint64_t dev_x) {
+                     uint32_t x_rows, float *y, OmegaGpuFp8Info *info, uint64_t dev_tab, uint64_t dev_x,
+                     OmegaGpuCmdList *rec, uint64_t dev_y) {
     uint64_t t0 = omega_gpu_session_now_ns();
     if (info) memset(info, 0, sizeof *info);
-    if (!t || !t->w.cpu || (!ids && !dev_tab) || (!x32 && !x16 && !dev_x) || !y || groups == 0 || (x_rows != 1 && x_rows != groups)) return OMEGA_GPU_FP8_BAD_ARGS;
+    if (rec && (!dev_tab || !dev_x || !dev_y)) return OMEGA_GPU_FP8_BAD_ARGS;
+    if (!t || !t->w.cpu || (!ids && !dev_tab) || (!x32 && !x16 && !dev_x) || (!y && !rec) || groups == 0 || (x_rows != 1 && x_rows != groups)) return OMEGA_GPU_FP8_BAD_ARGS;
     if (groups > OMEGA_GPU_FP8_MAX_GROUPS) return OMEGA_GPU_FP8_TOO_LARGE;
     if (!dev_tab) for (uint32_t gi = 0; gi < groups; gi++) if (ids[gi] >= t->experts) return OMEGA_GPU_FP8_BAD_ARGS;
     const uint32_t n = t->n, k = t->k;
@@ -260,16 +269,21 @@ static int gemv_core(const OmegaGpuFp8Tensor *t, uint32_t groups, const uint32_t
     if (grid_x > budget) grid_x = budget;
     if (grid_x == 0) grid_x = 1;
 
-    omega_gpu_session_lock();
+    if (!rec) omega_gpu_session_lock();
+#define UNLOCK() do { if (!rec) omega_gpu_session_unlock(); } while (0)
     int rc = OMEGA_GPU_FP8_OK;
-    if (!dev_open_locked()) { omega_gpu_session_unlock(); return OMEGA_GPU_FP8_CHIP_FAIL; }
-    if (!g.tab.cpu && omega_gpu_session_alloc((size_t)OMEGA_GPU_FP8_MAX_GROUPS * 16u, &g.tab) != 0) { omega_gpu_session_unlock(); return OMEGA_GPU_FP8_CHIP_FAIL; }
-    int src = omega_gpu_session_scratch(&g.x_buf, (size_t)x_rows * k * 4u);
-    if (src == 0) src = omega_gpu_session_scratch(&g.y_buf, (size_t)groups * n * 4u);
-    if (src != 0) { omega_gpu_session_unlock(); return src == OMEGA_GPU_SESSION_SCRATCH_RESERVED ? OMEGA_GPU_FP8_TOO_LARGE : OMEGA_GPU_FP8_CHIP_FAIL; }
+    if (!dev_open_locked()) { UNLOCK(); return OMEGA_GPU_FP8_CHIP_FAIL; }
+    if (!rec) { /* staging buffers: the record path reads and writes only the caller's device buffers */
+        if (!g.tab.cpu && omega_gpu_session_alloc((size_t)OMEGA_GPU_FP8_MAX_GROUPS * 16u, &g.tab) != 0) { UNLOCK(); return OMEGA_GPU_FP8_CHIP_FAIL; }
+        int src = omega_gpu_session_scratch(&g.x_buf, (size_t)x_rows * k * 4u);
+        if (src == 0) src = omega_gpu_session_scratch(&g.y_buf, (size_t)groups * n * 4u);
+        if (src != 0) { UNLOCK(); return src == OMEGA_GPU_SESSION_SCRATCH_RESERVED ? OMEGA_GPU_FP8_TOO_LARGE : OMEGA_GPU_FP8_CHIP_FAIL; }
+    }
     Slot *ks = NULL; bool hit = false;
+    g_rec = rec != NULL;
     rc = kernel_for(&spec, &ks, &hit);
-    if (rc != OMEGA_GPU_FP8_OK) { omega_gpu_session_unlock(); return rc; }
+    g_rec = 0;
+    if (rc != OMEGA_GPU_FP8_OK) { UNLOCK(); return rc; }
 
     /* group table: {w_va, s_va} per group */
     uint64_t *tab = g.tab.cpu;
@@ -281,14 +295,16 @@ static int gemv_core(const OmegaGpuFp8Tensor *t, uint32_t groups, const uint32_t
         if (x32) omega_fp8_pack_x_f32(x32 + (size_t)r * k, k, xd + (size_t)r * k);
         else omega_fp8_pack_x_bf16(x16 + (size_t)r * k, k, xd + (size_t)r * k);
     }
-    for (size_t i = 0; i < (size_t)groups * n; i++) yd[i] = POISON_F32;
-    if (omega_gpu_session_sync_to_gpu(&g.tab) != 0 || omega_gpu_session_sync_to_gpu(&g.x_buf.mem) != 0 || omega_gpu_session_sync_to_gpu(&g.y_buf.mem) != 0) rc = OMEGA_GPU_FP8_CHIP_FAIL;
+    if (!rec) {
+        for (size_t i = 0; i < (size_t)groups * n; i++) yd[i] = POISON_F32;
+        if (omega_gpu_session_sync_to_gpu(&g.tab) != 0 || omega_gpu_session_sync_to_gpu(&g.x_buf.mem) != 0 || omega_gpu_session_sync_to_gpu(&g.y_buf.mem) != 0) rc = OMEGA_GPU_FP8_CHIP_FAIL;
+    }
 
     uint32_t args[OMEGA_FP8_ARGS_WORDS];
-    const uint64_t tab_va = dev_tab ? dev_tab : g.tab.va, x_va = dev_x ? dev_x : g.x_buf.mem.va;
+    const uint64_t tab_va = dev_tab ? dev_tab : g.tab.va, x_va = dev_x ? dev_x : g.x_buf.mem.va, y_va = rec ? dev_y : g.y_buf.mem.va;
     args[0] = (uint32_t)tab_va; args[1] = (uint32_t)(tab_va >> 32);
     args[2] = (uint32_t)x_va; args[3] = (uint32_t)(x_va >> 32);
-    args[4] = (uint32_t)g.y_buf.mem.va; args[5] = (uint32_t)(g.y_buf.mem.va >> 32);
+    args[4] = (uint32_t)y_va; args[5] = (uint32_t)(y_va >> 32);
     args[6] = RG; args[7] = x_rows == 1 ? 0u : k * 4u; args[8] = n * 4u; args[9] = grid_x * spec.warps;
     if (info) {
         info->experts = t->experts; info->n = n; info->k = k; info->groups = groups;
@@ -308,36 +324,46 @@ static int gemv_core(const OmegaGpuFp8Tensor *t, uint32_t groups, const uint32_t
             .shared_bytes = omega_fp8_gemv_shared_bytes(&spec),
         };
         if (L.gpr_count < ks->kernel.gpr_count + 2u) { omega_gpu_session_set_error("declared registers below peak + 2: refusing to launch"); rc = OMEGA_GPU_FP8_CHIP_FAIL; }
+        else if (rec) { if (omega_gpu_cmdlist_add(rec, &L) < 0) rc = OMEGA_GPU_FP8_CHIP_FAIL; }
         else if (omega_gpu_session_launch(&L, info ? &info->elapsed_ns : NULL, info ? &info->completion_marker : NULL) != 0) rc = OMEGA_GPU_FP8_CHIP_FAIL;
     }
-    if (rc == OMEGA_GPU_FP8_OK && omega_gpu_session_sync_to_cpu(&g.y_buf.mem) != 0) rc = OMEGA_GPU_FP8_CHIP_FAIL;
-    if (rc == OMEGA_GPU_FP8_OK) {
+    if (rc == OMEGA_GPU_FP8_OK && !rec && omega_gpu_session_sync_to_cpu(&g.y_buf.mem) != 0) rc = OMEGA_GPU_FP8_CHIP_FAIL;
+    if (rc == OMEGA_GPU_FP8_OK && !rec) {
         size_t unchanged = 0;
         for (size_t i = 0; i < (size_t)groups * n; i++) if (yd[i] == POISON_F32) unchanged++;
         if (unchanged) { omega_gpu_session_set_error("output poison survived"); rc = OMEGA_GPU_FP8_CHIP_FAIL; }
         else memcpy(y, yd, (size_t)groups * n * sizeof *y);
     }
-    omega_gpu_session_unlock();
+    UNLOCK();
     if (info) info->call_ns = omega_gpu_session_now_ns() - t0;
     return rc;
 }
+#undef UNLOCK
 
 int omega_gpu_fp8_gemv_f32(const OmegaGpuFp8Tensor *t, uint32_t expert, const float *x, float *y, OmegaGpuFp8Info *info) {
-    return gemv_core(t, 1, &expert, x, NULL, 1, y, info, 0, 0);
+    return gemv_core(t, 1, &expert, x, NULL, 1, y, info, 0, 0, NULL, 0);
 }
 int omega_gpu_fp8_gemv_bf16(const OmegaGpuFp8Tensor *t, uint32_t expert, const uint16_t *x, float *y, OmegaGpuFp8Info *info) {
-    return gemv_core(t, 1, &expert, NULL, x, 1, y, info, 0, 0);
+    return gemv_core(t, 1, &expert, NULL, x, 1, y, info, 0, 0, NULL, 0);
 }
 int omega_gpu_fp8_gemv_grouped_f32(const OmegaGpuFp8Tensor *t, uint32_t groups, const uint32_t *ids, const float *x, uint32_t x_rows, float *y, OmegaGpuFp8Info *info) {
-    return gemv_core(t, groups, ids, x, NULL, x_rows, y, info, 0, 0);
+    return gemv_core(t, groups, ids, x, NULL, x_rows, y, info, 0, 0, NULL, 0);
 }
 int omega_gpu_fp8_gemv_grouped_dev(const OmegaGpuFp8Tensor *t, uint32_t groups, uint64_t tab_va, uint64_t x_va, float *y, OmegaGpuFp8Info *info) {
     if (!tab_va || !x_va) return OMEGA_GPU_FP8_BAD_ARGS;
-    return gemv_core(t, groups, NULL, NULL, NULL, 1, y, info, tab_va, x_va);
+    return gemv_core(t, groups, NULL, NULL, NULL, 1, y, info, tab_va, x_va, NULL, 0);
 }
 int omega_gpu_fp8_tensor_entry(const OmegaGpuFp8Tensor *t, uint32_t expert, uint64_t *w_va, uint64_t *s_va) {
     if (!t || !t->w.cpu || expert >= t->experts || !w_va || !s_va) return OMEGA_GPU_FP8_BAD_ARGS;
     *w_va = t->w.va + (uint64_t)expert * t->n * t->k;
     *s_va = t->s.va + (uint64_t)expert * (t->n / OMEGA_FP8_BLOCK) * (t->k / OMEGA_FP8_BLOCK) * 4u;
     return OMEGA_GPU_FP8_OK;
+}
+
+/* Record path (OWN-30B W-L2a decode graph): the launch of omega_gpu_fp8_gemv_grouped_dev appended to cl, every input
+ * and the output in device memory. Caller holds omega_gpu_session_lock(). */
+int omega_gpu_fp8_gemv_grouped_record(OmegaGpuCmdList *cl, const OmegaGpuFp8Tensor *t, uint32_t groups, uint64_t tab_va,
+                                      uint64_t x_va, uint32_t x_rows, uint64_t y_va) {
+    if (!cl) return OMEGA_GPU_FP8_BAD_ARGS;
+    return gemv_core(t, groups, NULL, NULL, NULL, x_rows, NULL, NULL, tab_va, x_va, cl, y_va);
 }

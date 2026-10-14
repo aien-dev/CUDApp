@@ -99,6 +99,16 @@ int omega_gpu_fp8_gemv_grouped_f32(const OmegaGpuFp8Tensor *t, uint32_t groups, 
  * the single x' row (f32, k values, already * 2^64) are read from tab_va / x_va, which another launch (the router)
  * wrote; no host copy of either. y and the poison check as above. */
 int omega_gpu_fp8_gemv_grouped_dev(const OmegaGpuFp8Tensor *t, uint32_t groups, uint64_t tab_va, uint64_t x_va, float *y, OmegaGpuFp8Info *info);
+/* Record path (OWN-30B W-L2a, decode graph; omega_gpu_cmdlist.h): the same launch as grouped_dev, appended to cl instead
+ * of submitted. tab_va: `groups` {w_va, s_va} entries (omega_gpu_fp8_tensor_entry, or the router's table); x_va: x_rows
+ * rows of k f32 already * 2^64 (1 row shared, or one per group); y_va: groups * n f32, written when the list runs.
+ * The caller holds omega_gpu_session_lock() (do not call another API's non-record entry point while holding it).
+ * Nothing is staged, poisoned or read back: the list's per-launch semaphore check and the caller's end-of-token checks
+ * replace the poison check. A kernel cache miss that would evict a resident kernel is refused (TOO_LARGE): warm the
+ * shape up with one non-record call before recording. */
+struct OmegaGpuCmdList;
+int omega_gpu_fp8_gemv_grouped_record(struct OmegaGpuCmdList *cl, const OmegaGpuFp8Tensor *t, uint32_t groups, uint64_t tab_va,
+                                      uint64_t x_va, uint32_t x_rows, uint64_t y_va);
 /* Device addresses of one expert's weights and scales (for a directory the router copies from). */
 int omega_gpu_fp8_tensor_entry(const OmegaGpuFp8Tensor *t, uint32_t expert, uint64_t *w_va, uint64_t *s_va);
 

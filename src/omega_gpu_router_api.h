@@ -68,6 +68,16 @@ int omega_gpu_router_set_directory_fp8(OmegaGpuRouter *r, uint32_t layer, const 
 int omega_gpu_router(OmegaGpuRouter *r, uint32_t layer, const float *x, float eps, int norm_topk, float out_scale,
                      uint32_t *ids, float *weights, OmegaGpuRouterInfo *info);
 void omega_gpu_router_device_outputs(const OmegaGpuRouter *r, uint64_t *xout_va, uint64_t *tab_gu_va, uint64_t *tab_dn_va);
+/* Record path (OWN-30B W-L2a, decode graph; omega_gpu_cmdlist.h): the launch of omega_gpu_router with the residual row
+ * read from x_va (f32 [2048] on the device) appended to cl instead of submitted. The caller holds
+ * omega_gpu_session_lock(). Nothing is staged, poisoned or read back. The outputs land, when the list runs, at the
+ * router's launch buffer (one per router: a later record of another layer overwrites them, in list order):
+ * xout = RMSNorm(x) * out_scale [2048] f32, ids [8] u32, wts [8] f32 (the COMBINE weights), and the two group tables
+ * (8 x {w_va, s_va}) for gate+up and down. A kernel cache miss that would evict the resident kernel is refused. */
+typedef struct { uint64_t xout_va, ids_va, wts_va, tab_gu_va, tab_dn_va; } OmegaGpuRouterDevOut;
+struct OmegaGpuCmdList;
+int omega_gpu_router_record(struct OmegaGpuCmdList *cl, OmegaGpuRouter *r, uint32_t layer, uint64_t x_va, float eps, int norm_topk,
+                            float out_scale, OmegaGpuRouterDevOut *out);
 int omega_gpu_router_read_back(OmegaGpuRouter *r, float *xout, uint64_t *tab_gu, uint64_t *tab_dn);
 const char *omega_gpu_router_last_error(void);
 const char *omega_gpu_router_rc_name(int rc);
