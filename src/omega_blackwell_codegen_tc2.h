@@ -13,7 +13,9 @@
  *  - rows >= cnt of a partial tile are not stored (one BSSY, forward jumps, one BSYNC);
  *  - epilogue F32: y[row][c] f32 rows of n; epilogue SWIGLU (ct = 2): column tile 0 of each warp is gate, tile 1 up (the
  *    upload interleaves gate and up rows in groups of 8), the lane computes a = g / (1 + ex2(g * -log2e)) * u * 2^64
- *    (MUFU.EX2, FADD, MUFU.RCP, FMUL, FMUL, FMUL x 2^64, in that order) and stores bf16x2 (F2FP RN) at act column n0w/2 + 2t of the
+ *    (MUFU.EX2, FADD, MUFU.RCP, FMUL, FMUL, FMUL x 2^64, in that order; MUFU flushes a subnormal result to +-0, so for
+ *    g in (-88.72, -87.34), where 1 / (2^t + 1) is subnormal, the activation is +-0: PTX ISA 9.7.3.13 ftz, chip-observed in
+ *    evidence OWN30B-L1G-PFGEMM-SWIGLU-FTZ-df9bd9c4) and stores bf16x2 (F2FP RN) at act column n0w/2 + 2t of the
  *    act row (n/2 bf16): with the upload's (0,2,1,3) output-row permutation the act row is directly the next GEMM's
  *    stored activation row;
  *  - direct rows (no row index): the source row of sorted row r is r itself (the down GEMM reading the act rows).

@@ -125,6 +125,16 @@ static void ws_wrs(WsLane *l, int v, unsigned sub, uint32_t x, const BlackwellIR
 static float ws_u2f(uint32_t u) { float f; memcpy(&f, &u, 4); return f; }
 static uint32_t ws_f2u(float f) { uint32_t u; memcpy(&u, &f, 4); return u; }
 static uint32_t ws_bf16_rn(uint32_t u) { if ((u & 0x7fffffffu) > 0x7f800000u) return 0x7fc0u; return (u + 0x7fffu + ((u >> 16) & 1u)) >> 16; } /* f32 bits -> bf16 bits, round to nearest even */
+/* MUFU (the SASS EX2 / RCP / RSQ unit) flushes a subnormal result to a sign-preserving zero. Chip-observed on GB10: the SwiGLU
+ * reciprocal 1 / (2^t + 1) for t in (126, 128) came back as +-0 on all 101 of 101 differing elements (evidence
+ * OWN30B-L1G-PFGEMM-SWIGLU-FTZ-df9bd9c4, gpu_pfgemm_test host red test). Doc-inferred, not separately chip-observed: the input flush
+ * and the EX2 / RSQ cases follow the same rule, PTX ISA 9.7.3.13 (rcp) and 9.7.3.21 (ex2) "flushes subnormal inputs and results to
+ * sign-preserving zero" for the .ftz form, which is what the bare MUFU we emit is (the non-ftz PTX variants are ptxas sequences around
+ * MUFU; NVIDIA publishes no SASS semantics). Limit: the chip's MUFU is approximate (RCP 1 ulp, EX2 2 ulp), the model flushes a correctly
+ * rounded IEEE result, so right at the subnormal boundary the two can disagree 0 versus nonzero. This simulator and the pfgemm reference
+ * go through this helper; bw_warp_sim.h, bw_warp_sim_k.h, bw_warp_sim_pa.h and gpu_attention_test.c still model MUFU as IEEE (issue filed
+ * with PR #461). omega_numeric.c has its own ftz() on the library side. */
+static float ws_mufu_ftz(float f) { uint32_t u = ws_f2u(f); if ((u & 0x7f800000u) == 0u) u &= 0x80000000u; return ws_u2f(u); }
 static uint32_t ws_lut3(uint32_t lut, uint32_t a, uint32_t b, uint32_t c) {
     uint32_t r = 0;
     for (int i = 0; i < 8; i++) if (lut >> i & 1) r |= ((i & 4) ? a : ~a) & ((i & 2) ? b : ~b) & ((i & 1) ? c : ~c);
@@ -180,9 +190,9 @@ static void ws_lane_exec(WsSim *s, WsLane *l, const BlackwellIRInsn *in, int pc,
         if (in->imm == OMEGA_QMMA_MARK_F2E4) { ws_wrs(l, in->dst_vreg, in->dst_subreg, (uint32_t)qm_e4m3_rne_sat(ws_u2f(a)) << 8 | qm_e4m3_rne_sat(ws_u2f(b)), p); break; } /* F2FP.SATFINITE.E4M3 placeholder (NaN not modelled) */
         ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fmaxf(ws_u2f(a), ws_u2f(b))), p); break;
     case BW_IR_FMNMX_MIN: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fminf(ws_u2f(a), ws_u2f(b))), p); break;
-    case BW_IR_MUFU_EX2: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(exp2f(ws_u2f(a))), p); break;
-    case BW_IR_MUFU_RCP: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(1.0f / ws_u2f(a)), p); break;
-    case BW_IR_MUFU_RSQ: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(1.0f / sqrtf(ws_u2f(a))), p); break;
+    case BW_IR_MUFU_EX2: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_mufu_ftz(exp2f(ws_mufu_ftz(ws_u2f(a))))), p); break;
+    case BW_IR_MUFU_RCP: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_mufu_ftz(1.0f / ws_mufu_ftz(ws_u2f(a)))), p); break;
+    case BW_IR_MUFU_RSQ: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_mufu_ftz(1.0f / sqrtf(ws_mufu_ftz(ws_u2f(a))))), p); break;
     case BW_IR_LDG_STRONG_SYS: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; uint32_t x; memcpy(&x, (const void *)(uintptr_t)ad, 4); ws_wrs(l, in->dst_vreg, in->dst_subreg, x, p); break; }
     case BW_IR_STG_STRONG_SYS: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; memcpy((void *)(uintptr_t)ad, &b, 4); break; }
     case BW_IR_ATOMG_ADD_STRONG_SYS: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; uint32_t old; memcpy(&old, (const void *)(uintptr_t)ad, 4); uint32_t nw = old + b; memcpy((void *)(uintptr_t)ad, &nw, 4); ws_wrs(l, in->dst_vreg, in->dst_subreg, old, p); break; }

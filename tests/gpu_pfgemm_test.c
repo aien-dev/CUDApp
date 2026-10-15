@@ -79,8 +79,11 @@ static float emu_phys(const Prob *p, uint32_t i, uint32_t c) {
     return acc * R(KB);
 #undef R
 }
+/* the kernel's epilogue arithmetic: MUFU.EX2, FADD, MUFU.RCP, FMUL x 3, F2FP. The two MUFU results pass through ws_mufu_ftz
+ * (bw_warp_sim_tc.h): the chip's MUFU flushes a subnormal result to a sign-preserving zero, so for t = -g log2 e in (126, 128)
+ * (g in (-88.72, -87.34)) the reciprocal is +-0 and the activation is +-0, not the 2^-56-ish product an IEEE 1/d would give. */
 static uint16_t swiglu_bits(float g, float u) {
-    float t = g * u2f(0xbfb8aa3bu), ex = exp2f(t), d = ex + 1.0f, r = 1.0f / d, o = g * r;
+    float t = g * u2f(0xbfb8aa3bu), ex = ws_mufu_ftz(exp2f(ws_mufu_ftz(t))), d = ex + 1.0f, r = ws_mufu_ftz(1.0f / ws_mufu_ftz(d)), o = g * r;
     o = o * u; o = o * u2f(0x5f800000u);
     return bf16_rn(o);
 }
@@ -137,6 +140,23 @@ static int host_only(void) {
     printf("SWIGLU layout + emulation vs double oracle on the original weights: worst relative error %.3g (bf16 output: < 1e-2 expected)\n", worst);
     if (!(worst < 1e-2)) fail++;
     prob_free(&p);
+    /* the reference against the chip's MUFU.RCP flush (GB10, evidence OWN30B-L1G-PFGEMM-SWIGLU-FTZ-df9bd9c4, 2026-10-15): at 3600
+     * tokens, 48 sampled rows, all 101 of 101 elements that differed from the IEEE reference had t = -g log2 e in (126.03, 127.99)
+     * and came back +-0 from the chip. g and u are the emulated f32 gate / up values (9 significant digits round-trip exactly),
+     * act the chip's bf16; the first and last entries are the smallest and largest t observed. */
+    static const struct { float g, u; uint16_t act; } chip[] = {
+        { -87.3551483f, 274.485016f, 0x8000 }, { -87.4824142f, 122.849442f, 0x8000 }, { -87.8418655f, 45.4098854f, 0x8000 },
+        { -88.1839066f, -28.427494f, 0x0000 }, { -88.3344727f, -3.59300494f, 0x0000 }, { -88.7186356f, 180.687149f, 0x8000 },
+    };
+    size_t ok = 0;
+    for (size_t i = 0; i < sizeof chip / sizeof chip[0]; i++) ok += swiglu_bits(chip[i].g, chip[i].u) == chip[i].act;
+    /* negative control: g -87 (t 125.5) has a normal reciprocal and must stay a nonzero finite negative activation (the flush must not
+     * reach outside the window); g -89 (t 128.4) overflows ex2 to +inf and is -0 in both arithmetics (not a flush) */
+    const uint16_t nc_lo = swiglu_bits(-87.0f, 100.0f), nc_hi = swiglu_bits(-89.0f, 100.0f);
+    const int nc_ok = (nc_lo & 0x7fffu) != 0 && (nc_lo & 0x7f80u) != 0x7f80u && (nc_lo & 0x8000u) && nc_hi == 0x8000u;
+    printf("SWIGLU reference vs chip-observed MUFU.RCP flush window: %zu/%zu match; control g -87 -> %04x (nonzero), g -89 -> %04x (-0): %s\n",
+           ok, sizeof chip / sizeof chip[0], nc_lo, nc_hi, ok == sizeof chip / sizeof chip[0] && nc_ok ? "ok" : "FAIL");
+    if (ok != sizeof chip / sizeof chip[0] || !nc_ok) fail++;
     return fail;
 }
 
@@ -175,7 +195,9 @@ static size_t compare(const Prob *p, const void *y, const uint32_t *rows, uint32
         uint32_t i = rows[q]; emu_row(p, i, yf, ya);
         if (p->layout == OMEGA_GPU_PF_PLAIN) { const uint32_t *g = (const uint32_t *)y + (size_t)i * p->n; for (uint32_t c = 0; c < p->n; c++) if (g[c] != f2u(yf[c])) { if (getenv("PFDBG") && bad < 6) printf("  row %u col %u got %.9g want %.9g\n", i, c, u2f(g[c]), yf[c]); bad++; } }
         else { const uint16_t *g = (const uint16_t *)y + (size_t)i * (p->n / 2);
-            for (uint32_t c = 0; c < p->n / 2; c++) if (g[c] != ya[c]) { int d = abs((int)g[c] - (int)ya[c]); if (d <= tol_ulp && ((g[c] ^ ya[c]) & 0x8000) == 0) { if (ulp1) (*ulp1)++; } else bad++; } }
+            for (uint32_t c = 0; c < p->n / 2; c++) if (g[c] != ya[c]) { int d = abs((int)g[c] - (int)ya[c]); if (d <= tol_ulp && ((g[c] ^ ya[c]) & 0x8000) == 0) { if (ulp1) (*ulp1)++; }
+                else { if (getenv("PFDBG") && bad < 128) { const uint32_t G = c / 8, mm = c % 8; const float gg = emu_phys(p, i, 16 * G + mm), uu = emu_phys(p, i, 16 * G + 8 + mm);
+                                                             printf("  row %u act %u got %04x want %04x g %.9g u %.9g t %.6f\n", i, c, g[c], ya[c], gg, uu, gg * u2f(0xbfb8aa3bu)); } bad++; } } }
     }
     free(yf); free(ya);
     return bad;
