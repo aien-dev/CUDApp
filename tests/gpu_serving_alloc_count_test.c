@@ -35,6 +35,7 @@
 
 #include "fake_m16_native.h"
 #include "nvrm.h" /* the session reaches the fake driver through the Linux reference platform (P07 cut C) */
+#include "omega_blackwell_codegen.h" /* omega_matmul_frag_block_shape: the kernel cache key */
 #include "omega_gpu_attention_api.h"
 #include "omega_gpu_matmul_api.h"
 #include "omega_gpu_serving.h"
@@ -82,12 +83,18 @@ typedef struct {
     int a0, f0;                                        /* log positions at phase start */
 } Phase;
 
-typedef struct { uint32_t kp, np, gx; } Key;
+/* The matmul API's kernel cache key: (kp, np, grid_x, rt, ct). rt and ct follow from the call's padded shape
+ * (omega_matmul_frag_block_shape, the rule the API's launch_shape uses); since the blocked prefill kernel (#407)
+ * two calls with the same grid_x can need different kernels. */
+typedef struct { uint32_t kp, np, gx, rt, ct; } Key;
 static Key g_seen[128];
 static int g_nseen;
-static int seen(uint32_t kp, uint32_t np, uint32_t gx) {
-    for (int i = 0; i < g_nseen; i++) if (g_seen[i].kp == kp && g_seen[i].np == np && g_seen[i].gx == gx) return 1;
-    if (g_nseen < 128) { g_seen[g_nseen].kp = kp; g_seen[g_nseen].np = np; g_seen[g_nseen].gx = gx; g_nseen++; }
+static int seen(const OmegaGpuMatmulInfo *in) {
+    Key k = { in->padded_k, in->padded_n, in->grid_x, 0, 0 };
+    omega_matmul_frag_block_shape(in->padded_m / 16u, in->padded_n / 8u, &k.rt, &k.ct);
+    for (int i = 0; i < g_nseen; i++)
+        if (g_seen[i].kp == k.kp && g_seen[i].np == k.np && g_seen[i].gx == k.gx && g_seen[i].rt == k.rt && g_seen[i].ct == k.ct) return 1;
+    if (g_nseen < 128) g_seen[g_nseen++] = k;
     return 0;
 }
 
@@ -113,9 +120,9 @@ static void mm(uint32_t m, const OmegaGpuTensor *w, float *out) {
     int miss = info.kernel_cache_hit ? 0 : 1; /* at most one miss per launch; m <= 128 rows is one launch here */
     if (miss) {
         P->mm_miss++;
-        if (seen(info.padded_k, info.padded_n, info.grid_x)) P->mm_remiss++;
+        if (seen(&info)) P->mm_remiss++;
     } else {
-        (void)seen(info.padded_k, info.padded_n, info.grid_x);
+        (void)seen(&info);
     }
     P->mm_other_allocs += made - miss;
 }
@@ -211,7 +218,10 @@ static int bounds_mode(void) {
     mm(32, W_Q, g_y); attn(256);                                /* still serves after a refusal */
     CHECK(fk.alloc_calls == a0, "serving after a refusal allocated");
     /* paged bf16 attention (the sovereign-core path): 512 tokens = 32 blocks of 16 = exactly the reserved bytes */
-    (void)paged_call(16, 16);                                   /* build the paged kernel once */
+    /* build each paged kernel the checked calls use: the split count is part of the kernel (cut F/J, own_log2split),
+     * 16 tokens run split 0 and 512 tokens split 2, and the attention kernel cache is outside the reservation
+     * (omega_gpu_serving.h, "Not covered") */
+    (void)paged_call(16, 16); (void)paged_call(16, 512);
     const int p0 = fk.alloc_calls, pf0 = fk.free_calls;
     rc = paged_call(16, 16);  CHECK(attn_ran(rc), "paged 16 tokens in bounds: rc=%d (%s)", rc, omega_gpu_attention_last_error());
     rc = paged_call(16, 512); CHECK(attn_ran(rc), "paged 512 tokens (exactly the bound) refused: rc=%d (%s)", rc, omega_gpu_attention_last_error());
@@ -336,6 +346,7 @@ static int sweep_mode(int prepare) {
     OmegaGpuServingBounds b = QWEN3_4B_BOUNDS;
     b.max_rows = SWEEP_ROWS; b.max_n = VOCAB; b.max_n_one_row = VOCAB; b.kernel_slots = prepare ? 128 : 32;
     CHECK(omega_gpu_reserve_serving(&b) == 0, "reserve failed: %s", omega_gpu_matmul_last_error());
+    int prepared = -1; /* code buffers the prepare pass made: one per distinct kernel */
     if (prepare) {
         int a0 = fk.alloc_calls;
         for (unsigned i = 0; i < 6; i++) {
@@ -346,7 +357,8 @@ static int sweep_mode(int prepare) {
                 CHECK(rc == OMEGA_GPU_MATMUL_OK, "prepare m=%u %ux%u rc=%d %s", m, k, n, rc, omega_gpu_matmul_last_error());
             }
         }
-        printf("MEASURE sweep prepare: %d driver allocations (one code buffer per distinct kernel)\n", fk.alloc_calls - a0);
+        prepared = fk.alloc_calls - a0;
+        printf("MEASURE sweep prepare: %d driver allocations (one code buffer per distinct kernel)\n", prepared);
         omega_gpu_serving_seal();
     }
     g_nseen = 0;
@@ -360,7 +372,7 @@ static int sweep_mode(int prepare) {
                 int rc = omega_gpu_matmul_resident_f32(m, x, w[i], y, &info);
                 if (rc == OMEGA_GPU_MATMUL_TOO_LARGE) too_large++;
                 else if (rc != OMEGA_GPU_MATMUL_OK && rc != OMEGA_GPU_MATMUL_CHIP_FAIL) other++; /* CHIP_FAIL = fake kernel skips writes */
-                if (rc != OMEGA_GPU_MATMUL_TOO_LARGE) (void)seen(info.padded_k, info.padded_n, info.grid_x);
+                if (rc != OMEGA_GPU_MATMUL_TOO_LARGE) (void)seen(&info);
             }
     int made = fk.alloc_calls - a0;
     omega_gpu_session_alloc_stats(&st1);
@@ -370,7 +382,10 @@ static int sweep_mode(int prepare) {
            SWEEP_ROWS, made, g_nseen, too_large, other);
     CHECK(made == 0, "serving made %d driver allocations", made);
     CHECK(too_large == 0 && other == 0, "serving refused %d, other rc %d", too_large, other);
-    CHECK(g_nseen == 95, "distinct kernels %d, expected 95 for Qwen3-4B at CTA budget 256", g_nseen);
+    /* measured: 95 before the blocked prefill kernel (#407), 83 with it (keyed with rt, ct; lm_head stays
+     * on the single-tile kernel, its rt > 1 store offset does not fit the 24-bit immediate) */
+    CHECK(g_nseen == 83, "distinct kernels %d, expected 83 for Qwen3-4B at CTA budget 256", g_nseen);
+    CHECK(prepared < 0 || prepared == g_nseen, "prepare built %d kernels, serving used %d distinct", prepared, g_nseen);
     if (prepare) {
         int a1 = fk.alloc_calls;
         OmegaGpuMatmulInfo info;
@@ -387,21 +402,23 @@ static int sweep_mode(int prepare) {
     return g_fail ? 1 : 0;
 }
 
-/* ---- pin: a full cache of prepared kernels is never evicted. 9 slots, 9 prepared kernels (W_Q at 16..144 rows:
- * 9 row tiles, 9 distinct grid_x), then an unprepared call BEFORE any seal must be refused with no driver call,
- * and every prepared kernel must still hit. */
+/* ---- pin: a full cache of prepared kernels is never evicted. 8 slots, 8 prepared kernels (W_Q at 16..144 rows:
+ * 9 row counts; since the blocked prefill kernel (#407) 64 and 128 rows share one kernel, rt 4 x ct 4 at grid_x 128),
+ * then an unprepared call BEFORE any seal must be refused with no driver call, and every prepared kernel must still hit. */
 static int pin_mode(void) {
     W_Q = upload(HID, QDIM); W_K = upload(HID, KVDIM);
     float *x = calloc((size_t)144 * HID, sizeof *x), *y = calloc((size_t)144 * QDIM, sizeof *y);
     CHECK(x && y, "pin buffers");
     if (g_fail) return 1;
     OmegaGpuServingBounds b = QWEN3_4B_BOUNDS;
-    b.max_rows = 144; b.kernel_slots = 9;
+    b.max_rows = 144; b.kernel_slots = 8;
     CHECK(omega_gpu_reserve_serving(&b) == 0, "reserve failed: %s", omega_gpu_matmul_last_error());
+    const int ap = fk.alloc_calls;
     for (uint32_t m = 16; m <= 144; m += 16) {
         int rc = omega_gpu_matmul_prepare(m, HID, QDIM);
         CHECK(rc == OMEGA_GPU_MATMUL_OK, "prepare m=%u rc=%d %s", m, rc, omega_gpu_matmul_last_error());
     }
+    CHECK(fk.alloc_calls - ap == 8, "premise: prepare built %d kernels, the cache holds 8", fk.alloc_calls - ap);
     int a0 = fk.alloc_calls;
     OmegaGpuMatmulInfo info;
     int rc = omega_gpu_matmul_resident_f32(1, x, W_K, y, &info);

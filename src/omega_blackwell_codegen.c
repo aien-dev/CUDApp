@@ -1921,6 +1921,12 @@ int omega_blackwell_codegen_matmul_frag(const OmegaMatMulSpec *spec, uint32_t gr
  * words (stall 15 then NOP stall 14) although the RT*CT accumulators are independent: a longer stall
  * is never wrong, and the loads dominate the pass. CTA = one warp, as above; a grid of
  * (grid_x, row blocks); column blocks advance by grid_x per pass of the column loop. */
+/* The C store offset of the last tile (rt-1, ct-1) is a signed 24-bit STG immediate; for wide N (lm_head,
+ * 151936 columns) rt > 1 does not fit. Shared by the generator below and omega_matmul_frag_block_shape. */
+static int frag_block_store_fits(uint32_t rt, uint32_t ct, uint32_t n) {
+    return (uint64_t)(rt - 1) * 16u * n * 4u + (uint64_t)(ct - 1) * 32u + 4u < (1ull << 23);
+}
+
 int omega_blackwell_codegen_matmul_frag_block_prog(const OmegaMatMulSpec *spec, uint32_t grid_x, uint32_t unroll,
                                                    uint32_t rt, uint32_t ct, int mutant, BlackwellIRProgram *prog) {
     if (!spec || !prog) return -1;
@@ -1945,7 +1951,7 @@ int omega_blackwell_codegen_matmul_frag_block_prog(const OmegaMatMulSpec *spec, 
         return -1;
     if ((uint64_t)(rt - 1) * KS * 512u + (unroll - 1) * 512u >= (1ull << 23) ||
         (uint64_t)(ct - 1) * KS * 256u + (unroll - 1) * 256u >= (1ull << 23) ||
-        (uint64_t)(rt - 1) * 16u * N * 4u + (ct - 1) * 32u + 4u >= (1ull << 23))
+        !frag_block_store_fits(rt, ct, N))
         return -1;
 
     omega_bw_ir_init(prog);
@@ -2086,11 +2092,16 @@ int omega_blackwell_codegen_matmul_frag_block(const OmegaMatMulSpec *spec, uint3
 
 /* The row and column tiles one warp owns in the blocked kernel: the largest of 4, 2, 1 dividing the
  * row tiles (rt), and for rt > 1 the largest of 4, 2, 1 dividing the column tiles (ct); rt = ct = 1
- * is the single-tile kernel (decode rows). */
+ * is the single-tile kernel (decode rows). An rt whose last C tile's store offset does not fit the
+ * 24-bit immediate (frag_block_store_fits: wide N such as lm_head) steps down, to 1 at the end. */
 void omega_matmul_frag_block_shape(uint32_t mt, uint32_t nt, uint32_t *rt, uint32_t *ct) {
-    uint32_t r = mt % 4u == 0 ? 4u : mt % 2u == 0 ? 2u : 1u;
+    uint32_t r = mt % 4u == 0 ? 4u : mt % 2u == 0 ? 2u : 1u, c = 1u;
+    for (; r > 1; r /= 2u) {
+        c = nt % 4u == 0 ? 4u : nt % 2u == 0 ? 2u : 1u;
+        if (frag_block_store_fits(r, c, nt * 8u)) break;
+    }
     *rt = r;
-    *ct = r > 1 ? (nt % 4u == 0 ? 4u : nt % 2u == 0 ? 2u : 1u) : 1u;
+    *ct = r > 1 ? c : 1u;
 }
 
 /* loads per pass at or under 8 (see the kernel comment): unroll 2 only when 2*(rt+ct) fits and KS is even */

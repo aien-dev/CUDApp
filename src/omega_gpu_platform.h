@@ -39,7 +39,10 @@
 #include <stdint.h>
 
 #define OMEGA_GPU_PLATFORM_ABI_MAJOR 1u
-#define OMEGA_GPU_PLATFORM_ABI_MINOR 1u /* 1.1 (P07 cut C session part): DEVICE, QUEUE, CLOCK_NS, HOST_MEM; COMPLETION is poll_word */
+/* minor: additive change (a service bit or a caps field appended); negotiate refuses a provided minor older than the
+ * required one. 1.1 (P07 cut C session part): DEVICE, QUEUE, CLOCK_NS, HOST_MEM; COMPLETION is poll_word.
+ * 1.2 (omega #457/#459): caps.submit_prefix_words. */
+#define OMEGA_GPU_PLATFORM_ABI_MINOR 2u
 
 /* ---- typed handles ------------------------------------------------------ */
 
@@ -122,7 +125,7 @@ typedef struct {
     uint32_t max_inflight;      /* jobs in flight per queue (concurrency limit) */
     uint64_t max_buffer_bytes;  /* one buffer */
     uint64_t max_total_bytes;   /* all live buffers */
-    uint32_t submit_prefix_words; /* most words queue_submit may put ahead of the caller's words in the ring (the Linux
+    uint32_t submit_prefix_words; /* ABI 1.2: most words queue_submit may put ahead of the caller's words in the ring (the Linux
                                    * reference: the omega #457 L2 invalidate); a caller filling the ring budgets
                                    * ring words minus this. 0 = never. Not negotiated. */
 } OmegaGpuPlatformCaps;

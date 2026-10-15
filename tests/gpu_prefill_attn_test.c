@@ -338,6 +338,7 @@ static FILE *g_json;
 static int g_warm;  /* untimed calls before each timing series (--warm N) */
 static int g_cached;  /* --cached: device-entry checks use omega_gpu_pf_alloc_dev buffers (needs PATTN_HAVE_PF) */
 static int g_mirror_on = 1;
+static int g_fused;  /* --fused: the cut-1 fused path, which never builds a K/V mirror */
 /* the mirror contract: forget the cache's K/V mirrors before freeing it */
 static void cache_free(OmegaGpuDecodeAttnCache *c) { omega_gpu_prefill_attn_kv_mirror_forget(c); omega_gpu_decode_attn_cache_free(c); }
 static int cache_with_history(const Case *c, OmegaGpuDecodeAttnCache **out) {
@@ -523,6 +524,9 @@ done:
  * invalidate X must match again. */
 static int chip_continuation(void) {
     if (!omega_gpu_prefill_attn_kv_mirror_available() || !g_mirror_on) { printf("chip continuation: skipped (no mirror in this build or --no-mirror)\n"); return 1; }
+    /* the mirror lives on the split path (APPEND + ATTEND): the API calls mirror_get only when not fused, so the fused
+     * path never builds one and the check has nothing to compare there. The default (split) run covers it. */
+    if (g_fused) { printf("chip continuation: skipped (--fused: the fused path builds no K/V mirror; the split run covers it)\n"); return 1; }
     const uint32_t MP = 1024, NA = 300, ND = 5, NB = 64, NC = 32, N = NA + ND + NB + NC;
     Case c, junk; case_make(&c, MP, 0, N, 21, 1.0f); case_make(&junk, MP, 100, 1, 22, 1.0f);
     OmegaGpuDecodeAttnCache *x = NULL, *y = NULL;
@@ -604,7 +608,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--reps") && i + 1 < argc) reps = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--warps") && i + 1 < argc) warps = (uint32_t)atoi(argv[++i]);
         else if (!strcmp(argv[i], "--out") && i + 1 < argc) json = argv[++i];
-        else if (!strcmp(argv[i], "--fused")) fused = 1;
+        else if (!strcmp(argv[i], "--fused")) fused = g_fused = 1;
         else if (!strcmp(argv[i], "--no-mirror")) { omega_gpu_prefill_attn_set_kv_mirror(0); g_mirror_on = 0; }
         else if (!strcmp(argv[i], "--cached") && PATTN_HAVE_PF) g_cached = 1;
         else if (!strcmp(argv[i], "--mirror-per-call")) omega_gpu_prefill_attn_test_set_mirror_per_call(1);

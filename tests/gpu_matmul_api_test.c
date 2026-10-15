@@ -239,6 +239,10 @@ static void frag_host_checks(void) {
         omega_matmul_frag_block_shape(7, 3072, &rt, &ct); CHECK(rt == 1 && ct == 1, "block shape m=112 (7 row tiles) is the single-tile kernel");
         omega_matmul_frag_block_shape(6, 6, &rt, &ct); CHECK(rt == 2 && ct == 2, "block shape 6 row tiles, 6 column tiles is 2x2");
         omega_matmul_frag_block_shape(4, 1, &rt, &ct); CHECK(rt == 4 && ct == 1, "block shape 4 row tiles, 1 column tile is 4x1");
+        /* the C store offset of the last row tile is a signed 24-bit immediate: wide N steps rt down (lm_head: to 1) */
+        omega_matmul_frag_block_shape(2, 18992, &rt, &ct); CHECK(rt == 1 && ct == 1, "block shape lm_head (N 151936) at 2 row tiles is the single-tile kernel: %ux%u", rt, ct);
+        omega_matmul_frag_block_shape(8, 18992, &rt, &ct); CHECK(rt == 1 && ct == 1, "block shape lm_head (N 151936) at 8 row tiles is the single-tile kernel: %ux%u", rt, ct);
+        omega_matmul_frag_block_shape(8, 8192, &rt, &ct); CHECK(rt == 2 && ct == 4, "block shape N 65536 at 8 row tiles steps rt 4 -> 2: %ux%u", rt, ct);
         CHECK(omega_matmul_frag_block_unroll(4096, 4, 4) == 1 && omega_matmul_frag_block_unroll(4096, 2, 2) == 2 &&
               omega_matmul_frag_block_unroll(48, 2, 2) == 1 && omega_matmul_frag_block_unroll(4096, 4, 2) == 1, "blocked unroll rule (loads per pass <= 8)");
         OmegaMatMulSpec s; OmegaBlackwellKernel kk; memset(&kk, 0, sizeof kk);

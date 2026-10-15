@@ -215,7 +215,7 @@ static void c_install_refusals(void) {
     p.irq_wait = f_irq; /* a function for a service it does not claim: refused, never used */
     const int rc_irq = omega_gpu_session_set_platform(&p, &caps);
     EXPECT(rc_irq != OMEGA_GPU_PLAT_OK && omega_gpu_session_platform() == NULL);
-    caps = g_caps; caps.abi_minor = 0;
+    caps = g_caps; caps.abi_minor = 1; /* a 1.1 platform predates caps.submit_prefix_words: refused */
     EXPECT(omega_gpu_session_set_platform(&g_plat, &caps) == OMEGA_GPU_PLAT_REFUSED_ABI);
     EXPECT(omega_gpu_session_platform() == NULL); /* nothing was installed */
     EXPECT(install() == OMEGA_GPU_PLAT_OK);
