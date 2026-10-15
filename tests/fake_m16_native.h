@@ -38,7 +38,7 @@
 #define FK_TEXT "fake driver says no"
 #define FK_EV_MAX 512
 #define FK_SNAP_WORDS 256
-#define FK_PB_MAX 2048
+#define FK_PB_MAX 16384 /* the whole 64 KiB session ring (omega_gpu_cmdlist.c RING_WORDS), so a near-full command list fits */
 
 /* Event kinds in the log (fk.ev). */
 enum {

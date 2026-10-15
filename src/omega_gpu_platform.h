@@ -122,6 +122,9 @@ typedef struct {
     uint32_t max_inflight;      /* jobs in flight per queue (concurrency limit) */
     uint64_t max_buffer_bytes;  /* one buffer */
     uint64_t max_total_bytes;   /* all live buffers */
+    uint32_t submit_prefix_words; /* most words queue_submit may put ahead of the caller's words in the ring (the Linux
+                                   * reference: the omega #457 L2 invalidate); a caller filling the ring budgets
+                                   * ring words minus this. 0 = never. Not negotiated. */
 } OmegaGpuPlatformCaps;
 
 /* ---- refusals ----------------------------------------------------------- */

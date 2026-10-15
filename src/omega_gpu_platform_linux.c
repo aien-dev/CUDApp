@@ -31,6 +31,8 @@ typedef struct {
     OmegaGpuHandleTable t;
     NvrmMem mem[OMEGA_GPU_HANDLE_SLOTS];
     uint32_t rights[OMEGA_GPU_HANDLE_SLOTS];
+    uint8_t gpu_cached[OMEGA_GPU_HANDLE_SLOTS]; /* allocated GPU-cached (nvrm_alloc), omega #457 */
+    int l2_inval_pending; /* a host sync into a GPU-cached buffer since the last submission, omega #457 */
     M16NativeContext m16;
     OmegaGpuDeviceHandle dev; /* generation 0 = closed */
     OmegaGpuQueueHandle queue;
@@ -42,7 +44,14 @@ static LinuxRef g_ref = {
     .locks = {PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER},
 };
 
+/* omega #457: MEM_OP_A..D = 0, 0, 0, OPERATION L2_SYSMEM_NCOH_INVALIDATE 0x11 in D bits 31:27 (clc96f.h:30-73), the
+ * same method form as the C3 tail's L2_FLUSH_DIRTY. ref_queue_submit puts it ahead of the next submission after a host
+ * sync into a GPU-cached buffer; g_caps.submit_prefix_words is its size, so callers budget exactly what is written. */
+static const uint32_t L2_INVAL_PREFIX[] = { (2u << 28) | (4u << 16) | (0x0028u >> 2), 0, 0, 0, 0x11u << 27 };
+#define L2_INVAL_PREFIX_WORDS ((uint32_t)(sizeof L2_INVAL_PREFIX / sizeof L2_INVAL_PREFIX[0]))
+
 static const OmegaGpuPlatformCaps g_caps = {
+    .submit_prefix_words = L2_INVAL_PREFIX_WORDS,
     .abi_major = OMEGA_GPU_PLATFORM_ABI_MAJOR,
     .abi_minor = OMEGA_GPU_PLATFORM_ABI_MINOR,
     .services = OMEGA_GPU_SVC_REQUIRED_SESSION, /* no MMIO (RM owns the registers), no IRQ (polling only) */
@@ -157,9 +166,11 @@ static int ref_device_close(void *ctx, OmegaGpuDeviceHandle dev) {
         (void)omega_gpu_handles_close(&r->t, i, r->t.generation[i], r->t.kind[i]);
         memset(&r->mem[i], 0, sizeof r->mem[i]);
         r->rights[i] = 0;
+        r->gpu_cached[i] = 0;
     }
     (void)omega_gpu_handles_close(&r->t, dev.index, dev.generation, OMEGA_GPU_HANDLE_DEVICE);
     memset(&r->dev, 0, sizeof r->dev);
+    r->l2_inval_pending = 0; /* omega #457: nothing pending survives the device */
     memset(&r->queue, 0, sizeof r->queue);
     (void)m16_native_close(&r->m16);
     ref_unlock(r);
@@ -192,12 +203,13 @@ static int ref_dma_alloc(void *ctx, OmegaGpuDeviceHandle dev, const OmegaGpuBuff
     NvrmMem m;
     if ((cached ? nvrm_alloc(&r->m16.rm, desc->bytes, &m) : nvrm_alloc_gpu_uncached(&r->m16.rm, desc->bytes, &m)) != 0) {
         (void)omega_gpu_handles_close(&r->t, idx, gen, desc->kind); /* this slot never got memory: its generation moves on */
-        rc = refuse(r, OMEGA_GPU_PLAT_REFUSED_DEVICE, "nvrm_alloc_gpu_uncached");
+        rc = refuse(r, OMEGA_GPU_PLAT_REFUSED_DEVICE, cached ? "nvrm_alloc" : "nvrm_alloc_gpu_uncached");
         ref_unlock(r);
         return rc;
     }
     r->mem[idx] = m;
     r->rights[idx] = desc->rights;
+    r->gpu_cached[idx] = (uint8_t)cached;
     out->index = idx; out->generation = gen;
     cpu->ptr = m.cpu; cpu->len = (size_t)m.size;
     gpu->va = m.va;
@@ -218,6 +230,7 @@ static int ref_dma_free(void *ctx, OmegaGpuBufferHandle b) {
     (void)omega_gpu_handles_close(&r->t, b.index, b.generation, kind);
     memset(&r->mem[b.index], 0, sizeof r->mem[b.index]);
     r->rights[b.index] = 0;
+    r->gpu_cached[b.index] = 0;
     ref_unlock(r);
     return OMEGA_GPU_PLAT_OK;
 }
@@ -230,18 +243,22 @@ static void barrier(void) {
 #endif
 }
 
-static int ref_sync(void *ctx, OmegaGpuBufferHandle b, uint64_t off, uint64_t len, const char *stage) {
+static int ref_sync(void *ctx, OmegaGpuBufferHandle b, uint64_t off, uint64_t len, const char *stage, int to_gpu) {
     LinuxRef *r = ctx;
     ref_lock(r);
     int rc = buf_ok(r, b, NULL);
     if (rc == OMEGA_GPU_PLAT_OK) rc = range_ok(r, b, off, len);
     if (rc != OMEGA_GPU_PLAT_OK) rc = refuse(r, rc, stage);
+    /* omega #457 (chip, 2026-10-15): after the host rewrites a GPU-cached buffer the GPU already read, every later launch
+     * read the old bytes from L2 (nvos.h:1117 "For system memory this will not be coherent with direct CPU mappings").
+     * The next submission therefore starts with L2_SYSMEM_NCOH_INVALIDATE (ref_queue_submit). */
+    else if (to_gpu && r->gpu_cached[b.index]) r->l2_inval_pending = 1;
     ref_unlock(r);
     if (rc == OMEGA_GPU_PLAT_OK) barrier(); /* uncached system memory: a full barrier is the whole sync */
     return rc;
 }
-static int ref_sync_to_gpu(void *ctx, OmegaGpuBufferHandle b, uint64_t off, uint64_t len) { return ref_sync(ctx, b, off, len, "sync_cpu_to_gpu"); }
-static int ref_sync_to_cpu(void *ctx, OmegaGpuBufferHandle b, uint64_t off, uint64_t len) { return ref_sync(ctx, b, off, len, "sync_gpu_to_cpu"); }
+static int ref_sync_to_gpu(void *ctx, OmegaGpuBufferHandle b, uint64_t off, uint64_t len) { return ref_sync(ctx, b, off, len, "sync_cpu_to_gpu", 1); }
+static int ref_sync_to_cpu(void *ctx, OmegaGpuBufferHandle b, uint64_t off, uint64_t len) { return ref_sync(ctx, b, off, len, "sync_gpu_to_cpu", 0); }
 
 static int ref_poll_word(void *ctx, OmegaGpuBufferHandle b, uint64_t off, uint32_t expected, uint64_t timeout_ms, uint32_t *observed) {
     LinuxRef *r = ctx;
@@ -297,9 +314,26 @@ static int ref_queue_submit(void *ctx, OmegaGpuQueueHandle q, const uint32_t *wo
     ref_lock(r);
     int rc = queue_ok(r, q);
     if (rc == OMEGA_GPU_PLAT_OK && (!words || nwords == 0u)) rc = OMEGA_GPU_PLAT_REFUSED_ARGS;
-    if (rc == OMEGA_GPU_PLAT_OK && (uint64_t)nwords * 4u > r->m16.pb_mem.size) rc = OMEGA_GPU_PLAT_REFUSED_BAD_LENGTH;
-    if (rc == OMEGA_GPU_PLAT_OK && m16_native_submit_methods(&r->m16, words, nwords) != 0) rc = OMEGA_GPU_PLAT_REFUSED_DEVICE;
-    if (rc != OMEGA_GPU_PLAT_OK) rc = refuse(r, rc, "submit_methods");
+    /* omega #457: a host sync into a GPU-cached buffer is pending, so this submission starts with L2_INVAL_PREFIX.
+     * No dirty line is dropped: every earlier submission ended with L2_FLUSH_DIRTY and the host waited for it.
+     * DOCS SILENT on ordering between this MEM_OP and the launch that follows (no WFI is inserted); the chip gate
+     * tools/run_gpu_l2_stale_chip.sh (20/20 FRESH) is the only proof. The prefix counts against the ring like any
+     * word; callers budget it from g_caps.submit_prefix_words (omega_gpu_cmdlist.c). */
+    const uint32_t pre = r->l2_inval_pending ? L2_INVAL_PREFIX_WORDS : 0u;
+    if (rc == OMEGA_GPU_PLAT_OK && ((uint64_t)nwords + pre) * 4u > r->m16.pb_mem.size) rc = OMEGA_GPU_PLAT_REFUSED_BAD_LENGTH;
+    uint32_t *buf = NULL; const char *stage = "submit_methods";
+    if (rc == OMEGA_GPU_PLAT_OK && pre) {
+        buf = malloc(((size_t)nwords + pre) * 4u);
+        if (!buf) { rc = OMEGA_GPU_PLAT_REFUSED_LIMIT; stage = "submit_methods (host copy for the #457 L2 invalidate prefix)"; }
+        else {
+            memcpy(buf, L2_INVAL_PREFIX, sizeof L2_INVAL_PREFIX);
+            memcpy(buf + pre, words, (size_t)nwords * 4u);
+        }
+    }
+    if (rc == OMEGA_GPU_PLAT_OK && m16_native_submit_methods(&r->m16, buf ? buf : words, nwords + pre) != 0) rc = OMEGA_GPU_PLAT_REFUSED_DEVICE;
+    if (rc == OMEGA_GPU_PLAT_OK && pre) r->l2_inval_pending = 0;
+    free(buf);
+    if (rc != OMEGA_GPU_PLAT_OK) rc = refuse(r, rc, stage);
     ref_unlock(r);
     return rc;
 }

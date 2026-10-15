@@ -99,6 +99,7 @@ static const OmegaGpuPlatform *platform(void) {
 }
 
 const OmegaGpuPlatform *omega_gpu_session_platform(void) { return platform(); }
+uint32_t omega_gpu_session_submit_prefix_words(void) { return platform() ? g_caps.submit_prefix_words : 0u; } /* g_caps is written before g_p is published */
 OmegaGpuCompletionMode omega_gpu_session_completion_mode(void) { return OMEGA_GPU_COMPLETION_POLLING; }
 
 uint64_t omega_gpu_session_now_ns(void) {

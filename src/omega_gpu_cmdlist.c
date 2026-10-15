@@ -257,6 +257,11 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
     }
 
     const uint32_t per_launch = (o.mode == OMEGA_GPU_CMDLIST_INLINE ? 4u + 2u * 99u : 8u) + (o.stamps ? STAMP_WORDS : 0u);
+    /* The platform may put its own words ahead of ours in the ring (the Linux reference: the omega #457 L2 invalidate
+     * after a host write to a GPU-cached buffer). Budget what it publishes, or a near-full submission is refused. */
+    const uint32_t prefix = omega_gpu_session_submit_prefix_words();
+    const uint32_t avail = cl->words_cap - 18u - TAIL_WORDS - 2u - STAMP_WORDS;
+    if (prefix > avail || avail - prefix < per_launch) { omega_gpu_session_set_error("cmdlist submit: the platform submit prefix leaves no room for a launch"); return -1; }
     uint64_t *stamp_cpu = cl->stamps.cpu;
     cl->stamped = o.stamps ? 1 : 0;
     if (o.stamps) {
@@ -265,7 +270,7 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
             omega_gpu_session_set_error("cmdlist submit: sync stamps"); return -1;
         }
     }
-    const uint32_t room = (cl->words_cap - 18u - TAIL_WORDS - 2u - STAMP_WORDS) / per_launch;
+    const uint32_t room = (avail - prefix) / per_launch;
     uint64_t elapsed = 0, host = p->time_now_ns(p->ctx) - th0;
     uint32_t done = 0, submits = 0, words = 0;
     while (done < cl->n) {

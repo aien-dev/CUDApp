@@ -20,6 +20,7 @@ FakeDriver fk;
 typedef struct {
     uint32_t handle;
     void *ptr;
+    uint64_t size;
 } LiveAlloc;
 
 static LiveAlloc g_live[FK_LIVE_MAX];
@@ -99,13 +100,14 @@ static int inject(Nvrm *rm, int rc)
     return rc;
 }
 
-static void live_add(uint32_t handle, void *ptr)
+static void live_add(uint32_t handle, void *ptr, uint64_t size)
 {
     size_t i;
     for (i = 0; i < FK_LIVE_MAX; i++) {
         if (g_live[i].handle == 0) {
             g_live[i].handle = handle;
             g_live[i].ptr = ptr;
+            g_live[i].size = size;
             fk.live++;
             return;
         }
@@ -195,6 +197,21 @@ static void run_kernel(const uint32_t *q)
         *word_at(sem) = q[17] + (fk.sem_mode == FK_SYNC_OVERSHOOT ? 1u : 0u);
 }
 
+/* SEND_PCAS_A carries the QMD address >> 8 in 32 bits (a 40-bit GPU address). The fake's GPU address is the host
+ * pointer, which can be wider: find the live allocation whose low 40 bits match. NULL if none does. */
+static const uint32_t *qmd_from_shifted8(uint32_t s8)
+{
+    const uint64_t low = (uint64_t)s8 << 8, mask40 = (1ull << 40) - 1u;
+    size_t i;
+    for (i = 0; i < FK_LIVE_MAX; i++) {
+        uint64_t base = (uint64_t)(uintptr_t)g_live[i].ptr, a = (base & ~mask40) | low;
+        if (g_live[i].handle == 0) continue;
+        if (a < base) a += 1ull << 40;
+        if (a >= base && a + 96u * 4u <= base + g_live[i].size) return (const uint32_t *)(uintptr_t)a;
+    }
+    return NULL;
+}
+
 /* Walks the submitted pushbuffer. exec == 0 only collects addresses (so the
  * state at the doorbell can be captured first); exec == 1 runs it. Every packet
  * is a header (type 2 or 6 in bits 31:28, count in 28:16, subchannel in 15:13,
@@ -257,6 +274,11 @@ static void walk(const uint32_t *w, size_t n, int exec)
                 logev(FK_EV_PB_QMD, qaddr, (launch && (q[9] & 1u) != 0) ? 1u : 0u, 0);
                 if (launch && (q[9] & 1u) != 0) run_kernel(q);
             }
+        } else if (subc == 1u && mthd == 0x02b4u && cnt == 1u) {
+            /* SEND_PCAS_A (clcec0.h, QMD address >> 8): a standalone QMD the command list (src/omega_gpu_cmdlist.c)
+             * wrote to memory. Modelled only with FK_KERNEL_SKIP: the launch releases its completion semaphore. */
+            const uint32_t *q = exec && fk.kernel_mode == FK_KERNEL_SKIP ? qmd_from_shifted8(d[0]) : NULL;
+            if (q && (q[9] & 1u) != 0) run_kernel(q);
         } else if (subc == 0u && mthd == 0x005cu && cnt == 5u) {
             uint64_t addr = ((uint64_t)d[1] << 32) | d[0];
             uint32_t payload = d[2];
@@ -336,7 +358,7 @@ int nvrm_alloc(Nvrm *rm, uint64_t size, NvrmMem *out)
     out->size = size;
     out->cpu = p;
     out->va = (uint64_t)(uintptr_t)p;
-    live_add(out->handle, p);
+    live_add(out->handle, p, size);
     if (fk.alloc_size_n < FK_SIZE_LOG) fk.alloc_size_log[fk.alloc_size_n] = size;
     fk.alloc_size_n++;
     if (fk.alloc_calls >= 1 && fk.alloc_calls <= 16) fk.alloc_va[fk.alloc_calls - 1] = out->va;

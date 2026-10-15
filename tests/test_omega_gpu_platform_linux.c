@@ -12,6 +12,8 @@
 #include "fake_m16_native.h"
 #include "nvrm.h"
 #include "omega_blackwell_submit.h"
+#include "omega_gpu_cmdlist.h"
+#include "omega_gpu_mem_cached.h"
 #include "omega_gpu_platform_linux.h"
 #include "omega_gpu_session.h"
 
@@ -161,6 +163,83 @@ static void c_marker_never_latches(void) {
     EXPECT(ps.buffers == 4);
 }
 
+/* omega #457: the L2_SYSMEM_NCOH_INVALIDATE prefix, MEM_OP_A..D = 0, 0, 0, 0x11 << 27 (clc96f.h:30-73). The fake logs
+ * every MEM_OP as FK_EV_PB_FLUSH with a = the operation word. */
+#define L2_INVAL_OP (0x11u << 27)
+static int count_l2_inval(void) {
+    int n = 0;
+    for (int i = 0; i < fk.nev; i++) n += fk.ev[i].kind == FK_EV_PB_FLUSH && fk.ev[i].a == L2_INVAL_OP;
+    return n;
+}
+
+static void c_l2_inval_prefix_once(void) {
+    fake_reset();
+    fk.kernel_mode = FK_KERNEL_SKIP;
+    OmegaGpuPlatformCaps caps;
+    (void)omega_gpu_platform_linux(&caps);
+    EXPECT(caps.submit_prefix_words == 5u); /* the cost the platform publishes is the prefix it writes */
+    omega_gpu_session_lock();
+    OmegaGpuSession *s = omega_gpu_session_open();
+    EXPECT(s != NULL);
+    if (!s) { omega_gpu_session_unlock(); return; }
+    const OmegaGpuPlatform *p = omega_gpu_session_platform();
+    OmegaGpuMem cached;
+    EXPECT(omega_gpu_session_alloc_cached(4096, &cached) == 0);
+    OmegaGpuLaunch L = launch_desc(1000);
+    EXPECT(omega_gpu_session_launch(&L, NULL, NULL) == 0);
+    EXPECT(count_l2_inval() == 0); /* no host write into a GPU-cached buffer yet: no prefix */
+    const size_t plain = fk.pb_len;
+    EXPECT(p->sync_cpu_to_gpu(p->ctx, s->marker.handle, 0, 4) == OMEGA_GPU_PLAT_OK); /* an uncached buffer: no prefix */
+    EXPECT(omega_gpu_session_launch(&L, NULL, NULL) == 0);
+    EXPECT(count_l2_inval() == 0 && fk.pb_len == plain);
+    EXPECT(p->sync_cpu_to_gpu(p->ctx, cached.handle, 0, 4096) == OMEGA_GPU_PLAT_OK);
+    EXPECT(omega_gpu_session_launch(&L, NULL, NULL) == 0);
+    EXPECT(count_l2_inval() == 1); /* exactly once, at the head of the next submission */
+    EXPECT(fk.pb_len == plain + 5u);
+    EXPECT(fk.pb[0] == ((2u << 28) | (4u << 16) | (0x0028u >> 2)) && fk.pb[1] == 0 && fk.pb[2] == 0 && fk.pb[3] == 0 &&
+           fk.pb[4] == L2_INVAL_OP);
+    EXPECT(omega_gpu_session_launch(&L, NULL, NULL) == 0);
+    EXPECT(count_l2_inval() == 1 && fk.pb_len == plain); /* consumed: the launch after it has none */
+    EXPECT(p->sync_gpu_to_cpu(p->ctx, cached.handle, 0, 4096) == OMEGA_GPU_PLAT_OK); /* GPU to CPU is no host write */
+    EXPECT(omega_gpu_session_launch(&L, NULL, NULL) == 0);
+    EXPECT(count_l2_inval() == 1 && fk.pb_len == plain);
+    EXPECT(fk.pb_parse_error == 0 && fk.ev_overflow == 0);
+    omega_gpu_session_unlock();
+}
+
+/* Fable review of omega #459: a stamped standalone list of >= 1167 launches filled one submission to 16381 words; with
+ * the 5-word prefix pending that is 16386 > 16384 ring words, refused BAD_LENGTH on every retry. The command list must
+ * budget the prefix the platform publishes (caps.submit_prefix_words). */
+static void c_cmdlist_near_cap_with_l2_inval_pending(void) {
+    fake_reset();
+    fk.kernel_mode = FK_KERNEL_SKIP;
+    fk.alloc_max = 4u << 20; /* the 2048-launch bank and QMD buffers are 2 MiB each */
+    OmegaGpuCmdList *cl = NULL;
+    EXPECT(omega_gpu_cmdlist_create(OMEGA_GPU_CMDLIST_MAX_LAUNCHES, &cl) == 0);
+    if (!cl) { printf("  %s\n", omega_gpu_session_last_error()); return; }
+    omega_gpu_session_lock();
+    OmegaGpuLaunch L = launch_desc(1000);
+    for (uint32_t i = 0; i < OMEGA_GPU_CMDLIST_MAX_LAUNCHES; i++) EXPECT(omega_gpu_cmdlist_add(cl, &L) == (int)i);
+    const OmegaGpuPlatform *p = omega_gpu_session_platform();
+    OmegaGpuMem cached;
+    EXPECT(omega_gpu_session_alloc_cached(4096, &cached) == 0);
+    EXPECT(p->sync_cpu_to_gpu(p->ctx, cached.handle, 0, 4096) == OMEGA_GPU_PLAT_OK); /* the prefix is now pending */
+    const int submits0 = fk.submit_calls;
+    OmegaGpuCmdListOpts o = { .mode = OMEGA_GPU_CMDLIST_PCAS, .barrier = OMEGA_GPU_CMDLIST_BARRIER_WFI, .timeout_ms = 1000, .stamps = 1 };
+    OmegaGpuCmdListStats st;
+    const int rc = omega_gpu_cmdlist_submit(cl, &o, &st);
+    if (rc != 0) printf("  cmdlist submit: %s (platform: %s)\n", omega_gpu_session_last_error(), p->diag_text(p->ctx));
+    EXPECT(rc == 0);
+    EXPECT(st.sems_done == OMEGA_GPU_CMDLIST_MAX_LAUNCHES && st.first_missing == -1);
+    EXPECT(st.submits == 2 && fk.submit_calls - submits0 == 2);
+    EXPECT(count_l2_inval() == 1); /* the first submission only */
+    for (int i = 0; i < fk.nev; i++)
+        if (fk.ev[i].kind == FK_EV_SUBMIT) EXPECT(fk.ev[i].a * 4u <= fk.pb_mem_size); /* prefix included, inside the ring */
+    EXPECT(fk.pb_parse_error == 0 && fk.ev_overflow == 0);
+    EXPECT(!omega_gpu_session_is_blocked() && !omega_gpu_cmdlist_is_latched());
+    omega_gpu_session_unlock();
+}
+
 typedef struct { const char *id; void (*fn)(void); } Case;
 static const Case CASES[] = {
     {"LINUX_REF_CAPS_NO_MMIO_NO_IRQ", c_caps},
@@ -169,6 +248,8 @@ static const Case CASES[] = {
     {"REFERENCE_REFUSALS_CACHED_POLLED_RING_STALE", c_reference_refusals},
     {"OPEN_FAILURE_KEEPS_DRIVER_TEXT", c_open_failure_text},
     {"MARKER_NEVER_LATCHES_AND_PARKS", c_marker_never_latches},
+    {"L2_INVAL_PREFIX_ONCE_AFTER_CACHED_HOST_WRITE", c_l2_inval_prefix_once},
+    {"CMDLIST_NEAR_CAP_SUBMITS_WITH_L2_INVAL_PENDING", c_cmdlist_near_cap_with_l2_inval_pending},
 };
 
 int main(void) {

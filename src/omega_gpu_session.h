@@ -118,6 +118,9 @@ int omega_gpu_session_set_platform(const OmegaGpuPlatform *p, const OmegaGpuPlat
 /* The installed platform (the hosted build installs the Linux reference here when none was installed); NULL in the
  * freestanding build until omega_gpu_session_set_platform. */
 const OmegaGpuPlatform *omega_gpu_session_platform(void);
+/* The installed platform's caps.submit_prefix_words: words queue_submit may put ahead of the caller's in the ring, so a
+ * caller that fills the ring budgets ring words minus this (omega #457 L2 invalidate prefix). 0 with no platform. */
+uint32_t omega_gpu_session_submit_prefix_words(void);
 
 /* Completion is observed by polling a GPU-uncached word; the session never claims interrupt support. */
 typedef enum { OMEGA_GPU_COMPLETION_POLLING = 1 } OmegaGpuCompletionMode;
