@@ -84,7 +84,7 @@ int omega_blackwell_verify_encoder_fixtures(void) {
         return -1;
     }
 
-    static const char HEXDIGITS[16] = "0123456789abcdef";
+    static const char HEXDIGITS[] = "0123456789abcdef";
     char hex[65];
     for (int i = 0; i < 32; i++) { /* no sprintf: this file is part of the freestanding link target */
         hex[i * 2] = HEXDIGITS[digest[i] >> 4];
