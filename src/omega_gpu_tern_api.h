@@ -92,7 +92,7 @@ int omega_gpu_tern_kernel_fits(const OmegaTernGemvSpec *spec, uint32_t *declared
 void omega_gpu_tern_shape_for(uint32_t k, uint32_t layout, uint32_t R, uint32_t *rows, uint32_t *warps, uint32_t *depth, uint32_t *ctas);
 
 /* ---- measurement knobs (tests; 0 restores the automatic choice) ---- */
-void omega_gpu_tern_set_layout(uint32_t layout, uint32_t block_rows); /* read by later uploads */
+void omega_gpu_tern_set_layout(uint32_t layout, uint32_t block_rows); /* read by later uploads; default row-major (rows 1, 160 CTAs: T0 sweep) */
 void omega_gpu_tern_set_shape(uint32_t rows, uint32_t warps, uint32_t depth); /* clears the kernel cache */
 void omega_gpu_tern_set_cta_budget(uint32_t ctas);
 void omega_gpu_tern_set_weight_cache(int cached); /* 1 GPU-cached (default), 0 uncached; read by later uploads */

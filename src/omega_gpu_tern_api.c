@@ -13,7 +13,7 @@
 
 #define CACHE_SLOTS 8
 #define MARKER_TIMEOUT_MS 20000ull
-#define DEFAULT_CTAS 96u
+#define DEFAULT_CTAS 160u /* T0 sweep: 160 beat 96 and 256 on the four BitNet shapes (row-major, rows 1) */
 #define DEFAULT_WARPS 8u
 
 struct OmegaGpuTernTensor {
@@ -39,7 +39,7 @@ static struct {
     bool hooked;
     Slot cache[CACHE_SLOTS];
     unsigned next;
-} g = { .layout = OMEGA_TERN_LAYOUT_BLOCK };
+} g = { .layout = OMEGA_TERN_LAYOUT_ROWMAJOR };
 static int g_rec; /* 1 while a record call runs (lock held): kernel_for must not evict */
 
 const char *omega_gpu_tern_last_error(void) { return omega_gpu_session_last_error(); }
@@ -101,7 +101,7 @@ int omega_gpu_tern_kernel_fits(const OmegaTernGemvSpec *spec, uint32_t *declared
 void omega_gpu_tern_shape_for(uint32_t k, uint32_t layout, uint32_t R, uint32_t *rows, uint32_t *warps, uint32_t *depth, uint32_t *ctas) {
     uint32_t nch = (k + OMEGA_TERN_CHUNK_MAX - 1u) / OMEGA_TERN_CHUNK_MAX;
     uint32_t ksc = nch ? k / nch / 256u : 0;
-    uint32_t r = layout == OMEGA_TERN_LAYOUT_BLOCK ? R : (g.rows ? g.rows : 2u);
+    uint32_t r = layout == OMEGA_TERN_LAYOUT_BLOCK ? R : (g.rows ? g.rows : 1u);
     uint32_t d = g.depth ? g.depth : 16u / r;
     while (d > 1u && (ksc % d || r * d > 16u)) d--;
     if (rows) *rows = r;

@@ -63,6 +63,9 @@ extern "C" {
 
 #define OMEGA_TERN_MAX_K 16384u
 #define OMEGA_TERN_CHUNK_MAX 8192u
+/* Cycles every user stays behind a fixed-latency producer (chip-proven rule: >= 5; omega_gpu_elementwise_api.c:13).
+ * The generator sets each stall from the register dependencies after allocation (tern_schedule_stalls). */
+#define OMEGA_TERN_FIXED_LAT 6u
 #define OMEGA_TERN_LAYOUT_ROWMAJOR 0
 #define OMEGA_TERN_LAYOUT_BLOCK 1
 #define OMEGA_TERN_EPI_I32 0

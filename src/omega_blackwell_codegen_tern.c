@@ -1,8 +1,10 @@
 /* omega_blackwell_codegen_tern.c: KT1 W2A8 ternary GEMV kernel, ternary engine stage T0 (2026-10-15). See the header.
  * The emitter helpers are copies of omega_blackwell_codegen_bf16.c's (same chip-learned scheduling rules: every
  * instruction waits on everything still pending; variable-latency results go through scoreboard 0, stores set the read
- * barrier 1, uniform loads scoreboard 2; fixed-latency producers stall 6; ISETP stalls 14 before a predicated branch;
- * the loads of one iteration are issued back to back so a warp has all of them in flight at once). */
+ * barrier 1, uniform loads scoreboard 2; ISETP stalls 14 before a predicated branch;
+ * the loads of one iteration are issued back to back so a warp has all of them in flight at once). One change: the
+ * fixed-latency stall is no longer 6 on every instruction; tern_schedule_stalls sets each one from the physical register
+ * dependencies so every user still sits >= 6 cycles behind its producer (see the pass). */
 #include "omega_blackwell_codegen_tern.h"
 #include <string.h>
 
@@ -142,6 +144,75 @@ uint64_t omega_tern_word_offset(uint32_t layout, uint32_t R, uint32_t k, uint32_
     return blk * 2u * R * kw * 4u + (uint64_t)c * 2u * R * 4u + j * 4u;
 }
 
+
+/* ---- dependency-driven stall counts (after register allocation) ----
+ * The copied emitter gives every fixed-latency instruction stall 6, which keeps any user >= 6 cycles behind its
+ * producer but also makes independent instructions wait 6 cycles each. The repository's chip-proven rule is the
+ * distance, not the per-instruction count: a fixed-latency producer stalls >= 5 cycles before its consumer (we keep 6;
+ * omega_gpu_elementwise_api.c:13). This pass walks the program in order on physical registers and gives each
+ * instruction the smallest stall that keeps the next instruction >= OMEGA_TERN_FIXED_LAT cycles behind every
+ * fixed-latency write it reads or overwrites. Before a control instruction (BRA, EXIT, BSSY, BSYNC, BAR) or a branch
+ * target every fixed-latency write has completed, so straight-line timing never spans a jump. Instructions that are not
+ * fixed latency keep at least their emitted stall (loads, ISETP 14 before a predicated branch, the scoreboard rules);
+ * their wait masks are untouched. Hardware can only add cycles, which only lengthens every distance. */
+static int tern_fixed(BlackwellIROpcode op) {
+    switch (op) {
+    case BW_IR_IMAD: case BW_IR_IMAD_WIDE: case BW_IR_SHF_R: case BW_IR_LOP3_AND: case BW_IR_MOV_IMM: case BW_IR_MOV_RZ:
+    case BW_IR_FMUL: case BW_IR_I2FP: return 1;
+    default: return 0;
+    }
+}
+static int tern_control(BlackwellIROpcode op) {
+    return op == BW_IR_BRA || op == BW_IR_EXIT || op == BW_IR_BSSY || op == BW_IR_BSYNC || op == BW_IR_BAR_SYNC;
+}
+/* physical registers an operand covers: [*lo, *lo + *cnt) */
+static void tern_span(const BlackwellIRProgram *p, int v, int *lo, int *cnt) {
+    *lo = -1; *cnt = 0;
+    if (v < 0 || v >= p->regalloc.num_vregs) return;
+    const int ph = p->regalloc.vreg_to_phys[v];
+    if (ph < 0) return;
+    *lo = ph; *cnt = (int)(p->regalloc.intervals[v].bundle_size ? p->regalloc.intervals[v].bundle_size : 1u);
+}
+static int tern_schedule_stalls(BlackwellIRProgram *p) {
+    static uint8_t target[BW_MAX_IR_INSNS + 1];
+    uint64_t ready[BW_MAX_VREGS + 8];
+    const size_t n = p->count;
+    memset(target, 0, sizeof target);
+    memset(ready, 0, sizeof ready);
+    for (size_t i = 0; i < n; i++) {
+        const BlackwellIRInsn *in = &p->insns[i];
+        if (in->op == BW_IR_BRA || in->op == BW_IR_BSSY) {
+            const long t = (long)i + (long)(int32_t)in->imm;
+            if (t < 0 || t > (long)n) return -1;
+            target[t] = 1;
+        }
+    }
+    uint64_t T = 0, all = 0;
+    for (size_t i = 0; i < n; i++) {
+        BlackwellIRInsn *in = &p->insns[i];
+        const uint32_t s_emit = (in->control >> 9) & 0xfu;
+        if (tern_fixed(in->op)) {
+            int lo, c; tern_span(p, in->dst_vreg, &lo, &c);
+            for (int k = 0; k < c; k++) { if (lo + k >= BW_MAX_VREGS + 8) return -1; ready[lo + k] = T + OMEGA_TERN_FIXED_LAT; }
+            if (c && T + OMEGA_TERN_FIXED_LAT > all) all = T + OMEGA_TERN_FIXED_LAT;
+        }
+        uint64_t need = T + (tern_fixed(in->op) ? 1u : s_emit);
+        if (i + 1 < n) {
+            const BlackwellIRInsn *nx = &p->insns[i + 1];
+            const int ops[4] = { nx->dst_vreg, nx->src1_vreg, nx->src2_vreg, nx->src3_vreg };
+            for (int q = 0; q < 4; q++) {
+                int lo, c; tern_span(p, ops[q], &lo, &c);
+                for (int k = 0; k < c; k++) if (ready[lo + k] > need) need = ready[lo + k];
+            }
+            if ((tern_control(nx->op) || target[i + 1]) && all > need) need = all;
+        }
+        const uint64_t s = need - T;
+        if (s > 15 || (s == 0 && (tern_fixed(in->op) || s_emit != 0))) return -1; /* stall 0 only where emitted (the final self-branch) */
+        if (tern_fixed(in->op) || s > s_emit) in->control = (in->control & ~(0xfu << 9)) | ((uint32_t)s << 9);
+        T = need;
+    }
+    return 0;
+}
 int omega_blackwell_codegen_tern_gemv_prog(const OmegaTernGemvSpec *spec, BlackwellIRProgram *prog) {
     if (!omega_tern_gemv_spec_ok(spec) || !prog) return -1;
     const uint32_t K = spec->k, R = spec->rows, W = spec->warps, D = spec->depth, TH = 32u * W;
@@ -234,13 +305,12 @@ int omega_blackwell_codegen_tern_gemv_prog(const OmegaTernGemvSpec *spec, Blackw
 
     /* ---- per-unit registers ---- */
     int rowbase = V(e), pw = V64(e), xlc = V(e), cnt = V(e);
-    int T[4], wq[16], wr[4][16], wa[4][16], xs[2];
-    int Ut = V(e), P = V(e), M = V(e), accp = V(e), accm = V(e), hi = V(e);
+    int T[4], wq[16], wr[4][16], wa[4][16], xs[8], Ut[4], P[4], M[4], ap[4], am[4];
     int row = V(e), okr = V(e), skip = V(e), yv = V(e), f = V(e), wsv = V(e), pya = V64(e), pwsa = V64(e), sum = V(e);
-    for (uint32_t r = 0; r < R; r++) T[r] = V(e);
+    for (uint32_t r = 0; r < R; r++) { T[r] = V(e); Ut[r] = V(e); P[r] = V(e); M[r] = V(e); ap[r] = V(e); am[r] = V(e); }
     if (block) { for (uint32_t d = 0; d < D; d++) wq[d] = R == 4 ? V128(e) : V64(e); }
     else for (uint32_t r = 0; r < R; r++) for (uint32_t d = 0; d < D; d++) { wr[r][d] = V(e); wa[r][d] = V64(e); }
-    for (int i = 0; i < 2; i++) xs[i] = V128(e);
+    for (uint32_t i = 0; i < (D <= 4u ? 2u * D : 2u); i++) xs[i] = V128(e);
     if (e->err) return -1;
 
     /* ---- unit loop ---- */
@@ -255,7 +325,12 @@ int omega_blackwell_codegen_tern_gemv_prog(const OmegaTernGemvSpec *spec, Blackw
     for (uint32_t r = 0; r < R; r++) movrz(e, T[r]);
     movi(e, cnt, KSC / D);
 
-    /* ---- K loop: D steps per iteration, every weight load issued before any use ---- */
+    /* ---- K loop: D steps per iteration, every weight load issued before any use ----
+     * Rows are interleaved stage by stage (shift, two masks, two multiply-adds for every row before the next pair) so
+     * independent work sits between each producer and its user; tern_schedule_stalls then sets every stall from the
+     * real register dependencies. For D <= 4 the staged x of all D steps is read from shared memory together with the
+     * weight loads (one wait per iteration); above that per step as before. */
+    const int lds_up = D <= 4u;
     const int L_k = here(e);
     loop_begin(e);
     if (block) {
@@ -265,23 +340,21 @@ int omega_blackwell_codegen_tern_gemv_prog(const OmegaTernGemvSpec *spec, Blackw
         int first = 1;
         for (uint32_t r = 0; r < R; r++) for (uint32_t d = 0; d < D; d++) { ldg32(e, wr[r][d], wa[r][d], udesc, first); first = 0; }
     }
+    if (lds_up) for (uint32_t d = 0; d < D; d++) for (uint32_t i = 0; i < 2; i++) lds128(e, xs[2u * d + i], xlc, d * 512u + 16u * i, 0);
     for (uint32_t d = 0; d < D; d++) {
-        for (uint32_t i = 0; i < 2; i++) lds128(e, xs[i], xlc, d * 512u + 16u * i, i == 0);
-        for (uint32_t r = 0; r < R; r++) {
-            const int wv = block ? wq[d] : wr[r][d]; const unsigned wsub = block ? r : 0u;
-            for (uint32_t j = 0; j < npairs; j++) {
-                int src = wv; unsigned ssub = wsub;
-                if (j) { shr(e, Ut, wv, wsub, 2u * j); src = Ut; ssub = 0; }
-                andi(e, P, src, ssub, 0x00010001u);
-                andi(e, M, src, ssub, 0x00020002u);
-                imadr(e, accp, P, xs[j >> 2], j & 3u, j == 0 ? k0 : accp);   /* + P * X_j */
-                imadr(e, accm, M, xs[j >> 2], j & 3u, j == 0 ? k0 : accm);   /* + M * X_j (minus bits sit one higher) */
-            }
-            shr(e, hi, accp, 0, 16);                    /* 2^15 + plus dot of this word */
-            imadi(e, T[r], hi, 0, 1, T[r]);
-            shr(e, hi, accm, 0, 17);                    /* 2^14 + minus dot of this word */
-            imadi(e, T[r], hi, 0, 0xffffffffu, T[r]);
+        const int *xd = lds_up ? &xs[2u * d] : xs;
+        if (!lds_up) for (uint32_t i = 0; i < 2; i++) lds128(e, xs[i], xlc, d * 512u + 16u * i, i == 0);
+        for (uint32_t j = 0; j < npairs; j++) {
+            for (uint32_t r = 0; r < R && j; r++) shr(e, Ut[r], block ? wq[d] : wr[r][d], block ? r : 0u, 2u * j);
+            for (uint32_t r = 0; r < R; r++) andi(e, P[r], j ? Ut[r] : (block ? wq[d] : wr[r][d]), j ? 0u : (block ? r : 0u), 0x00010001u);
+            for (uint32_t r = 0; r < R; r++) andi(e, M[r], j ? Ut[r] : (block ? wq[d] : wr[r][d]), j ? 0u : (block ? r : 0u), 0x00020002u);
+            for (uint32_t r = 0; r < R; r++) imadr(e, ap[r], P[r], xd[j >> 2], j & 3u, j == 0 ? k0 : ap[r]);   /* + P * X_j */
+            for (uint32_t r = 0; r < R; r++) imadr(e, am[r], M[r], xd[j >> 2], j & 3u, j == 0 ? k0 : am[r]);   /* + M * X_j (minus bits one higher) */
         }
+        for (uint32_t r = 0; r < R; r++) shr(e, P[r], ap[r], 0, 16);       /* 2^15 + plus dot of this word */
+        for (uint32_t r = 0; r < R; r++) shr(e, M[r], am[r], 0, 17);       /* 2^14 + minus dot of this word */
+        for (uint32_t r = 0; r < R; r++) imadi(e, T[r], P[r], 0, 1, T[r]);
+        for (uint32_t r = 0; r < R; r++) imadi(e, T[r], M[r], 0, 0xffffffffu, T[r]);
     }
     imadw(e, pw, one, D * step_bytes, pw);
     imadi(e, xlc, one, 0, D * 512u, xlc);
@@ -334,7 +407,8 @@ int omega_blackwell_codegen_tern_gemv_prog(const OmegaTernGemvSpec *spec, Blackw
     }
     tail(e);
     if (e->err) return -1;
-    return omega_bw_regalloc_solve(prog);
+    if (omega_bw_regalloc_solve(prog) != 0) return -1;
+    return tern_schedule_stalls(prog);
 }
 
 int omega_tern_gemv_prog_stats(const OmegaTernGemvSpec *spec, uint32_t *insns, uint32_t *gprs) {
