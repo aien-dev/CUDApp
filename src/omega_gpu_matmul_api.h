@@ -59,8 +59,11 @@ enum {
  * 1024x768x50304 and two single-tile-kernel shapes (1x2048x8192, 112x768x3072),
  * budgets 64..1024, 3 repeats per sign, bit-identical repeats and runs, no
  * stale (I42) element at any grid of 128 CTAs and up, mutant caught. 1024 has
- * the least chip time summed over the shapes (training shapes 1.3x-1.7x less
- * than 64); it was 64 before. */
+ * the least chip time summed over all seven shapes; it was 64 before. The
+ * speedup is for the five training shapes only (1.3x-1.7x less chip time than
+ * at 64). The small shape 112x768x3072 is 1.1x-2x SLOWER at 1024 than at 64
+ * (0.32 ms at 64, 0.62 ms at 1024 in run 2); callers dominated by small
+ * shapes can lower the budget with omega_gpu_matmul_set_cta_budget. */
 #define OMEGA_GPU_MATMUL_MAX_CTAS 1024
 
 typedef struct {

@@ -355,7 +355,8 @@ int main(int argc, char **argv) {
     free(copy);
     omega_gpu_matmul_set_cta_budget(0);
     CHECK(controls_done && mutant_done, "negative controls ran (comparator %d, mutant %d)", controls_done, mutant_done);
-    /* best sealed budget: every shape PASS, least summed median chip time over the training shapes */
+    /* best sealed budget: every shape PASS, least summed median chip time over every shape in the run (the default
+     * list is the five training shapes plus 1x2048x8192 and 112x768x3072) */
     int best = -1; uint64_t best_sum = 0;
     if (out) fprintf(out, "],\"budget_summary\":[");
     for (unsigned bi = 0; bi < nb; bi++) {
