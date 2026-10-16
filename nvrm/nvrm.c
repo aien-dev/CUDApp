@@ -1,5 +1,7 @@
 /*
- * nvrm.c -- PHYSICS native accelerator substrate (NVRM client) (shared by M16 qualification and M17).
+ * nvrm.c -- PHYSICS native accelerator substrate (NVRM client), used by M16 qualification,
+ * FORGE realization and the NVRM gates in this tree. M17 (OMEGA_BLACKWELL_VECTOR) was
+ * qualified in aien-spark/omega, not here (aien-architecture doctrine/ROADMAP.md).
  * See nvrm.h. Sequence follows the NVIDIA open kernel module ABI (580.173.02).
  */
 
