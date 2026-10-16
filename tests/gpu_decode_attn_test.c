@@ -9,6 +9,8 @@
  *                 the host caches evicted, every mutant caught at context 301, JSON receipt with --out.
  * Tolerance: |out - ref| <= 3e-3 * max|v| + 1e-6 per element (MUFU.EX2 / RSQ are 2^-22-ish, bf16 rounding of the
  * appended K/V can flip one ulp against the f32 chip path). The mutants miss by 0.1 .. 1.0 of that scale.
+ * --q-heads Q --kv-heads K --head-dim D: any geometry other than 32 / 4 / 128 is REFUSED with reasons (exit 3, receipt
+ * verdict "REFUSED"); e.g. the BitNet b1.58 layout 20 / 5 / 128 (ternary engine T0).
  * Host and simulator passes are never chip results.
  */
 #include "omega_gpu_decode_attn_api.h"
@@ -387,8 +389,39 @@ static int chip_run(const char *out_path, uint32_t reps) {
     return 0;
 }
 
+/* --q-heads Q --kv-heads K --head-dim D (ternary engine T0, 2026-10-15): asks for an attention geometry. The kernel is
+ * built for one geometry only (OMEGA_GPU_DATTN_Q_HEADS 32, OMEGA_GPU_DATTN_KV_HEADS 4, head dim 128, per-head q_norm /
+ * k_norm before RoPE). Any other geometry is REFUSED here, with the reasons recorded (receipt verdict "REFUSED", exit 3),
+ * instead of running a kernel that would read the wrong q / k / v slices. */
+static int geometry_refusal(uint32_t qh, uint32_t kvh, uint32_t hd, const char *out_path) {
+    if (qh == OMEGA_GPU_DATTN_Q_HEADS && kvh == OMEGA_GPU_DATTN_KV_HEADS && hd == 128u) return 0;
+    char why[4][200]; int nw = 0;
+    if (qh != OMEGA_GPU_DATTN_Q_HEADS || kvh != OMEGA_GPU_DATTN_KV_HEADS)
+        snprintf(why[nw++], sizeof why[0], "head layout fixed at %u query / %u KV heads (%u per KV head); asked %u / %u (%u per KV head)",
+                 OMEGA_GPU_DATTN_Q_HEADS, OMEGA_GPU_DATTN_KV_HEADS, OMEGA_GPU_DATTN_Q_HEADS / OMEGA_GPU_DATTN_KV_HEADS, qh, kvh, kvh ? qh / kvh : 0);
+    snprintf(why[nw++], sizeof why[0], "fused q|k|v input fixed at %u words; the asked layout needs %u", OMEGA_GPU_DATTN_QKV_WORDS, (qh + 2u * kvh) * hd);
+    snprintf(why[nw++], sizeof why[0], "per-head q_norm / k_norm is built in (Qwen3); a model without QK norm needs a kernel without it");
+    if (hd != 128u) snprintf(why[nw++], sizeof why[0], "head dim fixed at 128; asked %u", hd);
+    printf("REFUSED: decode attention at %u query / %u KV heads, head dim %u\n", qh, kvh, hd);
+    for (int i = 0; i < nw; i++) printf("  reason %d: %s\n", i + 1, why[i]);
+    printf("  needed: a decode attention kernel for this geometry (ternary engine design KT3)\n");
+    if (out_path) {
+        FILE *f = fopen(out_path, "w");
+        if (f) {
+            fprintf(f, "{\"test\":\"gpu_decode_attn_test\",\"q_heads\":%u,\"kv_heads\":%u,\"head_dim\":%u,\"kernel_q_heads\":%u,\"kernel_kv_heads\":%u,\"reasons\":[",
+                    qh, kvh, hd, OMEGA_GPU_DATTN_Q_HEADS, OMEGA_GPU_DATTN_KV_HEADS);
+            for (int i = 0; i < nw; i++) fprintf(f, "%s\"%s\"", i ? "," : "", why[i]);
+            fprintf(f, "],\"needed\":\"KT3 decode attention for this geometry\",\"verdict\":\"REFUSED\"}\n");
+            fclose(f);
+        }
+    }
+    printf("gpu_decode_attn_test: REFUSED (geometry %u/%u/%u not built)\n", qh, kvh, hd);
+    return 3;
+}
+
 int main(int argc, char **argv) {
     int host = 0, sim = 0; const char *out_path = NULL; uint32_t reps = 20, depth = 0, per = 0, spin = 2000; int sim_pos = -1; uint32_t sim_max = 256;
+    uint32_t q_heads = OMEGA_GPU_DATTN_Q_HEADS, kv_heads = OMEGA_GPU_DATTN_KV_HEADS, head_dim = 128;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--host-only") == 0) host = 1;
         else if (strcmp(argv[i], "--sim") == 0) sim = 1;
@@ -401,8 +434,12 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--sim-pos") == 0 && i + 1 < argc) sim_pos = atoi(argv[++i]);
         else if (strcmp(argv[i], "--sim-max") == 0 && i + 1 < argc) sim_max = (uint32_t)atoi(argv[++i]);
         else if (strcmp(argv[i], "--only") == 0 && i + 1 < argc) g_only = argv[++i];
+        else if (strcmp(argv[i], "--q-heads") == 0 && i + 1 < argc) q_heads = (uint32_t)atoi(argv[++i]);
+        else if (strcmp(argv[i], "--kv-heads") == 0 && i + 1 < argc) kv_heads = (uint32_t)atoi(argv[++i]);
+        else if (strcmp(argv[i], "--head-dim") == 0 && i + 1 < argc) head_dim = (uint32_t)atoi(argv[++i]);
         else { printf("unknown argument %s\n", argv[i]); return 2; }
     }
+    { int g = geometry_refusal(q_heads, kv_heads, head_dim, out_path); if (g) return g; }
     if (host) host_only();
     if (sim && sim_pos >= 0 && sim_max <= (uint32_t)sim_pos) sim_max = (uint32_t)sim_pos + 1u;
     if (sim && sim_pos >= 0) { char msg[300], rows[120]; double worst; size_t bad; int err = sim_point(sim_max, (uint32_t)sim_pos, depth ? depth : 2, 0, per ? per : 256, 1.0f, 777, msg, sizeof msg, &worst, &bad, rows, sizeof rows); printf("sim pos %d: %s %s\n", sim_pos, err ? "ERROR" : bad ? "MISMATCH" : "ok", msg); return err || bad; }

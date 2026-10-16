@@ -163,6 +163,7 @@ static void ws_lane_exec(WsSim *s, WsLane *l, const BlackwellIRInsn *in, int pc,
     case BW_IR_FADD: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_u2f(a) + ws_u2f(b)), p); break;
     case BW_IR_FSUB: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_u2f(a) - ws_u2f(b)), p); break;
     case BW_IR_FMUL: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_u2f(a) * ws_u2f(b)), p); break;
+    case BW_IR_I2FP: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u((float)(int32_t)a), p); break; /* I2FP.F32.S32, round to nearest */
     case BW_IR_FFMA: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fmaf(ws_u2f(a), ws_u2f(b), ws_u2f(c))), p); break;
     case BW_IR_FMNMX_MAX: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fmaxf(ws_u2f(a), ws_u2f(b))), p); break;
     case BW_IR_FMNMX_MIN: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fminf(ws_u2f(a), ws_u2f(b))), p); break;

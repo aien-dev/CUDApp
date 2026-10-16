@@ -12,6 +12,7 @@
  *   ./gpu_fp8_api_test --out receipt.json   chip gate: parity battery, mutants, grouped experts, then the
  *                                           bandwidth table (median of --reps calls) at the expert and attention shapes
  *   knobs: --lane-bytes N --rows N --warps N --cta-budget N --reps N --spin-us N
+ *          --n N --k K: one custom point n x k instead of the battery (with mutants 1, 2, 4), e.g. 128256 x 2560
  *
  * Pass rule per point: rc OK, every output within TOL of the double oracle relative to the accumulation
  * scale (sum of |terms|). Host and simulator passes are never chip results.
@@ -446,6 +447,9 @@ static void evict_host_caches(void) {
 }
 
 static const char *g_only; static int g_depth_forced; /* run only the battery points whose name contains this (diagnosis) */
+/* --n N --k K (ternary engine T0, 2026-10-15): run ONE custom point n x k (one expert, one group) instead of the battery,
+ * with the parity check, timing and mutants 1, 2 and 4 (3 needs groups > 1); e.g. the BitNet word table 128256 x 2560. */
+static uint32_t g_custom_n, g_custom_k; static char g_custom_name[48];
 static int chip_run(const char *out_path, uint32_t reps) {
     FILE *out = out_path ? fopen(out_path, "w") : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 1; }
@@ -489,11 +493,13 @@ static int chip_run(const char *out_path, uint32_t reps) {
         if (t) omega_gpu_fp8_tensor_free(t);
         free(w);
     }
-    const size_t npts = sizeof pts / sizeof pts[0];
+    static ChipPoint custom; const ChipPoint *P = pts; size_t npts = sizeof pts / sizeof pts[0];
+    if (g_custom_n && !g_custom_k) { CHECK(0, "--n needs --k"); if (out) fclose(out); return 1; }
+    if (g_custom_n) { snprintf(g_custom_name, sizeof g_custom_name, "custom %ux%u", g_custom_n, g_custom_k); custom = (ChipPoint){ 1, g_custom_n, g_custom_k, 1, 1, g_custom_name, 1 }; P = &custom; npts = 1; }
     int first = 1;
     first = out ? 0 : 1;
     for (size_t i = 0; i < npts; i++) {
-        const ChipPoint *p = &pts[i];
+        const ChipPoint *p = &P[i];
         if (g_only && !strstr(p->name, g_only)) continue;
         Weights W; weights_make(&W, p->experts, p->n, p->k, 5000 + (uint32_t)i);
         uint32_t ids[8]; uint32_t st = 99 + (uint32_t)i;
@@ -533,7 +539,7 @@ static int chip_run(const char *out_path, uint32_t reps) {
         first = 0;
         free(el); free(cl);
         /* mutants on the first grouped point and the gate shape: each must be caught on the chip */
-        if (ok && (i == 4 || i == 10)) {
+        if (ok && (g_custom_n || i == 4 || i == 10)) {
             for (int m = 1; m <= 4; m++) {
                 if (m == 3 && p->groups == 1) continue;
                 if (m == 4) omega_gpu_fp8_test_set_no_fold(1); else omega_gpu_fp8_test_set_mutant(m);
@@ -571,6 +577,8 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--spin-us") == 0 && i + 1 < argc) spin = (uint32_t)atoi(argv[++i]);
         else if (strcmp(argv[i], "--no-evict") == 0) g_evict = 0;
         else if (strcmp(argv[i], "--only") == 0 && i + 1 < argc) g_only = argv[++i];
+        else if (strcmp(argv[i], "--n") == 0 && i + 1 < argc) g_custom_n = (uint32_t)atoi(argv[++i]);
+        else if (strcmp(argv[i], "--k") == 0 && i + 1 < argc) g_custom_k = (uint32_t)atoi(argv[++i]);
         else if (strcmp(argv[i], "--gpr-pad") == 0 && i + 1 < argc) omega_gpu_fp8_set_gpr_pad((uint32_t)atoi(argv[++i]));
         else if (strcmp(argv[i], "--variant") == 0 && i + 1 < argc) omega_gpu_fp8_set_variant(atoi(argv[++i])); /* 1 (default) or 2 (W-L2c row-pipelined) */
         else { printf("unknown argument %s\n", argv[i]); return 2; }
