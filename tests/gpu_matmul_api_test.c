@@ -282,6 +282,9 @@ static void host_only(void) {
     CHECK(omega_gpu_matmul_resident_f32(16, a, NULL, c, &info) == OMEGA_GPU_MATMUL_BAD_ARGS, "resident NULL tensor refused");
     CHECK(strcmp(omega_gpu_matmul_rc_name(OMEGA_GPU_MATMUL_PARITY_FAIL), "PARITY_FAIL") == 0, "rc name");
     CHECK(omega_gpu_matmul_cta_budget() == OMEGA_GPU_MATMUL_MAX_CTAS, "default CTA budget");
+    /* omega #473 R4: the default is the best budget of the sealed receipt evidence/R4-MATMUL-CTA-ffc3176a (every element of
+     * every call at the five training shapes and two single-tile shapes, budgets 64..1024, all sealed; 1024 fastest) */
+    CHECK(OMEGA_GPU_MATMUL_MAX_CTAS == 1024u, "default CTA budget is the R4 sealed budget 1024 (got %u)", (unsigned)OMEGA_GPU_MATMUL_MAX_CTAS);
     CHECK(omega_gpu_matmul_is_blocked() == 0, "not blocked at start");
 
     /* codegen only: the looped kernel must accept every padded Llama shape without touching the chip */
