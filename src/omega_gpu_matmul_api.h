@@ -52,9 +52,19 @@ enum {
  * column tiles x, x + grid_x, ... so any shape is one launch inside the budget
  * (rows are split across launches only when m / 16 alone exceeds it). The
  * budget is a tunable (omega_gpu_matmul_set_cta_budget) so the chip test can
- * measure larger grids; the default stays at the proven value until a sealed
- * receipt says otherwise. */
-#define OMEGA_GPU_MATMUL_MAX_CTAS 64
+ * measure larger grids.
+ * Default 1024 since omega #473 R4 (sealed receipt evidence/R4-MATMUL-CTA-ffc3176a,
+ * tests/gpu_matmul_r4_receipt.c): every output element of every call compared
+ * with a double reference at 8192x768x{2304,768,3072}, 8192x3072x768,
+ * 1024x768x50304 and two single-tile-kernel shapes (1x2048x8192, 112x768x3072),
+ * budgets 64..1024, 3 repeats per sign, bit-identical repeats and runs, no
+ * stale (I42) element at any grid of 128 CTAs and up, mutant caught. 1024 has
+ * the least chip time summed over all seven shapes; it was 64 before. The
+ * speedup is for the five training shapes only (1.3x-1.7x less chip time than
+ * at 64). The small shape 112x768x3072 is 1.1x-2x SLOWER at 1024 than at 64
+ * (0.32 ms at 64, 0.62 ms at 1024 in run 2); callers dominated by small
+ * shapes can lower the budget with omega_gpu_matmul_set_cta_budget. */
+#define OMEGA_GPU_MATMUL_MAX_CTAS 1024
 
 typedef struct {
     uint32_t m, k, n;
