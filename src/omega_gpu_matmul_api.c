@@ -356,6 +356,10 @@ int omega_gpu_tensor_upload_f32(uint32_t k, uint32_t n, const float *b, OmegaGpu
     return rc;
 }
 
+/* RED stub: the interface only, nothing is written */
+int omega_gpu_tensor_update_bf16(OmegaGpuTensor *t, const uint16_t *b) { (void)t; (void)b; return OMEGA_GPU_MATMUL_OK; }
+int omega_gpu_tensor_update_f32(OmegaGpuTensor *t, const float *b) { (void)t; (void)b; return OMEGA_GPU_MATMUL_OK; }
+
 void omega_gpu_tensor_free(OmegaGpuTensor *t) {
     if (!t) return;
     omega_gpu_session_lock();

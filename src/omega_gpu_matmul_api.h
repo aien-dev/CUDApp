@@ -90,6 +90,20 @@ int omega_gpu_tensor_upload_f32(uint32_t k, uint32_t n, const float *b, OmegaGpu
 void omega_gpu_tensor_free(OmegaGpuTensor *t);
 void omega_gpu_tensor_shape(const OmegaGpuTensor *t, uint32_t *k, uint32_t *n);
 
+/* Replace a resident tensor's values in place (a training step's new weights): b is k x n row-major,
+ * k and n from the handle; f32 is rounded to bf16 as at upload. The new values are packed straight
+ * into the tensor's existing device buffer: no driver allocation or free, so it is allowed while the
+ * API is sealed. Refused (CHIP_FAIL, nothing written) when the session is latched or the handle's
+ * device was closed; BAD_ARGS for NULL arguments.
+ *
+ * Thread safety of the resident calls: omega_gpu_matmul_resident_* and omega_gpu_tensor_update_*
+ * each hold the session lock for the whole call, and a launch has completed before its call
+ * returns, so a resident matmul reads B entirely from before or entirely from after an update,
+ * never a mix, and an update never writes while the chip reads. upload builds a new buffer and
+ * needs no ordering. The caller must not free a tensor while another thread uses it. */
+int omega_gpu_tensor_update_bf16(OmegaGpuTensor *t, const uint16_t *b);
+int omega_gpu_tensor_update_f32(OmegaGpuTensor *t, const float *b);
+
 /* C[m x n] = A[m x k] * B, B resident (k and n come from the handle). No host
  * oracle: info->parity_verified is false, mismatch_count 0. */
 int omega_gpu_matmul_resident_bf16(uint32_t m, const uint16_t *a, const OmegaGpuTensor *b, float *c,

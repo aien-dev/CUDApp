@@ -96,6 +96,7 @@ test-gpu-serving-alloc: build/gpu_serving_alloc_count_test
 	./build/gpu_serving_alloc_count_test sweep
 	./build/gpu_serving_alloc_count_test pin
 	./build/gpu_serving_alloc_count_test seal-bare
+	./build/gpu_serving_alloc_count_test update
 	@if ./build/gpu_serving_alloc_count_test sweep-skip >build/gpu_serving_alloc_count_sweep_skip.log 2>&1; then echo "RED RUN PASSED: zero allocations over the row sweep do not need prepare + seal"; exit 1; fi
 	@if [ "$$(grep -c "^FAIL" build/gpu_serving_alloc_count_sweep_skip.log)" -lt 1 ]; then echo "sweep-skip exited nonzero without a FAIL check (crash, not the red assertion)"; exit 1; fi
 	@grep -E "^MEASURE sweep" build/gpu_serving_alloc_count_sweep_skip.log | sed "s/^/sweep-skip (control): /"

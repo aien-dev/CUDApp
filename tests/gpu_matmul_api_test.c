@@ -3,6 +3,7 @@
  *   ./gpu_matmul_api_test --host-only                 argument and limit refusals, codegen only, no chip
  *   ./gpu_matmul_api_test --out receipt.json          chip sweep over shapes, JSON receipt
  *   ./gpu_matmul_api_test --timing --out r.json       resident GEMV timing (median of 100 calls) + parity
+ *   ./gpu_matmul_api_test --update --out r.json       tensor_update_* in place vs a fresh upload, and its timing (R3)
  *   ./gpu_matmul_api_test --mutant --out r.json       wrong kernel (last K step dropped) must FAIL parity;
  *                                                     exit 0 when every shape caught it ("mutant killed")
  *   ./gpu_matmul_api_test --cta-budget N ...          run with a different CTA budget (I42 experiment)
@@ -280,6 +281,8 @@ static void host_only(void) {
     CHECK(omega_gpu_tensor_upload_f32(0, 16, a, &t) == OMEGA_GPU_MATMUL_BAD_ARGS && t == NULL, "tensor k=0 refused");
     CHECK(omega_gpu_tensor_upload_f32(16, 16, NULL, &t) == OMEGA_GPU_MATMUL_BAD_ARGS, "tensor NULL refused");
     CHECK(omega_gpu_matmul_resident_f32(16, a, NULL, c, &info) == OMEGA_GPU_MATMUL_BAD_ARGS, "resident NULL tensor refused");
+    CHECK(omega_gpu_tensor_update_f32(NULL, a) == OMEGA_GPU_MATMUL_BAD_ARGS, "update_f32 NULL tensor refused");
+    CHECK(omega_gpu_tensor_update_bf16(NULL, (const uint16_t *)a) == OMEGA_GPU_MATMUL_BAD_ARGS, "update_bf16 NULL tensor refused");
     CHECK(strcmp(omega_gpu_matmul_rc_name(OMEGA_GPU_MATMUL_PARITY_FAIL), "PARITY_FAIL") == 0, "rc name");
     CHECK(omega_gpu_matmul_cta_budget() == OMEGA_GPU_MATMUL_MAX_CTAS, "default CTA budget");
     CHECK(omega_gpu_matmul_is_blocked() == 0, "not blocked at start");
@@ -480,13 +483,94 @@ static int timing(const char *shapes, const char *out_path) {
     return 0;
 }
 
+/* --update (R3, omega #473): omega_gpu_tensor_update_* on the chip. Per shape (m rows of A, k x n weights):
+ * upload B1, matmul -> c1; update_f32(B2), matmul -> c2; fresh upload of B2, matmul -> c2f. c2 must equal c2f
+ * bit for bit and the double reference of A x B2 (0 elements at or beyond 1e-5); update_bf16(bf16(B1)) then
+ * matmul must give c1 back bit for bit. Timing, median of 5 each: update_f32, update_bf16, and the
+ * upload_f32 + free that an update replaces. */
+static const char *UPDATE_SHAPES = "16,768,2304;16,768,50304";
+static double median5(double *s) { qsort(s, 5, sizeof *s, cmp_double); return s[2]; }
+static int update_mode(const char *shapes, const char *out_path) {
+    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
+    if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_TENSOR_UPDATE_V1\",\"cta_budget\":%u,\"timed_calls\":5,\"shapes\":[", omega_gpu_matmul_cta_budget());
+    char *copy = strdup(shapes); char *save = NULL; int first = 1;
+    for (char *tok = strtok_r(copy, ";", &save); tok; tok = strtok_r(NULL, ";", &save)) {
+        unsigned m, k, n;
+        if (sscanf(tok, "%u,%u,%u", &m, &k, &n) != 3) { printf("bad shape %s\n", tok); continue; }
+        size_t na = (size_t)m * k, nb = (size_t)k * n, nc = (size_t)m * n;
+        float *a = malloc(na * sizeof *a), *b1 = malloc(nb * sizeof *b1), *b2 = malloc(nb * sizeof *b2);
+        float *c1 = malloc(nc * sizeof *c1), *c2 = malloc(nc * sizeof *c2), *c2f = malloc(nc * sizeof *c2f), *c3 = malloc(nc * sizeof *c3);
+        uint16_t *b1h = malloc(nb * sizeof *b1h);
+        if (!a || !b1 || !b2 || !c1 || !c2 || !c2f || !c3 || !b1h) { printf("out of host memory\n"); return 2; }
+        uint32_t seed = 0x0bda7e00u ^ (m << 20) ^ (k << 10) ^ n;
+        fill(a, na, &seed); fill(b1, nb, &seed); fill(b2, nb, &seed);
+        for (size_t i = 0; i < nb; i++) b1h[i] = omega_fp32_to_bf16(b1[i]);
+        OmegaGpuTensor *t = NULL, *tf = NULL;
+        int rc = omega_gpu_tensor_upload_f32(k, n, b1, &t);
+        CHECK(rc == OMEGA_GPU_MATMUL_OK, "update %ux%ux%u: upload B1 rc=%s", m, k, n, omega_gpu_matmul_rc_name(rc));
+        if (rc != OMEGA_GPU_MATMUL_OK) return 2;
+        rc = omega_gpu_matmul_resident_f32(m, a, t, c1, NULL);
+        CHECK(rc == OMEGA_GPU_MATMUL_OK, "matmul B1 rc=%s", omega_gpu_matmul_rc_name(rc));
+        rc = omega_gpu_tensor_update_f32(t, b2);
+        CHECK(rc == OMEGA_GPU_MATMUL_OK, "update_f32 rc=%s %s", omega_gpu_matmul_rc_name(rc), omega_gpu_matmul_last_error());
+        rc = omega_gpu_matmul_resident_f32(m, a, t, c2, NULL);
+        CHECK(rc == OMEGA_GPU_MATMUL_OK, "matmul after update rc=%s", omega_gpu_matmul_rc_name(rc));
+        rc = omega_gpu_tensor_upload_f32(k, n, b2, &tf);
+        CHECK(rc == OMEGA_GPU_MATMUL_OK, "fresh upload B2 rc=%s", omega_gpu_matmul_rc_name(rc));
+        if (rc == OMEGA_GPU_MATMUL_OK) rc = omega_gpu_matmul_resident_f32(m, a, tf, c2f, NULL);
+        CHECK(rc == OMEGA_GPU_MATMUL_OK, "matmul fresh B2 rc=%s", omega_gpu_matmul_rc_name(rc));
+        omega_gpu_tensor_free(tf);
+        size_t vs_fresh = 0, back = 0, bad = 0;
+        for (size_t j = 0; j < nc; j++) vs_fresh += memcmp(&c2[j], &c2f[j], 4) != 0;
+        double e2e = e2e_max_rel(m, k, n, a, b2, c2, &bad);
+        rc = omega_gpu_tensor_update_bf16(t, b1h);
+        CHECK(rc == OMEGA_GPU_MATMUL_OK, "update_bf16 rc=%s %s", omega_gpu_matmul_rc_name(rc), omega_gpu_matmul_last_error());
+        rc = omega_gpu_matmul_resident_f32(m, a, t, c3, NULL);
+        CHECK(rc == OMEGA_GPU_MATMUL_OK, "matmul after update back rc=%s", omega_gpu_matmul_rc_name(rc));
+        for (size_t j = 0; j < nc; j++) back += memcmp(&c3[j], &c1[j], 4) != 0;
+        CHECK(vs_fresh == 0, "update %ux%ux%u: %zu of %zu outputs differ from a fresh upload of the same values", m, k, n, vs_fresh, nc);
+        CHECK(bad == 0, "update %ux%ux%u: %zu outputs off the double reference (worst %g)", m, k, n, bad, e2e);
+        CHECK(back == 0, "update %ux%ux%u: %zu of %zu outputs differ after updating back to B1", m, k, n, back, nc);
+        double s_f32[5], s_bf16[5], s_up[5];
+        int timed_ok = 1;
+        for (int i = 0; i < 5; i++) {
+            double t0 = now_ms(); timed_ok &= omega_gpu_tensor_update_f32(t, b2) == OMEGA_GPU_MATMUL_OK; s_f32[i] = now_ms() - t0;
+            t0 = now_ms(); timed_ok &= omega_gpu_tensor_update_bf16(t, b1h) == OMEGA_GPU_MATMUL_OK; s_bf16[i] = now_ms() - t0;
+            t0 = now_ms(); timed_ok &= omega_gpu_tensor_upload_f32(k, n, b2, &tf) == OMEGA_GPU_MATMUL_OK; omega_gpu_tensor_free(tf); s_up[i] = now_ms() - t0;
+        }
+        CHECK(timed_ok, "update %ux%ux%u: a timed call failed", m, k, n);
+        double mf = median5(s_f32), mb = median5(s_bf16), mu = median5(s_up);
+        int pass = vs_fresh == 0 && bad == 0 && back == 0 && timed_ok;
+        printf("%s update %ux%ux%u vs_fresh=%zu e2e=%g bad=%zu back=%zu update_f32_ms=%.2f update_bf16_ms=%.2f upload_f32_free_ms=%.2f\n",
+               pass ? "PASS" : "FAIL", m, k, n, vs_fresh, e2e, bad, back, mf, mb, mu);
+        if (out) {
+            fprintf(out, "%s{\"m\":%u,\"k\":%u,\"n\":%u,\"pass\":%s,\"vs_fresh_diff\":%zu,\"e2e_max_rel\":%g,\"e2e_bad\":%zu,\"back_diff\":%zu,"
+                    "\"update_f32_ms\":%.3f,\"update_bf16_ms\":%.3f,\"upload_f32_free_ms\":%.3f}",
+                    first ? "" : ",", m, k, n, pass ? "true" : "false", vs_fresh, e2e, bad, back, mf, mb, mu);
+            first = 0;
+        }
+        omega_gpu_tensor_free(t);
+        free(a); free(b1); free(b2); free(c1); free(c2); free(c2f); free(c3); free(b1h);
+        if (omega_gpu_matmul_is_blocked()) break;
+    }
+    free(copy);
+    if (out) {
+        fprintf(out, "],\"blocked\":%s,\"checks\":%d,\"failed\":%d,\"verdict\":\"%s\"}\n", omega_gpu_matmul_is_blocked() ? "true" : "false", g_checks, g_failed,
+                g_failed == 0 ? "OMEGA_GPU_TENSOR_UPDATE_PASS" : "OMEGA_GPU_TENSOR_UPDATE_FAIL");
+        fclose(out);
+    }
+    return 0;
+}
+
 int main(int argc, char **argv) {
     const char *out_path = NULL;
-    int host = 0, mutant = 0, do_timing = 0;
+    int host = 0, mutant = 0, do_timing = 0, do_update = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--host-only") == 0) host = 1;
         else if (strcmp(argv[i], "--mutant") == 0) mutant = 1;
         else if (strcmp(argv[i], "--timing") == 0) do_timing = 1;
+        else if (strcmp(argv[i], "--update") == 0) do_update = 1;
         else if (strcmp(argv[i], "--cta-budget") == 0 && i + 1 < argc) omega_gpu_matmul_set_cta_budget((uint32_t)strtoul(argv[++i], NULL, 10));
         else if (strcmp(argv[i], "--spin-us") == 0 && i + 1 < argc) {
             if (omega_gpu_session_set_spin_us((uint32_t)strtoul(argv[++i], NULL, 10)) != 0) { fprintf(stderr, "--spin-us out of range\n"); return 2; }
@@ -499,9 +583,10 @@ int main(int argc, char **argv) {
     int rc = 0;
     if (host) host_only();
     else if (do_timing) rc = timing(shapes ? shapes : TIMING_SHAPES, out_path);
+    else if (do_update) rc = update_mode(shapes ? shapes : UPDATE_SHAPES, out_path);
     else if (mutant) { omega_gpu_matmul_test_set_mutant(1); rc = chip_sweep(shapes ? shapes : MUTANT_SHAPES, out_path, 1); omega_gpu_matmul_test_set_mutant(0); }
     else rc = chip_sweep(shapes ? shapes : DEFAULT_SHAPES, out_path, 0);
-    if (!host && !do_timing && !mutant && !omega_gpu_matmul_is_blocked()) one_row_repack_checks();
+    if (!host && !do_timing && !do_update && !mutant && !omega_gpu_matmul_is_blocked()) one_row_repack_checks();
     if (!omega_gpu_matmul_is_blocked()) omega_gpu_device_close();
     if (rc) return 2;
     printf("%s: %d checks, %d failed%s\n", g_failed ? "FAIL" : "PASS", g_checks, g_failed, mutant ? (g_failed ? " (mutant SURVIVED)" : " (mutant killed)") : "");
