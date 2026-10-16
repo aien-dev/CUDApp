@@ -285,6 +285,13 @@ static void host_only(void) {
     CHECK(omega_gpu_matmul_resident_f32(16, a, NULL, c, &info) == OMEGA_GPU_MATMUL_BAD_ARGS, "resident NULL tensor refused");
     CHECK(strcmp(omega_gpu_matmul_rc_name(OMEGA_GPU_MATMUL_PARITY_FAIL), "PARITY_FAIL") == 0, "rc name");
     CHECK(omega_gpu_matmul_cta_budget() == OMEGA_GPU_MATMUL_MAX_CTAS, "default CTA budget");
+    {
+        OmegaGpuMatmulStages s0;
+        memset(&s0, 0xff, sizeof s0);
+        omega_gpu_matmul_last_stages(&s0);
+        omega_gpu_matmul_last_stages(NULL);
+        CHECK(s0.core_ns == 0 && s0.launch_ns == 0 && s0.pack_ns == 0, "stages all zero before the first matmul");
+    }
     CHECK(omega_gpu_matmul_is_blocked() == 0, "not blocked at start");
 
     /* codegen only: the looped kernel must accept every padded Llama shape without touching the chip */
