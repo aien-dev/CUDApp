@@ -25,6 +25,7 @@
 #include "omega_gpu_matmul_api.h"
 #include "omega_blackwell_codegen.h"
 #include "omega_blackwell_matmul.h"
+#include "sha256.h"
 #include <inttypes.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -137,6 +138,13 @@ static size_t count_not_negation(size_t cnt, const float *pos, const float *neg)
     size_t d = 0;
     for (size_t i = 0; i < cnt; i++) d += fbits(pos[i]) != (fbits(neg[i]) ^ 0x80000000u);
     return d;
+}
+
+/* sha256 of the output bytes (first 16 hex digits), so separate runs can be compared bit for bit */
+static void digest16(const float *c, size_t cnt, char hex[17]) {
+    uint8_t d[SHA256_DIGEST_SIZE];
+    sha256_hash((const uint8_t *)c, cnt * sizeof *c, d);
+    for (int i = 0; i < 8; i++) snprintf(hex + 2 * i, 3, "%02x", d[i]);
 }
 
 static int cmp_u64(const void *x, const void *y) { uint64_t a = *(const uint64_t *)x, b = *(const uint64_t *)y; return a < b ? -1 : a > b; }
@@ -294,26 +302,28 @@ int main(int argc, char **argv) {
             const size_t neg_exact = rcs_ok ? count_not_negation(cnt, pos0, neg0) : cnt;
             size_t cross = 0;
             if (rcs_ok) { if (bi == 0) memcpy(base_pos, pos0, cnt * 4); else cross = count_bit_diff(cnt, pos0, base_pos); }
+            char dig[17] = "-";
+            if (rcs_ok) digest16(pos0, cnt, dig);
             const uint32_t ctas = info.grid_x * info.grid_y;
             const int pass = rcs_ok && cp.mismatches == 0 && cn.mismatches == 0 && rep_diff == 0 && stale_total == 0;
             CHECK(pass, "%s budget %u: rc_ok=%d pos_mism=%zu neg_mism=%zu repeat_diff=%zu stale=%zu", tok, budgets[bi], rcs_ok, cp.mismatches, cn.mismatches, rep_diff, stale_total);
             cells[ns][bi].pass = pass; cells[ns][bi].chip_med_ns = chip_med;
             const double tflops = chip_med ? flop / (double)chip_med / 1e3 : 0.0;
             printf("%s %s budget=%u grid=%ux%u ctas=%u launches=%u rt=%u ct=%u i42_regime=%d chip_med_ms=%.3f call_med_ms=%.3f tflops_chip=%.3f "
-                   "elements=%zu pos_mism=%zu neg_mism=%zu max_rel=%.3g repeat_bitdiff=%zu stale=%zu neg_exact_diff=%zu vs_first_budget_bitdiff=%zu cache_hit=%d\n",
+                   "elements=%zu pos_mism=%zu neg_mism=%zu max_rel=%.3g repeat_bitdiff=%zu stale=%zu neg_exact_diff=%zu vs_first_budget_bitdiff=%zu sha=%s cache_hit=%d\n",
                    pass ? "PASS" : "FAIL", tok, budgets[bi], info.grid_x, info.grid_y, ctas, info.chip_calls, rt, ct, ctas >= 128,
                    chip_med / 1e6, call_med / 1e6, tflops, cnt, cp.mismatches, cn.mismatches, cp.max_rel > cn.max_rel ? cp.max_rel : cn.max_rel,
-                   rep_diff, stale_total, neg_exact, cross, hit_after_first);
+                   rep_diff, stale_total, neg_exact, cross, dig, hit_after_first);
             if (out) {
                 fprintf(out, "%s{\"m\":%u,\"k\":%u,\"n\":%u,\"budget\":%u,\"pass\":%s,\"grid_x\":%u,\"grid_y\":%u,\"ctas_per_launch\":%u,\"launches\":%u,"
                         "\"rt\":%u,\"ct\":%u,\"single_tile_kernel\":%s,\"i42_regime\":%s,\"calls\":%u,\"elements_per_call\":%zu,"
                         "\"pos_mismatches\":%zu,\"neg_mismatches\":%zu,\"nonfinite\":%zu,\"max_rel\":%.4g,\"repeat_bitdiff\":%zu,"
                         "\"stale_elements\":%zu,\"stale_max_per_call\":%zu,\"neg_exact_negation_diff\":%zu,\"vs_first_budget_bitdiff\":%zu,"
-                        "\"cache_hit_after_first\":%s,\"chip_median_ns\":%" PRIu64 ",\"call_median_ns\":%" PRIu64 ",\"tflops_chip\":%.4f,\"chip_ns\":[",
+                        "\"pos_output_sha256_16\":\"%s\",\"cache_hit_after_first\":%s,\"chip_median_ns\":%" PRIu64 ",\"call_median_ns\":%" PRIu64 ",\"tflops_chip\":%.4f,\"chip_ns\":[",
                         first_run ? "" : ",", m, k, n, budgets[bi], pass ? "true" : "false", info.grid_x, info.grid_y, ctas, info.chip_calls,
                         rt, ct, rt == 1 && ct == 1 ? "true" : "false", ctas >= 128 ? "true" : "false", done, cnt,
                         cp.mismatches, cn.mismatches, cp.nonfinite + cn.nonfinite, cp.max_rel > cn.max_rel ? cp.max_rel : cn.max_rel, rep_diff,
-                        stale_total, stale_max, neg_exact, cross, hit_after_first ? "true" : "false", chip_med, call_med, tflops);
+                        stale_total, stale_max, neg_exact, cross, dig, hit_after_first ? "true" : "false", chip_med, call_med, tflops);
                 for (unsigned ci = 0; ci < done; ci++) fprintf(out, "%s%" PRIu64, ci ? "," : "", chip[ci]);
                 fprintf(out, "],\"call_ns\":[");
                 for (unsigned ci = 0; ci < done; ci++) fprintf(out, "%s%" PRIu64, ci ? "," : "", call[ci]);
