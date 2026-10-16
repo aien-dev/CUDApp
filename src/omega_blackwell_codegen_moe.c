@@ -132,6 +132,7 @@ static int spec_ok(const OmegaFp8GemvSpec *s) {
     if (s->warps < 1 || s->warps > 32) return 0; /* threads_x = 32 * warps <= 1024 */
     if (s->k == 0 || s->k > OMEGA_FP8_MAX_K || s->k % OMEGA_FP8_BLOCK || s->k % (32u * s->lane_bytes)) return 0;
     if (s->mutant < 0 || s->mutant > 3) return 0;
+    if (s->sched > 1) return 0;
     if (s->depth) { /* deep kernel: staging rounds (32-bit words, one per thread per round) must be exact and few */
         uint32_t ks = s->k / (32u * s->lane_bytes);
         if (s->depth > 16 || ks % s->depth || s->rows * s->depth * s->lane_bytes > 128u) return 0; /* <= 128 weight bytes per lane per iteration: instruction and register budgets */
@@ -154,6 +155,104 @@ static void decode_byte(Em *e, int f, int wq, unsigned word, unsigned i, int u, 
     andi(e, s, wq, word, 0x80u << (8u * i));
     if (i < 3) imadi(e, f, s, 0, 1u << (24u - 8u * i), a); /* sign to bit 31, plus the magnitude */
     else imadi(e, f, s, 0, 1u, a);
+}
+
+/* ---- sched 1 (CUT5): pipelined byte decode ----
+ * Byte b of a K step (word b / 4, byte b % 4) goes through five instructions: E (shift the byte to bits 20..27),
+ * S (isolate its sign), M (mask the magnitude), F (sign to bit 31 plus magnitude = the f32 bits) and C (the FFMA into
+ * dot). Iteration c emits E(c), S(c), M(c - 2), F(c - 3), C(c - 5): every producer is at least 6 instructions ahead of
+ * its user (E->M 12, S->F 12+, M->F 6, F->C 11), so the stall pass below can give most instructions stall 1 while the
+ * FFMA chain (one per 5 instructions) runs at the 6-cycle fixed latency. t1 holds a byte from E to F (4 slots), t2 from
+ * S to C (6 slots). The FFMA order (byte 0, 1, ... of word 0, then word 1 ...) and every operand are those of the
+ * sched 0 loop, so y is bit-identical. */
+#define PIPE_T1 4
+#define PIPE_T2 6
+static void decode_pipe(Em *e, int wqv, uint32_t words, const int *xq, int dot, const int *t1, const int *t2) {
+    const uint32_t M = 0x07F00000u, NB = 4u * words;
+    for (uint32_t c = 0; c < NB + 5u; c++) {
+        if (c < NB) {
+            const uint32_t word = c / 4u, i = c % 4u;
+            const int u = t1[c % PIPE_T1], sg = t2[c % PIPE_T2];
+            if (i < 3) imadi(e, u, wqv, word, 1u << (20u - 8u * i), NOREG); else shr(e, u, wqv, word, 4);
+            andi(e, sg, wqv, word, 0x80u << (8u * i));
+        }
+        if (c >= 2 && c - 2u < NB) { const int u = t1[(c - 2u) % PIPE_T1]; andi(e, u, u, 0, M); }
+        if (c >= 3 && c - 3u < NB) {
+            const uint32_t b = c - 3u, i = b % 4u;
+            const int sg = t2[b % PIPE_T2], u = t1[b % PIPE_T1];
+            imadi(e, sg, sg, 0, i < 3 ? 1u << (24u - 8u * i) : 1u, u);
+        }
+        if (c >= 5 && c - 5u < NB) { const uint32_t b = c - 5u; ffma(e, dot, t2[b % PIPE_T2], xq[b / 4u], b % 4u, dot); }
+    }
+}
+
+/* ---- sched 1: dependency-driven stall counts (after register allocation) ----
+ * The emitter gives every fixed-latency instruction stall 6, which keeps any user >= 6 cycles behind its producer but
+ * also makes independent instructions wait 6 cycles each. The repository's chip-proven rule is the distance, not the
+ * per-instruction count: a fixed-latency producer stalls >= 5 cycles before its consumer (we keep 6;
+ * omega_gpu_elementwise_api.c:13). Same pass as omega_blackwell_codegen_tern.c (chip-proven at TERN-T0 2300f164) with
+ * this kernel's fixed-latency set, which adds FFMA, FADD and LOP3_XOR: walk the program in order on physical registers
+ * and give each instruction the smallest stall that keeps the next instruction >= OMEGA_FP8_FIXED_LAT cycles behind
+ * every fixed-latency write it reads or overwrites. Before a control instruction (BRA, EXIT, BSSY, BSYNC, BAR) or a
+ * branch target every fixed-latency write has completed, so straight-line timing never spans a jump. Other instructions
+ * keep at least their emitted stall (loads 4, ISETP 14 before a predicated branch); wait masks are untouched. */
+static int fp8_fixed(BlackwellIROpcode op) {
+    switch (op) {
+    case BW_IR_IMAD: case BW_IR_IMAD_WIDE: case BW_IR_SHF_R: case BW_IR_LOP3_AND: case BW_IR_LOP3_XOR: case BW_IR_MOV_IMM:
+    case BW_IR_MOV_RZ: case BW_IR_FFMA: case BW_IR_FADD: return 1;
+    default: return 0;
+    }
+}
+static int fp8_control(BlackwellIROpcode op) {
+    return op == BW_IR_BRA || op == BW_IR_EXIT || op == BW_IR_BSSY || op == BW_IR_BSYNC || op == BW_IR_BAR_SYNC;
+}
+static void fp8_span(const BlackwellIRProgram *p, int v, int *lo, int *cnt) {
+    *lo = -1; *cnt = 0;
+    if (v < 0 || v >= p->regalloc.num_vregs) return;
+    const int ph = p->regalloc.vreg_to_phys[v];
+    if (ph < 0) return;
+    *lo = ph; *cnt = (int)(p->regalloc.intervals[v].bundle_size ? p->regalloc.intervals[v].bundle_size : 1u);
+}
+static int fp8_schedule_stalls(BlackwellIRProgram *p) {
+    static uint8_t target[BW_MAX_IR_INSNS + 1];
+    uint64_t ready[BW_MAX_VREGS + 8];
+    const size_t n = p->count;
+    memset(target, 0, sizeof target);
+    memset(ready, 0, sizeof ready);
+    for (size_t i = 0; i < n; i++) {
+        const BlackwellIRInsn *in = &p->insns[i];
+        if (in->op == BW_IR_BRA || in->op == BW_IR_BSSY) {
+            const long t = (long)i + (long)(int32_t)in->imm;
+            if (t < 0 || t > (long)n) return -1;
+            target[t] = 1;
+        }
+    }
+    uint64_t T = 0, all = 0;
+    for (size_t i = 0; i < n; i++) {
+        BlackwellIRInsn *in = &p->insns[i];
+        const uint32_t s_emit = (in->control >> 9) & 0xfu;
+        const int fixed = fp8_fixed(in->op);
+        if (fixed) {
+            int lo, c; fp8_span(p, in->dst_vreg, &lo, &c);
+            for (int k = 0; k < c; k++) { if (lo + k >= BW_MAX_VREGS + 8) return -1; ready[lo + k] = T + OMEGA_FP8_FIXED_LAT; }
+            if (c && T + OMEGA_FP8_FIXED_LAT > all) all = T + OMEGA_FP8_FIXED_LAT;
+        }
+        uint64_t need = T + (fixed ? 1u : s_emit);
+        if (i + 1 < n) {
+            const BlackwellIRInsn *nx = &p->insns[i + 1];
+            const int ops[4] = { nx->dst_vreg, nx->src1_vreg, nx->src2_vreg, nx->src3_vreg };
+            for (int q = 0; q < 4; q++) {
+                int lo, c; fp8_span(p, ops[q], &lo, &c);
+                for (int k = 0; k < c; k++) if (lo + k < BW_MAX_VREGS + 8 && ready[lo + k] > need) need = ready[lo + k];
+            }
+            if ((fp8_control(nx->op) || target[i + 1]) && all > need) need = all;
+        }
+        const uint64_t s = need - T;
+        if (s > 15 || (s == 0 && (fixed || s_emit != 0))) return -1; /* stall 0 only where emitted (the final self-branch) */
+        if (fixed || s > s_emit) in->control = (in->control & ~(0xfu << 9)) | ((uint32_t)s << 9);
+        T = need;
+    }
+    return 0;
 }
 
 int omega_blackwell_codegen_fp8_gemv_prog(const OmegaFp8GemvSpec *spec, BlackwellIRProgram *prog) {
@@ -202,6 +301,8 @@ int omega_blackwell_codegen_fp8_gemv_prog(const OmegaFp8GemvSpec *spec, Blackwel
     for (uint32_t q = 0; q < WORDS; q++) xq[q] = V128(e);
     for (uint32_t s = 0; s < D; s++) { sc[s] = V(e); psd[s] = V64(e); }
     int dot = V(e), u = V(e), a = V(e), sg = V(e), f = V(e), t = V(e);
+    int pt1[PIPE_T1], pt2[PIPE_T2]; /* sched 1 only: allocated after every sched 0 register, so sched 0 code is unchanged */
+    if (spec->sched) { for (int q = 0; q < PIPE_T1; q++) pt1[q] = V(e); for (int q = 0; q < PIPE_T2; q++) pt2[q] = V(e); }
     if (e->err) return -1;
 
     if (deep) {
@@ -263,6 +364,8 @@ int omega_blackwell_codegen_fp8_gemv_prog(const OmegaFp8GemvSpec *spec, Blackwel
         if (deep) { int first = 1; for (uint32_t q = 0; q < WORDS; q++) { lds128(e, xq[q], xl, s * 128u * LB + q * 16u, first); first = 0; } }
         for (uint32_t r = 0; r < R; r++) {
             movrz(e, dot);
+            if (spec->sched) decode_pipe(e, wq[r][s], WORDS, xq, dot, pt1, pt2);
+            else
             for (uint32_t word = 0; word < WORDS; word++)
                 for (unsigned i = 0; i < 4; i++) {
                     decode_byte(e, f, wq[r][s], word, i, u, a, sg);
@@ -300,7 +403,8 @@ int omega_blackwell_codegen_fp8_gemv_prog(const OmegaFp8GemvSpec *spec, Blackwel
     patch_bra(e, bra_end, L_end);
     tail(e);
     if (e->err) return -1;
-    return omega_bw_regalloc_solve(prog);
+    if (omega_bw_regalloc_solve(prog) != 0) return -1;
+    return spec->sched ? fp8_schedule_stalls(prog) : 0;
 }
 
 int omega_fp8_gemv_prog_stats(const OmegaFp8GemvSpec *spec, uint32_t *insns, uint32_t *gprs) {

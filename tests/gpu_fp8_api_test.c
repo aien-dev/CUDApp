@@ -11,7 +11,11 @@
  *                                           host no-fold) which the same check must catch
  *   ./gpu_fp8_api_test --out receipt.json   chip gate: parity battery, mutants, grouped experts, then the
  *                                           bandwidth table (median of --reps calls) at the expert and attention shapes
+ *   ./gpu_fp8_api_test --grouped-cold     CUT5: the decode graph's two expert launches (gate_up 8 of 128 x 1536 x 2048,
+ *                                           down 8 of 128 x 2048 x 768) with L2 defeated by rotating 16 disjoint expert
+ *                                           sets; parity on every timed launch; mutants 1..4; GB/s and fraction of 237.2
  *   knobs: --lane-bytes N --rows N --warps N --cta-budget N --reps N --spin-us N
+ *          --sched 0|1 (CUT5 kernel schedule) --variant 1|2 --depth N --no-evict --only NAME
  *          --n N --k K: one custom point n x k instead of the battery (with mutants 1, 2, 4), e.g. 128256 x 2560
  *
  * Pass rule per point: rc OK, every output within TOL of the double oracle relative to the accumulation
@@ -75,6 +79,49 @@ static double parity(const Weights *W, uint32_t groups, const uint32_t *ids, con
     free(ref); free(mag);
     if (bad) *bad = nbad;
     return worst;
+}
+
+/* ---------------------------------------------- stall checker (CUT5) */
+/* Independent of the generator's pass (a different walk, as tests/gpu_tern_api_test.c does): for every fixed-latency
+ * write, scan forward summing stalls; any instruction that reads or overwrites one of its registers, any control
+ * instruction and any branch target reached before OMEGA_FP8_FIXED_LAT cycles is a violation. */
+static int fp8_chk_fixed(BlackwellIROpcode op) {
+    return op == BW_IR_IMAD || op == BW_IR_IMAD_WIDE || op == BW_IR_SHF_R || op == BW_IR_LOP3_AND || op == BW_IR_LOP3_XOR ||
+           op == BW_IR_MOV_IMM || op == BW_IR_MOV_RZ || op == BW_IR_FFMA || op == BW_IR_FADD;
+}
+static int fp8_chk_overlap(const BlackwellIRProgram *p, int a, int b) {
+    if (a < 0 || b < 0) return 0;
+    const int pa = p->regalloc.vreg_to_phys[a], pb = p->regalloc.vreg_to_phys[b];
+    if (pa < 0 || pb < 0) return 0;
+    const int na = (int)(p->regalloc.intervals[a].bundle_size ? p->regalloc.intervals[a].bundle_size : 1u);
+    const int nb = (int)(p->regalloc.intervals[b].bundle_size ? p->regalloc.intervals[b].bundle_size : 1u);
+    return pa < pb + nb && pb < pa + na;
+}
+static long fp8_stall_violations(const BlackwellIRProgram *p, uint64_t *cycles) {
+    static uint8_t tgt[BW_MAX_IR_INSNS + 1];
+    memset(tgt, 0, sizeof tgt);
+    long bad = 0; uint64_t cyc = 0;
+    for (size_t i = 0; i < p->count; i++) {
+        const BlackwellIRInsn *in = &p->insns[i];
+        cyc += (in->control >> 9) & 0xfu;
+        if (in->op == BW_IR_BRA || in->op == BW_IR_BSSY) { long t = (long)i + (long)(int32_t)in->imm; if (t >= 0 && t <= (long)p->count) tgt[t] = 1; }
+    }
+    for (size_t i = 0; i < p->count; i++) {
+        const BlackwellIRInsn *in = &p->insns[i];
+        if (!fp8_chk_fixed(in->op) || in->dst_vreg < 0) continue;
+        uint32_t dist = 0;
+        for (size_t j = i + 1; j < p->count; j++) {
+            dist += (p->insns[j - 1].control >> 9) & 0xfu;
+            if (dist >= OMEGA_FP8_FIXED_LAT) break;
+            const BlackwellIRInsn *u = &p->insns[j];
+            const BlackwellIROpcode o = u->op;
+            if (o == BW_IR_BRA || o == BW_IR_EXIT || o == BW_IR_BSSY || o == BW_IR_BSYNC || o == BW_IR_BAR_SYNC || tgt[j]) { bad++; break; }
+            if (fp8_chk_overlap(p, in->dst_vreg, u->dst_vreg) || fp8_chk_overlap(p, in->dst_vreg, u->src1_vreg) ||
+                fp8_chk_overlap(p, in->dst_vreg, u->src2_vreg) || fp8_chk_overlap(p, in->dst_vreg, u->src3_vreg)) { bad++; break; }
+        }
+    }
+    if (cycles) *cycles = cyc;
+    return bad;
 }
 
 /* ------------------------------------------------------------- host-only */
@@ -233,6 +280,51 @@ static void host_only(void) {
           bad.k = 2048; bad.lane_bytes = 8; bad.rows = 2; CHECK(omega_fp8_gemv2_prog_stats(&bad, NULL, NULL) == 0, "v2 k=2048 lb8 rows=2 (128 bytes per lane) builds"); }
         OmegaFp8GemvSpec v = { .k = 2048, .lane_bytes = 16, .rows = 1, .warps = 16 };
         CHECK(nvdisasm_check_v(2, &v, "v2_k2048_lb16_r1_w16") == 0, "nvdisasm listing v2 k=2048");
+    }
+
+    /* 7. sched 1 (CUT5): pipelined decode + dependency stall pass. Every battery shape builds; the two grouped expert
+     *    shapes fit the register file at 32 warps; an independent walk finds no user closer than OMEGA_FP8_FIXED_LAT
+     *    cycles to a fixed-latency write; shortening one binding stall must be caught (the checker can say no); the
+     *    sched 0 programs pass the same checker (they stall 6 everywhere) */
+    {
+        int built1 = 0; long viol_all = 0;
+        for (size_t a = 0; a < sizeof ks / sizeof ks[0]; a++) for (size_t b = 0; b < 2; b++) for (size_t c = 0; c < 4; c++) for (int m = 0; m <= 3; m++) for (int deep = 0; deep < 2; deep++) {
+            OmegaFp8GemvSpec sp = { .k = ks[a], .lane_bytes = lbs[b], .rows = rows[c], .warps = 8, .mutant = m, .sched = 1 };
+            if (ks[a] % (32 * lbs[b])) continue;
+            if (deep) { sp.depth = ks[a] / (32 * lbs[b]); if (sp.depth * sp.rows * lbs[b] > 128 || ks[a] > 4096) continue; }
+            static BlackwellIRProgram cp;
+            int rc = omega_blackwell_codegen_fp8_gemv_prog(&sp, &cp);
+            CHECK(rc == 0 && cp.count <= BW_MAX_IR_INSNS, "sched1 codegen k=%u lb=%u rows=%u mutant=%d deep=%d", sp.k, sp.lane_bytes, sp.rows, m, deep);
+            if (rc != 0) continue;
+            built1++;
+            long v = fp8_stall_violations(&cp, NULL);
+            viol_all += v;
+            CHECK(v == 0, "sched1 stall distances k=%u lb=%u rows=%u mutant=%d deep=%d: %ld users closer than %u cycles", sp.k, sp.lane_bytes, sp.rows, m, deep, v, OMEGA_FP8_FIXED_LAT);
+        }
+        printf("sched1 codegen: %d kernels built, %ld stall-distance violations\n", built1, viol_all);
+        static const struct { uint32_t k, lb; const char *name; } prod[] = { { 2048, 16, "gate_up k2048 lb16" }, { 768, 8, "down k768 lb8" } };
+        for (size_t q = 0; q < 2; q++) {
+            static BlackwellIRProgram p0, p1;
+            OmegaFp8GemvSpec s0 = { .k = prod[q].k, .lane_bytes = prod[q].lb, .rows = 1, .warps = 32 }, s1 = s0; s1.sched = 1;
+            uint32_t d1 = 0, g1 = 0, g0 = 0;
+            const int ok = omega_blackwell_codegen_fp8_gemv_prog(&s0, &p0) == 0 && omega_blackwell_codegen_fp8_gemv_prog(&s1, &p1) == 0;
+            CHECK(ok, "sched 0 and 1 build at %s 32 warps", prod[q].name);
+            if (!ok) continue;
+            CHECK(omega_fp8_gemv_prog_stats(&s0, NULL, &g0) == 0 && omega_fp8_gemv_prog_stats(&s1, NULL, &g1) == 0, "stats %s", prod[q].name);
+            CHECK(omega_gpu_fp8_kernel_fits(&s1, &d1) == OMEGA_GPU_FP8_OK, "sched1 %s at 32 warps fits the register file (declared %u): %s", prod[q].name, d1, omega_gpu_fp8_last_error());
+            uint64_t c0 = 0, c1 = 0;
+            const long v0 = fp8_stall_violations(&p0, &c0), v1 = fp8_stall_violations(&p1, &c1);
+            CHECK(v0 == 0 && v1 == 0, "%s stall distances: sched0 %ld, sched1 %ld violations", prod[q].name, v0, v1);
+            /* negative control: the pass gives each instruction its smallest legal stall, so a fixed-latency stall above 1
+             * is binding; shortening the first one to 1 must be caught by the independent walk */
+            size_t at = p1.count;
+            for (size_t i = 0; i < p1.count; i++) if (fp8_chk_fixed(p1.insns[i].op) && ((p1.insns[i].control >> 9) & 0xfu) > 1u) { at = i; break; }
+            if (at < p1.count) p1.insns[at].control = (p1.insns[at].control & ~(0xfu << 9)) | (1u << 9);
+            CHECK(at < p1.count && fp8_stall_violations(&p1, NULL) > 0, "%s: stall checker catches one shortened stall", prod[q].name);
+            printf("sched1 %s w32: %zu insns (sched0 %zu), peak %u GPRs (sched0 %u), declared %u; stall cycles in program order %" PRIu64 " (sched0 %" PRIu64 "); shortened-stall control caught\n",
+                   prod[q].name, p1.count, p0.count, g1, g0, d1, c1, c0);
+        }
+        { OmegaFp8GemvSpec bad = { .k = 2048, .lane_bytes = 16, .rows = 1, .warps = 8, .sched = 2 }; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "sched 2 refused"); }
     }
 }
 
@@ -431,6 +523,48 @@ static void sim_battery(uint32_t cta_budget) {
         }
         printf("sim v2 battery: %d/%zu points bit-identical to variant 1\n", identical, n2);
     }
+
+    /* 4. sched 1 (CUT5): y bit-identical to sched 0 on every battery point (step and deep kernels), parity against the
+     *    oracle, mutants 1..3 caught on the grouped points; the identity check is shown to say "no" on a mutant */
+    {
+        int identical = 0, runs = 0;
+        for (size_t i = 0; i < npts; i++) {
+            const SimPoint *p = &pts[i];
+            Weights W; weights_make(&W, p->experts, p->n, p->k, 1000 + (uint32_t)i);
+            uint32_t ids[8]; uint32_t st = 77 + (uint32_t)i;
+            for (uint32_t g = 0; g < p->groups; g++) ids[g] = lcg(&st) % p->experts;
+            float *x = malloc((size_t)p->x_rows * p->k * 4); for (size_t j = 0; j < (size_t)p->x_rows * p->k; j++) x[j] = frand(&st, -1.0f, 1.0f);
+            const size_t ny = (size_t)p->groups * p->n;
+            float *y0 = malloc(ny * 4), *y1 = malloc(ny * 4);
+            for (int deep = 0; deep < 2; deep++) {
+                OmegaFp8GemvSpec sp = { .k = p->k, .lane_bytes = p->lb, .rows = p->rows, .warps = p->warps };
+                if (deep) { sp.depth = omega_fp8_gemv_steps(&sp); if (sp.depth * sp.rows * sp.lane_bytes > 128 || p->k > 512 * p->warps) continue; }
+                char nm[96]; snprintf(nm, sizeof nm, "sched1 %s%s", p->name, deep ? " deep" : "");
+                int rc0 = sim_gemv(&sp, &W, p->groups, ids, x, p->x_rows, y0, cta_budget, 0, msg, sizeof msg);
+                CHECK(rc0 == 0, "sched0 reference for %s: %s", nm, msg);
+                OmegaFp8GemvSpec s1 = sp; s1.sched = 1;
+                int rc1 = sim_gemv(&s1, &W, p->groups, ids, x, p->x_rows, y1, cta_budget, 0, msg, sizeof msg);
+                size_t bad = 0; double worst = rc1 == 0 ? parity(&W, p->groups, ids, x, p->x_rows, y1, &bad) : 1.0;
+                int same = rc0 == 0 && rc1 == 0 && memcmp(y0, y1, ny * 4) == 0;
+                CHECK(rc1 == 0 && bad == 0 && same, "sim %s: rc=%d bad=%zu worst_rel=%.3e identical_to_sched0=%d %s", nm, rc1, bad, worst, same, msg);
+                runs++; if (same) identical++;
+                printf("sim %-52s rc=%d worst_rel=%.3e bad=%zu identical_to_sched0=%d\n", nm, rc1, worst, bad, same);
+                if (i == 7 || i == 8) {
+                    for (int m = 1; m <= 3; m++) {
+                        if (m == 2 && omega_fp8_gemv_steps(&sp) < 2) continue;
+                        OmegaFp8GemvSpec ms = s1; ms.mutant = m;
+                        int rcm = sim_gemv(&ms, &W, p->groups, ids, x, p->x_rows, y1, cta_budget, 0, msg, sizeof msg);
+                        bad = 0; worst = rcm == 0 ? parity(&W, p->groups, ids, x, p->x_rows, y1, &bad) : 1.0;
+                        int caught = rcm != 0 || bad > 0, differs = rcm != 0 || memcmp(y0, y1, ny * 4) != 0;
+                        CHECK(caught && differs, "sim %s mutant %d NOT caught (bad=%zu worst_rel=%.3e identity says %s)", nm, m, bad, worst, differs ? "different" : "SAME");
+                        printf("sim %-52s mutant %d: %s (rc=%d bad=%zu worst_rel=%.3e, identity check differs=%d)\n", nm, m, caught ? "caught" : "MISSED", rcm, bad, worst, differs);
+                    }
+                }
+            }
+            free(x); free(y0); free(y1); weights_free(&W);
+        }
+        printf("sim sched1 battery: %d/%d runs bit-identical to sched 0\n", identical, runs);
+    }
 }
 
 /* ------------------------------------------------------------------- chip */
@@ -450,6 +584,76 @@ static const char *g_only; static int g_depth_forced; /* run only the battery po
 /* --n N --k K (ternary engine T0, 2026-10-15): run ONE custom point n x k (one expert, one group) instead of the battery,
  * with the parity check, timing and mutants 1, 2 and 4 (3 needs groups > 1); e.g. the BitNet word table 128256 x 2560. */
 static uint32_t g_custom_n, g_custom_k; static char g_custom_name[48];
+/* --grouped-cold (CUT5, 2026-10-16): the decode graph's two expert launches at their real shapes (omega_gpu_decode_graph.c
+ * record_layer: gate_up [128][1536][2048] with one shared x row, down [128][2048][768] with one x row per group), 8 of 128
+ * experts per launch. L2 is defeated by rotation: the 128 experts are split into 16 disjoint sets of 8 and launch r uses
+ * set r % 16, so consecutive launches share no weight byte and a set returns only after 15 other sets (gate_up 403 MB,
+ * down 201 MB in between; L2 is 24 MiB, evidence/TERN-T0-KT1-18185404-20261016T0151Z/README.md). Every timed launch is
+ * checked against the double oracle (outside the chip time); a launch that fails parity fails the run. Mutants 1..4
+ * must be caught at both shapes. GB/s = (weight + scale bytes of the 8 experts) / median chip time (launch to completion
+ * marker: the launch floor is NOT subtracted). */
+static int g_cold;
+static void cold_points(FILE *out, uint32_t reps, int *first) {
+    static const ChipPoint cpts[] = {
+        { 128, 1536, 2048, 8, 1, "cold gate_up 8 of 128", 1 },
+        { 128, 2048, 768, 8, 8, "cold down 8 of 128", 1 },
+    };
+    for (size_t i = 0; i < 2; i++) {
+        const ChipPoint *p = &cpts[i];
+        if (g_only && !strstr(p->name, g_only)) continue;
+        Weights W; weights_make(&W, p->experts, p->n, p->k, 9100 + (uint32_t)i);
+        uint32_t perm[128], st = 4242 + (uint32_t)i;
+        for (uint32_t e = 0; e < 128; e++) perm[e] = e;
+        for (uint32_t e = 127; e > 0; e--) { uint32_t j = lcg(&st) % (e + 1); uint32_t t = perm[e]; perm[e] = perm[j]; perm[j] = t; }
+        float *x = malloc((size_t)p->x_rows * p->k * 4); for (size_t j = 0; j < (size_t)p->x_rows * p->k; j++) x[j] = frand(&st, -1.0f, 1.0f);
+        float *y = malloc((size_t)p->groups * p->n * 4);
+        OmegaGpuFp8Tensor *t = NULL;
+        int rc = omega_gpu_fp8_tensor_upload(p->experts, p->n, p->k, W.w, W.s, &t);
+        OmegaGpuFp8Info info; memset(&info, 0, sizeof info);
+        if (rc == OMEGA_GPU_FP8_OK) rc = omega_gpu_fp8_gemv_grouped_f32(t, p->groups, perm, x, p->x_rows, y, &info); /* builds the kernel */
+        size_t bad = 0; double worst = rc == OMEGA_GPU_FP8_OK ? parity(&W, p->groups, perm, x, p->x_rows, y, &bad) : 1.0;
+        CHECK(rc == OMEGA_GPU_FP8_OK && bad == 0, "chip %s warm-up: rc=%s bad=%zu worst_rel=%.3e (%s)", p->name, omega_gpu_fp8_rc_name(rc), bad, worst, omega_gpu_fp8_last_error());
+        uint64_t *el = calloc(reps, sizeof *el); uint32_t done = 0; size_t bad_all = 0; double worst_all = worst;
+        if (g_evict) evict_host_caches();
+        for (uint32_t r = 0; r < reps && rc == OMEGA_GPU_FP8_OK; r++) {
+            const uint32_t *ids = perm + 8u * (r % 16u);
+            OmegaGpuFp8Info ti;
+            if (omega_gpu_fp8_gemv_grouped_f32(t, p->groups, ids, x, p->x_rows, y, &ti) != OMEGA_GPU_FP8_OK) { rc = OMEGA_GPU_FP8_CHIP_FAIL; break; }
+            size_t b = 0; double w = parity(&W, p->groups, ids, x, p->x_rows, y, &b);
+            bad_all += b; if (w > worst_all) worst_all = w;
+            el[done++] = ti.elapsed_ns;
+        }
+        CHECK(rc == OMEGA_GPU_FP8_OK && done == reps && bad_all == 0, "chip %s: %u/%u timed launches, %zu elements off the oracle, worst_rel=%.3e (%s)", p->name, done, reps, bad_all, worst_all, omega_gpu_fp8_last_error());
+        uint64_t med = 0, lo = 0, hi = 0; double gbs = 0.0;
+        if (done) { qsort(el, done, sizeof *el, cmp_u64); med = el[done / 2]; lo = el[0]; hi = el[done - 1]; gbs = med ? (double)(info.weight_bytes + info.scale_bytes) / (double)med : 0.0; }
+        printf("chip %-24s variant=%d sched=%d rc=%-9s timed=%u bad=%zu worst_rel=%.3e grid=%ux%u lb=%u rows=%u warps=%u depth=%u bytes=%" PRIu64 " chip_med=%.1fus min=%.1fus max=%.1fus (%.1f GB/s, %.3f of 237.2)\n",
+               p->name, omega_gpu_fp8_variant(), omega_gpu_fp8_sched(), omega_gpu_fp8_rc_name(rc), done, bad_all, worst_all, info.grid_x, info.grid_y, info.lane_bytes, info.rows_per_warp,
+               info.warps_per_cta, info.depth, info.weight_bytes + info.scale_bytes, med / 1e3, lo / 1e3, hi / 1e3, gbs, gbs / 237.2);
+        if (out) fprintf(out, "%s{\"name\":\"%s\",\"experts\":%u,\"n\":%u,\"k\":%u,\"groups\":%u,\"x_rows\":%u,\"rc\":\"%s\",\"timed\":%u,\"bad\":%zu,\"worst_rel\":%.3e,"
+                         "\"variant\":%d,\"sched\":%d,\"grid_x\":%u,\"grid_y\":%u,\"lane_bytes\":%u,\"rows_per_warp\":%u,\"warps_per_cta\":%u,\"depth\":%u,\"bytes\":%" PRIu64 ",\"chip_median_ns\":%" PRIu64 ",\"chip_min_ns\":%" PRIu64 ",\"chip_max_ns\":%" PRIu64 ",\"gbps_chip\":%.2f,\"evict\":%d,\"rotation_sets\":16}",
+                         *first ? "" : ",", p->name, p->experts, p->n, p->k, p->groups, p->x_rows, omega_gpu_fp8_rc_name(rc), done, bad_all, worst_all,
+                         omega_gpu_fp8_variant(), omega_gpu_fp8_sched(), info.grid_x, info.grid_y, info.lane_bytes, info.rows_per_warp, info.warps_per_cta, info.depth, info.weight_bytes + info.scale_bytes, med, lo, hi, gbs, g_evict);
+        *first = 0;
+        free(el);
+        /* mutants: each must be caught at this shape and this kernel configuration */
+        for (int m = 1; m <= 4 && rc == OMEGA_GPU_FP8_OK; m++) {
+            if (m == 4) omega_gpu_fp8_test_set_no_fold(1); else omega_gpu_fp8_test_set_mutant(m);
+            OmegaGpuFp8Tensor *tm = t;
+            if (m == 4) { tm = NULL; if (omega_gpu_fp8_tensor_upload(p->experts, p->n, p->k, W.w, W.s, &tm) != OMEGA_GPU_FP8_OK) tm = NULL; }
+            int r = tm ? omega_gpu_fp8_gemv_grouped_f32(tm, p->groups, perm, x, p->x_rows, y, NULL) : OMEGA_GPU_FP8_CHIP_FAIL;
+            size_t mb = 0; double mw = r == OMEGA_GPU_FP8_OK ? parity(&W, p->groups, perm, x, p->x_rows, y, &mb) : 1.0;
+            int caught = r != OMEGA_GPU_FP8_OK || mb > 0;
+            CHECK(caught, "chip %s mutant %d NOT caught", p->name, m);
+            printf("chip %-24s mutant %d: %s (rc=%s bad=%zu worst_rel=%.3e)\n", p->name, m, caught ? "caught" : "MISSED", omega_gpu_fp8_rc_name(r), mb, mw);
+            if (out) fprintf(out, ",{\"name\":\"%s mutant %d\",\"caught\":%d,\"rc\":\"%s\",\"bad\":%zu,\"worst_rel\":%.3e}", p->name, m, caught, omega_gpu_fp8_rc_name(r), mb, mw);
+            if (m == 4) { omega_gpu_fp8_test_set_no_fold(0); if (tm) omega_gpu_fp8_tensor_free(tm); } else omega_gpu_fp8_test_set_mutant(0);
+        }
+        if (t) omega_gpu_fp8_tensor_free(t);
+        free(x); free(y); weights_free(&W);
+        if (omega_gpu_session_is_blocked()) { printf("session latched: stopping\n"); break; }
+    }
+}
+
 static int chip_run(const char *out_path, uint32_t reps) {
     FILE *out = out_path ? fopen(out_path, "w") : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 1; }
@@ -498,6 +702,7 @@ static int chip_run(const char *out_path, uint32_t reps) {
     if (g_custom_n) { snprintf(g_custom_name, sizeof g_custom_name, "custom %ux%u", g_custom_n, g_custom_k); custom = (ChipPoint){ 1, g_custom_n, g_custom_k, 1, 1, g_custom_name, 1 }; P = &custom; npts = 1; }
     int first = 1;
     first = out ? 0 : 1;
+    if (g_cold) npts = 0; /* --grouped-cold: the two real expert shapes instead of the battery */
     for (size_t i = 0; i < npts; i++) {
         const ChipPoint *p = &P[i];
         if (g_only && !strstr(p->name, g_only)) continue;
@@ -558,6 +763,7 @@ static int chip_run(const char *out_path, uint32_t reps) {
         free(x); free(y); free(y2); weights_free(&W);
         if (omega_gpu_session_is_blocked()) { printf("session latched: stopping\n"); break; }
     }
+    if (g_cold && !omega_gpu_session_is_blocked()) cold_points(out, reps, &first);
     if (out) { fprintf(out, "],\"checks\":%d,\"failed\":%d,\"device_opens\":%u,\"verdict\":\"%s\"}\n", g_checks, g_failed, omega_gpu_session_open_count(), g_failed == 0 ? "OMEGA_GPU_FP8_GEMV_PASS" : "OMEGA_GPU_FP8_GEMV_FAIL"); fclose(out); }
     return 0;
 }
@@ -581,6 +787,8 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--k") == 0 && i + 1 < argc) g_custom_k = (uint32_t)atoi(argv[++i]);
         else if (strcmp(argv[i], "--gpr-pad") == 0 && i + 1 < argc) omega_gpu_fp8_set_gpr_pad((uint32_t)atoi(argv[++i]));
         else if (strcmp(argv[i], "--variant") == 0 && i + 1 < argc) omega_gpu_fp8_set_variant(atoi(argv[++i])); /* 1 (default) or 2 (W-L2c row-pipelined) */
+        else if (strcmp(argv[i], "--sched") == 0 && i + 1 < argc) omega_gpu_fp8_set_sched(atoi(argv[++i])); /* CUT5: 0 (default) or 1 (pipelined decode + stall pass) */
+        else if (strcmp(argv[i], "--grouped-cold") == 0) g_cold = 1; /* CUT5: the two decode expert launches, 8 of 128, L2 defeated */
         else { printf("unknown argument %s\n", argv[i]); return 2; }
     }
     if (host) host_only();

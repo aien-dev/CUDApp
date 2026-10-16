@@ -42,6 +42,7 @@ static struct {
     int variant, variant_set; /* GEMV variant 1 or 2 (omega_gpu_fp8_set_variant / AIEN_OMEGA_FP8_GEMV), read once */
     int weights_cached; /* omega_gpu_fp8_set_weight_cache: uploads after it allocate GPU-cached (read-only weights) */
     int weights_cached_set; /* 0: never set, the first upload reads env AIEN_OMEGA_FP8_WEIGHT_CACHE (W-L2d: "1" = cached) */
+    int sched, sched_set; /* CUT5: kernel schedule 0 (default) or 1 (pipelined decode + stall pass), variant 1 only; env AIEN_OMEGA_FP8_SCHED when never set */
     bool hooked;
     Slot cache[CACHE_SLOTS];
     unsigned next;
@@ -107,6 +108,23 @@ void omega_gpu_fp8_set_variant(int variant) {
     omega_gpu_session_unlock();
 }
 int omega_gpu_fp8_variant(void) { return variant_now(); }
+
+/* ---- kernel schedule (CUT5): 0 = emitted stalls (default), 1 = pipelined decode + dependency stall pass (variant 1 only) ---- */
+static int sched_now(void) {
+    if (!g.sched_set) {
+        const char *v = getenv("AIEN_OMEGA_FP8_SCHED");
+        g.sched = (v && v[0] == '1' && v[1] == 0) ? 1 : 0;
+        g.sched_set = 1;
+    }
+    return g.sched;
+}
+void omega_gpu_fp8_set_sched(int sched) {
+    omega_gpu_session_lock();
+    g.sched = sched == 1 ? 1 : 0; g.sched_set = 1;
+    cache_clear_locked();
+    omega_gpu_session_unlock();
+}
+int omega_gpu_fp8_sched(void) { return sched_now(); }
 /* codegen by variant */
 static int prog_for(int variant, const OmegaFp8GemvSpec *spec, BlackwellIRProgram *prog) {
     return variant == 2 ? omega_blackwell_codegen_fp8_gemv2_prog(spec, prog) : omega_blackwell_codegen_fp8_gemv_prog(spec, prog);
@@ -226,7 +244,7 @@ static void spec_for(uint32_t k, uint32_t n, uint32_t groups, OmegaFp8GemvSpec *
          * the whole row group is always in flight (depth = KS, informational: the generator ignores the field). */
         if (!g.warps) spec->warps = OMEGA_GPU_FP8_V2_WARPS;
         spec->depth = spec->k / (32u * spec->lane_bytes);
-    } else spec->depth = omega_gpu_fp8_depth_for(spec, n, groups);
+    } else { spec->depth = omega_gpu_fp8_depth_for(spec, n, groups); spec->sched = (uint32_t)sched_now(); }
     spec->mutant = g.mutant;
 }
 

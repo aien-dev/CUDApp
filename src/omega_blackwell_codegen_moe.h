@@ -84,7 +84,15 @@ typedef struct {
                           * flight per warp); x comes from shared memory (LDS.128). Needs KS % D == 0,
                           * rows * D * lane_bytes <= 128, k % (32 * warps) == 0 and k <= 512 * warps (staging rounds). */
     int mutant;          /* 0 production; 1, 2, 3 as above */
+    uint32_t sched;      /* 0 (default, chip-proven): every fixed-latency instruction stalls 6, one byte decoded at a time.
+                          * 1 (CUT5, measurement variant): the bytes of a step are decoded in a 3-deep software pipeline with
+                          * their own temporaries, and a pass after register allocation (omega_fp8_schedule_stalls) gives each
+                          * instruction the smallest stall that keeps every user >= OMEGA_FP8_FIXED_LAT cycles behind each
+                          * fixed-latency write (the repo rule, omega_gpu_elementwise_api.c:13). The FFMA order is unchanged,
+                          * so y is bit-identical to sched 0. Appended last: earlier fields keep their offsets. */
 } OmegaFp8GemvSpec;
+
+#define OMEGA_FP8_FIXED_LAT 6u /* cycles a fixed-latency result needs before a user (the repo keeps 6; hardware minimum 5) */
 
 /* 0 on success (prog solved and register-allocated), -1 on a refused spec or an allocator failure. */
 int omega_blackwell_codegen_fp8_gemv_prog(const OmegaFp8GemvSpec *spec, BlackwellIRProgram *prog);

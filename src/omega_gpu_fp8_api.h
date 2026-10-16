@@ -146,6 +146,11 @@ void omega_gpu_fp8_set_weight_cache(int on);
  * per group for grouped launches (the shape and budget knobs above still override). */
 void omega_gpu_fp8_set_variant(int variant);
 int omega_gpu_fp8_variant(void);
+/* Kernel schedule (CUT5, measurement knob; clears the kernel cache): 0 (default) = the emitted stalls, 1 = the bytes of a step
+ * decoded in a software pipeline plus the dependency-driven stall pass (OmegaFp8GemvSpec.sched; y bit-identical to 0). Variant 1
+ * only (variant 2 ignores it). Never set: the first kernel build reads env AIEN_OMEGA_FP8_SCHED ("1" = 1). */
+void omega_gpu_fp8_set_sched(int sched);
+int omega_gpu_fp8_sched(void);
 #define OMEGA_GPU_FP8_V2_WARPS 16u
 #define OMEGA_GPU_FP8_V2_GROUPED_CTAS 12u
 int omega_gpu_fp8_weight_cache(void);
