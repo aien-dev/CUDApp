@@ -462,90 +462,106 @@ static int seal_bare_mode(void) {
 }
 /* update: omega_gpu_tensor_update_* re-packs new values into the tensor's own device buffer. The fake's device
  * memory is host memory with GPU address = CPU address (fk.alloc_va), so the buffer is compared word for word
- * with omega_matmul_frag_pack_b of the new values. Also: no driver allocation or free, allowed while sealed,
- * refusals (NULL arguments, a handle whose device was closed). k = 72 pads to 80; n = 1100 is not a multiple
- * of 8 and spans three host packing chunks (512 columns each). */
+ * with omega_matmul_frag_pack_b of the new values. Two shapes: 72 x 1100 (k pads to 80; n is not a multiple of
+ * 8 and spans three 64-tile chunks) and 4096 x 200 (the f32 staging holds 8 tiles at this k: four chunks, the
+ * last ragged). Per shape: the upload's one driver allocation is the GPU-uncached one, update_f32, update_bf16
+ * back, update while sealed, no driver allocation or free, shape-mismatch refusals write nothing. Then NULL
+ * refusals and stale handles (closed device, then a reopened one). */
 static int upd_same(const uint16_t *d, const uint16_t *want, size_t cnt, const char *what) {
     size_t diff = 0;
     for (size_t i = 0; i < cnt; i++) diff += d[i] != want[i];
     CHECK(diff == 0, "%s: %zu of %zu packed words differ from omega_matmul_frag_pack_b", what, diff, cnt);
     return diff == 0;
 }
-static int update_mode(void) {
-    const uint32_t K = 72, N = 1100, KP = 80, NT = (N + 7u) / 8u;
+static OmegaGpuTensor *update_shape(uint32_t K, uint32_t N, uint16_t **b1_out, float **b2_out) {
+    const uint32_t KP = (K + 15u) / 16u * 16u, NT = (N + 7u) / 8u;
     const size_t cnt = (size_t)K * N, packed = (size_t)KP * NT * 8u;
     uint16_t *b1 = malloc(cnt * sizeof *b1), *b2h = malloc(cnt * sizeof *b2h), *want = malloc(packed * sizeof *want);
     float *b2 = malloc(cnt * sizeof *b2);
-    CHECK(b1 && b2 && b2h && want, "update buffers");
-    if (g_fail) return 1;
-    uint32_t s = 0x5eedu;
+    CHECK(b1 && b2 && b2h && want, "update buffers %ux%u", K, N);
+    if (!b1 || !b2 || !b2h || !want) return NULL;
+    uint32_t s = 0x5eedu ^ K ^ (N << 16);
     for (size_t i = 0; i < cnt; i++) {
         s = s * 1664525u + 1013904223u;
         b1[i] = omega_fp32_to_bf16(((float)(s >> 8) / 16777216.0f) - 0.5f);
         b2[i] = ((float)(s % 2000003u) / 1000001.0f) - 1.0f + 1e-7f * (float)(i % 7u); /* low bits that rounding must drop */
-        b2h[i] = omega_fp32_to_bf16(b2[i]);
     }
-    /* edge values for the update path's inline rounding: NaNs with payloads and sign, infinities, zeros, subnormals,
+    /* edge values for the update path's rounding: NaNs with payloads and sign, infinities, zeros, subnormals,
      * exact ties (odd and even), the largest finite value (rounds to infinity) */
     static const uint32_t EDGE[] = {0x7fc00001u, 0xff800001u, 0x7fbfffffu, 0x7f800000u, 0xff800000u, 0x00000000u, 0x80000000u,
                                     0x00000001u, 0x807fffffu, 0x00018000u, 0x3f808000u, 0x3f818000u, 0xbf808000u, 0x7f7fffffu, 0xff7fffffu};
     for (size_t e = 0; e < sizeof EDGE / sizeof EDGE[0]; e++) for (size_t r = 0; r < 3; r++) {
-        const size_t i = r * (K / 3u) * N + e * 73u + r; /* rows 0, 24, 48; columns across the three packing chunks */
+        const size_t i = r * (K / 3u) * N + (e * 73u + r) % N; /* rows 0, k/3, 2k/3; columns across the chunks */
         memcpy(&b2[i], &EDGE[e], 4);
-        b2h[i] = omega_fp32_to_bf16(b2[i]);
     }
-    OmegaGpuTensor *warm = upload(16, 8); /* opens the session, so the next upload is exactly one driver allocation */
+    for (size_t i = 0; i < cnt; i++) b2h[i] = omega_fp32_to_bf16(b2[i]);
+
     OmegaGpuTensor *t = NULL;
-    const int a0 = fk.alloc_calls;
+    const int a0 = fk.alloc_calls, u0 = fk.uncached_calls;
     int rc = omega_gpu_tensor_upload_bf16(K, N, b1, &t);
-    CHECK(rc == OMEGA_GPU_MATMUL_OK && fk.alloc_calls == a0 + 1 && a0 < 16, "premise: upload rc=%d made %d allocations (index %d)", rc, fk.alloc_calls - a0, a0);
-    if (g_fail) return 1;
+    CHECK(rc == OMEGA_GPU_MATMUL_OK && fk.alloc_calls == a0 + 1 && a0 < 16, "premise %ux%u: upload rc=%d made %d allocations (index %d)", K, N, rc, fk.alloc_calls - a0, a0);
+    CHECK(fk.uncached_calls == u0 + 1, "%ux%u: the tensor's driver allocation was not the GPU-uncached one", K, N);
+    if (rc != OMEGA_GPU_MATMUL_OK || fk.alloc_calls != a0 + 1 || a0 >= 16) return NULL;
     const uint16_t *d = (const uint16_t *)(uintptr_t)fk.alloc_va[a0];
     omega_matmul_frag_pack_b(b1, K, N, KP, 0, NT, want);
     upd_same(d, want, packed, "premise: upload");
 
     const int a1 = fk.alloc_calls, f1 = fk.free_calls;
-    rc = omega_gpu_tensor_update_f32(t, b2);
-    CHECK(rc == OMEGA_GPU_MATMUL_OK, "update_f32 rc=%d %s", rc, omega_gpu_matmul_last_error());
+    CHECK(omega_gpu_tensor_update_f32(t, K + 1u, N, b2) == OMEGA_GPU_MATMUL_BAD_ARGS, "update_f32 with k + 1 not refused");
+    CHECK(omega_gpu_tensor_update_bf16(t, K, N - 1u, b1) == OMEGA_GPU_MATMUL_BAD_ARGS, "update_bf16 with n - 1 not refused");
+    CHECK(omega_gpu_tensor_update_f32(t, N, K, b2) == OMEGA_GPU_MATMUL_BAD_ARGS, "update_f32 with k and n swapped not refused");
+    upd_same(d, want, packed, "shape-mismatch refusals left the buffer");
+    rc = omega_gpu_tensor_update_f32(t, K, N, b2);
+    CHECK(rc == OMEGA_GPU_MATMUL_OK, "update_f32 %ux%u rc=%d %s", K, N, rc, omega_gpu_matmul_last_error());
     omega_matmul_frag_pack_b(b2h, K, N, KP, 0, NT, want);
     upd_same(d, want, packed, "update_f32");
-    rc = omega_gpu_tensor_update_bf16(t, b1);
-    CHECK(rc == OMEGA_GPU_MATMUL_OK, "update_bf16 rc=%d %s", rc, omega_gpu_matmul_last_error());
+    rc = omega_gpu_tensor_update_bf16(t, K, N, b1);
+    CHECK(rc == OMEGA_GPU_MATMUL_OK, "update_bf16 %ux%u rc=%d %s", K, N, rc, omega_gpu_matmul_last_error());
     omega_matmul_frag_pack_b(b1, K, N, KP, 0, NT, want);
     upd_same(d, want, packed, "update_bf16 back");
     omega_gpu_matmul_seal(1);
-    rc = omega_gpu_tensor_update_f32(t, b2);
+    rc = omega_gpu_tensor_update_f32(t, K, N, b2);
     omega_gpu_matmul_seal(0);
     CHECK(rc == OMEGA_GPU_MATMUL_OK, "update while sealed rc=%d %s", rc, omega_gpu_matmul_last_error());
     omega_matmul_frag_pack_b(b2h, K, N, KP, 0, NT, want);
     upd_same(d, want, packed, "update_f32 while sealed");
     CHECK(fk.alloc_calls == a1 && fk.free_calls == f1, "updates touched the driver (%d allocs, %d frees)", fk.alloc_calls - a1, fk.free_calls - f1);
-    const OmegaGpuTensor *shape_t = t;
     uint32_t k2 = 0, n2 = 0;
-    omega_gpu_tensor_shape(shape_t, &k2, &n2);
+    omega_gpu_tensor_shape(t, &k2, &n2);
     CHECK(k2 == K && n2 == N, "shape changed by update: %ux%u", k2, n2);
+    free(b2h); free(want);
+    *b1_out = b1; *b2_out = b2;
+    return t;
+}
+static int update_mode(void) {
+    OmegaGpuTensor *warm = upload(16, 8); /* opens the session, so each next upload is exactly one driver allocation */
+    uint16_t *b1 = NULL, *b1b = NULL; float *b2 = NULL, *b2b = NULL;
+    OmegaGpuTensor *t = update_shape(72, 1100, &b1, &b2);
+    OmegaGpuTensor *t2 = update_shape(4096, 200, &b1b, &b2b);
+    if (!t || !t2) return 1;
 
-    CHECK(omega_gpu_tensor_update_f32(NULL, b2) == OMEGA_GPU_MATMUL_BAD_ARGS, "update_f32 NULL tensor not refused");
-    CHECK(omega_gpu_tensor_update_bf16(NULL, b1) == OMEGA_GPU_MATMUL_BAD_ARGS, "update_bf16 NULL tensor not refused");
-    CHECK(omega_gpu_tensor_update_f32(t, NULL) == OMEGA_GPU_MATMUL_BAD_ARGS, "update_f32 NULL values not refused");
-    CHECK(omega_gpu_tensor_update_bf16(t, NULL) == OMEGA_GPU_MATMUL_BAD_ARGS, "update_bf16 NULL values not refused");
+    CHECK(omega_gpu_tensor_update_f32(NULL, 72, 1100, b2) == OMEGA_GPU_MATMUL_BAD_ARGS, "update_f32 NULL tensor not refused");
+    CHECK(omega_gpu_tensor_update_bf16(NULL, 72, 1100, b1) == OMEGA_GPU_MATMUL_BAD_ARGS, "update_bf16 NULL tensor not refused");
+    CHECK(omega_gpu_tensor_update_f32(t, 72, 1100, NULL) == OMEGA_GPU_MATMUL_BAD_ARGS, "update_f32 NULL values not refused");
+    CHECK(omega_gpu_tensor_update_bf16(t, 72, 1100, NULL) == OMEGA_GPU_MATMUL_BAD_ARGS, "update_bf16 NULL values not refused");
 
     /* a handle whose device was closed is stale: refused before anything is written (its memory is gone) */
     omega_gpu_device_close();
     const int a2 = fk.alloc_calls;
-    rc = omega_gpu_tensor_update_f32(t, b2);
+    int rc = omega_gpu_tensor_update_f32(t, 72, 1100, b2);
     CHECK(rc == OMEGA_GPU_MATMUL_CHIP_FAIL, "update_f32 of a stale handle rc=%d (want CHIP_FAIL)", rc);
-    rc = omega_gpu_tensor_update_bf16(t, b1);
+    rc = omega_gpu_tensor_update_bf16(t, 72, 1100, b1);
     CHECK(rc == OMEGA_GPU_MATMUL_CHIP_FAIL, "update_bf16 of a stale handle rc=%d (want CHIP_FAIL)", rc);
     CHECK(fk.alloc_calls == a2, "stale update asked the driver for memory");
     OmegaGpuTensor *reopen = upload(16, 8); /* a new device: the old handle stays stale */
-    rc = omega_gpu_tensor_update_f32(t, b2);
+    rc = omega_gpu_tensor_update_f32(t, 72, 1100, b2);
     CHECK(rc == OMEGA_GPU_MATMUL_CHIP_FAIL, "update_f32 of a handle from a previous device rc=%d (want CHIP_FAIL)", rc);
     omega_gpu_tensor_free(reopen);
     omega_gpu_tensor_free(t);
+    omega_gpu_tensor_free(t2);
     omega_gpu_tensor_free(warm);
     omega_gpu_device_close();
-    free(b1); free(b2); free(b2h); free(want);
+    free(b1); free(b2); free(b1b); free(b2b);
     printf("gpu_serving_alloc_count_test update: %s (%d failed checks)\n", g_fail ? "FAIL" : "PASS", g_fail);
     return g_fail ? 1 : 0;
 }

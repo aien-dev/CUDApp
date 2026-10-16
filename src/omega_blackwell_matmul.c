@@ -104,13 +104,10 @@ uint16_t omega_fp32_to_bf16(float f) {
     memcpy(&u, &b, 2);
     return u;
 #else
-    /* Freestanding (cut A.2): the __bf16 cast calls libgcc __truncsfbf2. Same rounding in integer form:
-     * round to nearest even, NaN kept quiet with its sign and top payload bits. The hosted cast and this
-     * path agree on every one of the 2^32 inputs (make test-codegen-freestanding, bf16 sweep). */
-    uint32_t u;
-    memcpy(&u, &f, 4);
-    if ((u & 0x7f800000u) == 0x7f800000u && (u & 0x007fffffu)) return (uint16_t)((u >> 16) | 0x0040u);
-    return (uint16_t)((u + 0x7fffu + ((u >> 16) & 1u)) >> 16);
+    /* Freestanding (cut A.2): the __bf16 cast calls libgcc __truncsfbf2. Same rounding in integer form
+     * (omega_fp32_to_bf16_rne); the hosted cast and it agree on every one of the 2^32 inputs
+     * (make test-codegen-freestanding, bf16 sweep). */
+    return omega_fp32_to_bf16_rne(f);
 #endif
 }
 

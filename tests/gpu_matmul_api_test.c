@@ -281,8 +281,8 @@ static void host_only(void) {
     CHECK(omega_gpu_tensor_upload_f32(0, 16, a, &t) == OMEGA_GPU_MATMUL_BAD_ARGS && t == NULL, "tensor k=0 refused");
     CHECK(omega_gpu_tensor_upload_f32(16, 16, NULL, &t) == OMEGA_GPU_MATMUL_BAD_ARGS, "tensor NULL refused");
     CHECK(omega_gpu_matmul_resident_f32(16, a, NULL, c, &info) == OMEGA_GPU_MATMUL_BAD_ARGS, "resident NULL tensor refused");
-    CHECK(omega_gpu_tensor_update_f32(NULL, a) == OMEGA_GPU_MATMUL_BAD_ARGS, "update_f32 NULL tensor refused");
-    CHECK(omega_gpu_tensor_update_bf16(NULL, (const uint16_t *)a) == OMEGA_GPU_MATMUL_BAD_ARGS, "update_bf16 NULL tensor refused");
+    CHECK(omega_gpu_tensor_update_f32(NULL, 16, 16, a) == OMEGA_GPU_MATMUL_BAD_ARGS, "update_f32 NULL tensor refused");
+    CHECK(omega_gpu_tensor_update_bf16(NULL, 16, 16, (const uint16_t *)a) == OMEGA_GPU_MATMUL_BAD_ARGS, "update_bf16 NULL tensor refused");
     CHECK(strcmp(omega_gpu_matmul_rc_name(OMEGA_GPU_MATMUL_PARITY_FAIL), "PARITY_FAIL") == 0, "rc name");
     CHECK(omega_gpu_matmul_cta_budget() == OMEGA_GPU_MATMUL_MAX_CTAS, "default CTA budget");
     CHECK(omega_gpu_matmul_is_blocked() == 0, "not blocked at start");
@@ -512,7 +512,7 @@ static int update_mode(const char *shapes, const char *out_path) {
         if (rc != OMEGA_GPU_MATMUL_OK) return 2;
         rc = omega_gpu_matmul_resident_f32(m, a, t, c1, NULL);
         CHECK(rc == OMEGA_GPU_MATMUL_OK, "matmul B1 rc=%s", omega_gpu_matmul_rc_name(rc));
-        rc = omega_gpu_tensor_update_f32(t, b2);
+        rc = omega_gpu_tensor_update_f32(t, k, n, b2);
         CHECK(rc == OMEGA_GPU_MATMUL_OK, "update_f32 rc=%s %s", omega_gpu_matmul_rc_name(rc), omega_gpu_matmul_last_error());
         rc = omega_gpu_matmul_resident_f32(m, a, t, c2, NULL);
         CHECK(rc == OMEGA_GPU_MATMUL_OK, "matmul after update rc=%s", omega_gpu_matmul_rc_name(rc));
@@ -524,7 +524,7 @@ static int update_mode(const char *shapes, const char *out_path) {
         size_t vs_fresh = 0, back = 0, bad = 0;
         for (size_t j = 0; j < nc; j++) vs_fresh += memcmp(&c2[j], &c2f[j], 4) != 0;
         double e2e = e2e_max_rel(m, k, n, a, b2, c2, &bad);
-        rc = omega_gpu_tensor_update_bf16(t, b1h);
+        rc = omega_gpu_tensor_update_bf16(t, k, n, b1h);
         CHECK(rc == OMEGA_GPU_MATMUL_OK, "update_bf16 rc=%s %s", omega_gpu_matmul_rc_name(rc), omega_gpu_matmul_last_error());
         rc = omega_gpu_matmul_resident_f32(m, a, t, c3, NULL);
         CHECK(rc == OMEGA_GPU_MATMUL_OK, "matmul after update back rc=%s", omega_gpu_matmul_rc_name(rc));
@@ -535,8 +535,8 @@ static int update_mode(const char *shapes, const char *out_path) {
         double s_f32[5], s_bf16[5], s_up[5];
         int timed_ok = 1;
         for (int i = 0; i < 5; i++) {
-            double t0 = now_ms(); timed_ok &= omega_gpu_tensor_update_f32(t, b2) == OMEGA_GPU_MATMUL_OK; s_f32[i] = now_ms() - t0;
-            t0 = now_ms(); timed_ok &= omega_gpu_tensor_update_bf16(t, b1h) == OMEGA_GPU_MATMUL_OK; s_bf16[i] = now_ms() - t0;
+            double t0 = now_ms(); timed_ok &= omega_gpu_tensor_update_f32(t, k, n, b2) == OMEGA_GPU_MATMUL_OK; s_f32[i] = now_ms() - t0;
+            t0 = now_ms(); timed_ok &= omega_gpu_tensor_update_bf16(t, k, n, b1h) == OMEGA_GPU_MATMUL_OK; s_bf16[i] = now_ms() - t0;
             t0 = now_ms(); timed_ok &= omega_gpu_tensor_upload_f32(k, n, b2, &tf) == OMEGA_GPU_MATMUL_OK; omega_gpu_tensor_free(tf); s_up[i] = now_ms() - t0;
         }
         CHECK(timed_ok, "update %ux%ux%u: a timed call failed", m, k, n);
