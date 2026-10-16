@@ -60,6 +60,7 @@ static struct {
     unsigned cache_next;
     unsigned slots; /* active kernel cache slots, <= CACHE_SLOTS_MAX */
     int sealed;     /* omega_gpu_matmul_seal: a kernel cache miss is refused, never built */
+    OmegaGpuMatmulStages stages; /* the most recent matmul_core call (omega #473), written under the session lock */
 } g = { .cta_budget = OMEGA_GPU_MATMUL_MAX_CTAS, .oracle = 1, .slots = CACHE_SLOTS };
 
 #define FAILAT(s) (omega_gpu_session_set_error(s), 1)
@@ -83,6 +84,13 @@ const char *omega_gpu_matmul_rc_name(int rc) {
 }
 
 int omega_gpu_matmul_is_blocked(void) { return omega_gpu_session_is_blocked(); }
+
+void omega_gpu_matmul_last_stages(OmegaGpuMatmulStages *out) {
+    if (!out) return;
+    omega_gpu_session_lock();
+    *out = g.stages;
+    omega_gpu_session_unlock();
+}
 
 /* ---- device-side state (caller holds the session lock) ---- */
 

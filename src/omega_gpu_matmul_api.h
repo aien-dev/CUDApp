@@ -127,6 +127,28 @@ int omega_gpu_matmul_is_blocked(void);
 /* Stage name of the most recent CHIP_FAIL ("" if none), for logs and receipts. */
 const char *omega_gpu_matmul_last_error(void);
 
+/* Where the time of one matmul goes (omega #473). A separate struct, not new OmegaGpuMatmulInfo fields:
+ * Rust callers mirror OmegaGpuMatmulInfo by size (no size assert), and the API memsets the caller's
+ * struct, so growing it would overrun every mirror that has not been updated. The stages tile the
+ * call's work in order; core_ns is their span, so core_ns - (the six stages) is clock overhead only.
+ *   setup_ns    lock wait, device open, launch shape, staging buffer growth
+ *   pack_ns     activation rows packed into the GPU-visible staging buffer (f32 -> bf16 on the way),
+ *               plus the result sentinels
+ *   upload_ns   CPU-to-GPU visibility of both staging buffers (platform sync)
+ *   launch_ns   kernel cache lookup (or build), submit and completion wait, every launch; contains chip_ns
+ *   chip_ns     = OmegaGpuMatmulInfo.elapsed_ns (launch to completion marker, summed over launches)
+ *   sync_ns     GPU-to-CPU visibility of the result buffer
+ *   copy_out_ns sentinel scan and copy of the real m x n block into the caller's array
+ * The non-resident calls add the B upload before and the host oracle after (in OmegaGpuMatmulInfo.call_ns,
+ * not here). */
+typedef struct {
+    uint64_t setup_ns, pack_ns, upload_ns, launch_ns, chip_ns, sync_ns, copy_out_ns;
+    uint64_t core_ns; /* entry to exit of the matmul body; a resident call's call_ns adds argument checks only */
+} OmegaGpuMatmulStages;
+/* Stages of the most recent matmul in this process (any thread; calls are serialized by the session lock).
+ * All zero before the first call; a call that fails records the stages it reached. */
+void omega_gpu_matmul_last_stages(OmegaGpuMatmulStages *out);
+
 /* CTA budget per launch (default OMEGA_GPU_MATMUL_MAX_CTAS; 0 restores it).
  * Clears the kernel cache (kernels bake in grid_x). Test and measurement knob. */
 void omega_gpu_matmul_set_cta_budget(uint32_t ctas);

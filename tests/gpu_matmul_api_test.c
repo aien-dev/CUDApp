@@ -8,6 +8,7 @@
  *   ./gpu_matmul_api_test --cta-budget N ...          run with a different CTA budget (I42 experiment)
  *   ./gpu_matmul_api_test --spin-us N ...             marker-wait spin window for every launch (omega#328)
  *   ./gpu_matmul_api_test --unroll N ...              force the fragment kernel unroll (omega #328 experiment)
+ *   ./gpu_matmul_api_test --stages --out r.json       omega #473 stage profile (resident, bf16 and f32 rows, median of 7)
  *
  * Shapes come from OMEGA_GPU_MATMUL_SHAPES ("m,k,n;m,k,n;..."), default below.
  * Pass rule per shape: rc OK, parity verified by the API oracle, end-to-end error < 1e-5 relative to
@@ -39,6 +40,8 @@ static const char *DEFAULT_SHAPES =
     "1,2048,8192;1,8192,2048;1,2048,128256";
 static const char *MUTANT_SHAPES = "16,32,16;1,2048,8192;64,64,64;1,1024,1024";
 static const char *TIMING_SHAPES = "1,2048,8192;1,8192,2048";
+/* omega #473 training shapes */
+static const char *STAGE_SHAPES = "8192,768,2304;8192,768,768;8192,768,3072;8192,3072,768;1024,768,50304";
 
 static uint32_t lcg(uint32_t *s) { *s = *s * 1664525u + 1013904223u; return *s; }
 static double now_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec * 1e3 + t.tv_nsec / 1e6; }
@@ -342,6 +345,88 @@ static void one_row_repack_checks(void) {
     free(a); free(b); free(c);
 }
 
+/* omega #473: the stage timer must explain the call. The six stages tile matmul_core in order, the chip
+ * time sits inside the launch stage, and the core span sits inside the whole call. */
+static uint64_t stage_sum(const OmegaGpuMatmulStages *s) {
+    return s->setup_ns + s->pack_ns + s->upload_ns + s->launch_ns + s->sync_ns + s->copy_out_ns;
+}
+static void stage_checks(const char *tag, const OmegaGpuMatmulInfo *info) {
+    OmegaGpuMatmulStages s;
+    omega_gpu_matmul_last_stages(&s);
+    CHECK(s.chip_ns == info->elapsed_ns && s.chip_ns > 0, "%s stages: chip_ns %" PRIu64 " equals elapsed_ns %" PRIu64, tag, s.chip_ns, info->elapsed_ns);
+    CHECK(s.launch_ns >= s.chip_ns, "%s stages: launch_ns %" PRIu64 " holds chip_ns %" PRIu64, tag, s.launch_ns, s.chip_ns);
+    CHECK(s.pack_ns > 0 && s.copy_out_ns > 0, "%s stages: pack %" PRIu64 " and copy-out %" PRIu64 " measured", tag, s.pack_ns, s.copy_out_ns);
+    CHECK(stage_sum(&s) <= s.core_ns && s.core_ns <= info->call_ns && s.core_ns > 0,
+          "%s stages: sum %" PRIu64 " <= core %" PRIu64 " <= call %" PRIu64, tag, stage_sum(&s), s.core_ns, info->call_ns);
+}
+
+/* omega #473 profile: resident calls at the given shapes, 3 warmups then 7 timed calls per input type
+ * (bf16 rows, f32 rows); median of each stage. Correctness is the R4 receipt's job; here the two input
+ * types must agree bit for bit and every call must pass stage_checks. */
+static uint64_t med_u64(uint64_t *v, int n) {
+    for (int i = 1; i < n; i++) for (int j = i; j > 0 && v[j - 1] > v[j]; j--) { uint64_t t = v[j]; v[j] = v[j - 1]; v[j - 1] = t; }
+    return v[n / 2];
+}
+static int stages_profile(const char *shapes, const char *out_path) {
+    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
+    if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_MATMUL_STAGES_V1\",\"cta_budget\":%u,\"warmups\":3,\"timed\":7,\"rows\":[", omega_gpu_matmul_cta_budget());
+    char *copy = strdup(shapes), *save = NULL;
+    int first = 1;
+    for (char *tok = strtok_r(copy, ";", &save); tok; tok = strtok_r(NULL, ";", &save)) {
+        unsigned m, k, n;
+        if (sscanf(tok, "%u,%u,%u", &m, &k, &n) != 3) { printf("bad shape %s\n", tok); continue; }
+        const size_t na = (size_t)m * k, nb = (size_t)k * n, nc = (size_t)m * n;
+        float *a = malloc(na * 4), *b = malloc(nb * 4), *c16 = malloc(nc * 4), *c32 = malloc(nc * 4);
+        uint16_t *ah = malloc(na * 2);
+        if (!a || !b || !c16 || !c32 || !ah) { CHECK(0, "host memory for %s", tok); break; }
+        uint32_t seed = 0x5eed0000u ^ (m << 20) ^ (k << 10) ^ n;
+        fill(a, na, &seed); fill(b, nb, &seed);
+        for (size_t i = 0; i < na; i++) ah[i] = omega_fp32_to_bf16(a[i]);
+        OmegaGpuTensor *t = NULL;
+        int urc = omega_gpu_tensor_upload_f32(k, n, b, &t);
+        CHECK(urc == OMEGA_GPU_MATMUL_OK, "upload %s rc=%s", tok, omega_gpu_matmul_rc_name(urc));
+        if (urc != OMEGA_GPU_MATMUL_OK) break;
+        for (int in32 = 0; in32 < 2; in32++) {
+            uint64_t v[9][7]; /* setup pack upload launch chip sync copy_out core call */
+            int ok = 1;
+            for (int it = 0; it < 10 && ok; it++) {
+                OmegaGpuMatmulInfo info;
+                int rc = in32 ? omega_gpu_matmul_resident_f32(m, a, t, c32, &info) : omega_gpu_matmul_resident_bf16(m, ah, t, c16, &info);
+                if (rc != OMEGA_GPU_MATMUL_OK) { CHECK(0, "%s %s rc=%s (%s)", tok, in32 ? "f32" : "bf16", omega_gpu_matmul_rc_name(rc), omega_gpu_matmul_last_error()); ok = 0; break; }
+                stage_checks(tok, &info);
+                if (it < 3) continue;
+                OmegaGpuMatmulStages s; omega_gpu_matmul_last_stages(&s);
+                const uint64_t row[9] = { s.setup_ns, s.pack_ns, s.upload_ns, s.launch_ns, s.chip_ns, s.sync_ns, s.copy_out_ns, s.core_ns, info.call_ns };
+                for (int q = 0; q < 9; q++) v[q][it - 3] = row[q];
+            }
+            if (!ok) continue;
+            uint64_t md[9];
+            for (int q = 0; q < 9; q++) md[q] = med_u64(v[q], 7);
+            const double flop = 2.0 * m * k * n;
+            printf("STAGES %s in=%s budget=%u call_ms=%.3f core_ms=%.3f setup=%.3f pack=%.3f upload=%.3f launch=%.3f chip=%.3f launch_minus_chip=%.3f sync=%.3f copy_out=%.3f "
+                   "tflops_chip=%.3f tflops_call=%.3f chip_share=%.1f%%\n", tok, in32 ? "f32" : "bf16", omega_gpu_matmul_cta_budget(), md[8] / 1e6, md[7] / 1e6,
+                   md[0] / 1e6, md[1] / 1e6, md[2] / 1e6, md[3] / 1e6, md[4] / 1e6, (md[3] > md[4] ? md[3] - md[4] : 0) / 1e6, md[5] / 1e6, md[6] / 1e6,
+                   flop / (double)md[4] / 1e3, flop / (double)md[8] / 1e3, 100.0 * (double)md[4] / (double)md[8]);
+            if (out) {
+                fprintf(out, "%s{\"m\":%u,\"k\":%u,\"n\":%u,\"input\":\"%s\",\"median_ns\":{\"setup\":%" PRIu64 ",\"pack\":%" PRIu64 ",\"upload\":%" PRIu64 ",\"launch\":%" PRIu64
+                        ",\"chip\":%" PRIu64 ",\"sync\":%" PRIu64 ",\"copy_out\":%" PRIu64 ",\"core\":%" PRIu64 ",\"call\":%" PRIu64 "},\"tflops_chip\":%.4f,\"tflops_call\":%.4f}",
+                        first ? "" : ",", m, k, n, in32 ? "f32" : "bf16", md[0], md[1], md[2], md[3], md[4], md[5], md[6], md[7], md[8], flop / (double)md[4] / 1e3, flop / (double)md[8] / 1e3);
+                first = 0;
+            }
+        }
+        size_t diff = 0;
+        for (size_t i = 0; i < nc; i++) diff += memcmp(&c16[i], &c32[i], 4) != 0;
+        CHECK(diff == 0, "%s bf16-in and f32-in outputs agree bit for bit (%zu differ)", tok, diff);
+        omega_gpu_tensor_free(t);
+        free(a); free(b); free(c16); free(c32); free(ah);
+        if (omega_gpu_matmul_is_blocked()) break;
+    }
+    free(copy);
+    if (out) { fprintf(out, "],\"checks\":%d,\"failed\":%d,\"verdict\":\"%s\"}\n", g_checks, g_failed, g_failed ? "FAIL" : "PASS"); fclose(out); }
+    return 0;
+}
+
 static int chip_sweep(const char *shapes, const char *out_path, int mutant) {
     FILE *out = out_path ? fopen(out_path, "w") : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
@@ -362,6 +447,7 @@ static int chip_sweep(const char *shapes, const char *out_path, int mutant) {
         double t0 = now_ms();
         int rc = omega_gpu_matmul_f32(m, k, n, a, b, c, &info);
         double wall_ms = now_ms() - t0;
+        if (!mutant && rc == OMEGA_GPU_MATMUL_OK) stage_checks(tok, &info);
         /* second call on the same shape must hit the kernel cache and agree */
         int rc2 = omega_gpu_matmul_f32(m, k, n, a, b, c2, &info2);
         size_t repeat_mismatch = 0;
@@ -482,11 +568,12 @@ static int timing(const char *shapes, const char *out_path) {
 
 int main(int argc, char **argv) {
     const char *out_path = NULL;
-    int host = 0, mutant = 0, do_timing = 0;
+    int host = 0, mutant = 0, do_timing = 0, do_stages = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--host-only") == 0) host = 1;
         else if (strcmp(argv[i], "--mutant") == 0) mutant = 1;
         else if (strcmp(argv[i], "--timing") == 0) do_timing = 1;
+        else if (strcmp(argv[i], "--stages") == 0) do_stages = 1;
         else if (strcmp(argv[i], "--cta-budget") == 0 && i + 1 < argc) omega_gpu_matmul_set_cta_budget((uint32_t)strtoul(argv[++i], NULL, 10));
         else if (strcmp(argv[i], "--spin-us") == 0 && i + 1 < argc) {
             if (omega_gpu_session_set_spin_us((uint32_t)strtoul(argv[++i], NULL, 10)) != 0) { fprintf(stderr, "--spin-us out of range\n"); return 2; }
@@ -499,9 +586,10 @@ int main(int argc, char **argv) {
     int rc = 0;
     if (host) host_only();
     else if (do_timing) rc = timing(shapes ? shapes : TIMING_SHAPES, out_path);
+    else if (do_stages) rc = stages_profile(shapes ? shapes : STAGE_SHAPES, out_path);
     else if (mutant) { omega_gpu_matmul_test_set_mutant(1); rc = chip_sweep(shapes ? shapes : MUTANT_SHAPES, out_path, 1); omega_gpu_matmul_test_set_mutant(0); }
     else rc = chip_sweep(shapes ? shapes : DEFAULT_SHAPES, out_path, 0);
-    if (!host && !do_timing && !mutant && !omega_gpu_matmul_is_blocked()) one_row_repack_checks();
+    if (!host && !do_timing && !do_stages && !mutant && !omega_gpu_matmul_is_blocked()) one_row_repack_checks();
     if (!omega_gpu_matmul_is_blocked()) omega_gpu_device_close();
     if (rc) return 2;
     printf("%s: %d checks, %d failed%s\n", g_failed ? "FAIL" : "PASS", g_checks, g_failed, mutant ? (g_failed ? " (mutant SURVIVED)" : " (mutant killed)") : "");
