@@ -485,6 +485,15 @@ static int update_mode(void) {
         b2[i] = ((float)(s % 2000003u) / 1000001.0f) - 1.0f + 1e-7f * (float)(i % 7u); /* low bits that rounding must drop */
         b2h[i] = omega_fp32_to_bf16(b2[i]);
     }
+    /* edge values for the update path's inline rounding: NaNs with payloads and sign, infinities, zeros, subnormals,
+     * exact ties (odd and even), the largest finite value (rounds to infinity) */
+    static const uint32_t EDGE[] = {0x7fc00001u, 0xff800001u, 0x7fbfffffu, 0x7f800000u, 0xff800000u, 0x00000000u, 0x80000000u,
+                                    0x00000001u, 0x807fffffu, 0x00018000u, 0x3f808000u, 0x3f818000u, 0xbf808000u, 0x7f7fffffu, 0xff7fffffu};
+    for (size_t e = 0; e < sizeof EDGE / sizeof EDGE[0]; e++) for (size_t r = 0; r < 3; r++) {
+        const size_t i = r * (K / 3u) * N + e * 73u + r; /* rows 0, 24, 48; columns across the three packing chunks */
+        memcpy(&b2[i], &EDGE[e], 4);
+        b2h[i] = omega_fp32_to_bf16(b2[i]);
+    }
     OmegaGpuTensor *warm = upload(16, 8); /* opens the session, so the next upload is exactly one driver allocation */
     OmegaGpuTensor *t = NULL;
     const int a0 = fk.alloc_calls;
