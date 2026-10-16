@@ -15,6 +15,8 @@
  *                                           down 8 of 128 x 2048 x 768) with L2 defeated by rotating 16 disjoint expert
  *                                           sets; parity on every timed launch; mutants 1..4; GB/s and fraction of 237.2
  *   knobs: --lane-bytes N --rows N --warps N --cta-budget N --reps N --spin-us N
+ *   CUT5 variants: --coal 0|1 (A, coalesced output) --wfirst 0|1 (B, weights before x); FP8_SIM_ALL_ORDERS=1 runs every
+ *   simulated kernel in four warp orders (coal kernels always do)
  *          --sched 0|1 (CUT5 kernel schedule) --variant 1|2 --depth N --no-evict --only NAME
  *          --n N --k K: one custom point n x k instead of the battery (with mutants 1, 2, 4), e.g. 128256 x 2560
  *
@@ -26,6 +28,7 @@
 #include "omega_blackwell_codegen_moe.h"
 #include "omega_blackwell_matmul.h"
 #include "omega_gpu_session.h"
+#include "omega_gpu_cmdlist.h"
 #include "bw_warp_sim.h"
 #include <inttypes.h>
 #include <math.h>
@@ -96,6 +99,20 @@ static int fp8_chk_overlap(const BlackwellIRProgram *p, int a, int b) {
     const int na = (int)(p->regalloc.intervals[a].bundle_size ? p->regalloc.intervals[a].bundle_size : 1u);
     const int nb = (int)(p->regalloc.intervals[b].bundle_size ? p->regalloc.intervals[b].bundle_size : 1u);
     return pa < pb + nb && pb < pa + na;
+}
+/* CUT5 A/B structure counters (independent of the generator): instructions of one opcode, and global-load batches. A batch
+ * opens at a global load issued while no batch is open; any instruction whose wait mask holds the load scoreboard (bit 0 of
+ * the wait field, SB_GPR in the generator) closes it. One batch = one memory round trip the warp waits for. */
+static int fp8_count_op(const BlackwellIRProgram *p, BlackwellIROpcode op) { int n = 0; for (size_t i = 0; i < p->count; i++) n += p->insns[i].op == op; return n; }
+static int fp8_load_batches(const BlackwellIRProgram *p) {
+    int n = 0, open = 0;
+    for (size_t i = 0; i < p->count; i++) {
+        const BlackwellIRInsn *in = &p->insns[i];
+        if ((in->control >> 20) & 1u) open = 0;
+        const int gl = in->op == BW_IR_LDG_E || in->op == BW_IR_LDG_E_64 || in->op == BW_IR_LDG_E_128;
+        if (gl && !open) { n++; open = 1; }
+    }
+    return n;
 }
 static long fp8_stall_violations(const BlackwellIRProgram *p, uint64_t *cycles) {
     static uint8_t tgt[BW_MAX_IR_INSNS + 1];
@@ -326,6 +343,57 @@ static void host_only(void) {
         }
         { OmegaFp8GemvSpec bad = { .k = 2048, .lane_bytes = 16, .rows = 1, .warps = 8, .sched = 2 }; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "sched 2 refused"); }
     }
+
+    /* 8. CUT5 variants A (coal: coalesced output through shared slots) and B (wfirst: weight loads before the x' loads).
+     *    Every battery shape builds in every combination with sched 0 and 1 (sched 1 with no stall violation); the refusals
+     *    hold; for the two grouped expert shapes at 32 warps: the register file fits, A has one STG and one BAR.SYNC per
+     *    round and declares the two slot sets, and B removes exactly one load round trip per K step (fp8_load_batches:
+     *    a global load that follows a wait on the load scoreboard opens a new batch). Default programs keep their batch
+     *    count, so the counter says "no" when nothing changed (deep kernels, which ignore wfirst). */
+    {
+        int built = 0; long viol = 0;
+        for (size_t a = 0; a < sizeof ks / sizeof ks[0]; a++) for (size_t b = 0; b < 2; b++) for (size_t c = 0; c < 4; c++)
+        for (int m = 0; m <= 5; m++) for (int deep = 0; deep < 2; deep++) for (int cw = 1; cw < 4; cw++) for (int sch = 0; sch < 2; sch++) {
+            OmegaFp8GemvSpec sp = { .k = ks[a], .lane_bytes = lbs[b], .rows = rows[c], .warps = 4, .mutant = m, .sched = (uint32_t)sch, .coal = (uint32_t)(cw & 1), .wfirst = (uint32_t)(cw >> 1) };
+            if (ks[a] % (32 * lbs[b]) || (m >= 4 && !sp.coal)) continue;
+            if (deep) { sp.depth = ks[a] / (32 * lbs[b]); if (sp.depth * sp.rows * lbs[b] > 128 || ks[a] > 2048) continue; }
+            static BlackwellIRProgram cp;
+            int rc = omega_blackwell_codegen_fp8_gemv_prog(&sp, &cp);
+            CHECK(rc == 0 && cp.count <= BW_MAX_IR_INSNS, "A/B codegen k=%u lb=%u rows=%u mutant=%d deep=%d coal=%u wfirst=%u sched=%d", sp.k, sp.lane_bytes, sp.rows, m, deep, sp.coal, sp.wfirst, sch);
+            if (rc != 0) continue;
+            built++;
+            if (sch) { long v = fp8_stall_violations(&cp, NULL); viol += v; CHECK(v == 0, "A/B sched1 stall distances k=%u lb=%u rows=%u coal=%u wfirst=%u: %ld", sp.k, sp.lane_bytes, sp.rows, sp.coal, sp.wfirst, v); }
+        }
+        printf("A/B codegen: %d kernels built (coal, wfirst, both x sched 0/1 x mutants), %ld stall-distance violations\n", built, viol);
+        { OmegaFp8GemvSpec bad = { .k = 2048, .lane_bytes = 16, .rows = 2, .warps = 32, .coal = 1 }; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "coal refused at warps x rows = 64");
+          bad.rows = 1; bad.coal = 2; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "coal 2 refused");
+          bad.coal = 0; bad.wfirst = 2; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "wfirst 2 refused");
+          bad.wfirst = 0; bad.mutant = 4; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "mutant 4 refused without coal"); }
+        static const struct { uint32_t k, lb; const char *name; } prod[] = { { 2048, 16, "gate_up k2048 lb16" }, { 768, 8, "down k768 lb8" } };
+        for (size_t q = 0; q < 2; q++) {
+            static BlackwellIRProgram p0, pa, pb, pab;
+            OmegaFp8GemvSpec s0 = { .k = prod[q].k, .lane_bytes = prod[q].lb, .rows = 1, .warps = 32 }, sa = s0, sb = s0, sab = s0;
+            sa.coal = 1; sb.wfirst = 1; sab.coal = 1; sab.wfirst = 1;
+            const int ok = omega_blackwell_codegen_fp8_gemv_prog(&s0, &p0) == 0 && omega_blackwell_codegen_fp8_gemv_prog(&sa, &pa) == 0 &&
+                           omega_blackwell_codegen_fp8_gemv_prog(&sb, &pb) == 0 && omega_blackwell_codegen_fp8_gemv_prog(&sab, &pab) == 0;
+            CHECK(ok, "A, B, A+B build at %s 32 warps", prod[q].name);
+            if (!ok) continue;
+            uint32_t da = 0, db = 0, dab = 0;
+            CHECK(omega_gpu_fp8_kernel_fits(&sa, &da) == OMEGA_GPU_FP8_OK && omega_gpu_fp8_kernel_fits(&sb, &db) == OMEGA_GPU_FP8_OK && omega_gpu_fp8_kernel_fits(&sab, &dab) == OMEGA_GPU_FP8_OK,
+                  "%s A/B/A+B fit the register file at 32 warps (declared %u %u %u)", prod[q].name, da, db, dab);
+            const int stg0 = fp8_count_op(&p0, BW_IR_STG_E), stga = fp8_count_op(&pa, BW_IR_STG_E), bar0 = fp8_count_op(&p0, BW_IR_BAR_SYNC), bara = fp8_count_op(&pa, BW_IR_BAR_SYNC);
+            CHECK(stg0 == 1 && stga == 1 && bar0 == 0 && bara == 1 && omega_fp8_gemv_shared_bytes(&sa) == 2u * 32u * 4u && omega_fp8_gemv_shared_bytes(&s0) == 0,
+                  "%s A: STG %d (default %d), BAR.SYNC %d (default %d), shared %u bytes", prod[q].name, stga, stg0, bara, bar0, omega_fp8_gemv_shared_bytes(&sa));
+            const int b0 = fp8_load_batches(&p0), bb = fp8_load_batches(&pb), ba = fp8_load_batches(&pa), bab = fp8_load_batches(&pab);
+            CHECK(b0 - bb == 1 && ba - bab == 1, "%s B: load batches default %d -> wfirst %d, coal %d -> coal+wfirst %d (one round trip less per K step)", prod[q].name, b0, bb, ba, bab);
+            OmegaFp8GemvSpec sd = s0, sdb; sd.warps = 8; sd.depth = omega_fp8_gemv_steps(&sd); sdb = sd; sdb.wfirst = 1;
+            static BlackwellIRProgram pd, pdb;
+            const int okd = omega_blackwell_codegen_fp8_gemv_prog(&sd, &pd) == 0 && omega_blackwell_codegen_fp8_gemv_prog(&sdb, &pdb) == 0;
+            CHECK(okd && fp8_load_batches(&pd) == fp8_load_batches(&pdb) && pd.count == pdb.count, "%s deep: wfirst changes nothing (batches %d, %d)", prod[q].name, okd ? fp8_load_batches(&pd) : -1, okd ? fp8_load_batches(&pdb) : -1);
+            printf("A/B %s w32: insns %zu / A %zu / B %zu / A+B %zu; declared regs A %u B %u A+B %u; load batches %d / %d / %d / %d\n",
+                   prod[q].name, p0.count, pa.count, pb.count, pab.count, da, db, dab, b0, ba, bb, bab);
+        }
+    }
 }
 
 /* ------------------------------------------------------------- simulator */
@@ -352,10 +420,12 @@ static int sim_gemv(const OmegaFp8GemvSpec *spec, const Weights *W, uint32_t gro
     float *copy = malloc((size_t)groups * n * 4);
     uint32_t grid_x = (RG + spec->warps - 1) / spec->warps; if (grid_x > cta_budget) grid_x = cta_budget; if (!grid_x) grid_x = 1;
     int err = 0;
-    for (int order = 0; order < 2 && !err; order++) {
+    const int runs = (spec->coal || getenv("FP8_SIM_ALL_ORDERS")) ? 4 : 2; /* coal: also descending and shuffled warp visit orders per barrier phase (slot races) */
+    for (int run = 0; run < runs && !err; run++) {
+        const int order = run == 1;
         WsSim s; memset(&s, 0, sizeof s);
-        s.p = &prog; s.threads = 32 * spec->warps; s.order = order;
-        static uint8_t smem[OMEGA_FP8_MAX_K * 4]; s.smem = smem; s.smem_bytes = g_sim_variant == 2 ? omega_fp8_gemv2_shared_bytes(spec) : omega_fp8_gemv_shared_bytes(spec); /* the bytes the launch declares (0: any shared access fails) */
+        s.p = &prog; s.threads = 32 * spec->warps; s.order = order; s.warp_sched = run == 2 ? 1u : run == 3 ? 0x9e3779b9u : 0u;
+        static uint8_t smem[OMEGA_FP8_MAX_K * 4 + 4096]; s.smem = smem; s.smem_bytes = g_sim_variant == 2 ? omega_fp8_gemv2_shared_bytes(spec) : omega_fp8_gemv_shared_bytes(spec); /* the bytes the launch declares (0: any shared access fails) */
         uint64_t ta = (uintptr_t)tab, xa = (uintptr_t)xf, ya = (uintptr_t)yd;
         s.cbank[OMEGA_FP8_ARG_TAB / 4] = (uint32_t)ta; s.cbank[OMEGA_FP8_ARG_TAB / 4 + 1] = (uint32_t)(ta >> 32);
         s.cbank[OMEGA_FP8_ARG_X / 4] = (uint32_t)xa; s.cbank[OMEGA_FP8_ARG_X / 4 + 1] = (uint32_t)(xa >> 32);
@@ -372,12 +442,12 @@ static int sim_gemv(const OmegaFp8GemvSpec *spec, const Weights *W, uint32_t gro
         s.nranges = 5; s.ranges[4].lo = (uintptr_t)tab; s.ranges[4].hi = (uintptr_t)tab + 16 * (size_t)groups;
         for (size_t i = 0; i < (size_t)groups * n; i++) yd[i] = -999.0f;
         err = ws_run(&s, grid_x, groups);
-        if (err) { snprintf(msg, msglen, "order %d: %s", order, s.msg); break; }
+        if (err) { snprintf(msg, msglen, "run %d (order %d, warp order %u): %s", run, order, s.warp_sched, s.msg); break; }
         g_sim_issues += s.warp_issues;
         size_t unwritten = 0; for (size_t i = 0; i < (size_t)groups * n; i++) if (yd[i] == -999.0f) unwritten++;
         if (unwritten) { err = -1; snprintf(msg, msglen, "%zu output words never written", unwritten); break; }
-        if (order == 0) memcpy(copy, yd, (size_t)groups * n * 4);
-        else if (memcmp(copy, yd, (size_t)groups * n * 4) != 0) { err = -1; snprintf(msg, msglen, "the fragment order changed the result"); }
+        if (run == 0) memcpy(copy, yd, (size_t)groups * n * 4);
+        else if (memcmp(copy, yd, (size_t)groups * n * 4) != 0) { if (getenv("FP8_SIM_DIFF")) { int c = 0; for (size_t i = 0; i < (size_t)groups * n && c < 12; i++) if (memcmp(&copy[i], &yd[i], 4)) { fprintf(stderr, "  diff y[%zu] %g vs %g\n", i, copy[i], yd[i]); c++; } } err = -1; snprintf(msg, msglen, "run %d (order %d, warp order %u) changed the result", run, order, s.warp_sched); }
     }
     if (!err) memcpy(y, yd, (size_t)groups * n * 4);
     free(sf); free(xf); free(tab); free(yd); free(copy);
@@ -565,6 +635,55 @@ static void sim_battery(uint32_t cta_budget) {
         }
         printf("sim sched1 battery: %d/%d runs bit-identical to sched 0\n", identical, runs);
     }
+
+    /* 5. CUT5 variants A (coal) and B (wfirst), alone and together: y bit-identical to the default on every battery point
+     *    where A applies (warps * rows <= 32), step and deep kernels, parity against the oracle; coal kernels run in four
+     *    orders (fragment order both ways, warps descending and shuffled per barrier phase). Mutants: 4 (one slot set) must
+     *    be caught by a warp order (points with two or more rounds per CTA), 5 (no clamp) on the points whose last round is
+     *    partial (6, 10), 1..3 on the A+B kernel of point 8 (1, 2 also on point 9). */
+    {
+        int identical = 0, runs = 0;
+        for (size_t i = 0; i < npts; i++) {
+            const SimPoint *p = &pts[i];
+            Weights W; weights_make(&W, p->experts, p->n, p->k, 1000 + (uint32_t)i);
+            uint32_t ids[8]; uint32_t st = 77 + (uint32_t)i;
+            for (uint32_t g = 0; g < p->groups; g++) ids[g] = lcg(&st) % p->experts;
+            float *x = malloc((size_t)p->x_rows * p->k * 4); for (size_t j = 0; j < (size_t)p->x_rows * p->k; j++) x[j] = frand(&st, -1.0f, 1.0f);
+            const size_t ny = (size_t)p->groups * p->n;
+            float *y0 = malloc(ny * 4), *y1 = malloc(ny * 4);
+            for (int deep = 0; deep < 2; deep++) {
+                OmegaFp8GemvSpec sp = { .k = p->k, .lane_bytes = p->lb, .rows = p->rows, .warps = p->warps };
+                if (deep) { sp.depth = omega_fp8_gemv_steps(&sp); if (sp.depth * sp.rows * sp.lane_bytes > 128 || p->k > 512 * p->warps) continue; }
+                int rc0 = sim_gemv(&sp, &W, p->groups, ids, x, p->x_rows, y0, cta_budget, 0, msg, sizeof msg);
+                CHECK(rc0 == 0, "default reference for A/B %s%s: %s", p->name, deep ? " deep" : "", msg);
+                for (int cw = 1; cw < 4; cw++) {
+                    OmegaFp8GemvSpec sv = sp; sv.coal = (uint32_t)(cw & 1); sv.wfirst = (uint32_t)(cw >> 1);
+                    if (sv.coal && p->warps * p->rows > 32) continue;
+                    char nm[96]; snprintf(nm, sizeof nm, "%s %s%s", cw == 1 ? "A" : cw == 2 ? "B" : "A+B", p->name, deep ? " deep" : "");
+                    int rc1 = sim_gemv(&sv, &W, p->groups, ids, x, p->x_rows, y1, cta_budget, 0, msg, sizeof msg);
+                    size_t bad = 0; double worst = rc1 == 0 ? parity(&W, p->groups, ids, x, p->x_rows, y1, &bad) : 1.0;
+                    int same = rc0 == 0 && rc1 == 0 && memcmp(y0, y1, ny * 4) == 0;
+                    CHECK(rc1 == 0 && bad == 0 && same, "sim %s: rc=%d bad=%zu worst_rel=%.3e identical_to_default=%d %s", nm, rc1, bad, worst, same, msg);
+                    runs++; if (same) identical++;
+                    printf("sim %-52s rc=%d worst_rel=%.3e bad=%zu identical_to_default=%d\n", nm, rc1, worst, bad, same);
+                    int ms_list[5], nm_list = 0;
+                    if (sv.coal && cw == 1 && (i == 6 || i == 10)) ms_list[nm_list++] = 5;
+                    if (sv.coal && cw == 1 && (i == 1 || i == 6 || i == 8 || i == 10)) ms_list[nm_list++] = 4;
+                    if (cw == 3 && (i == 8 || i == 9)) { ms_list[nm_list++] = 1; if (omega_fp8_gemv_steps(&sp) >= 2) ms_list[nm_list++] = 2; if (i == 8) ms_list[nm_list++] = 3; } /* point 9 draws the same expert for both groups: a table swap is invisible there */
+                    for (int q = 0; q < nm_list; q++) {
+                        OmegaFp8GemvSpec ms = sv; ms.mutant = ms_list[q];
+                        int rcm = sim_gemv(&ms, &W, p->groups, ids, x, p->x_rows, y1, cta_budget, 0, msg, sizeof msg);
+                        bad = 0; worst = rcm == 0 ? parity(&W, p->groups, ids, x, p->x_rows, y1, &bad) : 1.0;
+                        int caught = rcm != 0 || bad > 0;
+                        CHECK(caught, "sim %s mutant %d NOT caught (bad=%zu worst_rel=%.3e)", nm, ms.mutant, bad, worst);
+                        printf("sim %-52s mutant %d: %s (rc=%d bad=%zu %s)\n", nm, ms.mutant, caught ? "caught" : "MISSED", rcm, bad, rcm ? msg : "");
+                    }
+                }
+            }
+            free(x); free(y0); free(y1); weights_free(&W);
+        }
+        printf("sim A/B battery: %d/%d runs bit-identical to the default\n", identical, runs);
+    }
 }
 
 /* ------------------------------------------------------------------- chip */
@@ -593,6 +712,57 @@ static uint32_t g_custom_n, g_custom_k; static char g_custom_name[48];
  * must be caught at both shapes. GB/s = (weight + scale bytes of the 8 experts) / median chip time (launch to completion
  * marker: the launch floor is NOT subtracted). */
 static int g_cold;
+/* GPU-clock timing for --grouped-cold (CUT5, after omega#507: a host clock around submit and completion is not kernel time).
+ * The rotation above, recorded as one command list of LIST_N launches (launch i uses set i % 16, writes its own y slot),
+ * WAIT_FOR_IDLE + shader-cache invalidate before every launch (the decode graph's default barrier), GPU timestamps
+ * (PTIMER) before launch 0 and after every launch; launch time = stamp[i + 1] - stamp[i] (the barrier and launch floor are
+ * inside it, not subtracted). Every launch's y is checked against the oracle after the list. lists x LIST_N launches. */
+#define LIST_N 32u
+static int cold_list_stamps(const ChipPoint *p, const Weights *W, const OmegaGpuFp8Tensor *t, const uint32_t *perm, const float *x,
+                            uint32_t lists, uint64_t *el, uint32_t *n_el, size_t *bad_out, double *worst_out) {
+    const size_t ny = (size_t)p->groups * p->n;
+    OmegaGpuCmdList *cl = NULL; OmegaGpuMem tab, xd, yd; int ok = 1;
+    memset(&tab, 0, sizeof tab); memset(&xd, 0, sizeof xd); memset(&yd, 0, sizeof yd);
+    if (omega_gpu_cmdlist_create(LIST_N, &cl) != 0) { printf("cmdlist create: %s\n", omega_gpu_session_last_error()); return -1; }
+    omega_gpu_session_lock();
+    int arc = omega_gpu_session_alloc((size_t)16u * p->groups * 16u, &tab) | omega_gpu_session_alloc((size_t)p->x_rows * p->k * 4u, &xd) | omega_gpu_session_alloc((size_t)LIST_N * ny * 4u, &yd);
+    omega_gpu_session_unlock();
+    if (arc != 0) { printf("list alloc: %s\n", omega_gpu_session_last_error()); ok = 0; }
+    if (ok) {
+        uint64_t *tw = tab.cpu;
+        for (uint32_t s = 0; s < 16u && ok; s++) for (uint32_t g = 0; g < p->groups; g++)
+            if (omega_gpu_fp8_tensor_entry(t, perm[8u * s + g], &tw[2u * (s * p->groups + g)], &tw[2u * (s * p->groups + g) + 1u]) != 0) ok = 0;
+        for (uint32_t r = 0; r < p->x_rows; r++) omega_fp8_pack_x_f32(x + (size_t)r * p->k, p->k, (float *)xd.cpu + (size_t)r * p->k);
+        if (!ok || omega_gpu_session_sync_to_gpu(&tab) != 0 || omega_gpu_session_sync_to_gpu(&xd) != 0) ok = 0;
+    }
+    size_t bad_all = 0; double worst_all = 0.0; uint32_t n = 0;
+    for (uint32_t l = 0; l < lists && ok; l++) {
+        float *y = yd.cpu; for (size_t i = 0; i < (size_t)LIST_N * ny; i++) y[i] = -999.0f;
+        if (omega_gpu_session_sync_to_gpu(&yd) != 0) { ok = 0; break; }
+        if (g_evict) evict_host_caches();
+        omega_gpu_session_lock();
+        omega_gpu_cmdlist_reset(cl);
+        for (uint32_t i = 0; i < LIST_N && ok; i++)
+            if (omega_gpu_fp8_gemv_grouped_record(cl, t, p->groups, tab.va + (uint64_t)(i % 16u) * p->groups * 16u, xd.va, p->x_rows, yd.va + (uint64_t)i * ny * 4u) != 0) { printf("record: %s\n", omega_gpu_fp8_last_error()); ok = 0; }
+        OmegaGpuCmdListOpts o; memset(&o, 0, sizeof o); o.mode = OMEGA_GPU_CMDLIST_PCAS; o.barrier = OMEGA_GPU_CMDLIST_BARRIER_WFI; o.stamps = 1;
+        OmegaGpuCmdListStats cs; memset(&cs, 0, sizeof cs);
+        uint64_t sts[LIST_N + 1]; int cnt = -1;
+        if (ok && omega_gpu_cmdlist_submit(cl, &o, &cs) != 0) { printf("submit: %s\n", omega_gpu_session_last_error()); ok = 0; }
+        if (ok) cnt = omega_gpu_cmdlist_stamps(cl, sts, LIST_N + 1);
+        omega_gpu_session_unlock();
+        if (!ok || cnt != (int)LIST_N + 1 || cs.sems_done != LIST_N) { printf("list %u: stamps %d sems_done %u\n", l, cnt, cs.sems_done); ok = 0; break; }
+        if (omega_gpu_session_sync_to_cpu(&yd) != 0) { ok = 0; break; }
+        for (uint32_t i = 0; i < LIST_N; i++) {
+            size_t b = 0; double w = parity(W, p->groups, perm + 8u * (i % 16u), x, p->x_rows, y + (size_t)i * ny, &b);
+            bad_all += b; if (w > worst_all) worst_all = w;
+            el[n++] = sts[i + 1] - sts[i];
+        }
+    }
+    omega_gpu_session_lock(); omega_gpu_session_free(&tab); omega_gpu_session_free(&xd); omega_gpu_session_free(&yd); omega_gpu_session_unlock();
+    omega_gpu_cmdlist_free(cl);
+    *n_el = n; *bad_out = bad_all; *worst_out = worst_all;
+    return ok ? 0 : -1;
+}
 static void cold_points(FILE *out, uint32_t reps, int *first) {
     static const ChipPoint cpts[] = {
         { 128, 1536, 2048, 8, 1, "cold gate_up 8 of 128", 1 },
@@ -634,6 +804,19 @@ static void cold_points(FILE *out, uint32_t reps, int *first) {
                          *first ? "" : ",", p->name, p->experts, p->n, p->k, p->groups, p->x_rows, omega_gpu_fp8_rc_name(rc), done, bad_all, worst_all,
                          omega_gpu_fp8_variant(), omega_gpu_fp8_sched(), info.grid_x, info.grid_y, info.lane_bytes, info.rows_per_warp, info.warps_per_cta, info.depth, info.weight_bytes + info.scale_bytes, med, lo, hi, gbs, g_evict);
         *first = 0;
+        { /* GPU-stamped timing of the same rotation (the figure CUT5 reports) */
+            const uint32_t lists = reps < 2u * LIST_N ? 2u : (reps + LIST_N - 1u) / LIST_N;
+            uint64_t *e2 = calloc((size_t)lists * LIST_N, sizeof *e2); uint32_t n2 = 0; size_t b2 = 0; double w2 = 0.0;
+            int lrc = rc == OMEGA_GPU_FP8_OK ? cold_list_stamps(p, &W, t, perm, x, lists, e2, &n2, &b2, &w2) : -1;
+            CHECK(lrc == 0 && n2 == lists * LIST_N && b2 == 0, "chip %s GPU-stamped list: %u/%u launches, %zu elements off the oracle, worst_rel=%.3e", p->name, n2, lists * LIST_N, b2, w2);
+            uint64_t m2 = 0, lo2 = 0, hi2 = 0; double g2 = 0.0;
+            if (n2) { qsort(e2, n2, sizeof *e2, cmp_u64); m2 = e2[n2 / 2]; lo2 = e2[0]; hi2 = e2[n2 - 1]; g2 = m2 ? (double)(info.weight_bytes + info.scale_bytes) / (double)m2 : 0.0; }
+            printf("chip %-24s GPU-STAMPED coal=%d wfirst=%d launches=%u bad=%zu stamp_med=%.1fus min=%.1fus max=%.1fus (%.1f GB/s, %.3f of 237.2)\n",
+                   p->name, omega_gpu_fp8_coal(), omega_gpu_fp8_wfirst(), n2, b2, m2 / 1e3, lo2 / 1e3, hi2 / 1e3, g2, g2 / 237.2);
+            if (out) fprintf(out, ",{\"name\":\"%s gpu-stamped\",\"coal\":%d,\"wfirst\":%d,\"sched\":%d,\"launches\":%u,\"bad\":%zu,\"worst_rel\":%.3e,\"bytes\":%" PRIu64 ",\"stamp_median_ns\":%" PRIu64 ",\"stamp_min_ns\":%" PRIu64 ",\"stamp_max_ns\":%" PRIu64 ",\"gbps_stamp\":%.2f,\"barrier\":\"WFI\",\"floor_subtracted\":0}",
+                             p->name, omega_gpu_fp8_coal(), omega_gpu_fp8_wfirst(), omega_gpu_fp8_sched(), n2, b2, w2, info.weight_bytes + info.scale_bytes, m2, lo2, hi2, g2);
+            free(e2);
+        }
         free(el);
         /* mutants: each must be caught at this shape and this kernel configuration */
         for (int m = 1; m <= 4 && rc == OMEGA_GPU_FP8_OK; m++) {
@@ -788,6 +971,8 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--gpr-pad") == 0 && i + 1 < argc) omega_gpu_fp8_set_gpr_pad((uint32_t)atoi(argv[++i]));
         else if (strcmp(argv[i], "--variant") == 0 && i + 1 < argc) omega_gpu_fp8_set_variant(atoi(argv[++i])); /* 1 (default) or 2 (W-L2c row-pipelined) */
         else if (strcmp(argv[i], "--sched") == 0 && i + 1 < argc) omega_gpu_fp8_set_sched(atoi(argv[++i])); /* CUT5: 0 (default) or 1 (pipelined decode + stall pass) */
+        else if (strcmp(argv[i], "--coal") == 0 && i + 1 < argc) omega_gpu_fp8_set_coal(atoi(argv[++i]));     /* CUT5 variant A: coalesced output through shared slots */
+        else if (strcmp(argv[i], "--wfirst") == 0 && i + 1 < argc) omega_gpu_fp8_set_wfirst(atoi(argv[++i])); /* CUT5 variant B: weight loads before the x loads */
         else if (strcmp(argv[i], "--grouped-cold") == 0) g_cold = 1; /* CUT5: the two decode expert launches, 8 of 128, L2 defeated */
         else { printf("unknown argument %s\n", argv[i]); return 2; }
     }

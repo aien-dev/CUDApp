@@ -151,6 +151,13 @@ int omega_gpu_fp8_variant(void);
  * only (variant 2 ignores it). Never set: the first kernel build reads env AIEN_OMEGA_FP8_SCHED ("1" = 1). */
 void omega_gpu_fp8_set_sched(int sched);
 int omega_gpu_fp8_sched(void);
+/* CUT5 variants (measurement knobs, variant 1 only; each clears the kernel cache; never set: env "1" turns one on).
+ * A, coalesced output (OmegaFp8GemvSpec.coal; applied where warps * rows <= 32): AIEN_OMEGA_FP8_COAL.
+ * B, weight loads before the x loads in each K step (OmegaFp8GemvSpec.wfirst): AIEN_OMEGA_FP8_WFIRST. */
+void omega_gpu_fp8_set_coal(int on);
+int omega_gpu_fp8_coal(void);
+void omega_gpu_fp8_set_wfirst(int on);
+int omega_gpu_fp8_wfirst(void);
 #define OMEGA_GPU_FP8_V2_WARPS 16u
 #define OMEGA_GPU_FP8_V2_GROUPED_CTAS 12u
 int omega_gpu_fp8_weight_cache(void);

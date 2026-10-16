@@ -43,6 +43,7 @@ static struct {
     int weights_cached; /* omega_gpu_fp8_set_weight_cache: uploads after it allocate GPU-cached (read-only weights) */
     int weights_cached_set; /* 0: never set, the first upload reads env AIEN_OMEGA_FP8_WEIGHT_CACHE (W-L2d: "1" = cached) */
     int sched, sched_set; /* CUT5: kernel schedule 0 (default) or 1 (pipelined decode + stall pass), variant 1 only; env AIEN_OMEGA_FP8_SCHED when never set */
+    int coal, coal_set, wfirst, wfirst_set; /* CUT5 variants A (coalesced output) and B (weights before x), variant 1 only; env AIEN_OMEGA_FP8_COAL / AIEN_OMEGA_FP8_WFIRST when never set */
     bool hooked;
     Slot cache[CACHE_SLOTS];
     unsigned next;
@@ -125,6 +126,16 @@ void omega_gpu_fp8_set_sched(int sched) {
     omega_gpu_session_unlock();
 }
 int omega_gpu_fp8_sched(void) { return sched_now(); }
+/* ---- CUT5 variants A and B (variant 1 only): 0 = default, 1 = on; the env value "1" turns one on when never set ---- */
+static int flag_now(int *v, int *set, const char *env) {
+    if (!*set) { const char *s = getenv(env); *v = (s && s[0] == '1' && s[1] == 0) ? 1 : 0; *set = 1; }
+    return *v;
+}
+static void flag_set(int *v, int *set, int on) { omega_gpu_session_lock(); *v = on == 1 ? 1 : 0; *set = 1; cache_clear_locked(); omega_gpu_session_unlock(); }
+void omega_gpu_fp8_set_coal(int on) { flag_set(&g.coal, &g.coal_set, on); }
+int omega_gpu_fp8_coal(void) { return flag_now(&g.coal, &g.coal_set, "AIEN_OMEGA_FP8_COAL"); }
+void omega_gpu_fp8_set_wfirst(int on) { flag_set(&g.wfirst, &g.wfirst_set, on); }
+int omega_gpu_fp8_wfirst(void) { return flag_now(&g.wfirst, &g.wfirst_set, "AIEN_OMEGA_FP8_WFIRST"); }
 /* codegen by variant */
 static int prog_for(int variant, const OmegaFp8GemvSpec *spec, BlackwellIRProgram *prog) {
     return variant == 2 ? omega_blackwell_codegen_fp8_gemv2_prog(spec, prog) : omega_blackwell_codegen_fp8_gemv_prog(spec, prog);
@@ -244,7 +255,11 @@ static void spec_for(uint32_t k, uint32_t n, uint32_t groups, OmegaFp8GemvSpec *
          * the whole row group is always in flight (depth = KS, informational: the generator ignores the field). */
         if (!g.warps) spec->warps = OMEGA_GPU_FP8_V2_WARPS;
         spec->depth = spec->k / (32u * spec->lane_bytes);
-    } else { spec->depth = omega_gpu_fp8_depth_for(spec, n, groups); spec->sched = (uint32_t)sched_now(); }
+    } else {
+        spec->depth = omega_gpu_fp8_depth_for(spec, n, groups); spec->sched = (uint32_t)sched_now();
+        spec->coal = omega_gpu_fp8_coal() && spec->warps * spec->rows <= 32u; /* A: shapes whose round fits one store warp */
+        spec->wfirst = (uint32_t)omega_gpu_fp8_wfirst();                       /* B: deep kernels ignore it */
+    }
     spec->mutant = g.mutant;
 }
 
