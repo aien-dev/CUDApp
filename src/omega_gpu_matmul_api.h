@@ -145,8 +145,10 @@ typedef struct {
     uint64_t setup_ns, pack_ns, upload_ns, launch_ns, chip_ns, sync_ns, copy_out_ns;
     uint64_t core_ns; /* entry to exit of the matmul body; a resident call's call_ns adds argument checks only */
 } OmegaGpuMatmulStages;
-/* Stages of the most recent matmul in this process (any thread; calls are serialized by the session lock).
- * All zero before the first call; a call that fails records the stages it reached. */
+/* Stages of the most recent matmul in this process. The record is ONE per process, shared by every thread:
+ * another thread's matmul can overwrite it between your call and this read, so read it from the thread that
+ * made the call, with no other matmul in between. Calls are serialized by the session lock, so a read never sees
+ * a half-written record. All zero before the first call; a call that fails records the stages it reached. */
 void omega_gpu_matmul_last_stages(OmegaGpuMatmulStages *out);
 
 /* CTA budget per launch (default OMEGA_GPU_MATMUL_MAX_CTAS; 0 restores it).
