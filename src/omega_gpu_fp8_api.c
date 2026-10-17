@@ -254,9 +254,20 @@ uint32_t omega_gpu_fp8_depth_for(const OmegaFp8GemvSpec *spec, uint32_t n, uint3
     if (groups != 1u || !omega_gpu_fp8_deep()) return 0;
     OmegaFp8GemvSpec deep = *spec; deep.depth = ks; deep.mutant = 0;
     if (omega_fp8_gemv_shared_bytes(&deep) > OMEGA_BW_QMD_MAX_SHARED_BYTES) return 0;
+    /* The register check builds the whole kernel (codegen + register allocation). spec_for runs on every launch and every
+     * record, so the answer is remembered per spec: SPEED-1B graph A/B (2026-10-17) measured the unremembered check at
+     * 853..1172 us of host record time per token (48 qkv records) against 45..113 us without the deep default. The answer is
+     * a pure function of the spec (deterministic codegen), so the memo never needs clearing; spec_for zeroes the struct,
+     * so memcmp over the padding is exact. */
+    static struct { OmegaFp8GemvSpec spec; uint32_t fits; } memo[8];
+    static unsigned memo_n, memo_next;
+    for (unsigned i = 0; i < memo_n; i++)
+        if (memcmp(&memo[i].spec, &deep, sizeof deep) == 0) return memo[i].fits ? ks : 0;
     uint32_t peak = 0;
-    if (omega_fp8_gemv_prog_stats(&deep, NULL, &peak) != 0 || (uint64_t)32u * spec->warps * gpr_declared(peak) > 65536u) return 0;
-    return ks;
+    const uint32_t fits = omega_fp8_gemv_prog_stats(&deep, NULL, &peak) == 0 && (uint64_t)32u * spec->warps * gpr_declared(peak) <= 65536u;
+    const unsigned at = memo_n < 8u ? memo_n++ : (memo_next++ % 8u);
+    memo[at].spec = deep; memo[at].fits = fits;
+    return fits ? ks : 0;
 }
 
 static void spec_for(uint32_t k, uint32_t n, uint32_t groups, OmegaFp8GemvSpec *spec) {

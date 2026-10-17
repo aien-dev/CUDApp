@@ -223,6 +223,20 @@ static void deep_default_check(void) {
         if (on) CHECK(omega_fp8_gemv_shared_bytes(&q) != 0 && omega_fp8_gemv_shared_bytes(&q) <= OMEGA_BW_QMD_MAX_SHARED_BYTES, "qkv deep shared %u bytes within the launch limit", omega_fp8_gemv_shared_bytes(&q));
         if (pass == 0) printf("deep default %d: qkv 5120x2048 depth %u (coal %u, shared %u), o_proj 2048x4096 depth %u, gate_up 8x1536x2048 depth %u\n", want, q.depth, q.coal, omega_fp8_gemv_shared_bytes(&q), o.depth, gu.depth);
     }
+    /* The choice runs on every launch and every graph record (48 qkv records per token). SPEED-1B graph A/B: an unremembered
+     * register check (full codegen per call) cost 853..1172 us of host record time per token. Bound: 4800 calls (100 tokens of
+     * qkv records) under 20 ms in total (< ~4 us per call); the codegen path is ~17 us per call. */
+    {
+        omega_gpu_fp8_set_deep(1);
+        OmegaFp8GemvSpec q; omega_gpu_fp8_spec_for(2048, 5120, 1, &q); /* warm */
+        struct timespec t0, t1; clock_gettime(CLOCK_MONOTONIC, &t0);
+        uint32_t dsum = 0;
+        for (int i = 0; i < 4800; i++) { omega_gpu_fp8_spec_for(2048, 5120, 1, &q); dsum += q.depth; }
+        clock_gettime(CLOCK_MONOTONIC, &t1);
+        const double ms = (double)(t1.tv_sec - t0.tv_sec) * 1e3 + (double)(t1.tv_nsec - t0.tv_nsec) / 1e6;
+        CHECK(dsum == 4800u * 4u && ms < 20.0, "4800 qkv spec_for calls (deep on): %.2f ms, depth sum %u (want < 20 ms, %u)", ms, dsum, 4800u * 4u);
+        printf("deep default: 4800 qkv spec_for calls %.3f ms\n", ms);
+    }
     omega_gpu_fp8_set_deep(want);
 }
 
