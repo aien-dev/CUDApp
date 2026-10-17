@@ -11,6 +11,8 @@
  *                                           host no-fold) which the same check must catch
  *   ./gpu_fp8_api_test --out receipt.json   chip gate: parity battery, mutants, grouped experts, then the
  *                                           bandwidth table (median of --reps calls) at the expert and attention shapes
+ *   ./gpu_fp8_api_test --cold-single      SPEED-1B: the decode graph's two single projections (qkv 5120 x 2048, o_proj 2048 x 4096),
+ *                                         16 copies rotated so L2 never holds the launch's weights; same report as --grouped-cold
  *   ./gpu_fp8_api_test --grouped-cold     CUT5: the decode graph's two expert launches (gate_up 8 of 128 x 1536 x 2048,
  *                                           down 8 of 128 x 2048 x 768) with L2 defeated by rotating 16 disjoint expert
  *                                           sets; parity on every timed launch; mutants 1..4; GB/s and fraction of 237.2
@@ -740,6 +742,7 @@ static uint32_t g_custom_n, g_custom_k; static char g_custom_name[48];
  * must be caught at both shapes. GB/s = (weight + scale bytes of the 8 experts) / median chip time (launch to completion
  * marker: the launch floor is NOT subtracted). */
 static int g_cold;
+static int g_dump_stamps; /* --dump-stamps: one line per GPU-stamped launch (diagnosis of per-launch spread) */
 /* GPU-clock timing for --grouped-cold (CUT5, after omega#507: a host clock around submit and completion is not kernel time).
  * The rotation above, recorded as one command list of LIST_N launches (launch i uses set i % 16, writes its own y slot),
  * WAIT_FOR_IDLE + shader-cache invalidate before every launch (the decode graph's default barrier), GPU timestamps
@@ -749,6 +752,7 @@ static int g_cold;
 static int cold_list_stamps(const ChipPoint *p, const Weights *W, const OmegaGpuFp8Tensor *t, const uint32_t *perm, const float *x,
                             uint32_t lists, uint64_t *el, uint32_t *n_el, size_t *bad_out, double *worst_out) {
     const size_t ny = (size_t)p->groups * p->n;
+    const uint32_t STR = p->experts / 16u; /* experts per rotation set (8 for the 128-expert tables, 1 for --cold-single) */
     OmegaGpuCmdList *cl = NULL; OmegaGpuMem tab, xd, yd; int ok = 1;
     memset(&tab, 0, sizeof tab); memset(&xd, 0, sizeof xd); memset(&yd, 0, sizeof yd);
     if (omega_gpu_cmdlist_create(LIST_N, &cl) != 0) { printf("cmdlist create: %s\n", omega_gpu_session_last_error()); return -1; }
@@ -759,7 +763,7 @@ static int cold_list_stamps(const ChipPoint *p, const Weights *W, const OmegaGpu
     if (ok) {
         uint64_t *tw = tab.cpu;
         for (uint32_t s = 0; s < 16u && ok; s++) for (uint32_t g = 0; g < p->groups; g++)
-            if (omega_gpu_fp8_tensor_entry(t, perm[8u * s + g], &tw[2u * (s * p->groups + g)], &tw[2u * (s * p->groups + g) + 1u]) != 0) ok = 0;
+            if (omega_gpu_fp8_tensor_entry(t, perm[STR * s + g], &tw[2u * (s * p->groups + g)], &tw[2u * (s * p->groups + g) + 1u]) != 0) ok = 0;
         for (uint32_t r = 0; r < p->x_rows; r++) omega_fp8_pack_x_f32(x + (size_t)r * p->k, p->k, (float *)xd.cpu + (size_t)r * p->k);
         if (!ok || omega_gpu_session_sync_to_gpu(&tab) != 0 || omega_gpu_session_sync_to_gpu(&xd) != 0) ok = 0;
     }
@@ -781,9 +785,10 @@ static int cold_list_stamps(const ChipPoint *p, const Weights *W, const OmegaGpu
         if (!ok || cnt != (int)LIST_N + 1 || cs.sems_done != LIST_N) { printf("list %u: stamps %d sems_done %u\n", l, cnt, cs.sems_done); ok = 0; break; }
         if (omega_gpu_session_sync_to_cpu(&yd) != 0) { ok = 0; break; }
         for (uint32_t i = 0; i < LIST_N; i++) {
-            size_t b = 0; double w = parity(W, p->groups, perm + 8u * (i % 16u), x, p->x_rows, y + (size_t)i * ny, &b);
+            size_t b = 0; double w = parity(W, p->groups, perm + STR * (i % 16u), x, p->x_rows, y + (size_t)i * ny, &b);
             bad_all += b; if (w > worst_all) worst_all = w;
             el[n++] = sts[i + 1] - sts[i];
+            if (g_dump_stamps) printf("stamp %-24s list=%u launch=%u set=%u elapsed_us=%.1f bad=%zu\n", p->name, l, i, i % 16u, (double)el[n - 1] / 1e3, b);
         }
     }
     omega_gpu_session_lock(); omega_gpu_session_free(&tab); omega_gpu_session_free(&xd); omega_gpu_session_free(&yd); omega_gpu_session_unlock();
@@ -792,17 +797,27 @@ static int cold_list_stamps(const ChipPoint *p, const Weights *W, const OmegaGpu
     return ok ? 0 : -1;
 }
 static void cold_points(FILE *out, uint32_t reps, int *first) {
-    static const ChipPoint cpts[] = {
+    static const ChipPoint gpts[] = {
         { 128, 1536, 2048, 8, 1, "cold gate_up 8 of 128", 1 },
         { 128, 2048, 768, 8, 8, "cold down 8 of 128", 1 },
     };
+    /* --cold-single (SPEED-1B, 2026-10-17): the decode graph's two single-projection launches (omega_gpu_decode_graph.c
+     * record_layer: qkv [1][5120][2048], o_proj [1][2048][4096], groups 1). Same rotation as above with 16 copies of the
+     * shape, one per set: consecutive launches share no weight byte and a copy returns after 15 others (qkv 157 MB,
+     * o_proj 126 MB in between; L2 is 24 MiB). */
+    static const ChipPoint spts[] = {
+        { 16, 5120, 2048, 1, 1, "cold qkv 1 of 16", 1 },
+        { 16, 2048, 4096, 1, 1, "cold o_proj 1 of 16", 1 },
+    };
+    const ChipPoint *cpts = g_cold == 2 ? spts : gpts;
     for (size_t i = 0; i < 2; i++) {
         const ChipPoint *p = &cpts[i];
         if (g_only && !strstr(p->name, g_only)) continue;
+        const uint32_t STR = p->experts / 16u; /* experts per rotation set */
         Weights W; weights_make(&W, p->experts, p->n, p->k, 9100 + (uint32_t)i);
         uint32_t perm[128], st = 4242 + (uint32_t)i;
-        for (uint32_t e = 0; e < 128; e++) perm[e] = e;
-        for (uint32_t e = 127; e > 0; e--) { uint32_t j = lcg(&st) % (e + 1); uint32_t t = perm[e]; perm[e] = perm[j]; perm[j] = t; }
+        for (uint32_t e = 0; e < p->experts; e++) perm[e] = e;
+        for (uint32_t e = p->experts - 1u; e > 0; e--) { uint32_t j = lcg(&st) % (e + 1); uint32_t t = perm[e]; perm[e] = perm[j]; perm[j] = t; }
         float *x = malloc((size_t)p->x_rows * p->k * 4); for (size_t j = 0; j < (size_t)p->x_rows * p->k; j++) x[j] = frand(&st, -1.0f, 1.0f);
         float *y = malloc((size_t)p->groups * p->n * 4);
         OmegaGpuFp8Tensor *t = NULL;
@@ -814,7 +829,7 @@ static void cold_points(FILE *out, uint32_t reps, int *first) {
         uint64_t *el = calloc(reps, sizeof *el); uint32_t done = 0; size_t bad_all = 0; double worst_all = worst;
         if (g_evict) evict_host_caches();
         for (uint32_t r = 0; r < reps && rc == OMEGA_GPU_FP8_OK; r++) {
-            const uint32_t *ids = perm + 8u * (r % 16u);
+            const uint32_t *ids = perm + STR * (r % 16u);
             OmegaGpuFp8Info ti;
             if (omega_gpu_fp8_gemv_grouped_f32(t, p->groups, ids, x, p->x_rows, y, &ti) != OMEGA_GPU_FP8_OK) { rc = OMEGA_GPU_FP8_CHIP_FAIL; break; }
             size_t b = 0; double w = parity(&W, p->groups, ids, x, p->x_rows, y, &b);
@@ -848,6 +863,7 @@ static void cold_points(FILE *out, uint32_t reps, int *first) {
         free(el);
         /* mutants: each must be caught at this shape and this kernel configuration */
         for (int m = 1; m <= 4 && rc == OMEGA_GPU_FP8_OK; m++) {
+            if (m == 3 && p->groups == 1) continue; /* mutant 3 needs groups > 1 (as in the --n/--k path) */
             if (m == 4) omega_gpu_fp8_test_set_no_fold(1); else omega_gpu_fp8_test_set_mutant(m);
             OmegaGpuFp8Tensor *tm = t;
             if (m == 4) { tm = NULL; if (omega_gpu_fp8_tensor_upload(p->experts, p->n, p->k, W.w, W.s, &tm) != OMEGA_GPU_FP8_OK) tm = NULL; }
@@ -1003,6 +1019,8 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--wfirst") == 0 && i + 1 < argc) omega_gpu_fp8_set_wfirst(atoi(argv[++i])); /* CUT5 variant B: weight loads before the x loads */
         else if (strcmp(argv[i], "--coal-default") == 0) { coal_default_check(); printf("gpu_fp8_api_test: %d checks, %d failed: %s\n", g_checks, g_failed, g_failed ? "FAIL" : "PASS"); return g_failed ? 1 : 0; } /* variant A default vs env only */
         else if (strcmp(argv[i], "--grouped-cold") == 0) g_cold = 1; /* CUT5: the two decode expert launches, 8 of 128, L2 defeated */
+        else if (strcmp(argv[i], "--cold-single") == 0) g_cold = 2;  /* SPEED-1B: the two single projections qkv / o_proj, L2 defeated */
+        else if (strcmp(argv[i], "--dump-stamps") == 0) g_dump_stamps = 1;
         else { printf("unknown argument %s\n", argv[i]); return 2; }
     }
     if (host) host_only();
