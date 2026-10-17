@@ -15,7 +15,7 @@
  *                                           down 8 of 128 x 2048 x 768) with L2 defeated by rotating 16 disjoint expert
  *                                           sets; parity on every timed launch; mutants 1..4; GB/s and fraction of 237.2
  *   knobs: --lane-bytes N --rows N --warps N --cta-budget N --reps N --spin-us N
- *   CUT5 variants: --coal 0|1 (A, coalesced output) --wfirst 0|1 (B, weights before x); FP8_SIM_ALL_ORDERS=1 runs every
+ *   CUT5 variants: --coal 0|1 (A, coalesced output; default 1, AIEN_OMEGA_FP8_COAL=0 turns it off; --coal-default checks that) --wfirst 0|1 (B, weights before x); FP8_SIM_ALL_ORDERS=1 runs every
  *   simulated kernel in four warp orders (coal kernels always do)
  *          --sched 0|1 (CUT5 kernel schedule) --variant 1|2 --depth N --no-evict --only NAME
  *          --n N --k K: one custom point n x k instead of the battery (with mutants 1, 2, 4), e.g. 128256 x 2560
@@ -175,7 +175,35 @@ static int nvdisasm_check_v(int variant, const OmegaFp8GemvSpec *spec, const cha
     return (rc == 0 && bad == 0 && miss == 0) ? 0 : -1;
 }
 
+/* Variant A default (SPEED-A, 2026-10-17): coal is ON unless AIEN_OMEGA_FP8_COAL=0 (or set_coal(0)), and coal 0 gives back
+ * the earlier kernel (one STG per row, no BAR.SYNC, no shared slots) at the decode graph's two grouped expert shapes and the
+ * single-projection o_proj shape. make test-gpu-fp8 runs this once with the env unset and once with AIEN_OMEGA_FP8_COAL=0. */
+static int g_coal_arg; /* --coal given: the env default is not what is being tested */
+static void coal_default_check(void) {
+    const char *e = getenv("AIEN_OMEGA_FP8_COAL");
+    const int want = (e && e[0] == '0' && e[1] == 0) ? 0 : 1;
+    CHECK(omega_gpu_fp8_coal() == want, "coal default %d with AIEN_OMEGA_FP8_COAL=%s (want %d)", omega_gpu_fp8_coal(), e ? e : "(unset)", want);
+    static const struct { uint32_t k, n, groups; const char *name; } sh[] = {
+        { 2048, 1536, 8, "gate_up 8 x 1536 x 2048" }, { 768, 2048, 8, "down 8 x 2048 x 768" }, { 4096, 2048, 1, "o_proj 2048 x 4096" } };
+    for (int pass = 0; pass < 3; pass++) {
+        const int on = pass == 0 ? want : pass == 1 ? 0 : 1;
+        if (pass) omega_gpu_fp8_set_coal(on);
+        for (size_t q = 0; q < sizeof sh / sizeof sh[0]; q++) {
+            OmegaFp8GemvSpec sp; omega_gpu_fp8_spec_for(sh[q].k, sh[q].n, sh[q].groups, &sp);
+            const int fits = sp.warps * sp.rows <= 32u;
+            static BlackwellIRProgram p;
+            const int rc = omega_blackwell_codegen_fp8_gemv_prog(&sp, &p);
+            const int coal = on && fits, bar = rc == 0 ? fp8_count_op(&p, BW_IR_BAR_SYNC) : -1, stg = rc == 0 ? fp8_count_op(&p, BW_IR_STG_E) : -1;
+            CHECK(rc == 0 && sp.coal == (uint32_t)coal && stg == 1 && (sp.depth ? 1 : bar == coal) && (omega_fp8_gemv_shared_bytes(&sp) != 0) == (coal || sp.depth != 0),
+                  "%s coal %d (pass %d, warps %u rows %u depth %u): spec.coal %u, STG %d, BAR.SYNC %d, shared %u", sh[q].name, on, pass, sp.warps, sp.rows, sp.depth, sp.coal, stg, bar, omega_fp8_gemv_shared_bytes(&sp));
+            if (pass == 0) printf("coal default %d: %s warps %u rows %u depth %u -> spec.coal %u, STG %d, BAR.SYNC %d\n", want, sh[q].name, sp.warps, sp.rows, sp.depth, sp.coal, stg, bar);
+        }
+    }
+    omega_gpu_fp8_set_coal(want);
+}
+
 static void host_only(void) {
+    if (!g_coal_arg) coal_default_check();
     /* 1. exhaustive conversion: kernel bits * 2^120 == reference, bit for bit, for every non-NaN code;
      *    sign of zero preserved; NaN codes are exactly 0x7f and 0xff and are refused by the scan */
     int exact = 0, nan_codes = 0, zero_sign_ok = 0, f32_subnormal = 0;
@@ -971,8 +999,9 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--gpr-pad") == 0 && i + 1 < argc) omega_gpu_fp8_set_gpr_pad((uint32_t)atoi(argv[++i]));
         else if (strcmp(argv[i], "--variant") == 0 && i + 1 < argc) omega_gpu_fp8_set_variant(atoi(argv[++i])); /* 1 (default) or 2 (W-L2c row-pipelined) */
         else if (strcmp(argv[i], "--sched") == 0 && i + 1 < argc) omega_gpu_fp8_set_sched(atoi(argv[++i])); /* CUT5: 0 (default) or 1 (pipelined decode + stall pass) */
-        else if (strcmp(argv[i], "--coal") == 0 && i + 1 < argc) omega_gpu_fp8_set_coal(atoi(argv[++i]));     /* CUT5 variant A: coalesced output through shared slots */
+        else if (strcmp(argv[i], "--coal") == 0 && i + 1 < argc) { omega_gpu_fp8_set_coal(atoi(argv[++i])); g_coal_arg = 1; }     /* CUT5 variant A: coalesced output through shared slots */
         else if (strcmp(argv[i], "--wfirst") == 0 && i + 1 < argc) omega_gpu_fp8_set_wfirst(atoi(argv[++i])); /* CUT5 variant B: weight loads before the x loads */
+        else if (strcmp(argv[i], "--coal-default") == 0) { coal_default_check(); printf("gpu_fp8_api_test: %d checks, %d failed: %s\n", g_checks, g_failed, g_failed ? "FAIL" : "PASS"); return g_failed ? 1 : 0; } /* variant A default vs env only */
         else if (strcmp(argv[i], "--grouped-cold") == 0) g_cold = 1; /* CUT5: the two decode expert launches, 8 of 128, L2 defeated */
         else { printf("unknown argument %s\n", argv[i]); return 2; }
     }

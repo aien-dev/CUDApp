@@ -126,16 +126,22 @@ void omega_gpu_fp8_set_sched(int sched) {
     omega_gpu_session_unlock();
 }
 int omega_gpu_fp8_sched(void) { return sched_now(); }
-/* ---- CUT5 variants A and B (variant 1 only): 0 = default, 1 = on; the env value "1" turns one on when never set ---- */
-static int flag_now(int *v, int *set, const char *env) {
-    if (!*set) { const char *s = getenv(env); *v = (s && s[0] == '1' && s[1] == 0) ? 1 : 0; *set = 1; }
+/* ---- CUT5 variants A and B (variant 1 only): 0 = off, 1 = on. Never set: the env decides once; A (coal) defaults ON (env
+ * value "0" turns it off; SPEED-A 2026-10-17: OWN-30B decode graph 24.49 -> 21.34 ms/token, tokens identical), B (wfirst)
+ * defaults OFF (env value "1" turns it on; cold bench: not distinguishable from noise) ---- */
+static int flag_now(int *v, int *set, const char *env, int dflt) {
+    if (!*set) {
+        const char *s = getenv(env);
+        *v = (s && s[0] == '0' && s[1] == 0) ? 0 : (s && s[0] == '1' && s[1] == 0) ? 1 : dflt;
+        *set = 1;
+    }
     return *v;
 }
 static void flag_set(int *v, int *set, int on) { omega_gpu_session_lock(); *v = on == 1 ? 1 : 0; *set = 1; cache_clear_locked(); omega_gpu_session_unlock(); }
 void omega_gpu_fp8_set_coal(int on) { flag_set(&g.coal, &g.coal_set, on); }
-int omega_gpu_fp8_coal(void) { return flag_now(&g.coal, &g.coal_set, "AIEN_OMEGA_FP8_COAL"); }
+int omega_gpu_fp8_coal(void) { return flag_now(&g.coal, &g.coal_set, "AIEN_OMEGA_FP8_COAL", 1); }
 void omega_gpu_fp8_set_wfirst(int on) { flag_set(&g.wfirst, &g.wfirst_set, on); }
-int omega_gpu_fp8_wfirst(void) { return flag_now(&g.wfirst, &g.wfirst_set, "AIEN_OMEGA_FP8_WFIRST"); }
+int omega_gpu_fp8_wfirst(void) { return flag_now(&g.wfirst, &g.wfirst_set, "AIEN_OMEGA_FP8_WFIRST", 0); }
 /* codegen by variant */
 static int prog_for(int variant, const OmegaFp8GemvSpec *spec, BlackwellIRProgram *prog) {
     return variant == 2 ? omega_blackwell_codegen_fp8_gemv2_prog(spec, prog) : omega_blackwell_codegen_fp8_gemv_prog(spec, prog);
@@ -262,6 +268,8 @@ static void spec_for(uint32_t k, uint32_t n, uint32_t groups, OmegaFp8GemvSpec *
     }
     spec->mutant = g.mutant;
 }
+/* Host-only: the spec the automatic choice makes for a call (no chip, no cache; tests check the defaults with it). */
+void omega_gpu_fp8_spec_for(uint32_t k, uint32_t n, uint32_t groups, OmegaFp8GemvSpec *spec) { spec_for(k, n, groups, spec); }
 
 int omega_gpu_fp8_prepare(uint32_t k) {
     OmegaFp8GemvSpec spec; spec_for(k, 1u << 20, 1, &spec);
