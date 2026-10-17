@@ -31,6 +31,7 @@
 #include "omega_blackwell_matmul.h"
 #include "omega_gpu_session.h"
 #include "omega_gpu_cmdlist.h"
+#include "omega_blackwell_qmd.h" /* OMEGA_BW_QMD_MAX_SHARED_BYTES (deep_default_check) */
 #include "bw_warp_sim.h"
 #include <inttypes.h>
 #include <math.h>
@@ -204,8 +205,30 @@ static void coal_default_check(void) {
     omega_gpu_fp8_set_coal(want);
 }
 
+/* Deep-kernel default (SPEED-1B, 2026-10-17): the automatic spec for the decode graph's qkv (5120 x 2048, 10.5 MB) is the deep
+ * kernel (depth KS = 4) unless AIEN_OMEGA_FP8_DEEP=0 (or set_deep(0)); o_proj (2048 x 4096) stays classic because its deep x stage
+ * would exceed the 16 KiB launch-descriptor shared limit; grouped expert launches stay classic. make test-gpu-fp8 runs this once
+ * with the env unset and once with AIEN_OMEGA_FP8_DEEP=0. */
+static void deep_default_check(void) {
+    const char *e = getenv("AIEN_OMEGA_FP8_DEEP");
+    const int want = (e && e[0] == '0' && e[1] == 0) ? 0 : 1;
+    CHECK(omega_gpu_fp8_deep() == want, "deep default %d with AIEN_OMEGA_FP8_DEEP=%s (want %d)", omega_gpu_fp8_deep(), e ? e : "(unset)", want);
+    for (int pass = 0; pass < 3; pass++) {
+        const int on = pass == 0 ? want : pass == 1 ? 0 : 1;
+        if (pass) omega_gpu_fp8_set_deep(on);
+        OmegaFp8GemvSpec q, o, gu; omega_gpu_fp8_spec_for(2048, 5120, 1, &q); omega_gpu_fp8_spec_for(4096, 2048, 1, &o); omega_gpu_fp8_spec_for(2048, 1536, 8, &gu);
+        CHECK(q.depth == (on ? 4u : 0u) && o.depth == 0 && gu.depth == 0, "deep %d (pass %d): qkv depth %u (want %u), o_proj depth %u (want 0), gate_up depth %u (want 0)", on, pass, q.depth, on ? 4u : 0u, o.depth, gu.depth);
+        OmegaFp8GemvSpec od = o; od.depth = 4096u / (32u * od.lane_bytes); od.mutant = 0;
+        CHECK(omega_fp8_gemv_shared_bytes(&od) > OMEGA_BW_QMD_MAX_SHARED_BYTES, "o_proj deep x stage %u bytes must exceed the %u-byte launch limit (why it stays classic)", omega_fp8_gemv_shared_bytes(&od), OMEGA_BW_QMD_MAX_SHARED_BYTES);
+        if (on) CHECK(omega_fp8_gemv_shared_bytes(&q) != 0 && omega_fp8_gemv_shared_bytes(&q) <= OMEGA_BW_QMD_MAX_SHARED_BYTES, "qkv deep shared %u bytes within the launch limit", omega_fp8_gemv_shared_bytes(&q));
+        if (pass == 0) printf("deep default %d: qkv 5120x2048 depth %u (coal %u, shared %u), o_proj 2048x4096 depth %u, gate_up 8x1536x2048 depth %u\n", want, q.depth, q.coal, omega_fp8_gemv_shared_bytes(&q), o.depth, gu.depth);
+    }
+    omega_gpu_fp8_set_deep(want);
+}
+
 static void host_only(void) {
     if (!g_coal_arg) coal_default_check();
+    deep_default_check();
     /* 1. exhaustive conversion: kernel bits * 2^120 == reference, bit for bit, for every non-NaN code;
      *    sign of zero preserved; NaN codes are exactly 0x7f and 0xff and are refused by the scan */
     int exact = 0, nan_codes = 0, zero_sign_ok = 0, f32_subnormal = 0;
@@ -1018,6 +1041,7 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--coal") == 0 && i + 1 < argc) { omega_gpu_fp8_set_coal(atoi(argv[++i])); g_coal_arg = 1; }     /* CUT5 variant A: coalesced output through shared slots */
         else if (strcmp(argv[i], "--wfirst") == 0 && i + 1 < argc) omega_gpu_fp8_set_wfirst(atoi(argv[++i])); /* CUT5 variant B: weight loads before the x loads */
         else if (strcmp(argv[i], "--coal-default") == 0) { coal_default_check(); printf("gpu_fp8_api_test: %d checks, %d failed: %s\n", g_checks, g_failed, g_failed ? "FAIL" : "PASS"); return g_failed ? 1 : 0; } /* variant A default vs env only */
+        else if (strcmp(argv[i], "--deep-default") == 0) { deep_default_check(); printf("gpu_fp8_api_test: %d checks, %d failed: %s\n", g_checks, g_failed, g_failed ? "FAIL" : "PASS"); return g_failed ? 1 : 0; } /* deep default vs env only */
         else if (strcmp(argv[i], "--grouped-cold") == 0) g_cold = 1; /* CUT5: the two decode expert launches, 8 of 128, L2 defeated */
         else if (strcmp(argv[i], "--cold-single") == 0) g_cold = 2;  /* SPEED-1B: the two single projections qkv / o_proj, L2 defeated */
         else if (strcmp(argv[i], "--dump-stamps") == 0) g_dump_stamps = 1;

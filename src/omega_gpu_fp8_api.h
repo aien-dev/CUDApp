@@ -160,6 +160,11 @@ void omega_gpu_fp8_set_coal(int on);
 int omega_gpu_fp8_coal(void);
 void omega_gpu_fp8_set_wfirst(int on);
 int omega_gpu_fp8_wfirst(void);
+/* SPEED-1B (2026-10-17): the automatic deep kernel (x staged in shared memory, every load of the row in flight) for single
+ * projections whenever it fits the register file and the launch descriptor's shared-memory limit; ON by default (qkv 5120 x 2048
+ * cold 0.732 -> 0.853 of line). AIEN_OMEGA_FP8_DEEP=0 or set_deep(0) keeps the step-by-step kernel everywhere. */
+void omega_gpu_fp8_set_deep(int on);
+int omega_gpu_fp8_deep(void);
 /* Host-only: the spec the automatic choice makes for a call of k columns, n rows, `groups` experts under the current knobs
  * (shape, depth, sched, coal, wfirst, mutant). No chip, no kernel build. */
 void omega_gpu_fp8_spec_for(uint32_t k, uint32_t n, uint32_t groups, OmegaFp8GemvSpec *spec);
