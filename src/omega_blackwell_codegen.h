@@ -100,7 +100,10 @@ typedef enum {
     BW_IR_LDG_E_128,    /* LDG.E.128 Rd..Rd+3, desc[URd][Ra.64+imm] */
     /* Batched attention loads (2026-10-12). Words matched against nvcc 13.0.88 -arch=sm_121
      * (omega_blackwell_verify_codegen_fixtures_fragmm). imm = unsigned byte offset < 2^23; dst an aligned quad. */
-    BW_IR_LDS128        /* LDS.128 Rd..Rd+3, [Ra+imm] */
+    BW_IR_LDS128,       /* LDS.128 Rd..Rd+3, [Ra+imm] */
+    /* Gated DeltaNet softplus (2026-10-18, omega#542): sub-op 0x0c00 checked with nvdisasm 13.0 -b SM121, which decodes
+     * "MUFU.LG2 R2, R4" (EX2 0x0800, RCP 0x1000, RSQ 0x1400 decode the same way). log2(x), approximate. */
+    BW_IR_MUFU_LG2      /* MUFU.LG2 Rd, Ra */
 } BlackwellIROpcode;
 
 /* Barrier (reconvergence) registers: the sm_121 BSSY/BSYNC words carry a 4-bit barrier id

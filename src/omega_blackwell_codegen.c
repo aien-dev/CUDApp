@@ -633,6 +633,14 @@ static int encode_single_insn(const BlackwellIRInsn *insn, const OmegaRegAlloc *
             w[3] = insn->control ? insn->control : 0x000e2400;
             break;
 
+        case BW_IR_MUFU_LG2:
+            /* MUFU.LG2 Rd, Ra (nvdisasm 13.0 -b SM121 decodes sub-op 0x0c00 as MUFU.LG2) */
+            w[0] = 0x7308U | ((uint32_t)(dst & 0xff) << 16);
+            w[1] = (uint32_t)(src1 & 0xff);
+            w[2] = 0x00000c00;
+            w[3] = insn->control ? insn->control : 0x000e2400;
+            break;
+
         case BW_IR_MUFU_RSQ:
             /* MUFU.RSQ Rd, Ra */
             w[0] = 0x7308U | ((uint32_t)(dst & 0xff) << 16);
