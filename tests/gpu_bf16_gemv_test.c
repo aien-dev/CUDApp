@@ -80,17 +80,17 @@ static void host_only(void) {
       free(w); free(x); }
     uint32_t ws[] = { 4, 8, 16, 32 }, rs[] = { 1, 2, 4 };
     for (unsigned i = 0; i < 4; i++) for (unsigned j = 0; j < 3; j++) for (uint32_t d = 1; d <= 8; d *= 2) for (int m = 0; m <= 3; m++) {
-        OmegaBf16GemvSpec s = { 2048, rs[j], ws[i], d, m };
+        OmegaBf16GemvSpec s = { 2048, rs[j], ws[i], d, m, 0 };
         if (rs[j] * d > 16u) continue;
         uint32_t n = 0, g = 0; int rc = omega_bf16_gemv_prog_stats(&s, &n, &g);
         uint32_t decl = ((g + 1 + 7) / 8) * 8;
         CHECK(rc == 0 && n <= 1024, "codegen k2048 rows %u warps %u depth %u mutant %d: rc %d insns %u gprs %u", rs[j], ws[i], d, m, rc, n, g);
         if (m == 0 && rc == 0 && rs[j] == 1 && d == 8) printf("codegen rows %u warps %2u depth %u: %u instructions, %u registers (declared %u, register file %u of 65536)%s\n", rs[j], ws[i], d, n, g, decl, 32u * ws[i] * decl, 32u * ws[i] * decl <= 65536u ? "" : " DOES NOT FIT");
     }
-    { OmegaBf16GemvSpec s = { 2048, 3, 8, 8, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "rows 3 refused"); }
-    { OmegaBf16GemvSpec s = { 2000, 1, 8, 8, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "k 2000 refused"); }
-    { OmegaBf16GemvSpec s = { 2048, 1, 8, 3, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "depth 3 refused"); }
-    { OmegaBf16GemvSpec s = { 2048, 1, 8, 8, 4 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "mutant 4 refused"); }
+    { OmegaBf16GemvSpec s = { 2048, 3, 8, 8, 0, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "rows 3 refused"); }
+    { OmegaBf16GemvSpec s = { 2000, 1, 8, 8, 0, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "k 2000 refused"); }
+    { OmegaBf16GemvSpec s = { 2048, 1, 8, 3, 0, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "depth 3 refused"); }
+    { OmegaBf16GemvSpec s = { 2048, 1, 8, 8, 4, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "mutant 4 refused"); }
     CHECK(OMEGA_BF16_ARGS_WORDS <= OMEGA_GPU_SESSION_MAX_ARGS, "argument words fit the constant bank window");
     uint16_t bad[256]; memset(bad, 0, sizeof bad); bad[7] = 0x7f80;
     OmegaGpuBf16Tensor *t = NULL;
@@ -102,7 +102,7 @@ static void host_only(void) {
 static uint64_t g_sim_issues;
 static int sim_point(uint32_t k, uint32_t n, uint32_t rows, uint32_t warps, uint32_t depth, uint32_t grid_x, int mutant, uint32_t seed, char *msg, size_t msgn, size_t *bad) {
     static BlackwellIRProgram prog;
-    OmegaBf16GemvSpec spec = { k, rows, warps, depth, mutant };
+    OmegaBf16GemvSpec spec = { k, rows, warps, depth, mutant, 0 };
     if (omega_blackwell_codegen_bf16_gemv_prog(&spec, &prog) != 0) { snprintf(msg, msgn, "codegen refused"); return -1; }
     uint16_t *w = aligned_alloc(16, (size_t)n * k * 2); { uint16_t *t = make_w((size_t)n * k, seed); memcpy(w, t, (size_t)n * k * 2); free(t); }
     float *x = aligned_alloc(16, (size_t)k * 4); { float *t = make_x(k, seed + 1); memcpy(x, t, (size_t)k * 4); free(t); }
@@ -133,7 +133,52 @@ static int sim_point(uint32_t k, uint32_t n, uint32_t rows, uint32_t warps, uint
     free(ycopy); free(w); free(x); free(y); free(smem);
     return err;
 }
+/* ROWS form (spec.ystride, sc #642 prefill): grid_y = T token rows; row r reads x + r * k and writes y + r * ystride.
+ * Each row must equal the one-row emulation of its own x, and the ystride - n gap after every row stays untouched. */
+static int sim_rows_point(uint32_t k, uint32_t n, uint32_t T, uint32_t ystride, uint32_t grid_x, uint32_t seed, char *msg, size_t msgn, size_t *bad) {
+    static BlackwellIRProgram prog;
+    const uint32_t rows = 1, warps = 8, depth = 4; /* the host simulator runs up to 8 warps, so k <= 4096 here */
+    OmegaBf16GemvSpec spec = { k, rows, warps, depth, 0, ystride };
+    if (omega_blackwell_codegen_bf16_gemv_prog(&spec, &prog) != 0) { snprintf(msg, msgn, "codegen refused"); return -1; }
+    uint16_t *w = aligned_alloc(16, (size_t)n * k * 2); { uint16_t *t = make_w((size_t)n * k, seed); memcpy(w, t, (size_t)n * k * 2); free(t); }
+    float *x = aligned_alloc(16, (size_t)T * k * 4);
+    for (uint32_t r = 0; r < T; r++) { float *t = make_x(k, seed + 1 + r); memcpy(x + (size_t)r * k, t, (size_t)k * 4); free(t); }
+    const size_t ywords = (size_t)T * ystride;
+    float *y = aligned_alloc(16, (ywords * 4 + 15) & ~15ull);
+    uint8_t *smem = aligned_alloc(16, omega_bf16_gemv_shared_bytes(&spec));
+    for (size_t i = 0; i < ywords; i++) y[i] = -999.0f;
+    WsSim s; memset(&s, 0, sizeof s);
+    s.p = &prog; s.threads = 32u * warps; s.smem = smem; s.smem_bytes = omega_bf16_gemv_shared_bytes(&spec);
+    uint64_t A[3] = { (uintptr_t)w, (uintptr_t)x, (uintptr_t)y };
+    for (unsigned i = 0; i < 3; i++) { s.cbank[(OMEGA_BF16_ARG_W + 8 * i) / 4] = (uint32_t)A[i]; s.cbank[(OMEGA_BF16_ARG_W + 8 * i) / 4 + 1] = (uint32_t)(A[i] >> 32); }
+    s.cbank[OMEGA_BF16_ARG_RG / 4] = n / rows; s.cbank[OMEGA_BF16_ARG_STRIDE / 4] = grid_x * warps;
+    s.nranges = 3;
+    s.ranges[0].lo = (uintptr_t)w; s.ranges[0].hi = (uintptr_t)w + (size_t)n * k * 2;
+    s.ranges[1].lo = (uintptr_t)x; s.ranges[1].hi = (uintptr_t)x + (size_t)T * k * 4;
+    s.ranges[2].lo = (uintptr_t)y; s.ranges[2].hi = (uintptr_t)y + ywords * 4;
+    int err = ws_run(&s, grid_x, T);
+    if (err) snprintf(msg, msgn, "%s (pc %d)", s.msg, s.err_pc);
+    *bad = 0;
+    size_t gap_written = 0;
+    for (uint32_t r = 0; !err && r < T; r++) {
+        size_t f; *bad += compare_emu(w, x + (size_t)r * k, n, k, y + (size_t)r * ystride, &f);
+        for (uint32_t i = n; i < ystride; i++) if (y[(size_t)r * ystride + i] != -999.0f) gap_written++;
+    }
+    if (!err && gap_written) { err = -1; snprintf(msg, msgn, "%zu words written inside the ystride gap", gap_written); }
+    else if (!err) snprintf(msg, msgn, "%zu of %u rows x %u tokens differ from the emulation%s", *bad, n, T, *bad ? "" : " (bit-identical)");
+    free(w); free(x); free(y); free(smem);
+    return err;
+}
 static void sim_battery(void) {
+    {   /* ROWS form: 3 token rows, ystride n + 4 (the gap must stay untouched); and ystride == n as the graph uses it */
+        static const struct { uint32_t k, n, T, ystride, grid; } rp[] = { { 2048, 96, 3, 100, 2 }, { 4096, 96, 4, 96, 3 } };
+        for (size_t i = 0; i < sizeof rp / sizeof rp[0]; i++) {
+            char msg[300]; size_t bad = 1;
+            int err = sim_rows_point(rp[i].k, rp[i].n, rp[i].T, rp[i].ystride, rp[i].grid, 91 + (uint32_t)i, msg, sizeof msg, &bad);
+            CHECK(!err && bad == 0, "sim ROWS k %u n %u T %u ystride %u: %s", rp[i].k, rp[i].n, rp[i].T, rp[i].ystride, msg);
+            printf("sim ROWS k %u n %u T %u ystride %u: %s %s\n", rp[i].k, rp[i].n, rp[i].T, rp[i].ystride, err ? "ERROR" : bad ? "MISMATCH" : "ok", msg);
+        }
+    }
     struct { uint32_t k, n, rows, warps, depth, grid; } pts[] = {
         { 2048, 100, 1, 8, 8, 2 }, { 2048, 100, 1, 8, 4, 3 }, { 2048, 64, 1, 8, 1, 2 }, { 2048, 96, 2, 8, 4, 2 }, { 2048, 96, 4, 8, 4, 1 },
         { 512, 70, 1, 8, 2, 2 }, { 512, 70, 2, 4, 1, 3 }, { 4096, 40, 1, 8, 16, 2 },

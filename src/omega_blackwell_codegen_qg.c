@@ -11,7 +11,9 @@ static void fmax_r(Em *e, int d, int a, unsigned asub, int b, unsigned bsub) {
 }
 
 int omega_pq_spec_ok(const OmegaPqSpec *s) {
-    return s && s->k >= 128u && s->k <= 4096u && s->k % 128u == 0 && s->in_type <= OMEGA_QG_IN_BF16 && s->mutant >= 0 && s->mutant <= 2;
+    if (!s || s->k < 128u || s->k > 32768u || s->k % 128u) return 0;
+    const uint32_t kb = s->k / 128u, g = s->groups ? s->groups : kb;
+    return g <= 32u && kb % g == 0 && s->in_type <= OMEGA_QG_IN_BF16 && s->mutant >= 0 && s->mutant <= 3;
 }
 
 int omega_blackwell_codegen_pq_prog(const OmegaPqSpec *spec, BlackwellIRProgram *prog) {
@@ -25,6 +27,10 @@ int omega_blackwell_codegen_pq_prog(const OmegaPqSpec *spec, BlackwellIRProgram 
     if (e->err) return -1;
     ldcu64(e, udesc, 0x358); ldc64(e, px, 0x380); ldc64(e, pq, 0x388); ldc64(e, ps, 0x390);
     s2r(e, tid, BW_SR_TID_X); s2r(e, row, BW_SR_CTAID_X);
+    if (spec->groups) { /* row split over ctaid.y: this CTA's groups start at y G */
+        int cy = V(e); if (e->err) return -1;
+        s2r(e, cy, BW_SR_CTAID_Y); if (spec->mutant != 3) imadi(e, tid, cy, 0, 32u * spec->groups, tid);
+    }
     shr(e, warp, tid, 0, 5);
     if (spec->in_type == OMEGA_QG_IN_F32) { imadw(e, px, row, K * 4u, px); imadw(e, px, tid, 16u, px); ldg_wide(e, BW_IR_LDG_E_128, v, px, 0, udesc, 1); }
     else { imadw(e, px, row, K * 2u, px); imadw(e, px, tid, 8u, px); ldg_wide(e, BW_IR_LDG_E_64, w, px, 0, udesc, 1); }
@@ -64,12 +70,12 @@ int omega_blackwell_codegen_pq_prog(const OmegaPqSpec *spec, BlackwellIRProgram 
 /* ======================= grouped GEMM on QMMA (see the header) ======================= */
 int omega_qg_spec_ok(const OmegaQgSpec *s) {
     if (!s) return 0;
-    if (s->k < 128u || s->k > 16384u || s->k % 128u) return 0;
+    if (s->k < 128u || s->k > 32768u || s->k % 128u) return 0; /* the k loop counts at run time: no k-sized immediate */
     if (s->rt != 4) return 0; /* rt 8 needs more than 128 registers and 17408 shared bytes (QMD cap 16384) */
     if (s->warps != 8 && s->warps != 16) return 0;
     if (s->epi > OMEGA_QG_EPI_SWIGLU || s->direct > 1 || s->wait > 120u) return 0;
     if (s->epi == OMEGA_QG_EPI_SWIGLU && s->n % 256u) return 0; /* gate and up halves start on a 128-row scale block */
-    if (s->n == 0 || s->n % (s->warps * 16u) || (uint64_t)s->n * 4u * 16u * s->rt >= (1u << 23)) return 0;
+    if (s->n == 0 || s->n % (s->warps * 16u) || (uint64_t)(s->epi == OMEGA_QG_EPI_F32 ? 4u : 1u) * s->n * 16u * s->rt >= (1u << 23)) return 0; /* row stride (n f32, or n / 2 bf16 = n bytes) x 16 rt: the store offsets fit the signed 24-bit field */
     if ((16u * s->rt * 4u) % (32u * s->warps)) return 0; /* whole 16-byte staging slots per thread */
     if (s->mutant < 0 || s->mutant > 4) return 0;
     return 1;

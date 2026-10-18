@@ -53,6 +53,11 @@ int omega_gpu_pf_kernel_locked(const OmegaPfKey *key, OmegaPfGen gen, OmegaPfKer
 int omega_gpu_pf_launch_locked(const OmegaPfKernel *k, uint32_t threads, uint32_t grid_x, uint32_t grid_y, uint32_t shared_bytes,
                                const uint32_t *args, uint32_t n_args, uint64_t *ns);
 int omega_gpu_pf_open_locked(void); /* opens the device, registers the hook: OMEGA_GPU_PF_OK or CHIP_FAIL */
+/* lock held: the same launch appended to a command list (omega_gpu_cmdlist.h) instead of submitted (sc #642: a whole Qwen3.8
+ * prefill chunk is one list). Prefill kernels are never evicted, so a recorded launch's code stays valid until the submit. */
+struct OmegaGpuCmdList;
+int omega_gpu_pf_record_locked(struct OmegaGpuCmdList *cl, const OmegaPfKernel *k, uint32_t threads, uint32_t grid_x, uint32_t grid_y,
+                               uint32_t shared_bytes, const uint32_t *args, uint32_t n_args);
 
 /* ---- GEMM v2 (omega_gpu_pfgemm.c, kernels omega_blackwell_codegen_tc2.h) ----
  * Weights live in device buffers in the kernel's PHYSICAL row order with the per-8-row ratio table (tc2 header).
@@ -93,6 +98,12 @@ uint32_t omega_gpu_pf_qgemm_tiles(const OmegaGpuFp8Tensor *t, const uint32_t *co
 /* the same from per-expert base addresses of a GEMV-layout copy (e.g. a GPU-cached device buffer) */
 uint32_t omega_gpu_pf_qgemm_tiles_va(uint32_t experts, const uint64_t *w_va, const uint64_t *s_va, const uint32_t *counts, void *tab, uint32_t max);
 int omega_gpu_pf_qgemm(uint32_t n, uint32_t k, uint32_t layout, uint64_t tiles_va, uint32_t ntiles, uint64_t rowidx_va, uint64_t xq_va, uint64_t xs_va, uint64_t y_va, uint64_t *ns);
+/* Record paths (sc #642): the same launches appended to cl; the caller holds omega_gpu_session_lock(). A first use compiles the
+ * kernel there (prefill kernels are never evicted). */
+struct OmegaGpuCmdList;
+int omega_gpu_pf_quant_record(struct OmegaGpuCmdList *cl, uint32_t k, uint32_t in_type, uint32_t rows, uint64_t x_va, uint64_t q_va, uint64_t s_va);
+int omega_gpu_pf_qgemm_record(struct OmegaGpuCmdList *cl, uint32_t n, uint32_t k, uint32_t layout, uint64_t tiles_va, uint32_t ntiles,
+                              uint64_t rowidx_va, uint64_t xq_va, uint64_t xs_va, uint64_t y_va);
 void omega_gpu_pf_qgemm_set_shape(uint32_t rt, uint32_t warps, uint32_t wait); /* knobs (all 0 restores rt 4, warps 8, wait 45) */
 void omega_gpu_pf_qgemm_test_set_mutant(int m);
 #ifdef __cplusplus

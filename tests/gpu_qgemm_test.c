@@ -70,8 +70,8 @@ static int pq_host(void) {
     return fail;
 }
 
-static int pq_sim_one(uint32_t k, uint32_t in_type, uint32_t rows, int mutant, size_t *bad_out, char *msg, size_t msgn) {
-    OmegaPqSpec sp = { k, in_type, mutant };
+static int pq_sim_one(uint32_t k, uint32_t in_type, uint32_t groups, uint32_t rows, int mutant, size_t *bad_out, char *msg, size_t msgn) {
+    OmegaPqSpec sp = { k, in_type, mutant, groups };
     static BlackwellIRProgram prog;
     if (omega_blackwell_codegen_pq_prog(&sp, &prog) != 0) { snprintf(msg, msgn, "codegen refused"); return -1; }
     float *x = malloc((size_t)rows * k * 4); uint16_t *xb = malloc((size_t)rows * k * 2);
@@ -79,7 +79,7 @@ static int pq_sim_one(uint32_t k, uint32_t in_type, uint32_t rows, int mutant, s
     make_x(rows, k, in_type, x, xb);
     memset(q, 0xee, (size_t)rows * k); memset(s, 0xee, (size_t)rows * (k / 128) * 4);
     static WsSim ws; memset(&ws, 0, sizeof ws);
-    ws.p = &prog; ws.threads = 32u * (k / 128);
+    ws.p = &prog; ws.threads = 32u * (groups ? groups : k / 128);
     const void *xin = in_type == OMEGA_QG_IN_F32 ? (const void *)x : (const void *)xb;
     uint64_t a[3] = { (uintptr_t)xin, (uintptr_t)q, (uintptr_t)s };
     for (int i = 0; i < 3; i++) { ws.cbank[(0x380 + 8 * i) / 4] = (uint32_t)a[i]; ws.cbank[(0x380 + 8 * i) / 4 + 1] = (uint32_t)(a[i] >> 32); }
@@ -87,7 +87,7 @@ static int pq_sim_one(uint32_t k, uint32_t in_type, uint32_t rows, int mutant, s
     ws.ranges[1].lo = (uintptr_t)q; ws.ranges[1].hi = (uintptr_t)q + (size_t)rows * k;
     ws.ranges[2].lo = (uintptr_t)s; ws.ranges[2].hi = (uintptr_t)s + (size_t)rows * (k / 128) * 4;
     ws.nranges = 3;
-    int err = ws_run(&ws, rows, 1);
+    int err = ws_run(&ws, rows, groups ? k / 128 / groups : 1);
     if (err) snprintf(msg, msgn, "simulator %.150s", ws.msg);
     *bad_out = err ? 0 : pq_compare(x, rows, k, q, s, 0);
     free(x); free(xb); free(q); free(s);
@@ -95,14 +95,16 @@ static int pq_sim_one(uint32_t k, uint32_t in_type, uint32_t rows, int mutant, s
 }
 static int pq_sim(void) {
     int fail = 0; char msg[200];
-    static const struct { uint32_t k, in_type; } cs[] = { { 2048, OMEGA_QG_IN_F32 }, { 768, OMEGA_QG_IN_BF16 }, { 4096, OMEGA_QG_IN_F32 }, { 128, OMEGA_QG_IN_BF16 } };
+    /* groups > 0: one row split over k / (128 groups) CTAs (the Qwen3.8 widths 5120, 6144, 17408) */
+    static const struct { uint32_t k, in_type, groups; } cs[] = { { 2048, OMEGA_QG_IN_F32, 0 }, { 768, OMEGA_QG_IN_BF16, 0 }, { 4096, OMEGA_QG_IN_F32, 0 }, { 128, OMEGA_QG_IN_BF16, 0 },
+        { 5120, OMEGA_QG_IN_F32, 20 }, { 6144, OMEGA_QG_IN_BF16, 24 }, { 17408, OMEGA_QG_IN_BF16, 17 }, { 2048, OMEGA_QG_IN_F32, 4 } };
     for (size_t c = 0; c < sizeof cs / sizeof cs[0]; c++) {
-        size_t bad = 0; int rc = pq_sim_one(cs[c].k, cs[c].in_type, 9, 0, &bad, msg, sizeof msg);
-        printf("sim quantiser k %u %s: %s, %zu differ\n", cs[c].k, cs[c].in_type ? "bf16" : "f32", rc ? msg : "ran", bad);
+        size_t bad = 0; int rc = pq_sim_one(cs[c].k, cs[c].in_type, cs[c].groups, 9, 0, &bad, msg, sizeof msg);
+        printf("sim quantiser k %u %s groups %u: %s, %zu differ\n", cs[c].k, cs[c].in_type ? "bf16" : "f32", cs[c].groups, rc ? msg : "ran", bad);
         if (rc || bad) fail++;
     }
-    for (int m = 1; m <= 2; m++) {
-        size_t bad = 0; int rc = pq_sim_one(2048, OMEGA_QG_IN_F32, 9, m, &bad, msg, sizeof msg);
+    for (int m = 1; m <= 3; m++) {
+        size_t bad = 0; int rc = pq_sim_one(m == 3 ? 5120 : 2048, OMEGA_QG_IN_F32, m == 3 ? 20 : 0, 9, m, &bad, msg, sizeof msg);
         printf("sim quantiser mutant %d: %s\n", m, rc ? msg : bad ? "caught" : "NOT CAUGHT");
         if (rc || !bad) fail++;
     }
@@ -111,8 +113,10 @@ static int pq_sim(void) {
 
 static int pq_chip(uint32_t tokens, int reps) {
     int fail = 0;
-    static const struct { uint32_t k, in_type, rows_mul; } cs[] = { { 2048, OMEGA_QG_IN_F32, 1 }, { 768, OMEGA_QG_IN_BF16, 8 } };
-    for (size_t c = 0; c < 2; c++) {
+    /* k > 4096 runs the split-row form (omega_gpu_pf_quant picks groups); its mutant drops the ctaid.y offset */
+    static const struct { uint32_t k, in_type, rows_mul; } cs[] = { { 2048, OMEGA_QG_IN_F32, 1 }, { 768, OMEGA_QG_IN_BF16, 8 }, { 5120, OMEGA_QG_IN_F32, 1 },
+        { 6144, OMEGA_QG_IN_BF16, 1 }, { 17408, OMEGA_QG_IN_BF16, 1 } };
+    for (size_t c = 0; c < sizeof cs / sizeof cs[0]; c++) {
         const uint32_t k = cs[c].k, rows = tokens * cs[c].rows_mul, eb = cs[c].in_type == OMEGA_QG_IN_F32 ? 4 : 2;
         float *x = malloc((size_t)rows * k * 4); uint16_t *xb = malloc((size_t)rows * k * 2);
         uint8_t *q = malloc((size_t)rows * k); float *s = malloc((size_t)rows * (k / 128) * 4);
@@ -134,12 +138,17 @@ static int pq_chip(uint32_t tokens, int reps) {
             printf("QUANT chip k %u %s rows %u: %zu differ from the reference; median %.3f ms (%.0f GB/s moved)\n", k, cs[c].in_type ? "bf16" : "f32", rows, bad,
                    ns[reps / 2] / 1e6, (double)(xbytes + qbytes + sbytes) / ns[reps / 2]);
             if (bad) fail++;
-            omega_gpu_pf_quant_test_set_mutant(1);
-            int mrc = omega_gpu_pf_quant(k, cs[c].in_type, rows, xd.va, qd.va, sd.va, NULL);
+            const int mut = k > 4096 ? 3 : 1;
+            /* junk-fill the output first: mutant 3 rewrites groups 0 .. G-1 with right values and leaves the rest alone,
+               so stale results of the good run would hide it */
+            memset(q, 0xee, qbytes);
+            int mrc = omega_gpu_pf_upload(&qd, 0, q, qbytes);
+            omega_gpu_pf_quant_test_set_mutant(mut);
+            if (!mrc) mrc = omega_gpu_pf_quant(k, cs[c].in_type, rows, xd.va, qd.va, sd.va, NULL);
             omega_gpu_pf_quant_test_set_mutant(0);
             if (!mrc) mrc = omega_gpu_pf_download(&qd, 0, q, qbytes);
             size_t mb = mrc ? 0 : pq_compare(x, rows > 64 ? 64 : rows, k, q, s, 0);
-            printf("QUANT chip k %u mutant 1: %s\n", k, mrc ? "launch failed" : mb ? "caught" : "NOT CAUGHT");
+            printf("QUANT chip k %u mutant %d: %s\n", k, mut, mrc ? "launch failed" : mb ? "caught" : "NOT CAUGHT");
             if (mrc || !mb) fail++;
         }
         omega_gpu_pf_free(&xd); omega_gpu_pf_free(&qd); omega_gpu_pf_free(&sd);
@@ -336,6 +345,11 @@ static int qg_chip_shape(const char *name, uint32_t tokens, int reps, int check_
     else if (!strcmp(name, "down")) { E = 128; n = 2048; k = 768; M = tokens * 8; xr = 0; layout = OMEGA_GPU_PF_PLAIN; direct = 1; }
     else if (!strcmp(name, "qkv")) { E = 1; n = 5120; k = 2048; M = tokens; xr = tokens; layout = OMEGA_GPU_PF_PLAIN; direct = 0; }
     else if (!strcmp(name, "o")) { E = 1; n = 2048; k = 4096; M = tokens; xr = tokens; layout = OMEGA_GPU_PF_PLAIN; direct = 0; }
+    /* Qwen3.8-27B dense prefill (direct rows): fused gate|up, down, the GDN qkv|z mix, o */
+    else if (!strcmp(name, "q38gu")) { E = 1; n = 34816; k = 5120; M = tokens; xr = 0; layout = OMEGA_GPU_PF_SWIGLU_NAT; direct = 1; }
+    else if (!strcmp(name, "q38down")) { E = 1; n = 5120; k = 17408; M = tokens; xr = 0; layout = OMEGA_GPU_PF_PLAIN; direct = 1; }
+    else if (!strcmp(name, "q38mix")) { E = 1; n = 16384; k = 5120; M = tokens; xr = 0; layout = OMEGA_GPU_PF_PLAIN; direct = 1; }
+    else if (!strcmp(name, "q38o")) { E = 1; n = 5120; k = 6144; M = tokens; xr = 0; layout = OMEGA_GPU_PF_PLAIN; direct = 1; }
     else { printf("unknown shape %s\n", name); return 1; }
     const uint32_t bm = omega_gpu_pf_qgemm_bm(), KB = k / 128;
     QProb p; qprob_make(&p, E, n, k, M, xr, layout, direct, bm);
@@ -429,9 +443,13 @@ int main(int argc, char **argv) {
     if (sim) { fail += pq_sim(); fail += qg_sim(); }
     if (chip) {
         if (rt || warps || waitset) omega_gpu_pf_qgemm_set_shape(rt ? rt : 4, warps ? warps : 8, waitset ? wait : 45);
-        if (!only) fail += pq_chip(tokens, reps);
-        static const char *shapes[] = { "gateup", "down", "qkv", "o" };
-        for (int s = 0; s < 4; s++) if (!only || !strcmp(only, shapes[s])) fail += qg_chip_shape(shapes[s], tokens, reps, rows, !only || s < 2);
+        const int q38 = only && !strcmp(only, "q38"); /* --shape q38: the quantiser plus the four Qwen3.8 shapes */
+        if (!only || q38) fail += pq_chip(tokens, reps);
+        static const char *shapes[] = { "gateup", "down", "qkv", "o", "q38gu", "q38down", "q38mix", "q38o" };
+        for (int s = 0; s < 8; s++) {
+            const int run = q38 ? s >= 4 : only ? !strcmp(only, shapes[s]) : s < 4;
+            if (run) fail += qg_chip_shape(shapes[s], tokens, reps, rows, q38 ? s < 6 : !only || s < 2);
+        }
     }
     printf("GPU_QGEMM: %s\n", fail ? "FAIL" : "PASS");
     return fail ? 1 : 0;

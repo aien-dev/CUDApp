@@ -13,9 +13,11 @@
  * stay exact and no reciprocal is needed; e4m3 precision is uniform over its normal range, so at most the subnormal tail
  * of a group loses one bit.
  * Layout: x f32 or bf16 rows of k (row stride k elements); q e4m3 rows of k bytes; s f32 [rows][k / 128].
- * One CTA per row (ctaid.x = row), 32 * (k / 128) threads: warp b = group b, lane l = elements 4l .. 4l+3.
+ * One CTA per row (ctaid.x = row), 32 * (k / 128) threads: warp b = group b, lane l = elements 4l .. 4l+3 (k <= 4096).
+ * groups G > 0 (any k <= 32768, G <= 32 dividing k / 128): a row spans k / (128 G) CTAs along ctaid.y, 32 G threads each;
+ * CTA y covers groups yG .. yG+G-1 (thread index offset by 32 G y). groups 0 is the one-CTA form (programs unchanged).
  * Arguments (cbank 0x380): x u64, q u64, s u64.
- * mutant (tests only): 1 skips the butterfly (lane-local amax), 2 uses c = 0.
+ * mutant (tests only): 1 skips the butterfly (lane-local amax), 2 uses c = 0, 3 drops the ctaid.y offset (groups form).
  */
 #include <stdint.h>
 #include "omega_blackwell_codegen.h"
@@ -24,7 +26,7 @@
 extern "C" {
 #endif
 enum { OMEGA_QG_IN_F32 = 0, OMEGA_QG_IN_BF16 = 1 };
-typedef struct { uint32_t k, in_type; int mutant; } OmegaPqSpec;
+typedef struct { uint32_t k, in_type; int mutant; uint32_t groups; } OmegaPqSpec;
 #define OMEGA_PQ_ARGS_WORDS 6u
 int omega_pq_spec_ok(const OmegaPqSpec *s);
 int omega_blackwell_codegen_pq_prog(const OmegaPqSpec *s, BlackwellIRProgram *prog);
@@ -47,7 +49,7 @@ int omega_blackwell_codegen_pq_prog(const OmegaPqSpec *s, BlackwellIRProgram *pr
  * of every odd chunk. */
 enum { OMEGA_QG_EPI_F32 = 0, OMEGA_QG_EPI_SWIGLU = 1 };
 typedef struct {
-    uint32_t k;      /* multiple of 128, 128 .. 16384 */
+    uint32_t k;      /* multiple of 128, 128 .. 32768 */
     uint32_t rt;     /* row tiles of 16: 4 (8 exceeds 128 registers and the 16384-byte QMD shared cap) */
     uint32_t warps;  /* 8 or 16 */
     uint32_t epi;    /* OMEGA_QG_EPI_* */

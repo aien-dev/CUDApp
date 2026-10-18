@@ -20,7 +20,8 @@
  *     reserved the q' scratch for m tokens (omega_gpu_prefill_attn256_reserve) and warmed both kernels with one
  *     non-record call (a kernel cache miss is refused, never compiled while recording).
  *   int omega_gpu_prefill_attn256_reserve(max_m): allocates the q' scratch for max_m tokens now (ceil(max_m / 2) x
- *     24576 bytes); calls beyond it grow it (host and dev paths) or are refused (record path: TOO_LARGE).
+ *     24576 bytes) and builds both kernels (the warm-up the record path needs; sc #642); calls beyond it grow the
+ *     scratch (host and dev paths) or are refused (record path: TOO_LARGE).
  *   void omega_gpu_prefill_attn256_release(void): frees the module's buffers (also released when the session closes).
  *
  * Every buffer is GPU-uncached host-visible session memory (nvos.h:1117 rule), launched through

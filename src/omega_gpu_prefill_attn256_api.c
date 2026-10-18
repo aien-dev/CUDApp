@@ -132,6 +132,8 @@ int omega_gpu_prefill_attn256_reserve(uint32_t max_m) {
     if (max_m == 0 || max_m > OMEGA_GPU_PATTN256_MAX_M) return OMEGA_GPU_DATTN_BAD_ARGS;
     omega_gpu_session_lock();
     int rc = dev_open_locked() && qf_locked(max_m) == 0 ? OMEGA_GPU_DATTN_OK : OMEGA_GPU_DATTN_CHIP_FAIL;
+    /* and builds both kernels, so a record call after reserve never misses the cache (sc #642 prefill graph) */
+    for (unsigned k = 0; k < KK_N && rc == OMEGA_GPU_DATTN_OK; k++) { Slot *s = NULL; bool hit = false; rc = kernel_for(k, 0, &s, &hit); }
     omega_gpu_session_unlock();
     return rc;
 }

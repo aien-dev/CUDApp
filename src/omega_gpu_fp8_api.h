@@ -17,7 +17,7 @@
  *         capsule GATE_UP [128][1536][2048] and DOWN [128][2048][768] layouts; attention
  *         projections have experts = 1, e.g. q_proj [4096][2048]).
  *     scale_inv_bf16: experts * (n/128) * (k/128) bf16, [expert][n/128][k/128] (`weight_scale_inv`).
- *     Requires n % 128 == 0, k % 128 == 0, 128 <= k <= 16384, experts >= 1. Refuses any e4m3 NaN
+ *     Requires n % 128 == 0, k % 128 == 0, 128 <= k <= 32768 (omega#541), experts >= 1. Refuses any e4m3 NaN
  *     code (0x7F, 0xFF) in w with OMEGA_GPU_FP8_NAN_WEIGHT (nothing uploaded), a NaN/inf scale with
  *     BAD_ARGS. Weights are copied byte for byte (no reorder); scales are stored as f32 * 2^56.
  *     Opens the device on first use. Resident until omega_gpu_fp8_tensor_free.
