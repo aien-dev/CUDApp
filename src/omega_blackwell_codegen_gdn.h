@@ -89,4 +89,61 @@ int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgra
 /* Instruction and peak-register counts (host, no device). */
 int omega_gdn_prog_stats(const OmegaGdnSpec *spec, uint32_t *insns, uint32_t *gprs);
 
+/* ---- prefill (omega#543, 2026-10-18): three launches per layer over T >= 3 new tokens, the same tail and state ----
+ *   prep  grid (ceil(T / 16), 16 key heads), 128 threads. Thread c convolves 5 channels of its key head (q c, k c and v c
+ *         of the three value heads), sliding each window in registers over 16 tokens (the CTA starting at token 0 takes
+ *         its window from the layer's tail, the others from the qkv rows before it), then SiLU, the q/k l2 norms (two
+ *         barriers per token) and, threads 0..2, the scalars of the three value heads. It writes one record per (token,
+ *         value head): q^ | k^ | v | {decay, beta, 0, 0}. It reads the tail and never writes it.
+ *   scan  grid 3 x 16 (one CTA per value head), 256 threads. Thread (warp w, lane L) holds S rows 16 (L >> 2) .. +15,
+ *         columns 16 w + 4 (L & 3) .. +3 in registers for the whole prompt. Per 8-token chunk every warp copies one
+ *         token's record into shared memory (two barriers); per token kv and o are summed across the 8 row groups by
+ *         SHFL.BFLY (lanes ^ 4, 8, 16; a butterfly gives every lane the same bits), no barrier. It writes o (before the
+ *         norm) per token, the state at the end and the new tail (the last three qkv rows).
+ *   post  grid (T, 6), 256 threads: warp w normalises (token, head 8 ctaid.y + w): gated RMSNorm, silu(z), out_scale.
+ * The mutants keep the decode meanings: 1 and 2 act in prep, 3 in post, 4 in scan. */
+#define OMEGA_GDN_REC_BYTES 1552u
+#define OMEGA_GDN_REC_K 512u
+#define OMEGA_GDN_REC_V 1024u
+#define OMEGA_GDN_REC_SC 1536u
+#define OMEGA_GDN_PF_MIN_T 3u
+#define OMEGA_GDN_PREP_TOKENS 16u
+#define OMEGA_GDN_PREP_THREADS 128u
+#define OMEGA_GDN_PREP_SHARED_BYTES 32u   /* per-warp sums of squares: q [4] | k [4] */
+#define OMEGA_GDN_PREP_ARG_QKV 0x380u     /* f32 [T][10240] (times in_scale) */
+#define OMEGA_GDN_PREP_ARG_AB 0x388u      /* f32 [T][48][2] */
+#define OMEGA_GDN_PREP_ARG_PAR 0x390u
+#define OMEGA_GDN_PREP_ARG_TAIL 0x398u
+#define OMEGA_GDN_PREP_ARG_REC 0x3a0u     /* [T rounded up to 8][48] records */
+#define OMEGA_GDN_PREP_ARG_T 0x3a8u       /* u32 */
+#define OMEGA_GDN_PREP_ARG_EPS_L2 0x3acu
+#define OMEGA_GDN_PREP_ARG_IN_SCALE 0x3b0u
+#define OMEGA_GDN_PREP_ARGS_WORDS 13u
+#define OMEGA_GDN_SCAN_CHUNK 8u
+#define OMEGA_GDN_SCAN_SHARED_BYTES (OMEGA_GDN_SCAN_CHUNK * OMEGA_GDN_REC_BYTES) /* 12416 */
+#define OMEGA_GDN_SCAN_ARG_REC 0x380u
+#define OMEGA_GDN_SCAN_ARG_QKV 0x388u
+#define OMEGA_GDN_SCAN_ARG_TAIL 0x390u
+#define OMEGA_GDN_SCAN_ARG_STATE 0x398u
+#define OMEGA_GDN_SCAN_ARG_O 0x3a0u       /* f32 [T][48][128] */
+#define OMEGA_GDN_SCAN_ARG_T 0x3a8u
+#define OMEGA_GDN_SCAN_ARG_IN_SCALE 0x3acu
+#define OMEGA_GDN_SCAN_ARGS_WORDS 12u
+#define OMEGA_GDN_POST_ARG_O 0x380u
+#define OMEGA_GDN_POST_ARG_Z 0x388u       /* f32 [T][6144] (times in_scale) */
+#define OMEGA_GDN_POST_ARG_PAR 0x390u
+#define OMEGA_GDN_POST_ARG_OUT 0x398u     /* f32 [T][6144] */
+#define OMEGA_GDN_POST_ARG_EPS_NORM 0x3a0u
+#define OMEGA_GDN_POST_ARG_IN_SCALE 0x3a4u
+#define OMEGA_GDN_POST_ARG_OUT_SCALE 0x3a8u
+#define OMEGA_GDN_POST_ARGS_WORDS 11u
+#define OMEGA_GDN_POST_GRID_Y 6u
+
+int omega_blackwell_codegen_gdn_prep_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog);
+int omega_blackwell_codegen_gdn_scan_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog);
+int omega_blackwell_codegen_gdn_post_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog);
+/* SHFL.BFLY placeholders in a built program; prefill stats: kind 0 prep, 1 scan, 2 post. */
+uint32_t omega_gdn_bfly_count(const BlackwellIRProgram *prog);
+int omega_gdn_pf_prog_stats(unsigned kind, const OmegaGdnSpec *spec, uint32_t *insns, uint32_t *gprs);
+
 #endif

@@ -73,6 +73,35 @@ int omega_gpu_gdn_read_out(OmegaGpuGdn *g, float *out);
 const char *omega_gpu_gdn_last_error(void);
 const char *omega_gpu_gdn_rc_name(int rc);
 
+/* ---- prefill (omega#543, 2026-10-18): T >= 3 new tokens of one layer in three launches (prep, scan, post; see
+ * omega_blackwell_codegen_gdn.h), continuing from the layer's tail and state exactly as T decode steps would, and leaving
+ * them where the next prefill chunk or decode step picks them up. A long prompt is prefilled in chunks.
+ *   int omega_gpu_gdn_prefill(g, layer, T, qkv [T][10240], z [T][6144], ab [T][48][2], eps_l2, eps_norm, in_scale,
+ *                             out_scale, out [T][6144], info);   the decode step's row layouts, one row per token
+ *   int omega_gpu_gdn_prefill_reserve(g, max_tokens);  sizes the prefill scratch now and pins it (the record path needs
+ *        it: a recorded launch must never see its scratch move); a later prefill of more tokens is refused
+ *   int omega_gpu_gdn_prefill_record(cl, g, layer, T, qkv_va, z_va, ab_va, eps_l2, eps_norm, in_scale, out_scale, &out_va);
+ *        the three launches appended to a command list (caller holds the lock); out_va = the [T][6144] rows in the scratch
+ * Scratch bytes for T tokens: T * (40960 + 3 * 24576 + 384) + ceil8(T) * 74496 (the per-token records dominate). */
+#define OMEGA_GPU_GDN_PF_MAX_T 65536u
+
+typedef struct {
+    uint32_t layer, tokens;
+    uint32_t insns[3], gprs[3];   /* prep, scan, post */
+    uint64_t elapsed_ns[3];       /* marker-to-marker chip time per launch (host path) */
+    uint64_t call_ns;
+    uint32_t kernel_cache_hits;   /* 0..3 */
+} OmegaGpuGdnPfInfo;
+
+int omega_gpu_gdn_prefill(OmegaGpuGdn *g, uint32_t layer, uint32_t tokens, const float *qkv, const float *z, const float *ab,
+                          float eps_l2, float eps_norm, float in_scale, float out_scale, float *out, OmegaGpuGdnPfInfo *info);
+int omega_gpu_gdn_prefill_reserve(OmegaGpuGdn *g, uint32_t max_tokens);
+int omega_gpu_gdn_prefill_record(struct OmegaGpuCmdList *cl, OmegaGpuGdn *g, uint32_t layer, uint32_t tokens, uint64_t qkv_va,
+                                 uint64_t z_va, uint64_t ab_va, float eps_l2, float eps_norm, float in_scale, float out_scale,
+                                 uint64_t *out_va);
+/* Test helper: the out rows the last prefill wrote (after a record + submit). */
+int omega_gpu_gdn_prefill_read_out(OmegaGpuGdn *g, uint32_t tokens, float *out);
+
 /* Host layout helpers (no device; the test's simulator path uses them too). */
 /* The parameter block (OMEGA_GDN_PAR_BYTES) from the checkpoint tensors (see set_layer). -1 on a NULL pointer. */
 int omega_gdn_pack_params(const float *conv_w, const float *a_log, const float *dt_bias, const float *norm_w, uint8_t *block);

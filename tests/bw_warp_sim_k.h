@@ -276,6 +276,8 @@ static int ws_run_warp(WsSim *s, WsWarp *w, uint32_t warp, uint32_t cx, uint32_t
             if (mask != live) { ws_fail(s, WS_E_SHFL_SPLIT, pc, "SHFL on a split warp"); return -1; }
             uint32_t src[WS_WARP];
             for (int L = 0; L < WS_WARP; L++) src[L] = ws_rd(&w->lane[L], in->src1_vreg, p);
+            /* SHFL.BFLY (imm bit 31, OMEGA_TC_MARK_BFLY: patched in after encoding, omega_blackwell_codegen_tc.h): lane L reads L ^ lane */
+            if (in->imm & 0x80000000u) { for (int L = 0; L < WS_WARP; L++) ws_wr(&w->lane[L], in->dst_vreg, src[L ^ (int)(in->imm & 31)], p); f->pc = pc + 1; break; }
             for (int L = 0; L < WS_WARP; L++) { int from = L + (int)(in->imm & 31); ws_wr(&w->lane[L], in->dst_vreg, from < WS_WARP ? src[from] : src[L], p); }
             f->pc = pc + 1;
             break;
