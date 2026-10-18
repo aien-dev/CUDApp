@@ -48,8 +48,9 @@ int omega_blackwell_codegen_tc_probe_prog(int mutant, BlackwellIRProgram *prog);
  * Grid: grid_x = n / (warps * 8 * ct) (exact), grid_y = tiles. CTA: 32 * warps threads; shared 2 * 16 * rt * 128 bytes.
  * mutant (tests only): 1 drops the block scale, 2 never advances the scale pointer, 3 row tile i reads tile i^1 (rt >= 2),
  * 4 drops the last 64-element chunk of every 128 block. Each must be caught. */
+#define OMEGA_TCGEMM_MAX_K 32768u /* the K loop runs KB = k / 128 iterations; nothing else grows with k (omega#541) */
 typedef struct {
-    uint32_t k;     /* multiple of 128, 128 .. 16384 */
+    uint32_t k;     /* multiple of 128, 128 .. OMEGA_TCGEMM_MAX_K */
     uint32_t rt;    /* row tiles (16 rows) per CTA: 1, 2 or 4 */
     uint32_t ct;    /* column tiles (8 weight rows) per warp: 1, 2 or 4; rt * ct >= 4 */
     uint32_t warps; /* 1, 2, 4 or 8; (16 * rt * 8) % (32 * warps) == 0 */

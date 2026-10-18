@@ -156,7 +156,7 @@ static void host_only(void) {
       CHECK(o[0] == ldexpf(1.0f, 64) && o[1] == ldexpf(-2.0f, 64) && o[3] == 0.0f, "x fold exact"); }
 
     /* 3. codegen: every shape builds inside the budgets; refusals */
-    static const uint32_t ks[] = { 128, 256, 768, 2048, 4096, 16384 };
+    static const uint32_t ks[] = { 128, 256, 768, 2048, 4096, 16384, 17408, 32768 };
     static const uint32_t lbs[] = { 8, 16 }, rows[] = { 1, 2, 4, 8 };
     uint32_t worst_insns = 0, worst_gprs = 0; int built = 0;
     for (size_t a = 0; a < sizeof ks / sizeof ks[0]; a++) for (size_t b = 0; b < 2; b++) for (size_t c = 0; c < 4; c++) for (int m = 0; m <= 3; m++) for (int deep = 0; deep < 2; deep++) {
@@ -175,7 +175,7 @@ static void host_only(void) {
       bad.k = 2048; bad.rows = 3; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "rows 3 refused");
       bad.rows = 8; bad.warps = 33; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "warps 33 refused");
       bad.warps = 8; bad.lane_bytes = 32; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "lane_bytes 32 refused");
-      bad.lane_bytes = 16; bad.k = 32768; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "k past the limit refused"); }
+      bad.lane_bytes = 16; bad.k = OMEGA_FP8_MAX_K + 512u; CHECK(omega_fp8_gemv_prog_stats(&bad, NULL, NULL) != 0, "k past the limit refused"); }
     /* Register file (chip-found 2026-10-13): 32 * warps * declared registers must be <= 65536; the API refuses the launch.
      * The deep k=2048 kernel at 32 warps (72 declared x 1024 threads = 73728) faulted on the chip with Xid 13. */
     { OmegaFp8GemvSpec deep = { .k = 2048, .lane_bytes = 16, .rows = 1, .warps = 32, .depth = 4 }; uint32_t gp = 0;
@@ -192,7 +192,7 @@ static void host_only(void) {
     { OmegaGpuFp8Tensor *t = NULL; uint8_t w[128 * 128]; uint16_t s[1] = { bf16_of(1.0f) }; memset(w, 0x38, sizeof w);
       CHECK(omega_gpu_fp8_tensor_upload(1, 128, 128, NULL, s, &t) == OMEGA_GPU_FP8_BAD_ARGS, "NULL w refused");
       CHECK(omega_gpu_fp8_tensor_upload(1, 100, 128, w, s, &t) == OMEGA_GPU_FP8_BAD_ARGS, "n not a multiple of 128 refused");
-      CHECK(omega_gpu_fp8_tensor_upload(1, 128, 32768, w, s, &t) == OMEGA_GPU_FP8_TOO_LARGE, "k past the limit refused");
+      CHECK(omega_gpu_fp8_tensor_upload(1, 128, OMEGA_FP8_MAX_K + 256u, w, s, &t) == OMEGA_GPU_FP8_TOO_LARGE, "k past the limit refused");
       w[77] = 0xff; CHECK(omega_gpu_fp8_tensor_upload(1, 128, 128, w, s, &t) == OMEGA_GPU_FP8_NAN_WEIGHT && t == NULL, "NaN weight refused before any device work");
       CHECK(strstr(omega_gpu_fp8_last_error(), "byte 77") != NULL, "error names the byte (%s)", omega_gpu_fp8_last_error());
       float y[8]; CHECK(omega_gpu_fp8_gemv_f32(NULL, 0, y, y, NULL) == OMEGA_GPU_FP8_BAD_ARGS, "NULL tensor refused"); }
@@ -336,6 +336,7 @@ static void sim_battery(uint32_t cta_budget) {
         { 6, 256, 768, 8, 8, 8, 4, 8, "8 groups per-group x, repeated ids (down)" },
         { 3, 128, 256, 2, 2, 8, 8, 4, "2 groups per-group x" },
         { 2, 256, 768, 2, 2, 8, 1, 7, "k768 w7: partial staging round (deep)" },
+        { 1, 128, 17408, 1, 1, 16, 2, 8, "k17408 lb16 r2 w8 (Qwen3.8-27B down width, step kernel)" },
     };
     const size_t npts = sizeof pts / sizeof pts[0];
     double worst_all = 0.0;
@@ -469,6 +470,15 @@ static int chip_run(const char *out_path, uint32_t reps) {
         { 8, 2048, 768, 8, 8, "8 experts down per-group x", 1 },
         { 16, 1536, 2048, 8, 1, "8 of 16 experts gate+up", 1 },
         { 1, 16384, 2048, 1, 1, "large 16384x2048", 1 },
+        /* Qwen3.8-27B dense shapes (omega#541) and the new width cap */
+        { 1, 17408, 5120, 1, 1, "q38 gate 17408x5120", 1 },
+        { 1, 5120, 17408, 1, 1, "q38 down 5120x17408", 1 },
+        { 1, 12288, 5120, 1, 1, "q38 q_proj 12288x5120", 1 },
+        { 1, 1024, 5120, 1, 1, "q38 k_proj 1024x5120", 1 },
+        { 1, 10240, 5120, 1, 1, "q38 in_proj_qkv 10240x5120", 1 },
+        { 1, 6144, 5120, 1, 1, "q38 in_proj_z 6144x5120", 1 },
+        { 1, 5120, 6144, 1, 1, "q38 out_proj 5120x6144", 1 },
+        { 1, 256, 32768, 1, 1, "width cap 256x32768", 1 },
     };
     /* 0. one-hot conversion on the chip: row r holds code r at column 0 (NaN codes as 0x00), x = e_0, scale 1.
      *    y[r] must equal the reference bit for bit. The e4m3 subnormal codes 0x01..0x07 (and negatives) travel

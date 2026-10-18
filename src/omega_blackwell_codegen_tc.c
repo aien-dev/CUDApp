@@ -40,7 +40,7 @@ int omega_blackwell_codegen_tc_probe_prog(int mutant, BlackwellIRProgram *prog) 
 
 int omega_tcgemm_spec_ok(const OmegaTcGemmSpec *s) {
     if (!s) return 0;
-    if (s->k < 128u || s->k > 16384u || s->k % 128u) return 0;
+    if (s->k < 128u || s->k > OMEGA_TCGEMM_MAX_K || s->k % 128u) return 0;
     if (s->rt != 1 && s->rt != 2 && s->rt != 4) return 0;
     if (s->ct != 1 && s->ct != 2 && s->ct != 4) return 0;
     if (s->rt * s->ct < 4u) return 0; /* >= 4 independent HMMAs between dependent ones (8 cycles each, nvcc's 29-cycle rule) */

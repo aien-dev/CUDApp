@@ -59,7 +59,7 @@ extern "C" {
 #define OMEGA_FP8_X_EXP 64      /* x' = x * 2^64 (host, exact) */
 #define OMEGA_FP8_SCALE_EXP 56  /* S' = S * 2^56 (host, exact for every finite bf16 scale below 2^72) */
 #define OMEGA_FP8_BLOCK 128u    /* scale block (rows and columns) */
-#define OMEGA_FP8_MAX_K 16384u
+#define OMEGA_FP8_MAX_K 32768u /* the step kernel and the tensor-core kernel loop over k; 17408 is the Qwen3.8-27B down_proj (omega#541) */
 #define OMEGA_FP8_MAX_GROUPS 64u /* group table entries per launch buffer (8 experts today) */
 
 /* argument word offsets */
