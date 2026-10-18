@@ -93,6 +93,11 @@ typedef struct {
     int mutant;      /* TEST ONLY. 0 none; 1 no RoPE on q and k; 2 V read one position late; 3 the new K/V are not
                       * written to the cache; 4 the cross-split combine ignores the max (differs only when splits > 1);
                       * 5 the odd warps' dim half is dropped from the partial (dims 128..255 wrong). */
+    uint32_t prep;   /* 1: the prefill prep launch (omega-mv#545): grid (m, 4), CTA (cx, cy) runs this kernel's prologue for
+                      * token cx at position ARG_POS + cx (qkv row cx, 32768 bytes per row), writes k_new / v_new into the
+                      * cache rows as the decode step does (same instruction sequence, so the same bits), writes q' as bf16
+                      * to ARG_OUT in the attend kernel's A-fragment layout (OMEGA_PATTN256_QF_*), and exits. Mutants 1
+                      * and 3 apply; ARG_PART, ARG_CNT, ARG_PER_SPLIT, ARG_SPLITS and ARG_OUT_SCALE are not read. */
 } OmegaDecodeAttn256Spec;
 
 /* Builds the IR program (register-allocated) into *prog. 0 ok, -1 refused (depth 0 or > 4, mutant outside 0..5,

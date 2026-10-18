@@ -10,7 +10,11 @@
 #define BW_MAX_VREGS            256
 #define BW_MAX_UVREGS           32
 #define BW_PHYS_GPR_START       2    /* Reserve R0, R1 */
-#define BW_PHYS_GPR_MAX         128
+#define BW_PHYS_GPR_MAX         128  /* default allocation limit (R2..R127); a program may opt into more (omega_bw_ir_set_gpr_limit) */
+/* Highest limit a program may ask for: the chip allows 255 registers per thread and 64K per block (CUDA Programming
+ * Guide, Compute Capabilities appendix: "per thread is 255"); a peak of 246 declares 248 (peak + 2 rounded up to 8).
+ * The launcher must keep threads * declared <= 65536 (omega#545). */
+#define BW_PHYS_GPR_HW_LIMIT    246
 #define BW_PHYS_UGPR_START      4    /* Reserve UR0-UR3 */
 #define BW_PHYS_UGPR_MAX        32
 
@@ -163,6 +167,7 @@ typedef struct {
     int uvreg_to_phys[BW_MAX_UVREGS];
     uint32_t peak_gpr_usage;
     uint32_t peak_ugpr_usage;
+    uint32_t gpr_limit;      /* 0: BW_PHYS_GPR_MAX; else the exclusive physical limit, <= BW_PHYS_GPR_HW_LIMIT */
 } OmegaRegAlloc;
 
 /* IR Program */
@@ -195,6 +200,9 @@ int omega_bw_ir_alloc_uvreg64(BlackwellIRProgram *prog);
 
 /* Solves bounded deterministic live-interval register allocation */
 int omega_bw_regalloc_solve(BlackwellIRProgram *prog);
+/* Opt this program into physical registers up to limit - 1 (BW_PHYS_GPR_MAX < limit <= BW_PHYS_GPR_HW_LIMIT); call after
+ * omega_bw_ir_init. Every other program keeps the default, so its allocation is unchanged. 0 ok, -1 out of range. */
+int omega_bw_ir_set_gpr_limit(BlackwellIRProgram *prog, uint32_t limit);
 
 /* Encodes scheduled IR program into 128-bit sm_121 machine code */
 int omega_bw_encode_program(const BlackwellIRProgram *prog, uint8_t *code_buf, size_t max_len, size_t *out_len);

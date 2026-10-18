@@ -166,7 +166,7 @@ static void rms_scale(Em *e, int qa, int qb, int sq, int ts, int rs, int addr, i
 }
 
 int omega_blackwell_codegen_decode_attn256_prog(const OmegaDecodeAttn256Spec *spec, BlackwellIRProgram *prog) {
-    if (!spec || !prog || spec->depth < 1 || spec->depth > OMEGA_DATTN256_MAX_DEPTH || spec->mutant < 0 || spec->mutant > 5) return -1;
+    if (!spec || !prog || spec->depth < 1 || spec->depth > OMEGA_DATTN256_MAX_DEPTH || spec->mutant < 0 || spec->mutant > 5 || spec->prep > 1) return -1;
     omega_bw_ir_init(prog);
     Em em; memset(&em, 0, sizeof em); em.p = prog; Em *e = &em;
     const uint32_t D = spec->depth;
@@ -185,6 +185,10 @@ int omega_blackwell_codegen_decode_attn256_prog(const OmegaDecodeAttn256Spec *sp
     ldc32(e, kvs, OMEGA_DATTN256_ARG_KV_STRIDE); ldc32(e, eps, OMEGA_DATTN256_ARG_EPS);
     ldc32(e, qks, OMEGA_DATTN256_ARG_QK_SCALE);
     s2r(e, tid, BW_SR_TID_X); s2r(e, cx, BW_SR_CTAID_X); s2r(e, cy, BW_SR_CTAID_Y);
+    if (spec->prep) {                                /* prefill prep (#545): CTA cx = token cx at position pos0 + cx, its qkv row */
+        iadd(e, pos, pos, cx);
+        { int rowoff = V(e); if (e->err) return -1; imadi(e, R(rowoff), R(cx), OMEGA_DATTN256_QKV_WORDS * 4u, NOREG); imadw(e, pqkv, rowoff, 1u, pqkv); }
+    }
     movi(e, one, 1); movrz(e, R(zero)); movi(e, c7fff, 0x7fffu); movi(e, c16, 16);
     shr(e, warp, tid, 5);
     andi(e, R(lane), R(tid), 31u);
@@ -262,6 +266,26 @@ int omega_blackwell_codegen_decode_attn256_prog(const OmegaDecodeAttn256Spec *sp
     for (unsigned i = 0; i < 4; i++) { fmul(e, S(qa, i), S(qa, i), R(qksw)); fmul(e, S(qb, i), S(qb, i), R(qksw)); }
     bar_sync(e);                                      /* every partner read done before q' overwrites the staging */
     sts8(e, a0, one, t1, qa, qb);                     /* warps 6, 7 write scratch inside s[][] */
+    if (spec->prep) {
+        /* q' as bf16 in the attend kernel's A-fragment layout (omega_blackwell_codegen_pattn256.h, OMEGA_PATTN256_QF_*):
+         * word i of lane L (dims 8L+2i, +1) goes to ((((cx>>1)*4 + cy)*6 + warp)*16 + (L>>1))*64 + i*16 + ((L&1)*2 + (cx&1))*4.
+         * Warps 6, 7 (k, v) skip it. */
+        int qw = V128(e), pqf = V64(e), qa64 = V64(e), h0q = V(e), h1q = V(e), tbq = V(e); if (e->err) return -1;
+        isetp_ge_u32(e, f, one);
+        int bq = bra_if_p0_fwd(e);
+        for (unsigned w = 0; w < 4; w++) {
+            int src = w < 2 ? qa : qb; unsigned s0 = (2 * w) % 4;
+            bf16_of(e, h0q, S(src, s0), c7fff, tbq); bf16_of(e, h1q, S(src, s0 + 1), c7fff, tbq); imadi(e, S(qw, w), R(h1q), 65536u, h0q);
+        }
+        ldc64(e, pqf, OMEGA_DATTN256_ARG_OUT);
+        shr(e, t1, cx, 1); imadi(e, R(t1), R(t1), 4u, cy); imadi(e, R(t1), R(t1), 6u, warp);
+        shr(e, t2, lane, 1); imadi(e, R(t1), R(t1), 16u, t2); imadi(e, R(t1), R(t1), 64u, NOREG);
+        andi(e, R(t2), R(lane), 1u); imadi(e, R(t2), R(t2), 2u, NOREG);
+        { int cb = V(e); if (e->err) return -1; andi(e, R(cb), R(cx), 1u); iadd(e, t2, t2, cb); }
+        imadi(e, R(t1), R(t2), 4u, t1);
+        for (unsigned w = 0; w < 4; w++) { imadi(e, R(t2), R(one), 16u * w, t1); imadw(e, qa64, t2, 1u, pqf); stg(e, BW_IR_STG_E, qa64, S(qw, w), udesc); }
+        patch_bra(e, bq, here(e));
+    }
 
     /* ---- the new token's K (warp 6: the rotated k) and V (warp 7: the raw v), bf16 into the cache by the CTA that owns `pos` ---- */
     if (MUT != 3) {
@@ -269,7 +293,8 @@ int omega_blackwell_codegen_decode_attn256_prog(const OmegaDecodeAttn256Spec *sp
         /* key = (splits - 1 - cx) + 1 - f: zero only for warps 6, 7 of the last split */
         imadi(e, R(t2), R(cx), 0xffffffffu, splitsm1);
         imadi(e, R(t2), R(one), 1u, t2);
-        imadi(e, R(key), R(f), 0xffffffffu, t2);
+        if (spec->prep) imadi(e, R(key), R(f), 0xffffffffu, one);   /* prep: every CTA owns its token: key = 1 - f */
+        else imadi(e, R(key), R(f), 0xffffffffu, t2);
         isetp_ge_u32(e, key, one);
         int b1 = bra_if_p0_fwd(e);
         /* cache row address of position pos for this lane: 8 bf16 = 16 bytes per lane; K plane, V plane for warp 7 */
@@ -291,6 +316,11 @@ int omega_blackwell_codegen_decode_attn256_prog(const OmegaDecodeAttn256Spec *sp
         patch_bra(e, b1, here(e));
     }
     membar(e);
+    if (spec->prep) {                                /* prep ends here: the K/V rows and q' are written */
+        tail(e);
+        if (e->err) return -1;
+        return omega_bw_regalloc_solve(prog);
+    }
     bar_sync(e);
 
     /* ---- running state ---- */

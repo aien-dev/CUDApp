@@ -141,10 +141,11 @@ int omega_bw_regalloc_solve(BlackwellIRProgram *prog) {
     /*
      * Bounded deterministic linear-scan register allocator.
      * Computes genuine live intervals across virtual registers and assigns
-     * available physical GPRs (R2..R127) and UGPRs (UR4..UR31).
+     * available physical GPRs (R2..R127, or up to the program's opt-in gpr_limit) and UGPRs (UR4..UR31).
      * Enforces even-alignment and dual-register reservation for 64-bit pairs.
      */
-    bool gpr_busy[BW_PHYS_GPR_MAX];
+    const int gpr_lim = ra->gpr_limit ? (int)ra->gpr_limit : BW_PHYS_GPR_MAX;
+    bool gpr_busy[BW_PHYS_GPR_HW_LIMIT];
     memset(gpr_busy, 0, sizeof(gpr_busy));
 
     int max_phys_used = BW_PHYS_GPR_START;
@@ -178,9 +179,9 @@ int omega_bw_regalloc_solve(BlackwellIRProgram *prog) {
         for (int p = 0; p < ra->num_vregs; p++) {
             if (ra->intervals[p].active && ra->intervals[p].last_use < iv->first_def) {
                 int freed = ra->intervals[p].phys_reg;
-                if (freed >= 0 && freed < BW_PHYS_GPR_MAX) {
+                if (freed >= 0 && freed < gpr_lim) {
                     uint32_t bsize = ra->intervals[p].bundle_size ? ra->intervals[p].bundle_size : (ra->intervals[p].is_pair ? 2 : (ra->intervals[p].is_quad ? 4 : 1));
-                    for (uint32_t k = 0; k < bsize && (freed + (int)k) < BW_PHYS_GPR_MAX; k++) {
+                    for (uint32_t k = 0; k < bsize && (freed + (int)k) < gpr_lim; k++) {
                         gpr_busy[freed + k] = false;
                     }
                 }
@@ -194,7 +195,7 @@ int omega_bw_regalloc_solve(BlackwellIRProgram *prog) {
         if (bsize == 4) {
             /* 128-bit quad requires 4-alignment and 4 contiguous free registers */
             int start = (BW_PHYS_GPR_START + 3) & ~3;
-            for (int p = start; p <= BW_PHYS_GPR_MAX - 4; p += 4) {
+            for (int p = start; p <= gpr_lim - 4; p += 4) {
                 if (!gpr_busy[p] && !gpr_busy[p + 1] && !gpr_busy[p + 2] && !gpr_busy[p + 3]) {
                     assigned = p;
                     for (int k = 0; k < 4; k++) gpr_busy[p + k] = true;
@@ -204,7 +205,7 @@ int omega_bw_regalloc_solve(BlackwellIRProgram *prog) {
         } else if (bsize == 2) {
             /* 64-bit pair requires even alignment and contiguous free registers */
             int start = (BW_PHYS_GPR_START + 1) & ~1;
-            for (int p = start; p <= BW_PHYS_GPR_MAX - 2; p += 2) {
+            for (int p = start; p <= gpr_lim - 2; p += 2) {
                 if (!gpr_busy[p] && !gpr_busy[p + 1]) {
                     assigned = p;
                     gpr_busy[p] = true;
@@ -213,7 +214,7 @@ int omega_bw_regalloc_solve(BlackwellIRProgram *prog) {
                 }
             }
         } else {
-            for (int p = BW_PHYS_GPR_START; p < BW_PHYS_GPR_MAX; p++) {
+            for (int p = BW_PHYS_GPR_START; p < gpr_lim; p++) {
                 if (!gpr_busy[p]) {
                     assigned = p;
                     gpr_busy[p] = true;
@@ -2545,3 +2546,9 @@ int omega_blackwell_test_codegen_variation(void) {
 /* Declared registers: peak + 2 rounded up to 8 (see omega_blackwell_codegen.h for the chip evidence). */
 uint32_t omega_bw_gpr_declared(uint32_t peak) { return ((peak + 2u + 7u) / 8u) * 8u; }
 int omega_bw_gpr_declared_ok(uint32_t declared, uint32_t peak) { return declared % 8u == 0u && declared >= peak + 2u; }
+
+int omega_bw_ir_set_gpr_limit(BlackwellIRProgram *prog, uint32_t limit) {
+    if (!prog || limit <= BW_PHYS_GPR_MAX || limit > BW_PHYS_GPR_HW_LIMIT) return -1;
+    prog->regalloc.gpr_limit = limit;
+    return 0;
+}
