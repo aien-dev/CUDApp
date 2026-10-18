@@ -9,7 +9,7 @@
  *   int  omega_gpu_gdn_set_layer(OmegaGpuGdn *g, uint32_t layer, const float *conv_w, const float *a_log,
  *                                const float *dt_bias, const float *norm_w);
  *        conv_w: linear_attn.conv1d.weight [10240][1][4] widened to f32 ([10240][4]); a_log, dt_bias: [48];
- *        norm_w: linear_attn.norm.weight [128]. negA = -expf(a_log) is computed here (float).
+ *        norm_w: linear_attn.norm.weight [128]. negA = -exp(a_log) is computed here (double, libm-free omega_hostmath_exp, rounded to float).
  *   int  omega_gpu_gdn_set_state / omega_gpu_gdn_get_state(OmegaGpuGdn *g, uint32_t layer, float *tail, float *state);
  *        The reference layouts: tail [3][10240] (oldest first, qwen38.rs conv_tail), state [48][128 k][128 v].
  *        get_state refuses (CHIP_FAIL) when the three per-head copies of a key head's q/k tail disagree.
