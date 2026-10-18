@@ -98,6 +98,8 @@ typedef struct {
     uint32_t smem_bytes;
     WsRange ranges[WS_MAX_RANGES]; int nranges; /* when > 0, every global access must fall in one */
     int order;                /* 0 = lowest pc first, 1 = highest pc first */
+    uint32_t reg_poison;      /* 0: registers start at zero; else every lane register starts as a hash of this seed, the CTA and the
+                               * register (the chip gives a CTA whatever the previous CTA on the SM left behind) */
     int trace;                /* print every issue of warp 0 of CTA (0,0) */
     /* results */
     int err; int err_pc; char msg[200];
@@ -344,6 +346,9 @@ static int ws_run(WsSim *s, uint32_t grid_x, uint32_t grid_y) {
     uint32_t nw = s->threads / WS_WARP;
     for (uint32_t cy = 0; cy < grid_y && !s->err; cy++) for (uint32_t cx = 0; cx < grid_x && !s->err; cx++) {
         memset(warps, 0, sizeof(WsWarp) * nw);
+        if (s->reg_poison) for (uint32_t w = 0; w < nw; w++) for (int L = 0; L < WS_WARP; L++) for (int r = 0; r < 256; r++) {
+            uint32_t h = s->reg_poison ^ (cx * 0x9e3779b9u) ^ (cy * 0x85ebca6bu) ^ ((w * 32u + (uint32_t)L) * 0xc2b2ae35u) ^ ((uint32_t)r * 0x27d4eb2fu);
+            h ^= h >> 15; h *= 0x2c1b3c6du; h ^= h >> 12; warps[w].lane[L].r[r] = h; if (r == 0) warps[w].lane[L].p0 = (uint8_t)((s->reg_poison >> 31) | (h & 1u)); }
         if (s->smem && s->smem_bytes) for (uint32_t i = 0; i + 4 <= s->smem_bytes; i += 4) { uint32_t poison = 0xfeedfaceu; memcpy(s->smem + i, &poison, 4); }
         for (uint32_t w = 0; w < nw; w++) { warps[w].nfrag = 1; warps[w].frag[0].pc = 0; warps[w].frag[0].mask = 0xffffffffu; warps[w].frag[0].parked = 0; }
         int trace = s->trace && cx == 0 && cy == 0;
