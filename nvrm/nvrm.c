@@ -11,6 +11,7 @@
 #include <stddef.h>
 #include <stdatomic.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -86,6 +87,45 @@ static int fail_alloc_context(Nvrm *rm, uint64_t size) {
                 (unsigned long long)size, meminfo_kb("MemFree"), meminfo_kb("MemAvailable"));
 }
 
+/* Free physically contiguous blocks of at least `order` pages across all zones
+ * (/proc/buddyinfo), or ULLONG_MAX when the file cannot be read. Order 9 is the
+ * 2 MiB block the channel's main context buffer needs. */
+static unsigned long long buddy_free_blocks_ge(unsigned order) {
+    FILE *f = fopen("/proc/buddyinfo", "r");
+    if (!f) return ULLONG_MAX;
+    char line[512];
+    unsigned long long total = 0;
+    while (fgets(line, sizeof line, f)) {
+        const char *p = strstr(line, "zone");
+        if (!p) continue;
+        p += 4;
+        while (*p == ' ') p++;
+        while (*p && *p != ' ') p++;           /* zone name */
+        unsigned long long n;
+        for (unsigned o = 0; o < 32 && sscanf(p, " %llu", &n) == 1; o++) {
+            if (o >= order) total += n;
+            while (*p == ' ') p++;
+            while (*p && *p != ' ') p++;
+        }
+    }
+    fclose(f);
+    return total;
+}
+
+/* Rewrite rm->err after the compute-object RM_ALLOC stayed NV_ERR_NO_MEMORY
+ * through every retry, so the line names the attempts, the wait and the host's
+ * supply of 2 MiB blocks at that moment. */
+static int fail_channel_no_memory(Nvrm *rm, uint32_t attempts, uint32_t delay_ms) {
+    char prev[sizeof rm->err];
+    memcpy(prev, rm->err, sizeof prev);
+    unsigned long long blocks = buddy_free_blocks_ge(9);
+    char blocks_text[32];
+    if (blocks == ULLONG_MAX) snprintf(blocks_text, sizeof blocks_text, "UNKNOWN");
+    else snprintf(blocks_text, sizeof blocks_text, "%llu", blocks);
+    return fail(rm, "%s after %u attempts over %u ms; MemFree %llu kB, free 2 MiB blocks %s", prev, attempts,
+                (attempts > 1 ? attempts - 1 : 0) * delay_ms, meminfo_kb("MemFree"), blocks_text);
+}
+
 static int nv_ioctl(int fd, unsigned nr, void *arg, size_t sz) {
     return ioctl(fd, NV_IOWR(nr, sz), arg);
 }
@@ -93,6 +133,12 @@ static int nv_ioctl(int fd, unsigned nr, void *arg, size_t sz) {
 static int uvm(Nvrm *rm, int fd, unsigned long cmd, void *params, NV_STATUS *st);
 
 static int rm_alloc(Nvrm *rm, uint32_t parent, uint32_t cls, void *params, uint32_t psz, uint32_t *out) {
+    rm->last_rm_status = 0;
+    if (cls == rm->compute_class && rm->inject_rm_alloc_no_memory) {
+        rm->inject_rm_alloc_no_memory--;
+        rm->last_rm_status = NV_ERR_NO_MEMORY;
+        return fail(rm, "RM_ALLOC class 0x%x status 0x%x (NV_ERR_NO_MEMORY) [injected]", cls, NV_ERR_NO_MEMORY);
+    }
     if (rm->rm_alloc_accepted == UINT64_MAX ||
         (cls != NV01_ROOT_CLIENT && rm->next_handle == UINT32_MAX))
         return fail(rm, "RM handle or accounting space exhausted");
@@ -106,6 +152,7 @@ static int rm_alloc(Nvrm *rm, uint32_t parent, uint32_t cls, void *params, uint3
     p.paramsSize = psz;
     if (nv_ioctl(rm->fd_ctl, NV_ESC_RM_ALLOC, &p, sizeof p) != 0)
         return fail(rm, "RM_ALLOC class 0x%x ioctl errno %d", cls, errno);
+    rm->last_rm_status = p.status;
     if (p.status != 0)
         return fail(rm, "RM_ALLOC class 0x%x status 0x%x%s", cls, p.status,
                     p.status == NV_ERR_NO_MEMORY ? " (NV_ERR_NO_MEMORY)" : "");
@@ -676,7 +723,21 @@ int nvrm_channel(Nvrm *rm) {
     gp.engineType = 0;
     gp.hContextShare = rm->ctxshare;
     if (rm_alloc(rm, rm->chgroup, rm->gpfifo_class, &gp, sizeof gp, &rm->gpfifo)) return -1;
-    if (rm_alloc(rm, rm->gpfifo, rm->compute_class, NULL, 0, &rm->compute_obj)) return -1;
+    /* NV_ERR_NO_MEMORY here is the host lacking one free 2 MiB block for the
+     * channel's main context buffer at this instant (see nvrm.h, omega#523).
+     * Retry that one RM_ALLOC, bounded; any other status is final at once. */
+    uint32_t delay_ms = rm->channel_no_memory_retry_ms ? rm->channel_no_memory_retry_ms
+                                                       : NVRM_CHANNEL_NO_MEMORY_RETRY_MS;
+    const uint32_t budget = NVRM_CHANNEL_NO_MEMORY_RETRIES;
+    rm->channel_no_memory_retries = 0;
+    for (;;) {
+        if (rm_alloc(rm, rm->gpfifo, rm->compute_class, NULL, 0, &rm->compute_obj) == 0) break;
+        if (rm->last_rm_status != NV_ERR_NO_MEMORY) return -1;
+        if (rm->channel_no_memory_retries >= budget)
+            return fail_channel_no_memory(rm, rm->channel_no_memory_retries + 1, delay_ms);
+        rm->channel_no_memory_retries++;
+        usleep((useconds_t)delay_ms * 1000u);
+    }
 
     NVC36F_CTRL_CMD_GPFIFO_GET_WORK_SUBMIT_TOKEN_PARAMS tk = { .workSubmitToken = 0xffffffffu };
     if (rm_control(rm, rm->gpfifo, NVC36F_CTRL_CMD_GPFIFO_GET_WORK_SUBMIT_TOKEN, &tk, sizeof tk)) return -1;

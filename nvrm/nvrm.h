@@ -35,6 +35,21 @@ typedef struct {
     uint64_t size;
 } NvrmVaRange;
 
+/* The compute object makes the RM allocate the channel's main graphics context
+ * buffer as ONE physically contiguous 2 MiB system-memory block (order 9), asked
+ * for once with __GFP_RETRY_MAYFAIL and no scattered fallback (open driver
+ * kernel-open/nvidia/nv-vm.c:377-391, kernel_graphics_context.c:1129; kernel
+ * tracepoint record in omega#523). On a long-running host that block is often
+ * missing for a few hundred milliseconds, so nvrm_channel retries that one
+ * RM_ALLOC, bounded, before NV_ERR_NO_MEMORY is final. Measured 2026-10-17 on
+ * the Spark: every refusal cleared within 5 attempts at 100 ms (omega#523). */
+#ifndef NVRM_CHANNEL_NO_MEMORY_RETRIES
+#define NVRM_CHANNEL_NO_MEMORY_RETRIES 50
+#endif
+#ifndef NVRM_CHANNEL_NO_MEMORY_RETRY_MS
+#define NVRM_CHANNEL_NO_MEMORY_RETRY_MS 100
+#endif
+
 /* One outstanding allocation, tracked so nvrm_free() can tell a real,
  * still-live NvrmMem apart from a stale/duplicate copy. */
 typedef struct {
@@ -82,6 +97,12 @@ typedef struct {
     /* Fault injection applies once at the driver wrapper boundary. */
     uint8_t       inject_uvm_free_failure;
     uint8_t       inject_rm_free_failure;
+    /* Refuse the next N compute-object RM_ALLOCs with NV_ERR_NO_MEMORY before
+     * the ioctl, so the retry in nvrm_channel can be exercised deterministically. */
+    uint8_t       inject_rm_alloc_no_memory;
+    uint32_t      last_rm_status;             /* status of the last RM_ALLOC that reached the driver (or was injected) */
+    uint32_t      channel_no_memory_retries;  /* NV_ERR_NO_MEMORY refusals the last nvrm_channel retried */
+    uint32_t      channel_no_memory_retry_ms; /* delay between those retries; 0 selects NVRM_CHANNEL_NO_MEMORY_RETRY_MS */
     uint64_t      rm_alloc_accepted;
     uint64_t      rm_free_accepted;
     char     err[256];

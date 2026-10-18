@@ -308,6 +308,43 @@ static int gate_gpu_submit_after_churn(Nvrm *rm) {
     return 0;
 }
 
+
+/* omega#523: the compute-object RM_ALLOC is refused with NV_ERR_NO_MEMORY when
+ * the host has no free 2 MiB block at that instant. nvrm_channel must retry that
+ * one allocation, bounded, instead of failing the channel on the first refusal. */
+static int gate_channel_no_memory_retried(void) {
+    Nvrm rm;
+    if (nvrm_open(&rm) != 0) return -1;
+    rm.inject_rm_alloc_no_memory = 3;
+    rm.channel_no_memory_retry_ms = 1;
+    int rc = nvrm_channel(&rm);
+    int ok = rc == 0 && rm.compute_obj != 0 && rm.channel_no_memory_retries == 3 &&
+             rm.inject_rm_alloc_no_memory == 0;
+    if (!ok) printf("  channel after 3 injected NV_ERR_NO_MEMORY: rc=%d retries=%u err=\"%s\"\n",
+                    rc, rm.channel_no_memory_retries, rm.err);
+    nvrm_close(&rm);
+    return ok ? 0 : -1;
+}
+
+/* The retry is bounded: one refusal more than the budget is final, the channel
+ * has no compute object, and the error names the attempts and the host's supply
+ * of 2 MiB blocks so the next reader does not have to guess. */
+static int gate_channel_no_memory_bounded(void) {
+    Nvrm rm;
+    if (nvrm_open(&rm) != 0) return -1;
+    rm.inject_rm_alloc_no_memory = (uint8_t)(NVRM_CHANNEL_NO_MEMORY_RETRIES + 1);
+    rm.channel_no_memory_retry_ms = 1;
+    int rc = nvrm_channel(&rm);
+    int ok = rc != 0 && rm.compute_obj == 0 &&
+             rm.channel_no_memory_retries == NVRM_CHANNEL_NO_MEMORY_RETRIES &&
+             strstr(rm.err, "NV_ERR_NO_MEMORY") != NULL && strstr(rm.err, "attempts") != NULL &&
+             strstr(rm.err, "2 MiB blocks") != NULL;
+    if (!ok) printf("  bounded retry: rc=%d retries=%u err=\"%s\"\n", rc, rm.channel_no_memory_retries, rm.err);
+    int closed = nvrm_close(&rm) == 0;
+    if (!closed) printf("  bounded retry: close after refused channel failed: %s\n", rm.err);
+    return ok && closed ? 0 : -1;
+}
+
 int main(void) {
     printf("=== M19R NVRM LIFECYCLE GATES ===\n");
 
@@ -345,6 +382,8 @@ int main(void) {
     gate_result("UVM_FREE_FAILURE_QUARANTINES", gate_injected_free_failure(1) == 0);
     gate_result("RM_FREE_FAILURE_QUARANTINES", gate_injected_free_failure(0) == 0);
     gate_result("CORRUPT_TABLE_REFUSED", gate_corrupt_table_refusal() == 0);
+    gate_result("CHANNEL_NO_MEMORY_RETRIED", gate_channel_no_memory_retried() == 0);
+    gate_result("CHANNEL_NO_MEMORY_BOUNDED", gate_channel_no_memory_bounded() == 0);
     printf("TOTAL: %d PASSED: %d FAILED: %d\n", g_total, g_passed, g_failed);
     return (g_failed == 0) ? 0 : 1;
 }
