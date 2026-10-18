@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd -P)
-LOCK_FILE=/tmp/aien-gb10.lock
+. "$SCRIPT_DIR/gb10_lock.sh"
 
 cd "$REPO_ROOT"
 
@@ -23,7 +23,9 @@ gcc -O2 -Wall -Wextra -Werror \
 
 echo "    lifecycle_gates built cleanly."
 
-echo -e "\n[*] Running lifecycle_gates under GPU lock ($LOCK_FILE)..."
-flock "$LOCK_FILE" ./nvrm/lifecycle_gates
+echo -e "\n[*] Running lifecycle_gates under GPU lock ($GB10_LOCK)..."
+gb10_lock_acquire
+./nvrm/lifecycle_gates
+gb10_lock_release
 
 echo -e "\n=== M19R NVRM Lifecycle Gates: done ==="
