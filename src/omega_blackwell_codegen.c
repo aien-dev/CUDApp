@@ -372,12 +372,12 @@ static int encode_single_insn(const BlackwellIRInsn *insn, const OmegaRegAlloc *
                 w[0] = 0x7c0c | ((uint32_t)(dst & 0xff) << 16) | ((uint32_t)(src1 & 0xff) << 24);
                 w[1] = (uint32_t)(ureg & 0xff);
                 w[2] = 0x0bf06070;
-                w[3] = 0x002fda00;
+                w[3] = insn->control ? insn->control : 0x002fda00;
             } else {
                 w[0] = 0x780c | ((uint32_t)(dst & 0xff) << 16) | ((uint32_t)(src1 & 0xff) << 24);
                 w[1] = insn->imm;
                 w[2] = 0x03f06270;
-                w[3] = 0x001fda00;
+                w[3] = insn->control ? insn->control : 0x001fda00;
             }
             break;
 
@@ -415,7 +415,7 @@ static int encode_single_insn(const BlackwellIRInsn *insn, const OmegaRegAlloc *
             w[0] = 0x7210 | ((uint32_t)(dst & 0xff) << 16) | ((uint32_t)(src1 & 0xff) << 24);
             w[1] = (uint32_t)(src2 & 0xff);
             w[2] = 0x07ffe0ff;
-            w[3] = 0x010fca00;
+            w[3] = insn->control ? insn->control : 0x010fca00; /* omega-mv#545: the emitter's waits, not a fixed SB4 wait */
             break;
 
         case BW_IR_HMMA_F16:
@@ -678,7 +678,7 @@ static int encode_single_insn(const BlackwellIRInsn *insn, const OmegaRegAlloc *
             w[0] = insn->predicate_p0 ? 0x0000094d : 0x0000794d;
             w[1] = 0x00000000;
             w[2] = 0x03800000;
-            w[3] = 0x000fea00;
+            w[3] = insn->control ? insn->control : 0x000fea00;
             break;
 
         case BW_IR_BRA: {

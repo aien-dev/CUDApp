@@ -1109,15 +1109,17 @@ static void hd128_checks(void) {
 
 /* head_dim 64 byte-identity pin and head_dim 128 codegen facts (CPU only, no device, no simulator).
  * The digests are SHA-256 of the encoded kernel bytes as emitted by the batched-load program of 2026-10-12
- * (speed/attention-batched-loads; before it, main c0369e6 was pinned at 160 instructions); any change to the head_dim 64 program changes a digest and fails here. */
+ * (speed/attention-batched-loads; before it, main c0369e6 was pinned at 160 instructions), re-pinned 2026-10-18 for the encoder
+ * control-word fix (omega-mv#545: 8 IADD3 and 1 EXIT word 3 per kernel carry the scheduled waits; reverting only those
+ * words reproduces the previous digests); any change to the head_dim 64 program changes a digest and fails here. */
 typedef struct { bool f32; uint32_t log2bs, log2gqa; size_t insns; const char *sha256; } Pin;
 static const Pin k_pins64[] = {
-    { false, 4, 3, 216, "44d27fae78ea21ee77fd7a0ebd2ebfcac52e9e45a81de84b035868092e13e424" }, 
-    { false, 4, 2, 216, "3bc79d4a54fd0d82024b376dfdb718e8326431917251f13f5c44be6ba8eb6f0c" }, 
-    { false, 4, 0, 216, "83eca9872e32c17321d2f8ec6a6ec92638ed72b136d8958cda5cdfc451c01ef8" }, 
-    { true, 12, 3, 184, "b6a25d8739185bbd944bfcc1ec174abb24ce46529f06c56f8d5ac77bf6883ddd" }, 
-    { true, 12, 2, 184, "46a2b82ebcb55237f4a7585679b42ac9558c7a434e8e80ccef6cc0bfaed8fcb9" }, 
-    { true, 12, 0, 184, "970db9533c836eca7c86783875a2ad898cd69bc3070cae418cc92b3ce2dbbd9c" },
+    { false, 4, 3, 216, "5e183059327a4b3f188d749f296385ec43e718bbbf98de4f2697b5b553e7ccb1" }, 
+    { false, 4, 2, 216, "6656927ae80d3677c8444e5ccbb696b50850e21b3ff52bf14dd79d6f83232243" }, 
+    { false, 4, 0, 216, "b3d40b99628c4bb9bdb25c503766aca5c904456e63301b5338963071ab9b28e0" }, 
+    { true, 12, 3, 184, "61eab0c548f36364ee4d7547fa8f32fffcc20096182112d5fef12fe381712e31" }, 
+    { true, 12, 2, 184, "0095f8fb408efad952f0cad4f0e9d6d99f950d4aa8bbd14ee71a5347297fcbc9" }, 
+    { true, 12, 0, 184, "e0c44b49246198765f0eb60a6cc065d59c98f41fadc10b1d4e3fbc18587d855d" },
 };
 static void hex_digest(const uint8_t d[32], char out[65]) { for (int i = 0; i < 32; i++) snprintf(out + 2 * i, 3, "%02x", d[i]); }
 static void hd_codegen_checks(void) {
