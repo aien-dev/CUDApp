@@ -4,6 +4,7 @@
  * host-visible), sync_to_gpu after host writes, sync_to_cpu before host reads, one omega_gpu_session_launch per call.
  */
 #include "omega_gpu_gdn_api.h"
+#include "omega_gpu_hostmath.h"
 #include "omega_gpu_session.h"
 #include "omega_gpu_cmdlist.h"
 #include "omega_blackwell_codegen_tc.h"
@@ -83,7 +84,7 @@ int omega_gdn_pack_params(const float *conv_w, const float *a_log, const float *
     if (!conv_w || !a_log || !dt_bias || !norm_w || !block) return -1;
     memcpy(block + OMEGA_GDN_PAR_CONV, conv_w, (size_t)OMEGA_GDN_CONV_DIM * OMEGA_GDN_TAPS * 4u);
     float *sc = (float *)(block + OMEGA_GDN_PAR_SCAL);
-    for (uint32_t h = 0; h < OMEGA_GDN_VALUE_HEADS; h++) { sc[2 * h] = -expf(a_log[h]); sc[2 * h + 1] = dt_bias[h]; }
+    for (uint32_t h = 0; h < OMEGA_GDN_VALUE_HEADS; h++) { sc[2 * h] = -(float)omega_hostmath_exp((double)a_log[h]); /* libm-free: omegatool links without -lm */ sc[2 * h + 1] = dt_bias[h]; }
     memcpy(block + OMEGA_GDN_PAR_NORM, norm_w, OMEGA_GDN_HEAD_DIM * 4u);
     return 0;
 }
