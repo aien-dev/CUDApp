@@ -18,6 +18,7 @@
  * Built by `make hello-gpu` (see README, "Run your first kernel").
  */
 #include "omega_blackwell_codegen.h"
+#include "omega_blackwell_qmd.h"
 #include "omega_gpu_session.h"
 #include <stdio.h>
 #include <stdlib.h>
