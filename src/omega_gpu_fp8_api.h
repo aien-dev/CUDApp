@@ -130,6 +130,10 @@ void omega_gpu_fp8_set_depth(int set, uint32_t depth);
 /* The depth the automatic choice makes for a spec (k, lane_bytes, rows, warps filled in), n rows, `groups` experts:
  * deep only for a single projection of at most 4 MiB of weights (measured, see omega_gpu_fp8_api.c). */
 uint32_t omega_gpu_fp8_depth_for(const OmegaFp8GemvSpec *spec, uint32_t n, uint32_t groups);
+/* The deep default was measured (SPEED-1B, 2026-10-17) while the launch descriptor allowed 16 KiB of shared memory; the
+ * 32 KiB cap (#559, Qwen3.8 bf16 GEMV) would newly admit the 30B o_proj (16464 bytes), which no run has measured. The
+ * automatic choice keeps the measured bound; set_depth still reaches anything the descriptor allows. */
+#define OMEGA_GPU_FP8_DEEP_MAX_SHARED_BYTES 16384u
 /* Register-file check for a spec (chip-found rule: 32 * warps * declared registers <= 65536, declared = peak + 1 rounded
  * up to 8). OK, TOO_LARGE (last_error names the counts) or CODEGEN_FAIL. The automatic depth choice and every build apply it. */
 int omega_gpu_fp8_kernel_fits(const OmegaFp8GemvSpec *spec, uint32_t *declared);

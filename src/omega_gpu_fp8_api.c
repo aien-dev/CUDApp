@@ -253,7 +253,7 @@ uint32_t omega_gpu_fp8_depth_for(const OmegaFp8GemvSpec *spec, uint32_t n, uint3
     (void)n;
     if (groups != 1u || !omega_gpu_fp8_deep()) return 0;
     OmegaFp8GemvSpec deep = *spec; deep.depth = ks; deep.mutant = 0;
-    if (omega_fp8_gemv_shared_bytes(&deep) > OMEGA_BW_QMD_MAX_SHARED_BYTES) return 0;
+    if (omega_fp8_gemv_shared_bytes(&deep) > OMEGA_GPU_FP8_DEEP_MAX_SHARED_BYTES) return 0;
     /* The register check builds the whole kernel (codegen + register allocation). spec_for runs on every launch and every
      * record, so the answer is remembered per spec: SPEED-1B graph A/B (2026-10-17) measured the unremembered check at
      * 853..1172 us of host record time per token (48 qkv records) against 45..113 us without the deep default. The answer is

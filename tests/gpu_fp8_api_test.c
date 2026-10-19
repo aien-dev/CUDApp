@@ -219,8 +219,8 @@ static void deep_default_check(void) {
         OmegaFp8GemvSpec q, o, gu; omega_gpu_fp8_spec_for(2048, 5120, 1, &q); omega_gpu_fp8_spec_for(4096, 2048, 1, &o); omega_gpu_fp8_spec_for(2048, 1536, 8, &gu);
         CHECK(q.depth == (on ? 4u : 0u) && o.depth == 0 && gu.depth == 0, "deep %d (pass %d): qkv depth %u (want %u), o_proj depth %u (want 0), gate_up depth %u (want 0)", on, pass, q.depth, on ? 4u : 0u, o.depth, gu.depth);
         OmegaFp8GemvSpec od = o; od.depth = 4096u / (32u * od.lane_bytes); od.mutant = 0;
-        CHECK(omega_fp8_gemv_shared_bytes(&od) > OMEGA_BW_QMD_MAX_SHARED_BYTES, "o_proj deep x stage %u bytes must exceed the %u-byte launch limit (why it stays classic)", omega_fp8_gemv_shared_bytes(&od), OMEGA_BW_QMD_MAX_SHARED_BYTES);
-        if (on) CHECK(omega_fp8_gemv_shared_bytes(&q) != 0 && omega_fp8_gemv_shared_bytes(&q) <= OMEGA_BW_QMD_MAX_SHARED_BYTES, "qkv deep shared %u bytes within the launch limit", omega_fp8_gemv_shared_bytes(&q));
+        CHECK(omega_fp8_gemv_shared_bytes(&od) > OMEGA_GPU_FP8_DEEP_MAX_SHARED_BYTES, "o_proj deep x stage %u bytes must exceed the %u-byte measured deep bound (why it stays classic)", omega_fp8_gemv_shared_bytes(&od), OMEGA_GPU_FP8_DEEP_MAX_SHARED_BYTES);
+        if (on) CHECK(omega_fp8_gemv_shared_bytes(&q) != 0 && omega_fp8_gemv_shared_bytes(&q) <= OMEGA_GPU_FP8_DEEP_MAX_SHARED_BYTES, "qkv deep shared %u bytes within the measured deep bound", omega_fp8_gemv_shared_bytes(&q));
         if (pass == 0) printf("deep default %d: qkv 5120x2048 depth %u (coal %u, shared %u), o_proj 2048x4096 depth %u, gate_up 8x1536x2048 depth %u\n", want, q.depth, q.coal, omega_fp8_gemv_shared_bytes(&q), o.depth, gu.depth);
     }
     /* The choice runs on every launch and every graph record (48 qkv records per token). SPEED-1B graph A/B: an unremembered
