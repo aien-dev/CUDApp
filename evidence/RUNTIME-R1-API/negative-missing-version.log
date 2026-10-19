@@ -1,0 +1,11 @@
+# negative control: missing-version. Edit applied to a COPY of omega_runtime_api.h: sed '/define OMEGA_RUNTIME_API_VERSION_MAJOR/d'
+# diff of the copy against the real header:
+12d11
+< #define OMEGA_RUNTIME_API_VERSION_MAJOR 0
+# check output:
+FAIL: version macros or headers do not compile:
+      /tmp/r1neg-missing-version/work/probe.c:7:2: error: #error "version macro missing: OMEGA_RUNTIME_API_VERSION_MAJOR"
+          7 | #error "version macro missing: OMEGA_RUNTIME_API_VERSION_MAJOR"
+      /tmp/r1neg-missing-version/work/probe.c:297:70: error: ‘OMEGA_RUNTIME_API_VERSION_MAJOR’ undeclared (first use in this function); did you mean ‘OMEGA_RUNTIME_API_VERSION_MINOR’?
+RESULT: FAIL (runtime API check, compile stage)
+# exit code: 1
