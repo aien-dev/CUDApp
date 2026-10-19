@@ -240,7 +240,69 @@ static void deep_default_check(void) {
     omega_gpu_fp8_set_deep(want);
 }
 
+/* qwen38/decode-speed: the host quantiser (FP8 lm_head). Every e4m3 rounding against a brute-force nearest-code search
+ * (ties to the even code, saturation at 448, never 0x7F), then a block round trip against the upload format's maths. */
+static double e4m3_val(unsigned c) { unsigned e = (c >> 3) & 15u, m = c & 7u; double v = e ? (1.0 + m / 8.0) * pow(2.0, (int)e - 7) : m / 8.0 * pow(2.0, -6); return (c & 0x80u) ? -v : v; }
+static unsigned e4m3_brute(float v) {
+    double a = fabs((double)v); unsigned best = 0; double bd = 1e300;
+    if (a >= 448.0) return (v < 0 ? 0x80u : 0u) | 0x7Eu;
+    for (unsigned c = 0; c <= 0x7Eu; c++) { double d = fabs(e4m3_val(c) - a); if (d < bd || (d == bd && !(c & 1u))) { bd = d; best = c; } }
+    return ((v < 0 || (v == 0 && signbit(v))) ? 0x80u : 0u) | best;
+}
+static void e4m3_quant_check(void) {
+    int bad = 0, nan = 0; uint32_t s = 12345u;
+    for (unsigned c = 0; c <= 0x7Eu; c++) { /* every code, the midpoints to both neighbours, and their negatives */
+        float pts[3] = { (float)e4m3_val(c), c ? (float)((e4m3_val(c) + e4m3_val(c - 1)) / 2) : 0.0f, c < 0x7E ? (float)((e4m3_val(c) + e4m3_val(c + 1)) / 2) : 460.0f };
+        for (int i = 0; i < 3; i++) for (int sg = 0; sg < 2; sg++) { float v = sg ? -pts[i] : pts[i]; unsigned q = omega_gpu_fp8_e4m3_rne(v); if (q != e4m3_brute(v)) bad++; if ((q & 0x7Fu) == 0x7Fu) nan++; }
+    }
+    for (int i = 0; i < 200000; i++) { /* random magnitudes over 2^-12 .. 2^10 */
+        s = s * 1664525u + 1013904223u; float m = (float)(s >> 8) / 16777216.0f; s = s * 1664525u + 1013904223u;
+        float v = (1.0f + m) * ldexpf(1.0f, (int)(s >> 27) - 12 - (int)((s >> 20) & 3u)); if (s & 1u) v = -v;
+        unsigned q = omega_gpu_fp8_e4m3_rne(v); if (q != e4m3_brute(v)) bad++; if ((q & 0x7Fu) == 0x7Fu) nan++;
+    }
+    CHECK(bad == 0 && nan == 0, "e4m3 rounding: %d codes differ from the brute-force nearest-even, %d NaN codes", bad, nan);
+    CHECK(omega_gpu_fp8_e4m3_rne(1e30f) == 0x7Eu && omega_gpu_fp8_e4m3_rne(-1e30f) == 0xFEu && omega_gpu_fp8_e4m3_rne(0.0f) == 0u, "e4m3 saturation and zero");
+    /* block round trip: 256 x 384 bf16 with a zero block, w8 * scale within half an e4m3 step of w, scale >= amax / 448 */
+    enum { N = 256, K = 384 }; static uint16_t w[N * K], sc[(N / 128) * (K / 128)]; static uint8_t w8[N * K];
+    for (int i = 0; i < N * K; i++) { s = s * 1664525u + 1013904223u; float f = ((float)(s >> 8) / 16777216.0f - 0.5f) * ((i / K) < 128 ? 0.02f : 3.0f); uint32_t b; memcpy(&b, &f, 4); w[i] = (uint16_t)(b >> 16); }
+    for (int r = 0; r < 128; r++) for (int c = 128; c < 256; c++) w[r * K + c] = 0;
+    CHECK(omega_gpu_fp8_quantize_bf16(N, K, w, w8, sc) == OMEGA_GPU_FP8_OK, "quantize 256 x 384");
+    int far = 0, nanq = 0; double worst = 0;
+    for (int r = 0; r < N; r++) for (int c = 0; c < K; c++) {
+        uint32_t b = (uint32_t)sc[(r / 128) * (K / 128) + c / 128] << 16; float scf; memcpy(&scf, &b, 4);
+        uint32_t wb = (uint32_t)w[r * K + c] << 16; float wf; memcpy(&wf, &wb, 4);
+        double back = e4m3_val(w8[r * K + c]) * scf, err = fabs(back - wf), rel = err / fabs((double)wf ? wf : 1);
+        if ((w8[r * K + c] & 0x7Fu) == 0x7Fu) nanq++;
+        if (w8[r * K + c] != e4m3_brute(wf / scf)) far++;
+        if (wf != 0 && fabs(wf) > 0.1 * scf && rel > worst) worst = rel;
+    }
+    CHECK(far == 0 && nanq == 0 && worst <= 0.0625 + 1e-9, "quantize round trip: %d codes off the nearest, %d NaN, worst rel %.4f (<= 1/16)", far, nanq, worst);
+    CHECK(sc[1] == 0x3F80u, "all-zero block gets scale 1 (0x%04x)", sc[1]);
+    uint16_t inf[128 * 128] = { 0 }; inf[77] = 0x7F80u; uint8_t o8[128 * 128]; uint16_t os[1];
+    CHECK(omega_gpu_fp8_quantize_bf16(128, 128, inf, o8, os) == OMEGA_GPU_FP8_BAD_ARGS, "quantize refuses an inf weight");
+}
+
+/* qwen38/decode-speed: the big-k rule's choices (chip parity of these specs: fp8par1 in the speed handoff) */
+static void bigk_check(void) {
+    static const struct { uint32_t n, k, warps, depth; } want[] = { { 34816, 5120, 16, 5 }, { 16384, 5120, 16, 5 }, { 14336, 5120, 16, 5 },
+                                                                    { 5120, 6144, 16, 6 }, { 5120, 17408, 16, 0 }, { 2048, 4096, 8, 0 }, { 5120, 2048, 8, 4 } };
+    for (int on = 0; on < 2; on++) {
+        omega_gpu_fp8_set_bigk(on);
+        for (size_t i = 0; i < sizeof want / sizeof want[0]; i++) {
+            OmegaFp8GemvSpec sp; omega_gpu_fp8_spec_for(want[i].k, want[i].n, 1, &sp);
+            const int big = on && want[i].k > 4096u;
+            const uint32_t ww = big ? want[i].warps : 8u, wd = big ? want[i].depth : (want[i].k == 2048u ? 4u : 0u);
+            CHECK(sp.warps == ww && sp.depth == wd && sp.coal == 1u, "bigk %d: %ux%u warps %u depth %u coal %u (want %u, %u, 1)", on, want[i].n, want[i].k, sp.warps, sp.depth, sp.coal, ww, wd);
+        }
+        OmegaFp8GemvSpec g8; omega_gpu_fp8_spec_for(5120, 34816, 8, &g8);
+        CHECK(g8.warps == 32u && g8.depth == 0u, "bigk %d: grouped launches keep 32 warps, classic (warps %u depth %u)", on, g8.warps, g8.depth);
+    }
+    omega_gpu_fp8_set_bigk(0);
+}
+
 static void host_only(void) {
+    e4m3_quant_check();
+    bigk_check();
     if (!g_coal_arg) coal_default_check();
     deep_default_check();
     /* 1. exhaustive conversion: kernel bits * 2^120 == reference, bit for bit, for every non-NaN code;

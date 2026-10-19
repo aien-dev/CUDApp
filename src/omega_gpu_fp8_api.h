@@ -88,6 +88,11 @@ typedef struct OmegaGpuFp8Tensor OmegaGpuFp8Tensor;
 
 int omega_gpu_fp8_tensor_upload(uint32_t experts, uint32_t n, uint32_t k, const uint8_t *w,
                                 const uint16_t *scale_inv_bf16, OmegaGpuFp8Tensor **out);
+/* Host-only quantiser (qwen38/decode-speed, the FP8 lm_head): bf16 [n][k] -> e4m3 [n][k] + scale_inv bf16 [n/128][k/128], the
+ * upload format above. Per 128 x 128 block: scale = max|w| / 448 rounded up to bf16 (1 for an all-zero block), w8 = e4m3(w / scale),
+ * round to nearest even, saturating at 448 (never the NaN code). n, k multiples of 128. OMEGA_GPU_FP8_BAD_ARGS on an inf/NaN weight. */
+int omega_gpu_fp8_quantize_bf16(uint32_t n, uint32_t k, const uint16_t *w_bf16, uint8_t *w8, uint16_t *scale_inv_bf16);
+uint8_t omega_gpu_fp8_e4m3_rne(float v); /* one value, the rounding the quantiser uses */
 void omega_gpu_fp8_tensor_free(OmegaGpuFp8Tensor *t);
 void omega_gpu_fp8_tensor_shape(const OmegaGpuFp8Tensor *t, uint32_t *experts, uint32_t *n, uint32_t *k);
 
@@ -169,6 +174,11 @@ int omega_gpu_fp8_wfirst(void);
  * cold 0.732 -> 0.853 of line). AIEN_OMEGA_FP8_DEEP=0 or set_deep(0) keeps the step-by-step kernel everywhere. */
 void omega_gpu_fp8_set_deep(int on);
 int omega_gpu_fp8_deep(void);
+/* Big-k rule (qwen38/decode-speed): single projections with k > 4096 get 16 warps per CTA and, when x fits the launch
+ * descriptor's shared memory, the deep kernel at the largest step count that divides the row within the lane budget
+ * (k 5120: 5 steps, k 6144: 6). 0 (default until measured in the whole model) or 1; env AIEN_OMEGA_FP8_BIGK when never set. */
+void omega_gpu_fp8_set_bigk(int on);
+int omega_gpu_fp8_bigk(void);
 /* Host-only: the spec the automatic choice makes for a call of k columns, n rows, `groups` experts under the current knobs
  * (shape, depth, sched, coal, wfirst, mutant). No chip, no kernel build. */
 void omega_gpu_fp8_spec_for(uint32_t k, uint32_t n, uint32_t groups, OmegaFp8GemvSpec *spec);
