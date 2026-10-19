@@ -175,7 +175,7 @@ static void cross_warp_sum(Em *e, int acc[4], int pa, int one, int la) {
 }
 
 int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog) {
-    if (!spec || !prog || spec->mutant < 0 || spec->mutant > 4) return -1;
+    if (!spec || !prog || spec->copy || spec->mutant < 0 || spec->mutant > 4) return -1;
     const int MUT = spec->mutant;
     const uint32_t C_LOG2E = fbits(1.44269504f), C_NLOG2E = fbits(-1.44269504f), C_LN2 = fbits(0.693147181f);
     const uint32_t C_ONE = fbits(1.0f), C_M1 = fbits(-1.0f), C_INV128 = fbits(1.0f / 128.0f);
@@ -379,6 +379,37 @@ int omega_gdn_prog_stats(const OmegaGdnSpec *spec, uint32_t *insns, uint32_t *gp
     return 0;
 }
 
+/* ======== state copy / zero (see the header) ======== */
+int omega_blackwell_codegen_gdn_copy_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog) {
+    if (!spec || !prog || spec->mutant || (spec->copy != OMEGA_GDN_COPY && spec->copy != OMEGA_GDN_ZERO)) return -1;
+    omega_bw_ir_init(prog);
+    Em em; memset(&em, 0, sizeof em); em.p = prog; Em *e = &em;
+    int udesc = UV64(e), tid = V(e), cx = V(e), w = V(e), pd = V64(e), ad = V64(e), v[4];
+    for (unsigned j = 0; j < 4; j++) v[j] = V(e);
+    if (e->err) return -1;
+    ldcu64(e, udesc, 0x358);
+    ldc64(e, pd, OMEGA_GDN_COPY_ARG_DST);
+    s2r(e, tid, BW_SR_TID_X); s2r(e, cx, BW_SR_CTAID_X);
+    imadi(e, R(w), R(cx), OMEGA_GDN_COPY_WORDS_PER_CTA, tid);
+    imadw(e, ad, w, 4u, pd);
+    if (spec->copy == OMEGA_GDN_COPY) {
+        /* the 32-bit LDG.E carries no immediate: one address per word */
+        int ps = V64(e), one = V(e), wj[4], as[4];
+        for (unsigned j = 0; j < 4; j++) { wj[j] = V(e); as[j] = V64(e); }
+        if (e->err) return -1;
+        ldc64(e, ps, OMEGA_GDN_COPY_ARG_SRC);
+        movi(e, one, 1);
+        for (unsigned j = 0; j < 4; j++) { imadi(e, R(wj[j]), R(one), j * OMEGA_GDN_COPY_THREADS, w); imadw(e, as[j], wj[j], 4u, ps); }
+        for (unsigned j = 0; j < 4; j++) ldg_wide(e, BW_IR_LDG_E, v[j], as[j], 0, udesc, j == 0);
+    } else {
+        for (unsigned j = 0; j < 4; j++) movrz(e, R(v[j]));
+    }
+    for (unsigned j = 0; j < 4; j++) stg(e, ad, j * OMEGA_GDN_COPY_THREADS * 4u, R(v[j]), udesc);
+    tail(e);
+    if (e->err) return -1;
+    return omega_bw_regalloc_solve(prog);
+}
+
 /* ======== prefill (omega#543): prep, scan, post (layouts in the header) ======== */
 
 /* softplus, decay and beta of one value head (the decode phase C maths): abq = {a, b}, scq = {negA, dt_bias} */
@@ -402,7 +433,7 @@ static void gdn_scalars(Em *e, int MUT, int abq, int scq, int dec, int beta, int
 }
 
 int omega_blackwell_codegen_gdn_prep_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog) {
-    if (!spec || !prog || spec->mutant < 0 || spec->mutant > 4) return -1;
+    if (!spec || !prog || spec->copy || spec->mutant < 0 || spec->mutant > 4) return -1;
     const int MUT = spec->mutant;
     const float qs = 0.0883883476f; /* 1 / sqrt(128) */
     const uint32_t ROW = OMEGA_GDN_CONV_DIM * 4u, REC_ROW = OMEGA_GDN_VALUE_HEADS * OMEGA_GDN_REC_BYTES;
@@ -562,7 +593,7 @@ int omega_blackwell_codegen_gdn_prep_prog(const OmegaGdnSpec *spec, BlackwellIRP
 }
 
 int omega_blackwell_codegen_gdn_scan_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog) {
-    if (!spec || !prog || spec->mutant < 0 || spec->mutant > 4) return -1;
+    if (!spec || !prog || spec->copy || spec->mutant < 0 || spec->mutant > 4) return -1;
     const int MUT = spec->mutant;
     const uint32_t ROW = OMEGA_GDN_CONV_DIM * 4u, CHUNK_ROW = OMEGA_GDN_SCAN_CHUNK * OMEGA_GDN_VALUE_HEADS * OMEGA_GDN_REC_BYTES;
     omega_bw_ir_init(prog);
@@ -704,7 +735,7 @@ int omega_blackwell_codegen_gdn_scan_prog(const OmegaGdnSpec *spec, BlackwellIRP
 }
 
 int omega_blackwell_codegen_gdn_post_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog) {
-    if (!spec || !prog || spec->mutant < 0 || spec->mutant > 4) return -1;
+    if (!spec || !prog || spec->copy || spec->mutant < 0 || spec->mutant > 4) return -1;
     const int MUT = spec->mutant;
     omega_bw_ir_init(prog);
     Em em; memset(&em, 0, sizeof em); em.p = prog; Em *e = &em;

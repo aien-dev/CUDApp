@@ -82,12 +82,27 @@
 typedef struct {
     int mutant; /* TEST ONLY. 0 none; 1 no decay (decay = 1); 2 beta = 1; 3 the output gate is z, not silu(z);
                  * 4 the conv tail is not shifted (the next step convolves stale history). */
+    int copy;   /* 0: the GDN kernels. OMEGA_GDN_COPY / OMEGA_GDN_ZERO: omega_blackwell_codegen_gdn_copy_prog */
 } OmegaGdnSpec;
 
 /* Builds the register-allocated IR program into *prog. 0 ok, -1 refused. */
 int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog);
 /* Instruction and peak-register counts (host, no device). */
 int omega_gdn_prog_stats(const OmegaGdnSpec *spec, uint32_t *insns, uint32_t *gprs);
+
+/* ---- state copy / zero (qwen38/decode-speed, 2026-10-19): the tail and state live in GPU-cached memory (nvos.h
+ * NVOS32_ATTR2_GPU_CACHEABLE_YES: "For system memory this will not be coherent with direct CPU mappings"), so the host
+ * never writes or reads them directly: reset zeroes them on the chip, set_state / get_state copy through an uncached
+ * staging buffer. One launch moves 1024 words per CTA (grid words / 1024, 256 threads, thread t word 1024 c + 256 j + t,
+ * j = 0..3: every LDG.E / STG.E of a warp covers 128 contiguous bytes). COPY: dst[i] = src[i]; ZERO: dst[i] = 0. */
+#define OMEGA_GDN_COPY 1
+#define OMEGA_GDN_ZERO 2
+#define OMEGA_GDN_COPY_WORDS_PER_CTA 1024u
+#define OMEGA_GDN_COPY_THREADS 256u
+#define OMEGA_GDN_COPY_ARG_SRC 0x380u    /* COPY only */
+#define OMEGA_GDN_COPY_ARG_DST 0x388u
+#define OMEGA_GDN_COPY_ARGS_WORDS 4u
+int omega_blackwell_codegen_gdn_copy_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog);
 
 /* ---- prefill (omega#543, 2026-10-18): three launches per layer over T >= 3 new tokens, the same tail and state ----
  *   prep  grid (ceil(T / 16), 16 key heads), 128 threads. Thread c convolves 5 channels of its key head (q c, k c and v c

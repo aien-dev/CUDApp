@@ -1,7 +1,8 @@
 /*
  * omega_gpu_gdn_api.c: resident Gated DeltaNet parameters, tails, states and the one-launch decode step (see the
- * header). Session use mirrors omega_gpu_router_api.c: every buffer from omega_gpu_session_alloc (GPU-uncached,
- * host-visible), sync_to_gpu after host writes, sync_to_cpu before host reads, one omega_gpu_session_launch per call.
+ * header). Session use mirrors omega_gpu_router_api.c: buffers from omega_gpu_session_alloc (GPU-uncached, host-visible),
+ * sync_to_gpu after host writes, sync_to_cpu before host reads, one omega_gpu_session_launch per call; the tails and states
+ * are the exception (GPU-cached, reached by the host only through the copy / zero launches).
  */
 #include "omega_gpu_gdn_api.h"
 #include "omega_gpu_hostmath.h"
@@ -11,6 +12,8 @@
 #include <math.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdlib.h>
+#include "omega_gpu_mem_cached.h"
 
 #define MARKER_TIMEOUT_MS 20000ull
 #define POISON_F32 (-999.0f)
@@ -28,6 +31,8 @@ struct OmegaGpuGdn {
     OmegaGpuMem tail;  /* [layers][OMEGA_GDN_TAIL_BYTES] */
     OmegaGpuMem state; /* [layers][OMEGA_GDN_STATE_BYTES] */
     OmegaGpuMem lb;    /* launch buffer */
+    int cached;        /* tail and state GPU-cached: the host reaches them only through the chip (reset, stage) */
+    OmegaGpuMem stage; /* cached: uncached staging for set_state / get_state, [state of one layer][tail of one layer] */
     OmegaGpuScratch pf; /* prefill scratch (see pf_layout) */
 };
 
@@ -39,9 +44,10 @@ typedef struct {
     uint32_t insns;
 } Slot;
 
-/* the resident kernels: decode, prefill prep, scan, post */
-enum { KK_DECODE, KK_PREP, KK_SCAN, KK_POST, KK_N };
-static const uint32_t kk_threads[KK_N] = { OMEGA_GDN_THREADS, OMEGA_GDN_PREP_THREADS, OMEGA_GDN_THREADS, OMEGA_GDN_THREADS };
+/* the resident kernels: decode, prefill prep, scan, post; the state copy and zero */
+enum { KK_DECODE, KK_PREP, KK_SCAN, KK_POST, KK_COPY, KK_ZERO, KK_N };
+static const uint32_t kk_threads[KK_N] = { OMEGA_GDN_THREADS, OMEGA_GDN_PREP_THREADS, OMEGA_GDN_THREADS, OMEGA_GDN_THREADS,
+                                           OMEGA_GDN_COPY_THREADS, OMEGA_GDN_COPY_THREADS };
 static struct {
     bool hooked;
     Slot slot[KK_N];
@@ -116,6 +122,8 @@ int omega_gdn_unpack_tail(const float *dev, float *tail) {
 }
 
 /* ---- buffers ---- */
+static int zero_ts_locked(OmegaGpuGdn *g);
+static int move_locked(unsigned kind, uint64_t src, uint64_t dst, size_t bytes);
 int omega_gpu_gdn_alloc(uint32_t layers, OmegaGpuGdn **out) {
     if (!out || layers == 0 || layers > OMEGA_GPU_GDN_MAX_LAYERS) return OMEGA_GPU_GDN_BAD_ARGS;
     *out = NULL;
@@ -126,17 +134,22 @@ int omega_gpu_gdn_alloc(uint32_t layers, OmegaGpuGdn **out) {
     int rc = OMEGA_GPU_GDN_OK;
     if (!dev_open_locked()) rc = OMEGA_GPU_GDN_CHIP_FAIL;
     if (rc == OMEGA_GPU_GDN_OK && omega_gpu_session_alloc((size_t)layers * OMEGA_GDN_PAR_BYTES, &g->par) != 0) rc = OMEGA_GPU_GDN_CHIP_FAIL;
-    if (rc == OMEGA_GPU_GDN_OK && omega_gpu_session_alloc((size_t)layers * OMEGA_GDN_TAIL_BYTES, &g->tail) != 0) rc = OMEGA_GPU_GDN_CHIP_FAIL;
-    if (rc == OMEGA_GPU_GDN_OK && omega_gpu_session_alloc((size_t)layers * OMEGA_GDN_STATE_BYTES, &g->state) != 0) rc = OMEGA_GPU_GDN_CHIP_FAIL;
+    /* tail and state GPU-cached unless AIEN_OMEGA_GDN_STATE_CACHED=0 (measured: the decode step 129 -> 43 us per layer,
+     * runs/probe-gdn): the step's 64 scalar state stores per thread merge in L2 instead of going to DRAM one by one */
+    const char *pc = getenv("AIEN_OMEGA_GDN_STATE_CACHED");
+    g->cached = !(pc && pc[0] == '0' && pc[1] == 0);
+    int (*const alloc_ts)(size_t, OmegaGpuMem *) = g->cached ? omega_gpu_session_alloc_cached : omega_gpu_session_alloc;
+    if (rc == OMEGA_GPU_GDN_OK && alloc_ts((size_t)layers * OMEGA_GDN_TAIL_BYTES, &g->tail) != 0) rc = OMEGA_GPU_GDN_CHIP_FAIL;
+    if (rc == OMEGA_GPU_GDN_OK && alloc_ts((size_t)layers * OMEGA_GDN_STATE_BYTES, &g->state) != 0) rc = OMEGA_GPU_GDN_CHIP_FAIL;
     if (rc == OMEGA_GPU_GDN_OK && omega_gpu_session_alloc(LB_BYTES, &g->lb) != 0) rc = OMEGA_GPU_GDN_CHIP_FAIL;
     if (rc == OMEGA_GPU_GDN_OK) {
         memset(g->par.cpu, 0, (size_t)layers * OMEGA_GDN_PAR_BYTES);
-        memset(g->tail.cpu, 0, (size_t)layers * OMEGA_GDN_TAIL_BYTES);
-        memset(g->state.cpu, 0, (size_t)layers * OMEGA_GDN_STATE_BYTES);
         memset(g->lb.cpu, 0, LB_BYTES);
-        if (omega_gpu_session_sync_to_gpu(&g->par) != 0 || omega_gpu_session_sync_to_gpu(&g->tail) != 0 ||
-            omega_gpu_session_sync_to_gpu(&g->state) != 0 || omega_gpu_session_sync_to_gpu(&g->lb) != 0) rc = OMEGA_GPU_GDN_CHIP_FAIL;
+        if (omega_gpu_session_sync_to_gpu(&g->par) != 0 || omega_gpu_session_sync_to_gpu(&g->lb) != 0) rc = OMEGA_GPU_GDN_CHIP_FAIL;
     }
+    /* tail and state start at zero (cached: zeroed by the chip, since a recycled page may still have lines in L2 that a
+     * CPU write would not reach) */
+    if (rc == OMEGA_GPU_GDN_OK) rc = zero_ts_locked(g);
     omega_gpu_session_unlock();
     if (rc != OMEGA_GPU_GDN_OK) { omega_gpu_gdn_free(g); return rc; }
     *out = g;
@@ -150,6 +163,7 @@ void omega_gpu_gdn_free(OmegaGpuGdn *g) {
     if (g->tail.cpu) omega_gpu_session_free(&g->tail);
     if (g->state.cpu) omega_gpu_session_free(&g->state);
     if (g->lb.cpu) omega_gpu_session_free(&g->lb);
+    if (g->stage.cpu) omega_gpu_session_free(&g->stage);
     omega_gpu_session_scratch_free(&g->pf);
     omega_gpu_session_unlock();
     omega_gpu_host_free(g);
@@ -169,19 +183,36 @@ int omega_gpu_gdn_set_layer(OmegaGpuGdn *g, uint32_t layer, const float *conv_w,
 int omega_gpu_gdn_reset(OmegaGpuGdn *g) {
     if (!g) return OMEGA_GPU_GDN_BAD_ARGS;
     omega_gpu_session_lock();
-    memset(g->tail.cpu, 0, (size_t)g->layers * OMEGA_GDN_TAIL_BYTES);
-    memset(g->state.cpu, 0, (size_t)g->layers * OMEGA_GDN_STATE_BYTES);
-    int rc = (omega_gpu_session_sync_to_gpu(&g->tail) == 0 && omega_gpu_session_sync_to_gpu(&g->state) == 0) ? OMEGA_GPU_GDN_OK : OMEGA_GPU_GDN_CHIP_FAIL;
+    int rc = dev_open_locked() ? zero_ts_locked(g) : OMEGA_GPU_GDN_CHIP_FAIL;
     omega_gpu_session_unlock();
     return rc;
+}
+
+/* cached: the staging buffer [state][tail] of one layer (uncached), made on first use */
+static int stage_locked(OmegaGpuGdn *g) {
+    if (g->stage.cpu) return OMEGA_GPU_GDN_OK;
+    return omega_gpu_session_alloc((size_t)OMEGA_GDN_STATE_BYTES + OMEGA_GDN_TAIL_BYTES, &g->stage) == 0 ? OMEGA_GPU_GDN_OK : OMEGA_GPU_GDN_CHIP_FAIL;
 }
 
 int omega_gpu_gdn_set_state(OmegaGpuGdn *g, uint32_t layer, const float *tail, const float *state) {
     if (!g || layer >= g->layers || !tail || !state) return OMEGA_GPU_GDN_BAD_ARGS;
     omega_gpu_session_lock();
-    omega_gdn_pack_tail(tail, (float *)((uint8_t *)g->tail.cpu + (size_t)layer * OMEGA_GDN_TAIL_BYTES));
-    memcpy((uint8_t *)g->state.cpu + (size_t)layer * OMEGA_GDN_STATE_BYTES, state, OMEGA_GDN_STATE_BYTES);
-    int rc = (omega_gpu_session_sync_to_gpu(&g->tail) == 0 && omega_gpu_session_sync_to_gpu(&g->state) == 0) ? OMEGA_GPU_GDN_OK : OMEGA_GPU_GDN_CHIP_FAIL;
+    int rc = OMEGA_GPU_GDN_OK;
+    const size_t so = (size_t)layer * OMEGA_GDN_STATE_BYTES, to = (size_t)layer * OMEGA_GDN_TAIL_BYTES;
+    if (!g->cached) {
+        omega_gdn_pack_tail(tail, (float *)((uint8_t *)g->tail.cpu + to));
+        memcpy((uint8_t *)g->state.cpu + so, state, OMEGA_GDN_STATE_BYTES);
+        rc = (omega_gpu_session_sync_to_gpu(&g->tail) == 0 && omega_gpu_session_sync_to_gpu(&g->state) == 0) ? OMEGA_GPU_GDN_OK : OMEGA_GPU_GDN_CHIP_FAIL;
+    } else {
+        rc = dev_open_locked() ? stage_locked(g) : OMEGA_GPU_GDN_CHIP_FAIL;
+        if (rc == OMEGA_GPU_GDN_OK) {
+            memcpy(g->stage.cpu, state, OMEGA_GDN_STATE_BYTES);
+            omega_gdn_pack_tail(tail, (float *)((uint8_t *)g->stage.cpu + OMEGA_GDN_STATE_BYTES));
+            if (omega_gpu_session_sync_to_gpu(&g->stage) != 0) rc = OMEGA_GPU_GDN_CHIP_FAIL;
+        }
+        if (rc == OMEGA_GPU_GDN_OK) rc = move_locked(KK_COPY, g->stage.va, g->state.va + so, OMEGA_GDN_STATE_BYTES);
+        if (rc == OMEGA_GPU_GDN_OK) rc = move_locked(KK_COPY, g->stage.va + OMEGA_GDN_STATE_BYTES, g->tail.va + to, OMEGA_GDN_TAIL_BYTES);
+    }
     omega_gpu_session_unlock();
     return rc;
 }
@@ -189,13 +220,24 @@ int omega_gpu_gdn_set_state(OmegaGpuGdn *g, uint32_t layer, const float *tail, c
 int omega_gpu_gdn_get_state(OmegaGpuGdn *g, uint32_t layer, float *tail, float *state) {
     if (!g || layer >= g->layers || (!tail && !state)) return OMEGA_GPU_GDN_BAD_ARGS;
     omega_gpu_session_lock();
-    int rc = (omega_gpu_session_sync_to_cpu(&g->tail) == 0 && omega_gpu_session_sync_to_cpu(&g->state) == 0) ? OMEGA_GPU_GDN_OK : OMEGA_GPU_GDN_CHIP_FAIL;
-    if (rc == OMEGA_GPU_GDN_OK && tail &&
-        omega_gdn_unpack_tail((const float *)((const uint8_t *)g->tail.cpu + (size_t)layer * OMEGA_GDN_TAIL_BYTES), tail) != 0) {
+    int rc = OMEGA_GPU_GDN_OK;
+    const size_t so = (size_t)layer * OMEGA_GDN_STATE_BYTES, to = (size_t)layer * OMEGA_GDN_TAIL_BYTES;
+    const uint8_t *sp, *tp;
+    if (!g->cached) {
+        rc = (omega_gpu_session_sync_to_cpu(&g->tail) == 0 && omega_gpu_session_sync_to_cpu(&g->state) == 0) ? OMEGA_GPU_GDN_OK : OMEGA_GPU_GDN_CHIP_FAIL;
+        sp = (const uint8_t *)g->state.cpu + so; tp = (const uint8_t *)g->tail.cpu + to;
+    } else {
+        rc = dev_open_locked() ? stage_locked(g) : OMEGA_GPU_GDN_CHIP_FAIL;
+        if (rc == OMEGA_GPU_GDN_OK) rc = move_locked(KK_COPY, g->state.va + so, g->stage.va, OMEGA_GDN_STATE_BYTES);
+        if (rc == OMEGA_GPU_GDN_OK) rc = move_locked(KK_COPY, g->tail.va + to, g->stage.va + OMEGA_GDN_STATE_BYTES, OMEGA_GDN_TAIL_BYTES);
+        if (rc == OMEGA_GPU_GDN_OK && omega_gpu_session_sync_to_cpu(&g->stage) != 0) rc = OMEGA_GPU_GDN_CHIP_FAIL;
+        sp = g->stage.cpu; tp = sp + OMEGA_GDN_STATE_BYTES;
+    }
+    if (rc == OMEGA_GPU_GDN_OK && tail && omega_gdn_unpack_tail((const float *)tp, tail) != 0) {
         omega_gpu_session_set_error("gdn: the per-head copies of a key head's conv tail disagree");
         rc = OMEGA_GPU_GDN_CHIP_FAIL;
     }
-    if (rc == OMEGA_GPU_GDN_OK && state) memcpy(state, (const uint8_t *)g->state.cpu + (size_t)layer * OMEGA_GDN_STATE_BYTES, OMEGA_GDN_STATE_BYTES);
+    if (rc == OMEGA_GPU_GDN_OK && state) memcpy(state, sp, OMEGA_GDN_STATE_BYTES);
     omega_gpu_session_unlock();
     return rc;
 }
@@ -207,6 +249,7 @@ static int kernel_build(unsigned kind, const OmegaGdnSpec *spec, BlackwellIRProg
     case KK_PREP: return omega_blackwell_codegen_gdn_prep_prog(spec, prog);
     case KK_SCAN: return omega_blackwell_codegen_gdn_scan_prog(spec, prog);
     case KK_POST: return omega_blackwell_codegen_gdn_post_prog(spec, prog);
+    case KK_COPY: case KK_ZERO: return omega_blackwell_codegen_gdn_copy_prog(spec, prog);
     default: return -1;
     }
 }
@@ -239,6 +282,37 @@ static int kernel_for(unsigned kind, const OmegaGdnSpec *spec, Slot **out, bool 
     return OMEGA_GPU_GDN_OK;
 }
 
+
+/* One copy (KK_COPY: dst = src) or zero (KK_ZERO: dst = 0, src unused) launch over `bytes` (a multiple of 4096), submitted
+ * and waited for. Caller holds the session lock with the device open. */
+static int move_locked(unsigned kind, uint64_t src, uint64_t dst, size_t bytes) {
+    const size_t per = (size_t)OMEGA_GDN_COPY_WORDS_PER_CTA * 4u;
+    if ((kind != KK_COPY && kind != KK_ZERO) || !dst || bytes == 0 || bytes % per || bytes / per > 0x7fffffffu) return OMEGA_GPU_GDN_BAD_ARGS;
+    OmegaGdnSpec spec; memset(&spec, 0, sizeof spec);
+    spec.copy = kind == KK_COPY ? OMEGA_GDN_COPY : OMEGA_GDN_ZERO;
+    Slot *ks = NULL; bool hit = false;
+    int rc = kernel_for(kind, &spec, &ks, &hit);
+    if (rc != OMEGA_GPU_GDN_OK) return rc;
+    uint32_t args[OMEGA_GDN_COPY_ARGS_WORDS] = { (uint32_t)src, (uint32_t)(src >> 32), (uint32_t)dst, (uint32_t)(dst >> 32) };
+    OmegaGpuLaunch L = {
+        .code_va = ks->code.va, .gpr_count = omega_bw_gpr_declared(ks->kernel.gpr_count),
+        .threads_x = OMEGA_GDN_COPY_THREADS, .threads_y = 1, .grid_x = (uint32_t)(bytes / per), .grid_y = 1,
+        .num_elements = bytes / 4u, .args = args, .n_args = OMEGA_GDN_COPY_ARGS_WORDS, .timeout_ms = MARKER_TIMEOUT_MS,
+    };
+    if (!omega_bw_gpr_declared_ok(L.gpr_count, ks->kernel.gpr_count)) { omega_gpu_session_set_error("declared registers below peak + 2: refusing to launch"); return OMEGA_GPU_GDN_CHIP_FAIL; }
+    return omega_gpu_session_launch(&L, NULL, NULL) == 0 ? OMEGA_GPU_GDN_OK : OMEGA_GPU_GDN_CHIP_FAIL;
+}
+
+/* Every layer's tail and state to zero: cached on the chip, uncached by the host. Caller holds the lock, device open. */
+static int zero_ts_locked(OmegaGpuGdn *g) {
+    const size_t tb = (size_t)g->layers * OMEGA_GDN_TAIL_BYTES, sb = (size_t)g->layers * OMEGA_GDN_STATE_BYTES;
+    if (!g->cached) {
+        memset(g->tail.cpu, 0, tb); memset(g->state.cpu, 0, sb);
+        return (omega_gpu_session_sync_to_gpu(&g->tail) == 0 && omega_gpu_session_sync_to_gpu(&g->state) == 0) ? OMEGA_GPU_GDN_OK : OMEGA_GPU_GDN_CHIP_FAIL;
+    }
+    int rc = move_locked(KK_ZERO, 0, g->tail.va, tb);
+    return rc == OMEGA_GPU_GDN_OK ? move_locked(KK_ZERO, 0, g->state.va, sb) : rc;
+}
 /* rec non-NULL (record path, caller holds the session lock): the inputs are the device rows dev_*, the launch is
  * appended to rec instead of submitted, nothing is staged, poisoned or read back. */
 static int gdn_core(OmegaGpuGdn *g, uint32_t layer, const float *qkv, const float *z, const float *ab, float eps_l2,

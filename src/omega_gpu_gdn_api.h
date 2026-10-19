@@ -6,6 +6,9 @@
  *
  *   int  omega_gpu_gdn_alloc(uint32_t layers, OmegaGpuGdn **out);
  *        Device-resident per-layer parameters, conv tails and recurrent states (zeroed), plus the launch buffer.
+ *        The tails and states are GPU-cached (2026-10-19; AIEN_OMEGA_GDN_STATE_CACHED=0 keeps them uncached): the host
+ *        never touches them directly, reset zeroes them with a chip launch and set_state / get_state copy one layer through
+ *        an uncached staging buffer with chip launches (omega_blackwell_codegen_gdn.h, state copy / zero).
  *   int  omega_gpu_gdn_set_layer(OmegaGpuGdn *g, uint32_t layer, const float *conv_w, const float *a_log,
  *                                const float *dt_bias, const float *norm_w);
  *        conv_w: linear_attn.conv1d.weight [10240][1][4] widened to f32 ([10240][4]); a_log, dt_bias: [48];
