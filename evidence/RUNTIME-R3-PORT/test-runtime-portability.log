@@ -1,0 +1,19 @@
+sh tools/runtime_portability_check.sh . docs/runtime/portability_table.tsv mk/omega-gpu-engine.mk
+PASS: 102 rows, every omega_gpu_* / omega_blackwell_* / omega_bw_* file in src/ has one and the rows agree with the includes
+sh tools/runtime_portability_controls.sh build/runtime_r3_controls docs/runtime/portability_table.tsv mk/omega-gpu-engine.mk
+CONTROL unchanged: PASS as required (scratch copy of the real tree and table)
+CONTROL new-file-no-row: FAIL as required (a new omega_gpu_ file with no row)
+    FAIL: no row in the table for src/omega_gpu_zz_dummy.c
+CONTROL row-missing-file: FAIL as required (a row for a file that does not exist)
+    FAIL: row names a missing file: src/omega_gpu_zz_ghost.c
+CONTROL portable-includes-nvrm: FAIL as required (a PORTABLE file that includes nvrm.h)
+    FAIL: src/omega_gpu_wait.c: PORTABLE but includes a Linux/NVRM header: nvrm.h
+CONTROL portable-row-on-linux-file: FAIL as required (the real Linux backend relabelled PORTABLE)
+    FAIL: src/omega_gpu_platform_linux.c: PORTABLE but includes a Linux/NVRM header: omega_gpu_platform_linux.h m16_native.h nvrm.h pthread.h
+CONTROL portable-row-on-chip-file: FAIL as required (a file that includes Blackwell headers relabelled PORTABLE)
+    FAIL: src/omega_gpu_attention_api.c: PORTABLE but includes a Blackwell chip header: omega_blackwell_codegen.h omega_bw_reconv.h omega_blackwell_qmd.h omega_blackwell_submit.h
+CONTROL guarded-include: PASS as required (an nvrm.h include inside #ifndef OMEGA_GPU_NO_POSIX is the hosted-only build and must not count)
+CONTROL freestanding-claim-broken: FAIL as required (a freestanding-closure file that gained stdlib.h)
+    FAIL: src/omega_gpu_fmt.c: is in GPU_FS_SRCS but the include scan finds stdlib.h
+ALL CONTROLS BEHAVED AS REQUIRED
+make exit 0
