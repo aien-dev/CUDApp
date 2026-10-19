@@ -9,6 +9,7 @@
 #include "omega_blackwell_codegen_dec.h"
 #include "omega_gpu_session.h"
 #include "omega_gpu_fmt.h"
+#include <stdlib.h>
 #include <string.h>
 
 #define TIMEOUT_MS 20000ull
@@ -274,6 +275,13 @@ static int rec_res(OmegaGpuQ38Graph *g, int ki, uint64_t x, uint64_t a, uint64_t
     return add_glue(g, ki == K_NORM ? OMEGA_GPU_Q38_K_NORM : OMEGA_GPU_Q38_K_RES, ki, 1, 1, H, w, OMEGA_DEC_RES_WORDS);
 }
 
+static int g_overlap_ab = -1;
+void omega_gpu_q38_graph_set_overlap_ab(int on) { g_overlap_ab = on ? 1 : 0; }
+static int q38_overlap_ab(void) {
+    if (g_overlap_ab < 0) { const char *e = getenv("AIEN_OMEGA_Q38_OVERLAP_AB"); g_overlap_ab = (e && e[0] == '0' && e[1] == 0) ? 0 : 1; }
+    return g_overlap_ab;
+}
+
 static int rec_fp8(OmegaGpuQ38Graph *g, uint8_t kind, const OmegaGpuFp8Tensor *t, uint64_t tab, uint64_t x, uint64_t y) {
     return after_op(g, kind, omega_gpu_fp8_gemv_grouped_record(g->cl, t, 1, tab, x, 1, y));
 }
@@ -305,11 +313,20 @@ int omega_gpu_q38_graph_record_layer(OmegaGpuQ38Graph *g, uint32_t l, uint32_t p
     const uint32_t ki = g->layer[l].kind_index;
     int rc = OMEGA_GPU_DGRAPH_OK;
     if (g->xq_layer != (int)l) rc = rec_res(g, K_NORM, x, 0, in_norm, xq, SCALE_2P64);
-    if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_fp8(g, OMEGA_GPU_Q38_K_MIX, g->layer[l].mix, tab, xq, mix);
+    /* GDN layers: the a|b GEMV (latency-bound, ~18 us) is recorded first and the mix GEMV marked independent of it: both only
+     * read xq and write their own buffers, so the two grids overlap; the GDN step after them waits for both (normal barrier).
+     * AIEN_OMEGA_Q38_OVERLAP_AB=0 or set_overlap_ab(0): the old order, mix then a|b, each behind a barrier. */
+    const int overlap = !g->layer[l].attn && q38_overlap_ab();
+    if (overlap && rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, OMEGA_GPU_Q38_K_AB, omega_gpu_bf16_gemv_record(g->cl, g->layer[l].ab, xq, va_of(g, g->lo.ab)));
+    if (rc == OMEGA_GPU_DGRAPH_OK) {
+        int mrc = omega_gpu_fp8_gemv_grouped_record(g->cl, g->layer[l].mix, 1, tab, xq, 1, mix);
+        if (mrc == 0 && overlap && !g->flush_each && omega_gpu_cmdlist_mark_independent(g->cl) != 0) mrc = -1;
+        rc = after_op(g, OMEGA_GPU_Q38_K_MIX, mrc);
+    }
     uint64_t mixer_out = att;
     if (!g->layer[l].attn) {
         const uint64_t ab = va_of(g, g->lo.ab);
-        if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, OMEGA_GPU_Q38_K_AB, omega_gpu_bf16_gemv_record(g->cl, g->layer[l].ab, xq, ab));
+        if (!overlap && rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, OMEGA_GPU_Q38_K_AB, omega_gpu_bf16_gemv_record(g->cl, g->layer[l].ab, xq, ab));
         if (rc == OMEGA_GPU_DGRAPH_OK)
             rc = after_op(g, OMEGA_GPU_Q38_K_GDN, omega_gpu_gdn_record(g->cl, g->cfg.gdn, ki, mix, mix + OMEGA_GPU_Q38_GDN_QKV * 4u, ab,
                                                                      g->cfg.eps_l2, g->cfg.eps, 1.0f, SCALE_2P64, &mixer_out));

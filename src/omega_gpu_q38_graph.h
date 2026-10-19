@@ -90,6 +90,9 @@ int omega_gpu_q38_graph_set_final_norm(OmegaGpuQ38Graph *g, const float *final_n
  * omega_gpu_q38_graph_read returns the unscaled hidden (exact power-of-two rescale). Logits are those of the quantised head:
  * callers own the drift study against the bf16 head. */
 int omega_gpu_q38_graph_set_lm_head_fp8(OmegaGpuQ38Graph *g, const OmegaGpuFp8Tensor *head);
+/* GDN layers record the a|b GEMV first and the mix GEMV beside it (no barrier between the two; both only read xq), process-wide.
+ * 1 (default) or 0 (mix then a|b, each behind a barrier); env AIEN_OMEGA_Q38_OVERLAP_AB when never set. Values are identical. */
+void omega_gpu_q38_graph_set_overlap_ab(int on);
 /* One whole token: x_embed (f32 [5120]) -> greedy token; pos: the token's position (attention layers append K/V there,
  * GDN layers advance their state). */
 int omega_gpu_q38_graph_token(OmegaGpuQ38Graph *g, const float *x_embed, uint32_t pos, uint32_t *token, OmegaGpuDecodeGraphStats *st);
