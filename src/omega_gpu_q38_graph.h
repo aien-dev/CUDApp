@@ -84,6 +84,12 @@ int omega_gpu_q38_graph_set_layer(OmegaGpuQ38Graph *g, uint32_t layer, const Ome
                                   const OmegaGpuFp8Tensor *o, const OmegaGpuFp8Tensor *gate_up, const OmegaGpuFp8Tensor *down,
                                   const float *in_norm, const float *post_norm);
 int omega_gpu_q38_graph_set_final_norm(OmegaGpuQ38Graph *g, const float *final_norm); /* f32 [5120] as (1 + w) */
+/* Optional FP8 lm_head (qwen38/decode-speed): an FP8 tensor [vocab][5120] (experts 1, e.g. from omega_gpu_fp8_quantize_bf16)
+ * replaces the bf16 lm_head in every later token (half the bytes); NULL goes back to bf16. The tensor must outlive its use.
+ * While set, the device hidden buffer (OMEGA_GPU_Q38_BUF_HIDDEN) holds hidden x 2^64 (the FP8 GEMV input scale);
+ * omega_gpu_q38_graph_read returns the unscaled hidden (exact power-of-two rescale). Logits are those of the quantised head:
+ * callers own the drift study against the bf16 head. */
+int omega_gpu_q38_graph_set_lm_head_fp8(OmegaGpuQ38Graph *g, const OmegaGpuFp8Tensor *head);
 /* One whole token: x_embed (f32 [5120]) -> greedy token; pos: the token's position (attention layers append K/V there,
  * GDN layers advance their state). */
 int omega_gpu_q38_graph_token(OmegaGpuQ38Graph *g, const float *x_embed, uint32_t pos, uint32_t *token, OmegaGpuDecodeGraphStats *st);
