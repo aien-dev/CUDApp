@@ -1,14 +1,16 @@
 /*
  * omega_gpu_q38_graph.c: one Qwen3.8-27B decode token as one command list (see the header). Records the FP8 / bf16 GEMV,
  * GDN and hd256 attention APIs' *_record launches and the omega_blackwell_codegen_dec glue kernels at width 5120 into an
- * omega_gpu_cmdlist. Buffers: omega_gpu_session_alloc only (GPU-uncached, nvos.h:1117); the host touches x (before),
- * token and logits (after).
+ * omega_gpu_cmdlist. Buffers: buf from omega_gpu_session_alloc (GPU-uncached, nvos.h:1117) holds every region the host
+ * touches: x (before), token and logits (after), the tables; dbuf (GPU-cached, omega_gpu_mem_cached.h) holds the chip-only
+ * intermediates (see Layout).
  */
 #include "omega_gpu_q38_graph.h"
 #include "omega_gpu_cmdlist.h"
 #include "omega_blackwell_codegen_dec.h"
 #include "omega_gpu_session.h"
 #include "omega_gpu_fmt.h"
+#include "omega_gpu_mem_cached.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -20,20 +22,26 @@
 #define I OMEGA_GPU_Q38_INTER
 
 /* glue kernels */
-enum { K_NORM, K_ADDNORM, K_SW, K_GATHER, K_GATE, K_AM0, K_AM1, K_SW_M1, K_GATHER_M1, K_GATE_M1, K_ADDNORM_M1, K_COUNT };
+enum { K_NORM, K_ADDNORM, K_SW, K_GATHER, K_GATE, K_AM0, K_AM1, K_SW_M1, K_GATHER_M1, K_GATE_M1, K_ADDNORM_M1, K_COPY, K_COUNT };
+#define COPY_ROW 256u /* K_COPY: GATHER rows of 256 floats through the identity table */
 
 typedef struct { OmegaGpuMem code; uint32_t gpr; } Kern;
 
-/* the one buffer: byte offsets, every region 256-byte aligned (RES loads 16-byte vectors) */
+/* byte offsets into two buffers, every region 256-byte aligned (RES loads 16-byte vectors). [0, split): buf, GPU-uncached,
+ * every region the host writes or reads. [split, bytes): dbuf, the chip-only intermediates, GPU-cached unless
+ * AIEN_OMEGA_Q38_BUF_CACHED=0 (measured 2026-10-19: every FP8 GEMV CTA reads the whole x' row, and uncached each of those
+ * reads goes to DRAM; cached, down 2100 -> 1735 us and mix 1596 -> 1458 us over 4 layers, runs/probe-buf). read_buf copies
+ * a dbuf region into stage with a chip launch (K_COPY) before the host reads it. */
 typedef struct {
-    size_t x, xq, mix, ab, agg, att, o, gu, act, hidden, logits, am_v, am_i, token, norms, fnorm, tabs, gtab, bytes;
+    size_t x, ab, hidden, logits, am_v, am_i, token, norms, fnorm, tabs, gtab, idtab, stage, split;
+    size_t xq, mix, agg, att, o, gu, act, bytes;
 } Layout;
 
 struct OmegaGpuQ38Graph {
     OmegaGpuQ38GraphConfig cfg;
     uint32_t am_ctas;                    /* stage-1 ARGMAX CTAs = ceil(vocab / 2048) */
     Layout lo;
-    OmegaGpuMem buf;
+    OmegaGpuMem buf, dbuf;               /* the host-visible regions; the chip-only regions (see Layout) */
     Kern k[K_COUNT];
     OmegaGpuCmdList *cl;
     struct { const OmegaGpuFp8Tensor *mix, *o, *gu, *dn; const OmegaGpuBf16Tensor *ab; uint32_t kind_index; int attn, set; } layer[OMEGA_GPU_Q38_MAX_LAYERS];
@@ -53,8 +61,8 @@ struct OmegaGpuQ38Graph {
 };
 
 static size_t al(size_t v) { return (v + 255u) & ~(size_t)255u; }
-static uint64_t va_of(const OmegaGpuQ38Graph *g, size_t off) { return g->buf.va + off; }
-static void *cpu_of(const OmegaGpuQ38Graph *g, size_t off) { return (uint8_t *)g->buf.cpu + off; }
+static uint64_t va_of(const OmegaGpuQ38Graph *g, size_t off) { return off < g->lo.split ? g->buf.va + off : g->dbuf.va + (off - g->lo.split); }
+static void *cpu_of(const OmegaGpuQ38Graph *g, size_t off) { return (uint8_t *)g->buf.cpu + off; } /* host regions only (off < split) */
 static void put64(uint32_t *a, unsigned off, uint64_t v) { a[(off - 0x380) / 4] = (uint32_t)v; a[(off - 0x380) / 4 + 1] = (uint32_t)(v >> 32); }
 static void putf(uint32_t *a, unsigned off, float f) { memcpy(&a[(off - 0x380) / 4], &f, 4); }
 static int fail(OmegaGpuQ38Graph *g, const char *what, int rc) {
@@ -100,6 +108,7 @@ void omega_gpu_q38_graph_free(OmegaGpuQ38Graph *g) {
     omega_gpu_session_lock();
     for (unsigned i = 0; i < K_COUNT; i++) if (g->k[i].code.cpu) omega_gpu_session_free(&g->k[i].code);
     if (g->buf.cpu) omega_gpu_session_free(&g->buf);
+    if (g->dbuf.cpu) omega_gpu_session_free(&g->dbuf);
     omega_gpu_session_unlock();
     omega_gpu_host_free(g);
 }
@@ -123,17 +132,22 @@ int omega_gpu_q38_graph_create(const OmegaGpuQ38GraphConfig *cfg, OmegaGpuQ38Gra
     }
     Layout *L = &g->lo; size_t o = 0;
 #define REG(f, bytes) do { L->f = o; o = al(o + (bytes)); } while (0)
-    REG(x, H * 4); REG(xq, H * 4); REG(mix, OMEGA_GPU_Q38_GDN_MIX * 4); REG(ab, OMEGA_GPU_Q38_AB * 4); REG(agg, OMEGA_GPU_Q38_ATT_MIX * 4);
-    REG(att, OMEGA_GPU_Q38_MIXER_OUT * 4); REG(o, H * 4); REG(gu, 2 * I * 4); REG(act, I * 4); REG(hidden, H * 4);
+    REG(x, H * 4); REG(ab, OMEGA_GPU_Q38_AB * 4); REG(hidden, H * 4);
     REG(logits, (size_t)g->am_ctas * OMEGA_DEC_ARGMAX_SPAN * 4); REG(am_v, OMEGA_DEC_ARGMAX_SPAN * 4); REG(am_i, OMEGA_DEC_ARGMAX_SPAN * 4);
     REG(token, 16); REG(norms, (size_t)cfg->layers * 2 * H * 4); REG(fnorm, H * 4); REG(tabs, (size_t)cfg->layers * 4 * 16 + 16); /* + the FP8 lm_head entry */
-    REG(gtab, OMEGA_GPU_Q38_ATT_MIX * 4);
+    REG(gtab, OMEGA_GPU_Q38_ATT_MIX * 4); REG(idtab, COPY_ROW * 4); REG(stage, 2 * I * 4);
+    L->split = o;
+    REG(xq, H * 4); REG(mix, OMEGA_GPU_Q38_GDN_MIX * 4); REG(agg, OMEGA_GPU_Q38_ATT_MIX * 4);
+    REG(att, OMEGA_GPU_Q38_MIXER_OUT * 4); REG(o, H * 4); REG(gu, 2 * I * 4); REG(act, I * 4);
 #undef REG
     L->bytes = o;
     int rc = OMEGA_GPU_DGRAPH_OK;
     if (omega_gpu_cmdlist_create(OMEGA_GPU_CMDLIST_MAX_LAUNCHES, &g->cl) != 0) { omega_gpu_q38_graph_free(g); return OMEGA_GPU_DGRAPH_CHIP_FAIL; }
     omega_gpu_session_lock();
-    if (!omega_gpu_session_open() || omega_gpu_session_alloc(L->bytes, &g->buf) != 0) rc = OMEGA_GPU_DGRAPH_CHIP_FAIL;
+    const char *pbc = getenv("AIEN_OMEGA_Q38_BUF_CACHED");
+    int (*const dalloc)(size_t, OmegaGpuMem *) = (pbc && pbc[0] == '0' && pbc[1] == 0) ? omega_gpu_session_alloc : omega_gpu_session_alloc_cached;
+    if (!omega_gpu_session_open() || omega_gpu_session_alloc(L->split, &g->buf) != 0 || dalloc(L->bytes - L->split, &g->dbuf) != 0)
+        rc = OMEGA_GPU_DGRAPH_CHIP_FAIL;
     static const OmegaDecSpec spec[K_COUNT] = {
         [K_NORM] = { .kind = OMEGA_DEC_RES, .mode = OMEGA_DEC_RES_NORM, .width = H },
         [K_ADDNORM] = { .kind = OMEGA_DEC_RES, .mode = OMEGA_DEC_RES_ADD | OMEGA_DEC_RES_NORM, .width = H },
@@ -146,15 +160,19 @@ int omega_gpu_q38_graph_create(const OmegaGpuQ38GraphConfig *cfg, OmegaGpuQ38Gra
         [K_GATHER_M1] = { .kind = OMEGA_DEC_GATHER, .width = OMEGA_GPU_Q38_ATT_MIX, .stride = OMEGA_GPU_Q38_ATT_MIX, .mutant = 1 },
         [K_GATE_M1] = { .kind = OMEGA_DEC_GATE, .mutant = 1 },
         [K_ADDNORM_M1] = { .kind = OMEGA_DEC_RES, .mode = OMEGA_DEC_RES_ADD | OMEGA_DEC_RES_NORM, .width = H, .mutant = 1 },
+        [K_COPY] = { .kind = OMEGA_DEC_GATHER, .width = COPY_ROW, .stride = COPY_ROW },
     };
     for (unsigned i = 0; i < K_COUNT && rc == OMEGA_GPU_DGRAPH_OK; i++) rc = kern_build(&g->k[i], &spec[i]);
     if (rc == OMEGA_GPU_DGRAPH_OK) {
-        memset(g->buf.cpu, 0, L->bytes);
+        memset(g->buf.cpu, 0, L->split);
+        memset(g->dbuf.cpu, 0, L->bytes - L->split); /* fresh; every region is written by the chip before a launch reads it */
+        uint32_t *id = cpu_of(g, L->idtab);
+        for (uint32_t i = 0; i < COPY_ROW; i++) id[i] = i;
         float *lg = cpu_of(g, L->logits), *amv = cpu_of(g, L->am_v);
         for (size_t i = cfg->vocab; i < (size_t)g->am_ctas * OMEGA_DEC_ARGMAX_SPAN; i++) lg[i] = NEG_PAD; /* lm_head writes [0, vocab) only */
         for (size_t i = 0; i < OMEGA_DEC_ARGMAX_SPAN; i++) amv[i] = NEG_PAD;                              /* stage 1 writes [0, ctas) only */
         omega_q38_gather_table(cpu_of(g, L->gtab));
-        if (omega_gpu_session_sync_to_gpu(&g->buf) != 0) rc = OMEGA_GPU_DGRAPH_CHIP_FAIL;
+        if (omega_gpu_session_sync_to_gpu(&g->buf) != 0 || omega_gpu_session_sync_to_gpu(&g->dbuf) != 0) rc = OMEGA_GPU_DGRAPH_CHIP_FAIL;
     }
     omega_gpu_session_unlock();
     if (rc != OMEGA_GPU_DGRAPH_OK) { omega_gpu_q38_graph_free(g); return rc; }
@@ -434,8 +452,21 @@ int omega_gpu_q38_graph_read_buf(OmegaGpuQ38Graph *g, int which, float *out, uin
     };
     if (n > b[which].cap) return OMEGA_GPU_DGRAPH_BAD_ARGS;
     omega_gpu_session_lock();
-    int rc = omega_gpu_session_sync_to_cpu(&g->buf) == 0 ? OMEGA_GPU_DGRAPH_OK : OMEGA_GPU_DGRAPH_CHIP_FAIL;
-    if (rc == OMEGA_GPU_DGRAPH_OK) memcpy(out, cpu_of(g, b[which].off), (size_t)n * 4u);
+    int rc = OMEGA_GPU_DGRAPH_OK;
+    size_t from = b[which].off;
+    if (from >= g->lo.split && n) {
+        /* a chip-only region: K_COPY moves ceil(n / 256) rows of 256 floats into stage (every cap is a multiple of 256) */
+        uint32_t w[OMEGA_DEC_GA_WORDS]; memset(w, 0, sizeof w);
+        put64(w, OMEGA_DEC_GA_IN, va_of(g, from)); put64(w, OMEGA_DEC_GA_TAB, va_of(g, g->lo.idtab)); put64(w, OMEGA_DEC_GA_OUT, va_of(g, g->lo.stage));
+        const Kern *k = &g->k[K_COPY];
+        OmegaGpuLaunch L; memset(&L, 0, sizeof L);
+        L.code_va = k->code.va; L.gpr_count = k->gpr; L.threads_x = OMEGA_DEC_THREADS; L.threads_y = 1; L.grid_x = 1; L.grid_y = (n + COPY_ROW - 1) / COPY_ROW;
+        L.num_elements = (size_t)L.grid_y * COPY_ROW; L.args = w; L.n_args = OMEGA_DEC_GA_WORDS; L.timeout_ms = TIMEOUT_MS;
+        if (!omega_gpu_session_open() || omega_gpu_session_launch(&L, NULL, NULL) != 0) rc = OMEGA_GPU_DGRAPH_CHIP_FAIL;
+        from = g->lo.stage;
+    }
+    if (rc == OMEGA_GPU_DGRAPH_OK && omega_gpu_session_sync_to_cpu(&g->buf) != 0) rc = OMEGA_GPU_DGRAPH_CHIP_FAIL;
+    if (rc == OMEGA_GPU_DGRAPH_OK) memcpy(out, cpu_of(g, from), (size_t)n * 4u);
     omega_gpu_session_unlock();
     return rc;
 }
