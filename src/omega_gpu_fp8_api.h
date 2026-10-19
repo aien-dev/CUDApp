@@ -67,6 +67,7 @@ enum {
 
 #define OMEGA_GPU_FP8_MAX_GROUPS 64u
 #define OMEGA_GPU_FP8_MAX_CTAS 256u /* default CTA budget per group for a single projection; the elementwise and attention rows paths proved 1024 */
+#define OMEGA_GPU_FP8_BIGK_CTAS 384u /* big-k rule: CTA budget of a single projection with k > 4096 (Qwen3.8-27B), split evenly (2026-10-19) */
 #define OMEGA_GPU_FP8_GROUPED_CTAS 6u /* CTAs per group for a grouped launch (32 warps each): measured best for 8 experts */
 
 typedef struct {

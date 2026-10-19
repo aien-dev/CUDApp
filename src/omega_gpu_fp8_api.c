@@ -383,6 +383,11 @@ static int gemv_core(const OmegaGpuFp8Tensor *t, uint32_t groups, const uint32_t
     uint32_t grid_x = (RG + spec.warps - 1) / spec.warps;
     const int variant = variant_now();
     uint32_t budget = g.cta_budget_set ? g.cta_budget : (groups > 1u ? (variant == 2 ? OMEGA_GPU_FP8_V2_GROUPED_CTAS : OMEGA_GPU_FP8_GROUPED_CTAS) : OMEGA_GPU_FP8_MAX_CTAS);
+    /* big-k grid (qwen38/decode-speed): up to OMEGA_GPU_FP8_BIGK_CTAS CTAs, split so every warp gets the same number of row
+     * groups, at least two (measured, runs/sweep5 and sweep7: budget 384 over 256 gave mix +3%, gate_up +2.6%; the n = 5120
+     * shapes run best at 160 CTAs, two row groups per warp: o_proj 186 -> 198 GB/s) */
+    const int bigk_grid = !g.cta_budget_set && groups == 1u && k > 4096u && omega_gpu_fp8_bigk();
+    if (bigk_grid) { uint32_t waves = (grid_x + OMEGA_GPU_FP8_BIGK_CTAS - 1u) / OMEGA_GPU_FP8_BIGK_CTAS; if (waves < 2u) waves = 2u; grid_x = (grid_x + waves - 1u) / waves; budget = grid_x; }
     if (grid_x > budget) grid_x = budget;
     if (grid_x == 0) grid_x = 1;
 
