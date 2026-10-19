@@ -146,6 +146,28 @@ void omega_gpu_fp8_set_weight_cache(int on);
  * per group for grouped launches (the shape and budget knobs above still override). */
 void omega_gpu_fp8_set_variant(int variant);
 int omega_gpu_fp8_variant(void);
+/* Kernel schedule (CUT5, measurement knob; clears the kernel cache): 0 (default) = the emitted stalls, 1 = the bytes of a step
+ * decoded in a software pipeline plus the dependency-driven stall pass (OmegaFp8GemvSpec.sched; y bit-identical to 0). Variant 1
+ * only (variant 2 ignores it). Never set: the first kernel build reads env AIEN_OMEGA_FP8_SCHED ("1" = 1). */
+void omega_gpu_fp8_set_sched(int sched);
+int omega_gpu_fp8_sched(void);
+/* CUT5 variants (variant 1 only; each setter clears the kernel cache; never set: the env is read once at the first build).
+ * A, coalesced output (OmegaFp8GemvSpec.coal; applied where warps * rows <= 32): ON by default since SPEED-A (2026-10-17,
+ *    OWN-30B decode graph 24.49 -> 21.34 ms/token, tokens identical to golden); AIEN_OMEGA_FP8_COAL=0 or set_coal(0) restores
+ *    the earlier kernel (one 4-byte STG per row, no shared slots).
+ * B, weight loads before the x loads in each K step (OmegaFp8GemvSpec.wfirst): OFF by default; AIEN_OMEGA_FP8_WFIRST=1 turns it on. */
+void omega_gpu_fp8_set_coal(int on);
+int omega_gpu_fp8_coal(void);
+void omega_gpu_fp8_set_wfirst(int on);
+int omega_gpu_fp8_wfirst(void);
+/* SPEED-1B (2026-10-17): the automatic deep kernel (x staged in shared memory, every load of the row in flight) for single
+ * projections whenever it fits the register file and the launch descriptor's shared-memory limit; ON by default (qkv 5120 x 2048
+ * cold 0.732 -> 0.853 of line). AIEN_OMEGA_FP8_DEEP=0 or set_deep(0) keeps the step-by-step kernel everywhere. */
+void omega_gpu_fp8_set_deep(int on);
+int omega_gpu_fp8_deep(void);
+/* Host-only: the spec the automatic choice makes for a call of k columns, n rows, `groups` experts under the current knobs
+ * (shape, depth, sched, coal, wfirst, mutant). No chip, no kernel build. */
+void omega_gpu_fp8_spec_for(uint32_t k, uint32_t n, uint32_t groups, OmegaFp8GemvSpec *spec);
 #define OMEGA_GPU_FP8_V2_WARPS 16u
 #define OMEGA_GPU_FP8_V2_GROUPED_CTAS 12u
 int omega_gpu_fp8_weight_cache(void);

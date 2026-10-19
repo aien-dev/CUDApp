@@ -89,6 +89,7 @@ static void ldg_wide(Em *e, BlackwellIROpcode op, int d, int addr64, uint32_t im
 static void ldg32(Em *e, int d, int addr64, int udesc, int first) { BlackwellIRInsn i = I0(BW_IR_LDG_E); i.dst_vreg = d; i.src1_vreg = addr64; i.ureg = udesc; emit(e, i, first ? K_VAR : K_VAR_MORE); }
 static void stg(Em *e, int addr64, uint32_t imm, int val, int udesc) { BlackwellIRInsn i = I0(BW_IR_STG_E); i.src1_vreg = addr64; i.src2_vreg = val; i.imm = imm; i.ureg = udesc; emit(e, i, K_STORE); }
 static void lds128(Em *e, int d128, int addr, uint32_t imm, int first) { BlackwellIRInsn i = I0(BW_IR_LDS128); i.dst_vreg = d128; i.src1_vreg = addr; i.imm = imm; emit(e, i, first ? K_VAR : K_VAR_MORE); }
+static void lds32(Em *e, int d, int addr) { BlackwellIRInsn i = I0(BW_IR_LDS32); i.dst_vreg = d; i.src1_vreg = addr; emit(e, i, K_VAR); }
 static void sts32(Em *e, int addr, int val) { BlackwellIRInsn i = I0(BW_IR_STS32); i.src1_vreg = addr; i.src2_vreg = val; emit(e, i, K_STORE); }
 static void bar_sync(Em *e) { emit(e, I0(BW_IR_BAR_SYNC), K_SYNC); }
 static void fadd(Em *e, int d, int a, int b) { BlackwellIRInsn i = I0(BW_IR_FADD); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; emit(e, i, K_FIXED); }
@@ -131,7 +132,9 @@ static int spec_ok(const OmegaFp8GemvSpec *s) {
     if (s->rows != 1 && s->rows != 2 && s->rows != 4 && s->rows != 8) return 0;
     if (s->warps < 1 || s->warps > 32) return 0; /* threads_x = 32 * warps <= 1024 */
     if (s->k == 0 || s->k > OMEGA_FP8_MAX_K || s->k % OMEGA_FP8_BLOCK || s->k % (32u * s->lane_bytes)) return 0;
-    if (s->mutant < 0 || s->mutant > 3) return 0;
+    if (s->mutant < 0 || s->mutant > 5 || (s->mutant >= 4 && !s->coal)) return 0;
+    if (s->sched > 1 || s->coal > 1 || s->wfirst > 1) return 0;
+    if (s->coal && s->warps * s->rows > 32u) return 0; /* warp 0 stores the round: one row per lane */
     if (s->depth) { /* deep kernel: staging rounds (32-bit words, one per thread per round) must be exact and few */
         uint32_t ks = s->k / (32u * s->lane_bytes);
         if (s->depth > 16 || ks % s->depth || s->rows * s->depth * s->lane_bytes > 128u) return 0; /* <= 128 weight bytes per lane per iteration: instruction and register budgets */
@@ -143,7 +146,13 @@ static int spec_ok(const OmegaFp8GemvSpec *s) {
 }
 
 uint32_t omega_fp8_gemv_steps(const OmegaFp8GemvSpec *spec) { return spec_ok(spec) ? spec->k / (32u * spec->lane_bytes) : 0; }
-uint32_t omega_fp8_gemv_shared_bytes(const OmegaFp8GemvSpec *spec) { return spec_ok(spec) && spec->depth ? spec->k * 4u + 16u : 0u; } /* + one dummy slot for the clamped threads of a partial round */
+/* deep: x' (k words) + one dummy slot for the clamped threads of a partial staging round; coal: then two output slot sets */
+static uint32_t x_stage_bytes(const OmegaFp8GemvSpec *s) { return s->depth ? s->k * 4u + 16u : 0u; }
+static uint32_t out_slot_bytes(const OmegaFp8GemvSpec *s) { return s->warps * s->rows * 4u; }
+uint32_t omega_fp8_gemv_shared_bytes(const OmegaFp8GemvSpec *spec) {
+    if (!spec_ok(spec)) return 0u;
+    return x_stage_bytes(spec) + (spec->coal ? 2u * out_slot_bytes(spec) : 0u);
+}
 
 /* e4m3 byte i of word w -> f32 bits (value * 2^-120): ((b & 0x7F) << 20) | ((b & 0x80) << 24) */
 static void decode_byte(Em *e, int f, int wq, unsigned word, unsigned i, int u, int a, int s) {
@@ -154,6 +163,104 @@ static void decode_byte(Em *e, int f, int wq, unsigned word, unsigned i, int u, 
     andi(e, s, wq, word, 0x80u << (8u * i));
     if (i < 3) imadi(e, f, s, 0, 1u << (24u - 8u * i), a); /* sign to bit 31, plus the magnitude */
     else imadi(e, f, s, 0, 1u, a);
+}
+
+/* ---- sched 1 (CUT5): pipelined byte decode ----
+ * Byte b of a K step (word b / 4, byte b % 4) goes through five instructions: E (shift the byte to bits 20..27),
+ * S (isolate its sign), M (mask the magnitude), F (sign to bit 31 plus magnitude = the f32 bits) and C (the FFMA into
+ * dot). Iteration c emits E(c), S(c), M(c - 2), F(c - 3), C(c - 5): every producer is at least 6 instructions ahead of
+ * its user (E->M 12, S->F 12+, M->F 6, F->C 11), so the stall pass below can give most instructions stall 1 while the
+ * FFMA chain (one per 5 instructions) runs at the 6-cycle fixed latency. t1 holds a byte from E to F (4 slots), t2 from
+ * S to C (6 slots). The FFMA order (byte 0, 1, ... of word 0, then word 1 ...) and every operand are those of the
+ * sched 0 loop, so y is bit-identical. */
+#define PIPE_T1 4
+#define PIPE_T2 6
+static void decode_pipe(Em *e, int wqv, uint32_t words, const int *xq, int dot, const int *t1, const int *t2) {
+    const uint32_t M = 0x07F00000u, NB = 4u * words;
+    for (uint32_t c = 0; c < NB + 5u; c++) {
+        if (c < NB) {
+            const uint32_t word = c / 4u, i = c % 4u;
+            const int u = t1[c % PIPE_T1], sg = t2[c % PIPE_T2];
+            if (i < 3) imadi(e, u, wqv, word, 1u << (20u - 8u * i), NOREG); else shr(e, u, wqv, word, 4);
+            andi(e, sg, wqv, word, 0x80u << (8u * i));
+        }
+        if (c >= 2 && c - 2u < NB) { const int u = t1[(c - 2u) % PIPE_T1]; andi(e, u, u, 0, M); }
+        if (c >= 3 && c - 3u < NB) {
+            const uint32_t b = c - 3u, i = b % 4u;
+            const int sg = t2[b % PIPE_T2], u = t1[b % PIPE_T1];
+            imadi(e, sg, sg, 0, i < 3 ? 1u << (24u - 8u * i) : 1u, u);
+        }
+        if (c >= 5 && c - 5u < NB) { const uint32_t b = c - 5u; ffma(e, dot, t2[b % PIPE_T2], xq[b / 4u], b % 4u, dot); }
+    }
+}
+
+/* ---- sched 1: dependency-driven stall counts (after register allocation) ----
+ * The emitter gives every fixed-latency instruction stall 6, which keeps any user >= 6 cycles behind its producer but
+ * also makes independent instructions wait 6 cycles each. The repository's chip-proven rule is the distance, not the
+ * per-instruction count: a fixed-latency producer stalls >= 5 cycles before its consumer (we keep 6;
+ * omega_gpu_elementwise_api.c:13). Same pass as omega_blackwell_codegen_tern.c (chip-proven at TERN-T0 2300f164) with
+ * this kernel's fixed-latency set, which adds FFMA, FADD and LOP3_XOR: walk the program in order on physical registers
+ * and give each instruction the smallest stall that keeps the next instruction >= OMEGA_FP8_FIXED_LAT cycles behind
+ * every fixed-latency write it reads or overwrites. Before a control instruction (BRA, EXIT, BSSY, BSYNC, BAR) or a
+ * branch target every fixed-latency write has completed, so straight-line timing never spans a jump. Other instructions
+ * keep at least their emitted stall (loads 4, ISETP 14 before a predicated branch); wait masks are untouched. */
+static int fp8_fixed(BlackwellIROpcode op) {
+    switch (op) {
+    case BW_IR_IMAD: case BW_IR_IMAD_WIDE: case BW_IR_SHF_R: case BW_IR_LOP3_AND: case BW_IR_LOP3_XOR: case BW_IR_MOV_IMM:
+    case BW_IR_MOV_RZ: case BW_IR_FFMA: case BW_IR_FADD: return 1;
+    default: return 0;
+    }
+}
+static int fp8_control(BlackwellIROpcode op) {
+    return op == BW_IR_BRA || op == BW_IR_EXIT || op == BW_IR_BSSY || op == BW_IR_BSYNC || op == BW_IR_BAR_SYNC;
+}
+static void fp8_span(const BlackwellIRProgram *p, int v, int *lo, int *cnt) {
+    *lo = -1; *cnt = 0;
+    if (v < 0 || v >= p->regalloc.num_vregs) return;
+    const int ph = p->regalloc.vreg_to_phys[v];
+    if (ph < 0) return;
+    *lo = ph; *cnt = (int)(p->regalloc.intervals[v].bundle_size ? p->regalloc.intervals[v].bundle_size : 1u);
+}
+static int fp8_schedule_stalls(BlackwellIRProgram *p) {
+    static uint8_t target[BW_MAX_IR_INSNS + 1];
+    uint64_t ready[BW_MAX_VREGS + 8];
+    const size_t n = p->count;
+    memset(target, 0, sizeof target);
+    memset(ready, 0, sizeof ready);
+    for (size_t i = 0; i < n; i++) {
+        const BlackwellIRInsn *in = &p->insns[i];
+        if (in->op == BW_IR_BRA || in->op == BW_IR_BSSY) {
+            const long t = (long)i + (long)(int32_t)in->imm;
+            if (t < 0 || t > (long)n) return -1;
+            target[t] = 1;
+        }
+    }
+    uint64_t T = 0, all = 0;
+    for (size_t i = 0; i < n; i++) {
+        BlackwellIRInsn *in = &p->insns[i];
+        const uint32_t s_emit = (in->control >> 9) & 0xfu;
+        const int fixed = fp8_fixed(in->op);
+        if (fixed) {
+            int lo, c; fp8_span(p, in->dst_vreg, &lo, &c);
+            for (int k = 0; k < c; k++) { if (lo + k >= BW_MAX_VREGS + 8) return -1; ready[lo + k] = T + OMEGA_FP8_FIXED_LAT; }
+            if (c && T + OMEGA_FP8_FIXED_LAT > all) all = T + OMEGA_FP8_FIXED_LAT;
+        }
+        uint64_t need = T + (fixed ? 1u : s_emit);
+        if (i + 1 < n) {
+            const BlackwellIRInsn *nx = &p->insns[i + 1];
+            const int ops[4] = { nx->dst_vreg, nx->src1_vreg, nx->src2_vreg, nx->src3_vreg };
+            for (int q = 0; q < 4; q++) {
+                int lo, c; fp8_span(p, ops[q], &lo, &c);
+                for (int k = 0; k < c; k++) if (lo + k < BW_MAX_VREGS + 8 && ready[lo + k] > need) need = ready[lo + k];
+            }
+            if ((fp8_control(nx->op) || target[i + 1]) && all > need) need = all;
+        }
+        const uint64_t s = need - T;
+        if (s > 15 || (s == 0 && (fixed || s_emit != 0))) return -1; /* stall 0 only where emitted (the final self-branch) */
+        if (fixed || s > s_emit) in->control = (in->control & ~(0xfu << 9)) | ((uint32_t)s << 9);
+        T = need;
+    }
+    return 0;
 }
 
 int omega_blackwell_codegen_fp8_gemv_prog(const OmegaFp8GemvSpec *spec, BlackwellIRProgram *prog) {
@@ -202,6 +309,16 @@ int omega_blackwell_codegen_fp8_gemv_prog(const OmegaFp8GemvSpec *spec, Blackwel
     for (uint32_t q = 0; q < WORDS; q++) xq[q] = V128(e);
     for (uint32_t s = 0; s < D; s++) { sc[s] = V(e); psd[s] = V64(e); }
     int dot = V(e), u = V(e), a = V(e), sg = V(e), f = V(e), t = V(e);
+    int pt1[PIPE_T1], pt2[PIPE_T2]; /* sched 1 only: allocated after every sched 0 register, so sched 0 code is unchanged */
+    if (spec->sched) { for (int q = 0; q < PIPE_T1; q++) pt1[q] = V(e); for (int q = 0; q < PIPE_T2; q++) pt2[q] = V(e); }
+    /* coal 1 only, allocated last for the same reason: uc first row group of the CTA's round, rgx the clamped row group */
+    const int coal = spec->coal != 0;
+    int uc = NOREG, rgx = rg, um1 = NOREG, negU = NOREG, negn = NOREG, okw = NOREG, tq = NOREG, slb = NOREG, stog = NOREG;
+    int so = NOREG, sa = NOREG, wl1 = NOREG, val = NOREG, row = NOREG, skip = NOREG;
+    if (coal) {
+        uc = V(e); rgx = V(e); um1 = V(e); negU = V(e); negn = V(e); okw = V(e); tq = V(e); slb = V(e); stog = V(e);
+        so = V(e); sa = V(e); wl1 = V(e); val = V(e); row = V(e); skip = V(e);
+    }
     if (e->err) return -1;
 
     if (deep) {
@@ -237,13 +354,37 @@ int omega_blackwell_codegen_fp8_gemv_prog(const OmegaFp8GemvSpec *spec, Blackwel
         imadi(e, xl0, lane, 0, LB * 4u, NOREG);     /* this lane's x' chunk of step 0, shared byte offset */
     }
 
+    if (coal) {
+        /* ---- coalesced output (variant A): per-CTA round variables. All values stay below 2^31 (RG, n <= 2^24),
+         * so (a - b) >> 31 is the 0/1 test a < b. ---- */
+        const uint32_t nrow = W * R;
+        imadi(e, um1, one, 0, 0xffffffffu, rgn);              /* RG - 1 */
+        imadi(e, negU, rgn, 0, 0xffffffffu, NOREG);           /* -RG */
+        imadi(e, negn, rgn, 0, 0u - R, NOREG);                /* -n (n = RG * R) */
+        movi(e, slb, x_stage_bytes(spec));                    /* slot set of this round (alternates) */
+        /* stog = sum of the two set bases: slb = stog - slb alternates (XOR would need a base aligned to the set size) */
+        movi(e, stog, 2u * x_stage_bytes(spec) + (spec->mutant == 4 ? 0u : out_slot_bytes(spec))); /* mutant 4: one slot set, the round race */
+        imadi(e, so, warp, 0, R * 4u, NOREG);                 /* this warp's slot: warp * R words */
+        imadi(e, tq, lane, 0, 0xffffffffu, NOREG); imadi(e, tq, one, 0, nrow - 1u, tq); shr(e, tq, tq, 0, 31); /* lane >= W R */
+        imadi(e, wl1, warp, 0, 1, tq); imadi(e, wl1, one, 0, 1, wl1); /* warp + (lane >= W R) + 1 */
+        imadi(e, uc, cx, 0, W, NOREG);                        /* first row group of this CTA's round (CTA-uniform) */
+    }
+
     /* ---- row-group loop ---- */
     const int L_rg = here(e);
     loop_begin(e);
-    isetp_ge_u32(e, rg, rgn);
+    isetp_ge_u32(e, coal ? uc : rg, rgn);                     /* coal: the whole CTA leaves together (barriers inside) */
     const int bra_end = bra_if_p0_fwd(e);
-    imadw(e, pw, rg, R * K, wbase); imadw(e, pw, wlane, 1, pw);
-    shr(e, srg, rg, 0, (uint32_t)log2rows_per_block);
+    if (coal) {
+        /* a warp past the last row group recomputes row group RG - 1 (inside the tensor); its slot is never stored */
+        imadi(e, tq, rg, 0, 1, negU);                         /* rg - RG */
+        shr(e, okw, tq, 0, 31);                               /* 1 if rg < RG */
+        imadi(e, tq, one, 0, 1, tq);                          /* rg - RG + 1 */
+        if (spec->mutant == 5) imadi(e, rgx, rg, 0, 1, NOREG); /* mutant 5: no clamp, a warp past RG reads past the tensor */
+        else imadr(e, rgx, okw, tq, um1);                     /* rg < RG ? rg : RG - 1 */
+    }
+    imadw(e, pw, rgx, R * K, wbase); imadw(e, pw, wlane, 1, pw);
+    shr(e, srg, rgx, 0, (uint32_t)log2rows_per_block);
     imadw(e, ps, srg, KB * 4u, sbase); imadw(e, ps, slane, 1, ps);
     if (!deep) imadw(e, pxc, one, 0, xlane); else imadi(e, xl, xl0, 0, 1, NOREG);
     for (uint32_t r = 0; r < R; r++) movrz(e, acc[r]);
@@ -254,15 +395,19 @@ int omega_blackwell_codegen_fp8_gemv_prog(const OmegaFp8GemvSpec *spec, Blackwel
     loop_begin(e);
     {
         int first = 1;
-        if (!deep) { for (uint32_t q = 0; q < WORDS; q++) { ldg_wide(e, BW_IR_LDG_E_128, xq[q], pxc, q * 16u, udesc, first); first = 0; } }
+        const int xfirst = !deep && !spec->wfirst, xlast = !deep && spec->wfirst;
+        if (xfirst) { for (uint32_t q = 0; q < WORDS; q++) { ldg_wide(e, BW_IR_LDG_E_128, xq[q], pxc, q * 16u, udesc, first); first = 0; } }
         for (uint32_t s = 0; s < D; s++) imadw(e, psd[s], one, spec->mutant == 2 ? 0u : s * BPS * 4u, ps);
         for (uint32_t s = 0; s < D; s++) for (uint32_t r = 0; r < R; r++) { ldg_wide(e, ldw, wq[r][s], pw, r * K + s * 32u * LB, udesc, first); first = 0; }
         for (uint32_t s = 0; s < D; s++) ldg32(e, sc[s], psd[s], udesc, 0);
+        if (xlast) for (uint32_t q = 0; q < WORDS; q++) ldg_wide(e, BW_IR_LDG_E_128, xq[q], pxc, q * 16u, udesc, 0); /* variant B */
     }
     for (uint32_t s = 0; s < D; s++) {
         if (deep) { int first = 1; for (uint32_t q = 0; q < WORDS; q++) { lds128(e, xq[q], xl, s * 128u * LB + q * 16u, first); first = 0; } }
         for (uint32_t r = 0; r < R; r++) {
             movrz(e, dot);
+            if (spec->sched) decode_pipe(e, wq[r][s], WORDS, xq, dot, pt1, pt2);
+            else
             for (uint32_t word = 0; word < WORDS; word++)
                 for (unsigned i = 0; i < 4; i++) {
                     decode_byte(e, f, wq[r][s], word, i, u, a, sg);
@@ -284,15 +429,44 @@ int omega_blackwell_codegen_fp8_gemv_prog(const OmegaFp8GemvSpec *spec, Blackwel
     /* ---- warp reduction, lane 0 stores ---- */
     for (uint32_t r = 0; r < R; r++)
         for (uint32_t o = 16; o >= 1; o /= 2) { shfl_down(e, t, acc[r], o); fadd(e, acc[r], acc[r], t); }
-    imadw(e, pyr, rg, R * 4u, yrow);
-    isetp_ge_u32(e, lane, one);
-    const int at_bssy = bssy_fwd(e);
-    const int bra_skip = bra_if_p0_fwd(e);
-    for (uint32_t r = 0; r < R; r++) { imadw(e, pya, one, r * 4u, pyr); stg(e, pya, 0, acc[r], udesc); } /* STG.E with immediate 0 only (the chip-proven form) */
-    const int at_bsync = here(e);
-    bsync(e);
-    patch_bra(e, bra_skip, at_bsync);
-    patch_bra(e, at_bssy, at_bsync + 1);
+    if (!coal) {
+        imadw(e, pyr, rg, R * 4u, yrow);
+        isetp_ge_u32(e, lane, one);
+        const int at_bssy = bssy_fwd(e);
+        const int bra_skip = bra_if_p0_fwd(e);
+        for (uint32_t r = 0; r < R; r++) { imadw(e, pya, one, r * 4u, pyr); stg(e, pya, 0, acc[r], udesc); } /* STG.E with immediate 0 only (the chip-proven form) */
+        const int at_bsync = here(e);
+        bsync(e);
+        patch_bra(e, bra_skip, at_bsync);
+        patch_bra(e, at_bssy, at_bsync + 1);
+    } else {
+        /* lane 0 of each warp parks its R results in this round's slot set */
+        isetp_ge_u32(e, lane, one);
+        int at_bssy = bssy_fwd(e), bra_skip = bra_if_p0_fwd(e);
+        imadi(e, sa, slb, 0, 1, so);                          /* slot set + warp * R words */
+        for (uint32_t r = 0; r < R; r++) { if (r) imadi(e, sa, one, 0, 4u, sa); sts32(e, sa, acc[r]); }
+        int at_bsync = here(e);
+        bsync(e);
+        patch_bra(e, bra_skip, at_bsync);
+        patch_bra(e, at_bssy, at_bsync + 1);
+        bar_sync(e);
+        /* warp 0, lanes < W R: row = R uc + lane, stored when < n, one coalesced STG for the round */
+        imadi(e, row, uc, 0, R, lane);
+        imadi(e, okw, row, 0, 1, negn); shr(e, okw, okw, 0, 31); /* 1 if row < n */
+        imadi(e, skip, okw, 0, 0xffffffffu, wl1);             /* warp + (lane >= W R) + 1 - (row < n): 0 only for a store */
+        isetp_ge_u32(e, skip, one);
+        at_bssy = bssy_fwd(e); bra_skip = bra_if_p0_fwd(e);
+        imadi(e, sa, lane, 0, 4u, slb);
+        lds32(e, val, sa);
+        imadw(e, pya, row, 4u, yrow);
+        stg(e, pya, 0, val, udesc);
+        at_bsync = here(e);
+        bsync(e);
+        patch_bra(e, bra_skip, at_bsync);
+        patch_bra(e, at_bssy, at_bsync + 1);
+        imadi(e, slb, slb, 0, 0xffffffffu, stog);             /* next round parks in the other slot set: stog - slb */
+        imadi(e, uc, stride, 0, 1, uc);
+    }
     imadi(e, rg, stride, 0, 1, rg);
     bra(e, L_rg);
     loop_end(e);
@@ -300,7 +474,8 @@ int omega_blackwell_codegen_fp8_gemv_prog(const OmegaFp8GemvSpec *spec, Blackwel
     patch_bra(e, bra_end, L_end);
     tail(e);
     if (e->err) return -1;
-    return omega_bw_regalloc_solve(prog);
+    if (omega_bw_regalloc_solve(prog) != 0) return -1;
+    return spec->sched ? fp8_schedule_stalls(prog) : 0;
 }
 
 int omega_fp8_gemv_prog_stats(const OmegaFp8GemvSpec *spec, uint32_t *insns, uint32_t *gprs) {
