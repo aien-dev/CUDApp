@@ -1,0 +1,8 @@
+# negative control: removed-function. Edit applied to a COPY of omega_gpu_session.h: sed '/^int omega_gpu_session_alloc_code(/d'
+# diff of the copy against the real header:
+169d168
+< int omega_gpu_session_alloc_code(size_t code_size, OmegaGpuMem *out);
+# check output:
+FAIL: header disagrees with manifest: fn omega_gpu_session_alloc_code fn(usize, *mut OmegaGpuMem) -> i32
+RESULT: FAIL (runtime API check, compile stage)
+# exit code: 1
