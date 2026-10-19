@@ -46,7 +46,7 @@ static struct {
     int sched, sched_set; /* CUT5: kernel schedule 0 (default) or 1 (pipelined decode + stall pass), variant 1 only; env AIEN_OMEGA_FP8_SCHED when never set */
     int coal, coal_set, wfirst, wfirst_set; /* CUT5 variants A (coalesced output) and B (weights before x), variant 1 only; env AIEN_OMEGA_FP8_COAL / AIEN_OMEGA_FP8_WFIRST when never set */
     int deep, deep_set; /* SPEED-1B: automatic deep kernel for single projections whenever it fits (1, default) or never (0); env AIEN_OMEGA_FP8_DEEP when never set */
-    int bigk, bigk_set; /* qwen38/decode-speed: single projections with k > 4096 (Qwen3.8-27B) get 16 warps and a partial-depth deep kernel when x fits; env AIEN_OMEGA_FP8_BIGK when never set */
+    int bigk, bigk_set; /* qwen38/decode-speed: single projections with k > 4096 (Qwen3.8-27B) get 16 warps and a partial-depth deep kernel when x fits; default on, env AIEN_OMEGA_FP8_BIGK when never set */
     bool hooked;
     Slot cache[CACHE_SLOTS];
     unsigned next;
@@ -148,7 +148,7 @@ int omega_gpu_fp8_wfirst(void) { return flag_now(&g.wfirst, &g.wfirst_set, "AIEN
 void omega_gpu_fp8_set_deep(int on) { flag_set(&g.deep, &g.deep_set, on); }
 int omega_gpu_fp8_deep(void) { return flag_now(&g.deep, &g.deep_set, "AIEN_OMEGA_FP8_DEEP", 1); }
 void omega_gpu_fp8_set_bigk(int on) { flag_set(&g.bigk, &g.bigk_set, on); }
-int omega_gpu_fp8_bigk(void) { return flag_now(&g.bigk, &g.bigk_set, "AIEN_OMEGA_FP8_BIGK", 0); }
+int omega_gpu_fp8_bigk(void) { return flag_now(&g.bigk, &g.bigk_set, "AIEN_OMEGA_FP8_BIGK", 1); }
 /* codegen by variant */
 static int prog_for(int variant, const OmegaFp8GemvSpec *spec, BlackwellIRProgram *prog) {
     return variant == 2 ? omega_blackwell_codegen_fp8_gemv2_prog(spec, prog) : omega_blackwell_codegen_fp8_gemv_prog(spec, prog);

@@ -297,7 +297,7 @@ static void bigk_check(void) {
         OmegaFp8GemvSpec g8; omega_gpu_fp8_spec_for(5120, 34816, 8, &g8);
         CHECK(g8.warps == 32u && g8.depth == 0u, "bigk %d: grouped launches keep 32 warps, classic (warps %u depth %u)", on, g8.warps, g8.depth);
     }
-    omega_gpu_fp8_set_bigk(0);
+    omega_gpu_fp8_set_bigk(1); /* the default */
 }
 
 static void host_only(void) {

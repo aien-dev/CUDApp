@@ -176,7 +176,8 @@ void omega_gpu_fp8_set_deep(int on);
 int omega_gpu_fp8_deep(void);
 /* Big-k rule (qwen38/decode-speed): single projections with k > 4096 get 16 warps per CTA and, when x fits the launch
  * descriptor's shared memory, the deep kernel at the largest step count that divides the row within the lane budget
- * (k 5120: 5 steps, k 6144: 6). 0 (default until measured in the whole model) or 1; env AIEN_OMEGA_FP8_BIGK when never set. */
+ * (k 5120: 5 steps, k 6144: 6). 1 (default since 2026-10-19: Qwen3.8-27B whole model 151.6 -> 142-143 ms per token,
+ * golden 24/24) or 0; env AIEN_OMEGA_FP8_BIGK when never set. Shapes with k <= 4096 (the 30B lane) are unchanged. */
 void omega_gpu_fp8_set_bigk(int on);
 int omega_gpu_fp8_bigk(void);
 /* Host-only: the spec the automatic choice makes for a call of k columns, n rows, `groups` experts under the current knobs
