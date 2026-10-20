@@ -472,3 +472,28 @@ int m16_native_close(M16NativeContext *ctx)
     if (fk.close_fail) rc = inject(&ctx->rm, -1);
     return rc;
 }
+
+/* L136: the simulated driver has one channel. Extra channels (AIEN_OMEGA_GPU_CHANNELS > 1) are refused here, so the
+ * platform's device_open refuses with stage "nvrm_channel_n"; the multi-channel path is proven on the chip only. */
+int nvrm_channel_n(Nvrm *rm, uint32_t extra)
+{
+    (void)rm; (void)extra;
+    return -1;
+}
+
+int nvrm_chan_submit(Nvrm *rm, uint32_t ch, const NvrmMem *pb, uint32_t off_bytes, uint32_t nwords)
+{
+    (void)rm; (void)ch; (void)pb; (void)off_bytes; (void)nwords;
+    return -1;
+}
+
+void nvrm_chan_retire(Nvrm *rm, uint32_t ch, uint32_t upto)
+{
+    (void)rm; (void)ch; (void)upto;
+}
+
+uint32_t nvrm_chan_put(const Nvrm *rm, uint32_t ch)
+{
+    (void)rm; (void)ch;
+    return 0;
+}
