@@ -334,7 +334,7 @@ static int ref_queue_open(void *ctx, OmegaGpuDeviceHandle dev, OmegaGpuBufferHan
         for (uint32_t i = 0; i + 1u < r->nchan && slot < 0; i++) if (r->xq[i].generation == 0u) slot = (int)i;
         if (slot < 0) rc = OMEGA_GPU_PLAT_REFUSED_LIMIT;
     }
-    if (rc == OMEGA_GPU_PLAT_OK) rc = omega_gpu_handles_open(&r->t, OMEGA_GPU_HANDLE_QUEUE, 0, 1, 0, &out->index, &out->generation);
+    if (rc == OMEGA_GPU_PLAT_OK) rc = omega_gpu_handles_open(&r->t, OMEGA_GPU_HANDLE_QUEUE, 0, r->nchan, 0, &out->index, &out->generation); /* one queue per channel (L136: nchan is 1 unless AIEN_OMEGA_GPU_CHANNELS) */
     if (rc != OMEGA_GPU_PLAT_OK) { rc = refuse(r, rc, "queue_open"); ref_unlock(r); return rc; }
     if (slot >= 0) { r->xring[slot] = r->mem[ring.index]; r->xq[slot] = *out; r->x_l2_pending[slot] = (uint8_t)r->l2_inval_pending; ref_unlock(r); return OMEGA_GPU_PLAT_OK; }
     r->m16.pb_mem = r->mem[ring.index]; /* m16_native_enqueue_methods copies the method stream here */
