@@ -187,6 +187,7 @@ static int gen_res(Em *e, const OmegaDecSpec *sp) {
     const uint32_t M = sp->mode, H = sp->width ? sp->width : OMEGA_DEC_HIDDEN, N = H / OMEGA_DEC_THREADS, Q = N / 4u;
     if ((M & 7u) == 0 || M > 15 || ((M & OMEGA_DEC_RES_ADD) && (M & OMEGA_DEC_RES_COMBINE))) return -1;
     if ((M & OMEGA_DEC_RES_ROWS) && (M & OMEGA_DEC_RES_COMBINE)) return -1;
+    if ((sp->groups && (sp->groups != 8u && sp->groups != 9u)) || (sp->groups == 9u && !(M & OMEGA_DEC_RES_COMBINE)) || (sp->mutant == 3 && sp->groups != 9u)) return -1;
     if (H % (4u * OMEGA_DEC_THREADS) || N > RES_MAX_VALS || ((M & OMEGA_DEC_RES_COMBINE) && H != OMEGA_DEC_HIDDEN)) return -1;
     int udesc = UV64(e), px = V64(e), pa = V64(e), pw = V64(e), pnw = V64(e), py = V64(e), eps = V(e), scale = V(e);
     int tid = V(e), warp = V(e), lane = V(e), one = V(e), toff = V(e), t = V(e), t2 = V(e), a0 = V(e);
@@ -219,15 +220,20 @@ static int gen_res(Em *e, const OmegaDecSpec *sp) {
         for (unsigned i = 0; i < N; i++) fadd(e, x[i], x[i], S(aq[i / 4], i % 4));
     }
     if (M & OMEGA_DEC_RES_COMBINE) {
-        int wq0 = V128(e), wq1 = V128(e), da = V64(e), dq0 = V128(e), dq1 = V128(e), m[8];
+        const unsigned GR = sp->groups ? sp->groups : OMEGA_DEC_TOPK; /* 8, or 9 with the shared expert (Qwen3.6-35B-A3B) */
+        int wq0 = V128(e), wq1 = V128(e), wq8 = GR > 8u ? V(e) : -1, da = V64(e), dq0 = V128(e), dq1 = V128(e), m[8];
         for (unsigned i = 0; i < 8; i++) m[i] = V(e);
         if (e->err) return -1;
         ldg(e, BW_IR_LDG_E_128, wq0, pw, 0, udesc, 1); ldg(e, BW_IR_LDG_E_128, wq1, pw, 16, udesc, 0);
+        if (GR > 8u) {                               /* the 32-bit LDG.E carries no immediate offset: its own address */
+            int pw8 = V64(e); if (e->err) return -1;
+            imadw(e, pw8, one, 32u, pw); ldg(e, BW_IR_LDG_E, wq8, pw8, 0, udesc, 0);
+        }
         imadw(e, da, toff, 1u, pa);
-        const unsigned G = sp->mutant == 2 ? 7u : 8u;
+        const unsigned G = sp->mutant == 2 ? 7u : sp->mutant == 3 ? 8u : GR;
         for (unsigned g = 0; g < G; g++) {
             ldg(e, BW_IR_LDG_E_128, dq0, da, g * OMEGA_DEC_HIDDEN * 4u, udesc, 1); ldg(e, BW_IR_LDG_E_128, dq1, da, g * OMEGA_DEC_HIDDEN * 4u + 16u, udesc, 0);
-            Op w = g < 4 ? S(wq0, g) : S(wq1, g - 4);
+            Op w = g < 4 ? S(wq0, g) : g < 8 ? S(wq1, g - 4) : R(wq8);
             for (unsigned i = 0; i < 8; i++) {
                 Op d = i < 4 ? S(dq0, i) : S(dq1, i - 4);
                 if (g == 0) fmul(e, R(m[i]), w, d);

@@ -96,6 +96,8 @@ typedef struct {
     uint32_t width;     /* RES: the row width (0 = OMEGA_DEC_HIDDEN; a multiple of 1024 up to 8192, COMBINE only at 2048).
                            SWIGLU: the intermediate size (0 = OMEGA_DEC_INTER; a multiple of 256). Qwen3.8-27B: 5120 and
                            17408 (sc #642). The default widths emit the same program as before the field existed. */
+    uint32_t groups;    /* RES COMBINE: 0 or 8 routed experts, 9 = 8 + the shared expert (Qwen3.6-35B-A3B; the weights and down rows
+                           have 9 entries, slot 8 the shared expert). Mutant 3 (9 only): the shared slot is skipped. */
 } OmegaDecSpec;
 
 int omega_blackwell_codegen_dec_prog(const OmegaDecSpec *spec, BlackwellIRProgram *prog);
