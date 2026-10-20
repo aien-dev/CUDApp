@@ -98,7 +98,16 @@ typedef struct {
                       * cache rows as the decode step does (same instruction sequence, so the same bits), writes q' as bf16
                       * to ARG_OUT in the attend kernel's A-fragment layout (OMEGA_PATTN256_QF_*), and exits. Mutants 1
                       * and 3 apply; ARG_PART, ARG_CNT, ARG_PER_SPLIT, ARG_SPLITS and ARG_OUT_SCALE are not read. */
+    uint32_t q_heads, kv_heads, q_per_cta; /* Q36 (sc L306): the model shape. 0, 0, 0 = 24, 4, 6 (Qwen3.8-27B, the program
+                      * before these fields existed). Qwen3.6-35B-A3B: 16, 2, 4. The grid is (splits, q_heads / q_per_cta): CTA row cy
+                      * ("virtual head") owns q heads cy*q_per_cta .. +q_per_cta-1 and reads KV head cy / G, G = (q_heads / q_per_cta) /
+                      * kv_heads (1 or 2; with 2 both CTA rows of a KV head write the same new K/V bits to the cache). q_per_cta <= 6
+                      * (warps 6, 7 build k and v). Appended last. */
 } OmegaDecodeAttn256Spec;
+
+/* The shape a spec selects: 0 ok, -1 unsupported. */
+typedef struct { uint32_t qh, kvh, h, vy, g, qkv_words, out_words; } OmegaDattn256Shape;
+int omega_dattn256_shape(const OmegaDecodeAttn256Spec *spec, OmegaDattn256Shape *s);
 
 /* Builds the IR program (register-allocated) into *prog. 0 ok, -1 refused (depth 0 or > 4, mutant outside 0..5,
  * or the program outgrew BW_MAX_IR_INSNS / BW_MAX_VREGS). */

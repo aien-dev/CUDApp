@@ -64,6 +64,11 @@ typedef struct {
 } OmegaGpuDecodeAttn256Info;
 
 int omega_gpu_decode_attn256_cache_alloc(uint32_t layers, uint32_t max_pos, double rope_theta, uint32_t rotary_dim, OmegaGpuDecodeAttn256Cache **out);
+/* Q36 (sc L306): the same for another model shape (OmegaDecodeAttn256Spec.q_heads / kv_heads / q_per_cta; 0, 0, 0 = the 27B,
+ * the plain alloc). Qwen3.6-35B-A3B: 16, 2, 4. qkv rows are (q_heads + 2 kv_heads) * 256 f32, out q_heads * 256; the cache has
+ * kv_heads planes; partials and split counters one per CTA row (q_heads / q_per_cta <= 16). */
+int omega_gpu_decode_attn256_cache_alloc_shape(uint32_t layers, uint32_t max_pos, double rope_theta, uint32_t rotary_dim, uint32_t q_heads,
+                                               uint32_t kv_heads, uint32_t q_per_cta, OmegaGpuDecodeAttn256Cache **out);
 void omega_gpu_decode_attn256_cache_free(OmegaGpuDecodeAttn256Cache *c);
 int omega_gpu_decode_attn256_set_norms(OmegaGpuDecodeAttn256Cache *c, uint32_t layer, const float *q_norm, const float *k_norm);
 int omega_gpu_decode_attn256(OmegaGpuDecodeAttn256Cache *c, uint32_t layer, uint32_t pos, const float *qkv, float eps,
