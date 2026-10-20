@@ -93,6 +93,8 @@ typedef struct {
     uint64_t rope_va;           /* f32 [max_pos][cos 128 | sin 128] */
     uint64_t q_norm_va, k_norm_va; /* f32 [256] each for `layer` */
     uint64_t part_va, cnt_va;   /* the cross-split partials and counters (prefill may reuse them) */
+    uint32_t q_heads, kv_heads, q_per_cta; /* the cache's head shape, resolved (24 / 4 / 6 for the 27B) */
+    uint32_t qkv_words, out_words;         /* f32 per token row of the q|k|v input and of the output */
 } OmegaGpuDecodeAttn256CacheView;
 int omega_gpu_decode_attn256_cache_view(const OmegaGpuDecodeAttn256Cache *c, uint32_t layer, OmegaGpuDecodeAttn256CacheView *out);
 

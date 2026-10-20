@@ -291,8 +291,12 @@ int omega_blackwell_codegen_decode_attn256_prog(const OmegaDecodeAttn256Spec *sp
         /* q' as bf16 in the attend kernel's A-fragment layout (omega_blackwell_codegen_pattn256.h, OMEGA_PATTN256_QF_*):
          * word i of lane L (dims 8L+2i, +1) goes to ((((cx>>1)*4 + cy)*6 + warp)*16 + (L>>1))*64 + i*16 + ((L&1)*2 + (cx&1))*4.
          * Warps 6, 7 (k, v) skip it. */
-        int qw = V128(e), pqf = V64(e), qa64 = V64(e), h0q = V(e), h1q = V(e), tbq = V(e); if (e->err) return -1;
-        isetp_ge_u32(e, f, one);
+        int qw = V128(e), pqf = V64(e), qa64 = V64(e), h0q = V(e), h1q = V(e), tbq = V(e), fq = f; if (e->err) return -1;
+        if (H < 6u) {                                /* warps H .. 5 hold no head of this row: they skip q' too */
+            fq = V(e); if (e->err) return -1;
+            movi(e, t1, H - 1u); imadi(e, R(t1), R(warp), 0xffffffffu, t1); shr(e, fq, t1, 31);
+        }
+        isetp_ge_u32(e, fq, one);
         int bq = bra_if_p0_fwd(e);
         for (unsigned w = 0; w < 4; w++) {
             int src = w < 2 ? qa : qb; unsigned s0 = (2 * w) % 4;

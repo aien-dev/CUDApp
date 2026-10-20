@@ -50,6 +50,8 @@ struct OmegaGpuCmdList;
 int omega_gpu_prefill_attn256_record(struct OmegaGpuCmdList *cl, OmegaGpuDecodeAttn256Cache *c, uint32_t layer, uint32_t pos0,
                                      uint32_t m, uint64_t qkv_va, float eps, float out_scale, uint64_t out_va);
 int omega_gpu_prefill_attn256_reserve(uint32_t max_m);
+/* the same for the head shape of cache c (the q' scratch is q_heads * 512 bytes per token; reserve(m) = the 27B) */
+int omega_gpu_prefill_attn256_reserve_for(const OmegaGpuDecodeAttn256Cache *c, uint32_t max_m);
 void omega_gpu_prefill_attn256_release(void);
 
 /* ---- tests ---- */

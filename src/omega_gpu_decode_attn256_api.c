@@ -258,6 +258,7 @@ int omega_gpu_decode_attn256_cache_view(const OmegaGpuDecodeAttn256Cache *c, uin
     v->rope_va = c->rope.va;
     v->q_norm_va = c->norms.va + (uint64_t)layer * 2 * HD * 4; v->k_norm_va = v->q_norm_va + HD * 4;
     v->part_va = c->part.va; v->cnt_va = c->cnt.va;
+    v->q_heads = c->sh.qh; v->kv_heads = c->sh.kvh; v->q_per_cta = c->sh.h; v->qkv_words = c->sh.qkv_words; v->out_words = c->sh.out_words;
     return OMEGA_GPU_DATTN_OK;
 }
 
