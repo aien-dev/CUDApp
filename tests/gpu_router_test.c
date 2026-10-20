@@ -29,15 +29,31 @@ static uint16_t bf16_rne(float f) { uint32_t x; memcpy(&x, &f, 4); uint32_t r = 
 static float bf16_f32(uint16_t b) { uint32_t x = (uint32_t)b << 16; float f; memcpy(&f, &x, 4); return f; }
 static const float EPS = 1e-6f;
 #define H OMEGA_ROUTER_HIDDEN
+/* -DROUTER_TEST_Q36: Qwen3.6-35B-A3B (256 routed experts + the shared expert gate row and slot; sc L306) */
+#ifdef ROUTER_TEST_Q36
+#define NE 256u
+#define SHX 1u
+#define SPEC_SHAPE , .experts = NE, .shared = SHX
+#define GN_E2E 1024u
+#define DK_E2E 512u
+#else
 #define NE OMEGA_ROUTER_EXPERTS
+#define SHX 0u
+#define SPEC_SHAPE
+#define GN_E2E 1536u
+#define DK_E2E 768u
+#endif
+#define NR (NE + SHX)                 /* gate rows */
 #define TK OMEGA_ROUTER_TOPK
+#define TS (TK + SHX)                 /* output slots */
+#define MUT_MAX (SHX ? 5 : 4)
 #define MARGIN_FLOOR 1e-4 /* an id mismatch at an oracle margin (8th - 9th logit) below this is recorded, not failed */
 
 typedef struct {
     float x[H], nw[H];
-    uint16_t *gate; /* [128][2048] bf16 */
-    double xn[H], logits[NE], w[TK], margin;
-    uint32_t ids[TK];
+    uint16_t *gate; /* [NR][2048] bf16 (row NE = the shared expert gate when SHX) */
+    double xn[H], logits[NR], w[TS], margin;
+    uint32_t ids[TS];
 } Case;
 
 /* the double oracle from c->x, c->nw, c->gate: xn, logits, ids (descending, lowest index on ties), weights, margin */
@@ -46,7 +62,7 @@ static void oracle_fill(Case *c, int norm_topk) {
     double r = 1.0 / sqrt(ss / (double)H + (double)EPS);
     for (unsigned i = 0; i < H; i++) c->xn[i] = (double)c->x[i] * r * (double)c->nw[i];
     double mx = -1e300;
-    for (unsigned e = 0; e < NE; e++) { double l = 0; for (unsigned k = 0; k < H; k++) l += (double)bf16_f32(c->gate[(size_t)e * H + k]) * c->xn[k]; c->logits[e] = l; if (l > mx) mx = l; }
+    for (unsigned e = 0; e < NR; e++) { double l = 0; for (unsigned k = 0; k < H; k++) l += (double)bf16_f32(c->gate[(size_t)e * H + k]) * c->xn[k]; c->logits[e] = l; if (e < NE && l > mx) mx = l; }
     double p[NE], sum = 0; for (unsigned e = 0; e < NE; e++) { p[e] = exp(c->logits[e] - mx); sum += p[e]; }
     for (unsigned e = 0; e < NE; e++) p[e] /= sum;
     int taken[NE]; memset(taken, 0, sizeof taken);
@@ -57,18 +73,21 @@ static void oracle_fill(Case *c, int norm_topk) {
         else c->margin = c->logits[c->ids[TK - 1]] - c->logits[best];
     }
     if (norm_topk) for (unsigned i = 0; i < TK; i++) c->w[i] /= s8;
+    if (SHX) { c->ids[TK] = NE; c->w[TK] = 1.0 / (1.0 + exp(-c->logits[NE])); } /* the shared slot: never in the top-8 */
 }
-static void case_make(Case *c, uint32_t seed, float xscale, int norm_topk) {
+/* shared_scale: the shared gate row (SHX) is multiplied by it (bf16): a huge row must leave the top-8 untouched */
+static void case_make_shared(Case *c, uint32_t seed, float xscale, int norm_topk, float shared_scale) {
     uint32_t s = seed;
-    c->gate = malloc((size_t)NE * H * 2);
+    c->gate = malloc((size_t)NR * H * 2);
     for (unsigned i = 0; i < H; i++) { c->x[i] = frand(&s, -2.0f, 2.0f) * xscale; c->nw[i] = frand(&s, 0.8f, 1.2f); }
-    for (size_t i = 0; i < (size_t)NE * H; i++) c->gate[i] = bf16_rne(frand(&s, -0.05f, 0.05f));
+    for (size_t i = 0; i < (size_t)NR * H; i++) c->gate[i] = bf16_rne(frand(&s, -0.05f, 0.05f) * (i >= (size_t)NE * H ? shared_scale : 1.0f));
     oracle_fill(c, norm_topk);
 }
+static void case_make(Case *c, uint32_t seed, float xscale, int norm_topk) { case_make_shared(c, seed, xscale, norm_topk, 1.0f); }
 static void case_free(Case *c) { free(c->gate); }
 
 /* outputs of one run (chip or simulator) */
-typedef struct { uint32_t ids[TK]; float w[TK], xout[H]; uint64_t tgu[TK * 2], tdn[TK * 2]; } Out;
+typedef struct { uint32_t ids[TS]; float w[TS], xout[H]; uint64_t tgu[TS * 2], tdn[TS * 2]; } Out;
 
 /* compares an Out against the oracle; returns a bitmask of what differed (1 ids, 2 weights, 4 x', 8 tables); fills msg */
 static int compare(const Case *c, const Out *o, float out_scale, const uint64_t *dgu, const uint64_t *ddn, char *msg, size_t n, int *margin_case) {
@@ -76,12 +95,12 @@ static int compare(const Case *c, const Out *o, float out_scale, const uint64_t 
     int ids_eq = memcmp(c->ids, o->ids, sizeof c->ids) == 0;
     if (!ids_eq) { if (c->margin < MARGIN_FLOOR) *margin_case = 1; else bad |= 1; }
     double ww = 0, wx = 0;
-    if (ids_eq) for (unsigned i = 0; i < TK; i++) { double d = fabs((double)o->w[i] - c->w[i]); if (d > ww) ww = d; }
+    if (ids_eq) for (unsigned i = 0; i < TS; i++) { double d = fabs((double)o->w[i] - c->w[i]); if (d > ww) ww = d; }
     if (ww > 1e-5) bad |= 2;
     double xmax = 0; for (unsigned i = 0; i < H; i++) if (fabs(c->xn[i]) > xmax) xmax = fabs(c->xn[i]);
     for (unsigned i = 0; i < H; i++) { double d = fabs((double)o->xout[i] / (double)out_scale - c->xn[i]); if (d > wx) wx = d; }
     if (wx > 1e-5 * xmax) bad |= 4;
-    if (ids_eq) for (unsigned g = 0; g < TK; g++) {
+    if (ids_eq) for (unsigned g = 0; g < TS; g++) {
         uint32_t id = o->ids[g];
         if (o->tgu[2 * g] != dgu[2 * id] || o->tgu[2 * g + 1] != dgu[2 * id + 1] || o->tdn[2 * g] != ddn[2 * id] || o->tdn[2 * g + 1] != ddn[2 * id + 1]) bad |= 8;
     }
@@ -106,43 +125,47 @@ static void host_only(void) {
       case_free(&c); }
     /* codegen budgets: every production shape fits the register file (32 * warps * declared <= 65536) and the IR limit */
     uint32_t ws[] = { 8, 16, 32 }, ds[] = { 1, 2, 4, 8 };
-    for (unsigned i = 0; i < 3; i++) for (unsigned j = 0; j < 4; j++) for (int m = 0; m <= 4; m++) {
-        OmegaRouterSpec s = { ws[i], ds[j], m }; uint32_t n = 0, g = 0;
+    for (unsigned i = 0; i < 3; i++) for (unsigned j = 0; j < 4; j++) for (int m = 0; m <= MUT_MAX; m++) {
+        OmegaRouterSpec s = { .warps = ws[i], .depth = ds[j], .mutant = m SPEC_SHAPE }; uint32_t n = 0, g = 0;
         int rc = omega_router_prog_stats(&s, &n, &g);
         uint32_t decl = ((g + 1 + 7) / 8) * 8;
         CHECK(rc == 0 && n <= 1024 && 32u * ws[i] * decl <= 65536u, "codegen warps %u depth %u mutant %d: rc %d insns %u gprs %u declared %u", ws[i], ds[j], m, rc, n, g, decl);
         if (m == 0 && rc == 0) printf("codegen warps %2u depth %u: %u instructions, %u registers (declared %u, register file %u of 65536)\n", ws[i], ds[j], n, g, decl, 32u * ws[i] * decl);
     }
-    { OmegaRouterSpec s = { 4, 8, 0 }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "warps 4 refused"); }
-    { OmegaRouterSpec s = { 8, 3, 0 }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "depth 3 refused"); }
-    { OmegaRouterSpec s = { 8, 8, 5 }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "mutant 5 refused"); }
+    { OmegaRouterSpec s = { .warps = 4, .depth = 8 SPEC_SHAPE }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "warps 4 refused"); }
+    { OmegaRouterSpec s = { .warps = 8, .depth = 3 SPEC_SHAPE }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "depth 3 refused"); }
+    { OmegaRouterSpec s = { .warps = 8, .depth = 8, .mutant = MUT_MAX + 1 SPEC_SHAPE }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "mutant %d refused", MUT_MAX + 1); }
+    { OmegaRouterSpec s = { .warps = 8, .depth = 8, .experts = 192 }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "192 experts refused"); }
+    { OmegaRouterSpec s = { .warps = 8, .depth = 8, .shared = 2 }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "shared 2 refused"); }
     CHECK(OMEGA_ROUTER_ARGS_WORDS <= OMEGA_GPU_SESSION_MAX_ARGS, "argument words fit the constant bank window");
 }
 
 /* ------------------------------------------------------------- simulator */
 static uint64_t g_sim_issues;
 /* one "device" block: x | xout | ids | wts | tab_gu | tab_dn | dir_gu | dir_dn | norm; the gate row block apart */
-enum { B_X = 0, B_XOUT = 8192, B_IDS = 16384, B_WTS = 16448, B_TGU = 16512, B_TDN = 16640, B_DGU = 16768, B_DDN = 16768 + 2048, B_NORM = 16768 + 4096, B_BYTES = 16768 + 4096 + 8192 };
-static void fake_dirs(uint64_t *dgu, uint64_t *ddn) { for (unsigned e = 0; e < NE; e++) { dgu[2 * e] = 0x100000000ull + e * 16; dgu[2 * e + 1] = 0x200000000ull + e * 16 + 8; ddn[2 * e] = 0x300000000ull + e * 32; ddn[2 * e + 1] = 0x400000000ull + e * 32 + 16; } }
-static int sim_point(uint32_t depth, int mutant, int norm_topk, float out_scale, uint32_t seed, char *msg, size_t n, int *bad, int *margin_case) {
+enum { B_X = 0, B_XOUT = 8192, B_IDS = 16384, B_WTS = 16448, B_TGU = 16512, B_TDN = 16672, B_DGU = 16832, B_DDN = B_DGU + NR * 16,
+       B_NORM = B_DDN + NR * 16, B_BYTES = B_NORM + 8192 };
+static void fake_dirs(uint64_t *dgu, uint64_t *ddn) { for (unsigned e = 0; e < NR; e++) { dgu[2 * e] = 0x100000000ull + e * 16; dgu[2 * e + 1] = 0x200000000ull + e * 16 + 8; ddn[2 * e] = 0x300000000ull + e * 32; ddn[2 * e + 1] = 0x400000000ull + e * 32 + 16; } }
+static int sim_point(uint32_t depth, int mutant, int norm_topk, float out_scale, uint32_t seed, float shared_scale, char *msg, size_t n, int *bad, int *margin_case) {
     static BlackwellIRProgram prog;
-    OmegaRouterSpec spec = { 8, depth, mutant };
-    if (omega_blackwell_codegen_router_prog(&spec, &prog) != 0) { snprintf(msg, n, "codegen refused"); return -1; }
-    Case c; case_make(&c, seed, 1.0f, norm_topk);
+    OmegaRouterSpec spec = { .warps = 8, .depth = depth, .mutant = mutant SPEC_SHAPE };
+    OmegaRouterSmem sm;
+    if (omega_blackwell_codegen_router_prog(&spec, &prog) != 0 || omega_router_smem(&spec, &sm) != 0) { snprintf(msg, n, "codegen refused"); return -1; }
+    Case c; case_make_shared(&c, seed, 1.0f, norm_topk, shared_scale);
     uint8_t *blk = aligned_alloc(16, B_BYTES); memset(blk, 0, B_BYTES);
-    uint16_t *gate = aligned_alloc(16, (size_t)NE * H * 2); memcpy(gate, c.gate, (size_t)NE * H * 2);
+    uint16_t *gate = aligned_alloc(16, (size_t)NR * H * 2); memcpy(gate, c.gate, (size_t)NR * H * 2);
     memcpy(blk + B_X, c.x, sizeof c.x); memcpy(blk + B_NORM, c.nw, sizeof c.nw);
-    uint64_t dgu[NE * 2], ddn[NE * 2]; fake_dirs(dgu, ddn);
+    uint64_t dgu[NR * 2], ddn[NR * 2]; fake_dirs(dgu, ddn);
     memcpy(blk + B_DGU, dgu, sizeof dgu); memcpy(blk + B_DDN, ddn, sizeof ddn);
     Out o, copy; int err = 0;
     for (int order = 0; order < 2 && !err; order++) {
         WsSim s; memset(&s, 0, sizeof s);
         s.p = &prog; s.threads = 256; s.order = order;
-        static uint8_t smem[OMEGA_ROUTER_SHARED_BYTES]; s.smem = smem; s.smem_bytes = OMEGA_ROUTER_SHARED_BYTES;
+        static uint8_t smem[16384]; s.smem = smem; s.smem_bytes = sm.total;
         float *xo = (float *)(blk + B_XOUT), *wd = (float *)(blk + B_WTS); uint32_t *idd = (uint32_t *)(blk + B_IDS);
         for (unsigned i = 0; i < H; i++) xo[i] = -999.0f;
-        for (unsigned i = 0; i < TK; i++) { wd[i] = -999.0f; idd[i] = 0xffffffffu; }
-        memset(blk + B_TGU, 0, 256);
+        for (unsigned i = 0; i < TS; i++) { wd[i] = -999.0f; idd[i] = 0xffffffffu; }
+        memset(blk + B_TGU, 0, B_DGU - B_TGU);
         uint64_t A[10] = { (uintptr_t)(blk + B_X), (uintptr_t)gate, (uintptr_t)(blk + B_NORM), (uintptr_t)(blk + B_XOUT), (uintptr_t)(blk + B_IDS),
                            (uintptr_t)(blk + B_WTS), (uintptr_t)(blk + B_DGU), (uintptr_t)(blk + B_DDN), (uintptr_t)(blk + B_TGU), (uintptr_t)(blk + B_TDN) };
         for (unsigned i = 0; i < 10; i++) { s.cbank[(0x380 + 8 * i) / 4] = (uint32_t)A[i]; s.cbank[(0x380 + 8 * i) / 4 + 1] = (uint32_t)(A[i] >> 32); }
@@ -151,14 +174,14 @@ static int sim_point(uint32_t depth, int mutant, int norm_topk, float out_scale,
         s.cbank[OMEGA_ROUTER_ARG_NORM_TOPK / 4] = norm_topk ? 1u : 0u;
         s.nranges = 2;
         s.ranges[0].lo = (uintptr_t)blk; s.ranges[0].hi = (uintptr_t)blk + B_BYTES;
-        s.ranges[1].lo = (uintptr_t)gate; s.ranges[1].hi = (uintptr_t)gate + (size_t)NE * H * 2;
+        s.ranges[1].lo = (uintptr_t)gate; s.ranges[1].hi = (uintptr_t)gate + (size_t)NR * H * 2;
         err = ws_run(&s, 1, 1);
         if (err) { snprintf(msg, n, "order %d: %s (pc %d)", order, s.msg, s.err_pc); break; }
         g_sim_issues += s.warp_issues;
         size_t unwritten = 0; for (unsigned i = 0; i < H; i++) if (xo[i] == -999.0f) unwritten++;
-        for (unsigned i = 0; i < TK; i++) if (wd[i] == -999.0f || idd[i] == 0xffffffffu) unwritten++;
+        for (unsigned i = 0; i < TS; i++) if (wd[i] == -999.0f || idd[i] == 0xffffffffu) unwritten++;
         if (unwritten) { err = -1; snprintf(msg, n, "%zu output words never written", unwritten); break; }
-        memcpy(o.ids, idd, sizeof o.ids); memcpy(o.w, wd, sizeof o.w); memcpy(o.xout, xo, sizeof o.xout); memcpy(o.tgu, blk + B_TGU, 128); memcpy(o.tdn, blk + B_TDN, 128);
+        memcpy(o.ids, idd, sizeof o.ids); memcpy(o.w, wd, sizeof o.w); memcpy(o.xout, xo, sizeof o.xout); memcpy(o.tgu, blk + B_TGU, TS * 16); memcpy(o.tdn, blk + B_TDN, TS * 16);
         if (order == 0) copy = o;
         else if (memcmp(&copy, &o, sizeof o) != 0) { err = -1; snprintf(msg, n, "the fragment order changed the result"); }
     }
@@ -173,13 +196,19 @@ static void sim_battery(void) {
     };
     for (size_t i = 0; i < sizeof pts / sizeof pts[0]; i++) {
         char msg[300]; int bad = 0, mc = 0;
-        int err = sim_point(pts[i].depth, 0, pts[i].norm_topk, pts[i].oscale, pts[i].seed, msg, sizeof msg, &bad, &mc);
+        int err = sim_point(pts[i].depth, 0, pts[i].norm_topk, pts[i].oscale, pts[i].seed, 1.0f, msg, sizeof msg, &bad, &mc);
         CHECK(!err && bad == 0, "sim %s: %s", pts[i].name, msg);
         printf("sim %s: %s %s\n", pts[i].name, err ? "ERROR" : bad ? "MISMATCH" : "ok", msg);
     }
-    for (int m = 1; m <= 4; m++) {
+    if (SHX) {   /* the shared gate row scaled up 1000x: if it entered the top-8 or the softmax, ids / weights would differ */
         char msg[300]; int bad = 0, mc = 0;
-        int err = sim_point(8, m, 1, 1.0f, 21, msg, sizeof msg, &bad, &mc);
+        int err = sim_point(8, 0, 1, 1.0f, 17, 1000.0f, msg, sizeof msg, &bad, &mc);
+        CHECK(!err && bad == 0, "sim shared row x1000: %s", msg);
+        printf("sim shared row x1000: %s %s\n", err ? "ERROR" : bad ? "MISMATCH" : "ok", msg);
+    }
+    for (int m = 1; m <= MUT_MAX; m++) {
+        char msg[300]; int bad = 0, mc = 0;
+        int err = sim_point(8, m, 1, 1.0f, 21, 1.0f, msg, sizeof msg, &bad, &mc);
         CHECK(!err && bad != 0, "sim mutant %d must be caught: %s", m, msg);
         printf("sim mutant %d: %s (bad mask %d) %s\n", m, err ? "ERROR" : bad ? "caught" : "NOT CAUGHT", bad, msg);
     }
@@ -206,11 +235,11 @@ static int chip_run(const char *out_path, uint32_t reps) {
     if (out) fprintf(out, "{\"receipt\":\"OMEGA_GPU_ROUTER_V1\",\"reps\":%u,\"evict\":%d,\"spin_us\":%u,\"points\":[", reps, g_evict, omega_gpu_session_spin_us());
     OmegaGpuRouter *r = NULL;
     double t0 = now_ms();
-    int rc = omega_gpu_router_alloc(2, &r);
+    int rc = omega_gpu_router_alloc_shape(2, NE, SHX, &r);
     printf("router alloc (2 layers): rc=%s %.1f ms (%s)\n", omega_gpu_router_rc_name(rc), now_ms() - t0, rc ? omega_gpu_router_last_error() : "");
     CHECK(rc == OMEGA_GPU_ROUTER_OK, "router alloc");
     if (rc) { if (out) fprintf(out, "],\"verdict\":\"FAIL\"}\n"); return 1; }
-    uint64_t dgu[NE * 2], ddn[NE * 2]; fake_dirs(dgu, ddn);
+    uint64_t dgu[NR * 2], ddn[NR * 2]; fake_dirs(dgu, ddn);
     CHECK(omega_gpu_router_set_directory(r, 0, dgu, ddn) == OMEGA_GPU_ROUTER_OK, "set directory layer 0");
     int first = 1, parity_fail = 0, margin_cases = 0;
     /* parity: layer 0, 24 cases norm on, 8 off, 4 with out_scale 2^64; then the same gate on layer 1 (addressing) */
@@ -241,7 +270,7 @@ static int chip_run(const char *out_path, uint32_t reps) {
     CHECK(parity_fail == 0, "chip parity: %d of 36 cases mismatch", parity_fail);
     printf("chip parity: %d of 36 mismatches, %d margin cases (recorded, oracle margin below %.0e)\n", parity_fail, margin_cases, MARGIN_FLOOR);
     /* mutants on a fixed case, layer 0 */
-    for (int m = 1; m <= 4; m++) {
+    for (int m = 1; m <= MUT_MAX; m++) {
         omega_gpu_router_test_set_mutant(m);
         Out o; char msg[300]; int bad = -1, mc = 0;
         rc = chip_call(r, 0, &fixed, 1, 1.0f, &o, NULL);
@@ -255,26 +284,26 @@ static int chip_run(const char *out_path, uint32_t reps) {
     /* end to end on layer 1: real FP8 gate+up shape (128 x 1536 x 2048) and a small down tensor; the router's device
      * table + x' feed omega_gpu_fp8_gemv_grouped_dev; the host-table call with the chip's ids and x'/2^64 must match bit for bit */
     {
-        const uint32_t GN = 1536, GK = 2048, DN = 256, DK = 768;
-        size_t gw = (size_t)NE * GN * GK, dw = (size_t)NE * DN * DK;
+        const uint32_t GN = GN_E2E, GK = 2048, DN = 256, DK = DK_E2E;
+        size_t gw = (size_t)NR * GN * GK, dw = (size_t)NR * DN * DK;
         uint8_t *w1 = malloc(gw), *w2 = malloc(dw);
-        uint16_t *s1 = malloc((size_t)NE * (GN / 128) * (GK / 128) * 2), *s2 = malloc((size_t)NE * (DN / 128) * (DK / 128) * 2);
+        uint16_t *s1 = malloc((size_t)NR * (GN / 128) * (GK / 128) * 2), *s2 = malloc((size_t)NR * (DN / 128) * (DK / 128) * 2);
         uint32_t s = 4242;
         for (size_t i = 0; i < gw; i++) { uint8_t b = (uint8_t)(lcg(&s) >> 24); if ((b & 0x7f) == 0x7f) b ^= 1; w1[i] = b; }
         for (size_t i = 0; i < dw; i++) { uint8_t b = (uint8_t)(lcg(&s) >> 24); if ((b & 0x7f) == 0x7f) b ^= 1; w2[i] = b; }
-        for (size_t i = 0; i < (size_t)NE * (GN / 128) * (GK / 128); i++) s1[i] = bf16_rne(frand(&s, 0.5f, 2.0f));
-        for (size_t i = 0; i < (size_t)NE * (DN / 128) * (DK / 128); i++) s2[i] = bf16_rne(frand(&s, 0.5f, 2.0f));
+        for (size_t i = 0; i < (size_t)NR * (GN / 128) * (GK / 128); i++) s1[i] = bf16_rne(frand(&s, 0.5f, 2.0f));
+        for (size_t i = 0; i < (size_t)NR * (DN / 128) * (DK / 128); i++) s2[i] = bf16_rne(frand(&s, 0.5f, 2.0f));
         OmegaGpuFp8Tensor *tg = NULL, *td = NULL;
         t0 = now_ms();
-        int r1 = omega_gpu_fp8_tensor_upload(NE, GN, GK, w1, s1, &tg), r2 = omega_gpu_fp8_tensor_upload(NE, DN, DK, w2, s2, &td);
+        int r1 = omega_gpu_fp8_tensor_upload(NR, GN, GK, w1, s1, &tg), r2 = omega_gpu_fp8_tensor_upload(NR, DN, DK, w2, s2, &td);
         printf("fp8 upload gate+up %zu MB + down %zu MB: rc %s / %s, %.0f ms\n", gw >> 20, dw >> 20, omega_gpu_fp8_rc_name(r1), omega_gpu_fp8_rc_name(r2), now_ms() - t0);
         CHECK(r1 == 0 && r2 == 0, "fp8 uploads for the end-to-end");
         if (r1 == 0 && r2 == 0) {
             Case c; case_make(&c, 3000, 1.0f, 1);
             CHECK(omega_gpu_router_set_layer(r, 1, c.gate, c.nw) == OMEGA_GPU_ROUTER_OK, "set layer 1");
             CHECK(omega_gpu_router_set_directory_fp8(r, 1, tg, td) == OMEGA_GPU_ROUTER_OK, "set directory layer 1 from the fp8 tensors");
-            uint64_t rgu[NE * 2], rdn[NE * 2];
-            for (unsigned e = 0; e < NE; e++) { omega_gpu_fp8_tensor_entry(tg, e, &rgu[2 * e], &rgu[2 * e + 1]); omega_gpu_fp8_tensor_entry(td, e, &rdn[2 * e], &rdn[2 * e + 1]); }
+            uint64_t rgu[NR * 2], rdn[NR * 2];
+            for (unsigned e = 0; e < NR; e++) { omega_gpu_fp8_tensor_entry(tg, e, &rgu[2 * e], &rgu[2 * e + 1]); omega_gpu_fp8_tensor_entry(td, e, &rdn[2 * e], &rdn[2 * e + 1]); }
             Out o; OmegaGpuRouterInfo info; char msg[300]; int mc = 0;
             const float OS = 18446744073709551616.0f;
             rc = chip_call(r, 1, &c, 1, OS, &o, &info);
@@ -282,13 +311,13 @@ static int chip_run(const char *out_path, uint32_t reps) {
             CHECK(bad == 0, "e2e router on layer 1 with real directories: %s", rc ? omega_gpu_router_last_error() : msg);
             printf("e2e router layer 1: %s %s\n", bad ? "MISMATCH" : "ok", rc ? omega_gpu_router_last_error() : msg);
             uint64_t xva, tgva, tdva; omega_gpu_router_device_outputs(r, &xva, &tgva, &tdva);
-            float *ydev = malloc((size_t)TK * GN * 4), *yhost = malloc((size_t)TK * GN * 4), *xh = malloc(H * 4);
+            float *ydev = malloc((size_t)TS * GN * 4), *yhost = malloc((size_t)TS * GN * 4), *xh = malloc(H * 4);
             for (unsigned k = 0; k < H; k++) xh[k] = o.xout[k] / OS; /* exact: a power of two */
             OmegaGpuFp8Info fi, fh;
-            int rd = omega_gpu_fp8_gemv_grouped_dev(tg, TK, tgva, xva, ydev, &fi);
-            int rh = omega_gpu_fp8_gemv_grouped_f32(tg, TK, o.ids, xh, 1, yhost, &fh);
+            int rd = omega_gpu_fp8_gemv_grouped_dev(tg, TS, tgva, xva, ydev, &fi);
+            int rh = omega_gpu_fp8_gemv_grouped_f32(tg, TS, o.ids, xh, 1, yhost, &fh);
             CHECK(rd == 0 && rh == 0, "grouped gate+up launches: dev %s host %s", omega_gpu_fp8_rc_name(rd), omega_gpu_fp8_rc_name(rh));
-            int same = rd == 0 && rh == 0 && memcmp(ydev, yhost, (size_t)TK * GN * 4) == 0;
+            int same = rd == 0 && rh == 0 && memcmp(ydev, yhost, (size_t)TS * GN * 4) == 0;
             CHECK(same, "grouped gate+up from the router-written table and x' equals the host-table call bit for bit");
             printf("e2e grouped gate+up (8 experts, %u x %u): device table/x' vs host table: %s; chip %.1f us vs %.1f us, call %.1f us vs %.1f us\n", GN, GK, same ? "bit-identical" : "DIFFER",
                    fi.elapsed_ns / 1e3, fh.elapsed_ns / 1e3, fi.call_ns / 1e3, fh.call_ns / 1e3);
@@ -309,7 +338,7 @@ static int chip_run(const char *out_path, uint32_t reps) {
                 if (g_evict) evict_host_caches();
                 double a = now_ms();
                 if (omega_gpu_router(r, 1, c.x, EPS, 1, OS, o.ids, o.w, &info) != 0) break;
-                if (omega_gpu_fp8_gemv_grouped_dev(tg, TK, tgva, xva, ydev, &fi) != 0) break;
+                if (omega_gpu_fp8_gemv_grouped_dev(tg, TS, tgva, xva, ydev, &fi) != 0) break;
                 es[done] = (uint64_t)((now_ms() - a) * 1e6);
                 er[done] = info.elapsed_ns; ec[done] = info.call_ns; eg[done] = fi.elapsed_ns; done++;
             }

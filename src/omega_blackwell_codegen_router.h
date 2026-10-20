@@ -72,8 +72,18 @@ typedef struct {
     uint32_t depth;  /* weight steps in flight per warp: 1, 2, 4 or 8 */
     int mutant;      /* TEST ONLY. 0 none; 1 RMSNorm without the weight; 2 the mask after each argmax round removes
                       * expert id ^ 1 (the winner can be picked again); 3 the directory entries copied are those of
-                      * id ^ 1; 4 the weights are not normalised (den = 1). */
+                      * id ^ 1; 4 the weights are not normalised (den = 1); 5 (shared only) the shared expert's
+                      * weight is 1 instead of sigmoid(gate). */
+    uint32_t experts; /* routed experts: 0 or 128 (the 30B), 256 (Qwen3.6-35B-A3B) */
+    uint32_t shared;  /* 0, or 1: the weight has one more row (the shared expert gate, row `experts`) that never
+                       * enters the top-8 or the softmax; slot 8 of ids / weights / both tables is the shared expert:
+                       * id = experts, weight = sigmoid(row . xn), directory[experts] (the directory has experts + 1
+                       * entries). */
 } OmegaRouterSpec;
+
+/* Shared memory map of a spec (bytes); the OMEGA_ROUTER_SM_* constants are the 128 / no-shared case. */
+typedef struct { uint32_t logit, red, bc, sel, selv, total; } OmegaRouterSmem;
+int omega_router_smem(const OmegaRouterSpec *spec, OmegaRouterSmem *m); /* 0 ok, -1 refused shape */
 
 /* Builds the register-allocated IR program into *prog. 0 ok, -1 refused. */
 int omega_blackwell_codegen_router_prog(const OmegaRouterSpec *spec, BlackwellIRProgram *prog);

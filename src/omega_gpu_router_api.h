@@ -61,6 +61,10 @@ typedef struct {
 } OmegaGpuRouterInfo;
 
 int omega_gpu_router_alloc(uint32_t layers, OmegaGpuRouter **out);
+/* Qwen3.6-35B-A3B shape (sc L306): experts 256 (0 = 128) and shared 1. Then set_layer's gate_bf16 is [experts + 1][2048]
+ * (the last row = shared_expert_gate), the directories have experts + 1 entries (entry `experts` = the shared expert),
+ * and ids / weights / both tables have 9 slots: slot 8 = {experts, sigmoid(shared gate . xn), directory[experts]}. */
+int omega_gpu_router_alloc_shape(uint32_t layers, uint32_t experts, uint32_t shared, OmegaGpuRouter **out);
 void omega_gpu_router_free(OmegaGpuRouter *r);
 int omega_gpu_router_set_layer(OmegaGpuRouter *r, uint32_t layer, const uint16_t *gate_bf16, const float *norm_w);
 int omega_gpu_router_set_directory(OmegaGpuRouter *r, uint32_t layer, const uint64_t *gu, const uint64_t *dn);
