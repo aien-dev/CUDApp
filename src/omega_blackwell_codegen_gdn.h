@@ -83,7 +83,19 @@ typedef struct {
     int mutant; /* TEST ONLY. 0 none; 1 no decay (decay = 1); 2 beta = 1; 3 the output gate is z, not silu(z);
                  * 4 the conv tail is not shifted (the next step convolves stale history). */
     int copy;   /* 0: the GDN kernels. OMEGA_GDN_COPY / OMEGA_GDN_ZERO: omega_blackwell_codegen_gdn_copy_prog */
+    uint32_t ratio; /* value heads per key head (16 key heads): 0 = 3 (Qwen3.8-27B, 48 value heads, the program before
+                     * this field existed); 2 = Qwen3.6-35B-A3B (32 value heads, conv 8192). Appended last. */
 } OmegaGdnSpec;
+
+/* The shape a spec selects (Q36, sc L306). The 27B constants above are the ratio-3 values. */
+typedef struct {
+    uint32_t r, vh;           /* ratio, value heads (16 r) */
+    uint32_t conv, vdim;      /* conv channels 4096 + 128 vh, value width 128 vh */
+    uint32_t par_scal, par_norm, par_bytes; /* the parameter block: conv taps [conv][4] | {negA, dt_bias} [vh] | norm [128] */
+    uint32_t tail_bytes, state_bytes;       /* per layer */
+    uint32_t post_grid_y;     /* vh / 8 */
+} OmegaGdnShape;
+int omega_gdn_shape(const OmegaGdnSpec *spec, OmegaGdnShape *s); /* 0 ok, -1 unsupported ratio */
 
 /* Builds the register-allocated IR program into *prog. 0 ok, -1 refused. */
 int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog);

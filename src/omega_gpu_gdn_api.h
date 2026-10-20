@@ -60,6 +60,10 @@ typedef struct {
 } OmegaGpuGdnInfo;
 
 int omega_gpu_gdn_alloc(uint32_t layers, OmegaGpuGdn **out);
+/* Q36 (sc L306): the same with value heads per key head `ratio` (OmegaGdnSpec.ratio: 0 = 3, Qwen3.8-27B, the plain alloc;
+ * 2 = Qwen3.6-35B-A3B). Every size the other calls use (conv dim, value width, tail, state, parameter block, prefill
+ * rows) follows the ratio; the comments elsewhere in this header give the ratio-3 numbers. */
+int omega_gpu_gdn_alloc_ratio(uint32_t layers, uint32_t ratio, OmegaGpuGdn **out);
 void omega_gpu_gdn_free(OmegaGpuGdn *g);
 int omega_gpu_gdn_set_layer(OmegaGpuGdn *g, uint32_t layer, const float *conv_w, const float *a_log, const float *dt_bias,
                             const float *norm_w);
@@ -112,6 +116,10 @@ int omega_gdn_pack_params(const float *conv_w, const float *a_log, const float *
  * three copies of a key head disagree bit for bit) */
 void omega_gdn_pack_tail(const float *tail, float *dev);
 int omega_gdn_unpack_tail(const float *dev, float *tail);
+/* The same for a ratio (see omega_gpu_gdn_alloc_ratio); -1 on an unsupported ratio. */
+int omega_gdn_pack_params_r(uint32_t ratio, const float *conv_w, const float *a_log, const float *dt_bias, const float *norm_w, uint8_t *block);
+int omega_gdn_pack_tail_r(uint32_t ratio, const float *tail, float *dev);
+int omega_gdn_unpack_tail_r(uint32_t ratio, const float *dev, float *tail);
 
 void omega_gpu_gdn_test_set_mutant(int mutant); /* TEST ONLY: OmegaGdnSpec.mutant; clears the kernel cache */
 

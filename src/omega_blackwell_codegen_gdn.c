@@ -174,8 +174,28 @@ static void cross_warp_sum(Em *e, int acc[4], int pa, int one, int la) {
     }
 }
 
+int omega_gdn_shape(const OmegaGdnSpec *spec, OmegaGdnShape *s) {
+    uint32_t r = spec->ratio ? spec->ratio : 3u;
+    if (r < 1u || r > 3u) return -1;
+    s->r = r;
+    s->vh = OMEGA_GDN_KEY_HEADS * r;
+    s->vdim = s->vh * OMEGA_GDN_HEAD_DIM;
+    s->conv = 2u * OMEGA_GDN_KEY_HEADS * OMEGA_GDN_HEAD_DIM + s->vdim;
+    s->par_scal = s->conv * OMEGA_GDN_TAPS * 4u;
+    s->par_norm = s->par_scal + s->vh * 8u;
+    s->par_bytes = s->par_norm + OMEGA_GDN_HEAD_DIM * 4u;
+    s->tail_bytes = s->vh * OMEGA_GDN_TAIL_HEAD_BYTES;
+    s->state_bytes = s->vh * OMEGA_GDN_STATE_HEAD_BYTES;
+    s->post_grid_y = s->vh / 8u;
+    return 0;
+}
+
 int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog) {
     if (!spec || !prog || spec->copy || spec->mutant < 0 || spec->mutant > 4) return -1;
+    OmegaGdnShape G;
+    if (omega_gdn_shape(spec, &G)) return -1;
+    const uint32_t RR = G.r, NC = 2u + G.r;
+    (void)RR; (void)NC;
     const int MUT = spec->mutant;
     const uint32_t C_LOG2E = fbits(1.44269504f), C_NLOG2E = fbits(-1.44269504f), C_LN2 = fbits(0.693147181f);
     const uint32_t C_ONE = fbits(1.0f), C_M1 = fbits(-1.0f), C_INV128 = fbits(1.0f / 128.0f);
@@ -193,7 +213,7 @@ int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgra
     ldc64(e, ps, OMEGA_GDN_ARG_STATE);
     s2r(e, tid, BW_SR_TID_X); s2r(e, cx, BW_SR_CTAID_X); s2r(e, cy, BW_SR_CTAID_Y);
     movi(e, one, 1);
-    imadi(e, R(h), R(cy), 3u, cx);
+    imadi(e, R(h), R(cy), RR, cx);
     shr(e, warp, tid, 5);
     andi(e, R(lane), R(tid), 31u);
     imadi(e, R(toff), R(h), OMEGA_GDN_STATE_HEAD_BYTES, NOREG);
@@ -278,7 +298,7 @@ int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgra
     ldc64(e, pab, OMEGA_GDN_ARG_AB);
     imadw(e, aab, h, 8u, pab); imadw(e, asc, h, 8u, ppar);
     ldg_wide(e, BW_IR_LDG_E_64, abq, aab, 0, udesc, 1);
-    ldg_wide(e, BW_IR_LDG_E_64, scq, asc, OMEGA_GDN_PAR_SCAL, udesc, 0);
+    ldg_wide(e, BW_IR_LDG_E_64, scq, asc, G.par_scal, udesc, 0);
     /* softplus(x) = max(x, 0) + ln2 * LG2(1 + EX2(-|x| * log2 e)), x = a + dt_bias */
     fadd(e, R(xs), S(abq, 0), S(scq, 1));
     movi(e, mn, C_M1); fmul(e, R(mn), R(xs), R(mn)); fminn(e, R(mn), R(xs), R(mn));
@@ -329,7 +349,7 @@ int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgra
     imadw(e, az, lane, 16u, pz); imadw(e, az, h, OMEGA_GDN_HEAD_DIM * 4u, az);
     imadw(e, an, lane, 16u, ppar2);
     ldg_pf(e, zq, az, 0, udesc, SB_GATE);
-    ldg_pf(e, nq, an, OMEGA_GDN_PAR_NORM, udesc, SB_GATE);
+    ldg_pf(e, nq, an, G.par_norm, udesc, SB_GATE);
     /* o partial: o_j = sum_r S[r][j] q[r], then the cross-warp sum */
     int p[4];
     {
@@ -434,9 +454,13 @@ static void gdn_scalars(Em *e, int MUT, int abq, int scq, int dec, int beta, int
 
 int omega_blackwell_codegen_gdn_prep_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog) {
     if (!spec || !prog || spec->copy || spec->mutant < 0 || spec->mutant > 4) return -1;
+    OmegaGdnShape G;
+    if (omega_gdn_shape(spec, &G)) return -1;
+    const uint32_t RR = G.r, NC = 2u + G.r;
+    (void)RR; (void)NC;
     const int MUT = spec->mutant;
     const float qs = 0.0883883476f; /* 1 / sqrt(128) */
-    const uint32_t ROW = OMEGA_GDN_CONV_DIM * 4u, REC_ROW = OMEGA_GDN_VALUE_HEADS * OMEGA_GDN_REC_BYTES;
+    const uint32_t ROW = G.conv * 4u, REC_ROW = G.vh * OMEGA_GDN_REC_BYTES;
     omega_bw_ir_init(prog);
     Em em; memset(&em, 0, sizeof em); em.p = prog; Em *e = &em;
 
@@ -444,7 +468,7 @@ int omega_blackwell_codegen_gdn_prep_prog(const OmegaGdnSpec *spec, BlackwellIRP
     int c = V(e), cx = V(e), hk = V(e), warp = V(e), lane = V(e), one = V(e), T = V(e), t0 = V(e), n = V(e), t1 = V(e);
     int pqkv = V64(e), ppar = V64(e), ptail = V64(e), prec = V64(e), pab = V64(e), insc = V(e);
     int ch[5], tw[5], wq[5], ax[5];
-    for (unsigned i = 0; i < 5; i++) { ch[i] = V(e); tw[i] = V128(e); wq[i] = V128(e); ax[i] = V64(e); }
+    for (unsigned i = 0; i < NC; i++) { ch[i] = V(e); tw[i] = V128(e); wq[i] = V128(e); ax[i] = V64(e); }
     if (e->err) return -1;
     ldcu64(e, udesc, 0x358);
     s2r(e, c, BW_SR_TID_X); s2r(e, cx, BW_SR_CTAID_X); s2r(e, hk, BW_SR_CTAID_Y);
@@ -463,9 +487,8 @@ int omega_blackwell_codegen_gdn_prep_prog(const OmegaGdnSpec *spec, BlackwellIRP
     /* channels: q hk*128 + c, k 2048 + hk*128 + c, v_i 4096 + (3 hk + i)*128 + c */
     imadi(e, R(ch[0]), R(hk), OMEGA_GDN_HEAD_DIM, c);
     imadi(e, R(ch[1]), R(one), 2048u, ch[0]);
-    imadi(e, R(ch[2]), R(hk), 3u * OMEGA_GDN_HEAD_DIM, c); imadi(e, R(ch[2]), R(one), 4096u, ch[2]);
-    imadi(e, R(ch[3]), R(one), OMEGA_GDN_HEAD_DIM, ch[2]);
-    imadi(e, R(ch[4]), R(one), 2u * OMEGA_GDN_HEAD_DIM, ch[2]);
+    imadi(e, R(ch[2]), R(hk), RR * OMEGA_GDN_HEAD_DIM, c); imadi(e, R(ch[2]), R(one), 4096u, ch[2]);
+    for (unsigned i = 3; i < NC; i++) imadi(e, R(ch[i]), R(one), (i - 2u) * OMEGA_GDN_HEAD_DIM, ch[2]);
     /* taps */
     {
         int aq = V64(e), av = V64(e);
@@ -473,7 +496,7 @@ int omega_blackwell_codegen_gdn_prep_prog(const OmegaGdnSpec *spec, BlackwellIRP
         imadw(e, aq, ch[0], 16u, ppar); imadw(e, av, ch[2], 16u, ppar);
         ldg_wide(e, BW_IR_LDG_E_128, tw[0], aq, 0, udesc, 1);
         ldg_wide(e, BW_IR_LDG_E_128, tw[1], aq, 2048u * 16u, udesc, 0);
-        for (unsigned i = 0; i < 3; i++) ldg_wide(e, BW_IR_LDG_E_128, tw[2 + i], av, i * OMEGA_GDN_HEAD_DIM * 16u, udesc, 0);
+        for (unsigned i = 0; i < RR; i++) ldg_wide(e, BW_IR_LDG_E_128, tw[2 + i], av, i * OMEGA_GDN_HEAD_DIM * 16u, udesc, 0);
     }
     /* the window {x_{t0-3}, x_{t0-2}, x_{t0-1}}: CTA 0 from the tail, the others from the rows before t0 (uniform) */
     isetp_ge_u32(e, cx, one);
@@ -481,29 +504,29 @@ int omega_blackwell_codegen_gdn_prep_prog(const OmegaGdnSpec *spec, BlackwellIRP
     {
         int at = V64(e);
         if (e->err) return -1;
-        imadi(e, R(t1), R(hk), 3u * OMEGA_GDN_TAIL_HEAD_BYTES, NOREG);
+        imadi(e, R(t1), R(hk), RR * OMEGA_GDN_TAIL_HEAD_BYTES, NOREG);
         imadw(e, at, t1, 1u, ptail); imadw(e, at, c, 16u, at);
         ldg_wide(e, BW_IR_LDG_E_128, wq[0], at, 0, udesc, 1);
         ldg_wide(e, BW_IR_LDG_E_128, wq[1], at, OMEGA_GDN_HEAD_DIM * 16u, udesc, 0);
-        for (unsigned i = 0; i < 3; i++) ldg_wide(e, BW_IR_LDG_E_128, wq[2 + i], at, i * OMEGA_GDN_TAIL_HEAD_BYTES + 256u * 16u, udesc, 0);
+        for (unsigned i = 0; i < RR; i++) ldg_wide(e, BW_IR_LDG_E_128, wq[2 + i], at, i * OMEGA_GDN_TAIL_HEAD_BYTES + 256u * 16u, udesc, 0);
     }
     const int b_join = bra_fwd(e);
     patch_bra(e, b_rows, here(e));
     {
         int base = V64(e), a[5][3];
-        for (unsigned i = 0; i < 5; i++) for (unsigned r = 0; r < 3; r++) a[i][r] = V64(e);
+        for (unsigned i = 0; i < NC; i++) for (unsigned r = 0; r < 3; r++) a[i][r] = V64(e);
         if (e->err) return -1;
         imadi(e, R(t1), R(one), 0xfffffffdu, t0);                 /* t0 - 3 (t0 >= 16 here) */
         imadw(e, base, t1, ROW, pqkv);
-        for (unsigned i = 0; i < 5; i++) {
+        for (unsigned i = 0; i < NC; i++) {
             imadw(e, a[i][0], ch[i], 4u, base);
             imadw(e, a[i][1], one, ROW, a[i][0]); imadw(e, a[i][2], one, ROW, a[i][1]);
         }
-        for (unsigned i = 0; i < 5; i++) for (unsigned r = 0; r < 3; r++) {
+        for (unsigned i = 0; i < NC; i++) for (unsigned r = 0; r < 3; r++) {
             BlackwellIRInsn in = I0(BW_IR_LDG_E); in.dst_vreg = wq[i]; in.dst_subreg = (uint8_t)r; in.src1_vreg = a[i][r]; in.ureg = udesc;
             emit(e, in, (i == 0 && r == 0) ? K_VAR : K_VAR_MORE);
         }
-        for (unsigned i = 0; i < 5; i++) for (unsigned r = 0; r < 3; r++) fmul(e, S(wq[i], r), S(wq[i], r), R(insc));
+        for (unsigned i = 0; i < NC; i++) for (unsigned r = 0; r < 3; r++) fmul(e, S(wq[i], r), S(wq[i], r), R(insc));
     }
     patch_bra(e, b_join, here(e));
 
@@ -515,22 +538,22 @@ int omega_blackwell_codegen_gdn_prep_prog(const OmegaGdnSpec *spec, BlackwellIRP
         int base = V64(e);
         if (e->err) return -1;
         imadw(e, base, t0, ROW, pqkv);
-        for (unsigned i = 0; i < 5; i++) imadw(e, ax[i], ch[i], 4u, base);
+        for (unsigned i = 0; i < NC; i++) imadw(e, ax[i], ch[i], 4u, base);
     }
-    imadi(e, R(idx), R(t0), OMEGA_GDN_VALUE_HEADS, NOREG); imadi(e, R(idx), R(hk), 3u, idx);
+    imadi(e, R(idx), R(t0), G.vh, NOREG); imadi(e, R(idx), R(hk), RR, idx);
     imadw(e, arec, idx, OMEGA_GDN_REC_BYTES, prec); imadw(e, arec, c, 4u, arec);
     imadi(e, R(t1), R(c), 1u, idx);  /* the scalar threads' head index t0*48 + 3hk + c */
     imadw(e, asc, t1, OMEGA_GDN_REC_BYTES, prec);
     imadw(e, aab, t1, 8u, pab);
-    movi(e, c3, 3u);
+    movi(e, c3, RR);
     isetp_ge_u32(e, c, c3);
     {
         Region r = region_skip_if_p0(e);
         int as = V64(e);
         if (e->err) return -1;
-        imadi(e, R(t1), R(hk), 3u, c);
+        imadi(e, R(t1), R(hk), RR, c);
         imadw(e, as, t1, 8u, ppar);
-        ldg_wide(e, BW_IR_LDG_E_64, scq, as, OMEGA_GDN_PAR_SCAL, udesc, 1);
+        ldg_wide(e, BW_IR_LDG_E_64, scq, as, G.par_scal, udesc, 1);
         region_end(e, r);
     }
     movi(e, cnl2e, fbits(-1.44269504f)); movi(e, fone, fbits(1.0f)); movi(e, cqs, fbits(qs));
@@ -542,10 +565,10 @@ int omega_blackwell_codegen_gdn_prep_prog(const OmegaGdnSpec *spec, BlackwellIRP
     loop_begin(e);
     {
         int x[5], acc[5], sq = V(e), sk = V(e), ts = V(e), rq = V128(e), rk = V128(e), nq = V(e), nk = V(e);
-        for (unsigned i = 0; i < 5; i++) { x[i] = V(e); acc[i] = V(e); }
+        for (unsigned i = 0; i < NC; i++) { x[i] = V(e); acc[i] = V(e); }
         if (e->err) return -1;
-        for (unsigned i = 0; i < 5; i++) ldg32(e, x[i], ax[i], udesc, i == 0);
-        for (unsigned i = 0; i < 5; i++) {
+        for (unsigned i = 0; i < NC; i++) ldg32(e, x[i], ax[i], udesc, i == 0);
+        for (unsigned i = 0; i < NC; i++) {
             fmul(e, R(x[i]), R(x[i]), R(insc));
             fmul(e, R(acc[i]), S(tw[i], 0), S(wq[i], 0)); ffma(e, R(acc[i]), S(tw[i], 1), S(wq[i], 1), R(acc[i]));
             ffma(e, R(acc[i]), S(tw[i], 2), S(wq[i], 2), R(acc[i])); ffma(e, R(acc[i]), S(tw[i], 3), R(x[i]), R(acc[i]));
@@ -562,7 +585,7 @@ int omega_blackwell_codegen_gdn_prep_prog(const OmegaGdnSpec *spec, BlackwellIRP
         mufu(e, BW_IR_MUFU_RSQ, R(nq), R(nq)); mufu(e, BW_IR_MUFU_RSQ, R(nk), R(nk));
         fmul(e, R(acc[0]), R(acc[0]), R(nq)); fmul(e, R(acc[0]), R(acc[0]), R(cqs));
         fmul(e, R(acc[1]), R(acc[1]), R(nk));
-        for (unsigned i = 0; i < 3; i++) {
+        for (unsigned i = 0; i < RR; i++) {
             stg(e, arec, i * OMEGA_GDN_REC_BYTES, R(acc[0]), udesc);
             stg(e, arec, i * OMEGA_GDN_REC_BYTES + OMEGA_GDN_REC_K, R(acc[1]), udesc);
             stg(e, arec, i * OMEGA_GDN_REC_BYTES + OMEGA_GDN_REC_V, R(acc[2 + i]), udesc);
@@ -579,9 +602,9 @@ int omega_blackwell_codegen_gdn_prep_prog(const OmegaGdnSpec *spec, BlackwellIRP
             region_end(e, r);
         }
         bar_sync(e); /* every warp has read the partials before the next token writes them */
-        for (unsigned i = 0; i < 5; i++) imadw(e, ax[i], one, ROW, ax[i]);
+        for (unsigned i = 0; i < NC; i++) imadw(e, ax[i], one, ROW, ax[i]);
         imadw(e, arec, one, REC_ROW, arec); imadw(e, asc, one, REC_ROW, asc);
-        imadw(e, aab, one, OMEGA_GDN_VALUE_HEADS * 8u, aab);
+        imadw(e, aab, one, G.vh * 8u, aab);
         imadi(e, R(n), R(one), 0xffffffffu, n);
         isetp_ge_u32(e, n, one);
         bra_if_p0(e, L);
@@ -594,8 +617,12 @@ int omega_blackwell_codegen_gdn_prep_prog(const OmegaGdnSpec *spec, BlackwellIRP
 
 int omega_blackwell_codegen_gdn_scan_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog) {
     if (!spec || !prog || spec->copy || spec->mutant < 0 || spec->mutant > 4) return -1;
+    OmegaGdnShape G;
+    if (omega_gdn_shape(spec, &G)) return -1;
+    const uint32_t RR = G.r, NC = 2u + G.r;
+    (void)RR; (void)NC;
     const int MUT = spec->mutant;
-    const uint32_t ROW = OMEGA_GDN_CONV_DIM * 4u, CHUNK_ROW = OMEGA_GDN_SCAN_CHUNK * OMEGA_GDN_VALUE_HEADS * OMEGA_GDN_REC_BYTES;
+    const uint32_t ROW = G.conv * 4u, CHUNK_ROW = OMEGA_GDN_SCAN_CHUNK * G.vh * OMEGA_GDN_REC_BYTES;
     omega_bw_ir_init(prog);
     Em em; memset(&em, 0, sizeof em); em.p = prog; Em *e = &em;
 
@@ -610,7 +637,7 @@ int omega_blackwell_codegen_gdn_scan_prog(const OmegaGdnSpec *spec, BlackwellIRP
     ldc64(e, ps, OMEGA_GDN_SCAN_ARG_STATE); ldc64(e, prec, OMEGA_GDN_SCAN_ARG_REC); ldc64(e, po, OMEGA_GDN_SCAN_ARG_O);
     ldc32(e, T, OMEGA_GDN_SCAN_ARG_T);
     movi(e, one, 1);
-    imadi(e, R(h), R(cy), 3u, cx);
+    imadi(e, R(h), R(cy), RR, cx);
     shr(e, warp, tid, 5);
     andi(e, R(lane), R(tid), 31u);
     andi(e, R(cq), R(lane), 3u);
@@ -624,7 +651,7 @@ int omega_blackwell_codegen_gdn_scan_prog(const OmegaGdnSpec *spec, BlackwellIRP
     for (unsigned r = 0; r < 16; r++) ldg_wide(e, BW_IR_LDG_E_128, sq[r], sa, r * OMEGA_GDN_HEAD_DIM * 4u, udesc, r == 0);
     imadi(e, R(tm1), R(one), 0xffffffffu, T);
     /* the record copy: warp w brings token tc + w into shared slot w */
-    imadi(e, R(t1), R(warp), OMEGA_GDN_VALUE_HEADS, h);
+    imadi(e, R(t1), R(warp), G.vh, h);
     imadw(e, gsc, t1, OMEGA_GDN_REC_BYTES, prec);
     imadw(e, grec, lane, 16u, gsc);
     imadi(e, R(srec), R(warp), OMEGA_GDN_REC_BYTES, NOREG);
@@ -699,7 +726,7 @@ int omega_blackwell_codegen_gdn_scan_prog(const OmegaGdnSpec *spec, BlackwellIRP
             for (unsigned j = 0; j < 4; j++) stg(e, po, j * 4u, R(p[j]), udesc);
             region_end(e, r);
         }
-        imadw(e, po, one, OMEGA_GDN_V_DIM * 4u, po);
+        imadw(e, po, one, G.vdim * 4u, po);
         imadi(e, R(t), R(one), 1u, t);
         isetp_ge_u32(e, tm1, t);
         bra_if_p0(e, L);
@@ -736,6 +763,10 @@ int omega_blackwell_codegen_gdn_scan_prog(const OmegaGdnSpec *spec, BlackwellIRP
 
 int omega_blackwell_codegen_gdn_post_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog) {
     if (!spec || !prog || spec->copy || spec->mutant < 0 || spec->mutant > 4) return -1;
+    OmegaGdnShape G;
+    if (omega_gdn_shape(spec, &G)) return -1;
+    const uint32_t RR = G.r, NC = 2u + G.r;
+    (void)RR; (void)NC;
     const int MUT = spec->mutant;
     omega_bw_ir_init(prog);
     Em em; memset(&em, 0, sizeof em); em.p = prog; Em *e = &em;
@@ -755,14 +786,14 @@ int omega_blackwell_codegen_gdn_post_prog(const OmegaGdnSpec *spec, BlackwellIRP
     andi(e, R(lane), R(tid), 31u);
     /* row (token t, head 8 cy + warp): o, z and out share the [T][48][128] layout */
     imadi(e, R(idx), R(cy), 8u, warp);
-    imadi(e, R(idx), R(t), OMEGA_GDN_VALUE_HEADS, idx);
+    imadi(e, R(idx), R(t), G.vh, idx);
     imadw(e, ao, idx, OMEGA_GDN_HEAD_DIM * 4u, po); imadw(e, ao, lane, 16u, ao);
     imadw(e, az, idx, OMEGA_GDN_HEAD_DIM * 4u, pz); imadw(e, az, lane, 16u, az);
     imadw(e, ay, idx, OMEGA_GDN_HEAD_DIM * 4u, pout); imadw(e, ay, lane, 16u, ay);
     imadw(e, an, lane, 16u, ppar);
     ldg_wide(e, BW_IR_LDG_E_128, oq, ao, 0, udesc, 1);
     ldg_wide(e, BW_IR_LDG_E_128, zq, az, 0, udesc, 0);
-    ldg_wide(e, BW_IR_LDG_E_128, nq, an, OMEGA_GDN_PAR_NORM, udesc, 0);
+    ldg_wide(e, BW_IR_LDG_E_128, nq, an, G.par_norm, udesc, 0);
     fmul(e, R(ss), S(oq, 0), S(oq, 0));
     for (unsigned j = 1; j < 4; j++) ffma(e, R(ss), S(oq, j), S(oq, j), R(ss));
     bfly_sum(e, ss, ts, 1u, 16u);
