@@ -226,6 +226,16 @@ void omega_gpu_session_cancel(void);
 const char *omega_gpu_session_last_error(void);
 void omega_gpu_session_set_error(const char *stage);
 
+/* L136 (roadblock R3): caller holds the lock, device open. Queue i (1..3) past the session's own queue, with its own
+ * 64 KB ring, opened on first use (in order: 1, then 2, ...) and kept until close. The Linux reference grants it only
+ * when the device was opened with AIEN_OMEGA_GPU_CHANNELS > i (a second GPFIFO channel in the same channel group and
+ * VA space); otherwise the platform refuses and this returns -1 with the stage named. Work on different queues is not
+ * ordered against each other. 0 ok. */
+int omega_gpu_session_extra_queue(uint32_t i, OmegaGpuQueueHandle *out);
+/* L136: latch the process now (uncertain completion seen by a caller that cannot prove it with a queue-0 launch, e.g. a
+ * list on an extra queue timed out). Parks every session buffer; every later launch of every API is refused. */
+void omega_gpu_session_latch_uncertain(const char *why);
+
 /* Caller holds the lock. Register a function the session calls (lock held, device
  * still open) right before it closes, so an API can drop its resident kernels and
  * scratch. Up to 8; the same function is registered once. (Taking the lock inside

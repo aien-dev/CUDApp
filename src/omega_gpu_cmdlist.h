@@ -114,6 +114,12 @@ int omega_gpu_cmdlist_add(OmegaGpuCmdList *cl, const OmegaGpuLaunch *L);
 /* Caller holds the lock, device open, not latched. Submits every recorded launch in order, waits for the completion,
  * checks every launch semaphore. 0 ok; -1 with the stage named (omega_gpu_session_last_error). */
 int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opts, OmegaGpuCmdListStats *st);
+/* L136 (roadblock R3): caller holds the lock. List a on the session queue and list b on extra queue 1
+ * (omega_gpu_session_extra_queue; needs AIEN_OMEGA_GPU_CHANNELS >= 2 at device open), both submitted before either is
+ * waited, so the two may run at the same time. The lists must share no written buffer. PCAS mode, no stamps, each list in
+ * one submission. Both stats get the pair wall time (first submit to the last marker). 0 ok; -1 with the stage named;
+ * a marker timeout latches the session. */
+int omega_gpu_cmdlist_submit_pair(OmegaGpuCmdList *a, OmegaGpuCmdList *b, const OmegaGpuCmdListOpts *opts, OmegaGpuCmdListStats *sa, OmegaGpuCmdListStats *sb);
 /* 1 once a timeout latched this module. */
 int omega_gpu_cmdlist_is_latched(void);
 

@@ -222,15 +222,24 @@ int omega_gpu_session_is_parked(OmegaGpuBufferHandle h) {
     return 0;
 }
 
+/* L136: queues past the first (omega_gpu_session_extra_queue), each with its own 64 KB ring; opened on demand, closed
+ * and freed before queue 0 at close, parked at the latch like the session ring. */
+#define XQ_MAX 3u
+static OmegaGpuQueueHandle g_xq[XQ_MAX];
+static OmegaGpuMem g_xpb[XQ_MAX];
+
 /* Uncertain completion: the device may still touch any session buffer. Keep everything, refuse everything. */
 static void latch(const char *why) {
     STORE(g_blocked, 1u);
+    for (uint32_t i = 0; i < XQ_MAX; i++) if (g_xpb[i].cpu) park(&g_xpb[i]);
     if (g_s.pb.cpu) park(&g_s.pb);
     if (g_s.cbank.cpu) park(&g_s.cbank);
     if (g_s.marker.cpu) park(&g_s.marker);
     if (g_s.qmd.cpu) park(&g_s.qmd);
     omega_gpu_session_set_error(why);
 }
+
+void omega_gpu_session_latch_uncertain(const char *why) { latch(why ? why : "uncertain completion (latched by a caller)"); }
 
 /* ---- buffers ---- */
 
@@ -372,6 +381,25 @@ OmegaGpuSession *omega_gpu_session_open(void) {
     return &g_s;
 }
 
+int omega_gpu_session_extra_queue(uint32_t i, OmegaGpuQueueHandle *out) {
+    const OmegaGpuPlatform *p = platform();
+    if (!out || i == 0u || i > XQ_MAX) { omega_gpu_session_set_error("extra_queue: index outside 1..3"); return -1; }
+    if (LOAD(g_blocked) || !g_open || !p) { omega_gpu_session_set_error("extra_queue: device not open or latched"); return -1; }
+    if (g_xq[i - 1u].generation != 0u) { *out = g_xq[i - 1u]; return 0; }
+    for (uint32_t j = 0; j + 1u < i; j++)
+        if (g_xq[j].generation == 0u) { omega_gpu_session_set_error("extra_queue: open queues in order (1, then 2, ...)"); return -1; }
+    if (mem_alloc(OMEGA_GPU_HANDLE_BUF_QUEUE, RIGHTS_RING, 0x10000, &g_xpb[i - 1u])) return -1;
+    const int rc = p->queue_open(p->ctx, g_s.dev, g_xpb[i - 1u].handle, &g_xq[i - 1u]);
+    if (rc != OMEGA_GPU_PLAT_OK) {
+        fail_plat("queue_open (extra queue)", rc);
+        memset(&g_xq[i - 1u], 0, sizeof g_xq[i - 1u]);
+        omega_gpu_session_free(&g_xpb[i - 1u]);
+        return -1;
+    }
+    *out = g_xq[i - 1u];
+    return 0;
+}
+
 int omega_gpu_session_on_close(void (*hook)(void)) { /* caller holds the lock (the APIs register from their open path) */
     if (!hook) return -1;
     int rc = 0;
@@ -387,6 +415,11 @@ void omega_gpu_session_close(void) {
     if (g_open && !LOAD(g_blocked) && p) {
         for (unsigned i = 0; i < g_nhooks; i++) g_hooks[i]();
         if (!LOAD(g_blocked)) { /* a hook's launch may have latched: then nothing below runs */
+            for (uint32_t i = XQ_MAX; i-- > 0;) { /* L136: extra queues first, then queue 0 */
+                if (g_xq[i].generation != 0u) (void)p->queue_close(p->ctx, g_xq[i]);
+                memset(&g_xq[i], 0, sizeof g_xq[i]);
+                omega_gpu_session_free(&g_xpb[i]);
+            }
             (void)p->queue_close(p->ctx, g_s.queue);
             memset(&g_s.queue, 0, sizeof g_s.queue);
             free_session_buffers();
