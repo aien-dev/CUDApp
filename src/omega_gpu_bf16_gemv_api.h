@@ -73,7 +73,14 @@ int omega_gpu_bf16_gemv_record(struct OmegaGpuCmdList *cl, const OmegaGpuBf16Ten
 /* ROWS form (sc #642 prefill): `rows` token rows in one launch (grid_y = rows <= 65535); row r reads x_va + r * k f32
  * and writes y_va + r * n f32. Record-only; the kernel (spec.ystride = n) is cached per n like any other shape. */
 int omega_gpu_bf16_gemv_rows_record(struct OmegaGpuCmdList *cl, const OmegaGpuBf16Tensor *t, uint32_t rows, uint64_t x_va, uint64_t y_va);
+/* XBATCH form (the 35B stroke: one lm_head read for several conversations): `xbatch` (1..OMEGA_BF16_MAX_XBATCH) x rows
+ * at x_va + m * k f32 share every weight read inside one CTA (every row staged in shared memory, so xbatch * k * 4 bytes
+ * must fit the launch descriptor's shared limit); y row m at y_va + m * ystride f32 (ystride >= n; the gap stays
+ * untouched). Row m equals the one-row result of its x bit for bit (the same FMA order). xbatch 1 is the plain launch.
+ * Record-only; the kernel (spec.xbatch, spec.ystride) is cached per (k, xbatch, ystride): pin it with prepare_xbatch. */
+int omega_gpu_bf16_gemv_xbatch_record(struct OmegaGpuCmdList *cl, const OmegaGpuBf16Tensor *t, uint32_t xbatch, uint64_t x_va, uint64_t y_va, uint32_t ystride);
 int omega_gpu_bf16_prepare(uint32_t k);
+int omega_gpu_bf16_prepare_xbatch(uint32_t k, uint32_t xbatch, uint32_t ystride); /* build and pin the XBATCH kernel (xbatch <= 1: prepare(k)) */
 const char *omega_gpu_bf16_rc_name(int rc);
 const char *omega_gpu_bf16_last_error(void);
 void omega_gpu_bf16_cache_clear(void);

@@ -138,14 +138,24 @@ static int kernel_for(const OmegaBf16GemvSpec *spec, Slot **out, bool *hit) {
     return OMEGA_GPU_BF16_OK;
 }
 
-int omega_gpu_bf16_prepare(uint32_t k) {
-    OmegaBf16GemvSpec spec; uint32_t ctas; spec_for(k, &spec, &ctas);
+static int prepare_spec(const OmegaBf16GemvSpec *spec) {
     omega_gpu_session_lock();
     int rc = OMEGA_GPU_BF16_OK;
     if (!dev_open_locked()) rc = OMEGA_GPU_BF16_CHIP_FAIL;
-    else { Slot *s = NULL; bool hit = false; rc = kernel_for(&spec, &s, &hit); if (rc == OMEGA_GPU_BF16_OK) s->pinned = true; }
+    else { Slot *s = NULL; bool hit = false; rc = kernel_for(spec, &s, &hit); if (rc == OMEGA_GPU_BF16_OK) s->pinned = true; }
     omega_gpu_session_unlock();
     return rc;
+}
+int omega_gpu_bf16_prepare(uint32_t k) {
+    OmegaBf16GemvSpec spec; uint32_t ctas; spec_for(k, &spec, &ctas);
+    return prepare_spec(&spec);
+}
+int omega_gpu_bf16_prepare_xbatch(uint32_t k, uint32_t xbatch, uint32_t ystride) {
+    if (xbatch <= 1u) return omega_gpu_bf16_prepare(k);
+    if (xbatch > OMEGA_BF16_MAX_XBATCH || ystride == 0) return OMEGA_GPU_BF16_BAD_ARGS;
+    OmegaBf16GemvSpec spec; uint32_t ctas; spec_for(k, &spec, &ctas);
+    spec.xbatch = xbatch; spec.ystride = ystride;
+    return prepare_spec(&spec);
 }
 
 void omega_gpu_bf16_tensor_shape(const OmegaGpuBf16Tensor *t, uint32_t *n, uint32_t *k) {
@@ -190,7 +200,7 @@ void omega_gpu_bf16_tensor_free(OmegaGpuBf16Tensor *t) {
 /* rec non-NULL (record path, caller holds the session lock): x and y are the device buffers dev_x / dev_y, the launch is
  * appended to rec instead of submitted, nothing is staged, poisoned or read back. */
 static int gemv_core(const OmegaGpuBf16Tensor *t, const float *x32, const uint16_t *x16, float *y, OmegaGpuBf16Info *info,
-                     OmegaGpuCmdList *rec, uint64_t dev_x, uint64_t dev_y, uint32_t xrows) {
+                     OmegaGpuCmdList *rec, uint64_t dev_x, uint64_t dev_y, uint32_t xrows, uint32_t xbatch, uint32_t ystride) {
     uint64_t t0 = omega_gpu_session_now_ns();
     if (info) memset(info, 0, sizeof *info);
     if (rec && (!dev_x || !dev_y)) return OMEGA_GPU_BF16_BAD_ARGS;
@@ -199,6 +209,10 @@ static int gemv_core(const OmegaGpuBf16Tensor *t, const float *x32, const uint16
     if (xrows && (!rec || xrows > 65535u)) return OMEGA_GPU_BF16_BAD_ARGS; /* the ROWS form is record-only */
     OmegaBf16GemvSpec spec; uint32_t ctas; spec_for(k, &spec, &ctas);
     if (xrows) spec.ystride = n;
+    if (xbatch > 1u) { /* XBATCH form (record-only): xbatch x rows share every weight read; y row m at y + m * ystride f32 */
+        if (!rec || xrows || xbatch > OMEGA_BF16_MAX_XBATCH || ystride < n) return OMEGA_GPU_BF16_BAD_ARGS;
+        spec.xbatch = xbatch; spec.ystride = ystride;
+    }
     if (n % spec.rows) return OMEGA_GPU_BF16_CODEGEN_FAIL;
     const uint32_t RG = n / spec.rows;
     uint32_t grid_x = (RG + spec.warps - 1) / spec.warps;
@@ -246,7 +260,7 @@ static int gemv_core(const OmegaGpuBf16Tensor *t, const float *x32, const uint16
         OmegaGpuLaunch L = {
             .code_va = ks->code.va, .gpr_count = gpr_declared(ks->kernel.gpr_count),
             .threads_x = 32u * spec.warps, .threads_y = 1, .grid_x = grid_x, .grid_y = xrows ? xrows : 1u,
-            .num_elements = (size_t)n * (xrows ? xrows : 1u),
+            .num_elements = (size_t)n * (xrows ? xrows : xbatch > 1u ? xbatch : 1u),
             .args = args, .n_args = OMEGA_BF16_ARGS_WORDS, .timeout_ms = MARKER_TIMEOUT_MS,
             .shared_bytes = omega_bf16_gemv_shared_bytes(&spec),
         };
@@ -267,17 +281,24 @@ static int gemv_core(const OmegaGpuBf16Tensor *t, const float *x32, const uint16
 }
 #undef UNLOCK
 
-int omega_gpu_bf16_gemv_f32(const OmegaGpuBf16Tensor *t, const float *x, float *y, OmegaGpuBf16Info *info) { return gemv_core(t, x, NULL, y, info, NULL, 0, 0, 0); }
-int omega_gpu_bf16_gemv_bf16(const OmegaGpuBf16Tensor *t, const uint16_t *x, float *y, OmegaGpuBf16Info *info) { return gemv_core(t, NULL, x, y, info, NULL, 0, 0, 0); }
+int omega_gpu_bf16_gemv_f32(const OmegaGpuBf16Tensor *t, const float *x, float *y, OmegaGpuBf16Info *info) { return gemv_core(t, x, NULL, y, info, NULL, 0, 0, 0, 0, 0); }
+int omega_gpu_bf16_gemv_bf16(const OmegaGpuBf16Tensor *t, const uint16_t *x, float *y, OmegaGpuBf16Info *info) { return gemv_core(t, NULL, x, y, info, NULL, 0, 0, 0, 0, 0); }
 
 /* Record path (OWN-30B W-L2a decode graph): see the header. Caller holds omega_gpu_session_lock(). */
 int omega_gpu_bf16_gemv_record(OmegaGpuCmdList *cl, const OmegaGpuBf16Tensor *t, uint64_t x_va, uint64_t y_va) {
     if (!cl) return OMEGA_GPU_BF16_BAD_ARGS;
-    return gemv_core(t, NULL, NULL, NULL, NULL, cl, x_va, y_va, 0);
+    return gemv_core(t, NULL, NULL, NULL, NULL, cl, x_va, y_va, 0, 0, 0);
 }
 
 /* ROWS form record path (sc #642 prefill): see the header. Caller holds omega_gpu_session_lock(). */
 int omega_gpu_bf16_gemv_rows_record(OmegaGpuCmdList *cl, const OmegaGpuBf16Tensor *t, uint32_t rows, uint64_t x_va, uint64_t y_va) {
     if (!cl || rows == 0) return OMEGA_GPU_BF16_BAD_ARGS;
-    return gemv_core(t, NULL, NULL, NULL, NULL, cl, x_va, y_va, rows);
+    return gemv_core(t, NULL, NULL, NULL, NULL, cl, x_va, y_va, rows, 0, 0);
+}
+
+/* XBATCH form record path (the lm_head of several conversations in one stroke): see the header. Caller holds the lock. */
+int omega_gpu_bf16_gemv_xbatch_record(OmegaGpuCmdList *cl, const OmegaGpuBf16Tensor *t, uint32_t xbatch, uint64_t x_va, uint64_t y_va, uint32_t ystride) {
+    if (!cl || xbatch == 0) return OMEGA_GPU_BF16_BAD_ARGS;
+    if (xbatch == 1u) return gemv_core(t, NULL, NULL, NULL, NULL, cl, x_va, y_va, 0, 0, 0);
+    return gemv_core(t, NULL, NULL, NULL, NULL, cl, x_va, y_va, 0, xbatch, ystride);
 }
