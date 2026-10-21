@@ -1,0 +1,21 @@
+# tests/gates/physics-nvrm-lifecycle.gate
+# Mirrors hosted: host-gates.yml job 'nvrm lifecycle gates (SKIP: needs GB10 + NVRM)' names tests/run_nvrm_lifecycle_gates.sh
+gate: PHYSICS-NVRM-LIFECYCLE
+manifest_version: 2
+owner: physics
+requires:
+  - nvrm
+inputs:
+  - nvrm/
+  - tests/run_nvrm_lifecycle_gates.sh
+  - tools/
+  - tests/gates/
+run:
+  exec: tests/gates/run.sh
+  args: ["nvrm-lifecycle"]
+expects:
+  exit: 0
+  verdict: PASS
+timeout: 30m
+exactness: EXACT
+cache_scope: hardware

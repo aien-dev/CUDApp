@@ -1,0 +1,36 @@
+{
+  "above": {
+    "name": "third_party/nvidia-open-580.173.02",
+    "path": "../.."
+  },
+  "extensions": {
+    "owner_lane": "",
+    "provenance": {
+      "entries": [
+        {
+          "author": "aien-dev",
+          "pr": 11,
+          "sha": "b64753d",
+          "source": "backfill-git",
+          "subject": "fix(m16): corrective requalification of native Blackwell path without libcuda (#11)",
+          "timestamp": "2026-09-26T08:16:00-05:00"
+        }
+      ],
+      "ledger_cap": 20,
+      "source": "backfill",
+      "total_commits": 1
+    },
+    "seed": {
+      "files": [
+        "uvm_ioctl.h",
+        "uvm_linux_ioctl.h",
+        "uvm_types.h"
+      ],
+      "purpose_auto": "Directory third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm. Purpose not yet described by a human."
+    }
+  },
+  "layer": "third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm",
+  "name": "third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm",
+  "purpose": "Directory third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm. Purpose not yet described by a human.",
+  "schema_version": "1.0.0"
+}

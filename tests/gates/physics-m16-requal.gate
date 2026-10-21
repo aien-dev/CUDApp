@@ -1,0 +1,21 @@
+# tests/gates/physics-m16-requal.gate
+# Mirrors hosted: host-gates.yml job 'm16 requalification (SKIP: needs GB10 native submission)' names tests/run_m16_requalification.sh
+gate: PHYSICS-M16-REQUAL
+manifest_version: 2
+owner: physics
+requires:
+  - gb10
+inputs:
+  - m16/
+  - tests/run_m16_requalification.sh
+  - tools/
+  - tests/gates/
+run:
+  exec: tests/gates/run.sh
+  args: ["m16-requal"]
+expects:
+  exit: 0
+  verdict: PASS
+timeout: 30m
+exactness: EXACT
+cache_scope: hardware
