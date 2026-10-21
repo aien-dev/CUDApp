@@ -16,9 +16,10 @@
  * x' rows arrive PRE-PERMUTED by the host (omega_gpu_fp8gemm_api): for a row, column c = s*32*LB + L*LB + w*4 + e
  * (K step s, lane L, word w, element e) sits at index s*32*LB + (w*32 + L)*4 + e, scaled by 2^64 as the GEMV. The CTA
  * stages one K step of MT rows (MT*32*LB*4 <= 16384 bytes: the QMD shared-memory limit of omega_blackwell_qmd.h) in
- * shared memory, so every lane reads its 4 columns of every row with one conflict-free LDS.128. Per step: stage,
- * BAR.SYNC, compute, BAR.SYNC. The weights and scales of step s+1 are loaded before step s computes (two register
- * sets, scoreboards 3 and 4 held until the step that uses them).
+ * shared memory, so every lane reads its 4 columns of every row with one conflict-free LDS.128. Per step: stage (STS of
+ * words loaded one step ahead), BAR.SYNC, compute, BAR.SYNC. The weights and scales of step s+1 are loaded before step s
+ * computes (two register sets, scoreboards 3 and 4 held until the step that uses them), and so are the staging words of
+ * x' for step s+1 (scoreboard 5, L312 lever 3): neither latency sits between the barriers.
  *
  * Segment table (device, 32 bytes per segment, ctaid.y = segment): { w_va u64, s_va u64, row0 u32, cnt u32, pad[8] }.
  * Constant bank 0 argument words (cbank + 0x380):
