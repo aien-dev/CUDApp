@@ -1,0 +1,10 @@
+# real-tree negative control: a dummy src/omega_gpu_zz_dummy.c with no row
+sh tools/runtime_portability_check.sh . docs/runtime/portability_table.tsv mk/omega-gpu-engine.mk
+FAIL: no row in the table for src/omega_gpu_zz_dummy.c
+FAIL: portability table does not match the tree
+make: *** [mk/runtime-r3.mk:11: test-runtime-portability-check] Error 1
+make exit 2
+# dummy removed; check again
+sh tools/runtime_portability_check.sh . docs/runtime/portability_table.tsv mk/omega-gpu-engine.mk
+PASS: 102 rows, every omega_gpu_* / omega_blackwell_* / omega_bw_* file in src/ has one and the rows agree with the includes
+make exit 0
