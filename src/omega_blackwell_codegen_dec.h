@@ -51,7 +51,8 @@ typedef enum { OMEGA_DEC_AXPY = 1, OMEGA_DEC_RES = 2, OMEGA_DEC_SWIGLU = 3, OMEG
 #define OMEGA_DEC_RES_ADD 1u
 #define OMEGA_DEC_RES_COMBINE 2u
 #define OMEGA_DEC_RES_NORM 4u
-#define OMEGA_DEC_RES_ROWS 8u     /* row ctaid.y of a [rows][width] block: x, a and y move by width per row, nw does not */
+#define OMEGA_DEC_RES_ROWS 8u     /* row ctaid.y of a [rows][width] block: x, a and y move by width per row, nw does not; with COMBINE
+                                     * (L356) a moves by groups * 2048 and the weights by stride bytes per row */
 
 #define OMEGA_DEC_HIDDEN 2048u
 #define OMEGA_DEC_THREADS 256u
@@ -126,7 +127,8 @@ typedef enum { OMEGA_DEC_AXPY = 1, OMEGA_DEC_RES = 2, OMEGA_DEC_SWIGLU = 3, OMEG
 typedef struct {
     OmegaDecKind kind;
     uint32_t mode;      /* RES mode bits; ARGMAX: 1 = indexed (indices loaded), 0 = identity */
-    uint32_t stride;    /* AXPY: elements per iteration (grid_x * 256). GATHER: the input row stride (floats) */
+    uint32_t stride;    /* AXPY: elements per iteration (grid_x * 256). GATHER: the input row stride (floats). RES COMBINE|ROWS:
+                           the routing weights row stride (bytes, a multiple of 16) */
     int mutant;         /* TEST ONLY. RES: 1 = norm without the weight; 2 = COMBINE skips expert 7.
                            SWIGLU: 1 = up half read at +767. ARGMAX: 1 = last equal index instead of first.
                            GATHER: 1 = source index + 1. GATE: 1 = the gate dropped (out = a).
