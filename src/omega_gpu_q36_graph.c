@@ -383,7 +383,7 @@ static int submit_now(OmegaGpuQ36Graph *g) {
         uint64_t tmp[OMEGA_GPU_CMDLIST_MAX_LAUNCHES + 1];
         int cnt = omega_gpu_cmdlist_stamps(g->cl, tmp, OMEGA_GPU_CMDLIST_MAX_LAUNCHES + 1);
         if (cnt < 0) rc = -1;
-        else { const int from = g->n_stamp == 0 ? 0 : 1; for (int i = from; i < cnt; i++) g->stamp[g->n_stamp++] = tmp[i]; }
+        else { const int from = g->n_stamp == 0 ? 0 : 1; for (int i = from; i < cnt && g->n_stamp <= OMEGA_GPU_CMDLIST_MAX_LAUNCHES; i++) g->stamp[g->n_stamp++] = tmp[i]; }
     }
     g->tagged_in_list = 0;
     omega_gpu_cmdlist_reset(g->cl);
@@ -854,7 +854,7 @@ const char *omega_gpu_q36_graph_kind_name(uint8_t kind) {
  * Every arithmetic step of a prompt token is the decode step's: the dense trunk and the experts through the fp8 gemm record
  * path (bit-identical to the GEMV per row), a|b through the bf16 ROWS form, the router through its ROWS form, and the GDN step
  * and the attention launched once per token, in token order, on the conversation's own state at pos0 + t. The expert rows are
- * grouped on the host between two lists per layer (the GROUP kernel holds 128 rows; a chunk holds up to 112 x 8). */
+ * grouped on the host between two lists per layer (the GROUP kernel holds 128 rows; a chunk holds up to 128 x 8). */
 #define PF_PAD 8u
 static int pf_fail(OmegaGpuQ36Graph *g, const char *what) { return fail(g, what, OMEGA_GPU_DGRAPH_BAD_ARGS); }
 
@@ -1010,13 +1010,13 @@ static int pf_record_experts(OmegaGpuQ36Graph *g, uint32_t head, uint32_t l, uin
     const uint64_t actp = pf_d(g, g->pf.actp), dnN = pf_d(g, g->pf.dnN), rlb = pf_h(g, g->pf.rlb);
     const uint64_t pt2048 = va_of(g, g->lo.ptab), pt512 = pt2048 + (uint64_t)(H + OMEGA_GPU_Q36_MIXER_OUT) * 4u;
     const uint64_t in_norm = va_of(g, g->lo.norms) + (uint64_t)l * H * 4u, XS = (uint64_t)H * 4u;
-    const uint32_t R = n * NG;
+    const uint32_t R = n * NG; const uint32_t S = NG - 1u; /* rows each expert GEMM touches: 8 routed per token, 1 shared */
     int rc = rec_perm(g, K_PERM_XO, rlb + xo_off, pt2048, xp2, H, n); /* the router's x' rows, one launch buffer apart */
     if (rc == OMEGA_GPU_DGRAPH_OK)
-        rc = after_op(g, OMEGA_GPU_Q36_K_GATE_UP, omega_gpu_fp8gemm_record(g->cl, g->layer[l].gu, R, segs, pf_h(g, g->pf.sgu), xp2, guN, pf_h(g, g->pf.xmap),
+        rc = after_op(g, OMEGA_GPU_Q36_K_GATE_UP, omega_gpu_fp8gemm_record(g->cl, g->layer[l].gu, n * S, segs, pf_h(g, g->pf.sgu), xp2, guN, pf_h(g, g->pf.xmap),
                                                                          pf_h(g, g->pf.ymap), 4, 0, NULL));
     if (rc == OMEGA_GPU_DGRAPH_OK)
-        rc = after_op(g, OMEGA_GPU_Q36_K_GATE_UP, omega_gpu_fp8gemm_record(g->cl, g->layer[l].gu, R, 1, pf_h(g, g->pf.sgu2), xp2, guN, pf_h(g, g->pf.xmap2),
+        rc = after_op(g, OMEGA_GPU_Q36_K_GATE_UP, omega_gpu_fp8gemm_record(g->cl, g->layer[l].gu, n, 1, pf_h(g, g->pf.sgu2), xp2, guN, pf_h(g, g->pf.xmap2),
                                                                          pf_h(g, g->pf.ymap2), 4, 0, NULL));
     uint32_t w3[OMEGA_DEC_SW_WORDS]; memset(w3, 0, sizeof w3);
     put64(w3, OMEGA_DEC_SW_GU, guN); put64(w3, OMEGA_DEC_SW_ACT, actN); putf(w3, OMEGA_DEC_SW_SCALE, SCALE_2P64);
@@ -1024,10 +1024,10 @@ static int pf_record_experts(OmegaGpuQ36Graph *g, uint32_t head, uint32_t l, uin
         rc = add_glue(g, OMEGA_GPU_Q36_K_SWIGLU, g->mutant == 1 ? K_SW_M1 : K_SW, EI / OMEGA_DEC_THREADS, R, (size_t)R * EI, w3, OMEGA_DEC_SW_WORDS);
     if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_perm(g, K_PERM_ACT, actN, pt512, actp, EI, R);
     if (rc == OMEGA_GPU_DGRAPH_OK)
-        rc = after_op(g, OMEGA_GPU_Q36_K_DOWN, omega_gpu_fp8gemm_record(g->cl, g->layer[l].dn, R, segs, pf_h(g, g->pf.sdn), actp, dnN, pf_h(g, g->pf.ymap),
+        rc = after_op(g, OMEGA_GPU_Q36_K_DOWN, omega_gpu_fp8gemm_record(g->cl, g->layer[l].dn, n * S, segs, pf_h(g, g->pf.sdn), actp, dnN, pf_h(g, g->pf.ymap),
                                                                       pf_h(g, g->pf.ymap), 4, 0, NULL));
     if (rc == OMEGA_GPU_DGRAPH_OK)
-        rc = after_op(g, OMEGA_GPU_Q36_K_DOWN, omega_gpu_fp8gemm_record(g->cl, g->layer[l].dn, R, 1, pf_h(g, g->pf.sdn2), actp, dnN, pf_h(g, g->pf.ymap2),
+        rc = after_op(g, OMEGA_GPU_Q36_K_DOWN, omega_gpu_fp8gemm_record(g->cl, g->layer[l].dn, n, 1, pf_h(g, g->pf.sdn2), actp, dnN, pf_h(g, g->pf.ymap2),
                                                                       pf_h(g, g->pf.ymap2), 4, 0, NULL));
     const int last = l + 1 == g->cfg.layers;
     const uint64_t nw = last ? va_of(g, g->lo.fnorm) : in_norm + H * 4u;

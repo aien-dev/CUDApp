@@ -145,7 +145,7 @@ int omega_gpu_q36_graph_read_buf(OmegaGpuQ36Graph *g, int which, float *out, uin
  * sizes the buffers for chunks of up to cap tokens (1 .. OMEGA_GPU_Q36_PREFILL_MAX_ROWS; nothing shrinks).
  * TEST ONLY: AIEN_OMEGA_Q36_PF_MUTANT=1 swaps the last two tokens' GDN steps, 2 drops one row of every expert segment,
  * 3 defers each GDN output copy past the next token's step. */
-#define OMEGA_GPU_Q36_PREFILL_MAX_ROWS 112u /* x 9 expert rows <= the fp8 gemm's 1024 */
+#define OMEGA_GPU_Q36_PREFILL_MAX_ROWS 128u /* x 8 routed expert rows <= the fp8 gemm's 1024 (the shared expert is its own GEMM) */
 int omega_gpu_q36_graph_prefill_alloc(OmegaGpuQ36Graph *g, uint32_t cap);
 uint32_t omega_gpu_q36_graph_prefill_cap(const OmegaGpuQ36Graph *g);
 int omega_gpu_q36_graph_prefill(OmegaGpuQ36Graph *g, uint32_t head, const float *x_embed, uint32_t n, uint32_t pos0, int want_token,
