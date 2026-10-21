@@ -59,9 +59,10 @@ extern "C" {
 #define OMEGA_GPU_Q36_MIXER_OUT 4096u    /* GDN 32 x 128 = attention 16 x 256 */
 #define OMEGA_GPU_Q36_ROTARY 64u
 #define OMEGA_GPU_Q36_MAX_LAYERS 64u
-/* Heads per stroke (conversations through one command list): a 40-layer token records up to 11 * 40 + 4 launches, and the
- * list holds OMEGA_GPU_CMDLIST_MAX_LAUNCHES (2048), so four. Beyond four the dense GEMVs must batch (v2), not the list grow. */
-#define OMEGA_GPU_Q36_MAX_HEADS 4u
+/* Heads per stroke (conversations through one command list): a 40-layer token records up to 11 * 40 + 4 = 444 launches,
+ * and the list holds OMEGA_GPU_CMDLIST_MAX_LAUNCHES (4096), so eight (3552; the submit splits a list over the ring as it
+ * needs). v1 reads the weights once per head per stroke; v2 batches the dense GEMVs at M = heads, not the list grows further. */
+#define OMEGA_GPU_Q36_MAX_HEADS 8u
 
 typedef struct {
     uint32_t layers;                    /* 1..64 (a model prefix in tests) */
