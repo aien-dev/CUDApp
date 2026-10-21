@@ -34,6 +34,7 @@ struct OmegaGpuGdn {
     OmegaGpuMem state; /* [layers][OMEGA_GDN_STATE_BYTES] */
     OmegaGpuMem lb;    /* launch buffer */
     int cached;        /* tail and state GPU-cached: the host reaches them only through the chip (reset, stage) */
+    int bf16;          /* L313: the state is stored bf16 (AIEN_OMEGA_GDN_STATE_BF16=1 at alloc); set/get_state keep the f32 layout */
     OmegaGpuMem stage; /* cached: uncached staging for set_state / get_state, [state of one layer][tail of one layer] */
     OmegaGpuScratch pf; /* prefill scratch (see pf_layout) */
 };
@@ -147,9 +148,14 @@ int omega_gpu_gdn_alloc(uint32_t layers, OmegaGpuGdn **out) { return omega_gpu_g
 int omega_gpu_gdn_alloc_ratio(uint32_t layers, uint32_t ratio, OmegaGpuGdn **out) {
     OmegaGdnShape S;
     if (!out || layers == 0 || layers > OMEGA_GPU_GDN_MAX_LAYERS || shape_of(ratio, &S)) return OMEGA_GPU_GDN_BAD_ARGS;
+    /* L313: AIEN_OMEGA_GDN_STATE_BF16=1 stores the state bf16 (half the bytes per conversation; compute stays f32) */
+    const char *pb = getenv("AIEN_OMEGA_GDN_STATE_BF16");
+    const int bf16 = pb && pb[0] == '1' && pb[1] == 0;
+    if (bf16) { OmegaGdnSpec sp; memset(&sp, 0, sizeof sp); sp.ratio = ratio; sp.state_bf16 = 1; if (omega_gdn_shape(&sp, &S)) return OMEGA_GPU_GDN_BAD_ARGS; }
     *out = NULL;
     OmegaGpuGdn *g = omega_gpu_host_calloc(1, sizeof *g);
     if (!g) return OMEGA_GPU_GDN_BAD_ARGS;
+    g->bf16 = bf16;
     g->layers = layers;
     g->ratio = ratio;
     g->sh = S;
@@ -211,6 +217,22 @@ int omega_gpu_gdn_reset(OmegaGpuGdn *g) {
     return rc;
 }
 
+/* L313: one layer's state between the f32 reference layout and the stored format (bf16: round to nearest even, the chip's
+ * F2FP.BF16.F32 rule; widen exact). */
+static void state_put(const OmegaGpuGdn *g, void *dst, const float *src) {
+    if (!g->bf16) { memcpy(dst, src, g->sh.state_bytes); return; }
+    uint16_t *d = dst;
+    for (size_t i = 0; i < g->sh.state_bytes / 2u; i++) {
+        uint32_t b; memcpy(&b, &src[i], 4);
+        d[i] = (b & 0x7fffffffu) > 0x7f800000u ? (uint16_t)0x7fc0u : (uint16_t)((b + 0x7fffu + ((b >> 16) & 1u)) >> 16);
+    }
+}
+static void state_get(const OmegaGpuGdn *g, float *dst, const void *src) {
+    if (!g->bf16) { memcpy(dst, src, g->sh.state_bytes); return; }
+    const uint16_t *s = src;
+    for (size_t i = 0; i < g->sh.state_bytes / 2u; i++) { uint32_t b = (uint32_t)s[i] << 16; memcpy(&dst[i], &b, 4); }
+}
+
 /* cached: the staging buffer [state][tail] of one layer (uncached), made on first use */
 static int stage_locked(OmegaGpuGdn *g) {
     if (g->stage.cpu) return OMEGA_GPU_GDN_OK;
@@ -224,12 +246,12 @@ int omega_gpu_gdn_set_state(OmegaGpuGdn *g, uint32_t layer, const float *tail, c
     const size_t so = (size_t)layer * g->sh.state_bytes, to = (size_t)layer * g->sh.tail_bytes;
     if (!g->cached) {
         omega_gdn_pack_tail_r(g->ratio, tail, (float *)((uint8_t *)g->tail.cpu + to));
-        memcpy((uint8_t *)g->state.cpu + so, state, g->sh.state_bytes);
+        state_put(g, (uint8_t *)g->state.cpu + so, state);
         rc = (omega_gpu_session_sync_to_gpu(&g->tail) == 0 && omega_gpu_session_sync_to_gpu(&g->state) == 0) ? OMEGA_GPU_GDN_OK : OMEGA_GPU_GDN_CHIP_FAIL;
     } else {
         rc = dev_open_locked() ? stage_locked(g) : OMEGA_GPU_GDN_CHIP_FAIL;
         if (rc == OMEGA_GPU_GDN_OK) {
-            memcpy(g->stage.cpu, state, g->sh.state_bytes);
+            state_put(g, g->stage.cpu, state);
             omega_gdn_pack_tail_r(g->ratio, tail, (float *)((uint8_t *)g->stage.cpu + g->sh.state_bytes));
             if (omega_gpu_session_sync_to_gpu(&g->stage) != 0) rc = OMEGA_GPU_GDN_CHIP_FAIL;
         }
@@ -260,7 +282,7 @@ int omega_gpu_gdn_get_state(OmegaGpuGdn *g, uint32_t layer, float *tail, float *
         omega_gpu_session_set_error("gdn: the per-head copies of a key head's conv tail disagree");
         rc = OMEGA_GPU_GDN_CHIP_FAIL;
     }
-    if (rc == OMEGA_GPU_GDN_OK && state) memcpy(state, sp, g->sh.state_bytes);
+    if (rc == OMEGA_GPU_GDN_OK && state) state_get(g, state, sp);
     omega_gpu_session_unlock();
     return rc;
 }
@@ -348,6 +370,7 @@ static int gdn_core(OmegaGpuGdn *g, uint32_t layer, const float *qkv, const floa
     OmegaGdnSpec spec; memset(&spec, 0, sizeof spec);
     spec.mutant = g_k.mutant;
     spec.ratio = g->ratio;
+    spec.state_bf16 = (uint32_t)g->bf16;
 
     if (!rec) omega_gpu_session_lock();
 #define UNLOCK() do { if (!rec) omega_gpu_session_unlock(); } while (0)
@@ -470,6 +493,7 @@ static int pf_core(OmegaGpuGdn *g, uint32_t layer, uint32_t T, const float *qkv,
     OmegaGdnSpec spec; memset(&spec, 0, sizeof spec);
     spec.mutant = g_k.mutant;
     spec.ratio = g->ratio;
+    spec.state_bf16 = (uint32_t)g->bf16;
     size_t off[PF_N];
     const size_t bytes = pf_layout(&g->sh, T, off);
 

@@ -85,6 +85,8 @@ typedef struct {
     int copy;   /* 0: the GDN kernels. OMEGA_GDN_COPY / OMEGA_GDN_ZERO: omega_blackwell_codegen_gdn_copy_prog */
     uint32_t ratio; /* value heads per key head (16 key heads): 0 = 3 (Qwen3.8-27B, 48 value heads, the program before
                      * this field existed); 2 = Qwen3.6-35B-A3B (32 value heads, conv 8192). Appended last. */
+    uint32_t state_bf16; /* L313: 1 = the state is stored bf16 (round to nearest even on store, exact widen on load), half the
+                          * bytes; compute stays f32. 0 = f32 (the program before this field existed). Appended last. */
 } OmegaGdnSpec;
 
 /* The shape a spec selects (Q36, sc L306). The 27B constants above are the ratio-3 values. */

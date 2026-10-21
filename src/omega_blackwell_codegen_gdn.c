@@ -89,9 +89,34 @@ static void ldg_pf(Em *e, int d, int addr64, uint32_t imm, int udesc, unsigned s
     e->pending |= 1u << SB_RD; e->held |= 1u << sb;
     if (omega_bw_ir_append(e->p, &in) < 0) e->err = -1;
 }
+/* L313: the bf16 state prefetch, LDG.E.64 (four bf16 of one state row) under the held scoreboard `sb` */
+static void ldg_pf64(Em *e, int d, int addr64, uint32_t imm, int udesc, unsigned sb) {
+    BlackwellIRInsn in = I0(BW_IR_LDG_E_64); in.dst_vreg = d; in.src1_vreg = addr64; in.imm = imm; in.ureg = udesc;
+    in.control = CW(4, sb, SB_RD, (e->pending & (1u << SB_RD))) | CW_YIELD;
+    e->pending |= 1u << SB_RD; e->held |= 1u << sb;
+    if (omega_bw_ir_append(e->p, &in) < 0) e->err = -1;
+}
 static void consume(Em *e, unsigned sb) { e->pending |= e->held & (1u << sb); e->held &= ~(1u << sb); }
 /* STG.E [addr64 + imm], val (imm: signed 24-bit byte offset) */
 static void stg(Em *e, int addr64, uint32_t imm, Op val, int udesc) { BlackwellIRInsn i = I0(BW_IR_STG_E); i.src1_vreg = addr64; i.src2_vreg = val.v; i.src2_subreg = (uint8_t)val.s; i.imm = imm; i.ureg = udesc; emit(e, i, K_STORE); }
+/* L313 bf16 state. F2FP.BF16.F32.PACK_AB d = bf16_rn(hi) << 16 | bf16_rn(lo) (a placeholder omega_tc_patch_code patches,
+ * omega_blackwell_codegen_tc.h; counted by omega_gdn_bfly_count). */
+static void f2fp(Em *e, Op d, Op hi, Op lo) {
+    BlackwellIRInsn i = I0(BW_IR_FMNMX_MAX); i.dst_vreg = d.v; i.dst_subreg = (uint8_t)d.s; i.src1_vreg = hi.v; i.src1_subreg = (uint8_t)hi.s;
+    i.src2_vreg = lo.v; i.src2_subreg = (uint8_t)lo.s; i.imm = OMEGA_TC_MARK_F2FP; emit(e, i, K_FIXED); e->placeholders++;
+}
+/* Four f32 (q, a V128) from four bf16 (w, a V64; element 0 in the low half of word 0): the exact widen. */
+static void bf16x4_widen(Em *e, int q, int w) {
+    for (unsigned j = 0; j < 4; j++) {
+        if (j % 2 == 0) imadi(e, S(q, j), S(w, j / 2), 65536u, NOREG);
+        else andi(e, S(q, j), S(w, j / 2), 0xffff0000u);
+    }
+}
+/* Four f32 (q) to four bf16 (w), round to nearest even. */
+static void bf16x4_pack(Em *e, int w, int q) {
+    f2fp(e, S(w, 0), S(q, 1), S(q, 0));
+    f2fp(e, S(w, 1), S(q, 3), S(q, 2));
+}
 static void lds128(Em *e, int d128, int addr, uint32_t imm, int first) { BlackwellIRInsn i = I0(BW_IR_LDS128); i.dst_vreg = d128; i.src1_vreg = addr; i.imm = imm; emit(e, i, first ? K_VAR : K_VAR_MORE); }
 static void lds32(Em *e, Op d, int addr, int first) { BlackwellIRInsn i = I0(BW_IR_LDS32); i.dst_vreg = d.v; i.dst_subreg = (uint8_t)d.s; i.src1_vreg = addr; emit(e, i, first ? K_VAR : K_VAR_MORE); }
 static void sts32(Em *e, int addr, Op val) { BlackwellIRInsn i = I0(BW_IR_STS32); i.src1_vreg = addr; i.src2_vreg = val.v; i.src2_subreg = (uint8_t)val.s; emit(e, i, K_STORE); }
@@ -185,7 +210,7 @@ int omega_gdn_shape(const OmegaGdnSpec *spec, OmegaGdnShape *s) {
     s->par_norm = s->par_scal + s->vh * 8u;
     s->par_bytes = s->par_norm + OMEGA_GDN_HEAD_DIM * 4u;
     s->tail_bytes = s->vh * OMEGA_GDN_TAIL_HEAD_BYTES;
-    s->state_bytes = s->vh * OMEGA_GDN_STATE_HEAD_BYTES;
+    s->state_bytes = spec->state_bf16 ? s->vh * (OMEGA_GDN_STATE_HEAD_BYTES / 2u) : s->vh * OMEGA_GDN_STATE_HEAD_BYTES;
     s->post_grid_y = s->vh / 8u;
     return 0;
 }
@@ -216,9 +241,11 @@ int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgra
     imadi(e, R(h), R(cy), RR, cx);
     shr(e, warp, tid, 5);
     andi(e, R(lane), R(tid), 31u);
-    imadi(e, R(toff), R(h), OMEGA_GDN_STATE_HEAD_BYTES, NOREG);
-    imadi(e, R(toff), R(warp), 16u * OMEGA_GDN_HEAD_DIM * 4u, toff);
-    imadi(e, R(toff), R(lane), 16u, toff);
+    /* the state element size: 4 (f32) or 2 (bf16, L313); this thread holds rows 16 warp .. +15, columns 4 lane .. +3 */
+    const unsigned sel = spec->state_bf16 ? 2u : 4u;
+    imadi(e, R(toff), R(h), OMEGA_GDN_HEAD_DIM * OMEGA_GDN_HEAD_DIM * sel, NOREG);
+    imadi(e, R(toff), R(warp), 16u * OMEGA_GDN_HEAD_DIM * sel, toff);
+    imadi(e, R(toff), R(lane), 4u * sel, toff);
     imadw(e, sa, toff, 1u, ps);
 
     /* ---- phase A: conv + SiLU of channel A (q or k) and channel V ---- */
@@ -256,7 +283,14 @@ int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgra
     silu(e, R(accA), t1, cnl2e, fone);
     silu(e, R(accV), t1, cnl2e, fone);
     /* the state prefetch (here, not earlier: the conv phase is the register peak) */
-    for (unsigned r = 0; r < 16; r++) ldg_pf(e, sq[r], sa, r * OMEGA_GDN_HEAD_DIM * 4u, udesc, SB_STATE);
+    int sw[16];
+    if (spec->state_bf16) {
+        for (unsigned r = 0; r < 16; r++) sw[r] = V64(e);
+        if (e->err) return -1;
+        for (unsigned r = 0; r < 16; r++) ldg_pf64(e, sw[r], sa, r * OMEGA_GDN_HEAD_DIM * 2u, udesc, SB_STATE);
+    } else {
+        for (unsigned r = 0; r < 16; r++) ldg_pf(e, sq[r], sa, r * OMEGA_GDN_HEAD_DIM * 4u, udesc, SB_STATE);
+    }
 
     /* ---- phase B: l2 norms; q|k and v to shared; the tail shift ---- */
     int sqs = V(e), ts = V(e), ra = V(e);
@@ -325,6 +359,7 @@ int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgra
     imadi(e, R(pa), R(warp), OMEGA_GDN_HEAD_DIM * 4u, NOREG); imadi(e, R(pa), R(lane), 16u, pa); imadi(e, R(pa), R(one), OMEGA_GDN_SM_P, pa);
     imadi(e, R(la), R(lane), 16u, NOREG);
     consume(e, SB_STATE);
+    if (spec->state_bf16) for (unsigned r = 0; r < 16; r++) bf16x4_widen(e, sq[r], sw[r]);
     for (unsigned r = 0; r < 16; r++) for (unsigned j = 0; j < 4; j++) fmul(e, S(sq[r], j), S(sq[r], j), R(dec));
     /* kv partial over this warp's 16 rows: kv_j = sum_r S[r][j] k[r], then the 8-way cross-warp sum */
     for (unsigned i = 0; i < 4; i++) lds128(e, kq[i], aw, OMEGA_GDN_SM_K + i * 16u, i == 0);
@@ -341,7 +376,17 @@ int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgra
         for (unsigned i = 0; i < 4; i++) lds128(e, k2[i], aw, OMEGA_GDN_SM_K + i * 16u, i == 0);
         for (unsigned r = 0; r < 16; r++) for (unsigned j = 0; j < 4; j++) ffma(e, S(sq[r], j), S(k2[r / 4], r % 4), R(dl[j]), S(sq[r], j));
     }
-    for (unsigned r = 0; r < 16; r++) for (unsigned j = 0; j < 4; j++) stg(e, sa, r * OMEGA_GDN_HEAD_DIM * 4u + j * 4u, S(sq[r], j), udesc);
+    if (spec->state_bf16) {
+        int pk[16];
+        for (unsigned r = 0; r < 16; r++) pk[r] = V64(e);
+        if (e->err) return -1;
+        for (unsigned r = 0; r < 16; r++) {
+            bf16x4_pack(e, pk[r], sq[r]);
+            for (unsigned w = 0; w < 2; w++) stg(e, sa, r * OMEGA_GDN_HEAD_DIM * 2u + w * 4u, S(pk[r], w), udesc);
+        }
+    } else {
+        for (unsigned r = 0; r < 16; r++) for (unsigned j = 0; j < 4; j++) stg(e, sa, r * OMEGA_GDN_HEAD_DIM * 4u + j * 4u, S(sq[r], j), udesc);
+    }
     /* the gate prefetch: z[h] and the norm weight, consumed in phase E */
     int pz = V64(e), ppar2 = V64(e), az = V64(e), an = V64(e), zq = V128(e), nq = V128(e);
     if (e->err) return -1;
@@ -644,11 +689,20 @@ int omega_blackwell_codegen_gdn_scan_prog(const OmegaGdnSpec *spec, BlackwellIRP
     shr(e, rg, lane, 2);
     /* this thread's block of S: rows 16 rg .. +15, columns c0 = 16 warp + 4 cq .. +3 */
     imadi(e, R(c0), R(warp), 16u, NOREG); imadi(e, R(c0), R(cq), 4u, c0);
-    imadi(e, R(t1), R(h), OMEGA_GDN_STATE_HEAD_BYTES, NOREG);
-    imadi(e, R(t1), R(rg), 16u * OMEGA_GDN_HEAD_DIM * 4u, t1);
-    imadi(e, R(t1), R(c0), 4u, t1);
+    const unsigned sel = spec->state_bf16 ? 2u : 4u; /* f32 or bf16 (L313) state element */
+    imadi(e, R(t1), R(h), OMEGA_GDN_HEAD_DIM * OMEGA_GDN_HEAD_DIM * sel, NOREG);
+    imadi(e, R(t1), R(rg), 16u * OMEGA_GDN_HEAD_DIM * sel, t1);
+    imadi(e, R(t1), R(c0), sel, t1);
     imadw(e, sa, t1, 1u, ps);
-    for (unsigned r = 0; r < 16; r++) ldg_wide(e, BW_IR_LDG_E_128, sq[r], sa, r * OMEGA_GDN_HEAD_DIM * 4u, udesc, r == 0);
+    if (spec->state_bf16) {
+        int sw[16];
+        for (unsigned r = 0; r < 16; r++) sw[r] = V64(e);
+        if (e->err) return -1;
+        for (unsigned r = 0; r < 16; r++) ldg_wide(e, BW_IR_LDG_E_64, sw[r], sa, r * OMEGA_GDN_HEAD_DIM * 2u, udesc, r == 0);
+        for (unsigned r = 0; r < 16; r++) bf16x4_widen(e, sq[r], sw[r]);
+    } else {
+        for (unsigned r = 0; r < 16; r++) ldg_wide(e, BW_IR_LDG_E_128, sq[r], sa, r * OMEGA_GDN_HEAD_DIM * 4u, udesc, r == 0);
+    }
     imadi(e, R(tm1), R(one), 0xffffffffu, T);
     /* the record copy: warp w brings token tc + w into shared slot w */
     imadi(e, R(t1), R(warp), G.vh, h);
@@ -732,7 +786,17 @@ int omega_blackwell_codegen_gdn_scan_prog(const OmegaGdnSpec *spec, BlackwellIRP
         bra_if_p0(e, L);
     }
     loop_end(e);
-    for (unsigned r = 0; r < 16; r++) for (unsigned j = 0; j < 4; j++) stg(e, sa, r * OMEGA_GDN_HEAD_DIM * 4u + j * 4u, S(sq[r], j), udesc);
+    if (spec->state_bf16) {
+        int pk[16];
+        for (unsigned r = 0; r < 16; r++) pk[r] = V64(e);
+        if (e->err) return -1;
+        for (unsigned r = 0; r < 16; r++) {
+            bf16x4_pack(e, pk[r], sq[r]);
+            for (unsigned w = 0; w < 2; w++) stg(e, sa, r * OMEGA_GDN_HEAD_DIM * 2u + w * 4u, S(pk[r], w), udesc);
+        }
+    } else {
+        for (unsigned r = 0; r < 16; r++) for (unsigned j = 0; j < 4; j++) stg(e, sa, r * OMEGA_GDN_HEAD_DIM * 4u + j * 4u, S(sq[r], j), udesc);
+    }
 
     /* the new tail: qkv rows T-3 .. T-1 (times in_scale) of slot A (tid) and slot V (256 + (tid & 127)), as decode */
     if (MUT != 4) {
@@ -813,11 +877,12 @@ int omega_blackwell_codegen_gdn_post_prog(const OmegaGdnSpec *spec, BlackwellIRP
     return omega_bw_regalloc_solve(prog);
 }
 
-/* number of SHFL.BFLY placeholders in a program (what omega_tc_patch_code must report) */
+/* number of placeholders in a program, SHFL.BFLY and (bf16 state, L313) F2FP: what omega_tc_patch_code must report */
 uint32_t omega_gdn_bfly_count(const BlackwellIRProgram *prog) {
     uint32_t n = 0;
     for (size_t i = 0; i < prog->count; i++)
-        if (prog->insns[i].op == BW_IR_SHFL_DOWN && (prog->insns[i].imm & OMEGA_TC_MARK_BFLY)) n++;
+        if ((prog->insns[i].op == BW_IR_SHFL_DOWN && (prog->insns[i].imm & OMEGA_TC_MARK_BFLY))
+            || (prog->insns[i].op == BW_IR_FMNMX_MAX && prog->insns[i].imm == OMEGA_TC_MARK_F2FP)) n++;
     return n;
 }
 
