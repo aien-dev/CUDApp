@@ -34,6 +34,7 @@ static struct {
     unsigned next;
 } g;
 static int g_rec; /* 1 while a record call runs (lock held): kernel_for must not evict */
+static int g_mask_mutant; /* TEST ONLY: the MASK form's mutant (4 = keep / drop inverted), other kernels untouched */
 
 const char *omega_gpu_bf16_last_error(void) { return omega_gpu_session_last_error(); }
 const char *omega_gpu_bf16_rc_name(int rc) {
@@ -71,6 +72,7 @@ void omega_gpu_bf16_set_shape(uint32_t rows, uint32_t warps, uint32_t depth) {
 }
 void omega_gpu_bf16_set_cta_budget(uint32_t ctas) { omega_gpu_session_lock(); g.ctas = ctas; omega_gpu_session_unlock(); }
 void omega_gpu_bf16_test_set_mutant(int m) { omega_gpu_session_lock(); g.mutant = m; cache_clear_locked(); omega_gpu_session_unlock(); }
+void omega_gpu_bf16_test_set_mask_mutant(int m) { omega_gpu_session_lock(); g_mask_mutant = m; omega_gpu_session_unlock(); }
 
 /* Declared registers: peak + 1 rounded up to 8; a CTA must fit the 65536-register file (chip-found rules, see
  * omega_gpu_fp8_api.c and ~/handoffs/own30b-K-report.md). */
@@ -205,7 +207,7 @@ static int gemv_core(const OmegaGpuBf16Tensor *t, const float *x32, const uint16
     if (xrows) spec.ystride = n;
     const int masked = mask_hi != 0;
     if (masked && (!rec || xrows || !mask_tau)) return OMEGA_GPU_BF16_BAD_ARGS; /* the MASK form is record-only */
-    if (masked) { spec.rows = 1; spec.mask = 1; } /* one row per warp: each row's bits are the plain kernel's */
+    if (masked) { spec.rows = 1; spec.mask = 1; if (g_mask_mutant) spec.mutant = g_mask_mutant; } /* one row per warp: each row's bits are the plain kernel's */
     if (n % spec.rows) return OMEGA_GPU_BF16_CODEGEN_FAIL;
     const uint32_t RG = n / spec.rows;
     uint32_t grid_x = (RG + spec.warps - 1) / spec.warps;

@@ -123,7 +123,9 @@ int omega_gpu_q36_graph_stamps(const OmegaGpuQ36Graph *g, uint64_t *stamps, uint
 const char *omega_gpu_q36_graph_kind_name(uint8_t kind);
 void omega_gpu_q36_graph_set_flush_each(OmegaGpuQ36Graph *g, int on);
 /* TEST ONLY: 1 SWIGLU up half off by one, 2 GATHER index + 1, 3 GATE dropped, 4 COMBINE skips the shared expert,
- * 5 the exact head's XBOUND drops the c|h| bound (the greedy gate must catch it). 0 none. */
+ * 5 the exact head's MASK keeps the rows it should drop and drops the candidates (the greedy gate must catch it),
+ * 6 the exact head's XBOUND drops the c|h| bound (too weak to change most tokens: the host gate saw one golden of five
+ * diverge at its full scale x0). 0 none. */
 void omega_gpu_q36_graph_test_set_mutant(OmegaGpuQ36Graph *g, int mutant);
 
 #ifdef __cplusplus

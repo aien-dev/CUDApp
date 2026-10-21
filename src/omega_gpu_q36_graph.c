@@ -284,7 +284,11 @@ void omega_gpu_q36_graph_set_exact_head_on(OmegaGpuQ36Graph *g, int on) { if (g 
 int omega_gpu_q36_graph_exact_head_active(const OmegaGpuQ36Graph *g) { return g && g->xh.screen && g->xh.on && !g->head8; }
 
 void omega_gpu_q36_graph_set_flush_each(OmegaGpuQ36Graph *g, int on) { if (g) g->flush_each = on ? 1 : 0; }
-void omega_gpu_q36_graph_test_set_mutant(OmegaGpuQ36Graph *g, int mutant) { if (g) g->mutant = mutant; }
+void omega_gpu_q36_graph_test_set_mutant(OmegaGpuQ36Graph *g, int mutant) {
+    if (!g) return;
+    g->mutant = mutant;
+    omega_gpu_bf16_test_set_mask_mutant(mutant == 5 ? 4 : 0); /* process-wide, the MASK form only */
+}
 
 /* ---- the list ---- */
 
@@ -463,7 +467,7 @@ int omega_gpu_q36_graph_record_final(OmegaGpuQ36Graph *g) {
         rc = add_glue(g, OMEGA_GPU_Q36_K_LM_HEAD, K_XS, H / OMEGA_DEC_THREADS, 1, H, xs, OMEGA_DEC_XB_WORDS);
         if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_fp8(g, OMEGA_GPU_Q36_K_LM_HEAD, g->xh.screen, g->xh.tab, g->xh.h8, g->xh.s);
         if (rc == OMEGA_GPU_DGRAPH_OK)
-            rc = add_glue(g, OMEGA_GPU_Q36_K_LM_HEAD, g->mutant == 5 ? K_XB_M1 : K_XB, (g->cfg.vocab + OMEGA_DEC_THREADS - 1) / OMEGA_DEC_THREADS, 1,
+            rc = add_glue(g, OMEGA_GPU_Q36_K_LM_HEAD, g->mutant == 6 ? K_XB_M1 : K_XB, (g->cfg.vocab + OMEGA_DEC_THREADS - 1) / OMEGA_DEC_THREADS, 1,
                           g->cfg.vocab, xb, OMEGA_DEC_XB_WORDS);
         if (rc == OMEGA_GPU_DGRAPH_OK) rc = add_glue(g, OMEGA_GPU_Q36_K_ARGMAX, K_AM0, g->am_ctas, 1, (size_t)g->am_ctas * OMEGA_DEC_ARGMAX_SPAN, t0, OMEGA_DEC_AM_WORDS);
         if (rc == OMEGA_GPU_DGRAPH_OK) rc = add_glue(g, OMEGA_GPU_Q36_K_ARGMAX, K_AM1, 1, 1, OMEGA_DEC_ARGMAX_SPAN, t1, OMEGA_DEC_AM_WORDS);

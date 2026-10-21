@@ -93,6 +93,8 @@ void omega_gpu_bf16_set_shape(uint32_t rows, uint32_t warps, uint32_t depth);
 void omega_gpu_bf16_set_cta_budget(uint32_t ctas);
 /* TEST ONLY: deliberately wrong kernels 1, 2, 3 (see the codegen header). Production never calls this. */
 void omega_gpu_bf16_test_set_mutant(int mutant);
+/* TEST ONLY: the MASK form alone under mutant m (4: rows with hi >= tau get -inf, the others the plain bits). 0 none. */
+void omega_gpu_bf16_test_set_mask_mutant(int m);
 
 #ifdef __cplusplus
 }
