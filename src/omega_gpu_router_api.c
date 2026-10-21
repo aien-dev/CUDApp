@@ -194,7 +194,7 @@ static int kernel_for(const OmegaRouterSpec *spec, Slot **out, bool *hit) {
 /* rec non-NULL (record path, caller holds the session lock): x is the device row dev_x, the launch is appended to rec
  * instead of submitted, nothing is staged, poisoned or read back (outputs stay at the launch-buffer addresses). */
 static int router_core(OmegaGpuRouter *r, uint32_t layer, const float *x, float eps, int norm_topk, float out_scale,
-                       uint32_t *ids, float *weights, OmegaGpuRouterInfo *info, OmegaGpuCmdList *rec, uint64_t dev_x) {
+                       uint32_t *ids, float *weights, OmegaGpuRouterInfo *info, OmegaGpuCmdList *rec, uint64_t dev_x, uint64_t rec_lb) {
     uint64_t t0 = omega_gpu_session_now_ns();
     if (info) memset(info, 0, sizeof *info);
     if (!r || layer >= r->layers || (rec ? !dev_x : (!x || !ids || !weights))) return OMEGA_GPU_ROUTER_BAD_ARGS;
@@ -230,8 +230,9 @@ static int router_core(OmegaGpuRouter *r, uint32_t layer, const float *x, float 
     const uint64_t dgu = r->dir.va + (uint64_t)layer * 2u * DIRB(r), ddn = dgu + DIRB(r);
     float fe = eps, fo = out_scale; uint32_t ue, uo; memcpy(&ue, &fe, 4); memcpy(&uo, &fo, 4);
 #define A64(i, v) do { args[i] = (uint32_t)(v); args[(i) + 1] = (uint32_t)((v) >> 32); } while (0)
-    A64(0, rec ? dev_x : r->lb.va + LB_X); A64(2, gate); A64(4, norm); A64(6, r->lb.va + LB_XOUT); A64(8, r->lb.va + LB_IDS); A64(10, r->lb.va + LB_WTS);
-    A64(12, dgu); A64(14, ddn); A64(16, r->lb.va + LB_TAB_GU); A64(18, r->lb.va + r->lb_tab_dn);
+    const uint64_t lb = rec_lb ? rec_lb : r->lb.va; /* record_to: the outputs land in the caller's buffer (one per conversation in the stroke) */
+    A64(0, rec ? dev_x : r->lb.va + LB_X); A64(2, gate); A64(4, norm); A64(6, lb + LB_XOUT); A64(8, lb + LB_IDS); A64(10, lb + LB_WTS);
+    A64(12, dgu); A64(14, ddn); A64(16, lb + LB_TAB_GU); A64(18, lb + r->lb_tab_dn);
 #undef A64
     args[20] = ue; args[21] = uo; args[22] = norm_topk ? 1u : 0u;
     if (info) {
@@ -275,17 +276,30 @@ static int router_core(OmegaGpuRouter *r, uint32_t layer, const float *x, float 
 
 int omega_gpu_router(OmegaGpuRouter *r, uint32_t layer, const float *x, float eps, int norm_topk, float out_scale,
                      uint32_t *ids, float *weights, OmegaGpuRouterInfo *info) {
-    return router_core(r, layer, x, eps, norm_topk, out_scale, ids, weights, info, NULL, 0);
+    return router_core(r, layer, x, eps, norm_topk, out_scale, ids, weights, info, NULL, 0, 0);
 }
 
 /* Record path (OWN-30B W-L2a decode graph): see the header. Caller holds omega_gpu_session_lock(). */
 int omega_gpu_router_record(OmegaGpuCmdList *cl, OmegaGpuRouter *r, uint32_t layer, uint64_t x_va, float eps, int norm_topk,
                             float out_scale, OmegaGpuRouterDevOut *out) {
     if (!cl) return OMEGA_GPU_ROUTER_BAD_ARGS;
-    int rc = router_core(r, layer, NULL, eps, norm_topk, out_scale, NULL, NULL, NULL, cl, x_va);
+    int rc = router_core(r, layer, NULL, eps, norm_topk, out_scale, NULL, NULL, NULL, cl, x_va, 0);
     if (rc == OMEGA_GPU_ROUTER_OK && out) {
         out->xout_va = r->lb.va + LB_XOUT; out->ids_va = r->lb.va + LB_IDS; out->wts_va = r->lb.va + LB_WTS;
         out->tab_gu_va = r->lb.va + LB_TAB_GU; out->tab_dn_va = r->lb.va + r->lb_tab_dn;
     }
     return rc;
 }
+/* Record path with the outputs in the caller's buffer (L312 v2, the stroke: one buffer per conversation, the layout of
+ * omega_gpu_router_layout_bytes). Caller holds omega_gpu_session_lock(). */
+int omega_gpu_router_record_to(OmegaGpuCmdList *cl, OmegaGpuRouter *r, uint32_t layer, uint64_t x_va, float eps, int norm_topk,
+                               float out_scale, uint64_t lb_va, OmegaGpuRouterDevOut *out) {
+    if (!cl || !r || !lb_va || (lb_va & 255u)) return OMEGA_GPU_ROUTER_BAD_ARGS;
+    int rc = router_core(r, layer, NULL, eps, norm_topk, out_scale, NULL, NULL, NULL, cl, x_va, lb_va);
+    if (rc == OMEGA_GPU_ROUTER_OK && out) {
+        out->xout_va = lb_va + LB_XOUT; out->ids_va = lb_va + LB_IDS; out->wts_va = lb_va + LB_WTS;
+        out->tab_gu_va = lb_va + LB_TAB_GU; out->tab_dn_va = lb_va + r->lb_tab_dn;
+    }
+    return rc;
+}
+uint32_t omega_gpu_router_layout_bytes(const OmegaGpuRouter *r) { return r ? r->lb_bytes : 0u; }

@@ -82,6 +82,12 @@ typedef struct { uint64_t xout_va, ids_va, wts_va, tab_gu_va, tab_dn_va; } Omega
 struct OmegaGpuCmdList;
 int omega_gpu_router_record(struct OmegaGpuCmdList *cl, OmegaGpuRouter *r, uint32_t layer, uint64_t x_va, float eps, int norm_topk,
                             float out_scale, OmegaGpuRouterDevOut *out);
+/* The stroke (L312 v2): the same launch with every output in the caller's device buffer at lb_va (256-byte aligned,
+ * omega_gpu_router_layout_bytes(r) bytes, the launch buffer's layout: xout, ids, wts, tab_gu, tab_dn at the offsets
+ * out reports). One buffer per conversation, so N routers of one layer can sit in one list. */
+int omega_gpu_router_record_to(struct OmegaGpuCmdList *cl, OmegaGpuRouter *r, uint32_t layer, uint64_t x_va, float eps, int norm_topk,
+                               float out_scale, uint64_t lb_va, OmegaGpuRouterDevOut *out);
+uint32_t omega_gpu_router_layout_bytes(const OmegaGpuRouter *r);
 int omega_gpu_router_read_back(OmegaGpuRouter *r, float *xout, uint64_t *tab_gu, uint64_t *tab_dn);
 const char *omega_gpu_router_last_error(void);
 const char *omega_gpu_router_rc_name(int rc);
