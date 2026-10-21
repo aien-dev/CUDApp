@@ -79,7 +79,8 @@ struct OmegaGpuQ36Graph {
     /* the prefill (L369): one conversation's prompt chunk as rows through the batch's GEMMs; GDN and attention per token in order */
     struct { uint32_t cap; OmegaGpuMem hb, db; size_t x, rlb, sgu, sdn, sgu2, sdn2, xmap, ymap, xmap2, ymap2;
              size_t xq, xp, mixN, abN, aggN, attN, op, oN, xp2, guN, actN, actp, dnN; int mutant;
-             uint64_t streamed; /* fp8 GEMM weight bytes every prefill call so far streamed (one pass per mt rows) */ } pf;
+             uint64_t streamed; /* fp8 GEMM weight bytes every prefill call so far streamed (one pass per mt rows) */
+             int gdn_multi; /* 1 (default): the GDN layers in one multi-token launch; AIEN_OMEGA_Q36_PF_GDN=0: one decode step per token */ } pf;
     int stamps;
     uint32_t n_kind, tagged_in_list, n_stamp;
     uint8_t kind[OMEGA_GPU_CMDLIST_MAX_LAUNCHES];
@@ -899,6 +900,10 @@ int omega_gpu_q36_graph_prefill_alloc(OmegaGpuQ36Graph *g, uint32_t cap) {
     if (rc != OMEGA_GPU_DGRAPH_OK) return rc;
     const char *m = getenv("AIEN_OMEGA_Q36_PF_MUTANT");
     g->pf.mutant = m ? atoi(m) : 0;
+    const char *gm = getenv("AIEN_OMEGA_Q36_PF_GDN");
+    g->pf.gdn_multi = !(gm && gm[0] == '0' && gm[1] == 0);
+    for (uint32_t h = 0; h < g->heads && g->pf.gdn_multi; h++)
+        if (g->gdn_h[h] && omega_gpu_gdn_multi_prepare(g->gdn_h[h]) != OMEGA_GPU_GDN_OK) return OMEGA_GPU_DGRAPH_CHIP_FAIL;
     g->pf.cap = cap;
     return OMEGA_GPU_DGRAPH_OK;
 }
@@ -924,6 +929,15 @@ static int pf_record_mixer(OmegaGpuQ36Graph *g, uint32_t head, uint32_t l, uint3
     if (!g->layer[l].attn) {
         if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, OMEGA_GPU_Q36_K_AB, omega_gpu_bf16_gemv_rows_record(g->cl, g->layer[l].ab, n, xq0, abN));
         if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_gemm(g, OMEGA_GPU_Q36_K_MIX, g->layer[l].mix, n, 1, segd, xp, mixN, 0, 0);
+        if (g->pf.gdn_multi && g->pf.mutant != 1 && g->pf.mutant != 3) {
+            /* every token's recurrence step in one launch (the decode step T times, bit for bit: omega_gpu_gdn_api.h), the rows
+             * into attN (unused on a GDN layer), then one PERM over the rows. TEST mutant 5: every token reads token 0's a|b. */
+            if (rc == OMEGA_GPU_DGRAPH_OK)
+                rc = after_op(g, OMEGA_GPU_Q36_K_GDN, omega_gpu_gdn_multi_record(g->cl, g->gdn_h[head], ki, n, mixN, mixN + OMEGA_GPU_Q36_GDN_QKV * 4u,
+                                                                               OMEGA_GPU_Q36_GDN_MIX * 4u, abN, g->pf.mutant == 5 ? 0u : OMEGA_GPU_Q36_AB * 4u,
+                                                                               attN, (uint32_t)MOS, g->cfg.eps_l2, g->cfg.eps, 1.0f, SCALE_2P64));
+            if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_perm(g, K_PERM_O, attN, pt4096, op, OMEGA_GPU_Q36_MIXER_OUT, n);
+        } else
         for (uint32_t i = 0; i < n && rc == OMEGA_GPU_DGRAPH_OK; i++) {
             /* TEST mutant 1: the last two tokens' recurrence steps in swapped order */
             const uint32_t t = (g->pf.mutant == 1 && n >= 2 && i + 2 >= n) ? (i + 2 == n ? n - 1 : n - 2) : i;

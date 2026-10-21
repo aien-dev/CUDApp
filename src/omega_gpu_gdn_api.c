@@ -47,9 +47,9 @@ typedef struct {
 } Slot;
 
 /* the resident kernels: decode, prefill prep, scan, post; the state copy and zero */
-enum { KK_DECODE, KK_PREP, KK_SCAN, KK_POST, KK_COPY, KK_ZERO, KK_N };
+enum { KK_DECODE, KK_PREP, KK_SCAN, KK_POST, KK_COPY, KK_ZERO, KK_MULTI, KK_N };
 static const uint32_t kk_threads[KK_N] = { OMEGA_GDN_THREADS, OMEGA_GDN_PREP_THREADS, OMEGA_GDN_THREADS, OMEGA_GDN_THREADS,
-                                           OMEGA_GDN_COPY_THREADS, OMEGA_GDN_COPY_THREADS };
+                                           OMEGA_GDN_COPY_THREADS, OMEGA_GDN_COPY_THREADS, OMEGA_GDN_THREADS };
 static struct {
     bool hooked;
     Slot slot[KK_N];
@@ -273,6 +273,7 @@ static int kernel_build(unsigned kind, const OmegaGdnSpec *spec, BlackwellIRProg
     case KK_SCAN: return omega_blackwell_codegen_gdn_scan_prog(spec, prog);
     case KK_POST: return omega_blackwell_codegen_gdn_post_prog(spec, prog);
     case KK_COPY: case KK_ZERO: return omega_blackwell_codegen_gdn_copy_prog(spec, prog);
+    case KK_MULTI: return omega_blackwell_codegen_gdn_multi_prog(spec, prog);
     default: return -1;
     }
 }
@@ -418,6 +419,53 @@ int omega_gpu_gdn_record(OmegaGpuCmdList *cl, OmegaGpuGdn *g, uint32_t layer, ui
     int rc = gdn_core(g, layer, NULL, NULL, NULL, eps_l2, eps_norm, in_scale, out_scale, NULL, NULL, cl, qkv_va, z_va, ab_va);
     if (rc == OMEGA_GPU_GDN_OK && out_va) *out_va = g->lb.va + LB_OUT;
     return rc;
+}
+
+/* ---- multi-token decode (L369): see the header ---- */
+int omega_gpu_gdn_multi_prepare(OmegaGpuGdn *g) {
+    if (!g) return OMEGA_GPU_GDN_BAD_ARGS;
+    OmegaGdnSpec spec; memset(&spec, 0, sizeof spec);
+    spec.mutant = g_k.mutant; spec.ratio = g->ratio;
+    omega_gpu_session_lock();
+    int rc = dev_open_locked() ? OMEGA_GPU_GDN_OK : OMEGA_GPU_GDN_CHIP_FAIL;
+    Slot *ks = NULL; bool hit = false;
+    if (rc == OMEGA_GPU_GDN_OK) rc = kernel_for(KK_MULTI, &spec, &ks, &hit);
+    omega_gpu_session_unlock();
+    return rc;
+}
+
+int omega_gpu_gdn_multi_record(OmegaGpuCmdList *cl, OmegaGpuGdn *g, uint32_t layer, uint32_t tokens, uint64_t qkv_va, uint64_t z_va,
+                               uint32_t xstride, uint64_t ab_va, uint32_t abstride, uint64_t out_va, uint32_t ostride, float eps_l2,
+                               float eps_norm, float in_scale, float out_scale) {
+    if (!cl || !g || layer >= g->layers || tokens == 0 || !qkv_va || !z_va || !ab_va || !out_va) return OMEGA_GPU_GDN_BAD_ARGS;
+    if (!isfinite(eps_l2) || !isfinite(eps_norm) || !isfinite(in_scale) || !isfinite(out_scale)) return OMEGA_GPU_GDN_BAD_ARGS;
+    if (((qkv_va | z_va | out_va | xstride | ostride) & 15u) || ((ab_va | abstride) & 7u)) return OMEGA_GPU_GDN_BAD_ARGS;
+    OmegaGdnSpec spec; memset(&spec, 0, sizeof spec);
+    spec.mutant = g_k.mutant; spec.ratio = g->ratio;
+    /* caller holds the session lock */
+    if (!dev_open_locked()) return OMEGA_GPU_GDN_CHIP_FAIL;
+    Slot *ks = NULL; bool hit = false;
+    g_rec = 1;
+    int rc = kernel_for(KK_MULTI, &spec, &ks, &hit);
+    g_rec = 0;
+    if (rc != OMEGA_GPU_GDN_OK) return rc;
+    uint32_t args[OMEGA_GDN_MULTI_ARGS_WORDS];
+#define A64(i, v) do { args[i] = (uint32_t)(v); args[(i) + 1] = (uint32_t)((v) >> 32); } while (0)
+    A64(0, qkv_va); A64(2, z_va); A64(4, ab_va);
+    A64(6, g->par.va + (uint64_t)layer * g->sh.par_bytes); A64(8, g->tail.va + (uint64_t)layer * g->sh.tail_bytes);
+    A64(10, g->state.va + (uint64_t)layer * g->sh.state_bytes); A64(12, out_va);
+#undef A64
+    memcpy(&args[14], &eps_l2, 4); memcpy(&args[15], &eps_norm, 4); memcpy(&args[16], &in_scale, 4); memcpy(&args[17], &out_scale, 4);
+    args[18] = tokens; args[19] = xstride; args[20] = abstride; args[21] = ostride;
+    OmegaGpuLaunch L = {
+        .code_va = ks->code.va, .gpr_count = omega_bw_gpr_declared(ks->kernel.gpr_count),
+        .threads_x = OMEGA_GDN_THREADS, .threads_y = 1, .grid_x = g->sh.r, .grid_y = OMEGA_GDN_GRID_Y,
+        .num_elements = (size_t)g->sh.vdim,
+        .args = args, .n_args = OMEGA_GDN_MULTI_ARGS_WORDS, .timeout_ms = MARKER_TIMEOUT_MS,
+        .shared_bytes = OMEGA_GDN_SHARED_BYTES,
+    };
+    if (!omega_bw_gpr_declared_ok(L.gpr_count, ks->kernel.gpr_count)) { omega_gpu_session_set_error("declared registers below peak + 2: refusing to launch"); return OMEGA_GPU_GDN_CHIP_FAIL; }
+    return omega_gpu_cmdlist_add(cl, &L) < 0 ? OMEGA_GPU_GDN_CHIP_FAIL : OMEGA_GPU_GDN_OK;
 }
 
 int omega_gpu_gdn_read_out(OmegaGpuGdn *g, float *out) {

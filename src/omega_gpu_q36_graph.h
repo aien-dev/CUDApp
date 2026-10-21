@@ -144,7 +144,10 @@ int omega_gpu_q36_graph_read_buf(OmegaGpuQ36Graph *g, int which, float *out, uin
  * the last token's head and argmax as record_head_final (token, read_head(head) as after a token). prefill_alloc(cap)
  * sizes the buffers for chunks of up to cap tokens (1 .. OMEGA_GPU_Q36_PREFILL_MAX_ROWS; nothing shrinks).
  * TEST ONLY: AIEN_OMEGA_Q36_PF_MUTANT=1 swaps the last two tokens' GDN steps, 2 drops one row of every expert segment,
- * 3 defers each GDN output copy past the next token's step. */
+ * 3 defers each GDN output copy past the next token's step, 5 gives the multi-token GDN a|b row stride 0 (every token
+ * reads token 0's gates). The GDN runs as ONE multi-token launch per layer (the decode step's arithmetic in a loop,
+ * bit-identical to the per-token launches; mutants 1 and 3 use the per-token form); AIEN_OMEGA_Q36_PF_GDN=0 forces the
+ * per-token launches. */
 #define OMEGA_GPU_Q36_PREFILL_MAX_ROWS 128u /* x 8 routed expert rows <= the fp8 gemm's 1024 (the shared expert is its own GEMM) */
 int omega_gpu_q36_graph_prefill_alloc(OmegaGpuQ36Graph *g, uint32_t cap);
 uint32_t omega_gpu_q36_graph_prefill_cap(const OmegaGpuQ36Graph *g);

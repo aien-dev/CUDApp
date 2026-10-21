@@ -80,6 +80,17 @@ int omega_gpu_gdn_read_out(OmegaGpuGdn *g, float *out);
 const char *omega_gpu_gdn_last_error(void);
 const char *omega_gpu_gdn_rc_name(int rc);
 
+/* ---- multi-token decode (L369, 2026-10-21): T decode steps of layer `layer` in ONE launch, bit for bit the decode step
+ * T times (omega_blackwell_codegen_gdn.h, multi-token decode). Token t reads qkv_va + t * xstride, z_va + t * xstride,
+ * ab_va + t * abstride and writes its [vdim] output row at out_va + t * ostride (bytes; 16-byte aligned rows, 8 for ab).
+ *   int omega_gpu_gdn_multi_prepare(g);  builds the kernel now (the record path refuses a kernel cache miss)
+ *   int omega_gpu_gdn_multi_record(cl, g, layer, T, qkv_va, z_va, xstride, ab_va, abstride, out_va, ostride, eps_l2,
+ *                                  eps_norm, in_scale, out_scale);   appended to cl; the caller holds the session lock */
+int omega_gpu_gdn_multi_prepare(OmegaGpuGdn *g);
+int omega_gpu_gdn_multi_record(struct OmegaGpuCmdList *cl, OmegaGpuGdn *g, uint32_t layer, uint32_t tokens, uint64_t qkv_va,
+                               uint64_t z_va, uint32_t xstride, uint64_t ab_va, uint32_t abstride, uint64_t out_va, uint32_t ostride,
+                               float eps_l2, float eps_norm, float in_scale, float out_scale);
+
 /* ---- prefill (omega#543, 2026-10-18): T >= 3 new tokens of one layer in three launches (prep, scan, post; see
  * omega_blackwell_codegen_gdn.h), continuing from the layer's tail and state exactly as T decode steps would, and leaving
  * them where the next prefill chunk or decode step picks them up. A long prompt is prefilled in chunks.

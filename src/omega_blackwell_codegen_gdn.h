@@ -102,6 +102,19 @@ int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgra
 /* Instruction and peak-register counts (host, no device). */
 int omega_gdn_prog_stats(const OmegaGdnSpec *spec, uint32_t *insns, uint32_t *gprs);
 
+/* ---- multi-token decode (L369, 2026-10-21): T decode steps of every head in ONE launch, bit for bit the decode program
+ * T times (omega_blackwell_codegen_gdn.c). Same grid, threads, shared memory and argument block as the decode step plus
+ * the four words below; token t reads qkv + t * xstride, z + t * xstride, ab + t * abstride and writes out + t * ostride
+ * (bytes). Per CTA the state S stays in the 64 registers and the conv tails in registers for the whole loop (one load
+ * before it, one store after it); the per-token arithmetic is the decode step's, instruction for instruction. T >= 1. */
+#define OMEGA_GDN_MULTI_ARG_T 0x3c8u        /* u32 tokens */
+#define OMEGA_GDN_MULTI_ARG_XSTRIDE 0x3ccu  /* u32 bytes between the qkv rows (and the z rows) of consecutive tokens */
+#define OMEGA_GDN_MULTI_ARG_ABSTRIDE 0x3d0u /* u32 bytes between the ab rows */
+#define OMEGA_GDN_MULTI_ARG_OSTRIDE 0x3d4u  /* u32 bytes between the out rows */
+#define OMEGA_GDN_MULTI_ARGS_WORDS 22u
+int omega_blackwell_codegen_gdn_multi_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog);
+int omega_gdn_multi_prog_stats(const OmegaGdnSpec *spec, uint32_t *insns, uint32_t *gprs);
+
 /* ---- state copy / zero (qwen38/decode-speed, 2026-10-19): the tail and state live in GPU-cached memory (nvos.h
  * NVOS32_ATTR2_GPU_CACHEABLE_YES: "For system memory this will not be coherent with direct CPU mappings"), so the host
  * never writes or reads them directly: reset zeroes them on the chip, set_state / get_state copy through an uncached
