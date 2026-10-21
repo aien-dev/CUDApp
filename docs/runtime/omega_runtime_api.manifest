@@ -1,0 +1,547 @@
+# Omega Runtime API manifest: the canonical list of the C entries that docs/runtime/API.md describes.
+# Canonical from R1 (2026-10-19): Omega's copy leads; aien-sovereign-core's crates/aien-omega-gpu/abi/omega_gpu.manifest
+# must match it (R12 checks that). The part from "libraries" down to the end of the `fn` lines of those headers was
+# copied from that file at aien-sovereign-core origin/main (see the "carried over" comment below) and kept unchanged.
+# Line format = aien-abi-conformance src/manifest.rs (header, struct, field, const, fn); `#` starts a comment.
+# Additions to that format, all inside comments or in the free `kind` column, so its parser still reads the file:
+#   - every `struct` and `fn` line ends with a tier comment: `# STABLE` or `# EXPERIMENTAL` (INTERNAL entries are not listed);
+#   - field kinds beyond its list: `ptr` (any pointer, 8 bytes), `enum` (4 bytes), `struct:Name` (a struct by value);
+#     `usize`/size_t fields are written `u64` (LP64), as it does.
+# Checked by tools/runtime_api_check.sh (make test-runtime-api): every `fn` against its header with the exact types,
+# every size, offset and constant against a compiled probe, the version macros against src/omega_runtime_api.h.
+# After a deliberate header change: edit the line here, run `tools/runtime_api_check.sh --bless` to refresh numbers, review the diff.
+abi omega_runtime 0.1
+header src/omega_runtime_api.h
+header src/omega_gpu_platform.h
+header src/omega_gpu_session.h
+header src/omega_gpu_mem_cached.h
+header src/omega_gpu_cmdlist.h
+header src/omega_gpu_engine.h
+header src/omega_gpu_matmul_api.h
+header src/omega_gpu_serving.h
+header src/omega_gpu_elementwise_api.h
+header src/omega_gpu_attention_api.h
+# ---- version ----
+const OMEGA_RUNTIME_API_VERSION_MAJOR 0
+const OMEGA_RUNTIME_API_VERSION_MINOR 1
+# ---- platform contract (src/omega_gpu_platform.h, ABI 1.2) ----
+struct OmegaGpuDeviceHandle 8 4 # STABLE
+field OmegaGpuDeviceHandle index 0 4 u32 1
+field OmegaGpuDeviceHandle generation 4 4 u32 1
+struct OmegaGpuBufferHandle 8 4 # STABLE
+field OmegaGpuBufferHandle index 0 4 u32 1
+field OmegaGpuBufferHandle generation 4 4 u32 1
+struct OmegaGpuQueueHandle 8 4 # STABLE
+field OmegaGpuQueueHandle index 0 4 u32 1
+field OmegaGpuQueueHandle generation 4 4 u32 1
+struct OmegaCpuView 16 8 # EXPERIMENTAL
+field OmegaCpuView ptr 0 8 ptr 1
+field OmegaCpuView len 8 8 u64 1
+struct OmegaGpuVa 8 8 # EXPERIMENTAL
+field OmegaGpuVa va 0 8 u64 1
+struct OmegaGpuBusAddr 8 8 # EXPERIMENTAL
+field OmegaGpuBusAddr iova 0 8 u64 1
+struct OmegaGpuBufferDesc 24 8 # EXPERIMENTAL
+field OmegaGpuBufferDesc kind 0 4 u32 1
+field OmegaGpuBufferDesc rights 4 4 u32 1
+field OmegaGpuBufferDesc gpu_cache 8 4 u32 1
+field OmegaGpuBufferDesc align 12 4 u32 1
+field OmegaGpuBufferDesc bytes 16 8 u64 1
+struct OmegaGpuPlatformCaps 56 8 # EXPERIMENTAL
+field OmegaGpuPlatformCaps abi_major 0 4 u32 1
+field OmegaGpuPlatformCaps abi_minor 4 4 u32 1
+field OmegaGpuPlatformCaps services 8 4 u32 1
+field OmegaGpuPlatformCaps max_devices 12 4 u32 1
+field OmegaGpuPlatformCaps max_buffers 16 4 u32 1
+field OmegaGpuPlatformCaps max_queues 20 4 u32 1
+field OmegaGpuPlatformCaps max_inflight 24 4 u32 1
+field OmegaGpuPlatformCaps max_buffer_bytes 32 8 u64 1
+field OmegaGpuPlatformCaps max_total_bytes 40 8 u64 1
+field OmegaGpuPlatformCaps submit_prefix_words 48 4 u32 1
+struct OmegaGpuPlatform 184 8 # EXPERIMENTAL
+field OmegaGpuPlatform ctx 0 8 ptr 1
+field OmegaGpuPlatform time_now_ms 8 8 ptr 1
+field OmegaGpuPlatform wait_ms 16 8 ptr 1
+field OmegaGpuPlatform lock 24 8 ptr 1
+field OmegaGpuPlatform unlock 32 8 ptr 1
+field OmegaGpuPlatform mmio_read32 40 8 ptr 1
+field OmegaGpuPlatform mmio_write32 48 8 ptr 1
+field OmegaGpuPlatform dma_alloc 56 8 ptr 1
+field OmegaGpuPlatform dma_free 64 8 ptr 1
+field OmegaGpuPlatform sync_cpu_to_gpu 72 8 ptr 1
+field OmegaGpuPlatform sync_gpu_to_cpu 80 8 ptr 1
+field OmegaGpuPlatform poll_word 88 8 ptr 1
+field OmegaGpuPlatform irq_wait 96 8 ptr 1
+field OmegaGpuPlatform device_open 104 8 ptr 1
+field OmegaGpuPlatform device_close 112 8 ptr 1
+field OmegaGpuPlatform diag_text 120 8 ptr 1
+field OmegaGpuPlatform queue_open 128 8 ptr 1
+field OmegaGpuPlatform queue_close 136 8 ptr 1
+field OmegaGpuPlatform queue_submit 144 8 ptr 1
+field OmegaGpuPlatform queue_retire 152 8 ptr 1
+field OmegaGpuPlatform time_now_ns 160 8 ptr 1
+field OmegaGpuPlatform host_alloc 168 8 ptr 1
+field OmegaGpuPlatform host_free 176 8 ptr 1
+struct OmegaGpuHandleTable 17424 8 # EXPERIMENTAL
+field OmegaGpuHandleTable generation 0 4096 u32 1024
+field OmegaGpuHandleTable kind 4096 4096 u32 1024
+field OmegaGpuHandleTable bytes 8192 8192 u64 1024
+field OmegaGpuHandleTable live 16384 1024 u8 1024
+field OmegaGpuHandleTable nlive 17408 4 u32 1
+field OmegaGpuHandleTable total_bytes 17416 8 u64 1
+fn omega_gpu_platform_refusal_name fn(i32) -> *const c_char # EXPERIMENTAL
+fn omega_gpu_platform_negotiate fn(*const OmegaGpuPlatformCaps, *const OmegaGpuPlatformCaps) -> i32 # EXPERIMENTAL
+fn omega_gpu_platform_check fn(*const OmegaGpuPlatform, *const OmegaGpuPlatformCaps) -> i32 # EXPERIMENTAL
+fn omega_gpu_platform_check_for fn(*const OmegaGpuPlatform, *const OmegaGpuPlatformCaps, u32) -> i32 # EXPERIMENTAL
+fn omega_gpu_platform_check_buffer fn(*const OmegaGpuBufferDesc, *const OmegaGpuPlatformCaps) -> i32 # EXPERIMENTAL
+fn omega_gpu_handles_init fn(*mut OmegaGpuHandleTable) -> () # EXPERIMENTAL
+fn omega_gpu_handles_open fn(*mut OmegaGpuHandleTable, u32, u64, u32, u64, *mut u32, *mut u32) -> i32 # EXPERIMENTAL
+fn omega_gpu_handles_check fn(*const OmegaGpuHandleTable, u32, u32, u32) -> i32 # EXPERIMENTAL
+fn omega_gpu_handles_close fn(*mut OmegaGpuHandleTable, u32, u32, u32) -> i32 # EXPERIMENTAL
+# ---- session: device, memory, launch, errors (src/omega_gpu_session.h, src/omega_gpu_mem_cached.h) ----
+struct OmegaGpuMem 40 8 # STABLE
+field OmegaGpuMem handle 0 8 struct:OmegaGpuBufferHandle 1
+field OmegaGpuMem kind 8 4 u32 1
+field OmegaGpuMem cpu 16 8 ptr 1
+field OmegaGpuMem va 24 8 u64 1
+field OmegaGpuMem size 32 8 u64 1
+struct OmegaGpuSession 192 8 # EXPERIMENTAL
+field OmegaGpuSession dev 0 8 struct:OmegaGpuDeviceHandle 1
+field OmegaGpuSession queue 8 8 struct:OmegaGpuQueueHandle 1
+field OmegaGpuSession pb 16 40 struct:OmegaGpuMem 1
+field OmegaGpuSession cbank 56 40 struct:OmegaGpuMem 1
+field OmegaGpuSession marker 96 40 struct:OmegaGpuMem 1
+field OmegaGpuSession qmd 136 40 struct:OmegaGpuMem 1
+field OmegaGpuSession opens 176 4 u32 1
+field OmegaGpuSession last_open_ns 184 8 u64 1
+struct OmegaGpuScratch 64 8 # STABLE
+field OmegaGpuScratch mem 0 40 struct:OmegaGpuMem 1
+field OmegaGpuScratch cap 40 8 u64 1
+field OmegaGpuScratch high_water 48 8 u64 1
+field OmegaGpuScratch reserved 56 1 bool 1
+struct OmegaGpuLaunch 72 8 # STABLE
+field OmegaGpuLaunch code_va 0 8 u64 1
+field OmegaGpuLaunch gpr_count 8 4 u32 1
+field OmegaGpuLaunch threads_x 12 4 u32 1
+field OmegaGpuLaunch threads_y 16 4 u32 1
+field OmegaGpuLaunch grid_x 20 4 u32 1
+field OmegaGpuLaunch grid_y 24 4 u32 1
+field OmegaGpuLaunch num_elements 32 8 u64 1
+field OmegaGpuLaunch args 40 8 ptr 1
+field OmegaGpuLaunch n_args 48 4 u32 1
+field OmegaGpuLaunch timeout_ms 56 8 u64 1
+field OmegaGpuLaunch shared_bytes 64 4 u32 1
+field OmegaGpuLaunch spin_us 68 4 u32 1
+struct OmegaGpuParkStats 16 8 # STABLE
+field OmegaGpuParkStats buffers 0 4 u32 1
+field OmegaGpuParkStats untracked 4 4 u32 1
+field OmegaGpuParkStats bytes 8 8 u64 1
+fn omega_gpu_session_lock fn() -> () # STABLE
+fn omega_gpu_session_unlock fn() -> () # STABLE
+fn omega_gpu_session_open fn() -> *mut OmegaGpuSession # STABLE
+fn omega_gpu_session_is_open fn() -> bool # STABLE
+fn omega_gpu_session_is_blocked fn() -> i32 # STABLE
+fn omega_gpu_session_close fn() -> () # STABLE
+fn omega_gpu_session_open_count fn() -> u32 # STABLE
+fn omega_gpu_session_alloc fn(usize, *mut OmegaGpuMem) -> i32 # STABLE
+fn omega_gpu_session_alloc_code fn(usize, *mut OmegaGpuMem) -> i32 # STABLE
+fn omega_gpu_session_free fn(*mut OmegaGpuMem) -> () # STABLE
+fn omega_gpu_session_sync_to_gpu fn(*const OmegaGpuMem) -> i32 # STABLE
+fn omega_gpu_session_sync_to_cpu fn(*const OmegaGpuMem) -> i32 # STABLE
+fn omega_gpu_session_scratch fn(*mut OmegaGpuScratch, usize) -> i32 # STABLE
+fn omega_gpu_session_scratch_free fn(*mut OmegaGpuScratch) -> () # STABLE
+fn omega_gpu_session_launch fn(*const OmegaGpuLaunch, *mut u64, *mut u32) -> i32 # STABLE
+fn omega_gpu_session_last_error fn() -> *const c_char # STABLE
+fn omega_gpu_session_parked fn(*mut OmegaGpuParkStats) -> () # STABLE
+fn omega_gpu_session_is_parked fn(OmegaGpuBufferHandle) -> i32 # STABLE
+fn omega_gpu_session_alloc_cached fn(usize, *mut OmegaGpuMem) -> i32 # EXPERIMENTAL
+fn omega_gpu_session_scratch_reserve fn(*mut OmegaGpuScratch, usize) -> i32 # EXPERIMENTAL
+fn omega_gpu_session_scratch_unreserve fn(*mut OmegaGpuScratch) -> () # EXPERIMENTAL
+fn omega_gpu_session_cancel fn() -> () # EXPERIMENTAL
+fn omega_gpu_session_set_platform fn(*const OmegaGpuPlatform, *const OmegaGpuPlatformCaps) -> i32 # EXPERIMENTAL
+fn omega_gpu_session_platform fn() -> *const OmegaGpuPlatform # EXPERIMENTAL
+fn omega_gpu_session_submit_prefix_words fn() -> u32 # EXPERIMENTAL
+fn omega_gpu_session_completion_mode fn() -> OmegaGpuCompletionMode # EXPERIMENTAL
+fn omega_gpu_session_now_ns fn() -> u64 # EXPERIMENTAL
+fn omega_gpu_host_alloc fn(usize) -> *mut c_void # EXPERIMENTAL
+fn omega_gpu_host_calloc fn(usize, usize) -> *mut c_void # EXPERIMENTAL
+fn omega_gpu_host_free fn(*mut c_void) -> () # EXPERIMENTAL
+# ---- command lists (src/omega_gpu_cmdlist.h) ----
+struct OmegaGpuCmdListOpts 32 8 # EXPERIMENTAL
+field OmegaGpuCmdListOpts mode 0 4 enum 1
+field OmegaGpuCmdListOpts barrier 4 4 enum 1
+field OmegaGpuCmdListOpts timeout_ms 8 8 u64 1
+field OmegaGpuCmdListOpts spin_us 16 4 u32 1
+field OmegaGpuCmdListOpts stamps 20 4 i32 1
+field OmegaGpuCmdListOpts skip_launch 24 4 i32 1
+struct OmegaGpuCmdListStats 40 8 # EXPERIMENTAL
+field OmegaGpuCmdListStats launches 0 4 u32 1
+field OmegaGpuCmdListStats submits 4 4 u32 1
+field OmegaGpuCmdListStats words 8 4 u32 1
+field OmegaGpuCmdListStats elapsed_ns 16 8 u64 1
+field OmegaGpuCmdListStats host_ns 24 8 u64 1
+field OmegaGpuCmdListStats sems_done 32 4 u32 1
+field OmegaGpuCmdListStats first_missing 36 4 i32 1
+fn omega_gpu_cmdlist_barrier_name fn(OmegaGpuCmdListBarrier) -> *const c_char # EXPERIMENTAL
+fn omega_gpu_cmdlist_create fn(u32, *mut *mut OmegaGpuCmdList) -> i32 # EXPERIMENTAL
+fn omega_gpu_cmdlist_free fn(*mut OmegaGpuCmdList) -> () # EXPERIMENTAL
+fn omega_gpu_cmdlist_reset fn(*mut OmegaGpuCmdList) -> () # EXPERIMENTAL
+fn omega_gpu_cmdlist_count fn(*const OmegaGpuCmdList) -> u32 # EXPERIMENTAL
+fn omega_gpu_cmdlist_mark_independent fn(*mut OmegaGpuCmdList) -> i32 # EXPERIMENTAL
+fn omega_gpu_cmdlist_add fn(*mut OmegaGpuCmdList, *const OmegaGpuLaunch) -> i32 # EXPERIMENTAL
+fn omega_gpu_cmdlist_submit fn(*mut OmegaGpuCmdList, *const OmegaGpuCmdListOpts, *mut OmegaGpuCmdListStats) -> i32 # EXPERIMENTAL
+fn omega_gpu_cmdlist_is_latched fn() -> i32 # EXPERIMENTAL
+fn omega_gpu_cmdlist_stamps fn(*const OmegaGpuCmdList, *mut u64, u32) -> i32 # EXPERIMENTAL
+# ---- job engine (src/omega_gpu_engine.h) ----
+struct OmegaGpuTimeouts 32 8 # EXPERIMENTAL
+field OmegaGpuTimeouts marker_ms 0 8 u64 1
+field OmegaGpuTimeouts release_semaphore_ms 8 8 u64 1
+field OmegaGpuTimeouts marker2_ms 16 8 u64 1
+field OmegaGpuTimeouts visibility_ms 24 8 u64 1
+struct OmegaGpuJob 128 8 # EXPERIMENTAL
+field OmegaGpuJob program 0 8 ptr 1
+field OmegaGpuJob program_len 8 8 u64 1
+field OmegaGpuJob layout 16 4 i32 1
+field OmegaGpuJob element_count 20 4 u32 1
+field OmegaGpuJob input_a 24 8 ptr 1
+field OmegaGpuJob input_a_len 32 8 u64 1
+field OmegaGpuJob input_b 40 8 ptr 1
+field OmegaGpuJob input_b_len 48 8 u64 1
+field OmegaGpuJob output 56 8 ptr 1
+field OmegaGpuJob output_len 64 8 u64 1
+field OmegaGpuJob poison 72 8 ptr 1
+field OmegaGpuJob poison_count 80 8 u64 1
+field OmegaGpuJob timeouts 88 32 struct:OmegaGpuTimeouts 1
+field OmegaGpuJob flags 120 4 u32 1
+struct OmegaGpuResult 208 8 # EXPERIMENTAL
+field OmegaGpuResult failure 0 4 i32 1
+field OmegaGpuResult last_state 4 4 i32 1
+field OmegaGpuResult failed_step 8 4 i32 1
+field OmegaGpuResult wait 12 4 i32 1
+field OmegaGpuResult wait_timeout_ms 16 8 u64 1
+field OmegaGpuResult waited_ms 24 8 u64 1
+field OmegaGpuResult drv_rc 32 4 i32 1
+field OmegaGpuResult err_no 36 4 i32 1
+field OmegaGpuResult drv_text 40 128 c_char 128
+field OmegaGpuResult sync_valid 168 4 u32 1
+field OmegaGpuResult marker 172 4 u32 1
+field OmegaGpuResult marker2 176 4 u32 1
+field OmegaGpuResult semaphore 180 4 u32 1
+field OmegaGpuResult retained 184 4 i32 1
+field OmegaGpuResult cleanup_failed 188 4 i32 1
+field OmegaGpuResult n_outputs 192 8 u64 1
+field OmegaGpuResult output_unchanged_words 200 8 u64 1
+struct OmegaGpuBackendDiag 148 4 # EXPERIMENTAL
+field OmegaGpuBackendDiag drv_rc 0 4 i32 1
+field OmegaGpuBackendDiag drv_text 4 128 c_char 128
+field OmegaGpuBackendDiag sync_valid 132 4 u32 1
+field OmegaGpuBackendDiag marker 136 4 u32 1
+field OmegaGpuBackendDiag marker2 140 4 u32 1
+field OmegaGpuBackendDiag semaphore 144 4 u32 1
+struct OmegaGpuBackend 128 8 # EXPERIMENTAL
+field OmegaGpuBackend ctx 0 8 ptr 1
+field OmegaGpuBackend open_device 8 8 ptr 1
+field OmegaGpuBackend create_channel 16 8 ptr 1
+field OmegaGpuBackend alloc 24 8 ptr 1
+field OmegaGpuBackend copy_in 32 8 ptr 1
+field OmegaGpuBackend fill_poison 40 8 ptr 1
+field OmegaGpuBackend build 48 8 ptr 1
+field OmegaGpuBackend submit 56 8 ptr 1
+field OmegaGpuBackend wait_marker 64 8 ptr 1
+field OmegaGpuBackend wait_marker2 72 8 ptr 1
+field OmegaGpuBackend wait_release_semaphore 80 8 ptr 1
+field OmegaGpuBackend barrier 88 8 ptr 1
+field OmegaGpuBackend copy_out 96 8 ptr 1
+field OmegaGpuBackend diagnostics 104 8 ptr 1
+field OmegaGpuBackend free_buf 112 8 ptr 1
+field OmegaGpuBackend close 120 8 ptr 1
+fn omega_gpu_execute fn(*const OmegaGpuJob, *mut OmegaGpuResult) -> i32 # EXPERIMENTAL
+fn omega_gpu_engine_set_backend fn(*const OmegaGpuBackend) -> () # EXPERIMENTAL
+fn omega_gpu_engine_is_blocked fn() -> i32 # EXPERIMENTAL
+fn omega_gpu_engine_set_clock fn(fn() -> u64) -> () # EXPERIMENTAL
+fn omega_gpu_engine_failure_name fn(i32) -> *const c_char # EXPERIMENTAL
+fn omega_gpu_engine_state_name fn(i32) -> *const c_char # EXPERIMENTAL
+fn omega_gpu_engine_wait_name fn(i32) -> *const c_char # EXPERIMENTAL
+fn omega_gpu_engine_step_name fn(i32) -> *const c_char # EXPERIMENTAL
+# ---- libraries: carried over unchanged from aien-sovereign-core origin/main 10b4f851d6b082df6c2c477fbab700b551b854be crates/aien-omega-gpu/abi/omega_gpu.manifest ----
+# (matmul, elementwise, attention, serving; all EXPERIMENTAL: shapes follow one model, see docs/runtime/ROADMAP.md 1.3).
+# ONE DIFFERENCE from that file: OMEGA_GPU_MATMUL_MAX_CTAS is 1024 here, 64 there (omega 98cecadc, #473, changed the header; sovereign-core pin is older). R12 must bring theirs to match.
+# (omega_gpu_session_set_spin_us / _spin_us / _alloc_stats are STABLE session entries; they live in the session section of API.md)
+struct OmegaGpuMatmulInfo 160 8 # EXPERIMENTAL
+field OmegaGpuMatmulInfo m 0 4 u32 1
+field OmegaGpuMatmulInfo k 4 4 u32 1
+field OmegaGpuMatmulInfo n 8 4 u32 1
+field OmegaGpuMatmulInfo padded_m 12 4 u32 1
+field OmegaGpuMatmulInfo padded_n 16 4 u32 1
+field OmegaGpuMatmulInfo k_slices 20 4 u32 1
+field OmegaGpuMatmulInfo chip_calls 24 4 u32 1
+field OmegaGpuMatmulInfo rows_per_call 28 4 u32 1
+field OmegaGpuMatmulInfo elapsed_ns 32 8 u64 1
+field OmegaGpuMatmulInfo max_abs_err 40 4 f32 1
+field OmegaGpuMatmulInfo max_rel_err 44 4 f32 1
+field OmegaGpuMatmulInfo mismatch_count 48 8 u64 1
+field OmegaGpuMatmulInfo parity_verified 56 1 bool 1
+field OmegaGpuMatmulInfo completion_marker 60 4 u32 1
+field OmegaGpuMatmulInfo kernel_cache_hit 64 1 bool 1
+field OmegaGpuMatmulInfo target_chip 65 64 c_char 64
+field OmegaGpuMatmulInfo sm_architecture 132 4 u32 1
+field OmegaGpuMatmulInfo grid_x 136 4 u32 1
+field OmegaGpuMatmulInfo grid_y 140 4 u32 1
+field OmegaGpuMatmulInfo padded_k 144 4 u32 1
+field OmegaGpuMatmulInfo resident 148 1 bool 1
+field OmegaGpuMatmulInfo oracle_ran 149 1 bool 1
+field OmegaGpuMatmulInfo call_ns 152 8 u64 1
+struct OmegaGpuAllocStats 40 8 # STABLE
+field OmegaGpuAllocStats allocs 0 8 u64 1
+field OmegaGpuAllocStats alloc_bytes 8 8 u64 1
+field OmegaGpuAllocStats alloc_failures 16 8 u64 1
+field OmegaGpuAllocStats frees 24 8 u64 1
+field OmegaGpuAllocStats stale_refusals 32 8 u64 1
+struct OmegaGpuServingBounds 44 4 # EXPERIMENTAL
+field OmegaGpuServingBounds max_context 0 4 u32 1
+field OmegaGpuServingBounds max_seqs 4 4 u32 1
+field OmegaGpuServingBounds num_q_heads 8 4 u32 1
+field OmegaGpuServingBounds num_kv_heads 12 4 u32 1
+field OmegaGpuServingBounds head_dim 16 4 u32 1
+field OmegaGpuServingBounds kv_block_size 20 4 u32 1
+field OmegaGpuServingBounds max_rows 24 4 u32 1
+field OmegaGpuServingBounds max_k 28 4 u32 1
+field OmegaGpuServingBounds max_n 32 4 u32 1
+field OmegaGpuServingBounds max_n_one_row 36 4 u32 1
+field OmegaGpuServingBounds kernel_slots 40 4 u32 1
+struct OmegaGpuEwInfo 120 8 # EXPERIMENTAL
+field OmegaGpuEwInfo chip_calls 0 4 u32 1
+field OmegaGpuEwInfo elapsed_ns 8 8 u64 1
+field OmegaGpuEwInfo completion_marker 16 4 u32 1
+field OmegaGpuEwInfo unwritten_words 20 4 u32 1
+field OmegaGpuEwInfo kernel_cache_hit 24 1 bool 1
+field OmegaGpuEwInfo gpr_count 28 4 u32 1
+field OmegaGpuEwInfo insn_count 32 4 u32 1
+field OmegaGpuEwInfo threads_per_cta 36 4 u32 1
+field OmegaGpuEwInfo ctas_last_launch 40 4 u32 1
+field OmegaGpuEwInfo target_chip 44 64 c_char 64
+field OmegaGpuEwInfo sm_architecture 108 4 u32 1
+field OmegaGpuEwInfo call_ns 112 8 u64 1
+struct OmegaGpuAttnInfo 176 8 # EXPERIMENTAL
+field OmegaGpuAttnInfo chip_calls 0 4 u32 1
+field OmegaGpuAttnInfo elapsed_ns 8 8 u64 1
+field OmegaGpuAttnInfo call_ns 16 8 u64 1
+field OmegaGpuAttnInfo completion_marker 24 4 u32 1
+field OmegaGpuAttnInfo unwritten_words 28 4 u32 1
+field OmegaGpuAttnInfo gpr_count 32 4 u32 1
+field OmegaGpuAttnInfo insn_count 36 4 u32 1
+field OmegaGpuAttnInfo kernel_cache_hit 40 1 bool 1
+field OmegaGpuAttnInfo ctas_last_launch 44 4 u32 1
+field OmegaGpuAttnInfo threads_per_cta 48 4 u32 1
+field OmegaGpuAttnInfo target_chip 52 64 c_char 64
+field OmegaGpuAttnInfo sm_architecture 116 4 u32 1
+field OmegaGpuAttnInfo kv_bytes_staged 120 8 u64 1
+field OmegaGpuAttnInfo kv_bytes_naive 128 8 u64 1
+field OmegaGpuAttnInfo kv_blocks_logical 136 4 u32 1
+field OmegaGpuAttnInfo kv_blocks_unique 140 4 u32 1
+field OmegaGpuAttnInfo q_bytes 144 8 u64 1
+field OmegaGpuAttnInfo tab_bytes 152 8 u64 1
+field OmegaGpuAttnInfo out_bytes 160 8 u64 1
+field OmegaGpuAttnInfo kv_source 168 4 u32 1
+struct OmegaGpuKvLayout 64 8 # EXPERIMENTAL
+field OmegaGpuKvLayout block_stride_bytes 0 8 u64 1
+field OmegaGpuKvLayout layer_stride_bytes 8 8 u64 1
+field OmegaGpuKvLayout kv_plane_stride_bytes 16 8 u64 1
+field OmegaGpuKvLayout token_stride_bytes 24 8 u64 1
+field OmegaGpuKvLayout head_stride_bytes 32 8 u64 1
+field OmegaGpuKvLayout pool_bytes 40 8 u64 1
+field OmegaGpuKvLayout num_blocks 48 4 u32 1
+field OmegaGpuKvLayout num_layers 52 4 u32 1
+field OmegaGpuKvLayout block_size 56 4 u32 1
+const OMEGA_GPU_MATMUL_OK 0
+const OMEGA_GPU_MATMUL_BAD_ARGS -1
+const OMEGA_GPU_MATMUL_TOO_LARGE -2
+const OMEGA_GPU_MATMUL_CODEGEN_FAIL -3
+const OMEGA_GPU_MATMUL_CHIP_FAIL -4
+const OMEGA_GPU_MATMUL_PARITY_FAIL -5
+const OMEGA_GPU_MATMUL_TILE_M 16
+const OMEGA_GPU_MATMUL_TILE_N 8
+const OMEGA_GPU_MATMUL_TILE_K 16
+const OMEGA_GPU_MATMUL_MAX_CTAS 1024
+const OMEGA_GPU_EW_OK 0
+const OMEGA_GPU_EW_BAD_ARGS -1
+const OMEGA_GPU_EW_TOO_LARGE -2
+const OMEGA_GPU_EW_CODEGEN_FAIL -3
+const OMEGA_GPU_EW_CHIP_FAIL -4
+const OMEGA_GPU_EW_UNWRITTEN -5
+const OMEGA_GPU_ATTN_OK 0
+const OMEGA_GPU_ATTN_BAD_ARGS -1
+const OMEGA_GPU_ATTN_TOO_LARGE -2
+const OMEGA_GPU_ATTN_CODEGEN_FAIL -3
+const OMEGA_GPU_ATTN_CHIP_FAIL -4
+const OMEGA_GPU_ATTN_UNWRITTEN -5
+const OMEGA_GPU_ATTN_KV_STAGED 0
+fn omega_gpu_matmul_bf16 fn(u32, u32, u32, *const u16, *const u16, *mut f32, *mut OmegaGpuMatmulInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_matmul_f32 fn(u32, u32, u32, *const f32, *const f32, *mut f32, *mut OmegaGpuMatmulInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_matmul_rc_name fn(i32) -> *const c_char # EXPERIMENTAL
+fn omega_gpu_matmul_cache_clear fn() -> () # EXPERIMENTAL
+fn omega_gpu_tensor_upload_bf16 fn(u32, u32, *const u16, *mut *mut OmegaGpuTensor) -> i32 # EXPERIMENTAL
+fn omega_gpu_tensor_upload_f32 fn(u32, u32, *const f32, *mut *mut OmegaGpuTensor) -> i32 # EXPERIMENTAL
+fn omega_gpu_tensor_free fn(*mut OmegaGpuTensor) -> () # EXPERIMENTAL
+fn omega_gpu_tensor_shape fn(*const OmegaGpuTensor, *mut u32, *mut u32) -> () # EXPERIMENTAL
+fn omega_gpu_matmul_resident_bf16 fn(u32, *const u16, *const OmegaGpuTensor, *mut f32, *mut OmegaGpuMatmulInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_matmul_resident_f32 fn(u32, *const f32, *const OmegaGpuTensor, *mut f32, *mut OmegaGpuMatmulInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_matmul_last_error fn() -> *const c_char # EXPERIMENTAL
+fn omega_gpu_matmul_is_blocked fn() -> i32 # EXPERIMENTAL
+fn omega_gpu_device_close fn() -> () # EXPERIMENTAL
+fn omega_gpu_matmul_set_cta_budget fn(u32) -> () # EXPERIMENTAL
+fn omega_gpu_matmul_cta_budget fn() -> u32 # EXPERIMENTAL
+fn omega_gpu_session_set_spin_us fn(u32) -> i32 # STABLE
+fn omega_gpu_session_spin_us fn() -> u32 # STABLE
+fn omega_gpu_reserve_serving fn(*const OmegaGpuServingBounds) -> i32 # EXPERIMENTAL
+fn omega_gpu_serving_release fn() -> () # EXPERIMENTAL
+fn omega_gpu_matmul_prepare fn(u32, u32, u32) -> i32 # EXPERIMENTAL
+fn omega_gpu_serving_seal fn() -> () # EXPERIMENTAL
+fn omega_gpu_session_alloc_stats fn(*mut OmegaGpuAllocStats) -> () # STABLE
+fn omega_gpu_rmsnorm_f32 fn(u32, u32, *const f32, *const f32, f32, *mut f32, *mut OmegaGpuEwInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_rope_f32 fn(u32, u32, *const f32, *const f32, *const f32, *mut f32, *mut OmegaGpuEwInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_swiglu_f32 fn(u32, *const f32, *const f32, *mut f32, *mut OmegaGpuEwInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_elementwise_rc_name fn(i32) -> *const c_char # EXPERIMENTAL
+fn omega_gpu_gqa_attention_f32 fn(*const f32, *const f32, *const f32, u32, u32, u32, u32, *mut f32, *mut OmegaGpuAttnInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_gqa_attention_rows_f32 fn(*const f32, *const f32, *const f32, u32, u32, u32, u32, u32, *mut f32, *mut OmegaGpuAttnInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_attention_pool_alloc fn(usize, *mut *mut c_void) -> i32 # EXPERIMENTAL
+fn omega_gpu_attention_pool_free fn() -> () # EXPERIMENTAL
+fn omega_gpu_paged_attention_bf16 fn(*const f32, *const c_void, *const OmegaGpuKvLayout, *const u32, u32, u32, u32, u32, u32, u32, *mut f32, *mut OmegaGpuAttnInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_paged_attention_batch_bf16 fn(*const f32, *const c_void, *const OmegaGpuKvLayout, *const i32, *const i32, u32, u32, u32, u32, u32, u32, *mut f32, *mut OmegaGpuAttnInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_attention_rc_name fn(i32) -> *const c_char # EXPERIMENTAL
+fn omega_gpu_attention_last_error fn() -> *const c_char # EXPERIMENTAL
+# ---- constants of the runtime headers (values blessed from the headers) ----
+const OMEGA_GPU_PLATFORM_ABI_MAJOR 1
+const OMEGA_GPU_PLATFORM_ABI_MINOR 2
+const OMEGA_GPU_POLL_TIMED_OUT 100
+const OMEGA_GPU_HANDLE_SLOTS 1024
+const OMEGA_GPU_HANDLE_DEVICE 1
+const OMEGA_GPU_HANDLE_BUF_DATA 2
+const OMEGA_GPU_HANDLE_BUF_CODE 3
+const OMEGA_GPU_HANDLE_BUF_QUEUE 4
+const OMEGA_GPU_HANDLE_QUEUE 5
+const OMEGA_GPU_HANDLE_KIND_COUNT 6
+const OMEGA_GPU_RIGHT_CPU_READ 1
+const OMEGA_GPU_RIGHT_CPU_WRITE 2
+const OMEGA_GPU_RIGHT_GPU_READ 4
+const OMEGA_GPU_RIGHT_GPU_WRITE 8
+const OMEGA_GPU_RIGHT_GPU_EXEC 16
+const OMEGA_GPU_RIGHT_HOST_POLLED 32
+const OMEGA_GPU_RIGHT_ALL 63
+const OMEGA_GPU_CACHE_GPU_UNCACHED 0
+const OMEGA_GPU_CACHE_GPU_CACHED 1
+const OMEGA_GPU_SVC_TIME 1
+const OMEGA_GPU_SVC_WAIT 2
+const OMEGA_GPU_SVC_LOCK 4
+const OMEGA_GPU_SVC_MMIO 8
+const OMEGA_GPU_SVC_DMA 16
+const OMEGA_GPU_SVC_SYNC 32
+const OMEGA_GPU_SVC_COMPLETION 64
+const OMEGA_GPU_SVC_IRQ 128
+const OMEGA_GPU_SVC_REQUIRED_V1 127
+const OMEGA_GPU_SVC_DEVICE 256
+const OMEGA_GPU_SVC_QUEUE 512
+const OMEGA_GPU_SVC_CLOCK_NS 1024
+const OMEGA_GPU_SVC_HOST_MEM 2048
+const OMEGA_GPU_SVC_REQUIRED_SESSION 3959
+const OMEGA_GPU_SVC_ALL 4095
+const OMEGA_GPU_PLAT_OK 0
+const OMEGA_GPU_PLAT_REFUSED_ARGS 1
+const OMEGA_GPU_PLAT_REFUSED_ABI 2
+const OMEGA_GPU_PLAT_REFUSED_MISSING_SERVICE 3
+const OMEGA_GPU_PLAT_REFUSED_NULL_SERVICE 4
+const OMEGA_GPU_PLAT_REFUSED_BAD_HANDLE 5
+const OMEGA_GPU_PLAT_REFUSED_STALE_HANDLE 6
+const OMEGA_GPU_PLAT_REFUSED_BAD_LENGTH 7
+const OMEGA_GPU_PLAT_REFUSED_BAD_RIGHTS 8
+const OMEGA_GPU_PLAT_REFUSED_BAD_KIND 9
+const OMEGA_GPU_PLAT_REFUSED_CACHE_POLICY 10
+const OMEGA_GPU_PLAT_REFUSED_LIMIT 11
+const OMEGA_GPU_PLAT_REFUSED_BUSY 12
+const OMEGA_GPU_PLAT_REFUSED_DEVICE 13
+const OMEGA_GPU_PLAT_REFUSAL_COUNT 14
+const OMEGA_GPU_SESSION_MAX_SPIN_US 1000000
+const OMEGA_GPU_SESSION_MAX_ARGS 32
+const OMEGA_GPU_SESSION_POLL_SLICE_MS 1
+const OMEGA_GPU_SESSION_LOCK_ID 0
+const OMEGA_GPU_SESSION_SCRATCH_RESERVED -2
+const OMEGA_GPU_SESSION_CANCELLED -3
+const OMEGA_GPU_SESSION_PARK_MAX 512
+const OMEGA_GPU_COMPLETION_POLLING 1
+const OMEGA_GPU_CMDLIST_MAX_LAUNCHES 2048
+const OMEGA_GPU_CMDLIST_BANK_BYTES 1024
+const OMEGA_GPU_CMDLIST_QMD_BYTES 1024
+const OMEGA_GPU_CMDLIST_PCAS 0
+const OMEGA_GPU_CMDLIST_INLINE 1
+const OMEGA_GPU_CMDLIST_BARRIER_WFI 0
+const OMEGA_GPU_CMDLIST_BARRIER_NONE 1
+const OMEGA_GPU_CMDLIST_BARRIER_WFI_ONLY 2
+const OMEGA_GPU_CMDLIST_BARRIER_WFI_DATA 3
+const OMEGA_GPU_CMDLIST_BARRIER_FLUSH_DATA 4
+const OMEGA_GPU_ENGINE_FLAG_NO_C3 1
+const OMEGA_GPU_ENGINE_JOB_OUTPUTS 1
+const OMEGA_GPU_ENGINE_SEMAPHORE_WORDS 1
+const OMEGA_GPU_ENGINE_DRV_TEXT_BYTES 128
+const OMEGA_GPU_SYNC_MARKER 1
+const OMEGA_GPU_SYNC_MARKER2 2
+const OMEGA_GPU_SYNC_SEMAPHORE 4
+const OMEGA_GPU_BACKEND_TIMEOUT 1
+const OMEGA_GPU_BACKEND_UNKNOWN_STATE 2
+const OMEGA_GPU_ENGINE_OK 0
+const OMEGA_GPU_ENGINE_DEVICE_OPEN 1
+const OMEGA_GPU_ENGINE_CHANNEL_CREATE 2
+const OMEGA_GPU_ENGINE_ALLOC 3
+const OMEGA_GPU_ENGINE_PREPARE 4
+const OMEGA_GPU_ENGINE_SUBMIT 5
+const OMEGA_GPU_ENGINE_COMPLETION_WAIT 6
+const OMEGA_GPU_ENGINE_RELEASE_WAIT 7
+const OMEGA_GPU_ENGINE_VISIBILITY_WAIT 8
+const OMEGA_GPU_ENGINE_OUTPUT_UNCHANGED 9
+const OMEGA_GPU_ENGINE_INVALID_ARGS 10
+const OMEGA_GPU_ENGINE_INTERNAL_INVARIANT 11
+const OMEGA_GPU_ENGINE_CLEANUP 12
+const OMEGA_GPU_ENGINE_UNCERTAIN_COMPLETION_BLOCKED 13
+const OMEGA_GPU_ENGINE_FAILURE_COUNT 14
+const OMEGA_GPU_ENGINE_STATE_INITIAL 0
+const OMEGA_GPU_ENGINE_STATE_PREPARED 1
+const OMEGA_GPU_ENGINE_STATE_SUBMITTED 2
+const OMEGA_GPU_ENGINE_STATE_GPU_COMPLETE 3
+const OMEGA_GPU_ENGINE_STATE_OUTPUT_VISIBLE 4
+const OMEGA_GPU_ENGINE_STATE_OUTPUT_PRODUCED 5
+const OMEGA_GPU_ENGINE_STATE_SUCCESS 6
+const OMEGA_GPU_ENGINE_STATE_COUNT 7
+const OMEGA_GPU_ENGINE_WAIT_NONE 0
+const OMEGA_GPU_ENGINE_WAIT_MARKER 1
+const OMEGA_GPU_ENGINE_WAIT_RELEASE_SEMAPHORE 2
+const OMEGA_GPU_ENGINE_WAIT_MARKER2 3
+const OMEGA_GPU_ENGINE_WAIT_COUNT 4
+const OMEGA_GPU_ENGINE_STEP_NONE 0
+const OMEGA_GPU_ENGINE_STEP_VALIDATE 1
+const OMEGA_GPU_ENGINE_STEP_BACKEND_CHECK 2
+const OMEGA_GPU_ENGINE_STEP_BLOCKED 3
+const OMEGA_GPU_ENGINE_STEP_NOT_IMPLEMENTED 4
+const OMEGA_GPU_ENGINE_STEP_OPEN_DEVICE 5
+const OMEGA_GPU_ENGINE_STEP_CREATE_CHANNEL 6
+const OMEGA_GPU_ENGINE_STEP_ALLOC 7
+const OMEGA_GPU_ENGINE_STEP_COPY_IN 8
+const OMEGA_GPU_ENGINE_STEP_FILL_POISON 9
+const OMEGA_GPU_ENGINE_STEP_BUILD 10
+const OMEGA_GPU_ENGINE_STEP_SUBMIT 11
+const OMEGA_GPU_ENGINE_STEP_WAIT_MARKER 12
+const OMEGA_GPU_ENGINE_STEP_WAIT_MARKER2 13
+const OMEGA_GPU_ENGINE_STEP_WAIT_RELEASE_SEMAPHORE 14
+const OMEGA_GPU_ENGINE_STEP_BARRIER 15
+const OMEGA_GPU_ENGINE_STEP_COPY_OUT 16
+const OMEGA_GPU_ENGINE_STEP_SCAN 17
+const OMEGA_GPU_ENGINE_STEP_FREE 18
+const OMEGA_GPU_ENGINE_STEP_CLOSE 19
+const OMEGA_GPU_ENGINE_STEP_CLOCK_CHECK 20
+const OMEGA_GPU_ENGINE_STEP_COUNT 21
+const OMEGA_GPU_LAYOUT_VECTOR_1D 0
+const OMEGA_GPU_LAYOUT_COUNT 1
+const OMEGA_GPU_BUF_SCRATCH 0
+const OMEGA_GPU_BUF_PROGRAM 1
+const OMEGA_GPU_BUF_INPUT_A 2
+const OMEGA_GPU_BUF_INPUT_B 3
+const OMEGA_GPU_BUF_OUTPUT 4
+const OMEGA_GPU_BUF_ROLE_COUNT 5
