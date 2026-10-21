@@ -59,6 +59,9 @@ extern "C" {
 #define OMEGA_GPU_Q36_MIXER_OUT 4096u    /* GDN 32 x 128 = attention 16 x 256 */
 #define OMEGA_GPU_Q36_ROTARY 64u
 #define OMEGA_GPU_Q36_MAX_LAYERS 64u
+/* Heads per stroke (conversations through one command list): a 40-layer token records up to 11 * 40 + 4 launches, and the
+ * list holds OMEGA_GPU_CMDLIST_MAX_LAUNCHES (2048), so four. Beyond four the dense GEMVs must batch (v2), not the list grow. */
+#define OMEGA_GPU_Q36_MAX_HEADS 4u
 
 typedef struct {
     uint32_t layers;                    /* 1..64 (a model prefix in tests) */
@@ -86,6 +89,23 @@ int omega_gpu_q36_graph_set_layer(OmegaGpuQ36Graph *g, uint32_t layer, const Ome
 int omega_gpu_q36_graph_set_final_norm(OmegaGpuQ36Graph *g, const float *final_norm); /* f32 [2048] as (1 + w) */
 /* Optional FP8 lm_head: as omega_gpu_q38_graph_set_lm_head_fp8 ([vocab][2048]). */
 int omega_gpu_q36_graph_set_lm_head_fp8(OmegaGpuQ36Graph *g, const OmegaGpuFp8Tensor *head);
+/* Strokes: N heads (conversations) through ONE command list, one submit. create_heads lays out N slots of x, hidden, logits
+ * and token; head 0 uses cfg.gdn / cfg.attn, every head (0 included) can be pointed at other state objects by set_head_state (same shapes;
+ * head swap = pointing a slot at another conversation's objects). The router, the weights and the per-layer scratch are
+ * shared: launches run in order (barriers by default) and every head's layer launches stay contiguous. The one value that
+ * crosses layers, the fused COMBINE|NORM's x' for the next layer (xq), is per head (2026-10-21 02:50Z: shared, every head
+ * read the last head's x'; the stroke gate caught it). create() == create_heads(cfg, 1). */
+int omega_gpu_q36_graph_create_heads(const OmegaGpuQ36GraphConfig *cfg, uint32_t heads, OmegaGpuQ36Graph **out);
+int omega_gpu_q36_graph_set_head_state(OmegaGpuQ36Graph *g, uint32_t head, OmegaGpuGdn *gdn, OmegaGpuDecodeAttn256Cache *attn);
+/* x_embed f32 [heads][2048], pos [heads] -> tokens [heads]; layer-major (every head's layer l before layer l + 1). */
+int omega_gpu_q36_graph_stroke(OmegaGpuQ36Graph *g, const float *x_embed, const uint32_t *pos, uint32_t heads, uint32_t *tokens,
+                               OmegaGpuDecodeGraphStats *st);
+int omega_gpu_q36_graph_begin_stroke(OmegaGpuQ36Graph *g, const float *x_embed, uint32_t heads);
+int omega_gpu_q36_graph_record_head_layer(OmegaGpuQ36Graph *g, uint32_t head, uint32_t layer, uint32_t pos);
+int omega_gpu_q36_graph_record_head_final(OmegaGpuQ36Graph *g, uint32_t head);
+int omega_gpu_q36_graph_end_stroke(OmegaGpuQ36Graph *g, uint32_t *tokens, OmegaGpuDecodeGraphStats *st);
+/* As read(), for head h of the last stroke. */
+int omega_gpu_q36_graph_read_head(OmegaGpuQ36Graph *g, uint32_t head, float *x, float *hidden, float *logits);
 /* One whole token: x_embed (f32 [2048]) -> greedy token at position pos. */
 int omega_gpu_q36_graph_token(OmegaGpuQ36Graph *g, const float *x_embed, uint32_t pos, uint32_t *token, OmegaGpuDecodeGraphStats *st);
 int omega_gpu_q36_graph_begin_token(OmegaGpuQ36Graph *g, const float *x_embed);
