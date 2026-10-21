@@ -57,7 +57,7 @@ struct OmegaGpuQ36Graph {
         const OmegaGpuFp8Tensor *screen; /* fp8b copy of lm_head (128 x 128 block scales) */
         OmegaGpuMem mem;                 /* h8 | s | c | hi | lo (am_ctas * 2048, padded) | tau | tab */
         uint64_t h8, s, c, hi, lo, tau, tab;
-        int on;                          /* set_exact_head_on: this token uses it (greedy requests) */
+        uint8_t on[OMEGA_GPU_Q36_MAX_HEADS]; /* per head: its next tokens use it (greedy rows); set_exact_head_on sets every head */
     } xh;
     /* token / stroke state */
     int in_token, failed;
@@ -300,14 +300,20 @@ int omega_gpu_q36_graph_set_exact_head(OmegaGpuQ36Graph *g, const OmegaGpuFp8Ten
     if (rc == OMEGA_GPU_DGRAPH_OK) {
         const uint64_t V = g->xh.mem.va;
         g->xh.h8 = V + o_h8; g->xh.s = V + o_s; g->xh.c = V + o_c; g->xh.hi = V + o_hi; g->xh.lo = V + o_lo; g->xh.tau = V + o_tau; g->xh.tab = V + o_tab;
-        g->xh.screen = screen; g->xh.on = 1;
+        g->xh.screen = screen; memset(g->xh.on, 1, sizeof g->xh.on);
     } else if (g->xh.mem.cpu) omega_gpu_session_free(&g->xh.mem);
     omega_gpu_session_unlock();
     return rc;
 }
 
-void omega_gpu_q36_graph_set_exact_head_on(OmegaGpuQ36Graph *g, int on) { if (g && !g->in_token) g->xh.on = on ? 1 : 0; }
-int omega_gpu_q36_graph_exact_head_active(const OmegaGpuQ36Graph *g) { return g && g->xh.screen && g->xh.on && !g->head8; }
+void omega_gpu_q36_graph_set_exact_head_on(OmegaGpuQ36Graph *g, int on) { if (g && !g->in_token) memset(g->xh.on, on ? 1 : 0, sizeof g->xh.on); }
+void omega_gpu_q36_graph_set_head_exact_head_on(OmegaGpuQ36Graph *g, uint32_t head, int on) {
+    if (g && !g->in_token && head < OMEGA_GPU_Q36_MAX_HEADS) g->xh.on[head] = on ? 1 : 0;
+}
+int omega_gpu_q36_graph_exact_head_active_head(const OmegaGpuQ36Graph *g, uint32_t head) {
+    return g && head < OMEGA_GPU_Q36_MAX_HEADS && g->xh.screen && g->xh.on[head] && !g->head8;
+}
+int omega_gpu_q36_graph_exact_head_active(const OmegaGpuQ36Graph *g) { return omega_gpu_q36_graph_exact_head_active_head(g, 0); }
 
 void omega_gpu_q36_graph_set_flush_each(OmegaGpuQ36Graph *g, int on) { if (g) g->flush_each = on ? 1 : 0; }
 void omega_gpu_q36_graph_test_set_mutant(OmegaGpuQ36Graph *g, int mutant) {
@@ -491,7 +497,7 @@ int omega_gpu_q36_graph_record_head_final(OmegaGpuQ36Graph *g, uint32_t h) {
     int rc = OMEGA_GPU_DGRAPH_OK;
     if (!g->hidden_ready[h]) rc = rec_res(g, K_NORM, x, 0, va_of(g, g->lo.fnorm), hidden, g->head8 ? SCALE_2P64 : 1.0f);
     const uint64_t amv = va_of(g, g->lo.am_v), ami = va_of(g, g->lo.am_i);
-    if (rc == OMEGA_GPU_DGRAPH_OK && omega_gpu_q36_graph_exact_head_active(g)) {
+    if (rc == OMEGA_GPU_DGRAPH_OK && omega_gpu_q36_graph_exact_head_active_head(g, h)) {
         /* HUM L314 two-pass head: h8 = hidden * 2^64 (exact); s = screen . h8; lo / hi = s -/+ c|hidden|; tau = max lo;
          * logits = lm_head . hidden on the rows with hi >= tau (today's bits), -inf elsewhere. The argmax below is then
          * today's token: the full argmax row has hi >= its logit >= tau (omega_blackwell_codegen_dec.h XBOUND). */

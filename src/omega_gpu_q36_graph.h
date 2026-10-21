@@ -114,11 +114,15 @@ int omega_gpu_q36_graph_read_head(OmegaGpuQ36Graph *g, uint32_t head, float *x, 
  *     bf16 MASK logits = W_lm . hidden where hi >= tau (bit-identical to the plain head), -inf elsewhere;  ARGMAX x2
  * so the greedy token is the plain head's by construction, but the logits read back are -inf off the candidates: use it
  * only for greedy tokens (set_exact_head_on(g, 0) for sampled ones). Copies coef; screen must outlive g. NULL screen
- * removes it. On by default once set. In a stroke every head's final step
- * uses it in turn (one scratch, launches in order); on / off applies to the whole stroke. */
+ * removes it. On by default once set. */
 int omega_gpu_q36_graph_set_exact_head(OmegaGpuQ36Graph *g, const OmegaGpuFp8Tensor *screen, const float *coef);
 void omega_gpu_q36_graph_set_exact_head_on(OmegaGpuQ36Graph *g, int on); /* between tokens */
-int omega_gpu_q36_graph_exact_head_active(const OmegaGpuQ36Graph *g);     /* set, on, and no FP8 lm_head */
+int omega_gpu_q36_graph_exact_head_active(const OmegaGpuQ36Graph *g);     /* head 0: set, on, and no FP8 lm_head */
+/* Strokes: the switch is per head (a stroke may mix greedy and sampled rows); set_exact_head_on sets every head. The
+ * heads share the exact head's scratch (h8, s, lo, hi, tau): their final launches run in list order, each head's whole
+ * two-pass sequence before the next head's. */
+void omega_gpu_q36_graph_set_head_exact_head_on(OmegaGpuQ36Graph *g, uint32_t head, int on);
+int omega_gpu_q36_graph_exact_head_active_head(const OmegaGpuQ36Graph *g, uint32_t head);
 /* One whole token: x_embed (f32 [2048]) -> greedy token at position pos. */
 int omega_gpu_q36_graph_token(OmegaGpuQ36Graph *g, const float *x_embed, uint32_t pos, uint32_t *token, OmegaGpuDecodeGraphStats *st);
 int omega_gpu_q36_graph_begin_token(OmegaGpuQ36Graph *g, const float *x_embed);
