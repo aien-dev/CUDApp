@@ -730,6 +730,6 @@ int omega_gpu_q36_graph_stamps(const OmegaGpuQ36Graph *g, uint64_t *stamps, uint
 
 const char *omega_gpu_q36_graph_kind_name(uint8_t kind) {
     static const char *const names[OMEGA_GPU_Q36_K_COUNT] = { "norm", "mix", "ab", "gdn", "gather", "attn", "gate", "o_proj", "res", "router",
-                                                              "gate_up", "swiglu", "down", "lm_head", "argmax" };
+                                                              "gate_up", "swiglu", "down", "lm_head", "argmax", "perm", "group" };
     return kind < OMEGA_GPU_Q36_K_COUNT ? names[kind] : "?";
 }
