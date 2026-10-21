@@ -11,6 +11,7 @@
 #include "omega_gpu_session.h"
 #include "omega_gpu_fmt.h"
 #include "omega_gpu_mem_cached.h"
+#include "omega_gpu_fp8gemm_api.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -24,7 +25,9 @@
 #define NG OMEGA_GPU_Q36_GROUPS
 
 /* glue kernels */
-enum { K_NORM, K_ADD, K_CN, K_SW, K_GATHER, K_GATE, K_AM0, K_AM1, K_SW_M1, K_GATHER_M1, K_GATE_M1, K_CN_M3, K_COPY, K_COUNT };
+enum { K_NORM, K_ADD, K_CN, K_SW, K_GATHER, K_GATE, K_AM0, K_AM1, K_SW_M1, K_GATHER_M1, K_GATE_M1, K_CN_M3, K_COPY,
+       K_NORM_R, K_ADD_R, K_PERM_XQ, K_PERM_O, K_PERM_XO, K_PERM_ACT, K_GROUP, K_COUNT }; /* K_NORM_R on: the batch (v2) kernels */
+#define SEGD_ROWS 2u /* dense segment entries per layer in the batch: mix, o */
 #define COPY_ROW 256u /* K_COPY: GATHER rows of 256 floats through the identity table */
 
 typedef struct { OmegaGpuMem code; uint32_t gpr; } Kern;
@@ -35,8 +38,11 @@ typedef struct { OmegaGpuMem code; uint32_t gpr; } Kern;
  * reads goes to DRAM; cached, down 2100 -> 1735 us and mix 1596 -> 1458 us over 4 layers, runs/probe-buf). read_buf copies
  * a dbuf region into stage with a chip launch (K_COPY) before the host reads it. */
 typedef struct {
-    size_t x, ab, hidden, logits, am_v, am_i, token, norms, fnorm, tabs, gtab, idtab, stage, split;
-    size_t xq, mix, agg, att, o, gu, act, dn, bytes;
+    size_t x, ab, hidden, logits, am_v, am_i, token, norms, fnorm, tabs, gtab, idtab, stage, segd, ptab, split;
+    size_t xq, mix, agg, att, o, gu, act, dn;
+    /* the batch (v2, L312): every conversation of a layer in one set of launches. N = heads laid out; R = N * NG expert rows */
+    size_t xp, mixN, abN, aggN, attN, op, oN, rlb, sgu, sdn, xmap, ymap, xp2, guN, actN, actp, dnN, bytes;
+    uint32_t lb_stride;                  /* bytes per conversation's router buffer (rlb), 256-aligned */
 } Layout;
 
 struct OmegaGpuQ36Graph {
@@ -63,6 +69,7 @@ struct OmegaGpuQ36Graph {
     uint64_t t_begin;
     OmegaGpuDecodeGraphStats acc;
     int flush_each, mutant;
+    int batch;                           /* 1: stroke() records every conversation of a layer at once (v2); set_batch */
     int stamps;
     uint32_t n_kind, tagged_in_list, n_stamp;
     uint8_t kind[OMEGA_GPU_CMDLIST_MAX_LAUNCHES];
@@ -98,6 +105,17 @@ void omega_q36_gather_table(uint32_t *tab) {
 }
 
 /* lock held */
+/* GATHER table of the FP8 GEMM's x' lane layout (omega_fp8gemm_permute_x, lane bytes 16: k a multiple of 512): permuted index
+ * i = s*512 + (w*32 + L)*4 + e holds source column c = s*512 + L*16 + w*4 + e, so tab[i] = c. */
+void omega_q36_perm_table(uint32_t *tab, uint32_t k) {
+    for (uint32_t s0 = 0; s0 < k; s0 += 512u)
+        for (uint32_t L = 0; L < 32u; L++)
+            for (uint32_t w = 0; w < 4u; w++)
+                for (uint32_t e = 0; e < 4u; e++) tab[s0 + (w * 32u + L) * 4u + e] = s0 + L * 16u + w * 4u + e;
+}
+
+static void write_dense_segments(OmegaGpuQ36Graph *g, uint32_t heads);
+
 static int kern_build(Kern *k, const OmegaDecSpec *s) {
     BlackwellIRProgram *prog = omega_gpu_host_calloc(1, sizeof *prog);
     if (!prog) return OMEGA_GPU_DGRAPH_CODEGEN_FAIL;
@@ -154,9 +172,18 @@ int omega_gpu_q36_graph_create_heads(const OmegaGpuQ36GraphConfig *cfg, uint32_t
     REG(logits, (size_t)g->am_ctas * OMEGA_DEC_ARGMAX_SPAN * 4 * heads); REG(am_v, OMEGA_DEC_ARGMAX_SPAN * 4); REG(am_i, OMEGA_DEC_ARGMAX_SPAN * 4);
     REG(token, (size_t)TOKEN_STRIDE * heads); REG(norms, (size_t)cfg->layers * H * 4); REG(fnorm, H * 4); REG(tabs, (size_t)cfg->layers * 4 * 16 + 16); /* + the FP8 lm_head entry */
     REG(gtab, OMEGA_GPU_Q36_ATT_MIX * 4); REG(idtab, COPY_ROW * 4); REG(stage, (size_t)NG * H * 4); /* the largest read_buf region (dn) */
+    REG(segd, (size_t)cfg->layers * SEGD_ROWS * OMEGA_GEMM_SEG_BYTES); REG(ptab, (size_t)(H + OMEGA_GPU_Q36_MIXER_OUT + EI) * 4); /* batch: dense segment entries, the x' lane permutations */
     L->split = o;
     REG(xq, (size_t)H * 4 * heads); REG(mix, OMEGA_GPU_Q36_GDN_MIX * 4); REG(agg, OMEGA_GPU_Q36_ATT_MIX * 4);
     REG(att, OMEGA_GPU_Q36_MIXER_OUT * 4); REG(o, H * 4); REG(gu, (size_t)NG * 2 * EI * 4); REG(act, (size_t)NG * EI * 4); REG(dn, (size_t)NG * H * 4);
+    {   /* batch regions (N rows each, R = N * NG expert rows; x' inputs of the dense GEMMs hold MAX_HEADS rows: 8 rows per pass) */
+        const size_t N = heads, R = (size_t)heads * NG, M8 = OMEGA_GPU_Q36_MAX_HEADS;
+        L->lb_stride = (uint32_t)al(omega_gpu_router_layout_bytes(cfg->router));
+        REG(xp, M8 * H * 4); REG(mixN, N * OMEGA_GPU_Q36_GDN_MIX * 4); REG(abN, N * OMEGA_GPU_Q36_AB * 4); REG(aggN, N * OMEGA_GPU_Q36_ATT_MIX * 4);
+        REG(attN, N * OMEGA_GPU_Q36_MIXER_OUT * 4); REG(op, M8 * OMEGA_GPU_Q36_MIXER_OUT * 4); REG(oN, N * H * 4); REG(rlb, N * L->lb_stride);
+        REG(sgu, R * OMEGA_GEMM_SEG_BYTES); REG(sdn, R * OMEGA_GEMM_SEG_BYTES); REG(xmap, (R + OMEGA_DEC_GR_PAD) * 4); REG(ymap, (R + OMEGA_DEC_GR_PAD) * 4);
+        REG(xp2, M8 * H * 4); REG(guN, R * 2 * EI * 4); REG(actN, R * EI * 4); REG(actp, R * EI * 4); REG(dnN, R * H * 4);
+    }
 #undef REG
     L->bytes = o;
     int rc = OMEGA_GPU_DGRAPH_OK;
@@ -166,7 +193,7 @@ int omega_gpu_q36_graph_create_heads(const OmegaGpuQ36GraphConfig *cfg, uint32_t
     int (*const dalloc)(size_t, OmegaGpuMem *) = (pbc && pbc[0] == '0' && pbc[1] == 0) ? omega_gpu_session_alloc : omega_gpu_session_alloc_cached;
     if (!omega_gpu_session_open() || omega_gpu_session_alloc(L->split, &g->buf) != 0 || dalloc(L->bytes - L->split, &g->dbuf) != 0)
         rc = OMEGA_GPU_DGRAPH_CHIP_FAIL;
-    static const OmegaDecSpec spec[K_COUNT] = {
+    OmegaDecSpec spec[K_COUNT] = {
         [K_NORM] = { .kind = OMEGA_DEC_RES, .mode = OMEGA_DEC_RES_NORM },
         [K_ADD] = { .kind = OMEGA_DEC_RES, .mode = OMEGA_DEC_RES_ADD },
         [K_CN] = { .kind = OMEGA_DEC_RES, .mode = OMEGA_DEC_RES_COMBINE | OMEGA_DEC_RES_NORM, .groups = NG },
@@ -180,7 +207,16 @@ int omega_gpu_q36_graph_create_heads(const OmegaGpuQ36GraphConfig *cfg, uint32_t
         [K_GATE_M1] = { .kind = OMEGA_DEC_GATE, .mutant = 1 },
         [K_CN_M3] = { .kind = OMEGA_DEC_RES, .mode = OMEGA_DEC_RES_COMBINE | OMEGA_DEC_RES_NORM, .groups = NG, .mutant = 3 },
         [K_COPY] = { .kind = OMEGA_DEC_GATHER, .width = COPY_ROW, .stride = COPY_ROW },
+        /* the batch (v2): N-row norm and add, the x' lane permutations (GATHER through ptab), the segment-table kernel */
+        [K_NORM_R] = { .kind = OMEGA_DEC_RES, .mode = OMEGA_DEC_RES_NORM | OMEGA_DEC_RES_ROWS },
+        [K_ADD_R] = { .kind = OMEGA_DEC_RES, .mode = OMEGA_DEC_RES_ADD | OMEGA_DEC_RES_ROWS },
+        [K_PERM_XQ] = { .kind = OMEGA_DEC_GATHER, .width = H, .stride = H },
+        [K_PERM_O] = { .kind = OMEGA_DEC_GATHER, .width = OMEGA_GPU_Q36_MIXER_OUT, .stride = OMEGA_GPU_Q36_MIXER_OUT },
+        [K_PERM_XO] = { .kind = OMEGA_DEC_GATHER, .width = H, .stride = H }, /* stride = lb_stride / 4, set below */
+        [K_PERM_ACT] = { .kind = OMEGA_DEC_GATHER, .width = EI, .stride = EI },
+        [K_GROUP] = { .kind = OMEGA_DEC_GROUP, .groups = NG },
     };
+    spec[K_PERM_XO].stride = L->lb_stride / 4u;
     for (unsigned i = 0; i < K_COUNT && rc == OMEGA_GPU_DGRAPH_OK; i++) rc = kern_build(&g->k[i], &spec[i]);
     if (rc == OMEGA_GPU_DGRAPH_OK) {
         memset(g->buf.cpu, 0, L->split);
@@ -194,10 +230,12 @@ int omega_gpu_q36_graph_create_heads(const OmegaGpuQ36GraphConfig *cfg, uint32_t
         }
         for (size_t i = 0; i < OMEGA_DEC_ARGMAX_SPAN; i++) amv[i] = NEG_PAD;                              /* stage 1 writes [0, ctas) only */
         omega_q36_gather_table(cpu_of(g, L->gtab));
+        { uint32_t *pt = cpu_of(g, L->ptab); omega_q36_perm_table(pt, H); omega_q36_perm_table(pt + H, OMEGA_GPU_Q36_MIXER_OUT); omega_q36_perm_table(pt + H + OMEGA_GPU_Q36_MIXER_OUT, EI); }
         if (omega_gpu_session_sync_to_gpu(&g->buf) != 0 || omega_gpu_session_sync_to_gpu(&g->dbuf) != 0) rc = OMEGA_GPU_DGRAPH_CHIP_FAIL;
     }
     omega_gpu_session_unlock();
     if (rc != OMEGA_GPU_DGRAPH_OK) { omega_gpu_q36_graph_free(g); return rc; }
+    { const char *e = getenv("AIEN_OMEGA_Q36_BATCH"); if (e && e[0] == '1' && e[1] == 0 && omega_gpu_q36_graph_set_batch(g, 1) != OMEGA_GPU_DGRAPH_OK) { omega_gpu_q36_graph_free(g); return OMEGA_GPU_DGRAPH_CHIP_FAIL; } }
     *out = g;
     return OMEGA_GPU_DGRAPH_OK;
 }
@@ -354,6 +392,7 @@ int omega_gpu_q36_graph_begin_stroke(OmegaGpuQ36Graph *g, const float *x_embed, 
         tok[0] = TOKEN_POISON; tok[1] = TOKEN_POISON;
         if (x_embed) memcpy(cpu_of(g, x_of(g, h)), x_embed + (size_t)h * H, H * 4u);
     }
+    if (g->batch) write_dense_segments(g, heads);
     if (omega_gpu_session_sync_to_gpu(&g->buf) != 0) return fail(g, NULL, OMEGA_GPU_DGRAPH_CHIP_FAIL);
     return OMEGA_GPU_DGRAPH_OK;
 }
@@ -428,6 +467,140 @@ int omega_gpu_q36_graph_record_head_layer(OmegaGpuQ36Graph *g, uint32_t h, uint3
     return rc == OMEGA_GPU_DGRAPH_OK ? rc : fail(g, NULL, rc);
 }
 
+/* ---- the batch (v2, L312): every conversation of a layer in one set of launches, each weight read once per layer ---- */
+typedef struct { uint64_t w_va, s_va; uint32_t row0, cnt, pad[2]; } Seg32;
+_Static_assert(sizeof(Seg32) == OMEGA_GEMM_SEG_BYTES, "segment entry layout");
+
+int omega_gpu_q36_graph_set_batch(OmegaGpuQ36Graph *g, int on) {
+    if (!g || g->in_token) return OMEGA_GPU_DGRAPH_BAD_ARGS;
+    if (!on) { g->batch = 0; return OMEGA_GPU_DGRAPH_OK; }
+    /* pin the four GEMM shapes the batch records (a kernel cache miss while recording is refused): the dense trunk at 8 rows
+     * per pass without maps, the expert blocks at 4 rows per pass with the row maps */
+    const uint32_t R = g->heads * NG;
+    int rc = omega_gpu_fp8gemm_prepare_shape(H, 1, 0, 0);
+    if (rc == 0) rc = omega_gpu_fp8gemm_prepare_shape(OMEGA_GPU_Q36_MIXER_OUT, 1, 0, 0);
+    if (rc == 0) rc = omega_gpu_fp8gemm_prepare_shape(H, R, 0, 1);
+    if (rc == 0) rc = omega_gpu_fp8gemm_prepare_shape(EI, R, 0, 1);
+    if (rc != 0) return OMEGA_GPU_DGRAPH_CHIP_FAIL;
+    g->batch = 1;
+    return OMEGA_GPU_DGRAPH_OK;
+}
+int omega_gpu_q36_graph_batch(const OmegaGpuQ36Graph *g) { return g ? g->batch : 0; }
+
+/* the dense segment entries of the open stroke: {mix, o} per layer, row0 0, cnt = the stroke's heads (host region, synced by begin_stroke) */
+static void write_dense_segments(OmegaGpuQ36Graph *g, uint32_t heads) {
+    Seg32 *s = cpu_of(g, g->lo.segd);
+    for (uint32_t l = 0; l < g->cfg.layers; l++) {
+        memset(&s[l * SEGD_ROWS], 0, SEGD_ROWS * sizeof *s);
+        if (!g->layer[l].set) continue;
+        (void)omega_gpu_fp8_tensor_entry(g->layer[l].mix, 0, &s[l * SEGD_ROWS].w_va, &s[l * SEGD_ROWS].s_va);
+        (void)omega_gpu_fp8_tensor_entry(g->layer[l].o, 0, &s[l * SEGD_ROWS + 1].w_va, &s[l * SEGD_ROWS + 1].s_va);
+        s[l * SEGD_ROWS].cnt = heads; s[l * SEGD_ROWS + 1].cnt = heads;
+    }
+}
+
+static int rec_gemm(OmegaGpuQ36Graph *g, uint8_t kind, const OmegaGpuFp8Tensor *t, uint32_t rows, uint32_t segs, uint64_t seg, uint64_t xp,
+                    uint64_t y, uint64_t xm, uint64_t ym) {
+    return after_op(g, kind, omega_gpu_fp8gemm_record(g->cl, t, rows, segs, seg, xp, y, xm, ym, 0, 0, NULL));
+}
+/* rows of width floats permuted through tab into out (the GEMM's x' lane layout); the input row stride is the kernel's */
+static int rec_perm(OmegaGpuQ36Graph *g, int ki, uint64_t in, uint64_t tab, uint64_t out, uint32_t width, uint32_t rows) {
+    uint32_t w[OMEGA_DEC_GA_WORDS]; memset(w, 0, sizeof w);
+    put64(w, OMEGA_DEC_GA_IN, in); put64(w, OMEGA_DEC_GA_TAB, tab); put64(w, OMEGA_DEC_GA_OUT, out);
+    return add_glue(g, OMEGA_GPU_Q36_K_PERM, ki, (width + OMEGA_DEC_THREADS - 1) / OMEGA_DEC_THREADS, rows, (size_t)width * rows, w, OMEGA_DEC_GA_WORDS);
+}
+/* RES NORM|ROWS or ADD|ROWS over rows of 2048 (x, a, y move by the width per row) */
+static int rec_res_rows(OmegaGpuQ36Graph *g, int ki, uint64_t x, uint64_t a, uint64_t nw, uint64_t y, float scale, uint32_t rows) {
+    uint32_t w[OMEGA_DEC_RES_WORDS]; memset(w, 0, sizeof w);
+    put64(w, OMEGA_DEC_RES_X, x); put64(w, OMEGA_DEC_RES_A, a); put64(w, OMEGA_DEC_RES_NW, nw); put64(w, OMEGA_DEC_RES_Y, y);
+    putf(w, OMEGA_DEC_RES_EPS, g->cfg.eps); putf(w, OMEGA_DEC_RES_SCALE, scale);
+    return add_glue(g, ki == K_NORM_R ? OMEGA_GPU_Q36_K_NORM : OMEGA_GPU_Q36_K_RES, ki, 1, rows, (size_t)H * rows, w, OMEGA_DEC_RES_WORDS);
+}
+
+int omega_gpu_q36_graph_record_layer_heads(OmegaGpuQ36Graph *g, uint32_t l, const uint32_t *pos) {
+    if (!g || !g->in_token || !pos) return OMEGA_GPU_DGRAPH_BAD_ARGS;
+    if (g->failed) return OMEGA_GPU_DGRAPH_CHIP_FAIL;
+    if (!g->batch) return fail(g, "q36 graph: record_layer_heads needs set_batch", OMEGA_GPU_DGRAPH_BAD_ARGS);
+    if (l >= g->cfg.layers || !g->layer[l].set || (l + 1 == g->cfg.layers && !g->final_set))
+        return fail(g, "q36 graph: layer not set, out of order, or final norm missing", OMEGA_GPU_DGRAPH_BAD_ARGS);
+    const uint32_t N = g->stroke_heads, R = N * NG, ki = g->layer[l].kind_index;
+    for (uint32_t h = 0; h < N; h++)
+        if (g->hidden_ready[h] || g->xq_layer[h] != g->xq_layer[0]) return fail(g, "q36 graph: heads out of step", OMEGA_GPU_DGRAPH_BAD_ARGS);
+    const Layout *L = &g->lo;
+    const uint64_t x0 = va_of(g, x_of(g, 0)), xq0 = va_of(g, xq_of(g, 0)), xp = va_of(g, L->xp), mixN = va_of(g, L->mixN), abN = va_of(g, L->abN);
+    const uint64_t aggN = va_of(g, L->aggN), attN = va_of(g, L->attN), op = va_of(g, L->op), oN = va_of(g, L->oN), rlb = va_of(g, L->rlb);
+    const uint64_t sgu = va_of(g, L->sgu), sdn = va_of(g, L->sdn), xmap = va_of(g, L->xmap), ymap = va_of(g, L->ymap), xp2 = va_of(g, L->xp2);
+    const uint64_t guN = va_of(g, L->guN), actN = va_of(g, L->actN), actp = va_of(g, L->actp), dnN = va_of(g, L->dnN);
+    const uint64_t pt2048 = va_of(g, L->ptab), pt4096 = pt2048 + (uint64_t)H * 4u, pt512 = pt4096 + (uint64_t)OMEGA_GPU_Q36_MIXER_OUT * 4u;
+    const uint64_t in_norm = va_of(g, L->norms) + (uint64_t)l * H * 4u, segd = va_of(g, L->segd) + (uint64_t)l * SEGD_ROWS * OMEGA_GEMM_SEG_BYTES;
+    const uint64_t XS = (uint64_t)H * 4u, MOS = (uint64_t)OMEGA_GPU_Q36_MIXER_OUT * 4u;
+    int rc = OMEGA_GPU_DGRAPH_OK;
+    /* input norm of every head (layer 0; after that the previous layer's COMBINE|NORM left layer l's x' in the xq slots) */
+    if (g->xq_layer[0] != (int)l) rc = rec_res_rows(g, K_NORM_R, x0, 0, in_norm, xq0, SCALE_2P64, N);
+    /* x' of the dense trunk: the N xq rows in the GEMM's lane layout */
+    if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_perm(g, K_PERM_XQ, xq0, pt2048, xp, H, N);
+    if (!g->layer[l].attn) {
+        if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, OMEGA_GPU_Q36_K_AB, omega_gpu_bf16_gemv_rows_record(g->cl, g->layer[l].ab, N, xq0, abN));
+        if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_gemm(g, OMEGA_GPU_Q36_K_MIX, g->layer[l].mix, N, 1, segd, xp, mixN, 0, 0);
+        for (uint32_t h = 0; h < N && rc == OMEGA_GPU_DGRAPH_OK; h++) {
+            const uint64_t mix_h = mixN + (uint64_t)h * OMEGA_GPU_Q36_GDN_MIX * 4u;
+            uint64_t mo = 0;
+            rc = after_op(g, OMEGA_GPU_Q36_K_GDN, omega_gpu_gdn_record(g->cl, g->gdn_h[h], ki, mix_h, mix_h + OMEGA_GPU_Q36_GDN_QKV * 4u,
+                                                                     abN + (uint64_t)h * OMEGA_GPU_Q36_AB * 4u, g->cfg.eps_l2, g->cfg.eps, 1.0f, SCALE_2P64, &mo));
+            if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_perm(g, K_PERM_O, mo, pt4096, op + h * MOS, OMEGA_GPU_Q36_MIXER_OUT, 1);
+        }
+    } else {
+        if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_gemm(g, OMEGA_GPU_Q36_K_MIX, g->layer[l].mix, N, 1, segd, xp, mixN, 0, 0); /* n 9216: the rows are 9216 apart */
+        uint32_t w[OMEGA_DEC_GA_WORDS]; memset(w, 0, sizeof w);
+        put64(w, OMEGA_DEC_GA_IN, mixN); put64(w, OMEGA_DEC_GA_TAB, va_of(g, L->gtab)); put64(w, OMEGA_DEC_GA_OUT, aggN);
+        if (rc == OMEGA_GPU_DGRAPH_OK)
+            rc = add_glue(g, OMEGA_GPU_Q36_K_GATHER, g->mutant == 2 ? K_GATHER_M1 : K_GATHER, (OMEGA_GPU_Q36_ATT_MIX + OMEGA_DEC_THREADS - 1) / OMEGA_DEC_THREADS, N,
+                          (size_t)OMEGA_GPU_Q36_ATT_MIX * N, w, OMEGA_DEC_GA_WORDS);
+        for (uint32_t h = 0; h < N && rc == OMEGA_GPU_DGRAPH_OK; h++) {
+            const uint64_t agg_h = aggN + (uint64_t)h * OMEGA_GPU_Q36_ATT_MIX * 4u, att_h = attN + h * MOS;
+            rc = after_op(g, OMEGA_GPU_Q36_K_ATTN, omega_gpu_decode_attn256_record(g->cl, g->attn_h[h], ki, pos[h], agg_h, g->cfg.eps, SCALE_2P64, att_h));
+            uint32_t w2[OMEGA_DEC_GT_WORDS]; memset(w2, 0, sizeof w2);
+            put64(w2, OMEGA_DEC_GT_A, att_h); put64(w2, OMEGA_DEC_GT_G, agg_h + OMEGA_GPU_Q36_ATT_QKV * 4u); put64(w2, OMEGA_DEC_GT_OUT, att_h);
+            w2[(OMEGA_DEC_GT_N - 0x380) / 4] = OMEGA_GPU_Q36_MIXER_OUT;
+            if (rc == OMEGA_GPU_DGRAPH_OK)
+                rc = add_glue(g, OMEGA_GPU_Q36_K_GATE, g->mutant == 3 ? K_GATE_M1 : K_GATE, OMEGA_GPU_Q36_MIXER_OUT / OMEGA_DEC_THREADS, 1,
+                              OMEGA_GPU_Q36_MIXER_OUT, w2, OMEGA_DEC_GT_WORDS);
+        }
+        if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_perm(g, K_PERM_O, attN, pt4096, op, OMEGA_GPU_Q36_MIXER_OUT, N);
+    }
+    if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_gemm(g, OMEGA_GPU_Q36_K_O, g->layer[l].o, N, 1, segd + OMEGA_GEMM_SEG_BYTES, op, oN, 0, 0);
+    if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_res_rows(g, K_ADD_R, x0, oN, 0, 0, 1.0f, N);
+    /* the sparse block: N routers into N buffers, GROUP sorts their picks into one segment table, two grouped GEMMs */
+    OmegaGpuRouterDevOut r0; memset(&r0, 0, sizeof r0);
+    for (uint32_t h = 0; h < N && rc == OMEGA_GPU_DGRAPH_OK; h++) {
+        OmegaGpuRouterDevOut r;
+        rc = after_op(g, OMEGA_GPU_Q36_K_ROUTER, omega_gpu_router_record_to(g->cl, g->cfg.router, l, x0 + h * XS, g->cfg.eps, 1, SCALE_2P64,
+                                                                           rlb + (uint64_t)h * L->lb_stride, &r));
+        if (h == 0) r0 = r;
+    }
+    uint32_t wg[OMEGA_DEC_GR_WORDS]; memset(wg, 0, sizeof wg);
+    put64(wg, OMEGA_DEC_GR_IDS, r0.ids_va); put64(wg, OMEGA_DEC_GR_TGU, r0.tab_gu_va); put64(wg, OMEGA_DEC_GR_TDN, r0.tab_dn_va);
+    put64(wg, OMEGA_DEC_GR_SGU, sgu); put64(wg, OMEGA_DEC_GR_SDN, sdn); put64(wg, OMEGA_DEC_GR_XMAP, xmap); put64(wg, OMEGA_DEC_GR_YMAP, ymap);
+    wg[(OMEGA_DEC_GR_STRIDE - 0x380) / 4] = L->lb_stride; wg[(OMEGA_DEC_GR_HEADS - 0x380) / 4] = N;
+    if (rc == OMEGA_GPU_DGRAPH_OK) rc = add_glue(g, OMEGA_GPU_Q36_K_GROUP, K_GROUP, 1, 1, R, wg, OMEGA_DEC_GR_WORDS);
+    if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_perm(g, K_PERM_XO, r0.xout_va, pt2048, xp2, H, N);
+    if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_gemm(g, OMEGA_GPU_Q36_K_GATE_UP, g->layer[l].gu, R, R, sgu, xp2, guN, xmap, ymap);
+    uint32_t w3[OMEGA_DEC_SW_WORDS]; memset(w3, 0, sizeof w3);
+    put64(w3, OMEGA_DEC_SW_GU, guN); put64(w3, OMEGA_DEC_SW_ACT, actN); putf(w3, OMEGA_DEC_SW_SCALE, SCALE_2P64);
+    if (rc == OMEGA_GPU_DGRAPH_OK)
+        rc = add_glue(g, OMEGA_GPU_Q36_K_SWIGLU, g->mutant == 1 ? K_SW_M1 : K_SW, EI / OMEGA_DEC_THREADS, R, (size_t)R * EI, w3, OMEGA_DEC_SW_WORDS);
+    if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_perm(g, K_PERM_ACT, actN, pt512, actp, EI, R);
+    if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_gemm(g, OMEGA_GPU_Q36_K_DOWN, g->layer[l].dn, R, R, sdn, actp, dnN, ymap, ymap);
+    const int last = l + 1 == g->cfg.layers;
+    const uint64_t nw = last ? va_of(g, L->fnorm) : in_norm + H * 4u;
+    for (uint32_t h = 0; h < N && rc == OMEGA_GPU_DGRAPH_OK; h++) {
+        rc = rec_res_w(g, g->mutant == 4 ? K_CN_M3 : K_CN, x0 + h * XS, dnN + (uint64_t)h * NG * H * 4u, r0.wts_va + (uint64_t)h * L->lb_stride, nw,
+                       last ? va_of(g, hidden_of(g, h)) : xq0 + h * XS, last && !g->head8 ? 1.0f : SCALE_2P64);
+        if (rc == OMEGA_GPU_DGRAPH_OK) { if (last) g->hidden_ready[h] = 1; else g->xq_layer[h] = (int)l + 1; }
+    }
+    return rc == OMEGA_GPU_DGRAPH_OK ? rc : fail(g, NULL, rc);
+}
+
 int omega_gpu_q36_graph_record_final(OmegaGpuQ36Graph *g) { return omega_gpu_q36_graph_record_head_final(g, 0); }
 
 int omega_gpu_q36_graph_record_head_final(OmegaGpuQ36Graph *g, uint32_t h) {
@@ -487,9 +660,12 @@ int omega_gpu_q36_graph_stroke(OmegaGpuQ36Graph *g, const float *x_embed, const 
                                OmegaGpuDecodeGraphStats *st) {
     if (!g || !pos) return OMEGA_GPU_DGRAPH_BAD_ARGS;
     if (omega_gpu_q36_graph_begin_stroke(g, x_embed, heads) == OMEGA_GPU_DGRAPH_BAD_ARGS) return OMEGA_GPU_DGRAPH_BAD_ARGS;
-    /* layer-major: every head's layer l before layer l + 1, so one layer's expert rows are warm across the heads */
-    for (uint32_t l = 0; l < g->cfg.layers && !g->failed; l++)
-        for (uint32_t h = 0; h < heads && !g->failed; h++) (void)omega_gpu_q36_graph_record_head_layer(g, h, l, pos[h]);
+    /* layer-major: every head's layer l before layer l + 1, so one layer's expert rows are warm across the heads; the batch
+     * (set_batch) records the layer for every head in one set of launches, each weight read once */
+    for (uint32_t l = 0; l < g->cfg.layers && !g->failed; l++) {
+        if (g->batch) (void)omega_gpu_q36_graph_record_layer_heads(g, l, pos);
+        else for (uint32_t h = 0; h < heads && !g->failed; h++) (void)omega_gpu_q36_graph_record_head_layer(g, h, l, pos[h]);
+    }
     for (uint32_t h = 0; h < heads && !g->failed; h++) (void)omega_gpu_q36_graph_record_head_final(g, h);
     return omega_gpu_q36_graph_end_stroke(g, tokens, st);
 }

@@ -121,11 +121,23 @@ enum { OMEGA_GPU_Q36_BUF_X, OMEGA_GPU_Q36_BUF_XQ, OMEGA_GPU_Q36_BUF_MIX, OMEGA_G
 int omega_gpu_q36_graph_read_buf(OmegaGpuQ36Graph *g, int which, float *out, uint32_t n);
 /* The gather table (u32 [9216]): agg[n] = mix[tab[n]]. */
 void omega_q36_gather_table(uint32_t *tab);
+/* the FP8 GEMM's x' lane permutation as a GATHER table (k a multiple of 512) */
+void omega_q36_perm_table(uint32_t *tab, uint32_t k);
+
+/* The batch (v2, L312 "the ignition"): with set_batch(g, 1), stroke() records each layer for every conversation at once:
+ * the dense GEMVs become one grouped GEMM over the N rows (mix, o: one weight read per layer for all N), the expert blocks
+ * one grouped GEMM over the N x 9 rows sorted by expert (GROUP kernel: every expert any conversation picked is read once),
+ * the per-conversation state kernels (GDN, attention, router, COMBINE) stay per head. Values are those of the per-head
+ * stroke (the gate: every head word-identical to its run alone). set_batch pins the GEMM kernels (session, once);
+ * AIEN_OMEGA_Q36_BATCH=1 at create does the same. record_layer_heads is the per-layer step stroke() uses. */
+int omega_gpu_q36_graph_set_batch(OmegaGpuQ36Graph *g, int on);
+int omega_gpu_q36_graph_batch(const OmegaGpuQ36Graph *g);
+int omega_gpu_q36_graph_record_layer_heads(OmegaGpuQ36Graph *g, uint32_t layer, const uint32_t *pos);
 
 enum {
     OMEGA_GPU_Q36_K_NORM = 0, OMEGA_GPU_Q36_K_MIX, OMEGA_GPU_Q36_K_AB, OMEGA_GPU_Q36_K_GDN, OMEGA_GPU_Q36_K_GATHER, OMEGA_GPU_Q36_K_ATTN,
     OMEGA_GPU_Q36_K_GATE, OMEGA_GPU_Q36_K_O, OMEGA_GPU_Q36_K_RES, OMEGA_GPU_Q36_K_ROUTER, OMEGA_GPU_Q36_K_GATE_UP, OMEGA_GPU_Q36_K_SWIGLU,
-    OMEGA_GPU_Q36_K_DOWN, OMEGA_GPU_Q36_K_LM_HEAD, OMEGA_GPU_Q36_K_ARGMAX, OMEGA_GPU_Q36_K_COUNT
+    OMEGA_GPU_Q36_K_DOWN, OMEGA_GPU_Q36_K_LM_HEAD, OMEGA_GPU_Q36_K_ARGMAX, OMEGA_GPU_Q36_K_PERM, OMEGA_GPU_Q36_K_GROUP, OMEGA_GPU_Q36_K_COUNT
 };
 void omega_gpu_q36_graph_set_stamps(OmegaGpuQ36Graph *g, int on);
 int omega_gpu_q36_graph_stamps(const OmegaGpuQ36Graph *g, uint64_t *stamps, uint8_t *kinds, uint32_t cap);
