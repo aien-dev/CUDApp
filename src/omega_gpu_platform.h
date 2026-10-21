@@ -224,7 +224,9 @@ int omega_gpu_platform_check_buffer(const OmegaGpuBufferDesc *d, const OmegaGpuP
 
 /* ---- handle table (index + generation) ----------------------------------- */
 
-#define OMEGA_GPU_HANDLE_SLOTS 1024u /* 1.1: a serving session holds one buffer per weight tensor (Qwen3-8B: ~260) */
+#define OMEGA_GPU_HANDLE_SLOTS 4096u /* 1.1: a serving session holds one buffer per weight tensor (Qwen3-8B: ~260);
+                                     * speed5/batching: each Qwen3.8 conversation slot adds about 29 (16 KV planes, the
+                                     * DeltaNet state, launch buffers), so 32 slots on top of the 27B weights passed 1024 */
 
 typedef struct {
     uint32_t generation[OMEGA_GPU_HANDLE_SLOTS]; /* next generation to issue for the slot; starts at 1 */

@@ -81,6 +81,12 @@ int omega_gpu_bf16_gemv_rows_record(struct OmegaGpuCmdList *cl, const OmegaGpuBf
 int omega_gpu_bf16_gemv_xbatch_record(struct OmegaGpuCmdList *cl, const OmegaGpuBf16Tensor *t, uint32_t xbatch, uint64_t x_va, uint64_t y_va, uint32_t ystride);
 int omega_gpu_bf16_prepare(uint32_t k);
 int omega_gpu_bf16_prepare_xbatch(uint32_t k, uint32_t xbatch, uint32_t ystride); /* build and pin the XBATCH kernel (xbatch <= 1: prepare(k)) */
+/* MASK form (HUM L314 exact two-pass head; omega_blackwell_codegen_bf16.h): record-only, rows 1. Row r with
+ * hi[r] < *tau (hi_va: n f32, tau_va: one f32, both device) gets -inf in y; every other row gets the plain kernel's
+ * bits. Caller holds omega_gpu_session_lock(); the first call compiles into a free cache slot. */
+int omega_gpu_bf16_gemv_mask_record(struct OmegaGpuCmdList *cl, const OmegaGpuBf16Tensor *t, uint64_t x_va, uint64_t y_va, uint64_t hi_va, uint64_t tau_va);
+int omega_gpu_bf16_prepare(uint32_t k);
+int omega_gpu_bf16_prepare_mask(uint32_t k); /* build and pin the MASK kernel for width k (the exact head, serving) */
 const char *omega_gpu_bf16_rc_name(int rc);
 const char *omega_gpu_bf16_last_error(void);
 void omega_gpu_bf16_cache_clear(void);
@@ -95,6 +101,8 @@ void omega_gpu_bf16_set_shape(uint32_t rows, uint32_t warps, uint32_t depth);
 void omega_gpu_bf16_set_cta_budget(uint32_t ctas);
 /* TEST ONLY: deliberately wrong kernels 1, 2, 3 (see the codegen header). Production never calls this. */
 void omega_gpu_bf16_test_set_mutant(int mutant);
+/* TEST ONLY: the MASK form alone under mutant m (4: rows with hi >= tau get -inf, the others the plain bits). 0 none. */
+void omega_gpu_bf16_test_set_mask_mutant(int m);
 
 #ifdef __cplusplus
 }

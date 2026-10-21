@@ -87,6 +87,8 @@ static void lds128(Em *e, int d128, int addr, uint32_t imm, int first) { Blackwe
 static void sts32(Em *e, int addr, int val) { BlackwellIRInsn i = I0(BW_IR_STS32); i.src1_vreg = addr; i.src2_vreg = val; emit(e, i, K_STORE); }
 static void bar_sync(Em *e) { emit(e, I0(BW_IR_BAR_SYNC), K_SYNC); }
 static void fadd(Em *e, int d, int a, int b) { BlackwellIRInsn i = I0(BW_IR_FADD); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; emit(e, i, K_FIXED); }
+static void fmaxr(Em *e, int d, int a, int b) { BlackwellIRInsn i = I0(BW_IR_FMNMX_MAX); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; emit(e, i, K_FIXED); }
+static void xorr(Em *e, int d, int a, int b) { BlackwellIRInsn i = I0(BW_IR_LOP3_XOR); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; emit(e, i, K_FIXED); }
 /* d = a * b[bsub] + c */
 static void ffma(Em *e, int d, int a, int b, unsigned bsub, int c) { BlackwellIRInsn i = I0(BW_IR_FFMA); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; i.src2_subreg = (uint8_t)bsub; i.src3_vreg = c; emit(e, i, K_FIXED); }
 static void shfl_down(Em *e, int d, int a, uint32_t off) { BlackwellIRInsn i = I0(BW_IR_SHFL_DOWN); i.dst_vreg = d; i.src1_vreg = a; i.imm = off; emit(e, i, K_VAR); }
@@ -95,6 +97,8 @@ static void bra_if_p0(Em *e, int target) { BlackwellIRInsn i = I0(BW_IR_BRA); i.
 static void bra(Em *e, int target) { BlackwellIRInsn i = I0(BW_IR_BRA); i.imm = (uint32_t)(target - here(e)); emit(e, i, K_BRA); }
 /* a forward branch whose target is patched when known: returns the instruction index */
 static int bra_if_p0_fwd(Em *e) { int at = here(e); BlackwellIRInsn i = I0(BW_IR_BRA); i.predicate_p0 = true; i.imm = 1; emit(e, i, K_BRA); return at; }
+static int bra_ifnot_p0_fwd(Em *e) { int at = here(e); BlackwellIRInsn i = I0(BW_IR_BRA); i.predicate_p0 = true; i.predicate_not = true; i.imm = 1; emit(e, i, K_BRA); return at; }
+static int bra_fwd(Em *e) { int at = here(e); BlackwellIRInsn i = I0(BW_IR_BRA); i.imm = 1; emit(e, i, K_BRA); return at; }
 static void patch_bra(Em *e, int at, int target) { if (!e->err) e->p->insns[at].imm = (uint32_t)(target - at); }
 static int bssy_fwd(Em *e) { int at = here(e); BlackwellIRInsn i = I0(BW_IR_BSSY); i.bar_reg = 0; i.imm = 2; emit(e, i, K_BSSY); return at; }
 static void bsync(Em *e) { BlackwellIRInsn i = I0(BW_IR_BSYNC); i.bar_reg = 0; emit(e, i, K_BSYNC); }
@@ -131,7 +135,10 @@ static int spec_ok(const OmegaBf16GemvSpec *s) {
     if (xb > OMEGA_BF16_MAX_XBATCH) return 0;
     if (xb > 1u && (s->ystride == 0 || s->rows * xb > 16u || (uint64_t)xb * s->k * 4u > OMEGA_BW_QMD_MAX_SHARED_BYTES)) return 0;
     if (xb > 1u && ((uint64_t)xb * s->k > 512u * s->warps || (uint64_t)(xb - 1u) * s->ystride * 4u >= (1ull << 31))) return 0; /* 16 staging rounds; y row offsets as immediates */
-    if (s->mutant < 0 || s->mutant > 4 || (s->mutant == 4 && xb < 2u)) return 0;
+    if (s->mask > 1) return 0;
+    if (s->mask && (s->rows != 1 || s->ystride || xb > 1u)) return 0; /* MASK form: one row per warp, one x row */
+    /* mutant 4: the XBATCH form's x row 0 for every row, or the MASK form's inverted skip */
+    if (s->mutant < 0 || s->mutant > 4 || (s->mutant == 4 && xb < 2u && !s->mask)) return 0;
     if (s->ystride > (1u << 28)) return 0; /* ystride * 4 fits the 32-bit IMAD.WIDE immediate */
     if ((uint64_t)(s->rows - 1) * s->k * 2u + 512u * s->depth >= (1u << 23)) return 0; /* 24-bit signed LDG immediate */
     return 1;
@@ -189,12 +196,34 @@ int omega_blackwell_codegen_bf16_gemv_prog(const OmegaBf16GemvSpec *spec, Blackw
     for (uint32_t r = 0; r < R; r++) { for (uint32_t m = 0; m < XB; m++) acc[r][m] = V(e); for (uint32_t s = 0; s < D; s++) wq[r][s] = V128(e); }
     for (uint32_t m = 0; m < XB; m++) { xq[m][0] = V128(e); xq[m][1] = V128(e); }
     if (e->err) return -1;
+    /* ---- MASK form: tau once, normalized (-0 -> +0); -inf for the skipped rows ---- */
+    int phi = NOREG, tn = NOREG, zero = NOREG, ninf = NOREG, phr = NOREG, hv = NOREG, mv = NOREG;
+    if (spec->mask) {
+        int ptau = V64(e);
+        phi = V64(e); tn = V(e); zero = V(e); ninf = V(e); phr = V64(e); hv = V(e); mv = V(e);
+        if (e->err) return -1;
+        ldc64(e, phi, OMEGA_BF16_ARG_HI); ldc64(e, ptau, OMEGA_BF16_ARG_TAU);
+        ldg32(e, tn, ptau, udesc, 1);
+        movrz(e, zero);
+        fadd(e, tn, tn, zero);
+        movi(e, ninf, 0xff800000u);
+    }
 
     /* ---- row-group loop ---- */
     const int L_rg = here(e);
     loop_begin(e);
     isetp_ge_u32(e, rg, rgn);
     const int bra_end = bra_if_p0_fwd(e);
+    int bra_skip_row = -1;
+    if (spec->mask) { /* warp-uniform: every lane loads the same hi[rg] */
+        imadw(e, phr, rg, 4u, phi);
+        ldg32(e, hv, phr, udesc, 1);
+        fadd(e, hv, hv, zero);
+        fmaxr(e, mv, hv, tn);
+        xorr(e, mv, mv, hv);
+        isetp_ge_u32(e, mv, one); /* P0: hi < tau (the max is not hi) */
+        bra_skip_row = spec->mutant == 4 ? bra_ifnot_p0_fwd(e) : bra_if_p0_fwd(e);
+    }
     imadw(e, pwr, rg, R * K * 2u, pwb); imadw(e, pw, wlane, 1, pwr);
     imadi(e, xl, xl0, 0, 1, NOREG);
     for (uint32_t r = 0; r < R; r++) for (uint32_t m = 0; m < XB; m++) movrz(e, acc[r][m]);
@@ -246,6 +275,13 @@ int omega_blackwell_codegen_bf16_gemv_prog(const OmegaBf16GemvSpec *spec, Blackw
     bsync(e);
     patch_bra(e, bra_skip, at_bsync);
     patch_bra(e, at_bssy, at_bsync + 1);
+    if (spec->mask) { /* skipped row: every lane stores the same -inf to y[rg] */
+        const int bra_next = bra_fwd(e);
+        patch_bra(e, bra_skip_row, here(e));
+        imadw(e, pyr, rg, 4u, py);
+        stg(e, pyr, 0, ninf, udesc);
+        patch_bra(e, bra_next, here(e));
+    }
     imadi(e, rg, stride, 0, 1, rg);
     bra(e, L_rg);
     loop_end(e);

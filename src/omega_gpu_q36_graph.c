@@ -26,7 +26,7 @@
 
 /* glue kernels */
 enum { K_NORM, K_ADD, K_CN, K_SW, K_GATHER, K_GATE, K_AM0, K_AM1, K_SW_M1, K_GATHER_M1, K_GATE_M1, K_CN_M3, K_COPY,
-       K_NORM_R, K_ADD_R, K_PERM_XQ, K_PERM_O, K_PERM_XO, K_PERM_ACT, K_GROUP, K_COUNT }; /* K_NORM_R on: the batch (v2) kernels */
+       K_NORM_R, K_ADD_R, K_PERM_XQ, K_PERM_O, K_PERM_XO, K_PERM_ACT, K_GROUP, K_XS, K_XB, K_XB_M1, K_COUNT }; /* K_NORM_R .. K_GROUP: the batch (v2) kernels; K_XS ..: the exact head */
 #define SEGD_ROWS 2u /* dense segment entries per layer in the batch: mix, o */
 #define COPY_ROW 256u /* K_COPY: GATHER rows of 256 floats through the identity table */
 
@@ -59,6 +59,12 @@ struct OmegaGpuQ36Graph {
     uint32_t heads;                      /* slots laid out (create_heads); 1 = the plain graph */
     OmegaGpuGdn *gdn_h[OMEGA_GPU_Q36_MAX_HEADS];
     OmegaGpuDecodeAttn256Cache *attn_h[OMEGA_GPU_Q36_MAX_HEADS];
+    struct {                             /* set_exact_head: the HUM L314 two-pass head (bf16 lm_head only) */
+        const OmegaGpuFp8Tensor *screen; /* fp8b copy of lm_head (128 x 128 block scales) */
+        OmegaGpuMem mem;                 /* h8 | s | c | hi | lo (am_ctas * 2048, padded) | tau | tab */
+        uint64_t h8, s, c, hi, lo, tau, tab;
+        uint8_t on[OMEGA_GPU_Q36_MAX_HEADS]; /* per head: its next tokens use it (greedy rows); set_exact_head_on sets every head */
+    } xh;
     /* token / stroke state */
     int in_token, failed;
     uint32_t stroke_heads;               /* heads in the open stroke */
@@ -146,6 +152,7 @@ void omega_gpu_q36_graph_free(OmegaGpuQ36Graph *g) {
     if (g->dbuf.cpu) omega_gpu_session_free(&g->dbuf);
     if (g->pf.hb.cpu) omega_gpu_session_free(&g->pf.hb);
     if (g->pf.db.cpu) omega_gpu_session_free(&g->pf.db);
+    if (g->xh.mem.cpu) omega_gpu_session_free(&g->xh.mem);
     omega_gpu_session_unlock();
     omega_gpu_host_free(g);
 }
@@ -220,6 +227,9 @@ int omega_gpu_q36_graph_create_heads(const OmegaGpuQ36GraphConfig *cfg, uint32_t
         [K_PERM_XO] = { .kind = OMEGA_DEC_GATHER, .width = H, .stride = H }, /* stride = lb_stride / 4, set below */
         [K_PERM_ACT] = { .kind = OMEGA_DEC_GATHER, .width = EI, .stride = EI },
         [K_GROUP] = { .kind = OMEGA_DEC_GROUP, .groups = NG },
+        [K_XS] = { .kind = OMEGA_DEC_XBOUND, .mode = 1 },
+        [K_XB] = { .kind = OMEGA_DEC_XBOUND },
+        [K_XB_M1] = { .kind = OMEGA_DEC_XBOUND, .mutant = 1 },
     };
     spec[K_PERM_XO].stride = L->lb_stride / 4u;
     for (unsigned i = 0; i < K_COUNT && rc == OMEGA_GPU_DGRAPH_OK; i++) rc = kern_build(&g->k[i], &spec[i]);
@@ -304,8 +314,56 @@ int omega_gpu_q36_graph_set_lm_head_fp8(OmegaGpuQ36Graph *g, const OmegaGpuFp8Te
     return rc;
 }
 
+int omega_gpu_q36_graph_set_exact_head(OmegaGpuQ36Graph *g, const OmegaGpuFp8Tensor *screen, const float *coef) {
+    if (!g || g->in_token) return OMEGA_GPU_DGRAPH_BAD_ARGS;
+    if (!screen) {
+        omega_gpu_session_lock();
+        if (g->xh.mem.cpu) omega_gpu_session_free(&g->xh.mem);
+        omega_gpu_session_unlock();
+        memset(&g->xh, 0, sizeof g->xh);
+        return OMEGA_GPU_DGRAPH_OK;
+    }
+    uint64_t t[2];
+    if (!coef || g->xh.screen || !shape_is(screen, g->cfg.vocab, H) || omega_gpu_fp8_tensor_entry(screen, 0, &t[0], &t[1]) != 0)
+        return OMEGA_GPU_DGRAPH_BAD_ARGS;
+    const size_t n = g->cfg.vocab, P = (size_t)g->am_ctas * OMEGA_DEC_ARGMAX_SPAN;
+    const size_t o_h8 = 0, o_s = al(o_h8 + H * 4), o_c = al(o_s + n * 4), o_hi = al(o_c + n * 4), o_lo = al(o_hi + n * 4),
+                 o_tau = al(o_lo + P * 4), o_tab = al(o_tau + 16), total = al(o_tab + 16);
+    if (omega_gpu_bf16_prepare_mask(H) != 0) return fail(g, "q36 graph: exact head MASK kernel", OMEGA_GPU_DGRAPH_CHIP_FAIL);
+    omega_gpu_session_lock();
+    int rc = omega_gpu_session_alloc(total, &g->xh.mem) == 0 ? OMEGA_GPU_DGRAPH_OK : OMEGA_GPU_DGRAPH_CHIP_FAIL;
+    if (rc == OMEGA_GPU_DGRAPH_OK) {
+        uint8_t *B = g->xh.mem.cpu;
+        memset(B, 0, total);
+        memcpy(B + o_c, coef, n * 4);
+        for (size_t i = n; i < P; i++) ((float *)(B + o_lo))[i] = NEG_PAD; /* XBOUND writes [0, vocab) only */
+        memcpy(B + o_tab, t, sizeof t);
+        if (omega_gpu_session_sync_to_gpu(&g->xh.mem) != 0) rc = OMEGA_GPU_DGRAPH_CHIP_FAIL;
+    }
+    if (rc == OMEGA_GPU_DGRAPH_OK) {
+        const uint64_t V = g->xh.mem.va;
+        g->xh.h8 = V + o_h8; g->xh.s = V + o_s; g->xh.c = V + o_c; g->xh.hi = V + o_hi; g->xh.lo = V + o_lo; g->xh.tau = V + o_tau; g->xh.tab = V + o_tab;
+        g->xh.screen = screen; memset(g->xh.on, 1, sizeof g->xh.on);
+    } else if (g->xh.mem.cpu) omega_gpu_session_free(&g->xh.mem);
+    omega_gpu_session_unlock();
+    return rc;
+}
+
+void omega_gpu_q36_graph_set_exact_head_on(OmegaGpuQ36Graph *g, int on) { if (g && !g->in_token) memset(g->xh.on, on ? 1 : 0, sizeof g->xh.on); }
+void omega_gpu_q36_graph_set_head_exact_head_on(OmegaGpuQ36Graph *g, uint32_t head, int on) {
+    if (g && !g->in_token && head < OMEGA_GPU_Q36_MAX_HEADS) g->xh.on[head] = on ? 1 : 0;
+}
+int omega_gpu_q36_graph_exact_head_active_head(const OmegaGpuQ36Graph *g, uint32_t head) {
+    return g && head < OMEGA_GPU_Q36_MAX_HEADS && g->xh.screen && g->xh.on[head] && !g->head8;
+}
+int omega_gpu_q36_graph_exact_head_active(const OmegaGpuQ36Graph *g) { return omega_gpu_q36_graph_exact_head_active_head(g, 0); }
+
 void omega_gpu_q36_graph_set_flush_each(OmegaGpuQ36Graph *g, int on) { if (g) g->flush_each = on ? 1 : 0; }
-void omega_gpu_q36_graph_test_set_mutant(OmegaGpuQ36Graph *g, int mutant) { if (g) g->mutant = mutant; }
+void omega_gpu_q36_graph_test_set_mutant(OmegaGpuQ36Graph *g, int mutant) {
+    if (!g) return;
+    g->mutant = mutant;
+    omega_gpu_bf16_test_set_mask_mutant(mutant == 5 ? 4 : 0); /* process-wide, the MASK form only */
+}
 
 /* ---- the list ---- */
 
@@ -633,7 +691,28 @@ int omega_gpu_q36_graph_record_head_final(OmegaGpuQ36Graph *g, uint32_t h) {
     const uint64_t x = va_of(g, x_of(g, h)), hidden = va_of(g, hidden_of(g, h)), logits = va_of(g, logits_of(g, h)), token = va_of(g, token_of(g, h));
     int rc = OMEGA_GPU_DGRAPH_OK;
     if (!g->hidden_ready[h]) rc = rec_res(g, K_NORM, x, 0, va_of(g, g->lo.fnorm), hidden, g->head8 ? SCALE_2P64 : 1.0f);
-    if (rc == OMEGA_GPU_DGRAPH_OK)
+    const uint64_t amv = va_of(g, g->lo.am_v), ami = va_of(g, g->lo.am_i);
+    if (rc == OMEGA_GPU_DGRAPH_OK && omega_gpu_q36_graph_exact_head_active_head(g, h)) {
+        /* HUM L314 two-pass head: h8 = hidden * 2^64 (exact); s = screen . h8; lo / hi = s -/+ c|hidden|; tau = max lo;
+         * logits = lm_head . hidden on the rows with hi >= tau (today's bits), -inf elsewhere. The argmax below is then
+         * today's token: the full argmax row has hi >= its logit >= tau (omega_blackwell_codegen_dec.h XBOUND). */
+        uint32_t xs[OMEGA_DEC_XB_WORDS], xb[OMEGA_DEC_XB_WORDS], t0[OMEGA_DEC_AM_WORDS], t1[OMEGA_DEC_AM_WORDS];
+        memset(xs, 0, sizeof xs); memset(xb, 0, sizeof xb); memset(t0, 0, sizeof t0); memset(t1, 0, sizeof t1);
+        put64(xs, OMEGA_DEC_XB_S, hidden); put64(xs, OMEGA_DEC_XB_LO, g->xh.h8); xs[(OMEGA_DEC_XB_N - 0x380) / 4] = H;
+        put64(xb, OMEGA_DEC_XB_S, g->xh.s); put64(xb, OMEGA_DEC_XB_C, g->xh.c); put64(xb, OMEGA_DEC_XB_H, hidden);
+        put64(xb, OMEGA_DEC_XB_LO, g->xh.lo); put64(xb, OMEGA_DEC_XB_HI, g->xh.hi); xb[(OMEGA_DEC_XB_N - 0x380) / 4] = g->cfg.vocab;
+        put64(t0, OMEGA_DEC_AM_V, g->xh.lo); put64(t0, OMEGA_DEC_AM_I, 0); put64(t0, OMEGA_DEC_AM_OV, amv); put64(t0, OMEGA_DEC_AM_OI, ami);
+        put64(t1, OMEGA_DEC_AM_V, amv); put64(t1, OMEGA_DEC_AM_I, ami); put64(t1, OMEGA_DEC_AM_OV, g->xh.tau); put64(t1, OMEGA_DEC_AM_OI, g->xh.tau + 4u);
+        rc = add_glue(g, OMEGA_GPU_Q36_K_LM_HEAD, K_XS, H / OMEGA_DEC_THREADS, 1, H, xs, OMEGA_DEC_XB_WORDS);
+        if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_fp8(g, OMEGA_GPU_Q36_K_LM_HEAD, g->xh.screen, g->xh.tab, g->xh.h8, g->xh.s);
+        if (rc == OMEGA_GPU_DGRAPH_OK)
+            rc = add_glue(g, OMEGA_GPU_Q36_K_LM_HEAD, g->mutant == 6 ? K_XB_M1 : K_XB, (g->cfg.vocab + OMEGA_DEC_THREADS - 1) / OMEGA_DEC_THREADS, 1,
+                          g->cfg.vocab, xb, OMEGA_DEC_XB_WORDS);
+        if (rc == OMEGA_GPU_DGRAPH_OK) rc = add_glue(g, OMEGA_GPU_Q36_K_ARGMAX, K_AM0, g->am_ctas, 1, (size_t)g->am_ctas * OMEGA_DEC_ARGMAX_SPAN, t0, OMEGA_DEC_AM_WORDS);
+        if (rc == OMEGA_GPU_DGRAPH_OK) rc = add_glue(g, OMEGA_GPU_Q36_K_ARGMAX, K_AM1, 1, 1, OMEGA_DEC_ARGMAX_SPAN, t1, OMEGA_DEC_AM_WORDS);
+        if (rc == OMEGA_GPU_DGRAPH_OK)
+            rc = after_op(g, OMEGA_GPU_Q36_K_LM_HEAD, omega_gpu_bf16_gemv_mask_record(g->cl, g->cfg.lm_head, hidden, logits, g->xh.hi, g->xh.tau));
+    } else if (rc == OMEGA_GPU_DGRAPH_OK)
         rc = g->head8 ? rec_fp8(g, OMEGA_GPU_Q36_K_LM_HEAD, g->head8, va_of(g, g->lo.tabs) + (uint64_t)g->cfg.layers * 64u, hidden, logits)
                       : after_op(g, OMEGA_GPU_Q36_K_LM_HEAD, omega_gpu_bf16_gemv_record(g->cl, g->cfg.lm_head, hidden, logits));
     if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_argmax(g, logits, token);

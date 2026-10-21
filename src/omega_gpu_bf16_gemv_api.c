@@ -34,6 +34,7 @@ static struct {
     unsigned next;
 } g;
 static int g_rec; /* 1 while a record call runs (lock held): kernel_for must not evict */
+static int g_mask_mutant; /* TEST ONLY: the MASK form's mutant (4 = keep / drop inverted), other kernels untouched */
 
 const char *omega_gpu_bf16_last_error(void) { return omega_gpu_session_last_error(); }
 const char *omega_gpu_bf16_rc_name(int rc) {
@@ -71,6 +72,7 @@ void omega_gpu_bf16_set_shape(uint32_t rows, uint32_t warps, uint32_t depth) {
 }
 void omega_gpu_bf16_set_cta_budget(uint32_t ctas) { omega_gpu_session_lock(); g.ctas = ctas; omega_gpu_session_unlock(); }
 void omega_gpu_bf16_test_set_mutant(int m) { omega_gpu_session_lock(); g.mutant = m; cache_clear_locked(); omega_gpu_session_unlock(); }
+void omega_gpu_bf16_test_set_mask_mutant(int m) { omega_gpu_session_lock(); g_mask_mutant = m; omega_gpu_session_unlock(); }
 
 /* Declared registers: peak + 1 rounded up to 8; a CTA must fit the 65536-register file (chip-found rules, see
  * omega_gpu_fp8_api.c and ~/handoffs/own30b-K-report.md). */
@@ -157,6 +159,12 @@ int omega_gpu_bf16_prepare_xbatch(uint32_t k, uint32_t xbatch, uint32_t ystride)
     spec.xbatch = xbatch; spec.ystride = ystride;
     return prepare_spec(&spec);
 }
+/* the MASK kernel as gemv_core builds it (rows 1, mask 1), pinned: the exact head's record never compiles mid-token */
+int omega_gpu_bf16_prepare_mask(uint32_t k) {
+    OmegaBf16GemvSpec spec; uint32_t ctas; spec_for(k, &spec, &ctas);
+    spec.rows = 1; spec.mask = 1;
+    return prepare_spec(&spec);
+}
 
 void omega_gpu_bf16_tensor_shape(const OmegaGpuBf16Tensor *t, uint32_t *n, uint32_t *k) {
     if (n) *n = t ? t->n : 0;
@@ -200,7 +208,8 @@ void omega_gpu_bf16_tensor_free(OmegaGpuBf16Tensor *t) {
 /* rec non-NULL (record path, caller holds the session lock): x and y are the device buffers dev_x / dev_y, the launch is
  * appended to rec instead of submitted, nothing is staged, poisoned or read back. */
 static int gemv_core(const OmegaGpuBf16Tensor *t, const float *x32, const uint16_t *x16, float *y, OmegaGpuBf16Info *info,
-                     OmegaGpuCmdList *rec, uint64_t dev_x, uint64_t dev_y, uint32_t xrows, uint32_t xbatch, uint32_t ystride) {
+                     OmegaGpuCmdList *rec, uint64_t dev_x, uint64_t dev_y, uint32_t xrows, uint32_t xbatch, uint32_t ystride,
+                     uint64_t mask_hi, uint64_t mask_tau) {
     uint64_t t0 = omega_gpu_session_now_ns();
     if (info) memset(info, 0, sizeof *info);
     if (rec && (!dev_x || !dev_y)) return OMEGA_GPU_BF16_BAD_ARGS;
@@ -213,6 +222,10 @@ static int gemv_core(const OmegaGpuBf16Tensor *t, const float *x32, const uint16
         if (!rec || xrows || xbatch > OMEGA_BF16_MAX_XBATCH || ystride < n) return OMEGA_GPU_BF16_BAD_ARGS;
         spec.xbatch = xbatch; spec.ystride = ystride;
     }
+    const int masked = mask_hi != 0;
+    if (masked && xbatch > 1u) return OMEGA_GPU_BF16_BAD_ARGS; /* one form per launch */
+    if (masked && (!rec || xrows || !mask_tau)) return OMEGA_GPU_BF16_BAD_ARGS; /* the MASK form is record-only */
+    if (masked) { spec.rows = 1; spec.mask = 1; if (g_mask_mutant) spec.mutant = g_mask_mutant; } /* one row per warp: each row's bits are the plain kernel's */
     if (n % spec.rows) return OMEGA_GPU_BF16_CODEGEN_FAIL;
     const uint32_t RG = n / spec.rows;
     uint32_t grid_x = (RG + spec.warps - 1) / spec.warps;
@@ -242,12 +255,13 @@ static int gemv_core(const OmegaGpuBf16Tensor *t, const float *x32, const uint16
         if (omega_gpu_session_sync_to_gpu(&g.x_buf.mem) != 0 || omega_gpu_session_sync_to_gpu(&g.y_buf.mem) != 0) rc = OMEGA_GPU_BF16_CHIP_FAIL;
     }
 
-    uint32_t args[OMEGA_BF16_ARGS_WORDS];
+    uint32_t args[OMEGA_BF16_MASK_ARGS_WORDS];
     const uint64_t x_va = rec ? dev_x : g.x_buf.mem.va, y_va = rec ? dev_y : g.y_buf.mem.va;
     args[0] = (uint32_t)t->w.va; args[1] = (uint32_t)(t->w.va >> 32);
     args[2] = (uint32_t)x_va; args[3] = (uint32_t)(x_va >> 32);
     args[4] = (uint32_t)y_va; args[5] = (uint32_t)(y_va >> 32);
     args[6] = RG; args[7] = grid_x * spec.warps;
+    args[8] = (uint32_t)mask_hi; args[9] = (uint32_t)(mask_hi >> 32); args[10] = (uint32_t)mask_tau; args[11] = (uint32_t)(mask_tau >> 32);
     if (info) {
         info->n = n; info->k = k; info->rows_per_warp = spec.rows; info->warps_per_cta = spec.warps; info->depth = spec.depth;
         info->grid_x = grid_x; info->steps = omega_bf16_gemv_steps(&spec);
@@ -261,7 +275,7 @@ static int gemv_core(const OmegaGpuBf16Tensor *t, const float *x32, const uint16
             .code_va = ks->code.va, .gpr_count = gpr_declared(ks->kernel.gpr_count),
             .threads_x = 32u * spec.warps, .threads_y = 1, .grid_x = grid_x, .grid_y = xrows ? xrows : 1u,
             .num_elements = (size_t)n * (xrows ? xrows : xbatch > 1u ? xbatch : 1u),
-            .args = args, .n_args = OMEGA_BF16_ARGS_WORDS, .timeout_ms = MARKER_TIMEOUT_MS,
+            .args = args, .n_args = masked ? OMEGA_BF16_MASK_ARGS_WORDS : OMEGA_BF16_ARGS_WORDS, .timeout_ms = MARKER_TIMEOUT_MS,
             .shared_bytes = omega_bf16_gemv_shared_bytes(&spec),
         };
         if (!omega_bw_gpr_declared_ok(L.gpr_count, ks->kernel.gpr_count)) { omega_gpu_session_set_error("declared registers below peak + 2: refusing to launch"); rc = OMEGA_GPU_BF16_CHIP_FAIL; }
@@ -281,24 +295,29 @@ static int gemv_core(const OmegaGpuBf16Tensor *t, const float *x32, const uint16
 }
 #undef UNLOCK
 
-int omega_gpu_bf16_gemv_f32(const OmegaGpuBf16Tensor *t, const float *x, float *y, OmegaGpuBf16Info *info) { return gemv_core(t, x, NULL, y, info, NULL, 0, 0, 0, 0, 0); }
-int omega_gpu_bf16_gemv_bf16(const OmegaGpuBf16Tensor *t, const uint16_t *x, float *y, OmegaGpuBf16Info *info) { return gemv_core(t, NULL, x, y, info, NULL, 0, 0, 0, 0, 0); }
+int omega_gpu_bf16_gemv_f32(const OmegaGpuBf16Tensor *t, const float *x, float *y, OmegaGpuBf16Info *info) { return gemv_core(t, x, NULL, y, info, NULL, 0, 0, 0, 0, 0, 0, 0); }
+int omega_gpu_bf16_gemv_bf16(const OmegaGpuBf16Tensor *t, const uint16_t *x, float *y, OmegaGpuBf16Info *info) { return gemv_core(t, NULL, x, y, info, NULL, 0, 0, 0, 0, 0, 0, 0); }
 
 /* Record path (OWN-30B W-L2a decode graph): see the header. Caller holds omega_gpu_session_lock(). */
 int omega_gpu_bf16_gemv_record(OmegaGpuCmdList *cl, const OmegaGpuBf16Tensor *t, uint64_t x_va, uint64_t y_va) {
     if (!cl) return OMEGA_GPU_BF16_BAD_ARGS;
-    return gemv_core(t, NULL, NULL, NULL, NULL, cl, x_va, y_va, 0, 0, 0);
+    return gemv_core(t, NULL, NULL, NULL, NULL, cl, x_va, y_va, 0, 0, 0, 0, 0);
 }
 
 /* ROWS form record path (sc #642 prefill): see the header. Caller holds omega_gpu_session_lock(). */
 int omega_gpu_bf16_gemv_rows_record(OmegaGpuCmdList *cl, const OmegaGpuBf16Tensor *t, uint32_t rows, uint64_t x_va, uint64_t y_va) {
     if (!cl || rows == 0) return OMEGA_GPU_BF16_BAD_ARGS;
-    return gemv_core(t, NULL, NULL, NULL, NULL, cl, x_va, y_va, rows, 0, 0);
+    return gemv_core(t, NULL, NULL, NULL, NULL, cl, x_va, y_va, rows, 0, 0, 0, 0);
 }
 
 /* XBATCH form record path (the lm_head of several conversations in one stroke): see the header. Caller holds the lock. */
 int omega_gpu_bf16_gemv_xbatch_record(OmegaGpuCmdList *cl, const OmegaGpuBf16Tensor *t, uint32_t xbatch, uint64_t x_va, uint64_t y_va, uint32_t ystride) {
     if (!cl || xbatch == 0) return OMEGA_GPU_BF16_BAD_ARGS;
-    if (xbatch == 1u) return gemv_core(t, NULL, NULL, NULL, NULL, cl, x_va, y_va, 0, 0, 0);
-    return gemv_core(t, NULL, NULL, NULL, NULL, cl, x_va, y_va, 0, xbatch, ystride);
+    if (xbatch == 1u) return gemv_core(t, NULL, NULL, NULL, NULL, cl, x_va, y_va, 0, 0, 0, 0, 0);
+    return gemv_core(t, NULL, NULL, NULL, NULL, cl, x_va, y_va, 0, xbatch, ystride, 0, 0);
+}
+/* MASK form record path (HUM L314 exact head): see the header. Caller holds omega_gpu_session_lock(). */
+int omega_gpu_bf16_gemv_mask_record(OmegaGpuCmdList *cl, const OmegaGpuBf16Tensor *t, uint64_t x_va, uint64_t y_va, uint64_t hi_va, uint64_t tau_va) {
+    if (!cl || !hi_va || !tau_va) return OMEGA_GPU_BF16_BAD_ARGS;
+    return gemv_core(t, NULL, NULL, NULL, NULL, cl, x_va, y_va, 0, 0, 0, hi_va, tau_va);
 }
