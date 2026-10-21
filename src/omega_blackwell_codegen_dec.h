@@ -90,7 +90,8 @@ typedef enum { OMEGA_DEC_AXPY = 1, OMEGA_DEC_RES = 2, OMEGA_DEC_SWIGLU = 3, OMEG
 #define OMEGA_DEC_GA_TAB 0x388u     /* u32 [width] source index within an input row */
 #define OMEGA_DEC_GA_OUT 0x390u
 #define OMEGA_DEC_GA_WORDS 6u
-/* GATE args (out[n] = a[n] * sigmoid(g[n]), n < count; grid ceil(count / 256); out may be a) */
+/* GATE args (out[n] = a[n] * sigmoid(g[n]), n < count; grid ceil(count / 256); out may be a); mode 1 (L369, rows): row ctaid.y,
+ * a and out at + row * width floats, g at + row * stride floats, count per row; every element the one-row arithmetic */
 #define OMEGA_DEC_GT_A 0x380u
 #define OMEGA_DEC_GT_G 0x388u
 #define OMEGA_DEC_GT_OUT 0x390u

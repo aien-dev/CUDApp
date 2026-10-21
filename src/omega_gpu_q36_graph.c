@@ -27,7 +27,7 @@
 /* glue kernels */
 enum { K_NORM, K_ADD, K_CN, K_SW, K_GATHER, K_GATE, K_AM0, K_AM1, K_SW_M1, K_GATHER_M1, K_GATE_M1, K_CN_M3, K_COPY,
        K_NORM_R, K_ADD_R, K_PERM_XQ, K_PERM_O, K_PERM_XO, K_PERM_ACT, K_GROUP, K_XS, K_XB, K_XB_M1,
-       K_CN_R, K_CN_R_M3, K_COUNT }; /* K_NORM_R .. K_GROUP: the batch (v2) kernels; K_XS .. K_XB_M1: the exact head; K_CN_R: COMBINE|NORM of every head in one launch (L356) */
+       K_CN_R, K_CN_R_M3, K_GATE_R, K_COUNT }; /* K_NORM_R .. K_GROUP: the batch (v2) kernels; K_XS .. K_XB_M1: the exact head; K_CN_R: COMBINE|NORM of every head in one launch (L356) */
 #define SEGD_ROWS 2u /* dense segment entries per layer in the batch: mix, o */
 #define COPY_ROW 256u /* K_COPY: GATHER rows of 256 floats through the identity table */
 
@@ -236,6 +236,7 @@ int omega_gpu_q36_graph_create_heads(const OmegaGpuQ36GraphConfig *cfg, uint32_t
         [K_XB_M1] = { .kind = OMEGA_DEC_XBOUND, .mutant = 1 },
         [K_CN_R] = { .kind = OMEGA_DEC_RES, .mode = OMEGA_DEC_RES_COMBINE | OMEGA_DEC_RES_NORM | OMEGA_DEC_RES_ROWS, .groups = NG }, /* stride set below */
         [K_CN_R_M3] = { .kind = OMEGA_DEC_RES, .mode = OMEGA_DEC_RES_COMBINE | OMEGA_DEC_RES_NORM | OMEGA_DEC_RES_ROWS, .groups = NG, .mutant = 3 },
+        [K_GATE_R] = { .kind = OMEGA_DEC_GATE, .mode = 1, .width = OMEGA_GPU_Q36_MIXER_OUT, .stride = OMEGA_GPU_Q36_ATT_MIX }, /* L369 prefill: every token's gate */
     };
     spec[K_PERM_XO].stride = L->lb_stride / 4u;
     spec[K_CN_R].stride = L->lb_stride; spec[K_CN_R_M3].stride = L->lb_stride; /* head h's routing weights: wts_va + h * lb_stride */
@@ -989,7 +990,14 @@ static int pf_record_mixer(OmegaGpuQ36Graph *g, uint32_t head, uint32_t l, uint3
         if (attn_multi && rc == OMEGA_GPU_DGRAPH_OK)  /* every token's attention in one prep + attend pair, bit-identical to the steps */
             rc = after_op(g, OMEGA_GPU_Q36_K_ATTN, omega_gpu_decode_attn256_multi_record(g->cl, g->attn_h[head], ki, pos0, n, aggN, OMEGA_GPU_Q36_ATT_MIX * 4u,
                                                                                          g->cfg.eps, SCALE_2P64, attN, (uint32_t)MOS));
-        for (uint32_t t = 0; t < n && rc == OMEGA_GPU_DGRAPH_OK; t++) {
+        const int gate_rows = attn_multi && g->mutant != 3;  /* every token's gate in one rows launch (the one-row arithmetic per element) */
+        if (gate_rows && rc == OMEGA_GPU_DGRAPH_OK) {
+            uint32_t w2[OMEGA_DEC_GT_WORDS]; memset(w2, 0, sizeof w2);
+            put64(w2, OMEGA_DEC_GT_A, attN); put64(w2, OMEGA_DEC_GT_G, aggN + OMEGA_GPU_Q36_ATT_QKV * 4u); put64(w2, OMEGA_DEC_GT_OUT, attN);
+            w2[(OMEGA_DEC_GT_N - 0x380) / 4] = OMEGA_GPU_Q36_MIXER_OUT;
+            rc = add_glue(g, OMEGA_GPU_Q36_K_GATE, K_GATE_R, OMEGA_GPU_Q36_MIXER_OUT / OMEGA_DEC_THREADS, n, (size_t)OMEGA_GPU_Q36_MIXER_OUT * n, w2, OMEGA_DEC_GT_WORDS);
+        }
+        for (uint32_t t = 0; t < n && rc == OMEGA_GPU_DGRAPH_OK && !gate_rows; t++) {
             const uint64_t agg_t = aggN + (uint64_t)t * OMEGA_GPU_Q36_ATT_MIX * 4u, att_t = attN + t * MOS;
             if (!attn_multi) rc = after_op(g, OMEGA_GPU_Q36_K_ATTN, omega_gpu_decode_attn256_record(g->cl, g->attn_h[head], ki, pos0 + t, agg_t, g->cfg.eps, SCALE_2P64, att_t));
             uint32_t w2[OMEGA_DEC_GT_WORDS]; memset(w2, 0, sizeof w2);

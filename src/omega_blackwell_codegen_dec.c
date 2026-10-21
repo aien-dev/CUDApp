@@ -418,7 +418,12 @@ static int gen_gate(Em *e, const OmegaDecSpec *sp) {
     imadi(e, R(n), R(cx), OMEGA_DEC_THREADS, tid);
     isetp_ge_u32(e, n, lim);
     Region r = region_skip_if_p0(e);
-    imadw(e, aa, n, 4u, pa); imadw(e, ga, n, 4u, pg); imadw(e, oa, n, 4u, pout);
+    if (sp->mode & 1u) {                             /* rows (L369): row ctaid.y; a and out move by width floats a row, g by stride floats */
+        int cy = V(e), ro = V(e); if (e->err) return -1;
+        s2r(e, cy, BW_SR_CTAID_Y);
+        imadi(e, R(ro), R(cy), sp->width, n); imadw(e, aa, ro, 4u, pa); imadw(e, oa, ro, 4u, pout);
+        imadi(e, R(ro), R(cy), sp->stride, n); imadw(e, ga, ro, 4u, pg);
+    } else { imadw(e, aa, n, 4u, pa); imadw(e, ga, n, 4u, pg); imadw(e, oa, n, 4u, pout); }
     ldg(e, BW_IR_LDG_E, av, aa, 0, udesc, 1);
     ldg(e, BW_IR_LDG_E, gv, ga, 0, udesc, 0);
     if (sp->mutant == 1) mov(e, R(t), R(av));
