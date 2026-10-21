@@ -73,6 +73,10 @@ int omega_gpu_bf16_gemv_record(struct OmegaGpuCmdList *cl, const OmegaGpuBf16Ten
 /* ROWS form (sc #642 prefill): `rows` token rows in one launch (grid_y = rows <= 65535); row r reads x_va + r * k f32
  * and writes y_va + r * n f32. Record-only; the kernel (spec.ystride = n) is cached per n like any other shape. */
 int omega_gpu_bf16_gemv_rows_record(struct OmegaGpuCmdList *cl, const OmegaGpuBf16Tensor *t, uint32_t rows, uint64_t x_va, uint64_t y_va);
+/* MASK form (HUM L314 exact two-pass head; omega_blackwell_codegen_bf16.h): record-only, rows 1. Row r with
+ * hi[r] < *tau (hi_va: n f32, tau_va: one f32, both device) gets -inf in y; every other row gets the plain kernel's
+ * bits. Caller holds omega_gpu_session_lock(); the first call compiles into a free cache slot. */
+int omega_gpu_bf16_gemv_mask_record(struct OmegaGpuCmdList *cl, const OmegaGpuBf16Tensor *t, uint64_t x_va, uint64_t y_va, uint64_t hi_va, uint64_t tau_va);
 int omega_gpu_bf16_prepare(uint32_t k);
 const char *omega_gpu_bf16_rc_name(int rc);
 const char *omega_gpu_bf16_last_error(void);
