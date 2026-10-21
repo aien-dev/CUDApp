@@ -1,0 +1,6 @@
+\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b
+[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}
+/home/[A-Za-z0-9._-]+
+/Users/[A-Za-z0-9._-]+
+\b[a-z0-9-]+\.(?:ts\.net|tailnet|lan|local|internal)\b
+\b(?:hs|vpn|hub)\.aienos\.com\b

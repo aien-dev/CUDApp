@@ -4,7 +4,7 @@
 #   test-gpu-engine-compile  header + core compile, enum names, refusals, no-op backend (A2/A3a)
 #   test-gpu-engine          the engine core against a fake backend (every state and failure)
 #   test-gpu-engine-backend-compile  syntax-checks src/omega_blackwell_engine.c (A3b1): -c only, no link, no device
-#   test-gpu-engine-prod-build       production build of build/omegatool at the physics pin: links only, opens no device
+#   test-gpu-engine-prod-build       production build of libomega_gpu.a with the in-repo driver client: links only, opens no device
 #   test-gpu-engine-mutants  removes each protection from src/omega_gpu_engine.c in a scratch
 #                            copy; the host test must fail each one (exit nonzero on a survivor)
 #   test-gpu-engine-sim      (A3b2) the REAL engine core + Blackwell backend + vector wrapper against a simulated driver
@@ -47,14 +47,14 @@ test-gpu-engine-backend-compile: build/omega_blackwell_engine_syntax.o
 
 # Links only, opens no device. Uses the real m16_native and nvrm sources at the physics pin.
 test-gpu-engine-prod-build:
-	$(MAKE) build/omegatool
+	$(MAKE) $(OUT_DIR)/libomega_gpu.a
 
 # A3b2: simulated-driver host test. Links the sources of the Makefile RX_COMPOSE_GPU_SRCS list (plus the
 # three core files the vector builder needs) with tests/fake_m16_native.c in place of the physics
 # m16_native.c and nvrm.c. Opens no device.
 GPU_ENGINE_SIM_SRCS = src/omega_blackwell_submit.c src/omega_blackwell_engine.c src/omega_gpu_engine.c \
 	src/omega_blackwell_matmul.c src/omega_blackwell_codegen.c src/omega_blackwell_encoder.c \
-	src/omega_blackwell_qmd.c src/omega_blackwell_realize.c src/omega_vector.c src/omega_validate.c \
+	src/omega_blackwell_qmd.c src/omega_blackwell_realize.c src/omega_vector.c \
 	src/omega_core.c src/omega_canonical.c src/sha256.c
 
 build/test_omega_blackwell_engine: tests/test_omega_blackwell_engine.c tests/fake_m16_native.c tests/fake_m16_native.h \
