@@ -26,12 +26,15 @@
  *   0x390 y   u64   y rows (f32, n each), row i = sorted row i
  *   0x398 n   u32   output rows per segment (weight rows)
  *   0x39c stride u32 weight rows per warp iteration (grid_x * warps)
+ * A segment with cnt 0 is skipped (its CTAs exit at once): the stroke's expert table has one slot per (head, expert pick) and only
+ * the distinct experts are filled, so grid_y can be the slot count at record time.
  * Grid: grid_x CTAs per segment (each CTA: `warps` weight rows per iteration), grid_y = segments. All warps of a CTA
  * execute the same trip counts (rows past n are clamped to n-1 and not stored; rows past cnt in the last pass read
  * padding and are not stored), so the CTA barriers are uniform.
  *
  * mutant (tests only): 1 drops the block scale (acc += dot), 2 never advances the scale pointer (wrong when KS >= 2),
- * 3 reads the neighbouring row's x (m ^ 1) for every row. Each must be caught.
+ * 3 reads the neighbouring row's x (m ^ 1) for every row, 4 drops the empty-segment guard (a cnt 0 segment then runs 2^32 passes: the
+ * warp simulator's step budget catches it). Each must be caught.
  */
 #include <stdint.h>
 #include "omega_blackwell_codegen.h"
@@ -45,7 +48,10 @@ extern "C" {
 #define OMEGA_GEMM_ARG_Y 0x390u
 #define OMEGA_GEMM_ARG_N 0x398u
 #define OMEGA_GEMM_ARG_STRIDE 0x39cu
+#define OMEGA_GEMM_ARG_XMAP 0x3a0u   /* rowmap: u32 [rows + mt] x' row of sorted row p (padding entries 0) */
+#define OMEGA_GEMM_ARG_YMAP 0x3a8u   /* rowmap: u32 [rows + mt] y row of sorted row p */
 #define OMEGA_GEMM_ARGS_WORDS 8u
+#define OMEGA_GEMM_ARGS_WORDS_MAP 12u
 #define OMEGA_GEMM_SEG_BYTES 32u
 #define OMEGA_GEMM_MAX_SHARED 16384u
 
@@ -55,6 +61,10 @@ typedef struct {
     uint32_t mt;         /* rows per pass: a power of two, mt * 128 * lane_bytes <= 16384 */
     uint32_t warps;      /* warps % lane_bytes == 0, (mt * lane_bytes) % warps == 0, 1 .. 32 (host simulator: build with -DWS_MAX_THREADS=512) */
     int mutant;
+    uint32_t rowmap;     /* 1: x' rows and y rows are addressed through XMAP / YMAP (the decode stroke: N heads' rows grouped by
+                          * expert on the chip; the x' buffer holds one permuted row per head, the outputs land in head order). 0: the
+                          * prefill form, x' row i and y row i are sorted row i. mt <= 4 (registers); the dense trunk of a stroke (one
+                          * segment, the heads' rows in head order) needs no map and runs at mt 8. */
 } OmegaFp8GemmSpec;
 
 int omega_blackwell_codegen_fp8gemm_prog(const OmegaFp8GemmSpec *spec, BlackwellIRProgram *prog);
