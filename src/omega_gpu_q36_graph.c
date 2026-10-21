@@ -482,6 +482,8 @@ int omega_gpu_q36_graph_set_batch(OmegaGpuQ36Graph *g, int on) {
     if (rc == 0) rc = omega_gpu_fp8gemm_prepare_shape(H, R, 0, 1);
     if (rc == 0) rc = omega_gpu_fp8gemm_prepare_shape(EI, R, 0, 1);
     if (rc != 0) return OMEGA_GPU_DGRAPH_CHIP_FAIL;
+    /* lever 2: the router once per layer for every head (record_layer_heads; the ROWS kernel has its own cache slot) */
+    if (g->heads > 1u && omega_gpu_router_prepare_rows(g->cfg.router, H * 4u, g->lo.lb_stride) != OMEGA_GPU_ROUTER_OK) return OMEGA_GPU_DGRAPH_CHIP_FAIL;
     /* lever 1: the bf16 lm_head read once per group of up to OMEGA_BF16_MAX_XBATCH heads (record_final_heads) */
     if (!g->head8) {
         uint32_t n = 0, k = 0; omega_gpu_bf16_tensor_shape(g->cfg.lm_head, &n, &k);
@@ -576,14 +578,12 @@ int omega_gpu_q36_graph_record_layer_heads(OmegaGpuQ36Graph *g, uint32_t l, cons
     }
     if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_gemm(g, OMEGA_GPU_Q36_K_O, g->layer[l].o, N, 1, segd + OMEGA_GEMM_SEG_BYTES, op, oN, 0, 0);
     if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_res_rows(g, K_ADD_R, x0, oN, 0, 0, 1.0f, N);
-    /* the sparse block: N routers into N buffers, GROUP sorts their picks into one segment table, two grouped GEMMs */
+    /* the sparse block: one router launch for the N heads (lever 2: the gate table read once; head h's buffer at rlb + h * lb_stride),
+     * GROUP sorts their picks into one segment table, two grouped GEMMs */
     OmegaGpuRouterDevOut r0; memset(&r0, 0, sizeof r0);
-    for (uint32_t h = 0; h < N && rc == OMEGA_GPU_DGRAPH_OK; h++) {
-        OmegaGpuRouterDevOut r;
-        rc = after_op(g, OMEGA_GPU_Q36_K_ROUTER, omega_gpu_router_record_to(g->cl, g->cfg.router, l, x0 + h * XS, g->cfg.eps, 1, SCALE_2P64,
-                                                                           rlb + (uint64_t)h * L->lb_stride, &r));
-        if (h == 0) r0 = r;
-    }
+    if (rc == OMEGA_GPU_DGRAPH_OK)
+        rc = after_op(g, OMEGA_GPU_Q36_K_ROUTER, omega_gpu_router_record_rows(g->cl, g->cfg.router, l, x0, (uint32_t)XS, g->cfg.eps, 1, SCALE_2P64,
+                                                                             rlb, L->lb_stride, N, &r0));
     uint32_t wg[OMEGA_DEC_GR_WORDS]; memset(wg, 0, sizeof wg);
     put64(wg, OMEGA_DEC_GR_IDS, r0.ids_va); put64(wg, OMEGA_DEC_GR_TGU, r0.tab_gu_va); put64(wg, OMEGA_DEC_GR_TDN, r0.tab_dn_va);
     put64(wg, OMEGA_DEC_GR_SGU, sgu); put64(wg, OMEGA_DEC_GR_SDN, sdn); put64(wg, OMEGA_DEC_GR_XMAP, xmap); put64(wg, OMEGA_DEC_GR_YMAP, ymap);

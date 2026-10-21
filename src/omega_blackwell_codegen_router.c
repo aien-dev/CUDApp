@@ -169,7 +169,9 @@ int omega_blackwell_codegen_router_prog(const OmegaRouterSpec *spec, BlackwellIR
     const uint32_t W = spec->warps, D = spec->depth;
     const int MUT = spec->mutant;
     OmegaRouterSmem L;
-    if ((W != 8 && W != 16 && W != 32) || (D != 1 && D != 2 && D != 4 && D != 8) || MUT < 0 || MUT > 5 || omega_router_smem(spec, &L)) return -1;
+    const uint32_t XST = spec->xstride, LBST = spec->lbstride; /* ROWS form when set */
+    if ((W != 8 && W != 16 && W != 32) || (D != 1 && D != 2 && D != 4 && D != 8) || MUT < 0 || MUT > 6 || omega_router_smem(spec, &L)) return -1;
+    if ((XST != 0) != (LBST != 0) || (XST && (XST < OMEGA_ROUTER_HIDDEN * 4u || (XST & 15u) || (LBST & 15u))) || (MUT == 6 && !XST)) return -1;
     const uint32_t EX = spec->experts ? spec->experts : OMEGA_ROUTER_EXPERTS, SHX = spec->shared, EPL = EX / 32u; /* logits per lane */
     if (MUT == 5 && !SHX) return -1;
     const uint32_t E = 64u / W; /* x values per thread: 8, 4 or 2 */
@@ -184,6 +186,13 @@ int omega_blackwell_codegen_router_prog(const OmegaRouterSpec *spec, BlackwellIR
     if (e->err) return -1;
     ldcu64(e, udesc, 0x358);
     ldc64(e, px, OMEGA_ROUTER_ARG_X); ldc64(e, pgate, OMEGA_ROUTER_ARG_GATE); ldc64(e, pnorm, OMEGA_ROUTER_ARG_NORM); ldc64(e, pxout, OMEGA_ROUTER_ARG_XOUT);
+    if (XST) { /* ROWS form: this CTA's x row and output buffer */
+        int cy = V(e);
+        if (e->err) return -1;
+        s2r(e, cy, BW_SR_CTAID_Y);
+        if (MUT != 6) imadw(e, px, cy, XST, px);
+        imadw(e, pxout, cy, LBST, pxout);
+    }
     ldc32(e, eps, OMEGA_ROUTER_ARG_EPS); ldc32(e, oscale, OMEGA_ROUTER_ARG_OUT_SCALE);
     s2r(e, tid, BW_SR_TID_X);
     movi(e, one, 1); movrz(e, R(zero)); movi(e, c2p23, C_2P23); movi(e, cneg, NEG_BIG);
@@ -367,6 +376,13 @@ int omega_blackwell_codegen_router_prog(const OmegaRouterSpec *spec, BlackwellIR
     ldc64(e, pids, OMEGA_ROUTER_ARG_IDS); ldc64(e, pwts, OMEGA_ROUTER_ARG_WTS);
     ldc64(e, pdgu, OMEGA_ROUTER_ARG_DIR_GU); ldc64(e, pddn, OMEGA_ROUTER_ARG_DIR_DN);
     ldc64(e, ptgu, OMEGA_ROUTER_ARG_TAB_GU); ldc64(e, ptdn, OMEGA_ROUTER_ARG_TAB_DN);
+    if (XST) { /* ROWS form: the outputs of this CTA's row (the directories are shared) */
+        int cy = V(e);
+        if (e->err) return -1;
+        s2r(e, cy, BW_SR_CTAID_Y);
+        imadw(e, pids, cy, LBST, pids); imadw(e, pwts, cy, LBST, pwts);
+        imadw(e, ptgu, cy, LBST, ptgu); imadw(e, ptdn, cy, LBST, ptdn);
+    }
     ldc32(e, ntk, OMEGA_ROUTER_ARG_NORM_TOPK);
     movi(e, sa, L.selv);
     lds128(e, sv0, sa, 0, 1); lds128(e, sv1, sa, 16, 0);
