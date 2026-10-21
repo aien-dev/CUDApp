@@ -20,6 +20,11 @@
  *           attention: the fused q|gate|k|v GEMV row to the attention kernel's permuted q|k|v plus the gate (sc #642;
  *           the permutation crosses the FP8 weights' 128-row scale blocks, so it cannot be folded into the weights).
  *   GATE    out[n] = a[n] * sigmoid(g[n]) for n < count, sigmoid(v) = RCP(1 + EX2(-v * log2 e)): the attention output gate.
+ *   XBOUND  (HUM L314 exact two-pass head) every CTA computes t = sum h^2 + 2^-100 over the 2048 plain hidden values and
+ *           hn = t * RSQ(t) * (1 + 2^-10) >= |h| (the widening covers the f32 sum, RSQ and the products); then row r
+ *           (r = ctaid * 256 + tid < count) writes B = c[r] * hn + |s[r]| * 2^-20 + 2^-100, lo = s + (-B), hi = s + B, so
+ *           lo <= s - c|h| and hi >= s + c|h| exactly despite rounding. No FSUB / FSETP (negation by the sign bit).
+ *           Mutant 1 drops the c[r] * hn term (the bound is then far too small: the identity gate must catch it).
  *   ARGMAX  CTA c reads 2048 values v[c*2048 + 8*tid + j] (and indices, or the identity index), writes the max and the
  *           lowest index holding it to out_v[c], out_i[c]. Two launches give the greedy token of 151936 logits
  *           (75 CTAs, then 1 CTA over the 75 partials padded with -1e30). The lowest-index rule is the host's
@@ -32,7 +37,7 @@
 #include "omega_blackwell_codegen.h"
 #include <stdint.h>
 
-typedef enum { OMEGA_DEC_AXPY = 1, OMEGA_DEC_RES = 2, OMEGA_DEC_SWIGLU = 3, OMEGA_DEC_ARGMAX = 4, OMEGA_DEC_GATHER = 5, OMEGA_DEC_GATE = 6 } OmegaDecKind;
+typedef enum { OMEGA_DEC_AXPY = 1, OMEGA_DEC_RES = 2, OMEGA_DEC_SWIGLU = 3, OMEGA_DEC_ARGMAX = 4, OMEGA_DEC_GATHER = 5, OMEGA_DEC_GATE = 6, OMEGA_DEC_XBOUND = 7 } OmegaDecKind;
 
 #define OMEGA_DEC_RES_ADD 1u
 #define OMEGA_DEC_RES_COMBINE 2u
@@ -81,6 +86,14 @@ typedef enum { OMEGA_DEC_AXPY = 1, OMEGA_DEC_RES = 2, OMEGA_DEC_SWIGLU = 3, OMEG
 #define OMEGA_DEC_GT_OUT 0x390u
 #define OMEGA_DEC_GT_N 0x398u       /* u32 count */
 #define OMEGA_DEC_GT_WORDS 7u
+/* XBOUND args (HUM L314 exact head; lo[r] = s[r] - B[r], hi[r] = s[r] + B[r], r < count; grid ceil(count / 256)) */
+#define OMEGA_DEC_XB_S 0x380u      /* f32 [count] screen logits */
+#define OMEGA_DEC_XB_C 0x388u      /* f32 [count] Row bound coefficients */
+#define OMEGA_DEC_XB_H 0x390u      /* f32 [2048] the plain hidden (the recheck x) */
+#define OMEGA_DEC_XB_LO 0x398u
+#define OMEGA_DEC_XB_HI 0x3a0u
+#define OMEGA_DEC_XB_N 0x3a8u      /* u32 count */
+#define OMEGA_DEC_XB_WORDS 11u
 
 #define OMEGA_DEC_SM_RED 0u         /* 8 per-warp partials */
 #define OMEGA_DEC_SM_RED2 64u
