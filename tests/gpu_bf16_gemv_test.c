@@ -185,7 +185,7 @@ static int sim_multi_point(uint32_t k, uint32_t n, uint32_t T, uint32_t xb, uint
 static int sim_mask_point(uint32_t k, uint32_t n, uint32_t warps, uint32_t depth, uint32_t grid_x, int mutant, uint32_t seed,
                           char *msg, size_t msgn, size_t *bad, size_t *cands) {
     static BlackwellIRProgram prog;
-    OmegaBf16GemvSpec spec = { .k = k, .rows = 1, .warps = warps, .depth = depth, .mutant = mutant, .mask = 1 };
+    OmegaBf16GemvSpec spec = { k, 1, warps, depth, mutant, 0, 0, 1 };
     if (omega_blackwell_codegen_bf16_gemv_prog(&spec, &prog) != 0) { snprintf(msg, msgn, "codegen refused"); return -1; }
     uint16_t *w = aligned_alloc(16, (size_t)n * k * 2); { uint16_t *t = make_w((size_t)n * k, seed); memcpy(w, t, (size_t)n * k * 2); free(t); }
     float *x = aligned_alloc(16, (size_t)k * 4); { float *t = make_x(k, seed + 1); memcpy(x, t, (size_t)k * 4); free(t); }
@@ -246,7 +246,7 @@ static void sim_battery(void) {
         int err = sim_mask_point(2048, 64, 8, 4, 2, 4, 7, msg, sizeof msg, &bad, &c);
         CHECK(!err && bad != 0, "sim MASK mutant 4 must be caught: %s", msg);
         printf("sim MASK mutant 4: %s %s\n", err ? "ERROR" : bad ? "caught" : "NOT CAUGHT", msg);
-        OmegaBf16GemvSpec r2 = { 2048, 2, 8, 4, 0, 0, 1, 0 }, ys = { 2048, 1, 8, 4, 0, 64, 1, 0 }, m4 = { 2048, 1, 8, 4, 4, 0, 0, 0 };
+        OmegaBf16GemvSpec r2 = { 2048, 2, 8, 4, 0, 0, 0, 1 }, ys = { 2048, 1, 8, 4, 0, 64, 0, 1 }, m4 = { 2048, 1, 8, 4, 4, 0, 0, 0 };
         CHECK(omega_bf16_gemv_prog_stats(&r2, NULL, NULL) != 0 && omega_bf16_gemv_prog_stats(&ys, NULL, NULL) != 0 &&
               omega_bf16_gemv_prog_stats(&m4, NULL, NULL) != 0, "MASK refuses rows 2, ystride, and mutant 4 without MASK");
     }

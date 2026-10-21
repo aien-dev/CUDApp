@@ -218,14 +218,13 @@ static int gemv_core(const OmegaGpuBf16Tensor *t, const float *x32, const uint16
     if (xrows && (!rec || xrows > 65535u)) return OMEGA_GPU_BF16_BAD_ARGS; /* the ROWS form is record-only */
     OmegaBf16GemvSpec spec; uint32_t ctas; spec_for(k, &spec, &ctas);
     if (xrows) spec.ystride = n;
+    const int masked = mask_hi != 0;
+    if (masked && (!rec || xrows || xbatch > 1u || !mask_tau)) return OMEGA_GPU_BF16_BAD_ARGS; /* the MASK form is record-only */
+    if (masked) { spec.rows = 1; spec.mask = 1; if (g_mask_mutant) spec.mutant = g_mask_mutant; } /* one row per warp: each row's bits are the plain kernel's */
     if (xbatch > 1u) { /* XBATCH form (record-only): xbatch x rows share every weight read; y row m at y + m * ystride f32 */
         if (!rec || xrows || xbatch > OMEGA_BF16_MAX_XBATCH || ystride < n) return OMEGA_GPU_BF16_BAD_ARGS;
         spec.xbatch = xbatch; spec.ystride = ystride;
     }
-    const int masked = mask_hi != 0;
-    if (masked && xbatch > 1u) return OMEGA_GPU_BF16_BAD_ARGS; /* one form per launch */
-    if (masked && (!rec || xrows || !mask_tau)) return OMEGA_GPU_BF16_BAD_ARGS; /* the MASK form is record-only */
-    if (masked) { spec.rows = 1; spec.mask = 1; if (g_mask_mutant) spec.mutant = g_mask_mutant; } /* one row per warp: each row's bits are the plain kernel's */
     if (n % spec.rows) return OMEGA_GPU_BF16_CODEGEN_FAIL;
     const uint32_t RG = n / spec.rows;
     uint32_t grid_x = (RG + spec.warps - 1) / spec.warps;
@@ -310,14 +309,14 @@ int omega_gpu_bf16_gemv_rows_record(OmegaGpuCmdList *cl, const OmegaGpuBf16Tenso
     return gemv_core(t, NULL, NULL, NULL, NULL, cl, x_va, y_va, rows, 0, 0, 0, 0);
 }
 
+/* MASK form record path (HUM L314 exact head): see the header. Caller holds omega_gpu_session_lock(). */
+int omega_gpu_bf16_gemv_mask_record(OmegaGpuCmdList *cl, const OmegaGpuBf16Tensor *t, uint64_t x_va, uint64_t y_va, uint64_t hi_va, uint64_t tau_va) {
+    if (!cl || !hi_va || !tau_va) return OMEGA_GPU_BF16_BAD_ARGS;
+    return gemv_core(t, NULL, NULL, NULL, NULL, cl, x_va, y_va, 0, 0, 0, hi_va, tau_va);
+}
 /* XBATCH form record path (the lm_head of several conversations in one stroke): see the header. Caller holds the lock. */
 int omega_gpu_bf16_gemv_xbatch_record(OmegaGpuCmdList *cl, const OmegaGpuBf16Tensor *t, uint32_t xbatch, uint64_t x_va, uint64_t y_va, uint32_t ystride) {
     if (!cl || xbatch == 0) return OMEGA_GPU_BF16_BAD_ARGS;
     if (xbatch == 1u) return gemv_core(t, NULL, NULL, NULL, NULL, cl, x_va, y_va, 0, 0, 0, 0, 0);
     return gemv_core(t, NULL, NULL, NULL, NULL, cl, x_va, y_va, 0, xbatch, ystride, 0, 0);
-}
-/* MASK form record path (HUM L314 exact head): see the header. Caller holds omega_gpu_session_lock(). */
-int omega_gpu_bf16_gemv_mask_record(OmegaGpuCmdList *cl, const OmegaGpuBf16Tensor *t, uint64_t x_va, uint64_t y_va, uint64_t hi_va, uint64_t tau_va) {
-    if (!cl || !hi_va || !tau_va) return OMEGA_GPU_BF16_BAD_ARGS;
-    return gemv_core(t, NULL, NULL, NULL, NULL, cl, x_va, y_va, 0, 0, 0, hi_va, tau_va);
 }

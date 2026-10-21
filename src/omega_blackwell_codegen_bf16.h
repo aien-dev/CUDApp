@@ -25,24 +25,23 @@
  * Grid: grid_x CTAs, grid_y = 1. The kernel does not depend on n or the grid: one kernel per (k, rows, warps, depth,
  * mutant) serves every n. ROWS form (spec.ystride != 0, sc #642 prefill): grid_y token rows, row cy reads x + cy * k
  * floats and writes y + cy * ystride floats (the Qwen3.8-27B DeltaNet a|b projection of a prefill chunk).
- * XBATCH form (spec.xbatch 2..4, L312 stroke: the lm_head once for all heads): xbatch x rows (row m at x + m * k floats,
- * all staged in shared memory: k * 4 * xbatch bytes) share every weight read; each (weight row, x row) accumulates in the
- * SAME order as the one-row kernel, so every output row is bit-identical to the one-row GEMV of its own x; y row m
- * goes to y + m * ystride floats (ystride >= n, required). grid_y stays 1.
- *
- * mutant (tests only): 1 pairs the two halves of every word with the wrong x (low half takes the high half's x and
- * back), 2 never advances the x pointer (every step uses step 0's x: wrong whenever KS >= 2), 3 drops the last word
- * of each lane chunk. Each must be caught by the parity test.
- * 4 (XBATCH form only): every x row reads row 0's x (rows 1.. wrong). Must be caught by the xbatch parity test.
  * MASK form (spec.mask = 1, rows 1, one x row; HUM L314 exact two-pass head): before row r's K loop the warp loads
  * hi[r] (f32) and the threshold tau (one f32: the max of the screen's lower bounds, written by ARGMAX); a row with
  * hi[r] < tau stores -inf and skips its K loop, every other row runs the unchanged K loop and reduction, so its y[r]
  * is bit for bit the plain kernel's. No FSETP (never proven on the chip): h = hi + 0, t = tau + 0 (-0 becomes +0),
  * m = FMNMX.MAX(h, t), skip iff (m XOR h) != 0. hi and tau must not be NaN (the screen writes finite values).
  *
+ * XBATCH form (spec.xbatch 2..4, L312 stroke: the lm_head once for all heads): xbatch x rows (row m at x + m * k floats,
+ * all staged in shared memory: k * 4 * xbatch bytes) share every weight read; each (weight row, x row) accumulates in the
+ * SAME order as the one-row kernel, so every output row is bit-identical to the one-row GEMV of its own x; y row m
+ * goes to y + m * ystride floats (ystride >= n, required). grid_y stays 1.
+ * MASK and XBATCH never mix (spec_ok refuses mask with xbatch > 1).
+ *
  * mutant (tests only): 1 pairs the two halves of every word with the wrong x (low half takes the high half's x and
  * back), 2 never advances the x pointer (every step uses step 0's x: wrong whenever KS >= 2), 3 drops the last word
- * of each lane chunk, 4 (MASK only) inverts the skip decision. Each must be caught by the parity test.
+ * of each lane chunk. Each must be caught by the parity test.
+ * 4 (MASK form): inverts the skip decision.
+ * 4 (XBATCH form): every x row reads row 0's x (rows 1.. wrong). Must be caught by the xbatch parity test.
  */
 #include <stdint.h>
 #include "omega_blackwell_codegen.h"

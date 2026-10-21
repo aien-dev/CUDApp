@@ -427,6 +427,82 @@ static int gen_gate(Em *e, const OmegaDecSpec *sp) {
     return e->err;
 }
 
+/* XBOUND mode 1: lo[n] = s[n] * 2^64, n < count (the screen's x' row from the plain hidden: exact, a power of two) */
+static int gen_xscale(Em *e) {
+    int udesc = UV64(e), ps = V64(e), plo = V64(e), lim = V(e), tid = V(e), cx = V(e), n = V(e), sa = V64(e), la = V64(e), v = V(e), cst = V(e);
+    if (e->err) return -1;
+    ldcu64(e, udesc, 0x358);
+    ldc64(e, ps, OMEGA_DEC_XB_S); ldc64(e, plo, OMEGA_DEC_XB_LO); ldc32(e, lim, OMEGA_DEC_XB_N);
+    s2r(e, tid, BW_SR_TID_X); s2r(e, cx, BW_SR_CTAID_X);
+    imadi(e, R(n), R(cx), OMEGA_DEC_THREADS, tid);
+    isetp_ge_u32(e, n, lim);
+    Region r = region_skip_if_p0(e);
+    imadw(e, sa, n, 4u, ps); imadw(e, la, n, 4u, plo);
+    ldg(e, BW_IR_LDG_E, v, sa, 0, udesc, 1);
+    movi(e, cst, 0x5F800000u); /* 2^64 */
+    fmul(e, R(v), R(v), R(cst));
+    stg(e, la, R(v), udesc);
+    region_end(e, r);
+    tail(e);
+    return e->err;
+}
+
+static int gen_xbound(Em *e, const OmegaDecSpec *sp) {
+    if (sp->mode > 1 || sp->mutant < 0 || sp->mutant > 1 || (sp->mode == 1 && sp->mutant)) return -1;
+    if (sp->mode == 1) return gen_xscale(e);
+    int udesc = UV64(e), ps = V64(e), pc = V64(e), ph = V64(e), plo = V64(e), phi = V64(e), lim = V(e);
+    int tid = V(e), cx = V(e), warp = V(e), lane = V(e), one = V(e), t = V(e), a0 = V(e), acc = V(e), tot = V(e), r = V(e);
+    int hn = V(e), cst = V(e), n = V(e), ha = V64(e), sa = V64(e), ca = V64(e), la = V64(e), hia = V64(e);
+    int sv = V(e), cv = V(e), b = V(e), ab = V(e), lo = V(e), hi = V(e), hq[2];
+    if (new_quads(e, hq, 2)) return -1;
+    ldcu64(e, udesc, 0x358);
+    ldc64(e, ps, OMEGA_DEC_XB_S); ldc64(e, pc, OMEGA_DEC_XB_C); ldc64(e, ph, OMEGA_DEC_XB_H);
+    ldc64(e, plo, OMEGA_DEC_XB_LO); ldc64(e, phi, OMEGA_DEC_XB_HI); ldc32(e, lim, OMEGA_DEC_XB_N);
+    s2r(e, tid, BW_SR_TID_X); s2r(e, cx, BW_SR_CTAID_X);
+    movi(e, one, 1);
+    shr(e, warp, tid, 5);
+    andi(e, R(lane), R(tid), 31u);
+    /* |h|: 8 values per thread, warp sums, the 8 warp partials in shared memory */
+    imadw(e, ha, tid, 32u, ph);
+    ldg_quads(e, hq, 2, ha, 0, udesc);
+    movrz(e, R(acc));
+    for (unsigned i = 0; i < 8; i++) ffma(e, R(acc), S(hq[i / 4], i % 4), S(hq[i / 4], i % 4), R(acc));
+    warp_sum(e, acc, t);
+    imadi(e, R(a0), R(warp), 4u, NOREG);
+    lane0_sts(e, lane, one, a0, R(acc));
+    bar_sync(e);
+    cta_reduce8(e, tot, OMEGA_DEC_SM_RED, 0, a0);
+    movi(e, cst, 0x0D800000u); /* 2^-100: t > 0, so RSQ(t) is finite */
+    fadd(e, R(tot), R(tot), R(cst));
+    mufu(e, BW_IR_MUFU_RSQ, R(r), R(tot));
+    fmul(e, R(hn), R(tot), R(r));
+    movi(e, cst, 0x3F802000u); /* 1 + 2^-10 */
+    fmul(e, R(hn), R(hn), R(cst));
+    /* this thread's row */
+    imadi(e, R(n), R(cx), OMEGA_DEC_THREADS, tid);
+    isetp_ge_u32(e, n, lim);
+    Region rg = region_skip_if_p0(e);
+    imadw(e, sa, n, 4u, ps); imadw(e, ca, n, 4u, pc); imadw(e, la, n, 4u, plo); imadw(e, hia, n, 4u, phi);
+    ldg(e, BW_IR_LDG_E, sv, sa, 0, udesc, 1);
+    ldg(e, BW_IR_LDG_E, cv, ca, 0, udesc, 0);
+    if (sp->mutant == 1) movrz(e, R(b));
+    else fmul(e, R(b), R(cv), R(hn));
+    andi(e, R(ab), R(sv), 0x7fffffffu);
+    movi(e, cst, 0x35800000u); /* 2^-20 */
+    ffma(e, R(b), R(ab), R(cst), R(b));
+    movi(e, cst, 0x0D800000u); /* 2^-100 */
+    fadd(e, R(b), R(b), R(cst));
+    fadd(e, R(hi), R(sv), R(b));
+    movi(e, cst, 0x80000000u);
+    xorr(e, R(b), R(b), R(cst));
+    fadd(e, R(lo), R(sv), R(b));
+    stg(e, la, R(lo), udesc);
+    stg(e, hia, R(hi), udesc);
+    region_end(e, rg);
+    tail(e);
+    return e->err;
+}
+
 /* ---- GROUP: the stroke's segment table (L312 v2) ---- */
 static void lds32(Em *e, int d, int addr) { BlackwellIRInsn i = I0(BW_IR_LDS32); i.dst_vreg = d; i.src1_vreg = addr; emit(e, i, K_VAR); }
 static void imadr(Em *e, int d, int a, int b, int c) { BlackwellIRInsn i = I0(BW_IR_IMAD); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; i.src3_vreg = c; emit(e, i, K_FIXED); }
@@ -557,82 +633,6 @@ static int gen_group(Em *e, const OmegaDecSpec *sp) {
     imadw(e, oa, tid, 4u, pxm); stg(e, oa, R(zero), udesc);
     imadw(e, oa, tid, 4u, pym); stg(e, oa, R(zero), udesc);
     region_end(e, r5);
-    tail(e);
-    return e->err;
-}
-
-/* XBOUND mode 1: lo[n] = s[n] * 2^64, n < count (the screen's x' row from the plain hidden: exact, a power of two) */
-static int gen_xscale(Em *e) {
-    int udesc = UV64(e), ps = V64(e), plo = V64(e), lim = V(e), tid = V(e), cx = V(e), n = V(e), sa = V64(e), la = V64(e), v = V(e), cst = V(e);
-    if (e->err) return -1;
-    ldcu64(e, udesc, 0x358);
-    ldc64(e, ps, OMEGA_DEC_XB_S); ldc64(e, plo, OMEGA_DEC_XB_LO); ldc32(e, lim, OMEGA_DEC_XB_N);
-    s2r(e, tid, BW_SR_TID_X); s2r(e, cx, BW_SR_CTAID_X);
-    imadi(e, R(n), R(cx), OMEGA_DEC_THREADS, tid);
-    isetp_ge_u32(e, n, lim);
-    Region r = region_skip_if_p0(e);
-    imadw(e, sa, n, 4u, ps); imadw(e, la, n, 4u, plo);
-    ldg(e, BW_IR_LDG_E, v, sa, 0, udesc, 1);
-    movi(e, cst, 0x5F800000u); /* 2^64 */
-    fmul(e, R(v), R(v), R(cst));
-    stg(e, la, R(v), udesc);
-    region_end(e, r);
-    tail(e);
-    return e->err;
-}
-
-static int gen_xbound(Em *e, const OmegaDecSpec *sp) {
-    if (sp->mode > 1 || sp->mutant < 0 || sp->mutant > 1 || (sp->mode == 1 && sp->mutant)) return -1;
-    if (sp->mode == 1) return gen_xscale(e);
-    int udesc = UV64(e), ps = V64(e), pc = V64(e), ph = V64(e), plo = V64(e), phi = V64(e), lim = V(e);
-    int tid = V(e), cx = V(e), warp = V(e), lane = V(e), one = V(e), t = V(e), a0 = V(e), acc = V(e), tot = V(e), r = V(e);
-    int hn = V(e), cst = V(e), n = V(e), ha = V64(e), sa = V64(e), ca = V64(e), la = V64(e), hia = V64(e);
-    int sv = V(e), cv = V(e), b = V(e), ab = V(e), lo = V(e), hi = V(e), hq[2];
-    if (new_quads(e, hq, 2)) return -1;
-    ldcu64(e, udesc, 0x358);
-    ldc64(e, ps, OMEGA_DEC_XB_S); ldc64(e, pc, OMEGA_DEC_XB_C); ldc64(e, ph, OMEGA_DEC_XB_H);
-    ldc64(e, plo, OMEGA_DEC_XB_LO); ldc64(e, phi, OMEGA_DEC_XB_HI); ldc32(e, lim, OMEGA_DEC_XB_N);
-    s2r(e, tid, BW_SR_TID_X); s2r(e, cx, BW_SR_CTAID_X);
-    movi(e, one, 1);
-    shr(e, warp, tid, 5);
-    andi(e, R(lane), R(tid), 31u);
-    /* |h|: 8 values per thread, warp sums, the 8 warp partials in shared memory */
-    imadw(e, ha, tid, 32u, ph);
-    ldg_quads(e, hq, 2, ha, 0, udesc);
-    movrz(e, R(acc));
-    for (unsigned i = 0; i < 8; i++) ffma(e, R(acc), S(hq[i / 4], i % 4), S(hq[i / 4], i % 4), R(acc));
-    warp_sum(e, acc, t);
-    imadi(e, R(a0), R(warp), 4u, NOREG);
-    lane0_sts(e, lane, one, a0, R(acc));
-    bar_sync(e);
-    cta_reduce8(e, tot, OMEGA_DEC_SM_RED, 0, a0);
-    movi(e, cst, 0x0D800000u); /* 2^-100: t > 0, so RSQ(t) is finite */
-    fadd(e, R(tot), R(tot), R(cst));
-    mufu(e, BW_IR_MUFU_RSQ, R(r), R(tot));
-    fmul(e, R(hn), R(tot), R(r));
-    movi(e, cst, 0x3F802000u); /* 1 + 2^-10 */
-    fmul(e, R(hn), R(hn), R(cst));
-    /* this thread's row */
-    imadi(e, R(n), R(cx), OMEGA_DEC_THREADS, tid);
-    isetp_ge_u32(e, n, lim);
-    Region rg = region_skip_if_p0(e);
-    imadw(e, sa, n, 4u, ps); imadw(e, ca, n, 4u, pc); imadw(e, la, n, 4u, plo); imadw(e, hia, n, 4u, phi);
-    ldg(e, BW_IR_LDG_E, sv, sa, 0, udesc, 1);
-    ldg(e, BW_IR_LDG_E, cv, ca, 0, udesc, 0);
-    if (sp->mutant == 1) movrz(e, R(b));
-    else fmul(e, R(b), R(cv), R(hn));
-    andi(e, R(ab), R(sv), 0x7fffffffu);
-    movi(e, cst, 0x35800000u); /* 2^-20 */
-    ffma(e, R(b), R(ab), R(cst), R(b));
-    movi(e, cst, 0x0D800000u); /* 2^-100 */
-    fadd(e, R(b), R(b), R(cst));
-    fadd(e, R(hi), R(sv), R(b));
-    movi(e, cst, 0x80000000u);
-    xorr(e, R(b), R(b), R(cst));
-    fadd(e, R(lo), R(sv), R(b));
-    stg(e, la, R(lo), udesc);
-    stg(e, hia, R(hi), udesc);
-    region_end(e, rg);
     tail(e);
     return e->err;
 }

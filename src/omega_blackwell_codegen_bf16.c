@@ -131,14 +131,14 @@ static int spec_ok(const OmegaBf16GemvSpec *s) {
     if (s->k > 512u * s->warps) return 0; /* at most 16 staging rounds */
     uint32_t ks = s->k / 256u;
     if (s->depth == 0 || s->depth > 16 || ks % s->depth || s->rows * s->depth > 16u) return 0;
+    if (s->mask > 1) return 0;
+    if (s->mask && (s->rows != 1 || s->ystride || s->xbatch > 1)) return 0; /* MASK form: one row per warp, one x row */
     const uint32_t xb = s->xbatch ? s->xbatch : 1u;
     if (xb > OMEGA_BF16_MAX_XBATCH) return 0;
     if (xb > 1u && (s->ystride == 0 || s->rows * xb > 16u || (uint64_t)xb * s->k * 4u > OMEGA_BW_QMD_MAX_SHARED_BYTES)) return 0;
     if (xb > 1u && ((uint64_t)xb * s->k > 512u * s->warps || (uint64_t)(xb - 1u) * s->ystride * 4u >= (1ull << 31))) return 0; /* 16 staging rounds; y row offsets as immediates */
-    if (s->mask > 1) return 0;
-    if (s->mask && (s->rows != 1 || s->ystride || xb > 1u)) return 0; /* MASK form: one row per warp, one x row */
-    /* mutant 4: the XBATCH form's x row 0 for every row, or the MASK form's inverted skip */
-    if (s->mutant < 0 || s->mutant > 4 || (s->mutant == 4 && xb < 2u && !s->mask)) return 0;
+    /* mutant 4: MASK inverts the skip, XBATCH reads row 0's x for every row (the forms never mix) */
+    if (s->mutant < 0 || s->mutant > 4 || (s->mutant == 4 && !s->mask && xb < 2u)) return 0;
     if (s->ystride > (1u << 28)) return 0; /* ystride * 4 fits the 32-bit IMAD.WIDE immediate */
     if ((uint64_t)(s->rows - 1) * s->k * 2u + 512u * s->depth >= (1u << 23)) return 0; /* 24-bit signed LDG immediate */
     return 1;

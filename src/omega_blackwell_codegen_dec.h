@@ -20,13 +20,6 @@
  *           attention: the fused q|gate|k|v GEMV row to the attention kernel's permuted q|k|v plus the gate (sc #642;
  *           the permutation crosses the FP8 weights' 128-row scale blocks, so it cannot be folded into the weights).
  *   GATE    out[n] = a[n] * sigmoid(g[n]) for n < count, sigmoid(v) = RCP(1 + EX2(-v * log2 e)): the attention output gate.
- *   GROUP   (L312 v2, the stroke) one CTA turns the expert picks of N conversations into one grouped-GEMM segment table.
- *           Row t = h * S + j (head h, slot j; S = spec.groups slots per head, 9 for the 35B) carries expert id
- *           IDS[h * STRIDE + j * 4]. Rows are sorted by (id, t): sorted row p of row t is its rank. XMAP[p] = h (the x'
- *           row the gate|up GEMM reads), YMAP[p] = t (its y row, head order). Distinct ids in ascending order get
- *           segments s = 0, 1, ...: SEG_GU[s] = {TGU[h][j].w_va, .s_va, row0 = rank of its first row, cnt}, SEG_DN[s]
- *           the same from TDN; segments D..R-1 (D distinct of R = N * S rows) are written as zeros (cnt 0: the GEMM
- *           CTA leaves); map entries R..R+7 are 0 (the GEMM's padding rows). N * S <= 128, N = HEADS at run time.
  *   XBOUND  (HUM L314 exact two-pass head) every CTA computes t = sum h^2 + 2^-100 over the 2048 plain hidden values and
  *           hn = t * RSQ(t) * (1 + 2^-10) >= |h| (the widening covers the f32 sum, RSQ and the products); then row r
  *           (r = ctaid * 256 + tid < count) writes B = c[r] * hn + |s[r]| * 2^-20 + 2^-100, lo = s + (-B), hi = s + B, so
@@ -34,6 +27,13 @@
  *           Mutant 1 drops the c[r] * hn term (the bound is then far too small: the identity gate must catch it).
  *           Mode 1 (SCALE): lo[n] = s[n] * 2^64, n < count, grid ceil(count / 256): the FP8 screen's x' row made from the
  *           plain hidden, exactly h * 2^64, so the screen and the recheck see the same h.
+ *   GROUP   (L312 v2, the stroke) one CTA turns the expert picks of N conversations into one grouped-GEMM segment table.
+ *           Row t = h * S + j (head h, slot j; S = spec.groups slots per head, 9 for the 35B) carries expert id
+ *           IDS[h * STRIDE + j * 4]. Rows are sorted by (id, t): sorted row p of row t is its rank. XMAP[p] = h (the x'
+ *           row the gate|up GEMM reads), YMAP[p] = t (its y row, head order). Distinct ids in ascending order get
+ *           segments s = 0, 1, ...: SEG_GU[s] = {TGU[h][j].w_va, .s_va, row0 = rank of its first row, cnt}, SEG_DN[s]
+ *           the same from TDN; segments D..R-1 (D distinct of R = N * S rows) are written as zeros (cnt 0: the GEMM
+ *           CTA leaves); map entries R..R+7 are 0 (the GEMM's padding rows). N * S <= 128, N = HEADS at run time.
  *   ARGMAX  CTA c reads 2048 values v[c*2048 + 8*tid + j] (and indices, or the identity index), writes the max and the
  *           lowest index holding it to out_v[c], out_i[c]. Two launches give the greedy token of 151936 logits
  *           (75 CTAs, then 1 CTA over the 75 partials padded with -1e30). The lowest-index rule is the host's
@@ -46,8 +46,7 @@
 #include "omega_blackwell_codegen.h"
 #include <stdint.h>
 
-typedef enum { OMEGA_DEC_AXPY = 1, OMEGA_DEC_RES = 2, OMEGA_DEC_SWIGLU = 3, OMEGA_DEC_ARGMAX = 4, OMEGA_DEC_GATHER = 5, OMEGA_DEC_GATE = 6, OMEGA_DEC_GROUP = 7,
-               OMEGA_DEC_XBOUND = 8 } OmegaDecKind;
+typedef enum { OMEGA_DEC_AXPY = 1, OMEGA_DEC_RES = 2, OMEGA_DEC_SWIGLU = 3, OMEGA_DEC_ARGMAX = 4, OMEGA_DEC_GATHER = 5, OMEGA_DEC_GATE = 6, OMEGA_DEC_GROUP = 7, OMEGA_DEC_XBOUND = 8 } OmegaDecKind;
 
 #define OMEGA_DEC_RES_ADD 1u
 #define OMEGA_DEC_RES_COMBINE 2u
@@ -96,6 +95,14 @@ typedef enum { OMEGA_DEC_AXPY = 1, OMEGA_DEC_RES = 2, OMEGA_DEC_SWIGLU = 3, OMEG
 #define OMEGA_DEC_GT_OUT 0x390u
 #define OMEGA_DEC_GT_N 0x398u       /* u32 count */
 #define OMEGA_DEC_GT_WORDS 7u
+/* XBOUND args (HUM L314 exact head; lo[r] = s[r] - B[r], hi[r] = s[r] + B[r], r < count; grid ceil(count / 256)) */
+#define OMEGA_DEC_XB_S 0x380u      /* f32 [count] screen logits */
+#define OMEGA_DEC_XB_C 0x388u      /* f32 [count] Row bound coefficients */
+#define OMEGA_DEC_XB_H 0x390u      /* f32 [2048] the plain hidden (the recheck x) */
+#define OMEGA_DEC_XB_LO 0x398u
+#define OMEGA_DEC_XB_HI 0x3a0u
+#define OMEGA_DEC_XB_N 0x3a8u      /* u32 count */
+#define OMEGA_DEC_XB_WORDS 11u
 /* GROUP args (one CTA of 256 threads; shared: ids at 0, first-of-id flags at 512) */
 #define OMEGA_DEC_GR_IDS 0x380u     /* u32 [S] of head 0; head h at + h * STRIDE */
 #define OMEGA_DEC_GR_TGU 0x388u     /* {w_va, s_va} [S] of head 0 (gate|up directory entries), head h at + h * STRIDE */
@@ -111,14 +118,6 @@ typedef enum { OMEGA_DEC_AXPY = 1, OMEGA_DEC_RES = 2, OMEGA_DEC_SWIGLU = 3, OMEG
 #define OMEGA_DEC_GR_MAX_ROWS 128u
 #define OMEGA_DEC_GR_SHARED_BYTES 1024u
 #define OMEGA_DEC_GR_SEG_BYTES 32u
-/* XBOUND args (HUM L314 exact head; lo[r] = s[r] - B[r], hi[r] = s[r] + B[r], r < count; grid ceil(count / 256)) */
-#define OMEGA_DEC_XB_S 0x380u      /* f32 [count] screen logits */
-#define OMEGA_DEC_XB_C 0x388u      /* f32 [count] Row bound coefficients */
-#define OMEGA_DEC_XB_H 0x390u      /* f32 [2048] the plain hidden (the recheck x) */
-#define OMEGA_DEC_XB_LO 0x398u
-#define OMEGA_DEC_XB_HI 0x3a0u
-#define OMEGA_DEC_XB_N 0x3a8u      /* u32 count */
-#define OMEGA_DEC_XB_WORDS 11u
 
 #define OMEGA_DEC_SM_RED 0u         /* 8 per-warp partials */
 #define OMEGA_DEC_SM_RED2 64u
