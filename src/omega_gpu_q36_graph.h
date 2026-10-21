@@ -119,6 +119,19 @@ enum { OMEGA_GPU_Q36_BUF_X, OMEGA_GPU_Q36_BUF_XQ, OMEGA_GPU_Q36_BUF_MIX, OMEGA_G
        OMEGA_GPU_Q36_BUF_ATT, OMEGA_GPU_Q36_BUF_O, OMEGA_GPU_Q36_BUF_GU, OMEGA_GPU_Q36_BUF_ACT, OMEGA_GPU_Q36_BUF_HIDDEN,
        OMEGA_GPU_Q36_BUF_DN, OMEGA_GPU_Q36_BUF_COUNT };
 int omega_gpu_q36_graph_read_buf(OmegaGpuQ36Graph *g, int which, float *out, uint32_t n);
+/* Prefill (L369): a prompt chunk of n tokens (embeddings x_embed f32 [n][2048]) of the conversation in head slot `head` at
+ * positions pos0 .. pos0 + n - 1, as if each token went through token() in turn: every step uses the decode step's kernels
+ * (the dense trunk and the experts through the fp8 gemm record path, bit-identical to the GEMV per row; a|b and the router
+ * in their ROWS forms; the GDN step and the attention launched per token in order on the head's own state). Per layer two
+ * lists: the mixers and the router, then (after a host sort of the expert picks) the experts and COMBINE|NORM. want_token:
+ * the last token's head and argmax as record_head_final (token, read_head(head) as after a token). prefill_alloc(cap)
+ * sizes the buffers for chunks of up to cap tokens (1 .. OMEGA_GPU_Q36_PREFILL_MAX_ROWS; nothing shrinks).
+ * TEST ONLY: AIEN_OMEGA_Q36_PF_MUTANT=1 swaps the last two tokens' GDN steps, 2 drops one row of every expert segment. */
+#define OMEGA_GPU_Q36_PREFILL_MAX_ROWS 112u /* x 9 expert rows <= the fp8 gemm's 1024 */
+int omega_gpu_q36_graph_prefill_alloc(OmegaGpuQ36Graph *g, uint32_t cap);
+uint32_t omega_gpu_q36_graph_prefill_cap(const OmegaGpuQ36Graph *g);
+int omega_gpu_q36_graph_prefill(OmegaGpuQ36Graph *g, uint32_t head, const float *x_embed, uint32_t n, uint32_t pos0, int want_token,
+                                uint32_t *token, OmegaGpuDecodeGraphStats *st);
 /* The gather table (u32 [9216]): agg[n] = mix[tab[n]]. */
 void omega_q36_gather_table(uint32_t *tab);
 /* the FP8 GEMM's x' lane permutation as a GATHER table (k a multiple of 512) */
