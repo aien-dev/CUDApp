@@ -80,6 +80,7 @@ struct OmegaGpuQ36Graph {
     struct { uint32_t cap; OmegaGpuMem hb, db; size_t x, rlb, sgu, sdn, sgu2, sdn2, xmap, ymap, xmap2, ymap2;
              size_t xq, xp, mixN, abN, aggN, attN, op, oN, xp2, guN, actN, actp, dnN; int mutant;
              uint64_t streamed; /* fp8 GEMM weight bytes every prefill call so far streamed (one pass per mt rows) */
+             int attn_multi; /* 1 (default): each attention layer in one prep + attend launch pair; AIEN_OMEGA_Q36_PF_ATTN=0: one decode step per token */
              int gdn_multi; /* 1 (default): the GDN layers in one multi-token launch; AIEN_OMEGA_Q36_PF_GDN=0: one decode step per token */ } pf;
     int stamps;
     uint32_t n_kind, tagged_in_list, n_stamp;
@@ -904,6 +905,11 @@ int omega_gpu_q36_graph_prefill_alloc(OmegaGpuQ36Graph *g, uint32_t cap) {
     g->pf.gdn_multi = !(gm && gm[0] == '0' && gm[1] == 0);
     for (uint32_t h = 0; h < g->heads && g->pf.gdn_multi; h++)
         if (g->gdn_h[h] && omega_gpu_gdn_multi_prepare(g->gdn_h[h]) != OMEGA_GPU_GDN_OK) return OMEGA_GPU_DGRAPH_CHIP_FAIL;
+    const char *am = getenv("AIEN_OMEGA_Q36_PF_ATTN");
+    g->pf.attn_multi = !(am && am[0] == '0' && am[1] == 0);
+    for (uint32_t h = 0; h < g->heads && g->pf.attn_multi; h++)
+        if (g->attn_h[h] && omega_gpu_decode_attn256_multi_prepare(g->attn_h[h]) != OMEGA_GPU_DATTN_OK) return OMEGA_GPU_DGRAPH_CHIP_FAIL;
+    omega_gpu_decode_attn256_test_set_multi_mutant(g->pf.mutant == 6 ? 1 : 0); /* TEST mutant 6: the attention prep launch dropped */
     g->pf.cap = cap;
     return OMEGA_GPU_DGRAPH_OK;
 }
@@ -957,9 +963,13 @@ static int pf_record_mixer(OmegaGpuQ36Graph *g, uint32_t head, uint32_t l, uint3
         if (rc == OMEGA_GPU_DGRAPH_OK)
             rc = add_glue(g, OMEGA_GPU_Q36_K_GATHER, g->mutant == 2 ? K_GATHER_M1 : K_GATHER, (OMEGA_GPU_Q36_ATT_MIX + OMEGA_DEC_THREADS - 1) / OMEGA_DEC_THREADS, n,
                           (size_t)OMEGA_GPU_Q36_ATT_MIX * n, w, OMEGA_DEC_GA_WORDS);
+        const int attn_multi = g->pf.attn_multi;
+        if (attn_multi && rc == OMEGA_GPU_DGRAPH_OK)  /* every token's attention in one prep + attend pair, bit-identical to the steps */
+            rc = after_op(g, OMEGA_GPU_Q36_K_ATTN, omega_gpu_decode_attn256_multi_record(g->cl, g->attn_h[head], ki, pos0, n, aggN, OMEGA_GPU_Q36_ATT_MIX * 4u,
+                                                                                         g->cfg.eps, SCALE_2P64, attN, (uint32_t)MOS));
         for (uint32_t t = 0; t < n && rc == OMEGA_GPU_DGRAPH_OK; t++) {
             const uint64_t agg_t = aggN + (uint64_t)t * OMEGA_GPU_Q36_ATT_MIX * 4u, att_t = attN + t * MOS;
-            rc = after_op(g, OMEGA_GPU_Q36_K_ATTN, omega_gpu_decode_attn256_record(g->cl, g->attn_h[head], ki, pos0 + t, agg_t, g->cfg.eps, SCALE_2P64, att_t));
+            if (!attn_multi) rc = after_op(g, OMEGA_GPU_Q36_K_ATTN, omega_gpu_decode_attn256_record(g->cl, g->attn_h[head], ki, pos0 + t, agg_t, g->cfg.eps, SCALE_2P64, att_t));
             uint32_t w2[OMEGA_DEC_GT_WORDS]; memset(w2, 0, sizeof w2);
             put64(w2, OMEGA_DEC_GT_A, att_t); put64(w2, OMEGA_DEC_GT_G, agg_t + OMEGA_GPU_Q36_ATT_QKV * 4u); put64(w2, OMEGA_DEC_GT_OUT, att_t);
             w2[(OMEGA_DEC_GT_N - 0x380) / 4] = OMEGA_GPU_Q36_MIXER_OUT;

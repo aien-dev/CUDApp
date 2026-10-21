@@ -81,6 +81,15 @@ int omega_gpu_decode_attn256_record(struct OmegaGpuCmdList *cl, OmegaGpuDecodeAt
                                     float eps, float out_scale, uint64_t out_va);
 /* Caller holds the lock, after the list ran: OK when the four split counters are zero, else CHIP_FAIL. */
 int omega_gpu_decode_attn256_counters_check(OmegaGpuDecodeAttn256Cache *c);
+/* L369 multi-token prompt attention: tokens prompt tokens of one conversation at positions pos0 .. pos0 + tokens - 1 (qkv rows
+ * xstride bytes apart, outputs ostride bytes apart), every output bit-identical to `tokens` decode records in order. Records
+ * one prep launch (every token's K/V rows, the decode step's own instructions) and the attend launches (grid (splits, n * vy),
+ * groups of n tokens whose partials fit a shared 64 MiB buffer). per_split must be the default 256. multi_prepare builds the
+ * two kernels and the buffer (call before recording, outside the record lock). TEST: set_multi_mutant(1) drops the prep launch. */
+int omega_gpu_decode_attn256_multi_prepare(OmegaGpuDecodeAttn256Cache *c);
+int omega_gpu_decode_attn256_multi_record(struct OmegaGpuCmdList *cl, OmegaGpuDecodeAttn256Cache *c, uint32_t layer, uint32_t pos0, uint32_t tokens,
+                                          uint64_t qkv_va, uint32_t xstride, float eps, float out_scale, uint64_t out_va, uint32_t ostride);
+void omega_gpu_decode_attn256_test_set_multi_mutant(int mutant);
 int omega_gpu_decode_attn256_cache_write(OmegaGpuDecodeAttn256Cache *c, uint32_t layer, uint32_t kv_head, uint32_t pos, uint32_t count,
                                          const uint16_t *k_bf16, const uint16_t *v_bf16); /* count rows from pos, one sync */
 int omega_gpu_decode_attn256_cache_read(OmegaGpuDecodeAttn256Cache *c, uint32_t layer, uint32_t kv_head, uint32_t pos,
