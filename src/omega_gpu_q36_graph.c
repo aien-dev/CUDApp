@@ -928,7 +928,10 @@ static int pf_record_mixer(OmegaGpuQ36Graph *g, uint32_t head, uint32_t l, uint3
             uint64_t mo = 0;
             rc = after_op(g, OMEGA_GPU_Q36_K_GDN, omega_gpu_gdn_record(g->cl, g->gdn_h[head], ki, mix_t, mix_t + OMEGA_GPU_Q36_GDN_QKV * 4u,
                                                                      abN + (uint64_t)t * OMEGA_GPU_Q36_AB * 4u, g->cfg.eps_l2, g->cfg.eps, 1.0f, SCALE_2P64, &mo));
-            if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_perm(g, K_PERM_O, mo, pt4096, op + t * MOS, OMEGA_GPU_Q36_MIXER_OUT, 1);
+            /* TEST mutant 3: the copy out of the GDN launch buffer deferred past the next token's step (the buffer is the
+             * state object's own, one per conversation: every row would read a later token's output) */
+            if (rc == OMEGA_GPU_DGRAPH_OK && !(g->pf.mutant == 3 && t + 1 < n)) rc = rec_perm(g, K_PERM_O, mo, pt4096, op + t * MOS, OMEGA_GPU_Q36_MIXER_OUT, 1);
+            if (rc == OMEGA_GPU_DGRAPH_OK && g->pf.mutant == 3 && t > 0) rc = rec_perm(g, K_PERM_O, mo, pt4096, op + (t - 1) * MOS, OMEGA_GPU_Q36_MIXER_OUT, 1);
         }
     } else {
         if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_gemm(g, OMEGA_GPU_Q36_K_MIX, g->layer[l].mix, n, 1, segd, xp, mixN, 0, 0);
