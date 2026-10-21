@@ -78,7 +78,8 @@ struct OmegaGpuQ36Graph {
     int batch;                           /* 1: stroke() records every conversation of a layer at once (v2); set_batch */
     /* the prefill (L369): one conversation's prompt chunk as rows through the batch's GEMMs; GDN and attention per token in order */
     struct { uint32_t cap; OmegaGpuMem hb, db; size_t x, rlb, sgu, sdn, sgu2, sdn2, xmap, ymap, xmap2, ymap2;
-             size_t xq, xp, mixN, abN, aggN, attN, op, oN, xp2, guN, actN, actp, dnN; int mutant; } pf;
+             size_t xq, xp, mixN, abN, aggN, attN, op, oN, xp2, guN, actN, actp, dnN; int mutant;
+             uint64_t streamed; /* fp8 GEMM weight bytes every prefill call so far streamed (one pass per mt rows) */ } pf;
     int stamps;
     uint32_t n_kind, tagged_in_list, n_stamp;
     uint8_t kind[OMEGA_GPU_CMDLIST_MAX_LAUNCHES];
@@ -856,6 +857,7 @@ const char *omega_gpu_q36_graph_kind_name(uint8_t kind) {
  * and the attention launched once per token, in token order, on the conversation's own state at pos0 + t. The expert rows are
  * grouped on the host between two lists per layer (the GROUP kernel holds 128 rows; a chunk holds up to 128 x 8). */
 #define PF_PAD 8u
+#define PF_EXPERT_BYTES ((uint64_t)3u * EI * H) /* one expert's e4m3 gate|up (2 x EI x H) and down (H x EI) */
 static int pf_fail(OmegaGpuQ36Graph *g, const char *what) { return fail(g, what, OMEGA_GPU_DGRAPH_BAD_ARGS); }
 
 int omega_gpu_q36_graph_prefill_alloc(OmegaGpuQ36Graph *g, uint32_t cap) {
@@ -901,6 +903,7 @@ int omega_gpu_q36_graph_prefill_alloc(OmegaGpuQ36Graph *g, uint32_t cap) {
     return OMEGA_GPU_DGRAPH_OK;
 }
 uint32_t omega_gpu_q36_graph_prefill_cap(const OmegaGpuQ36Graph *g) { return g ? g->pf.cap : 0; }
+uint64_t omega_gpu_q36_graph_prefill_streamed(const OmegaGpuQ36Graph *g) { return g ? g->pf.streamed : 0; }
 
 static uint64_t pf_h(const OmegaGpuQ36Graph *g, size_t off) { return g->pf.hb.va + off; }
 static void *pf_hc(const OmegaGpuQ36Graph *g, size_t off) { return (uint8_t *)g->pf.hb.cpu + off; }
@@ -985,6 +988,7 @@ static uint32_t pf_group(OmegaGpuQ36Graph *g, uint32_t l, uint32_t n, uint32_t i
         (void)omega_gpu_fp8_tensor_entry(g->layer[l].dn, e, &sd[segs].w_va, &sd[segs].s_va);
         sg[segs].row0 = sd[segs].row0 = row; sg[segs].cnt = sd[segs].cnt = cnt[e];
         if (g->pf.mutant == 2 && cnt[e] > 1u) { sg[segs].cnt--; sd[segs].cnt--; } /* TEST mutant 2: every segment one row short */
+        g->pf.streamed += (uint64_t)((cnt[e] + 3u) / 4u) * PF_EXPERT_BYTES; /* gate|up and down, 4 rows per pass */
         row += cnt[e]; segs++;
     }
     uint32_t *xm = pf_hc(g, g->pf.xmap), *ym = pf_hc(g, g->pf.ymap);
@@ -998,6 +1002,7 @@ static uint32_t pf_group(OmegaGpuQ36Graph *g, uint32_t l, uint32_t n, uint32_t i
     (void)omega_gpu_fp8_tensor_entry(g->layer[l].gu, 256u, &g2->w_va, &g2->s_va); /* expert 256 = the shared expert */
     (void)omega_gpu_fp8_tensor_entry(g->layer[l].dn, 256u, &d2->w_va, &d2->s_va);
     g2->cnt = d2->cnt = n;
+    g->pf.streamed += (uint64_t)((n + 3u) / 4u) * PF_EXPERT_BYTES;
     uint32_t *xm2 = pf_hc(g, g->pf.xmap2), *ym2 = pf_hc(g, g->pf.ymap2);
     for (uint32_t t = 0; t < n; t++) { xm2[t] = t; ym2[t] = t * NG + S; }
     for (uint32_t p = n; p < n + PF_PAD; p++) { xm2[p] = 0; ym2[p] = 0; }
@@ -1067,6 +1072,8 @@ int omega_gpu_q36_graph_prefill(OmegaGpuQ36Graph *g, uint32_t head, const float 
         if (rc == OMEGA_GPU_DGRAPH_OK && omega_gpu_session_sync_to_cpu(&g->pf.hb) != 0) rc = fail(g, NULL, OMEGA_GPU_DGRAPH_CHIP_FAIL);
         uint32_t segs = 0;
         if (rc == OMEGA_GPU_DGRAPH_OK) {
+            /* the dense trunk: mix (or q|k|v) and o, 8 rows per pass */
+            g->pf.streamed += (uint64_t)((n + 7u) / 8u) * H * ((g->layer[l].attn ? OMEGA_GPU_Q36_ATT_MIX : OMEGA_GPU_Q36_GDN_MIX) + OMEGA_GPU_Q36_MIXER_OUT);
             segs = pf_group(g, l, n, ids_off);
             if (segs == 0 || segs > 256u) rc = pf_fail(g, "q36 prefill: router picks out of range");
         }

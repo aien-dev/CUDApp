@@ -148,6 +148,10 @@ int omega_gpu_q36_graph_read_buf(OmegaGpuQ36Graph *g, int which, float *out, uin
 #define OMEGA_GPU_Q36_PREFILL_MAX_ROWS 128u /* x 8 routed expert rows <= the fp8 gemm's 1024 (the shared expert is its own GEMM) */
 int omega_gpu_q36_graph_prefill_alloc(OmegaGpuQ36Graph *g, uint32_t cap);
 uint32_t omega_gpu_q36_graph_prefill_cap(const OmegaGpuQ36Graph *g);
+/* fp8 GEMM weight bytes every prefill call on g so far streamed (a running count: take the difference around a call): every expert once per 4 of its rows, the dense mix/o once per 8
+ * rows (the ceiling receipt: these bytes over the call time against the memory bandwidth). The bf16 a|b, router and head
+ * reads are not counted. */
+uint64_t omega_gpu_q36_graph_prefill_streamed(const OmegaGpuQ36Graph *g);
 int omega_gpu_q36_graph_prefill(OmegaGpuQ36Graph *g, uint32_t head, const float *x_embed, uint32_t n, uint32_t pos0, int want_token,
                                 uint32_t *token, OmegaGpuDecodeGraphStats *st);
 /* The gather table (u32 [9216]): agg[n] = mix[tab[n]]. */
