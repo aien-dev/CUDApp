@@ -60,9 +60,10 @@ extern "C" {
 #define OMEGA_GPU_Q36_MIXER_OUT 4096u    /* GDN 32 x 128 = attention 16 x 256 */
 #define OMEGA_GPU_Q36_ROTARY 64u
 #define OMEGA_GPU_Q36_MAX_LAYERS 64u
-/* Heads per stroke (conversations through one command list): a 40-layer token records up to 11 * 40 + 4 launches, and the
- * list holds OMEGA_GPU_CMDLIST_MAX_LAUNCHES (2048), so four. Beyond four the dense GEMVs must batch (v2), not the list grow. */
-#define OMEGA_GPU_Q36_MAX_HEADS 4u
+/* Heads per stroke (conversations through one command list): a 40-layer token records up to 11 * 40 + 4 = 444 launches,
+ * and the list holds OMEGA_GPU_CMDLIST_MAX_LAUNCHES (4096), so eight (3552; the submit splits a list over the ring as it
+ * needs). v1 reads the weights once per head per stroke; v2 batches the dense GEMVs at M = heads, not the list grows further. */
+#define OMEGA_GPU_Q36_MAX_HEADS 8u
 
 typedef struct {
     uint32_t layers;                    /* 1..64 (a model prefix in tests) */
@@ -115,7 +116,8 @@ int omega_gpu_q36_graph_read_head(OmegaGpuQ36Graph *g, uint32_t head, float *x, 
  * so the greedy token is the plain head's by construction, but the logits read back are -inf off the candidates: use it
  * only for greedy tokens (set_exact_head_on(g, 0) for sampled ones). Copies coef; screen must outlive g. NULL screen
  * removes it. On by default once set. In a stroke every head's final step
- * uses it in turn (one scratch, launches in order); on / off applies to the whole stroke. */
+ * uses it in turn (one scratch, launches in order); on / off applies to the whole stroke. In batch mode (set_batch) the
+ * final is the XBATCH plain head (lm_head once per group of heads) and the exact head is not used. */
 int omega_gpu_q36_graph_set_exact_head(OmegaGpuQ36Graph *g, const OmegaGpuFp8Tensor *screen, const float *coef);
 void omega_gpu_q36_graph_set_exact_head_on(OmegaGpuQ36Graph *g, int on); /* between tokens */
 int omega_gpu_q36_graph_exact_head_active(const OmegaGpuQ36Graph *g);     /* set, on, and no FP8 lm_head */
@@ -133,11 +135,25 @@ enum { OMEGA_GPU_Q36_BUF_X, OMEGA_GPU_Q36_BUF_XQ, OMEGA_GPU_Q36_BUF_MIX, OMEGA_G
 int omega_gpu_q36_graph_read_buf(OmegaGpuQ36Graph *g, int which, float *out, uint32_t n);
 /* The gather table (u32 [9216]): agg[n] = mix[tab[n]]. */
 void omega_q36_gather_table(uint32_t *tab);
+/* the FP8 GEMM's x' lane permutation as a GATHER table (k a multiple of 512) */
+void omega_q36_perm_table(uint32_t *tab, uint32_t k);
+
+/* The batch (v2, L312 "the ignition"): with set_batch(g, 1), stroke() records each layer for every conversation at once:
+ * the dense GEMVs become one grouped GEMM over the N rows (mix, o: one weight read per layer for all N), the expert blocks
+ * one grouped GEMM over the N x 9 rows sorted by expert (GROUP kernel: every expert any conversation picked is read once),
+ * the per-conversation state kernels (GDN, attention, router, COMBINE) stay per head. Values are those of the per-head
+ * stroke (the gate: every head word-identical to its run alone). The final head (lever 1): the bf16 lm_head read once per
+ * group of up to OMEGA_BF16_MAX_XBATCH heads (the XBATCH GEMV form), then the argmax per head; the FP8 head stays per head.
+ * set_batch pins the GEMM and XBATCH kernels (session, once); AIEN_OMEGA_Q36_BATCH=1 at create does the same.
+ * record_layer_heads is the per-layer step stroke() uses. */
+int omega_gpu_q36_graph_set_batch(OmegaGpuQ36Graph *g, int on);
+int omega_gpu_q36_graph_batch(const OmegaGpuQ36Graph *g);
+int omega_gpu_q36_graph_record_layer_heads(OmegaGpuQ36Graph *g, uint32_t layer, const uint32_t *pos);
 
 enum {
     OMEGA_GPU_Q36_K_NORM = 0, OMEGA_GPU_Q36_K_MIX, OMEGA_GPU_Q36_K_AB, OMEGA_GPU_Q36_K_GDN, OMEGA_GPU_Q36_K_GATHER, OMEGA_GPU_Q36_K_ATTN,
     OMEGA_GPU_Q36_K_GATE, OMEGA_GPU_Q36_K_O, OMEGA_GPU_Q36_K_RES, OMEGA_GPU_Q36_K_ROUTER, OMEGA_GPU_Q36_K_GATE_UP, OMEGA_GPU_Q36_K_SWIGLU,
-    OMEGA_GPU_Q36_K_DOWN, OMEGA_GPU_Q36_K_LM_HEAD, OMEGA_GPU_Q36_K_ARGMAX, OMEGA_GPU_Q36_K_COUNT
+    OMEGA_GPU_Q36_K_DOWN, OMEGA_GPU_Q36_K_LM_HEAD, OMEGA_GPU_Q36_K_ARGMAX, OMEGA_GPU_Q36_K_PERM, OMEGA_GPU_Q36_K_GROUP, OMEGA_GPU_Q36_K_COUNT
 };
 void omega_gpu_q36_graph_set_stamps(OmegaGpuQ36Graph *g, int on);
 int omega_gpu_q36_graph_stamps(const OmegaGpuQ36Graph *g, uint64_t *stamps, uint8_t *kinds, uint32_t cap);

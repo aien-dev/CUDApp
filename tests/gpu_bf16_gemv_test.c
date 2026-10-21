@@ -80,17 +80,27 @@ static void host_only(void) {
       free(w); free(x); }
     uint32_t ws[] = { 4, 8, 16, 32 }, rs[] = { 1, 2, 4 };
     for (unsigned i = 0; i < 4; i++) for (unsigned j = 0; j < 3; j++) for (uint32_t d = 1; d <= 8; d *= 2) for (int m = 0; m <= 3; m++) {
-        OmegaBf16GemvSpec s = { 2048, rs[j], ws[i], d, m, 0, 0 };
+        OmegaBf16GemvSpec s = { 2048, rs[j], ws[i], d, m, 0, 0, 0 };
         if (rs[j] * d > 16u) continue;
         uint32_t n = 0, g = 0; int rc = omega_bf16_gemv_prog_stats(&s, &n, &g);
         uint32_t decl = ((g + 1 + 7) / 8) * 8;
         CHECK(rc == 0 && n <= 1024, "codegen k2048 rows %u warps %u depth %u mutant %d: rc %d insns %u gprs %u", rs[j], ws[i], d, m, rc, n, g);
         if (m == 0 && rc == 0 && rs[j] == 1 && d == 8) printf("codegen rows %u warps %2u depth %u: %u instructions, %u registers (declared %u, register file %u of 65536)%s\n", rs[j], ws[i], d, n, g, decl, 32u * ws[i] * decl, 32u * ws[i] * decl <= 65536u ? "" : " DOES NOT FIT");
     }
-    { OmegaBf16GemvSpec s = { 2048, 3, 8, 8, 0, 0, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "rows 3 refused"); }
-    { OmegaBf16GemvSpec s = { 2000, 1, 8, 8, 0, 0, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "k 2000 refused"); }
-    { OmegaBf16GemvSpec s = { 2048, 1, 8, 3, 0, 0, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "depth 3 refused"); }
-    { OmegaBf16GemvSpec s = { 2048, 1, 8, 8, 4, 0, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "mutant 4 refused"); }
+    { OmegaBf16GemvSpec s = { 2048, 3, 8, 8, 0, 0, 0, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "rows 3 refused"); }
+    { OmegaBf16GemvSpec s = { 2000, 1, 8, 8, 0, 0, 0, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "k 2000 refused"); }
+    { OmegaBf16GemvSpec s = { 2048, 1, 8, 3, 0, 0, 0, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "depth 3 refused"); }
+    { OmegaBf16GemvSpec s = { 2048, 1, 8, 8, 4, 0, 0, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "mutant 4 refused"); }
+    { /* the XBATCH form (L312 lever 1): the 35B lm_head shape, 4 x rows per CTA, 32 KiB of shared memory */
+      OmegaBf16GemvSpec s = { 2048, 1, 16, 8, 0, 249856, 4, 0 }; uint32_t ni = 0, gg = 0; int rc = omega_bf16_gemv_prog_stats(&s, &ni, &gg);
+      uint32_t decl = ((gg + 1 + 7) / 8) * 8;
+      CHECK(rc == 0 && omega_bf16_gemv_shared_bytes(&s) == 32768u && 32u * 16u * decl <= 65536u, "codegen XBATCH 4 k 2048 warps 16 depth 8: rc %d insns %u gprs %u shared %u", rc, ni, gg, omega_bf16_gemv_shared_bytes(&s));
+      printf("codegen XBATCH 4 k 2048 warps 16 depth 8: %u instructions, %u registers (declared %u), shared %u bytes\n", ni, gg, decl, omega_bf16_gemv_shared_bytes(&s)); }
+    { OmegaBf16GemvSpec s = { 2048, 1, 16, 8, 0, 249856, 5, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "xbatch 5 refused"); }
+    { OmegaBf16GemvSpec s = { 2048, 1, 16, 8, 0, 0, 2, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "xbatch without ystride refused"); }
+    { OmegaBf16GemvSpec s = { 4096, 1, 16, 16, 0, 249856, 4, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "xbatch 4 x k 4096 (64 KiB shared) refused"); }
+    { OmegaBf16GemvSpec s = { 2048, 1, 8, 8, 0, 249856, 4, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "xbatch 4 x k 2048 at 8 warps (more than 16 staging rounds) refused"); }
+    { OmegaBf16GemvSpec s = { 2048, 1, 16, 8, 4, 249856, 1, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "mutant 4 at xbatch 1 refused"); }
     CHECK(OMEGA_BF16_ARGS_WORDS <= OMEGA_GPU_SESSION_MAX_ARGS, "argument words fit the constant bank window");
     uint16_t bad[256]; memset(bad, 0, sizeof bad); bad[7] = 0x7f80;
     OmegaGpuBf16Tensor *t = NULL;
@@ -102,7 +112,7 @@ static void host_only(void) {
 static uint64_t g_sim_issues;
 static int sim_point(uint32_t k, uint32_t n, uint32_t rows, uint32_t warps, uint32_t depth, uint32_t grid_x, int mutant, uint32_t seed, char *msg, size_t msgn, size_t *bad) {
     static BlackwellIRProgram prog;
-    OmegaBf16GemvSpec spec = { k, rows, warps, depth, mutant, 0, 0 };
+    OmegaBf16GemvSpec spec = { k, rows, warps, depth, mutant, 0, 0, 0 };
     if (omega_blackwell_codegen_bf16_gemv_prog(&spec, &prog) != 0) { snprintf(msg, msgn, "codegen refused"); return -1; }
     uint16_t *w = aligned_alloc(16, (size_t)n * k * 2); { uint16_t *t = make_w((size_t)n * k, seed); memcpy(w, t, (size_t)n * k * 2); free(t); }
     float *x = aligned_alloc(16, (size_t)k * 4); { float *t = make_x(k, seed + 1); memcpy(x, t, (size_t)k * 4); free(t); }
@@ -133,12 +143,13 @@ static int sim_point(uint32_t k, uint32_t n, uint32_t rows, uint32_t warps, uint
     free(ycopy); free(w); free(x); free(y); free(smem);
     return err;
 }
-/* ROWS form (spec.ystride, sc #642 prefill): grid_y = T token rows; row r reads x + r * k and writes y + r * ystride.
+/* ROWS form (spec.ystride, sc #642 prefill; xb 0): grid_y = T token rows; row r reads x + r * k and writes y + r * ystride.
+ * XBATCH form (spec.xbatch = xb = T, L312 lever 1): one CTA row stages all T x rows and every weight read feeds them all.
  * Each row must equal the one-row emulation of its own x, and the ystride - n gap after every row stays untouched. */
-static int sim_rows_point(uint32_t k, uint32_t n, uint32_t T, uint32_t ystride, uint32_t grid_x, uint32_t seed, char *msg, size_t msgn, size_t *bad) {
+static int sim_multi_point(uint32_t k, uint32_t n, uint32_t T, uint32_t xb, uint32_t ystride, uint32_t grid_x, int mutant, uint32_t seed, char *msg, size_t msgn, size_t *bad) {
     static BlackwellIRProgram prog;
-    const uint32_t rows = 1, warps = 8, depth = 4; /* the host simulator runs up to 8 warps, so k <= 4096 here */
-    OmegaBf16GemvSpec spec = { k, rows, warps, depth, 0, ystride, 0 };
+    const uint32_t rows = 1, warps = 8, depth = 4; /* the host simulator runs up to 8 warps, so k (xb * k for XBATCH) <= 4096 here */
+    OmegaBf16GemvSpec spec = { k, rows, warps, depth, mutant, ystride, xb, 0 };
     if (omega_blackwell_codegen_bf16_gemv_prog(&spec, &prog) != 0) { snprintf(msg, msgn, "codegen refused"); return -1; }
     uint16_t *w = aligned_alloc(16, (size_t)n * k * 2); { uint16_t *t = make_w((size_t)n * k, seed); memcpy(w, t, (size_t)n * k * 2); free(t); }
     float *x = aligned_alloc(16, (size_t)T * k * 4);
@@ -156,7 +167,7 @@ static int sim_rows_point(uint32_t k, uint32_t n, uint32_t T, uint32_t ystride, 
     s.ranges[0].lo = (uintptr_t)w; s.ranges[0].hi = (uintptr_t)w + (size_t)n * k * 2;
     s.ranges[1].lo = (uintptr_t)x; s.ranges[1].hi = (uintptr_t)x + (size_t)T * k * 4;
     s.ranges[2].lo = (uintptr_t)y; s.ranges[2].hi = (uintptr_t)y + ywords * 4;
-    int err = ws_run(&s, grid_x, T);
+    int err = ws_run(&s, grid_x, xb > 1u ? 1u : T);
     if (err) snprintf(msg, msgn, "%s (pc %d)", s.msg, s.err_pc);
     *bad = 0;
     size_t gap_written = 0;
@@ -174,7 +185,7 @@ static int sim_rows_point(uint32_t k, uint32_t n, uint32_t T, uint32_t ystride, 
 static int sim_mask_point(uint32_t k, uint32_t n, uint32_t warps, uint32_t depth, uint32_t grid_x, int mutant, uint32_t seed,
                           char *msg, size_t msgn, size_t *bad, size_t *cands) {
     static BlackwellIRProgram prog;
-    OmegaBf16GemvSpec spec = { k, 1, warps, depth, mutant, 0, 1 };
+    OmegaBf16GemvSpec spec = { k, 1, warps, depth, mutant, 0, 0, 1 };
     if (omega_blackwell_codegen_bf16_gemv_prog(&spec, &prog) != 0) { snprintf(msg, msgn, "codegen refused"); return -1; }
     uint16_t *w = aligned_alloc(16, (size_t)n * k * 2); { uint16_t *t = make_w((size_t)n * k, seed); memcpy(w, t, (size_t)n * k * 2); free(t); }
     float *x = aligned_alloc(16, (size_t)k * 4); { float *t = make_x(k, seed + 1); memcpy(x, t, (size_t)k * 4); free(t); }
@@ -235,7 +246,7 @@ static void sim_battery(void) {
         int err = sim_mask_point(2048, 64, 8, 4, 2, 4, 7, msg, sizeof msg, &bad, &c);
         CHECK(!err && bad != 0, "sim MASK mutant 4 must be caught: %s", msg);
         printf("sim MASK mutant 4: %s %s\n", err ? "ERROR" : bad ? "caught" : "NOT CAUGHT", msg);
-        OmegaBf16GemvSpec r2 = { 2048, 2, 8, 4, 0, 0, 1 }, ys = { 2048, 1, 8, 4, 0, 64, 1 }, m4 = { 2048, 1, 8, 4, 4, 0, 0 };
+        OmegaBf16GemvSpec r2 = { 2048, 2, 8, 4, 0, 0, 0, 1 }, ys = { 2048, 1, 8, 4, 0, 64, 0, 1 }, m4 = { 2048, 1, 8, 4, 4, 0, 0, 0 };
         CHECK(omega_bf16_gemv_prog_stats(&r2, NULL, NULL) != 0 && omega_bf16_gemv_prog_stats(&ys, NULL, NULL) != 0 &&
               omega_bf16_gemv_prog_stats(&m4, NULL, NULL) != 0, "MASK refuses rows 2, ystride, and mutant 4 without MASK");
     }
@@ -243,10 +254,23 @@ static void sim_battery(void) {
         static const struct { uint32_t k, n, T, ystride, grid; } rp[] = { { 2048, 96, 3, 100, 2 }, { 4096, 96, 4, 96, 3 } };
         for (size_t i = 0; i < sizeof rp / sizeof rp[0]; i++) {
             char msg[300]; size_t bad = 1;
-            int err = sim_rows_point(rp[i].k, rp[i].n, rp[i].T, rp[i].ystride, rp[i].grid, 91 + (uint32_t)i, msg, sizeof msg, &bad);
+            int err = sim_multi_point(rp[i].k, rp[i].n, rp[i].T, 0, rp[i].ystride, rp[i].grid, 0, 91 + (uint32_t)i, msg, sizeof msg, &bad);
             CHECK(!err && bad == 0, "sim ROWS k %u n %u T %u ystride %u: %s", rp[i].k, rp[i].n, rp[i].T, rp[i].ystride, msg);
             printf("sim ROWS k %u n %u T %u ystride %u: %s %s\n", rp[i].k, rp[i].n, rp[i].T, rp[i].ystride, err ? "ERROR" : bad ? "MISMATCH" : "ok", msg);
         }
+    }
+    { /* XBATCH form: every weight read feeds xb x rows; mutant 4 (every row reads x row 0) must be caught */
+        struct { uint32_t k, n, xb, ystride, grid; } xp[] = { { 1024, 96, 2, 100, 2 }, { 1024, 96, 4, 96, 3 }, { 2048, 64, 2, 70, 2 }, { 1024, 40, 3, 50, 2 } };
+        for (size_t i = 0; i < sizeof xp / sizeof xp[0]; i++) {
+            char msg[300]; size_t bad = 1;
+            int err = sim_multi_point(xp[i].k, xp[i].n, xp[i].xb, xp[i].xb, xp[i].ystride, xp[i].grid, 0, 61 + (uint32_t)i, msg, sizeof msg, &bad);
+            CHECK(!err && bad == 0, "sim XBATCH k %u n %u xb %u ystride %u: %s", xp[i].k, xp[i].n, xp[i].xb, xp[i].ystride, msg);
+            printf("sim XBATCH k %u n %u xb %u ystride %u: %s %s\n", xp[i].k, xp[i].n, xp[i].xb, xp[i].ystride, err ? "ERROR" : bad ? "MISMATCH" : "ok", msg);
+        }
+        char msg[300]; size_t bad = 0;
+        int err = sim_multi_point(1024, 64, 2, 2, 64, 2, 4, 79, msg, sizeof msg, &bad);
+        CHECK(!err && bad != 0, "sim XBATCH mutant 4 must be caught: %s", msg);
+        printf("sim XBATCH mutant 4: %s %s\n", err ? "ERROR" : bad ? "caught" : "NOT CAUGHT", msg);
     }
     struct { uint32_t k, n, rows, warps, depth, grid; } pts[] = {
         { 2048, 100, 1, 8, 8, 2 }, { 2048, 100, 1, 8, 4, 3 }, { 2048, 64, 1, 8, 1, 2 }, { 2048, 96, 2, 8, 4, 2 }, { 2048, 96, 4, 8, 4, 1 },

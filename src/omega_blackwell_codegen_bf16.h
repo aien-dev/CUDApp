@@ -31,9 +31,17 @@
  * is bit for bit the plain kernel's. No FSETP (never proven on the chip): h = hi + 0, t = tau + 0 (-0 becomes +0),
  * m = FMNMX.MAX(h, t), skip iff (m XOR h) != 0. hi and tau must not be NaN (the screen writes finite values).
  *
+ * XBATCH form (spec.xbatch 2..4, L312 stroke: the lm_head once for all heads): xbatch x rows (row m at x + m * k floats,
+ * all staged in shared memory: k * 4 * xbatch bytes) share every weight read; each (weight row, x row) accumulates in the
+ * SAME order as the one-row kernel, so every output row is bit-identical to the one-row GEMV of its own x; y row m
+ * goes to y + m * ystride floats (ystride >= n, required). grid_y stays 1.
+ * MASK and XBATCH never mix (spec_ok refuses mask with xbatch > 1).
+ *
  * mutant (tests only): 1 pairs the two halves of every word with the wrong x (low half takes the high half's x and
  * back), 2 never advances the x pointer (every step uses step 0's x: wrong whenever KS >= 2), 3 drops the last word
- * of each lane chunk, 4 (MASK only) inverts the skip decision. Each must be caught by the parity test.
+ * of each lane chunk. Each must be caught by the parity test.
+ * 4 (MASK form): inverts the skip decision.
+ * 4 (XBATCH form): every x row reads row 0's x (rows 1.. wrong). Must be caught by the xbatch parity test.
  */
 #include <stdint.h>
 #include "omega_blackwell_codegen.h"
@@ -53,6 +61,7 @@ extern "C" {
 #define OMEGA_BF16_ARG_TAU 0x3a8u  /* MASK form: u64 tau (one f32) */
 #define OMEGA_BF16_MASK_ARGS_WORDS 12u
 #define OMEGA_BF16_STEP_BYTES 512u /* weight bytes per row per K step (32 lanes x 16) */
+#define OMEGA_BF16_MAX_XBATCH 4u    /* x rows per CTA in the XBATCH form (f32 rows staged in shared: 4 x 8 KiB at k 2048) */
 
 typedef struct {
     uint32_t k;      /* multiple of 256 (one step) and of 32 * warps (exact staging rounds), <= OMEGA_BF16_MAX_K */
@@ -62,6 +71,8 @@ typedef struct {
     int mutant;      /* 0 production; 1, 2, 3 as above */
     uint32_t ystride; /* 0: one x row (grid_y 1). Else the ROWS form: token row ctaid.y reads x + cy * k and writes
                        * y + cy * ystride (floats; ystride >= n). The default program is unchanged. */
+    uint32_t xbatch; /* 0 or 1: one x row. 2..OMEGA_BF16_MAX_XBATCH: the XBATCH form (needs ystride >= n): x rows at
+                      * x + m * k floats share every weight read, y row m at y + m * ystride. */
     uint32_t mask;    /* 0: every row. 1: the MASK form (rows 1, ystride 0). The default program is unchanged. */
 } OmegaBf16GemvSpec;
 

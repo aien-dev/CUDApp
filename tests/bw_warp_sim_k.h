@@ -90,6 +90,7 @@ typedef struct {
     WsRange ranges[WS_MAX_RANGES]; int nranges; /* when > 0, every global access must fall in one */
     int order;                /* 0 = lowest pc first, 1 = highest pc first */
     int trace;                /* print every issue of warp 0 of CTA (0,0) */
+    uint64_t step_budget;     /* scheduling steps per warp before "step budget" (0 = 2e9); tests of a dropped loop guard set it low */
     /* results */
     int err; int err_pc; char msg[200];
     uint64_t warp_issues;     /* fragment-instruction issues (the chip's cost unit for divergence) */
@@ -205,7 +206,7 @@ static int ws_run_warp(WsSim *s, WsWarp *w, uint32_t warp, uint32_t cx, uint32_t
     const uint32_t live_all = 0xffffffffu;
     for (uint64_t guard = 0;; guard++) {
         if (s->err) return -1;
-        if (guard > 2000000000ull) { ws_fail(s, WS_E_STEPS, -1, "step budget"); return -1; }
+        if (guard > (s->step_budget ? s->step_budget : 2000000000ull)) { ws_fail(s, WS_E_STEPS, -1, "step budget"); return -1; }
         int fi = ws_pick(s, w);
         if (fi < 0) {
             /* nothing runnable: parked at the CTA barrier, finished, or lanes waiting at a BSYNC

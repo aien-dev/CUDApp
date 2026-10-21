@@ -4,6 +4,7 @@
  * barrier 1, uniform loads scoreboard 2; fixed-latency producers stall 6; ISETP stalls 14 before a predicated branch;
  * loads of one iteration are issued back to back so a warp has all of them in flight at once). */
 #include "omega_blackwell_codegen_bf16.h"
+#include "omega_blackwell_qmd.h" /* OMEGA_BW_QMD_MAX_SHARED_BYTES: the XBATCH x stage must fit the launch descriptor */
 #ifndef OMEGA_GPU_NO_POSIX
 #include <stdlib.h>
 #endif
@@ -131,18 +132,24 @@ static int spec_ok(const OmegaBf16GemvSpec *s) {
     uint32_t ks = s->k / 256u;
     if (s->depth == 0 || s->depth > 16 || ks % s->depth || s->rows * s->depth > 16u) return 0;
     if (s->mask > 1) return 0;
-    if (s->mask && (s->rows != 1 || s->ystride)) return 0; /* MASK form: one row per warp, one x row */
-    if (s->mutant < 0 || s->mutant > (s->mask ? 4 : 3)) return 0;
+    if (s->mask && (s->rows != 1 || s->ystride || s->xbatch > 1)) return 0; /* MASK form: one row per warp, one x row */
+    const uint32_t xb = s->xbatch ? s->xbatch : 1u;
+    if (xb > OMEGA_BF16_MAX_XBATCH) return 0;
+    if (xb > 1u && (s->ystride == 0 || s->rows * xb > 16u || (uint64_t)xb * s->k * 4u > OMEGA_BW_QMD_MAX_SHARED_BYTES)) return 0;
+    if (xb > 1u && ((uint64_t)xb * s->k > 512u * s->warps || (uint64_t)(xb - 1u) * s->ystride * 4u >= (1ull << 31))) return 0; /* 16 staging rounds; y row offsets as immediates */
+    /* mutant 4: MASK inverts the skip, XBATCH reads row 0's x for every row (the forms never mix) */
+    if (s->mutant < 0 || s->mutant > 4 || (s->mutant == 4 && !s->mask && xb < 2u)) return 0;
     if (s->ystride > (1u << 28)) return 0; /* ystride * 4 fits the 32-bit IMAD.WIDE immediate */
     if ((uint64_t)(s->rows - 1) * s->k * 2u + 512u * s->depth >= (1u << 23)) return 0; /* 24-bit signed LDG immediate */
     return 1;
 }
 uint32_t omega_bf16_gemv_steps(const OmegaBf16GemvSpec *spec) { return spec_ok(spec) ? spec->k / 256u : 0; }
-uint32_t omega_bf16_gemv_shared_bytes(const OmegaBf16GemvSpec *spec) { return spec_ok(spec) ? spec->k * 4u : 0u; }
+uint32_t omega_bf16_gemv_shared_bytes(const OmegaBf16GemvSpec *spec) { return spec_ok(spec) ? spec->k * 4u * (spec->xbatch ? spec->xbatch : 1u) : 0u; }
 
 int omega_blackwell_codegen_bf16_gemv_prog(const OmegaBf16GemvSpec *spec, BlackwellIRProgram *prog) {
     if (!spec_ok(spec) || !prog) return -1;
     const uint32_t K = spec->k, R = spec->rows, W = spec->warps, D = spec->depth, KS = K / 256u;
+    const uint32_t XB = spec->xbatch ? spec->xbatch : 1u; /* XBATCH form: x rows per CTA sharing every weight read */
     omega_bw_ir_init(prog);
     Em em; memset(&em, 0, sizeof em); em.p = prog;
     Em *e = &em;
@@ -156,7 +163,7 @@ int omega_blackwell_codegen_bf16_gemv_prog(const OmegaBf16GemvSpec *spec, Blackw
     ldc64(e, pwb, OMEGA_BF16_ARG_W); ldc64(e, px, OMEGA_BF16_ARG_X); ldc64(e, py, OMEGA_BF16_ARG_Y);
     ldc32(e, rgn, OMEGA_BF16_ARG_RG); ldc32(e, stride, OMEGA_BF16_ARG_STRIDE);
     s2r(e, tid, BW_SR_TID_X); s2r(e, cx, BW_SR_CTAID_X);
-    if (spec->ystride) { /* ROWS form: this CTA row's x and y */
+    if (spec->ystride && XB == 1u) { /* ROWS form: this CTA row's x and y */
         int cy = V(e);
         if (e->err) return -1;
         s2r(e, cy, BW_SR_CTAID_Y);
@@ -170,9 +177,9 @@ int omega_blackwell_codegen_bf16_gemv_prog(const OmegaBf16GemvSpec *spec, Blackw
     imadi(e, rg, cx, 0, W, warp);         /* first row group of this warp */
     imadi(e, xl0, lane, 0, 32, NOREG);    /* this lane's x chunk (8 floats) of step 0, shared byte offset */
 
-    /* ---- stage x (k floats) in shared memory: one 32-bit word per thread per round ---- */
+    /* ---- stage x (k floats, XB rows back to back) in shared memory: one 32-bit word per thread per round ---- */
     {
-        const uint32_t rounds = K / (32u * W);
+        const uint32_t rounds = XB * K / (32u * W);
         int pxt = V64(e), sa0 = V(e), sa = V(e), pxs[16], xst[16];
         for (uint32_t j = 0; j < rounds; j++) { pxs[j] = V64(e); xst[j] = V(e); }
         if (e->err) return -1;
@@ -185,9 +192,9 @@ int omega_blackwell_codegen_bf16_gemv_prog(const OmegaBf16GemvSpec *spec, Blackw
     }
 
     int pw = V64(e), pwr = V64(e), xl = V(e), cnt = V(e), pyr = V64(e), pya = V64(e), t = V(e), f = V(e);
-    int acc[4], wq[4][16], xq[2];
-    for (uint32_t r = 0; r < R; r++) { acc[r] = V(e); for (uint32_t s = 0; s < D; s++) wq[r][s] = V128(e); }
-    xq[0] = V128(e); xq[1] = V128(e);
+    int acc[4][4], wq[4][16], xq[4][2];
+    for (uint32_t r = 0; r < R; r++) { for (uint32_t m = 0; m < XB; m++) acc[r][m] = V(e); for (uint32_t s = 0; s < D; s++) wq[r][s] = V128(e); }
+    for (uint32_t m = 0; m < XB; m++) { xq[m][0] = V128(e); xq[m][1] = V128(e); }
     if (e->err) return -1;
     /* ---- MASK form: tau once, normalized (-0 -> +0); -inf for the skipped rows ---- */
     int phi = NOREG, tn = NOREG, zero = NOREG, ninf = NOREG, phr = NOREG, hv = NOREG, mv = NOREG;
@@ -219,7 +226,7 @@ int omega_blackwell_codegen_bf16_gemv_prog(const OmegaBf16GemvSpec *spec, Blackw
     }
     imadw(e, pwr, rg, R * K * 2u, pwb); imadw(e, pw, wlane, 1, pwr);
     imadi(e, xl, xl0, 0, 1, NOREG);
-    for (uint32_t r = 0; r < R; r++) movrz(e, acc[r]);
+    for (uint32_t r = 0; r < R; r++) for (uint32_t m = 0; m < XB; m++) movrz(e, acc[r][m]);
     movi(e, cnt, KS / D);
 
     /* ---- K loop: D steps per iteration, every load issued before any use ---- */
@@ -231,16 +238,19 @@ int omega_blackwell_codegen_bf16_gemv_prog(const OmegaBf16GemvSpec *spec, Blackw
     }
     for (uint32_t s = 0; s < D; s++) {
         const uint32_t xoff = spec->mutant == 2 ? 0u : s * 1024u;
-        lds128(e, xq[0], xl, xoff, 1); lds128(e, xq[1], xl, xoff + 16u, 0);
+        for (uint32_t m = 0; m < XB; m++) { /* x row m of this step (mutant 4: every row reads row 0) */
+            const uint32_t moff = spec->mutant == 4 ? 0u : m * K * 4u;
+            lds128(e, xq[m][0], xl, xoff + moff, m == 0); lds128(e, xq[m][1], xl, xoff + moff + 16u, 0);
+        }
         for (uint32_t r = 0; r < R; r++) {
             const uint32_t words = spec->mutant == 3 ? 3u : 4u;
             for (uint32_t word = 0; word < words; word++) {
-                const int q = xq[word >> 1]; const unsigned sub = (word & 1u) * 2u;
-                /* low half = element 2 word, high half = element 2 word + 1 */
+                const unsigned sub = (word & 1u) * 2u;
+                /* low half = element 2 word, high half = element 2 word + 1; the same FMA order per (r, m) as with one x row */
                 imadi(e, f, wq[r][s], word, 65536u, NOREG);
-                ffma(e, acc[r], f, q, spec->mutant == 1 ? sub + 1u : sub, acc[r]);
+                for (uint32_t m = 0; m < XB; m++) ffma(e, acc[r][m], f, xq[m][word >> 1], spec->mutant == 1 ? sub + 1u : sub, acc[r][m]);
                 andi(e, f, wq[r][s], word, 0xffff0000u);
-                ffma(e, acc[r], f, q, spec->mutant == 1 ? sub : sub + 1u, acc[r]);
+                for (uint32_t m = 0; m < XB; m++) ffma(e, acc[r][m], f, xq[m][word >> 1], spec->mutant == 1 ? sub : sub + 1u, acc[r][m]);
             }
         }
     }
@@ -253,12 +263,14 @@ int omega_blackwell_codegen_bf16_gemv_prog(const OmegaBf16GemvSpec *spec, Blackw
 
     /* ---- warp reduction, lane 0 stores ---- */
     for (uint32_t r = 0; r < R; r++)
-        for (uint32_t o = 16; o >= 1; o /= 2) { shfl_down(e, t, acc[r], o); fadd(e, acc[r], acc[r], t); }
+        for (uint32_t m = 0; m < XB; m++)
+            for (uint32_t o = 16; o >= 1; o /= 2) { shfl_down(e, t, acc[r][m], o); fadd(e, acc[r][m], acc[r][m], t); }
     imadw(e, pyr, rg, R * 4u, py);
     isetp_ge_u32(e, lane, one);
     const int at_bssy = bssy_fwd(e);
     const int bra_skip = bra_if_p0_fwd(e);
-    for (uint32_t r = 0; r < R; r++) { imadw(e, pya, one, r * 4u, pyr); stg(e, pya, 0, acc[r], udesc); }
+    for (uint32_t r = 0; r < R; r++)
+        for (uint32_t m = 0; m < XB; m++) { imadw(e, pya, one, r * 4u + m * spec->ystride * 4u, pyr); stg(e, pya, 0, acc[r][m], udesc); }
     const int at_bsync = here(e);
     bsync(e);
     patch_bra(e, bra_skip, at_bsync);

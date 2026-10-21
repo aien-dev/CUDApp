@@ -57,7 +57,7 @@ int main(void) {
         CHECK(omega_bw_gpr_declared_ok(decl, peak), "bf16 gemv k%u: peak %u declared %u", ks[i], peak, decl); } }
     /* fp8 grouped GEMM (all shapes we launch) */
     { unsigned ks[] = { 2048, 768, 4096 }, mts[] = { 4, 8 }; for (unsigned i = 0; i < 3; i++) for (unsigned j = 0; j < 2; j++) {
-        OmegaFp8GemmSpec s = { ks[i], ks[i] % 512 ? 8u : 16u, mts[j], 16, 0 }; uint32_t peak = 0, decl = 0;
+        OmegaFp8GemmSpec s = { ks[i], ks[i] % 512 ? 8u : 16u, mts[j], 16, 0, 0 }; uint32_t peak = 0, decl = 0;
         CHECK(omega_fp8gemm_prog_stats(&s, NULL, &peak) == 0, "gemm k%u mt%u builds", ks[i], mts[j]); (void)omega_gpu_fp8gemm_kernel_fits(&s, &decl);
         CHECK(omega_bw_gpr_declared_ok(decl, peak), "gemm k%u mt%u: peak %u declared %u", ks[i], mts[j], peak, decl); } }
     /* router and decode attention: the launcher uses omega_bw_gpr_declared(peak) (static), so check the helper on the real peak */

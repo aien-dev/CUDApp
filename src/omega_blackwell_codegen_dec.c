@@ -503,6 +503,140 @@ static int gen_xbound(Em *e, const OmegaDecSpec *sp) {
     return e->err;
 }
 
+/* ---- GROUP: the stroke's segment table (L312 v2) ---- */
+static void lds32(Em *e, int d, int addr) { BlackwellIRInsn i = I0(BW_IR_LDS32); i.dst_vreg = d; i.src1_vreg = addr; emit(e, i, K_VAR); }
+static void imadr(Em *e, int d, int a, int b, int c) { BlackwellIRInsn i = I0(BW_IR_IMAD); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; i.src3_vreg = c; emit(e, i, K_FIXED); }
+/* store v at base64 + off (tmp64 scratch; one = a register holding 1) */
+static void stg_at(Em *e, int tmp64, int one, int base64, uint32_t off, Op v, int udesc) { imadw(e, tmp64, one, off, base64); stg(e, tmp64, v, udesc); }
+/* d = 1 iff a < b (unsigned, both < 2^31): (a - b) >> 31 */
+static void lt_u(Em *e, int d, int a, int b) { imadi(e, R(d), R(b), 0xffffffffu, a); shr(e, d, d, 31); }
+/* d = both: (a + b) >> 1 for 0/1 flags */
+static void and_flag(Em *e, int d, int a, int b) { imadi(e, R(d), R(a), 1u, b); shr(e, d, d, 1); }
+
+/* One CTA. Shared: ids [R] u32 at 0, first-of-id flags [R] at 512 (R <= 128). Every thread runs both counting passes with
+ * the uniform trip count R (no divergence around the barriers); only threads t < R hold a row. Row t = h * S + j. */
+static int gen_group(Em *e, const OmegaDecSpec *sp) {
+    const uint32_t SL = sp->groups ? sp->groups : OMEGA_DEC_TOPK; /* slots per head */
+    if (SL < 1u || SL > 16u || sp->mode || sp->width || sp->stride) return -1;
+    const uint32_t magic = (65536u + SL - 1u) / SL; /* h = (t * magic) >> 16 = t / SL exactly for t < 256 (the error t * (magic * SL - 65536) / 65536 stays below 1 / SL) */
+    if (magic * SL - 65536u >= 256u) return -1;
+    int udesc = UV64(e), pids = V64(e), ptgu = V64(e), ptdn = V64(e), psgu = V64(e), psdn = V64(e), pxm = V64(e), pym = V64(e);
+    int stride = V(e), heads = V(e), tid = V(e), Rr = V(e), one = V(e), zero = V(e), c512 = V(e);
+    int h = V(e), j = V(e), off = V(e), id = V(e), key = V(e), sa = V(e), sa2 = V(e), inr = V(e);
+    int q = V(e), idq = V(e), keyq = V(e), t1 = V(e), t2 = V(e), eq = V(e), p = V(e), cnt = V(e), nb = V(e), first = V(e), fq = V(e), sidx = V(e), D = V(e), fl = V(e);
+    int ia = V64(e), oa = V64(e), ta = V64(e), wv = V64(e), sv = V64(e);
+    if (e->err) return -1;
+    ldcu64(e, udesc, 0x358);
+    ldc64(e, pids, OMEGA_DEC_GR_IDS); ldc64(e, ptgu, OMEGA_DEC_GR_TGU); ldc64(e, ptdn, OMEGA_DEC_GR_TDN);
+    ldc64(e, psgu, OMEGA_DEC_GR_SGU); ldc64(e, psdn, OMEGA_DEC_GR_SDN); ldc64(e, pxm, OMEGA_DEC_GR_XMAP); ldc64(e, pym, OMEGA_DEC_GR_YMAP);
+    ldc32(e, stride, OMEGA_DEC_GR_STRIDE); ldc32(e, heads, OMEGA_DEC_GR_HEADS);
+    s2r(e, tid, BW_SR_TID_X);
+    movi(e, one, 1); movrz(e, R(zero)); movi(e, c512, 512);
+    imadi(e, R(Rr), R(heads), SL, NOREG);                      /* R = N * S rows */
+    lt_u(e, inr, tid, Rr);                                    /* 1 iff this thread holds a row */
+    imadi(e, R(h), R(tid), magic, NOREG); shr(e, h, h, 16);   /* h = t / S */
+    imadi(e, R(j), R(h), 0u - SL, tid);                        /* j = t - h * S */
+    movi(e, id, 0xffffffffu);
+    imadi(e, R(sa), R(tid), 4u, NOREG);
+    /* pass 0 (t < R): id and key; the id to shared */
+    isetp_ge_u32(e, tid, Rr);
+    Region r0 = region_skip_if_p0(e);
+    imadr(e, off, h, stride, NOREG); imadi(e, R(off), R(j), 4u, off);
+    imadw(e, ia, off, 1u, pids);
+    ldg(e, BW_IR_LDG_E, id, ia, 0, udesc, 1);
+    sts32(e, sa, R(id));
+    region_end(e, r0);
+    if (sp->mutant == 1) imadi(e, R(key), R(id), 128u, NOREG); else imadi(e, R(key), R(id), 128u, tid);
+    bar_sync(e);
+    /* pass 1 (all threads, q over the R rows): p = rows with a smaller key; cnt = rows with this id; nb = of those, rows before t */
+    movrz(e, R(p)); movrz(e, R(cnt)); movrz(e, R(nb)); movrz(e, R(q)); movrz(e, R(sa2));
+    const int L1 = here(e);
+    loop_begin(e);
+    isetp_ge_u32(e, q, Rr);
+    const int done1 = bra_if_p0_fwd(e);
+    lds32(e, idq, sa2);
+    imadi(e, R(keyq), R(idq), 128u, q);
+    lt_u(e, t1, keyq, key); imadi(e, R(p), R(t1), 1u, p);
+    lt_u(e, t1, idq, id); lt_u(e, t2, id, idq);
+    imadi(e, R(eq), R(t1), 0xffffffffu, one); imadi(e, R(eq), R(t2), 0xffffffffu, eq); /* eq = 1 - lt - gt */
+    imadi(e, R(cnt), R(eq), 1u, cnt);
+    lt_u(e, t1, q, tid); and_flag(e, t1, t1, eq); imadi(e, R(nb), R(t1), 1u, nb);
+    imadi(e, R(q), R(one), 1u, q); imadi(e, R(sa2), R(one), 4u, sa2);
+    bra(e, L1);
+    loop_end(e);
+    patch_bra(e, done1, here(e));
+    /* first = (nb == 0) and the thread holds a row */
+    imadi(e, R(first), R(one), 0xffffffffu, nb); shr(e, first, first, 31); and_flag(e, first, first, inr);
+    imadi(e, R(sa), R(tid), 4u, c512);
+    isetp_ge_u32(e, tid, Rr);
+    Region r1 = region_skip_if_p0(e);
+    sts32(e, sa, R(first));
+    region_end(e, r1);
+    bar_sync(e);
+    /* pass 2 (all threads): sidx = distinct ids below this one; D = distinct ids */
+    movrz(e, R(sidx)); movrz(e, R(D)); movrz(e, R(q)); movrz(e, R(sa2));
+    const int L2 = here(e);
+    loop_begin(e);
+    isetp_ge_u32(e, q, Rr);
+    const int done2 = bra_if_p0_fwd(e);
+    lds32(e, idq, sa2);
+    imadi(e, R(sa), R(one), 512u, sa2);
+    lds32(e, fq, sa);
+    imadi(e, R(D), R(fq), 1u, D);
+    lt_u(e, t1, idq, id); and_flag(e, t1, t1, fq); imadi(e, R(sidx), R(t1), 1u, sidx);
+    imadi(e, R(q), R(one), 1u, q); imadi(e, R(sa2), R(one), 4u, sa2);
+    bra(e, L2);
+    loop_end(e);
+    patch_bra(e, done2, here(e));
+    /* maps (t < R): XMAP[p] = h, YMAP[p] = t */
+    isetp_ge_u32(e, tid, Rr);
+    Region r2 = region_skip_if_p0(e);
+    imadw(e, oa, p, 4u, pxm); stg(e, oa, R(h), udesc);
+    imadw(e, oa, p, 4u, pym); stg(e, oa, R(tid), udesc);
+    region_end(e, r2);
+    /* segment of a first-of-id row: {w_va, s_va, row0 = p, cnt, 0, 0} from the head's directory entry j */
+    if (sp->mutant == 2) imadi(e, R(cnt), R(one), 0xffffffffu, cnt);
+    isetp_ge_u32(e, zero, first);
+    Region r3 = region_skip_if_p0(e);
+    imadr(e, off, h, stride, NOREG); imadi(e, R(off), R(j), 16u, off);
+    imadw(e, ia, off, 1u, ptgu);
+    ldg(e, BW_IR_LDG_E_64, wv, ia, 0, udesc, 1); ldg(e, BW_IR_LDG_E_64, sv, ia, 8, udesc, 0);
+    imadw(e, oa, sidx, OMEGA_DEC_GR_SEG_BYTES, psgu);
+    stg_at(e, ta, one, oa, 0, S(wv, 0), udesc); stg_at(e, ta, one, oa, 4, S(wv, 1), udesc);
+    stg_at(e, ta, one, oa, 8, S(sv, 0), udesc); stg_at(e, ta, one, oa, 12, S(sv, 1), udesc);
+    stg_at(e, ta, one, oa, 16, R(p), udesc); stg_at(e, ta, one, oa, 20, R(cnt), udesc);
+    stg_at(e, ta, one, oa, 24, R(zero), udesc); stg_at(e, ta, one, oa, 28, R(zero), udesc);
+    imadw(e, ia, off, 1u, ptdn);
+    ldg(e, BW_IR_LDG_E_64, wv, ia, 0, udesc, 1); ldg(e, BW_IR_LDG_E_64, sv, ia, 8, udesc, 0);
+    imadw(e, oa, sidx, OMEGA_DEC_GR_SEG_BYTES, psdn);
+    stg_at(e, ta, one, oa, 0, S(wv, 0), udesc); stg_at(e, ta, one, oa, 4, S(wv, 1), udesc);
+    stg_at(e, ta, one, oa, 8, S(sv, 0), udesc); stg_at(e, ta, one, oa, 12, S(sv, 1), udesc);
+    stg_at(e, ta, one, oa, 16, R(p), udesc); stg_at(e, ta, one, oa, 20, R(cnt), udesc);
+    stg_at(e, ta, one, oa, 24, R(zero), udesc); stg_at(e, ta, one, oa, 28, R(zero), udesc);
+    region_end(e, r3);
+    /* trailing empty segments: D <= t < R write zeros at SEG[t] */
+    if (sp->mutant != 3) {
+        lt_u(e, t1, tid, D); imadi(e, R(t1), R(t1), 0xffffffffu, one); and_flag(e, fl, t1, inr); /* (t >= D) & (t < R) */
+        isetp_ge_u32(e, zero, fl);
+        Region r4 = region_skip_if_p0(e);
+        imadw(e, oa, tid, OMEGA_DEC_GR_SEG_BYTES, psgu);
+        for (uint32_t w = 0; w < OMEGA_DEC_GR_SEG_BYTES; w += 4) stg_at(e, ta, one, oa, w, R(zero), udesc);
+        imadw(e, oa, tid, OMEGA_DEC_GR_SEG_BYTES, psdn);
+        for (uint32_t w = 0; w < OMEGA_DEC_GR_SEG_BYTES; w += 4) stg_at(e, ta, one, oa, w, R(zero), udesc);
+        region_end(e, r4);
+    }
+    /* map padding: R <= t < R + 8 write zeros */
+    imadi(e, R(t2), R(one), OMEGA_DEC_GR_PAD, Rr);
+    lt_u(e, t1, tid, t2); imadi(e, R(t2), R(inr), 0xffffffffu, one); and_flag(e, fl, t1, t2); /* (t < R + 8) & (t >= R) */
+    isetp_ge_u32(e, zero, fl);
+    Region r5 = region_skip_if_p0(e);
+    imadw(e, oa, tid, 4u, pxm); stg(e, oa, R(zero), udesc);
+    imadw(e, oa, tid, 4u, pym); stg(e, oa, R(zero), udesc);
+    region_end(e, r5);
+    tail(e);
+    return e->err;
+}
+
 int omega_blackwell_codegen_dec_prog(const OmegaDecSpec *spec, BlackwellIRProgram *prog) {
     if (!spec || !prog) return -1;
     omega_bw_ir_init(prog);
@@ -515,6 +649,7 @@ int omega_blackwell_codegen_dec_prog(const OmegaDecSpec *spec, BlackwellIRProgra
     case OMEGA_DEC_ARGMAX: rc = gen_argmax(&em, spec); break;
     case OMEGA_DEC_GATHER: rc = gen_gather(&em, spec); break;
     case OMEGA_DEC_GATE: rc = gen_gate(&em, spec); break;
+    case OMEGA_DEC_GROUP: rc = gen_group(&em, spec); break;
     case OMEGA_DEC_XBOUND: rc = gen_xbound(&em, spec); break;
     default: return -1;
     }

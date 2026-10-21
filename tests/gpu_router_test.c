@@ -137,6 +137,19 @@ static void host_only(void) {
     { OmegaRouterSpec s = { .warps = 8, .depth = 8, .mutant = MUT_MAX + 1 SPEC_SHAPE }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "mutant %d refused", MUT_MAX + 1); }
     { OmegaRouterSpec s = { .warps = 8, .depth = 8, .experts = 192 }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "192 experts refused"); }
     { OmegaRouterSpec s = { .warps = 8, .depth = 8, .shared = 2 }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "shared 2 refused"); }
+    /* ROWS form (lever 2) at the production shapes: fits the register file; the strides are checked */
+    for (unsigned i = 0; i < 3; i++) for (unsigned j = 0; j < 4; j++) {
+        OmegaRouterSpec s = { .warps = ws[i], .depth = ds[j], .xstride = 8192, .lbstride = 16896 SPEC_SHAPE }; uint32_t n = 0, g = 0;
+        int rc = omega_router_prog_stats(&s, &n, &g);
+        uint32_t decl = ((g + 1 + 7) / 8) * 8;
+        CHECK(rc == 0 && n <= 1024 && 32u * ws[i] * decl <= 65536u, "codegen ROWS warps %u depth %u: rc %d insns %u gprs %u declared %u", ws[i], ds[j], rc, n, g, decl);
+        if (rc == 0) printf("codegen ROWS warps %2u depth %u: %u instructions, %u registers (declared %u)\n", ws[i], ds[j], n, g, decl);
+    }
+    { OmegaRouterSpec s = { .warps = 8, .depth = 8, .xstride = 8192 SPEC_SHAPE }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "xstride without lbstride refused"); }
+    { OmegaRouterSpec s = { .warps = 8, .depth = 8, .lbstride = 16896 SPEC_SHAPE }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "lbstride without xstride refused"); }
+    { OmegaRouterSpec s = { .warps = 8, .depth = 8, .xstride = 4096, .lbstride = 16896 SPEC_SHAPE }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "xstride below one row refused"); }
+    { OmegaRouterSpec s = { .warps = 8, .depth = 8, .xstride = 8192, .lbstride = 16900 SPEC_SHAPE }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "unaligned lbstride refused"); }
+    { OmegaRouterSpec s = { .warps = 8, .depth = 8, .mutant = 6 SPEC_SHAPE }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "mutant 6 without the ROWS form refused"); }
     CHECK(OMEGA_ROUTER_ARGS_WORDS <= OMEGA_GPU_SESSION_MAX_ARGS, "argument words fit the constant bank window");
 }
 
@@ -189,6 +202,99 @@ static int sim_point(uint32_t depth, int mutant, int norm_topk, float out_scale,
     free(blk); free(gate); case_free(&c);
     return err;
 }
+/* ROWS form (L312 lever 2): one launch of `rows` CTAs routes `rows` residual rows of one layer (one gate, one norm, one
+ * pair of directories); CTA i reads x row i (stride XST_SIM, padded past 8192 so a wrong stride shows) and writes block i
+ * (stride B_BYTES). Every row's outputs must be bit-identical to the plain kernel run on that row alone, and both
+ * fragment orders must agree. Mutant 6 (every CTA reads row 0's x) must be caught. */
+#define XST_SIM (H * 4u + 64u)
+static void sim_args(WsSim *s, BlackwellIRProgram *prog, const OmegaRouterSmem *sm, int order, const uint64_t A[10], int norm_topk, float out_scale) {
+    static uint8_t smem[16384];
+    memset(s, 0, sizeof *s);
+    s->p = prog; s->threads = 256; s->order = order; s->smem = smem; s->smem_bytes = sm->total;
+    for (unsigned i = 0; i < 10; i++) { s->cbank[(0x380 + 8 * i) / 4] = (uint32_t)A[i]; s->cbank[(0x380 + 8 * i) / 4 + 1] = (uint32_t)(A[i] >> 32); }
+    float fe = EPS, fo = out_scale;
+    memcpy(&s->cbank[OMEGA_ROUTER_ARG_EPS / 4], &fe, 4); memcpy(&s->cbank[OMEGA_ROUTER_ARG_OUT_SCALE / 4], &fo, 4);
+    s->cbank[OMEGA_ROUTER_ARG_NORM_TOPK / 4] = norm_topk ? 1u : 0u;
+}
+static void poison_block(uint8_t *b) {
+    float *xo = (float *)(b + B_XOUT), *wd = (float *)(b + B_WTS); uint32_t *idd = (uint32_t *)(b + B_IDS);
+    for (unsigned i = 0; i < H; i++) xo[i] = -999.0f;
+    for (unsigned i = 0; i < TS; i++) { wd[i] = -999.0f; idd[i] = 0xffffffffu; }
+    memset(b + B_TGU, 0, B_DGU - B_TGU);
+}
+static size_t block_out(const uint8_t *b, Out *o) {
+    const float *xo = (const float *)(b + B_XOUT), *wd = (const float *)(b + B_WTS); const uint32_t *idd = (const uint32_t *)(b + B_IDS);
+    size_t unwritten = 0; for (unsigned i = 0; i < H; i++) if (xo[i] == -999.0f) unwritten++;
+    for (unsigned i = 0; i < TS; i++) if (wd[i] == -999.0f || idd[i] == 0xffffffffu) unwritten++;
+    memcpy(o->ids, idd, sizeof o->ids); memcpy(o->w, wd, sizeof o->w); memcpy(o->xout, xo, sizeof o->xout); memcpy(o->tgu, b + B_TGU, TS * 16); memcpy(o->tdn, b + B_TDN, TS * 16);
+    return unwritten;
+}
+static int sim_rows_point(uint32_t depth, int mutant, uint32_t rows, uint32_t seed, char *msg, size_t n, int *bad) {
+    static BlackwellIRProgram prog, plain;
+    OmegaRouterSpec spec = { .warps = 8, .depth = depth, .mutant = mutant, .xstride = XST_SIM, .lbstride = B_BYTES SPEC_SHAPE };
+    OmegaRouterSpec pspec = { .warps = 8, .depth = depth SPEC_SHAPE };
+    OmegaRouterSmem sm;
+    *bad = 0;
+    if (omega_blackwell_codegen_router_prog(&spec, &prog) != 0 || omega_blackwell_codegen_router_prog(&pspec, &plain) != 0 || omega_router_smem(&spec, &sm) != 0) { snprintf(msg, n, "codegen refused"); return -1; }
+    Case *c = calloc(rows, sizeof *c);
+    case_make(&c[0], seed, 1.0f, 1);
+    for (uint32_t i = 1; i < rows; i++) { /* one layer: row 0's gate and norm, row i's own x */
+        c[i] = c[0]; uint32_t s = seed + 1000u * i;
+        for (unsigned k = 0; k < H; k++) c[i].x[k] = frand(&s, -2.0f, 2.0f);
+        oracle_fill(&c[i], 1);
+    }
+    uint8_t *blk = aligned_alloc(16, (size_t)B_BYTES * rows); memset(blk, 0, (size_t)B_BYTES * rows);
+    uint8_t *xs = aligned_alloc(16, (size_t)XST_SIM * rows); memset(xs, 0, (size_t)XST_SIM * rows);
+    uint16_t *gate = aligned_alloc(16, (size_t)NR * H * 2); memcpy(gate, c[0].gate, (size_t)NR * H * 2);
+    for (uint32_t i = 0; i < rows; i++) memcpy(xs + (size_t)i * XST_SIM, c[i].x, sizeof c[i].x);
+    memcpy(blk + B_NORM, c[0].nw, sizeof c[0].nw);
+    uint64_t dgu[NR * 2], ddn[NR * 2]; fake_dirs(dgu, ddn);
+    memcpy(blk + B_DGU, dgu, sizeof dgu); memcpy(blk + B_DDN, ddn, sizeof ddn);
+    Out *o = calloc(rows, sizeof *o), *copy = calloc(rows, sizeof *copy); int err = 0;
+    uint64_t A[10] = { (uintptr_t)xs, (uintptr_t)gate, (uintptr_t)(blk + B_NORM), (uintptr_t)(blk + B_XOUT), (uintptr_t)(blk + B_IDS),
+                       (uintptr_t)(blk + B_WTS), (uintptr_t)(blk + B_DGU), (uintptr_t)(blk + B_DDN), (uintptr_t)(blk + B_TGU), (uintptr_t)(blk + B_TDN) };
+    for (int order = 0; order < 2 && !err; order++) {
+        WsSim s; sim_args(&s, &prog, &sm, order, A, 1, 1.0f);
+        s.nranges = 3;
+        s.ranges[0].lo = (uintptr_t)blk; s.ranges[0].hi = (uintptr_t)blk + (size_t)B_BYTES * rows;
+        s.ranges[1].lo = (uintptr_t)gate; s.ranges[1].hi = (uintptr_t)gate + (size_t)NR * H * 2;
+        s.ranges[2].lo = (uintptr_t)xs; s.ranges[2].hi = (uintptr_t)xs + (size_t)XST_SIM * rows;
+        for (uint32_t i = 0; i < rows; i++) poison_block(blk + (size_t)i * B_BYTES);
+        err = ws_run(&s, 1, rows);
+        if (err) { snprintf(msg, n, "rows order %d: %s (pc %d)", order, s.msg, s.err_pc); break; }
+        g_sim_issues += s.warp_issues;
+        for (uint32_t i = 0; i < rows && !err; i++) {
+            size_t unwritten = block_out(blk + (size_t)i * B_BYTES, &o[i]);
+            if (unwritten) { err = -1; snprintf(msg, n, "row %u: %zu output words never written", i, unwritten); }
+        }
+        if (err) break;
+        if (order == 0) memcpy(copy, o, (size_t)rows * sizeof *o);
+        else if (memcmp(copy, o, (size_t)rows * sizeof *o) != 0) { err = -1; snprintf(msg, n, "the fragment order changed a row"); }
+    }
+    /* every row against the plain kernel on its own x (bit for bit) and against the oracle */
+    uint32_t rows_differ = 0; int worst = 0; char sub[200] = "";
+    for (uint32_t i = 0; i < rows && !err; i++) {
+        A[0] = (uintptr_t)(xs + (size_t)i * XST_SIM);
+        WsSim s; sim_args(&s, &plain, &sm, 0, A, 1, 1.0f);
+        s.nranges = 3;
+        s.ranges[0].lo = (uintptr_t)blk; s.ranges[0].hi = (uintptr_t)blk + B_BYTES;
+        s.ranges[1].lo = (uintptr_t)gate; s.ranges[1].hi = (uintptr_t)gate + (size_t)NR * H * 2;
+        s.ranges[2].lo = (uintptr_t)xs; s.ranges[2].hi = (uintptr_t)xs + (size_t)XST_SIM * rows;
+        poison_block(blk);
+        err = ws_run(&s, 1, 1);
+        if (err) { snprintf(msg, n, "plain row %u: %s (pc %d)", i, s.msg, s.err_pc); break; }
+        Out p; if (block_out(blk, &p)) { err = -1; snprintf(msg, n, "plain row %u: output words never written", i); break; }
+        if (memcmp(&p, &o[i], sizeof p) != 0) rows_differ++;
+        int mc = 0, b = compare(&c[i], &o[i], 1.0f, dgu, ddn, sub, sizeof sub, &mc);
+        if (b) worst |= b;
+    }
+    if (!err) {
+        *bad = worst | (rows_differ ? 16 : 0);
+        snprintf(msg, n, "%u rows: %u differ from the plain kernel, oracle mask %d (last: %s)", rows, rows_differ, worst, sub);
+    }
+    free(blk); free(xs); free(gate); free(o); free(copy); case_free(&c[0]); free(c);
+    return err;
+}
 static void sim_battery(void) {
     struct { uint32_t depth; int norm_topk; float oscale; uint32_t seed; const char *name; } pts[] = {
         { 8, 1, 1.0f, 11, "depth 8 norm" }, { 8, 1, 1.0f, 12, "depth 8 norm seed 12" }, { 8, 0, 1.0f, 13, "depth 8 no-norm" },
@@ -211,6 +317,19 @@ static void sim_battery(void) {
         int err = sim_point(8, m, 1, 1.0f, 21, 1.0f, msg, sizeof msg, &bad, &mc);
         CHECK(!err && bad != 0, "sim mutant %d must be caught: %s", m, msg);
         printf("sim mutant %d: %s (bad mask %d) %s\n", m, err ? "ERROR" : bad ? "caught" : "NOT CAUGHT", bad, msg);
+    }
+    { /* ROWS form (lever 2): rows 2, 3 and 8 bit-identical to the plain kernel per row; mutant 6 caught at rows 2 */
+        struct { uint32_t depth, rows, seed; } rp[] = { { 8, 2, 31 }, { 4, 3, 32 }, { 8, 8, 33 }, { 1, 2, 34 } };
+        for (size_t i = 0; i < sizeof rp / sizeof rp[0]; i++) {
+            char msg[300]; int bad = 0;
+            int err = sim_rows_point(rp[i].depth, 0, rp[i].rows, rp[i].seed, msg, sizeof msg, &bad);
+            CHECK(!err && bad == 0, "sim rows %u depth %u: %s", rp[i].rows, rp[i].depth, msg);
+            printf("sim rows %u depth %u: %s %s\n", rp[i].rows, rp[i].depth, err ? "ERROR" : bad ? "MISMATCH" : "ok", msg);
+        }
+        char msg[300]; int bad = 0;
+        int err = sim_rows_point(8, 6, 2, 35, msg, sizeof msg, &bad);
+        CHECK(!err && bad != 0, "sim rows mutant 6 must be caught: %s", msg);
+        printf("sim rows mutant 6: %s (bad mask %d) %s\n", err ? "ERROR" : bad ? "caught" : "NOT CAUGHT", bad, msg);
     }
     printf("sim: %" PRIu64 " warp issues in total\n", g_sim_issues);
 }
