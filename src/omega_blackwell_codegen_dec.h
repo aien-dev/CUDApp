@@ -25,6 +25,8 @@
  *           (r = ctaid * 256 + tid < count) writes B = c[r] * hn + |s[r]| * 2^-20 + 2^-100, lo = s + (-B), hi = s + B, so
  *           lo <= s - c|h| and hi >= s + c|h| exactly despite rounding. No FSUB / FSETP (negation by the sign bit).
  *           Mutant 1 drops the c[r] * hn term (the bound is then far too small: the identity gate must catch it).
+ *           Mode 1 (SCALE): lo[n] = s[n] * 2^64, n < count, grid ceil(count / 256): the FP8 screen's x' row made from the
+ *           plain hidden, exactly h * 2^64, so the screen and the recheck see the same h.
  *   ARGMAX  CTA c reads 2048 values v[c*2048 + 8*tid + j] (and indices, or the identity index), writes the max and the
  *           lowest index holding it to out_v[c], out_i[c]. Two launches give the greedy token of 151936 logits
  *           (75 CTAs, then 1 CTA over the 75 partials padded with -1e30). The lowest-index rule is the host's

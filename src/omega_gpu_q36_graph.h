@@ -23,6 +23,7 @@
  *                   COMBINE|NORM  x += sum_g wts[g] * dn[g] (9 groups); xq = RMSNorm(x) * in_norm[l + 1] * 2^64, or (last
  *                             layer) hidden = RMSNorm(x) * final_norm
  *   final:          bf16 lm_head  logits = W_lm . hidden;  ARGMAX x2 (122 CTAs over 248320, then 1)
+ *                   (or the exact two-pass head, omega_gpu_q36_graph_set_exact_head: + 5 launches)
  *
  *   Launches: GDN layer 10, attention layer 11, plus 1 + 3.
  * Norm weights are passed already folded to (1 + w) (the model's zero-centred RMSNorm); the post-attention norm lives in the
@@ -86,6 +87,17 @@ int omega_gpu_q36_graph_set_layer(OmegaGpuQ36Graph *g, uint32_t layer, const Ome
 int omega_gpu_q36_graph_set_final_norm(OmegaGpuQ36Graph *g, const float *final_norm); /* f32 [2048] as (1 + w) */
 /* Optional FP8 lm_head: as omega_gpu_q38_graph_set_lm_head_fp8 ([vocab][2048]). */
 int omega_gpu_q36_graph_set_lm_head_fp8(OmegaGpuQ36Graph *g, const OmegaGpuFp8Tensor *head);
+/* HUM L314 exact two-pass head (bf16 lm_head only; ignored while an FP8 lm_head is set). screen: the fp8b copy of lm_head
+ * ([vocab][2048], one bf16 scale per 128 x 128 block); coef: f32 [vocab] Row bound coefficients, c[r] >= |w_r - w~_r| +
+ * gamma(2100)(|w_r| + |w~_r|) (sc exact_head.rs). The final step then records
+ *     XBOUND SCALE h8 = hidden * 2^64;  fp8 screen s = W~ . h8;  XBOUND lo / hi = s -/+ c|hidden|;  ARGMAX x2 tau = max lo;
+ *     bf16 MASK logits = W_lm . hidden where hi >= tau (bit-identical to the plain head), -inf elsewhere;  ARGMAX x2
+ * so the greedy token is the plain head's by construction, but the logits read back are -inf off the candidates: use it
+ * only for greedy tokens (set_exact_head_on(g, 0) for sampled ones). Copies coef; screen must outlive g. NULL screen
+ * removes it. On by default once set. */
+int omega_gpu_q36_graph_set_exact_head(OmegaGpuQ36Graph *g, const OmegaGpuFp8Tensor *screen, const float *coef);
+void omega_gpu_q36_graph_set_exact_head_on(OmegaGpuQ36Graph *g, int on); /* between tokens */
+int omega_gpu_q36_graph_exact_head_active(const OmegaGpuQ36Graph *g);     /* set, on, and no FP8 lm_head */
 /* One whole token: x_embed (f32 [2048]) -> greedy token at position pos. */
 int omega_gpu_q36_graph_token(OmegaGpuQ36Graph *g, const float *x_embed, uint32_t pos, uint32_t *token, OmegaGpuDecodeGraphStats *st);
 int omega_gpu_q36_graph_begin_token(OmegaGpuQ36Graph *g, const float *x_embed);
@@ -110,7 +122,8 @@ void omega_gpu_q36_graph_set_stamps(OmegaGpuQ36Graph *g, int on);
 int omega_gpu_q36_graph_stamps(const OmegaGpuQ36Graph *g, uint64_t *stamps, uint8_t *kinds, uint32_t cap);
 const char *omega_gpu_q36_graph_kind_name(uint8_t kind);
 void omega_gpu_q36_graph_set_flush_each(OmegaGpuQ36Graph *g, int on);
-/* TEST ONLY: 1 SWIGLU up half off by one, 2 GATHER index + 1, 3 GATE dropped, 4 COMBINE skips the shared expert. 0 none. */
+/* TEST ONLY: 1 SWIGLU up half off by one, 2 GATHER index + 1, 3 GATE dropped, 4 COMBINE skips the shared expert,
+ * 5 the exact head's XBOUND drops the c|h| bound (the greedy gate must catch it). 0 none. */
 void omega_gpu_q36_graph_test_set_mutant(OmegaGpuQ36Graph *g, int mutant);
 
 #ifdef __cplusplus

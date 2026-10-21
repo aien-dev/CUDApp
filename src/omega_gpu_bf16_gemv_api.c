@@ -138,8 +138,9 @@ static int kernel_for(const OmegaBf16GemvSpec *spec, Slot **out, bool *hit) {
     return OMEGA_GPU_BF16_OK;
 }
 
-int omega_gpu_bf16_prepare(uint32_t k) {
+static int prepare_spec(uint32_t k, int masked) {
     OmegaBf16GemvSpec spec; uint32_t ctas; spec_for(k, &spec, &ctas);
+    if (masked) { spec.rows = 1; spec.mask = 1; }
     omega_gpu_session_lock();
     int rc = OMEGA_GPU_BF16_OK;
     if (!dev_open_locked()) rc = OMEGA_GPU_BF16_CHIP_FAIL;
@@ -147,6 +148,9 @@ int omega_gpu_bf16_prepare(uint32_t k) {
     omega_gpu_session_unlock();
     return rc;
 }
+int omega_gpu_bf16_prepare(uint32_t k) { return prepare_spec(k, 0); }
+/* the MASK kernel as gemv_core builds it (rows 1, mask 1), pinned: the exact head's record never compiles mid-token */
+int omega_gpu_bf16_prepare_mask(uint32_t k) { return prepare_spec(k, 1); }
 
 void omega_gpu_bf16_tensor_shape(const OmegaGpuBf16Tensor *t, uint32_t *n, uint32_t *k) {
     if (n) *n = t ? t->n : 0;

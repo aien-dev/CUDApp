@@ -427,8 +427,29 @@ static int gen_gate(Em *e, const OmegaDecSpec *sp) {
     return e->err;
 }
 
+/* XBOUND mode 1: lo[n] = s[n] * 2^64, n < count (the screen's x' row from the plain hidden: exact, a power of two) */
+static int gen_xscale(Em *e) {
+    int udesc = UV64(e), ps = V64(e), plo = V64(e), lim = V(e), tid = V(e), cx = V(e), n = V(e), sa = V64(e), la = V64(e), v = V(e), cst = V(e);
+    if (e->err) return -1;
+    ldcu64(e, udesc, 0x358);
+    ldc64(e, ps, OMEGA_DEC_XB_S); ldc64(e, plo, OMEGA_DEC_XB_LO); ldc32(e, lim, OMEGA_DEC_XB_N);
+    s2r(e, tid, BW_SR_TID_X); s2r(e, cx, BW_SR_CTAID_X);
+    imadi(e, R(n), R(cx), OMEGA_DEC_THREADS, tid);
+    isetp_ge_u32(e, n, lim);
+    Region r = region_skip_if_p0(e);
+    imadw(e, sa, n, 4u, ps); imadw(e, la, n, 4u, plo);
+    ldg(e, BW_IR_LDG_E, v, sa, 0, udesc, 1);
+    movi(e, cst, 0x5F800000u); /* 2^64 */
+    fmul(e, R(v), R(v), R(cst));
+    stg(e, la, R(v), udesc);
+    region_end(e, r);
+    tail(e);
+    return e->err;
+}
+
 static int gen_xbound(Em *e, const OmegaDecSpec *sp) {
-    if (sp->mutant < 0 || sp->mutant > 1) return -1;
+    if (sp->mode > 1 || sp->mutant < 0 || sp->mutant > 1 || (sp->mode == 1 && sp->mutant)) return -1;
+    if (sp->mode == 1) return gen_xscale(e);
     int udesc = UV64(e), ps = V64(e), pc = V64(e), ph = V64(e), plo = V64(e), phi = V64(e), lim = V(e);
     int tid = V(e), cx = V(e), warp = V(e), lane = V(e), one = V(e), t = V(e), a0 = V(e), acc = V(e), tot = V(e), r = V(e);
     int hn = V(e), cst = V(e), n = V(e), ha = V64(e), sa = V64(e), ca = V64(e), la = V64(e), hia = V64(e);

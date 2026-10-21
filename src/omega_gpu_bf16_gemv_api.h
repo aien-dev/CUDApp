@@ -78,6 +78,7 @@ int omega_gpu_bf16_gemv_rows_record(struct OmegaGpuCmdList *cl, const OmegaGpuBf
  * bits. Caller holds omega_gpu_session_lock(); the first call compiles into a free cache slot. */
 int omega_gpu_bf16_gemv_mask_record(struct OmegaGpuCmdList *cl, const OmegaGpuBf16Tensor *t, uint64_t x_va, uint64_t y_va, uint64_t hi_va, uint64_t tau_va);
 int omega_gpu_bf16_prepare(uint32_t k);
+int omega_gpu_bf16_prepare_mask(uint32_t k); /* build and pin the MASK kernel for width k (the exact head, serving) */
 const char *omega_gpu_bf16_rc_name(int rc);
 const char *omega_gpu_bf16_last_error(void);
 void omega_gpu_bf16_cache_clear(void);
