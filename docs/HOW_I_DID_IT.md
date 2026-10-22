@@ -58,7 +58,7 @@ From there it is ordinary engineering with one rule: nothing counts until the ch
 - I used no NVIDIA source code other than the open kernel module headers, and no NVIDIA binary. There is no `libcuda`, cubin, PTX or firmware in this repository or its history (`docs/AUDIT.md`).
 - I did not take apart `libcuda`, `nvcc` or any other NVIDIA program. I ran NVIDIA's compiler and disassembler on my own small kernels and read what they printed.
 - I did not touch the GPU's firmware. The GSP firmware is still NVIDIA's, loaded by NVIDIA's kernel module, and stays so: the chip checks its signature.
-- I did not translate CUDA programs to run on other hardware. CUDA++ runs on NVIDIA GPUs, the ones people already paid for.
+- I did not translate CUDA programs onto other chips. Other hardware runs my own code, and only where a receipt exists. Host execution on Apple M and on x86_64 has that receipt (`evidence/targets/wolfram.txt`). GPU machine code on an AMD, Intel, or Apple GPU does not.
 
 ## Do it on your GPU
 
