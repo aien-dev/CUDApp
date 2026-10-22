@@ -1,0 +1,43 @@
+sed 's/if (rb \&\& (st || (q \& 1u)))/if (0 \&\& rb \&\& (st || (q \& 1u)))/' src/omega_gpu_fp8_api.c > build-roadmap-contracts-bench/numeric-mutants/wrong-rounding.c
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -c build-roadmap-contracts-bench/numeric-mutants/wrong-rounding.c -o build-roadmap-contracts-bench/numeric-mutants/wrong-rounding.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -o build-roadmap-contracts-bench/numeric-mutants/wrong-rounding tests/numerical_contract_test.c build-roadmap-contracts-bench/numeric-mutants/wrong-rounding.o build-roadmap-contracts-bench/libomega_gpu.a -lpthread -lm
+FAIL 24: omega_gpu_fp8_e4m3_rne(1.1875f)==0x3a
+wrong-rounding production mutant killed
+sed 's/else fminn(e, R(lc), R(lc), R(cj));/else fmaxx(e, R(lc), R(lc), R(cj));/' src/omega_blackwell_codegen_router.c > build-roadmap-contracts-bench/numeric-mutants/wrong-tie.c
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -c build-roadmap-contracts-bench/numeric-mutants/wrong-tie.c -o build-roadmap-contracts-bench/numeric-mutants/wrong-tie.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -Itests -o build-roadmap-contracts-bench/numeric-mutants/wrong-tie tests/numerical_router_tie_test.c build-roadmap-contracts-bench/numeric-mutants/wrong-tie.o build-roadmap-contracts-bench/libomega_gpu.a -lpthread -lm
+FAIL 6: !badids
+wrong-tie production mutant killed
+./build-roadmap-contracts-bench/numerical_contract_test
+numerical_contract_test: 285 checks PASS; fixture controls only
+./build-roadmap-contracts-bench/numerical_router_tie_test
+numerical_router_tie_test: 236 checks PASS; generated router ties/scales, masks/directories mutants
+node --test tests/numerical_trace_test.mjs
+✔ whole-token, multiturn, boundary-context fixtures match (0.875428ms)
+✔ refuses scale (0.774452ms)
+✔ refuses missing expert (0.100096ms)
+✔ refuses rounding (0.090913ms)
+✔ refuses wrong routing tie (0.079184ms)
+✔ refuses argmax tie (0.082913ms)
+✔ refuses model pin (0.053424ms)
+✔ refuses prompt pin (0.058768ms)
+✔ refuses contract (0.054289ms)
+✔ refuses missing stage (0.116608ms)
+✔ refuses missing turn (0.066833ms)
+✔ refuses context overflow (0.052432ms)
+✔ refuses out of order (0.043648ms)
+✔ refuses nonfinite (0.04144ms)
+✔ refuses empty (0.072576ms)
+✔ refuses non-f32 (0.056544ms)
+✔ refuses missing pin (0.063665ms)
+✔ repeatability requires identical executable pins (0.112368ms)
+✔ signed zeros exact; tolerance explicit and experimental (0.161665ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 57.51388
+exit_code=0

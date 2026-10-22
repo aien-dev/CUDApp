@@ -1,0 +1,17 @@
+Linux spark-b87b 7.0.0-1019-nvidia #19~24.04.2-Ubuntu SMP PREEMPT_DYNAMIC Sun Sep  6 18:35:11 UTC 2 aarch64 aarch64 aarch64 GNU/Linux
+cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+Copyright (C) 2023 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+GNU Make 4.3
+Built for aarch64-unknown-linux-gnu
+Copyright (C) 1988-2020 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+v24.21.0
+a20520ee21543f243d40636a9181a142c45ecd989de31ab86b99a8ea5ada870d  /usr/bin/cc
+abbecc214fcadef6530d1cc137bde7ceb74cae3f6b992c7d10a8669a7314c7e0  /usr/bin/make
+0f8949d1028f6d61506b2d5bc57e7e6fe893d7b1997509b7847294fc9c616584  /usr/bin/node
+b8b40d2c1221d6067a49cebd288fcf0b8fb34c616562f58569385d81de62d8dc  /home/drakestapleton/.local/bin/quiet-build

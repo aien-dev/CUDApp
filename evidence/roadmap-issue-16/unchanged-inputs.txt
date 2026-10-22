@@ -1,0 +1,1 @@
+git diff --exit-code source -- src tests tools mk Makefile docs: exit_code=0

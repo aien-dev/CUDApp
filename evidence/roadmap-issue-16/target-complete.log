@@ -1,0 +1,39 @@
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -Itests -o build-roadmap-contracts-bench/numerical_router_tie_test tests/numerical_router_tie_test.c build-roadmap-contracts-bench/libomega_gpu.a -lpthread -lm
+sed 's/if (rb \&\& (st || (q \& 1u)))/if (0 \&\& rb \&\& (st || (q \& 1u)))/' src/omega_gpu_fp8_api.c > build-roadmap-contracts-bench/numeric-mutants/wrong-rounding.c
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -c build-roadmap-contracts-bench/numeric-mutants/wrong-rounding.c -o build-roadmap-contracts-bench/numeric-mutants/wrong-rounding.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -o build-roadmap-contracts-bench/numeric-mutants/wrong-rounding tests/numerical_contract_test.c build-roadmap-contracts-bench/numeric-mutants/wrong-rounding.o build-roadmap-contracts-bench/libomega_gpu.a -lpthread -lm
+FAIL 24: omega_gpu_fp8_e4m3_rne(1.1875f)==0x3a
+wrong-rounding production mutant killed
+./build-roadmap-contracts-bench/numerical_contract_test
+numerical_contract_test: 285 checks PASS; fixture controls only
+./build-roadmap-contracts-bench/numerical_router_tie_test
+numerical_router_tie_test: 236 checks PASS; generated router ties/scales, masks/directories mutants
+node --test tests/numerical_trace_test.mjs
+✔ whole-token, multiturn, boundary-context fixtures match (1.42663ms)
+✔ refuses scale (0.202849ms)
+✔ refuses missing expert (0.08936ms)
+✔ refuses rounding (0.093888ms)
+✔ refuses wrong routing tie (0.108192ms)
+✔ refuses argmax tie (0.093184ms)
+✔ refuses model pin (0.060944ms)
+✔ refuses prompt pin (0.053089ms)
+✔ refuses contract (0.080064ms)
+✔ refuses missing stage (0.119553ms)
+✔ refuses missing turn (0.062176ms)
+✔ refuses context overflow (0.064176ms)
+✔ refuses out of order (0.04752ms)
+✔ refuses nonfinite (0.046208ms)
+✔ refuses empty (0.072528ms)
+✔ refuses non-f32 (0.083553ms)
+✔ refuses missing pin (0.073392ms)
+✔ repeatability requires identical executable pins (0.113825ms)
+✔ signed zeros exact; tolerance explicit and experimental (0.153584ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 40.472997
+exit_code=0

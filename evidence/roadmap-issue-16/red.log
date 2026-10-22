@@ -1,0 +1,2 @@
+make: *** No rule to make target 'src/omega_gpu_numerical_contract.h', needed by 'build-roadmap-contracts-bench/numerical_contract_test'.  Stop.
+exit_code=2
