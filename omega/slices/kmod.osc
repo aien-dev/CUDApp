@@ -1,0 +1,84 @@
+// slice-entry: kmod_bind kmod_rd kmod_wr kmod_fw kmod_ring
+// Our GPU kernel module, in Omega. This is the policy aien-gpu enforces.
+// It is not nvidia.ko and it is not loaded here. One chip: vendor 4318
+// (0x10de), device 11794 (0x2e12). Bind refuses if the NVIDIA module is
+// loaded or allow_bind is off. A register write is permitted only for the
+// six start-up offsets. A read is permitted only for the identity registers
+// and the start-up registers. Firmware length must be 75012080. The SEC2
+// doorbell may be written once per load.
+// slice-run: kmod_bind bytes: 4318 11794 0 1 -> 0
+// slice-run: kmod_bind bytes: 4318 11794 1 1 -> 18446744073709551615
+// slice-run: kmod_bind bytes: 4318 11794 0 0 -> 18446744073709551615
+// slice-run: kmod_bind bytes: 4318 0 0 1 -> 18446744073709551615
+// slice-run: kmod_wr bytes: 1117184 -> 0
+// slice-run: kmod_wr bytes: 8653824 -> 0
+// slice-run: kmod_wr bytes: 64 -> 18446744073709551615
+// slice-run: kmod_rd bytes: 0 -> 0
+// slice-run: kmod_rd bytes: 2560 -> 0
+// slice-run: kmod_rd bytes: 64 -> 18446744073709551615
+// slice-run: kmod_fw bytes: 75012080 -> 0
+// slice-run: kmod_fw bytes: 1 -> 18446744073709551615
+// slice-run: kmod_ring bytes: 0 -> 0
+// slice-run: kmod_ring bytes: 1 -> 18446744073709551615
+
+fn kmod_bind(b: bytes, vendor: u64, device: u64, nvidia_up: u64, allow: u64) -> u64 {
+    if b.len > 0 {
+        return 18446744073709551615;
+    }
+    if vendor != 4318 || device != 11794 {
+        return 18446744073709551615;
+    }
+    if nvidia_up != 0 || allow != 1 {
+        return 18446744073709551615;
+    }
+    return 0;
+}
+
+fn kmod_rd(b: bytes, off: u64) -> u64 {
+    if b.len > 0 {
+        return 18446744073709551615;
+    }
+    if off == 0 || off == 2560 {
+        return 0;
+    }
+    if off == 8650816 || off == 8650820 || off == 8653504 || off == 8653824 || off == 8653828 {
+        return 0;
+    }
+    if off == 1114176 || off == 1114180 || off == 1114240 || off == 1114356 || off == 1117184 || off == 1119112 {
+        return 0;
+    }
+    return 18446744073709551615;
+}
+
+fn kmod_wr(b: bytes, off: u64) -> u64 {
+    if b.len > 0 {
+        return 18446744073709551615;
+    }
+    if off == 8653504 || off == 8653508 || off == 8653824 || off == 8653828 {
+        return 0;
+    }
+    if off == 1114240 || off == 1117184 {
+        return 0;
+    }
+    return 18446744073709551615;
+}
+
+fn kmod_fw(b: bytes, size: u64) -> u64 {
+    if b.len > 0 {
+        return 18446744073709551615;
+    }
+    if size != 75012080 {
+        return 18446744073709551615;
+    }
+    return 0;
+}
+
+fn kmod_ring(b: bytes, already: u64) -> u64 {
+    if b.len > 0 {
+        return 18446744073709551615;
+    }
+    if already != 0 {
+        return 18446744073709551615;
+    }
+    return 0;
+}
