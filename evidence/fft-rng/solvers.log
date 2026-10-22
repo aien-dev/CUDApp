@@ -1,0 +1,3 @@
+solvers RC=0
+pivot-mutant RC=15
+build/fft-rng-native/solvers: ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, no section header

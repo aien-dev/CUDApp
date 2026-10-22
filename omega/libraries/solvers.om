@@ -1,0 +1,142 @@
+note SPDX-License-Identifier MIT
+note Dense solvers in Omega. Not the cuSOLVER API and not on the GPU
+note Matrices are row major. Cholesky uses pl. LU overwrites pa
+global pb ulong 3
+global px ulong 3
+global ip ulong 3
+global qa ulong 4
+global sl ulong 2
+fn swap3 r ulong s ulong to void
+if eq r s
+ret
+end
+k = ulong 0
+while lt k 3
+ir = add mul r 3 k
+is = add mul s 3 k
+t = get pa ir
+put pa ir get pa is
+put pa is t
+k = add k 1
+end
+end
+fn swapb i ulong j ulong to void
+if eq i j
+ret
+end
+t = get pb i
+put pb i get pb j
+put pb j t
+end
+fn pick0 to ulong
+best = ulong 0
+top = and get pa 0 2147483647
+m = and get pa 3 2147483647
+if gt m top
+best = ulong 1
+top = m
+end
+m = and get pa 6 2147483647
+if gt m top
+best = ulong 2
+end
+ret best
+end
+fn getrf to int
+p = pick0
+put ip 0 p
+swap3 0 p
+if eq and get pa 0 2147483647 0
+ret 1
+end
+put pa 3 fdiv get pa 3 get pa 0
+put pa 6 fdiv get pa 6 get pa 0
+put pa 4 fsub get pa 4 fmul get pa 3 get pa 1
+put pa 5 fsub get pa 5 fmul get pa 3 get pa 2
+put pa 7 fsub get pa 7 fmul get pa 6 get pa 1
+put pa 8 fsub get pa 8 fmul get pa 6 get pa 2
+put ip 1 1
+m = and get pa 7 2147483647
+if gt m and get pa 4 2147483647
+put ip 1 2
+swap3 1 2
+end
+if eq and get pa 4 2147483647 0
+ret 1
+end
+put pa 7 fdiv get pa 7 get pa 4
+put pa 8 fsub get pa 8 fmul get pa 7 get pa 5
+if eq and get pa 8 2147483647 0
+ret 1
+end
+put ip 2 2
+ret 0
+end
+fn getrs to int
+swapb 0 get ip 0
+swapb 1 get ip 1
+put px 0 get pb 0
+put px 1 fsub get pb 1 fmul get pa 3 get px 0
+put px 2 fsub fsub get pb 2 fmul get pa 6 get px 0 fmul get pa 7 get px 1
+put px 2 fdiv get px 2 get pa 8
+put px 1 fdiv fsub get px 1 fmul get pa 5 get px 2 get pa 4
+put px 0 fdiv fsub fsub get px 0 fmul get pa 1 get px 1 fmul get pa 2 get px 2 get pa 0
+ret 0
+end
+fn potrs to int
+put px 0 fdiv get pb 0 get pl 0
+put px 1 fdiv fsub get pb 1 fmul get pl 3 get px 0 get pl 4
+put px 2 fdiv fsub fsub get pb 2 fmul get pl 6 get px 0 fmul get pl 7 get px 1 get pl 8
+y2 = get px 2
+put px 2 fdiv y2 get pl 8
+put px 1 fdiv fsub get px 1 fmul get pl 7 get px 2 get pl 4
+put px 0 fdiv fsub fsub get px 0 fmul get pl 3 get px 1 fmul get pl 6 get px 2 get pl 0
+ret 0
+end
+fn geqrf to int
+a00 = get qa 0
+a10 = get qa 2
+n2 = fadd fmul a00 a00 fmul a10 a10
+nrm = piv n2
+v0 = fadd a00 nrm
+v1 = a10
+vv = fadd fmul v0 v0 fmul v1 v1
+dot = fadd fmul v0 a00 fmul v1 a10
+scale = fdiv fadd dot dot vv
+put qa 0 fsub a00 fmul scale v0
+put qa 2 fsub a10 fmul scale v1
+a01 = get qa 1
+a11 = get qa 3
+dot = fadd fmul v0 a01 fmul v1 a11
+scale = fdiv fadd dot dot vv
+put qa 1 fsub a01 fmul scale v0
+put qa 3 fsub a11 fmul scale v1
+ret 0
+end
+fn syev2 to int
+a = get qa 0
+b = get qa 1
+c = get qa 3
+half = ulong 1056964608
+tr = fmul fadd a c half
+d = fmul fsub a c half
+disc = piv fadd fmul d d fmul b b
+put sl 0 fadd tr disc
+put sl 1 fsub tr disc
+ret 0
+end
+fn gesvd2 to int
+a = get qa 0
+b = get qa 1
+c = get qa 2
+d = get qa 3
+put qa 0 fadd fmul a a fmul c c
+put qa 1 fadd fmul a b fmul c d
+put qa 3 fadd fmul b b fmul d d
+if ne syev2 0
+ret 1
+end
+put sl 0 piv get sl 0
+put sl 1 piv get sl 1
+ret 0
+end

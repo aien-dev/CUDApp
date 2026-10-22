@@ -16,7 +16,7 @@ Sources: Omega `docs/OMEGA.md` sections 2 to 5 (branch `docs/what-omega-is`, 202
 | CUB, Thrust | Reductions, scans, sorts | frozen-order reductions | PARTIAL | `evidence/E1-CLOSURE/`; general scan and sort are bar C3 |
 | cuFFT, cuRAND | FFT, random numbers | host Philox4x32-10 and radix-2 C2C FFT, not the CUDA API and not on the GPU | PARTIAL | docs/FFT_RNG.md and evidence/fft-rng/native.log; GPU path and cuRAND ordering still open |
 | cuSPARSE | Sparse matrix products | host CSR binary32 y = A x, not the API and not on the GPU | PARTIAL | docs/CUSPARSE.md and evidence/fft-rng/sparse.log |
-| cuSOLVER | Dense factorizations | host 3 by 3 lower Cholesky in Omega | PARTIAL | docs/LIBRARIES.md and evidence/fft-rng/omega-libs.log; not the API, not the GPU |
+| cuSOLVER | Dense factorizations | host Cholesky, LU, triangular solve, 2 by 2 QR, eigenvalues, singular values | PARTIAL | evidence/fft-rng/solvers.log; not the API, not SVD vectors, not the GPU |
 | NPP | Image arithmetic | host add, multiply, subtract, threshold on eight binary32 pixels | PARTIAL | docs/LIBRARIES.md; not the NPP API |
 | nvJPEG | JPEG | host 8 by 8 inverse DCT only | PARTIAL | docs/LIBRARIES.md; not a file decoder |
 | level-1 products | dot, axpy, scal, 2-norm | host Omega, not GEMM | PARTIAL | docs/LIBRARIES.md; cuBLAS GEMM stays the separate bar |

@@ -1,0 +1,152 @@
+note SPDX-License-Identifier MIT
+note Solver self-check. Bits that are not small integers came from Wolfram
+fn chk g ulong w ulong to int
+if ne g w
+ret 1
+end
+ret 0
+end
+fn loadchol to void
+put pa 0 1082130432
+put pa 1 1094713344
+put pa 2 3246391296
+put pa 3 1094713344
+put pa 4 1108606976
+put pa 5 3257663488
+put pa 6 3246391296
+put pa 7 3257663488
+put pa 8 1120141312
+put pb 0 3248488448
+put pb 1 3257663488
+put pb 2 1128267776
+end
+fn loadlu to void
+put pa 0 1073741824
+put pa 1 1065353216
+put pa 2 1065353216
+put pa 3 1082130432
+put pa 4 3233808384
+put pa 5 0
+put pa 6 3221225472
+put pa 7 1088421888
+put pa 8 1073741824
+put pb 0 1082130432
+put pb 1 3221225472
+put pb 2 1088421888
+end
+fn loadbad to void
+put pa 0 1065353216
+put pa 1 1073741824
+put pa 2 1077936128
+put pa 3 1073741824
+put pa 4 1082130432
+put pa 5 1086324736
+put pa 6 0
+put pa 7 0
+put pa 8 0
+end
+fn main to int
+loadchol
+if ne potrf 3 0
+ret 2
+end
+if ne potrs 0
+ret 3
+end
+if ne chk get px 0 1065353216 0
+ret 11
+end
+if ne chk get px 1 1073741824 0
+ret 12
+end
+if ne chk get px 2 1077936128 0
+ret 13
+end
+loadlu
+if ne getrf 0
+ret 4
+end
+if ne chk get ip 0 1 0
+ret 14
+end
+if ne chk get pa 0 1082130432 0
+ret 15
+end
+if ne chk get pa 1 3233808384 0
+ret 16
+end
+if ne chk get pa 3 1056964608 0
+ret 17
+end
+if ne chk get pa 4 1082130432 0
+ret 18
+end
+if ne chk get pa 6 3204448256 0
+ret 19
+end
+if ne chk get pa 8 1065353216 0
+ret 20
+end
+if ne getrs 0
+ret 5
+end
+if ne chk get px 0 1065353216 0
+ret 21
+end
+if ne chk get px 1 1065353216 0
+ret 22
+end
+if ne chk get px 2 1065353216 0
+ret 23
+end
+loadbad
+if eq getrf 0
+ret 6
+end
+put qa 0 1077936128
+put qa 1 1065353216
+put qa 2 1082130432
+put qa 3 1065353216
+if ne geqrf 0
+ret 7
+end
+if ne chk get qa 0 3231711232 0
+ret 24
+end
+if ne chk get qa 1 3216192308 0
+ret 25
+end
+if ne chk get qa 2 0 0
+ret 26
+end
+if ne chk get qa 3 3192704208 0
+ret 27
+end
+put qa 0 1073741824
+put qa 1 1065353216
+put qa 2 1065353216
+put qa 3 1073741824
+if ne syev2 0
+ret 8
+end
+if ne chk get sl 0 1077936128 0
+ret 28
+end
+if ne chk get sl 1 1065353216 0
+ret 29
+end
+put qa 0 1077936128
+put qa 1 0
+put qa 2 0
+put qa 3 1082130432
+if ne gesvd2 0
+ret 9
+end
+if ne chk get sl 0 1082130432 0
+ret 30
+end
+if ne chk get sl 1 1077936128 0
+ret 31
+end
+ret 0
+end
