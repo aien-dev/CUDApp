@@ -37,6 +37,12 @@ typedef struct {
     M16NativeContext m16;
     OmegaGpuDeviceHandle dev; /* generation 0 = closed */
     OmegaGpuQueueHandle queue;
+    /* L136: extra queues on extra channels of the same channel group (nvrm_channel_n), opened only when
+     * AIEN_OMEGA_GPU_CHANNELS > 1 at device_open; queue 0 above is unchanged. */
+    uint32_t nchan;
+    OmegaGpuQueueHandle xq[NVRM_MAX_EXTRA_CHANNELS];
+    NvrmMem xring[NVRM_MAX_EXTRA_CHANNELS];
+    uint8_t x_l2_pending[NVRM_MAX_EXTRA_CHANNELS];
     char diag[320];
 } LinuxRef;
 
@@ -58,7 +64,7 @@ static const OmegaGpuPlatformCaps g_caps = {
     .services = OMEGA_GPU_SVC_REQUIRED_SESSION, /* no MMIO (RM owns the registers), no IRQ (polling only) */
     .max_devices = 1,
     .max_buffers = LINUX_REF_BUFFERS,
-    .max_queues = 1,
+    .max_queues = 1u + NVRM_MAX_EXTRA_CHANNELS, /* queues past the first need AIEN_OMEGA_GPU_CHANNELS (L136) */
     .max_inflight = 1,
     .max_buffer_bytes = 1ull << 37,  /* 128 GiB: the whole unified pool */
     .max_total_bytes = 1ull << 37,
@@ -125,6 +131,19 @@ static int ref_unlock_id(void *ctx, uint32_t id) {
     return pthread_mutex_unlock(&r->locks[id]) == 0 ? OMEGA_GPU_PLAT_OK : OMEGA_GPU_PLAT_REFUSED_ARGS;
 }
 
+uint32_t omega_gpu_platform_linux_channels_env(void) {
+    const char *e = getenv("AIEN_OMEGA_GPU_CHANNELS");
+    if (!e || e[1] != '\0' || e[0] < '2' || e[0] > (char)('1' + NVRM_MAX_EXTRA_CHANNELS)) return 1u;
+    return (uint32_t)(e[0] - '0');
+}
+
+/* Extra queue slot of q (0..nchan-2), or -1 when q is not an open extra queue. Caller holds r->mu. */
+static int xq_slot(const LinuxRef *r, OmegaGpuQueueHandle q) {
+    for (uint32_t i = 0; i + 1u < r->nchan; i++)
+        if (r->xq[i].generation != 0u && r->xq[i].index == q.index && r->xq[i].generation == q.generation) return (int)i;
+    return -1;
+}
+
 static int ref_device_open(void *ctx, uint32_t ordinal, OmegaGpuDeviceHandle *out) {
     LinuxRef *r = ctx;
     int rc;
@@ -141,8 +160,9 @@ static int ref_device_open(void *ctx, uint32_t ordinal, OmegaGpuDeviceHandle *ou
         (void)nvrm_close(&r->m16.rm);
         goto out;
     }
-    if (m16_native_create_channel(&r->m16) != 0) {
-        rc = refuse(r, OMEGA_GPU_PLAT_REFUSED_DEVICE, "m16_native_create_channel");
+    r->nchan = omega_gpu_platform_linux_channels_env();
+    if (r->nchan == 1u ? m16_native_create_channel(&r->m16) != 0 : nvrm_channel_n(&r->m16.rm, r->nchan - 1u) != 0) {
+        rc = refuse(r, OMEGA_GPU_PLAT_REFUSED_DEVICE, r->nchan == 1u ? "m16_native_create_channel" : "nvrm_channel_n");
         (void)m16_native_close(&r->m16);
         goto out;
     }
@@ -173,9 +193,13 @@ static int ref_device_close(void *ctx, OmegaGpuDeviceHandle dev) {
     memset(&r->dev, 0, sizeof r->dev);
     r->l2_inval_pending = 0; /* omega #457: nothing pending survives the device */
     memset(&r->queue, 0, sizeof r->queue);
-    (void)m16_native_close(&r->m16);
+    memset(r->xq, 0, sizeof r->xq); memset(r->xring, 0, sizeof r->xring); memset(r->x_l2_pending, 0, sizeof r->x_l2_pending);
+    r->nchan = 0;
+    /* C5: the driver's close result is the proof that this process's channels (and any grid still on them) are gone.
+     * The state above is closed either way; a teardown fault is reported so omega_gpu_session_recover stays latched. */
+    rc = m16_native_close(&r->m16) == 0 ? OMEGA_GPU_PLAT_OK : refuse(r, OMEGA_GPU_PLAT_REFUSED_DEVICE, "device_close (driver teardown fault)");
     ref_unlock(r);
-    return OMEGA_GPU_PLAT_OK;
+    return rc;
 }
 
 static const char *ref_diag_text(void *ctx) { return ((LinuxRef *)ctx)->diag; }
@@ -262,6 +286,8 @@ static int ref_dma_free(void *ctx, OmegaGpuBufferHandle b) {
     if (rc == OMEGA_GPU_PLAT_OK && r->queue.generation != 0u && r->m16.pb_mem.handle == r->mem[b.index].handle &&
         r->m16.pb_mem.cpu == r->mem[b.index].cpu)
         rc = OMEGA_GPU_PLAT_REFUSED_BUSY; /* the open queue still uses it as its ring */
+    for (uint32_t i = 0; rc == OMEGA_GPU_PLAT_OK && i + 1u < r->nchan; i++)
+        if (r->xq[i].generation != 0u && r->xring[i].handle == r->mem[b.index].handle) rc = OMEGA_GPU_PLAT_REFUSED_BUSY;
     if (rc != OMEGA_GPU_PLAT_OK) { rc = refuse(r, rc, "dma_free"); ref_unlock(r); return rc; }
     (void)nvrm_free(&r->m16.rm, &r->mem[b.index]);
     (void)omega_gpu_handles_close(&r->t, b.index, b.generation, kind);
@@ -289,7 +315,7 @@ static int ref_sync(void *ctx, OmegaGpuBufferHandle b, uint64_t off, uint64_t le
     /* omega #457 (chip, 2026-10-15): after the host rewrites a GPU-cached buffer the GPU already read, every later launch
      * read the old bytes from L2 (nvos.h:1117 "For system memory this will not be coherent with direct CPU mappings").
      * The next submission therefore starts with L2_SYSMEM_NCOH_INVALIDATE (ref_queue_submit). */
-    else if (to_gpu && r->gpu_cached[b.index]) r->l2_inval_pending = 1;
+    else if (to_gpu && r->gpu_cached[b.index]) { r->l2_inval_pending = 1; memset(r->x_l2_pending, 1, sizeof r->x_l2_pending); }
     ref_unlock(r);
     if (rc == OMEGA_GPU_PLAT_OK) barrier(); /* uncached system memory: a full barrier is the whole sync */
     return rc;
@@ -325,9 +351,15 @@ static int ref_queue_open(void *ctx, OmegaGpuDeviceHandle dev, OmegaGpuBufferHan
     int rc = dev_ok(r, dev);
     if (rc == OMEGA_GPU_PLAT_OK) rc = buf_ok(r, ring, &kind);
     if (rc == OMEGA_GPU_PLAT_OK && kind != OMEGA_GPU_HANDLE_BUF_QUEUE) rc = OMEGA_GPU_PLAT_REFUSED_BAD_KIND;
-    if (rc == OMEGA_GPU_PLAT_OK && r->queue.generation != 0u) rc = OMEGA_GPU_PLAT_REFUSED_LIMIT;
-    if (rc == OMEGA_GPU_PLAT_OK) rc = omega_gpu_handles_open(&r->t, OMEGA_GPU_HANDLE_QUEUE, 0, 1, 0, &out->index, &out->generation);
+    /* queue 0 first (channel 0); then, with AIEN_OMEGA_GPU_CHANNELS > 1, one queue per extra channel (L136) */
+    int slot = -1;
+    if (rc == OMEGA_GPU_PLAT_OK && r->queue.generation != 0u) {
+        for (uint32_t i = 0; i + 1u < r->nchan && slot < 0; i++) if (r->xq[i].generation == 0u) slot = (int)i;
+        if (slot < 0) rc = OMEGA_GPU_PLAT_REFUSED_LIMIT;
+    }
+    if (rc == OMEGA_GPU_PLAT_OK) rc = omega_gpu_handles_open(&r->t, OMEGA_GPU_HANDLE_QUEUE, 0, r->nchan, 0, &out->index, &out->generation); /* one queue per channel (L136: nchan is 1 unless AIEN_OMEGA_GPU_CHANNELS) */
     if (rc != OMEGA_GPU_PLAT_OK) { rc = refuse(r, rc, "queue_open"); ref_unlock(r); return rc; }
+    if (slot >= 0) { r->xring[slot] = r->mem[ring.index]; r->xq[slot] = *out; r->x_l2_pending[slot] = (uint8_t)r->l2_inval_pending; ref_unlock(r); return OMEGA_GPU_PLAT_OK; }
     r->m16.pb_mem = r->mem[ring.index]; /* m16_native_enqueue_methods copies the method stream here */
     r->queue = *out;
     ref_unlock(r);
@@ -340,6 +372,8 @@ static int ref_queue_close(void *ctx, OmegaGpuQueueHandle q) {
     int rc = queue_ok(r, q);
     if (rc == OMEGA_GPU_PLAT_OK) rc = omega_gpu_handles_close(&r->t, q.index, q.generation, OMEGA_GPU_HANDLE_QUEUE);
     if (rc != OMEGA_GPU_PLAT_OK) { rc = refuse(r, rc, "queue_close"); ref_unlock(r); return rc; }
+    const int slot = xq_slot(r, q);
+    if (slot >= 0) { memset(&r->xq[slot], 0, sizeof r->xq[slot]); memset(&r->xring[slot], 0, sizeof r->xring[slot]); ref_unlock(r); return OMEGA_GPU_PLAT_OK; }
     memset(&r->queue, 0, sizeof r->queue);
     memset(&r->m16.pb_mem, 0, sizeof r->m16.pb_mem);
     ref_unlock(r);
@@ -351,6 +385,25 @@ static int ref_queue_submit(void *ctx, OmegaGpuQueueHandle q, const uint32_t *wo
     ref_lock(r);
     int rc = queue_ok(r, q);
     if (rc == OMEGA_GPU_PLAT_OK && (!words || nwords == 0u)) rc = OMEGA_GPU_PLAT_REFUSED_ARGS;
+    const int slot = rc == OMEGA_GPU_PLAT_OK ? xq_slot(r, q) : -1;
+    if (slot >= 0) {
+        /* an extra channel: the same #457 prefix rule (its own pending flag), the same copy-to-ring-offset-0 + one GP
+         * entry + doorbell as m16_native_submit_methods, on channel slot + 1 */
+        NvrmMem *ring = &r->xring[slot];
+        const uint32_t xpre = r->x_l2_pending[slot] ? L2_INVAL_PREFIX_WORDS : 0u;
+        if (((uint64_t)nwords + xpre) * 4u > ring->size) rc = OMEGA_GPU_PLAT_REFUSED_BAD_LENGTH;
+        else {
+            uint32_t *dst = ring->cpu;
+            if (xpre) memcpy(dst, L2_INVAL_PREFIX, sizeof L2_INVAL_PREFIX);
+            memcpy(dst + xpre, words, (size_t)nwords * 4u);
+            __asm__ volatile("dsb sy" ::: "memory");
+            if (nvrm_chan_submit(&r->m16.rm, (uint32_t)slot + 1u, ring, 0, nwords + xpre) != 0) rc = OMEGA_GPU_PLAT_REFUSED_DEVICE;
+            else r->x_l2_pending[slot] = 0;
+        }
+        if (rc != OMEGA_GPU_PLAT_OK) rc = refuse(r, rc, "submit_methods (extra channel)");
+        ref_unlock(r);
+        return rc;
+    }
     /* omega #457: a host sync into a GPU-cached buffer is pending, so this submission starts with L2_INVAL_PREFIX.
      * No dirty line is dropped: every earlier submission ended with L2_FLUSH_DIRTY and the host waited for it.
      * DOCS SILENT on ordering between this MEM_OP and the launch that follows (no WFI is inserted); the chip gate
@@ -379,7 +432,9 @@ static int ref_queue_retire(void *ctx, OmegaGpuQueueHandle q) {
     LinuxRef *r = ctx;
     ref_lock(r);
     int rc = queue_ok(r, q);
-    if (rc == OMEGA_GPU_PLAT_OK) nvrm_retire(&r->m16.rm, r->m16.rm.put); /* both releases landed: the entry is consumed */
+    const int slot = rc == OMEGA_GPU_PLAT_OK ? xq_slot(r, q) : -1;
+    if (slot >= 0) nvrm_chan_retire(&r->m16.rm, (uint32_t)slot + 1u, nvrm_chan_put(&r->m16.rm, (uint32_t)slot + 1u));
+    else if (rc == OMEGA_GPU_PLAT_OK) nvrm_retire(&r->m16.rm, r->m16.rm.put); /* both releases landed: the entry is consumed */
     else rc = refuse(r, rc, "queue_retire");
     ref_unlock(r);
     return rc;

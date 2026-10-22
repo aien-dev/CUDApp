@@ -51,6 +51,7 @@ static struct {
     unsigned cached_requests; /* buffers asked GPU-cached (must stay 0) */
     unsigned allocs_unlocked; /* allocations without the session lock (must stay 0) */
     int fail_open;
+    int fail_close;           /* device_close closes, then reports a driver teardown fault (C5) */
 } fk;
 
 static uint64_t f_now_ns(void *c) { (void)c; fk.ns += 1000u; return fk.ns; }
@@ -77,7 +78,7 @@ static int f_dev_close(void *c, OmegaGpuDeviceHandle d) {
     (void)omega_gpu_handles_close(&fk.t, d.index, d.generation, OMEGA_GPU_HANDLE_DEVICE);
     memset(&fk.dev, 0, sizeof fk.dev); memset(&fk.q, 0, sizeof fk.q);
     fk.dev_closes++;
-    return 0;
+    return fk.fail_close ? OMEGA_GPU_PLAT_REFUSED_DEVICE : 0;
 }
 
 static OmegaGpuPlatformCaps g_caps = {
@@ -367,6 +368,78 @@ static void c_timeout_latch_rules(void) {
     check_latched(0);
 }
 
+/* C5: recover lifts the latch in the same process. Refused when nothing is latched; after a timeout it closes the device
+ * once (the platform releases every buffer, parked ones included; the session itself frees nothing), clears the parked
+ * list, and the next open is a new device on which a launch completes. */
+static void c_timeout_recover(void) {
+    fk_reset();
+    EXPECT(install() == 0);
+    EXPECT(omega_gpu_session_recover() == -1 && strstr(omega_gpu_session_last_error(), "not latched") != NULL);
+    omega_gpu_session_lock();
+    OmegaGpuSession *s = omega_gpu_session_open();
+    EXPECT(s != NULL);
+    const OmegaGpuDeviceHandle old_dev = s ? s->dev : (OmegaGpuDeviceHandle){0};
+    OmegaGpuLaunch L = launch_desc(5);
+    EXPECT(omega_gpu_session_launch(&L, NULL, NULL) == 0); /* a working launch first */
+    omega_gpu_session_unlock();
+    EXPECT(omega_gpu_session_recover() == -1 && fk.dev_closes == 0); /* open but not latched: refused, device kept */
+    omega_gpu_session_lock();
+    OmegaGpuMem user;
+    EXPECT(omega_gpu_session_alloc(4096, &user) == 0);
+    fk.mode = MODE_HANG;
+    EXPECT(omega_gpu_session_launch(&L, NULL, NULL) == -1 && omega_gpu_session_is_blocked());
+    omega_gpu_session_free(&user); /* parked */
+    omega_gpu_session_unlock();
+    EXPECT(omega_gpu_session_recoveries() == 0);
+    EXPECT(omega_gpu_session_recover() == 0);
+    EXPECT(!omega_gpu_session_is_blocked() && omega_gpu_session_recoveries() == 1);
+    EXPECT(fk.dev_closes == 1 && fk.frees == 0 && fk.t.nlive == 0); /* the platform close released all of it */
+    OmegaGpuParkStats ps; omega_gpu_session_parked(&ps);
+    EXPECT(ps.buffers == 0 && ps.bytes == 0);
+    EXPECT(omega_gpu_session_recover() == -1); /* nothing latched any more */
+    fk.mode = MODE_COMPLETE;
+    omega_gpu_session_lock();
+    s = omega_gpu_session_open();
+    EXPECT(s != NULL && s->dev.generation != old_dev.generation && fk.dev_opens == 2);
+    EXPECT(omega_gpu_session_launch(&L, NULL, NULL) == 0);
+    omega_gpu_session_unlock();
+    omega_gpu_session_close();
+    EXPECT(fk.dev_closes == 2 && fk.t.nlive == 0);
+}
+
+/* C5: a close that reports a driver teardown fault leaves the process latched for good (the old grid may still run). */
+static void c_recover_teardown_fault(void) {
+    fk_reset();
+    EXPECT(install() == 0);
+    omega_gpu_session_lock();
+    EXPECT(omega_gpu_session_open() != NULL);
+    fk.mode = MODE_HANG;
+    OmegaGpuLaunch L = launch_desc(5);
+    EXPECT(omega_gpu_session_launch(&L, NULL, NULL) == -1 && omega_gpu_session_is_blocked());
+    omega_gpu_session_unlock();
+    fk.fail_close = 1;
+    EXPECT(omega_gpu_session_recover() == -1 && strstr(omega_gpu_session_last_error(), "teardown fault") != NULL);
+    EXPECT(omega_gpu_session_is_blocked() && omega_gpu_session_recoveries() == 0 && fk.dev_closes == 1);
+    fk.fail_close = 0;
+    EXPECT(omega_gpu_session_recover() == -1 && omega_gpu_session_is_blocked()); /* the handle is gone: no second try */
+    omega_gpu_session_lock();
+    EXPECT(omega_gpu_session_open() == NULL);
+    omega_gpu_session_unlock();
+}
+
+/* C5: a module latch (the command lists after a timeout whose check launch completed) is recoverable too */
+static void c_recover_module_latch(void) {
+    fk_reset();
+    EXPECT(install() == 0);
+    omega_gpu_session_lock();
+    EXPECT(omega_gpu_session_open() != NULL);
+    omega_gpu_session_unlock();
+    omega_gpu_session_note_module_latch();
+    EXPECT(!omega_gpu_session_is_blocked()); /* other APIs keep working */
+    EXPECT(omega_gpu_session_recover() == 0 && fk.dev_closes == 1 && omega_gpu_session_recoveries() == 1);
+    EXPECT(omega_gpu_session_recover() == -1); /* lifted */
+}
+
 static void c_stale_after_reopen(void) {
     fk_reset();
     EXPECT(install() == 0);
@@ -494,6 +567,9 @@ static const Case CASES[] = {
     {"CANCEL_AFTER_SUBMIT_LATCHES_AND_PARKS", c_cancel_after_submit},
     {"TIMEOUT_PARKS_NEVER_RELEASES", c_timeout_parks},
     {"TIMEOUT_LATCH_REFUSES_CLOSE_REOPEN_INSTALL", c_timeout_latch_rules},
+    {"TIMEOUT_RECOVER_SAME_PROCESS", c_timeout_recover},
+    {"RECOVER_TEARDOWN_FAULT_STAYS_LATCHED", c_recover_teardown_fault},
+    {"RECOVER_MODULE_LATCH", c_recover_module_latch},
     {"STALE_HANDLE_REFUSED_AFTER_CLOSE_REOPEN", c_stale_after_reopen},
     {"SERVING_RESERVATION_REFUSES_WITHOUT_ALLOC", c_reservation_refusal},
     {"MATMUL_CODE_BUFFER_ENCODED_IN_PLACE", c_matmul_code_buffer},

@@ -1,0 +1,1231 @@
+{
+  "omega_merged": "aceb9741a5a7852a54055c21cd517ee3098d1609",
+  "base": "a8ffd2b912c84197d08f963b05f9c7d8b30a3f8a",
+  "files": [
+    {
+      "path": "mk/omega-gpu-code-alloc.mk",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "2d1fd8fde9bdd482fa1f518ace243020b5122b1e282695947afd9aafeb5eb78b",
+      "cudapp_sha256": "0d9e00af76e72b0a87226023a70535b0009c6bb314a02c0ee06cd76a8fd6dbf7"
+    },
+    {
+      "path": "mk/omega-gpu-engine.mk",
+      "action": "merged-both",
+      "omega_sha256": "d03e10efd3defe26c89d198c210f18f468f0c3568f6885c5adf7f125a64f3c86",
+      "cudapp_sha256": "ac26186f3996f7c62bda1bfcf88d3382bd77567a1125ee2a897ffebee1a02d5b"
+    },
+    {
+      "path": "mk/omega-gpu-wait.mk",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "8f668163f643f87028027d5a5510d75b5b606b5c44929db1cbe6ed3bcd7870e4",
+      "cudapp_sha256": "c6b57dfa718dc692c061bfe08d2d2a293f679b1f1cf2eb5173e44c029c483c94"
+    },
+    {
+      "path": "mk/sm121dis.mk",
+      "action": "added",
+      "omega_sha256": "e1d20fae98234ce156ca84822b388c152e1854d7259b86e915b5b8048a6fbf12",
+      "cudapp_sha256": "e1d20fae98234ce156ca84822b388c152e1854d7259b86e915b5b8048a6fbf12"
+    },
+    {
+      "path": "src/omega_blackwell_codegen.c",
+      "action": "merged-both",
+      "omega_sha256": "6fa980fc21b03f8fde1dc74846bc2259c65fbdec88bf134b98c149a7c10d991a",
+      "cudapp_sha256": "3740da2aa102b81b1bce743ef26d031bc325901e0d5c40414482e7ad204c767e"
+    },
+    {
+      "path": "src/omega_blackwell_codegen.h",
+      "action": "merged-both",
+      "omega_sha256": "242a32b360b319366a764c8a0be3704005c5da63090b3fd47cc231b9a466f8f0",
+      "cudapp_sha256": "3dfd6d022a7d6bdc8cc0b0a01cc19851d255169a182a762d9bd92d020a00bc5b"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_attn.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "40b25da4ec964928ef0965fdbc7635af802607e0a18e4bbe1a42a9cb6bd93175",
+      "cudapp_sha256": "e458289332374717053acbfeb6b8ba605f0f448a8496adf3538d4ba31cbcf242"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_attn.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "feaba39da084b9bcec8e462c70cc69cfceb64e89698d58652b0d139cf50bcb31",
+      "cudapp_sha256": "1ec45948db206a26dc28089b66af43895ca1c13fc80a040654ee40a5e1264d0f"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_attn256.c",
+      "action": "added",
+      "omega_sha256": "338d11202ce8f1b9f50689eeef6caedfac42565eb26a010f4180154ef25b0464",
+      "cudapp_sha256": "338d11202ce8f1b9f50689eeef6caedfac42565eb26a010f4180154ef25b0464"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_attn256.h",
+      "action": "added",
+      "omega_sha256": "ff9b219d753179e59023b2445304f9b0e30947e47345d0dc6e5cdc68f572a81d",
+      "cudapp_sha256": "ff9b219d753179e59023b2445304f9b0e30947e47345d0dc6e5cdc68f572a81d"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_bf16.c",
+      "action": "merged-both",
+      "omega_sha256": "fe43a00d90f87b6006799b7bcc9484e6ee5642933cec6367077256f29868ac36",
+      "cudapp_sha256": "a670cd7c42aaadaa03a242d097dddfc14d683bfd8874992d3207f21f39596eb3"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_bf16.h",
+      "action": "merged-both",
+      "omega_sha256": "be70eace4778efaa8c5cd3214df2fcb9ff6ff7f117efba9d88100fde3ed36b9a",
+      "cudapp_sha256": "9dc6a55fe51e218759b787211dab5371ea58c3ebe3d4d9e3fc41339ac94bb4a1"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_dec.c",
+      "action": "merged-both",
+      "omega_sha256": "377dce8e2c50de6be1984b9c1b606d3b38215dae8931602575479e6149e767e5",
+      "cudapp_sha256": "efec9c3d63a6ef285ebc051c91065cc94d610c228ede1fd312af69b74f1d6b35"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_dec.h",
+      "action": "merged-both",
+      "omega_sha256": "feddee4232c364d3cb9b8a089649e1b9b240fcfa2029efa96a8b27bc685d6cd2",
+      "cudapp_sha256": "f1783e00d06c16216f7020b418849d43b79f02f41bfcbf7b1fd9abdc35cb22e6"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_gdn.c",
+      "action": "added",
+      "omega_sha256": "f32c91d4efe94653b211750d8923c1cca41e74e95266049142d7ca2b7f68f901",
+      "cudapp_sha256": "f32c91d4efe94653b211750d8923c1cca41e74e95266049142d7ca2b7f68f901"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_gdn.h",
+      "action": "added",
+      "omega_sha256": "66e921c0951812181f6cf0e5c6daf5a842463bf0d0a08c19291efca30c75c3f3",
+      "cudapp_sha256": "66e921c0951812181f6cf0e5c6daf5a842463bf0d0a08c19291efca30c75c3f3"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_gemm.c",
+      "action": "merged-both",
+      "omega_sha256": "3956dea938ee4853bda3f157758efcbac4dde92721d2c2fe971024a25cfd0c2a",
+      "cudapp_sha256": "6a9df67eac792cbc1f2f2b9698a0cd69afff06390570a71f9e74954ffe98ea9b"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_gemm.h",
+      "action": "merged-both",
+      "omega_sha256": "fdeb7832e44bfaf84aada82fc31f050b5931f4f7e641b2db6714fb00d748d20e",
+      "cudapp_sha256": "83afdae9d72f1f81118bacd0991f5ae9b53fd631cd83d9e2b4eca54bbde1c1b6"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_moe.c",
+      "action": "merged-both",
+      "omega_sha256": "758b1c8dcbe8641729a99dbb9321eaa46f2366e779ac000323a2b9509dcd5677",
+      "cudapp_sha256": "62f714afdb012fb4188f443237169d5bcbe8497d28fd1fd8b450b1d8858b3ba9"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_moe.h",
+      "action": "merged-both",
+      "omega_sha256": "3af7a0c93b2551a1b4ac736eebc3049f5356e181004731da416b7b37caf3a604",
+      "cudapp_sha256": "f217decea7278dd24157418130a62d2f47f2a936438b10c5da9f159baeaf061e"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_moe2.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "c501b2b466c043277261279899063316d2683a4512db1055d41d73ef4daadf4c",
+      "cudapp_sha256": "eae8e148d470e03e89e0e998120b9c47228cd15f0c40a0859bb50694b8deba50"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_moe2.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "d7244c01331ed0079204de8451933aa239af4df4027a1e23861cecf726dac162",
+      "cudapp_sha256": "0158bb068631396e6b13ee0e69c9799f909fc2ccb5138f4c336af6d98f3a08a7"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_pattn.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "942b1f2386eb279cc3f0f3d7dcfe4fb7ce014e065af83d76bbe56eb006e8c5a8",
+      "cudapp_sha256": "a10a8ab4094d6664d06078b8ed8207572786c848794b55275dfe76087479e389"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_pattn.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "779faf690de10e86ef6541c7e6c1141ee9d913852ea4c4e5df4248f856157fa0",
+      "cudapp_sha256": "97601161969f982a4cb71b80b8caadc8d0ab4eab0e6125c0344a3aa4970123a6"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_pattn256.c",
+      "action": "added",
+      "omega_sha256": "75659ad5270889ef02e177a46cf44fc0b2d99dbe9d0d8e19f55510da8a789d23",
+      "cudapp_sha256": "75659ad5270889ef02e177a46cf44fc0b2d99dbe9d0d8e19f55510da8a789d23"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_pattn256.h",
+      "action": "added",
+      "omega_sha256": "588c6dee94025eb04efe87f02e884171a70b32ab1a5f320087e038868b24039c",
+      "cudapp_sha256": "588c6dee94025eb04efe87f02e884171a70b32ab1a5f320087e038868b24039c"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_pf.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "6b4a3904089dab2c61a4be51f82741bf00bce1dc7666da86eb729f7d5ceeec7c",
+      "cudapp_sha256": "eb78804d7ed3831c5392eff94f0914a446f1dcc16a5608e154aef56134e2a499"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_pf.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "1214be5551988520a3d9be0f09a1f5f122cdde45f75205c3c50c3707253bffc9",
+      "cudapp_sha256": "4d12a6cf8612e03a3c5cd82371539f0f25afb04cfb89b524d1ed2f1bc3c5f347"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_pfhost.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "c70ffb444d583609295907563937450c4fda24d16b67619a243ef7363300564e",
+      "cudapp_sha256": "aa4cdb5592adbbeb331f34eaf73a05caa3e6d0997b68fb05a26aca8cda730141"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_pfhost.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "bde7d40b08e7191a5dc78f19262004f8c38600f4a42e290f6cdafe222ee01ebe",
+      "cudapp_sha256": "8c1306272d635eddf6d36aabb3d8df5b308b00a1d8471c7c4e84479d0fb07488"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_qg.c",
+      "action": "merged-both",
+      "omega_sha256": "50a4e63444b3866d70b54c05c1825cc174c3790bc41f1c94866f7f8af74e0dc6",
+      "cudapp_sha256": "2e845cd227958c6d7c68de9eacff68b32da39bd07379b8d91519b20096e4f034"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_qg.h",
+      "action": "merged-both",
+      "omega_sha256": "c10be0982b78ac31224b13baca2e1120a1f78b7cb0bb7cc237f1d3ff016cf749",
+      "cudapp_sha256": "ff9b3f86bfa200530eab862c9f9635dfbf2c98248a5d1601d29f1ade71c125cd"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_qmma.c",
+      "action": "merged-both",
+      "omega_sha256": "246cfb88145b2487b5a49fa8b34c85fa7e84baa558a79311171762fa17c25d2a",
+      "cudapp_sha256": "c54b5e57873205510dd0f76eb53c40a0cba14c053d35bd1043238ca9b5821fdc"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_qmma.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "eabe70dd9d2747875737f9d55ac7ca438596f60dd4e42579ed6787793e681332",
+      "cudapp_sha256": "a71bd17b4a3e759e1a4fd23cbb58be883fe18185991c772d851b17bb4c3d9df7"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_router.c",
+      "action": "merged-both",
+      "omega_sha256": "b4449bfbc9359e4180aba6b78dac27e9f200b4d96d4ee600a17570f812b0b67b",
+      "cudapp_sha256": "ba085c794975a8ac4ac631fe6b878514f3e20a4cf829d527bb34f9187b16b37b"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_router.h",
+      "action": "merged-both",
+      "omega_sha256": "cd394e52645bbb6313ea95515a364a66b07863c9248ba2693ec344e79ed4356c",
+      "cudapp_sha256": "3b1bb3755bcdf2bbe5f0c931b4559835adad2f4a072ddda78f5d215959aefbe2"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_tc.c",
+      "action": "merged-both",
+      "omega_sha256": "4dee8d0616291969cdf3fd36746a09bc21e09061a83e30d3ffa464cfbe8754b0",
+      "cudapp_sha256": "a95ac7bf6342890cec4b390428049e6b29e0ca6c07f7aa7c6034e546713c3855"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_tc.h",
+      "action": "merged-both",
+      "omega_sha256": "b248a60dacd1072de03fcb89a238b812d579b7d7cdac116423913f072e0be582",
+      "cudapp_sha256": "760375ed8d948299090d98b3a1af40ff2ea9a09f90f717e17946516d323c0452"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_tc2.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "06c0b6d68b56ae0e963b83b7d58c1cd264b3773774a9c1f1ee3765c1224040ef",
+      "cudapp_sha256": "27bd3979229ec688c53b307b8a33bce2bff097bc90f10f3fb297f5183b9d7554"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_tc2.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "2b5cfd304dc4a374110934f5b89a0652e402fda00110d655fe76a90fea34f8dc",
+      "cudapp_sha256": "35e4b98d7597003d538de1002fb4d1641359631cd61ef4076bf95abcc0181d49"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_tern.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "6843df041b2c55c1724635c9910b0e578a19a3e491146ccb509c34379c788bc2",
+      "cudapp_sha256": "5bf98a072f56e0ea3570bdcc5011c6c1e97851517824eeac7487e155407db91e"
+    },
+    {
+      "path": "src/omega_blackwell_codegen_tern.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "8ecd18f74a2c0393beb38b5fd77db5288c4b924e7e853c7cd9b3b15861878fba",
+      "cudapp_sha256": "3264d1c781e4cbfdfede7fc4d01d64a32f98681daf77f4a4b1230e0c50b56c03"
+    },
+    {
+      "path": "src/omega_blackwell_encoder.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "e4b7286346a0e3ad8f40a0d8993fafa77aaab7a1059f77027f799470b9f01f52",
+      "cudapp_sha256": "5f5693a6ac86ce73be36a7695db30151bb82b34ae22c806e2927ae51482a705f"
+    },
+    {
+      "path": "src/omega_blackwell_encoder.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "c1117f24d3a146ffb9ed9ece80ec6a5d248da64ca5a2f1aaed73b84133372f40",
+      "cudapp_sha256": "9912fce5f7441428f7ddacf152f2728503ddb12b3eac1ed89c7ad6737b9d0bee"
+    },
+    {
+      "path": "src/omega_blackwell_engine.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "3ef845933f94139cfae8b3e75ddb3ec34618a82728d32cfe2c3666c6247d455b",
+      "cudapp_sha256": "26f318b3201c374b0c0b623a0834173d02c02f6687fc91c9d35b5ee06c1f6776"
+    },
+    {
+      "path": "src/omega_blackwell_engine.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "8e88dbc03e5aa1c23e777b431753fb037c18910f5ad0fa465757d377524212e1",
+      "cudapp_sha256": "db8733e32fac680ba58f4bc56c33164b0f644683fb0b197572f8f2fbe744390d"
+    },
+    {
+      "path": "src/omega_blackwell_matmul.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "4c0fa309b676b1e5207698cc3da07aec274772fecd8a9e8accbbd921474d16ff",
+      "cudapp_sha256": "34e15bac999155f6c4a413ac12290125b14da15d21772bbcd767e368f1dca949"
+    },
+    {
+      "path": "src/omega_blackwell_matmul.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "86805e0fd702b2f176c62eede91a10387274854e3ecbf20ad78e30dc42709eba",
+      "cudapp_sha256": "41a6b8eee68a68a22cecb4a9596b10c0cafab1cb602766e66547bdc7899add3f"
+    },
+    {
+      "path": "src/omega_blackwell_qmd.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "0ab91b9c25385785e9596a9702c8e191427d8400a1adf7faf40ffed3a65db27e",
+      "cudapp_sha256": "19c9106073af854621ddd5f84af002dfa7be8e794c125f12446f0957a310c2aa"
+    },
+    {
+      "path": "src/omega_blackwell_qmd.h",
+      "action": "merged-both",
+      "omega_sha256": "db4f4ccf115805ca09a53c23df568a1548264972a86a50589f18312b41bd2c88",
+      "cudapp_sha256": "2b5d513241c9d0a79a8253abcd45dc657776054f47e4a4c5d0ce60fb0f5c8a01"
+    },
+    {
+      "path": "src/omega_blackwell_realize.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "9a5949d2a53b2623c592a116df6d9102a8f5e66dbe058d58d07283b5bec57cef",
+      "cudapp_sha256": "3718873eaa23d3ce3f0c3e9a183538f791b3fb1c194d0d273d7a002a8ea2fe09"
+    },
+    {
+      "path": "src/omega_blackwell_realize.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "0b9bf5e0b601aff7779b9b50b4eddcb458acaa9bf1aa7309d0616b6452b5c252",
+      "cudapp_sha256": "63cbca007ad9b58762e235ce16cee7625b04fe2978d3a089665a37526bf2ca54"
+    },
+    {
+      "path": "src/omega_blackwell_submit.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "109b2a175714b98202684bd16eae5d631551c7e2fad3633e781e79e75de75bd6",
+      "cudapp_sha256": "19b254fab8a96476300de4a61f83642008d8a444f0ee8db64907890dcb9263ff"
+    },
+    {
+      "path": "src/omega_blackwell_submit.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "2733b05e32d3484c53ea8558d211e18dbb65a16c928592364b45f1e411f1881c",
+      "cudapp_sha256": "ee1c4cedd03af8b41af82de4d070e8d2d75d5bae6f6c589ff53bcac41734d772"
+    },
+    {
+      "path": "src/omega_bw_em.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "06b99f13738e446972664fd10e9879f8daed1f261e205abf5a7f9f49a0cf9df8",
+      "cudapp_sha256": "0cddecd4bcea070bb6e3e0d47f55929dd02691d7f99eea9ce38b4b1c5d7a8fd9"
+    },
+    {
+      "path": "src/omega_bw_em_q.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "e73dac24519cff1a465182e10bb2846b41171e5d158e6680787ebed5293218eb",
+      "cudapp_sha256": "0361e0e4924a70198cd3d2e1d44f7b9e41eab36051faa9dc6c405a39b3d35872"
+    },
+    {
+      "path": "src/omega_bw_reconv.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "0da10397dd4ee813633afa425192d126d056684fdd998585fea666995a7c50ea",
+      "cudapp_sha256": "195124f3463ae6e451d0f56fdb7b1319f761a44a46e0c27c547df489d4e2b5f8"
+    },
+    {
+      "path": "src/omega_canonical.c",
+      "action": "identical",
+      "omega_sha256": "e067ec886fcccbaed0dc4c1a5d2f2124d1fd27121b151dfc3f04ca7092d1571b",
+      "cudapp_sha256": "e067ec886fcccbaed0dc4c1a5d2f2124d1fd27121b151dfc3f04ca7092d1571b"
+    },
+    {
+      "path": "src/omega_canonical.h",
+      "action": "identical",
+      "omega_sha256": "dba3a5ef8381e9bff73296fb8d2c2b429ffa1dd2bccb4117e74f28a7116b0acc",
+      "cudapp_sha256": "dba3a5ef8381e9bff73296fb8d2c2b429ffa1dd2bccb4117e74f28a7116b0acc"
+    },
+    {
+      "path": "src/omega_core.c",
+      "action": "identical",
+      "omega_sha256": "572ab9f08de0b1224465ce1ab73260d03a13aa83be5d46b6609bdb055015f56e",
+      "cudapp_sha256": "572ab9f08de0b1224465ce1ab73260d03a13aa83be5d46b6609bdb055015f56e"
+    },
+    {
+      "path": "src/omega_core.h",
+      "action": "identical",
+      "omega_sha256": "27e41829f04ba1f5d6503241ba66c3ac503f97ba49c4efe87331a1d263aa5412",
+      "cudapp_sha256": "27e41829f04ba1f5d6503241ba66c3ac503f97ba49c4efe87331a1d263aa5412"
+    },
+    {
+      "path": "src/omega_gpu_attention_api.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "db8e44ff47d2012049763b1adebf8c4724f07988bfb6f858fe5173e40fa4a066",
+      "cudapp_sha256": "6d6d6c31d0db4ff1e7582975f2d8e9a687346efa8f43bd45b09d4b4e6bac7fde"
+    },
+    {
+      "path": "src/omega_gpu_attention_api.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "f9be0e256e10e0664bc0602e862b544041a658248bd7200b463753fde81b396a",
+      "cudapp_sha256": "37d7aa652636fa0da452e9834613f620e01f4aca4944ed8b197984627c8bd527"
+    },
+    {
+      "path": "src/omega_gpu_bf16_gemv_api.c",
+      "action": "merged-both",
+      "omega_sha256": "dd03ec0cdf129a738c69d78bcac24ae28fe877e86204170a1d393429de9eb15c",
+      "cudapp_sha256": "5fd3e20722787ff85b7a1c807c34736031b9186ecd0f6dfda378e419fe17d9f1"
+    },
+    {
+      "path": "src/omega_gpu_bf16_gemv_api.h",
+      "action": "merged-both",
+      "omega_sha256": "e2e6d3103df7ebb0d582209ef6ac73e0b58337e2bfe3fd5b6d4aa0ff3e8dc17c",
+      "cudapp_sha256": "4e7184bb3b3dfbbae3de9f030001eeeab53b17c1c5e4424dff4096d2fd4857f7"
+    },
+    {
+      "path": "src/omega_gpu_cmdlist.c",
+      "action": "merged-both",
+      "omega_sha256": "9d83661b513f4d5101f75f1c164aff7ecc68a78d285591b46673a983edafa7f2",
+      "cudapp_sha256": "9e873a273083b0b9541ae7ec43bcf1ba3e8199c998be4c76ef4c4ef8390446ee"
+    },
+    {
+      "path": "src/omega_gpu_cmdlist.h",
+      "action": "merged-both",
+      "omega_sha256": "f8573e2530df2e0643145af553c842fc88bfbcf7830b194e85091bd873db6e49",
+      "cudapp_sha256": "b070a68db63a5234017554825b8cb8fa7d8ab4d9628729e3c0aab360f7051fd6"
+    },
+    {
+      "path": "src/omega_gpu_code_alloc.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "2ad323a1b42818813526966209eebef46550f06c9c37b77fca7d210c1b8a98e8",
+      "cudapp_sha256": "aa82fbc3f207bf0eb5b76f5134b01c0b7bad3eaea7df2a4330464311859670b9"
+    },
+    {
+      "path": "src/omega_gpu_decode_attn256_api.c",
+      "action": "added",
+      "omega_sha256": "8f4e8cbd19b5e9f5ae4e6ea0b51021e99095c9e27516ab5e0274b6593a8a6367",
+      "cudapp_sha256": "8f4e8cbd19b5e9f5ae4e6ea0b51021e99095c9e27516ab5e0274b6593a8a6367"
+    },
+    {
+      "path": "src/omega_gpu_decode_attn256_api.h",
+      "action": "added",
+      "omega_sha256": "8982e000ee58423f7883dee59b80f7ee89ca9d0c5e04b93523a1b1e332b04d35",
+      "cudapp_sha256": "8982e000ee58423f7883dee59b80f7ee89ca9d0c5e04b93523a1b1e332b04d35"
+    },
+    {
+      "path": "src/omega_gpu_decode_attn_api.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "46d8251d7bea07427f5ddffb80e7ee97540a05930903967b7895944232f54679",
+      "cudapp_sha256": "0fceffd75a15b4929385117d5a87bf05fb9588d701b8046c6528edec756441ae"
+    },
+    {
+      "path": "src/omega_gpu_decode_attn_api.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "645b2ded1afccd451658ca54ea9ddd0919280558189953d3c32f6783b7590306",
+      "cudapp_sha256": "b3d676cb66d823367c55fc6ab621b38aa236499411305600b19b338580b09dd5"
+    },
+    {
+      "path": "src/omega_gpu_decode_graph.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "b38036e941e3ca418606b9e0b3d57cc996c35bdc4d7db0fd6a9bf5b2e7f6947e",
+      "cudapp_sha256": "d4cb451812e3f0d05531f47e58f609a79e535bbbd6f5bb76c9dcb9e65debe59e"
+    },
+    {
+      "path": "src/omega_gpu_decode_graph.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "c26d12cd6b6ef65ad5e109f56e6102644e07654514e46983505d9a07a819051a",
+      "cudapp_sha256": "447a5148e01eec384f2a6a5894799df35e370aefd5bcd609d61f44e1abaffb9f"
+    },
+    {
+      "path": "src/omega_gpu_elementwise_api.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "7366eb0f8bbeb012f680bacc7c28b2b4bb6489726df08c6dc80dae640c0ba71c",
+      "cudapp_sha256": "3a937512f5a67b52e7a38680e934c3b3989ab5aa6e996dd0ec8efa3e5b4c5ed3"
+    },
+    {
+      "path": "src/omega_gpu_elementwise_api.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "5d62a2ea6209fc5a0133f866b60469a74d3ef2a32da67a30312e4daacc96b97f",
+      "cudapp_sha256": "ba066bbd975f094dc2d257e07737e0b36b52c5c978c6e240218ca2d60ac00b53"
+    },
+    {
+      "path": "src/omega_gpu_engine.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "5040c96c14e1da006ca0835578b419fe86f9b0659eeaa7fc156815684f050a88",
+      "cudapp_sha256": "05d08c4d3736cba3019856f356edbfe21842635bf85689ad62f614de415b7acd"
+    },
+    {
+      "path": "src/omega_gpu_engine.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "c6fec1328060baceef009d409be9fea6a7e4f9936b072070afe8350e9959de0d",
+      "cudapp_sha256": "e955c727473efd9d333eeff9a16dd8eeee96ecf83c623702d7ec9a803ec984ef"
+    },
+    {
+      "path": "src/omega_gpu_fmt.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "95e68935ed93cac63b454a2e46a4bcae646eb337b706d2eb6c53a5165763280f",
+      "cudapp_sha256": "a66839b45c66a03b2d8529b33c2037c79ab4569f1470cbd9d0db563c3771c01d"
+    },
+    {
+      "path": "src/omega_gpu_fmt.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "fee66c5b431bc6a9bee7fd24db10fdb3c40847e5df3e4954a8ac87a7dd63bb1e",
+      "cudapp_sha256": "74b12f346aa66afe72b31757863859eba83d28fbff7c36a919cc0a0890f9407d"
+    },
+    {
+      "path": "src/omega_gpu_fp8_api.c",
+      "action": "merged-both",
+      "omega_sha256": "16cf055f1b771d7b773ace49fbfdf8e15b345b26cab43afa9adf7f386f5aafca",
+      "cudapp_sha256": "fdfd11fd4b69f565a2ea13f37b463ca05259331ca1fcb8c2b6349ac5271e14e1"
+    },
+    {
+      "path": "src/omega_gpu_fp8_api.h",
+      "action": "merged-both",
+      "omega_sha256": "4e4fc1334a1c8628b82dd4439d8bcafe098bbc85d8202587897ef2647eb7ed7d",
+      "cudapp_sha256": "6e8bf2b32886fa08f6c9401ca570f7f491d24e8a27252948d3dbacd215ca90b9"
+    },
+    {
+      "path": "src/omega_gpu_fp8_pack.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "33080764910bdcda37175e9a98406a7b96efe86803db43e2953b74c6b5787165",
+      "cudapp_sha256": "97d7b035bb75fe4060332fb572000a5e99d275fa90efaf570022c29bc02f66bd"
+    },
+    {
+      "path": "src/omega_gpu_fp8gemm_api.c",
+      "action": "merged-both",
+      "omega_sha256": "9a0e33662550293b191d40f0ff158349edad1e66119fbfd83ae0d5ac5b75caaa",
+      "cudapp_sha256": "c4711d2116e3fc0c56a14c074ab1dea5e48d7f8c6585c4cc3605929f1294371f"
+    },
+    {
+      "path": "src/omega_gpu_fp8gemm_api.h",
+      "action": "merged-both",
+      "omega_sha256": "b521ff8c7e9920a9de08add3e2ceca2ee7e25350795a0469e05810992e1d1868",
+      "cudapp_sha256": "5cb0ba4c3df3f9e20879d19a6cd2543d37ff071a7397a143c9d7d610667ea075"
+    },
+    {
+      "path": "src/omega_gpu_gdn_api.c",
+      "action": "added",
+      "omega_sha256": "fac508112f066825932aa9c1ea71838000da94c5d8db941b02e68e8b51405189",
+      "cudapp_sha256": "fac508112f066825932aa9c1ea71838000da94c5d8db941b02e68e8b51405189"
+    },
+    {
+      "path": "src/omega_gpu_gdn_api.h",
+      "action": "added",
+      "omega_sha256": "7329f43b66c8664d0612a0bf51c384f08a0786b20d918060895d86f7a1fb30a1",
+      "cudapp_sha256": "7329f43b66c8664d0612a0bf51c384f08a0786b20d918060895d86f7a1fb30a1"
+    },
+    {
+      "path": "src/omega_gpu_gemm.c",
+      "action": "added",
+      "omega_sha256": "c1d3f2cbf54f129a680a1c3a16efe217a70b1c35f13547e3c7bb33f0b014bdc5",
+      "cudapp_sha256": "c1d3f2cbf54f129a680a1c3a16efe217a70b1c35f13547e3c7bb33f0b014bdc5"
+    },
+    {
+      "path": "src/omega_gpu_gemm.h",
+      "action": "added",
+      "omega_sha256": "b657f8a93b97904570b99d4da8a6879117edae8a83ae6747f1a299019a869661",
+      "cudapp_sha256": "b657f8a93b97904570b99d4da8a6879117edae8a83ae6747f1a299019a869661"
+    },
+    {
+      "path": "src/omega_gpu_hostmath.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "ba8b39fca04f9bae6adb7da8170367568e68136a535c3bf298e1d2b1b0abdde7",
+      "cudapp_sha256": "7bcabfeb40ec70bf5b617ac868c956883c12e6ef8d2dd6c90ad684c6f88b8c22"
+    },
+    {
+      "path": "src/omega_gpu_hostmath.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "40cf54c4a102dcc5c75ee5d5b4b45ef8ff13e48f3797555a0e62bf65a9dde63a",
+      "cudapp_sha256": "509d71c56ed87e159d856888f5d3437b570fe6a08e6771040926372a70d35a39"
+    },
+    {
+      "path": "src/omega_gpu_matmul_api.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "b7d5b5d9597d9b4e1f3ac3ec72a0b1a7bbba82e3d7286b672ae1cf9de8c93750",
+      "cudapp_sha256": "c10b1057fb7a6d54fb1ccfe53c1ad9c11bceded050d6dc0040424acc4e00a35d"
+    },
+    {
+      "path": "src/omega_gpu_matmul_api.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "c513761dce03887a87b34aec4d21279a3b24ecd75115d30fb54d145cf8e75bad",
+      "cudapp_sha256": "35b29090d61d1aa81117290ea5d194e4eaa76cf5d60c923cafb4f24f76c7f44f"
+    },
+    {
+      "path": "src/omega_gpu_mem_cached.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "4bc2e33a902f51a482b6b233dea192ed77d6bc1fa9492e2def1e11e74720bf50",
+      "cudapp_sha256": "1fb99ecc3fdb677d8a0496004a63824b81b664528831516cd3d3c9aee2881f02"
+    },
+    {
+      "path": "src/omega_gpu_mem_cached.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "1724f6528ae8455dd4998e1c6b80bc090086fd7b2e44dfdb219e64a4365a09ad",
+      "cudapp_sha256": "b5bafcc8eac12842bd01ffb980cf45080369f07b6a497e188edf82db12038cad"
+    },
+    {
+      "path": "src/omega_gpu_moe_api.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "0a61e49e830931458120eacc29d951ea504637e8f0efdf48ba4e41f0600617c0",
+      "cudapp_sha256": "889d510d15ef1c03996729c2808032a722a6e0d99e766acb167200f040f5bec6"
+    },
+    {
+      "path": "src/omega_gpu_moe_api.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "ff71141c335a654a7dc7a3da62f5dfc393b93b41d2c32cdbcdca0751db0cf160",
+      "cudapp_sha256": "ea75117a63d4d17ffddd342897f323adf5a84949fb05960ffdc76df12e0ae36e"
+    },
+    {
+      "path": "src/omega_gpu_pfgemm.c",
+      "action": "merged-both",
+      "omega_sha256": "e5e6c3e97f54d96ebefbae68bf632bc56de51357519ac0847f197d76ac74842a",
+      "cudapp_sha256": "c8affa91182898ebe917bd819b26c491caae0fbc5d1658959905009ceac305b4"
+    },
+    {
+      "path": "src/omega_gpu_pfhost.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "73baef975b9f11370c9e9b2636de13647cd82eb3f58666e65d7f0e81d62c7951",
+      "cudapp_sha256": "cb6236fbaf1a3386cdfa65b0a0bc7fd431ed0ffbe096e816ea7b96ed4a3a5992"
+    },
+    {
+      "path": "src/omega_gpu_pfhost.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "5a09486ea2fd506ba27202c26aafaec4a8e0796e07dabba272812c72728a7954",
+      "cudapp_sha256": "cd16d707ada8deb22e6ca75f9e24e18aa8ecbcab297335395ee42a2322c38830"
+    },
+    {
+      "path": "src/omega_gpu_platform.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "f89c08a11b1c0a37a0f76f895899cfe261e76dee71dbcd911f2125647a3e34f2",
+      "cudapp_sha256": "08ce3e022184a78e9167ed76f412debfec530d656df4dccc9c746ce83e475318"
+    },
+    {
+      "path": "src/omega_gpu_platform.h",
+      "action": "merged-both",
+      "omega_sha256": "ca938db65d8f210b1ee6595fa7bb966aef6ec6f667988791f6449a28737b5b3d",
+      "cudapp_sha256": "be2cd7c2bef7bfc33be59ebd69f165faba1c20964d3736eafa47b92758e3a3e9"
+    },
+    {
+      "path": "src/omega_gpu_platform_linux.c",
+      "action": "merged-both",
+      "omega_sha256": "e52c0e2101236af14f2c782904413f8ea94e1930b5e981349401f06cabc1ac31",
+      "cudapp_sha256": "6ed52b4a93ac496e80fb263af966147c970993855d096a077adc9a54e504778d"
+    },
+    {
+      "path": "src/omega_gpu_platform_linux.h",
+      "action": "merged-both",
+      "omega_sha256": "4a247cb7f9b68f95edbf95b7d3856341178caf952e541f3d0aec73c7e71829b5",
+      "cudapp_sha256": "b70349ebd1636304ff8da4a7e35cb942d9fa0fb4da1a1df1706530b105e28ddf"
+    },
+    {
+      "path": "src/omega_gpu_prefill.c",
+      "action": "merged-both",
+      "omega_sha256": "d15f6bdf2e3e1732013065dda62ae2d731170a168167925e67fab44b1b441cb4",
+      "cudapp_sha256": "76297fcc718e2e85df2c21c8c24e3670b873eae9f19ebc965b00738572345fbd"
+    },
+    {
+      "path": "src/omega_gpu_prefill.h",
+      "action": "merged-both",
+      "omega_sha256": "bc5f71b20cc81b6254c22de9e81a29fe62fb02fdcb07a349dc3e1d99116155bd",
+      "cudapp_sha256": "cbb3fc2fd51b196cd8f4e95eb5359db2fa734acd607ffb16c2eb02cd0c71f0e9"
+    },
+    {
+      "path": "src/omega_gpu_prefill_attn256_api.c",
+      "action": "added",
+      "omega_sha256": "aff7aa1ad520b0e84085877f69e23ae45ad5a714f1f9741c492a2fff41045a38",
+      "cudapp_sha256": "aff7aa1ad520b0e84085877f69e23ae45ad5a714f1f9741c492a2fff41045a38"
+    },
+    {
+      "path": "src/omega_gpu_prefill_attn256_api.h",
+      "action": "added",
+      "omega_sha256": "76a921e323f020eb592d1890a92c132690a9ac8269b7f82f7f236d37562d707c",
+      "cudapp_sha256": "76a921e323f020eb592d1890a92c132690a9ac8269b7f82f7f236d37562d707c"
+    },
+    {
+      "path": "src/omega_gpu_prefill_attn_api.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "c307984d5f6e831bf4e1b88661018910a707139ff2f8d79ba393ec0a2e717d18",
+      "cudapp_sha256": "d8d13a98be2c7c046322b0d38c8af4ff12e90df867fe4900459f051646dc8ef1"
+    },
+    {
+      "path": "src/omega_gpu_prefill_attn_api.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "7711dddc453da40654053dfdb5bd65242debda4a1fe1669465152a02b5b4d435",
+      "cudapp_sha256": "a4b2c245327e48f4cd9ccb247adeefdcf2cde75fd3b0dd564aec707415bb75a8"
+    },
+    {
+      "path": "src/omega_gpu_q36_graph.c",
+      "action": "added",
+      "omega_sha256": "46b940b6310d6e18669693d411469c87c2e17e3b7538e6bd4eb1fb48f9705c99",
+      "cudapp_sha256": "46b940b6310d6e18669693d411469c87c2e17e3b7538e6bd4eb1fb48f9705c99"
+    },
+    {
+      "path": "src/omega_gpu_q36_graph.h",
+      "action": "added",
+      "omega_sha256": "b9c609e006f9f3f82455deee81ba4ea954c249e4f542bc8466427ba49f0c9a86",
+      "cudapp_sha256": "b9c609e006f9f3f82455deee81ba4ea954c249e4f542bc8466427ba49f0c9a86"
+    },
+    {
+      "path": "src/omega_gpu_q38_graph.c",
+      "action": "added",
+      "omega_sha256": "95df5f21c5537705ea9ab8ecd1ffe5c80bcaf7b197ec4a1dc5e4e35c64e32130",
+      "cudapp_sha256": "95df5f21c5537705ea9ab8ecd1ffe5c80bcaf7b197ec4a1dc5e4e35c64e32130"
+    },
+    {
+      "path": "src/omega_gpu_q38_graph.h",
+      "action": "added",
+      "omega_sha256": "d679f32675ce970c2902867c7f089b667d9f7cc594354e92d724464caf2755da",
+      "cudapp_sha256": "d679f32675ce970c2902867c7f089b667d9f7cc594354e92d724464caf2755da"
+    },
+    {
+      "path": "src/omega_gpu_router_api.c",
+      "action": "merged-both",
+      "omega_sha256": "ea7868583af84417552a0ea90da19643fe2d6af5d28516958c4f79709121561e",
+      "cudapp_sha256": "3f9fd30742f1790f223137d98a8ec9a5a046ceb2468f939595edcfa0f6b85f50"
+    },
+    {
+      "path": "src/omega_gpu_router_api.h",
+      "action": "merged-both",
+      "omega_sha256": "1ce6a795212dd78d904b842622cc71c4bfaaf17918cef6d7e9651711f5f80510",
+      "cudapp_sha256": "3f23c23eff3e197d1ed40923c33ef8b95d9f5729823708ca4969f003982ae235"
+    },
+    {
+      "path": "src/omega_gpu_scan.c",
+      "action": "added",
+      "omega_sha256": "c1412bcd0d61c880b7b659991551bd71d76a32a3a803d7abb66fe74b4be22b98",
+      "cudapp_sha256": "c1412bcd0d61c880b7b659991551bd71d76a32a3a803d7abb66fe74b4be22b98"
+    },
+    {
+      "path": "src/omega_gpu_scan.h",
+      "action": "added",
+      "omega_sha256": "71cfb07202533bda9d74ff8bbf3fb96ea7fe02ceb24edb218029cb9fd1af5849",
+      "cudapp_sha256": "71cfb07202533bda9d74ff8bbf3fb96ea7fe02ceb24edb218029cb9fd1af5849"
+    },
+    {
+      "path": "src/omega_gpu_scan_ref.c",
+      "action": "added",
+      "omega_sha256": "9e970373f6953115f44dee44dfc14e5f622f8c72924c187ea28b204dca8983fc",
+      "cudapp_sha256": "9e970373f6953115f44dee44dfc14e5f622f8c72924c187ea28b204dca8983fc"
+    },
+    {
+      "path": "src/omega_gpu_serving.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "d97916d01448f2acab0b243ecbe6da228558840bbefa6d1d49e5a4be5492fd8e",
+      "cudapp_sha256": "3381f6b8fbcd99641804ac5482bbe713b67b9ecd0aea3a6de1974e5e08fb4747"
+    },
+    {
+      "path": "src/omega_gpu_serving.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "026daed29da4dc406fced15550323f9969a854cd9c8830a68a4602acd8ba04c6",
+      "cudapp_sha256": "df2fb58f8cc0594da8e82c9933c5c44bcebe39a9177760abcf20a49426849a40"
+    },
+    {
+      "path": "src/omega_gpu_session.c",
+      "action": "merged-both",
+      "omega_sha256": "e3b4ea10b69f59005f30a3e9c56fe4dacc937eb6d7c22b201f8ceaa63cca1679",
+      "cudapp_sha256": "fd16830b192844826ed4c29b95c35dc9fea98bb550ca6d16a8a9906744f6465f"
+    },
+    {
+      "path": "src/omega_gpu_session.h",
+      "action": "merged-both",
+      "omega_sha256": "1b912ab9a29987cc633d8b9afa4806e2535db347840351fe5ac48b35271b8319",
+      "cudapp_sha256": "c9016844d27ddf6a4515ebe75fb7badd4b08624d98586e4586de7e453f0c5125"
+    },
+    {
+      "path": "src/omega_gpu_tcgemm_api.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "3500a3f8ca05af7dbc73082c5aaea9ed3dac07277a78e9619caf99f02105bb90",
+      "cudapp_sha256": "fd7fff800690293cab66dd4e4fc263ef3fb0e35480e58b3956f5f0538a798341"
+    },
+    {
+      "path": "src/omega_gpu_tcgemm_api.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "350e2e43fa93ce3d654aba3938fc61e00930340b6c21ce3e3f687413fc0aee1b",
+      "cudapp_sha256": "d1466a25aaf1297da21b6cac1b44d77d8892b1fe2ce5dc72969ed0ca9b869496"
+    },
+    {
+      "path": "src/omega_gpu_tern_api.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "a6e33150bd468311704e589a61f61fe7eeab4722e9dc2b96f9a50099bc44565a",
+      "cudapp_sha256": "46a40e44a9a00b414beaa3d9a3842c089564cdcaaaf2b36bee462bc1b04771d1"
+    },
+    {
+      "path": "src/omega_gpu_tern_api.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "1f34562196f36f5848d2f71e5d93eba622ac10c45f6bfb8ecf291b0319b9f591",
+      "cudapp_sha256": "d3850a0fced81eef8f294850684a80bca5d34493a222408da506842922ba60d8"
+    },
+    {
+      "path": "src/omega_gpu_wait.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "3deb53cb05465a144e5a1a8f02cca536c526a246e45a75d03a9d060385ab0711",
+      "cudapp_sha256": "b019e9588aa1fb6194a74b4af614dd446960d4ce2b698e4f64c9aae7f72f6c59"
+    },
+    {
+      "path": "src/omega_gpu_wait.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "728baf3fc245b026fb9bd0b351e0dc8b5ae2ec29439827e8d6c3e6a673d69b3e",
+      "cudapp_sha256": "86630cd828060d75e202b0ec74f9d23d83e91c20682f217d3e676acf991f4e6f"
+    },
+    {
+      "path": "src/omega_sm121_disasm.c",
+      "action": "added",
+      "omega_sha256": "085e13f304b48e712f434fad27ab6bcef9328b066c2d9b71ebbf25c4c5be46e0",
+      "cudapp_sha256": "085e13f304b48e712f434fad27ab6bcef9328b066c2d9b71ebbf25c4c5be46e0"
+    },
+    {
+      "path": "src/omega_sm121_disasm.h",
+      "action": "added",
+      "omega_sha256": "0ac5f436eccde482f9acd61ed0e8358b1e7aeb33f4bdb9ae82f41ba04c41f26b",
+      "cudapp_sha256": "0ac5f436eccde482f9acd61ed0e8358b1e7aeb33f4bdb9ae82f41ba04c41f26b"
+    },
+    {
+      "path": "src/omega_types.h",
+      "action": "identical",
+      "omega_sha256": "e4373c0de1e9adc551aa46c781c5fa3491c39c021a0f2e1bc01c9e4791ffb459",
+      "cudapp_sha256": "e4373c0de1e9adc551aa46c781c5fa3491c39c021a0f2e1bc01c9e4791ffb459"
+    },
+    {
+      "path": "src/omega_vector.c",
+      "action": "identical",
+      "omega_sha256": "9e4f4622080494b1cf701f0d1c220979785c630cf8317ce44d68bdf58b5b47b5",
+      "cudapp_sha256": "9e4f4622080494b1cf701f0d1c220979785c630cf8317ce44d68bdf58b5b47b5"
+    },
+    {
+      "path": "src/omega_vector.h",
+      "action": "identical",
+      "omega_sha256": "7526e6849f33dcffc3c6420f0cdc2c86022a094117f57062d8f4f92886496698",
+      "cudapp_sha256": "7526e6849f33dcffc3c6420f0cdc2c86022a094117f57062d8f4f92886496698"
+    },
+    {
+      "path": "src/sha256.c",
+      "action": "identical",
+      "omega_sha256": "84d418f4e2c663b74698fe94012040282bcfc2f263d2417adaa41a05bdbb86e4",
+      "cudapp_sha256": "84d418f4e2c663b74698fe94012040282bcfc2f263d2417adaa41a05bdbb86e4"
+    },
+    {
+      "path": "src/sha256.h",
+      "action": "identical",
+      "omega_sha256": "f4ae8b01061a4fa352c1013d649ee4045e98aef83ff4d586d7b11801d8365660",
+      "cudapp_sha256": "f4ae8b01061a4fa352c1013d649ee4045e98aef83ff4d586d7b11801d8365660"
+    },
+    {
+      "path": "tests/bw_encode_control_test.c",
+      "action": "added",
+      "omega_sha256": "8f3d5c95557f9b3a36e017e53b902113abb9043a7ad804759dc62e6f0822ddd4",
+      "cudapp_sha256": "8f3d5c95557f9b3a36e017e53b902113abb9043a7ad804759dc62e6f0822ddd4"
+    },
+    {
+      "path": "tests/bw_hmma_model.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "f8eff390b3dc5c204994db47f089504e9aa71bd46bdb73418d28c3fe018b6d51",
+      "cudapp_sha256": "70d0031e335f14ebae53fe1a120c111ca2f75483921a59b122f8ea736562c005"
+    },
+    {
+      "path": "tests/bw_qmma_model.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "9630e0cdf78214ccbf6cd58beab11650e50399da6b5383c8587c2b212f8503d5",
+      "cudapp_sha256": "f88b9a6671e965c92670fc335e172516440ead99568a21313242e157c524b51a"
+    },
+    {
+      "path": "tests/bw_warp_sim.h",
+      "action": "merged-both",
+      "omega_sha256": "1d329d95bff66a0568acff6676e2c1572224981c9a9c27e8206f9221ae85dae8",
+      "cudapp_sha256": "f0d39d94454c16a77d9ace10f5589104b6e6acfc3e53dfed19b5a4117206a76c"
+    },
+    {
+      "path": "tests/bw_warp_sim_k.h",
+      "action": "merged-both",
+      "omega_sha256": "6005f6a8b470b79ab7debee79b72cd82303ac73e83487071209795bf7e1ec33d",
+      "cudapp_sha256": "f19e055777f8d1560286c625576fee6749ec31c9b6b7eb48f2199aa2b33b932a"
+    },
+    {
+      "path": "tests/bw_warp_sim_pa.h",
+      "action": "merged-both",
+      "omega_sha256": "de4b86cec4cdd79066cea22e31bf5182382234cad7346220d7a8028cf515c824",
+      "cudapp_sha256": "cea6240018d4aad9c52697b389b9eb50da1ceaef51726b7aa09e30880ac4e68d"
+    },
+    {
+      "path": "tests/bw_warp_sim_tc.h",
+      "action": "merged-both",
+      "omega_sha256": "486eac6f7ee0f6515ad2546e6cc42940036be71bfef59ddeb801fc1469832d71",
+      "cudapp_sha256": "0b35784b5dfd4ac430174b7afad3d25b162c6ded38e8261fb9e3c6b0eefd8662"
+    },
+    {
+      "path": "tests/fake_m16_native.c",
+      "action": "merged-both",
+      "omega_sha256": "5be51345ac671b557a3318e5b8ff4eee8597cd338ec765f4c21aca7abed62f74",
+      "cudapp_sha256": "4959b18c2fbc04be836fc054f87c65c5a8025bbaeba61918847d2b0a18988ae1"
+    },
+    {
+      "path": "tests/fake_m16_native.h",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "5cd35580ee3e16e77a86db802cca8115b8d7776723b6d5aa8d184dcf3d040812",
+      "cudapp_sha256": "b4e65cd3c6a426aa68406cc35195cd208b17dbdfae000600db8a0e4b5d90e0da"
+    },
+    {
+      "path": "tests/gpu_attention_test.c",
+      "action": "CONFLICT",
+      "omega_sha256": "844e31226d70d2ac6751ce182f58c4e85607ba39bbe902add33a69a899e70753",
+      "cudapp_sha256": "7bfc99edda5c865fc5b2b7a2b36103fae61f486df482aa818808074c0b4341b5"
+    },
+    {
+      "path": "tests/gpu_bf16_gemv_test.c",
+      "action": "merged-both",
+      "omega_sha256": "936fbf52441cb7a46d7d13819d6c523a9de5a1f382e65ad58584d771bb45039c",
+      "cudapp_sha256": "9773ec2065967d8ae29f0477f81da398fe272cfa4aa2f56385e6bc2dc98b3485"
+    },
+    {
+      "path": "tests/gpu_cmdlist_test.c",
+      "action": "merged-both",
+      "omega_sha256": "4fa3c589eb2be0908d7ebf16abad89830f43ec27e28066bcb990003936233a89",
+      "cudapp_sha256": "2c4672647d47ab3fe9f9bdda49fa26e03e62e48ba3389d287efe6c59111c3d81"
+    },
+    {
+      "path": "tests/gpu_dattn256_multi_test.c",
+      "action": "added",
+      "omega_sha256": "f5c1c47c2d66c9e611bf7e1771fe480d76fef94cc82712b89bb1a768491d6d42",
+      "cudapp_sha256": "f5c1c47c2d66c9e611bf7e1771fe480d76fef94cc82712b89bb1a768491d6d42"
+    },
+    {
+      "path": "tests/gpu_decode_attn256_test.c",
+      "action": "added",
+      "omega_sha256": "f676ba8d12f9b26640a2e0a5a2255005825bd393e1220348c50a7822cf0a8af1",
+      "cudapp_sha256": "f676ba8d12f9b26640a2e0a5a2255005825bd393e1220348c50a7822cf0a8af1"
+    },
+    {
+      "path": "tests/gpu_decode_attn_test.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "e6756d8118ae536c1bc2593513f9401c7c5b51c74e6ea5ce055d67cd01aa6273",
+      "cudapp_sha256": "3002faef6c16c9e8f35861d05b7ffd756460ac5c385cd4dd53393ddc1a7fd8ca"
+    },
+    {
+      "path": "tests/gpu_decode_graph_test.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "2a91f2add99b351a492e63ecdd2e3d2a05dc1c0cf55033f446749c937b7a6a68",
+      "cudapp_sha256": "6c65f8ec864a72003069844393c4e4a637f6bcfac689e10995ea9a7e6da01389"
+    },
+    {
+      "path": "tests/gpu_elementwise_test.c",
+      "action": "merged-both",
+      "omega_sha256": "18242d23784fe05466cbaf9a1f6c9102be8d61d2097fb57f989d257c433bb372",
+      "cudapp_sha256": "a2d0ff99c0e05652e548cee1f522cce946301b8d41146a9cf09cd18c5cc35ceb"
+    },
+    {
+      "path": "tests/gpu_exact_head_test.c",
+      "action": "added",
+      "omega_sha256": "289149e32b15bad49368c92c6a33da25563db17865d23afcc1a73d43c4d65259",
+      "cudapp_sha256": "289149e32b15bad49368c92c6a33da25563db17865d23afcc1a73d43c4d65259"
+    },
+    {
+      "path": "tests/gpu_fp8_api_test.c",
+      "action": "merged-both",
+      "omega_sha256": "b346f4fac30fce830303755e5caf694ba0179e324274c33bea9fea26e4665596",
+      "cudapp_sha256": "50f50232f653cf53bb1e066e8175c8a99270470e1e0667aec120f54ed6678a40"
+    },
+    {
+      "path": "tests/gpu_fp8gemm_test.c",
+      "action": "merged-both",
+      "omega_sha256": "f76321cdbf0e186a08c82f0d611c2e8ae748140f0dec9994fc5039c9dbcb3d85",
+      "cudapp_sha256": "5efc127dc9318b3f67630a684f9cc4f4c9d577ff9dadccebf701eedfea5ab4ef"
+    },
+    {
+      "path": "tests/gpu_gdn_multi_test.c",
+      "action": "added",
+      "omega_sha256": "75ff90db09eb27a7fc4ed96ea53f722cef12ca70b416f5d3830914f4d8f38ff5",
+      "cudapp_sha256": "75ff90db09eb27a7fc4ed96ea53f722cef12ca70b416f5d3830914f4d8f38ff5"
+    },
+    {
+      "path": "tests/gpu_gdn_test.c",
+      "action": "added",
+      "omega_sha256": "cec041d714a4fa7d04b5e417c875b08362e5b1f51fa075da771c73b2e6f5eb2d",
+      "cudapp_sha256": "cec041d714a4fa7d04b5e417c875b08362e5b1f51fa075da771c73b2e6f5eb2d"
+    },
+    {
+      "path": "tests/gpu_gemm_test.c",
+      "action": "added",
+      "omega_sha256": "653868ce201816eaca7e85d47804af25e361de5ba79a33de8d6b030eeb5d40b6",
+      "cudapp_sha256": "653868ce201816eaca7e85d47804af25e361de5ba79a33de8d6b030eeb5d40b6"
+    },
+    {
+      "path": "tests/gpu_gpr_boundary_test.c",
+      "action": "merged-both",
+      "omega_sha256": "12eaed86144f158d16b3de8dc73a6006fe577886efd22701f90c0cb68f0e47cf",
+      "cudapp_sha256": "8f4b6d53b2e53255cb4a3417f3d670450574d7c5e97c66277352a1203399d548"
+    },
+    {
+      "path": "tests/gpu_isolation_test.c",
+      "action": "added",
+      "omega_sha256": "d342cd6032e18e61ec52690900363958980cff333e1a73da930ac3bce7e25356",
+      "cudapp_sha256": "d342cd6032e18e61ec52690900363958980cff333e1a73da930ac3bce7e25356"
+    },
+    {
+      "path": "tests/gpu_l2_reuse_test.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "f48e719985c0de6813dc363f70e39d347c16666b0649878fe9c687414809d5fd",
+      "cudapp_sha256": "f4378bd64d30824b4eb51ff974865756752696ec09a090b68076180d02fb7f0e"
+    },
+    {
+      "path": "tests/gpu_l2_stale_test.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "23c01f4b2ef46a5c17c2f01f596a2c2a522b618dab5b135cd729e1b071b26390",
+      "cudapp_sha256": "302055f27feb17bc8453bab27173ed3f565ea052d0500e1e7da0758b8f6ada46"
+    },
+    {
+      "path": "tests/gpu_launch_cost_test.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "387121e46080c498d74cb9851d83a64957b22c9f43faa7a46dafcb36afbc07bc",
+      "cudapp_sha256": "2c53a37605ad2848197a4e9b2d2cf40aba6ac1f033d0cb6ebb9f2276cb480bf1"
+    },
+    {
+      "path": "tests/gpu_lmhead_fp8_study.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "aa5a2db135b5733ac9d5cfb920a965235d7af172aae493174eba06ad27d28232",
+      "cudapp_sha256": "561c8a4f07ce4c809c1b29a4e08daec41456bfdd6684f29cf88b9cbf8dc56670"
+    },
+    {
+      "path": "tests/gpu_matmul_api_test.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "aa52bdc105795ed5d5df1ee1029e439230a1f2f813893ef5657fa97925d99342",
+      "cudapp_sha256": "7e76b1d5fc310317c6f7413f10344b931e8ca9195844d392d6e520e2047ac194"
+    },
+    {
+      "path": "tests/gpu_matmul_r4_receipt.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "e3c73ba3b352b6d7348e539e647561328e0302bc097813eeeecd498bc2c00927",
+      "cudapp_sha256": "f8b9ed13e841b12f57818d39a6f5ab8e66ba418eba6869044948cb2e854ec3d3"
+    },
+    {
+      "path": "tests/gpu_moe_window_test.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "f4a18e5ffa06de5c4133184279b26dd6ba7565186c867a06c0a9b2c95319e3a7",
+      "cudapp_sha256": "f4568f099e5ae20733db6edea34ca54699b016b8fdbbc514118d0d68db8b53f3"
+    },
+    {
+      "path": "tests/gpu_pf_mem_test.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "d2104a4055212c90d8f37c71900db07d78fa1a1b67dc46e0a42627fd826d4493",
+      "cudapp_sha256": "3f6c89b2bf2e3b28c18c701767a5d898568c8561179fb563b7691aaebc318782"
+    },
+    {
+      "path": "tests/gpu_pfgemm_test.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "cfc436f36422d90141bafcaf5e23d550e6bc89f3c7a81d7f7dffc644fd3537d0",
+      "cudapp_sha256": "e413d1b4f48abf2969b28426d704c7e1e3762306691a9d17d61b9c54f2ffa46f"
+    },
+    {
+      "path": "tests/gpu_pfhost_test.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "7511165c1becd86879760b3da8230cb16d063029c7a98bbe243ec795fcdcd29d",
+      "cudapp_sha256": "2b2503906efbcf91373042a7a64ffd2550905d47b9b8da2d76a5877b1b8d4622"
+    },
+    {
+      "path": "tests/gpu_prefill_attn256_test.c",
+      "action": "added",
+      "omega_sha256": "5b3086e07359d41993470173ec1acadb285c7f18ed5aa1fafe2638b8b831611f",
+      "cudapp_sha256": "5b3086e07359d41993470173ec1acadb285c7f18ed5aa1fafe2638b8b831611f"
+    },
+    {
+      "path": "tests/gpu_prefill_attn_test.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "5ea47745e7da0feb3da08a9e99e442fe2df8c0228b057febbc9ab5a585d0ee28",
+      "cudapp_sha256": "a54b52aa3d525751124b592e573d72a345515e03edca8d205657e1754f3ab9ba"
+    },
+    {
+      "path": "tests/gpu_q38_graph_test.c",
+      "action": "added",
+      "omega_sha256": "6d7b46d0bcde16d63934328ccd7d94c231097f89652a266ed371f8092964af0d",
+      "cudapp_sha256": "6d7b46d0bcde16d63934328ccd7d94c231097f89652a266ed371f8092964af0d"
+    },
+    {
+      "path": "tests/gpu_qgemm_test.c",
+      "action": "merged-both",
+      "omega_sha256": "c0dfa38f7e2ddc3ce91fcce7d99f4364f10181e26ada2c919ed9aeec1e61b831",
+      "cudapp_sha256": "48de80469c0c469d43342ff759c66726899d364a4ef126d92495836f75e43c4a"
+    },
+    {
+      "path": "tests/gpu_qmma_probe_test.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "c2ca4179ebd5b6af6eea4e34c39ff7d1c387bb25c00da266c0fbce9d0950a305",
+      "cudapp_sha256": "97311f229efb36d5fd311b0ab2db8bef2eca40a0c512c76353f8f0e5fb8f99ac"
+    },
+    {
+      "path": "tests/gpu_reconv_test.c",
+      "action": "merged-both",
+      "omega_sha256": "e5f300910caf23d91542159afdc2ef756a533ce4b9c46033f37fd77c29e77f97",
+      "cudapp_sha256": "562bbb5f8265eaa5af296c1b575186bf64b5f397b65c5c8b9734fd013f142693"
+    },
+    {
+      "path": "tests/gpu_router_test.c",
+      "action": "merged-both",
+      "omega_sha256": "9033ae0be54a32b4d72b9478b0b2bc8bdbe183c5d6488a974c54601fbebe90f1",
+      "cudapp_sha256": "b3bb48083ea37241e5eeb5dfaecd545103ccd8fa49a95b512ca2b866fa54d476"
+    },
+    {
+      "path": "tests/gpu_scan_test.c",
+      "action": "added",
+      "omega_sha256": "815d996a8fa0887a18d184a96ca66c996fbb59b3785f14cd60a4fc5ced30895b",
+      "cudapp_sha256": "815d996a8fa0887a18d184a96ca66c996fbb59b3785f14cd60a4fc5ced30895b"
+    },
+    {
+      "path": "tests/gpu_serving_alloc_count_test.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "a0c40e4ce56c9e55d07c6a41cd5ba4cb4ea12a57f1e5ace805c989bf40f095eb",
+      "cudapp_sha256": "aacda627d05a255f619d419a09bd33e0f914b019bc6cf2282e0e9cd425ffa2d0"
+    },
+    {
+      "path": "tests/gpu_session_probe.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "2cf1630f99767bd7a9ab1e1f0940516dd3b534dd71906ef0a6c7d8e7ae0c63c8",
+      "cudapp_sha256": "853da364dbd428bd6ae07bd8b686b6641bbe30b58ca47b922c4fc8236f5f899c"
+    },
+    {
+      "path": "tests/gpu_streams_test.c",
+      "action": "added",
+      "omega_sha256": "797a3f36ed015e1389be3c4dee802c15f79e6217a208e9a9ff37c448f813362a",
+      "cudapp_sha256": "797a3f36ed015e1389be3c4dee802c15f79e6217a208e9a9ff37c448f813362a"
+    },
+    {
+      "path": "tests/gpu_tc_peak_test.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "ca06c7c78dba99afd47f6c4a8a6778e90d32cbb244ab5c10e1abcbfa0c8be8f6",
+      "cudapp_sha256": "f0d7b8255acaf056e00f8300c846a49765c7740cc679a3139d59bc5cefc9dc40"
+    },
+    {
+      "path": "tests/gpu_tc_probe_test.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "003b1224c6726de5e2c53862ba4cd152b4b9baefe843958504f662f7a5731284",
+      "cudapp_sha256": "6986e49490e908abc87b4a5e33e9c6e104ac9b3d8be2dfe556d20ebe3598f336"
+    },
+    {
+      "path": "tests/gpu_tcgemm_test.c",
+      "action": "merged-both",
+      "omega_sha256": "9e1416a37bfaf3e744deb156000b235abb0c30c5fddbcb867dd8d41a3c7deb60",
+      "cudapp_sha256": "c4fd5752cf47472df606cbc390d28a2af69f7b7b8e11c4c384c1bee8ee212bc3"
+    },
+    {
+      "path": "tests/gpu_tern_test.c",
+      "action": "added",
+      "omega_sha256": "c8d735239f4c4b6e77292e0a258e743eacd23dcf724f80492b813c8e9e50f622",
+      "cudapp_sha256": "c8d735239f4c4b6e77292e0a258e743eacd23dcf724f80492b813c8e9e50f622"
+    },
+    {
+      "path": "tests/test_omega_blackwell_engine.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "e64b61fe2335bda7bda209bad67f1512d79f788805bb98f45a4603987ed52f13",
+      "cudapp_sha256": "98ab8d5026cf556247157aea5d63d357d4a4b90cc3cacad038504eed6accb93d"
+    },
+    {
+      "path": "tests/test_omega_codegen_freestanding.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "6635c142b77729002bd1a500c543cce44e658591358aeb5a70c95941928bb36a",
+      "cudapp_sha256": "fe0c5ad3e6362d8f317997ed147cd259e98404f04a9d607918ab0eda916f15c5"
+    },
+    {
+      "path": "tests/test_omega_gpu_code_alloc.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "94cb89571cf7db3bab9368882c79dbe8dd4053e2ace4fb6cc3ae691188e55378",
+      "cudapp_sha256": "c66be2d637f802dd87aa91282b0bac1eac62e566eb19957e5f5ff4c7698aae1e"
+    },
+    {
+      "path": "tests/test_omega_gpu_engine.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "7bf0a097f9bc91c9e4e7c345ab7bfc467185d561b6207c43b836daabfb1116a8",
+      "cudapp_sha256": "555f9df595bdd1cf51313d3b95cf534459606532c27c24432087f378b8045ffb"
+    },
+    {
+      "path": "tests/test_omega_gpu_engine_compile.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "023e24a88574bd22066d2d6007fef8b2d41460ee1a89e933ccd403c86ab55cd7",
+      "cudapp_sha256": "9948283fa6b08fce5accddd6d1eae5730a82ec0a314d4e53215b654c2ac4133e"
+    },
+    {
+      "path": "tests/test_omega_gpu_engine_gb10.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "e5547d0325c4e8f35813995033880d2698f55f42956eb120525d3a4b041c71e2",
+      "cudapp_sha256": "5aa8938e872f23ba36290ab703a26e6d28daeeb7fcdae0b281ac2711d13c8fe1"
+    },
+    {
+      "path": "tests/test_omega_gpu_platform.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "c37dcb91d347006691d6cc889044543f824405b002c96cc25e56ec9c7dac23bc",
+      "cudapp_sha256": "96469ccad9214cdfa69462a3b6286c8e0a4a24393673166b385e1fc8c9dda397"
+    },
+    {
+      "path": "tests/test_omega_gpu_platform_linux.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "2cc4bf5cffc7a8e8203848399c6e83b25bf9275636d3aff82ea050af8a513e8e",
+      "cudapp_sha256": "78184887a74838505d68df604996f8deeb0ffad2e023e31d2402da7d7526e0ce"
+    },
+    {
+      "path": "tests/test_omega_gpu_session_platform.c",
+      "action": "merged-both",
+      "omega_sha256": "b4f5262423939537ab468ffe9bd735f91cf51bed693e826be8073796cc60b45d",
+      "cudapp_sha256": "a1ac3395de392eb1a8ea0db5c93f9467c0afa3a1fa10549c24736ddea1973115"
+    },
+    {
+      "path": "tests/test_omega_gpu_wait.c",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "68341c5c27cd89a124a1829aec03dca84a9e6d8e116b47ef9e527654e44af6c1",
+      "cudapp_sha256": "b2cd813be1a764c4ff44b180a56fd0ebcc8b155effacabd2dcfc12d38e6b51aa"
+    },
+    {
+      "path": "tools/gpu_engine_backend_mutations.sh",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "c58d25a93c7f599315e8924cd7035ef94645087f7e7ea08fd3e2ecce1e4a0fdc",
+      "cudapp_sha256": "399a571a91f39fc77600cc6105cde405cce9ade8f1ae6fe5b29f0db6e3bbafa9"
+    },
+    {
+      "path": "tools/gpu_engine_mutations.sh",
+      "action": "kept-cudapp-fix",
+      "omega_sha256": "b7f2646e8b40a9090d37ca7816c0fba7f48df805618a65d48e07dc6ae62e9de4",
+      "cudapp_sha256": "d95b91869fd4528ab9e1f5c323ccf935e8899525182fc59c369679e68ae2f14f"
+    },
+    {
+      "path": "tools/sm121dis/README.md",
+      "action": "added",
+      "omega_sha256": "9b57f2e03a089dd26c8c2336e8576f94fd662e916ffed1670514f6fa04c1d757",
+      "cudapp_sha256": "9b57f2e03a089dd26c8c2336e8576f94fd662e916ffed1670514f6fa04c1d757"
+    },
+    {
+      "path": "tools/sm121dis/check.sh",
+      "action": "added",
+      "omega_sha256": "99ee27af114aa9eed45b3b2d94a45a7e3f396033872e0612a800d738ea557dac",
+      "cudapp_sha256": "99ee27af114aa9eed45b3b2d94a45a7e3f396033872e0612a800d738ea557dac"
+    },
+    {
+      "path": "tools/sm121dis/corpus.sh",
+      "action": "added",
+      "omega_sha256": "8f54efd56e1de83498f88221a1441cd52307a3ea948847b048e04829ec4eb724",
+      "cudapp_sha256": "8f54efd56e1de83498f88221a1441cd52307a3ea948847b048e04829ec4eb724"
+    },
+    {
+      "path": "tools/sm121dis/oracle_pairs.sh",
+      "action": "added",
+      "omega_sha256": "ffd6d096da7cf5e1724b8ddb04d7f89cee56ba9c2d28f285331d5beaddaf4aa2",
+      "cudapp_sha256": "ffd6d096da7cf5e1724b8ddb04d7f89cee56ba9c2d28f285331d5beaddaf4aa2"
+    },
+    {
+      "path": "tools/sm121dis/sm121dis.c",
+      "action": "added",
+      "omega_sha256": "a0fdf121489261de3e53c25fb0eee3cdde5948f82ec0a911cfab9376ddcab3e4",
+      "cudapp_sha256": "a0fdf121489261de3e53c25fb0eee3cdde5948f82ec0a911cfab9376ddcab3e4"
+    }
+  ],
+  "conflicts": [
+    "tests/gpu_attention_test.c"
+  ],
+  "conflicts_resolved": {
+    "tests/gpu_attention_test.c": "Use own decoder but retain original complete instruction-count and >=0x1000 address checks; no test weakened."
+  },
+  "source_omega_merged": "aceb9741a5a7852a54055c21cd517ee3098d1609"
+}
