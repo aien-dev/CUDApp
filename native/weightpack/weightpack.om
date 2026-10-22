@@ -1,0 +1,305 @@
+note SPDX-License-Identifier: MIT
+note ZCR1/ZCP1 bounded exact byte codec. See CONTRACT.md.
+note Validation completes before stdout publication. No floating-point operations.
+note Small helpers respect the pinned seed compiler's sixteen-register limit.
+global inp uchar 1048597
+global out uchar 1048596
+global tags uchar 4096
+global shape ulong 3
+fn load32 p ulong to ulong
+v = ulong 0
+for i ulong 4
+v = add v shl ulong get inp add p i mul i 8
+end
+ret v
+end
+fn store32 p ulong v ulong to void
+for i ulong 4
+put out add p i uchar and shr v mul i 8 255
+end
+end
+fn count to ulong
+ret get shape get shape 2
+end
+fn width to ulong
+ret get shape sub 1 get shape 2
+end
+fn size to ulong
+ret mul get shape 0 get shape 1
+end
+fn offset c ulong j ulong to ulong
+cols = get shape 1
+if eq get shape 2 0
+ret add mul c cols j
+end
+ret add mul j cols c
+end
+fn raw c ulong j ulong to ulong
+ret ulong get inp add 16 offset c j
+end
+fn header middle ulong mode ulong to void
+for i ulong 16
+put out i get inp i
+end
+put out 2 uchar middle
+store32 16 mode
+end
+fn publish n ulong to int
+p = ulong 0
+for attempt ulong 1048597
+if ge p n
+ret 0
+end
+w = write 1 out p sub n p
+if le w 0
+ret 74
+end
+p = add p ulong w
+end
+ret 0
+end
+fn classify c ulong to ulong
+negative = false
+for j ulong width
+v = raw c j
+if ne and v 127 0
+ret 2
+end
+if ne and v 128 0
+negative = true
+end
+end
+if negative
+ret 1
+end
+ret 0
+end
+fn signbit p ulong j ulong to void
+b = add p div j 8
+v = ulong get out b
+bit = shl 1 rem j 8
+v = add v bit
+put out b uchar v
+end
+fn packchannel c ulong p ulong to ulong
+tag = ulong get tags c
+put out p uchar tag
+p = add p 1
+if eq tag 1
+masksize = div add width 7 8
+for k ulong masksize
+put out add p k 0
+end
+for j ulong width
+if ne and raw c j 128 0
+signbit p j
+end
+end
+ret add p masksize
+end
+if eq tag 2
+for j ulong width
+put out p uchar raw c j
+p = add p 1
+end
+end
+ret p
+end
+fn copydense source ulong target ulong to void
+p = ulong 0
+while lt p size
+n = sub size p
+if gt n 65536
+n = 65536
+end
+for j ulong n
+v = get inp add source add p j
+put out add target add p j v
+end
+p = add p n
+end
+end
+fn encode n ulong to int
+if ne n add size 16
+ret 65
+end
+cost = ulong 0
+for c ulong count
+tag = classify c
+cost = add cost 1
+if eq tag 2
+cost = add cost width
+end
+if eq tag 1
+cost = add cost div add width 7 8
+end
+put tags c uchar tag
+end
+if ge cost size
+header 80 0
+copydense 16 20
+ret publish add size 20
+end
+header 80 1
+p = ulong 20
+for c ulong count
+p = packchannel c p
+end
+ret publish p
+end
+note Decode helpers return zero only on refusal; valid offsets are >=20.
+fn unpackzero c ulong p ulong to ulong
+for j ulong width
+put out add 16 offset c j 0
+end
+ret p
+end
+fn signvalue p ulong j ulong to ulong
+b = ulong get inp add p div j 8
+b = shr b rem j 8
+ret and b 1
+end
+fn output c ulong j ulong v ulong to void
+p = add 16 offset c j
+put out p uchar v
+end
+fn unpacksign c ulong p ulong n ulong to ulong
+masksize = div add width 7 8
+if gt add p masksize n
+ret 0
+end
+if ne rem width 8 0
+last = ulong get inp sub add p masksize 1
+if ne shr last rem width 8 0
+ret 0
+end
+end
+negative = false
+for j ulong width
+v = signvalue p j
+if ne v 0
+negative = true
+end
+output c j mul v 128
+end
+if not negative
+ret 0
+end
+ret add p masksize
+end
+fn unpackraw c ulong p ulong n ulong to ulong
+if gt add p width n
+ret 0
+end
+nonzero = false
+for j ulong width
+v = ulong get inp add p j
+if ne and v 127 0
+nonzero = true
+end
+output c j v
+end
+if not nonzero
+ret 0
+end
+ret add p width
+end
+fn unpackchannel c ulong p ulong n ulong to ulong
+if ge p n
+ret 0
+end
+tag = ulong get inp p
+p = add p 1
+if eq tag 0
+ret unpackzero c p
+end
+if eq tag 1
+ret unpacksign c p n
+end
+if eq tag 2
+ret unpackraw c p n
+end
+ret 0
+end
+fn decode n ulong to int
+if lt n 20
+ret 65
+end
+mode = load32 16
+header 82 0
+if eq mode 0
+if ne n add size 20
+ret 65
+end
+copydense 20 16
+ret publish add size 16
+end
+if ne mode 1
+ret 65
+end
+if ge sub n 20 size
+ret 65
+end
+p = ulong 20
+for c ulong count
+p = unpackchannel c p n
+if eq p 0
+ret 65
+end
+end
+if ne p n
+ret 65
+end
+ret publish add size 16
+end
+fn dispatch n ulong to int
+if lt n 16
+ret 65
+end
+if not and eq get inp 0 90 and eq get inp 1 67 eq get inp 3 49
+ret 65
+end
+middle = ulong get inp 2
+if not or eq middle 82 eq middle 80
+ret 65
+end
+rows = load32 4
+cols = load32 8
+axis = load32 12
+if or eq rows 0 gt rows 4096
+ret 65
+end
+if or eq cols 0 gt cols 4096
+ret 65
+end
+if gt axis 1
+ret 65
+end
+if gt mul rows cols 1048576
+ret 65
+end
+put shape 0 rows
+put shape 1 cols
+put shape 2 axis
+if eq middle 82
+ret encode n
+end
+ret decode n
+end
+fn main to int
+n = ulong 0
+for attempt ulong 1048598
+if ge n len inp
+ret 65
+end
+r = read 0 inp n sub len inp n
+if lt r 0
+ret 74
+end
+if eq r 0
+ret dispatch n
+end
+n = add n ulong r
+end
+ret 65
+end

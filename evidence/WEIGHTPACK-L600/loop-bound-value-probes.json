@@ -1,0 +1,74 @@
+[
+  {
+    "iterations": 999999,
+    "mode": "literal",
+    "expected_rc": 15,
+    "rc": 15
+  },
+  {
+    "iterations": 999999,
+    "mode": "variable",
+    "expected_rc": 15,
+    "rc": 15
+  },
+  {
+    "iterations": 1000000,
+    "mode": "literal",
+    "expected_rc": 16,
+    "rc": 16
+  },
+  {
+    "iterations": 1000000,
+    "mode": "variable",
+    "expected_rc": 16,
+    "rc": 16
+  },
+  {
+    "iterations": 1000001,
+    "mode": "literal",
+    "expected_rc": 17,
+    "rc": 17
+  },
+  {
+    "iterations": 1000001,
+    "mode": "variable",
+    "expected_rc": 17,
+    "rc": 104
+  },
+  {
+    "iterations": 1048575,
+    "mode": "literal",
+    "expected_rc": 148,
+    "rc": 148
+  },
+  {
+    "iterations": 1048575,
+    "mode": "variable",
+    "expected_rc": 148,
+    "rc": 104
+  },
+  {
+    "iterations": 1048576,
+    "mode": "literal",
+    "expected_rc": 149,
+    "rc": 149
+  },
+  {
+    "iterations": 1048576,
+    "mode": "variable",
+    "expected_rc": 149,
+    "rc": 104
+  },
+  {
+    "iterations": 1048577,
+    "mode": "literal",
+    "expected_rc": 150,
+    "rc": 150
+  },
+  {
+    "iterations": 1048577,
+    "mode": "variable",
+    "expected_rc": 150,
+    "rc": 104
+  }
+]

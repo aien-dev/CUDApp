@@ -1,0 +1,9 @@
+{
+  "original_name": "repository-host-test.log",
+  "stored_name": "repository-host-test.log.gz",
+  "encoding": "gzip",
+  "raw_sha256": "68cb093a4fb677524000e153dccfeb824cad8d76e9075dd4fb63fec8cdf3acfd",
+  "compressed_sha256": "9247eebbc8b912165e84c0a75a073eedcf0bba439e2b1368c486c06226d48942",
+  "lossless_verified": true,
+  "reason": "Retain original test output including trailing whitespace, without changing raw evidence or weakening diff checks."
+}

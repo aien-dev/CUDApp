@@ -1,0 +1,22 @@
+[
+  {
+    "expression": "and v 127",
+    "rc": 0,
+    "stderr": ""
+  },
+  {
+    "expression": "band v 127",
+    "rc": 3,
+    "stderr": "omc: line 3: error 3\n"
+  },
+  {
+    "expression": "xor v 127",
+    "rc": 0,
+    "stderr": ""
+  },
+  {
+    "expression": "and ne v 0 true",
+    "rc": 0,
+    "stderr": ""
+  }
+]

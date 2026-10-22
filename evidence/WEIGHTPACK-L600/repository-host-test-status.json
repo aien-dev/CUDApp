@@ -1,0 +1,1 @@
+{"command": "quiet-build make -j2 test", "rc": 0, "log": "repository-host-test.log.gz"}

@@ -1,0 +1,9 @@
+{
+  "fresh_bootstrap_rc": 0,
+  "native_make_rc": 0,
+  "identical_native_binary": true,
+  "binary_sha256": "939fef5d9ee207a9a5e504e599f735f756022010741640040b1a99bef374586f",
+  "missing_compiler_refused": 2,
+  "wrong_compiler_refused": 1,
+  "no_wrong_compiler_output": true
+}

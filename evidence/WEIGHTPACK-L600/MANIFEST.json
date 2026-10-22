@@ -1,0 +1,191 @@
+{
+  "files": [
+    {
+      "path": "docs/plans/2026-10-22-native-weightpack.md",
+      "bytes": 3930,
+      "sha256": "b1544e3124b95364846127b5bba379f114e66183db479177ee8b8214e3142903"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/PERSONAL-REVIEW.md",
+      "bytes": 1751,
+      "sha256": "b17f2843e72f648488600f18260de36474d405c213c2ace6145466e9caa4c215"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/README.md",
+      "bytes": 3897,
+      "sha256": "d4acc84c46b6ce1bd8ced038b6efdc5158ff1423ba065420ffdd75b82da49e19"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/bootstrap-lock.sha256",
+      "bytes": 350,
+      "sha256": "bdbaa59860847d5c842af705ddc9230b98c70a1a3c8babe25be339af284e7ad7"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/bootstrap-pins",
+      "bytes": 219,
+      "sha256": "2e9dda1d8ba2e376179f5b3d5a834b0f16d68178138459e2cf3ed22c0e4788f8"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/bootstrap-sources.sha256",
+      "bytes": 2099,
+      "sha256": "3afb591631dfa5202c59e8406cf1822c1a08385fb28d362de579ff2d24009fa3"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/bootstrap.log",
+      "bytes": 54,
+      "sha256": "d2bf998e2ad964ecf02327ae887a51daaee7d7691314b307153ca664d368dc73"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/checkpoint-replay.json",
+      "bytes": 17236,
+      "sha256": "5082b96ed9c03d89f717f62ba032c18a0661df727de512764ccf7640123885ef"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/compile-bounded-copy.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/compile-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/compile-helpers.log",
+      "bytes": 23,
+      "sha256": "62be3755040e5ea9db8f7ca72b13b4c3e0e6ab08123e75354268a67f4f5bc1d5"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/compile-root-cause.json",
+      "bytes": 311,
+      "sha256": "95fb448840ffcd0d1f3020dc43ad560077d5bce6c599155bd47b5244d405aa8e"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/compile-signbit.log",
+      "bytes": 24,
+      "sha256": "23be3b5325052bf3281aba71f07f37bba054e9cea9daa759c29fb2c254efa9ef"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/compile.log",
+      "bytes": 23,
+      "sha256": "dfd2f5a810fb6891293c1518e2c4dabb8db2b7809dc14a02835ebd1d1a7beb61"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/first-native.json",
+      "bytes": 186836,
+      "sha256": "375efe8efc722c8c46f17aaf70e0750a66b9e8b68c6106d6e3c80ea0bbba0fff"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/fresh-bootstrap.log",
+      "bytes": 54,
+      "sha256": "d2bf998e2ad964ecf02327ae887a51daaee7d7691314b307153ca664d368dc73"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/fresh-replay.json",
+      "bytes": 274,
+      "sha256": "d67a36c5cc88b384b9dbc78d459af5fd56d940f0fbba899a63bc951cb9c9d404"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/green-native.json",
+      "bytes": 186830,
+      "sha256": "cb95c9e136b2fa977c59ed7678adde04f425ccb30008c36cdfbd920ea3805ff2"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/loop-bound-root-cause.json",
+      "bytes": 145,
+      "sha256": "b683d075ec477aa95a3593c7faf5b30df3763ae200c1e7ea92197e347062bf9f"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/loop-bound-value-probes.json",
+      "bytes": 1159,
+      "sha256": "48ebd11028afd555abc9753aa56db2e549abcd7cd9cde1c1e343cdf1b31ef6ca"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/make-native-test.log",
+      "bytes": 1971,
+      "sha256": "60c5b52f606be14c585b1025c30bf4dfe36628a10098ba300e787a4a9087274f"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/metadata-inventory.json",
+      "bytes": 9404,
+      "sha256": "e43dbfe3a7676511bb79a4de5411f47162cb2955377727b0cae5f589f12f62b6"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/mutant-accept-trailing-sparse.json",
+      "bytes": 186830,
+      "sha256": "8500a9c53270bf712762fd6b5c89d30715f2034d51ce78880cc32041d54bcf90"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/mutant-lose-zero-sign.json",
+      "bytes": 186916,
+      "sha256": "3f9759cebc836fa2ed55d252452cb1a38f0e7ca690d6f3274b2e246666b88a27"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/mutant-wrong-orientation.json",
+      "bytes": 187007,
+      "sha256": "a5b8c8da7f84385d2d1f8ce00a4567b79431942f9df7b429334f555fdb841c56"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/qualification.json",
+      "bytes": 1830,
+      "sha256": "d16a4f85520b86ec3c4590c723bf04f1ba8e9867a6c01598f22c7c25222d6a5c"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/qualification.log",
+      "bytes": 1830,
+      "sha256": "d16a4f85520b86ec3c4590c723bf04f1ba8e9867a6c01598f22c7c25222d6a5c"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/qualified-suite.json",
+      "bytes": 186830,
+      "sha256": "cb95c9e136b2fa977c59ed7678adde04f425ccb30008c36cdfbd920ea3805ff2"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/red-empty.json",
+      "bytes": 187095,
+      "sha256": "4eda0b60d5fb642b7b770cca52dd9bae738196b63a3729f9342de32bfdebaf53"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/repository-host-test-log-storage.json",
+      "bytes": 453,
+      "sha256": "58d5bd2bd008e225bbdb3e9b47ba9bc9da5589c1820bf0601bd6615ef1117399"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/repository-host-test-status.json",
+      "bytes": 87,
+      "sha256": "00d755793e4593cbba44ff32d7beab73c6e145eabea621a15282d5cf05bdf4e8"
+    },
+    {
+      "path": "evidence/WEIGHTPACK-L600/repository-host-test.log.gz",
+      "bytes": 27287,
+      "sha256": "9247eebbc8b912165e84c0a75a073eedcf0bba439e2b1368c486c06226d48942"
+    },
+    {
+      "path": "mk/native-weightpack.mk",
+      "bytes": 449,
+      "sha256": "e7d26734ee6057a0bb2f8ed85ead5f3e3a6abbed4fc71077fbaf393f6d5f9883"
+    },
+    {
+      "path": "native/weightpack/CONTRACT.md",
+      "bytes": 5250,
+      "sha256": "d73178169bd4bd2cfb4eb87ba86e5364ac3c0d3232acf654052881962900aa9d"
+    },
+    {
+      "path": "native/weightpack/qualify.py",
+      "bytes": 10324,
+      "sha256": "269e71cd25b5534c45f36e28b77fdfbd4aa9eb9634702f83f9f39dde7535bab5"
+    },
+    {
+      "path": "native/weightpack/test_weightpack.py",
+      "bytes": 8346,
+      "sha256": "d166a1fa30a2ad120ad9ab97f306ce1c194f208e92caa12923fd0e9cb4229d05"
+    },
+    {
+      "path": "native/weightpack/weightpack.om",
+      "bytes": 4682,
+      "sha256": "9b841b643de67b001da4f1e7576e30e46e9b827a39166b7179460d249dce727c"
+    }
+  ],
+  "count": 37,
+  "scope": "Source and receipt files; no model weights or toolchain executables"
+}
