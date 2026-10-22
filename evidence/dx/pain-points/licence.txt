@@ -1,0 +1,22 @@
+# D9 receipt: no licence that stops you
+# commit 2e3804976498ae328e9d7a0538828e7074b789af branch dx/pain-points, run 2026-10-22T01:53:06Z on spark-b87b
+$ head -5 LICENSE
+MIT License
+
+Copyright (c) 2026 Drake Stapleton
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+
+$ git ls-files | wc -l
+431
+$ git ls-files -z | xargs -0 file -b | grep -c -E "ELF|archive|PE32|Mach-O"   (binaries tracked)
+0
+$ git log --name-only --format= | grep -c -i -E "\.(cubin|ptx|fatbin|so|a|o|bin)$|^build/"   (cubin, PTX, fatbin, libraries, objects, firmware or build output in any commit of this branch)
+0
+$ grep -c -i "reverse engineer" LICENSE   (any clause about reverse engineering in our licence)
+0
+$ grep -n -i "reverse engineer" CONTRIBUTING.md
+50:## Reverse engineering, translation and ports are welcome
+52:CUDA++ is MIT. You may read, disassemble, reverse engineer and translate anything CUDA++ produces, including the machine code it writes, and run it or port it to any hardware, NVIDIA or not. We ask only that you keep the licence notice. This is on purpose: CUDA's licence forbids reverse engineering its output to target other hardware (`docs/PAIN_POINTS.md` section 2.8), and CUDA++ will never do that to anyone.
+$ SPDX licence tags in tracked .c/.h files
+    223 SPDX-License-Identifier: MIT

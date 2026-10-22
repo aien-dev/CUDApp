@@ -62,8 +62,8 @@ Kept out of the history (removed from every commit, listed in `tools/extract/ome
 
 - Every blob in both histories was checked for binary content (any zero byte): **0 binary files** after the exclusions above.
 - No firmware, no `libcuda`, no cubin, fatbin or PTX, no `.so`, `.o` or `.a`.
-- No listing produced by NVIDIA tools (`nvdisasm`, `cuobjdump`) and nothing copied from NVIDIA's documentation. Some host tests call NVIDIA's `nvdisasm` at run time when it is installed, to cross-check our encoder; nothing it prints is stored.
-- One CUDA C++ source remains in a receipt: `evidence/OWN30B-T3-TC-PEAK-BW-5faa0f70-20261013T2236Z/fa_ops.cu`, our own probe kernel, used once with NVIDIA's compiler to measure the tensor-core ceiling we compare against. It is our code, not NVIDIA's.
+- No listing produced by NVIDIA tools (`nvdisasm`, `cuobjdump`) and nothing copied from NVIDIA's documentation. Some host tests call NVIDIA's `nvdisasm` at run time when it is installed, to cross-check my encoder; nothing it prints is stored.
+- One CUDA C++ source remains in a receipt: `evidence/OWN30B-T3-TC-PEAK-BW-5faa0f70-20261013T2236Z/fa_ops.cu`, my own probe kernel, used once with NVIDIA's compiler to measure the tensor-core ceiling I compare against. It is my code, not NVIDIA's.
 
 ## 6. Limits of this audit
 

@@ -1,0 +1,487 @@
+[
+ {
+  "query": "\"no kernel image is available\"",
+  "api": "search/issues?q=%22no+kernel+image+is+available%22&per_page=1",
+  "total": 4033,
+  "err": "",
+  "run_at": "2026-10-22T00:18:27Z"
+ },
+ {
+  "query": "\"no kernel image is available\" repo:pytorch/pytorch",
+  "api": "search/issues?q=%22no+kernel+image+is+available%22+repo%3Apytorch%2Fpytorch&per_page=1",
+  "total": 115,
+  "err": "",
+  "run_at": "2026-10-22T00:18:30Z"
+ },
+ {
+  "query": "\"no kernel image is available\" repo:vllm-project/vllm",
+  "api": "search/issues?q=%22no+kernel+image+is+available%22+repo%3Avllm-project%2Fvllm&per_page=1",
+  "total": 115,
+  "err": "",
+  "run_at": "2026-10-22T00:18:33Z"
+ },
+ {
+  "query": "\"no kernel image is available\" repo:flashinfer-ai/flashinfer",
+  "api": "search/issues?q=%22no+kernel+image+is+available%22+repo%3Aflashinfer-ai%2Fflashinfer&per_page=1",
+  "total": 18,
+  "err": "",
+  "run_at": "2026-10-22T00:18:35Z"
+ },
+ {
+  "query": "\"no kernel image is available\" repo:Dao-AILab/flash-attention",
+  "api": "search/issues?q=%22no+kernel+image+is+available%22+repo%3ADao-AILab%2Fflash-attention&per_page=1",
+  "total": 16,
+  "err": "",
+  "run_at": "2026-10-22T00:18:38Z"
+ },
+ {
+  "query": "\"no kernel image is available\" repo:triton-lang/triton",
+  "api": "search/issues?q=%22no+kernel+image+is+available%22+repo%3Atriton-lang%2Ftriton&per_page=1",
+  "total": 4,
+  "err": "",
+  "run_at": "2026-10-22T00:18:41Z"
+ },
+ {
+  "query": "\"no kernel image is available\" repo:bitsandbytes-foundation/bitsandbytes",
+  "api": "search/issues?q=%22no+kernel+image+is+available%22+repo%3Abitsandbytes-foundation%2Fbitsandbytes&per_page=1",
+  "total": 20,
+  "err": "",
+  "run_at": "2026-10-22T00:18:44Z"
+ },
+ {
+  "query": "\"no kernel image is available\" repo:facebookresearch/xformers",
+  "api": "search/issues?q=%22no+kernel+image+is+available%22+repo%3Afacebookresearch%2Fxformers&per_page=1",
+  "total": 7,
+  "err": "",
+  "run_at": "2026-10-22T00:18:47Z"
+ },
+ {
+  "query": "\"sm_121\"",
+  "api": "search/issues?q=%22sm_121%22&per_page=1",
+  "total": 5803,
+  "err": "",
+  "run_at": "2026-10-22T00:18:50Z"
+ },
+ {
+  "query": "\"sm_120\"",
+  "api": "search/issues?q=%22sm_120%22&per_page=1",
+  "total": 14112,
+  "err": "",
+  "run_at": "2026-10-22T00:18:53Z"
+ },
+ {
+  "query": "\"sm_121a\"",
+  "api": "search/issues?q=%22sm_121a%22&per_page=1",
+  "total": 1683,
+  "err": "",
+  "run_at": "2026-10-22T00:18:56Z"
+ },
+ {
+  "query": "\"DGX Spark\"",
+  "api": "search/issues?q=%22DGX+Spark%22&per_page=1",
+  "total": 22302,
+  "err": "",
+  "run_at": "2026-10-22T00:18:59Z"
+ },
+ {
+  "query": "\"GB10\"",
+  "api": "search/issues?q=%22GB10%22&per_page=1",
+  "total": 23834,
+  "err": "",
+  "run_at": "2026-10-22T00:19:02Z"
+ },
+ {
+  "query": "\"detected CUDA version\" mismatches",
+  "api": "search/issues?q=%22detected+CUDA+version%22+mismatches&per_page=1",
+  "total": 569,
+  "err": "",
+  "run_at": "2026-10-22T00:19:05Z"
+ },
+ {
+  "query": "\"CUDA driver version is insufficient\"",
+  "api": "search/issues?q=%22CUDA+driver+version+is+insufficient%22&per_page=1",
+  "total": 1507,
+  "err": "",
+  "run_at": "2026-10-22T00:19:08Z"
+ },
+ {
+  "query": "\"undefined symbol\" repo:Dao-AILab/flash-attention",
+  "api": "search/issues?q=%22undefined+symbol%22+repo%3ADao-AILab%2Fflash-attention&per_page=1",
+  "total": 72,
+  "err": "",
+  "run_at": "2026-10-22T00:19:11Z"
+ },
+ {
+  "query": "\"undefined symbol\" repo:vllm-project/vllm",
+  "api": "search/issues?q=%22undefined+symbol%22+repo%3Avllm-project%2Fvllm&per_page=1",
+  "total": 190,
+  "err": "",
+  "run_at": "2026-10-22T00:19:14Z"
+ },
+ {
+  "query": "\"not compatible with the current PyTorch installation\"",
+  "api": "search/issues?q=%22not+compatible+with+the+current+PyTorch+installation%22&per_page=1",
+  "total": 1054,
+  "err": "",
+  "run_at": "2026-10-22T00:19:17Z"
+ },
+ {
+  "query": "\"sm_120 is not compatible\"",
+  "api": "search/issues?q=%22sm_120+is+not+compatible%22&per_page=1",
+  "total": 458,
+  "err": "",
+  "run_at": "2026-10-22T00:19:20Z"
+ },
+ {
+  "query": "\"DGX Spark\" is:issue",
+  "api": "search/issues?q=%22DGX+Spark%22+is%3Aissue&per_page=1",
+  "total": 8268,
+  "err": "",
+  "run_at": "2026-10-22T00:19:23Z"
+ },
+ {
+  "query": "GitHub search/issues q=\"illegal memory access was encountered\"",
+  "total": 7833,
+  "run_at": "2026-10-22T00:22:30Z"
+ },
+ {
+  "query": "GitHub search/issues q=\"CUDA_LAUNCH_BLOCKING\"",
+  "total": 10356,
+  "run_at": "2026-10-22T00:22:33Z"
+ },
+ {
+  "query": "GitHub search/issues q=\"device-side assert triggered\"",
+  "total": 4232,
+  "run_at": "2026-10-22T00:22:36Z"
+ },
+ {
+  "query": "GitHub search/issues q=\"CUBLAS_WORKSPACE_CONFIG\"",
+  "total": 1117,
+  "run_at": "2026-10-22T00:22:39Z"
+ },
+ {
+  "query": "GitHub search/issues q=\"use_deterministic_algorithms\"",
+  "total": 526,
+  "run_at": "2026-10-22T00:22:43Z"
+ },
+ {
+  "query": "GitHub search/issues q=nondeterministic cuda",
+  "total": 5416,
+  "run_at": "2026-10-22T00:22:46Z"
+ },
+ {
+  "query": "GitHub search/issues q=\"CUDA out of memory\"",
+  "total": 26390,
+  "run_at": "2026-10-22T00:22:50Z"
+ },
+ {
+  "query": "GitHub search/issues q=nvcc \"compile time\"",
+  "total": 7646,
+  "run_at": "2026-10-22T00:22:53Z"
+ },
+ {
+  "query": "GitHub search/issues q=ROCm \"not supported\"",
+  "total": 17774,
+  "run_at": "2026-10-22T00:22:56Z"
+ },
+ {
+  "query": "GitHub search/issues q=ZLUDA",
+  "total": 2902,
+  "run_at": "2026-10-22T00:23:00Z"
+ },
+ {
+  "query": "GitHub search/issues q=\"might be asynchronously reported\"",
+  "total": 6812,
+  "run_at": "2026-10-22T00:23:03Z"
+ },
+ {
+  "query": "GitHub search/issues q=\"cudaErrorIllegalAddress\"",
+  "total": 1883,
+  "run_at": "2026-10-22T00:23:06Z"
+ },
+ {
+  "query": "StackOverflow search/advanced q=illegal memory access was encountered",
+  "total": 166,
+  "run_at": "2026-10-22T00:23:15Z"
+ },
+ {
+  "query": "StackOverflow search/advanced q=CUDA_LAUNCH_BLOCKING",
+  "total": 114,
+  "run_at": "2026-10-22T00:23:15Z"
+ },
+ {
+  "query": "StackOverflow search/advanced q=device-side assert triggered",
+  "total": 86,
+  "run_at": "2026-10-22T00:23:16Z"
+ },
+ {
+  "query": "StackOverflow search/advanced q=CUBLAS_WORKSPACE_CONFIG",
+  "total": 4,
+  "run_at": "2026-10-22T00:23:17Z"
+ },
+ {
+  "query": "StackOverflow search/advanced q=CUDA out of memory",
+  "total": 1501,
+  "run_at": "2026-10-22T00:23:18Z"
+ },
+ {
+  "query": "StackOverflow search/advanced q=nvcc compile time",
+  "total": 189,
+  "run_at": "2026-10-22T00:23:18Z"
+ },
+ {
+  "query": "StackOverflow search/advanced q=ROCm not supported",
+  "total": 32,
+  "run_at": "2026-10-22T00:23:19Z"
+ },
+ {
+  "query": "StackOverflow search/advanced q=ZLUDA",
+  "total": 4,
+  "run_at": "2026-10-22T00:23:20Z"
+ },
+ {
+  "query": "HN algolia tags=story query=CUDA moat",
+  "total": 125,
+  "run_at": "2026-10-22T00:23:21Z",
+  "top_stories": [
+   {
+    "title": "AMD may get across the CUDA moat",
+    "points": 551,
+    "id": "37793635",
+    "created_at": "2023-10-06T17:35:36Z"
+   },
+   {
+    "title": "CUDA Moat Still Alive",
+    "points": 221,
+    "id": "42489844",
+    "created_at": "2024-12-22T22:47:09Z"
+   },
+   {
+    "title": "Jim Keller criticizes Nvidia's CUDA, x86",
+    "points": 197,
+    "id": "39480341",
+    "created_at": "2024-02-23T13:32:30Z"
+   }
+  ]
+ },
+ {
+  "query": "HN algolia tags=story query=ZLUDA",
+  "total": 89,
+  "run_at": "2026-10-22T00:23:22Z",
+  "top_stories": [
+   {
+    "title": "Open-source project ZLUDA lets CUDA apps run on AMD GPUs",
+    "points": 409,
+    "id": "39604745",
+    "created_at": "2024-03-05T15:36:27Z"
+   },
+   {
+    "title": "Zluda: CUDA on Intel GPUs",
+    "points": 261,
+    "id": "26262038",
+    "created_at": "2021-02-25T12:12:43Z"
+   },
+   {
+    "title": "Zluda: Run CUDA code on Intel GPUs, unmodified",
+    "points": 237,
+    "id": "36341211",
+    "created_at": "2023-06-15T14:42:49Z"
+   }
+  ]
+ },
+ {
+  "query": "HN algolia tags=story query=ROCm",
+  "total": 28902,
+  "run_at": "2026-10-22T00:23:22Z",
+  "top_stories": [
+   {
+    "title": "AMD funded a drop-in CUDA implementation built on ROCm: It's now open-source",
+    "points": 1045,
+    "id": "39344815",
+    "created_at": "2024-02-12T14:00:35Z"
+   },
+   {
+    "title": "PyTorch 1.8, with AMD ROCm support",
+    "points": 313,
+    "id": "26353184",
+    "created_at": "2021-03-05T05:38:02Z"
+   },
+   {
+    "title": "ROCm is AMD's priority, executive says",
+    "points": 293,
+    "id": "37663194",
+    "created_at": "2023-09-26T17:54:42Z"
+   }
+  ]
+ },
+ {
+  "query": "HN algolia tags=story query=CUDA",
+  "total": 14967,
+  "run_at": "2026-10-22T00:23:23Z",
+  "top_stories": [
+   {
+    "title": "Run CUDA, unmodified, on AMD GPUs",
+    "points": 1330,
+    "id": "40970560",
+    "created_at": "2024-07-15T19:05:07Z"
+   },
+   {
+    "title": "Llm.c \u2013 LLM training in simple, pure C/CUDA",
+    "points": 1050,
+    "id": "39973467",
+    "created_at": "2024-04-08T20:38:49Z"
+   },
+   {
+    "title": "AMD funded a drop-in CUDA implementation built on ROCm: It's now open-source",
+    "points": 1045,
+    "id": "39344815",
+    "created_at": "2024-02-12T14:00:35Z"
+   }
+  ]
+ },
+ {
+  "query": "HN algolia tags=story query=nvidia lock-in",
+  "total": 17,
+  "run_at": "2026-10-22T00:23:23Z",
+  "top_stories": [
+   {
+    "title": "Modular 25.4: One Container, AMD and Nvidia GPUs, No Lock-In",
+    "points": 7,
+    "id": "44311578",
+    "created_at": "2025-06-18T17:05:29Z"
+   },
+   {
+    "title": "Nvidia's moat is not what it used to be",
+    "points": 6,
+    "id": "47740552",
+    "created_at": "2026-04-12T15:03:11Z"
+   },
+   {
+    "title": "Show HN: LLMOne \u2013 Deploy LLMs from bare metal to production in hours",
+    "points": 5,
+    "id": "44345471",
+    "created_at": "2025-06-22T09:44:37Z"
+   }
+  ]
+ },
+ {
+  "query": "HN algolia tags=story query=local LLM",
+  "total": 2989,
+  "run_at": "2026-10-22T00:23:23Z",
+  "top_stories": [
+   {
+    "title": "Show HN: Clippy \u2013 90s UI for local LLMs",
+    "points": 1122,
+    "id": "43905942",
+    "created_at": "2025-05-06T15:02:22Z"
+   },
+   {
+    "title": "Building a fully local LLM voice assistant to control my smart home",
+    "points": 699,
+    "id": "38985152",
+    "created_at": "2024-01-13T22:12:10Z"
+   },
+   {
+    "title": "The local LLM ecosystem doesn\u2019t need Ollama",
+    "points": 648,
+    "id": "47788385",
+    "created_at": "2026-04-16T03:35:11Z"
+   }
+  ]
+ },
+ {
+  "query": "HN algolia tags=story query=VRAM",
+  "total": 50907,
+  "run_at": "2026-10-22T00:23:24Z",
+  "top_stories": [
+   {
+    "title": "1.5 TB of VRAM on Mac Studio \u2013 RDMA over Thunderbolt 5",
+    "points": 617,
+    "id": "46319657",
+    "created_at": "2025-12-18T22:23:09Z"
+   },
+   {
+    "title": "Linux 7.3 improves performance when running out of vRAM",
+    "points": 547,
+    "id": "49342719",
+    "created_at": "2026-08-18T07:51:50Z"
+   },
+   {
+    "title": "Use your Nvidia GPU's VRAM as swap space on Linux",
+    "points": 472,
+    "id": "48377404",
+    "created_at": "2026-06-02T22:55:33Z"
+   }
+  ]
+ },
+ {
+  "query": "\"TORCH_CUDA_ARCH_LIST\"",
+  "api": "https://api.github.com/search/issues?per_page=1&q=%22TORCH_CUDA_ARCH_LIST%22",
+  "total": 11034,
+  "err": "",
+  "run_at": "2026-10-22T00:39:17Z"
+ },
+ {
+  "query": "\"Precompiled wheel not found\"",
+  "api": "https://api.github.com/search/issues?per_page=1&q=%22Precompiled%20wheel%20not%20found%22",
+  "total": 73,
+  "err": "",
+  "run_at": "2026-10-22T00:39:24Z"
+ },
+ {
+  "query": "\"ptxas fatal\"",
+  "api": "https://api.github.com/search/issues?per_page=1&q=%22ptxas%20fatal%22",
+  "total": 1508,
+  "err": "",
+  "run_at": "2026-10-22T00:39:32Z"
+ },
+ {
+  "query": "\"cudaErrorNoKernelImageForDevice\"",
+  "api": "https://api.github.com/search/issues?per_page=1&q=%22cudaErrorNoKernelImageForDevice%22",
+  "total": 600,
+  "err": "",
+  "run_at": "2026-10-22T00:39:39Z"
+ },
+ {
+  "query": "\"CUDA error: out of memory\"",
+  "api": "https://api.github.com/search/issues?per_page=1&q=%22CUDA%20error%3A%20out%20of%20memory%22",
+  "total": 12124,
+  "err": "",
+  "run_at": "2026-10-22T00:39:47Z"
+ },
+ {
+  "query": "\"JIT compilation\" hang cuda",
+  "api": "https://api.github.com/search/issues?per_page=1&q=%22JIT%20compilation%22%20hang%20cuda",
+  "total": 517,
+  "err": "",
+  "run_at": "2026-10-22T00:39:54Z"
+ },
+ {
+  "query": "\"CUDA context\" memory overhead",
+  "api": "https://api.github.com/search/issues?per_page=1&q=%22CUDA%20context%22%20memory%20overhead",
+  "total": 3478,
+  "err": "",
+  "run_at": "2026-10-22T00:40:01Z"
+ },
+ {
+  "query": "\"nvidia-smi\" \"CUDA Version\" mismatch toolkit",
+  "api": "https://api.github.com/search/issues?per_page=1&q=%22nvidia-smi%22%20%22CUDA%20Version%22%20mismatch%20toolkit",
+  "total": 932,
+  "err": "",
+  "run_at": "2026-10-22T00:40:09Z"
+ },
+ {
+  "query": "\"compute-sanitizer\"",
+  "api": "https://api.github.com/search/issues?per_page=1&q=%22compute-sanitizer%22",
+  "total": 6991,
+  "err": "",
+  "run_at": "2026-10-22T00:40:16Z"
+ },
+ {
+  "query": "\"cuda-gdb\"",
+  "api": "https://api.github.com/search/issues?per_page=1&q=%22cuda-gdb%22",
+  "total": 2708,
+  "err": "",
+  "run_at": "2026-10-22T00:40:24Z"
+ }
+]

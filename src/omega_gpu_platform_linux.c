@@ -180,6 +180,40 @@ static int ref_device_close(void *ctx, OmegaGpuDeviceHandle dev) {
 
 static const char *ref_diag_text(void *ctx) { return ((LinuxRef *)ctx)->diag; }
 
+/* Developer bar D1 (docs/PAIN_POINTS.md): on the GB10 every buffer this platform hands out is the machine's own memory,
+ * which the CPU and GPU share, and the machine has no swap by default. Running it out does not end in an error message:
+ * the whole box can freeze until a power cycle. So an allocation that would leave less than a reserve free is refused
+ * here, before a handle slot or the driver is touched, with a sentence. The reserve is CUDAPP_MEM_RESERVE_MIB (MiB,
+ * default 4096; 0 turns the check off). CUDAPP_MEMINFO names another meminfo file (tests). When the file cannot be read
+ * the check cannot know, and allows the allocation. */
+#define CUDAPP_MEM_RESERVE_DEFAULT_MIB 4096ull
+static void human_bytes(char *out, size_t n, uint64_t b) {
+    if (b < (1ull << 30)) snprintf(out, n, "%.1f MiB", (double)b / (double)(1ull << 20));
+    else snprintf(out, n, "%.1f GiB", (double)b / (double)(1ull << 30));
+}
+static int mem_reserve_check(LinuxRef *r, uint64_t bytes) {
+    unsigned long long reserve_mib = CUDAPP_MEM_RESERVE_DEFAULT_MIB;
+    const char *e = getenv("CUDAPP_MEM_RESERVE_MIB");
+    if (e && *e) { char *end = NULL; unsigned long long v = strtoull(e, &end, 10); if (end && end != e && *end == 0) reserve_mib = v; }
+    if (reserve_mib == 0) return OMEGA_GPU_PLAT_OK;
+    const char *path = getenv("CUDAPP_MEMINFO");
+    FILE *f = fopen(path && *path ? path : "/proc/meminfo", "r");
+    if (!f) return OMEGA_GPU_PLAT_OK;
+    unsigned long long avail_kb = 0; int have = 0; char line[256];
+    while (!have && fgets(line, sizeof line, f)) have = sscanf(line, "MemAvailable: %llu kB", &avail_kb) == 1;
+    fclose(f);
+    if (!have) return OMEGA_GPU_PLAT_OK;
+    const uint64_t avail = (uint64_t)avail_kb * 1024ull, reserve = (uint64_t)reserve_mib << 20;
+    if (bytes <= avail && avail - bytes >= reserve) return OMEGA_GPU_PLAT_OK;
+    char want[32], free_[32], keep[32];
+    human_bytes(want, sizeof want, bytes); human_bytes(free_, sizeof free_, avail); human_bytes(keep, sizeof keep, reserve);
+    snprintf(r->diag, sizeof r->diag,
+             "dma_alloc: refused %s: %s of memory is free and CUDA++ keeps %s free (CUDAPP_MEM_RESERVE_MIB=%llu), because the CPU and "
+             "GPU share it and running it out freezes the machine. Free buffers or use a smaller batch.",
+             want, free_, keep, reserve_mib);
+    return OMEGA_GPU_PLAT_REFUSED_LIMIT;
+}
+
 static int ref_dma_alloc(void *ctx, OmegaGpuDeviceHandle dev, const OmegaGpuBufferDesc *desc, OmegaGpuBufferHandle *out,
                          OmegaCpuView *cpu, OmegaGpuVa *gpu, OmegaGpuBusAddr *bus) {
     LinuxRef *r = ctx;
@@ -198,6 +232,8 @@ static int ref_dma_alloc(void *ctx, OmegaGpuDeviceHandle dev, const OmegaGpuBuff
         (desc->kind != OMEGA_GPU_HANDLE_BUF_DATA || (desc->rights & (OMEGA_GPU_RIGHT_CPU_READ | OMEGA_GPU_RIGHT_HOST_POLLED))))
         rc = OMEGA_GPU_PLAT_REFUSED_CACHE_POLICY;
     if (rc != OMEGA_GPU_PLAT_OK) { rc = refuse(r, rc, "dma_alloc"); ref_unlock(r); return rc; }
+    rc = mem_reserve_check(r, desc->bytes); /* D1: before any slot or driver call; the sentence is in r->diag */
+    if (rc != OMEGA_GPU_PLAT_OK) { ref_unlock(r); return rc; }
     uint32_t idx = 0, gen = 0;
     rc = omega_gpu_handles_open(&r->t, desc->kind, desc->bytes, LINUX_REF_BUFFERS, g_caps.max_total_bytes, &idx, &gen);
     if (rc != OMEGA_GPU_PLAT_OK) { rc = refuse(r, rc, "dma_alloc"); ref_unlock(r); return rc; }

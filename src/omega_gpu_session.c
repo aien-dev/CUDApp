@@ -131,6 +131,20 @@ void omega_gpu_session_set_error(const char *stage) { omega_gpu_fmt(g_err, sizeo
 
 /* A platform refusal: the driver text when the device refused (the Linux reference writes "<driver call>: <Nvrm.err>",
  * the stage names the session ever reported), else the stage and the refusal name. */
+/* The platform refused and wrote a full sentence for this stage (the Linux reference's memory reserve, developer bar D1,
+ * starts "dma_alloc: refused "): pass it on as it is. Any other refusal keeps the short form below. */
+static void fail_plat(const char *stage, int rc);
+static void fail_plat_said(const char *stage, int rc) {
+    const OmegaGpuPlatform *p = LOAD(g_p);
+    const char *diag = p ? p->diag_text(p->ctx) : "";
+    static const char said[] = "dma_alloc: refused ";
+    if (rc == OMEGA_GPU_PLAT_REFUSED_LIMIT && diag && stage && memcmp(stage, "dma_alloc", 10) == 0 &&
+        strlen(diag) >= sizeof said - 1 && memcmp(diag, said, sizeof said - 1) == 0) {
+        omega_gpu_fmt(g_err, sizeof g_err, "%s", diag);
+        return;
+    }
+    fail_plat(stage, rc);
+}
 static void fail_plat(const char *stage, int rc) {
     const OmegaGpuPlatform *p = LOAD(g_p);
     const char *diag = p ? p->diag_text(p->ctx) : "";
@@ -230,9 +244,10 @@ static int mem_alloc(uint32_t kind, uint32_t rights, size_t bytes, OmegaGpuMem *
     OmegaCpuView cpu; OmegaGpuVa va; OmegaGpuBusAddr bus; /* the bus address never leaves this function */
     int rc = p->dma_alloc(p->ctx, g_s.dev, &d, &out->handle, &cpu, &va, &bus);
     if (rc != OMEGA_GPU_PLAT_OK || !cpu.ptr || cpu.len < want) {
+        const int platform_refused = rc != OMEGA_GPU_PLAT_OK; /* only then is the platform's text about this call */
         if (rc == OMEGA_GPU_PLAT_OK) { (void)p->dma_free(p->ctx, out->handle); rc = OMEGA_GPU_PLAT_REFUSED_LIMIT; }
         BUMP(g_stats.alloc_failures, 1u);
-        fail_plat("dma_alloc", rc);
+        if (platform_refused) fail_plat_said("dma_alloc", rc); else fail_plat("dma_alloc", rc);
         memset(out, 0, sizeof *out);
         return -1;
     }

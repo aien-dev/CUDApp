@@ -103,3 +103,5 @@ src/omega_gpu_tern_api.c	CHIP_SPECIFIC	Launches the ternary GEMV with GPU-cached
 src/omega_gpu_tern_api.h	CHIP_SPECIFIC	Ternary GEMV API; includes omega_blackwell_codegen_tern.h.	NO_HOSTED_INCLUDE
 src/omega_gpu_wait.c	PORTABLE	Bounded wait with a caller-supplied clock and hooks; no default clock in the freestanding build. Builds in make gpu-engine-freestanding.	FREESTANDING_PROVEN
 src/omega_gpu_wait.h	PORTABLE	Bounded wait interface; includes only stdbool.h and stdint.h.	NO_HOSTED_INCLUDE
+src/omega_gpu_chip.c	CHIP_SPECIFIC	The qualified-chip table (GB10, PCI 10de:2e12, with its receipt) and the refusal text for any other NVIDIA GPU; scans /sys/bus/pci/devices with stdio and dirent. Developer bar D6.	HOSTED_LIBC
+src/omega_gpu_chip.h	PORTABLE	Types and declarations for the chip table and the PCI scan; no chip constant, no driver header.	NO_HOSTED_INCLUDE
