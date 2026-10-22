@@ -1,0 +1,75 @@
+note SPDX-License-Identifier MIT
+global trp ulong 65
+global tci ulong 256
+global tav ulong 256
+global tcp ulong 65
+global tri ulong 256
+global tva ulong 256
+global tnext ulong 64
+note Host CSR to CSC structural transpose with stable duplicates
+note Values are opaque 32 bit words no floating point operation changes them
+note Caller owns fixed arrays rows and cols at most 64 nnz at most 256
+note Refuse invalid CSR before modifying output or scratch
+fn tvalid rows ulong cols ulong nnz ulong to int
+if or gt rows 64 gt cols 64
+ret 1
+end
+if gt nnz 256
+ret 1
+end
+if ne get trp 0 0
+ret 1
+end
+if ne get trp rows nnz
+ret 1
+end
+for i ulong rows
+if gt get trp i get trp add i 1
+ret 1
+end
+if gt get trp add i 1 nnz
+ret 1
+end
+end
+for p ulong nnz
+if ge get tci p cols
+ret 1
+end
+end
+ret 0
+end
+fn tcount cols ulong nnz ulong to void
+for j ulong add cols 1
+put tcp j 0
+end
+for p ulong nnz
+j = add get tci p 1
+put tcp j add get tcp j 1
+end
+for j ulong cols
+put tcp add j 1 add get tcp j get tcp add j 1
+put tnext j get tcp j
+end
+end
+fn tscatter rows ulong to void
+for row ulong rows
+p = get trp row
+limit = get trp add row 1
+while lt p limit
+col = get tci p
+dest = get tnext col
+put tri dest row
+put tva dest get tav p
+put tnext col add dest 1
+p = add p 1
+end
+end
+end
+fn transpose rows ulong cols ulong nnz ulong to int
+if ne tvalid rows cols nnz 0
+ret 1
+end
+tcount cols nnz
+tscatter rows
+ret 0
+end

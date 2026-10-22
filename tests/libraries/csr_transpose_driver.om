@@ -1,0 +1,112 @@
+note SPDX-License-Identifier MIT
+note Binary test adapter not the cuSPARSE ABI
+note Input little endian u32 rows cols nnz reserved then rp ci value words
+note Output column pointers then row indices then unchanged value words
+global inp uchar 4096
+global out uchar 4096
+global size ulong 1
+global dims ulong 3
+fn load at ulong to ulong
+v = ulong 0
+for i ulong 4
+v = or v shl ulong get inp add at i mul i 8
+end
+ret v
+end
+fn store at ulong v ulong to void
+for i ulong 4
+put out add at i uchar and shr v mul i 8 255
+end
+end
+fn readall to int
+n = ulong 0
+while true
+if eq n 4096
+ret 2
+end
+r = read 0 inp n sub 4096 n
+if lt r 0
+ret 2
+end
+if eq r 0
+put size 0 n
+ret 0
+end
+n = add n ulong r
+end
+ret 2
+end
+fn header to int
+if lt get size 0 16
+ret 2
+end
+for i ulong 3
+put dims i load mul i 4
+end
+if ne load 12 0
+ret 2
+end
+if or gt get dims 0 64 gt get dims 1 64
+ret 2
+end
+if gt get dims 2 256
+ret 2
+end
+want = add ulong 16 mul add get dims 0 1 4
+want = add want mul get dims 2 8
+if ne want get size 0
+ret 2
+end
+ret 0
+end
+fn arrays to void
+base = ulong 16
+for i ulong add get dims 0 1
+put trp i load add base mul i 4
+end
+base = add base mul add get dims 0 1 4
+for i ulong get dims 2
+put tci i load add base mul i 4
+end
+base = add base mul get dims 2 4
+for i ulong get dims 2
+put tav i load add base mul i 4
+end
+end
+fn output to int
+base = ulong 0
+for i ulong add get dims 1 1
+store add base mul i 4 get tcp i
+end
+base = mul add get dims 1 1 4
+for i ulong get dims 2
+store add base mul i 4 get tri i
+end
+base = add base mul get dims 2 4
+for i ulong get dims 2
+store add base mul i 4 get tva i
+end
+n = add base mul get dims 2 4
+p = ulong 0
+while lt p n
+w = write 1 out p sub n p
+if le w 0
+ret 3
+end
+p = add p ulong w
+end
+ret 0
+end
+fn main to int
+if ne readall 0
+ret 2
+end
+if ne header 0
+ret 2
+end
+arrays
+if ne transpose get dims 0 get dims 1 get dims 2 0
+ret 2
+end
+ret output
+end

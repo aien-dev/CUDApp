@@ -1,0 +1,108 @@
+note SPDX-License-Identifier MIT
+note Direct core checks do not rely on wire adapter validation
+fn sentinel to void
+for i ulong 65
+put tcp i 123
+end
+for i ulong 256
+put tri i 123
+put tva i 123
+end
+for i ulong 64
+put tnext i 123
+end
+end
+fn untouched to int
+for i ulong 65
+if ne get tcp i 123
+ret 1
+end
+end
+for i ulong 256
+if or ne get tri i 123 ne get tva i 123
+ret 1
+end
+end
+for i ulong 64
+if ne get tnext i 123
+ret 1
+end
+end
+ret 0
+end
+fn rejected rows ulong cols ulong nnz ulong to int
+sentinel
+if eq transpose rows cols nnz 0
+ret 1
+end
+ret untouched
+end
+fn answer to int
+if or ne get tcp 0 0 ne get tcp 1 1
+ret 1
+end
+if or ne get tcp 2 2 ne get tri 0 0
+ret 1
+end
+if or ne get tri 1 0 ne get tva 0 22
+ret 1
+end
+if ne get tva 1 11
+ret 1
+end
+ret 0
+end
+fn main to int
+put trp 0 0
+put trp 1 2
+put tci 0 1
+put tci 1 0
+put tav 0 11
+put tav 1 22
+if ne rejected 65 2 2 0
+ret 10
+end
+if ne rejected 1 65 2 0
+ret 11
+end
+if ne rejected 1 2 257 0
+ret 12
+end
+put trp 0 1
+if ne rejected 1 2 2 0
+ret 13
+end
+put trp 0 0
+put trp 1 1
+if ne rejected 1 2 2 0
+ret 14
+end
+put trp 1 3
+put trp 2 2
+if ne rejected 2 2 2 0
+ret 15
+end
+put trp 1 2
+put tci 1 2
+if ne rejected 1 2 2 0
+ret 16
+end
+put tci 1 0
+for iter ulong 3
+if ne transpose 1 2 2 0
+ret 17
+end
+if ne answer 0
+ret 18
+end
+end
+if ne transpose 0 2 0 0
+ret 19
+end
+for i ulong 3
+if ne get tcp i 0
+ret 20
+end
+end
+ret 0
+end
