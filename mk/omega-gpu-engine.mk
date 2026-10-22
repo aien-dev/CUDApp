@@ -34,7 +34,8 @@ test-gpu-engine-mutants:
 	sh tools/gpu_engine_mutations.sh
 
 # A3b1: the Blackwell backend includes physics headers (m16_native.h, nvrm.h), so it
-# uses the same physics -I paths as the top-level Makefile CFLAGS (Makefile lines 9-14).
+# uses the same physics -I paths as the top-level Makefile CFLAGS. This is a syntax
+# check only; HOST_SIMULATOR selects the host fence and cannot open a real device.
 GPU_ENGINE_PHYS_INC = -I$(CUDAPP_DRIVER_DIR)/m16 -I$(CUDAPP_DRIVER_DIR)/nvrm \
 	-I$(CUDAPP_DRIVER_DIR)/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc \
 	-I$(CUDAPP_DRIVER_DIR)/third_party/nvidia-open-580.173.02/kernel-open/common/inc \
@@ -43,7 +44,7 @@ GPU_ENGINE_PHYS_INC = -I$(CUDAPP_DRIVER_DIR)/m16 -I$(CUDAPP_DRIVER_DIR)/nvrm \
 
 build/omega_blackwell_engine_syntax.o: src/omega_blackwell_engine.c src/omega_blackwell_engine.h src/omega_gpu_engine.h
 	@mkdir -p build
-	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -Isrc $(GPU_ENGINE_PHYS_INC) -c -o $@ src/omega_blackwell_engine.c
+	$(CC) -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -DOMEGA_BLACKWELL_HOST_SIMULATOR -Isrc $(GPU_ENGINE_PHYS_INC) -c -o $@ src/omega_blackwell_engine.c
 test-gpu-engine-backend-compile: build/omega_blackwell_engine_syntax.o
 
 # Links only, opens no device. Uses the real m16_native and nvrm sources at the physics pin.
@@ -61,7 +62,7 @@ GPU_ENGINE_SIM_SRCS = src/omega_blackwell_submit.c src/omega_blackwell_engine.c 
 build/test_omega_blackwell_engine: tests/test_omega_blackwell_engine.c tests/fake_m16_native.c tests/fake_m16_native.h \
 	$(GPU_ENGINE_SIM_SRCS) src/omega_gpu_engine.h src/omega_blackwell_engine.h
 	@mkdir -p build
-	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -ffunction-sections -fdata-sections \
+	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -DOMEGA_BLACKWELL_HOST_SIMULATOR -pthread -ffunction-sections -fdata-sections \
 		-Isrc -Itests $(GPU_ENGINE_PHYS_INC) -o $@ tests/test_omega_blackwell_engine.c tests/fake_m16_native.c \
 		$(GPU_ENGINE_SIM_SRCS) -Wl,--gc-sections -lm
 test-gpu-engine-sim: build/test_omega_blackwell_engine

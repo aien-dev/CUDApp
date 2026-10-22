@@ -210,6 +210,16 @@ static int be_open_device(void *ctx)
 {
     BeCtx *c = (BeCtx *)ctx;
     int rc;
+#if !defined(__aarch64__) && !defined(OMEGA_BLACKWELL_HOST_SIMULATOR)
+    /* This callback talks to the GB10 Linux driver directly.  A portable host
+     * can compile the library, but must not open or claim support for this
+     * backend.  The fake-driver test opts into the simulator explicitly. */
+    memset(c, 0, sizeof *c);
+    c->last_rc = -1;
+    note(c, "Blackwell GPU backend requires AArch64 Linux");
+    errno = ENOTSUP;
+    return -1;
+#endif
     if (atomic_flag_test_and_set(&g_busy)) return -1; /* another run is active; touch nothing */
     memset(c, 0, sizeof *c);
     c->native_open = 1;
@@ -220,6 +230,18 @@ static int be_open_device(void *ctx)
         return rc;
     }
     return 0;
+}
+
+/* The production path requires AArch64 and keeps the system-scope DSB.  The
+ * full fence is for the explicitly selected host fake-driver simulator only;
+ * it does not qualify an x86 GPU backend. */
+static inline void be_cpu_barrier(void)
+{
+#if defined(__aarch64__)
+    __asm__ volatile("dsb sy" ::: "memory");
+#else
+    atomic_thread_fence(memory_order_seq_cst);
+#endif
 }
 
 static int be_create_channel(void *ctx)
@@ -390,7 +412,7 @@ static int be_build(void *ctx, const OmegaGpuJob *job)
     *c->hmarker = 0;
     *c->hmarker2 = 0;
     if (!c->c3) c->hmarker2 = NULL; /* never waited for, never reported */
-    __asm__ volatile("dsb sy" ::: "memory");
+    be_cpu_barrier();
 
     /* ---- unified pushbuffer, SUB@676f16f lines 130-195 ---- */
     c->pb_len = 0;
@@ -555,7 +577,7 @@ static int be_barrier(void *ctx, uint64_t timeout_ms)
     BeCtx *c = (BeCtx *)ctx;
     (void)timeout_ms;
     begin(c);
-    __asm__ volatile("dsb sy" ::: "memory");
+    be_cpu_barrier();
     return 0;
 }
 
