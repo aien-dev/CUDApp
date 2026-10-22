@@ -92,5 +92,23 @@
     ]
   },
   "requalification_order_fix": "An earlier attempt recorded archive digests before rebuilding the archives; the native checker refused the stale lock (4ea52209 vs 63c500ce). Fixed by rebuild-then-hash-then-record; the checker was not touched.",
-  "independent_review": "first reviewer died on an API error with zero findings and produced no report; a second reviewer is running on this revision"
+  "independent_review": "first reviewer died on an API error with zero findings and produced no report; a second reviewer is running on this revision",
+  "numbers_checked_in_wolfram": {
+    "engine": "mcp__wolfram__WolframLanguageEvaluator",
+    "date": "2026-10-22",
+    "ring_words": 16384,
+    "usable_words": 16336,
+    "launches_per_submission": 1166,
+    "submissions_for_4096_launches": 4,
+    "submissions_for_2048_launches": 2,
+    "bank_and_qmd_bytes_per_buffer": 4194304,
+    "handle_table_bytes": {
+      "1024_slots": 17424,
+      "4096_slots": 69648
+    },
+    "handle_table_agrees_with_compiled_probe": true,
+    "conversations_32_slots_handles": 928,
+    "weights_plus_32_conversations": 1188,
+    "note": "The 29-handle-per-conversation and 260-weight-buffer figures come from the source comments that justified the capacity raise and were not re-measured; every other figure is Wolfram arithmetic. The padded struct sizes agree with the ABI checker layout probe."
+  }
 }
