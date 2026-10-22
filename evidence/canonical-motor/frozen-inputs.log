@@ -1,0 +1,22 @@
+cudapp-link: canonical 04607cf7e2fe43776fe6ed04717a060e0df5f60d (195 mapped files)
+python3 tests/test_cudapp_link.py
+PASS valid
+PASS missing-checkout
+PASS wrong-pin
+PASS disabled-lock
+PASS dirty-source
+PASS dirty-buildfile
+PASS shadow-copy
+PASS unmapped-gpu
+PASS unsafe-map
+PASS source-symlink
+CANONICAL LINK PASS 10 behavioral checks
+remote: This repository moved. Please use the new location:        
+remote:   git@github.com:aien-dev/omega-mv.git        
+remote: This repository moved. Please use the new location:        
+remote:   git@github.com:aien-dev/aien-sovereign-core-mv.git        
+remote: 
+remote: GitHub found 1 vulnerability on aien-dev/aien-sovereign-core-mv's default branch (1 low). To find out more, visit:        
+remote:      https://github.com/aien-dev/aien-sovereign-core-mv/security/dependabot/1        
+remote: 
+FROZEN CUDApp 04607cf7e2fe43776fe6ed04717a060e0df5f60d Omega 097dcb7e8850ecf628c185fb1e94418fbb5a6216 sc 72ee866baf3216272741a5c576fa9706707a3182

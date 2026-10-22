@@ -2,7 +2,7 @@
 
 **INCOMPLETE.** This receipt proves a real serving binary was built from pinned canonical GPU sources, with both native ABI checks passing and both archive digests locked. It does not prove model-output parity, concurrency, recovery, performance or an independent driver. Nothing was deployed to 18091.
 
-The exact source chain and artifact hash are in `receipt.json`. Cargo identity logs are unedited build-script output. `sc-native-final-build.log` ends in `SC_NATIVE_BUILD_RC=0`. `server-zero-cuda.log` records that the binary imports only ordinary Linux runtime libraries, not NVIDIA user-space libraries. The binary is test-only (`aien-test-switches`) and is not a production-swap artifact.
+The exact source chain and artifact hash are in `receipt.json`. Cargo identity logs are unedited build-script output. `sc-qualified-build.log` ends in `SC_QUALIFIED_BUILD_RC=0` for the source chain in this receipt; `sc-native-final-build.log` retains the earlier successful artifact. `qualified-zero-cuda.log` records that the binary imports only ordinary Linux runtime libraries, not NVIDIA user-space libraries. The binary is test-only (`aien-test-switches`) and is not a production-swap artifact.
 
 The source map removes duplicate GPU ownership from Omega and binds it to a full CUDApp commit. Ten behavioral checks cover successful binding and refusals for a missing checkout, wrong pin, disabled check, modified source, modified build metadata, shadow copies, unmapped GPU sources, unsafe paths and external source symlinks.
 
@@ -18,4 +18,4 @@ No warning flag, check, test case, or refusal was removed. The final standalone 
 
 ## Remaining acceptance gates
 
-Full standalone host PASS, linked native host tests, independent review, and the shared serving train on the dedicated test port 18157 are still required. Any hang/reset/module testing stays out of this value-only request. Live serving swaps remain coordinator-owned and require qualification. Issue CUDApp#5 stays open.
+Linked native host checks passed (41 tests, zero failures). The chip-only parity case was not run and remains a required hardware gate. Full standalone host PASS, independent review, and the shared serving train on the dedicated test port 18157 are still required. Any hang/reset/module testing stays out of this value-only request. Live serving swaps remain coordinator-owned and require qualification. Issue CUDApp#5 stays open.

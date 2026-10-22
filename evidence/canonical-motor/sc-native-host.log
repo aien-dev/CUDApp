@@ -1,0 +1,90 @@
+   Compiling aien-abi-conformance v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-abi-conformance)
+   Compiling aien-omega-gpu v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-omega-gpu)
+warning: aien-omega-gpu@0.1.0: aien-omega-gpu: build dir was for another omega commit, rebuilt from clean
+    Finished `release` profile [optimized] target(s) in 28.86s
+     Running unittests src/lib.rs (/home/drakestapleton/workspace/targets/l457-sc-b76d65a1/release/deps/aien_abi_conformance-b295591b36c92277)
+
+running 9 tests
+test build::tests::fresh_out_dir_wipes_only_on_another_commit ... ok
+test header::tests::declarations ... ok
+test header::tests::header_parts ... ok
+test identity::tests::lock_lookup_and_mismatch ... ok
+test identity::tests::prebuilt_needs_and_checks_a_digest ... ok
+test manifest::tests::canonical_types ... ok
+test manifest::tests::parse_round_trip_and_refusals ... ok
+test native::tests::only_a_pinned_checked_locked_build_qualifies ... ok
+test rust::tests::macros_record_layout_and_signatures ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/c_side.rs (/home/drakestapleton/workspace/targets/l457-sc-b76d65a1/release/deps/c_side-4683afe073e1bfce)
+
+running 12 tests
+test abi_version_mismatch_is_caught ... ok
+test bool_to_byte_change_is_caught ... ok
+test callback_signature_change_is_caught ... ok
+test compatible_header_and_archive_pass ... ok
+test corrupted_archive_is_caught ... ok
+test equal_size_reorder_is_caught ... ok
+test missing_header_struct_is_caught ... ok
+test missing_symbol_is_caught ... ok
+test parameter_type_change_is_caught ... ok
+test removed_field_is_caught_even_when_size_is_kept ... ok
+test signedness_change_is_caught ... ok
+test width_change_is_caught ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.93s
+
+     Running unittests src/lib.rs (/home/drakestapleton/workspace/targets/l457-sc-b76d65a1/release/deps/aien_omega_gpu-cde9f51cef83dc59)
+
+running 12 tests
+test cta_budget_tests::daemon_default_is_1024_and_inside_the_measured_range ... ok
+test cta_budget_tests::default_budget_is_omega_max_ctas ... ok
+test cta_budget_tests::invalid_values_are_refused ... ok
+test cta_budget_tests::measured_budgets_parse ... ok
+test cta_budget_tests::unset_or_blank_parses_to_none_caller_default ... ok
+test spin_us_tests::daemon_default_is_2000_with_sealed_evidence ... ok
+test spin_us_tests::in_range_values_parse ... ok
+test spin_us_tests::invalid_values_are_refused ... ok
+test spin_us_tests::reading_the_window_matches_the_build ... ok
+test spin_us_tests::reserving_without_the_engine_is_unavailable ... ok
+test spin_us_tests::serving_bytes_follow_omegas_formulas ... ok
+test spin_us_tests::unset_or_blank_keeps_omega_default ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/abi_manifest.rs (/home/drakestapleton/workspace/targets/l457-sc-b76d65a1/release/deps/abi_manifest-261bb12107dcba8c)
+
+running 2 tests
+test native_identity_matches_the_link ... AIEN_NATIVE_IDENTITY {"component":"libomega_gpu.a","link":"pinned-source","abi":"pass","digest":"locked","archive_sha256":"4ea52209c29034ddd6be3b220a3a648eea65b73519565eaac846308331f37187","source_sha":"097dcb7e8850ecf628c185fb1e94418fbb5a6216","aienos_lock":"b84c0a67590a934f3f3e001b12ec85ebc086a9eb","physics_lock":"7476de7160c074dc259683176d277bfd5b3bffdf","target":"aarch64-unknown-linux-gnu","cc":"cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0","qualifies":true}
+ok
+test rust_ffi_matches_the_manifest ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/parity.rs (/home/drakestapleton/workspace/targets/l457-sc-b76d65a1/release/deps/parity-959e631be9a7522d)
+
+running 7 tests
+test chip_parity_f32_and_bf16 ... ignored, needs the GB10 chip: run through lanes.sh queue --heavy with a native build
+test lock_is_full_sha ... ok
+test native_refuses_bad_args_without_chip ... ok
+test overflowing_shapes_are_refused_before_ffi ... ok
+test rc_names ... ok
+test shape_mismatch_is_caught_before_ffi ... ok
+test stub_reports_unavailable ... ok
+
+test result: ok. 6 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests aien_abi_conformance
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests aien_omega_gpu
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+SC_NATIVE_HOST_RC=0

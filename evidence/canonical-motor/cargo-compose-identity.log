@@ -9,7 +9,7 @@ cargo:rerun-if-env-changed=AIEN_PHYSICS_DIR
 cargo:rerun-if-env-changed=AIEN_AIENOS_LOCK_REPO
 cargo:rerun-if-env-changed=AIEN_REQUIRE_NATIVE_LIBS
 cargo:rerun-if-changed=/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-omega-compose/../../omega.lock
-cargo:rustc-env=AIEN_OMEGA_COMPOSE_EXPECTED_SHA=d822df84a16c13f6aec647a18d2dca61a2280915
+cargo:rustc-env=AIEN_OMEGA_COMPOSE_EXPECTED_SHA=097dcb7e8850ecf628c185fb1e94418fbb5a6216
 cargo:rerun-if-env-changed=AIEN_OMEGA_COMPOSE_LIB_SHA256
 cargo:warning=aien-omega-compose: build dir was for another omega commit, rebuilt from clean
 cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/hermes-desk/cudapp-canonical-l457/m16 -I/home/drakestapleton/workspace/hermes-desk/cudapp-canonical-l457/nvrm -I/home/drakestapleton/workspace/hermes-desk/cudapp-canonical-l457/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/hermes-desk/cudapp-canonical-l457/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/hermes-desk/cudapp-canonical-l457/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/hermes-desk/cudapp-canonical-l457/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -fPIC -c src/runtime/rx_caproot.c -o /home/drakestapleton/workspace/targets/l457-sc-b76d65a1/release/build/aien-omega-compose-b808ab2e33174d5e/out/omega-compose-build/rxc_lib/src/runtime/rx_caproot.o
@@ -55,7 +55,7 @@ cargo:rustc-env=AIEN_OMEGA_COMPOSE_LINK=pinned-source
 cargo:rustc-env=AIEN_OMEGA_COMPOSE_ABI=pass
 cargo:rustc-env=AIEN_OMEGA_COMPOSE_DIGEST=locked
 cargo:rustc-env=AIEN_OMEGA_COMPOSE_ARCHIVE_SHA256=e598074e58533dc5fb08281f1392d265943f6f8def2fc4950f04a5729c100758
-cargo:rustc-env=AIEN_OMEGA_COMPOSE_SOURCE_SHA=d822df84a16c13f6aec647a18d2dca61a2280915
+cargo:rustc-env=AIEN_OMEGA_COMPOSE_SOURCE_SHA=097dcb7e8850ecf628c185fb1e94418fbb5a6216
 cargo:rustc-env=AIEN_OMEGA_COMPOSE_AIENOS_LOCK=b84c0a67590a934f3f3e001b12ec85ebc086a9eb
 cargo:rustc-env=AIEN_OMEGA_COMPOSE_PHYSICS_LOCK=7476de7160c074dc259683176d277bfd5b3bffdf
 cargo:rustc-env=AIEN_OMEGA_COMPOSE_TARGET=aarch64-unknown-linux-gnu
