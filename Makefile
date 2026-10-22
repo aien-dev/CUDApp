@@ -275,3 +275,10 @@ HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-a
 	test-runtime-api test-runtime-portability
 test: $(HOST_TESTS)
 	@echo "CUDA++ HOST TESTS PASS ($(words $(HOST_TESTS)) targets)"
+
+# Zero-CUDA gate (tools/zero-cuda-gate.sh): the built programs need no NVIDIA CUDA library and import
+# no CUDA symbol. The self-test is the negative control (a stub libcudart must FAIL).
+.PHONY: zero-cuda-gate
+zero-cuda-gate: $(HELLO_GPU) $(GPU_API_TEST)
+	tools/zero-cuda-gate.sh --self-test
+	tools/zero-cuda-gate.sh $(HELLO_GPU) $(GPU_API_TEST)
