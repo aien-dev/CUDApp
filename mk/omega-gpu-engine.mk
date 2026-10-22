@@ -35,11 +35,11 @@ test-gpu-engine-mutants:
 
 # A3b1: the Blackwell backend includes physics headers (m16_native.h, nvrm.h), so it
 # uses the same physics -I paths as the top-level Makefile CFLAGS (Makefile lines 9-14).
-GPU_ENGINE_PHYS_INC = -I$(PHYSICS_DIR)/m16 -I$(PHYSICS_DIR)/nvrm \
-	-I$(PHYSICS_DIR)/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc \
-	-I$(PHYSICS_DIR)/third_party/nvidia-open-580.173.02/kernel-open/common/inc \
-	-I$(PHYSICS_DIR)/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm \
-	-I$(PHYSICS_DIR)/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include
+GPU_ENGINE_PHYS_INC = -I$(CUDAPP_DRIVER_DIR)/m16 -I$(CUDAPP_DRIVER_DIR)/nvrm \
+	-I$(CUDAPP_DRIVER_DIR)/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc \
+	-I$(CUDAPP_DRIVER_DIR)/third_party/nvidia-open-580.173.02/kernel-open/common/inc \
+	-I$(CUDAPP_DRIVER_DIR)/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm \
+	-I$(CUDAPP_DRIVER_DIR)/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include
 
 build/omega_blackwell_engine_syntax.o: src/omega_blackwell_engine.c src/omega_blackwell_engine.h src/omega_gpu_engine.h
 	@mkdir -p build
@@ -69,7 +69,7 @@ test-gpu-engine-sim: build/test_omega_blackwell_engine
 
 # One mutant per backend and vector-wrapper protection; the sim test must fail each one.
 test-gpu-engine-backend-mutants:
-	PHYSICS_DIR="$(PHYSICS_DIR)" sh tools/gpu_engine_backend_mutations.sh
+	PHYSICS_DIR="$(CUDAPP_DRIVER_DIR)" sh tools/gpu_engine_backend_mutations.sh
 
 # Phase B chip test, compile only here. Never run in Phase A.
 build/test_omega_gpu_engine_gb10.o: tests/test_omega_gpu_engine_gb10.c src/omega_gpu_engine.h src/omega_blackwell_engine.h src/omega_blackwell_submit.h

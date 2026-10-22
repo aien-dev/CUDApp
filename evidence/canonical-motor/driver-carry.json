@@ -1,0 +1,14 @@
+[
+  {
+    "path": "nvrm/nvrm.c",
+    "base": "6d7cf0d4d8eb2cda7b512100ff6058e25dbb3ddf",
+    "incoming": "7476de7160c074dc259683176d277bfd5b3bffdf",
+    "resolution": "clean three-way merge, preserving retry and diagnostics"
+  },
+  {
+    "path": "nvrm/nvrm.h",
+    "base": "6d7cf0d4d8eb2cda7b512100ff6058e25dbb3ddf",
+    "incoming": "7476de7160c074dc259683176d277bfd5b3bffdf",
+    "resolution": "clean three-way merge, preserving retry and diagnostics"
+  }
+]

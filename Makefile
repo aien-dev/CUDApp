@@ -12,6 +12,7 @@
 CC ?= gcc
 .DEFAULT_GOAL := all
 PHYSICS_DIR ?= .
+CUDAPP_DRIVER_DIR ?= $(PHYSICS_DIR)
 OUT_DIR ?= build
 GPU_PROD_TARGET ?= $(OUT_DIR)/libomega_gpu.a
 NVIDIA_OPEN := $(PHYSICS_DIR)/third_party/nvidia-open-580.173.02
