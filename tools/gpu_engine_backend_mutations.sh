@@ -65,7 +65,7 @@ BE_PB_REPLACED_RESET~src/omega_blackwell_engine.c~R:c->pb_replaced = 0;@>@(void)
 BE_BUSY_CHECK_DROPPED~src/omega_blackwell_engine.c~R:if (atomic_flag_test_and_set(&g_busy)) return -1;@>@(void)atomic_flag_test_and_set(&g_busy);~a second open while a run is retained is refused
 BE_OPEN_FAIL_KEEPS_BUSY~src/omega_blackwell_engine.c~/^static int be_open_device/,/^}/ s/atomic_flag_clear(&g_busy);/(void)0;/~a failed open releases the busy flag
 BE_CLOSE_BUSY_CLEAR_DROPPED~src/omega_blackwell_engine.c~/^static int be_close/,/^}/ s/atomic_flag_clear(&g_busy);/(void)0;/~close releases the busy flag so the next run can open
-BE_OPEN_MEMSET_DROPPED~src/omega_blackwell_engine.c~R:memset(c, 0, sizeof *c);@>@(void)0;~open resets the whole context, including the previous run's snapshot
+BE_OPEN_MEMSET_DROPPED~src/omega_blackwell_engine.c~/^static int be_open_device/,/^}/ s/memset(c, 0, sizeof *c);/(void)0;/~open resets the whole context, including the previous run's snapshot
 BE_OPEN_NATIVE_FLAG_DROPPED~src/omega_blackwell_engine.c~R:c->native_open = 1;@>@(void)0;~a failed open still reports the driver's own text
 BE_OPEN_ERROR_IGNORED~src/omega_blackwell_engine.c~/^static int be_open_device/,/^}/ s/return rc;/return 0;/~a failed driver open is reported (DEVICE_OPEN)
 BE_OPEN_LAST_RC_DROPPED~src/omega_blackwell_engine.c~/^static int be_open_device/,/^}/ s/c->last_rc = rc;/(void)0;/~the failed open's driver code reaches the result
