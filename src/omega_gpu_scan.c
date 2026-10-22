@@ -197,7 +197,15 @@ static struct {
     int mutant;
     OmegaGpuMem code[OMEGA_SCAN_K_COUNT];
     uint32_t gpr[OMEGA_SCAN_K_COUNT];
+    int hooked;
 } g;
+
+/* lock held; the session calls it right before it closes the device (also in omega_gpu_session_recover): the kernels go
+ * with the device, the next call builds them again on the new one */
+static void on_session_close(void) {
+    for (unsigned k = 0; k < OMEGA_SCAN_K_COUNT; k++) if (g.code[k].cpu) omega_gpu_session_free(&g.code[k]);
+    memset(g.code, 0, sizeof g.code);
+}
 
 void omega_gpu_scan_test_set_mutant(int mutant) {
     omega_gpu_session_lock();
@@ -221,6 +229,10 @@ const char *omega_gpu_scan_rc_name(int rc) {
 /* lock held */
 static int kernel_locked(OmegaScanKind k) {
     if (g.code[k].cpu) return OMEGA_GPU_SCAN_OK;
+    if (!g.hooked) { /* without the hook a kernel would outlive its device */
+        if (omega_gpu_session_on_close(on_session_close) != 0) return OMEGA_GPU_SCAN_CHIP_FAIL;
+        g.hooked = 1;
+    }
     BlackwellIRProgram *prog = omega_gpu_host_calloc(1, sizeof *prog);
     if (!prog) return OMEGA_GPU_SCAN_CODEGEN_FAIL;
     OmegaScanSpec s = { k, g.mutant };
