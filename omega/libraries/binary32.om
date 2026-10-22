@@ -1,0 +1,138 @@
+note SPDX-License-Identifier MIT
+note IEEE binary32 add and multiply encoded as ulong words
+note Round to nearest ties even gradual underflow canonical quiet NaN
+note Pure integer implementation for seed omc without float words
+fn fexp a ulong to long
+x = and shr a 23 255
+if eq x 0
+ret 1
+end
+ret long x
+end
+fn fmant a ulong to ulong
+m = and a 8388607
+if ne and a 2139095040 0
+m = or m 8388608
+end
+ret m
+end
+fn fjam a ulong n ulong to ulong
+if eq n 0
+ret a
+end
+if ge n 64
+if ne a 0
+ret 1
+end
+ret 0
+end
+v = shr a n
+if ne and a sub shl ulong 1 n 1 0
+v = or v 1
+end
+ret v
+end
+fn fpack sign ulong exp long mant ulong to ulong
+e = exp
+m = mant
+if eq m 0
+ret sign
+end
+while ge m 134217728
+m = fjam m 1
+e = add e 1
+end
+while and lt m 67108864 gt e 1
+m = shl m 1
+e = sub e 1
+end
+if le e 0
+m = fjam m ulong sub long 1 e
+e = long 1
+end
+v = shr m 3
+r = and m 7
+if or gt r 4 and eq r 4 ne and v 1 0
+v = add v 1
+end
+if ge v 16777216
+v = shr v 1
+e = add e 1
+end
+if ge e 255
+ret or sign 2139095040
+end
+if lt v 8388608
+e = long 0
+end
+ret or or sign shl ulong e 23 and v 8388607
+end
+fn fadd aa ulong bb ulong to ulong
+a = aa
+b = bb
+ax = and a 2147483647
+bx = and b 2147483647
+if or gt ax 2139095040 gt bx 2139095040
+ret 2143289344
+end
+if eq ax 2139095040
+if and eq bx 2139095040 ne and xor a b 2147483648 0
+ret 2143289344
+end
+ret a
+end
+if eq bx 2139095040
+ret b
+end
+if lt ax bx
+a = bb
+b = aa
+end
+e = fexp a
+d = sub e fexp b
+m = shl fmant a 3
+n = fjam shl fmant b 3 ulong d
+s = and a 2147483648
+if eq and xor a b 2147483648 0
+m = add m n
+else
+m = sub m n
+if eq m 0
+s = ulong 0
+end
+end
+ret fpack s e m
+end
+fn fmul a ulong b ulong to ulong
+ax = and a 2147483647
+bx = and b 2147483647
+s = and xor a b 2147483648
+if or gt ax 2139095040 gt bx 2139095040
+ret 2143289344
+end
+if or eq ax 2139095040 eq bx 2139095040
+if or eq ax 0 eq bx 0
+ret 2143289344
+end
+ret or s 2139095040
+end
+if or eq ax 0 eq bx 0
+ret s
+end
+m = fmant a
+n = fmant b
+e = sub add fexp a fexp b 127
+note Normalize subnormal factors before discarding any product bits
+while lt m 8388608
+m = shl m 1
+e = sub e 1
+end
+while lt n 8388608
+n = shl n 1
+e = sub e 1
+end
+ret fpack s e fjam mul m n 20
+end
+fn fsub a ulong b ulong to ulong
+ret fadd a xor b 2147483648
+end

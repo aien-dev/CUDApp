@@ -1,0 +1,226 @@
+note SPDX-License-Identifier MIT
+note Host test wire adapter only not a CUDA API
+global inp uchar 8192
+global out uchar 4096
+global inlen ulong 1
+global hh ulong 8
+fn load at ulong to ulong
+v = ulong 0
+for i ulong 4
+v = or v shl ulong get inp add at i mul i 8
+end
+ret v
+end
+fn store at ulong v ulong to void
+for i ulong 4
+put out add at i uchar and shr v mul i 8 255
+end
+end
+fn readall to int
+n = ulong 0
+while true
+if eq n 8192
+ret 2
+end
+r = read 0 inp n sub 8192 n
+if lt r 0
+ret 2
+end
+if eq r 0
+put inlen 0 n
+ret 0
+end
+n = add n ulong r
+end
+ret 2
+end
+fn header to int
+if lt get inlen 0 32
+ret 2
+end
+for i ulong 8
+put hh i load mul i 4
+end
+if or lt get hh 0 1 gt get hh 0 4
+ret 2
+end
+if ne get hh 7 0
+ret 2
+end
+for i ulong 3
+if gt get hh add i 1 64
+ret 2
+end
+end
+if or gt get hh 4 256 gt get hh 5 256
+ret 2
+end
+if ne get hh 0 3
+if or ne get hh 2 0 ne get hh 5 0
+ret 2
+end
+end
+if ne get hh 0 4
+if ne get hh 6 0
+ret 2
+end
+else
+if or ne get hh 1 get hh 3 gt get hh 6 3
+ret 2
+end
+end
+ret 0
+end
+fn expect to int
+mode = get hh 0
+n = ulong 32
+if eq mode 1
+n = add n mul get hh 4 12
+else
+n = add n mul add get hh 1 1 4
+n = add n mul get hh 4 8
+if eq mode 3
+n = add n mul add get hh 2 1 4
+n = add n mul get hh 5 8
+end
+if eq mode 4
+n = add n mul get hh 1 4
+end
+end
+if ne n get inlen 0
+ret 2
+end
+ret 0
+end
+fn csrload which ulong rows ulong nnz ulong base ulong to ulong
+at = base
+for i ulong add rows 1
+if eq which 0
+put arp i load add at mul i 4
+else
+put brp i load add at mul i 4
+end
+end
+at = add at mul add rows 1 4
+for p ulong nnz
+if eq which 0
+put aci p load add at mul p 4
+else
+put bci p load add at mul p 4
+end
+end
+at = add at mul nnz 4
+for p ulong nnz
+if eq which 0
+put aval p load add at mul p 4
+else
+put bval p load add at mul p 4
+end
+end
+ret add at mul nnz 4
+end
+fn arrays to void
+at = ulong 32
+if eq get hh 0 1
+n = get hh 4
+for p ulong n
+put sr p load add at mul p 4
+end
+at = add at mul n 4
+for p ulong n
+put sc p load add at mul p 4
+end
+at = add at mul n 4
+for p ulong n
+put sv p load add at mul p 4
+end
+else
+at = csrload 0 get hh 1 get hh 4 at
+if eq get hh 0 3
+at = csrload 1 get hh 2 get hh 5 at
+end
+if eq get hh 0 4
+for i ulong get hh 1
+put rhs i load add at mul i 4
+end
+end
+end
+end
+fn solveit to int
+n = get hh 1
+z = get hh 4
+u = and get hh 6 1
+v = and shr get hh 6 1 1
+ret trisolv n z u v
+end
+fn execute to int
+m = get hh 0
+if eq m 1
+ret cootocs get hh 1 get hh 3 get hh 4
+end
+if eq m 2
+ret csrtoco get hh 1 get hh 3 get hh 4
+end
+if eq m 3
+ret spgemm get hh 1 get hh 2 get hh 3 get hh 4 get hh 5
+end
+ret solveit
+end
+fn encode to ulong
+if eq get hh 0 4
+for i ulong get hh 1
+store mul i 4 get sol i
+end
+ret mul get hh 1 4
+end
+n = get onnz 0
+store 0 n
+if eq get hh 0 2
+for p ulong n
+store add ulong 4 mul p 4 get sr p
+store add add ulong 4 mul n 4 mul p 4 get sc p
+store add add ulong 4 mul n 8 mul p 4 get sv p
+end
+ret add ulong 4 mul n 12
+end
+at = ulong 4
+for i ulong add get hh 1 1
+store add at mul i 4 get crp i
+end
+at = add at mul add get hh 1 1 4
+for p ulong n
+store add at mul p 4 get cci p
+end
+at = add at mul n 4
+for p ulong n
+store add at mul p 4 get cval p
+end
+ret add at mul n 4
+end
+fn emit n ulong to int
+p = ulong 0
+while lt p n
+w = write 1 out p sub n p
+if le w 0
+ret 3
+end
+p = add p ulong w
+end
+ret 0
+end
+fn main to int
+if ne readall 0
+ret 2
+end
+if ne header 0
+ret 2
+end
+if ne expect 0
+ret 2
+end
+arrays
+if ne execute 0
+ret 2
+end
+ret emit encode
+end

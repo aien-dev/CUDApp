@@ -1,0 +1,52 @@
+note SPDX-License-Identifier MIT
+note binary32 division round to nearest ties even
+note No vendor source. Specials match IEEE not a guessed quiet payload
+fn fdivcore m ulong n ulong e long s ulong to ulong
+num = shl m 32
+q = div num n
+if ne sub num mul q n 0
+q = or q 1
+end
+if ge q 4294967296
+ret fpack s e fjam q 6
+end
+ret fpack s sub e 1 fjam q 5
+end
+fn fdiv a ulong b ulong to ulong
+ax = and a 2147483647
+bx = and b 2147483647
+s = and xor a b 2147483648
+if or gt ax 2139095040 gt bx 2139095040
+ret 2143289344
+end
+if eq ax 2139095040
+if eq bx 2139095040
+ret 2143289344
+end
+ret or s 2139095040
+end
+if eq bx 2139095040
+ret s
+end
+if eq ax 0
+if eq bx 0
+ret 2143289344
+end
+ret s
+end
+if eq bx 0
+ret or s 2139095040
+end
+m = fmant a
+n = fmant b
+e = add sub fexp a fexp b 127
+while lt m 8388608
+m = shl m 1
+e = sub e 1
+end
+while lt n 8388608
+n = shl n 1
+e = add e 1
+end
+ret fdivcore m n e s
+end

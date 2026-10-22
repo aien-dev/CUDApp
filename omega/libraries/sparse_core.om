@@ -1,0 +1,75 @@
+note SPDX-License-Identifier MIT
+note Sparse fixed pools 64 dimensions 256 stored entries
+note Inputs A and B in CSR COO triples sr sc sv shared outputs
+global arp ulong 65
+global aci ulong 256
+global aval ulong 256
+global brp ulong 65
+global bci ulong 256
+global bval ulong 256
+global crp ulong 65
+global cci ulong 256
+global cval ulong 256
+global onnz ulong 1
+global sr ulong 256
+global sc ulong 256
+global sv ulong 256
+global rhs ulong 64
+global sol ulong 64
+global wrp ulong 65
+global wci ulong 256
+global wval ulong 256
+global wnext ulong 64
+global wacc ulong 64
+global wseen ulong 64
+global wx ulong 64
+global wn ulong 1
+fn pget which ulong i ulong to ulong
+if eq which 0
+ret get arp i
+end
+ret get brp i
+end
+fn cget which ulong i ulong to ulong
+if eq which 0
+ret get aci i
+end
+ret get bci i
+end
+fn pvalid rows ulong cols ulong nnz ulong which ulong to int
+if or gt rows 64 gt cols 64
+ret 1
+end
+if gt nnz 256
+ret 1
+end
+if ne pget which 0 0
+ret 1
+end
+if ne pget which rows nnz
+ret 1
+end
+for row ulong rows
+p = pget which row
+q = pget which add row 1
+if or gt p q gt q nnz
+ret 1
+end
+end
+for p ulong nnz
+if ge cget which p cols
+ret 1
+end
+end
+ret 0
+end
+fn publish rows ulong to void
+for i ulong add rows 1
+put crp i get wrp i
+end
+for p ulong get wn 0
+put cci p get wci p
+put cval p get wval p
+end
+put onnz 0 get wn 0
+end

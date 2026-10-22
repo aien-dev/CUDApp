@@ -1,0 +1,4 @@
+note SPDX-License-Identifier MIT
+fn spgemm rows ulong inner ulong cols ulong anz ulong bnz ulong to int
+ret 1
+end

@@ -1,0 +1,14 @@
+# Bounded sparse core in Omega
+
+Approved direction: extend CUDApp's sparse library with COO↔CSR conversion, CSR sparse matrix multiplication, then triangular solves. Implement directly in this chat; no duplicate worker. Ledger L454.
+
+- Reuse L452 transpose as ancestor; do not change its files. Reuse binary32.om and fdiv.om byte-for-byte from feat/fft-rng f564d78bb356f257e308319cb489b9b3369fb970. Do not take over that branch.
+- Build only with seed omc SHA 10d7565239ca6bd3cca344b65a03c0f3498acd95e82ab3d420bd01408b01398e. Python is an independent test harness only. No new C implementation or vendor code.
+- First deliverable is host-only Linux AArch64. No GPU, cuSPARSE ABI, speed or general-size claim.
+- Fixed capacities: dimensions 0..64; each input/output at most 256 entries. Zero-based indices; exact unsigned 32-bit wire format. Functions return 0 on success, 1 on invalid input or output-capacity/arithmetic failure. Caller-visible outputs unchanged on failure. Fixed global arrays mean non-reentrant.
+- cootocs(rows,cols,nnz): input sr/sc/sv triples, output crp/cci/cval and onnz; stable grouping by row, duplicates and value bits preserved, no coalescing.
+- csrtoco(rows,cols,nnz): input arp/aci/aval, output sr/sc/sv and onnz; preserve CSR entry order and all value bits.
+- spgemm(rows,inner,cols,anz,bnz): A=arp/aci/aval and B=brp/bci/bval; output crp/cci/cval/onnz. Entries sorted by column, duplicates accumulated with separate binary32 multiplication and addition in A-entry then B-entry order. Retain structurally reached entries even if the answer is zero; absent entries do not multiply. Canonical NaN follows reused arithmetic. Refuse structural output >256 without publishing partial output.
+- trisolv(n,nnz,upper,unit): A=arp/aci/aval, vector rhs; output sol. Lower or upper; unit or explicit diagonal. Unsorted entries and duplicate off-diagonals allowed. Reject wrong-triangle entries, duplicate diagonals, missing/nonzero-required diagonal, nonfinite inputs or nonfinite intermediate/result. A stored unit diagonal is ignored but must be finite; at most one. Each off-diagonal term is subtracted separately in stored order with binary32 rounding; divide once in nonunit mode. Zero-order solve is valid.
+- Every CSR begins at zero, ends at nnz, has monotone pointers bounded by nnz and indices within columns. Validate before output.
+- Tests: literal independent results, stable tuple grouping for conversion; per-element path enumeration for multiplication; independent binary32 Python substitution plus exactly constructed triangular systems. Boundary/refusal/truncation/random cases; direct output-preservation and repeated-call probe; compiled mutants. Ordinary 33-target C host suite plus inherited transpose suite must also pass. Publish all receipts; push final branch and READY handoff through Renda, not a PR/merge by this chat.

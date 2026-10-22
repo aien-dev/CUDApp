@@ -1,0 +1,4 @@
+CONVERT PASS 324 checks
+MUTANT CAUGHT conversion-value
+MUTANT CAUGHT conversion-row
+SPARSE CORE PASS compiler=10d7565239ca6bd3cca344b65a03c0f3498acd95e82ab3d420bd01408b01398e

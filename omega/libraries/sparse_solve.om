@@ -1,0 +1,4 @@
+note SPDX-License-Identifier MIT
+fn trisolv n ulong nnz ulong upper ulong unit ulong to int
+ret 1
+end

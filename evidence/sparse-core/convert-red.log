@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/home/drakestapleton/workspace/hermes-desk/cudapp-sparse-core/tests/libraries/test_sparse_core.py", line 178, in <module>
+    main()
+  File "/home/drakestapleton/workspace/hermes-desk/cudapp-sparse-core/tests/libraries/test_sparse_core.py", line 157, in main
+    exercise(checks)
+  File "/home/drakestapleton/workspace/hermes-desk/cudapp-sparse-core/tests/libraries/test_sparse_core.py", line 102, in convert
+    checks.good(fixture, literal, 'literal stable COO grouping')
+  File "/home/drakestapleton/workspace/hermes-desk/cudapp-sparse-core/tests/libraries/test_sparse_core.py", line 63, in good
+    assert result.returncode == 0 and result.stdout == expected, (name, result, expected.hex())
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('literal stable COO grouping', CompletedProcess(args=['/home/drakestapleton/workspace/hermes-desk/cudapp-sparse-core/build/sparse-core/sparse-core'], returncode=2, stdout=b'', stderr=b''), '050000000000000003000000030000000500000003000000000000000300000001000000010000000000008000000000ffffffff070000003412c07f')

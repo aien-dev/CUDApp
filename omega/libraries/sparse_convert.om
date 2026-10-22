@@ -1,0 +1,52 @@
+note SPDX-License-Identifier MIT
+note Stable COO grouping and lossless CSR expansion
+fn cootocs rows ulong cols ulong nnz ulong to int
+if or gt rows 64 gt cols 64
+ret 1
+end
+if gt nnz 256
+ret 1
+end
+for p ulong nnz
+if or ge get sr p rows ge get sc p cols
+ret 1
+end
+end
+for row ulong add rows 1
+put crp row 0
+end
+for p ulong nnz
+row = add get sr p 1
+put crp row add get crp row 1
+end
+for row ulong rows
+put crp add row 1 add get crp row get crp add row 1
+put wnext row get crp row
+end
+for p ulong nnz
+row = get sr p
+dest = get wnext row
+put cci dest get sc p
+put cval dest get sv p
+put wnext row add dest 1
+end
+put onnz 0 nnz
+ret 0
+end
+fn csrtoco rows ulong cols ulong nnz ulong to int
+if ne pvalid rows cols nnz 0 0
+ret 1
+end
+for row ulong rows
+p = get arp row
+limit = get arp add row 1
+while lt p limit
+put sr p row
+put sc p get aci p
+put sv p get aval p
+p = add p 1
+end
+end
+put onnz 0 nnz
+ret 0
+end
