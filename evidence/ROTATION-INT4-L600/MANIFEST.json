@@ -1,0 +1,266 @@
+{
+  "feature_source_commit": "cda5689143b7f97c36a35ac8b38cf9c89e69774f",
+  "native_binary_sha256": "9b90e023d335c7675acdd9498228463cb573b9e894d05bc7654a037453688ab4",
+  "manifest_scope": "Current rotation feature/evidence plus exact reused source dependencies. Excludes this manifest itself.",
+  "file_count": 43,
+  "files": [
+    {
+      "path": "docs/plans/2026-10-22-rotation-int4.md",
+      "sha256": "1a864803f0df11079c568ae715f6ea380af43a1b401c2fa6eb901a155a3da719",
+      "bytes": 2482,
+      "git_blob": "d9ec798167eda34473baf5f8549d6787395c9ce2"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/PERSONAL-REVIEW.md",
+      "sha256": "2d9cb28f861702e453b97a3b2800d8292fcef8efff64fb6f245f0214d2e1223d",
+      "bytes": 2939,
+      "git_blob": "b7889e707464375229db513e723a0a1933d16e23"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/README.md",
+      "sha256": "e68b974f38c7000a97d427e4e191a003144d43bb32759611456fca79c11608d4",
+      "bytes": 7427,
+      "git_blob": "4a40f70c87f0a962aa6097364df3f682698691f5"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/checks.wl",
+      "sha256": "044c4536107cf7a86b8acea2e3f58c4793785eb886d69e471f3c240a0f4f4535",
+      "bytes": 887,
+      "git_blob": "0a2d61f1662ae37467bb19d28e035c714fb2074c"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/first-native.json",
+      "sha256": "2a5c9853f66aaa359f2dfede3e0f561e28540c6d42a00aca82c6c26aa08026be",
+      "bytes": 242737,
+      "git_blob": "465921ebb48655ada2d517d66fb8fb620c4c0f62"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/fresh-export.json",
+      "sha256": "eb9c81da8cc8fd9914087fb94c95033da2c5ed639e29ffb58a3b18abbd1b2b42",
+      "bytes": 2052,
+      "git_blob": "d99c6dbdcb56415b70fd6f0f8ee993e1aa5fe608"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/fresh-qualification.json",
+      "sha256": "7562ea23d110a1b06a3de169c9e928d3e7e997036f03b4fe55afb14966257ddc",
+      "bytes": 3058,
+      "git_blob": "cb4825d462686a9df1688549ca1e7f9dcdd64a91"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/fresh-safety.json",
+      "sha256": "0ac72f405fb9449ba48fb4cb2b84357adc663a1f8f4233cdffe61f51b3756efd",
+      "bytes": 1817,
+      "git_blob": "244905629c5fa292c46b6872fd5667701e51a7a5"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/host-test-targets.json",
+      "sha256": "0581ada1e10383fa50b5c0de0fa32ce7eb67e1c94d5d4a2b8ff7b06c5ffb1cfb",
+      "bytes": 1712,
+      "git_blob": "84108537fc9e5b7b77a4e9c6167807d63fd1b3a0"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/inherited-baseline.log",
+      "sha256": "ec0b8f1b253b31b74a35912db0971735fcb7b7246d60ed3d3962d143e9768089",
+      "bytes": 2092,
+      "git_blob": "16b20428495a95b20b9dd9c81cc0be0a8de9a0b0"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/matrix-comparison.json",
+      "sha256": "4586d6d486b512d709e2786e18fb5a706b1775825e5c8ab32bf20aa9bb8a077d",
+      "bytes": 15518,
+      "git_blob": "d2366ab5c1b92e4a97aec98cbf7c3a1c9458355e"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/mutant-lose-fp8-sign.json",
+      "sha256": "2e2863aa3639c600846cea09339c9cb3113be944ebd14e8d33ce454f45c6bffa",
+      "bytes": 244436,
+      "git_blob": "bb8740f18cb2f88a76657cc44a431f8901db623a"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/mutant-ties-away-instead-of-even.json",
+      "sha256": "1cd5eb1dc1f860ac6b13bb73fed4a746f116834b278d18bdc19e64461309651f",
+      "bytes": 244408,
+      "git_blob": "3d1af1ea2189a51307e5c9ab28cefe37118604dc"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/mutant-wrong-inverse-normalization.json",
+      "sha256": "22958bf0f9e628b0fe421707fcb082ab85489735ea4003f650c84e26c6194e60",
+      "bytes": 244417,
+      "git_blob": "b183deeace01800e72b95917fb41873d04378b92"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/native-elf-storage.json",
+      "sha256": "a8b9566bf70d5527185d18660abf393a828784b91291ea0b1504e23d132b8239",
+      "bytes": 205,
+      "git_blob": "636f156d77615a2237e8092112f3ef92023a33ef"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/native-elf.txt.gz",
+      "sha256": "c3a3b43d05fa9cca945af21f562e4c368d545ef189ae4f60d9990f15e691ccdc",
+      "bytes": 447,
+      "git_blob": "6fe5bd65487cf11f74275625c8e282c08480c1ab"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/oracle-environment-install.log",
+      "sha256": "11fe616394fb2c723ae665bf7a1d1a80378a9df50b05da1e164178ecd9e38bef",
+      "bytes": 710,
+      "git_blob": "720ab412e421ed9ce7c97cd26331702ce49da6cf"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/qualification-initial.log",
+      "sha256": "536c7ef628bb6082cad5d957133c27a44847b52f4cfe06c732997b3c2e99eebf",
+      "bytes": 3058,
+      "git_blob": "c288b6ed580dd7e885c53843a00ce1482f3d15a2"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/qualification-missing-numpy.log",
+      "sha256": "c6a5b0b217d06094018ced236a20a476b9d51b1c6a33900f75310355274ff310",
+      "bytes": 484,
+      "git_blob": "131a3a300840acc2056adc8aa1dfca6c0272824c"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/qualification.json",
+      "sha256": "7562ea23d110a1b06a3de169c9e928d3e7e997036f03b4fe55afb14966257ddc",
+      "bytes": 3058,
+      "git_blob": "cb4825d462686a9df1688549ca1e7f9dcdd64a91"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/qualification.log",
+      "sha256": "7562ea23d110a1b06a3de169c9e928d3e7e997036f03b4fe55afb14966257ddc",
+      "bytes": 3058,
+      "git_blob": "cb4825d462686a9df1688549ca1e7f9dcdd64a91"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/qualification.previous-70a9cdea8c1d47d2bfb005bbfd9680c1.json",
+      "sha256": "536c7ef628bb6082cad5d957133c27a44847b52f4cfe06c732997b3c2e99eebf",
+      "bytes": 3058,
+      "git_blob": "c288b6ed580dd7e885c53843a00ce1482f3d15a2"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/qualified-suite.json",
+      "sha256": "b770ab63430403ad721a437d29d8ac9bc7c223c0b887517a814e74b150bb9fb6",
+      "bytes": 244385,
+      "git_blob": "69ab00176a51385057e7bc996b76b005e4b4e0ea"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/red-empty.json",
+      "sha256": "45d94f1b7f1dcc02f93d30806b604760f69421f54ae4345a5d9b6bd1bf3ffb87",
+      "bytes": 242855,
+      "git_blob": "fabdaaa9c527a5b99798ec20dbb7c74471ce9f2f"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/repository-host-test-status.json",
+      "sha256": "d767a42168be1334ad740bc9f83df62859729a58e2e0c90eac9c3c95fbaf694a",
+      "bytes": 278,
+      "git_blob": "11aa2de0c243e59136e0f2f5eafa4226fede1fc5"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/repository-host-test.log.gz",
+      "sha256": "38fa0b300463c2cbbc5e760a491bf554f03e6e2561d34e2926c25ebb6b361f82",
+      "bytes": 27398,
+      "git_blob": "dd8ddbb6c01d54ecfc9666f9bb7b478f1d5ebf66"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/safety-green.json",
+      "sha256": "0ac72f405fb9449ba48fb4cb2b84357adc663a1f8f4233cdffe61f51b3756efd",
+      "bytes": 1817,
+      "git_blob": "244905629c5fa292c46b6872fd5667701e51a7a5"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/safety-red.json",
+      "sha256": "6e56a1db18e99585fed349942002f98daeda169123870deabee0f70b5735df80",
+      "bytes": 1841,
+      "git_blob": "651b70fed50a3f5f456f607214c87cdc419741e3"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/wolfram-initial-storage.json",
+      "sha256": "56ad1b3fe0f9ea57da2a79693f2fe3243df47966c9e8e198f768f48dcfdbbe95",
+      "bytes": 360,
+      "git_blob": "150f08981ffeff88a929044064013e1446260eac"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/wolfram-initial.txt.gz",
+      "sha256": "4d43d842c3962175c794e75c02ce205f69fab25399d6133ce7fabfe6150ae739",
+      "bytes": 1068,
+      "git_blob": "4c1fb9621ba63843b5c2af672539f91feea3da26"
+    },
+    {
+      "path": "evidence/ROTATION-INT4-L600/wolfram-results.json",
+      "sha256": "10fd95c7876468fdc3a6c3c14abbf5b45d77035926748a5fae30944890ef2616",
+      "bytes": 665,
+      "git_blob": "8555b6cc765ec992dce7ea1c3c8af2d23e92f628"
+    },
+    {
+      "path": "mk/native-rotquant.mk",
+      "sha256": "50b5e87efb4e446bf5de85d95fe6010c93716e4b6194b2656c5a63944ef39e7e",
+      "bytes": 579,
+      "git_blob": "3a59c34041abb2f07cdf3066275a0d38f6300ca0"
+    },
+    {
+      "path": "native/rotquant/CONTRACT.md",
+      "sha256": "b4018f4e8f6e7855a89fac95f23992cfaacaf867eb38c4ad583d8a2faa0225b5",
+      "bytes": 5379,
+      "git_blob": "c836c008bc1b455f888b98e60d26cf2ee7c87e41"
+    },
+    {
+      "path": "native/rotquant/experiment.py",
+      "sha256": "f1e185be430fe7e09c673d55c7d42dcbd596bdd512e956506a176d55267e8941",
+      "bytes": 9548,
+      "git_blob": "57fa0364ce2cc7c79be3cb58f7ef1768152aca1e"
+    },
+    {
+      "path": "native/rotquant/oracle-requirements.txt",
+      "sha256": "1b5b6726485865fb4ceb058ba9fb8b4494bbb79314b078b67111f2d203c80395",
+      "bytes": 30,
+      "git_blob": "6b7846bd905e6a5a15142ca230b1f967544f75a3"
+    },
+    {
+      "path": "native/rotquant/qualify_rotation.py",
+      "sha256": "680d3630077637772d25d18d76d863805bf1d385f1fa7112229df49d9b1cdd60",
+      "bytes": 6284,
+      "git_blob": "4fcb8d492d33013bb71f3cf598f909a8d5d4a0ad"
+    },
+    {
+      "path": "native/rotquant/rotquant.om",
+      "sha256": "90eb57181ea3e23843f9e2be454f42c9d1512c800963dd9f751e8ece64ac2117",
+      "bytes": 3973,
+      "git_blob": "8b431bc04b5946285275e8b6f4bcebfbad6814f1"
+    },
+    {
+      "path": "native/rotquant/test_rotation.py",
+      "sha256": "6ee7cd3a70cb72266878e8021616a962d08d51585be3c44f124304517c7e70e3",
+      "bytes": 6530,
+      "git_blob": "242eff83f523cec9e7ee3ecfb0aab175cbb09847"
+    },
+    {
+      "path": "native/rotquant/test_safety.py",
+      "sha256": "e696c69dffed63f04c26e5a938a597b5953f1f1eac753cffe4465e147d48d91e",
+      "bytes": 3703,
+      "git_blob": "f364c6354119ef21c8b621c2188f3ac52883a54b"
+    },
+    {
+      "path": "native/weightpack/qualify.py",
+      "sha256": "b08a5d3b4245dae6c89f5eb2490157b84047639af9197d40b004d6a127bf9092",
+      "bytes": 11693,
+      "git_blob": "01b054ade5f3fd58e126119f89fb2b9cc1618c7b"
+    },
+    {
+      "path": "native/weightpack/test_weightpack.py",
+      "sha256": "d166a1fa30a2ad120ad9ab97f306ce1c194f208e92caa12923fd0e9cb4229d05",
+      "bytes": 8346,
+      "git_blob": "eace98b09d98a46f82244e171363fac80a8e09c9"
+    },
+    {
+      "path": "native/weightpack/weightpack.om",
+      "sha256": "9b841b643de67b001da4f1e7576e30e46e9b827a39166b7179460d249dce727c",
+      "bytes": 4682,
+      "git_blob": "760fc3123fe1c1cedb0453eadc423d902f3d140d"
+    }
+  ]
+}

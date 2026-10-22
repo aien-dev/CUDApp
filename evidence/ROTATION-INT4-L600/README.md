@@ -95,7 +95,10 @@ expression is retained separately as a diagnostic, not counted as proof.
   targets**. Lossless baseline: 464/464 with its I/O/mutation controls.
 - Initial missing NumPy environment is retained as a prerequisite failure; the
   actual experiment ran in an isolated oracle venv with NumPy2.5.4/ml-dtypes0.6.0.
-- Immutable committed-export replay is recorded separately when completed.
+- Fresh complete export of `cda5689143b7f97c36a35ac8b38cf9c89e69774f`: public Make entry,
+  all609 native cases, eight safety controls and five real-matrix comparisons pass
+  from an unrelated working directory. Native binary, full source closure and
+  matrix-comparison bytes are identical. See [fresh-export.json](fresh-export.json).
 
 `qualification.json` is the final current verdict. `qualification.previous-*`
 are historical receipts, not new passes. The suite expanded from605 to609 solely

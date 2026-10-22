@@ -1,0 +1,48 @@
+{
+  "source_commit": "cda5689143b7f97c36a35ac8b38cf9c89e69774f",
+  "fresh_complete_git_export": true,
+  "commands": [
+    [
+      "make",
+      "-C",
+      "/home/drakestapleton/handoffs/quantum-development-L600/rotation-final-export",
+      "test-native-rotquant",
+      "OMEGA_NATIVE_COMPILER=/home/drakestapleton/handoffs/quantum-development-L600/toolchain-replay/build/bootstrap/omc",
+      "OUT_DIR=/home/drakestapleton/handoffs/quantum-development-L600/rotation-final-export/build/public-entry"
+    ],
+    [
+      "python3",
+      "/home/drakestapleton/handoffs/quantum-development-L600/rotation-final-export/native/rotquant/test_safety.py",
+      "--compiler",
+      "/home/drakestapleton/handoffs/quantum-development-L600/toolchain-replay/build/bootstrap/omc",
+      "--out",
+      "/home/drakestapleton/handoffs/quantum-development-L600/rotation-final-export/build/fresh-safety.json"
+    ],
+    [
+      "/home/drakestapleton/handoffs/quantum-development-L600/rotation-oracle-venv/bin/python",
+      "/home/drakestapleton/handoffs/quantum-development-L600/rotation-final-export/native/rotquant/qualify_rotation.py",
+      "--compiler",
+      "/home/drakestapleton/handoffs/quantum-development-L600/toolchain-replay/build/bootstrap/omc",
+      "--build",
+      "/home/drakestapleton/handoffs/quantum-development-L600/rotation-final-export/build/fresh-binaries",
+      "--evidence",
+      "/home/drakestapleton/handoffs/quantum-development-L600/rotation-final-export/build/fresh-replay",
+      "--model",
+      "/home/drakestapleton/models/qwen3.6-35b-a3b-fp8-95a723d0"
+    ]
+  ],
+  "commands_exit_codes": [
+    0,
+    0,
+    0
+  ],
+  "unrelated_cwd": "/home/drakestapleton/handoffs",
+  "source_closure_identical": true,
+  "native_binary_identical": true,
+  "comparison_bytes_identical": true,
+  "binary_sha256": "9b90e023d335c7675acdd9498228463cb573b9e894d05bc7654a037453688ab4",
+  "comparison_sha256": "4586d6d486b512d709e2786e18fb5a706b1775825e5c8ab32bf20aa9bb8a077d",
+  "native_suite": 609,
+  "safety_controls": 8,
+  "real_matrix_count": 5
+}
