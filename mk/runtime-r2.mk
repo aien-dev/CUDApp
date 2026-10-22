@@ -10,5 +10,6 @@ $(HELLO_GPU): examples/hello_gpu/hello_gpu.c $(OUT_DIR)/libomega_gpu.a
 
 hello-gpu-build: $(HELLO_GPU)
 
-hello-gpu: hello-gpu-build
+hello-gpu: hello-gpu-build $(DOCTOR)
+	$(DOCTOR)
 	./$(HELLO_GPU)

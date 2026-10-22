@@ -1,0 +1,14 @@
+# commit 6a46b63f14a0556a40bd5e463fc10099329cd4a0 branch dx/d2-doctor, run 2026-10-22T01:36:06Z on spark-b87b
+# negative control: the GB10 row changed to device 0x2e13 (src/omega_gpu_chip.c); the suite must FAIL
+$ make test-doctor
+FAIL gb10-ready
+PASS no-module
+PASS module-version
+FAIL closed-module
+PASS unknown-chip
+PASS no-gpu
+PASS no-uvm
+PASS no-permission
+FAIL memory-line
+doctor tests: 6 passed, 3 failed
+exit (of grep) 0

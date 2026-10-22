@@ -1,0 +1,13 @@
+# commit 6a46b63f14a0556a40bd5e463fc10099329cd4a0 branch dx/d2-doctor, run 2026-10-22T01:36:06Z on spark-b87b
+$ make test-doctor
+PASS gb10-ready
+PASS no-module
+PASS module-version
+PASS closed-module
+PASS unknown-chip
+PASS no-gpu
+PASS no-uvm
+PASS no-permission
+PASS memory-line
+doctor tests: 9 passed, 0 failed
+exit 0
