@@ -1,0 +1,230 @@
+note SPDX-License-Identifier MIT
+note Host slices for CUDA toolkit gaps. Not the APIs and not on the GPU
+note XORWOW step is the cuRAND formula, not the Wikipedia transcription
+note Seed 0 mix uses the documented salts. Skip-ahead matrices are not here
+note Each function stays inside the 16-register pool
+global xw ulong 6
+global sc ulong 16
+global so ulong 16
+global gm ulong 16
+global gx ulong 4
+global gy ulong 4
+global p4 ulong 16
+global l4 ulong 16
+global am ulong 4
+global sm ulong 2
+global vm ulong 4
+global um ulong 4
+global gg ulong 3
+fn xmask x ulong to ulong
+ret and x 4294967295
+end
+fn xinit to void
+s0 = ulong 2865916745
+s1 = ulong 4158451677
+t0 = and mul 1099087573 s0 4294967295
+t1 = and mul 2591861531 s1 4294967295
+put xw 5 and add add 6615241 t1 t0 4294967295
+put xw 0 and add 123456789 t0 4294967295
+put xw 1 and xor 362436069 t0 4294967295
+put xw 2 and add 521288629 t1 4294967295
+put xw 3 and xor 88675123 t1 4294967295
+put xw 4 and add 5783321 t0 4294967295
+end
+fn xstep to ulong
+t = xmask xor get xw 0 shr get xw 0 2
+old4 = get xw 4
+put xw 0 get xw 1
+put xw 1 get xw 2
+put xw 2 get xw 3
+put xw 3 old4
+n4 = xmask xor xor old4 shl old4 4 xor t shl t 1
+put xw 4 n4
+d = xmask add get xw 5 362437
+put xw 5 d
+ret xmask add n4 d
+end
+fn iscan n ulong to int
+if gt n 16
+ret 1
+end
+acc = ulong 0
+i = ulong 0
+while lt i n
+acc = fadd acc get sc i
+put so i acc
+i = add i 1
+end
+ret 0
+end
+fn escan n ulong to int
+if gt n 16
+ret 1
+end
+acc = ulong 0
+i = ulong 0
+while lt i n
+v = get sc i
+put so i acc
+acc = fadd acc v
+i = add i 1
+end
+ret 0
+end
+fn gemv n ulong alpha ulong beta ulong to int
+if or eq n 0 gt n 4
+ret 1
+end
+i = ulong 0
+while lt i n
+acc = ulong 0
+j = ulong 0
+while lt j n
+acc = fadd acc fmul get gm add mul i n j get gx j
+j = add j 1
+end
+put gy i fadd fmul beta get gy i fmul alpha acc
+i = add i 1
+end
+ret 0
+end
+fn z16 to void
+i = ulong 0
+while lt i 16
+put l4 i 0
+i = add i 1
+end
+end
+fn cdiag j ulong n ulong to int
+acc = get p4 add mul j n j
+k = ulong 0
+while lt k j
+v = get l4 add mul j n k
+acc = fsub acc fmul v v
+k = add k 1
+end
+d = fsqrt acc
+if or eq d 2143289344 eq and d 2147483647 0
+ret 1
+end
+put l4 add mul j n j d
+ret 0
+end
+fn ccell i ulong j ulong n ulong to void
+acc = get p4 add mul i n j
+k = ulong 0
+while lt k j
+p = get l4 add mul i n k
+q = get l4 add mul j n k
+acc = fsub acc fmul p q
+k = add k 1
+end
+d = get l4 add mul j n j
+put l4 add mul i n j fdiv acc d
+end
+fn chol4 n ulong to int
+if or eq n 0 gt n 4
+ret 1
+end
+z16
+j = ulong 0
+while lt j n
+if ne cdiag j n 0
+ret 1
+end
+i = add j 1
+while lt i n
+ccell i j n
+i = add i 1
+end
+j = add j 1
+end
+ret 0
+end
+fn gram to void
+a00 = get am 0
+a01 = get am 1
+a10 = get am 2
+a11 = get am 3
+put gg 0 fadd fmul a00 a00 fmul a10 a10
+put gg 1 fadd fmul a00 a01 fmul a10 a11
+put gg 2 fadd fmul a01 a01 fmul a11 a11
+end
+fn trfun to ulong
+half = ulong 1056964608
+ret fmul fadd get gg 0 get gg 2 half
+end
+fn discfun to ulong
+half = ulong 1056964608
+dd = fmul fsub get gg 0 get gg 2 half
+g01 = get gg 1
+ret fsqrt fadd fmul dd dd fmul g01 g01
+end
+fn axis base ulong lam ulong g00 ulong to void
+if eq and fsub g00 lam 2147483647 0
+put vm base 1065353216
+put vm add base 1 0
+else
+put vm base 0
+put vm add base 1 1065353216
+end
+end
+fn norm2 base ulong v0 ulong v1 ulong to void
+nrm = fsqrt fadd fmul v0 v0 fmul v1 v1
+a = fdiv v0 nrm
+b = fdiv v1 nrm
+if ne and a 2147483648 0
+a = xor a 2147483648
+b = xor b 2147483648
+else
+if and eq and a 2147483647 0 ne and b 2147483648 0
+b = xor b 2147483648
+end
+end
+put vm base a
+put vm add base 1 b
+end
+fn vcol col ulong lam ulong to int
+base = mul col 2
+g01 = get gg 1
+if eq and g01 2147483647 0
+axis base lam get gg 0
+ret 0
+end
+norm2 base g01 fsub lam get gg 0
+ret 0
+end
+fn lcol col ulong to int
+base = mul col 2
+v0 = get vm base
+v1 = get vm add base 1
+sig = get sm col
+if eq and sig 2147483647 0
+ret 1
+end
+u0 = fadd fmul get am 0 v0 fmul get am 1 v1
+u1 = fadd fmul get am 2 v0 fmul get am 3 v1
+put um base fdiv u0 sig
+put um add base 1 fdiv u1 sig
+ret 0
+end
+fn svd2 to int
+gram
+tr = trfun
+di = discfun
+if ne vcol 0 fadd tr di 0
+ret 1
+end
+if ne vcol 1 fsub tr di 0
+ret 1
+end
+put sm 0 fsqrt fadd tr di
+put sm 1 fsqrt fsub tr di
+if ne lcol 0 0
+ret 1
+end
+if ne lcol 1 0
+ret 1
+end
+ret 0
+end

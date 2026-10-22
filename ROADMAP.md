@@ -11,12 +11,12 @@ Sources: Omega `docs/OMEGA.md` sections 2 to 5 (branch `docs/what-omega-is`, 202
 | `nvcc`, NVVM, PTX, `ptxas` | Compile kernels to machine code | sm_121 encoder + register allocator (`src/omega_blackwell_*`) | PASS | every kernel Omega runs is encoded by it (Omega `docs/OMEGA.md` s2) |
 | `libcuda` | User-space driver API | `nvrm/` + `m16/` driver client | PASS | `evidence/m16-blackwell-native-path-requalification-receipt.json` |
 | `libcudart` | Runtime API: device, memory, launch, streams | session, command lists, job engine | PARTIAL | one device and one process; streams and events are bar C4 |
-| cuBLAS | Matrix multiply | matmul, tensor-core GEMM, FP8/BF16 libraries | PARTIAL | model shapes only; any-shape GEMM is bar C3 |
+| cuBLAS | Matrix multiply | matmul, tensor-core GEMM, FP8/BF16 libraries; host GEMV n at most 4 | PARTIAL | model shapes only; any-shape GEMM is bar C3. Host GEMV receipt evidence/fft-rng/more.log |
 | cuDNN, FlashAttention | Attention, network layers | decode and prefill attention | PARTIAL | model-shaped |
-| CUB, Thrust | Reductions, scans, sorts | frozen-order reductions | PARTIAL | `evidence/E1-CLOSURE/`; general scan and sort are bar C3 |
-| cuFFT, cuRAND | FFT, random numbers | host Philox4x32-10 and radix-2 C2C FFT, not the CUDA API and not on the GPU | PARTIAL | docs/FFT_RNG.md and evidence/fft-rng/native.log; GPU path and cuRAND ordering still open |
+| CUB, Thrust | Reductions, scans, sorts | frozen-order reductions; host inclusive and exclusive scan of at most 16 binary32 values | PARTIAL | `evidence/E1-CLOSURE/`; host scan in evidence/fft-rng/more.log; a scan of 2^28 and sort stay bar C3 |
+| cuFFT, cuRAND | FFT, random numbers | host Philox4x32-10, radix-2 C2C FFT, and the XORWOW step with the seed-0 mix | PARTIAL | docs/FFT_RNG.md, evidence/fft-rng/native.log, evidence/fft-rng/more.log. Not skip-ahead, not a live libcurand call, not the GPU |
 | cuSPARSE | Sparse matrix products | host CSR binary32 y = A x, not the API and not on the GPU | PARTIAL | docs/CUSPARSE.md and evidence/fft-rng/sparse.log |
-| cuSOLVER | Dense factorizations | host Cholesky, LU, triangular solve, 2 by 2 QR, eigenvalues, singular values | PARTIAL | evidence/fft-rng/solvers.log; not the API, not SVD vectors, not the GPU |
+| cuSOLVER | Dense factorizations | host Cholesky through n=4, LU, triangular solve, 2 by 2 QR, eigenvalues, singular values, and 2 by 2 singular vectors | PARTIAL | evidence/fft-rng/solvers.log and evidence/fft-rng/more.log; not the API, not vectors above 2 by 2, not the GPU |
 | NPP | Image arithmetic | host add, multiply, subtract, threshold on eight binary32 pixels | PARTIAL | docs/LIBRARIES.md; not the NPP API |
 | nvJPEG | JPEG | host 8 by 8 inverse DCT only | PARTIAL | docs/LIBRARIES.md; not a file decoder |
 | level-1 products | dot, axpy, scal, 2-norm | host Omega, not GEMM | PARTIAL | docs/LIBRARIES.md; cuBLAS GEMM stays the separate bar |

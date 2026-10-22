@@ -17,7 +17,8 @@ PARTS={'philox':['omega/libraries/philox.om','tests/libraries/philox_driver.om']
        'npp':['omega/libraries/binary32.om','omega/libraries/npp.om','tests/libraries/npp_check.om'],
        'blas1':['omega/libraries/binary32.om','omega/libraries/fdiv.om','omega/libraries/fsqrt.om','omega/libraries/blas1.om','tests/libraries/blas1_check.om'],
        'idct':['omega/libraries/binary32.om','omega/libraries/idct.om','tests/libraries/idct_check.om'],
-       'solvers':['omega/libraries/binary32.om','omega/libraries/fdiv.om','omega/libraries/fsqrt.om','omega/libraries/potrf.om','omega/libraries/solvers.om','tests/libraries/solvers_check.om']}
+       'solvers':['omega/libraries/binary32.om','omega/libraries/fdiv.om','omega/libraries/fsqrt.om','omega/libraries/potrf.om','omega/libraries/solvers.om','tests/libraries/solvers_check.om'],
+       'more':['omega/libraries/binary32.om','omega/libraries/fdiv.om','omega/libraries/fsqrt.om','omega/libraries/more.om','tests/libraries/more_check.om']}
 def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()
 def run(args, **kw): return subprocess.run([str(x) for x in args],check=True,**kw)
 def compile_source(compiler,src,target):

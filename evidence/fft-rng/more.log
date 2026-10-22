@@ -1,0 +1,12 @@
+2026-10-22T11:40Z host Omega more
+omc sha256 10d7565239ca6bd3cca344b65a03c0f3498acd95e82ab3d420bd01408b01398e
+pin f623467e21f9ea8a862a7c92965227fb67263e8e
+binary sha256 83bef86ec561ae14aa25c1ccf12a3b52db26e815a8772c249330c31748f89ec1
+file: ELF 64-bit LSB executable, ARM aarch64, statically linked, no section header
+GOOD_RC=0
+WEYL_RC=20  362437 changed to 362438, first output mismatch
+CHOL_RC=5   rank-1 subtraction skipped, factor check fails
+no dynamic section. libcuda is not linked.
+libcurand not called. aien-serve-http pid 3489680 holds /dev/nvidia0.
+Wolfram evaluated the header formula and the binary32 composition for the off-diagonal vectors.
+Householder calibration matched stored bits 3216192308 and 3192704208 before those vector bits were used.

@@ -1,0 +1,361 @@
+note SPDX-License-Identifier MIT
+note Self-check. Non-integer bits are not used. Integer bits came from Wolfram
+fn chk g ulong w ulong to int
+if ne g w
+ret 1
+end
+ret 0
+end
+fn loadscan to void
+put sc 0 3221225472
+put sc 1 1065353216
+put sc 2 1077936128
+put sc 3 3212836864
+put sc 4 1082130432
+put sc 5 0
+put sc 6 1073741824
+put sc 7 1084227584
+end
+fn loadhalf to void
+put sc 0 1056964608
+put sc 1 1056964608
+put sc 2 1056964608
+put sc 3 1056964608
+end
+fn loadgem to void
+put gm 0 1065353216
+put gm 1 1073741824
+put gm 2 0
+put gm 3 1065353216
+put gm 4 1077936128
+put gm 5 0
+put gm 6 1065353216
+put gm 7 0
+put gm 8 0
+put gm 9 1065353216
+put gm 10 1073741824
+put gm 11 1065353216
+put gm 12 1065353216
+put gm 13 1065353216
+put gm 14 1065353216
+put gm 15 1065353216
+put gx 0 1065353216
+put gx 1 1073741824
+put gx 2 1077936128
+put gx 3 1082130432
+put gy 0 1065353216
+put gy 1 0
+put gy 2 0
+put gy 3 1065353216
+end
+fn loadchol to void
+put p4 0 1082130432
+put p4 1 1073741824
+put p4 2 0
+put p4 3 1073741824
+put p4 4 1073741824
+put p4 5 1084227584
+put p4 6 1073741824
+put p4 7 1065353216
+put p4 8 0
+put p4 9 1073741824
+put p4 10 1084227584
+put p4 11 1073741824
+put p4 12 1073741824
+put p4 13 1065353216
+put p4 14 1073741824
+put p4 15 1086324736
+end
+fn chkl to int
+if ne chk get l4 0 1073741824 0
+ret 1
+end
+if ne chk get l4 1 0 0
+ret 1
+end
+if ne chk get l4 4 1065353216 0
+ret 1
+end
+if ne chk get l4 5 1073741824 0
+ret 1
+end
+if ne chk get l4 8 0 0
+ret 1
+end
+if ne chk get l4 9 1065353216 0
+ret 1
+end
+if ne chk get l4 10 1073741824 0
+ret 1
+end
+if ne chk get l4 12 1065353216 0
+ret 1
+end
+if ne chk get l4 13 0 0
+ret 1
+end
+if ne chk get l4 14 1065353216 0
+ret 1
+end
+if ne chk get l4 15 1073741824 0
+ret 1
+end
+ret 0
+end
+fn main to int
+xinit
+if ne chk get xw 0 1478573778 0
+ret 2
+end
+if ne chk get xw 1 1163863128 0
+ret 2
+end
+if ne chk get xw 2 4171507460 0
+ret 2
+end
+if ne chk get xw 3 3705206908 0
+ret 2
+end
+if ne chk get xw 4 1360900310 0
+ret 2
+end
+if ne chk get xw 5 716983765 0
+ret 2
+end
+if ne chk xstep 3179217846 0
+ret 20
+end
+if ne chk xstep 1883133293 0
+ret 21
+end
+if ne chk xstep 2220552389 0
+ret 22
+end
+if ne chk xstep 674260989 0
+ret 23
+end
+if ne chk xstep 306521119 0
+ret 24
+end
+if ne chk xstep 1986458431 0
+ret 25
+end
+if ne chk xstep 977720403 0
+ret 26
+end
+if ne chk xstep 1414583917 0
+ret 27
+end
+loadscan
+if ne iscan 8 0
+ret 3
+end
+if ne chk get so 0 3221225472 0
+ret 30
+end
+if ne chk get so 1 3212836864 0
+ret 31
+end
+if ne chk get so 2 1073741824 0
+ret 32
+end
+if ne chk get so 3 1065353216 0
+ret 33
+end
+if ne chk get so 4 1084227584 0
+ret 34
+end
+if ne chk get so 5 1084227584 0
+ret 35
+end
+if ne chk get so 6 1088421888 0
+ret 36
+end
+if ne chk get so 7 1094713344 0
+ret 37
+end
+if ne escan 8 0
+ret 3
+end
+if ne chk get so 0 0 0
+ret 40
+end
+if ne chk get so 1 3221225472 0
+ret 41
+end
+if ne chk get so 3 1073741824 0
+ret 42
+end
+if ne chk get so 7 1088421888 0
+ret 43
+end
+loadhalf
+if ne iscan 4 0
+ret 3
+end
+if ne chk get so 0 1056964608 0
+ret 44
+end
+if ne chk get so 1 1065353216 0
+ret 45
+end
+if ne chk get so 2 1069547520 0
+ret 46
+end
+if ne chk get so 3 1073741824 0
+ret 47
+end
+if eq iscan 17 0
+ret 7
+end
+loadgem
+if ne gemv 4 1073741824 1065353216 0
+ret 4
+end
+if ne chk get gy 0 1100480512 0
+ret 50
+end
+if ne chk get gy 1 1094713344 0
+ret 51
+end
+if ne chk get gy 2 1103101952 0
+ret 52
+end
+if ne chk get gy 3 1101529088 0
+ret 53
+end
+if eq gemv 5 1065353216 0 0
+ret 7
+end
+loadchol
+if ne chol4 4 0
+ret 5
+end
+if ne chkl 0
+ret 5
+end
+put p4 0 1082130432
+if ne chol4 1 0
+ret 5
+end
+if ne chk get l4 0 1073741824 0
+ret 54
+end
+put p4 0 0
+if eq chol4 1 0
+ret 7
+end
+put p4 0 3212836864
+if eq chol4 1 0
+ret 7
+end
+if eq chol4 5 0
+ret 7
+end
+put am 0 0
+put am 1 1082130432
+put am 2 1077936128
+put am 3 0
+if ne svd2 0
+ret 6
+end
+if ne chk get sm 0 1082130432 0
+ret 60
+end
+if ne chk get sm 1 1077936128 0
+ret 61
+end
+if ne chk get vm 0 0 0
+ret 62
+end
+if ne chk get vm 1 1065353216 0
+ret 63
+end
+if ne chk get vm 2 1065353216 0
+ret 64
+end
+if ne chk get vm 3 0 0
+ret 65
+end
+if ne chk get um 0 1065353216 0
+ret 66
+end
+if ne chk get um 1 0 0
+ret 67
+end
+if ne chk get um 2 0 0
+ret 68
+end
+if ne chk get um 3 1065353216 0
+ret 69
+end
+put am 0 1082130432
+put am 1 0
+put am 2 0
+put am 3 1077936128
+if ne svd2 0
+ret 6
+end
+if ne chk get sm 0 1082130432 0
+ret 70
+end
+if ne chk get sm 1 1077936128 0
+ret 71
+end
+if ne chk get vm 0 1065353216 0
+ret 72
+end
+if ne chk get vm 1 0 0
+ret 73
+end
+if ne chk get vm 2 0 0
+ret 74
+end
+if ne chk get vm 3 1065353216 0
+ret 75
+end
+if ne chk get um 0 1065353216 0
+ret 76
+end
+if ne chk get um 3 1065353216 0
+ret 77
+end
+put am 0 1073741824
+put am 1 1065353216
+put am 2 1065353216
+put am 3 1073741824
+if ne svd2 0
+ret 6
+end
+if ne chk get sm 0 1077936128 0
+ret 80
+end
+if ne chk get sm 1 1065353216 0
+ret 81
+end
+if ne chk get vm 0 1060439283 0
+ret 82
+end
+if ne chk get vm 1 1060439283 0
+ret 83
+end
+if ne chk get vm 2 1060439283 0
+ret 84
+end
+if ne chk get vm 3 3207922931 0
+ret 85
+end
+if ne chk get um 0 1060439283 0
+ret 86
+end
+if ne chk get um 1 1060439283 0
+ret 87
+end
+if ne chk get um 2 1060439283 0
+ret 88
+end
+if ne chk get um 3 3207922931 0
+ret 89
+end
+ret 0
+end
