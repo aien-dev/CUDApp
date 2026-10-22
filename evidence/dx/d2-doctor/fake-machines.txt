@@ -1,4 +1,4 @@
-# commit 5111c2928734f99a767a29ddf961316d3d1736c7 + this run.sh, 2026-10-22T01:41:19Z on spark-b87b
+# commit 8f3a6a2d52c6a9a55cf37b7eccb2839321c835e5 branch dx/d2-doctor, run 2026-10-22T01:49:53Z on spark-b87b
 $ CUDAPP_DOCTOR_SHOW=1 sh tests/doctor/run.sh build/cudapp-doctor
 ===== fake machine: gb10-ready (exit 0)
 cudapp doctor: is this machine ready for CUDA++?
@@ -14,7 +14,7 @@ PASS gb10-ready
 ===== fake machine: no-module (exit 1)
 cudapp doctor: is this machine ready for CUDA++?
   info  system: Linux 7.0.0-1019-nvidia aarch64
-  FAIL  NVIDIA kernel module: not loaded (/tmp/cudapp-doctor-test.komc5H/nomod/proc/driver/nvidia/version does not exist)
+  FAIL  NVIDIA kernel module: not loaded (/tmp/cudapp-doctor-test.EF0eSB/nomod/proc/driver/nvidia/version does not exist)
         CUDA++ uses no NVIDIA user-space software, but it talks to NVIDIA's kernel module.
         Do this: sudo modprobe nvidia && sudo modprobe nvidia-uvm
         If modprobe finds no module, install NVIDIA's open kernel module 580.173.02 (the open-gpu-kernel-modules release of that number), then run make doctor again.
