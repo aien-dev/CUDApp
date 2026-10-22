@@ -17,7 +17,7 @@
 /* gpu_reconv_test: structured warp reconvergence (omega #308) on Omega's own Blackwell codegen.
  *
  *   ./gpu_reconv_test --host-only            encoder golden words, region bookkeeping, codegen refusals,
- *                                            nvdisasm listing (when /usr/local/cuda/bin/nvdisasm exists),
+ *                                            listing by Omega's own disassembler,
  *                                            every probe kernel through the SIMT warp simulator against
  *                                            the host oracle under both fragment orders, the mutation
  *                                            controls, scoreboard and control-edge walks. No device.
@@ -38,6 +38,7 @@
 #include "omega_bw_reconv.h"
 #include "omega_gpu_session.h"
 #include "bw_warp_sim.h"
+#include "omega_sm121_disasm.h"
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -186,36 +187,30 @@ static int find_op(const BlackwellIRProgram *p, BlackwellIROpcode op, int nth) {
     return -1;
 }
 
-/* --------------------------------------------------------- nvdisasm listing */
-static int nvdisasm_bytes(const uint8_t *code, size_t bytes, const char *name, const char *const *must, int n_must) {
-    const char *nv = "/usr/local/cuda/bin/nvdisasm";
-    if (access(nv, X_OK) != 0) { printf("nvdisasm: not present, listing check skipped for %s\n", name); return 0; }
-    char bin[96], lst[96], cmd[320];
-    snprintf(bin, sizeof bin, "/tmp/omega_rc_%s_%d.bin", name, (int)getpid());
+/* --------------------------------------------------------- sm121dis listing */
+static int sm121dis_bytes(const uint8_t *code, size_t bytes, const char *name, const char *const *must, int n_must) {
+    char lst[96];
     snprintf(lst, sizeof lst, "/tmp/omega_rc_%s_%d.sass", name, (int)getpid());
-    FILE *f = fopen(bin, "wb"); if (!f) return -1;
-    fwrite(code, 1, bytes, f); fclose(f);
-    snprintf(cmd, sizeof cmd, "%s -b SM121 %s > %s 2>&1", nv, bin, lst);
-    int rc = system(cmd);
+    FILE *f = fopen(lst, "w"); if (!f) return -1;
+    int rc = omega_sm121_listing(code, bytes, f); fclose(f);
     FILE *l = fopen(lst, "r"); if (!l) return -1;
     char line[512]; int seen[16] = {0}, bad = 0, insns = 0;
     while (fgets(line, sizeof line, l)) {
-        if (!strstr(line, "/*0")) continue;
+        if (!strstr(line, "/*")) continue; /* every address line, 0x1000 and up too */
         insns++;
         if (strstr(line, "?") || strstr(line, "error")) bad++;
         for (int i = 0; i < n_must && i < 16; i++) if (strstr(line, must[i])) seen[i] = 1;
     }
     fclose(l);
     int miss = 0;
-    for (int i = 0; i < n_must && i < 16; i++) if (!seen[i]) { printf("  %s: nvdisasm listing lacks %s\n", name, must[i]); miss++; }
-    printf("nvdisasm %s: rc=%d insns=%d undecodable=%d missing=%d (%s)\n", name, rc, insns, bad, miss, lst);
-    unlink(bin);
+    for (int i = 0; i < n_must && i < 16; i++) if (!seen[i]) { printf("  %s: sm121dis listing lacks %s\n", name, must[i]); miss++; }
+    printf("sm121dis %s: rc=%d insns=%d undecodable=%d missing=%d (%s)\n", name, rc, insns, bad, miss, lst);
     return (rc == 0 && bad == 0 && miss == 0) ? 0 : -1;
 }
-static int nvdisasm_kernel(OmegaGpuEwOp op, int mutant, const char *name, const char *const *must, int n_must) {
+static int sm121dis_kernel(OmegaGpuEwOp op, int mutant, const char *name, const char *const *must, int n_must) {
     BlackwellIRProgram *p = calloc(1, sizeof *p); OmegaBlackwellKernel k;
     if (!p || codegen(op, mutant, p, &k) != OMEGA_GPU_EW_OK) { free(p); return -1; }
-    int rc = nvdisasm_bytes(k.code, k.code_size, name, must, n_must);
+    int rc = sm121dis_bytes(k.code, k.code_size, name, must, n_must);
     free(k.code); free(p);
     return rc;
 }
@@ -317,22 +312,22 @@ static int host_part(void) {
         free(p);
     }
 
-    /* 4. nvdisasm: the words decode as BSSY/BSYNC on the real barrier registers, and the predicated
+    /* 4. sm121dis: the words decode as BSSY/BSYNC on the real barrier registers, and the predicated
      * and B15 forms the encoder can produce decode too (built by hand: encode_one) */
     {
         static const char *const m0[] = { "BSSY", "BSYNC", "B0", "SHFL.DOWN", "@P0 BRA" };
-        CHECK(nvdisasm_kernel(OMEGA_GPU_EW_RC_DIAMOND, 0, "diamond", m0, 5) == 0, "diamond listing decodes with BSSY/BSYNC B0");
+        CHECK(sm121dis_kernel(OMEGA_GPU_EW_RC_DIAMOND, 0, "diamond", m0, 5) == 0, "diamond listing decodes with BSSY/BSYNC B0");
         static const char *const m1[] = { "BSSY", "BSYNC", "B15", "B7" };
-        CHECK(nvdisasm_kernel(OMEGA_GPU_EW_RC_DEPTH16, 0, "depth16", m1, 4) == 0, "depth16 listing decodes with B15");
+        CHECK(sm121dis_kernel(OMEGA_GPU_EW_RC_DEPTH16, 0, "depth16", m1, 4) == 0, "depth16 listing decodes with B15");
         static const char *const m2[] = { "BSSY", "B1", "BSYNC" };
-        CHECK(nvdisasm_kernel(OMEGA_GPU_EW_PRIME_SIEVE_DIV2, 0, "sieve_div2", m2, 3) == 0, "nested sieve listing decodes with B1");
+        CHECK(sm121dis_kernel(OMEGA_GPU_EW_PRIME_SIEVE_DIV2, 0, "sieve_div2", m2, 3) == 0, "nested sieve listing decodes with B1");
         uint8_t code[64]; uint32_t w[4]; BlackwellIRInsn in; memset(&in, 0, sizeof in); in.dst_vreg = in.src1_vreg = in.src2_vreg = in.src3_vreg = -1;
         in.op = BW_IR_BSSY; in.bar_reg = 3; in.imm = 2; in.predicate_p0 = true; omega_blackwell_encode_one(&in, w); memcpy(code, w, 16);
         in.op = BW_IR_BSYNC; in.bar_reg = 3; in.predicate_p0 = true; in.predicate_not = true; omega_blackwell_encode_one(&in, w); memcpy(code + 16, w, 16);
         in.op = BW_IR_BSYNC; in.bar_reg = 15; in.predicate_p0 = false; in.predicate_not = false; omega_blackwell_encode_one(&in, w); memcpy(code + 32, w, 16);
         in.op = BW_IR_EXIT; omega_blackwell_encode_one(&in, w); memcpy(code + 48, w, 16);
         static const char *const m3[] = { "@P0 BSSY", "B3", "@!P0 BSYNC", "BSYNC.RECONVERGENT B15" };
-        CHECK(nvdisasm_bytes(code, 64, "forms", m3, 4) == 0, "predicated BSSY/BSYNC and B15 decode");
+        CHECK(sm121dis_bytes(code, 64, "forms", m3, 4) == 0, "predicated BSSY/BSYNC and B15 decode");
     }
 
     /* 5. simulator: every probe, every n, both fragment orders, exact against the oracle */

@@ -19,7 +19,7 @@
  *   ./gpu_fp8_api_test --host-only          exhaustive 256-code e4m3 conversion vs the reference decode
  *                                           (subnormals, both zeros, NaN codes refused), pack refusals,
  *                                           codegen for every kernel shape (instruction and register budget),
- *                                           API argument refusals, nvdisasm listing when /usr/local/cuda/bin/nvdisasm exists
+ *                                           API argument refusals, listing by Omega's own disassembler
  *   ./gpu_fp8_api_test --sim                the kernel through tests/bw_warp_sim.h (no chip): one-hot conversion
  *                                           of every code through the kernel, parity battery vs the double oracle
  *                                           (both fragment orders bit-identical), grouped experts, and the four
@@ -49,6 +49,7 @@
 #include "omega_gpu_cmdlist.h"
 #include "omega_blackwell_qmd.h" /* OMEGA_BW_QMD_MAX_SHARED_BYTES (deep_default_check) */
 #include "bw_warp_sim.h"
+#include "omega_sm121_disasm.h"
 #include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
@@ -161,20 +162,15 @@ static long fp8_stall_violations(const BlackwellIRProgram *p, uint64_t *cycles) 
 }
 
 /* ------------------------------------------------------------- host-only */
-static int nvdisasm_check_v(int variant, const OmegaFp8GemvSpec *spec, const char *name);
-static int nvdisasm_check(const OmegaFp8GemvSpec *spec, const char *name) { return nvdisasm_check_v(1, spec, name); }
-static int nvdisasm_check_v(int variant, const OmegaFp8GemvSpec *spec, const char *name) {
-    const char *nv = "/usr/local/cuda/bin/nvdisasm";
-    if (access(nv, X_OK) != 0) { printf("nvdisasm: not present, listing check skipped for %s\n", name); return 0; }
+static int sm121dis_check_v(int variant, const OmegaFp8GemvSpec *spec, const char *name);
+static int sm121dis_check(const OmegaFp8GemvSpec *spec, const char *name) { return sm121dis_check_v(1, spec, name); }
+static int sm121dis_check_v(int variant, const OmegaFp8GemvSpec *spec, const char *name) {
     OmegaBlackwellKernel k; memset(&k, 0, sizeof k);
     if ((variant == 2 ? omega_blackwell_codegen_fp8_gemv2(spec, &k) : omega_blackwell_codegen_fp8_gemv(spec, &k)) != 0) return -1;
-    char bin[96], lst[96], cmd[320];
-    snprintf(bin, sizeof bin, "/tmp/omega_fp8_%s_%d.bin", name, (int)getpid());
+    char lst[96];
     snprintf(lst, sizeof lst, "/tmp/omega_fp8_%s_%d.sass", name, (int)getpid());
-    FILE *f = fopen(bin, "wb"); if (!f) { omega_blackwell_kernel_free(&k); return -1; }
-    fwrite(k.code, 1, k.code_size, f); fclose(f);
-    snprintf(cmd, sizeof cmd, "%s -b SM121 %s > %s 2>&1", nv, bin, lst);
-    int rc = system(cmd);
+    FILE *f = fopen(lst, "w"); if (!f) { omega_blackwell_kernel_free(&k); return -1; }
+    int rc = omega_sm121_listing(k.code, k.code_size, f); fclose(f);
     omega_blackwell_kernel_free(&k);
     static const char *const must[] = { "LDG.E.128", "FFMA", "SHFL.DOWN", "BSSY", "BSYNC", "STG.E", "LOP3.LUT", "IMAD" };
     FILE *l = fopen(lst, "r"); if (!l) return -1;
@@ -188,9 +184,8 @@ static int nvdisasm_check_v(int variant, const OmegaFp8GemvSpec *spec, const cha
     }
     fclose(l);
     int miss = 0;
-    for (int i = 0; i < 8; i++) if (!seen[i]) { printf("  %s: nvdisasm listing lacks %s\n", name, must[i]); miss++; }
-    printf("nvdisasm %s: rc=%d insns=%d undecodable=%d missing=%d (%s)\n", name, rc, insns, bad, miss, lst);
-    unlink(bin);
+    for (int i = 0; i < 8; i++) if (!seen[i]) { printf("  %s: sm121dis listing lacks %s\n", name, must[i]); miss++; }
+    printf("sm121dis %s: rc=%d insns=%d undecodable=%d missing=%d (%s)\n", name, rc, insns, bad, miss, lst);
     return (rc == 0 && bad == 0 && miss == 0) ? 0 : -1;
 }
 
@@ -406,12 +401,12 @@ static void host_only(void) {
       CHECK(strstr(omega_gpu_fp8_last_error(), "byte 77") != NULL, "error names the byte (%s)", omega_gpu_fp8_last_error());
       float y[8]; CHECK(omega_gpu_fp8_gemv_f32(NULL, 0, y, y, NULL) == OMEGA_GPU_FP8_BAD_ARGS, "NULL tensor refused"); }
 
-    /* 5. nvdisasm listing of the production shapes */
+    /* 5. sm121dis listing of the production shapes */
     { OmegaFp8GemvSpec a = { .k = 2048, .lane_bytes = 16, .rows = 8, .warps = 8 }, b = { .k = 768, .lane_bytes = 8, .rows = 2, .warps = 8 };
-      CHECK(nvdisasm_check(&a, "k2048_lb16_r8") == 0, "nvdisasm listing k=2048");
+      CHECK(sm121dis_check(&a, "k2048_lb16_r8") == 0, "sm121dis listing k=2048");
       OmegaFp8GemvSpec d = { .k = 2048, .lane_bytes = 16, .rows = 1, .warps = 8, .depth = 4 };
-      CHECK(nvdisasm_check(&d, "k2048_lb16_r1_deep4") == 0, "nvdisasm listing deep k=2048");
-      CHECK(nvdisasm_check(&b, "k768_lb8_r2") == 0, "nvdisasm listing k=768"); }
+      CHECK(sm121dis_check(&d, "k2048_lb16_r1_deep4") == 0, "sm121dis listing deep k=2048");
+      CHECK(sm121dis_check(&b, "k768_lb8_r2") == 0, "sm121dis listing k=768"); }
 
     /* 6. variant 2 (W-L2c, omega_blackwell_codegen_moe2.c): every OWN-30B width builds inside the budgets at 16 warps,
      *    the production shapes fit the register file, the whole-row-group rule refuses what it must */
@@ -441,7 +436,7 @@ static void host_only(void) {
           bad.warps = 16; bad.k = 16384; CHECK(omega_fp8_gemv2_prog_stats(&bad, NULL, NULL) != 0, "v2 k=16384 refused (row past 128 bytes per lane)");
           bad.k = 2048; bad.lane_bytes = 8; bad.rows = 2; CHECK(omega_fp8_gemv2_prog_stats(&bad, NULL, NULL) == 0, "v2 k=2048 lb8 rows=2 (128 bytes per lane) builds"); }
         OmegaFp8GemvSpec v = { .k = 2048, .lane_bytes = 16, .rows = 1, .warps = 16 };
-        CHECK(nvdisasm_check_v(2, &v, "v2_k2048_lb16_r1_w16") == 0, "nvdisasm listing v2 k=2048");
+        CHECK(sm121dis_check_v(2, &v, "v2_k2048_lb16_r1_w16") == 0, "sm121dis listing v2 k=2048");
     }
 
     /* 7. sched 1 (CUT5): pipelined decode + dependency stall pass. Every battery shape builds; the two grouped expert

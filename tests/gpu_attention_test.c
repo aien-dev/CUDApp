@@ -17,7 +17,7 @@
 /* gpu_attention_test: FB-1 cut 5 gate for omega_gpu_attention_api.
  *
  *   ./gpu_attention_test --host-only          refusals, codegen (both kernel families and every
- *                                             mutant), register budget, nvdisasm listing check
+ *                                             mutant), register budget, sm121dis listing check
  *   ./gpu_attention_test --split-timing [--hd 128] [--spin-us N] [--out r.json]  paged bf16 32q/8kv at ATTN_SPLIT_CTX
  *                                             (default 1268): 100 calls per forced split 1,2,4,8 + auto, parity
  *   ./gpu_attention_test --timing [--out r.json] cut 4b gate: 1 query x 32 heads x 2048 ctx, 100 calls
@@ -48,6 +48,7 @@
 #include "omega_gpu_attention_api.h"
 #include "omega_gpu_session.h"
 #include "omega_blackwell_codegen.h"
+#include "omega_sm121_disasm.h" /* C6 (L386): Omega's own disassembler replaces nvdisasm here */
 #include "bw_warp_sim.h" /* omega #308: SIMT warp simulator for --divergent */
 #include <inttypes.h>
 #include <math.h>
@@ -151,7 +152,7 @@ static size_t compare(const float *got, const float *want, size_t n, double rel,
 }
 
 /* ------------------------------------------------------------- host only */
-/* One instruction line of an nvdisasm listing: leading blanks, then the byte offset as a hex comment, "/" "*" hex "*" "/".
+/* One instruction line of a SASS listing (sm121dis prints the nvdisasm layout): leading blanks, then the byte offset as a hex comment, "/" "*" hex "*" "/".
  * omega#470: the old test matched the text "/" "*" "0", which stops at offset 0x1000, so every listing looked cut off at
  * 256 instructions and any opcode first emitted past 4 KiB (the hd 128 kernels are 512 and 624 instructions) was missed. */
 static bool is_sass_insn_line(const char *line) {
@@ -163,33 +164,31 @@ static bool is_sass_insn_line(const char *line) {
     return digits >= 4 && p[0] == '*' && p[1] == '/';
 }
 
-static int nvdisasm_check(bool f32, const char *name, const char *const *must, int n_must) {
-    const char *nv = "/usr/local/cuda/bin/nvdisasm";
-    if (access(nv, X_OK) != 0) { printf("nvdisasm: not present, listing check skipped for %s\n", name); return 0; }
+static int sm121dis_check(bool f32, const char *name, const char *const *must, int n_must) {
     OmegaBlackwellKernel k; memset(&k, 0, sizeof k);
     if (omega_gpu_attention_codegen_hd(f32, f32 ? 12 : 4, 3, g_hd, &k) != OMEGA_GPU_ATTN_OK) return -1;
-    char bin[64], lst[64], cmd[256];
-    snprintf(bin, sizeof bin, "/tmp/omega_attn_%s_%d.bin", name, (int)getpid());
-    snprintf(lst, sizeof lst, "/tmp/omega_attn_%s_%d.sass", name, (int)getpid());
-    FILE *f = fopen(bin, "wb"); if (!f) { free(k.code); return -1; }
-    fwrite(k.code, 1, k.code_size, f); fclose(f);
-    snprintf(cmd, sizeof cmd, "%s -b SM121 %s > %s 2>&1", nv, bin, lst);
-    int rc = system(cmd);
+    char lst[64];
+    snprintf(lst, sizeof lst, "/tmp/omega_attn_%s_%d.sass.XXXXXX", name, (int)getpid());
+    int fd = mkstemp(lst); /* private, unique listing; read back the same descriptor */
+    FILE *f = fd >= 0 ? fdopen(fd, "w+") : NULL;
+    if (!f) { if (fd >= 0) close(fd); free(k.code); return -1; }
+    int rc = omega_sm121_listing(k.code, k.code_size, f);
     const int want_insns = (int)(k.code_size / 16); /* every 16-byte slot, padding included, is one listing line */
     free(k.code);
-    FILE *l = fopen(lst, "r"); if (!l) return -1;
+    if (fflush(f) != 0 || fseek(f, 0, SEEK_SET) != 0) { fclose(f); return -1; }
+    FILE *l = f;
     char line[512]; int seen[16] = {0}; int bad = 0, insns = 0;
     while (fgets(line, sizeof line, l)) {
-        if (!is_sass_insn_line(line)) continue;
+        if (!is_sass_insn_line(line)) continue; /* every address line, 0x1000 and up too (omega#470) */
         insns++;
         if (strstr(line, "?") || strstr(line, "error")) bad++;
         for (int i = 0; i < n_must; i++) if (strstr(line, must[i])) seen[i] = 1;
     }
-    fclose(l);
+    if (ferror(l)) rc = -1;
+    if (fclose(l) != 0) rc = -1;
     int miss = 0;
-    for (int i = 0; i < n_must; i++) if (!seen[i]) { printf("  %s: nvdisasm listing lacks %s\n", name, must[i]); miss++; }
-    printf("nvdisasm %s: rc=%d insns=%d of %d undecodable=%d missing=%d (%s)\n", name, rc, insns, want_insns, bad, miss, lst);
-    unlink(bin);
+    for (int i = 0; i < n_must; i++) if (!seen[i]) { printf("  %s: sm121dis listing lacks %s\n", name, must[i]); miss++; }
+    printf("sm121dis %s: rc=%d insns=%d of %d undecodable=%d missing=%d (%s)\n", name, rc, insns, want_insns, bad, miss, lst);
     return (rc == 0 && insns == want_insns && bad == 0 && miss == 0) ? 0 : -1;
 }
 
@@ -255,7 +254,7 @@ static void host_only(void) {
         memset(&k, 0, sizeof k);
         CHECK(omega_gpu_attention_codegen_hd(f32 != 0, f32 ? 12 : 4, 2, g_hd, &k) == OMEGA_GPU_ATTN_OK && memcmp(digests[0], k.code_digest, 32) != 0, "%s log2gqa 2 kernel differs from log2gqa 3", name);
         free(k.code);
-        CHECK(nvdisasm_check(f32 != 0, name, f32 ? must_f32 : must_bf16, (f32 ? 11 : 14) + (g_divergent ? 2 : 0)) == 0, "%s nvdisasm listing decodes and shows the expected instructions", name);
+        CHECK(sm121dis_check(f32 != 0, name, f32 ? must_f32 : must_bf16, (f32 ? 11 : 14) + (g_divergent ? 2 : 0)) == 0, "%s sm121dis listing decodes and shows the expected instructions", name);
     }
 }
 
