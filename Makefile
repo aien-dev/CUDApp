@@ -3,7 +3,8 @@
 #
 #   make            libomega_gpu.a (= libcudapp.a): GPU toolchain + runtime + libraries + driver client
 #   make test       every host-only test (no GPU needed)
-#   make hello-gpu  build examples/hello_gpu (runs on a GB10)
+#   make doctor     is this machine ready? one line per check, each FAIL with its fix (no GPU opened)
+#   make hello-gpu  run the doctor, then build examples/hello_gpu and run it (on a GB10)
 #
 # The driver client (nvrm/, m16/) and the NVIDIA open headers (third_party/) are in
 # this repository, so PHYSICS_DIR is "." here. Omega builds the same sources with
@@ -272,7 +273,7 @@ HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-a
 	test-gpu-engine-mutants test-gpu-engine-backend-compile test-gpu-engine-prod-build test-gpu-engine-sim \
 	test-gpu-engine-backend-mutants test-gpu-engine-gb10-compile test-gpu-serving-alloc test-gpu-engine-freestanding \
 	test-codegen-freestanding test-gpu-session-platform test-gpu-wait test-gpu-wait-mutants host-tests-m16 \
-	test-runtime-api test-runtime-portability
+	test-runtime-api test-runtime-portability test-doctor
 test: $(HOST_TESTS)
 	@echo "CUDA++ HOST TESTS PASS ($(words $(HOST_TESTS)) targets)"
 
