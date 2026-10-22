@@ -52,7 +52,7 @@ static void c_caps(void) {
     EXPECT(!(caps.services & OMEGA_GPU_SVC_IRQ) && !(caps.services & OMEGA_GPU_SVC_MMIO));
     EXPECT(p->irq_wait == NULL && p->mmio_read32 == NULL && p->mmio_write32 == NULL);
     EXPECT(omega_gpu_platform_check_for(p, &caps, OMEGA_GPU_SVC_REQUIRED_SESSION) == OMEGA_GPU_PLAT_OK);
-    EXPECT(caps.abi_major == 1 && caps.abi_minor == 2);
+    EXPECT(caps.abi_major == 1 && caps.abi_minor == OMEGA_GPU_PLATFORM_ABI_MINOR); /* the reference claims this header's contract */
 }
 
 static void c_default_install(void) {

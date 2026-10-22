@@ -157,7 +157,7 @@ static void case_session_services(void)
     OmegaGpuPlatform p;
     OmegaGpuPlatformCaps c;
     case_begin();
-    EXPECT(OMEGA_GPU_PLATFORM_ABI_MINOR == 2u); /* 1.2: caps.submit_prefix_words (#459) */
+    EXPECT(OMEGA_GPU_PLATFORM_ABI_MINOR == 3u); /* 1.2: caps.submit_prefix_words (#459); 1.3: handle table 4096 slots */
     EXPECT(!(OMEGA_GPU_SVC_REQUIRED_SESSION & (OMEGA_GPU_SVC_IRQ | OMEGA_GPU_SVC_MMIO)));
     session_platform(&p, &c);
     EXPECT(omega_gpu_platform_check_for(&p, &c, OMEGA_GPU_SVC_REQUIRED_SESSION) == OMEGA_GPU_PLAT_OK);

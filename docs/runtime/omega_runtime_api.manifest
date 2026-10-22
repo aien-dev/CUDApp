@@ -412,7 +412,7 @@ fn omega_gpu_attention_rc_name fn(i32) -> *const c_char # EXPERIMENTAL
 fn omega_gpu_attention_last_error fn() -> *const c_char # EXPERIMENTAL
 # ---- constants of the runtime headers (values blessed from the headers) ----
 const OMEGA_GPU_PLATFORM_ABI_MAJOR 1
-const OMEGA_GPU_PLATFORM_ABI_MINOR 2
+const OMEGA_GPU_PLATFORM_ABI_MINOR 3
 const OMEGA_GPU_POLL_TIMED_OUT 100
 const OMEGA_GPU_HANDLE_SLOTS 4096
 const OMEGA_GPU_HANDLE_DEVICE 1

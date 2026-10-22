@@ -42,8 +42,11 @@
 #define OMEGA_GPU_PLATFORM_ABI_MAJOR 1u
 /* minor: additive change (a service bit or a caps field appended); negotiate refuses a provided minor older than the
  * required one. 1.1 (P07 cut C session part): DEVICE, QUEUE, CLOCK_NS, HOST_MEM; COMPLETION is poll_word.
- * 1.2 (omega #457/#459): caps.submit_prefix_words. */
-#define OMEGA_GPU_PLATFORM_ABI_MINOR 2u
+ * 1.2 (omega #457/#459): caps.submit_prefix_words.
+ * 1.3 (2026-10-22, canonical motor): OMEGA_GPU_HANDLE_SLOTS 1024 -> 4096 and the widened
+ * OmegaGpuHandleTable, so 32 serving conversations on top of the 27B weights fit (speed5/batching).
+ * A table a platform fills is sized by this constant, so it is not an appended field. */
+#define OMEGA_GPU_PLATFORM_ABI_MINOR 3u
 
 /* ---- typed handles ------------------------------------------------------ */
 

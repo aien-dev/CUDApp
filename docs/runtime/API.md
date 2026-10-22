@@ -61,7 +61,7 @@ edited on purpose (`tools/runtime_api_check.sh --bless` refreshes the numbers; t
 MINOR or MAJOR using the rule above and edits the version macros and the `Omega Runtime API version:` line in this file;
 the check fails if the three disagree. The check cannot tell whether the bump was the right size. That is a review duty.
 
-The platform contract has its own number (`OMEGA_GPU_PLATFORM_ABI_MAJOR` 1, `OMEGA_GPU_PLATFORM_ABI_MINOR` 2, set in
+The platform contract has its own number (`OMEGA_GPU_PLATFORM_ABI_MAJOR` 1, `OMEGA_GPU_PLATFORM_ABI_MINOR` 3, set in
 `src/omega_gpu_platform.h`). A platform minor bump needs at least a runtime MINOR bump; a platform major bump needs a runtime MAJOR bump.
 
 ## 3. How the pieces fit (plain English)
