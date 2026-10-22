@@ -1,0 +1,11 @@
+{
+  "LINK": "pinned-source",
+  "ABI": "pass",
+  "DIGEST": "locked",
+  "ARCHIVE_SHA256": "63c500cec9784cf9ed6d751062f0dfcd27313e80e29b316e16f6bfc6ffc11c01",
+  "SOURCE_SHA": "1ad2dc1af70f01680fd93cb41a7a94fd0951723f",
+  "AIENOS_LOCK": "b84c0a67590a934f3f3e001b12ec85ebc086a9eb",
+  "PHYSICS_LOCK": "7476de7160c074dc259683176d277bfd5b3bffdf",
+  "TARGET": "aarch64-unknown-linux-gnu",
+  "CC": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+}

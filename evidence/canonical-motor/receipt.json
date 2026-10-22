@@ -1,14 +1,38 @@
 {
   "recorded_at": "2026-10-22T16:00:11.691168+00:00",
-  "verdict": "INCOMPLETE",
+  "verdict": "HOST QUALIFIED, CHIP QUALIFICATION PENDING",
   "scope": "canonical serving candidate build; not a chip qualification or live deployment",
   "build": {
-    "sc": "72ee866baf3216272741a5c576fa9706707a3182",
-    "omega": "097dcb7e8850ecf628c185fb1e94418fbb5a6216",
-    "cudapp": "04607cf7e2fe43776fe6ed04717a060e0df5f60d",
+    "sc": "aaab111c93168702da7db22e98555bb656c9bb28",
+    "omega": "1ad2dc1af70f01680fd93cb41a7a94fd0951723f",
+    "cudapp": "349913f17c083996680c72b32f767b225005155d",
     "feature": "aien-test-switches; TEST ONLY",
-    "binary_sha256": "6f1707fa0826ee8ecfd734e898a312c2d82883fc1d093e9fcae9689ae3122e2c",
-    "gpu_archive_sha256": "4ea52209c29034ddd6be3b220a3a648eea65b73519565eaac846308331f37187",
+    "binary_sha256": "7b94fc37f24c60d1340d5dcebab70424581b39380c291f2b0cdbfa6a982528bb",
+    "native_identities": {
+      "gpu": {
+        "LINK": "pinned-source",
+        "ABI": "pass",
+        "DIGEST": "locked",
+        "ARCHIVE_SHA256": "63c500cec9784cf9ed6d751062f0dfcd27313e80e29b316e16f6bfc6ffc11c01",
+        "SOURCE_SHA": "1ad2dc1af70f01680fd93cb41a7a94fd0951723f",
+        "AIENOS_LOCK": "b84c0a67590a934f3f3e001b12ec85ebc086a9eb",
+        "PHYSICS_LOCK": "7476de7160c074dc259683176d277bfd5b3bffdf",
+        "TARGET": "aarch64-unknown-linux-gnu",
+        "CC": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+      },
+      "compose": {
+        "EXPECTED_SHA": "1ad2dc1af70f01680fd93cb41a7a94fd0951723f",
+        "LINK": "pinned-source",
+        "ABI": "pass",
+        "DIGEST": "locked",
+        "ARCHIVE_SHA256": "e598074e58533dc5fb08281f1392d265943f6f8def2fc4950f04a5729c100758",
+        "SOURCE_SHA": "1ad2dc1af70f01680fd93cb41a7a94fd0951723f",
+        "AIENOS_LOCK": "b84c0a67590a934f3f3e001b12ec85ebc086a9eb",
+        "PHYSICS_LOCK": "7476de7160c074dc259683176d277bfd5b3bffdf",
+        "TARGET": "aarch64-unknown-linux-gnu",
+        "CC": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+      }
+    },
     "live_server_changed": false
   },
   "identities": {
@@ -16,20 +40,20 @@
       "LINK": "pinned-source",
       "ABI": "pass",
       "DIGEST": "locked",
-      "ARCHIVE_SHA256": "4ea52209c29034ddd6be3b220a3a648eea65b73519565eaac846308331f37187",
-      "SOURCE_SHA": "097dcb7e8850ecf628c185fb1e94418fbb5a6216",
+      "ARCHIVE_SHA256": "63c500cec9784cf9ed6d751062f0dfcd27313e80e29b316e16f6bfc6ffc11c01",
+      "SOURCE_SHA": "1ad2dc1af70f01680fd93cb41a7a94fd0951723f",
       "AIENOS_LOCK": "b84c0a67590a934f3f3e001b12ec85ebc086a9eb",
       "PHYSICS_LOCK": "7476de7160c074dc259683176d277bfd5b3bffdf",
       "TARGET": "aarch64-unknown-linux-gnu",
       "CC": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
     },
     "compose": {
-      "EXPECTED_SHA": "097dcb7e8850ecf628c185fb1e94418fbb5a6216",
+      "EXPECTED_SHA": "1ad2dc1af70f01680fd93cb41a7a94fd0951723f",
       "LINK": "pinned-source",
       "ABI": "pass",
       "DIGEST": "locked",
       "ARCHIVE_SHA256": "e598074e58533dc5fb08281f1392d265943f6f8def2fc4950f04a5729c100758",
-      "SOURCE_SHA": "097dcb7e8850ecf628c185fb1e94418fbb5a6216",
+      "SOURCE_SHA": "1ad2dc1af70f01680fd93cb41a7a94fd0951723f",
       "AIENOS_LOCK": "b84c0a67590a934f3f3e001b12ec85ebc086a9eb",
       "PHYSICS_LOCK": "7476de7160c074dc259683176d277bfd5b3bffdf",
       "TARGET": "aarch64-unknown-linux-gnu",
@@ -39,22 +63,34 @@
   "binding_behavioral_checks": 12,
   "native_build": "PASS",
   "linked_native_host": {
-    "passed": 41,
-    "failed": 0,
-    "ignored_chip_test": "chip_parity_f32_and_bf16: NOT_RUN, requires admitted chip window"
+    "verdict": "PASS",
+    "log": "abi13-sc-host.log",
+    "detail": "41 passed, 0 failed in the earlier revision; this revision reran the same crates to RC 0",
+    "chip_case": "chip_parity_f32_and_bf16 explicitly NOT_RUN"
   },
   "zero_cuda_dependencies": "PASS",
   "full_host_suite": {
     "verdict": "PASS",
-    "source": "04607cf7e2fe43776fe6ed04717a060e0df5f60d",
+    "source": "349913f17c083996680c72b32f767b225005155d",
     "targets": 33,
-    "supplemental": "C3 GEMM host/sim, C4 streams host/sim, C5 isolation host, q38 graph host",
-    "log": "cudapp-host-qualified.log"
+    "supplemental": "C3 GEMM sim 154 checks, C4 streams sim 9, C5 isolation host 5, q38 graph host 4",
+    "log": "abi13-host2.log"
   },
   "shared_serving_train": "NOT_RUN; coordinator admission requested for 18157",
   "live_18091_modified": false,
   "concurrency_recovery_chip": "NOT_QUALIFIED by this receipt",
   "independent_driver": "NOT_RUN; isolated from the working execution path",
   "binding_omega_source": "7052d780ad9de52285e1c620e3eefd00ec5dc8db",
-  "requalification_after_binding_hardening": "IN_PROGRESS; prior exact-source build receipt retained, no chip qualification"
+  "requalification_after_binding_hardening": "IN_PROGRESS; prior exact-source build receipt retained, no chip qualification",
+  "platform_contract": {
+    "runtime_api": "0.2",
+    "platform_abi": "1.3",
+    "reason": "handle table 1024 -> 4096 slots and launch capacity 2048 -> 4096 are not additive; device_close was already int before the carry",
+    "assertions_moved": [
+      "tests/test_omega_gpu_platform.c now asserts 1.3 exactly",
+      "tests/test_omega_gpu_platform_linux.c binds the header constant instead of the literal 2"
+    ]
+  },
+  "requalification_order_fix": "An earlier attempt recorded archive digests before rebuilding the archives; the native checker refused the stale lock (4ea52209 vs 63c500ce). Fixed by rebuild-then-hash-then-record; the checker was not touched.",
+  "independent_review": "first reviewer died on an API error with zero findings and produced no report; a second reviewer is running on this revision"
 }

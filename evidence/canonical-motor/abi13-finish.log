@@ -1,0 +1,28 @@
+=== 2026-10-22T16:23:14Z commit and push CUDApp
+=== 2026-10-22T16:23:16Z repin Omega and rerun the binding checks
+remote: This repository moved. Please use the new location:        
+remote:   git@github.com:aien-dev/omega-mv.git        
+python3 tests/test_cudapp_link.py
+PASS valid
+PASS missing-checkout
+PASS wrong-pin
+PASS disabled-lock
+PASS dirty-source
+PASS dirty-buildfile
+PASS ignored-source
+PASS malformed-pin
+PASS shadow-copy
+PASS unmapped-gpu
+PASS unsafe-map
+PASS source-symlink
+CANONICAL LINK PASS 12 behavioral checks
+ cudapp-link: canonical 349913f17c083996680c72b32f767b225005155d (195 mapped files)
+
+CUDApp 349913f17c083996680c72b32f767b225005155d Omega 1ad2dc1af70f01680fd93cb41a7a94fd0951723f
+=== 2026-10-22T16:23:20Z re-record archives and rebuild the serving candidate
+Traceback (most recent call last):
+  File "/home/drakestapleton/handoffs/L457-rebuild-sc.py", line 20, in <module>
+    assert rc==0,('native host tests',rc,L/'abi13-sc-host.log')
+           ^^^^^
+AssertionError: ('native host tests', 101, PosixPath('/home/drakestapleton/handoffs/L457/abi13-sc-host.log'))
+ABI13_FINISH_FAIL=sc-rebuild
