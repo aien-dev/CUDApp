@@ -1,0 +1,9 @@
+build-roadmap-contracts-bench/libomega_gpu.a: OK
+build-roadmap-contracts-bench/numerical_contract_test: OK
+build-roadmap-contracts-bench/numerical_router_tie_test: OK
+build-roadmap-contracts-bench/gpu_cmdlist_test: OK
+build-roadmap-contracts-bench/gpu_router_test: OK
+build-roadmap-contracts-bench/gpu_decode_graph_test: OK
+build-roadmap-contracts-bench/numeric-mutants/wrong-rounding: OK
+build-roadmap-contracts-bench/numeric-mutants/wrong-tie: OK
+exit_code=0

@@ -1,0 +1,5 @@
+build-roadmap-contracts-bench/libomega_gpu.a: OK
+build-roadmap-contracts-bench/libomega_native_benchmark.a: OK
+build-roadmap-contracts-bench/native_benchmark_adapter_test: OK
+build-roadmap-contracts-bench/native_benchmark_collect_test: OK
+exit_code=0

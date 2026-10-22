@@ -71,3 +71,10 @@ The parent must integrate #5/#6/#15 and run final coordinated GB10 gates with
 real traces, source/model/prompt/config/binary/driver identities and independent
 quality/timing review. The original baseline remains selectable. No issue was
 closed and no PR, issue comment, default-enable or publication claim was made.
+
+Final verification: `sha256sum -c input-sha256.txt` and `sha256sum -c
+binary-sha256.txt` both exit 0 (`final-*-verification.log`). The earlier
+numerical binary hashes still match after the complete child suite
+(`numerical-binaries-still-identical.log`, exit 0). Source/document whitespace
+check exits 0 (`source-whitespace-check.log`); raw tool output retains original
+trailing whitespace because these are unedited receipts.
