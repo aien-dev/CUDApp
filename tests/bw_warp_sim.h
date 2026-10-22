@@ -93,11 +93,19 @@ typedef struct {
     uint64_t splits;          /* branches that split a fragment */
     uint64_t bar_split_arrivals; /* BAR.SYNC reached by a fragment that is not the whole live warp */
     int max_frags, peak_bars;
+    /* developer bar D3 (docs/PAIN_POINTS.md): who faulted, and where. Set with err. */
+    uint32_t cur_tid, cur_cx, cur_cy;          /* the lane being executed */
+    uint32_t err_tid, err_cx, err_cy;          /* block (cx, cy) and thread of the first error */
+    uint64_t err_addr; unsigned err_bytes;     /* WS_E_MEM: the address and access size that missed */
+    /* developer bar D12: the work done, counted per lane (accumulates across ws_run calls) */
+    uint64_t gld_bytes, gst_bytes;             /* global bytes loaded and stored */
+    uint64_t fp_ops;                           /* FADD, FSUB, FMUL count 1; FFMA counts 2 */
 } WsSim;
 
 static void ws_fail(WsSim *s, int err, int pc, const char *what) {
     if (s->err) return;
     s->err = err; s->err_pc = pc;
+    s->err_tid = s->cur_tid; s->err_cx = s->cur_cx; s->err_cy = s->cur_cy;
     snprintf(s->msg, sizeof s->msg, "%s at pc %d: %s", ws_err_name(err), pc, what ? what : "");
 }
 
@@ -118,6 +126,7 @@ static uint32_t ws_lut3(uint32_t lut, uint32_t a, uint32_t b, uint32_t c) {
 static int ws_mem_ok(WsSim *s, uint64_t a, unsigned bytes, int pc) {
     if (s->nranges == 0) return 1;
     for (int i = 0; i < s->nranges; i++) if (a >= s->ranges[i].lo && a + bytes <= s->ranges[i].hi) return 1;
+    if (!s->err) { s->err_addr = a; s->err_bytes = bytes; }
     ws_fail(s, WS_E_MEM, pc, "global access outside the declared buffers"); return 0;
 }
 static uint32_t *ws_smem(WsSim *s, uint32_t a, int pc) {
@@ -129,6 +138,7 @@ static int ws_popc(uint32_t m) { return __builtin_popcount(m); }
 /* One lane, one non-control instruction. */
 static void ws_lane_exec(WsSim *s, WsLane *l, const BlackwellIRInsn *in, int pc, uint32_t tid, uint32_t cx, uint32_t cy) {
     const BlackwellIRProgram *p = s->p;
+    s->cur_tid = tid; s->cur_cx = cx; s->cur_cy = cy;
     uint32_t a = ws_rds(l, in->src1_vreg, in->src1_subreg, p), b = ws_rds(l, in->src2_vreg, in->src2_subreg, p), c = ws_rds(l, in->src3_vreg, in->src3_subreg, p);
     switch (in->op) {
     case BW_IR_NOP: break;
@@ -148,17 +158,17 @@ static void ws_lane_exec(WsSim *s, WsLane *l, const BlackwellIRInsn *in, int pc,
     case BW_IR_LOP3_XOR: ws_wrs(l, in->dst_vreg, in->dst_subreg, a ^ b, p); break;
     case BW_IR_LOP3_LUT: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_lut3(in->imm & 0xff, a, b, c), p); break;
     case BW_IR_ISETP_GE_U32: l->p0 = a >= b; break;
-    case BW_IR_LDG_E: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; uint32_t x; memcpy(&x, (const void *)(uintptr_t)ad, 4); ws_wrs(l, in->dst_vreg, in->dst_subreg, x, p); break; }
-    case BW_IR_LDG_E_U16: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 2, pc)) return; uint16_t x; memcpy(&x, (const void *)(uintptr_t)ad, 2); ws_wrs(l, in->dst_vreg, in->dst_subreg, x, p); break; }
-    case BW_IR_STG_E: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; memcpy((void *)(uintptr_t)ad, &b, 4); break; }
-    case BW_IR_LDG_E_64: case BW_IR_LDG_E_128: { unsigned n = in->op == BW_IR_LDG_E_64 ? 8u : 16u; uint64_t ad = ws_rd64(l, in->src1_vreg, p) + (uint64_t)(int64_t)(int32_t)in->imm; if (!ws_mem_ok(s, ad, n, pc)) return; if (ad & (n - 1)) { ws_fail(s, WS_E_MEM, pc, "wide global load not naturally aligned"); return; } uint32_t x[4]; memcpy(x, (const void *)(uintptr_t)ad, n); for (unsigned i = 0; i < n / 4; i++) ws_wrs(l, in->dst_vreg, i, x[i], p); break; }
+    case BW_IR_LDG_E: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; uint32_t x; memcpy(&x, (const void *)(uintptr_t)ad, 4); ws_wrs(l, in->dst_vreg, in->dst_subreg, x, p); s->gld_bytes += 4; break; }
+    case BW_IR_LDG_E_U16: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 2, pc)) return; uint16_t x; memcpy(&x, (const void *)(uintptr_t)ad, 2); ws_wrs(l, in->dst_vreg, in->dst_subreg, x, p); s->gld_bytes += 2; break; }
+    case BW_IR_STG_E: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; memcpy((void *)(uintptr_t)ad, &b, 4); s->gst_bytes += 4; break; }
+    case BW_IR_LDG_E_64: case BW_IR_LDG_E_128: { unsigned n = in->op == BW_IR_LDG_E_64 ? 8u : 16u; uint64_t ad = ws_rd64(l, in->src1_vreg, p) + (uint64_t)(int64_t)(int32_t)in->imm; if (!ws_mem_ok(s, ad, n, pc)) return; if (ad & (n - 1)) { ws_fail(s, WS_E_MEM, pc, "wide global load not naturally aligned"); return; } uint32_t x[4]; memcpy(x, (const void *)(uintptr_t)ad, n); s->gld_bytes += n; for (unsigned i = 0; i < n / 4; i++) ws_wrs(l, in->dst_vreg, i, x[i], p); break; }
     case BW_IR_LDS128: { uint32_t ad = a + in->imm; if (ad & 15u) { ws_fail(s, WS_E_SMEM, pc, "LDS.128 address not 16-byte aligned"); return; } for (unsigned i = 0; i < 4; i++) { uint32_t *m = ws_smem(s, ad + 4u * i, pc); if (!m) return; ws_wrs(l, in->dst_vreg, i, *m, p); } break; }
     case BW_IR_LDS32: { uint32_t *m = ws_smem(s, a, pc); if (!m) return; ws_wrs(l, in->dst_vreg, in->dst_subreg, *m, p); break; }
     case BW_IR_STS32: { uint32_t *m = ws_smem(s, a, pc); if (!m) return; *m = b; break; }
-    case BW_IR_FADD: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_u2f(a) + ws_u2f(b)), p); break;
-    case BW_IR_FSUB: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_u2f(a) - ws_u2f(b)), p); break;
-    case BW_IR_FMUL: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_u2f(a) * ws_u2f(b)), p); break;
-    case BW_IR_FFMA: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fmaf(ws_u2f(a), ws_u2f(b), ws_u2f(c))), p); break;
+    case BW_IR_FADD: s->fp_ops++; ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_u2f(a) + ws_u2f(b)), p); break;
+    case BW_IR_FSUB: s->fp_ops++; ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_u2f(a) - ws_u2f(b)), p); break;
+    case BW_IR_FMUL: s->fp_ops++; ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_u2f(a) * ws_u2f(b)), p); break;
+    case BW_IR_FFMA: s->fp_ops += 2; ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fmaf(ws_u2f(a), ws_u2f(b), ws_u2f(c))), p); break;
     case BW_IR_FMNMX_MAX: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fmaxf(ws_u2f(a), ws_u2f(b))), p); break;
     case BW_IR_FMNMX_MIN: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fminf(ws_u2f(a), ws_u2f(b))), p); break;
     case BW_IR_MUFU_EX2: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(exp2f(ws_u2f(a))), p); break;
