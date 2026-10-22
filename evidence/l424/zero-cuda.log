@@ -1,0 +1,7 @@
+tools/zero-cuda-gate.sh --self-test
+ZERO_CUDA FAIL /tmp/tmp.eDqrhs3TUO/probe.so needs: libcudart.so.13
+ZERO_CUDA FAIL /tmp/tmp.eDqrhs3TUO/probe.so imports: cudaMalloc
+ZERO_CUDA SELF-TEST PASS (CUDA probe rejected, clean library accepted)
+tools/zero-cuda-gate.sh build/hello_gpu build/gpu_matmul_api_test
+ZERO_CUDA PASS build/hello_gpu needs=[libm.so.6 libc.so.6 ld-linux-aarch64.so.1]
+ZERO_CUDA PASS build/gpu_matmul_api_test needs=[libc.so.6 ld-linux-aarch64.so.1]
