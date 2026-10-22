@@ -126,3 +126,5 @@ src/omega_gpu_q38_graph.h	CHIP_SPECIFIC	Carried motor/runtime implementation or 
 src/omega_gpu_scan.c	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	HOSTED_LIBC
 src/omega_gpu_scan.h	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	NO_HOSTED_INCLUDE
 src/omega_gpu_scan_ref.c	CHIP_SPECIFIC	Host oracle for the fixed GPU reduction and scan tree; does not execute GPU instructions.	HOSTED_LIBC
+src/omega_gpu_numerical_contract.c	PORTABLE	Finite numerical comparison and scaled-input admission; no device or OS calls.	HOSTED_LIBC
+src/omega_gpu_numerical_contract.h	PORTABLE	Versioned finite comparison and argmax interface.	NO_HOSTED_INCLUDE

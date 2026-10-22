@@ -20,7 +20,7 @@ export function validateTrace(t) {
   requireThat(['fixture','model'].includes(t.kind),'trace kind');
   for(const k of ['model_sha256','prompt_sha256','config_sha256','binary_sha256']) requireThat(sha(t[k]),`trace pin ${k}`);
   requireThat(/^[a-f0-9]{40}$/.test(t.source_sha),'trace source_sha');
-  requireThat(t.precision==='fp8-e4m3-bf16-f32' && integer(t.context_limit,1),'trace precision/context');
+  requireThat(t.precision==='fp8-e4m3-bf16-f32' && integer(t.context_limit,1) && integer(t.seed),'trace precision/context');
   requireThat(Array.isArray(t.rows) && t.rows.length>0,'trace rows');
   let prev;
   for(const r of t.rows) {
@@ -29,6 +29,7 @@ export function validateTrace(t) {
       (r.turn===prev.turn+1 && r.position>prev.position && r.context>prev.context),'trace order/context continuation');
     requireThat(sha(r.input_sha256) && f32Array(r.logits),'trace input/logits');
     requireThat(integer(r.token) && r.token===argmax(r.logits),'trace token/lowest-index tie');
+    requireThat(Array.isArray(r.router_ids) && r.router_ids.length>0 && r.router_ids.every(x=>integer(x)), 'trace router IDs');
     requireThat(r.stages && typeof r.stages==='object' && !Array.isArray(r.stages) && Object.keys(r.stages).length>0,'trace stages');
     for(const [k,v] of Object.entries(r.stages)) requireThat(/^[a-z][a-z0-9_.-]*$/.test(k) && f32Array(v),`trace stage ${k}`);
     if(prev) requireThat(r.logits.length===prev.logits.length,'trace vocab changed');
@@ -43,7 +44,7 @@ export function compareTraces(a,b,policy={mode:'bitwise'}) {
   if(tolerance) requireThat(finite(policy.atol) && finite(policy.rtol) && policy.atol>=0 && policy.rtol>=0 &&
     typeof policy.justification==='string' && policy.justification.trim().length>=12,'explicit experimental tolerance justification');
   else requireThat((policy.atol??0)===0 && (policy.rtol??0)===0,'exact mode budgets');
-  for(const k of ['contract','kind','model_sha256','prompt_sha256','config_sha256','precision','context_limit']) requireThat(a[k]===b[k],`trace mismatch ${k}`);
+  for(const k of ['contract','kind','model_sha256','prompt_sha256','config_sha256','precision','context_limit','seed']) requireThat(a[k]===b[k],`trace mismatch ${k}`);
   if(policy.mode==='repeatable') for(const k of ['source_sha','binary_sha256']) requireThat(a[k]===b[k],`repeatability pin ${k}`);
   requireThat(a.rows.length===b.rows.length,'trace row count');
   let elements=0;
@@ -58,6 +59,7 @@ export function compareTraces(a,b,policy={mode:'bitwise'}) {
   a.rows.forEach((x,i)=>{
     const y=b.rows[i];
     for(const k of ['turn','position','context','input_sha256','token']) requireThat(x[k]===y[k],`row ${i} ${k}`);
+    requireThat(equal(x.router_ids,y.router_ids),'router IDs mismatch');
     requireThat(equal(Object.keys(x.stages).sort(),Object.keys(y.stages).sort()),'stage set mismatch');
     arrays(x.logits,y.logits,`row ${i} logits`);
     for(const k of Object.keys(x.stages)) arrays(x.stages[k],y.stages[k],`row ${i} stage ${k}`);

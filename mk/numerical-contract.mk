@@ -8,3 +8,14 @@ test-numerical-contract: $(NUMERIC_TEST)
 	node --test tests/numerical_trace_test.mjs
 # Include after HOST_TESTS is assigned by the root makefile through prerequisites.
 test: test-numerical-contract
+.PHONY: test-numerical-mutants
+test-numerical-mutants: $(NUMERIC_TEST)
+	@mkdir -p $(OUT_DIR)/numeric-mutants
+	sed 's/if (rb \&\& (st || (q \& 1u)))/if (0 \&\& rb \&\& (st || (q \& 1u)))/' src/omega_gpu_fp8_api.c > $(OUT_DIR)/numeric-mutants/wrong-rounding.c
+	@! cmp -s src/omega_gpu_fp8_api.c $(OUT_DIR)/numeric-mutants/wrong-rounding.c
+	$(CC) $(CFLAGS) -ffp-contract=off -c $(OUT_DIR)/numeric-mutants/wrong-rounding.c -o $(OUT_DIR)/numeric-mutants/wrong-rounding.o
+	$(CC) $(CFLAGS) -ffp-contract=off -o $(OUT_DIR)/numeric-mutants/wrong-rounding tests/numerical_contract_test.c $(OUT_DIR)/numeric-mutants/wrong-rounding.o $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+	@if ./$(OUT_DIR)/numeric-mutants/wrong-rounding >$(OUT_DIR)/numeric-mutants/wrong-rounding.log 2>&1; then echo 'FAIL wrong-rounding survived'; exit 1; fi
+	@grep '^FAIL.*omega_gpu_fp8_e4m3_rne' $(OUT_DIR)/numeric-mutants/wrong-rounding.log
+	@echo 'wrong-rounding production mutant killed'
+test-numerical-contract: test-numerical-mutants

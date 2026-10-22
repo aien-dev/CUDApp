@@ -75,15 +75,15 @@ Node 18+ is a host development tool only; deployed native runtime has no Node
 or third-party inference dependency. JSON files contain these fields:
 
 - `schema`, `contract`, `kind` (`fixture` or `model`), `precision`
-  (`fp8-e4m3-bf16-f32`), `context_limit`.
+  (`fp8-e4m3-bf16-f32`), `context_limit`, integer `seed`.
 - SHA256 strings `model_sha256`, `prompt_sha256`, `config_sha256`,
   `binary_sha256`, and full 40-digit `source_sha`.
 - Nonempty `rows`, each with `turn`, `position`, `context`,
-  `input_sha256`, exact `token`, nonempty f32 `logits`, and a nonempty
+  `input_sha256`, exact `token`, nonempty integer `router_ids`, nonempty f32 `logits`, and a nonempty
   `stages` object of named f32 arrays. Export stages actually observed,
   such as residual, hidden, router weights and expert outputs. Stage sets
-  and dimensions must agree; integer IDs need separate exact trace fields
-  before a path can claim router ID coverage.
+  and dimensions must agree; `router_ids` records observed expert IDs in layer/slot order and is
+  compared exactly in every mode.
 
 Positions are absolute KV positions, context includes the current token.
 Within a turn both advance by one; across turns turn advances by one and
