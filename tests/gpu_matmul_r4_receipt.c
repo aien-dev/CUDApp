@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* gpu_matmul_r4_receipt: the sealed CTA-budget receipt omega_gpu_matmul_api.h asks for before
  * OMEGA_GPU_MATMUL_MAX_CTAS moves (omega #473, R4).
  *

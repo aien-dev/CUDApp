@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #include "omega_blackwell_realize.h"
 #include "sha256.h"
 #include <string.h>

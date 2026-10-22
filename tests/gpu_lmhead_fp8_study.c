@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * gpu_lmhead_fp8_study: report-only study (OWN-30B, 2026-10-13). Does an FP8-quantised lm_head pick the same next token
  * as the bf16 lm_head? Loads the real lm_head.weight (bf16 [151936][2048]) and model.norm.weight from the checkpoint

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* omega_gpu_fmt.c -- see omega_gpu_fmt.h. Freestanding: stdarg only. */
 #include "omega_gpu_fmt.h"
 #include <stdarg.h>

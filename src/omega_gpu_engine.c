@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * Omega GPU Engine core (A3a). See src/omega_gpu_engine.h and
  * docs/numeric/OMEGA_GPU_ENGINE.md.

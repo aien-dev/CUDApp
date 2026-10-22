@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* gpu_tcgemm_test.c (OWN-30B T3, 2026-10-13): tensor-core grouped FP8 GEMM (omega_blackwell_codegen_tc.h).
  *   --host-only  program statistics and register budgets for the production shapes; the C emulation (exact HMMA model,
  *                tests/bw_hmma_model.h) against a double oracle; permutation and decode checks

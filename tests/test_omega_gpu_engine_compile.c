@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* Omega GPU Engine compile check: the header and the A3a core compile, every enum name
  * is distinct, argument and backend-table refusals return their defined results, the
  * uncertain-completion block functions behave as specified, and a no-op backend reaches

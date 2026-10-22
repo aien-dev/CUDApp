@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* gpu_launch_cost_test: what does one FP8 GEMV launch cost inside a command list beyond its bytes? (OWN-30B W-L2c, 2026-10-14)
  *
  * The same weight bytes (n x k e4m3, default 16384 x 2048 = 33.5 MB) are split into m = 1, 2, 4, 8, 16 launches (m tensors of

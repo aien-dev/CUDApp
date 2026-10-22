@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #ifndef OMEGA_BW_RECONV_H
 #define OMEGA_BW_RECONV_H
 /* Structured warp reconvergence regions for the Blackwell IR emitters (omega #308).

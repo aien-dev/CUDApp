@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* hello_gpu: the smallest complete Omega program. It adds two arrays of one million floats on the GPU
  * (c[i] = a[i] + b[i]) and checks every answer on the CPU.
  *

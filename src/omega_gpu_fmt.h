@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* omega_gpu_fmt.h -- bounded message formatting for the freestanding GPU code (native v1 P07 cut C session
  * part, aienos#286). The session and the tensor APIs format their error stages with it in both builds, so a
  * stage reads the same with or without libc. Conversions: %s %c %d %u %x %ld %lu %lld %llu %zu %%; anything

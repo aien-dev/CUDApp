@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * m16_concurrent.c -- M16 concurrent multi-channel qualification test.
  *

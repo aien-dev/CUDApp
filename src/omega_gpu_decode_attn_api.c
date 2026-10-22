@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * omega_gpu_decode_attn_api.c: resident KV cache, RoPE table and launch for the one-launch decode attention (the
  * double-precision host reference lives in tests/gpu_decode_attn_test.c so the library links without libm). See

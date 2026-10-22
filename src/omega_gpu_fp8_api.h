@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #ifndef OMEGA_GPU_FP8_API_H
 #define OMEGA_GPU_FP8_API_H
 /*

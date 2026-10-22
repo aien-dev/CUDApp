@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* omega_gpu_fp8gemm_api.c: FP8 grouped GEMM for prefill on the shared session (OWN-30B builder F item 26).
  * See the header. Submission path and buffer policy are the FP8 GEMV API's: every buffer both sides touch is
  * GPU-uncached (nvos.h NVOS32_ATTR2_GPU_CACHEABLE), one launch = omega_gpu_session_launch. */

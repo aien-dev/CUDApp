@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* test_omega_gpu_session_platform: the portable GPU session (native v1 P07 cut C, session part; aienos#286) on a
  * FAKE OmegaGpuPlatform. Host program; links the FREESTANDING partial-link object (build/gpu_fs/
  * omega_gpu_freestanding.o: session, matmul and attention APIs, serving, wait, codegen, platform contract), so what

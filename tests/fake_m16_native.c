@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * Simulated GB10 driver. See tests/fake_m16_native.h for what it models.
  * NOT_RUN: written in cut A3b2, never compiled or executed by its author.

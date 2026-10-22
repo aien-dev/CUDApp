@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * gpu_bf16_gemv_test: the bf16 streaming GEMV (omega_gpu_bf16_gemv_api.h), OWN-30B lm_head.
  *   --host-only   emulation vs double oracle, codegen budgets and refusals (no device)

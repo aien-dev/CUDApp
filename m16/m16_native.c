@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * m16_native.c -- M16 libcuda-free native accelerator implementation.
  *

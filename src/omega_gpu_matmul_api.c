@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * omega_gpu_matmul_api.c: FB-1 cut 1b, on the shared session since cut 4b.
  * See the header for the contract.

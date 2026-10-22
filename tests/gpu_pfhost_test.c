@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* gpu_pfhost_test.c (OWN-30B W-L1G-D, 2026-10-14): router logits and MoE combine for the whole-prompt prefill
  * (omega_blackwell_codegen_pfhost.h). Both kernels must equal the host loops of the Rust driver BIT FOR BIT.
  *   --host-only  reference self-checks (packing, the -0.0 start, mutant references differ)

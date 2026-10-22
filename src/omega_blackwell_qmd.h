@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #ifndef OMEGA_BLACKWELL_QMD_H
 #define OMEGA_BLACKWELL_QMD_H
 

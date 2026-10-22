@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * Phase B only: needs the GB10, queen's go, quiet flag via chip_run; never run in Phase A.
  *

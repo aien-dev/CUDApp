@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* gpu_matmul_api_test: FB-1 cut 1 / 1b gate for omega_gpu_matmul_api.
  *
  *   ./gpu_matmul_api_test --host-only                 argument and limit refusals, codegen only, no chip

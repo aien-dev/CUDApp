@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #include "omega_blackwell_matmul.h"
 #include "sha256.h"
 #ifndef OMEGA_GPU_NO_POSIX

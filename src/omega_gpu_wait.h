@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #ifndef OMEGA_GPU_WAIT_H
 #define OMEGA_GPU_WAIT_H
 

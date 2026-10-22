@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #include "omega_gpu_wait.h"
 
 #include <string.h>

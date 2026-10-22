@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * omega_gpu_cmdlist.c: many launches in one submission (see the header).
  *

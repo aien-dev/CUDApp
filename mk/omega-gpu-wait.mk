@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Shared GPU completion wait primitive (src/omega_gpu_wait.c): host unit test with
 # fake memory and a fake clock, plus a naive wall-clock mutant that must be
 # caught. Picked up by `-include mk/*.mk`. Host only: opens no device, needs no

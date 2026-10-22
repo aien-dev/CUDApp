@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: MIT
 # tests/run_nvrm_lifecycle_gates.sh -- M19R nvrm_free()/wait_marker_ge() lifecycle gates.
 set -euo pipefail
 

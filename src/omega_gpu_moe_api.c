@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * omega_gpu_moe_api.c: column windows over a resident bf16 tensor (OWN-30B cut 2). See the header.
  *

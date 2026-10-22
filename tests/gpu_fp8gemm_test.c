@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * gpu_fp8gemm_test: the prefill FP8 grouped GEMM (omega_gpu_fp8gemm_api.h), OWN-30B builder F item 26.
  *   --host-only   emulation vs the FP8 double oracle, permutation, codegen budgets and refusals (no device)

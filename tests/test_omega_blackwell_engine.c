@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * Host test of the REAL Blackwell backend (src/omega_blackwell_engine.c), the
  * REAL engine core (src/omega_gpu_engine.c) and the REAL vector wrapper

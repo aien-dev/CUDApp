@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* omega_blackwell_codegen_pf.c: device-resident prefill helper kernels (OWN-30B T3b). See the header. */
 #include "omega_blackwell_codegen_pf.h"
 #include "omega_bw_em.h"

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # fresh-checkout-hello.sh <branch> [log-file]
 # Proves the README's "Run your first kernel" works from nothing: clones <branch> from GitHub into an
 # empty temporary folder, takes the commands from that section of the README (the first bash block), runs
@@ -8,8 +9,8 @@
 set -uo pipefail
 branch=${1:?usage: fresh-checkout-hello.sh <branch> [log-file]}
 log=${2:-/dev/stdout}
-url=${OMEGA_URL:-https://github.com/aien-dev/omega-mv}
-work=$(mktemp -d "${TMPDIR:-/tmp}/omega-fresh.XXXXXX")
+url=${CUDAPP_URL:-https://github.com/aien-dev/CUDAplusplus}
+work=$(mktemp -d "${TMPDIR:-/tmp}/cudapp-fresh.XXXXXX")
 cleanup() { rm -rf "$work"; }
 trap cleanup EXIT
 {
@@ -23,7 +24,7 @@ trap cleanup EXIT
 	rm -rf "$work/src.readme"
 	# run them in a clean folder; the clone line is pointed at the branch under test
 	mkdir "$work/run" && cd "$work/run" || exit 3
-	cmds=$(echo "$cmds" | sed -E "s#^git clone #git clone --branch $branch #; s#https://github.com/aien-dev/omega-mv#$url#")
+	cmds=$(echo "$cmds" | sed -E "s#^git clone #git clone --branch $branch #; s#https://github.com/aien-dev/CUDAplusplus#$url#")
 	rc=0
 	while IFS= read -r line; do
 		[ -n "$line" ] || continue

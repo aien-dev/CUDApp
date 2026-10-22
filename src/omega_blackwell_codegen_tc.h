@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #ifndef OMEGA_BLACKWELL_CODEGEN_TC_H
 #define OMEGA_BLACKWELL_CODEGEN_TC_H
 /*

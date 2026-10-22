@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #ifndef OMEGA_GPU_BF16_GEMV_API_H
 #define OMEGA_GPU_BF16_GEMV_API_H
 /*
