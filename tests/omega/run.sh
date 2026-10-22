@@ -5,10 +5,17 @@ set -eu
 W=$HOME/workspace/omega-osc-cubin       # the compiler harness build
 R=$(cd "$(dirname "$0")/../.." && pwd)  # this repo checkout
 FUZZ=${1:-120}
+# Every slice must be present by name: a deleted file is a loud failure here,
+# not a silently smaller keyed count in the harness summary.
+SLICES="doorbell.osc sequencer.osc nvrm.osc va.osc open_plan.osc kmod.osc mesa.osc launch.osc"
+for f in $SLICES; do
+  [ -f "$R/omega/slices/$f" ] || { echo "missing slice: omega/slices/$f" >&2; exit 1; }
+done
 T=$(mktemp -d)
+trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/slices"
 ln -s "$W/tests/compiler/progs" "$T/progs"
 ln -s "$W/tests/compiler/neg" "$T/neg"
-cp "$R"/omega/slices/*.osc "$T/slices/"
+for f in $SLICES; do cp "$R/omega/slices/$f" "$T/slices/"; done
 cd "$W"
-exec ./build/compiler/test_osc_compiler "$FUZZ" "$T"
+./build/compiler/test_osc_compiler "$FUZZ" "$T"
