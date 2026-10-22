@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: MIT
 # tests/run_m16_requalification.sh -- Master qualification harness for M16 native submission.
 set -euo pipefail
 

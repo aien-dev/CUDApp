@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* Size of a GPU code buffer. Header only: no device, no physics headers.
  *
  * The SM instruction cache prefetches past the last instruction of a kernel, so the code buffer must

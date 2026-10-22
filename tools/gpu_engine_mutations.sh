@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: MIT
 # Omega GPU Engine mutation sweep, a thin adapter over tools/mutation_runner.sh.
 # For each rule marked MUT:<name> in src/omega_gpu_engine.c the runner copies the
 # needed files to a scratch directory, breaks that one protection, rebuilds

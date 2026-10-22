@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * gpu_decode_attn_test: the one-launch decode attention (OWN-30B cut 8, omega_gpu_decode_attn_api.h).
  *   --host-only   host pieces: bf16 rounding, RoPE row, reference sanity (context 1 returns v_new, a one-hot

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * nvrm.h -- PHYSICS native accelerator substrate (NVRM client), used by M16 qualification,
  * FORGE realization and the NVRM gates in this tree. M17 (OMEGA_BLACKWELL_VECTOR) was

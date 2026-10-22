@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: MIT
 # runtime_api_negative.sh -- negative controls for tools/runtime_api_check.sh (R1, omega-mv#594).
 #
 #   tools/runtime_api_negative.sh MANIFEST ROOT WORK_DIR API_MD

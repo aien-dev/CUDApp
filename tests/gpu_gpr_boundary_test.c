@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* gpu_gpr_boundary_test: host-only audit of the declared-register rule (OWN-30B, 2026-10-13).
  * Rule (omega_blackwell_codegen.h): declared = peak + 2 rounded up to a multiple of 8. A fp8 grouped GEMM kernel with
  * peak 103 declared 104 (the old peak + 1 rule) hung the chip; the same program declared 112 ran.

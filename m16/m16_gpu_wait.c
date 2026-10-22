@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #include "m16_gpu_wait.h"
 
 #include <string.h>

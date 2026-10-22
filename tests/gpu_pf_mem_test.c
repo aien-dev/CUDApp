@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* gpu_pf_mem_test.c (OWN-30B T3b, 2026-10-13): device-resident prefill memory.
  *   --host-only  the copy kernel in the warp simulator (exact copy, nothing past `units` written)
  *   (default)    the chip (caller holds flock /tmp/aien-gb10.lock):

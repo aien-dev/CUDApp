@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #ifndef OMEGA_GPU_TCGEMM_API_H
 #define OMEGA_GPU_TCGEMM_API_H
 /*

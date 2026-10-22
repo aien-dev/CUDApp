@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* Real-device regression for CPU-published queue entries and rewritten
  * command buffers. No CUDA runtime; run under the shared chip queue.
  * The unfixed allocator stalls on the second submission on GB10.

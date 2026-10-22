@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* gpu_session_probe: FB-1 cut 4b flake investigation (first-call device-open failure).
  *
  * One fresh process = one sample: open the shared device through the API's own

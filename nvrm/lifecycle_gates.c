@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * lifecycle_gates.c -- M19R NVRM lifecycle qualification gates.
  *

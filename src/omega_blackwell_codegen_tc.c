@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* omega_blackwell_codegen_tc.c: tensor-core kernels for the OWN-30B one-pass prefill (T3). See the header.
  * The emitter helpers below are copied from omega_blackwell_codegen_gemm.c (same chip-learned scheduling rules: every load
  * sets the read barrier SB1 and the next load waits on it; prefetch loads hold scoreboards 3/4 until consumed).

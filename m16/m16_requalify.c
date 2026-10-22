@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * m16_requalify.c -- M16 libcuda-free causality qualification test.
  *

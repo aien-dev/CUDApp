@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* omega_blackwell_codegen_qg.c: native FP8 prefill kernels (W-L1G). See the header. */
 #include "omega_blackwell_codegen_qg.h"
 #include "omega_bw_em.h"

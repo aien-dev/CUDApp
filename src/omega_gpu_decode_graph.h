@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #ifndef OMEGA_GPU_DECODE_GRAPH_H
 #define OMEGA_GPU_DECODE_GRAPH_H
 /*

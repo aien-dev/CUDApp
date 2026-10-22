@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* omega_gpu_serving.c: see omega_gpu_serving.h. Thin wrapper over the per-API reserve calls. */
 #include "omega_gpu_serving.h"
 #include "omega_gpu_attention_api.h"

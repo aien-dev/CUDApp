@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * omega_gpu_router_api.c: resident router weights, directories, launch buffers and the one-launch router call
  * (see the header). Session use mirrors omega_gpu_decode_attn_api.c: every buffer from omega_gpu_session_alloc

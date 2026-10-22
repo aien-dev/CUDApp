@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #include "omega_blackwell_qmd.h"
 #include <string.h>
 

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #ifndef OMEGA_GPU_SESSION_H
 #define OMEGA_GPU_SESSION_H
 /*

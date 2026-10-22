@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #include "omega_gpu_mem_cached.h"
 #include <string.h>
 #include "omega_gpu_platform.h"

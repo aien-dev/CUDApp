@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* gpu_pfgemm_test.c (OWN-30B T3b, 2026-10-13): tensor-core grouped FP8 GEMM v2, device resident (omega_blackwell_codegen_tc2.h,
  * omega_gpu_pfgemm.c).
  *   --host-only  register budgets of the production specs; the SWIGLU layout transform against a double oracle on the

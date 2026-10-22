@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #ifndef M16_GPU_WAIT_H
 #define M16_GPU_WAIT_H
 

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #ifndef OMEGA_GPU_PFHOST_H
 #define OMEGA_GPU_PFHOST_H
 /*

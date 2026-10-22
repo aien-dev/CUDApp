@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # graph.sh: decide which Omega files belong to CUDA++ (the GPU half) from the
 # include graph plus the header/source link rule.
 #

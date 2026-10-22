@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* bw_warp_sim.h: host SIMT simulator for the Blackwell IR (omega #308).
  *
  * Models what the earlier per-thread simulators could not: a warp of 32 lanes with an

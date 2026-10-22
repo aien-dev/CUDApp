@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* omega_gpu_elementwise_api.c: FB-1 cut 4 (2026-10-04). See the header.
  *
  * Layout of this file: (1) kernel codegen on top of the BlackwellIR, with a
