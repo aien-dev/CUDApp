@@ -3,8 +3,9 @@ NUMERIC_TEST = $(OUT_DIR)/numerical_contract_test
 $(NUMERIC_TEST): tests/numerical_contract_test.c src/omega_gpu_numerical_contract.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -o $@ $< $(OUT_DIR)/libomega_gpu.a -lpthread -lm
 .PHONY: test-numerical-contract
-test-numerical-contract: $(NUMERIC_TEST)
+test-numerical-contract: $(NUMERIC_TEST) $(OUT_DIR)/numerical_router_tie_test
 	./$(NUMERIC_TEST)
+	./$(OUT_DIR)/numerical_router_tie_test
 	node --test tests/numerical_trace_test.mjs
 # Include after HOST_TESTS is assigned by the root makefile through prerequisites.
 test: test-numerical-contract
@@ -19,3 +20,6 @@ test-numerical-mutants: $(NUMERIC_TEST)
 	@grep '^FAIL.*omega_gpu_fp8_e4m3_rne' $(OUT_DIR)/numeric-mutants/wrong-rounding.log
 	@echo 'wrong-rounding production mutant killed'
 test-numerical-contract: test-numerical-mutants
+NUMERIC_ROUTER_TEST = $(OUT_DIR)/numerical_router_tie_test
+$(NUMERIC_ROUTER_TEST): tests/numerical_router_tie_test.c tests/bw_warp_sim_k.h $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -ffp-contract=off -Itests -o $@ $< $(OUT_DIR)/libomega_gpu.a -lpthread -lm
