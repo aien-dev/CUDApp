@@ -1,0 +1,13 @@
+PASS valid
+PASS missing-checkout
+PASS wrong-pin
+PASS disabled-lock
+PASS dirty-source
+Traceback (most recent call last):
+  File "/home/drakestapleton/workspace/hermes-desk/omega-canonical-l457/tests/test_cudapp_link.py", line 61, in <module>
+    if __name__=='__main__': main()
+                             ^^^^^^
+  File "/home/drakestapleton/workspace/hermes-desk/omega-canonical-l457/tests/test_cudapp_link.py", line 57, in main
+    assert result.returncode!=0,(case,'must refuse canonical binding',result.stdout,result.stderr)
+           ^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('dirty-buildfile', 'must refuse canonical binding', '', 'cudapp-link: canonical 8e1653abc66cb7fe4dd191ce44bc189c7899045a (1 mapped files)\n')

@@ -1,0 +1,2 @@
+ZERO_CUDA PASS /home/drakestapleton/handoffs/L457/bin-a69c22e3-test/aien-serve-http needs=[libm.so.6 libgcc_s.so.1 libc.so.6 ld-linux-aarch64.so.1]
+ZERO_CUDA_RC=0

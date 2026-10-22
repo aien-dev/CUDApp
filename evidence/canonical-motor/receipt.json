@@ -1,0 +1,47 @@
+{
+  "recorded_at": "2026-10-22T15:52:51.723180+00:00",
+  "verdict": "INCOMPLETE",
+  "scope": "canonical serving candidate build; not a chip qualification or live deployment",
+  "build": {
+    "sc": "a69c22e3a4e39bbe4fbdc16e6d71c97539209172",
+    "omega": "d822df84a16c13f6aec647a18d2dca61a2280915",
+    "cudapp": "f7b3c3223c808a8e401f9532498cd6c4c0908285",
+    "feature": "aien-test-switches; TEST ONLY, not a live deployment",
+    "binary_sha256": "1eddb2e54cc31a8d94791f5a731e2bd728424a3bb6a05e36f16115a9d4537e4d",
+    "gpu_archive_sha256": "4ea52209c29034ddd6be3b220a3a648eea65b73519565eaac846308331f37187",
+    "live_server_changed": false
+  },
+  "identities": {
+    "gpu": {
+      "LINK": "pinned-source",
+      "ABI": "pass",
+      "DIGEST": "locked",
+      "ARCHIVE_SHA256": "4ea52209c29034ddd6be3b220a3a648eea65b73519565eaac846308331f37187",
+      "SOURCE_SHA": "d822df84a16c13f6aec647a18d2dca61a2280915",
+      "AIENOS_LOCK": "b84c0a67590a934f3f3e001b12ec85ebc086a9eb",
+      "PHYSICS_LOCK": "7476de7160c074dc259683176d277bfd5b3bffdf",
+      "TARGET": "aarch64-unknown-linux-gnu",
+      "CC": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+    },
+    "compose": {
+      "EXPECTED_SHA": "d822df84a16c13f6aec647a18d2dca61a2280915",
+      "LINK": "pinned-source",
+      "ABI": "pass",
+      "DIGEST": "locked",
+      "ARCHIVE_SHA256": "e598074e58533dc5fb08281f1392d265943f6f8def2fc4950f04a5729c100758",
+      "SOURCE_SHA": "d822df84a16c13f6aec647a18d2dca61a2280915",
+      "AIENOS_LOCK": "b84c0a67590a934f3f3e001b12ec85ebc086a9eb",
+      "PHYSICS_LOCK": "7476de7160c074dc259683176d277bfd5b3bffdf",
+      "TARGET": "aarch64-unknown-linux-gnu",
+      "CC": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+    }
+  },
+  "binding_behavioral_checks": 10,
+  "native_build": "PASS",
+  "zero_cuda_dependencies": "PASS",
+  "full_host_suite": "IN_PROGRESS after explicit fixture fixes; earlier failures retained",
+  "shared_serving_train": "NOT_RUN; coordinator admission requested for 18157",
+  "live_18091_modified": false,
+  "concurrency_recovery_chip": "NOT_QUALIFIED by this receipt",
+  "independent_driver": "NOT_RUN; isolated from the working execution path"
+}

@@ -1,0 +1,649 @@
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_engine.c -o build/omega_blackwell_engine.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_submit.c -o build/omega_blackwell_submit.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_platform_linux.c -o build/omega_gpu_platform_linux.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_prefill_attn256_api.c -o build/omega_gpu_prefill_attn256_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_prefill_attn_api.c -o build/omega_gpu_prefill_attn_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_q36_graph.c -o build/omega_gpu_q36_graph.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_q38_graph.c -o build/omega_gpu_q38_graph.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_router_api.c -o build/omega_gpu_router_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_scan.c -o build/omega_gpu_scan.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_scan_ref.c -o build/omega_gpu_scan_ref.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_serving.c -o build/omega_gpu_serving.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_session.c -o build/omega_gpu_session.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_tcgemm_api.c -o build/omega_gpu_tcgemm_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_tern_api.c -o build/omega_gpu_tern_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_wait.c -o build/omega_gpu_wait.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_sm121_disasm.c -o build/omega_sm121_disasm.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/sha256.c -o build/sha256.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_canonical.c -o build/omega_canonical.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_core.c -o build/omega_core.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_vector.c -o build/omega_vector.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c ./m16/m16_native.c -o build/m16_native.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c ./nvrm/nvrm.c -o build/nvrm.o
+./build/test_omega_gpu_code_alloc
+OMEGA_GPU_CODE_ALLOC PASS
+./build/test_omega_gpu_engine_compile
+SUMMARY failed=0
+./build/test_omega_gpu_engine
+[PASS] SUCCESS_FULL_RUN
+[PASS] CALL_ORDER_FULL_RUN
+[PASS] STATE_ADVANCES_STEP_BY_STEP
+[PASS] ROLES_BYTES_AND_REVERSE_FREE_ORDER
+[PASS] PER_STEP_TIMEOUTS_FROM_JOB
+[PASS] POISON_WRITTEN_BEFORE_SUBMIT
+[PASS] NO_C3_SKIPS_MARKER2_ONLY
+[PASS] FAIL_DEVICE_OPEN
+[PASS] FAIL_CHANNEL_CREATE
+[PASS] FAIL_ALLOC
+[PASS] FAIL_PREPARE_COPY_IN
+[PASS] FAIL_PREPARE_FILL_POISON
+[PASS] FAIL_PREPARE_BUILD
+[PASS] FAIL_SUBMIT_IS_NOT_UNCERTAIN
+[PASS] FAIL_VISIBILITY_BARRIER
+[PASS] FAIL_VISIBILITY_COPY_OUT
+[PASS] UNCERTAIN_MARKER_TIMEOUT
+[PASS] UNCERTAIN_BLOCKS_NEXT_JOB_NO_BACKEND_CALL
+[PASS] UNCERTAIN_TEST_RESET_CLEARS_BLOCK
+[PASS] UNCERTAIN_MARKER2_UNKNOWN_STATE
+[PASS] UNCERTAIN_RELEASE_DRIVER_FAULT
+[PASS] UNCHANGED_NOTHING_WRITTEN
+[PASS] UNCHANGED_PARTIAL_EXACT_COUNT
+[PASS] UNCHANGED_LAST_WORD_ONLY
+[PASS] UNCHANGED_FIRST_WORD_ONLY
+[PASS] UNCHANGED_ALL_WRITTEN_IS_SUCCESS
+[PASS] UNCHANGED_NEEDS_POISON_FILL
+[PASS] CLEANUP_FREE_FAILS_AFTER_GOOD_RUN
+[PASS] CLEANUP_CLOSE_FAILS_AFTER_GOOD_RUN
+[PASS] CLEANUP_FIRST_CLEANUP_FAULT_KEPT
+[PASS] CLEANUP_FAULT_NEVER_OVERWRITES_FIRST_FAILURE
+[PASS] CLEANUP_FAULT_AFTER_UNCHANGED_KEEPS_UNCHANGED
+[PASS] INVALID_ARGS_PROGRAM
+[PASS] INVALID_ARGS_LAYOUT
+[PASS] INVALID_ARGS_ZERO_ELEMENTS
+[PASS] INVALID_ARGS_BUFFERS
+[PASS] INVALID_ARGS_OUTPUT_ALIGNMENT
+[PASS] INVALID_ARGS_POISON
+[PASS] INVALID_ARGS_UNKNOWN_FLAG
+[PASS] INVALID_ARGS_ZERO_MARKER_TIMEOUT
+[PASS] INVALID_ARGS_ZERO_RELEASE_TIMEOUT
+[PASS] INVALID_ARGS_ZERO_VISIBILITY_TIMEOUT
+[PASS] INVALID_ARGS_ZERO_MARKER2_TIMEOUT_WITH_C3
+[PASS] INVALID_ARGS_NULL_JOB
+[PASS] INVALID_ARGS_NULL_RESULT
+[PASS] BLOCKED_REFUSES_BEFORE_ANY_CHECK_OR_CALL
+[PASS] BLOCK_RESET_ALLOWS_JOBS_AGAIN
+[PASS] NO_BACKEND_NOT_IMPLEMENTED
+[PASS] BACKEND_TABLE_INCOMPLETE_REFUSED
+SUMMARY passed=49 failed=0
+sh tools/gpu_engine_mutations.sh
+make build/libomega_gpu.a
+make[1]: Entering directory '/home/drakestapleton/workspace/hermes-desk/cudapp-canonical-l457'
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_core.c -o build/omega_core.o
+./build/test_omega_blackwell_engine
+[PASS] sim_setup_encoder_ok
+[PASS] sim_success_returns_ok
+[PASS] sim_success_state
+[PASS] sim_success_result_flags_clear
+[PASS] sim_success_not_blocked
+[PASS] sim_success_output_values
+[PASS] sim_success_unchanged_zero
+[PASS] sim_success_call_order
+[PASS] sim_success_driver_counts
+[PASS] sim_success_all_allocs_gpu_uncached
+[PASS] sim_success_alloc_sizes
+[PASS] sim_success_balanced
+[PASS] sim_success_large_pushbuffer_ring
+[PASS] sim_success_pushbuffer_parses
+[PASS] sim_success_doorbell_state_captured
+[PASS] sim_success_marker1_zeroed_before_doorbell
+[PASS] sim_success_marker2_zeroed_before_doorbell
+[PASS] sim_success_semaphore_zeroed_before_doorbell
+[PASS] sim_success_semaphore_init_value
+[PASS] sim_success_pushbuffer_order
+[PASS] sim_success_one_flush_two_releases
+[PASS] sim_success_cbank_upload_words_and_place
+[PASS] sim_success_args_upload_words_and_place
+[PASS] sim_success_qmd0_is_not_the_kernel_and_place
+[PASS] sim_success_qmd1_is_the_kernel_and_place
+[PASS] sim_success_flush_operation
+[PASS] sim_success_release1_address_payload_flags
+[PASS] sim_success_release2_is_marker_page_plus_0x10
+[PASS] sim_success_release2_payload_and_flags
+[PASS] sim_success_kernel_ran_once_with_right_program
+[PASS] sim_success_kernel_threads_and_count
+[PASS] sim_success_kernel_arguments_are_a_b_output
+[PASS] sim_success_kernel_program_and_cbank_addresses
+[PASS] sim_success_marker_and_semaphore_places
+[PASS] sim_success_poison_reached_device_output
+[PASS] sim_success_poison_never_equals_a_sum
+[PASS] sim_success_wait_counts
+[PASS] sim_success_wait_expected_values
+[PASS] sim_success_wait_timeouts_come_from_the_job
+[PASS] sim_success_wait_order_marker_marker2_semaphore
+[PASS] sim_success_run_info_words
+[PASS] sim_success_run_info_launch_time_set
+[PASS] sim_success_run_info_done_time_after_launch
+[PASS] sim_noc3_returns_ok
+[PASS] sim_noc3_output_values
+[PASS] sim_noc3_no_flush_in_pushbuffer
+[PASS] sim_noc3_one_release_only
+[PASS] sim_noc3_marker2_never_waited
+[PASS] sim_noc3_marker1_and_semaphore_waited
+[PASS] sim_noc3_run_info_marker2_not_reported
+[PASS] sim_noc3_balanced
+[PASS] sim_twice_first_ok
+[PASS] sim_twice_second_ok_busy_flag_released
+[PASS] sim_twice_driver_opened_and_closed_twice
+[PASS] sim_open_fail_name_step_state
+[PASS] sim_open_fail_errno_and_driver_code
+[PASS] sim_open_fail_driver_text_reported
+[PASS] sim_open_fail_nothing_else_touched
+[PASS] sim_open_fail_not_retained_not_blocked
+[PASS] sim_open_fail_run_info_reset_at_open
+[PASS] sim_open_fail_then_next_run_ok
+[PASS] sim_channel_fail_name_step_state
+[PASS] sim_channel_fail_errno_text_code
+[PASS] sim_channel_fail_closed_nothing_allocated
+[PASS] sim_channel_fail_then_next_run_ok
+[PASS] sim_alloc1_name_step_state
+[PASS] sim_alloc1_errno_code_text
+[PASS] sim_alloc1_stops_at_the_failure
+[PASS] sim_alloc1_balanced
+[PASS] sim_alloc2_name_step_state
+[PASS] sim_alloc2_errno_code_text
+[PASS] sim_alloc2_stops_at_the_failure
+[PASS] sim_alloc2_balanced
+[PASS] sim_alloc3_name_step_state
+[PASS] sim_alloc3_errno_code_text
+[PASS] sim_alloc3_stops_at_the_failure
+[PASS] sim_alloc3_balanced
+[PASS] sim_alloc4_name_step_state
+[PASS] sim_alloc4_errno_code_text
+[PASS] sim_alloc4_stops_at_the_failure
+[PASS] sim_alloc4_balanced
+[PASS] sim_alloc5_name_step_state
+[PASS] sim_alloc5_errno_code_text
+[PASS] sim_alloc5_stops_at_the_failure
+[PASS] sim_alloc5_balanced
+[PASS] sim_alloc6_name_step_state
+[PASS] sim_alloc6_errno_code_text
+[PASS] sim_alloc6_stops_at_the_failure
+[PASS] sim_alloc6_balanced
+[PASS] sim_alloc7_name_step_state
+[PASS] sim_alloc7_errno_code_text
+[PASS] sim_alloc7_stops_at_the_failure
+[PASS] sim_alloc7_balanced
+[PASS] sim_alloc8_name_step_state
+[PASS] sim_alloc8_errno_code_text
+[PASS] sim_alloc8_stops_at_the_failure
+[PASS] sim_alloc8_balanced
+[PASS] sim_short_pb_refused_as_alloc
+[PASS] sim_short_pb_own_check_text
+[PASS] sim_short_pb_balanced
+[PASS] sim_nocpu_marker_refused_as_alloc
+[PASS] sim_nocpu_marker_own_check_text
+[PASS] sim_nocpu_marker_balanced
+[PASS] sim_misaligned_qmd_refused_as_alloc
+[PASS] sim_misaligned_qmd_own_check_text
+[PASS] sim_misaligned_qmd_balanced
+[PASS] sim_short_input_a_refused_as_alloc
+[PASS] sim_short_input_a_own_check_text
+[PASS] sim_short_input_a_balanced
+[PASS] sim_nocpu_input_a_refused_as_alloc
+[PASS] sim_nocpu_input_a_own_check_text
+[PASS] sim_nocpu_input_a_balanced
+[PASS] sim_misaligned_input_a_refused_as_alloc
+[PASS] sim_misaligned_input_a_own_check_text
+[PASS] sim_misaligned_input_a_balanced
+[PASS] sim_nocpu_output_refused_as_alloc
+[PASS] sim_nocpu_output_own_check_text
+[PASS] sim_nocpu_output_balanced
+[PASS] sim_submit_fail_name_step_state
+[PASS] sim_submit_fail_errno_code_text
+[PASS] sim_submit_fail_is_not_uncertain
+[PASS] sim_submit_fail_cleaned_up
+[PASS] sim_unc_marker_hang_name_step_wait
+[PASS] sim_unc_marker_hang_last_state_submitted
+[PASS] sim_unc_marker_hang_limit_and_waited_ms
+[PASS] sim_unc_marker_hang_observed_words
+[PASS] sim_unc_marker_hang_sync_valid_mask
+[PASS] sim_unc_marker_hang_retained_and_blocked
+[PASS] sim_unc_marker_hang_nothing_freed_nothing_closed
+[PASS] sim_unc_marker_hang_driver_code
+[PASS] sim_unc_marker_hang_run_info_marker
+[PASS] sim_unc_marker_hang_run_info_done_time_only_if_marker_succeeded
+[PASS] sim_unc_marker_hang_run_info_marker2_when_it_was_the_failed_wait
+[PASS] sim_unc_marker_hang_run_info_semaphore_when_it_was_the_failed_wait
+[PASS] sim_unc_marker_hang_no_marker2_wait_with_noc3
+[PASS] sim_unc_marker_hang_next_job_blocked
+[PASS] sim_unc_marker_hang_second_open_refused_by_backend
+[PASS] sim_unc_marker_hang_still_retained_after_refusals
+[PASS] sim_unc_marker_hang_drained_through_the_table
+[PASS] sim_unc_marker_hang_backend_works_again_after_drain
+[PASS] sim_unc_marker2_hang_name_step_wait
+[PASS] sim_unc_marker2_hang_last_state_submitted
+[PASS] sim_unc_marker2_hang_limit_and_waited_ms
+[PASS] sim_unc_marker2_hang_observed_words
+[PASS] sim_unc_marker2_hang_sync_valid_mask
+[PASS] sim_unc_marker2_hang_retained_and_blocked
+[PASS] sim_unc_marker2_hang_nothing_freed_nothing_closed
+[PASS] sim_unc_marker2_hang_driver_code
+[PASS] sim_unc_marker2_hang_run_info_marker
+[PASS] sim_unc_marker2_hang_run_info_done_time_only_if_marker_succeeded
+[PASS] sim_unc_marker2_hang_run_info_marker2_when_it_was_the_failed_wait
+[PASS] sim_unc_marker2_hang_run_info_semaphore_when_it_was_the_failed_wait
+[PASS] sim_unc_marker2_hang_no_marker2_wait_with_noc3
+[PASS] sim_unc_marker2_hang_next_job_blocked
+[PASS] sim_unc_marker2_hang_second_open_refused_by_backend
+[PASS] sim_unc_marker2_hang_still_retained_after_refusals
+[PASS] sim_unc_marker2_hang_drained_through_the_table
+[PASS] sim_unc_marker2_hang_backend_works_again_after_drain
+[PASS] sim_unc_semaphore_hang_name_step_wait
+[PASS] sim_unc_semaphore_hang_last_state_submitted
+[PASS] sim_unc_semaphore_hang_limit_and_waited_ms
+[PASS] sim_unc_semaphore_hang_observed_words
+[PASS] sim_unc_semaphore_hang_sync_valid_mask
+[PASS] sim_unc_semaphore_hang_retained_and_blocked
+[PASS] sim_unc_semaphore_hang_nothing_freed_nothing_closed
+[PASS] sim_unc_semaphore_hang_driver_code
+[PASS] sim_unc_semaphore_hang_run_info_marker
+[PASS] sim_unc_semaphore_hang_run_info_done_time_only_if_marker_succeeded
+[PASS] sim_unc_semaphore_hang_run_info_marker2_when_it_was_the_failed_wait
+[PASS] sim_unc_semaphore_hang_run_info_semaphore_when_it_was_the_failed_wait
+[PASS] sim_unc_semaphore_hang_no_marker2_wait_with_noc3
+[PASS] sim_unc_semaphore_hang_next_job_blocked
+[PASS] sim_unc_semaphore_hang_second_open_refused_by_backend
+[PASS] sim_unc_semaphore_hang_still_retained_after_refusals
+[PASS] sim_unc_semaphore_hang_drained_through_the_table
+[PASS] sim_unc_semaphore_hang_backend_works_again_after_drain
+[PASS] sim_unc_marker_overshoot_name_step_wait
+[PASS] sim_unc_marker_overshoot_last_state_submitted
+[PASS] sim_unc_marker_overshoot_limit_and_waited_ms
+[PASS] sim_unc_marker_overshoot_observed_words
+[PASS] sim_unc_marker_overshoot_sync_valid_mask
+[PASS] sim_unc_marker_overshoot_driver_text
+[PASS] sim_unc_marker_overshoot_retained_and_blocked
+[PASS] sim_unc_marker_overshoot_nothing_freed_nothing_closed
+[PASS] sim_unc_marker_overshoot_driver_code
+[PASS] sim_unc_marker_overshoot_run_info_marker
+[PASS] sim_unc_marker_overshoot_run_info_done_time_only_if_marker_succeeded
+[PASS] sim_unc_marker_overshoot_run_info_marker2_when_it_was_the_failed_wait
+[PASS] sim_unc_marker_overshoot_run_info_semaphore_when_it_was_the_failed_wait
+[PASS] sim_unc_marker_overshoot_no_marker2_wait_with_noc3
+[PASS] sim_unc_marker_overshoot_next_job_blocked
+[PASS] sim_unc_marker_overshoot_second_open_refused_by_backend
+[PASS] sim_unc_marker_overshoot_still_retained_after_refusals
+[PASS] sim_unc_marker_overshoot_drained_through_the_table
+[PASS] sim_unc_marker_overshoot_backend_works_again_after_drain
+[PASS] sim_unc_marker2_overshoot_name_step_wait
+[PASS] sim_unc_marker2_overshoot_last_state_submitted
+[PASS] sim_unc_marker2_overshoot_limit_and_waited_ms
+[PASS] sim_unc_marker2_overshoot_observed_words
+[PASS] sim_unc_marker2_overshoot_sync_valid_mask
+[PASS] sim_unc_marker2_overshoot_driver_text
+[PASS] sim_unc_marker2_overshoot_retained_and_blocked
+[PASS] sim_unc_marker2_overshoot_nothing_freed_nothing_closed
+[PASS] sim_unc_marker2_overshoot_driver_code
+[PASS] sim_unc_marker2_overshoot_run_info_marker
+[PASS] sim_unc_marker2_overshoot_run_info_done_time_only_if_marker_succeeded
+[PASS] sim_unc_marker2_overshoot_run_info_marker2_when_it_was_the_failed_wait
+[PASS] sim_unc_marker2_overshoot_run_info_semaphore_when_it_was_the_failed_wait
+[PASS] sim_unc_marker2_overshoot_no_marker2_wait_with_noc3
+[PASS] sim_unc_marker2_overshoot_next_job_blocked
+[PASS] sim_unc_marker2_overshoot_second_open_refused_by_backend
+[PASS] sim_unc_marker2_overshoot_still_retained_after_refusals
+[PASS] sim_unc_marker2_overshoot_drained_through_the_table
+[PASS] sim_unc_marker2_overshoot_backend_works_again_after_drain
+[PASS] sim_unc_semaphore_overshoot_name_step_wait
+[PASS] sim_unc_semaphore_overshoot_last_state_submitted
+[PASS] sim_unc_semaphore_overshoot_limit_and_waited_ms
+[PASS] sim_unc_semaphore_overshoot_observed_words
+[PASS] sim_unc_semaphore_overshoot_sync_valid_mask
+[PASS] sim_unc_semaphore_overshoot_driver_text
+[PASS] sim_unc_semaphore_overshoot_retained_and_blocked
+[PASS] sim_unc_semaphore_overshoot_nothing_freed_nothing_closed
+[PASS] sim_unc_semaphore_overshoot_driver_code
+[PASS] sim_unc_semaphore_overshoot_run_info_marker
+[PASS] sim_unc_semaphore_overshoot_run_info_done_time_only_if_marker_succeeded
+[PASS] sim_unc_semaphore_overshoot_run_info_marker2_when_it_was_the_failed_wait
+[PASS] sim_unc_semaphore_overshoot_run_info_semaphore_when_it_was_the_failed_wait
+[PASS] sim_unc_semaphore_overshoot_no_marker2_wait_with_noc3
+[PASS] sim_unc_semaphore_overshoot_next_job_blocked
+[PASS] sim_unc_semaphore_overshoot_second_open_refused_by_backend
+[PASS] sim_unc_semaphore_overshoot_still_retained_after_refusals
+[PASS] sim_unc_semaphore_overshoot_drained_through_the_table
+[PASS] sim_unc_semaphore_overshoot_backend_works_again_after_drain
+[PASS] sim_unc_noc3_semaphore_hang_name_step_wait
+[PASS] sim_unc_noc3_semaphore_hang_last_state_submitted
+[PASS] sim_unc_noc3_semaphore_hang_limit_and_waited_ms
+[PASS] sim_unc_noc3_semaphore_hang_observed_words
+[PASS] sim_unc_noc3_semaphore_hang_sync_valid_mask
+[PASS] sim_unc_noc3_semaphore_hang_retained_and_blocked
+[PASS] sim_unc_noc3_semaphore_hang_nothing_freed_nothing_closed
+[PASS] sim_unc_noc3_semaphore_hang_driver_code
+[PASS] sim_unc_noc3_semaphore_hang_run_info_marker
+[PASS] sim_unc_noc3_semaphore_hang_run_info_done_time_only_if_marker_succeeded
+[PASS] sim_unc_noc3_semaphore_hang_run_info_marker2_when_it_was_the_failed_wait
+[PASS] sim_unc_noc3_semaphore_hang_run_info_semaphore_when_it_was_the_failed_wait
+[PASS] sim_unc_noc3_semaphore_hang_no_marker2_wait_with_noc3
+[PASS] sim_unc_noc3_semaphore_hang_next_job_blocked
+[PASS] sim_unc_noc3_semaphore_hang_second_open_refused_by_backend
+[PASS] sim_unc_noc3_semaphore_hang_still_retained_after_refusals
+[PASS] sim_unc_noc3_semaphore_hang_drained_through_the_table
+[PASS] sim_unc_noc3_semaphore_hang_backend_works_again_after_drain
+[PASS] sim_cleanup_free_role_name_step_state
+[PASS] sim_cleanup_free_role_flag_errno_text
+[PASS] sim_cleanup_free_role_every_free_attempted_and_closed
+[PASS] sim_cleanup_free_role_words_still_mapped_at_capture
+[PASS] sim_cleanup_free_role_not_uncertaiNO_TAIL mutant: killed (5 failing checks)
+grep: src/runtime/*.c: No such file or directory
+source scan: no page-only code sizing
+OMEGA_GPU_CODE_ALLOC_GATE PASS
+PHYSICS_DIR="." sh tools/gpu_engine_backend_mutations.sh
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -ffp-contract=off -Isrc -Itests -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include \
+	-o build/gpu_serving_alloc_count_test tests/gpu_serving_alloc_count_test.c tests/fake_m16_native.c src/omega_gpu_session.c src/omega_gpu_platform.c src/omega_gpu_platform_linux.c src/omega_gpu_fmt.c src/omega_gpu_matmul_api.c src/omega_gpu_attention_api.c src/omega_gpu_serving.c src/omega_gpu_wait.c src/omega_blackwell_codegen.c src/omega_blackwell_encoder.c src/omega_blackwell_qmd.c src/omega_blackwell_matmul.c src/sha256.c -lm
+GB10_VECTOR_FAIL failure=CLEANUP step=FREE state=OUTPUT_PRODUCED drv_rc=-1 errno=5 text="fake driver says no"
+GB10_VECTOR_FAIL failure=OUTPUT_UNCHANGED step=SCAN state=OUTPUT_VISIBLE drv_rc=0 errno=0 text=""
+GB10_VECTOR_FAIL failure=COMPLETION_WAIT step=WAIT_MARKER state=SUBMITTED drv_rc=-1 errno=0 text=""
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c ./nvrm/nvrm.c -o build/nvrm.o
+n
+[PASS] sim_cleanup_free_scratch_name_step_state
+[PASS] sim_cleanup_free_scratch_code_and_text
+[PASS] sim_cleanup_free_scratch_all_four_parts_attempted
+[PASS] sim_cleanup_free_scratch_sync_words_unmapped_before_free
+[PASS] sim_cleanup_close_name_step_state
+[PASS] sim_cleanup_close_flag_errno_text
+[PASS] sim_cleanup_close_all_freed_first
+[PASS] sim_cleanup_close_failure_still_releases_busy_flag
+[PASS] sim_unchanged_nowrite_name_step_state
+[PASS] sim_unchanged_nowrite_counts_every_word
+[PASS] sim_unchanged_nowrite_completion_was_seen
+[PASS] sim_unchanged_nowrite_cleaned_up_not_retained
+[PASS] sim_unchanged_half_counts_the_unwritten_half
+[PASS] sim_unchanged_wrong_program_bytes_detected
+[PASS] sim_guard_open_ok
+[PASS] sim_guard_channel_ok
+[PASS] sim_guard_alloc_zero_bytes_refused
+[PASS] sim_guard_alloc_unknown_role_refused
+[PASS] sim_guard_alloc_rounds_up_to_whole_pages
+[PASS] sim_guard_free_after_rounding_ok
+[PASS] sim_guard_wait_before_build_refused_without_driver_call
+[PASS] sim_guard_submit_before_build_refused
+[PASS] sim_guard_build_without_buffers_refused
+[PASS] sim_guard_alloc_scratch_ok
+[PASS] sim_guard_alloc_program_ok
+[PASS] sim_guard_alloc_a_ok
+[PASS] sim_guard_alloc_b_ok
+[PASS] sim_guard_alloc_output_ok
+[PASS] sim_guard_copy_in_negative_role_refused
+[PASS] sim_guard_free_negative_role_refused
+[PASS] sim_guard_build_null_job_refused
+[PASS] sim_guard_build_unknown_layout_refused
+[PASS] sim_guard_build_zero_count_refused
+[PASS] sim_guard_build_count_beyond_the_buffers_refused
+[PASS] sim_guard_copy_in_too_long_refused
+[PASS] sim_guard_copy_in_unknown_role_refused
+[PASS] sim_guard_copy_in_null_source_refused
+[PASS] sim_guard_fill_poison_too_long_refused
+[PASS] sim_guard_fill_poison_null_refused
+[PASS] sim_guard_copy_out_too_long_refused
+[PASS] sim_guard_copy_out_null_refused
+[PASS] sim_guard_free_unknown_role_refused
+[PASS] sim_guard_valid_copy_in_ok
+[PASS] sim_guard_valid_fill_poison_ok
+[PASS] sim_guard_valid_copy_out_returns_the_poison
+[PASS] sim_guard_drain_ok
+[PASS] sim_guard_nothing_leaked
+[PASS] sim_close_setup_through_the_table
+[PASS] sim_close_words_mapped_after_build
+[PASS] sim_close_returns_zero
+[PASS] sim_close_unmaps_every_sync_word
+[PASS] sim_close_released_everything
+[PASS] sim_vec_spec_init
+[PASS] sim_vec_success_returns_zero
+[PASS] sim_vec_success_output_values
+[PASS] sim_vec_success_parity_verified
+[PASS] sim_vec_success_completion_marker_and_semaphore
+[PASS] sim_vec_success_shape_fields
+[PASS] sim_vec_success_timestamps
+[PASS] sim_vec_success_timeouts_are_5000_each
+[PASS] sim_vec_success_all_protections_on
+[PASS] sim_vec_success_encoded_program_reached_the_device
+[PASS] sim_vec_success_poison_is_the_complement_of_the_sum
+[PASS] sim_vec_success_poison_never_collides_even_for_0xdeadbeef
+[PASS] sim_vec_success_balanced
+[PASS] sim_vec_wrong_math_returns_nonzero
+[PASS] sim_vec_wrong_math_parity_not_verified
+[PASS] sim_vec_cleanup_fault_returns_nonzero
+[PASS] sim_vec_unwritten_output_returns_nonzero
+[PASS] sim_vec_hang_returns_nonzero
+[PASS] sim_vec_hang_blocks_the_process_and_retains
+[PASS] sim_vec_hang_drains
+[PASS] sim_vec_null_spec_refused
+[PASS] sim_vec_null_output_refused
+[PASS] sim_vec_null_input_refused
+[PASS] sim_vec_zero_count_refused
+[PASS] sim_vec_refusals_never_touch_the_driver
+[PASS] sim_vec_works_again
+SUMMARY passed=334 failed=0
+gcc -r -nostdlib -o build/gpu_fs/omega_gpu_freestanding.o build/gpu_fs/omega_gpu_engine.o build/gpu_fs/omega_gpu_platform.o build/gpu_fs/omega_blackwell_encoder.o build/gpu_fs/omega_blackwell_codegen.o build/gpu_fs/omega_blackwell_matmul.o build/gpu_fs/omega_blackwell_qmd.o build/gpu_fs/omega_blackwell_realize.o build/gpu_fs/sha256.o build/gpu_fs/omega_gpu_session.o build/gpu_fs/omega_gpu_fmt.o build/gpu_fs/omega_gpu_matmul_api.o build/gpu_fs/omega_gpu_attention_api.o build/gpu_fs/omega_gpu_serving.o build/gpu_fs/omega_gpu_wait.o
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -Isrc -Itests -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include \
+	-o build/test_omega_gpu_platform_linux tests/test_omega_gpu_platform_linux.c tests/fake_m16_native.c src/omega_gpu_session.c src/omega_gpu_platform.c src/omega_gpu_platform_linux.c src/omega_gpu_fmt.c src/omega_blackwell_qmd.c src/omega_gpu_mem_cached.c src/omega_gpu_cmdlist.c src/omega_blackwell_codegen.c src/omega_blackwell_encoder.c src/omega_blackwell_matmul.c src/omega_blackwell_realize.c src/sha256.c -lm
+freestanding GPU link (14 files): only memcmp memcpy memset strcmp strlen undefined
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -Isrc -o build/test_omega_gpu_wait tests/test_omega_gpu_wait.c src/omega_gpu_wait.c
+ar rcs build/libomega_gpu.a build/omega_blackwell_codegen.o build/omega_blackwell_codegen_attn.o build/omega_blackwell_codegen_attn256.o build/omega_blackwell_codegen_bf16.o build/omega_blackwell_codegen_dec.o build/omega_blackwell_codegen_gdn.o build/omega_blackwell_codegen_gemm.o build/omega_blackwell_codegen_moe.o build/omega_blackwell_codegen_moe2.o build/omega_blackwell_codegen_pattn.o build/omega_blackwell_codegen_pattn256.o build/omega_blackwell_codegen_pf.o build/omega_blackwell_codegen_pfhost.o build/omega_blackwell_codegen_qg.o build/omega_blackwell_codegen_qmma.o build/omega_blackwell_codegen_router.o build/omega_blackwell_codegen_tc.o build/omega_blackwell_codegen_tc2.o build/omega_blackwell_codegen_tern.o build/omega_blackwell_encoder.o build/omega_blackwell_engine.o build/omega_blackwell_matmul.o build/omega_blackwell_qmd.o build/omega_blackwell_realize.o build/omega_blackwell_submit.o build/omega_gpu_attention_api.o build/omega_gpu_bf16_gemv_api.o build/omega_gpu_chip.o build/omega_gpu_cmdlist.o build/omega_gpu_decode_attn256_api.o build/omega_gpu_decode_attn_api.o build/omega_gpu_decode_graph.o build/omega_gpu_elementwise_api.o build/omega_gpu_engine.o build/omega_gpu_fmt.o build/omega_gpu_fp8_api.o build/omega_gpu_fp8_pack.o build/omega_gpu_fp8gemm_api.o build/omega_gpu_gdn_api.o build/omega_gpu_gemm.o build/omega_gpu_hostmath.o build/omega_gpu_matmul_api.o build/omega_gpu_mem_cached.o build/omega_gpu_moe_api.o build/omega_gpu_pfgemm.o build/omega_gpu_pfhost.o build/omega_gpu_platform.o build/omega_gpu_platform_linux.o build/omega_gpu_prefill.o build/omega_gpu_prefill_attn256_api.o build/omega_gpu_prefill_attn_api.o build/omega_gpu_q36_graph.o build/omega_gpu_q38_graph.o build/omega_gpu_router_api.o build/omega_gpu_scan.o build/omega_gpu_scan_ref.o build/omega_gpu_serving.o build/omega_gpu_session.o build/omega_gpu_tcgemm_api.o build/omega_gpu_tern_api.o build/omega_gpu_wait.o build/omega_sm121_disasm.o build/sha256.o build/omega_canonical.o build/omega_core.o build/omega_vector.o build/m16_native.o build/nvrm.o
+cc -O2 -Wall -Wextra -Werror -I m16 tests/test_m16_gpu_wait.c m16/m16_gpu_wait.c -o build/m16_gpu_wait/test_real
+make[1]: Leaving directory '/home/drakestapleton/workspace/hermes-desk/cudapp-canonical-l457'
+CC="cc" tools/runtime_api_check.sh docs/runtime/omega_runtime_api.manifest . build/runtime-api/real docs/runtime/API.md
+MUTANT STALL_NEVER_RESETS killed by progress_resets_idle
+FAIL: manifest says `struct OmegaGpuHandleTable 17424 8` but the header gives `struct OmegaGpuHandleTable 69648 8`
+FAIL: manifest says `field OmegaGpuHandleTable generation 0 4096` but the header gives `field OmegaGpuHandleTable generation 0 16384`
+FAIL: manifest says `field OmegaGpuHandleTable kind 4096 4096` but the header gives `field OmegaGpuHandleTable kind 16384 16384`
+FAIL: manifest says `field OmegaGpuHandleTable bytes 8192 8192` but the header gives `field OmegaGpuHandleTable bytes 32768 32768`
+FAIL: manifest says `field OmegaGpuHandleTable live 16384 1024` but the header gives `field OmegaGpuHandleTable live 65536 4096`
+FAIL: manifest says `field OmegaGpuHandleTable nlive 17408 4` but the header gives `field OmegaGpuHandleTable nlive 69632 4`
+FAIL: manifest says `field OmegaGpuHandleTable total_bytes 17416 8` but the header gives `field OmegaGpuHandleTable total_bytes 69640 8`
+MUTANT PROGRESS_EXTENDS_HARD killed by hard_deadline_with_progress
+FAIL: manifest says `const OMEGA_GPU_HANDLE_SLOTS 1024` but the header gives `const OMEGA_GPU_HANDLE_SLOTS 4096`
+FAIL: manifest says `const OMEGA_GPU_CMDLIST_MAX_LAUNCHES 2048` but the header gives `const OMEGA_GPU_CMDLIST_MAX_LAUNCHES 4096`
+MUTANT NO_BARRIER killed by barrier_before_read
+M16_GPU_WAIT_MUTANTS PASS (3/3 killed)
+sh tools/runtime_portability_check.sh . docs/runtime/portability_table.tsv mk/omega-gpu-engine.mk
+RESULT: FAIL (runtime API check)
+make: *** [mk/runtime-r1.mk:8: test-runtime-api] Error 1
+make: *** Waiting for unfinished jobs....
+VALIDATE_SKIPPED KILLED  MUT:VALIDATE_SKIPPED (harness exit 139 (crash or abort))
+FAIL: no row in the table for src/omega_gpu_decode_attn256_api.c
+FAIL: no row in the table for src/omega_gpu_decode_attn256_api.h
+FAIL: no row in the table for src/omega_gpu_gdn_api.c
+FAIL: no row in the table for src/omega_gpu_gdn_api.h
+FAIL: no row in the table for src/omega_gpu_gemm.c
+FAIL: no row in the table for src/omega_gpu_gemm.h
+FAIL: no row in the table for src/omega_gpu_prefill_attn256_api.c
+FAIL: no row in the table for src/omega_gpu_prefill_attn256_api.h
+FAIL: no row in the table for src/omega_gpu_q36_graph.c
+FAIL: no row in the table for src/omega_gpu_q36_graph.h
+FAIL: no row in the table for src/omega_gpu_q38_graph.c
+FAIL: no row in the table for src/omega_gpu_q38_graph.h
+FAIL: no row in the table for src/omega_gpu_scan.c
+FAIL: no row in the table for src/omega_gpu_scan.h
+FAIL: no row in the table for src/omega_gpu_scan_ref.c
+FAIL: no row in the table for src/omega_blackwell_codegen_attn256.c
+FAIL: no row in the table for src/omega_blackwell_codegen_attn256.h
+FAIL: no row in the table for src/omega_blackwell_codegen_gdn.c
+FAIL: no row in the table for src/omega_blackwell_codegen_gdn.h
+FAIL: no row in the table for src/omega_blackwell_codegen_pattn256.c
+FAIL: no row in the table for src/omega_blackwell_codegen_pattn256.h
+FAIL: portability table does not match the tree
+make: *** [mk/runtime-r3.mk:12: test-runtime-portability-check] Error 1
+VALID_PROGRAM KILLED  MUT:VALID_PROGRAM (harness exit 139 (crash or abort))
+VALID_LAYOUT KILLED  MUT:VALID_LAYOUT (1 failing case(s), first: VALID_ARGS_LAYOUT)
+BE_ALLOC_CHECK_CPU KILLED  a buffer without a CPU mapping is refused (ALLOC) (8 failing case(s), first: m_nocpu_marker_refused_as_alloc)
+VALID_COUNT_ZERO KILLED  MUT:VALID_COUNT_ZERO (1 failing case(s), first: VALID_ARGS_ZERO_ELEMENTS)
+VALID_ALIGN KILLED  MUT:VALID_ALIGN (1 failing case(s), first: VALID_ARGS_OUTPUT_ALIGNMENT)
+BE_ALLOC_CHECK_SIZE KILLED  a buffer smaller than asked is refused (ALLOC) (6 failing case(s), first: m_short_pb_refused_as_alloc)
+VALID_POISON_COUNT KILLED  MUT:VALID_POISON_COUNT (harness exit 139 (crash or abort))
+VALID_FLAGS KILLED  MUT:VALID_FLAGS (1 failing case(s), first: VALID_ARGS_UNKNOWN_FLAG)
+VALID_TIMEOUT_MARKER1 KILLED  MUT:VALID_TIMEOUT_MARKER1 (1 failing case(s), first: VALID_ARGS_ZERO_MARKER_TIMEOUT)
+VALID_TIMEOUT_MARKER2 KILLED  MUT:VALID_TIMEOUT_MARKER2 (1 failing case(s), first: VALID_ARGS_ZERO_MARKER2_TIMEOUT_WITH_C3)
+BLOCK_CHECK_SKIPPED KILLED  MUT:BLOCK_CHECK_SKIPPED (2 failing case(s), first: CERTAIN_BLOCKS_NEXT_JOB_NO_BACKEND_CALL)
+BE_ALLOC_CHECK_ALIGN KILLED  a GPU address that is not 256-byte aligned is refused (ALLOC) (29 failing case(s), first: m_misaligned_qmd_refused_as_alloc)
+BACKEND_CHECK_SKIPPED KILLED  MUT:BACKEND_CHECK_SKIPPED (harness exit 139 (crash or abort))
+OPEN_NOT_TRACKED KILLED  MUT:OPEN_NOT_TRACKED (20 failing case(s), first: CCESS_FULL_RUN)
+ALLOC_NOT_TRACKED KILLED  MUT:ALLOC_NOT_TRACKED (20 failing case(s), first: CCESS_FULL_RUN)
+BE_ALLOC_OWN_CHECK_NOTE KILLED  the backend's own refusal text reaches the result (7 failing case(s), first: m_short_pb_own_check_text)
+CLEANUP_SKIPPED_CHANNEL KILLED  MUT:CLEANUP_SKIPPED_CHANNEL (1 failing case(s), first: IL_CHANNEL_CREATE)
+CLEANUP_SKIPPED_ALLOC KILLED  MUT:CLEANUP_SKIPPED_ALLOC (1 failing case(s), first: IL_ALLOC)
+CLEANUP_SKIPPED_COPY_IN KILLED  MUT:CLEANUP_SKIPPED_COPY_IN (1 failing case(s), first: IL_PREPARE_COPY_IN)
+CLEANUP_SKIPPED_SUBMIT KILLED  MUT:CLEANUP_SKIPPED_SUBMIT (2 failing case(s), first: IL_SUBMIT_IS_NOT_UNCERTAIN)
+FREE_UNALLOCATED KILLED  MUT:FREE_UNALLOCATED (3 failing case(s), first: IL_DEVICE_OPEN)
+BE_ALLOC_OWN_CHECK_FREE KILLED  a buffer that fails its own checks is freed, not leaked (7 failing case(s), first: m_short_pb_balanced)
+FREE_SKIPPED KILLED  MUT:FREE_SKIPPED (20 failing case(s), first: CCESS_FULL_RUN)
+CLOSE_SKIPPED KILLED  MUT:CLOSE_SKIPPED (20 failing case(s), first: CCESS_FULL_RUN)
+CLEANUP_OVERWRITES_FIRST KILLED  MUT:CLEANUP_OVERWRITES_FIRST (3 failing case(s), first: EANUP_FIRST_CLEANUP_FAULT_KEPT)
+CLEANUP_FLAG_NOT_SET KILLED  MUT:CLEANUP_FLAG_NOT_SET (5 failing case(s), first: EANUP_FREE_FAILS_AFTER_GOOD_RUN)
+POISON_FILL_SKIPPED KILLED  MUT:POISON_FILL_SKIPPED (18 failing case(s), first: LL_ORDER_FULL_RUN)
+STATE_PREPARED_SKIPPED KILLED  MUT:STATE_PREPARED_SKIPPED (3 failing case(s), first: ATE_ADVANCES_STEP_BY_STEP)
+BE_ROLE_FREE_SKIPPED KILLED  free_buf really frees a program, input or output buffer (28 failing case(s), first: m_success_balanced)
+STATE_SUBMITTED_SKIPPED KILLED  MUT:STATE_SUBMITTED_SKIPPED (4 failing case(s), first: ATE_ADVANCES_STEP_BY_STEP)
+STATE_GPU_COMPLETE_SKIPPED KILLED  MUT:STATE_GPU_COMPLETE_SKIPPED (3 failing case(s), first: ATE_ADVANCES_STEP_BY_STEP)
+STATE_OUTPUT_VISIBLE_SKIPPED KILLED  MUT:STATE_OUTPUT_VISIBLE_SKIPPED (5 failing case(s), first: CHANGED_NOTHING_WRITTEN)
+STATE_OUTPUT_PRODUCED_SKIPPED KILLED  MUT:STATE_OUTPUT_PRODUCED_SKIPPED (4 failing case(s), first: ATE_ADVANCES_STEP_BY_STEP)
+STATE_SUCCESS_SKIPPED KILLED  MUT:STATE_SUCCESS_SKIPPED (4 failing case(s), first: CCESS_FULL_RUN)
+BE_SCRATCH_FREE_SKIPPED KILLED  release_scratch really frees all four SCRATCH parts (32 failing case(s), first: m_success_balanced)
+SUCCESS_AFTER_CLEANUP_FAIL KILLED  MUT:SUCCESS_AFTER_CLEANUP_FAIL (3 failing case(s), first: EANUP_FREE_FAILS_AFTER_GOOD_RUN)
+MARKER1_WAIT_SKIPPED KILLED  MUT:MARKER1_WAIT_SKIPPED (10 failing case(s), first: LL_ORDER_FULL_RUN)
+MARKER1_TIMEOUT_WRONG KILLED  MUT:MARKER1_TIMEOUT_WRONG (1 failing case(s), first: R_STEP_TIMEOUTS_FROM_JOB)
+MARKER1_RESULT_IGNORED KILLED  MUT:MARKER1_RESULT_IGNORED (2 failing case(s), first: CERTAIN_MARKER_TIMEOUT)
+UNCERTAIN_FREES_MARKER1 KILLED  MUT:UNCERTAIN_FREES_MARKER1 (1 failing case(s), first: CERTAIN_MARKER_TIMEOUT)
+MARKER2_WAIT_SKIPPED KILLED  MUT:MARKER2_WAIT_SKIPPED (7 failing case(s), first: LL_ORDER_FULL_RUN)
+BE_SCRATCH_FREE_ERROR_DROPPED KILLED  a failed SCRATCH part free is reported (2 failing case(s), first: m_cleanup_free_scratch_name_step_state)
+C3_FLAG_IGNORED KILLED  MUT:C3_FLAG_IGNORED (1 failing case(s), first: _C3_SKIPS_MARKER2_ONLY)
+MARKER2_RESULT_IGNORED KILLED  MUT:MARKER2_RESULT_IGNORED (1 failing case(s), first: CERTAIN_MARKER2_UNKNOWN_STATE)
+UNCERTAIN_FREES_MARKER2 KILLED  MUT:UNCERTAIN_FREES_MARKER2 (1 failing case(s), first: CERTAIN_MARKER2_UNKNOWN_STATE)
+RELEASE_WAIT_SKIPPED KILLED  MUT:RELEASE_WAIT_SKIPPED (7 failing case(s), first: LL_ORDER_FULL_RUN)
+RELEASE_RESULT_IGNORED KILLED  MUT:RELEASE_RESULT_IGNORED (1 failing case(s), first: CERTAIN_RELEASE_DRIVER_FAULT)
+BE_SCRATCH_FREE_STOPS_AT_ERROR KILLED  one failed SCRATCH part free does not leave the other parts allocated (1 failing case(s), first: m_cleanup_free_scratch_all_four_parts_attempted)
+UNCERTAIN_FREES_RELEASE KILLED  MUT:UNCERTAIN_FREES_RELEASE (1 failing case(s), first: CERTAIN_RELEASE_DRIVER_FAULT)
+BARRIER_SKIPPED KILLED  MUT:BARRIER_SKIPPED (6 failing case(s), first: LL_ORDER_FULL_RUN)
+BARRIER_RESULT_IGNORED KILLED  MUT:BARRIER_RESULT_IGNORED (1 failing case(s), first: IL_VISIBILITY_BARRIER)
+RETAINED_FLAG_NOT_SET KILLED  MUT:RETAINED_FLAG_NOT_SET (3 failing case(s), first: CERTAIN_MARKER_TIMEOUT)
+NO_BLOCK KILLED  MUT:NO_BLOCK (4 failing case(s), first: CERTAIN_MARKER_TIMEOUT)
+WAITED_NOT_A_DIFFERENCE KILLED  MUT:WAITED_NOT_A_DIFFERENCE (3 failing case(s), first: CERTAIN_MARKER_TIMEOUT)
+BE_SCRATCH_ALLOC_FAIL_NO_RELEASE KILLED  a failed SCRATCH allocation frees the parts that did succeed (the core does not) (5 failing case(s), first: m_alloc2_balanced)
+POISON_INDEX_FIXED KILLED  MUT:POISON_INDEX_FIXED (4 failing case(s), first: CHANGED_NOTHING_WRITTEN)
+UNCHANGED_COUNT_SATURATES KILLED  MUT:UNCHANGED_COUNT_SATURATES (3 failing case(s), first: CHANGED_NOTHING_WRITTEN)
+UNCHANGED_CHECK_SKIPPED KILLED  MUT:UNCHANGED_CHECK_SKIPPED (6 failing case(s), first: CHANGED_NOTHING_WRITTEN)
+mutants: 49 total, 49 killed, 0 survived as redundant, 0 survived as test gaps (receipt /tmp/mutrun.Kzr66d/out.json)
+BE_ERRNO_NOT_RESTORED KILLED  the frees after a failed SCRATCH allocation do not clobber the errno the core reads (3 failing case(s), first: m_alloc2_errno_code_text)
+BE_ALLOC_FAIL_TEXT_RESTORE SURVIVED_REDUNDANT  the failure text survives the cleanup frees (redundant: release_scratch writes neither c->text nor the driver text on a successful free, in the simulated driver and in nvrm_free (physics nvrm.h: free only zeroes the NvrmMem); the restore is a safety net for a driver that writes text on success, which no model here does)
+BE_SCRATCH_PB_NOT_INSTALLED KILLED  the large pushbuffer ring replaces the channel's 4 KiB buffer (1 failing case(s), first: m_success_large_pushbuffer_ring)
+BE_PB_REPLACED_RESET SURVIVED_REDUNDANT  the flag that records the replaced ring is cleared after SCRATCH is freed (redundant: the zeroing of m.pb_mem stays (it is a separate line); a stale flag only repeats that harmless zeroing, and open memsets the whole context each run. physics m16_native_close is only nvrm_close(&ctx->rm) and never reads pb_mem)
+BE_BUSY_CHECK_DROPPED KILLED  a second open while a run is retained is refused (14 failing case(s), first: m_unc_marker_hang_second_open_refused_by_backend)
+BE_OPEN_FAIL_KEEPS_BUSY KILLED  a failed open releases the busy flag (72 failing case(s), first: m_open_fail_then_next_run_ok)
+BE_CLOSE_BUSY_CLEAR_DROPPED KILLED  close releases the busy flag so the next run can open (171 failing case(s), first: m_noc3_returns_ok)
+BE_OPEN_MEMSET_DROPPED KILLED  open resets the whole context, including the previous run's snapshot (4 failing case(s), first: m_noc3_run_info_marker2_not_reported)
+BE_OPEN_NATIVE_FLAG_DROPPED KILLED  a failed open still reports the driver's own text (14 failing case(s), first: m_open_fail_driver_text_reported)
+BE_OPEN_ERROR_IGNORED KILLED  a failed driver open is reported (DEVICE_OPEN) (5 failing case(s), first: m_open_fail_name_step_state)
+BE_OPEN_LAST_RC_DROPPED KILLED  the failed open's driver code reaches the result (1 failing case(s), first: m_open_fail_errno_and_driver_code)
+BE_CHANNEL_ERROR_IGNORED KILLED  a failed channel create is reported (CHANNEL_CREATE) (2 failing case(s), first: m_channel_fail_name_step_state)
+BE_CHANNEL_LAST_RC_DROPPED KILLED  the failed channel create's driver code reaches the result (1 failing case(s), first: m_channel_fail_errno_text_code)
+BE_ALLOC_LAST_RC_DROPPED KILLED  the failed allocation's driver code reaches the result (4 failing case(s), first: m_alloc5_errno_code_text)
+BE_ALLOC_UNKNOWN_ROLE_ACCEPTED KILLED  alloc refuses an unknown role (harness exit 139 (crash or abort))
+BE_ROLE_MEM_UPPER_BOUND KILLED  a role above the last one has no buffer slot (4 failing case(s), first: m_guard_alloc_unknown_role_refused)
+BE_ROLE_MEM_LOWER_BOUND KILLED  a negative role has no buffer slot (2 failing case(s), first: m_guard_copy_in_negative_role_refused)
+BE_ROUND_PAGES_ZERO_ACCEPTED KILLED  a zero-byte allocation is refused (3 failing case(s), first: m_guard_alloc_zero_bytes_refused)
+BE_ROUND_PAGES_NO_ROUNDING KILLED  allocation sizes round up to whole pages (1 failing case(s), first: m_guard_alloc_rounds_up_to_whole_pages)
+BE_ROUND_PAGES_MINIMUM SURVIVED_REDUNDANT  one-page minimum (redundant: after the zero check, rounding any nonzero byte count up to a page multiple already gives at least one page, so the minimum can never apply)
+BE_COPY_IN_NO_MEMCPY KILLED  copy_in really copies the program and the inputs (34 failing case(s), first: m_success_returns_ok)
+BE_COPY_IN_BOUNDS KILLED  copy_in refuses a length beyond the buffer (1 failing case(s), first: m_guard_copy_in_too_long_refused)
+BE_COPY_IN_NULL_SOURCE KILLED  copy_in refuses a NULL source (harness exit 139 (crash or abort))
+BE_FILL_POISON_DROPPED KILLED  the device output is pre-filled with the poison words (7 failing case(s), first: m_success_poison_reached_device_output)
+BE_FILL_POISON_SHORT KILLED  every output word is pre-filled, including the last (6 failing case(s), first: m_success_poison_reached_device_output)
+BE_FILL_POISON_BOUNDS KILLED  fill_poison refuses a length beyond the output buffer (1 failing case(s), first: m_guard_fill_poison_too_long_refused)
+BE_COPY_OUT_NO_MEMCPY KILLED  copy_out really reads the device output back (20 failing case(s), first: m_success_output_values)
+BE_COPY_OUT_BOUNDS KILLED  copy_out refuses a length beyond the output buffer (1 failing case(s), first: m_guard_copy_out_too_long_refused)
+BE_BUILD_LAYOUT_CHECK KILLED  build refuses a missing job and an unsupported layout (harness exit 139 (crash or abort))
+BE_BUILD_COUNT_OVERFLOW SURVIVED_REDUNDANT  grid arithmetic overflow guard (redundant: an element count above UINT32_MAX - 63 needs at least 16 GiB of input, output and input buffers, so the buffer-size check in the same condition chain refuses it first; only the grid rounding (n + 63) could overflow, and it is never reached)
+BE_BUILD_BUFFERS_SIZE KILLED  build refuses buffers smaller than the element count needs (1 failing case(s), first: m_guard_build_count_beyond_the_buffers_refused)
+BE_C3_FLAG_IGNORED KILLED  the NO_C3 flag removes the L2 flush and the second marker (4 failing case(s), first: m_noc3_no_flush_in_pushbuffer)
+BE_C3_NEVER KILLED  with flags 0 the L2 flush and the second marker are in the pushbuffer (191 failing case(s), first: m_success_returns_ok)
+BE_THREADS_WRONG KILLED  the launch covers every element (33 failing case(s), first: m_success_returns_ok)
+BE_GRID_ROUNDS_DOWN KILLED  the grid rounds up so a partial last block still runs (33 failing case(s), first: m_success_returns_ok)
+BE_ARGS_C_SWAPPED KILLED  the kernel writes the OUTPUT buffer (35 failing case(s), first: m_success_returns_ok)
+BE_ARGS_A_B_SWAPPED KILLED  the kernel gets input A and input B in the right argument slots (1 failing case(s), first: m_success_kernel_arguments_are_a_b_output)
+BE_PROGRAM_VA KILLED  the QMD points at the program buffer (35 failing case(s), first: m_success_returns_ok)
+BE_CBANK_VA KILLED  the QMD points at the constant bank buffer (harness exit 139 (crash or abort))
+BE_SEM_VA KILLED  the QMD release semaphore address is the word the host waits on (180 failing case(s), first: m_success_returns_ok)
+BE_MARKER_VA KILLED  the first release lands on the word the host waits on (187 failing case(s), first: m_success_returns_ok)
+BE_SEM_ZERO_DROPPED KILLED  the semaphore word is zeroed before the doorbell (no stale DONE) (1 failing case(s), first: m_success_semaphore_zeroed_before_doorbell)
+BE_MARKER_ZERO_DROPPED KILLED  the first marker word is zeroed before the doorbell (no stale payload) (5 failing case(s), first: m_success_marker1_zeroed_before_doorbell)
+BE_MARKER2_ZERO_DROPPED KILLED  the second marker word is zeroed before the doorbell (5 failing case(s), first: m_success_marker2_zeroed_before_doorbell)
+BE_NOC3_MARKER2_REPORTED KILLED  with NO_C3 the second marker is neither waited for nor reported (1 failing case(s), first: m_unc_noc3_semaphore_hang_sync_valid_mask)
+BE_MARKER2_OFFSET_CHANGED KILLED  the second marker is 0x10 bytes after the first (1 failing case(s), first: m_success_release2_is_marker_page_plus_0x10)
+BE_MARKER2_PAYLOAD_CHANGED KILLED  the second marker payload is 0x46464646 (11 failing case(s), first: m_success_release2_payload_and_flags)
+BE_RELEASE1_PAYLOAD_ZERO KILLED  the first release writes the completion payload (185 failing case(s), first: m_success_returns_ok)
+BE_RELEASE2_PAYLOAD_ZERO KILLED  the second release writes its payload (176 failing case(s), first: m_success_returns_ok)
+BE_FLUSH_OP_DROPPED KILLED  the L2 flush operation word is L2_FLUSH_DIRTY (176 failing case(s), first: m_success_returns_ok)
+BE_FLUSH_METHOD_CHANGED KILLED  the flush uses the memory-operation method (185 failing case(s), first: m_success_returns_ok)
+BE_WFI_FLAG_RELEASE1 KILLED  the first release waits for idle (WFI) (1 failing case(s), first: m_success_release1_address_payload_flags)
+BE_WFI_FLAG_RELEASE2 KILLED  the second release waits for idle (WFI) (1 failing case(s), first: m_success_release2_payload_and_flags)
+BE_BARRIER_IN_BUILD SURVIVED_REDUNDANT  dsb sy after zeroing the sync words (redundant: a CPU barrier instruction has no effect a host test can observe (the fake driver runs on the same core); it is verified on the chip only (Phase B))
+BE_QMD_RELEASE_CHECK SURVIVED_REDUNDANT  extra QMD1 release-word checks (redundant: the real descriptor builder always produces these words (src/omega_blackwell_qmd.c), so no input makes the check fire; it guards a future change of the builder, which tests/test_omega_blackwell_qmd.c style checks cover)
+BE_PB_OVERFLOW SURVIVED_REDUNDANT  pushbuffer word-capacity guard (redundant: the vector pushbuffer is a fixed 492 words against a 1024-word capacity, so it cannot overflow for any job)
+BE_SUBMIT_NOTHING_BUILT SURVIVED_REDUNDANT  submit before build is refused (redundant: the driver refuses an empty submission too (physics m16_native.c m16_native_enqueue_methods: count == 0 returns -1), so the result is the same refusal)
+BE_LAUNCH_NS_DROPPED KILLED  the launch time is recorded before the doorbell (9 failing case(s), first: m_success_run_info_launch_time_set)
+BE_SUBMIT_ERROR_IGNORED KILLED  a failed submit is reported (SUBMIT), not treated as launched (13 failing case(s), first: m_submit_fail_name_step_state)
+BE_WAIT_UNMAPPED_ACCEPTED KILLED  a wait before build or after free is refused without a driver call (harness exit 139 (crash or abort))
+BE_WAIT_DRIVER_RC_DROPPED KILLED  the driver's wait code reaches the result (4 failing case(s), first: m_unc_marker_hang_driver_code)
+BE_WAIT_RC_MAPPING SURVIVED_REDUNDANT  timeout versus driver fault classification (redundant: the engine core treats every nonzero wait result the same (uncertain completion), and the real m16_native_wait_marker returns only 0 or -1 (m16_native.c))
+BE_WAIT_EQUALITY_RECHECK KILLED  an overshoot of the ">=" compare is refused (UNKNOWN_STATE) (37 failing case(s), first: m_unc_marker_overshoot_name_step_wait)
+BE_WAIT_SNAPSHOT_DROPPED KILLED  the observed word is recorded after every wait (185 failing case(s), first: m_success_returns_ok)
+BE_MARKER_DONE_NS_ALWAYS KILLED  the completion time is recorded only when the first marker wait succeeded (2 failing case(s), first: m_unc_marker_hang_run_info_done_time_only_if_marker_succeeded)
+BE_WAIT_MARKER_WRONG_WORD KILLED  wait_marker waits on the first marker word (186 failing case(s), first: m_success_returns_ok)
+BE_WAIT_SEMAPHORE_WRONG_VALUE KILLED  the release semaphore wait is for DONE (6), not the initial value (5) (174 failing case(s), first: m_success_returns_ok)
+BE_DIAG_DRV_RC_DROPPED KILLED  diagnostics report the raw driver code (16 failing case(s), first: m_open_fail_errno_and_driver_code)
+BE_DIAG_TEXT_OWN_DROPPED KILLED  diagnostics report the backend's own text (10 failing case(s), first: m_short_pb_own_check_text)
+BE_DIAG_TEXT_DRIVER_DROPPED KILLED  diagnostics fall back to the driver's text (14 failing case(s), first: m_open_fail_driver_text_reported)
+BE_DIAG_MARKER_DROPPED KILLED  diagnostics report the first marker word (7 failing case(s), first: m_unc_marker2_hang_observed_words)
+BE_DIAG_MARKER2_DROPPED KILLED  diagnostics report the second marker word (6 failing case(s), first: m_unc_marker_hang_observed_words)
+BE_DIAG_SEMAPHORE_DROPPED KILLED  diagnostics report the semaphore word (8 failing case(s), first: m_unc_marker_hang_observed_words)
+BE_DIAG_VALID_MARKER_DROPPED KILLED  the first marker is flagged valid only when mapped (9 failing case(s), first: m_unc_marker_hang_sync_valid_mask)
+BE_DIAG_VALID_MARKER2_DROPPED KILLED  the second marker is flagged valid only when mapped (8 failing case(s), first: m_unc_marker_hang_sync_valid_mask)
+BE_DIAG_VALID_SEMAPHORE_DROPPED KILLED  the semaphore is flagged valid only when mapped (9 failing case(s), first: m_unc_marker_hang_sync_valid_mask)
+BE_FREE_SCRATCH_ROLE_DROPPED KILLED  free_buf of SCRATCH frees the four SCRATCH parts (51 failing case(s), first: m_success_returns_ok)
+BE_FREE_UNKNOWN_ROLE_ACCEPTED KILLED  free_buf refuses an unknown role (2 failing case(s), first: m_guard_free_negative_role_refused)
+BE_FREE_ERROR_DROPPED KILLED  a failed free is reported (CLEANUP) (6 failing case(s), first: m_cleanup_free_role_name_step_state)
+BE_RELEASE_KEEPS_MARKER_POINTER KILLED  the first marker word is unmapped before SCRATCH is freed (1 failing case(s), first: m_cleanup_free_scratch_sync_words_unmapped_before_free)
+BE_RELEASE_KEEPS_MARKER2_POINTER KILLED  the second marker word is unmapped before SCRATCH is freed (1 failing case(s), first: m_cleanup_free_scratch_sync_words_unmapped_before_free)
+BE_RELEASE_KEEPS_SEM_POINTER KILLED  the semaphore word is unmapped before SCRATCH is freed (1 failing case(s), first: m_cleanup_free_scratch_sync_words_unmapped_before_free)
+BE_CLOSE_KEEPS_MARKER_POINTER KILLED  close unmaps the first marker word (1 failing case(s), first: m_close_unmaps_every_sync_word)
+BE_CLOSE_KEEPS_MARKER2_POINTER KILLED  close unmaps the second marker word (1 failing case(s), first: m_close_unmaps_every_sync_word)
+BE_CLOSE_KEEPS_SEM_POINTER KILLED  close unmaps the semaphore word (1 failing case(s), first: m_close_unmaps_every_sync_word)
+BE_CLOSE_NOT_CALLED KILLED  close really closes the driver (36 failing case(s), first: m_success_driver_counts)
+BE_CLOSE_ERROR_IGNORED KILLED  a failed close is reported (CLEANUP) (2 failing case(s), first: m_cleanup_close_name_step_state)
+WRAP_POISON_NOT_COMPLEMENT KILLED  the poison word is the complement of the expected sum (7 failing case(s), first: m_vec_success_returns_zero)
+WRAP_POISON_CONSTANT KILLED  the poison word never collides with a legitimate sum (0xdeadbeef is one) (7 failing case(s), first: m_vec_success_returns_zero)
+WRAP_ENGINE_FAILURE_IGNORED KILLED  an engine failure (here a cleanup fault) fails the wrapper (1 failing case(s), first: m_vec_cleanup_fault_returns_nonzero)
+WRAP_ORACLE_IGNORED KILLED  the host oracle decides success, not the engine (1 failing case(s), first: m_vec_wrong_math_returns_nonzero)
+WRAP_PARITY_FLAG_FORCED KILLED  parity_verified follows the oracle (1 failing case(s), first: m_vec_wrong_math_parity_not_verified)
+WRAP_MARKER_NOT_REPORTED KILLED  the completion marker is reported (1 failing case(s), first: m_vec_success_completion_marker_and_semaphore)
+WRAP_SEMAPHORE_NOT_REPORTED KILLED  the semaphore value is reported (1 failing case(s), first: m_vec_success_completion_marker_and_semaphore)
+WRAP_LAUNCH_TIME_NOT_REPORTED KILLED  the launch time is reported (1 failing case(s), first: m_vec_success_timestamps)
+WRAP_DONE_TIME_NOT_REPORTED KILLED  the completion time is reported (1 failing case(s), first: m_vec_success_timestamps)
+WRAP_ELAPSED_NOT_REPORTED KILLED  the elapsed time is reported (1 failing case(s), first: m_vec_success_timestamps)
+WRAP_SM_ARCH_NOT_REPORTED KILLED  the architecture is reported (1 failing case(s), first: m_vec_success_shape_fields)
+WRAP_ELEMENT_COUNT_NOT_REPORTED KILLED  the element count is reported (1 failing case(s), first: m_vec_success_shape_fields)
+WRAP_NULL_GUARD_DROPPED KILLED  a NULL argument is refused before any use (harness exit 139 (crash or abort))
+WRAP_ZERO_COUNT_GUARD SURVIVED_REDUNDANT  a zero element count is refused by the wrapper (redundant: the engine refuses element_count 0 as INVALID_ARGS (src/omega_gpu_engine.c job_valid) and the wrapper then returns -1, so the result is the same refusal)
+WRAP_MARKER_TIMEOUT KILLED  the first marker wait limit is 5000 ms (1 failing case(s), first: m_vec_success_timeouts_are_5000_each)
+WRAP_SEMAPHORE_TIMEOUT KILLED  the semaphore wait limit is 5000 ms (1 failing case(s), first: m_vec_success_timeouts_are_5000_each)
+WRAP_MARKER2_TIMEOUT KILLED  the second marker wait limit is 5000 ms (1 failing case(s), first: m_vec_success_timeouts_are_5000_each)
+WRAP_VISIBILITY_TIMEOUT SURVIVED_REDUNDANT  the visibility limit is 5000 ms (redundant: the Blackwell barrier callback ignores its timeout argument (it is a CPU dsb sy that cannot wait), so no host observation depends on the value)
+WRAP_FLAGS_ALL_PROTECTIONS KILLED  the wrapper runs with every protection on (flags 0) (2 failing case(s), first: m_vec_success_timeouts_are_5000_each)
+WRAP_BACKEND_NOT_INSTALLED KILLED  the wrapper installs the Blackwell backend itself (13 failing case(s), first: m_vec_success_returns_zero)
+WRAP_PROGRAM_LENGTH KILLED  the whole encoded program is handed to the engine (7 failing case(s), first: m_vec_success_returns_zero)
+WRAP_MARKER_CHECK SURVIVED_REDUNDANT  second check of the marker payload (redundant: the backend wait_word already refuses any first-marker value other than 0x44444444 (UNKNOWN_STATE), so the engine fails before this line is reached)
+WRAP_SEMAPHORE_CHECK SURVIVED_REDUNDANT  second check of the semaphore value (redundant: the backend wait_word already refuses any semaphore value other than DONE (6), so the engine fails before this line is reached)
+mutants: 120 total, 107 killed, 13 survived as redundant, 0 survived as test gaps (receipt /tmp/mutrun.qyu1xf/out.json)
+CUDAPP_HOST_RC=2

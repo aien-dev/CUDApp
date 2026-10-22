@@ -1,0 +1,31 @@
+   Compiling aien-omega-gpu v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-omega-gpu)
+   Compiling aien-omega-compose v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-omega-compose)
+   Compiling libsqlite3-sys v0.28.0
+   Compiling crumb-spec v1.0.0 (https://github.com/aien-dev/crumb-spec?rev=24194d1b7917ef19244aae6bcaff510686b75fef#24194d1b)
+   Compiling spark-crumbs v0.1.0 (https://github.com/aien-dev/spark-crumbs?rev=9355a92bc9adfe95a6ec5f8ac926f38a0b6e7db2#9355a92b)
+   Compiling tower-http v0.5.2
+   Compiling rusqlite v0.31.0
+   Compiling aien-runtime v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-runtime)
+   Compiling byteorder v1.5.0
+   Compiling aien-allen-profile v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-allen-profile)
+   Compiling aien-allen-memory v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-allen-memory)
+   Compiling cortex-rs v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/cortex-rs)
+   Compiling aien-security v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-security)
+   Compiling aien-kv-store v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-kv-store)
+   Compiling aien-trace v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-trace)
+   Compiling aien-serve-http v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-serve-http)
+   Compiling tokio-stream v0.1.19
+warning: aien-omega-compose@0.1.0: aien-omega-compose: build dir was for another omega commit, rebuilt from clean
+warning: aien-omega-gpu@0.1.0: aien-omega-gpu: build dir was for another omega commit, rebuilt from clean
+   Compiling aien-omega-dattn v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-omega-dattn)
+   Compiling aien-omega-bf16 v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-omega-bf16)
+   Compiling aien-omega-router v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-omega-router)
+   Compiling aien-omega-fp8 v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-omega-fp8)
+   Compiling aien-omega-moe v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-omega-moe)
+   Compiling aien-omega-pf v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-omega-pf)
+   Compiling aien-omega-q38 v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-omega-q38)
+   Compiling aien-omega-dgraph v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-omega-dgraph)
+   Compiling aien-inference-abi v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-inference-abi)
+   Compiling aien-scheduler v0.1.0 (/home/drakestapleton/workspace/hermes-desk/sc-canonical-l457/crates/aien-scheduler)
+    Finished `release` profile [optimized] target(s) in 51.83s
+SC_NATIVE_BUILD_RC=0

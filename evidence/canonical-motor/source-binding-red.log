@@ -1,0 +1,9 @@
+PASS valid
+Traceback (most recent call last):
+  File "/home/drakestapleton/workspace/hermes-desk/omega-canonical-l457/tests/test_cudapp_link.py", line 59, in <module>
+    if __name__=='__main__': main()
+                             ^^^^^^
+  File "/home/drakestapleton/workspace/hermes-desk/omega-canonical-l457/tests/test_cudapp_link.py", line 55, in main
+    assert result.returncode!=0,(case,'must refuse canonical binding',result.stdout,result.stderr)
+           ^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('missing-checkout', 'must refuse canonical binding', '', 'cudapp-link: note: no CUDA++ at CUDAPP_DIR=/home/drakestapleton/handoffs/L457/canonical-d9c6u0xr/absent; GPU files not linked (clone git@github.com:aien-dev/CUDAplusplus.git next to omega for GPU targets)\n')
