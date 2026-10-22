@@ -102,14 +102,15 @@ typedef struct {
     uint64_t timeout_ms;         /* marker poll; past it the completion is uncertain and the process latches */
     uint32_t shared_bytes;       /* shared memory per CTA; 0 = the QMD default (1024) */
     uint32_t spin_us;            /* poll the marker without sleeping for up to this long, then the platform's
-                                    poll_word (Linux reference: 50 us sleep-poll) until timeout_ms; 0 = poll_word only */
+                                    poll_word (Linux reference: 50 us sleep-poll) until timeout_ms; 0 = the process-wide setting
+                                    (omega_gpu_session_set_spin_us) */
 } OmegaGpuLaunch;
 #define OMEGA_GPU_SESSION_MAX_SPIN_US 1000000u
 #define OMEGA_GPU_SESSION_MAX_ARGS 32u
 /* poll_word is called in slices of at most this many ms so a cancel request is seen within one slice */
 #define OMEGA_GPU_SESSION_POLL_SLICE_MS 1u
 
-/* ---- platform (ABI 1.1) ---- */
+/* ---- platform (ABI 1.2) ---- */
 
 /* Installs the platform the session runs on. Negotiates caps against OMEGA_GPU_SVC_REQUIRED_SESSION and checks the
  * table (omega_gpu_platform_check_for). OMEGA_GPU_PLAT_OK, or the refusal; REFUSED_BUSY while the device is open,

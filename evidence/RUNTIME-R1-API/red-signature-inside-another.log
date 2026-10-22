@@ -1,0 +1,3 @@
+red before green for the signature-inside-another control (2026-10-22T01:26:12Z): API.md copy with 'int32_t omega_gpu_session_open_count(void);' (the header has uint32_t)
+old tools/runtime_api_check.sh (be1e4777): exit 0, RESULT: PASS (runtime API 0.1: 91 functions, 28 structs, 236 fields, 159 constants match the headers)
+new tools/runtime_api_check.sh: exit 1, FAIL: signature quoted in /tmp/r1red/API.md but in no header: int32_t omega_gpu_session_open_count(void);

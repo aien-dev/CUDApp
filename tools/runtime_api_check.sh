@@ -154,9 +154,9 @@ if [ -n "$APIMD" ]; then
   done > "$WORK/apimd.txt"
   if [ -s "$WORK/apimd.txt" ]; then cat "$WORK/apimd.txt"; fail=1; fi
   # every C signature quoted in API.md (lines inside a plain ```c fence that end in `);`) must be in a header, comments removed
-  for h in $(awk '$1 == "header" { print $2 }' "$MANIFEST"); do perl -0777 -pe 's{/\*.*?\*/}{}gs' "$ROOT/$h"; done | tr '\n' ' ' | sed 's/[[:space:]][[:space:]]*/ /g' > "$WORK/headers.norm"
+  for h in $(awk '$1 == "header" { print $2 }' "$MANIFEST"); do perl -0777 -pe 's{/\*.*?\*/}{}gs' "$ROOT/$h"; done | tr '\n' ' ' | sed 's/[[:space:]][[:space:]]*/ /g' | sed 's/^/ /' > "$WORK/headers.norm"
   awk '/^```c$/ { f = 1; next } /^```/ { f = 0 } f && /\);[ \t]*$/ { print }' "$APIMD" | sed 's/[[:space:]][[:space:]]*/ /g; s/^ //; s/ $//' |
-  while IFS= read -r sig; do grep -qF -- "$sig" "$WORK/headers.norm" || echo "FAIL: signature quoted in $APIMD but in no header: $sig"; done > "$WORK/sigs.txt"
+  while IFS= read -r sig; do grep -qF -- " $sig" "$WORK/headers.norm" || echo "FAIL: signature quoted in $APIMD but in no header: $sig"; done > "$WORK/sigs.txt"
   if [ -s "$WORK/sigs.txt" ]; then cat "$WORK/sigs.txt"; fail=1; fi
 fi
 

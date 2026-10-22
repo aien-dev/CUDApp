@@ -32,5 +32,6 @@ control changed-constant     'manifest says `const OMEGA_GPU_SESSION_MAX_ARGS ' 
 control version-doc-mismatch "must contain the line \"Omega Runtime API version:"             API.md 's/^Omega Runtime API version: .*/Omega Runtime API version: 9.9/'
 control stable-without-doc   "STABLE entry omega_gpu_session_launch has no"                    API.md 's/^#### `omega_gpu_session_launch`/#### launch/'
 control wrong-quoted-signature "signature quoted in" API.md 's/^uint32_t omega_gpu_session_open_count(void);/uint64_t omega_gpu_session_open_count(void);/'
+control signature-inside-another "signature quoted in" API.md 's/^uint32_t omega_gpu_session_open_count(void);/int32_t omega_gpu_session_open_count(void);/'
 [ $bad = 0 ] && { echo "RESULT: PASS (every negative control was caught)"; exit 0; }
 echo "RESULT: FAIL (a negative control was not caught)"; exit 1

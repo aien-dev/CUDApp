@@ -1,4 +1,4 @@
-$ quiet-build make test-runtime-api   (2026-10-22T00:29:04Z, branch runtime/r1-api, negative-control quoting fixed)
+$ quiet-build make test-runtime-api   (2026-10-22T01:24:25Z, runtime/r1-api after the Opus review fixes)
 CC="cc" tools/runtime_api_check.sh docs/runtime/omega_runtime_api.manifest . build/runtime-api/real docs/runtime/API.md
 RESULT: PASS (runtime API 0.1: 91 functions, 28 structs, 236 fields, 159 constants match the headers)
 CC="cc" tools/runtime_api_negative.sh docs/runtime/omega_runtime_api.manifest . build/runtime-api docs/runtime/API.md
@@ -10,5 +10,6 @@ NEGATIVE CONTROL changed-constant: FAILED as it must (manifest says `const OMEGA
 NEGATIVE CONTROL version-doc-mismatch: FAILED as it must (must contain the line "Omega Runtime API version:)
 NEGATIVE CONTROL stable-without-doc: FAILED as it must (STABLE entry omega_gpu_session_launch has no)
 NEGATIVE CONTROL wrong-quoted-signature: FAILED as it must (signature quoted in)
+NEGATIVE CONTROL signature-inside-another: FAILED as it must (signature quoted in)
 RESULT: PASS (every negative control was caught)
 make exit=0
