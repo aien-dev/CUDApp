@@ -60,7 +60,7 @@ The research in `docs/PAIN_POINTS.md` ranks what developers hit with CUDA and it
 | D2 | One command, one version: `make doctor`, then `make hello-gpu` | DONE |
 | D3 | Faults named at the launch that caused them | DONE on the simulator; chip half open |
 | D4 | The simulator first, from the same program: `hello_gpu --sim` | DONE |
-| D5 | Builds in seconds, ships small | DONE (1.3 s, 1.06 MB) |
+| D5 | Builds in seconds, ships small | DONE (2.0 s, 1.06 MB) |
 | D6 | A new chip works on day one or is refused with a sentence | DONE (the refusal) |
 | D7 | Same inputs, same bits, at no cost | simulator DONE; chip open |
 | D8 | No per-process CUDA tax | PLANNED (chip window) |

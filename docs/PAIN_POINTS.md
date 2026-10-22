@@ -90,7 +90,7 @@ Sizes: "For example, recent manylinux2014 wheels for TensorFlow are 588 MB (whee
 
 **Why people stay.** Building once per architecture is what makes the code fast on each one; the cost lands on packagers and on whoever builds from source.
 
-**CUDA++'s answer (row D5).** CUDA++ builds from a clean checkout with `make` in a time and size printed by the build receipt, with no per-architecture copies, because kernels are generated for the chip the program runs on, in microseconds, when the program builds them (row D10). This is not a like-for-like comparison: CUDA++'s libraries cover far less than cuBLAS and cuDNN (section 4). Status: DONE: a fresh clone builds the library in 1.3 s wall on the Spark (20 cores, other builds running), giving a 1,060,126-byte `libcudapp.a` that needs no CUDA symbol (`evidence/dx/pain-points/d5-build-from-empty.txt`).
+**CUDA++'s answer (row D5).** CUDA++ builds from a clean checkout with `make` in a time and size printed by the build receipt, with no per-architecture copies, because kernels are generated for the chip the program runs on, in microseconds, when the program builds them (row D10). This is not a like-for-like comparison: CUDA++'s libraries cover far less than cuBLAS and cuDNN (section 4). Status: DONE: a fresh clone builds the library in 2.0 s wall on the Spark (20 cores, other builds running), giving a 1,060,126-byte `libcudapp.a` that needs no CUDA symbol (`evidence/dx/pain-points/d5-build-from-empty.txt`).
 
 ### 2.5 A new chip: "no kernel image is available for execution on the device" (rank 5)
 
@@ -146,7 +146,7 @@ ZLUDA itself ("ZLUDA is a drop-in replacement for CUDA on non-NVIDIA GPUs."[67])
 
 **Why people stay.** Compiling for the exact shape is how these libraries get their speed.
 
-**CUDA++'s answer (row D10).** CUDA++'s kernel builder runs in the program's own process, takes microseconds, has no cache directory and no outside compiler to call, and produces the same bytes every time for the same kernel. The row is done when hello-gpu prints its kernel build time and the hash of the machine code, the same on every run. Status: DONE for hello-gpu: built in 30 to 35 us, the same machine-code hash on every run (`evidence/dx/d3-faults/hello-sim-spark.txt`).
+**CUDA++'s answer (row D10).** CUDA++'s kernel builder runs in the program's own process, takes microseconds, has no cache directory and no outside compiler to call, and produces the same bytes every time for the same kernel. The row is done when hello-gpu prints its kernel build time and the hash of the machine code, the same on every run. Status: DONE for hello-gpu: built in tens of microseconds (22 and 23 us in the receipt), the same machine-code hash on every run (`evidence/dx/d3-faults/hello-sim-spark.txt`).
 
 ### 2.10 Closed, model-shaped libraries
 

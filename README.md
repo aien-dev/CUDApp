@@ -90,7 +90,7 @@ cudapp doctor: is this machine ready for CUDA++?
   ok    NVIDIA kernel module: open module 580.173.02 (CUDA++ speaks 580.173.02)
   ok    device files: /dev/nvidiactl /dev/nvidia0 /dev/nvidia-uvm can be opened by this user
   ok    GPU 000f:01:00.0: NVIDIA GB10 (sm_121), qualified (receipt: evidence/m16-blackwell-native-path-requalification-receipt.json)
-  ok    memory: 121.7 GiB shared by the CPU and the GPU, 62.0 GiB available now
+  ok    memory: 121.7 GiB shared by the CPU and the GPU, 61.3 GiB available now
   info  CUDA toolkit: not needed and not used by CUDA++ (one is installed at /usr/local/cuda/bin/nvcc; that is fine)
   info  compiler: this doctor was built by 13.3.0; CUDA++ needs only make and a C compiler
 READY. Next: make hello-gpu
@@ -124,7 +124,7 @@ FAULT at launch 8 of 8 of kernel vecadd (simulator): global load outside every b
   launch: grid 1025 x 1 blocks of 128 threads, n = 131073, first element 917504
   instruction: 11 of 19, LDG.E (4-byte load)
   thread: block 1024, thread 0 (element 1048576 of the whole job)
-  address: 0xf7ef22a0f040 (4 bytes), 0 bytes past the end of buffer a = [0xf7ef2260f040, 0xf7ef22a0f040) (4194304 bytes)
+  address: 0xeba6fbc6f040 (4 bytes), 0 bytes past the end of buffer a = [0xeba6fb86f040, 0xeba6fbc6f040) (4194304 bytes)
   simulator: MEM at pc 11: global access outside the declared buffers
   next: launch 8 was given n = 131073, and buffer a holds 131072 elements from this launch's first element.
         Fix the launch or the buffer, run hello_gpu --sim until it passes, then run hello_gpu on the GPU.
@@ -138,12 +138,12 @@ Receipts: `evidence/dx/d3-faults/fault-report-spark.txt`, `evidence/dx/d3-faults
 
 **How CUDA++ fixes it.** No per-architecture copies and no template-heavy device compiler: CUDA++ generates each kernel's machine code when the program builds it (row 9), so the library is plain C.
 
-**The command that shows it** (on the Spark, 20 cores, with other builds running: load average 24.9):
+**The command that shows it** (on the Spark, 20 cores, with other builds running: load average 31.31):
 
 ```
 $ git clone -b dx/pain-points <this repository> cudapp && cd cudapp
 $ time make -j20
-exit 0, wall 1.314248471 s
+exit 0, wall 2.034379307 s
 $ ls -l build/libcudapp.a
 1060126 build/libcudapp.a
 $ nm -u build/libcudapp.a | grep -c -i cuda   (CUDA symbols the library needs)
@@ -223,10 +223,10 @@ Receipt: `evidence/dx/pain-points/licence.txt`. **FIXED.** The GPU's signed firm
 
 ```
 $ build/hello_gpu --sim
-kernel built in 35 us: 32 instructions, 12 registers, no compiler run, no cache
+kernel built in 22 us: 32 instructions, 12 registers, no compiler run, no cache
 machine code sha256 6248b8ed338019f75e20b13a8ef7e63b4e35764229e0669ffbe54464353e87d1
 $ build/hello_gpu --sim
-kernel built in 30 us: 32 instructions, 12 registers, no compiler run, no cache
+kernel built in 23 us: 32 instructions, 12 registers, no compiler run, no cache
 machine code sha256 6248b8ed338019f75e20b13a8ef7e63b4e35764229e0669ffbe54464353e87d1
 ```
 
