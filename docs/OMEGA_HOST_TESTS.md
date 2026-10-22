@@ -9,6 +9,10 @@ non-AArch64 build can compile the library, but its backend refuses to open with
 That simulator setting does not enable the real backend. The AArch64 production
 barriers remain `dsb sy`.
 
+`test-omega-arch-guard` runs the production refusal behavior on a non-AArch64
+Linux runtime. On AArch64 it prints `NOT_RUN` for the x86-64 runtime row; a
+cross-compile alone does not change that row.
+
 The portable host suite includes the fresh-checkout runner refusal checks:
 
 ```sh

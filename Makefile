@@ -276,11 +276,13 @@ HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-a
 	test-codegen-freestanding test-gpu-session-platform test-gpu-wait test-gpu-wait-mutants host-tests-m16 \
 	test-runtime-api test-runtime-portability test-doctor test-hello-sim
 
-.PHONY: test-omega-slice-runner
+.PHONY: test-omega-slice-runner test-omega-arch-guard
 test-omega-slice-runner:
 	sh tests/omega/test-runner.sh
+test-omega-arch-guard:
+	OUT_DIR=$(OUT_DIR) CC="$(CC)" sh tests/omega/test-arch-guard.sh
 
-HOST_TESTS += test-omega-slice-runner
+HOST_TESTS += test-omega-slice-runner test-omega-arch-guard
 test: $(HOST_TESTS)
 	@echo "CUDA++ HOST TESTS PASS ($(words $(HOST_TESTS)) targets)"
 
