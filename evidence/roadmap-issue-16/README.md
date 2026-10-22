@@ -15,7 +15,7 @@ Commands and raw results:
   `quiet-build timeout 90 make OUT_DIR=build-roadmap-contracts-bench test-numerical-contract`, exit 0 (`target-final.log`).
 - Full diagnostic suite: `quiet-build timeout 900 make -j2 OUT_DIR=build-roadmap-contracts-bench test`, exit 2 (`host-suite.log`). The portability table lacked the two new API rows; both were added. This pre-final diagnostic tree is not source-qualified PASS evidence.
 - An overlapping full-suite retry was terminated only in this lane's process tree, exit 143 (`host-suite-final.log`). No other owner's processes were killed.
-- Final full suite used the exact source pin, same full command, exit 0 (`host-suite-green.log`). It began after the other common builds drained; another worker subsequently began a common build. All output is correctness/simulator evidence, with no timing/performance claim. No timing experiment occurred.
+- Final full suite used the source pin's unchanged runtime/test C inputs, same full command, exit 0 (`host-suite-green.log`). It began after the other common builds drained; another worker subsequently began a common build. All output is correctness/simulator evidence, with no timing/performance claim. No timing experiment occurred.
 
 New checks: 285 API cases, 236 production-generated tied-router simulator
 checks (128 routed and 256-plus-shared, both fragment orders, scaling and
@@ -40,3 +40,13 @@ integration are NOT_RUN. No live model request, GPU operation, server start,
 restart, driver change, or timing experiment was performed. Printed host-test
 or simulator durations are not benchmark claims. No tolerance was imported
 from literature or promoted to a global model acceptance policy.
+
+Provenance clarification: the full numerical make process loaded rules before
+the additional reversed-tie mutation recipe was added. Runtime and test C
+inputs are identical between a0ef918c3b2da52aa7c68387a42ebd7700bc1edb and
+3565287250e4ebd40e79a23d978edd3c936c94f2; only documentation and the extra
+mutation recipe changed. The final target run exercises that recipe at the
+final numerical source. The child benchmark full-suite run at executable
+source 4fdc3dabc5a0243ad93b6106e76497d0ce428d8a also passes all numerical
+and benchmark gates together. Its unchanged-runtime proof and raw output
+are under evidence/roadmap-issue-17/. This clarification changes no inputs.
