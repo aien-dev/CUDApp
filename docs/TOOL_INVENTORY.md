@@ -97,6 +97,17 @@ mail, inquisitor, connector, rsi, crumbs), `muse`, `agent`, `agent-archive`.
 Their service contracts stay identical; each becomes a porting lane with the
 same name when the runtime can host it.
 
+The wrapped third-party binaries are not exceptions either: they are Tier 4
+lanes, and the gate is named. For gh (about 100k lines of Go), claude and bw:
+the JSON parsing and the API client surface are pure logic and can be written
+in Omega now; sockets are syscalls and are reachable now; the one physical
+gate is a TLS stack written in Omega, which is its own project and a
+security-sensitive one, because a wrong TLS is a hole, not a slowdown.
+Everything we own both ends of (the motor on 127.0.0.1:18091, the ledger, the
+desk handoffs, local CI) needs no TLS, so Omega HTTP over loopback comes
+first. Until a lane completes, the wrapper keeps its guard logic in Omega
+(Tier 2) and the wrapped binary stays: same name, same behavior.
+
 ## Keep as-is (not our logic)
 
 Third-party binaries and their thin launchers where the wrapper adds no
