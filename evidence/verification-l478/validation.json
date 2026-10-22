@@ -1,0 +1,286 @@
+{
+  "schema": "L478-targeted-validation-v1",
+  "recorded_utc": "2026-10-22T18:04:26.952Z",
+  "omega_original_pr614": "19eebe0e04811002f641c0f7b58c1b87ea9b5c42",
+  "cudapp_canonical_parent": "349913f17c083996680c72b32f767b225005155d",
+  "cudapp_implementation": "3414600ba598630b01c240cdd630b33545f8b0d9",
+  "sources": [
+    {
+      "repository": "CUDApp",
+      "path": "Makefile",
+      "sha256": "83f482b756add705580d37e989ad6457e1a7705d93f186f7322272b813753b32"
+    },
+    {
+      "repository": "CUDApp",
+      "path": "src/omega_blackwell_codegen.c",
+      "sha256": "62d6fd863755698eb78a070b58d3a34ea81603bcc4377270ec12b9e0018062c2"
+    },
+    {
+      "repository": "CUDApp",
+      "path": "tests/gpu_elementwise_test.c",
+      "sha256": "d9d5051ef484116b5980317d6ec775692e1d59bc27830e9bae11bebce646025f"
+    },
+    {
+      "repository": "CUDApp",
+      "path": "tests/gpu_attention_test.c",
+      "sha256": "63ebe78679cf9cdcfea9845c86136f3d486e940ec6fbc0e307b07ea65cf6f8e3"
+    },
+    {
+      "repository": "CUDApp",
+      "path": "tests/gpu_fp8_api_test.c",
+      "sha256": "6111321efac038791dcaebd256bbfa68648d7632900c21e09975aebad483f95b"
+    },
+    {
+      "repository": "CUDApp",
+      "path": "tests/gpu_reconv_test.c",
+      "sha256": "d619a3f1b3b2d57fb98d20676e238f312ebb369c0bb90eda119d37ba1b22afe7"
+    },
+    {
+      "repository": "CUDApp",
+      "path": "tests/gpu_isolation_test.c",
+      "sha256": "834cf7944125b7a5036475a981836ec4de0450d606c6ed42b8b36aa73df03987"
+    },
+    {
+      "repository": "CUDApp",
+      "path": "tests/kernel_dump_test.c",
+      "sha256": "277d7086d31d1626031b7213715e421427cb47a7c74ddf2815b151a9fdc8a602"
+    },
+    {
+      "repository": "CUDApp",
+      "path": "tests/test_isolation_dump.sh",
+      "sha256": "a6309ed31f1690b8488a8135e1f6ac8c2dcb18c69c8d390e8463d392d658b933"
+    },
+    {
+      "repository": "CUDApp",
+      "path": "mk/kernel-dump.mk",
+      "sha256": "061443ede84c642b3daced4100e4a272ec98c157f9ee7fc4dee2856231d9db91"
+    },
+    {
+      "repository": "CUDApp",
+      "path": "tools/sm121dis/corpus.sh",
+      "sha256": "c54d0a20e4f5ddc31c7645025b0b21c6a15b5455e638af90ba07e269ef1a125c"
+    },
+    {
+      "repository": "CUDApp",
+      "path": "tools/sm121dis/check.sh",
+      "sha256": "99ee27af114aa9eed45b3b2d94a45a7e3f396033872e0612a800d738ea557dac"
+    },
+    {
+      "repository": "CUDApp",
+      "path": "src/omega_sm121_disasm.c",
+      "sha256": "085e13f304b48e712f434fad27ab6bcef9328b066c2d9b71ebbf25c4c5be46e0"
+    },
+    {
+      "repository": "omega",
+      "path": "bench/prime_race/tests/gb10_sieve_host_test.c",
+      "sha256": "4be8f44439ca0d7dc6edd81df41b0e307777fa9c009832e0cd8673aa321549ae"
+    },
+    {
+      "repository": "omega",
+      "path": "bench/prime_race/tests/gb10_sieve_listing_test.c",
+      "sha256": "cdfcfc1816087f36a06b42e62f6d1502ddd3f15d91253d89dbeff8efdf6e3caa"
+    },
+    {
+      "repository": "omega",
+      "path": "mk/prime_race_gb10.mk",
+      "sha256": "adc3dd72ff1ae0b32a54253d5d74419056ec54b2e6a3abbb089f80502ca7434f"
+    }
+  ],
+  "binaries": [
+    {
+      "path": "/home/drakestapleton/workspace/cudapp-verification-l478/build-l478-green/libomega_gpu.a",
+      "sha256": "e3f36d05b56ec3c3ac2e4d8da29ec0ce34676e159b6201b532fd8ff07a377fea"
+    },
+    {
+      "path": "/home/drakestapleton/workspace/cudapp-verification-l478/build-l478-green/kernel_dump_test",
+      "sha256": "5140297e160649f421c087d67b2b284e2bc67429ccc20d6e678780fefab47612"
+    },
+    {
+      "path": "/home/drakestapleton/workspace/cudapp-verification-l478/build-l478-green/gpu_elementwise_test",
+      "sha256": "000108ec5fe996c6bfd7fad84a5a136a5871c9ed50c6ad133649ab59ecb609ca"
+    },
+    {
+      "path": "/home/drakestapleton/workspace/cudapp-verification-l478/build-l478-green/gpu_attention_test",
+      "sha256": "d154eca62a6b33ed5fa7b89f8b4a3e5821ac19a34f25788cdcb82d152985b492"
+    },
+    {
+      "path": "/home/drakestapleton/workspace/cudapp-verification-l478/build-l478-green/gpu_fp8_api_test",
+      "sha256": "294ea2a4c36a60f7170d2a49a86dd3a3939d0d835e228913d408f9c33e012e25"
+    },
+    {
+      "path": "/home/drakestapleton/workspace/cudapp-verification-l478/build-l478-green/gpu_reconv_test",
+      "sha256": "49c4d25797d3ff3df1830b04d3845d1705cd5366247c86d1e44a0f84302da514"
+    },
+    {
+      "path": "/home/drakestapleton/workspace/cudapp-verification-l478/build-l478-green/gpu_isolation_test",
+      "sha256": "28a657a7d562a41d402c5a19a448877b35ee665f3e6c7f539bcfc9ee2f97e0ac"
+    },
+    {
+      "path": "/home/drakestapleton/workspace/cudapp-verification-l478/build-l478-green/sm121dis",
+      "sha256": "c2477b02f5f5c398023d212888867b7da5ca13fdf8ef7e6760e01fcd582750a2"
+    },
+    {
+      "path": "/home/drakestapleton/workspace/cudapp-verification-l478/build-l478-green/sm121dis_red",
+      "sha256": "04f1d52650dccbfc591b341ae189918c79f2209340e07cf3b0c5285d7d7d6284"
+    },
+    {
+      "path": "/home/drakestapleton/workspace/cudapp-verification-l478/build-l478-free/codegen.o",
+      "sha256": "262c4b8a1b8e587fbbb54385c72c80a45e07c373bb80b196f06aaf8ff0e57873"
+    },
+    {
+      "path": "/home/drakestapleton/workspace/omega-verification-614-618-20261022/build-l478/gb10_sieve_host_test",
+      "sha256": "5978397fa0c8e95c887357c5d34aa60a5edc83f4bfde9dd3521e0a32ee8ed4ae"
+    },
+    {
+      "path": "/home/drakestapleton/workspace/omega-verification-614-618-20261022/build-l478/gb10_sieve_listing_test",
+      "sha256": "3a49da92702db08b394f7b010a1a7c11f1f59872b2f8f01d32e2e7c0bc6f62fb"
+    }
+  ],
+  "tools": [
+    {
+      "name": "cc",
+      "path": "/usr/bin/cc",
+      "realpath": "/usr/bin/aarch64-linux-gnu-gcc-13",
+      "sha256": "a20520ee21543f243d40636a9181a142c45ecd989de31ab86b99a8ea5ada870d"
+    },
+    {
+      "name": "make",
+      "path": "/usr/bin/make",
+      "realpath": "/usr/bin/make",
+      "sha256": "abbecc214fcadef6530d1cc137bde7ceb74cae3f6b992c7d10a8669a7314c7e0"
+    },
+    {
+      "name": "quiet-build",
+      "path": "/home/drakestapleton/.local/bin/quiet-build",
+      "realpath": "/home/drakestapleton/.local/bin/quiet-build",
+      "sha256": "b8b40d2c1221d6067a49cebd288fcf0b8fb34c616562f58569385d81de62d8dc"
+    },
+    {
+      "name": "git",
+      "path": "/usr/bin/git",
+      "realpath": "/usr/bin/git",
+      "sha256": "aa6540695d076182256dd6e96c8b302e4d56381e3000bbfd5c71bbdfe94a4942"
+    },
+    {
+      "name": "ar",
+      "path": "/usr/bin/ar",
+      "realpath": "/usr/bin/aarch64-linux-gnu-ar",
+      "sha256": "f4583a612510e038dbc1ae8afb5eae5f0445c435bdd7c4c28e78acc7e757d2b1"
+    },
+    {
+      "name": "ld",
+      "path": "/usr/bin/ld",
+      "realpath": "/usr/bin/aarch64-linux-gnu-ld.bfd",
+      "sha256": "1e4d3369b76845fa8e099b83513bf28f6f722e046f9b2cde1378c9e27f96d19c"
+    },
+    {
+      "name": "nvdisasm",
+      "path": "/usr/local/cuda/bin/nvdisasm",
+      "realpath": "/usr/local/cuda-13.0/bin/nvdisasm",
+      "sha256": "bc40070d596fa49b81c0905ca1d05e457aaec071280f742997d4a0b511781b25"
+    },
+    {
+      "name": "node",
+      "path": "/usr/bin/node",
+      "realpath": "/usr/bin/node",
+      "sha256": "0f8949d1028f6d61506b2d5bc57e7e6fe893d7b1997509b7847294fc9c616584"
+    }
+  ],
+  "commands": [
+    {
+      "command": "timeout 240 quiet-build make -j2 OUT_DIR=build-l478-green test-kernel-dump test-gpu-elementwise test-gpu-reconv test-gpu-attention test-gpu-fp8 test-gpu-isolation",
+      "cwd": "/home/drakestapleton/workspace/cudapp-verification-l478",
+      "exit_code": 0,
+      "log": "targeted-host-green.log",
+      "reported_counts": [
+        13,
+        24,
+        107,
+        119,
+        4997,
+        214,
+        5,
+        219,
+        73,
+        107,
+        227,
+        229
+      ]
+    },
+    {
+      "command": "timeout 60 quiet-build make OUT_DIR=build-l478-green test-isolation-dump",
+      "cwd": "/home/drakestapleton/workspace/cudapp-verification-l478",
+      "exit_code": 0,
+      "checks": 6,
+      "log": "isolation-dump-green.log"
+    },
+    {
+      "command": "timeout 60 quiet-build cc -std=gnu11 -Wall -Wextra -Werror -O2 -Isrc -DOMEGA_GPU_NO_POSIX -ffreestanding -c src/omega_blackwell_codegen.c -o build-l478-free/codegen.o",
+      "cwd": "/home/drakestapleton/workspace/cudapp-verification-l478",
+      "exit_code": 0,
+      "log": "freestanding.log"
+    },
+    {
+      "command": "timeout 60 quiet-build make OUT_DIR=build-l478-green build-l478-green/sm121dis build-l478-green/sm121dis_red",
+      "cwd": "/home/drakestapleton/workspace/cudapp-verification-l478",
+      "exit_code": 0,
+      "log": "decoder-build.log"
+    },
+    {
+      "command": "timeout 30 quiet-build env OMEGA_KERNEL_DUMP_DIR=<private-corpus> ./build-l478-green/gpu_elementwise_test --host-only",
+      "cwd": "/home/drakestapleton/workspace/cudapp-verification-l478",
+      "exit_code": 0,
+      "checks": 24,
+      "log": "corpus-capture.log"
+    },
+    {
+      "command": "timeout 60 quiet-build sh tools/sm121dis/check.sh build-l478-green/sm121dis <private-corpus> build-l478-decoder-green",
+      "cwd": "/home/drakestapleton/workspace/cudapp-verification-l478",
+      "exit_code": 0,
+      "kernels": 10,
+      "words": 408,
+      "log": "decoder-green.log"
+    },
+    {
+      "command": "timeout 60 quiet-build sh tools/sm121dis/check.sh build-l478-green/sm121dis_red <private-corpus> build-l478-decoder-red",
+      "cwd": "/home/drakestapleton/workspace/cudapp-verification-l478",
+      "exit_code": 1,
+      "kernels": 10,
+      "rejected_kernels": 10,
+      "words": 408,
+      "log": "decoder-red.log"
+    },
+    {
+      "command": "timeout 180 quiet-build ./build-l478/gb10_sieve_host_test",
+      "cwd": "/home/drakestapleton/workspace/omega-verification-614-618-20261022",
+      "exit_code": 0,
+      "checks": 172,
+      "log": "sieve-green.log"
+    },
+    {
+      "command": "timeout 20 quiet-build sh tools/sm121dis/corpus.sh unused <0755-directory>",
+      "cwd": "/home/drakestapleton/workspace/cudapp-verification-l478",
+      "exit_code": 1,
+      "log": "corpus-unsafe.log"
+    },
+    {
+      "command": "timeout 20 quiet-build sh tools/sm121dis/corpus.sh unused <private-dev-shm-directory>",
+      "cwd": "/home/drakestapleton/workspace/cudapp-verification-l478",
+      "exit_code": 1,
+      "log": "corpus-outside.log"
+    }
+  ],
+  "hardware": "NOT_RUN",
+  "model_load": "NOT_RUN",
+  "hang_recovery": "NOT_RUN",
+  "speed_measurements": "NOT_RUN",
+  "official_judges": "NOT_RUN",
+  "official_codeql_rescan": "NOT_RUN",
+  "full_shared_suite": "NOT_RUN: L479 owns integration suite",
+  "source_recheck": {
+    "utc": "2026-10-22T18:06:15.725Z",
+    "omega": "omega-source-recheck.tsv",
+    "cudapp": "cudapp-source-recheck.tsv",
+    "verdict": "All original PR614-618, main, canonical and reused roadmap pins unchanged from fetch-time source snapshots"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "capture_function_omega614_sha256": "20c87d7d790d359ee67c927019199ed18277044b15667dd7e48e470883482659",
+  "capture_function_canonical_sha256": "20c87d7d790d359ee67c927019199ed18277044b15667dd7e48e470883482659",
+  "capture_function_identical": true,
+  "isolation_omega617_sha256": "d342cd6032e18e61ec52690900363958980cff333e1a73da930ac3bce7e25356",
+  "isolation_canonical_sha256": "d342cd6032e18e61ec52690900363958980cff333e1a73da930ac3bce7e25356",
+  "isolation_identical": true
+}

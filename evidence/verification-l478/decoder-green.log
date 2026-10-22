@@ -1,0 +1,13 @@
+oracle: release 13.0, V13.0.85
+[PASS] 08d4bfdb07ad4378: 32 words
+[PASS] 1a1f34c53ab6d575: 80 words
+[PASS] 3ef5b1c6bf31891a: 32 words
+[PASS] 5716117a120fb074: 32 words
+[PASS] 7b09d5db40f4322a: 32 words
+[PASS] 8124543de959153e: 32 words
+[PASS] 8246a9a2f53c8820: 72 words
+[PASS] d392c1a4ae9e48fa: 32 words
+[PASS] dad4d31c31d5358b: 32 words
+[PASS] e5100d76a2216f99: 32 words
+kernels: 10, words: 408, failed kernels: 0
+VERDICT PASS

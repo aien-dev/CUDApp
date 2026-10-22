@@ -1,0 +1,2 @@
+cc -std=gnu11 -Wall -Wextra -Werror -O2 -Isrc -o build-l478-green/sm121dis tools/sm121dis/sm121dis.c src/omega_sm121_disasm.c
+cc -std=gnu11 -Wall -Wextra -Werror -O2 -DSM121DIS_MUTANT=1 -Isrc -o build-l478-green/sm121dis_red tools/sm121dis/sm121dis.c src/omega_sm121_disasm.c

@@ -6,7 +6,14 @@
 # `make OUT_DIR=<build-out-dir> sm121dis-corpus-bins` (mk/sm121dis.mk). A test that fails is reported; the run goes on.
 set -u
 OUT=$1; K=$2
-mkdir -m 700 -p "$K"; K=$(cd "$K" && pwd)
+mkdir -m 700 -p "$K" || exit 1
+K=$(cd "$K" && pwd -P) || exit 1
+ROOT=$(pwd -P)
+case "$K" in "$ROOT"/*|/tmp/*) ;; *) echo "capture directory must be beneath the checkout or /tmp" >&2; exit 1;; esac
+if [ "$(stat -c %u "$K")" != "$(id -u)" ] || [ "$(stat -c %a "$K")" != 700 ]; then
+    echo "capture directory must be owned by this user with mode 0700: $K" >&2
+    exit 1
+fi
 export OMEGA_KERNEL_DUMP_DIR="$K"
 run() { printf '%s' "$*: "; "$@" > /dev/null 2>&1; rc=$?; echo "exit $rc, $(ls "$K" | wc -l) kernels so far"; }
 for t in gpu_matmul_api_test gpu_elementwise_test gpu_reconv_test gpu_attention_test gpu_moe_window_test gpu_fp8_api_test \

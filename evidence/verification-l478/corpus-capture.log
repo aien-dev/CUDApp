@@ -1,0 +1,11 @@
+codegen ex2: 32 insns, 10 gprs, 6 ugprs
+sm121dis ex2: rc=0 insns=32 undecodable=0 missing=0 (private temporary stream)
+codegen xchg: 32 insns, 12 gprs, 6 ugprs
+sm121dis xchg: rc=0 insns=32 undecodable=0 missing=0 (private temporary stream)
+codegen rmsnorm: 80 insns, 25 gprs, 6 ugprs
+sm121dis rmsnorm: rc=0 insns=80 undecodable=0 missing=0 (private temporary stream)
+codegen rope: 32 insns, 17 gprs, 6 ugprs
+sm121dis rope: rc=0 insns=32 undecodable=0 missing=0 (private temporary stream)
+codegen swiglu: 32 insns, 12 gprs, 6 ugprs
+sm121dis swiglu: rc=0 insns=32 undecodable=0 missing=0 (private temporary stream)
+PASS: 24 checks, 0 failed
