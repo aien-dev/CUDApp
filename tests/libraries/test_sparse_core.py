@@ -187,6 +187,14 @@ def gemm(checks):
         rows, inner, cols = (rng.randrange(9) for _ in range(3))
         a, b = random_csr(rng, rows, inner), random_csr(rng, inner, cols)
         checks.good(packet(3, rows, cols, a, inner=inner, b=b), product_answer(rows, cols, a, b), 'random product ' + str(case))
+    edge = [0, 0x80000000, 1, 0x80000001, 0x007fffff, 0x00800000,
+            0x7f7fffff, 0xff7fffff, 0x7f800000, 0xff800000, 0x7fc01234, bits(1)]
+    for case in range(40):
+        a, b = random_csr(rng, 3, 3), random_csr(rng, 3, 3)
+        a = (a[0], a[1], [rng.choice(edge) for _ in a[2]])
+        b = (b[0], b[1], [rng.choice(edge) for _ in b[2]])
+        checks.good(packet(3, 3, 3, a, inner=3, b=b), product_answer(3, 3, a, b),
+                    'special/subnormal payload product ' + str(case))
     valid = ([0, 1], [0], [bits(1)])
     for bad in [([1, 1], [0], [bits(1)]), ([0, 0], [0], [bits(1)]),
                 ([0, 1], [1], [bits(1)]), ([0, 1], [0xffffffff], [bits(1)])]:
@@ -256,6 +264,21 @@ def solve(checks):
         flags = int(upper) | (int(unit) << 1)
         checks.good(packet(4, n, n, (rp, ci, av), flags=flags, rhs=rhs),
                     words([bits(v) for v in known]), 'constructed exact solve ' + str(case))
+    for case in range(50):
+        n, upper = 4, bool(case % 2)
+        rp, ci, av = [0], [], []
+        rhs = [bits(rng.uniform(-8, 8)) for _ in range(n)]
+        for row in range(n):
+            pairs = [(row, bits(rng.choice([0.5, 1.5, 3, 7])))]
+            for col in (range(row + 1, n) if upper else range(row)):
+                pairs.append((col, bits(rng.uniform(-2, 2))))
+            rng.shuffle(pairs)
+            ci.extend(j for j, _ in pairs)
+            av.extend(v for _, v in pairs)
+            rp.append(len(ci))
+        a = (rp, ci, av)
+        checks.good(packet(4, n, n, a, flags=int(upper), rhs=rhs),
+                    solve_answer(n, a, rhs, upper), 'rounded random solve ' + str(case))
     a = ([0, 1, 5], [0, 0, 0, 0, 1], [bits(v) for v in [1, 16777216, 1, -16777216, 3]])
     rhs = [bits(1), bits(1)]
     checks.good(packet(4, 2, 2, a, rhs=rhs), solve_answer(2, a, rhs), 'stored-order subtraction rounding')
@@ -299,16 +322,20 @@ def main():
             assert content[part].count(before) == 1, ('mutation anchor', name)
             content[part] = content[part].replace(before, after)
         compile_program(compiler, '\n'.join(content.values()) + '\n' + adapter, target)
+        image = target.read_bytes()
+        assert len(image) >= 64 and image[:4] == b'\x7fELF' and image[18:20] == b'\xb7\x00', ('not an AArch64 ELF', name)
         return target
     target = build('sparse-core')
     stages = {'convert': convert, 'gemm': gemm, 'solve': solve}
     if args.stage != 'all' and args.stage not in stages:
         raise AssertionError('stage not implemented: ' + args.stage)
     selected = stages if args.stage == 'all' else {args.stage: stages[args.stage]}
+    total = 0
     for name, exercise in selected.items():
         checks = Checks(target)
         exercise(checks)
         print(name.upper(), 'PASS', checks.count, 'checks', flush=True)
+        total += checks.count
     state = (ROOT / 'tests/libraries/sparse_core_state.om').read_text()
     def check_state(binary):
         result = subprocess.run([str(binary)], capture_output=True, timeout=5)
@@ -338,7 +365,7 @@ def main():
                 print('MUTANT CAUGHT', name, flush=True)
             else:
                 raise AssertionError('surviving mutant ' + name)
-    print('SPARSE CORE PASS compiler=' + COMPILER_SHA, flush=True)
+    print('SPARSE CORE PASS', total, 'oracle/refusal checks compiler=' + COMPILER_SHA, flush=True)
 
 
 if __name__ == '__main__':

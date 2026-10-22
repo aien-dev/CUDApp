@@ -20,33 +20,33 @@ Use the spec capacities (64 dimensions, 256 entries), transactional visible outp
 ### Task 1: Conversion and shared validation
 Files: omega/libraries/sparse_core.om, sparse_convert.om; tests/libraries/sparse_core_driver.om and test_sparse_core.py; mk/sparse-core.mk.
 Interfaces: cootocs(rows,cols,nnz), csrtoco(rows,cols,nnz) -> int; pools defined in spec. Validator pvalid(rows,cols,nnz,which), which 0=A, 1=B.
-- [ ] Write conversion oracle/adapter tests: stable row grouping, literal rectangular result, opaque NaN/zero bits, malformed CSR/COO, all empty and capacity boundaries.
-- [ ] Run against refusal-only functions; expect the first valid conversion to fail.
-- [ ] Implement shared pools/validation and stable count/scatter conversion.
-- [ ] Run conversion tests and compiled index/value mutants; expect PASS and mutants caught.
-- [ ] Commit task with evidence.
+- [x] Write conversion oracle/adapter tests: stable row grouping, literal rectangular result, opaque NaN/zero bits, malformed CSR/COO, all empty and capacity boundaries.
+- [x] Run against refusal-only functions; expect the first valid conversion to fail.
+- [x] Implement shared pools/validation and stable count/scatter conversion.
+- [x] Run conversion tests and compiled index/value mutants; expect PASS and mutants caught.
+- [x] Commit task with evidence.
 
 ### Task 2: CSR sparse multiplication
 Files: omega/libraries/sparse_gemm.om; extend same adapter/tests.
 Interfaces: consumes pvalid and shared A/B/output pools; spgemm(rows,inner,cols,anz,bnz) -> int.
-- [ ] Add literal and per-column path-enumeration binary32 oracle tests, random duplicate/unsorted inputs, cancellation, output-capacity failure and zero shapes.
-- [ ] Run refusal stub; expect valid product failure.
-- [ ] Implement one-row dense accumulator plus structural markers, staged result arrays and atomic final copy.
-- [ ] Run tests and compiled product/ordering mutants; expect bit-exact outputs and mutants caught.
-- [ ] Commit task with evidence.
+- [x] Add literal and per-column path-enumeration binary32 oracle tests, random duplicate/unsorted inputs, cancellation, output-capacity failure and zero shapes.
+- [x] Run refusal stub; expect valid product failure.
+- [x] Implement one-row dense accumulator plus structural markers, staged result arrays and atomic final copy.
+- [x] Run tests and compiled product/ordering mutants; expect bit-exact outputs and mutants caught.
+- [x] Commit task with evidence.
 
 ### Task 3: Triangular solve
 Files: omega/libraries/sparse_solve.om; reuse arithmetic binary32.om/fdiv.om; extend adapter/tests, add sparse_core_state.om.
 Interfaces: consumes validated A/rhs and finite binary32 arithmetic; trisolv(n,nnz,upper,unit) -> int, sol output.
-- [ ] Add upper/lower explicit/unit diagonal oracle cases, constructed systems, duplicate off-diagonals, invalid triangles/diagonals/nonfinite/overflow cases; direct output-preservation and repeated calls.
-- [ ] Run refusal stub; expect valid solve failure.
-- [ ] Implement validate-first row substitution into staged solution; copy only on success.
-- [ ] Run all sparse tests plus compiled divide/direction/validation mutants; expect PASS and mutants caught.
-- [ ] Commit implementation and source provenance.
+- [x] Add upper/lower explicit/unit diagonal oracle cases, constructed systems, duplicate off-diagonals, invalid triangles/diagonals/nonfinite/overflow cases; direct output-preservation and repeated calls.
+- [x] Run refusal stub; expect valid solve failure.
+- [x] Implement validate-first row substitution into staged solution; copy only on success.
+- [x] Run all sparse tests plus compiled divide/direction/validation mutants; expect PASS and mutants caught.
+- [x] Commit implementation and source provenance.
 
 ### Task 4: Whole-branch verification and publication
 Files: docs/SPARSE_CORE.md, evidence/sparse-core/.
-- [ ] Run make test, make test-csr-transpose and make test-sparse-core with pinned omc; expect exit 0, no skipped failures.
-- [ ] Review whole diff, request fresh reviewer; record provider refusal if unavailable rather than claim independent review.
-- [ ] Publish compiler/source hashes, commands, failed red runs, green runs, mutants and explicit host-only scope.
-- [ ] Push feat/sparse-core and verify remote SHA; write/read READY naming inherited L452 branch and its supersession; close L454 with evidence.
+- [x] Run make test, make test-csr-transpose and make test-sparse-core with pinned omc; expect exit 0, no skipped failures.
+- [x] Review whole diff, request fresh reviewer; record provider refusal if unavailable rather than claim independent review.
+- [x] Publish compiler/source hashes, commands, failed red runs, green runs, mutants and explicit host-only scope.
+- [x] Push feat/sparse-core and verify remote SHA; write/read READY naming inherited L452 branch and its supersession; close L454 with evidence.
