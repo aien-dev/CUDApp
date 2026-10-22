@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
 # Host test for `cudapp-doctor` (CUDA++ developer bar D2 and D6, docs/PAIN_POINTS.md).
-#   usage: tests/doctor/run.sh build/cudapp-doctor
+#   usage: tests/doctor/run.sh build/cudapp-doctor      (CUDAPP_DOCTOR_SHOW=1 also prints what each fake machine is told)
 # No GPU and no device file is opened: every case is a fake machine built under a temporary
 # folder and handed to the doctor through CUDAPP_DOCTOR_ROOT. Each case states the exit code
 # and the sentences a person must see. A case that passes with the wrong text is a failure.
@@ -36,6 +36,7 @@ NODES='nvidiactl nvidia0 nvidia-uvm'
 check() {
 	name=$1; want=$2; root=$3; shift 3
 	out=$(CUDAPP_DOCTOR_ROOT="$root" "$DOC" 2>&1); got=$?
+	[ -n "${CUDAPP_DOCTOR_SHOW:-}" ] && { echo "===== fake machine: $name (exit $got)"; printf "%s\n" "$out"; }
 	ok=1
 	[ "$got" -eq "$want" ] || { echo "  exit $got, want $want"; ok=0; }
 	for pat in "$@"; do

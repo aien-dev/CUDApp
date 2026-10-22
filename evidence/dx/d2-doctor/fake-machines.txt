@@ -1,0 +1,128 @@
+# commit 5111c2928734f99a767a29ddf961316d3d1736c7 + this run.sh, 2026-10-22T01:41:19Z on spark-b87b
+$ CUDAPP_DOCTOR_SHOW=1 sh tests/doctor/run.sh build/cudapp-doctor
+===== fake machine: gb10-ready (exit 0)
+cudapp doctor: is this machine ready for CUDA++?
+  info  system: Linux 7.0.0-1019-nvidia aarch64
+  ok    NVIDIA kernel module: open module 580.173.02 (CUDA++ speaks 580.173.02)
+  ok    device files: /dev/nvidiactl /dev/nvidia0 /dev/nvidia-uvm can be opened by this user
+  ok    GPU 000f:01:00.0: NVIDIA GB10 (sm_121), qualified (receipt: evidence/m16-blackwell-native-path-requalification-receipt.json)
+  ok    memory: 121.6 GiB shared by the CPU and the GPU, 40.1 GiB available now
+  info  CUDA toolkit: not needed and not used by CUDA++ (none installed)
+  info  compiler: this doctor was built by 13.3.0; CUDA++ needs only make and a C compiler
+READY. Next: make hello-gpu
+PASS gb10-ready
+===== fake machine: no-module (exit 1)
+cudapp doctor: is this machine ready for CUDA++?
+  info  system: Linux 7.0.0-1019-nvidia aarch64
+  FAIL  NVIDIA kernel module: not loaded (/tmp/cudapp-doctor-test.komc5H/nomod/proc/driver/nvidia/version does not exist)
+        CUDA++ uses no NVIDIA user-space software, but it talks to NVIDIA's kernel module.
+        Do this: sudo modprobe nvidia && sudo modprobe nvidia-uvm
+        If modprobe finds no module, install NVIDIA's open kernel module 580.173.02 (the open-gpu-kernel-modules release of that number), then run make doctor again.
+  FAIL  device files: /dev/nvidiactl is missing
+        Do this: sudo modprobe nvidia   (or run nvidia-modprobe once, which creates the device files)
+  FAIL  device files: /dev/nvidia0 is missing
+        Do this: sudo modprobe nvidia   (or run nvidia-modprobe once, which creates the device files)
+  FAIL  device files: /dev/nvidia-uvm is missing
+        Do this: sudo modprobe nvidia-uvm   (creates /dev/nvidia-uvm; CUDA++ maps GPU memory through it)
+  ok    GPU 000f:01:00.0: NVIDIA GB10 (sm_121), qualified (receipt: evidence/m16-blackwell-native-path-requalification-receipt.json)
+  ok    memory: 121.6 GiB shared by the CPU and the GPU, 40.1 GiB available now
+  info  CUDA toolkit: not needed and not used by CUDA++ (none installed)
+  info  compiler: this doctor was built by 13.3.0; CUDA++ needs only make and a C compiler
+NOT READY: 4 problems above. Fix the first FAIL line and run make doctor again.
+PASS no-module
+===== fake machine: module-version (exit 1)
+cudapp doctor: is this machine ready for CUDA++?
+  info  system: Linux 7.0.0-1019-nvidia aarch64
+  FAIL  NVIDIA kernel module: version 575.64.05 is loaded; CUDA++ speaks the 580.173.02 interface
+        Why: CUDA++ builds its driver calls from the 580.173.02 open-module headers
+        (third_party/nvidia-open-580.173.02). The layout of those calls can change between module versions,
+        and a wrong layout fails in strange ways, so CUDA++ refuses instead of guessing.
+        This is the only version CUDA++ asks you to match: no toolkit, no framework build, no extension build.
+        Do this: install the 580.173.02 open kernel module, or port the client to your version
+        (CONTRIBUTING.md, "Port a driver version": copy the new headers, rebuild, run make test and make hello-gpu).
+  ok    device files: /dev/nvidiactl /dev/nvidia0 /dev/nvidia-uvm can be opened by this user
+  ok    GPU 000f:01:00.0: NVIDIA GB10 (sm_121), qualified (receipt: evidence/m16-blackwell-native-path-requalification-receipt.json)
+  ok    memory: 121.6 GiB shared by the CPU and the GPU, 40.1 GiB available now
+  info  CUDA toolkit: not needed and not used by CUDA++ (none installed)
+  info  compiler: this doctor was built by 13.3.0; CUDA++ needs only make and a C compiler
+NOT READY: 1 problem above. Fix the first FAIL line and run make doctor again.
+PASS module-version
+===== fake machine: closed-module (exit 0)
+cudapp doctor: is this machine ready for CUDA++?
+  info  system: Linux 7.0.0-1019-nvidia aarch64
+  warn  NVIDIA kernel module: the closed module 580.173.02 is loaded; CUDA++ was qualified on the open module of that version
+        It uses the same calls and should work. If anything fails, switch to the open module and say so in your report.
+  ok    device files: /dev/nvidiactl /dev/nvidia0 /dev/nvidia-uvm can be opened by this user
+  ok    GPU 000f:01:00.0: NVIDIA GB10 (sm_121), qualified (receipt: evidence/m16-blackwell-native-path-requalification-receipt.json)
+  ok    memory: 121.6 GiB shared by the CPU and the GPU, 40.1 GiB available now
+  info  CUDA toolkit: not needed and not used by CUDA++ (none installed)
+  info  compiler: this doctor was built by 13.3.0; CUDA++ needs only make and a C compiler
+READY. Next: make hello-gpu
+PASS closed-module
+===== fake machine: unknown-chip (exit 1)
+cudapp doctor: is this machine ready for CUDA++?
+  info  system: Linux 7.0.0-1019-nvidia aarch64
+  ok    NVIDIA kernel module: open module 580.173.02 (CUDA++ speaks 580.173.02)
+  ok    device files: /dev/nvidiactl /dev/nvidia0 /dev/nvidia-uvm can be opened by this user
+  FAIL  GPU 000f:01:00.0: NVIDIA device 0x2b85 is not one CUDA++ has qualified.
+        Why: CUDA++ writes each chip's machine code itself and has run it only on the NVIDIA GB10 (sm_121),
+        so it refuses this GPU now instead of failing later with "no kernel image is available".
+        What is missing: a target row for this chip, a check that the encoder's instruction words are valid on it,
+        its launch descriptor and class numbers, and the hello-gpu qualification run with its receipt.
+        What to do: follow docs/runtime/PORTABILITY.md section 5 ("What a new GPU needs") and CONTRIBUTING.md ("Port a chip"),
+        or report it with the output of `make doctor` attached.
+  info  memory: 121.6 GiB system memory, 40.1 GiB available now
+  info  CUDA toolkit: not needed and not used by CUDA++ (none installed)
+  info  compiler: this doctor was built by 13.3.0; CUDA++ needs only make and a C compiler
+NOT READY: 1 problem above. Fix the first FAIL line and run make doctor again.
+PASS unknown-chip
+===== fake machine: no-gpu (exit 1)
+cudapp doctor: is this machine ready for CUDA++?
+  info  system: Linux 7.0.0-1019-nvidia aarch64
+  ok    NVIDIA kernel module: open module 580.173.02 (CUDA++ speaks 580.173.02)
+  ok    device files: /dev/nvidiactl /dev/nvidia0 /dev/nvidia-uvm can be opened by this user
+  FAIL  GPU: no NVIDIA GPU found in /sys/bus/pci/devices
+        Do this: check the GPU is seated and powered (lspci | grep -i nvidia).
+  info  memory: 121.6 GiB system memory, 40.1 GiB available now
+  info  CUDA toolkit: not needed and not used by CUDA++ (none installed)
+  info  compiler: this doctor was built by 13.3.0; CUDA++ needs only make and a C compiler
+NOT READY: 1 problem above. Fix the first FAIL line and run make doctor again.
+PASS no-gpu
+===== fake machine: no-uvm (exit 1)
+cudapp doctor: is this machine ready for CUDA++?
+  info  system: Linux 7.0.0-1019-nvidia aarch64
+  ok    NVIDIA kernel module: open module 580.173.02 (CUDA++ speaks 580.173.02)
+  FAIL  device files: /dev/nvidia-uvm is missing
+        Do this: sudo modprobe nvidia-uvm   (creates /dev/nvidia-uvm; CUDA++ maps GPU memory through it)
+  ok    GPU 000f:01:00.0: NVIDIA GB10 (sm_121), qualified (receipt: evidence/m16-blackwell-native-path-requalification-receipt.json)
+  ok    memory: 121.6 GiB shared by the CPU and the GPU, 40.1 GiB available now
+  info  CUDA toolkit: not needed and not used by CUDA++ (none installed)
+  info  compiler: this doctor was built by 13.3.0; CUDA++ needs only make and a C compiler
+NOT READY: 1 problem above. Fix the first FAIL line and run make doctor again.
+PASS no-uvm
+===== fake machine: no-permission (exit 1)
+cudapp doctor: is this machine ready for CUDA++?
+  info  system: Linux 7.0.0-1019-nvidia aarch64
+  ok    NVIDIA kernel module: open module 580.173.02 (CUDA++ speaks 580.173.02)
+  FAIL  device files: /dev/nvidia0 exists but this user cannot open it for reading and writing
+        Do this: ask the machine's owner to add you to the group that owns it (ls -l on the file shows it),
+        or set the module option NVreg_DeviceFileMode=0666.
+  ok    GPU 000f:01:00.0: NVIDIA GB10 (sm_121), qualified (receipt: evidence/m16-blackwell-native-path-requalification-receipt.json)
+  ok    memory: 121.6 GiB shared by the CPU and the GPU, 40.1 GiB available now
+  info  CUDA toolkit: not needed and not used by CUDA++ (none installed)
+  info  compiler: this doctor was built by 13.3.0; CUDA++ needs only make and a C compiler
+NOT READY: 1 problem above. Fix the first FAIL line and run make doctor again.
+PASS no-permission
+===== fake machine: memory-line (exit 0)
+cudapp doctor: is this machine ready for CUDA++?
+  info  system: Linux 7.0.0-1019-nvidia aarch64
+  ok    NVIDIA kernel module: open module 580.173.02 (CUDA++ speaks 580.173.02)
+  ok    device files: /dev/nvidiactl /dev/nvidia0 /dev/nvidia-uvm can be opened by this user
+  ok    GPU 000f:01:00.0: NVIDIA GB10 (sm_121), qualified (receipt: evidence/m16-blackwell-native-path-requalification-receipt.json)
+  ok    memory: 121.6 GiB shared by the CPU and the GPU, 40.1 GiB available now
+  info  CUDA toolkit: not needed and not used by CUDA++ (none installed)
+  info  compiler: this doctor was built by 13.3.0; CUDA++ needs only make and a C compiler
+READY. Next: make hello-gpu
+PASS memory-line
+doctor tests: 9 passed, 0 failed
+exit 0
