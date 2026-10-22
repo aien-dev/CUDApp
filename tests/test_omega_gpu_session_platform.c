@@ -66,6 +66,7 @@ static struct {
     unsigned cached_requests; /* buffers asked GPU-cached (must stay 0) */
     unsigned allocs_unlocked; /* allocations without the session lock (must stay 0) */
     int fail_open;
+    int fail_close;           /* device_close closes, then reports a driver teardown fault (C5) */
 } fk;
 
 static uint64_t f_now_ns(void *c) { (void)c; fk.ns += 1000u; return fk.ns; }
@@ -92,7 +93,7 @@ static int f_dev_close(void *c, OmegaGpuDeviceHandle d) {
     (void)omega_gpu_handles_close(&fk.t, d.index, d.generation, OMEGA_GPU_HANDLE_DEVICE);
     memset(&fk.dev, 0, sizeof fk.dev); memset(&fk.q, 0, sizeof fk.q);
     fk.dev_closes++;
-    return 0;
+    return fk.fail_close ? OMEGA_GPU_PLAT_REFUSED_DEVICE : 0;
 }
 
 static OmegaGpuPlatformCaps g_caps = {
@@ -421,6 +422,26 @@ static void c_timeout_recover(void) {
     EXPECT(fk.dev_closes == 2 && fk.t.nlive == 0);
 }
 
+/* C5: a close that reports a driver teardown fault leaves the process latched for good (the old grid may still run). */
+static void c_recover_teardown_fault(void) {
+    fk_reset();
+    EXPECT(install() == 0);
+    omega_gpu_session_lock();
+    EXPECT(omega_gpu_session_open() != NULL);
+    fk.mode = MODE_HANG;
+    OmegaGpuLaunch L = launch_desc(5);
+    EXPECT(omega_gpu_session_launch(&L, NULL, NULL) == -1 && omega_gpu_session_is_blocked());
+    omega_gpu_session_unlock();
+    fk.fail_close = 1;
+    EXPECT(omega_gpu_session_recover() == -1 && strstr(omega_gpu_session_last_error(), "teardown fault") != NULL);
+    EXPECT(omega_gpu_session_is_blocked() && omega_gpu_session_recoveries() == 0 && fk.dev_closes == 1);
+    fk.fail_close = 0;
+    EXPECT(omega_gpu_session_recover() == -1 && omega_gpu_session_is_blocked()); /* the handle is gone: no second try */
+    omega_gpu_session_lock();
+    EXPECT(omega_gpu_session_open() == NULL);
+    omega_gpu_session_unlock();
+}
+
 static void c_stale_after_reopen(void) {
     fk_reset();
     EXPECT(install() == 0);
@@ -549,6 +570,7 @@ static const Case CASES[] = {
     {"TIMEOUT_PARKS_NEVER_RELEASES", c_timeout_parks},
     {"TIMEOUT_LATCH_REFUSES_CLOSE_REOPEN_INSTALL", c_timeout_latch_rules},
     {"TIMEOUT_RECOVER_SAME_PROCESS", c_timeout_recover},
+    {"RECOVER_TEARDOWN_FAULT_STAYS_LATCHED", c_recover_teardown_fault},
     {"STALE_HANDLE_REFUSED_AFTER_CLOSE_REOPEN", c_stale_after_reopen},
     {"SERVING_RESERVATION_REFUSES_WITHOUT_ALLOC", c_reservation_refusal},
     {"MATMUL_CODE_BUFFER_ENCODED_IN_PLACE", c_matmul_code_buffer},

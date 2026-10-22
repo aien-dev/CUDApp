@@ -240,8 +240,8 @@ void omega_gpu_session_latch_uncertain(const char *why);
  * Takes the lock itself. Runs the on-close hooks (still latched), closes the device (Linux reference: the RM client
  * close destroys this process's channels, and so any grid still running on them, then frees every buffer, parked ones
  * included) and only then clears the latch and the parked list. Every handle and command list of the old device is
- * stale; the next open starts a new device. 0 ok; -1 with the reason (not latched, or the close was refused: still
- * latched). */
+ * stale; the next open starts a new device. 0 ok; -1 with the reason: not latched, or the close was refused or reported
+ * a driver teardown fault (then it stays latched for good: the old grid may still run, the process must exit). */
 int omega_gpu_session_recover(void);
 /* Recoveries so far in this process (a command list latched before the latest recovery no longer blocks). */
 uint32_t omega_gpu_session_recoveries(void);

@@ -210,9 +210,11 @@ static int ref_device_close(void *ctx, OmegaGpuDeviceHandle dev) {
     memset(&r->queue, 0, sizeof r->queue);
     memset(r->xq, 0, sizeof r->xq); memset(r->xring, 0, sizeof r->xring); memset(r->x_l2_pending, 0, sizeof r->x_l2_pending);
     r->nchan = 0;
-    (void)m16_native_close(&r->m16);
+    /* C5: the driver's close result is the proof that this process's channels (and any grid still on them) are gone.
+     * The state above is closed either way; a teardown fault is reported so omega_gpu_session_recover stays latched. */
+    rc = m16_native_close(&r->m16) == 0 ? OMEGA_GPU_PLAT_OK : refuse(r, OMEGA_GPU_PLAT_REFUSED_DEVICE, "device_close (driver teardown fault)");
     ref_unlock(r);
-    return OMEGA_GPU_PLAT_OK;
+    return rc;
 }
 
 static const char *ref_diag_text(void *ctx) { return ((LinuxRef *)ctx)->diag; }

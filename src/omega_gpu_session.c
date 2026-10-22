@@ -449,7 +449,7 @@ int omega_gpu_session_recover(void) {
     }
     for (unsigned i = 0; i < g_nhooks; i++) g_hooks[i]();
     const int prc = p->device_close(p->ctx, g_s.dev);
-    if (prc != OMEGA_GPU_PLAT_OK) { fail_plat("recover: device_close (still latched)", prc); goto out; }
+    if (prc != OMEGA_GPU_PLAT_OK) { fail_plat("recover: the device close reported a teardown fault (still latched: the old grid may live on, exit the process)", prc); goto out; }
     memset(g_xq, 0, sizeof g_xq);
     memset(g_xpb, 0, sizeof g_xpb);
     const uint32_t opens = g_s.opens;
