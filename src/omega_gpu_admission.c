@@ -96,8 +96,16 @@ static uint64_t digest(Database *db) {
 }
 static int save_db(OmegaGpuAdmission *a) {
     a->db->checksum = digest(a->db);
-    /* A torn write is detected and refuses the entire group; no guessed repair. */
-    if (pwrite(a->state, a->db, sizeof *a->db, 0) != (ssize_t)sizeof *a->db || fdatasync(a->state)) return -EIO;
+    /* A stable separate lock protects atomic state replacement. A process killed
+     * during a write leaves the old complete state and a disposable next file. */
+    int fd = secure_file(a->dir, "next");
+    if (fd < 0) return fd;
+    if (ftruncate(fd, 0) || pwrite(fd, a->db, sizeof *a->db, 0) != (ssize_t)sizeof *a->db || fdatasync(fd)) {
+        close(fd); return -EIO;
+    }
+    if (renameat(a->dir, "next", a->dir, "state")) { close(fd); return -EIO; }
+    close(a->state); a->state = fd;
+    if (fsync(a->dir)) return -EIO;
     return 0;
 }
 static int enter(OmegaGpuAdmission *a) {
@@ -107,10 +115,13 @@ static int enter(OmegaGpuAdmission *a) {
      * sharing one description. Nonblocking keeps refusal bounded. */
     if (flock(a->lock, LOCK_EX | LOCK_NB)) { pthread_mutex_unlock(&a->mu); return -EBUSY; }
     struct stat s, linked;
-    if (fstat(a->state, &s) || fstatat(a->dir, "state", &linked, AT_SYMLINK_NOFOLLOW) ||
-        linked.st_ino != s.st_ino || linked.st_dev != s.st_dev || s.st_nlink != 1 ||
-        fstat(a->lock, &s) || fstatat(a->dir, "lock", &linked, AT_SYMLINK_NOFOLLOW) ||
+    if (fstat(a->lock, &s) || fstatat(a->dir, "lock", &linked, AT_SYMLINK_NOFOLLOW) ||
         linked.st_ino != s.st_ino || linked.st_dev != s.st_dev || s.st_nlink != 1) goto bad;
+    int fd = openat(a->dir, "state", O_RDWR | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
+    if (fd < 0) goto bad;
+    close(a->state); a->state = fd;
+    if (fstat(fd, &s) || !S_ISREG(s.st_mode) || s.st_uid != geteuid() || s.st_nlink != 1 ||
+        (s.st_mode & 0777) != 0600 || s.st_size != (off_t)sizeof *a->db) goto bad;
     if (pread(a->state, a->db, sizeof *a->db, 0) != (ssize_t)sizeof *a->db ||
         a->db->magic != MAGIC || a->db->budget != a->budget || a->db->keep != a->keep ||
         a->db->checksum != digest(a->db)) goto bad;
@@ -140,15 +151,16 @@ static int available(OmegaGpuAdmission *a, uint64_t *out) {
     int fd = open(a->fixture[0] ? a->fixture : "/proc/meminfo", O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
     if (fd < 0) return neg();
     struct stat s;
-    if (fstat(fd, &s) || !S_ISREG(s.st_mode)) { close(fd); return -EIO; }
+    if (fstat(fd, &s) || !S_ISREG(s.st_mode) || s.st_size > 65536) { close(fd); return -EIO; }
     if (a->fixture[0]) {
         time_t now = time(NULL);
         if (now < s.st_mtime || now - s.st_mtime > a->age) { close(fd); return -ESTALE; }
     }
     FILE *f = fdopen(fd, "r");
     if (!f) { close(fd); return -EIO; }
-    char line[256]; int have = 0, rc = 0;
+    char line[256]; int have = 0, rc = 0; unsigned lines = 0;
     while (fgets(line, sizeof line, f)) {
+        if (++lines > 1024 || (!strchr(line, '\n') && !feof(f))) { rc = -EIO; break; }
         if (strncmp(line, "MemAvailable:", 13)) continue;
         if (have) { rc = -EINVAL; break; }
         char *p = line + 13;

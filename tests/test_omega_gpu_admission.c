@@ -18,10 +18,23 @@
 int nvrm_open(Nvrm *rm) { (void)rm; fk.device_open = 1; return 0; }
 int nvrm_close(Nvrm *rm) { (void)rm; return 0; }
 void nvrm_retire(Nvrm *rm, uint32_t upto) { (void)rm; (void)upto; }
+static int interrupt_write_fd = -1;
+ssize_t __real_pwrite(int, const void *, size_t, off_t);
+ssize_t __wrap_pwrite(int fd, const void *data, size_t bytes, off_t offset) {
+    if (interrupt_write_fd >= 0 && bytes > 4096) {
+        ssize_t n = __real_pwrite(fd, data, bytes / 2, offset);
+        char ready = 'r';
+        if (n < 0 || write(interrupt_write_fd, &ready, 1) != 1) _exit(3);
+        raise(SIGSTOP); /* parent kills only this fixture child */
+        _exit(4);
+    }
+    return __real_pwrite(fd, data, bytes, offset);
+}
 
 static unsigned checks;
 #define CHECK(e) do { checks++; if (!(e)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #e); exit(1); } } while (0)
 static char root[256], mempath[300];
+#include "admission_state_fixture.h"
 static OmegaGpuAdmissionConfig config;
 static void fixture(const char *text) {
     FILE *f = fopen(mempath, "w"); CHECK(f != NULL); CHECK(fputs(text, f) >= 0); CHECK(fclose(f) == 0);
@@ -93,6 +106,7 @@ static void contenders(void) {
     for (int i = 0; i < 2; i++) {
         children[i] = fork(); CHECK(children[i] >= 0);
         if (!children[i]) {
+            close(start[1]); close(results[0]); close(finish[1]);
             char go; io(start[0], &go, 1, 0);
             OmegaGpuAdmission *a; CHECK(!op_open(&a));
             OmegaGpuReservation r; int rc = reserve(a, 8192, &r);
@@ -102,11 +116,12 @@ static void contenders(void) {
             _exit(0);
         }
     }
+    close(start[0]); close(results[1]); close(finish[0]);
     char go[2] = {'g','g'}; io(start[1], go, 2, 1);
     int r[2]; io(results[0], &r[0], sizeof(int), 0); io(results[0], &r[1], sizeof(int), 0);
     CHECK((r[0] == 0) + (r[1] == 0) == 1);
     io(finish[1], go, 2, 1); wait_ok(children[0]); wait_ok(children[1]);
-    close(start[0]); close(start[1]); close(results[0]); close(results[1]); close(finish[0]); close(finish[1]);
+    close(start[1]); close(results[0]); close(finish[1]);
     OmegaGpuAdmission *a; OmegaGpuReservation t;
     CHECK(!op_open(&a)); CHECK(!reserve(a, 8192, &t)); CHECK(!omega_gpu_admission_cancel(a, t)); CHECK(!omega_gpu_admission_close(a));
     puts("PASS synchronized real-process contenders and abandoned reservation cleanup");
@@ -117,6 +132,7 @@ static void death_and_ownership(void) {
     int reports[2], finish[2]; CHECK(!pipe(reports)); CHECK(!pipe(finish));
     pid_t p = fork(); CHECK(p >= 0);
     if (!p) {
+        close(reports[0]); close(finish[1]);
         OmegaGpuReservation ignored;
         CHECK(omega_gpu_admission_reserve(parent, 1, OMEGA_ADMISSION_KV, &ignored) == -EPERM);
         OmegaGpuAdmission *a; CHECK(!op_open(&a));
@@ -125,6 +141,7 @@ static void death_and_ownership(void) {
         io(reports[1], &ignored, sizeof ignored, 1);
         char go; io(finish[0], &go, 1, 0); _exit(0);
     }
+    close(reports[1]); close(finish[0]);
     OmegaGpuReservation child_token; io(reports[0], &child_token, sizeof child_token, 0);
     CHECK(omega_gpu_admission_release(parent, child_token) == -ESTALE);
     OmegaGpuReservation denied; CHECK(reserve(parent, 8192, &denied) == -ENOSPC);
@@ -132,8 +149,40 @@ static void death_and_ownership(void) {
     CHECK(!omega_gpu_admission_cancel(parent, parent_token));
     CHECK(!reserve(parent, 8192, &denied)); CHECK(omega_gpu_admission_release(parent, child_token) == -ESTALE);
     CHECK(!omega_gpu_admission_cancel(parent, denied)); CHECK(!omega_gpu_admission_close(parent));
-    close(reports[0]); close(reports[1]); close(finish[0]); close(finish[1]);
+    close(reports[0]); close(finish[1]);
     puts("PASS SIGKILL committed-owner recovery, foreign tokens and inherited-context refusal");
+}
+static void reused_identity(void) {
+    OmegaGpuAdmission *a; CHECK(!op_open(&a));
+    for (int previous_boot = 0; previous_boot <= 1; previous_boot++) {
+        OmegaGpuReservation old, next;
+        CHECK(!reserve(a, 8192, &old));
+        forge_owner(old, previous_boot);
+        CHECK(omega_gpu_admission_acquire(a, old) == -ESTALE);
+        CHECK(!reserve(a, 8192, &next)); CHECK(next.generation > old.generation);
+        CHECK(!omega_gpu_admission_cancel(a, next));
+    }
+    CHECK(!omega_gpu_admission_close(a));
+    puts("PASS live-PID/different-start and previous-boot ownership FIXTURES");
+}
+static void interrupted_transaction(void) {
+    OmegaGpuAdmission *a; CHECK(!op_open(&a));
+    OmegaGpuReservation original; CHECK(!reserve(a, 1, &original));
+    int report[2]; CHECK(!pipe(report)); pid_t child = fork(); CHECK(child >= 0);
+    if (!child) {
+        close(report[0]); OmegaGpuAdmission *b; CHECK(!op_open(&b));
+        interrupt_write_fd = report[1]; OmegaGpuReservation t;
+        (void)reserve(b, 4096, &t); _exit(5);
+    }
+    close(report[1]); char ready; io(report[0], &ready, 1, 0); CHECK(ready == 'r');
+    CHECK(!kill(child, SIGKILL)); int status; CHECK(waitpid(child, &status, 0) == child && WIFSIGNALED(status));
+    close(report[0]);
+    OmegaGpuAdmissionStats s; CHECK(!omega_gpu_admission_stats(a, &s));
+    CHECK(s.reserved_bytes == 1); /* previous complete transaction survived */
+    OmegaGpuReservation rest; CHECK(!reserve(a, 8191, &rest));
+    CHECK(!omega_gpu_admission_cancel(a, rest)); CHECK(!omega_gpu_admission_cancel(a, original));
+    CHECK(!omega_gpu_admission_close(a));
+    puts("PASS SIGKILL midway through actual persistent write, previous transaction preserved");
 }
 static void bad_memory(void) {
     OmegaGpuAdmission *a; CHECK(!op_open(&a)); OmegaGpuReservation r;
@@ -161,6 +210,7 @@ static void settings_and_paths(void) {
     CHECK(!chmod(root, 0777)); CHECK(op_open(&a) == -EPERM); CHECK(!chmod(root, 0700));
     puts("PASS invalid configuration, incompatible group and unsafe directory refusal");
 }
+static int refused_free(void *ctx, OmegaGpuBufferHandle b) { (void)ctx; (void)b; return OMEGA_GPU_PLAT_REFUSED_BUSY; }
 static void adapter(void) {
     fake_reset();
     /* The old guard remains selectable and unchanged, independently of the new
@@ -194,6 +244,19 @@ static void adapter(void) {
     CHECK(!p->poll_word(p->ctx, b, 0, 7, 1, &observed) && observed == 7);
     CHECK(!omega_gpu_admission_dma_free(a, p, b));
     d.rights = OMEGA_GPU_RIGHT_GPU_READ | OMEGA_GPU_RIGHT_CPU_WRITE; d.gpu_cache = OMEGA_GPU_CACHE_GPU_CACHED;
+    OmegaGpuPlatform refusing = *p; refusing.dma_free = refused_free;
+    CHECK(!omega_gpu_admission_dma_alloc(a, &refusing, &caps, dev, &d, OMEGA_ADMISSION_WEIGHT, &b, &cpu, &gpu, NULL));
+    int frees = fk.free_calls;
+    CHECK(omega_gpu_admission_dma_free(a, &refusing, b) == OMEGA_GPU_PLAT_REFUSED_BUSY);
+    CHECK(fk.free_calls == frees); CHECK(!omega_gpu_admission_stats(a, &s)); CHECK(s.committed_bytes == 4096);
+    CHECK(omega_gpu_admission_dma_free(a, p, b) == -ESTALE); /* wrong delegate identity */
+    refusing.dma_free = p->dma_free; CHECK(!omega_gpu_admission_dma_free(a, &refusing, b));
+    int allocs = fk.alloc_calls;
+    CHECK(!unlink(mempath));
+    CHECK(omega_gpu_admission_dma_alloc(a, p, &caps, dev, &d, OMEGA_ADMISSION_WEIGHT, &b, &cpu, &gpu, NULL) == -ENOENT);
+    CHECK(fk.alloc_calls == allocs && !b.generation);
+    fixture("MemAvailable: 32 kB\n");
+    d.rights = OMEGA_GPU_RIGHT_GPU_READ | OMEGA_GPU_RIGHT_CPU_WRITE; d.gpu_cache = OMEGA_GPU_CACHE_GPU_CACHED;
     CHECK(!omega_gpu_admission_dma_alloc(a, p, &caps, dev, &d, OMEGA_ADMISSION_WEIGHT, &b, &cpu, &gpu, NULL));
     CHECK(!omega_gpu_admission_dma_free(a, p, b));
     /* Driver refusal must cancel the acquired charge, with no published handle. */
@@ -211,6 +274,7 @@ static int legacy_gap(void) {
     for (int i=0; i<2; i++) {
         pids[i]=fork(); CHECK(pids[i]>=0);
         if (!pids[i]) {
+            close(start[1]); close(reports[0]); close(hold[1]);
             char ch; io(start[0], &ch, 1, 0); fake_reset(); fk.alloc_max=2u<<20;
             const OmegaGpuPlatform *p=omega_gpu_platform_linux(NULL); OmegaGpuDeviceHandle dev;
             CHECK(!p->device_open(p->ctx,0,&dev));
@@ -220,6 +284,7 @@ static int legacy_gap(void) {
             io(reports[1],&rc,sizeof rc,1); io(hold[0],&ch,1,0); _exit(0);
         }
     }
+    close(start[0]); close(reports[1]); close(hold[0]);
     char go[2]={'g','g'}; io(start[1],go,2,1); int rc[2]; io(reports[0],&rc[0],sizeof(int),0); io(reports[0],&rc[1],sizeof(int),0);
     io(hold[1],go,2,1); wait_ok(pids[0]); wait_ok(pids[1]);
     int winners=(rc[0]==0)+(rc[1]==0);
@@ -248,7 +313,10 @@ int main(int argc, char **argv) {
     config=(OmegaGpuAdmissionConfig){OMEGA_ADMISSION_VERSION,root,8192,4096,mempath,60};
     fixture("MemAvailable: 32 kB\n");
     if (argc==2 && !strcmp(argv[1],"--legacy-gap")) return legacy_gap();
-    transitions(); contenders(); death_and_ownership(); bad_memory(); settings_and_paths(); adapter(); hostile_state();
+    if (argc==2 && !strcmp(argv[1],"--contenders")) { contenders(); return 0; }
+    if (argc==2 && !strcmp(argv[1],"--ownership")) { death_and_ownership(); reused_identity(); return 0; }
+    if (argc==2 && !strcmp(argv[1],"--adapter")) { adapter(); return 0; }
+    transitions(); contenders(); death_and_ownership(); reused_identity(); interrupted_transaction(); bad_memory(); settings_and_paths(); adapter(); hostile_state();
     CHECK(!unlink(mempath)); CHECK(!rmdir(root));
     printf("PASS issue24 host checks=%u (fixture inputs; no GPU or performance claim)\n",checks); return 0;
 }

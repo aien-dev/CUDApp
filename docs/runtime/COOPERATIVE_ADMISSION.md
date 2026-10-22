@@ -64,9 +64,12 @@ buffer. Raw transitions cannot release adapter-bound tokens through that context
 The low-level reserve API relies on its trusted caller to supply the stated
 allocation/free proofs; it cannot prevent deliberate direct nvrm calls.
 
-Persistent writes carry a whole-state checksum. Interrupted/torn writes or
-storage faults quarantine the group and refuse further admission, rather than
-guess at lost allocations. Recovery from such corruption requires an operator
+Persistent writes carry a whole-state checksum. Under a separate stable lock,
+the API writes and syncs a temporary file, atomically renames it over the state,
+then syncs the directory. A child killed during a write leaves the previous
+complete transaction intact; its partial temporary file is safely overwritten
+under the group lock. Corrupt state or storage faults refuse further admission,
+rather than guess at lost allocations. Recovery from corruption requires an operator
 proving all participants and driver objects are gone before creating a new group.
 A storage failure after a successful delegate allocation can return an error with
 a live output handle; that handle must be quarantined and disposed using proven
@@ -114,3 +117,12 @@ Hardware allocation, existing serving readiness, cached-weight visibility,
 process-death kernel teardown, whole-model correctness, shared import lifetime,
 performance, and actual disjoint #14 overhead are NOT_RUN. No default enablement,
 optimization, issue closure or deployment claim follows from the host gates.
+
+Integration limitation found in this base: Linux `ref_dma_free` discards the
+return value of `nvrm_free`. The adapter trusts the platform ABI's free result;
+its host test proves a reported refusal keeps the charge. Actual driver-free
+failure reporting therefore requires the canonical owner to fix and qualify that
+preexisting path before hardware/default integration. This stream leaves the
+existing owned production file unchanged. Atomic-write and eight behavioral
+mutant checks are available via `test-roadmap-memory` and
+`test-roadmap-memory-mutants`.

@@ -3,7 +3,8 @@
 #define OMEGA_GPU_ADMISSION_H
 #include "omega_gpu_platform.h"
 /* Experimental Linux host API v1. No existing platform/session ABI changes.
- * Errors are negative errno values. All members of one group use identical
+ * Admission errors are negative errno; the DMA adapter also preserves positive
+ * platform refusals. All members of one group use identical
  * limits. Directory must exist, be private (0700), and never be replaced while
  * participants exist. Only trusted cooperating processes of one uid belong. */
 #define OMEGA_ADMISSION_VERSION 1u
