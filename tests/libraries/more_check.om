@@ -146,6 +146,36 @@ end
 if ne chk xstep 1414583917 0
 ret 27
 end
+put xw 0 123456789
+put xw 1 362436069
+put xw 2 521288629
+put xw 3 88675123
+put xw 4 5783321
+put xw 5 6615241
+if ne chk xstep 246875399 0
+ret 90
+end
+if ne chk xstep 3690007200 0
+ret 91
+end
+if ne chk xstep 1264581005 0
+ret 92
+end
+if ne chk xstep 3906711041 0
+ret 93
+end
+if ne chk xstep 1866187943 0
+ret 94
+end
+if ne chk xstep 2481925219 0
+ret 95
+end
+if ne chk xstep 2464530826 0
+ret 96
+end
+if ne chk xstep 1604040631 0
+ret 97
+end
 loadscan
 if ne iscan 8 0
 ret 3

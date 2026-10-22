@@ -1,6 +1,7 @@
 note SPDX-License-Identifier MIT
 note Host slices for CUDA toolkit gaps. Not the APIs and not on the GPU
-note XORWOW step is the cuRAND formula, not the Wikipedia transcription
+note XORWOW step is Marsaglia, J. Stat. Soft. 8(14), 2003, page 5
+note CUDA 13.0.3 curand() is that listing. The seed-0 comment in the header is not
 note Seed 0 mix uses the documented salts. Skip-ahead matrices are not here
 note Each function stays inside the 16-register pool
 global xw ulong 6

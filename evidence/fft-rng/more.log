@@ -10,3 +10,16 @@ no dynamic section. libcuda is not linked.
 libcurand not called. aien-serve-http pid 3489680 holds /dev/nvidia0.
 Wolfram evaluated the header formula and the binary32 composition for the off-diagonal vectors.
 Householder calibration matched stored bits 3216192308 and 3192704208 before those vector bits were used.
+
+2026-10-22T11:48Z paper listing check
+source: Marsaglia, Journal of Statistical Software 8(14), 2003, page 5
+archive pdf sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  /dev/null
+C oracle: gcc -O0 -std=c11 of the page-5 listing with uint32_t words, not unsigned long
+C outputs: 246875399 3690007200 1264581005 3906711041 1866187943 2481925219 2464530826 1604040631
+Wolfram evaluation of the same listing: the same eight words
+Omega self-check requires those eight words from the published initial state. GOOD_RC=0
+WEYL_RC=20 still, on the salted seed-0 path
+binary sha256 b5b999898af3568a218800b6ab9848a8112dfd6aeb698d7be231f70352553398
+libcurand not called. aien-serve-http 3489680 holds /dev/nvidia0
+CUDA header: 13.0.3 curand_kernel.h curand() matches the page-5 listing
+XORWOW seed-0 comment does not match its function. MRG32k3a in the same header does skip the mix when seed is 0.
