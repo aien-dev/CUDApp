@@ -62,13 +62,21 @@ struct OmegaGpuCmdList {
     uint32_t nop_gpr;
     uint8_t *indep;       /* per launch: 1 = shares no data with the launch before it (mark_independent): no barrier before it */
     int stamped;          /* the last submit had opts.stamps (the accessor refuses stale stamps from an earlier submit) */
+    uint64_t *wait_va;    /* per launch: semaphore word of another list's launch to wait for before it (wait_for), 0 = none */
+    uint64_t pending_wait;/* wait_for recorded, taken by the next add */
+    uint32_t nwaits;      /* launches with a wait (6 more words each) */
 };
 
 static uint32_t g_latched;
 
 int omega_gpu_cmdlist_is_latched(void) { return __atomic_load_n(&g_latched, __ATOMIC_ACQUIRE) ? 1 : 0; }
 uint32_t omega_gpu_cmdlist_count(const OmegaGpuCmdList *cl) { return cl ? cl->n : 0; }
-void omega_gpu_cmdlist_reset(OmegaGpuCmdList *cl) { if (cl) cl->n = 0; }
+void omega_gpu_cmdlist_reset(OmegaGpuCmdList *cl) { if (cl) { cl->n = 0; cl->pending_wait = 0; cl->nwaits = 0; } }
+int omega_gpu_cmdlist_wait_for(OmegaGpuCmdList *cl, const OmegaGpuCmdList *other, uint32_t index) {
+    if (!cl || !other || cl == other || index >= other->n) { omega_gpu_session_set_error("cmdlist wait_for: another list and one of its launches"); return -1; }
+    cl->pending_wait = other->sems.va + (uint64_t)index * 16u;
+    return 0;
+}
 int omega_gpu_cmdlist_mark_independent(OmegaGpuCmdList *cl) {
     if (!cl || cl->n == 0) { omega_gpu_session_set_error("cmdlist mark_independent: no launch recorded"); return -1; }
     cl->indep[cl->n - 1] = 1;
@@ -104,7 +112,8 @@ int omega_gpu_cmdlist_create(uint32_t cap, OmegaGpuCmdList **out) {
     cl->words_cap = RING_WORDS;
     cl->words = omega_gpu_host_alloc((size_t)cl->words_cap * 4u);
     cl->indep = omega_gpu_host_calloc(cap, 1);
-    int rc = cl->words && cl->indep ? 0 : -1;
+    cl->wait_va = omega_gpu_host_calloc(cap, sizeof *cl->wait_va);
+    int rc = cl->words && cl->indep && cl->wait_va ? 0 : -1;
     omega_gpu_session_lock();
     if (rc == 0 && !omega_gpu_session_open()) rc = -1;
     if (rc == 0 && (omega_gpu_session_alloc((size_t)cap * OMEGA_GPU_CMDLIST_BANK_BYTES, &cl->banks) != 0 ||
@@ -132,6 +141,7 @@ void omega_gpu_cmdlist_free(OmegaGpuCmdList *cl) {
     omega_gpu_session_unlock();
     omega_gpu_host_free(cl->words);
     omega_gpu_host_free(cl->indep);
+    omega_gpu_host_free(cl->wait_va);
     omega_gpu_host_free(cl);
 }
 
@@ -167,6 +177,9 @@ int omega_gpu_cmdlist_add(OmegaGpuCmdList *cl, const OmegaGpuLaunch *L) {
     memcpy(qs, q1, sizeof q1);
     memcpy(qs + 0x200, q0, sizeof q0);
     cl->indep[cl->n] = 0;
+    cl->wait_va[cl->n] = cl->pending_wait;
+    if (cl->pending_wait) cl->nwaits++;
+    cl->pending_wait = 0;
     cl->n++;
     return (int)i;
 }
@@ -252,10 +265,20 @@ static size_t emit_chunk(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *op, uin
     size_t n = 0;
     memcpy(pb, SETUP_WORDS, sizeof SETUP_WORDS); n += 18;
     for (uint32_t i = done; i < end; i++) {
+        if (cl->wait_va[i]) {
+            /* wait_for: host semaphore ACQUIRE (clc96f.h SEM_ADDR_LO 0x5c .. SEM_EXECUTE 0x6c, OPERATION_ACQUIRE 0, 32-bit
+             * payload; the omega-mv#580 ORDER_SEM words, chip-proven): this queue stops here until the other list's launch
+             * released DONE. Before the barrier, so the launch's cache invalidate comes after the wait. */
+            const uint64_t va = cl->wait_va[i];
+            pb[n++] = bw_mthd(0, 0x005c, 5); pb[n++] = (uint32_t)va; pb[n++] = (uint32_t)(va >> 32);
+            pb[n++] = OMEGA_BW_SEMAPHORE_INTERMEDIATE_DONE; pb[n++] = 0; pb[n++] = 0;
+        }
         if (o.skip_launch && i == (uint32_t)(o.skip_launch - 1)) continue;
-        /* the first launch of a submission always gets the full barrier (CPU-written QMDs, code and banks before it) */
+        /* the first launch of a submission gets the full barrier (CPU-written QMDs, code and banks before it), unless
+         * opts.first_barrier_none (C4 streams measurement: a WAIT_FOR_IDLE may also wait for another queue's grids) */
         const int indep = i != done && cl->indep[i]; /* marked independent: no barrier, overlaps the launch before it */
-        const OmegaGpuCmdListBarrier b = i == done ? OMEGA_GPU_CMDLIST_BARRIER_WFI : indep ? OMEGA_GPU_CMDLIST_BARRIER_NONE : o.barrier;
+        const OmegaGpuCmdListBarrier b = i == done ? (i == 0 && o.first_barrier_none ? OMEGA_GPU_CMDLIST_BARRIER_NONE : OMEGA_GPU_CMDLIST_BARRIER_WFI)
+                                                   : indep ? OMEGA_GPU_CMDLIST_BARRIER_NONE : o.barrier;
         if (indep && o.stamps) n = emit_stamp(pb, n, cl->stamps.va, i); /* no WFI: slot i is the front-end time, launch i - 1 may still run */
         if (b != OMEGA_GPU_CMDLIST_BARRIER_NONE) {
             if (b != OMEGA_GPU_CMDLIST_BARRIER_FLUSH_DATA) { pb[n++] = bw_mthd(1, MTHD_WAIT_FOR_IDLE, 1); pb[n++] = 0; }
@@ -316,7 +339,7 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
         omega_gpu_session_set_error("cmdlist submit: sync_cpu_to_gpu"); return -1;
     }
 
-    const uint32_t per_launch = (o.mode == OMEGA_GPU_CMDLIST_INLINE ? 4u + 2u * 99u : 8u) + (o.stamps ? STAMP_WORDS : 0u);
+    const uint32_t per_launch = (o.mode == OMEGA_GPU_CMDLIST_INLINE ? 4u + 2u * 99u : 8u) + (o.stamps ? STAMP_WORDS : 0u) + (cl->nwaits ? 6u : 0u);
     /* The platform may put its own words ahead of ours in the ring (the Linux reference: the omega #457 L2 invalidate
      * after a host write to a GPU-cached buffer). Budget what it publishes, or a near-full submission is refused. */
     const uint32_t prefix = omega_gpu_session_submit_prefix_words();
@@ -424,7 +447,7 @@ int omega_gpu_cmdlist_submit_pair(OmegaGpuCmdList *a, OmegaGpuCmdList *b, const 
     const OmegaGpuCmdList *L[2] = { a, b };
     for (int k = 0; k < 2; k++) {
         const uint32_t avail = L[k]->words_cap - 18u - TAIL_WORDS - 2u - STAMP_WORDS;
-        if (prefix > avail || (avail - prefix) / 8u < L[k]->n) { omega_gpu_session_set_error("cmdlist pair: a list does not fit one submission"); return -1; }
+        if (prefix > avail || (avail - prefix) / (L[k]->nwaits ? 14u : 8u) < L[k]->n) { omega_gpu_session_set_error("cmdlist pair: a list does not fit one submission"); return -1; }
     }
     if (pair_prep(p, a) || pair_prep(p, b)) { omega_gpu_session_set_error("cmdlist pair: sync_cpu_to_gpu"); return -1; }
     const size_t na = emit_chunk(a, &o, 0, a->n, marker_va), nb = emit_chunk(b, &o, 0, b->n, marker_va + PAIR_B_MARKER);

@@ -82,6 +82,9 @@ typedef struct {
                              back by omega_gpu_cmdlist_stamps. Costs 6 words + the report per launch. 0 = off. */
     int skip_launch;      /* TEST ONLY: >= 1 drops launch (skip_launch - 1) from the method stream (its slot stays
                              recorded), so the per-launch semaphore check must fail. 0 = off. */
+    int first_barrier_none; /* C4 streams: no WAIT_FOR_IDLE + invalidate before launch 0 (the CPU-written code, banks and QMDs
+                             must not sit in a stale cache line: fresh slots or unchanged contents). A WAIT_FOR_IDLE may also
+                             wait for grids of another queue of the group; the streams test measures both. 0 = the barrier. */
 } OmegaGpuCmdListOpts;
 
 typedef struct {
@@ -120,6 +123,11 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
  * one submission. Both stats get the pair wall time (first submit to the last marker). 0 ok; -1 with the stage named;
  * a marker timeout latches the session. */
 int omega_gpu_cmdlist_submit_pair(OmegaGpuCmdList *a, OmegaGpuCmdList *b, const OmegaGpuCmdListOpts *opts, OmegaGpuCmdListStats *sa, OmegaGpuCmdListStats *sb);
+/* C4 events. Caller holds the lock. The next launch added to cl waits, on the chip, until launch `index` of list `other`
+ * (already added there) has completed: a host semaphore ACQUIRE on that launch's release semaphore (DONE), emitted
+ * before the launch's barrier. Meant for two lists on two queues (submit_pair); a wait on a list that never runs
+ * stalls the queue until the marker timeout latches the session. 0 ok, -1 (no such launch). */
+int omega_gpu_cmdlist_wait_for(OmegaGpuCmdList *cl, const OmegaGpuCmdList *other, uint32_t index);
 /* 1 once a timeout latched this module. */
 int omega_gpu_cmdlist_is_latched(void);
 
