@@ -1,0 +1,30 @@
+Independent check of the hello-host output hash. Not computed by the C program.
+
+Program: c[i] = a[i] + b[i] for i = 0 .. 2^20-1
+  a[i] = i/4, exact in binary32 for this range
+  b[i] = binary32 rounding of 1/(1 + i mod 7)
+
+Binary32 reciprocals (Wolfram, round ties to even), as hex bits:
+  1/1  3f800000
+  1/2  3f000000
+  1/3  3eaaaaab
+  1/4  3e800000
+  1/5  3e4ccccd
+  1/6  3e2aaaab
+  1/7  3e124925
+
+Why a binary64 sum rounded to binary32 is the binary32 add here: a[i] and b[i] are binary32 values, so both are exact in binary64. Their exponents differ by at most 21 (2^18 against 1/7), and 21 is under 29, so the sum is exact in binary64. One rounding of that sum to binary32 is the binary32 addition.
+
+Wolfram then exported the 2^20 sums as little-endian Real32 (ExportByteArray, checked: 1.0 is bytes 0,0,128,63) and hashed them.
+
+length: 4194304 bytes (2^20 * 4)
+bytes moved by the program: 12582912 (2^20 * 12)
+sha256: 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+
+That is the hash printed by hello_host on Apple M (arm64), on x86_64, and on the Spark (aarch64).
+
+Copy-probe ratios, recomputed from the measured milliseconds in the three receipts (32 * 2^20 bytes / seconds / 2^30):
+  Apple M, 1.016 ms: 30.757874 GiB/s, program printed 30.76
+  x86_64, 1.504 ms: 20.777926 GiB/s, program printed 20.78
+  Spark CPU, 1.276 ms: 24.490596 GiB/s, program printed 24.50
+These probes are not chip ceilings, and they are not a comparison with CUDA.

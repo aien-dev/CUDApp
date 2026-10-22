@@ -4,9 +4,13 @@
 
 # CUDA++
 
-**CUDA++ is the GPU half of the Omega runtime, under the MIT licence so anyone can use it.** You write a GPU program, CUDA++ turns it into the GPU's own machine code and runs it on an NVIDIA GPU, with no NVIDIA user-space software anywhere: no CUDA toolkit, no `nvcc`, no PTX, no `libcuda`, no cuBLAS.
+Bringing CUDA performance to other hardware.
 
-It runs on the NVIDIA GB10 (the DGX Spark, compute capability sm_121) today. The 35-billion-parameter model AIEN serves on the Spark runs on this code: on 2026-10-21 the live server had only the C library, the maths library, `libgcc_s` and the loader mapped, and zero CUDA libraries (receipt in Omega: `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`).
+**CUDA++ is the GPU half of the Omega runtime, under the MIT licence so anyone can use it.** You write a program, CUDA++ runs it. Where a GPU is qualified, CUDA++ writes that GPU's own machine code and launches it with no vendor user-space stack: no CUDA toolkit, no `nvcc`, no PTX, no `libcuda`, no cuBLAS, and no ROCm, oneAPI or Metal in their place.
+
+The qualified GPU today is the NVIDIA GB10 (the DGX Spark, compute capability sm_121). The 35-billion-parameter model AIEN serves on the Spark runs on this code: on 2026-10-21 the live server had only the C library, the maths library, `libgcc_s` and the loader mapped, and zero CUDA libraries (receipt in Omega: `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`).
+
+The same program also runs on other hardware, in CUDA++'s own host code, with no vendor GPU stack. That path has a receipt on Apple M and on x86_64, the CPU architecture AMD and Intel share (`evidence/targets/`). An AMD GPU, an Intel GPU, and the Apple GPU are named targets. I do not claim GPU execution, or CUDA-level speed, on them until that chip runs the qualification and the receipt is in this repository. The GB10 encoder cannot be reused there: a different instruction set needs its own encoder, and I have not measured one.
 
 CUDA++ keeps growing until every NVIDIA part on the Spark is replaced, and then does things CUDA does not:
 
@@ -334,13 +338,22 @@ Replacing a developer's CUDA libraries and NVIDIA's kernel module with CUDA++ is
 
 ## Run your first kernel
 
-You need: a DGX Spark (GB10) running Linux with NVIDIA's open kernel module loaded (version 580.173.02 was used here; `/dev/nvidia0` and `/dev/nvidia-uvm` must exist), plus `git`, `make` and `gcc`. Nothing from the CUDA toolkit is needed or used.
+You do not need an NVIDIA GB10, and you do not need Linux.
 
-From an empty folder:
+Apple M, a machine with an AMD or Intel CPU (x86_64), or Linux, with `make` and a C compiler:
 
 ```bash
 git clone https://github.com/aien-dev/CUDApp
 cd CUDApp
+make hello-host          # if your compiler is not named gcc: make hello-host CC=clang
+make hello-host-mutant   # must fail. A PASS that cannot be false checks nothing.
+```
+
+`make hello-host` builds no NVIDIA code and opens no device. It adds two arrays of one million numbers in CUDA++'s own host code and checks every answer. It prints `PASS` and exits 0 when all answers are right, and exits 1 when any is wrong. Receipts from an Apple M2, from an x86_64 build of the same program, and from the Spark's ARM64 CPU are in `evidence/targets/`. The x86_64 receipt was run under Rosetta on that M2, not on an AMD or Intel chip. Those three runs print the same output hash. Wolfram recomputed that hash from exact binary32 rounding of the same adds (`evidence/targets/wolfram.txt`) and it matches, so the hash is not only the program agreeing with itself.
+
+Real GPU execution, meaning CUDA++ writes the chip's own machine code and the chip runs it, is qualified on one machine: a DGX Spark (GB10, sm_121) running Linux with NVIDIA's open kernel module loaded (version 580.173.02 was used here; `/dev/nvidia0` and `/dev/nvidia-uvm` must exist). Nothing from the CUDA toolkit is needed or used.
+
+```bash
 make hello-gpu
 ```
 

@@ -14,7 +14,7 @@ The version number lives in one header, `src/omega_runtime_api.h` (`OMEGA_RUNTIM
 Omega is a GPU compute runtime that does not use CUDA. This file is the written contract for the part a program calls
 directly: find and open the GPU, get memory, copy data in and out, run a kernel, run many kernels in one submission, run a
 packaged job, and read errors. It covers what exists on the main branch today, on one machine type (GB10, the DGX Spark),
-through the Linux open-driver backend. Nothing here claims more than that.
+through the Linux open-driver backend. Nothing here claims more than that. Host execution on Apple M and on x86_64 (AMD and Intel CPUs) is `make hello-host` (`src/cudapp_target.h`). That path is not this GPU API, and it is not a claim that those machines run GPU machine code.
 
 How to read an entry:
 

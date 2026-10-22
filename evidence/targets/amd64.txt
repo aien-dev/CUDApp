@@ -1,0 +1,19 @@
+command: clang -arch x86_64 -std=c11 -Wall -Wextra -Werror -O2 -Isrc -ffp-contract=off -o build/hello_host_x86_64 examples/hello_host/hello_host.c src/cudapp_target.c src/cudapp_host_run.c src/sha256.c -lm && ./build/hello_host_x86_64
+date: 2026-10-22
+host: Apple M2 running the x86_64 binary under Rosetta. This is not an AMD chip and not an Intel chip. It is the x86_64 ISA those CPUs share.
+compiler: Apple clang 17.0.0 (clang-1700.6.4.2) -arch x86_64
+binary: Mach-O 64-bit executable x86_64
+what this is: host code. Not an AMD GPU and not an Intel GPU. Not a CUDA speed claim.
+
+machine: Darwin 25.6.0 x86_64
+running on: amd64 (AMD and Intel CPUs, x86_64)
+note: host code on the x86_64 ISA those CPUs share. Not an AMD or Intel GPU.
+work: 12582912 bytes moved (2 reads, 1 write), 1048576 floating-point adds, 1.549 ms
+output sha256 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+host copy probe: best of 8 copies of 32 MiB took 1.504 ms (20.78 GiB/s). This probe is not a chip ceiling.
+PASS
+
+Wolfram check of the printed probe: 32 MiB in 1.504 ms is 20.777926 GiB/s (1024-based), which prints as 20.78. See evidence/targets/wolfram.txt.
+The output hash matches the Apple M run and the Spark ARM64 run.
+exit: 0
+negative control: the same binary with --mutate exits 1.

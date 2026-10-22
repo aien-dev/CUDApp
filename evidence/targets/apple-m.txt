@@ -1,0 +1,18 @@
+command: make hello-host CC=clang
+date: 2026-10-22T11:25:18Z
+host: Apple M2, Darwin 25.6.0 arm64
+compiler: Apple clang 17.0.0 (clang-1700.6.4.2)
+binary: Mach-O 64-bit executable arm64
+what this is: host code. Not the Apple GPU. Not a CUDA speed claim.
+
+machine: Darwin 25.6.0 arm64
+running on: apple-m (Apple M, arm64)
+note: host code on Apple M. Not the Apple GPU.
+work: 12582912 bytes moved (2 reads, 1 write), 1048576 floating-point adds, 0.453 ms
+output sha256 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+host copy probe: best of 8 copies of 32 MiB took 1.016 ms (30.76 GiB/s). This probe is not a chip ceiling.
+PASS
+
+Wolfram check of the printed probe: 32 MiB in 1.016 ms is 30.757874 GiB/s (1024-based), which prints as 30.76. See evidence/targets/wolfram.txt.
+exit: 0
+negative control: make hello-host-mutant exits 1 (one element left wrong).

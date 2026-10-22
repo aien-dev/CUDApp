@@ -193,6 +193,9 @@ int main(int argc, char **argv) {
     check_memory(unified);
     note_toolkit();
     line("info", "compiler", "this doctor was built by " __VERSION__ "; CUDA++ needs only make and a C compiler");
+    line("info", "other hardware",
+         "make hello-host runs the same program with no GPU, on Apple M and on AMD and Intel CPUs (x86_64). "
+         "Real GPU machine code is qualified on the GB10 only");
     if (g_fail) {
         printf("NOT READY: %d problem%s above. Fix the first FAIL line and run make doctor again.\n", g_fail, g_fail == 1 ? "" : "s");
         return 1;
