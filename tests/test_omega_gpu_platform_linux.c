@@ -241,6 +241,63 @@ static void c_cmdlist_near_cap_with_l2_inval_pending(void) {
     omega_gpu_session_unlock();
 }
 
+/* Developer bar D1 (docs/PAIN_POINTS.md): on the GB10 every CUDA++ buffer is the machine's own memory, and running
+ * it out freezes the whole box. The reference refuses an allocation that would leave less than the reserve free,
+ * before the driver is called, with a sentence that names the bytes asked, the bytes free and the setting.
+ * CUDAPP_MEMINFO points the platform at a fake /proc/meminfo; CUDAPP_MEM_RESERVE_MIB sets the reserve (0 = off). */
+static void write_meminfo(const char *path, unsigned long long avail_kb) {
+    FILE *f = fopen(path, "w");
+    if (!f) { case_ok = 0; return; }
+    fprintf(f, "MemTotal:       127535484 kB\nMemFree:          100000 kB\nMemAvailable:   %llu kB\n", avail_kb);
+    fclose(f);
+}
+static void c_memory_reserve(void) {
+    fake_reset();
+    fk.alloc_max = 8u << 20; /* the fake driver may hand out up to 8 MiB, so only our check can refuse */
+    char path[] = "/tmp/cudapp-meminfo-XXXXXX";
+    int fd = mkstemp(path); if (fd >= 0) close(fd);
+    write_meminfo(path, 4097ull * 1024ull); /* 4097 MiB free: 1 MiB above the default 4096 MiB reserve */
+    setenv("CUDAPP_MEMINFO", path, 1);
+    unsetenv("CUDAPP_MEM_RESERVE_MIB");
+    OmegaGpuPlatformCaps caps;
+    const OmegaGpuPlatform *p = omega_gpu_platform_linux(&caps);
+    OmegaGpuDeviceHandle d;
+    EXPECT(p->device_open(p->ctx, 0, &d) == OMEGA_GPU_PLAT_OK);
+    OmegaGpuBufferDesc small = {.kind = OMEGA_GPU_HANDLE_BUF_DATA, .rights = OMEGA_GPU_RIGHT_CPU_READ | OMEGA_GPU_RIGHT_GPU_WRITE,
+                                .gpu_cache = OMEGA_GPU_CACHE_GPU_UNCACHED, .bytes = 4096};
+    OmegaGpuBufferDesc big = small; big.bytes = 2u << 20;
+    OmegaGpuBufferHandle h; OmegaCpuView cpu; OmegaGpuVa va; OmegaGpuBusAddr bus;
+    EXPECT(p->dma_alloc(p->ctx, d, &small, &h, &cpu, &va, &bus) == OMEGA_GPU_PLAT_OK); /* leaves more than the reserve */
+    const int allocs0 = fk.alloc_calls;
+    EXPECT(p->dma_alloc(p->ctx, d, &big, &h, &cpu, &va, &bus) == OMEGA_GPU_PLAT_REFUSED_LIMIT);
+    EXPECT(fk.alloc_calls == allocs0); /* refused before the driver */
+    const char *t = p->diag_text(p->ctx);
+    EXPECT(strstr(t, "dma_alloc: refused 2.0 MiB") != NULL);
+    EXPECT(strstr(t, "4.0 GiB of memory is free") != NULL);
+    EXPECT(strstr(t, "CUDAPP_MEM_RESERVE_MIB=4096") != NULL);
+    EXPECT(strstr(t, "freezes the machine") != NULL);
+    printf("  refusal: %s\n", t);
+    setenv("CUDAPP_MEM_RESERVE_MIB", "0", 1); /* the reserve can be turned off */
+    EXPECT(p->dma_alloc(p->ctx, d, &big, &h, &cpu, &va, &bus) == OMEGA_GPU_PLAT_OK);
+    setenv("CUDAPP_MEM_RESERVE_MIB", "1", 1); /* and set: 1 MiB reserve, 2 MiB fits in 4097 MiB */
+    EXPECT(p->dma_alloc(p->ctx, d, &big, &h, &cpu, &va, &bus) == OMEGA_GPU_PLAT_OK);
+    unsetenv("CUDAPP_MEM_RESERVE_MIB");
+    setenv("CUDAPP_MEMINFO", "/nonexistent/meminfo", 1); /* cannot read memory: the check cannot know, so it allows */
+    EXPECT(p->dma_alloc(p->ctx, d, &big, &h, &cpu, &va, &bus) == OMEGA_GPU_PLAT_OK);
+    EXPECT(p->device_close(p->ctx, d) == OMEGA_GPU_PLAT_OK);
+    /* through the session, the same sentence reaches omega_gpu_session_last_error() */
+    setenv("CUDAPP_MEMINFO", path, 1);
+    omega_gpu_session_lock();
+    EXPECT(omega_gpu_session_open() != NULL);
+    OmegaGpuMem m;
+    EXPECT(omega_gpu_session_alloc(2u << 20, &m) != 0);
+    EXPECT(strstr(omega_gpu_session_last_error(), "dma_alloc: refused 2.0 MiB") != NULL);
+    printf("  session: %s\n", omega_gpu_session_last_error());
+    EXPECT(omega_gpu_session_alloc(4096, &m) == 0);
+    omega_gpu_session_unlock();
+    unlink(path);
+}
+
 typedef struct { const char *id; void (*fn)(void); } Case;
 static const Case CASES[] = {
     {"LINUX_REF_CAPS_NO_MMIO_NO_IRQ", c_caps},
@@ -251,6 +308,7 @@ static const Case CASES[] = {
     {"MARKER_NEVER_LATCHES_AND_PARKS", c_marker_never_latches},
     {"L2_INVAL_PREFIX_ONCE_AFTER_CACHED_HOST_WRITE", c_l2_inval_prefix_once},
     {"CMDLIST_NEAR_CAP_SUBMITS_WITH_L2_INVAL_PENDING", c_cmdlist_near_cap_with_l2_inval_pending},
+    {"D1_MEMORY_RESERVE_REFUSES_BEFORE_THE_DRIVER", c_memory_reserve},
 };
 
 int main(void) {

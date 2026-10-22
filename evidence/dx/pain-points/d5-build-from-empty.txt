@@ -1,0 +1,15 @@
+# D5: build CUDA++ from an empty folder   2026-10-22T01:50:38Z on spark-b87b, 20 cores
+# load before: 31.31 27.10 23.18   gcc: 13.3.0   make: GNU Make 4.3
+$ git clone -b dx/pain-points <this repository> cudapp && cd cudapp
+commit 2e3804976498ae328e9d7a0538828e7074b789af
+$ time make -j20
+exit 0, wall 2.034379307 s
+# load after: 31.31 27.10 23.18
+$ ls -l build/libcudapp.a; size totals
+1060126 build/libcudapp.a
+ 551938	  46705	1642600	2241243	 2232db	(TOTALS)
+$ git ls-files | wc -l; du -sh --exclude=.git --exclude=build .
+431
+6.3M
+$ nm -u build/libcudapp.a | grep -c -i cuda   (CUDA symbols the library needs)
+0

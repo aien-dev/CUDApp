@@ -1,0 +1,24 @@
+# commit a462199f106a0a0f095da486a038ccc1c3ad28f0 branch dx/d1-memory, run 2026-10-22T01:49:49Z on spark-b87b
+# negative control: the reserve check removed from ref_dma_alloc; the D1 case must FAIL
+$ grep -n MUTANT src/omega_gpu_platform_linux.c
+235:    rc = OMEGA_GPU_PLAT_OK; (void)mem_reserve_check; /* MUTANT: D1 check removed */ /* D1: before any slot or driver call; the sentence is in r->diag */
+$ make build/test_omega_gpu_platform_linux && ./build/test_omega_gpu_platform_linux
+PASS LINUX_REF_CAPS_NO_MMIO_NO_IRQ
+PASS HOSTED_DEFAULT_IS_LINUX_REFERENCE
+PASS SAME_DRIVER_CALLS_AND_ORDER_AS_BEFORE
+PASS REFERENCE_REFUSALS_CACHED_POLLED_RING_STALE
+PASS OPEN_FAILURE_KEEPS_DRIVER_TEXT
+PASS MARKER_NEVER_LATCHES_AND_PARKS
+PASS L2_INVAL_PREFIX_ONCE_AFTER_CACHED_HOST_WRITE
+PASS CMDLIST_NEAR_CAP_SUBMITS_WITH_L2_INVAL_PENDING
+  expect failed at line 272: p->dma_alloc(p->ctx, d, &big, &h, &cpu, &va, &bus) == OMEGA_GPU_PLAT_REFUSED_LIMIT
+  expect failed at line 273: fk.alloc_calls == allocs0
+  expect failed at line 275: strstr(t, "dma_alloc: refused 2.0 MiB") != NULL
+  expect failed at line 276: strstr(t, "4.0 GiB of memory is free") != NULL
+  expect failed at line 277: strstr(t, "CUDAPP_MEM_RESERVE_MIB=4096") != NULL
+  expect failed at line 278: strstr(t, "freezes the machine") != NULL
+  expect failed at line 293: omega_gpu_session_alloc(2u << 20, &m) != 0
+  expect failed at line 294: strstr(omega_gpu_session_last_error(), "dma_alloc: refused 2.0 MiB") != NULL
+FAIL D1_MEMORY_RESERVE_REFUSES_BEFORE_THE_DRIVER
+test_omega_gpu_platform_linux (reference only, simulated driver): 8 passed, 1 failed
+exit 0

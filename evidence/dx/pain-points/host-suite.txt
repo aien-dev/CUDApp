@@ -1,0 +1,6 @@
+dx/pain-points 2e38049 make -k test rc=2; failing targets: test-gpu-attention test-gpu-engine-backend-mutants test-gpu-engine-mutants test-runtime-api test-runtime-portability-check test-runtime-portability-controls 
+test_omega_gpu_platform_linux (reference only, simulated driver): 9 passed, 0 failed
+doctor tests: 9 passed, 0 failed
+hello --sim tests: 8 passed, 0 failed
+done 2026-10-22T01:53:06Z
+# main fc90713 fails the same 6 targets before any L400 change (~/handoffs/l400/suite-main.log)

@@ -1,0 +1,12 @@
+# commit 213a19a91629951f224935052156c01fa174e8be branch dx/d3-faults, run 2026-10-22T01:49:43Z on spark-b87b
+# negative control: buffer bounds switched off (s.nranges = 0); the fault tests must FAIL
+PASS sim-pass (exit 0)
+PASS sim-checks
+PASS work-line
+PASS hashes-printed
+PASS same-bits-twice
+FAIL fault-exit: exit 0, want 1
+FAIL fault-report
+FAIL fault run went on past the faulting launch
+FAIL fault-address-is-end-of-a (addr= range=)
+hello --sim tests: 5 passed, 4 failed

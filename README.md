@@ -124,6 +124,214 @@ Every speed number is held against what this machine can physically do, measured
 | Runtime API | The written, versioned API and its manifest check | `docs/runtime/API.md`, `src/omega_runtime_api.h` |
 | Figures | Every picture on this page, drawn from the repository's own data | `tools/figures/make_figures.py`, `docs/img/` |
 
+## CUDA's pain points, and how CUDA++ fixes them
+
+I read what developers write about CUDA and its libraries on GitHub, Reddit, NVIDIA's forums, the PyTorch forum, Hacker News and Stack Overflow, and ranked the problems by how many people they hurt (GitHub issue counts times how badly they hurt). The full research, with 97 sources and every quote checked word for word against its page, is `docs/PAIN_POINTS.md`. How CUDA++ itself was built, reverse engineering included, is `docs/HOW_I_DID_IT.md`.
+
+Each row below gives the pain in a developer's own words, how CUDA++ fixes it, and the command that shows it, with the output it printed on my DGX Spark and the receipt it came from. A row says FIXED only when that command and receipt are on this branch. Where CUDA is still better, `docs/PAIN_POINTS.md` section 4 says so.
+
+### 1. Out of memory, and on the DGX Spark a frozen machine (26,390 GitHub issues say "CUDA out of memory")
+
+**The pain.** "The Spark ships with zero swap. On unified memory a spike goes straight to a global OOM that hard hangs the whole box. No ssh, no ping, needs a power cycle." ([dgx-spark-laguna FINDINGS.md](https://github.com/sudoingX/dgx-spark-laguna/blob/main/FINDINGS.md))
+
+**How CUDA++ fixes it.** On the GB10 the CPU and GPU share one memory, and every CUDA++ buffer is part of it. CUDA++ has no caching allocator, so what a process holds is what it asked for. Before any allocation reaches the driver, CUDA++ checks how much memory the machine has free. If the buffer would leave less than a reserve (4 GiB by default, `CUDAPP_MEM_RESERVE_MIB` to change it, 0 to turn it off), the allocation is refused with a sentence instead of freezing the box.
+
+**The command that shows it** (host test of the runtime on a simulated driver, run on the Spark):
+
+```
+$ make build/test_omega_gpu_platform_linux && ./build/test_omega_gpu_platform_linux
+...
+  refusal: dma_alloc: refused 2.0 MiB: 4.0 GiB of memory is free and CUDA++ keeps 4.0 GiB free (CUDAPP_MEM_RESERVE_MIB=4096), because the CPU and GPU share it and running it out freezes the machine. Free buffers or use a smaller batch.
+  session: dma_alloc: refused 2.0 MiB: 4.0 GiB of memory is free and CUDA++ keeps 4.0 GiB free (CUDAPP_MEM_RESERVE_MIB=4096), because the CPU and GPU share it and running it out freezes the machine. Free buffers or use a smaller batch.
+PASS D1_MEMORY_RESERVE_REFUSES_BEFORE_THE_DRIVER
+test_omega_gpu_platform_linux (reference only, simulated driver): 9 passed, 0 failed
+```
+
+Receipts: `evidence/dx/d1-memory/platform-test-spark.txt`, and `evidence/dx/d1-memory/negative-control.txt` (with the check removed, the test fails). **FIXED in the runtime, shown on the host.** Left: the same refusal on the chip itself, inside a GPU window (`docs/issues/D1-memory.md`).
+
+### 2. The version and build matrix (11,034 GitHub issues mention "TORCH_CUDA_ARCH_LIST")
+
+**The pain.** "I don't know a right solution that works for all setups, happy to hear suggestions." (FlashAttention's maintainer, [flash-attention #246](https://github.com/Dao-AILab/flash-attention/issues/246))
+
+**How CUDA++ fixes it.** There is no toolkit, framework build or extension build to match: compiler, runtime and libraries are one repository at one commit, built with `make` and a C compiler. The one outside version is NVIDIA's kernel module, whose public headers CUDA++ is built against. `make doctor` checks it and everything else a first run needs. It reads `/proc`, `/sys` and `/dev` only and opens no device. Every problem gets a line saying what is wrong, why and the command that fixes it. A module of another version is refused, not guessed at. `make hello-gpu` runs the doctor first.
+
+**The command that shows it:**
+
+```
+$ make doctor
+cudapp doctor: is this machine ready for CUDA++?
+  info  system: Linux 7.0.0-1019-nvidia aarch64
+  ok    NVIDIA kernel module: open module 580.173.02 (CUDA++ speaks 580.173.02)
+  ok    device files: /dev/nvidiactl /dev/nvidia0 /dev/nvidia-uvm can be opened by this user
+  ok    GPU 000f:01:00.0: NVIDIA GB10 (sm_121), qualified (receipt: evidence/m16-blackwell-native-path-requalification-receipt.json)
+  ok    memory: 121.7 GiB shared by the CPU and the GPU, 61.3 GiB available now
+  info  CUDA toolkit: not needed and not used by CUDA++ (one is installed at /usr/local/cuda/bin/nvcc; that is fine)
+  info  compiler: this doctor was built by 13.3.0; CUDA++ needs only make and a C compiler
+READY. Next: make hello-gpu
+```
+
+On a machine with the wrong module (one of the nine fake machines `CUDAPP_DOCTOR_SHOW=1 sh tests/doctor/run.sh build/cudapp-doctor` builds):
+
+```
+  FAIL  NVIDIA kernel module: version 575.64.05 is loaded; CUDA++ speaks the 580.173.02 interface
+        Why: CUDA++ builds its driver calls from the 580.173.02 open-module headers
+        (third_party/nvidia-open-580.173.02). The layout of those calls can change between module versions,
+        and a wrong layout fails in strange ways, so CUDA++ refuses instead of guessing.
+        This is the only version CUDA++ asks you to match: no toolkit, no framework build, no extension build.
+        Do this: install the 580.173.02 open kernel module, or port the client to your version
+        (CONTRIBUTING.md, "Port a driver version": copy the new headers, rebuild, run make test and make hello-gpu).
+```
+
+Receipts: `evidence/dx/d2-doctor/make-doctor-spark.txt`, `evidence/dx/d2-doctor/fake-machines.txt`, `evidence/dx/d2-doctor/negative-control.txt`. **FIXED.**
+
+### 3. Errors reported late, at the wrong call (10,356 GitHub issues mention "CUDA_LAUNCH_BLOCKING")
+
+**The pain.** "In our experience the python stack traces for these types of exceptions are basically always incorrect and pretty worthless." (vLLM's maintainers, [vLLM blog](https://vllm.ai/blog/2025-08-11-cuda-debugging))
+
+**How CUDA++ fixes it.** A CUDA++ launch waits for its own completion by default, so an error comes back from the call that caused it. And the same kernel program runs on CUDA++'s host warp simulator with one flag, where every global access is checked against the buffers the launch was given. A bad access stops the run at that launch and names the kernel, the launch, the instruction, the block and thread, the address, the buffer it missed and by how much, and what to do next.
+
+**The command that shows it** (`--bug=past-end` hands the last launch one element too many, the classic off-by-one):
+
+```
+$ build/hello_gpu --sim --bug=past-end
+FAULT at launch 8 of 8 of kernel vecadd (simulator): global load outside every buffer
+  launch: grid 1025 x 1 blocks of 128 threads, n = 131073, first element 917504
+  instruction: 11 of 19, LDG.E (4-byte load)
+  thread: block 1024, thread 0 (element 1048576 of the whole job)
+  address: 0xeba6fbc6f040 (4 bytes), 0 bytes past the end of buffer a = [0xeba6fb86f040, 0xeba6fbc6f040) (4194304 bytes)
+  simulator: MEM at pc 11: global access outside the declared buffers
+  next: launch 8 was given n = 131073, and buffer a holds 131072 elements from this launch's first element.
+        Fix the launch or the buffer, run hello_gpu --sim until it passes, then run hello_gpu on the GPU.
+```
+
+Receipts: `evidence/dx/d3-faults/fault-report-spark.txt`, `evidence/dx/d3-faults/test-hello-sim.txt`, `evidence/dx/d3-faults/negative-control.txt` (with bounds checking off, the fault checks fail). **FIXED on the simulator.** Left: on the chip a faulting kernel still shows up as a launch that never completes, and the process then refuses further GPU work. Reading the GPU's own fault record (`docs/issues/D3-chip-faults.md`) and recovering without a restart (Omega bar C5, ledger L386) are open.
+
+### 4. Builds take hours and ship gigabytes (7,646 GitHub issues match nvcc "compile time")
+
+**The pain.** "For reference I just compiled it on a 2018 Dell laptop (Quadro P1000 GPU) and the build time was about 15 hours." ([flash-attention #1038](https://github.com/Dao-AILab/flash-attention/issues/1038))
+
+**How CUDA++ fixes it.** No per-architecture copies and no template-heavy device compiler: CUDA++ generates each kernel's machine code when the program builds it (row 9), so the library is plain C.
+
+**The command that shows it** (on the Spark, 20 cores, with other builds running: load average 31.31):
+
+```
+$ git clone -b dx/pain-points <this repository> cudapp && cd cudapp
+$ time make -j20
+exit 0, wall 2.034379307 s
+$ ls -l build/libcudapp.a
+1060126 build/libcudapp.a
+$ nm -u build/libcudapp.a | grep -c -i cuda   (CUDA symbols the library needs)
+0
+```
+
+Receipt: `evidence/dx/pain-points/d5-build-from-empty.txt`. **FIXED for what CUDA++ contains.** This is not like for like: CUDA++'s libraries cover far less than cuBLAS and cuDNN (`docs/PAIN_POINTS.md` section 4).
+
+### 5. A new chip: "no kernel image is available for execution on the device" (4,033 GitHub issues)
+
+**The pain.** "Very frustrating compared to most every other GPU release that has zero day support from cuda/nvcc/pytorch/tensorflow." ([r/LocalLLaMA, on the DGX Spark](https://www.reddit.com/r/LocalLLaMA/comments/1r569eb/psa_nvidia_dgx_spark_has_terrible_cuda_software))
+
+**How CUDA++ fixes it.** CUDA++ writes each chip's machine code itself, so it knows exactly which chips it has run on: a table of qualified chips, each with its receipt. Any other NVIDIA GPU is refused by name and PCI id, with what is missing and the steps to port it. CUDA++ never loads code built for a different chip and keeps no cache across chips.
+
+**The command that shows it** (`CUDAPP_DOCTOR_SHOW=1 sh tests/doctor/run.sh build/cudapp-doctor`, the fake machine with a GPU CUDA++ has not qualified):
+
+```
+  FAIL  GPU 000f:01:00.0: NVIDIA device 0x2b85 is not one CUDA++ has qualified.
+        Why: CUDA++ writes each chip's machine code itself and has run it only on the NVIDIA GB10 (sm_121),
+        so it refuses this GPU now instead of failing later with "no kernel image is available".
+        What is missing: a target row for this chip, a check that the encoder's instruction words are valid on it,
+        its launch descriptor and class numbers, and the hello-gpu qualification run with its receipt.
+        What to do: follow docs/runtime/PORTABILITY.md section 5 ("What a new GPU needs") and CONTRIBUTING.md ("Port a chip"),
+        or report it with the output of `make doctor` attached.
+```
+
+Receipt: `evidence/dx/d2-doctor/fake-machines.txt`. **FIXED: the refusal.** Not fixed: CUDA++ runs on one chip, CUDA on every NVIDIA GPU of the last decade. Porting more is open to everyone (`CONTRIBUTING.md`).
+
+### 6. Different answers from the same inputs (5,416 GitHub issues match nondeterministic cuda)
+
+**The pain.** "Completely reproducible results are not guaranteed across PyTorch releases, individual commits, or different platforms." ([PyTorch docs](https://docs.pytorch.org/docs/2.14/notes/randomness.html))
+
+**How CUDA++ fixes it.** CUDA++ adds in a fixed order (no atomics in its reductions, `evidence/E1-CLOSURE/`), so the same inputs give the same bits with no setting to turn on and no speed cost. Every hello-gpu run prints the hash of its output.
+
+**The command that shows it** (two runs):
+
+```
+$ build/hello_gpu --sim
+output sha256 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+$ build/hello_gpu --sim
+output sha256 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+```
+
+Receipt: `evidence/dx/d3-faults/hello-sim-spark.txt`. **FIXED on the simulator.** Left: the same two-run check on the chip, for hello-gpu and a matrix-vector job (`docs/issues/D7-same-bits-chip.md`).
+
+### 7. The per-process CUDA tax (3,478 GitHub issues match "CUDA context" memory overhead)
+
+**The pain.** "The CUDA tax, which is 4.6 GB approximately per each model on a DGX spark." ([r/LocalLLaMA](https://www.reddit.com/r/LocalLLaMA/comments/1sqera2/vllm_woes_in_spark))
+
+**How CUDA++ fixes it.** A CUDA++ process loads no CUDA library: AIEN's live 35B server on 2026-10-21 had only the C library, the maths library, `libgcc_s` and the loader mapped (Omega `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`).
+
+**NOT YET MEASURED.** The memory a CUDA++ process holds beyond its own buffers still needs a number from a chip run (`docs/issues/D8-process-tax.md`).
+
+### 8. Lock-in by licence (2,902 GitHub issues mention ZLUDA)
+
+**The pain.** CUDA's licence: "You may not reverse engineer, decompile or disassemble any portion of the output generated using SDK elements for the purpose of translating such output artifacts to target a non-NVIDIA platform." ([CUDA EULA](https://docs.nvidia.com/cuda/eula/index.html)) And a developer: "I hope someone is working on hardware agnostic solutions, we need more GPUs, not less." ([r/LocalLLaMA](https://www.reddit.com/r/LocalLLaMA/comments/1b6gfjt/cuda_crackdown_nvidias_licensing_update_targets))
+
+**How CUDA++ fixes it.** MIT. Reverse engineering CUDA++'s output, translating it and porting it to any hardware are allowed and welcome (`CONTRIBUTING.md`). No NVIDIA binary is stored or run.
+
+**The command that shows it:**
+
+```
+$ head -1 LICENSE; git ls-files -z | xargs -0 file -b | grep -c -E "ELF|archive|PE32|Mach-O"
+MIT License
+0
+```
+
+Receipt: `evidence/dx/pain-points/licence.txt`. **FIXED.** The GPU's signed firmware stays NVIDIA's: the chip checks its signature.
+
+### 9. Compiling at run time, and hangs while it compiles (517 GitHub issues match "JIT compilation" hang cuda)
+
+**The pain.** "A deep prefill forces a live JIT for a huge novel shape mid-inference, and that compile or kernel deadlocks the GPU on `sm_121a`." ([dgx-spark-laguna FINDINGS.md](https://github.com/sudoingX/dgx-spark-laguna/blob/main/FINDINGS.md))
+
+**How CUDA++ fixes it.** The kernel builder runs inside the program, calls no outside compiler, keeps no cache directory, and gives the same bytes every time.
+
+**The command that shows it:**
+
+```
+$ build/hello_gpu --sim
+kernel built in 22 us: 32 instructions, 12 registers, no compiler run, no cache
+machine code sha256 6248b8ed338019f75e20b13a8ef7e63b4e35764229e0669ffbe54464353e87d1
+$ build/hello_gpu --sim
+kernel built in 23 us: 32 instructions, 12 registers, no compiler run, no cache
+machine code sha256 6248b8ed338019f75e20b13a8ef7e63b4e35764229e0669ffbe54464353e87d1
+```
+
+Receipt: `evidence/dx/d3-faults/hello-sim-spark.txt`. **FIXED for the kernels CUDA++ builds.** The model's larger kernels are built the same way; their build times are not yet printed.
+
+### 10. Closed, model-shaped libraries
+
+**The pain.** "Even worse, if someone accidentally created a kernel with "cutlass" in the name, the driver would apply optimizations that are not safe." ([r/LocalLLaMA](https://www.reddit.com/r/LocalLLaMA/comments/1lx62hd/nvidia_being_nvidia_fp8_is_150_tflops_faster_when))
+
+**How CUDA++ fixes it.** Every CUDA++ library is source in this repository, built by the same kernel builder you can call, with host references and a simulator.
+
+**NOT YET.** CUDA++'s matrix multiply and attention are shaped for the models AIEN runs. Any-shape GEMM, scans and sorts (Omega bar C3) and my own disassembler (bar C6) are ledger L386 (`docs/issues/D11-libraries.md`, `docs/issues/D13-disassembler.md`).
+
+### 11. The incentive: compute sold from data centers
+
+**The pain.** NVIDIA's data-center segment was 92.5% of its revenue last quarter: "Data Center revenue of $89.0 billion" out of $96.2 billion ([NVIDIA, Q2 fiscal 2027](https://nvidianews.nvidia.com/news/nvidia-announces-financial-results-for-second-quarter-fiscal-2027)). A company paid for compute sold has no reason to make the machine you own do the same work with less.
+
+**How CUDA++ answers it.** Measure the work, not the hardware. Every hello-gpu run prints the bytes it moved, the operations it did, and the least time those bytes need at this machine's own measured ceiling, so less work per answer is a number in front of the developer.
+
+**The command that shows it:**
+
+```
+$ build/hello_gpu --sim
+work: 12582912 bytes moved (8388608 read, 4194304 written), 1048576 floating-point operations
+      at the GB10's measured 195.1 GB/s read ceiling this needs at least 64.5 us
+```
+
+Receipt: `evidence/dx/d3-faults/hello-sim-spark.txt`; the ceiling, `evidence/OWN30B-T3-TC-PEAK-BW-5faa0f70-20261013T2236Z/`. **FIXED on the simulator.** Left: the measured GPU time printed next to the floor, from a chip run (the code prints it; it has not run on the chip yet).
+
+Replacing a developer's CUDA libraries and NVIDIA's kernel module with CUDA++ is ledger item L401; its section here comes with it.
+
 ## Run your first kernel
 
 You need: a DGX Spark (GB10) running Linux with NVIDIA's open kernel module loaded (version 580.173.02 was used here; `/dev/nvidia0` and `/dev/nvidia-uvm` must exist), plus `git`, `make` and `gcc`. Nothing from the CUDA toolkit is needed or used.
@@ -136,7 +344,7 @@ cd CUDApp
 make hello-gpu
 ```
 
-`make hello-gpu` builds the library and `examples/hello_gpu`, then runs it. The program builds a vector-add kernel, adds two arrays of one million numbers on the GPU and checks every answer on the CPU. It prints `PASS` and exits 0 when all answers are right, exits 1 when any is wrong, and exits 2 when it cannot use the GPU. `examples/hello_gpu/hello_gpu.c` explains each of its five steps.
+`make hello-gpu` first runs `make doctor`, which checks the machine and names any problem with its fix, then builds the library and `examples/hello_gpu` and runs it. `build/hello_gpu --sim` runs the same kernel on the host simulator with no GPU. The program builds a vector-add kernel, adds two arrays of one million numbers on the GPU and checks every answer on the CPU. It prints `PASS` and exits 0 when all answers are right, exits 1 when any is wrong, and exits 2 when it cannot use the GPU. `examples/hello_gpu/hello_gpu.c` explains each of its five steps.
 
 ## Build and test without a GPU
 
@@ -144,6 +352,7 @@ make hello-gpu
 make          # build/libomega_gpu.a (also as build/libcudapp.a)
 make test     # every host-only check: encoder goldens, simulators, refusals, mutation tests
 python3 tools/figures/make_figures.py --check   # the figures on this page match the code they are drawn from
+make doctor   # is this machine ready? one line per check, each problem with its fix; opens no device
 ```
 
 `make test` opens no device. The chip gates (`./build/gpu_*_test --out receipt.json`) need a GB10; each test's comment in the `Makefile` says how it is run.

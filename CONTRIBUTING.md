@@ -1,0 +1,70 @@
+# Contributing to CUDA++
+
+CUDA++ exists so that people can drop NVIDIA's closed software and still use the NVIDIA GPU they paid for. It gets there one receipt at a time, and anyone with a GPU can add one. This page says how.
+
+## The one rule
+
+Nothing counts until it runs and leaves a receipt. A receipt is the command you ran, the commit you ran it on, the machine, and what it printed, saved under `evidence/`. A pull request that says "should work" is welcome as a start; it is merged when its receipt is there.
+
+A failing test means the work is wrong. Find the cause; do not skip the test, loosen it or rerun it until it passes once.
+
+## What you need
+
+A Linux machine with an NVIDIA GPU, NVIDIA's open kernel module, `git`, `make` and a C compiler. No CUDA toolkit. Start here:
+
+```
+git clone https://github.com/aien-dev/CUDAplusplus
+cd CUDAplusplus
+make doctor      # is this machine ready? every problem comes with the command that fixes it
+make test        # every host check, no GPU needed
+make hello-gpu   # the first kernel, on the GPU
+```
+
+If `make doctor` says your GPU is not qualified, that is not a dead end. It is the first contribution below.
+
+## Four ways to help, easiest first
+
+### 1. Report a pain point, with a receipt
+
+Something about CUDA or CUDA++ cost you time? Open an issue with the "Pain point" template. Paste the command you ran and its full output, and the output of `make doctor`. If it is a CUDA pain point CUDA++ does not answer yet, say what the better behaviour would be. `docs/PAIN_POINTS.md` is the list we work from; good reports get a row.
+
+### 2. Port a chip ("do it on your GPU")
+
+CUDA++ has run on one chip so far, the GB10 in the DGX Spark. Every other NVIDIA GPU needs a port, and the method is written down in `docs/HOW_WE_DID_IT.md`. What changes from chip to chip is listed in `docs/runtime/PORTABILITY.md` section 5. In order:
+
+1. Run `make doctor` and `make test` and keep both outputs.
+2. Add a target row for your chip (PCI id, architecture, class numbers, launch descriptor version, memory model). Fields nobody has published are marked unknown until you measure them.
+3. Check the encoder's instruction words on your chip: run `examples/hello_gpu` and the host tests' golden words against what your GPU does. Same family (for example another Blackwell part): mostly measuring. Different family: a new encoder.
+4. When `make hello-gpu` prints PASS on your GPU, add your chip to the table in `src/omega_gpu_chip.c` with the path of your receipt. That row is what makes `make doctor` say READY for the next person with your GPU.
+
+Open the issue first with the "Port a chip" template, even before anything works, so two people do not port the same chip.
+
+### 3. Port a driver version
+
+CUDA++ talks to NVIDIA's open kernel module through its public headers (`third_party/nvidia-open-580.173.02/`). A different module version may change those calls, so `make doctor` refuses a version CUDA++ was not built for. To add one: copy that release's headers from NVIDIA's `open-gpu-kernel-modules` (MIT) into `third_party/nvidia-open-<version>/`, point the Makefile at them, and run `make test` and `make hello-gpu`. Send the receipts.
+
+### 4. Add or widen a library
+
+CUDA++'s libraries (matrix multiply, attention, elementwise, mixture-of-experts routing) are shaped for the models AIEN runs. Any-shape GEMM, scans, sorts, FFT and random numbers are open (`ROADMAP.md`). A library change needs a host reference (the exact answer computed on the CPU), a simulator run where the simulator covers it, a mutation test (a deliberately broken copy must fail your test) and a chip receipt. Open an issue with the "Add a library" template first.
+
+## Reverse engineering, translation and ports are welcome
+
+CUDA++ is MIT. You may read, disassemble, reverse engineer and translate anything CUDA++ produces, including the machine code it writes, and run it or port it to any hardware, NVIDIA or not. We ask only that you keep the licence notice. This is on purpose: CUDA's licence forbids reverse engineering its output to target other hardware (`docs/PAIN_POINTS.md` section 2.8), and CUDA++ will never do that to anyone.
+
+Do not send us NVIDIA's code or binaries. CUDA++ stores no NVIDIA binary, cubin, PTX or firmware, and no listing printed by NVIDIA's tools (`docs/AUDIT.md`). If you used NVIDIA's compiler or disassembler on your own small kernels to learn an encoding, say so in the code comment, as the existing code does (`docs/HOW_WE_DID_IT.md`, step 2).
+
+## How a change gets in
+
+1. Work on a branch named for what it does.
+2. Write the test first and watch it fail for the reason you expect. Then make it pass. Include a negative control: a case that must fail, and does.
+3. Run `make test` (the whole host suite, not only your test). Every failure in that run goes in your description by name, including ones you did not cause.
+4. Put receipts under `evidence/<your-topic>/` with the commit they ran on.
+5. Open the pull request. Say what it beats CUDA at, or where CUDA is still better.
+
+## Writing
+
+Plain English and short sentences. Say what a thing does, not how good it is. A number always comes with the command that produced it. Write the name as CUDA++, with the plus signs.
+
+## Licence
+
+By contributing you agree that your contribution is licensed under the MIT licence in `LICENSE`.
