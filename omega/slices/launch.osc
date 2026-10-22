@@ -1,0 +1,91 @@
+// slice-entry: mthd_hdr qmd_mthd qmd_addr_hi qmd_addr_lo setup_words
+// The FP8 path's submit scheme, copied into Omega. This is the proven way a
+// kernel gets onto the chip (omega_gpu_session_launch). A pushbuffer word is
+// one method header: opcode 2 in bits 31:28, count in 28:16, subchannel in
+// 15:13, method in 12:0 as mthd>>2. A method must be 4-aligned and at most
+// 0x7ffc, count at most 0x1fff, subchannel at most 7. The kernel launch is
+// method 0x0318 on subchannel 1 with dependence 2. Its address is two words:
+// bit 30 and address bits 48:40 in the first, address bits 39:8 in the second.
+// The compute-class setup is the FP8 path's 18 words, byte for byte.
+// Expected values from Wolfram.
+// slice-run: mthd_hdr bytes: 1 540 1 -> 536944775
+// slice-run: mthd_hdr bytes: 1 392 2 -> 537010274
+// slice-run: mthd_hdr bytes: 1 384 2 -> 537010272
+// slice-run: mthd_hdr bytes: 1 432 1 -> 536944748
+// slice-run: mthd_hdr bytes: 0 92 5 -> 537198615
+// slice-run: mthd_hdr bytes: 0 40 4 -> 537133066
+// slice-run: mthd_hdr bytes: 1 542 1 -> 18446744073709551615
+// slice-run: mthd_hdr bytes: 8 392 2 -> 18446744073709551615
+// slice-run: qmd_mthd bytes: -> 543301830
+// slice-run: qmd_addr_hi bytes: 21474836480 -> 1073741824
+// slice-run: qmd_addr_lo bytes: 21474836480 -> 83886080
+// slice-run: qmd_addr_lo bytes: 4886718345 -> 19088743
+// slice-run: qmd_addr_lo bytes: 1099511628032 -> 1
+// slice-run: qmd_addr_lo bytes: 562949953421312 -> 18446744073709551615
+// slice-run: setup_words cells:18 -> 0 cells=536944737,52928,536944786,1,536944808,15,536946013,3,536946014,536870912,536946015,1048575,536946007,3,536946008,570425344,536946009,0
+// slice-run: setup_words cells:4 -> 18446744073709551615
+
+fn mthd_hdr(b: bytes, subc: u64, mthd: u64, count: u64) -> u64 {
+    if b.len > 0 {
+        return 18446744073709551615;
+    }
+    if subc > 7 || count > 8191 {
+        return 18446744073709551615;
+    }
+    if mthd & 3 != 0 || mthd > 32764 {
+        return 18446744073709551615;
+    }
+    return 536870912 | (count << 16) | (subc << 13) | (mthd >> 2);
+}
+
+fn qmd_mthd(b: bytes) -> u64 {
+    if b.len > 0 {
+        return 18446744073709551615;
+    }
+    return 543301830;
+}
+
+fn qmd_addr_hi(b: bytes, va: u64) -> u64 {
+    if b.len > 0 {
+        return 18446744073709551615;
+    }
+    if va >= 562949953421312 {
+        return 18446744073709551615;
+    }
+    return 1073741824 | ((va >> 40) & 511);
+}
+
+fn qmd_addr_lo(b: bytes, va: u64) -> u64 {
+    if b.len > 0 {
+        return 18446744073709551615;
+    }
+    if va >= 562949953421312 {
+        return 18446744073709551615;
+    }
+    return (va >> 8) & 4294967295;
+}
+
+fn setup_words(out: cells) -> u64 {
+    if out.len < 18 {
+        return 18446744073709551615;
+    }
+    out[0] = 536944737;
+    out[1] = 52928;
+    out[2] = 536944786;
+    out[3] = 1;
+    out[4] = 536944808;
+    out[5] = 15;
+    out[6] = 536946013;
+    out[7] = 3;
+    out[8] = 536946014;
+    out[9] = 536870912;
+    out[10] = 536946015;
+    out[11] = 1048575;
+    out[12] = 536946007;
+    out[13] = 3;
+    out[14] = 536946008;
+    out[15] = 570425344;
+    out[16] = 536946009;
+    out[17] = 0;
+    return 0;
+}

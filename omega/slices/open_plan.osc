@@ -1,0 +1,60 @@
+// slice-entry: open_plan class_pick
+// CUDA++ NVRM open sequence, in Omega. These are the classes and sizes nvrm_open
+// asks the driver for, in that order. The calls themselves are still the C file:
+// the compiler refuses the syscall word. Slot values are the header constants,
+// not guesses. class_pick is the loop that accepts a device only when it exposes
+// Blackwell compute (0xCEC0), Blackwell GPFIFO (0xC96F) and Hopper usermode (0xC661).
+// slice-run: open_plan cells:16 -> 0 cells=3472883713,65,128,0,8320,112,562949953421311,52928,51567,50785,65536,144,37105,4096,562949869535232,72
+// slice-run: class_pick cells:4=3,52928,51567,50785 -> 7
+// slice-run: class_pick cells:4=2,52928,51567,0 -> 3
+// slice-run: class_pick cells:4=0,0,0,0 -> 0
+// slice-run: class_pick cells:4=5,0,0,0 -> 18446744073709551615
+
+fn open_plan(st: cells) -> u64 {
+    if st.len < 16 {
+        return 18446744073709551615;
+    }
+    st[0] = 3472883713;
+    st[1] = 65;
+    st[2] = 128;
+    st[3] = 0;
+    st[4] = 8320;
+    st[5] = 112;
+    st[6] = 562949953421311;
+    st[7] = 52928;
+    st[8] = 51567;
+    st[9] = 50785;
+    st[10] = 65536;
+    st[11] = 144;
+    st[12] = 37105;
+    st[13] = 4096;
+    st[14] = 562949869535232;
+    st[15] = 72;
+    return 0;
+}
+
+fn class_pick(cls: cells) -> u64 {
+    if cls.len < 1 {
+        return 18446744073709551615;
+    }
+    let n: u64 = cls[0];
+    if n > cls.len - 1 {
+        return 18446744073709551615;
+    }
+    let mut found: u64 = 0;
+    let mut i: u64 = 0;
+    while i < n bound 512 {
+        let id: u64 = cls[1 + i];
+        if id == 52928 {
+            found = found | 1;
+        }
+        if id == 51567 {
+            found = found | 2;
+        }
+        if id == 50785 {
+            found = found | 4;
+        }
+        i = i + 1;
+    }
+    return found;
+}

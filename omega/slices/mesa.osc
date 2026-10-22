@@ -1,0 +1,66 @@
+// slice-entry: mesa_ctx mesa_entry mesa_token
+// Our userspace GPU driver, in Omega. This is the job Mesa does for a
+// compute submit, and none of Mesa is linked. A context is accepted only
+// when the device exposes Blackwell compute (52928), Blackwell GPFIFO
+// (51567) and Hopper usermode (50785). A submit is one GP entry, LEVEL_MAIN
+// clear, plus the doorbell token. A value that does not fit refuses.
+// Expected GP entry and token from the same Wolfram values as the NVRM slice.
+// slice-run: mesa_ctx cells:4=3,52928,51567,50785 -> 7
+// slice-run: mesa_ctx cells:4=2,52928,51567,0 -> 18446744073709551615
+// slice-run: mesa_entry bytes: 4096 4 -> 17592186048512
+// slice-run: mesa_entry bytes: 4097 4 -> 18446744073709551615
+// slice-run: mesa_entry bytes: 0 0 -> 18446744073709551615
+// slice-run: mesa_token bytes: 3 42 -> 196650
+// slice-run: mesa_token bytes: 128 0 -> 18446744073709551615
+
+fn mesa_ctx(cls: cells) -> u64 {
+    if cls.len < 1 {
+        return 18446744073709551615;
+    }
+    let n: u64 = cls[0];
+    if n > cls.len - 1 {
+        return 18446744073709551615;
+    }
+    let mut found: u64 = 0;
+    let mut i: u64 = 0;
+    while i < n bound 512 {
+        let id: u64 = cls[1 + i];
+        if id == 52928 {
+            found = found | 1;
+        }
+        if id == 51567 {
+            found = found | 2;
+        }
+        if id == 50785 {
+            found = found | 4;
+        }
+        i = i + 1;
+    }
+    if found != 7 {
+        return 18446744073709551615;
+    }
+    return found;
+}
+
+fn mesa_entry(b: bytes, va: u64, nwords: u64) -> u64 {
+    if b.len > 0 {
+        return 18446744073709551615;
+    }
+    if va & 3 != 0 || va >= 1099511627776 {
+        return 18446744073709551615;
+    }
+    if nwords == 0 || nwords > 2097151 {
+        return 18446744073709551615;
+    }
+    return va | (nwords << 42);
+}
+
+fn mesa_token(b: bytes, runlist: u64, channel: u64) -> u64 {
+    if b.len > 0 {
+        return 18446744073709551615;
+    }
+    if channel > 4095 || runlist > 127 {
+        return 18446744073709551615;
+    }
+    return channel | (runlist << 16);
+}
