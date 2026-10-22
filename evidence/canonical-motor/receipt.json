@@ -36,7 +36,7 @@
       "CC": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
     }
   },
-  "binding_behavioral_checks": 10,
+  "binding_behavioral_checks": 12,
   "native_build": "PASS",
   "linked_native_host": {
     "passed": 41,
@@ -44,9 +44,17 @@
     "ignored_chip_test": "chip_parity_f32_and_bf16: NOT_RUN, requires admitted chip window"
   },
   "zero_cuda_dependencies": "PASS",
-  "full_host_suite": "IN_PROGRESS after explicit fixture fixes; earlier failures retained",
+  "full_host_suite": {
+    "verdict": "PASS",
+    "source": "04607cf7e2fe43776fe6ed04717a060e0df5f60d",
+    "targets": 33,
+    "supplemental": "C3 GEMM host/sim, C4 streams host/sim, C5 isolation host, q38 graph host",
+    "log": "cudapp-host-qualified.log"
+  },
   "shared_serving_train": "NOT_RUN; coordinator admission requested for 18157",
   "live_18091_modified": false,
   "concurrency_recovery_chip": "NOT_QUALIFIED by this receipt",
-  "independent_driver": "NOT_RUN; isolated from the working execution path"
+  "independent_driver": "NOT_RUN; isolated from the working execution path",
+  "binding_omega_source": "7052d780ad9de52285e1c620e3eefd00ec5dc8db",
+  "requalification_after_binding_hardening": "IN_PROGRESS; prior exact-source build receipt retained, no chip qualification"
 }

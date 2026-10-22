@@ -1,0 +1,15 @@
+cudapp-link: canonical 04607cf7e2fe43776fe6ed04717a060e0df5f60d (195 mapped files)
+python3 tests/test_cudapp_link.py
+PASS valid
+PASS missing-checkout
+PASS wrong-pin
+PASS disabled-lock
+PASS dirty-source
+PASS dirty-buildfile
+PASS ignored-source
+PASS malformed-pin
+PASS shadow-copy
+PASS unmapped-gpu
+PASS unsafe-map
+PASS source-symlink
+CANONICAL LINK PASS 12 behavioral checks
