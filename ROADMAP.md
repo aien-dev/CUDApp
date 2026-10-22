@@ -49,3 +49,24 @@ Things a CUDA stack does not do, because it does not own the whole path. Omega `
 ## 4. Speed
 
 Speed is reported against the physical ceiling of this machine, not only against yesterday. The table and the ceilings are in Omega `docs/OMEGA.md` section 5; the head-to-head measurement against llama.cpp and vLLM on this Spark is bar P0 (AIEN L394, running).
+
+## 5. The developer bar: better to use than CUDA
+
+The research in `docs/PAIN_POINTS.md` ranks what developers hit with CUDA and its libraries, and why they stay. Each pain point becomes a row with a done-when anyone can run. The full table, with every row's mechanism and the counts behind its rank, is `docs/PAIN_POINTS.md` section 3; open rows have issue drafts in `docs/issues/`.
+
+| Row | Beats CUDA by | Status |
+| --- | --- | --- |
+| D1 | Memory you can see, and a refusal before the machine hangs | DONE on the host; chip run open |
+| D2 | One command, one version: `make doctor`, then `make hello-gpu` | DONE |
+| D3 | Faults named at the launch that caused them | DONE on the simulator; chip half open |
+| D4 | The simulator first, from the same program: `hello_gpu --sim` | DONE |
+| D5 | Builds in seconds, ships small | DONE (1.3 s, 1.06 MB) |
+| D6 | A new chip works on day one or is refused with a sentence | DONE (the refusal) |
+| D7 | Same inputs, same bits, at no cost | simulator DONE; chip open |
+| D8 | No per-process CUDA tax | PLANNED (chip window) |
+| D9 | No licence that stops you | DONE (`evidence/dx/pain-points/licence.txt`) |
+| D10 | No compiling at run time | DONE for hello-gpu |
+| D11 | Open libraries with an easy default path | PLANNED (L386, Omega bar C3) |
+| D12 | Work per answer, against the machine's own ceiling | simulator DONE; chip open |
+| D13 | Our own disassembler, in plain text | PLANNED (L386, Omega bar C6) |
+| D14 | Recover from a fault without restarting | PLANNED (L386, Omega bar C5) |

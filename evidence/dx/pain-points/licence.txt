@@ -1,0 +1,19 @@
+# D9 receipt: no licence that stops you
+# commit fc90713cfbb9366f807df916fece7699b3eaa7b7 (aien-dev/cudaplusplus main), run 2026-10-22T00:49:52Z on spark-b87b
+$ head -5 LICENSE
+MIT License
+
+Copyright (c) 2026 Drake Stapleton
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+
+$ git ls-files | wc -l
+390
+$ git ls-files -z | xargs -0 file -b | grep -c -E "ELF|archive|PE32|Mach-O"  (binaries tracked)
+0
+$ git ls-files | grep -c -i -E "\.(cubin|ptx|fatbin|so|a|o|bin)$"  (cubin, PTX, fatbin, libraries, firmware)
+0
+$ grep -rIl -i "reverse engineer" --include=LICENSE* . (any clause restricting reverse engineering in our licence)
+(none)
+$ grep -c SPDX-License-Identifier: across tracked .c/.h files, by licence
+    220 SPDX-License-Identifier: MIT
