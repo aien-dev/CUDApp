@@ -431,6 +431,43 @@ void omega_gpu_session_close(void) {
     omega_gpu_session_unlock();
 }
 
+
+/* C5: the way back from a latch without restarting the process. The on-close hooks run first, still latched, so the APIs
+ * drop their resident kernels and scratch (their frees park: nothing is released while the old device may run). Then
+ * the device closes: the Linux reference closes the RM client, which destroys every channel of this process (extra
+ * queues first) and with it every grid still running on them, then frees and unmaps every buffer, parked ones
+ * included. Only after the close returned OK is the latch lifted; the next open starts a new device. */
+static uint32_t g_recoveries;
+
+int omega_gpu_session_recover(void) {
+    omega_gpu_session_lock();
+    const OmegaGpuPlatform *p = LOAD(g_p);
+    int rc = -1;
+    if (!LOAD(g_blocked) || !g_open || !p) {
+        omega_gpu_session_set_error(LOAD(g_blocked) ? "recover: latched but no device is open" : "recover: not latched (nothing to recover)");
+        goto out;
+    }
+    for (unsigned i = 0; i < g_nhooks; i++) g_hooks[i]();
+    const int prc = p->device_close(p->ctx, g_s.dev);
+    if (prc != OMEGA_GPU_PLAT_OK) { fail_plat("recover: device_close (still latched)", prc); goto out; }
+    memset(g_xq, 0, sizeof g_xq);
+    memset(g_xpb, 0, sizeof g_xpb);
+    const uint32_t opens = g_s.opens;
+    memset(&g_s, 0, sizeof g_s);
+    g_s.opens = opens;
+    g_open = false;
+    memset(g_parked, 0, sizeof g_parked);
+    memset(&g_park, 0, sizeof g_park);
+    BUMP(g_recoveries, 1u);
+    STORE(g_blocked, 0u);
+    omega_gpu_session_set_error("");
+    rc = 0;
+out:
+    omega_gpu_session_unlock();
+    return rc;
+}
+
+uint32_t omega_gpu_session_recoveries(void) { return LOAD(g_recoveries); }
 /* ---- launch ---- */
 
 static uint32_t round_up(uint32_t v, uint32_t q) { return (v + q - 1) / q * q; }

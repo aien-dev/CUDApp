@@ -67,9 +67,9 @@ struct OmegaGpuCmdList {
     uint32_t nwaits;      /* launches with a wait (6 more words each) */
 };
 
-static uint32_t g_latched;
+static uint32_t g_latched; /* 1 + omega_gpu_session_recoveries() at the latch; 0 never latched (C5: a recovery lifts it) */
 
-int omega_gpu_cmdlist_is_latched(void) { return __atomic_load_n(&g_latched, __ATOMIC_ACQUIRE) ? 1 : 0; }
+int omega_gpu_cmdlist_is_latched(void) { return __atomic_load_n(&g_latched, __ATOMIC_ACQUIRE) == omega_gpu_session_recoveries() + 1u ? 1 : 0; }
 uint32_t omega_gpu_cmdlist_count(const OmegaGpuCmdList *cl) { return cl ? cl->n : 0; }
 void omega_gpu_cmdlist_reset(OmegaGpuCmdList *cl) { if (cl) { cl->n = 0; cl->pending_wait = 0; cl->nwaits = 0; } }
 int omega_gpu_cmdlist_wait_for(OmegaGpuCmdList *cl, const OmegaGpuCmdList *other, uint32_t index) {
@@ -216,7 +216,7 @@ static int wait_word(const OmegaGpuPlatform *p, const OmegaGpuMem *marker, uint6
 /* Uncertain completion: latch this module, then queue a 1 ms session launch behind the stuck list. If the channel is
  * still busy it times out and the session latches the whole process (parks every buffer, refuses every API). */
 static void force_latch(OmegaGpuCmdList *cl, const char *why) {
-    __atomic_store_n(&g_latched, 1u, __ATOMIC_RELEASE);
+    __atomic_store_n(&g_latched, omega_gpu_session_recoveries() + 1u, __ATOMIC_RELEASE);
     uint32_t arg = 0;
     OmegaGpuLaunch L = { .code_va = cl->nop_code.va, .gpr_count = cl->nop_gpr, .threads_x = 32, .threads_y = 1, .grid_x = 1, .grid_y = 1,
                          .num_elements = 1, .args = &arg, .n_args = 1, .timeout_ms = 1 };
@@ -419,7 +419,7 @@ static int pair_check(const OmegaGpuPlatform *p, OmegaGpuCmdList *cl, uint32_t n
 
 /* Uncertain completion of a pair: queue 1 may still run, so a nop on queue 0 proves nothing; latch the session directly. */
 static void pair_latch(const char *why) {
-    __atomic_store_n(&g_latched, 1u, __ATOMIC_RELEASE);
+    __atomic_store_n(&g_latched, omega_gpu_session_recoveries() + 1u, __ATOMIC_RELEASE);
     omega_gpu_session_latch_uncertain(why);
 }
 

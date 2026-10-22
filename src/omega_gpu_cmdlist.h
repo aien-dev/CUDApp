@@ -128,7 +128,7 @@ int omega_gpu_cmdlist_submit_pair(OmegaGpuCmdList *a, OmegaGpuCmdList *b, const 
  * before the launch's barrier. Meant for two lists on two queues (submit_pair); a wait on a list that never runs
  * stalls the queue until the marker timeout latches the session. 0 ok, -1 (no such launch). */
 int omega_gpu_cmdlist_wait_for(OmegaGpuCmdList *cl, const OmegaGpuCmdList *other, uint32_t index);
-/* 1 once a timeout latched this module. */
+/* 1 once a timeout latched this module, until omega_gpu_session_recover (C5). */
 int omega_gpu_cmdlist_is_latched(void);
 
 /* After a submit with opts.stamps = 1: out[0] = GPU timestamp (ns, PTIMER) before launch 0, out[i + 1] = after launch i completed
