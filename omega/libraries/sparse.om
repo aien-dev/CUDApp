@@ -1,0 +1,39 @@
+note SPDX-License-Identifier MIT
+note CSR matrix times a dense vector in binary32 words
+note y i equals the left to right sum of value p times x col p
+note Independent of cuSPARSE no vendor source and no GPU claim
+note Arrays are globals because a function takes at most six parameters
+global rp ulong 65
+global ci ulong 256
+global av ulong 256
+global xv ulong 64
+global yv ulong 64
+fn spmv rows ulong cols ulong nnz ulong to int
+if or gt rows 64 gt cols 64
+ret 1
+end
+if gt nnz 256
+ret 1
+end
+if ne get rp rows nnz
+ret 1
+end
+for i ulong rows
+acc = ulong 0
+p = get rp i
+q = get rp add i 1
+if gt p q
+ret 1
+end
+while lt p q
+j = get ci p
+if ge j cols
+ret 1
+end
+acc = fadd acc fmul get av p get xv j
+p = add p 1
+end
+put yv i acc
+end
+ret 0
+end

@@ -10,7 +10,8 @@ def main():
     ap=argparse.ArgumentParser(); ap.add_argument('out',type=Path); a=ap.parse_args(); out=a.out.resolve()
     mutants=[('philox','for r ulong 10','for r ulong 9','round-count'),
              ('binary32','if or gt r 4 and eq r 4 ne and v 1 0','if or gt r 5 and eq r 4 ne and v 1 0','rounding'),
-             ('fft','if inv\nwi = xor wi 2147483648','if not inv\nwi = xor wi 2147483648','fft-sign')]
+             ('fft','if inv\nwi = xor wi 2147483648','if not inv\nwi = xor wi 2147483648','fft-sign'),
+             ('sparse','acc = fadd acc fmul get av p get xv j','acc = fadd acc get av p','sparse-scale')]
     for name,old,new,label in mutants:
         src='\n'.join((ROOT/p).read_text() for p in build.PARTS[name]); assert src.count(old)==1
         exe=build.compile_source(out/'compiler/omc',src.replace(old,new),out/('mutant-'+label))

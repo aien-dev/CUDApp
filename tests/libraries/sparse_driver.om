@@ -1,0 +1,175 @@
+note SPDX-License-Identifier MIT
+note Host test adapter for CSR binary32 SpMV not a cuSPARSE API
+note Header rows cols nnz reserved then row pointers columns values and x
+note Refuse a bad request before any output
+note Split so each function stays inside the 16 register pool
+global inp uchar 4096
+global out uchar 256
+global inlen ulong 1
+global rows ulong 1
+global cols ulong 1
+global nnz ulong 1
+fn load at ulong to ulong
+v = ulong 0
+for i ulong 4
+v = or v shl ulong get inp add at i mul i 8
+end
+ret v
+end
+fn store at ulong v ulong to void
+for j ulong 4
+put out add at j uchar and shr v mul j 8 255
+end
+end
+fn emit n ulong to int
+p = ulong 0
+while lt p n
+w = write 1 out p sub n p
+if le w 0
+ret 3
+end
+p = add p ulong w
+end
+ret 0
+end
+fn readall to int
+size = ulong 0
+go = true
+while go
+if eq size 4096
+ret 2
+end
+r = read 0 inp size sub 4096 size
+if lt r 0
+ret 2
+end
+if eq r 0
+go = false
+else
+size = add size ulong r
+end
+end
+put inlen 0 size
+ret 0
+end
+fn header to int
+if lt get inlen 0 16
+ret 2
+end
+put rows 0 load 0
+put cols 0 load 4
+put nnz 0 load 8
+if ne load 12 0
+ret 2
+end
+if or gt get rows 0 64 gt get cols 0 64
+ret 2
+end
+if gt get nnz 0 256
+ret 2
+end
+ret 0
+end
+fn expect to int
+a = ulong 16
+a = add a mul add get rows 0 1 4
+a = add a mul get nnz 0 8
+a = add a mul get cols 0 4
+if ne a get inlen 0
+ret 2
+end
+ret 0
+end
+fn loadrp to void
+base = ulong 16
+i = ulong 0
+n = add get rows 0 1
+while lt i n
+put rp i load add base mul i 4
+i = add i 1
+end
+end
+fn rowsok to int
+if ne get rp 0 0
+ret 2
+end
+if ne get rp get rows 0 get nnz 0
+ret 2
+end
+i = ulong 0
+n = get rows 0
+while lt i n
+if gt get rp i get rp add i 1
+ret 2
+end
+i = add i 1
+end
+ret 0
+end
+fn loadci to int
+base = add ulong 16 mul add get rows 0 1 4
+p = ulong 0
+n = get nnz 0
+c = get cols 0
+while lt p n
+put ci p load add base mul p 4
+if ge get ci p c
+ret 2
+end
+p = add p 1
+end
+ret 0
+end
+fn loadav to void
+base = add ulong 16 mul add get rows 0 1 4
+base = add base mul get nnz 0 4
+p = ulong 0
+n = get nnz 0
+while lt p n
+put av p load add base mul p 4
+p = add p 1
+end
+end
+fn loadxv to void
+base = add ulong 16 mul add get rows 0 1 4
+base = add base mul get nnz 0 8
+j = ulong 0
+n = get cols 0
+while lt j n
+put xv j load add base mul j 4
+j = add j 1
+end
+end
+fn writey to int
+i = ulong 0
+n = get rows 0
+while lt i n
+store mul i 4 get yv i
+i = add i 1
+end
+ret emit mul n 4
+end
+fn main to int
+if ne readall 0
+ret 2
+end
+if ne header 0
+ret 2
+end
+if ne expect 0
+ret 2
+end
+loadrp
+if ne rowsok 0
+ret 2
+end
+if ne loadci 0
+ret 2
+end
+loadav
+loadxv
+if ne spmv get rows 0 get cols 0 get nnz 0 0
+ret 2
+end
+ret writey
+end
