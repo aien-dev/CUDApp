@@ -11,7 +11,7 @@
  * tools/runtime_api_check.sh (make test-runtime-api) fails when this header, the manifest and API.md disagree.
  */
 #define OMEGA_RUNTIME_API_VERSION_MAJOR 0
-#define OMEGA_RUNTIME_API_VERSION_MINOR 1
+#define OMEGA_RUNTIME_API_VERSION_MINOR 2
 /* One number for #if comparisons: (MAJOR << 16) | MINOR. */
 #define OMEGA_RUNTIME_API_VERSION ((OMEGA_RUNTIME_API_VERSION_MAJOR << 16) | OMEGA_RUNTIME_API_VERSION_MINOR)
 #endif

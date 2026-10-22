@@ -1,6 +1,6 @@
 # Omega Runtime API v0
 
-Omega Runtime API version: 0.1
+Omega Runtime API version: 0.2
 
 Status: first written version, 2026-10-19 (slice R1, omega-mv#594, tracking #593). Source of truth is the C headers in
 `src/`. This file describes them; `docs/runtime/omega_runtime_api.manifest` lists them; `make test-runtime-api` checks the
@@ -8,6 +8,10 @@ list against the headers (a host check, no GPU). Review state: reviewed by Opus 
 in this version. The check proves the list and every quoted C signature match the headers; prose is checked by review.
 
 The version number lives in one header, `src/omega_runtime_api.h` (`OMEGA_RUNTIME_API_VERSION_MAJOR`, `_MINOR`).
+
+## 0.2 integration candidate
+
+The experimental handle table now has 4096 entries and experimental command lists allow 4096 launches, matching the existing motor. This is a MINOR change to EXPERIMENTAL entries, not a claim of stable ABI compatibility for their old layouts. Recompile callers allocating an experimental handle table. The prior review statement above applies to 0.1 only; independent review of this candidate is pending. Recovery and new general math entry points remain experimental and do not gain a chip qualification from this manifest check.
 
 ## 1. What this is
 
@@ -29,7 +33,7 @@ signature against the headers on every run.
 
 ## 2. Version and compatibility rule
 
-The version is MAJOR.MINOR, currently **0.1**. It is a property of the list of entries and their behaviour, not of the
+The version is MAJOR.MINOR, currently **0.2**. It is a property of the list of entries and their behaviour, not of the
 library build.
 
 **A MINOR bump (0.1 to 0.2) is allowed to:**
@@ -66,7 +70,7 @@ The platform contract has its own number (`OMEGA_GPU_PLATFORM_ABI_MAJOR` 1, `OME
 device-visible memory, a submission queue, a way to poll for completion). Today one platform exists, the Linux reference
 (`src/omega_gpu_platform_linux.c`), which uses NVIDIA's open kernel driver. The contract is written so a second backend
 (WSL2 on Windows, or AIENOS with no Linux driver) can fill the same table. A program normally never touches the platform:
-the first call that needs the GPU installs the Linux reference by itself. There is **one device, one channel per process**.
+the first call that needs the GPU installs the Linux reference by itself. There is **one device per process**. The carried C4 implementation supports multiple channels; its chip qualification remains a separate gate.
 There is no call to ask the device its name, SM count or memory size yet (section 8).
 
 **Memory.** You ask the session for a buffer and get an `OmegaGpuMem`: a handle, a CPU pointer, a GPU address and a size.
@@ -411,7 +415,7 @@ GPU-uncached; polling a word is never claimed as interrupt support; a missing se
 Types: `OmegaGpuCmdListOpts`, `OmegaGpuCmdListStats`, the opaque `OmegaGpuCmdList`. Functions: `omega_gpu_cmdlist_create`
 (takes the lock itself), `omega_gpu_cmdlist_free`, `omega_gpu_cmdlist_reset`, `omega_gpu_cmdlist_count`,
 `omega_gpu_cmdlist_add`, `omega_gpu_cmdlist_mark_independent`, `omega_gpu_cmdlist_submit`, `omega_gpu_cmdlist_is_latched`,
-`omega_gpu_cmdlist_stamps`, `omega_gpu_cmdlist_barrier_name`. Up to `OMEGA_GPU_CMDLIST_MAX_LAUNCHES` (2048) launches per list.
+`omega_gpu_cmdlist_stamps`, `omega_gpu_cmdlist_barrier_name`. Up to `OMEGA_GPU_CMDLIST_MAX_LAUNCHES` (4096) launches per list.
 
 Reason: omega-mv#580 is building pipelined and dependency-ordered execution on this module, so the options, statistics
 and barrier modes will grow. The measured extra cost of each launch in a list is about 30 us with a wait-for-idle barrier

@@ -105,3 +105,24 @@ src/omega_gpu_wait.c	PORTABLE	Bounded wait with a caller-supplied clock and hook
 src/omega_gpu_wait.h	PORTABLE	Bounded wait interface; includes only stdbool.h and stdint.h.	NO_HOSTED_INCLUDE
 src/omega_gpu_chip.c	CHIP_SPECIFIC	The qualified-chip table (GB10, PCI 10de:2e12, with its receipt) and the refusal text for any other NVIDIA GPU; scans /sys/bus/pci/devices with stdio and dirent. Developer bar D6.	HOSTED_LIBC
 src/omega_gpu_chip.h	PORTABLE	Types and declarations for the chip table and the PCI scan; no chip constant, no driver header.	NO_HOSTED_INCLUDE
+src/omega_blackwell_codegen_attn256.c	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	NO_HOSTED_INCLUDE
+src/omega_blackwell_codegen_attn256.h	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	NO_HOSTED_INCLUDE
+src/omega_blackwell_codegen_gdn.c	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	NO_HOSTED_INCLUDE
+src/omega_blackwell_codegen_gdn.h	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	NO_HOSTED_INCLUDE
+src/omega_blackwell_codegen_pattn256.c	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	NO_HOSTED_INCLUDE
+src/omega_blackwell_codegen_pattn256.h	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	NO_HOSTED_INCLUDE
+src/omega_gpu_decode_attn256_api.c	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	NO_HOSTED_INCLUDE
+src/omega_gpu_decode_attn256_api.h	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	NO_HOSTED_INCLUDE
+src/omega_gpu_gdn_api.c	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	HOSTED_LIBC
+src/omega_gpu_gdn_api.h	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	NO_HOSTED_INCLUDE
+src/omega_gpu_gemm.c	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	HOSTED_LIBC
+src/omega_gpu_gemm.h	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	NO_HOSTED_INCLUDE
+src/omega_gpu_prefill_attn256_api.c	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	NO_HOSTED_INCLUDE
+src/omega_gpu_prefill_attn256_api.h	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	NO_HOSTED_INCLUDE
+src/omega_gpu_q36_graph.c	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	HOSTED_LIBC
+src/omega_gpu_q36_graph.h	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	NO_HOSTED_INCLUDE
+src/omega_gpu_q38_graph.c	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	HOSTED_LIBC
+src/omega_gpu_q38_graph.h	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	NO_HOSTED_INCLUDE
+src/omega_gpu_scan.c	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	HOSTED_LIBC
+src/omega_gpu_scan.h	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	NO_HOSTED_INCLUDE
+src/omega_gpu_scan_ref.c	CHIP_SPECIFIC	Host oracle for the fixed GPU reduction and scan tree; does not execute GPU instructions.	HOSTED_LIBC
