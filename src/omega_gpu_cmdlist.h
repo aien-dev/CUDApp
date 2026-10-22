@@ -99,7 +99,8 @@ typedef struct {
 
 typedef struct OmegaGpuCmdList OmegaGpuCmdList;
 
-/* Takes the session lock itself. Allocates the slots for up to cap launches. 0 ok, -1 (session error names it). */
+/* Takes the session lock itself. Allocates the slots for up to cap launches. 0 ok, -1 (session error names it). A list
+ * belongs to the device it was made on: after omega_gpu_session_recover, add / submit / wait_for refuse it (C5). */
 int omega_gpu_cmdlist_create(uint32_t cap, OmegaGpuCmdList **out);
 void omega_gpu_cmdlist_free(OmegaGpuCmdList *cl);
 /* Caller holds the lock. Empties the list (slots are rewritten by the next adds). */
@@ -125,8 +126,10 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
 int omega_gpu_cmdlist_submit_pair(OmegaGpuCmdList *a, OmegaGpuCmdList *b, const OmegaGpuCmdListOpts *opts, OmegaGpuCmdListStats *sa, OmegaGpuCmdListStats *sb);
 /* C4 events. Caller holds the lock. The next launch added to cl waits, on the chip, until launch `index` of list `other`
  * (already added there) has completed: a host semaphore ACQUIRE on that launch's release semaphore (DONE), emitted
- * before the launch's barrier. Meant for two lists on two queues (submit_pair); a wait on a list that never runs
- * stalls the queue until the marker timeout latches the session. 0 ok, -1 (no such launch). */
+ * before the launch's barrier, which is always the full WAIT_FOR_IDLE + invalidate (whatever the options say), so the
+ * launch reads what the other launch wrote. A list waits on one other list only, and a list with waits runs only in
+ * submit_pair with that list (submit refuses it; submit_pair refuses a wait outside the pair or past its launches).
+ * 0 ok, -1 (no such launch, a second other list, or a list made before a session recovery). */
 int omega_gpu_cmdlist_wait_for(OmegaGpuCmdList *cl, const OmegaGpuCmdList *other, uint32_t index);
 /* 1 once a timeout latched this module, until omega_gpu_session_recover (C5). */
 int omega_gpu_cmdlist_is_latched(void);

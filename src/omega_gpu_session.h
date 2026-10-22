@@ -243,6 +243,9 @@ void omega_gpu_session_latch_uncertain(const char *why);
  * stale; the next open starts a new device. 0 ok; -1 with the reason: not latched, or the close was refused or reported
  * a driver teardown fault (then it stays latched for good: the old grid may still run, the process must exit). */
 int omega_gpu_session_recover(void);
+/* A module that latched itself (the command lists after a timeout whose check launch completed) tells the session, so
+ * omega_gpu_session_recover accepts it as latched. Launches of other APIs are not refused by it. */
+void omega_gpu_session_note_module_latch(void);
 /* Recoveries so far in this process (a command list latched before the latest recovery no longer blocks). */
 uint32_t omega_gpu_session_recoveries(void);
 

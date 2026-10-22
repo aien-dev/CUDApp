@@ -438,13 +438,17 @@ void omega_gpu_session_close(void) {
  * queues first) and with it every grid still running on them, then frees and unmaps every buffer, parked ones
  * included. Only after the close returned OK is the latch lifted; the next open starts a new device. */
 static uint32_t g_recoveries;
+static uint32_t g_module_latched; /* a module (the command lists) latched itself while the session stayed usable */
+
+void omega_gpu_session_note_module_latch(void) { STORE(g_module_latched, 1u); }
 
 int omega_gpu_session_recover(void) {
     omega_gpu_session_lock();
     const OmegaGpuPlatform *p = LOAD(g_p);
     int rc = -1;
-    if (!LOAD(g_blocked) || !g_open || !p) {
-        omega_gpu_session_set_error(LOAD(g_blocked) ? "recover: latched but no device is open" : "recover: not latched (nothing to recover)");
+    const int latched = LOAD(g_blocked) || LOAD(g_module_latched);
+    if (!latched || !g_open || !p) {
+        omega_gpu_session_set_error(latched ? "recover: latched but no device is open" : "recover: not latched (nothing to recover)");
         goto out;
     }
     for (unsigned i = 0; i < g_nhooks; i++) g_hooks[i]();
@@ -459,6 +463,7 @@ int omega_gpu_session_recover(void) {
     memset(g_parked, 0, sizeof g_parked);
     memset(&g_park, 0, sizeof g_park);
     BUMP(g_recoveries, 1u);
+    STORE(g_module_latched, 0u);
     STORE(g_blocked, 0u);
     omega_gpu_session_set_error("");
     rc = 0;

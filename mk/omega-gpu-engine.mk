@@ -230,6 +230,7 @@ test-gpu-session-mutants: $(GPU_FS_LINK)
 	smut close-while-latched 's|if (g_open \&\& !LOAD(g_blocked) \&\& p) {|if (g_open \&\& p) {|; s|if (!LOAD(g_blocked)) { /\* a hook|if (1) { /* a hook|'; \
 	smut recover-keeps-latch 's|STORE(g_blocked, 0u);|;|'; \
 	smut recover-without-close 's|const int prc = p->device_close(p->ctx, g_s.dev);|const int prc = OMEGA_GPU_PLAT_OK;|'; \
-	smut recover-when-not-latched 's|if (!LOAD(g_blocked) \|\| !g_open \|\| !p) {|if (!g_open \|\| !p) {|'; \
+	smut recover-when-not-latched 's|const int latched = LOAD(g_blocked) \|\| LOAD(g_module_latched);|const int latched = 1;|'; \
 	smut recover-ignores-teardown-fault 's|if (prc != OMEGA_GPU_PLAT_OK) {|if (0) {|'; \
-	echo "test-gpu-session-mutants: $$killed of 10 mutants killed"
+	smut recover-ignores-module-latch 's|const int latched = LOAD(g_blocked) \|\| LOAD(g_module_latched);|const int latched = LOAD(g_blocked);|'; \
+	echo "test-gpu-session-mutants: $$killed of 11 mutants killed"

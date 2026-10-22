@@ -442,6 +442,19 @@ static void c_recover_teardown_fault(void) {
     omega_gpu_session_unlock();
 }
 
+/* C5: a module latch (the command lists after a timeout whose check launch completed) is recoverable too */
+static void c_recover_module_latch(void) {
+    fk_reset();
+    EXPECT(install() == 0);
+    omega_gpu_session_lock();
+    EXPECT(omega_gpu_session_open() != NULL);
+    omega_gpu_session_unlock();
+    omega_gpu_session_note_module_latch();
+    EXPECT(!omega_gpu_session_is_blocked()); /* other APIs keep working */
+    EXPECT(omega_gpu_session_recover() == 0 && fk.dev_closes == 1 && omega_gpu_session_recoveries() == 1);
+    EXPECT(omega_gpu_session_recover() == -1); /* lifted */
+}
+
 static void c_stale_after_reopen(void) {
     fk_reset();
     EXPECT(install() == 0);
@@ -571,6 +584,7 @@ static const Case CASES[] = {
     {"TIMEOUT_LATCH_REFUSES_CLOSE_REOPEN_INSTALL", c_timeout_latch_rules},
     {"TIMEOUT_RECOVER_SAME_PROCESS", c_timeout_recover},
     {"RECOVER_TEARDOWN_FAULT_STAYS_LATCHED", c_recover_teardown_fault},
+    {"RECOVER_MODULE_LATCH", c_recover_module_latch},
     {"STALE_HANDLE_REFUSED_AFTER_CLOSE_REOPEN", c_stale_after_reopen},
     {"SERVING_RESERVATION_REFUSES_WITHOUT_ALLOC", c_reservation_refusal},
     {"MATMUL_CODE_BUFFER_ENCODED_IN_PLACE", c_matmul_code_buffer},

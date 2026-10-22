@@ -65,15 +65,28 @@ struct OmegaGpuCmdList {
     uint64_t *wait_va;    /* per launch: semaphore word of another list's launch to wait for before it (wait_for), 0 = none */
     uint64_t pending_wait;/* wait_for recorded, taken by the next add */
     uint32_t nwaits;      /* launches with a wait (6 more words each) */
+    const OmegaGpuCmdList *wait_other; /* the one list this list waits on (it must be the other list of the pair) */
+    uint32_t wait_max;    /* highest launch index of wait_other waited on */
+    uint32_t gen;         /* omega_gpu_session_recoveries() at create: a list from before a recovery is stale (C5) */
 };
 
 static uint32_t g_latched; /* 1 + omega_gpu_session_recoveries() at the latch; 0 never latched (C5: a recovery lifts it) */
 
 int omega_gpu_cmdlist_is_latched(void) { return __atomic_load_n(&g_latched, __ATOMIC_ACQUIRE) == omega_gpu_session_recoveries() + 1u ? 1 : 0; }
 uint32_t omega_gpu_cmdlist_count(const OmegaGpuCmdList *cl) { return cl ? cl->n : 0; }
-void omega_gpu_cmdlist_reset(OmegaGpuCmdList *cl) { if (cl) { cl->n = 0; cl->pending_wait = 0; cl->nwaits = 0; } }
+void omega_gpu_cmdlist_reset(OmegaGpuCmdList *cl) { if (cl) { cl->n = 0; cl->pending_wait = 0; cl->nwaits = 0; cl->wait_other = NULL; cl->wait_max = 0; } }
+/* C5: every handle of a list made before the latest session recovery belongs to the closed device */
+static int stale(const OmegaGpuCmdList *cl) {
+    if (cl->gen == omega_gpu_session_recoveries()) return 0;
+    omega_gpu_session_set_error("cmdlist: made before a session recovery (its buffers are gone): create a new list");
+    return 1;
+}
 int omega_gpu_cmdlist_wait_for(OmegaGpuCmdList *cl, const OmegaGpuCmdList *other, uint32_t index) {
     if (!cl || !other || cl == other || index >= other->n) { omega_gpu_session_set_error("cmdlist wait_for: another list and one of its launches"); return -1; }
+    if (stale(cl) || stale(other)) return -1;
+    if (cl->wait_other && cl->wait_other != other) { omega_gpu_session_set_error("cmdlist wait_for: a list waits on one other list only"); return -1; }
+    cl->wait_other = other;
+    if (index > cl->wait_max) cl->wait_max = index;
     cl->pending_wait = other->sems.va + (uint64_t)index * 16u;
     return 0;
 }
@@ -109,6 +122,7 @@ int omega_gpu_cmdlist_create(uint32_t cap, OmegaGpuCmdList **out) {
     OmegaGpuCmdList *cl = omega_gpu_host_calloc(1, sizeof *cl);
     if (!cl) return -1;
     cl->cap = cap;
+    cl->gen = omega_gpu_session_recoveries();
     cl->words_cap = RING_WORDS;
     cl->words = omega_gpu_host_alloc((size_t)cl->words_cap * 4u);
     cl->indep = omega_gpu_host_calloc(cap, 1);
@@ -150,6 +164,7 @@ static uint32_t round8(uint32_t v) { return (v + 7u) / 8u * 8u; }
 int omega_gpu_cmdlist_add(OmegaGpuCmdList *cl, const OmegaGpuLaunch *L) {
     if (!cl || !L || !L->args || L->n_args == 0 || L->n_args > OMEGA_GPU_SESSION_MAX_ARGS || L->threads_x == 0 || L->grid_x == 0 || L->grid_y == 0 ||
         L->code_va == 0) { omega_gpu_session_set_error("cmdlist add: arguments"); return -1; }
+    if (stale(cl)) return -1;
     if (cl->n >= cl->cap) { omega_gpu_session_set_error("cmdlist add: list full"); return -1; }
     const uint32_t i = cl->n;
     const uint32_t ty = L->threads_y ? L->threads_y : 1;
@@ -221,6 +236,7 @@ static void force_latch(OmegaGpuCmdList *cl, const char *why) {
     OmegaGpuLaunch L = { .code_va = cl->nop_code.va, .gpr_count = cl->nop_gpr, .threads_x = 32, .threads_y = 1, .grid_x = 1, .grid_y = 1,
                          .num_elements = 1, .args = &arg, .n_args = 1, .timeout_ms = 1 };
     (void)omega_gpu_session_launch(&L, NULL, NULL);
+    omega_gpu_session_note_module_latch(); /* C5: so omega_gpu_session_recover lifts it even when the check launch completed */
     omega_gpu_session_set_error(why);
 }
 
@@ -277,8 +293,10 @@ static size_t emit_chunk(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *op, uin
         /* the first launch of a submission gets the full barrier (CPU-written QMDs, code and banks before it), unless
          * opts.first_barrier_none (C4 streams measurement: a WAIT_FOR_IDLE may also wait for another queue's grids) */
         const int indep = i != done && cl->indep[i]; /* marked independent: no barrier, overlaps the launch before it */
-        const OmegaGpuCmdListBarrier b = i == done ? (i == 0 && o.first_barrier_none ? OMEGA_GPU_CMDLIST_BARRIER_NONE : OMEGA_GPU_CMDLIST_BARRIER_WFI)
-                                                   : indep ? OMEGA_GPU_CMDLIST_BARRIER_NONE : o.barrier;
+        /* a launch that waited (wait_for) always gets the full barrier: its invalidate must come after the wait */
+        const OmegaGpuCmdListBarrier b = cl->wait_va[i] ? OMEGA_GPU_CMDLIST_BARRIER_WFI
+                                       : i == done ? (i == 0 && o.first_barrier_none ? OMEGA_GPU_CMDLIST_BARRIER_NONE : OMEGA_GPU_CMDLIST_BARRIER_WFI)
+                                       : indep ? OMEGA_GPU_CMDLIST_BARRIER_NONE : o.barrier;
         if (indep && o.stamps) n = emit_stamp(pb, n, cl->stamps.va, i); /* no WFI: slot i is the front-end time, launch i - 1 may still run */
         if (b != OMEGA_GPU_CMDLIST_BARRIER_NONE) {
             if (b != OMEGA_GPU_CMDLIST_BARRIER_FLUSH_DATA) { pb[n++] = bw_mthd(1, MTHD_WAIT_FOR_IDLE, 1); pb[n++] = 0; }
@@ -317,6 +335,8 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
     if (st) { memset(st, 0, sizeof *st); st->first_missing = -1; }
     const OmegaGpuPlatform *p = omega_gpu_session_platform();
     if (!cl || cl->n == 0 || !p) { omega_gpu_session_set_error("cmdlist submit: empty list or no platform"); return -1; }
+    if (stale(cl)) return -1;
+    if (cl->nwaits) { omega_gpu_session_set_error("cmdlist submit: a list with waits (wait_for) runs only in a pair (submit_pair)"); return -1; }
     if (omega_gpu_cmdlist_is_latched() || omega_gpu_session_is_blocked()) { omega_gpu_session_set_error("cmdlist submit: latched"); return -1; }
     OmegaGpuSession *s = omega_gpu_session_open();
     if (!s) return -1;
@@ -430,6 +450,13 @@ int omega_gpu_cmdlist_submit_pair(OmegaGpuCmdList *a, OmegaGpuCmdList *b, const 
     if (sb) { memset(sb, 0, sizeof *sb); sb->first_missing = -1; }
     const OmegaGpuPlatform *p = omega_gpu_session_platform();
     if (!a || !b || a == b || a->n == 0 || b->n == 0 || !p) { omega_gpu_session_set_error("cmdlist pair: two distinct non-empty lists and a platform"); return -1; }
+    if (stale(a) || stale(b)) return -1;
+    for (int k = 0; k < 2; k++) { /* a wait must point into the other list of this pair, at a launch it still has */
+        const OmegaGpuCmdList *me = k ? b : a, *peer = k ? a : b;
+        if (me->nwaits && (me->wait_other != peer || me->wait_max >= peer->n)) {
+            omega_gpu_session_set_error("cmdlist pair: a wait_for points outside the other list of this pair"); return -1;
+        }
+    }
     if (o.mode != OMEGA_GPU_CMDLIST_PCAS || o.stamps || o.skip_launch) { omega_gpu_session_set_error("cmdlist pair: PCAS mode only, no stamps, no skip"); return -1; }
     if (omega_gpu_cmdlist_is_latched() || omega_gpu_session_is_blocked()) { omega_gpu_session_set_error("cmdlist pair: latched"); return -1; }
     OmegaGpuSession *s = omega_gpu_session_open();
