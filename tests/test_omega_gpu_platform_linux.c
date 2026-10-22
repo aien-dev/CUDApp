@@ -214,7 +214,7 @@ static void c_l2_inval_prefix_once(void) {
 static void c_cmdlist_near_cap_with_l2_inval_pending(void) {
     fake_reset();
     fk.kernel_mode = FK_KERNEL_SKIP;
-    fk.alloc_max = 4u << 20; /* the 2048-launch bank and QMD buffers are 2 MiB each */
+    fk.alloc_max = 4u << 20; /* the 4096-launch bank and QMD buffers are 4 MiB each */
     OmegaGpuCmdList *cl = NULL;
     EXPECT(omega_gpu_cmdlist_create(OMEGA_GPU_CMDLIST_MAX_LAUNCHES, &cl) == 0);
     if (!cl) { printf("  %s\n", omega_gpu_session_last_error()); return; }
@@ -232,7 +232,12 @@ static void c_cmdlist_near_cap_with_l2_inval_pending(void) {
     if (rc != 0) printf("  cmdlist submit: %s (platform: %s)\n", omega_gpu_session_last_error(), p->diag_text(p->ctx));
     EXPECT(rc == 0);
     EXPECT(st.sems_done == OMEGA_GPU_CMDLIST_MAX_LAUNCHES && st.first_missing == -1);
-    EXPECT(st.submits == 2 && fk.submit_calls - submits0 == 2);
+    /* The motor carries 4096 launches, not the old 2048: with 16384 ring words,
+     * 48 fixed/prefix words and 14 words per stamped launch, room is 1166 and
+     * all 4096 launches require exactly four submissions. Keep the maximum-size
+     * case, the prefix-once assertion and the per-ring bounds checks below. */
+    EXPECT(OMEGA_GPU_CMDLIST_MAX_LAUNCHES == 4096);
+    EXPECT(st.submits == 4 && fk.submit_calls - submits0 == 4);
     EXPECT(count_l2_inval() == 1); /* the first submission only */
     for (int i = 0; i < fk.nev; i++)
         if (fk.ev[i].kind == FK_EV_SUBMIT) EXPECT(fk.ev[i].a * 4u <= fk.pb_mem_size); /* prefix included, inside the ring */
