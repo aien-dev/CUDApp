@@ -1019,6 +1019,27 @@ int omega_blackwell_verify_codegen_fixtures_fb1cut4(void) {
     return 0;
 }
 
+/* Kernel capture (C6 of docs/OMEGA.md, tools/sm121dis): with OMEGA_KERNEL_DUMP_DIR set, every encoded kernel is written
+ * there as <first 16 hex of its SHA-256>.bin, once per distinct body, so the disassembler can be checked against nvdisasm on
+ * every kernel the library builds. Unset (the normal case) it does nothing; the freestanding build has no files. */
+void omega_kernel_dump(const uint8_t *code, size_t len) {
+#ifndef OMEGA_GPU_NO_POSIX
+    const char *dir = getenv("OMEGA_KERNEL_DUMP_DIR");
+    if (!dir || !dir[0] || !code || !len) return;
+    uint8_t d[SHA256_DIGEST_SIZE]; sha256_hash(code, len, d);
+    char path[4096]; int n = snprintf(path, sizeof path, "%s/", dir);
+    if (n < 0 || (size_t)n + 21 > sizeof path) return;
+    for (unsigned i = 0; i < 8; i++) n += snprintf(path + n, sizeof path - (size_t)n, "%02x", d[i]);
+    snprintf(path + n, sizeof path - (size_t)n, ".bin");
+    FILE *f = fopen(path, "wbx"); /* x: an existing body is left alone */
+    if (!f) return;
+    if (fwrite(code, 1, len, f) != len) BW_DIAG("omega_kernel_dump: short write %s\n", path);
+    fclose(f);
+#else
+    (void)code; (void)len;
+#endif
+}
+
 int omega_bw_encode_program(const BlackwellIRProgram *prog, uint8_t *code_buf, size_t max_len, size_t *out_len) {
     if (!prog || !code_buf || !out_len) return -1;
 
@@ -1066,6 +1087,7 @@ int omega_bw_encode_program(const BlackwellIRProgram *prog, uint8_t *code_buf, s
         p += 16;
     }
 
+    omega_kernel_dump(code_buf, req_bytes);
     *out_len = req_bytes;
     return 0;
 }

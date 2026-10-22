@@ -42,6 +42,7 @@ int omega_qmma_patch_code(const BlackwellIRProgram *prog, uint8_t *code, size_t 
         wr32q(w + 8, (w2 & 0xffu) | 0x00002c00u);
         n++;
     }
+    if (n > 0) { size_t b = omega_bw_program_code_bytes(prog); omega_kernel_dump(code, b && b <= len ? b : prog->count * 16u); } /* the patched body is a different kernel */
     return n;
 }
 

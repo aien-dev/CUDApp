@@ -222,6 +222,8 @@ int omega_bw_ir_set_gpr_limit(BlackwellIRProgram *prog, uint32_t limit);
 
 /* Encodes scheduled IR program into 128-bit sm_121 machine code */
 int omega_bw_encode_program(const BlackwellIRProgram *prog, uint8_t *code_buf, size_t max_len, size_t *out_len);
+/* C6 kernel capture: writes code to $OMEGA_KERNEL_DUMP_DIR/<sha16>.bin when that is set; no-op otherwise (see the .c) */
+void omega_kernel_dump(const uint8_t *code, size_t len);
 
 /* ---- native v1 P07 cut A.2: allocation-free code generation (aienos#286) ----------------------------
  * The freestanding build (OMEGA_GPU_NO_POSIX, make gpu-engine-freestanding) has no allocator: the caller
