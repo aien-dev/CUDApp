@@ -81,6 +81,19 @@ counts. **Metadata enumeration is not a full-checkpoint payload scan.** The five
 frozen matrices are the previously selected research samples, not a statistical
 sample. No quality, token latency, GPU traffic, energy or throughput claim follows.
 
+## Qualification output safety
+The runner and Make entry archive an old `qualification.json` before new
+preflight checks, so a failed rerun cannot expose the previous PASS as current.
+Published receipts are immutable history; `qualification.previous-*.json` files
+are retained history, not current qualification. Output-directory symlinks,
+hardlinks and special files are refused before build writes. This is single-user
+preflight, not protection against hostile concurrent filesystem replacement.
+
+```sh
+python3 native/weightpack/test_build_safety.py --compiler /path/to/omc \
+  --out build/weightpack/build-safety.json
+```
+
 ## Implementation notes
 The pinned seed assigns at most sixteen registers to a function; helpers bound
 expression pressure. Runtime-bounded loops trap above one million iterations,

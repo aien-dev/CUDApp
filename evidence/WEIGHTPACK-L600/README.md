@@ -52,7 +52,14 @@ compiler's sixteen-register allocation limit was the actual compile refusal.
 `first-native.json`: 462/464 passed; two maximum-sized dense copies hit the
 runtime loop limit. `loop-bound-value-probes.json` distinguishes literal loops
 from dynamically bounded loops. Chunked copies and explicit I/O ceilings repair
-that limit; all 464 cases subsequently pass. No gates were skipped or waived.
+that limit; all 464 cases subsequently pass.
+Personal review added five reused-output safety controls, all initially failing:
+old PASS receipts survived failed preflight, and linked build outputs were not
+protected. The runner and Make entry now archive old receipts before preflight
+and refuse unsafe output trees. All five controls pass, original bytes are
+preserved, and the full native/model replay passes afterward. Historical
+`qualification.previous-*.json` receipts are not the current verdict.
+No gates were skipped or waived.
 
 ## Scope still open
 Full checkpoint payload inventory, integrated container/loader accounting,

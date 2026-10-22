@@ -21,6 +21,12 @@ Reviewed the native codec, independent oracle, process harness and protocol.
 - Existing C kernels and live serving/driver paths are untouched. Optional make
   target runs qualification without adding an unavailable compiler to defaults.
 
+Follow-up review exposed stale-PASS and linked-output hazards in the host
+qualification runner. Five controls failed before repair, then passed after
+archiving the previous receipt before preflight and refusing unsafe output
+trees. Full codec/model replay passed afterward. This protects preexisting
+outputs under single-user preflight, not hostile concurrent filesystem races.
+
 Limitations: no independent review, no whole-model payload scan, no loader/GPU
 integration, no model-quality or performance qualification. Source-only seed
 replay and host tests do not remove these gates.

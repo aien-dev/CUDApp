@@ -8,6 +8,8 @@ from pathlib import Path
 import select
 import struct
 import subprocess
+import stat
+import uuid
 import test_weightpack as oracle
 
 COMPILER_SHA = '191b776ef98821597c3e30655da6d680a9b66edbc9ceaca3c39c61ea6df098e9'
@@ -179,13 +181,47 @@ def checkpoint_replay(model, binary):
             'weights_retained_in_evidence': False, 'inference_or_gpu_tested': False}
 
 
+def safe_directory(path):
+    # Inspect named parents before resolve(), which would hide directory symlinks.
+    path = Path(os.path.abspath(path))
+    for component in [*reversed(path.parents), path]:
+        if component.exists() or component.is_symlink():
+            mode = component.lstat().st_mode
+            if not stat.S_ISDIR(mode):
+                raise ValueError('unsafe output directory: ' + str(component))
+    if path.exists():
+        for item in path.rglob('*'):
+            info = item.lstat()
+            if stat.S_ISDIR(info.st_mode):
+                continue
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                raise ValueError('unsafe output entry: ' + str(item))
+    return path
+
+
+def retire_current_receipt(evidence):
+    evidence = safe_directory(evidence)
+    evidence.mkdir(parents=True, exist_ok=True)
+    receipt = evidence / 'qualification.json'
+    if receipt.exists():
+        receipt.rename(evidence / ('qualification.previous-' + uuid.uuid4().hex + '.json'))
+    return evidence
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--compiler', required=True, type=Path)
+    parser.add_argument('--compiler', type=Path)
+    parser.add_argument('--invalidate-only', action='store_true')
     parser.add_argument('--build', required=True, type=Path)
     parser.add_argument('--evidence', required=True, type=Path)
     parser.add_argument('--model', type=Path)
     args = parser.parse_args()
+    args.evidence = retire_current_receipt(args.evidence)
+    if args.invalidate_only:
+        return
+    args.build = safe_directory(args.build)
+    if args.compiler is None:
+        raise ValueError("--compiler is required for qualification")
     compiler = args.compiler.resolve()
     assert sha(compiler.read_bytes()) == COMPILER_SHA
     source = Path(__file__).with_name('weightpack.om').read_bytes()

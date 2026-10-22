@@ -1,0 +1,46 @@
+{
+  "total": 5,
+  "passed": 5,
+  "cases": [
+    {
+      "case": "missing-cli-compiler",
+      "pass": true,
+      "rc": 1,
+      "victim_preserved": true,
+      "no_stale_current_PASS": true,
+      "old_receipt_archived": true
+    },
+    {
+      "case": "wrong-cli-compiler",
+      "pass": true,
+      "rc": 1,
+      "victim_preserved": true,
+      "no_stale_current_PASS": true,
+      "old_receipt_archived": true
+    },
+    {
+      "case": "missing-make-compiler",
+      "pass": true,
+      "rc": 2,
+      "victim_preserved": true,
+      "no_stale_current_PASS": true,
+      "old_receipt_archived": true
+    },
+    {
+      "case": "symlink-build",
+      "pass": true,
+      "rc": 1,
+      "victim_preserved": true,
+      "no_stale_current_PASS": true,
+      "old_receipt_archived": true
+    },
+    {
+      "case": "hardlink-output",
+      "pass": true,
+      "rc": 1,
+      "victim_preserved": true,
+      "no_stale_current_PASS": true,
+      "old_receipt_archived": true
+    }
+  ]
+}
