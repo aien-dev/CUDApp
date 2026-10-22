@@ -1,0 +1,13 @@
+# Changed paths matching these globs need only the always-run set (.aien/always).
+# Everything else must be covered by a manifest's inputs or the commit is NOT_RUN.
+# Conservative: only paths no gate compiles or tests. Read from the base ref.
+*.md
+LICENSE
+.gitignore
+.crumb
+**/.crumb
+.crumb.local
+agent.json
+llms.txt
+.github/**
+history/**

@@ -1,0 +1,27 @@
+gate: CUDAPP-ZERO-CUDA
+manifest_version: 2
+owner: CUDApp
+requires:
+  - host
+inputs:
+  - Makefile
+  - src/
+  - omega/
+  - motor/
+  - m16/
+  - mk/
+  - nvrm/
+  - swap/
+  - tools/
+  - tests/
+  - examples/
+  - tests/gates/
+run:
+  exec: tests/gates/run.sh
+  args: ["zero-cuda"]
+expects:
+  exit: 0
+  verdict: PASS
+timeout: 30m
+exactness: EXACT
+cache_scope: machine

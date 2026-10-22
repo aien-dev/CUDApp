@@ -1,0 +1,6 @@
+# Gates that run on every commit regardless of changed paths (ADR 0033 Decision 12
+# allow-list; inventory contract C6). One gate name per line. Read from the base ref.
+#
+# No CRUMB-VERIFY entry: crumbs are advisory since RFC-0003 amendment 2 and the org is
+# moving off the always-run crumb check. Crumb churn is listed in .aien/unmapped-ok.
+CUDAPP-ZERO-DISK-SECRETS

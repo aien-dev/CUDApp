@@ -1,0 +1,30 @@
+gate: CUDAPP-HOST-TESTS
+manifest_version: 2
+owner: CUDApp
+requires:
+  - host
+inputs:
+  - Makefile
+  - src/
+  - omega/
+  - motor/
+  - m16/
+  - mk/
+  - nvrm/
+  - swap/
+  - tools/
+  - tests/
+  - examples/
+  - docs/
+  - third_party/
+  - evidence/
+  - tests/gates/
+run:
+  exec: tests/gates/run.sh
+  args: ["host-tests"]
+expects:
+  exit: 0
+  verdict: PASS
+timeout: 90m
+exactness: EXACT
+cache_scope: machine
