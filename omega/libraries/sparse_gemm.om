@@ -1,4 +1,59 @@
 note SPDX-License-Identifier MIT
-fn spgemm rows ulong inner ulong cols ulong anz ulong bnz ulong to int
+note CSR sparse multiplication with separate binary32 multiply and add
+note Accumulate in A stored order then B stored order emit sorted columns
+note Keep structural zeros stage all results before publish
+fn gmacc row ulong cols ulong to void
+for col ulong cols
+put wacc col 0
+put wseen col 0
+end
+p = get arp row
+limit = get arp add row 1
+while lt p limit
+k = get aci p
+q = get brp k
+stop = get brp add k 1
+while lt q stop
+col = get bci q
+prod = fmul get aval p get bval q
+put wacc col fadd get wacc col prod
+put wseen col 1
+q = add q 1
+end
+p = add p 1
+end
+end
+fn gmstore row ulong cols ulong to int
+n = get wn 0
+for col ulong cols
+if ne get wseen col 0
+if eq n 256
 ret 1
+end
+put wci n col
+put wval n get wacc col
+n = add n 1
+end
+end
+put wn 0 n
+put wrp add row 1 n
+ret 0
+end
+fn spgemm rows ulong inner ulong cols ulong anz ulong bnz ulong to int
+if ne pvalid rows inner anz 0 0
+ret 1
+end
+if ne pvalid inner cols bnz 1 0
+ret 1
+end
+put wn 0 0
+put wrp 0 0
+for row ulong rows
+gmacc row cols
+if ne gmstore row cols 0
+ret 1
+end
+end
+publish rows
+ret 0
 end

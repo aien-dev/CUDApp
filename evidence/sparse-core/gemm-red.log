@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/home/drakestapleton/workspace/hermes-desk/cudapp-sparse-core/tests/libraries/test_sparse_core.py", line 249, in <module>
+    main()
+  File "/home/drakestapleton/workspace/hermes-desk/cudapp-sparse-core/tests/libraries/test_sparse_core.py", line 226, in main
+    exercise(checks)
+  File "/home/drakestapleton/workspace/hermes-desk/cudapp-sparse-core/tests/libraries/test_sparse_core.py", line 163, in gemm
+    checks.good(fixture, words([4, 0, 2, 4, 0, 1, 0, 1] + [bits(v) for v in [6, 6, -5, -4]]),
+  File "/home/drakestapleton/workspace/hermes-desk/cudapp-sparse-core/tests/libraries/test_sparse_core.py", line 63, in good
+    assert result.returncode == 0 and result.stdout == expected, (name, result, expected.hex())
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('literal rectangular sparse multiplication', CompletedProcess(args=['/home/drakestapleton/workspace/hermes-desk/cudapp-sparse-core/build/sparse-core/sparse-core'], returncode=2, stdout=b'', stderr=b''), '04000000000000000200000004000000000000000100000000000000010000000000c0400000c0400000a0c0000080c0')

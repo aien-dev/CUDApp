@@ -126,6 +126,75 @@ def convert(checks):
     malformed(checks, fixture)
 
 
+def product_answer(rows, cols, a, b):
+    # Enumerate the contributing paths for each output column. No dense accumulator.
+    rp, ci, av = a
+    bp, bi, bv = b
+    outp, outi, outv = [0], [], []
+    for row in range(rows):
+        for col in range(cols):
+            terms = [mul(av[p], bv[q])
+                     for p in range(rp[row], rp[row + 1])
+                     for q in range(bp[ci[p]], bp[ci[p] + 1]) if bi[q] == col]
+            if terms:
+                acc = 0
+                for term in terms:
+                    acc = add(acc, term)
+                outi.append(col)
+                outv.append(acc)
+        outp.append(len(outi))
+    return words([len(outi)] + outp + outi + outv)
+
+
+def random_csr(rng, rows, cols):
+    rp, ci, av = [0], [], []
+    for _ in range(rows):
+        for _ in range(rng.randrange(7) if cols else 0):
+            ci.append(rng.randrange(cols))
+            av.append(bits(rng.randrange(-8, 9) / 4))
+        rp.append(len(ci))
+    return rp, ci, av
+
+
+def gemm(checks):
+    a = ([0, 2, 3], [2, 0, 1], [bits(1), bits(2), bits(-1)])
+    b = ([0, 1, 3, 4], [1, 1, 0, 0], [bits(3), bits(4), bits(5), bits(6)])
+    fixture = packet(3, 2, 2, a, inner=3, b=b)
+    checks.good(fixture, words([4, 0, 2, 4, 0, 1, 0, 1] + [bits(v) for v in [6, 6, -5, -4]]),
+                'literal rectangular sparse multiplication')
+    a = ([0, 3], [0, 0, 0], [bits(16777216), bits(1), bits(-16777216)])
+    b = ([0, 1], [0], [bits(1)])
+    checks.good(packet(3, 1, 1, a, inner=1, b=b), words([1, 0, 1, 0, 0]),
+                'duplicates separately rounded cancellation retains structural zero')
+    a = ([0, 1], [0], [0])
+    b = ([0, 1], [0], [0x7f800000])
+    checks.good(packet(3, 1, 1, a, inner=1, b=b), words([1, 0, 1, 0, 0x7fc00000]), 'explicit zero times infinity')
+    a = ([0, 0], [], [])
+    checks.good(packet(3, 1, 1, a, inner=1, b=b), words([0, 0, 0]), 'absent entry does not multiply infinity')
+    for rows, inner, cols in [(0, 0, 0), (0, 64, 64), (64, 0, 64), (64, 64, 0), (64, 64, 64)]:
+        a, b = ([0] * (rows + 1), [], []), ([0] * (inner + 1), [], [])
+        checks.good(packet(3, rows, cols, a, inner=inner, b=b), words([0] + [0] * (rows + 1)), 'empty product')
+    a = (list(range(17)), [0] * 16, [bits(1)] * 16)
+    b = ([0, 16], list(range(16)), [bits(2)] * 16)
+    checks.good(packet(3, 16, 16, a, inner=1, b=b), product_answer(16, 16, a, b), 'exactly 256 output entries')
+    a = (list(range(18)), [0] * 17, [bits(1)] * 17)
+    b = ([0, 17], list(range(17)), [bits(2)] * 17)
+    checks.bad(packet(3, 17, 17, a, inner=1, b=b), 'structural output exceeds capacity')
+    a, b = ([0] * 64 + [1], [63], [bits(3)]), ([0] * 64 + [1], [63], [bits(2)])
+    checks.good(packet(3, 64, 64, a, inner=64, b=b), product_answer(64, 64, a, b), 'last row and column')
+    rng = random.Random(455)
+    for case in range(100):
+        rows, inner, cols = (rng.randrange(9) for _ in range(3))
+        a, b = random_csr(rng, rows, inner), random_csr(rng, inner, cols)
+        checks.good(packet(3, rows, cols, a, inner=inner, b=b), product_answer(rows, cols, a, b), 'random product ' + str(case))
+    valid = ([0, 1], [0], [bits(1)])
+    for bad in [([1, 1], [0], [bits(1)]), ([0, 0], [0], [bits(1)]),
+                ([0, 1], [1], [bits(1)]), ([0, 1], [0xffffffff], [bits(1)])]:
+        checks.bad(packet(3, 1, 1, bad, inner=1, b=valid), 'invalid A')
+        checks.bad(packet(3, 1, 1, valid, inner=1, b=bad), 'invalid B')
+    malformed(checks, fixture)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--compiler', type=Path, required=True)
@@ -148,7 +217,7 @@ def main():
         compile_program(compiler, '\n'.join(content.values()) + '\n' + driver, target)
         return target
     target = build('sparse-core')
-    stages = {'convert': convert}
+    stages = {'convert': convert, 'gemm': gemm}
     if args.stage != 'all' and args.stage not in stages:
         raise AssertionError('stage not implemented: ' + args.stage)
     selected = stages if args.stage == 'all' else {args.stage: stages[args.stage]}
@@ -160,6 +229,8 @@ def main():
         mutations = [
             ('conversion-value', 'sparse_convert', 'put cval dest get sv p', 'put cval dest xor get sv p 1', 'convert'),
             ('conversion-row', 'sparse_convert', 'put sr p row', 'put sr p add row 1', 'convert'),
+            ('product-math', 'sparse_gemm', 'prod = fmul get aval p get bval q', 'prod = fadd get aval p get bval q', 'gemm'),
+            ('product-structural-zero', 'sparse_gemm', 'if ne get wseen col 0', 'if ne get wacc col 0', 'gemm'),
         ]
         for name, part, before, after, stage in mutations:
             if stage not in selected:
