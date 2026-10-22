@@ -1,0 +1,5 @@
+fixture boundary: 12*1024-8192-4096 = 0
+simultaneous reservation sum: 2*8192 = 16384 > budget 8192
+native 4KiB round: 4097 -> 8192
+normal fixture: 32*1024 = 32768
+exit_code=0

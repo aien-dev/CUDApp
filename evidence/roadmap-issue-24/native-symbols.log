@@ -1,0 +1,18 @@
+command: nm build-roadmap-reservations24/libomega_gpu.a | rg omega_gpu_admission
+omega_gpu_admission.o:
+0000000000001650 T omega_gpu_admission_abort
+0000000000001620 T omega_gpu_admission_acquire
+0000000000001640 T omega_gpu_admission_cancel
+0000000000001460 T omega_gpu_admission_close
+0000000000001630 T omega_gpu_admission_commit
+00000000000018f0 T omega_gpu_admission_dma_alloc
+0000000000001ba0 T omega_gpu_admission_dma_free
+00000000000010e4 T omega_gpu_admission_open
+0000000000001660 T omega_gpu_admission_release
+0000000000001560 T omega_gpu_admission_reserve
+0000000000001670 T omega_gpu_admission_seal
+00000000000016e0 T omega_gpu_admission_stats
+pipeline_exit=0
+command: file build-roadmap-reservations24/libomega_gpu.a build-roadmap-reservations24/test_omega_gpu_admission
+build-roadmap-reservations24/libomega_gpu.a:           current ar archive
+build-roadmap-reservations24/test_omega_gpu_admission: ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux-aarch64.so.1, BuildID[sha1]=b73d61adb45963be404edbd2c7a758d3bf15e9b7, for GNU/Linux 3.7.0, not stripped

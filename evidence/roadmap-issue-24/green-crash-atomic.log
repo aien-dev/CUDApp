@@ -1,0 +1,12 @@
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -Itests -o build-roadmap-reservations24/test_omega_gpu_admission tests/test_omega_gpu_admission.c src/omega_gpu_admission.c src/omega_gpu_platform.c src/omega_gpu_platform_linux.c tests/fake_m16_native.c -Wl,--wrap=pwrite -lpthread
+timeout 45 build-roadmap-reservations24/test_omega_gpu_admission
+FAIL line 247: !omega_gpu_admission_dma_alloc(a, &refusing, &caps, dev, &d, OMEGA_ADMISSION_WEIGHT, &b, &cpu, &gpu, NULL)
+PASS transitions, stale generations, accounting and seal
+PASS synchronized real-process contenders and abandoned reservation cleanup
+PASS SIGKILL committed-owner recovery, foreign tokens and inherited-context refusal
+PASS live-PID/different-start and previous-boot ownership FIXTURES
+PASS SIGKILL midway through actual persistent write, previous transaction preserved
+PASS missing, stale, malformed, overflow and symlink memory fixtures
+PASS invalid configuration, incompatible group and unsafe directory refusal
+make: *** [mk/roadmap-memory.mk:9: test-roadmap-memory] Error 1
+exit_code=2

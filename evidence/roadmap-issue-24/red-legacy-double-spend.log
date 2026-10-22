@@ -1,0 +1,3 @@
+FAIL actual legacy guard permits double spending
+legacy synchronized contenders admitted=2 expected=1
+exit_code=1

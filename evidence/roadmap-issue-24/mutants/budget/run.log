@@ -1,0 +1,4 @@
+FAIL line 122: (r[0] == 0) + (r[1] == 0) == 1
+FAIL line 61: (writing ? write(fd, p, n) : read(fd, p, n)) == (ssize_t)n
+FAIL line 61: (writing ? write(fd, p, n) : read(fd, p, n)) == (ssize_t)n
+exit_code=1

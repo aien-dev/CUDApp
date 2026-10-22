@@ -1,0 +1,23 @@
+executable_source_commit=264c7752bceb38e18b4f58125a07ad1719b1ad6b
+base_dependency=349913f17c083996680c72b32f767b225005155d
+review_baseline=232332422bfdc31c8918085b50f13c1e18ab702e
+branch=roadmap/24-cooperative-reservations
+UTC=2026-10-22T17:32:21Z
+Linux spark-b87b 7.0.0-1019-nvidia #19~24.04.2-Ubuntu SMP PREEMPT_DYNAMIC Sun Sep  6 18:35:11 UTC 2 aarch64 aarch64 aarch64 GNU/Linux
+cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+Copyright (C) 2023 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+GNU Make 4.3
+GNU ld (GNU Binutils for Ubuntu) 2.42
+driver identity (passive proc read only):
+NVRM version: NVIDIA UNIX Open Kernel Module for aarch64  580.173.02  Release Build  (dvs-builder@U22-A24-5-4)  Tue Jun 23 08:34:19 UTC 2026
+GCC version:  gcc version 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) 
+target model per brief=qwen3.6-35b-a3b-fp8; checkpoint/config/prompt pins=NOT_RUN (no model request)
+fixture configuration=8192-byte budget,4096-byte floor,32-kB MemAvailable unless negative case
+hardware,driver-qualified allocation,serving readiness,whole model,integration,actual disjoint overhead=NOT_RUN
+gate_source_commit=1aea93c6fda0d6012087b6559a47448af79085d3
+gate_commit_differs_from_executable_pin_only_in_portability_table_rows=true
+libc=ldd (Ubuntu GLIBC 2.39-0ubuntu8.9) 2.39
+git=git version 2.43.0

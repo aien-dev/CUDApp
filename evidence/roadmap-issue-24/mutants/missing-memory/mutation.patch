@@ -1,0 +1,11 @@
+--- src/omega_gpu_admission.c	2026-10-22 12:25:55.343606080 -0500
++++ build-roadmap-reservations24/mutation-final/mutants/missing-memory/omega_gpu_admission.c	2026-10-22 12:27:43.005559526 -0500
+@@ -149,7 +149,7 @@
+ }
+ static int available(OmegaGpuAdmission *a, uint64_t *out) {
+     int fd = open(a->fixture[0] ? a->fixture : "/proc/meminfo", O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
+-    if (fd < 0) return neg();
++    if (fd < 0) { *out = UINT64_MAX; return 0; }
+     struct stat s;
+     if (fstat(fd, &s) || !S_ISREG(s.st_mode) || s.st_size > 65536) { close(fd); return -EIO; }
+     if (a->fixture[0]) {

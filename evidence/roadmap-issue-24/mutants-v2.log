@@ -1,0 +1,9 @@
+tools/admission_mutations.sh "cc" "-std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include" "build-roadmap-reservations24/mutation-v2"
+PASS mutant budget rejected by behavioral assertion
+PASS mutant ownership rejected by behavioral assertion
+PASS mutant pid-start rejected by behavioral assertion
+PASS mutant boot rejected by behavioral assertion
+PASS mutant seal rejected by behavioral assertion
+PASS mutant missing-memory rejected by behavioral assertion
+PASS mutant generation rejected by behavioral assertion
+exit_code=0

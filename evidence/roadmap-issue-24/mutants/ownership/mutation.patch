@@ -1,0 +1,20 @@
+--- src/omega_gpu_admission.c	2026-10-22 12:25:55.343606080 -0500
++++ build-roadmap-reservations24/mutation-final/mutants/ownership/omega_gpu_admission.c	2026-10-22 12:27:40.205741015 -0500
+@@ -268,7 +268,7 @@
+     int rc = enter(a); if (rc) return rc;
+     if (t.slot >= OMEGA_ADMISSION_SLOTS || !t.generation) return leave(a, -ESTALE, 0);
+     Record *r = &a->db->records[t.slot];
+-    if (!r->state || r->generation != t.generation || !owned(a, r)) return leave(a, -ESTALE, 0);
++    if (!r->state || r->generation != t.generation) return leave(a, -ESTALE, 0);
+     if (r->state != from || (to == ACQUIRED && a->sealed)) return leave(a, -EPERM, 0);
+     if (a->bindings[t.slot].token.generation) return leave(a, -EBUSY, 0); /* adapter-owned */
+     r->state = to;
+@@ -351,7 +351,7 @@
+         if (!v->token.generation || v->platform != p || v->platform_ctx != p->ctx ||
+             v->buffer.index != b.index || v->buffer.generation != b.generation) continue;
+         Record *r = &a->db->records[i];
+-        if (r->generation != v->token.generation || r->state != COMMITTED || !owned(a, r)) return leave(a, -ESTALE, 0);
++        if (r->generation != v->token.generation || r->state != COMMITTED) return leave(a, -ESTALE, 0);
+         rc = p->dma_free(p->ctx, b);
+         if (rc) return leave(a, rc, 0);
+         memset(r, 0, sizeof *r); memset(v, 0, sizeof *v);

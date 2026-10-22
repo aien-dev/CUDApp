@@ -1,0 +1,11 @@
+--- src/omega_gpu_admission.c	2026-10-22 12:25:55.343606080 -0500
++++ build-roadmap-reservations24/mutation-final/mutants/budget/omega_gpu_admission.c	2026-10-22 12:27:39.589774548 -0500
+@@ -248,7 +248,7 @@
+     }
+     int rc = available(a, &avail); if (rc) return rc;
+     if (slot == OMEGA_ADMISSION_SLOTS || a->db->serial == UINT64_MAX ||
+-        bytes > a->budget - total || total > avail || bytes > avail - total ||
++        0 || total > avail || bytes > avail - total ||
+         a->keep > avail - total - bytes) return -ENOSPC;
+     Record *r = &a->db->records[slot];
+     memset(r, 0, sizeof *r);

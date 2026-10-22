@@ -1,0 +1,20 @@
+--- src/omega_gpu_admission.c	2026-10-22 12:25:55.343606080 -0500
++++ build-roadmap-reservations24/mutation-final/mutants/seal/omega_gpu_admission.c	2026-10-22 12:27:42.321590800 -0500
+@@ -237,7 +237,7 @@
+  * MemAvailable minus ALL active charges, including already-resident buffers.
+  * This can double subtract resident bytes for safety, never for a memory report. */
+ static int reserve_locked(OmegaGpuAdmission *a, uint64_t bytes, OmegaGpuAdmissionUsage usage, OmegaGpuReservation *out) {
+-    if (a->sealed) return -EPERM;
++    if (0) return -EPERM;
+     if (!out || !bytes || bytes > a->budget || usage < 0 || usage >= OMEGA_ADMISSION_SHARED_WEIGHT) return -EINVAL;
+     uint64_t total = 0, avail = 0; unsigned slot = OMEGA_ADMISSION_SLOTS;
+     for (unsigned i = 0; i < OMEGA_ADMISSION_SLOTS; i++) {
+@@ -269,7 +269,7 @@
+     if (t.slot >= OMEGA_ADMISSION_SLOTS || !t.generation) return leave(a, -ESTALE, 0);
+     Record *r = &a->db->records[t.slot];
+     if (!r->state || r->generation != t.generation || !owned(a, r)) return leave(a, -ESTALE, 0);
+-    if (r->state != from || (to == ACQUIRED && a->sealed)) return leave(a, -EPERM, 0);
++    if (r->state != from || (0)) return leave(a, -EPERM, 0);
+     if (a->bindings[t.slot].token.generation) return leave(a, -EBUSY, 0); /* adapter-owned */
+     r->state = to;
+     if (!to) memset(r, 0, sizeof *r);

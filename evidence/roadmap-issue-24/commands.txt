@@ -1,0 +1,66 @@
+All commands ran in /home/drakestapleton/workspace/cudapp-roadmap-memory24.
+OUT_DIR=build-roadmap-reservations24. No live device or model calls.
+
+Initial RED:
+timeout 60 quiet-build make OUT_DIR=build-roadmap-reservations24 test-roadmap-memory
+exit 2: no implementation source, red.log. This is a missing-feature build RED,
+not a runtime proof. Runtime baseline demonstration below exposes the actual gap.
+
+Runtime legacy RED (simulated nvrm only):
+timeout 45 quiet-build build-roadmap-reservations24/test_omega_gpu_admission --legacy-gap
+exit 1: actual unchanged legacy guard admitted 2 synchronized processes, expected 1.
+Log: red-legacy-double-spend.log.
+
+Final own behavioral target before source commit (same executable code):
+timeout 60 quiet-build make OUT_DIR=build-roadmap-reservations24 test-roadmap-memory
+exit 0, green-final.log, 228 parent checks plus child assertions.
+
+Final eight mutants (each separately compiled, all actual assertion failures):
+timeout 120 quiet-build make OUT_DIR=build-roadmap-reservations24/mutation-final test-roadmap-memory-mutants
+exit 0, mutants-final.log. Raw per-mutant build/run logs copied under mutants/.
+Earlier mutation harness run failed by alarm due unused pipe endpoints; fixed
+endpoint closure and retained mutants-first-harness-failure.log. v2 seven-mutant
+run passed; later added allocator-bypass eighth control.
+
+Full common suite + canonical host/simulator gates:
+timeout 1200 quiet-build make -k -j1 OUT_DIR=build-roadmap-reservations24 test test-canonical-qual-host
+Stopped own process, exit 143, before existing scratch cleanup. Log:
+full-host-interrupted.log. Matmul, elementwise and reconvergence completed there.
+No thresholds/cases were changed. Legacy hardcoded build/ targets resolve through
+an untracked symlink into OUT_DIR/legacy-build.
+
+Continuation (same compiled inputs, completed first three targets omitted):
+PATH="$PWD/build-roadmap-reservations24/safe-tools:$PATH" timeout 1200 quiet-build make -k -j1 OUT_DIR=build-roadmap-reservations24 -o test-gpu-matmul-api -o test-gpu-elementwise -o test-gpu-reconv test test-canonical-qual-host
+Log: full-host.log, actual final exit_code appended. A scoped rm compatibility
+wrapper replaces existing recursive scratch deletion with find -depth -delete,
+only under owner output or /tmp; source files are never eligible. Wrapper source
+saved in this receipt. It does not change build/test checks or thresholds.
+
+Tool durations and simulator call_ms output are host test diagnostics, not timing
+or performance claims. Quiet-measure paired experiments and hardware remain NOT_RUN.
+
+Portability table registration RED:
+timeout 30 quiet-build sh tools/runtime_portability_check.sh . docs/runtime/portability_table.tsv mk/omega-gpu-engine.mk
+exit 1: two new admission files needed classification. Added only their two rows
+in docs/runtime/portability_table.tsv; production executable inputs unchanged.
+The common host suite subsequently checks the complete table and its controls.
+
+Independent fixture arithmetic:
+awk BEGIN verifies 12*1024 - 8192 - 4096 == 0, 2*8192 > 8192,
+and int((4097+4095)/4096)*4096 == 8192. All integers are exactly representable.
+Raw values: independent-arithmetic.log. No performance arithmetic or paper-derived
+tolerance is used. Parent may recheck these same identities in Wolfram.
+
+Final pin verification after source/gate commits:
+timeout 60 quiet-build make OUT_DIR=build-roadmap-reservations24 test-roadmap-memory
+exit 0, 228 parent checks plus child assertions. green-pinned.log records the
+successful cmp of pre/post rebuild binary hashes (exit 0).
+
+timeout 60 quiet-build strace -f -e trace=openat,ioctl -o evidence/roadmap-issue-24/adapter-syscalls.log build-roadmap-reservations24/test_omega_gpu_admission --adapter
+exit 0; adapter-strace-run.log. rg '/dev/nvidia|ioctl\(' over the raw syscall
+trace found no matches (recorded PASS in adapter-device-access-check.log).
+
+Common suite continuation final exit: 0. Full 33 target suite completed across
+original/continuation, plus four canonical host/simulator targets. The resumed
+suite's top-level summary excludes only first three targets already proven in
+the preserved original log; all other common targets ran to completion.

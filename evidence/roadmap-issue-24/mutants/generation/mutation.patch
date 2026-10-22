@@ -1,0 +1,11 @@
+--- src/omega_gpu_admission.c	2026-10-22 12:25:55.343606080 -0500
++++ build-roadmap-reservations24/mutation-final/mutants/generation/omega_gpu_admission.c	2026-10-22 12:27:44.090965152 -0500
+@@ -268,7 +268,7 @@
+     int rc = enter(a); if (rc) return rc;
+     if (t.slot >= OMEGA_ADMISSION_SLOTS || !t.generation) return leave(a, -ESTALE, 0);
+     Record *r = &a->db->records[t.slot];
+-    if (!r->state || r->generation != t.generation || !owned(a, r)) return leave(a, -ESTALE, 0);
++    if (!r->state || !owned(a, r)) return leave(a, -ESTALE, 0);
+     if (r->state != from || (to == ACQUIRED && a->sealed)) return leave(a, -EPERM, 0);
+     if (a->bindings[t.slot].token.generation) return leave(a, -EBUSY, 0); /* adapter-owned */
+     r->state = to;

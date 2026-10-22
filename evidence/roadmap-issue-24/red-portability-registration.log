@@ -1,0 +1,4 @@
+FAIL: no row in the table for src/omega_gpu_admission.c
+FAIL: no row in the table for src/omega_gpu_admission.h
+FAIL: portability table does not match the tree
+exit_code=1

@@ -1,0 +1,11 @@
+--- src/omega_gpu_admission.c	2026-10-22 12:25:55.343606080 -0500
++++ build-roadmap-reservations24/mutation-final/mutants/boot/omega_gpu_admission.c	2026-10-22 12:27:41.588248665 -0500
+@@ -132,7 +132,7 @@
+             !r->bytes || r->bytes > a->budget || !r->generation || r->generation > a->db->serial ||
+             r->pid <= 0 || r->pid > INT_MAX || !memchr(r->boot, 0, sizeof r->boot)) goto bad;
+         int dead = 0; uint64_t start = 0;
+-        if (strcmp(r->boot, a->boot)) dead = 1;
++        if (0) dead = 1;
+         else {
+             if (identity((pid_t)r->pid, &start, &dead)) goto bad;
+             if (start != r->start) dead = 1;

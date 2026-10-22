@@ -1,0 +1,2 @@
+FAIL line 228: fk.alloc_calls == calls && !denied.generation && !cpu.ptr && !gpu.va
+exit_code=1

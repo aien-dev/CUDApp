@@ -1,0 +1,23 @@
+gate	status	evidence_or_limit
+native reservation host API	PASS	228 parent checks plus assertions in real child processes; green-final.log
+synchronized contenders	PASS	one of two real processes admitted, winner holds charge until both results arrive
+legacy baseline gap	EXPECTED_FAIL	unchanged guard admits both children; red-legacy-double-spend.log exits 1
+reserve/acquire/commit/cancel/abort/release	PASS	state transitions, stale/foreign token refusals, close and seal behavior
+owner death	PASS	abandoned RESERVED and SIGKILL COMMITTED cleanup; physical driver teardown NOT_RUN
+PID reuse and previous boot	PASS_FIXTURE	forged private state owner birth/boot; actual API rejects stale token and reclaims
+interrupted persistent write	PASS	SIGKILL after actual half pwrite, previous transaction intact
+memory data and state security	PASS	missing/stale/malformed/overflow memory, unsafe directory/lock/symlink/hardlink/checksum refusals
+native DMA adapter	PASS_SIMULATED_DRIVER	actual Linux platform linked to fake nvrm, no GPU allocation; before-allocator refusal, round-up, rollback, free refusal, marker policy
+behavioral mutants	PASS	8/8 compile and fail assertions; no crash/timeout counted as a kill
+process RSS hook	PASS	actual proc statm read, inclusive bytes separate from explicit allocation counters
+actual disjoint process overhead (#14)	NOT_RUN	no native disjoint source in this base; overhead_known=0, never derived from RSS
+shared weight admission/import	REFUSED	no integrated physical object/lifetime accounting proof
+full common host suite	PASS	33 targets across original and continuation logs, final exit 0
+canonical C3/C4/C5 host/simulator	PASS	4 targets; C4 9, C5 5, C3 154, Q38 4 checks; hardware NOT_RUN
+x86_64 runtime	NOT_RUN	this worker uses aarch64; host15 owns portable foundation
+GB10 bounded allocation	NOT_RUN	coordinator shared train required
+GB10 marker/cache visibility	NOT_RUN	host checks policy only
+kernel process-death/driver-free qualification	NOT_RUN	existing Linux free ignores driver free error; canonical owner follow-up required
+whole-model logits/tokens/readiness	NOT_RUN	no request to live model, no server start/restart
+quiet timing/performance	NOT_RUN	host tool durations are diagnostics
+issue25 file-page import	NOT_RUN	inspection packet only; no native public file-page import API found

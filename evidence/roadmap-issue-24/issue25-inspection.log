@@ -1,0 +1,99 @@
+command: git -C physics-l383 show 82467f1925bb426c8a74c99f3daf1eb90fb9c93c:nvrm/nvrm.h (share declarations)
+/* Cross-process sharing (L383): the owner names a live allocation (its RM client + memory handle); another
+ * process of the same user imports it as a duplicate mapped at its own VA, read-only when asked. The pages
+ * live until the importer frees its NvrmMem, even after the owner frees or exits. See nvrm.c nvrm_import(). */
+typedef struct {
+    uint32_t hclient;   /* owner Nvrm.root */
+    uint32_t hmemory;   /* owner NvrmMem.handle */
+    uint64_t size;      /* bytes, page multiple */
+} NvrmShare;
+int nvrm_export(Nvrm *rm, const NvrmMem *m, NvrmShare *out);
+int nvrm_import(Nvrm *rm, const NvrmShare *s, int read_only, NvrmMem *out);
+
+pipeline_exit=0
+command: git -C physics-l383 show 82467f1925bb426c8a74c99f3daf1eb90fb9c93c:nvrm/nvrm.c (import mechanisms)
+int nvrm_import(Nvrm *rm, const NvrmShare *s, int read_only, NvrmMem *out) {
+    if (!rm) return -1;
+    if (!s || !out || !s->hclient || !s->hmemory || !s->size || (s->size & 0xfffull) || rm->faulted)
+        return fail(rm, "nvrm_import: bad share (client 0x%x mem 0x%x size 0x%lx) or faulted",
+                    s ? s->hclient : 0, s ? s->hmemory : 0, (unsigned long)(s ? s->size : 0));
+    if (rm->live_count >= NVRM_MAX_LIVE) return fail(rm, "live allocation table full (%d)", NVRM_MAX_LIVE);
+    if (rm->next_handle == UINT32_MAX) return fail(rm, "RM handle space exhausted");
+    memset(out, 0, sizeof *out);
+    uint64_t size = s->size;
+    uint64_t va = va_take(rm, size, 0x1000);
+    if (!va) return fail(rm, "GPU VA exhausted or overflowed");
+    void *res = mmap((void *)va, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
+    if (res != (void *)va) {
+        if (res != MAP_FAILED) munmap(res, size);
+        rm->faulted = 1;
+        return fail(rm, "VA 0x%lx unavailable", (unsigned long)va);
+    }
+    NVOS55_PARAMETERS d;
+    memset(&d, 0, sizeof d);
+    d.hClient = rm->root;
+    d.hParent = rm->device;
+    d.hObject = rm->next_handle++;
+    d.hClientSrc = s->hclient;
+    d.hObjectSrc = s->hmemory;
+    d.flags = NV04_DUP_HANDLE_FLAGS_NONE;
+    if (nv_ioctl(rm->fd_ctl, NV_ESC_RM_DUP_OBJECT, &d, sizeof d) != 0) {
+        rm->faulted = 1; /* unknown driver state: do not recycle this VA */
+        return fail(rm, "RM_DUP_OBJECT ioctl errno %d", errno);
+    }
+    if (d.status != NV_OK) {
+        /* Refused cleanly (owner gone, wrong handle, other user): nothing was created. */
+        if (munmap(res, size) != 0 || va_release(rm, va, size) != 0) { rm->faulted = 1; return -1; }
+        return fail(rm, "RM_DUP_OBJECT client 0x%x mem 0x%x status 0x%x", s->hclient, s->hmemory, d.status);
+    }
+    uint32_t h = d.hObject;
+    void *cpu = map_to_cpu(rm, h, size, (void *)va, read_only ? NVOS33_FLAGS_ACCESS_READ_ONLY : 0, 1,
+                           read_only ? PROT_READ : (PROT_READ | PROT_WRITE));
+    if (cpu != (void *)va) {
+        char why[sizeof rm->err];
+        memcpy(why, rm->err, sizeof why);
+        quarantine_allocation(rm, h, va, size, (void *)va, 0, 0);
+        return fail(rm, "import cpu map at 0x%lx failed: %s", (unsigned long)va, why);
+    }
+    uint8_t uvm_created = 0, dma_mapped = 0;
+    if (uvm_map(rm, va, size, h, &uvm_created, &dma_mapped, read_only)) {
+        quarantine_allocation(rm, h, va, size, cpu, uvm_created, dma_mapped);
+        return -1;
+    }
+    out->handle = h;
+    out->va = va;
+    out->size = size;
+    out->cpu = cpu;
+    rm->live[rm->live_count] = (NvrmLiveAlloc){ .handle = h, .va = va, .size = size, .cpu = cpu,
+                                                .uvm_live = 1, .dma_live = 1, .rm_live = 1, .cpu_live = 1 };
+    rm->live_count++;
+    return 0;
+}
+
+
+int nvrm_channel(Nvrm *rm) {
+pipeline_exit=0
+command: git -C omega-l383 show 97b63ab208915e15d97dcb33625d39a03f872811:src/omega_gpu_platform.h (share contract)
+ * with dma_export; an importer hands it to dma_import and gets its own read-only mapping (CPU and GPU) of the
+ * same pages. Opaque beyond the platform that produced it; bytes is the buffer length. The pages live until every
+ * process holding a handle to them has freed it: the owner freeing or exiting first does not unmap an importer
+ * (physics nvrm share_test, 2026-10-21). */
+#define OMEGA_GPU_SHARE_GPU_CACHED 1u /* flags: the owner allocated it GPU-cached */
+typedef struct {
+    uint32_t hclient;  /* owner driver client */
+    uint32_t hmemory;  /* owner memory object */
+    uint32_t flags;    /* OMEGA_GPU_SHARE_* */
+    uint64_t bytes;
+} OmegaGpuShareToken;
+    /* ---- ABI 1.3 ---- */
+    /* SHARE (optional: both NULL when the platform cannot share across processes). dma_export publishes a live DATA
+     * buffer of this process; dma_import maps a published buffer into this process as a new DATA buffer handle whose
+     * rights are GPU_READ plus CPU_READ when the owner allocated it GPU-uncached (a GPU-cached buffer keeps the
+     * dma_alloc rule: the CPU never reads it). The mapping is read-only on both sides: a CPU store faults, a GPU
+     * store is a page fault the driver reports. dma_free releases an imported handle like any other. */
+    int (*dma_export)(void *ctx, OmegaGpuBufferHandle buf, OmegaGpuShareToken *out);
+    int (*dma_import)(void *ctx, OmegaGpuDeviceHandle dev, const OmegaGpuShareToken *tok,
+                      OmegaGpuBufferHandle *out, OmegaCpuView *cpu, OmegaGpuVa *gpu);
+} OmegaGpuPlatform;
+
+pipeline_exit=0

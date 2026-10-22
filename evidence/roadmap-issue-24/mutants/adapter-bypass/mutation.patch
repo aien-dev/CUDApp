@@ -1,0 +1,11 @@
+--- src/omega_gpu_admission.c	2026-10-22 12:25:55.343606080 -0500
++++ build-roadmap-reservations24/mutation-final/mutants/adapter-bypass/omega_gpu_admission.c	2026-10-22 12:27:44.740241787 -0500
+@@ -325,7 +325,7 @@
+     rc = enter(a); if (rc) return rc;
+     OmegaGpuReservation t;
+     rc = reserve_locked(a, bytes, usage, &t);
+-    if (rc) return leave(a, rc, 0);
++    if (rc) { (void)p->dma_alloc(p->ctx, dev, d, out, cpu, gpu, bus); return leave(a, rc, 0); }
+     a->db->records[t.slot].state = ACQUIRED;
+     /* Persist before delegate: a crash must retain or detect this charge. */
+     rc = save_db(a);

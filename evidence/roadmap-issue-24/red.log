@@ -1,0 +1,2 @@
+make: *** No rule to make target 'src/omega_gpu_admission.c', needed by 'build-roadmap-reservations24/test_omega_gpu_admission'.  Stop.
+exit_code=2

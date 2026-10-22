@@ -1,0 +1,5 @@
+tools/admission_mutations.sh "cc" "-std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include" "build-roadmap-reservations24"
+PASS mutant budget rejected by behavioral assertion
+FAIL mutant ownership did not fail an assertion (exit 142)
+make: *** [mk/roadmap-memory.mk:11: test-roadmap-memory-mutants] Error 1
+exit_code=2

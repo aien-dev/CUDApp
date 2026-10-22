@@ -1,0 +1,8 @@
+gate_source_commit=1aea93c6fda0d6012087b6559a47448af79085d3
+executable_source_commit=264c7752bceb38e18b4f58125a07ad1719b1ad6b
+command: git diff --exit-code 264c7752bceb38e18b4f58125a07ad1719b1ad6b HEAD -- src tests tools mk Makefile nvrm m16
+exit_code=0
+Only subsequent change before evidence was two portability-table rows:
+ docs/runtime/portability_table.tsv | 2 ++
+ 1 file changed, 2 insertions(+)
+pre_evidence_commit_inputs_unchanged_exit_code=0

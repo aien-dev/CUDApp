@@ -1,0 +1,2 @@
+PASS actual Linux allocation boundary on simulated nvrm, cache policy, seal and rollback
+exit_code=0
