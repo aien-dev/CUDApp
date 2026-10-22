@@ -1,13 +1,13 @@
-# commit f426e68ca2bf65486f51419578028dba7cf735d3 branch dx/d3-faults, run 2026-10-22T01:36:07Z on spark-b87b
+# commit 213a19a91629951f224935052156c01fa174e8be branch dx/d3-faults, run 2026-10-22T01:49:43Z on spark-b87b
 $ build/hello_gpu --sim --bug=past-end
 hello_gpu: c = a + b over 1048576 floats on the host simulator (no GPU), built with Omega's own kernel builder
-kernel built in 32 us: 32 instructions, 12 registers, no compiler run, no cache
+kernel built in 28 us: 32 instructions, 12 registers, no compiler run, no cache
 machine code sha256 6248b8ed338019f75e20b13a8ef7e63b4e35764229e0669ffbe54464353e87d1
 FAULT at launch 8 of 8 of kernel vecadd (simulator): global load outside every buffer
   launch: grid 1025 x 1 blocks of 128 threads, n = 131073, first element 917504
   instruction: 11 of 19, LDG.E (4-byte load)
   thread: block 1024, thread 0 (element 1048576 of the whole job)
-  address: 0xf7ef22a0f040 (4 bytes), 0 bytes past the end of buffer a = [0xf7ef2260f040, 0xf7ef22a0f040) (4194304 bytes)
+  address: 0xeba6fbc6f040 (4 bytes), 0 bytes past the end of buffer a = [0xeba6fb86f040, 0xeba6fbc6f040) (4194304 bytes)
   simulator: MEM at pc 11: global access outside the declared buffers
   next: launch 8 was given n = 131073, and buffer a holds 131072 elements from this launch's first element.
         Fix the launch or the buffer, run hello_gpu --sim until it passes, then run hello_gpu on the GPU.
