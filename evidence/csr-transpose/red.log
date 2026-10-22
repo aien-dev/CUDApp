@@ -1,0 +1,11 @@
+COMPILER sha256=10d7565239ca6bd3cca344b65a03c0f3498acd95e82ab3d420bd01408b01398e
+Traceback (most recent call last):
+  File "/home/drakestapleton/workspace/hermes-desk/cudapp-csr-transpose/tests/libraries/test_csr_transpose.py", line 133, in <module>
+    main()
+  File "/home/drakestapleton/workspace/hermes-desk/cudapp-csr-transpose/tests/libraries/test_csr_transpose.py", line 112, in main
+    count = exercise(target)
+            ^^^^^^^^^^^^^^^^
+  File "/home/drakestapleton/workspace/hermes-desk/cudapp-csr-transpose/tests/libraries/test_csr_transpose.py", line 48, in exercise
+    assert result.returncode == 0 and result.stdout == expected, ('literal transpose', result)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('literal transpose', CompletedProcess(args=['/home/drakestapleton/workspace/hermes-desk/cudapp-csr-transpose/build/csr-transpose/transpose'], returncode=2, stdout=b'', stderr=b''))

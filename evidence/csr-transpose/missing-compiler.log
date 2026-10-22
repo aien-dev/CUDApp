@@ -1,0 +1,2 @@
+Set OMEGA_SEED_COMPILER to the pinned seed-born omc. See docs/CSR_TRANSPOSE.md.
+make: *** [mk/csr-transpose.mk:6: test-csr-transpose] Error 2

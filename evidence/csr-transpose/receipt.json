@@ -1,0 +1,24 @@
+{
+  "source_commit": "38d1bbea478ea2dac401c9b93998c8fe180c63ae",
+  "utc": "2026-10-22T14:32:41.881597+00:00",
+  "system": "Linux-7.0.0-1019-nvidia-aarch64-with-glibc2.39",
+  "host": "spark-b87b",
+  "compiler_sha256": "10d7565239ca6bd3cca344b65a03c0f3498acd95e82ab3d420bd01408b01398e",
+  "implementation_binary_sha256": "122a00e651f386f505c05e91032f76876d7334da46b690da04aff1952836f5de",
+  "source_sha256": {
+    "docs/CSR_TRANSPOSE.md": "f6783d7499fd166141fc11522551140c36d691ca496991956473567e14361216",
+    "mk/csr-transpose.mk": "29080a8f53cee955cb65d78621de404b834351c7f8d8a881ecda59cdb1188b20",
+    "omega/libraries/csr_transpose.om": "de5882a89f16fc017d8bd1872814634624d2955553d6c8cc4445a795ae55e805",
+    "tests/libraries/csr_transpose_driver.om": "86a3e244aac5b4d73b270853aa2ecd878b1a454acc0c33499a7e0e6460efc02d",
+    "tests/libraries/csr_transpose_state.om": "06eda514c2bfc881b9faccfde59bda8e0934a5c93dc5d0b2416d619f8835f6a6",
+    "tests/libraries/test_csr_transpose.py": "d1e7e80740637570a9d16b2d660d0acaaf14eb6f4b9c780f78e69ef71e537a2a"
+  },
+  "new_suite_command": "make test-csr-transpose OMEGA_SEED_COMPILER=/path/to/pinned/omc",
+  "new_suite_rc": 0,
+  "host_suite_command": "timeout 480 quiet-build make -j4 test",
+  "host_suite_rc": 0,
+  "host_suite_source_note": "Executed once before source commit. All files consumed by ordinary make test are unchanged from its 33-target baseline. The separate Omega suite was rerun on source_commit after final test additions. No tracked source modified since commit.",
+  "host_suite_targets": 33,
+  "gpu": "NOT_RUN; host storage conversion only, no CUDA ABI claim",
+  "review": "Author review completed; separate reviewer dispatch refused before spawn due provider usage limit. Desk review still required."
+}
