@@ -1,0 +1,3 @@
+omega-slices: compiler harness not configured; set OMEGA_OSC_COMPILER_DIR to an Omega checkout
+omega-slices: required source commit: 1accb93164ce68a2ac2e2c680acf54782f260d62
+missing-harness exit=2

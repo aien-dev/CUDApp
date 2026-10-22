@@ -1,0 +1,8 @@
+command: git -C /home/drakestapleton/workspace/omega-osc-cubin rev-parse --verify HEAD
+1accb93164ce68a2ac2e2c680acf54782f260d62
+command: git -C /home/drakestapleton/workspace/omega-osc-cubin status --porcelain
+(no output; clean)
+command: sha256sum /home/drakestapleton/workspace/omega-osc-cubin/build/compiler/test_osc_compiler
+a007283780347dd4a4b024844dc0c81fc09e0926f27f83e50c07d42508886f23  /home/drakestapleton/workspace/omega-osc-cubin/build/compiler/test_osc_compiler
+command: file /home/drakestapleton/workspace/omega-osc-cubin/build/compiler/test_osc_compiler
+ELF 64-bit LSB pie executable, ARM aarch64, dynamically linked, not stripped

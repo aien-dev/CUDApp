@@ -1,0 +1,149 @@
+omega harness source=1accb93164ce68a2ac2e2c680acf54782f260d62 binary_sha256=a007283780347dd4a4b024844dc0c81fc09e0926f27f83e50c07d42508886f23
+run-line grammar self-test: 49 cases
+golden programs (47), fuzz=120 per entry:
+  arena_basic.osc    basic        ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  arena_basic.osc    ret_inside   ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  arena_basic.osc    mixed        ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  arena_borrows.osc  borrows      ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  arena_dtor.osc     adtor        ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  arena_full.osc     fill         ok=16    ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=104 
+  arena_full.osc     cond_fill    ok=3     ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=117 
+  arena_nested.osc   nested       ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  arena_nested.osc   sibling      ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  arena_structs.osc  points       ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  arrays.osc         arr_main     ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  bitrev.osc         rev8         ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  bitrev.osc         rev16        ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  bitrev.osc         rev16_twice  ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  bounds.osc         get          ok=22    ovf=0    div0=0    bnd=98   loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  bounds.osc         set_get      ok=4     ovf=0    div0=0    bnd=116  loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  calls.osc          c0           ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  calls.osc          c6           ok=97    ovf=23   div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  calls.osc          call_all     ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  casts.osc          narrow       ok=78    ovf=0    div0=0    bnd=0    loop=0    cast=42   oom=0    shift=0    rq=0    en=0    af=0   
+  casts.osc          sign_flip    ok=88    ovf=0    div0=0    bnd=0    loop=0    cast=32   oom=0    shift=0    rq=0    en=0    af=0   
+  casts.osc          widen        ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  casts.osc          chain        ok=88    ovf=0    div0=0    bnd=0    loop=0    cast=32   oom=0    shift=0    rq=0    en=0    af=0   
+  collatz.osc        collatz      ok=90    ovf=0    div0=0    bnd=0    loop=30   cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  contracts_basic.osc safe_sub     ok=61    ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=59   en=0    af=0   
+  contracts_basic.osc seven        ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  contracts_basic.osc always       ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  contracts_basic.osc use_safe_sub ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  contracts_ensures.osc half_up      ok=64    ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=56   af=0   
+  contracts_ensures.osc void_check   ok=81    ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=39   af=0   
+  contracts_ensures.osc pick         ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  contracts_ensures.osc sum_first    ok=29    ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=91   af=0   
+  contracts_requires.osc safe_sub     ok=63    ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=57   en=0    af=0   
+  contracts_requires.osc abs8         ok=119   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=1    en=0    af=0   
+  contracts_requires.osc inc          ok=117   ovf=3    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  contracts_requires.osc use_arr      ok=86    ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=34   en=0    af=0   
+  contracts_requires.osc give         ok=11    ovf=0    div0=0    bnd=109  loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  df_both.osc        f            ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  df_conditional_move.osc f            ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  df_else.osc        f            ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  df_nested.osc      f            ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  df_nested.osc      g            ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  df_order.osc       order        ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  df_struct.osc      f            ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  df_struct.osc      h            ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  df_then.osc        f            ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  df_then.osc        g            ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  factorial.osc      fact_i32     ok=55    ovf=65   div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  factorial.osc      fact_u16     ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  fib.osc            fib_i64      ok=63    ovf=57   div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  fib.osc            fib_u8       ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  fib.osc            sum_squares  ok=76    ovf=0    div0=0    bnd=0    loop=44   cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  gcd.osc            gcd_u64      ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  gcd.osc            gcd_i32      ok=114   ovf=6    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  gcd.osc            lcm_u32      ok=53    ovf=0    div0=0    bnd=0    loop=0    cast=67   oom=0    shift=0    rq=0    en=0    af=0   
+  handles_basic.osc  basic        ok=116   ovf=4    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  handles_basic.osc  reuse        ok=98    ovf=22   div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  handles_exhaust.osc retire       ok=10    ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  handles_exhaust.osc full         ok=13    ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  handles_exhaust.osc cycle        ok=86    ovf=0    div0=0    bnd=0    loop=34   cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  handles_stale.osc  stale        ok=5     ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  handles_stale.osc  dfree        ok=114   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  handles_stale.osc  aba          ok=7     ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  ifchain.osc        classify     ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  ifchain.osc        grade        ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  isort.osc          sort_main    ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  loopbound.osc      count_to     ok=23    ovf=0    div0=0    bnd=0    loop=97   cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  loopbound.osc      count_for    ok=97    ovf=23   div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  loopbound.osc      else_returns ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  minmax.osc         spread       ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  nested.osc         find_pair    ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  nested.osc         grid_walk    ok=36    ovf=0    div0=0    bnd=0    loop=84   cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  oom.osc            oom          ok=78    ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=42   shift=0    rq=0    en=0    af=0   
+  ops.osc            arith_i32    ok=94    ovf=23   div0=3    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  ops.osc            bits_u16     ok=41    ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=79   rq=0    en=0    af=0   
+  ops.osc            cmp_i16      ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  ops.osc            cmp_u64      ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  ops.osc            unary_i64    ok=98    ovf=22   div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  ops.osc            logic        ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  popcount.osc       pop64        ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  popcount.osc       pop8         ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  popcount.osc       pop_kernighan ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  prefix.osc         prefix_main  ok=54    ovf=24   div0=0    bnd=42   loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  reborrow.osc       rb_main      ok=96    ovf=24   div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  scopes.osc         scopes_main  ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  scopes.osc         early        ok=117   ovf=3    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  shifts.osc         shl_i32      ok=37    ovf=7    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=76   rq=0    en=0    af=0   
+  shifts.osc         shr_i8       ok=16    ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=104  rq=0    en=0    af=0   
+  shifts.osc         mix_u64      ok=41    ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=79   rq=0    en=0    af=0   
+  shifts.osc         rot_u32      ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  shortcircuit.osc   safe_div     ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  shortcircuit.osc   guarded_index ok=51    ovf=0    div0=0    bnd=69   loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  shortcircuit.osc   either       ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  sixparams.osc      six_main     ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  structs_contracts.osc run_req      ok=60    ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=60   en=0    af=0   
+  structs_contracts.osc run_ens      ok=66    ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=54   af=0   
+  structs_dtor.osc   dtor         ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  structs_fields.osc fields_rw    ok=113   ovf=7    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  structs_fields.osc pick_bits    ok=21    ovf=0    div0=0    bnd=99   loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  structs_owner.osc  moves        ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  structs_owner.osc  borrow_calls ok=13    ovf=0    div0=0    bnd=107  loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  types.osc          t_u8         ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  types.osc          t_u16        ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  types.osc          t_u32        ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  types.osc          t_u64        ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  types.osc          t_i8         ok=109   ovf=11   div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  types.osc          t_i16        ok=71    ovf=49   div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  types.osc          t_i32        ok=109   ovf=11   div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  types.osc          t_i64        ok=97    ovf=23   div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+  types.osc          t_bool       ok=120   ovf=0    div0=0    bnd=0    loop=0    cast=0    oom=0    shift=0    rq=0    en=0    af=0   
+front-end mutants: 1410 (accepted 206, refused 1204)
+contract fuzz: units=24 compiled=23 static_refused=1 runs=1472 ok=106 requires=656 ensures=614 overflow=96 other_traps=0 mismatches=0
+struct layout: L offsets 0 1 4 5 7 cells 8; M cells 64; digest binds layout
+struct destruction order: alloc 1 2 3, release 3 2, alloc 4, release 4 1 (interp == native)
+arena destruction order: alloc 1, open 2, aalloc 3, open 4, aalloc 5, alloc 6, release 6, destroy 4, alloc 7, release 7, destroy 2, release 1 (interp == native)
+struct fuzz: units=15 runs=720 ok=447 bounds=160 requires=7 overflow=46 cast=60 mismatches=0
+arena fuzz: units=15 allocs=56 runs=720 ok=285 arena_full=380 bounds=26 overflow=29 mismatches=0
+osc3 handles: units=15 compiled=13 static_refused=2 runs=624 ok=344 stale_traps=204 pool_full=65 retired=11 overflow=0 mismatches=0
+osc3 handles: model replay pool_events=8120 stale_confirmed=204 wrap_confirmed=11 full_confirmed=65 windows=0 (handle fuzz runs only); all runs re-windows=132
+osc3 handles: serial counters at UINT32_MAX trap RUNTIME, never wrap: 4 of 4
+osc3 dropflags: order k=0 interp=[A1 A2 A3 R2 A4 A5 R5 R4 R3 R1] native=[A1 A2 A3 R2 A4 A5 R5 R4 R3 R1] match
+osc3 dropflags: order k=1 interp=[A1 A2 A3 R1 A4 A5 R5 R4 R3 R2] native=[A1 A2 A3 R1 A4 A5 R5 R4 R3 R2] match
+osc3 dropflags: order k=3 interp=[A1 A2 A3 R1 A4 R4 A5 R5 R3 R2] native=[A1 A2 A3 R1 A4 R4 A5 R5 R3 R2] match
+osc3 dropflags: harness entry by name: order=1 (not function 0), own-param helper eata refused=yes
+osc3 dropflags: fuzz units=15 runs=360 mismatches=0 model_rejected=0 maybe_units=4 ok=360 traces=60 trace_skipped=0
+external byte slices: programs=8/8 expect_runs=94 fuzz_runs=3480 diff_runs=3574 host_refusals=9
+run lines: slice-run keyed=94 ran=94  expect-run keyed=143 ran=143
+trap coverage (runs, interpreter == native):
+  none       14388
+  OVERFLOW   436
+  DIV0       3
+  BOUNDS     666
+  LOOP_BOUND 289
+  CAST       173
+  OOM        42
+  SHIFT      338
+  RUNTIME    0
+  REQUIRES   211
+  ENSURES    240
+  ARENA_FULL 601
+  STALE      438
+  POOL_FULL  172
+  RETIRED    121
+runtime model replay: runs=17244 events=97340 accepted=17244 rejected=0
+golden=47/47 funcs=155 entries=110 expect_runs=143 diff_runs=17096 trace_replays=175 rt_replays=10185 rt_events=97340 neg=138/138 neg_traced=28 checks=60600 failed=0 time=0.16s
+OSC1_COMPILER_PASS golden=47 neg=138 diff_runs=17096 checks=60600

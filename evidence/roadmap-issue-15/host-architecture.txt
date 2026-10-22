@@ -1,0 +1,6 @@
+Linux spark-b87b 7.0.0-1019-nvidia #19~24.04.2-Ubuntu SMP PREEMPT_DYNAMIC Sun Sep  6 18:35:11 UTC 2 aarch64 aarch64 aarch64 GNU/Linux
+/boot/vmlinuz: regular file, no read permission
+qemu_x86_user=unavailable
+qemu_system=/usr/bin/qemu-system-x86_64
+nvcc=/usr/local/cuda/bin/nvcc
+nvdisasm=/usr/local/cuda/bin/nvdisasm

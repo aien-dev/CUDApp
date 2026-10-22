@@ -1,0 +1,4 @@
+/tmp/l466-engine-red.c: Assembler messages:
+/tmp/l466-engine-red.c:393: Error: number of operands mismatch for `ds'
+/tmp/l466-engine-red.c:558: Error: number of operands mismatch for `ds'
+baseline x86 compile exit=1 (expected failure)
