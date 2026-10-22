@@ -1,0 +1,326 @@
+[
+  {
+    "kind": "issue",
+    "id": 26,
+    "data": {
+      "body": "## Goal\nTurn the CUDApp research review into measured improvements to native model execution. Reuse existing code, qualification work and ownership. This roadmap adds research work; it does not replace the existing integration priorities.\n\nReview baseline: 232332422bfdc31c8918085b50f13c1e18ab702e (2026-10-22).\nLiterature: [Undermind ranked research and papers](https://app.undermind.ai/projects/71b4b2d1-0818-4a84-8c00-452e1071922a?path=/CUDApp%20native%20GPU%20runtime%20research).\n\n## Existing work to finish and reuse\nCanonical motor integration #5 remains the priority. Reuse concurrency/recovery #6/#11/#12, general math #9, disassembler #10, repeatability #13, allocation guard #8 and overhead measurement #14. Preserve Omega PRs aien-dev/omega-mv#614 through #618 and carry their changes into the canonical backend without losing work during extraction. Recheck their live state before editing; do not recreate implementations that already exist.\n\nIndependent driver qualification #7 remains its own coordinated workstream. Native-runtime optimization experiments do not require a driver replacement and must not switch the live driver.\n\n## Delivery sequence\n1. Inspect current branches, instructions, source pins and active ownership. Establish the canonical integrated candidate under #5; complete the existing qualification sequence with the current owners.\n2. Establish reproducible tests, numerical contracts and baseline measurement: #15, #16, #17.\n3. Make targeted experiments: #18 MoE fusion, #20 shared-prefix attention, #22 SASS scheduling. Use #19 dependency analysis and #21 ragged planning where the measured bottleneck justifies them.\n4. Evaluate #23 prefill traversal and #24/#25 memory ownership/import work under their explicit prerequisites.\n5. Requalify successful integrations on the final source pins; update consumer pins and report end-to-end results. A reproducible negative experiment is useful evidence; never force an unsupported optimization into the default path.\n\n## Work and dependencies\n| Issue | Deliverable | Prerequisites for integration/performance claims |\n|---|---|---|\n| #15 | Reproducible host tests and pinned Omega slice harness | Reuse existing gates; host work may start immediately |\n| #16 | Numerical contracts and end-to-end correctness | #5, existing #9/#13 references |\n| #17 | Native model/launch/traffic benchmark report | #5, #16; reuse #14 accounting |\n| #18 | FP8 gate/up + SwiGLU fusion experiment | #16, #17 |\n| #19 | Buffer dependencies and narrower synchronization | #6, #16, #17 |\n| #20 | Shared-prefix attention and stable state merge | #16, #17; existing paging/GQA |\n| #21 | Ragged attention plan/run and bounded workspace | #16, #17; existing reservations |\n| #22 | Bounded SASS schedule search and byte validation | #10, #16, #17 |\n| #23 | Alternating prefill KV traversal experiment | #16, #17 |\n| #24 | Coordinated memory reservations and ownership | #6, #8; reuse #14 |\n| #25 | File-backed native weight mapping experiment | #6, #24, #16, #17 |\n\n## Checklist\n- [ ] #15 \u2014 Make host tests and Omega slice qualification reproducible from a fresh checkout\n- [ ] #16 \u2014 Define numerical contracts for native kernels and whole-token decode\n- [ ] #17 \u2014 Add a native benchmark report for token latency, launch costs and memory traffic\n- [ ] #18 \u2014 Experiment: fuse FP8 gate/up and SwiGLU in the routed MoE decode path\n- [ ] #19 \u2014 Add explicit buffer dependencies and validate narrower command-list synchronization\n- [ ] #20 \u2014 Add shared-prefix attention execution with stable prefix/suffix state merging\n- [ ] #21 \u2014 Separate ragged-attention planning from execution with bounded reusable workspaces\n- [ ] #22 \u2014 Build bounded SASS schedule search with independent encoded-code validation\n- [ ] #23 \u2014 Experiment: alternate KV traversal in GB10 prefill attention to improve cache reuse\n- [ ] #24 \u2014 Extend memory admission with coordinated reservations and explicit buffer ownership\n- [ ] #25 \u2014 Experiment: qualify file-backed shared weights through native GPU mappings\n\n## Completion\nEach child has its own acceptance and evidence gate. Track implementation, host/simulator qualification, GB10 qualification and consumer integration separately. Store source/binary/model/config identities and raw paired measurements; no performance promises copied from other GPUs. Preserve the baseline path until the candidate is qualified. No production restart, module unload, default-driver change or unsafe memory exhaustion through this roadmap.\n\nClose the roadmap only when every child has an explicit evidenced outcome and the accepted changes pass the final integrated consumer workload, including golden/numerical checks, concurrent requests, a second turn and a real tool-call parse. Mark unavailable hardware work BLOCKED/NOT_RUN with its exact remaining gate instead of presenting it as complete.\n",
+      "comments": [],
+      "number": 26,
+      "state": "OPEN",
+      "title": "Research roadmap: qualify and optimize CUDApp native model execution",
+      "updatedAt": "2026-10-22T17:08:37Z",
+      "url": "https://github.com/aien-dev/CUDApp/issues/26"
+    }
+  },
+  {
+    "kind": "issue",
+    "id": 5,
+    "data": {
+      "body": "<!-- cudapp-work-id: motor-integration -->\n\n## Direction\n\nFinish integration and qualification of the existing GPU backend before adding another math operation. This is not an architectural redesign. Ledger L456 records Drake's revised order; implementation ownership remains with L395 and the motor/merge-train coordinator.\n\n## Existing work and dependencies\n\n- CUDApp main at 232332422bfdc31c8918085b50f13c1e18ab702e already has the native backend and the Omega submission slice; `motor/README.md` describes the remaining serving integration.\n- aien-dev/omega-mv#618 (`opencuda/consume`, head 67c70741c8cec5c33e28a099d7c83bbd4f3ab839 when inspected) is OPEN/BLOCKED and pins CUDApp 8f0b645dbc859f1b63868cec77880621aa70b42d.\n- Existing L395 evidence reports byte-identical archive/22-target host agreement. That is not proof the complete live serving artifact consumes the canonical backend.\n- Extraction deletes GPU files modified by omega PRs #614..#617. Preserve/carry their existing changes before extraction, or port them into CUDApp and update the pin. Do not blindly reverse this technical dependency to imitate priority order. Prioritize the integration result, while preserving prerequisites.\n- The already-deployed motor speed build (L387) is a separate milestone; it does not by itself prove canonical CUDApp consumption.\n\n## Acceptance: MOTOR-CANONICAL-E2E\n\n- [ ] Build from immutable CUDApp/Omega/sovereign-core source SHAs with an explicit CUDApp lock; no stale sibling checkout or silent fallback supplies GPU sources.\n- [ ] Build/link provenance identifies the exact canonical GPU library and code path used by the serving binary; prove no divergent duplicate implementation is selected.\n- [ ] Reuse the shared merge-train candidate/model load. Golden tokens match the reference, concurrent output equals alone, second turn works, and a real tool call parses. Include mutants that select a wrong pin/backend so the provenance check can fail.\n- [ ] Publish binary/library hashes, lock contents, source SHAs, test commands and exact-commit public receipts. Prove no CUDA user-space libraries are mapped/imported in the serving path; do not confuse that with independence from NVIDIA's kernel driver.\n- [ ] Only after that candidate passes, let the serving coordinator perform one safe swap with rollback and verify the running artifact/readiness. No restart/unload by this issue-filing pass.\n\nPriority order after this: concurrency/recovery, general BF16/FP8 GEMM/reductions/scans, disassembler, independent-driver hardware qualification. Keep the experimental driver isolated from the working path until validated.\n\n\n## Mandatory closure gate\n\nDo not close from a branch push, a simulator-only result for a chip requirement, an agent summary, or a merged PR alone. Do not use auto-closing `Fixes`/`Closes` keywords in a PR until the full gate below is actually met.\n\n- [ ] Link the full tested source SHA for every affected repository and the integrated/merged SHA. If a rebase, pin change, or merge changes executable inputs, qualify the resulting exact commit again.\n- [ ] Link a committed public receipt and raw logs under `evidence/`: exact command and flags, compiler/tool and binary hashes, source/pin SHAs, machine/chip/driver identity, expected result and actual exit code.\n- [ ] All acceptance checks pass; relevant negative controls/mutants fail for the intended reason. No skipped/waived gate or retry-until-green.\n- [ ] Hardware rows have actual GB10 receipts in a coordinated chip window. Host/simulator tests remain separately identified and cannot satisfy those rows.\n- [ ] Required dependencies are complete, independent review is recorded, and the integration owner verifies the receipt against the final artifact before closing this issue.\n\nExisting implemented pieces must be reused, not rewritten. A historical draft is provenance, not proof that its host work is still missing. Live execution, pinned CUDApp consumption, and the independent driver remain distinct claims.\n\n## Work graph\n\nExecution order (Drake, 2026-10-22):\n\n- https://github.com/aien-dev/CUDApp/issues/5\n- https://github.com/aien-dev/CUDApp/issues/6\n- https://github.com/aien-dev/CUDApp/issues/9\n- https://github.com/aien-dev/CUDApp/issues/10\n- https://github.com/aien-dev/CUDApp/issues/7\n\nQualification/support rows: https://github.com/aien-dev/CUDApp/issues/8, https://github.com/aien-dev/CUDApp/issues/12, https://github.com/aien-dev/CUDApp/issues/13, https://github.com/aien-dev/CUDApp/issues/14\n",
+      "comments": [
+        {
+          "id": "IC_kwDOVS1eac8AAAABeiPVZg",
+          "author": {
+            "login": "drakestapleton"
+          },
+          "authorAssociation": "MEMBER",
+          "body": "Read-only motor baseline and execution order are published on `docs/integration-priorities` at `6fd20e4a3513bcd063cb102d7538750ccb6a2ad9`.\n\n- [Priority/dependency plan](https://github.com/aien-dev/CUDApp/blob/6fd20e4a3513bcd063cb102d7538750ccb6a2ad9/docs/PRIORITIES.md)\n- [Actual running artifact/model/manifest snapshot](https://github.com/aien-dev/CUDApp/blob/6fd20e4a3513bcd063cb102d7538750ccb6a2ad9/evidence/integration-priorities/motor-baseline.json)\n- [All seven source drafts mapped to issues](https://github.com/aien-dev/CUDApp/blob/6fd20e4a3513bcd063cb102d7538750ccb6a2ad9/docs/issues/README.md)\n\nThe model-list route is healthy. The inspected serving binary is `bin-19173f9e`; its build manifest names Omega `ship/motor-l387` and a GPU archive hash but no CUDApp pin. Canonical CUDApp consumption is **NOT VERIFIED**, not disproven. No CUDA user-space libraries were mapped in this process. Neither fact proves kernel-driver independence. No server swap, inference job or driver change was performed.\n\nExisting owner/coordinator should take this integration gate first, preserving the GPU changes that extraction PR omega#618 would otherwise remove. Shared merge-train gate and safe serving swap remain prerequisite to closure; no duplicate implementation worker is requested.\n",
+          "createdAt": "2026-10-22T15:10:11Z",
+          "includesCreatedEdit": false,
+          "isMinimized": false,
+          "minimizedReason": "",
+          "reactionGroups": [],
+          "url": "https://github.com/aien-dev/CUDApp/issues/5#issuecomment-6344136038",
+          "viewerDidAuthor": true
+        }
+      ],
+      "number": 5,
+      "state": "OPEN",
+      "title": "Priority 1: qualify the motor against the canonical pinned CUDApp backend",
+      "updatedAt": "2026-10-22T15:10:12Z",
+      "url": "https://github.com/aien-dev/CUDApp/issues/5"
+    }
+  },
+  {
+    "kind": "issue",
+    "id": 15,
+    "data": {
+      "body": "\n## Problem\nAt the reviewed commit, make -j4 test on x86-64 fails on unguarded ARM dsb sy instructions in src/omega_blackwell_engine.c (around lines 393 and 558). tests/omega/run.sh also assumes $HOME/workspace/omega-osc-cubin. A no-GPU test claim needs a documented host architecture contract and reproducible compiler dependency.\n\n## Scope\nSeparate target-specific barriers/backends from portable host tests. Use an explicit pinned/configurable Omega compiler harness location; keep the existing eight named slice checks. Do not substitute a no-op for a production memory-ordering primitive.\n\n## Acceptance\n- [ ] Fresh x86-64 Linux checkout builds/runs the portable host suite without NVIDIA tools or a sibling checkout; any genuinely target-only check reports its architecture requirement explicitly.\n- [ ] AArch64 host/GB10 backend remains buildable with its real ordering semantics and existing simulator gates.\n- [ ] Pin or resolve the harness through a documented explicit argument/environment setting; missing compiler, wrong version and missing slice fail with actionable errors.\n- [ ] Run the eight-slice gate against the pinned compiler and record source/version hashes.\n- [ ] Add automated fresh-checkout host checks and document portable versus target-only commands.\n\n## Evidence and closure\nReview baseline: 232332422bfdc31c8918085b50f13c1e18ab702e; re-inspect the current tree and reuse existing work before editing. Coordinate with #5 and #6 and the serving/chip-window owner; host work can proceed independently of hardware scheduling. This issue does not authorize interrupting the live motor or switching kernel drivers.\n\nPublish exact source/pin SHAs, build and binary hashes, commands, exit codes, hardware/driver identity, raw logs and relevant negative controls under evidence/. Separate host, simulator and GB10 results. Hardware acceptance needs a real coordinated GB10 run on the final integrated artifact. Keep CUDA userspace dependencies out of the deployed runtime. Do not close on a branch push, simulator-only hardware result or PR merge alone. Experimental issues may close with a reproducible negative result and explicit decision; do not claim an optimization shipped unless its integration gates pass.\n",
+      "comments": [],
+      "number": 15,
+      "state": "OPEN",
+      "title": "Make host tests and Omega slice qualification reproducible from a fresh checkout",
+      "updatedAt": "2026-10-22T17:08:00Z",
+      "url": "https://github.com/aien-dev/CUDApp/issues/15"
+    }
+  },
+  {
+    "kind": "issue",
+    "id": 16,
+    "data": {
+      "body": "\n## Problem\nsrc/omega_gpu_decode_graph.h explicitly documents RMSNorm and SwiGLU differences from the host-glue path. Simulator correctness, deterministic replay, bitwise equivalence and model quality are distinct claims. Extend #13 without duplicating its existing same-input chip repeatability gate.\n\n## Scope and dependencies\nDefine per-operation contracts consumed by the optimization experiments. Reuse #9's math references and #13's determinism checks.\n\n## Acceptance\n- [ ] Document exact integer/bitwise modes, tolerance-based floating-point modes, reduction ordering, NaN/Inf/subnormal/tie behavior and supported precision/scaling boundaries.\n- [ ] Validate current graph stages and end-to-end logits/tokens against explicit references; include multi-turn and supported-context cases.\n- [ ] Distinguish within-implementation repeatability from equality to a different implementation.\n- [ ] Add adversarial and boundary cases plus mutants for changed scale, expert omission, wrong rounding and wrong tie selection.\n- [ ] Define model-quality acceptance before enabling transformations that change arithmetic or representation; no imported paper tolerance becomes the default without justification.\n- [ ] Expose the selected contract in benchmark receipts.\n\n## Evidence and closure\nReview baseline: 232332422bfdc31c8918085b50f13c1e18ab702e; re-inspect the current tree and reuse existing work before editing. Coordinate with #5 and #6 and the serving/chip-window owner; host work can proceed independently of hardware scheduling. This issue does not authorize interrupting the live motor or switching kernel drivers.\n\nPublish exact source/pin SHAs, build and binary hashes, commands, exit codes, hardware/driver identity, raw logs and relevant negative controls under evidence/. Separate host, simulator and GB10 results. Hardware acceptance needs a real coordinated GB10 run on the final integrated artifact. Keep CUDA userspace dependencies out of the deployed runtime. Do not close on a branch push, simulator-only hardware result or PR merge alone. Experimental issues may close with a reproducible negative result and explicit decision; do not claim an optimization shipped unless its integration gates pass.\n",
+      "comments": [],
+      "number": 16,
+      "state": "OPEN",
+      "title": "Define numerical contracts for native kernels and whole-token decode",
+      "updatedAt": "2026-10-22T17:08:01Z",
+      "url": "https://github.com/aien-dev/CUDApp/issues/16"
+    }
+  },
+  {
+    "kind": "issue",
+    "id": 17,
+    "data": {
+      "body": "\n## Problem\nThe project has command-list timestamps, decode graph statistics, matmul stages and ceiling probes, but lacks one repeatable model-level view. The historical split-launch study is not a whole-model speedup forecast.\n\n## Scope\nBuild on src/omega_gpu_decode_graph.*, omega_gpu_cmdlist.*, and tests/gpu_launch_cost_test.c; reuse #14 for process-memory accounting. Report supported measurements as JSON and readable text without CUDA profiling dependencies in deployment.\n\n## Acceptance\n- [ ] Record TTFT, prefill/decode latency, p50/p95, throughput, host record/submit time, GPU time, launches, barriers and allocations.\n- [ ] Separate measured counters from estimated weight/KV/intermediate bytes and unknown values; quantify timestamp/instrumentation overhead.\n- [ ] Sweep supported batch/context shapes and distinguish cold setup, warmed execution and repeated independent sessions.\n- [ ] Use paired baseline/candidate runs with fixed workload, thermal/clock conditions and correctness checks. Preserve unfavorable runs.\n- [ ] Store model/prompt/config hashes, precision, source pins, driver/chip identity and raw samples.\n- [ ] Label bandwidth probes as access-pattern-specific reference rates; do not apply a read-only rate to total mixed traffic as a proven physical limit.\n- [ ] Provide an executable comparison command; compare to a graph-enabled CUDA baseline when available and relevant, with absent comparisons marked NOT_RUN.\n\nResearch: Memory-Bound but Not Bandwidth-Limited (https://doi.org/10.48550/arXiv.2605.30571); Driver Command Streams (https://doi.org/10.1145/3832810.3832812). Their non-GB10 results motivate measurement, not transferred speedup claims.\n\n## Evidence and closure\nReview baseline: 232332422bfdc31c8918085b50f13c1e18ab702e; re-inspect the current tree and reuse existing work before editing. Coordinate with #5 and #6 and the serving/chip-window owner; host work can proceed independently of hardware scheduling. This issue does not authorize interrupting the live motor or switching kernel drivers.\n\nPublish exact source/pin SHAs, build and binary hashes, commands, exit codes, hardware/driver identity, raw logs and relevant negative controls under evidence/. Separate host, simulator and GB10 results. Hardware acceptance needs a real coordinated GB10 run on the final integrated artifact. Keep CUDA userspace dependencies out of the deployed runtime. Do not close on a branch push, simulator-only hardware result or PR merge alone. Experimental issues may close with a reproducible negative result and explicit decision; do not claim an optimization shipped unless its integration gates pass.\n",
+      "comments": [],
+      "number": 17,
+      "state": "OPEN",
+      "title": "Add a native benchmark report for token latency, launch costs and memory traffic",
+      "updatedAt": "2026-10-22T17:08:02Z",
+      "url": "https://github.com/aien-dev/CUDApp/issues/17"
+    }
+  },
+  {
+    "kind": "issue",
+    "id": 18,
+    "data": {
+      "body": "\n## Problem\nThe decode graph records grouped gate/up, SwiGLU, down and combination as distinct work. Fusion may remove launch boundaries and intermediate writes. Start with a narrow fusion before considering a persistent whole-MoE executor.\n\n## Implementation\nInspect src/omega_gpu_decode_graph.*, omega_gpu_fp8_api.*, omega_blackwell_codegen_moe*, and omega_blackwell_codegen_dec.*. Prototype the gate/up plus SwiGLU boundary on supported model shapes, preserving current FP8 conversion, scales and arithmetic boundaries. Keep the existing path selectable.\n\n## Acceptance\n- [ ] Declare supported shapes, batch range, routing assumptions and numerical contract.\n- [ ] Compare full outputs, routing and downstream logits/tokens; test boundary values and scale/layout mutants.\n- [ ] Measure launch count, intermediate bytes, registers, shared memory, occupancy constraints and end-to-end TPOT using the common benchmark.\n- [ ] Repeat B=1 and other supported small batches; retain regressions and define the selection policy from measurements.\n- [ ] Enable by default only after correctness and repeated model-level improvement pass; otherwise retain as an opt-in experiment or record a no-go decision.\n- [ ] Document a separately gated next step toward down/reduction fusion. Do not introduce inter-CTA spinning without a residency/progress argument.\n\nResearch: MonoMoE (https://arxiv.org/abs/2609.04244), measured on H200; its quantization and persistent synchronization cannot be transplanted as a GB10 result.\n\n## Evidence and closure\nReview baseline: 232332422bfdc31c8918085b50f13c1e18ab702e; re-inspect the current tree and reuse existing work before editing. Coordinate with #5 and #6 and the serving/chip-window owner; host work can proceed independently of hardware scheduling. This issue does not authorize interrupting the live motor or switching kernel drivers.\n\nPublish exact source/pin SHAs, build and binary hashes, commands, exit codes, hardware/driver identity, raw logs and relevant negative controls under evidence/. Separate host, simulator and GB10 results. Hardware acceptance needs a real coordinated GB10 run on the final integrated artifact. Keep CUDA userspace dependencies out of the deployed runtime. Do not close on a branch push, simulator-only hardware result or PR merge alone. Experimental issues may close with a reproducible negative result and explicit decision; do not claim an optimization shipped unless its integration gates pass.\n",
+      "comments": [],
+      "number": 18,
+      "state": "OPEN",
+      "title": "Experiment: fuse FP8 gate/up and SwiGLU in the routed MoE decode path",
+      "updatedAt": "2026-10-22T17:08:03Z",
+      "url": "https://github.com/aien-dev/CUDApp/issues/18"
+    }
+  },
+  {
+    "kind": "issue",
+    "id": 19,
+    "data": {
+      "body": "\n## Problem\nsrc/omega_gpu_cmdlist.c uses conservative WFI/cache operations between dependent kernels. The API also permits independent records and several barrier policies. Reduce unnecessary synchronization only with explicit data and visibility requirements.\n\n## Scope\nAdd bounded read/write ranges and lifetime/alias information to supported records, conservatively treating unknown aliases as dependent. Plan barriers from hazards and the platform's cache contract. Reuse streams/events from #6 rather than inventing a competing queue API.\n\n## Acceptance\n- [ ] Preserve the conservative scheduler as a comparison and fallback.\n- [ ] Cover RAW/WAR/WAW hazards, overlapping subranges, cached CPU writes, code reuse, stale handles, buffer lifetime and independent operations.\n- [ ] Validate producer-to-consumer output data on chip, repeated under scheduling/cache pressure, with removed-wait and removed-visibility mutants.\n- [ ] Document which dependency each reduced barrier satisfies and the evidence for its ordering/progress behavior.\n- [ ] Compare barriers, GPU/host time and complete token results through the common benchmark.\n- [ ] No barrier reduction becomes default from independent-kernel timing alone.\n\nResearch: Driver Command Streams (https://doi.org/10.1145/3832810.3832812). It motivates command-level instrumentation and does not prove CUDApp WFI removal is correct.\n\n## Evidence and closure\nReview baseline: 232332422bfdc31c8918085b50f13c1e18ab702e; re-inspect the current tree and reuse existing work before editing. Coordinate with #5 and #6 and the serving/chip-window owner; host work can proceed independently of hardware scheduling. This issue does not authorize interrupting the live motor or switching kernel drivers.\n\nPublish exact source/pin SHAs, build and binary hashes, commands, exit codes, hardware/driver identity, raw logs and relevant negative controls under evidence/. Separate host, simulator and GB10 results. Hardware acceptance needs a real coordinated GB10 run on the final integrated artifact. Keep CUDA userspace dependencies out of the deployed runtime. Do not close on a branch push, simulator-only hardware result or PR merge alone. Experimental issues may close with a reproducible negative result and explicit decision; do not claim an optimization shipped unless its integration gates pass.\n",
+      "comments": [],
+      "number": 19,
+      "state": "OPEN",
+      "title": "Add explicit buffer dependencies and validate narrower command-list synchronization",
+      "updatedAt": "2026-10-22T17:08:04Z",
+      "url": "https://github.com/aien-dev/CUDApp/issues/19"
+    }
+  },
+  {
+    "kind": "issue",
+    "id": 20,
+    "data": {
+      "body": "\n## Problem\nExisting paged/GQA/split attention and shared-prefix staging do not by themselves prove shared-prefix reads are amortized across requests. Reuse those pieces and add composable attention states.\n\n## Implementation\nRepresent immutable shared KV pages and per-request suffixes; batch distinct queries against the common prefix. Return output plus log-sum-exp (LSE) for each partition and merge with stable max-rescaled weights. Never reuse one request's attention output for a different query.\n\n## Acceptance\n- [ ] For two partitions, implement O=(exp(lp-m)*Op+exp(ls-m)*Os)/(exp(lp-m)+exp(ls-m)), m=max(lp,ls), and the corresponding merged LSE.\n- [ ] Validate GQA head mapping, masks/positions, empty prefix/suffix, unequal suffixes, long contexts, page sharing/refcounts and extreme logits.\n- [ ] Compare to unsplit attention under the declared numerical contract; mathematical exactness is not a bitwise guarantee.\n- [ ] Mutants for missing LSE weighting, wrong head/page/position and stale shared pages fail.\n- [ ] Measure prefix-read estimates, gather/merge overhead and end-to-end latency over supported batch sizes, prefix lengths and sharing ratios.\n- [ ] Select the shared path only above measured break-even; preserve the ordinary attention path.\n\nResearch: Hydragen (https://doi.org/10.48550/arXiv.2402.05099) and FlashInfer (https://doi.org/10.48550/arXiv.2501.01005). Their original GPU gains are not GB10 predictions.\n\n## Evidence and closure\nReview baseline: 232332422bfdc31c8918085b50f13c1e18ab702e; re-inspect the current tree and reuse existing work before editing. Coordinate with #5 and #6 and the serving/chip-window owner; host work can proceed independently of hardware scheduling. This issue does not authorize interrupting the live motor or switching kernel drivers.\n\nPublish exact source/pin SHAs, build and binary hashes, commands, exit codes, hardware/driver identity, raw logs and relevant negative controls under evidence/. Separate host, simulator and GB10 results. Hardware acceptance needs a real coordinated GB10 run on the final integrated artifact. Keep CUDA userspace dependencies out of the deployed runtime. Do not close on a branch push, simulator-only hardware result or PR merge alone. Experimental issues may close with a reproducible negative result and explicit decision; do not claim an optimization shipped unless its integration gates pass.\n",
+      "comments": [],
+      "number": 20,
+      "state": "OPEN",
+      "title": "Add shared-prefix attention execution with stable prefix/suffix state merging",
+      "updatedAt": "2026-10-22T17:08:05Z",
+      "url": "https://github.com/aien-dev/CUDApp/issues/20"
+    }
+  },
+  {
+    "kind": "issue",
+    "id": 21,
+    "data": {
+      "body": "\n## Problem\nRequest lengths change during serving. Existing split decode, paged attention and reservations should be reused while assigning uneven attention work efficiently.\n\n## Scope\nAdd a bounded plan containing per-CTA work, split/reduction maps, stable workspace addresses and explicit shape/capacity limits. Reuse plans across compatible layers. Keep serving admission and request policy in the model-serving consumer.\n\n## Acceptance\n- [ ] Plan and execute batches with heterogeneous query/KV lengths without padding all work to the longest request.\n- [ ] Preserve fixed workspace capacities and detect overflow/stale plan/changed page table before submission.\n- [ ] Reuse existing reservation/seal behavior; no hidden allocation during sealed execution.\n- [ ] Document deterministic assignment and reduction order, with comparisons to the current attention path.\n- [ ] Exercise empty requests, maximum limits, changed lengths, reused pages and plan-generation mutants.\n- [ ] Benchmark CPU planning, plan upload, GPU execution and end-to-end latency separately; establish when cross-layer reuse amortizes planning.\n\nResearch: FlashInfer (https://doi.org/10.48550/arXiv.2501.01005), especially plan/run separation and deterministic ragged scheduling. Reimplement transferable mechanisms in the native stack; no CUDA JIT dependency in deployment.\n\n## Evidence and closure\nReview baseline: 232332422bfdc31c8918085b50f13c1e18ab702e; re-inspect the current tree and reuse existing work before editing. Coordinate with #5 and #6 and the serving/chip-window owner; host work can proceed independently of hardware scheduling. This issue does not authorize interrupting the live motor or switching kernel drivers.\n\nPublish exact source/pin SHAs, build and binary hashes, commands, exit codes, hardware/driver identity, raw logs and relevant negative controls under evidence/. Separate host, simulator and GB10 results. Hardware acceptance needs a real coordinated GB10 run on the final integrated artifact. Keep CUDA userspace dependencies out of the deployed runtime. Do not close on a branch push, simulator-only hardware result or PR merge alone. Experimental issues may close with a reproducible negative result and explicit decision; do not claim an optimization shipped unless its integration gates pass.\n",
+      "comments": [],
+      "number": 21,
+      "state": "OPEN",
+      "title": "Separate ragged-attention planning from execution with bounded reusable workspaces",
+      "updatedAt": "2026-10-22T17:08:05Z",
+      "url": "https://github.com/aien-dev/CUDApp/issues/21"
+    }
+  },
+  {
+    "kind": "issue",
+    "id": 22,
+    "data": {
+      "body": "\n## Problem\nCUDApp owns IR, register allocation and scheduling controls. The host warp simulator executes IR, so passing it alone cannot prove emitted machine bytes or scheduling fields are correct.\n\n## Dependencies and scope\nReuse #10's disassembler and existing fixtures/chip probes. Begin with legal basic-block reorderings in one measured hot kernel; preserve the current generator. Measure GB10 latency facts rather than copying A100 dependency tables.\n\n## Acceptance\n- [ ] Define a bounded candidate space and reject data, predicate, scoreboard, fixed-latency, branch/reconvergence, register-bundle and resource violations.\n- [ ] Independently decode/check emitted instructions and controls, alongside IR simulation, reference outputs and repeated chip tests.\n- [ ] Include malformed encoding, dependency and control-field mutants; a shared encoder/decoder assumption is not independent proof.\n- [ ] Time candidates only after correctness passes; use paired repeated measurements, holdout shapes/inputs and explicit search budgets.\n- [ ] Store candidate lineage, bytes/digest, target facts, resource use and validation/timing receipts.\n- [ ] Freeze validated winners for reproducible deployment; retain the baseline when no robust improvement is demonstrated.\n\nResearch: CuAsmRL (https://doi.org/10.48550/arXiv.2501.08071), evaluated on A100. Its reported gains and heuristics do not establish GB10 behavior.\n\n## Evidence and closure\nReview baseline: 232332422bfdc31c8918085b50f13c1e18ab702e; re-inspect the current tree and reuse existing work before editing. Coordinate with #5 and #6 and the serving/chip-window owner; host work can proceed independently of hardware scheduling. This issue does not authorize interrupting the live motor or switching kernel drivers.\n\nPublish exact source/pin SHAs, build and binary hashes, commands, exit codes, hardware/driver identity, raw logs and relevant negative controls under evidence/. Separate host, simulator and GB10 results. Hardware acceptance needs a real coordinated GB10 run on the final integrated artifact. Keep CUDA userspace dependencies out of the deployed runtime. Do not close on a branch push, simulator-only hardware result or PR merge alone. Experimental issues may close with a reproducible negative result and explicit decision; do not claim an optimization shipped unless its integration gates pass.\n",
+      "comments": [],
+      "number": 22,
+      "state": "OPEN",
+      "title": "Build bounded SASS schedule search with independent encoded-code validation",
+      "updatedAt": "2026-10-22T17:08:06Z",
+      "url": "https://github.com/aien-dev/CUDApp/issues/22"
+    }
+  },
+  {
+    "kind": "issue",
+    "id": 23,
+    "data": {
+      "body": "\n## Scope\nPrototype cyclic versus forward/reverse alternating KV-tile traversal in src/omega_blackwell_codegen_pattn.* and omega_gpu_prefill_attn_api.* where compatible. Verify the current CTA/query-tile assignment produces the intended reuse pattern. Keep decode claims separate.\n\n## Acceptance\n- [ ] Preserve causal masks, sequence positions, page indexing and online-softmax semantics.\n- [ ] Test causal/noncausal supported shapes, partial tiles and KV sizes below/near/above the measured cache regime.\n- [ ] Measure numerical differences from changed reduction order; validate under the explicit numerical contract and include wrong-direction/mask mutants.\n- [ ] Compare latency and memory/cache measurements where available; mark unsupported counters unknown rather than inventing values.\n- [ ] Use repeated paired native GB10 runs with identical kernels except traversal changes where feasible.\n- [ ] Integrate only for shapes with a demonstrated benefit; a reproducible negative result is an acceptable experiment outcome.\n\nResearch: Sawtooth Wavefront Reordering (https://doi.org/10.1145/3818671.3818672). It studies GB10 prefill-like attention through CUDA/CuTile, not CUDApp direct SASS or single-token decode.\n\n## Evidence and closure\nReview baseline: 232332422bfdc31c8918085b50f13c1e18ab702e; re-inspect the current tree and reuse existing work before editing. Coordinate with #5 and #6 and the serving/chip-window owner; host work can proceed independently of hardware scheduling. This issue does not authorize interrupting the live motor or switching kernel drivers.\n\nPublish exact source/pin SHAs, build and binary hashes, commands, exit codes, hardware/driver identity, raw logs and relevant negative controls under evidence/. Separate host, simulator and GB10 results. Hardware acceptance needs a real coordinated GB10 run on the final integrated artifact. Keep CUDA userspace dependencies out of the deployed runtime. Do not close on a branch push, simulator-only hardware result or PR merge alone. Experimental issues may close with a reproducible negative result and explicit decision; do not claim an optimization shipped unless its integration gates pass.\n",
+      "comments": [],
+      "number": 23,
+      "state": "OPEN",
+      "title": "Experiment: alternate KV traversal in GB10 prefill attention to improve cache reuse",
+      "updatedAt": "2026-10-22T17:08:07Z",
+      "url": "https://github.com/aien-dev/CUDApp/issues/23"
+    }
+  },
+  {
+    "kind": "issue",
+    "id": 24,
+    "data": {
+      "body": "\n## Problem\nsrc/omega_gpu_platform_linux.c checks MemAvailable before allocating, but separate processes can observe the same free budget. Unreadable memory information currently allows allocation. Extend #8's existing guard without replacing its tested behavior or claiming a system-wide OOM guarantee.\n\n## Scope\nDefine explicit weight/intermediate/KV/marker usage, ownership, lifetime and cache/visibility rules. Add coordinated reservations for cooperating CUDApp processes using the existing isolation work from #6; account for external memory pressure separately.\n\n## Acceptance\n- [ ] Specify reserve/acquire/commit/release and process-death recovery; prevent two cooperating processes spending the same reservation.\n- [ ] Check arithmetic overflow and invalid settings; define configurable behavior for missing/stale memory information.\n- [ ] Preserve established uncached marker visibility and use cached weights only under the proven ownership contract.\n- [ ] Host tests exercise simultaneous contenders, cancellation, crash cleanup, stale ownership and reservation-bypass mutants.\n- [ ] Record actual process overhead through #14 without double-counting explicit buffers or shared weights.\n- [ ] Chip qualification uses bounded allocations and verifies existing serving readiness; never deliberately exhaust the live machine.\n- [ ] Document limits: unrelated processes/kernel allocations can still consume memory outside this admission mechanism.\n\n## Evidence and closure\nReview baseline: 232332422bfdc31c8918085b50f13c1e18ab702e; re-inspect the current tree and reuse existing work before editing. Coordinate with #5 and #6 and the serving/chip-window owner; host work can proceed independently of hardware scheduling. This issue does not authorize interrupting the live motor or switching kernel drivers.\n\nPublish exact source/pin SHAs, build and binary hashes, commands, exit codes, hardware/driver identity, raw logs and relevant negative controls under evidence/. Separate host, simulator and GB10 results. Hardware acceptance needs a real coordinated GB10 run on the final integrated artifact. Keep CUDA userspace dependencies out of the deployed runtime. Do not close on a branch push, simulator-only hardware result or PR merge alone. Experimental issues may close with a reproducible negative result and explicit decision; do not claim an optimization shipped unless its integration gates pass.\n",
+      "comments": [],
+      "number": 24,
+      "state": "OPEN",
+      "title": "Extend memory admission with coordinated reservations and explicit buffer ownership",
+      "updatedAt": "2026-10-22T17:08:08Z",
+      "url": "https://github.com/aien-dev/CUDApp/issues/24"
+    }
+  },
+  {
+    "kind": "issue",
+    "id": 25,
+    "data": {
+      "body": "\n## Problem\nAvoiding duplicate weight ingestion may improve load time and memory use, but CPU mmap alone does not establish GPU access. Current nvrm allocations and existing shared-memory branch work must be inspected before adding an import path.\n\n## Dependencies and scope\nFollow explicit ownership/reservation work and #6 process isolation. Prototype a read-only file-page import only if the native driver interface can map those exact pages and retain their lifetime. No required change to the working driver and no silent staging fallback disguised as zero-copy.\n\n## Acceptance\n- [ ] Document the actual mapping/pinning/import API and CPU/GPU addresses, page alignment, cache contract, residency and teardown.\n- [ ] Prove reads access imported pages; compare against resident-copy and per-use-copy baselines, separating cold page-cache load from warm decode.\n- [ ] Check process sharing, immutable weights, file replacement/truncation policy, early unmap, process exit and stale-handle cases.\n- [ ] Bound resident memory and validate logits/tokens, load time, RSS/PSS and end-to-end decode across supported working sets.\n- [ ] Unsupported mapping returns an explicit refusal; lack of a native mapping mechanism is a valid documented no-go outcome.\n- [ ] Enable only when GB10 measurements and lifetime/isolation gates justify it.\n\nResearch: The Ingestion Tax (https://arxiv.org/abs/2608.12114), whose NVIDIA coherent-memory evidence is GH200, not a ready-made GB10/nvrm solution.\n\n## Evidence and closure\nReview baseline: 232332422bfdc31c8918085b50f13c1e18ab702e; re-inspect the current tree and reuse existing work before editing. Coordinate with #5 and #6 and the serving/chip-window owner; host work can proceed independently of hardware scheduling. This issue does not authorize interrupting the live motor or switching kernel drivers.\n\nPublish exact source/pin SHAs, build and binary hashes, commands, exit codes, hardware/driver identity, raw logs and relevant negative controls under evidence/. Separate host, simulator and GB10 results. Hardware acceptance needs a real coordinated GB10 run on the final integrated artifact. Keep CUDA userspace dependencies out of the deployed runtime. Do not close on a branch push, simulator-only hardware result or PR merge alone. Experimental issues may close with a reproducible negative result and explicit decision; do not claim an optimization shipped unless its integration gates pass.\n",
+      "comments": [],
+      "number": 25,
+      "state": "OPEN",
+      "title": "Experiment: qualify file-backed shared weights through native GPU mappings",
+      "updatedAt": "2026-10-22T17:08:09Z",
+      "url": "https://github.com/aien-dev/CUDApp/issues/25"
+    }
+  },
+  {
+    "kind": "omega-pr",
+    "id": 614,
+    "data": {
+      "baseRefName": "main",
+      "body": "Drake 2026-10-22: this branch to the front. Host and simulator receipts are on the branch. Chip runs are not in this merge.\n",
+      "comments": [],
+      "headRefName": "c6/disasm",
+      "headRefOid": "19eebe0e04811002f641c0f7b58c1b87ea9b5c42",
+      "mergeCommit": null,
+      "mergedAt": null,
+      "number": 614,
+      "state": "OPEN",
+      "title": "C6 own sm_121 disassembler",
+      "url": "https://github.com/aien-dev/omega-mv/pull/614"
+    }
+  },
+  {
+    "kind": "omega-pr",
+    "id": 615,
+    "data": {
+      "baseRefName": "main",
+      "body": "Drake 2026-10-22: this branch to the front. Host and simulator receipts are on the branch. Chip runs are not in this merge.\n",
+      "comments": [],
+      "headRefName": "c3/gemm",
+      "headRefOid": "a7d6463b9df4485484e207f11fb7802d09aed627",
+      "mergeCommit": null,
+      "mergedAt": null,
+      "number": 615,
+      "state": "OPEN",
+      "title": "C3 any-shape GEMM",
+      "url": "https://github.com/aien-dev/omega-mv/pull/615"
+    }
+  },
+  {
+    "kind": "omega-pr",
+    "id": 616,
+    "data": {
+      "baseRefName": "main",
+      "body": "Drake 2026-10-22: this branch to the front. Host and simulator receipts are on the branch. Chip runs are not in this merge.\n",
+      "comments": [],
+      "headRefName": "c3/reduce-scan",
+      "headRefOid": "d7e15f18f5fb81555fe932fe3023c9f5f8ab8ba1",
+      "mergeCommit": null,
+      "mergedAt": null,
+      "number": 616,
+      "state": "OPEN",
+      "title": "C3 reductions and scans",
+      "url": "https://github.com/aien-dev/omega-mv/pull/616"
+    }
+  },
+  {
+    "kind": "omega-pr",
+    "id": 617,
+    "data": {
+      "baseRefName": "main",
+      "body": "Drake 2026-10-22: this branch to the front. Host and simulator receipts are on the branch. Chip runs are not in this merge.\n",
+      "comments": [],
+      "headRefName": "c5/isolation",
+      "headRefOid": "f792cd1d35b0e9c191647518c3be651a8d86dc21",
+      "mergeCommit": null,
+      "mergedAt": null,
+      "number": 617,
+      "state": "OPEN",
+      "title": "C4 streams and C5 recovery",
+      "url": "https://github.com/aien-dev/omega-mv/pull/617"
+    }
+  },
+  {
+    "kind": "omega-pr",
+    "id": 618,
+    "data": {
+      "baseRefName": "main",
+      "body": "Drake 2026-10-22: this branch to the front. Host and simulator receipts are on the branch. Chip runs are not in this merge.\n",
+      "comments": [],
+      "headRefName": "opencuda/consume",
+      "headRefOid": "67c70741c8cec5c33e28a099d7c83bbd4f3ab839",
+      "mergeCommit": null,
+      "mergedAt": null,
+      "number": 618,
+      "state": "OPEN",
+      "title": "Omega consumes CUDA++",
+      "url": "https://github.com/aien-dev/omega-mv/pull/618"
+    }
+  },
+  {
+    "kind": "cudapp-prs",
+    "id": 0,
+    "data": [
+      {
+        "baseRefName": "main",
+        "headRefName": "desk/submit-scheme",
+        "headRefOid": "01fb7249cf359e433e4a034a5b2a98b83cb8a9a6",
+        "mergeCommit": {
+          "oid": "232332422bfdc31c8918085b50f13c1e18ab702e"
+        },
+        "number": 4,
+        "state": "MERGED",
+        "title": "CUDA++ Omega submit path",
+        "url": "https://github.com/aien-dev/CUDApp/pull/4"
+      },
+      {
+        "baseRefName": "main",
+        "headRefName": "desk/swap-v0",
+        "headRefOid": "27b46ccda8a82a33b4f290fc1526e13495fedc99",
+        "mergeCommit": {
+          "oid": "4ccf9b613b3c89646784dd17b0f7e4141d355db9"
+        },
+        "number": 3,
+        "state": "MERGED",
+        "title": "CUDA++ swap command, one way and back",
+        "url": "https://github.com/aien-dev/CUDApp/pull/3"
+      },
+      {
+        "baseRefName": "main",
+        "headRefName": "evidence/l424-hello",
+        "headRefOid": "a71330e12329f188c7a1d00f267319c13edcd2ab",
+        "mergeCommit": {
+          "oid": "2b4b2b14f1c67473b80878d2eff73b32b3522d54"
+        },
+        "number": 2,
+        "state": "MERGED",
+        "title": "CUDA++ hello-gpu chip receipt",
+        "url": "https://github.com/aien-dev/CUDApp/pull/2"
+      },
+      {
+        "baseRefName": "main",
+        "headRefName": "integration/unblock-l424",
+        "headRefOid": "780961cdfe68ba8834bcf535fdf81fe4bd638bae",
+        "mergeCommit": {
+          "oid": "7da2853030e4bf6f45703c4c92cd66a502093794"
+        },
+        "number": 1,
+        "state": "MERGED",
+        "title": "CUDA++ front page and developer tools",
+        "url": "https://github.com/aien-dev/CUDApp/pull/1"
+      }
+    ]
+  }
+]

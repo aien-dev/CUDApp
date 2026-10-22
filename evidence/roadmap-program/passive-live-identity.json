@@ -1,0 +1,115 @@
+{
+  "captured_utc": "2026-10-22T17:21:05.456029+00:00",
+  "purpose": "Passive serving/model/source identity only; no generation, timing sample, GPU kernel or model load.",
+  "models_route": {
+    "command": [
+      "curl",
+      "-fsS",
+      "--max-time",
+      "10",
+      "http://127.0.0.1:18091/v1/models"
+    ],
+    "exit_code": 0,
+    "stdout": "{\"object\":\"list\",\"data\":[{\"id\":\"qwen3.6-35b-a3b-fp8\",\"object\":\"model\",\"created\":1792639070,\"owned_by\":\"aien/omega-qwen36-batch\"}]}",
+    "stderr": ""
+  },
+  "servers": [
+    {
+      "pid": 3489680,
+      "command_line": "3489680       1 Ssl     14:04:27 ./aien-serve-http --engine omega --model-dir /home/drakestapleton/models/qwen3.6-35b-a3b-fp8-95a723d0 --port 18091 --max-context 49152 --max-tokens-cap 16384 --thinking off --batch-slots 8",
+      "binary": "/home/drakestapleton/.local/state/aien-q36/bin-19173f9e/aien-serve-http",
+      "binary_sha256": "19173f9ec3b609fe79af644f84741d8808b92ea8eb3ecec4bc945af6f22b3aeb",
+      "build_manifest": {
+        "status": "TEXT_MANIFEST",
+        "path": "/home/drakestapleton/.local/state/aien-q36/bin-19173f9e/BUILD.txt",
+        "text": "aien-serve-http LIVE build, L387 motor ship (NO aien-test-switches: answers 400 to aien_test), pinned 2026-10-22T02:43:29Z; same commit and lib as the train candidate bin-bfc41659\nsc ship/motor-l387 f0230a59 (code 59b05a71: + a negative control leaves no state for a later request) = serve/q36-batch-v2 9c62690a (bin-16b0e6f8 source, L354 batch strokes v2 + tools L374)\n  + serve/merge-train 59b896b1 (L384 per-request switches) + serve/q36-prefill-v2 6127db50 (L369 chip prefill)\n  + hum/exact-head-batch 8dd86a36 (L314 exact head per stroke slot)\n  cargo build --release -p aien-serve-http, CARGO_TARGET_DIR=~/workspace/targets/l387/sc-live; host tests qwen36_batch 12/12 (with and without the feature)\nomega ship/motor-l387 6de999da = serve/q36-prefill-v2 60ba3051 (ab81d8f3 ship lib + L314 exact-head-stroke 41269bd8\n  + L356 CN rows 4b079116 + L369 prefill: multi-token GDN, attention, gate rows) + hum/state-precision 19c3b5d2 (L313 bf16 state)\n  lib sha256 110295ef23dc7561; q36 dec sim 27/27 PASS; q36 kernel hashes identical to L369 lib-v3\nlevers ON: L354 batch, L312 strokes v2 (lever 2), L314 exact head, L356 CN rows, L369 prefill (chunks of 128), tools L374\nlevers OFF: L313 bf16 state (AIEN_OMEGA_GDN_STATE_BF16 unset; not validated with the prefill's multi-token GDN)\nlevers OUT (gate not green): L312 levers 3-7 (motor/serve 881f4397), L375 shared prompt cache, L376 team board\nswitches: AIEN_Q36_PREFILL_CHUNK=0 prompts token by token; AIEN_OMEGA_Q36_CN_ROWS=0; AIEN_Q36_STROKE=0 rows in turn; AIEN_Q36_EXACT_HEAD=0\n"
+      },
+      "config_path": "/home/drakestapleton/models/qwen3.6-35b-a3b-fp8-95a723d0/config.json",
+      "config_sha256": "570ef7ea45a7e1d3de2b1d3c70c4ac3562d0e768acdc195778cb4f4d95025845",
+      "architectural_fields": {
+        "head_dim": 256,
+        "hidden_size": 2048,
+        "layer_types": [
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention"
+        ],
+        "linear_key_head_dim": 128,
+        "linear_num_key_heads": 16,
+        "linear_num_value_heads": 32,
+        "linear_value_head_dim": 128,
+        "max_position_embeddings": 262144,
+        "model_type": "qwen3_5_moe_text",
+        "moe_intermediate_size": 512,
+        "num_attention_heads": 16,
+        "num_experts": 256,
+        "num_experts_per_tok": 8,
+        "num_hidden_layers": 40,
+        "num_key_value_heads": 2,
+        "rms_norm_eps": 1e-06,
+        "vocab_size": 248320
+      },
+      "cuda_userspace_mappings": []
+    }
+  ],
+  "host": {
+    "command": [
+      "uname",
+      "-a"
+    ],
+    "exit_code": 0,
+    "stdout": "Linux spark-b87b 7.0.0-1019-nvidia #19~24.04.2-Ubuntu SMP PREEMPT_DYNAMIC Sun Sep  6 18:35:11 UTC 2 aarch64 aarch64 aarch64 GNU/Linux\n",
+    "stderr": ""
+  },
+  "driver_chip": {
+    "command": [
+      "nvidia-smi",
+      "--query-gpu=name,uuid,pci.device_id,driver_version",
+      "--format=csv,noheader"
+    ],
+    "exit_code": 0,
+    "stdout": "NVIDIA GB10, GPU-fb8e53f0-3207-e89b-d02f-acdfe2695b59, 0x2E1210DE, 580.173.02\n",
+    "stderr": ""
+  },
+  "performance_baseline": {
+    "status": "NOT_RUN",
+    "reason": "Canonical5 review fixes and shared serving qualification owned by L457/coordinator; no generation or hardware test authorized by this snapshot."
+  }
+}
