@@ -1,0 +1,5 @@
+SOLVE PASS 246 checks
+MUTANT CAUGHT solve-diagonal
+MUTANT CAUGHT solve-order
+MUTANT CAUGHT solve-triangle-check
+SPARSE CORE PASS compiler=10d7565239ca6bd3cca344b65a03c0f3498acd95e82ab3d420bd01408b01398e

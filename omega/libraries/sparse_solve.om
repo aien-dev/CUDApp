@@ -1,4 +1,104 @@
 note SPDX-License-Identifier MIT
-fn trisolv n ulong nnz ulong upper ulong unit ulong to int
+note Finite binary32 sparse triangular substitution
+note Lower or upper explicit or unit diagonal no silent singular success
+note Solve into wx and copy only when every row is finite
+fn badfloat v ulong to bool
+ret ge and v 2147483647 2139095040
+end
+fn svrow row ulong upper ulong unit ulong to int
+count = ulong 0
+p = get arp row
+stop = get arp add row 1
+while lt p stop
+col = get aci p
+if badfloat get aval p
 ret 1
+end
+if and eq upper 0 gt col row
+ret 1
+end
+if and eq upper 1 lt col row
+ret 1
+end
+if eq col row
+count = add count 1
+if eq unit 0
+if eq and get aval p 2147483647 0
+ret 1
+end
+end
+end
+p = add p 1
+end
+if gt count 1
+ret 1
+end
+if and eq unit 0 ne count 1
+ret 1
+end
+ret 0
+end
+fn ssrow row ulong unit ulong to int
+acc = get rhs row
+diag = ulong 1065353216
+p = get arp row
+stop = get arp add row 1
+while lt p stop
+col = get aci p
+if eq col row
+if eq unit 0
+diag = get aval p
+end
+else
+prod = fmul get aval p get wx col
+if badfloat prod
+ret 1
+end
+acc = fadd acc xor prod 2147483648
+if badfloat acc
+ret 1
+end
+end
+p = add p 1
+end
+if eq unit 0
+acc = fdiv acc diag
+end
+if badfloat acc
+ret 1
+end
+put wx row acc
+ret 0
+end
+fn trisolv n ulong nnz ulong upper ulong unit ulong to int
+if or gt upper 1 gt unit 1
+ret 1
+end
+if ne pvalid n n nnz 0 0
+ret 1
+end
+for row ulong n
+if badfloat get rhs row
+ret 1
+end
+if ne svrow row upper unit 0
+ret 1
+end
+end
+for row ulong n
+put wx row 0
+end
+for step ulong n
+row = step
+if ne upper 0
+row = sub sub n 1 step
+end
+if ne ssrow row unit 0
+ret 1
+end
+end
+for row ulong n
+put sol row get wx row
+end
+ret 0
 end

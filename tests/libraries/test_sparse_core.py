@@ -195,6 +195,90 @@ def gemm(checks):
     malformed(checks, fixture)
 
 
+def solve_answer(n, a, rhs, upper=False, unit=False):
+    rp, ci, av = a
+    solution = [0] * n
+    for row in (range(n - 1, -1, -1) if upper else range(n)):
+        acc, diag = rhs[row], bits(1)
+        for p in range(rp[row], rp[row + 1]):
+            if ci[p] == row:
+                if not unit:
+                    diag = av[p]
+            else:
+                acc = add(acc, mul(av[p], solution[ci[p]]) ^ 0x80000000)
+        solution[row] = acc if unit else rounded(value(acc) / value(diag))
+    return words(solution)
+
+
+def solve(checks):
+    a = ([0, 1, 3, 6], [0, 1, 0, 1, 0, 2], [bits(v) for v in [2, 4, 3, 2, -1, 8]])
+    rhs = [bits(v) for v in [2, 11, 27]]
+    fixture = packet(4, 3, 3, a, rhs=rhs)
+    checks.good(fixture, words([bits(v) for v in [1, 2, 3]]), 'literal lower solve')
+    a = ([0, 3, 5, 6], [2, 0, 1, 2, 1, 2], [bits(v) for v in [-1, 2, 3, 2, 4, 8]])
+    checks.good(packet(4, 3, 3, a, flags=1, rhs=[bits(v) for v in [5, 14, 24]]),
+                words([bits(v) for v in [1, 2, 3]]), 'literal upper solve')
+    checks.good(packet(4, 2, 2, ([0, 0, 2], [0, 0], [bits(2), bits(-1)]), flags=2, rhs=[bits(1), bits(3)]),
+                words([bits(1), bits(2)]), 'unit missing diagonal duplicate off-diagonals')
+    checks.good(packet(4, 2, 2, ([0, 2, 3], [1, 0, 1], [bits(2), 0, bits(17)]), flags=3, rhs=[bits(5), bits(2)]),
+                words([bits(1), bits(2)]), 'unit upper ignores stored finite diagonal')
+    checks.good(packet(4, 1, 1, ([0, 1], [0], [bits(3)]), rhs=[bits(1)]), words([bits(1 / 3)]), 'rounded division')
+    for flags in range(4):
+        checks.good(packet(4, 0, 0, ([0], [], []), flags=flags), b'', 'empty solve')
+    checks.good(packet(4, 64, 64, (list(range(65)), list(range(64)), [bits(2)] * 64), rhs=[bits(2 * i) for i in range(64)]),
+                words([bits(i) for i in range(64)]), 'maximum dimension solve')
+    rp, ci, av = [0], [], []
+    for row in range(64):
+        for _ in range(0 if row == 0 else (6 if row == 63 else 3)):
+            ci.append(0)
+            av.append(bits(1))
+        ci.append(row)
+        av.append(bits(2))
+        rp.append(len(ci))
+    rhs = [bits(2)] + [bits(5)] * 62 + [bits(8)]
+    checks.good(packet(4, 64, 64, (rp, ci, av), rhs=rhs), words([bits(1)] * 64), '256-entry solve')
+    rng = random.Random(456)
+    for case in range(100):
+        n, upper, unit = rng.randrange(1, 11), bool(rng.randrange(2)), bool(rng.randrange(2))
+        known = [rng.randrange(-4, 5) for _ in range(n)]
+        rp, ci, av, rhs = [0], [], [], []
+        for row in range(n):
+            available = list(range(row + 1, n) if upper else range(row))
+            pairs = [(row, rng.choice([1, 2, 4]))] if not unit or rng.randrange(2) else []
+            for _ in range(rng.randrange(5) if available else 0):
+                pairs.append((rng.choice(available), rng.randrange(-3, 4)))
+            rng.shuffle(pairs)
+            diagonal = 1 if unit else next(v for j, v in pairs if j == row)
+            rhs.append(bits(diagonal * known[row] + sum(v * known[j] for j, v in pairs if j != row)))
+            ci.extend(j for j, _ in pairs)
+            av.extend(bits(v) for _, v in pairs)
+            rp.append(len(ci))
+        flags = int(upper) | (int(unit) << 1)
+        checks.good(packet(4, n, n, (rp, ci, av), flags=flags, rhs=rhs),
+                    words([bits(v) for v in known]), 'constructed exact solve ' + str(case))
+    a = ([0, 1, 5], [0, 0, 0, 0, 1], [bits(v) for v in [1, 16777216, 1, -16777216, 3]])
+    rhs = [bits(1), bits(1)]
+    checks.good(packet(4, 2, 2, a, rhs=rhs), solve_answer(2, a, rhs), 'stored-order subtraction rounding')
+    for a, n, flags, rhs in [
+        (([0, 1], [0], [0]), 1, 0, [bits(1)]),
+        (([0, 1], [0], [0x80000000]), 1, 0, [bits(1)]),
+        (([0, 0], [], []), 1, 0, [bits(1)]),
+        (([0, 2], [0, 0], [bits(1), bits(2)]), 1, 0, [bits(1)]),
+        (([0, 2], [0, 0], [bits(1), bits(2)]), 1, 2, [bits(1)]),
+        (([0, 2, 3], [0, 1, 1], [bits(1)] * 3), 2, 0, [bits(1)] * 2),
+        (([0, 1, 3], [0, 0, 1], [bits(1)] * 3), 2, 1, [bits(1)] * 2),
+        (([0, 1], [0xffffffff], [bits(1)]), 1, 0, [bits(1)]),
+        (([0, 1], [0], [0x7f800000]), 1, 0, [bits(1)]),
+        (([0, 1], [0], [0x7fc01234]), 1, 2, [bits(1)]),
+        (([0, 1], [0], [bits(1)]), 1, 0, [0xff800000]),
+        (([0, 1], [0], [bits(1)]), 1, 0, [0x7fc00000]),
+        (([0, 1], [0], [1]), 1, 0, [0x7f7fffff]),
+        (([0, 1, 3], [0, 0, 1], [bits(1), 0x7f7fffff, bits(1)]), 2, 0, [0x7f7fffff, bits(1)]),
+    ]:
+        checks.bad(packet(4, n, n, a, flags=flags, rhs=rhs), 'invalid or nonfinite solve')
+    malformed(checks, fixture)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--compiler', type=Path, required=True)
@@ -207,17 +291,17 @@ def main():
     args.out.mkdir(parents=True, exist_ok=True)
     sources = {name: (ROOT / ('omega/libraries/' + name + '.om')).read_text() for name in PARTS}
     driver = (ROOT / 'tests/libraries/sparse_core_driver.om').read_text()
-    def build(name, changed=None):
+    def build(name, changed=None, adapter=driver):
         target = args.out.resolve() / name
         content = dict(sources)
         if changed:
             part, before, after = changed
             assert content[part].count(before) == 1, ('mutation anchor', name)
             content[part] = content[part].replace(before, after)
-        compile_program(compiler, '\n'.join(content.values()) + '\n' + driver, target)
+        compile_program(compiler, '\n'.join(content.values()) + '\n' + adapter, target)
         return target
     target = build('sparse-core')
-    stages = {'convert': convert, 'gemm': gemm}
+    stages = {'convert': convert, 'gemm': gemm, 'solve': solve}
     if args.stage != 'all' and args.stage not in stages:
         raise AssertionError('stage not implemented: ' + args.stage)
     selected = stages if args.stage == 'all' else {args.stage: stages[args.stage]}
@@ -225,19 +309,31 @@ def main():
         checks = Checks(target)
         exercise(checks)
         print(name.upper(), 'PASS', checks.count, 'checks', flush=True)
+    state = (ROOT / 'tests/libraries/sparse_core_state.om').read_text()
+    def check_state(binary):
+        result = subprocess.run([str(binary)], capture_output=True, timeout=5)
+        assert result.returncode == 0 and not result.stdout, ('core state', result)
+    check_state(build('state-check', adapter=state))
+    print('CORE STATE PASS output preservation on capacity/arithmetic/validation failures and repeated calls', flush=True)
     if args.mutants:
         mutations = [
             ('conversion-value', 'sparse_convert', 'put cval dest get sv p', 'put cval dest xor get sv p 1', 'convert'),
             ('conversion-row', 'sparse_convert', 'put sr p row', 'put sr p add row 1', 'convert'),
             ('product-math', 'sparse_gemm', 'prod = fmul get aval p get bval q', 'prod = fadd get aval p get bval q', 'gemm'),
             ('product-structural-zero', 'sparse_gemm', 'if ne get wseen col 0', 'if ne get wacc col 0', 'gemm'),
+            ('product-partial-publish', 'sparse_gemm', 'if ne gmstore row cols 0\nret 1', 'if ne gmstore row cols 0\npublish rows\nret 1', 'gemm'),
+            ('solve-diagonal', 'sparse_solve', 'acc = fdiv acc diag', 'acc = fmul acc diag', 'solve'),
+            ('solve-order', 'sparse_solve', 'if ne upper 0', 'if eq upper 0', 'solve'),
+            ('solve-triangle-check', 'sparse_solve', 'if and eq upper 0 gt col row', 'if false', 'solve'),
         ]
         for name, part, before, after, stage in mutations:
             if stage not in selected:
                 continue
             binary = build(name, (part, before, after))
+            mutant_state = build(name + '-state', (part, before, after), adapter=state)
             try:
                 selected[stage](Checks(binary))
+                check_state(mutant_state)
             except AssertionError:
                 print('MUTANT CAUGHT', name, flush=True)
             else:

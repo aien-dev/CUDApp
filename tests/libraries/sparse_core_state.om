@@ -1,0 +1,188 @@
+note SPDX-License-Identifier MIT
+note Direct core calls bypass wire checks and inspect outputs after errors
+fn mark to void
+put onnz 0 123
+for i ulong 65
+put crp i 123
+end
+for p ulong 256
+put cci p 123
+put cval p 123
+end
+for i ulong 64
+put sol i 123
+end
+end
+fn same to int
+if ne get onnz 0 123
+ret 1
+end
+for i ulong 65
+if ne get crp i 123
+ret 1
+end
+end
+for p ulong 256
+if or ne get cci p 123 ne get cval p 123
+ret 1
+end
+end
+for i ulong 64
+if ne get sol i 123
+ret 1
+end
+end
+ret 0
+end
+fn coostate to int
+put sr 0 0
+put sc 0 0
+put sr 1 0
+put sc 1 1
+put sv 0 7
+put sv 1 8
+mark
+if eq cootocs 1 1 2 0
+ret 1
+end
+if ne same 0
+ret 2
+end
+if eq cootocs 65 1 2 0
+ret 3
+end
+if ne same 0
+ret 4
+end
+put sc 1 0
+for t ulong 3
+if ne cootocs 1 1 2 0
+ret 5
+end
+if or ne get crp 1 2 ne get cval 1 8
+ret 6
+end
+end
+for p ulong 256
+put sr p 123
+put sc p 123
+put sv p 123
+end
+put arp 0 0
+put arp 1 1
+put aci 0 1
+put aval 0 7
+if eq csrtoco 1 1 1 0
+ret 7
+end
+for p ulong 256
+if or ne get sr p 123 ne get sc p 123
+ret 8
+end
+if ne get sv p 123
+ret 9
+end
+end
+ret 0
+end
+fn gemstate to int
+for row ulong 18
+put arp row row
+end
+for p ulong 17
+put aci p 0
+put aval p 1065353216
+put bci p p
+put bval p 1073741824
+end
+put brp 0 0
+put brp 1 17
+mark
+if eq spgemm 17 1 17 17 17 0
+ret 1
+end
+if ne same 0
+ret 2
+end
+put brp 1 16
+if ne spgemm 16 1 16 16 16 0
+ret 3
+end
+if or ne get onnz 0 256 ne get crp 16 256
+ret 4
+end
+if or ne get cci 255 15 ne get cval 255 1073741824
+ret 5
+end
+if ne spgemm 0 1 17 0 16 0
+ret 6
+end
+if or ne get onnz 0 0 ne get crp 0 0
+ret 7
+end
+mark
+put bci 15 17
+if eq spgemm 16 1 17 16 16 0
+ret 8
+end
+if ne same 0
+ret 9
+end
+ret 0
+end
+fn solstate to int
+put arp 0 0
+put arp 1 1
+put arp 2 2
+put aci 0 0
+put aci 1 1
+put aval 0 1065353216
+put aval 1 1
+put rhs 0 1077936128
+put rhs 1 2139095039
+mark
+if eq trisolv 2 2 0 0 0
+ret 1
+end
+if ne same 0
+ret 2
+end
+if eq trisolv 65 2 0 0 0
+ret 3
+end
+if ne same 0
+ret 4
+end
+if eq trisolv 2 2 2 0 0
+ret 5
+end
+if ne same 0
+ret 6
+end
+put aval 1 1073741824
+put rhs 1 1082130432
+for t ulong 3
+if ne trisolv 2 2 0 0 0
+ret 7
+end
+if or ne get sol 0 1077936128 ne get sol 1 1073741824
+ret 8
+end
+end
+ret 0
+end
+fn main to int
+r = coostate
+if ne r 0
+ret add r 10
+end
+r = gemstate
+if ne r 0
+ret add r 30
+end
+r = solstate
+if ne r 0
+ret add r 50
+end
+ret 0
+end

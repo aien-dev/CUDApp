@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/home/drakestapleton/workspace/hermes-desk/cudapp-sparse-core/tests/libraries/test_sparse_core.py", line 336, in <module>
+    main()
+  File "/home/drakestapleton/workspace/hermes-desk/cudapp-sparse-core/tests/libraries/test_sparse_core.py", line 310, in main
+    exercise(checks)
+  File "/home/drakestapleton/workspace/hermes-desk/cudapp-sparse-core/tests/libraries/test_sparse_core.py", line 217, in solve
+    checks.good(fixture, words([bits(v) for v in [1, 2, 3]]), 'literal lower solve')
+  File "/home/drakestapleton/workspace/hermes-desk/cudapp-sparse-core/tests/libraries/test_sparse_core.py", line 63, in good
+    assert result.returncode == 0 and result.stdout == expected, (name, result, expected.hex())
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('literal lower solve', CompletedProcess(args=['/home/drakestapleton/workspace/hermes-desk/cudapp-sparse-core/build/sparse-core/sparse-core'], returncode=2, stdout=b'', stderr=b''), '0000803f0000004000004040')
