@@ -39,8 +39,6 @@ src/omega_blackwell_encoder.c	CHIP_SPECIFIC	The sm_121 machine-code encoder: pac
 src/omega_blackwell_encoder.h	CHIP_SPECIFIC	Encoder interface; OMEGA_BW_INSTRUCTION_BYTES is 16, the Blackwell instruction size.	NO_HOSTED_INCLUDE
 src/omega_blackwell_engine.c	CHIP_SPECIFIC	The Linux backend of OmegaGpuBackend: calls m16_native_* and carries the GB10 compute-class setup words (class 0xcec0).	LINUX_DRIVER
 src/omega_blackwell_engine.h	CHIP_SPECIFIC	Declares the Blackwell GB10 backend function table for the engine core.	NO_HOSTED_INCLUDE
-src/omega_blackwell_gates.c	CHIP_SPECIFIC	Milestone 17 and 18 qualification gates and a silicon vector-add demonstration on GB10; host tooling.	HOSTED_LIBC
-src/omega_blackwell_gates.h	CHIP_SPECIFIC	Entry points of the M17 and M18 GB10 qualification gates.	NO_HOSTED_INCLUDE
 src/omega_blackwell_matmul.c	CHIP_SPECIFIC	Plans the Blackwell matmul kernels; in the freestanding closure, but the kernel shapes are sm_121 tensor-core shapes.	FREESTANDING_PROVEN
 src/omega_blackwell_matmul.h	CHIP_SPECIFIC	Types of the Blackwell matmul kernel (OmegaBlackwellKernel) and its size limits.	NO_HOSTED_INCLUDE
 src/omega_blackwell_qmd.c	CHIP_SPECIFIC	Builds the 384-byte QMD launch descriptor (96 words) for Blackwell compute class 0xcec0. In the freestanding closure.	FREESTANDING_PROVEN

@@ -17,7 +17,7 @@ Porting Omega means answering two questions that are easy to mix up:
 2. **Operating system and driver.** Does this file need Linux, the NVIDIA open driver, or a C library?
 
 The table `docs/runtime/portability_table.tsv` answers both, one row per `src/omega_gpu_*`, `src/omega_blackwell_*` and
-`src/omega_bw_*` file (102 rows):
+`src/omega_bw_*` file (100 rows; the M17/M18 gate suite `omega_blackwell_gates.{c,h}` stays in Omega, which runs it against this library):
 
 | Column | Values | Meaning |
 |---|---|---|
@@ -116,7 +116,7 @@ different family it is *rewriting*. In order:
    `omega_gpu_platform_check_for`. `tests/test_omega_gpu_platform.c` reaches every refusal; use it as the starting test.
    The Linux reference (`src/omega_gpu_platform_linux.c`) is the worked example.
 8. **A backend.** Either the vector backend (`OmegaGpuBackend`, example `src/omega_blackwell_engine.c`) or the session path.
-9. **Qualification on the chip.** The M17 and M18 gates (`src/omega_blackwell_gates.c`) and the poison-word vector add are
+9. **Qualification on the chip.** The M17 and M18 gates (Omega `src/omega_blackwell_gates.c`) and the poison-word vector add are
    the first correctness check; nothing is claimed for a chip until they pass there.
 10. **Update the table.** `make test-runtime-portability` refuses a new `omega_gpu_*`, `omega_blackwell_*` or `omega_bw_*`
     file that has no row.

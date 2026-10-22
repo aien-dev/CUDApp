@@ -12,3 +12,6 @@ src/omega_core.c
 src/omega_core.h
 src/omega_canonical.c
 src/omega_canonical.h
+# Test harness shared with Omega's other mutation sweeps (tensor, autodiff, numeric oracle, c4/m20 receipts);
+# copied byte-identical from omega a8ffd2b9 (2 commits, both aien-dev), not history-cut: graph.sh follows #include only.
+tools/mutation_runner.sh
