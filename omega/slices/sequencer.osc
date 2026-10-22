@@ -1,0 +1,123 @@
+// slice-entry: seq_run seq_store
+// CUDA++ sequencer, in Omega. The chip sends this program back during boot and NVIDIA's
+// driver used to run it (kgspExecuteSequencerBuffer). Opcodes and sizes are the ones in
+// rmgspseq.h from the 580.173.02 open driver:
+//   0 write (addr, val), 1 modify (addr, mask, val), 2 poll (addr, mask, val, timeout, error),
+//   3 delay (us), 4 store (addr, index), 5..8 core ops.
+// Core ops refuse: they restart the chip, and this function has no core to restart.
+// mem[0..7] is the register file. mem[8..15] is the save area. An address or a save
+// index of 8 or more refuses. end is cmdIndex and must be strictly inside the buffer.
+// slice-run: seq_run bytes:0000000001000000bc0a000000000000 3 cells:16 -> 0 cells=0,2748,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+// slice-run: seq_run bytes:01000000020000000f0000000500000000000000 4 cells:16=0,0,255,0,0,0,0,0,0,0,0,0,0,0,0,0 -> 0 cells=0,0,245,0,0,0,0,0,0,0,0,0,0,0,0,0
+// slice-run: seq_run bytes:0200000003000000ff000000070000000a0000000100000000000000 6 cells:16=0,0,0,7,0,0,0,0,0,0,0,0,0,0,0,0 -> 0
+// slice-run: seq_run bytes:020000000300000001000000010000000a0000002a00000000000000 6 cells:16 -> 18446744073709551615
+// slice-run: seq_run bytes:030000001900000000000000 2 cells:16 -> 0
+// slice-run: seq_store bytes:04000000040000000000000000000000 3 cells:16=0,0,0,0,17,0,0,0,0,0,0,0,0,0,0,0 -> 17
+// slice-run: seq_run bytes:04000000040000000800000000000000 3 cells:16=0,0,0,0,17,0,0,0,0,0,0,0,0,0,0,0 -> 18446744073709551615
+// slice-run: seq_run bytes:0800000000000000 1 cells:16 -> 18446744073709551615
+// slice-run: seq_run bytes:6300000000000000 1 cells:16 -> 18446744073709551615
+// slice-run: seq_run bytes:000000000100000000000000 2 cells:16 -> 18446744073709551615
+// slice-run: seq_run bytes:0000000001000000bc0a000000000000 4 cells:16 -> 18446744073709551615
+// slice-run: seq_run bytes: 0 cells:16 -> 18446744073709551615
+
+fn word_at(b: bytes, i: u64) -> u64 {
+    let o: u64 = i * 4;
+    return b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24);
+}
+
+fn payload_n(op: u64) -> u64 {
+    if op == 0 {
+        return 2;
+    }
+    if op == 1 {
+        return 3;
+    }
+    if op == 2 {
+        return 5;
+    }
+    if op == 3 {
+        return 1;
+    }
+    if op == 4 {
+        return 2;
+    }
+    if op == 5 || op == 6 || op == 7 || op == 8 {
+        return 0;
+    }
+    return 18446744073709551615;
+}
+
+fn seq_run(buf: bytes, end: u64, mem: cells) -> u64 {
+    if mem.len < 16 {
+        return 18446744073709551615;
+    }
+    if buf.len < 4 {
+        return 18446744073709551615;
+    }
+    if buf.len % 4 != 0 {
+        return 18446744073709551615;
+    }
+    let nwords: u64 = buf.len / 4;
+    if end >= nwords {
+        return 18446744073709551615;
+    }
+    let mut i: u64 = 0;
+    while i < end bound 256 {
+        let op: u64 = word_at(buf, i);
+        i = i + 1;
+        let n: u64 = payload_n(op);
+        if n == 18446744073709551615 {
+            return 18446744073709551615;
+        }
+        if i + n > end {
+            return 18446744073709551615;
+        }
+        if op >= 5 {
+            return 18446744073709551615;
+        }
+        if op == 0 {
+            let addr: u64 = word_at(buf, i);
+            if addr >= 8 {
+                return 18446744073709551615;
+            }
+            mem[addr] = word_at(buf, i + 1);
+        }
+        if op == 1 {
+            let addr: u64 = word_at(buf, i);
+            if addr >= 8 {
+                return 18446744073709551615;
+            }
+            let mask: u64 = word_at(buf, i + 1);
+            let val: u64 = word_at(buf, i + 2);
+            mem[addr] = (mem[addr] & (~mask)) | val;
+        }
+        if op == 2 {
+            let addr: u64 = word_at(buf, i);
+            if addr >= 8 {
+                return 18446744073709551615;
+            }
+            let mask: u64 = word_at(buf, i + 1);
+            let val: u64 = word_at(buf, i + 2);
+            if (mem[addr] & mask) != val {
+                return 18446744073709551615;
+            }
+        }
+        if op == 4 {
+            let addr: u64 = word_at(buf, i);
+            let index: u64 = word_at(buf, i + 1);
+            if addr >= 8 || index >= 8 {
+                return 18446744073709551615;
+            }
+            mem[8 + index] = mem[addr];
+        }
+        i = i + n;
+    }
+    return 0;
+}
+
+fn seq_store(buf: bytes, end: u64, mem: cells) -> u64 {
+    if seq_run(buf, end, mem) != 0 {
+        return 18446744073709551615;
+    }
+    return mem[8];
+}

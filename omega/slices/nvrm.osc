@@ -1,0 +1,141 @@
+// slice-entry: gp_entry gpput_off span_ok enqueue retire channel_plan
+// CUDA++ NVRM client, in Omega. This is the submit half of nvrm.c: the GP entry,
+// the ring, the retire rule, and the channel plan. The C client asked the driver
+// for the work-submit token (command 0xc36f0108). This plan computes it. Channel
+// in bits 11:0, runlist in bits 22:16, the GB100 form. Slot 15 of the plan is 0,
+// meaning that command is not issued.
+// GP entry from clc96f.h: GET is the low 40 bits of a dword-aligned VA, LEVEL_MAIN
+// is 0 (bit 41 clear), LENGTH is nwords in bits 62:42, SYNC_PROCEED is 0 (bit 63
+// clear). The C client sets bit 41, which the header defines as LEVEL_SUBROUTINE.
+// This function does not. Expected values from Wolfram.
+// slice-run: gp_entry bytes: 4096 4 -> 17592186048512
+// slice-run: gp_entry bytes: 305419896 1 -> 4398351931000
+// slice-run: gp_entry bytes: 1095216660496 8 -> 36279588749328
+// slice-run: gp_entry bytes: 4097 4 -> 18446744073709551615
+// slice-run: gp_entry bytes: 1099511627776 4 -> 18446744073709551615
+// slice-run: gp_entry bytes: 0 0 -> 18446744073709551615
+// slice-run: gp_entry bytes: 0 2097152 -> 18446744073709551615
+// slice-run: gp_entry bytes: 0 2097151 -> 9223367638808264704
+// slice-run: gpput_off bytes: 1024 -> 8332
+// slice-run: gpput_off bytes: 1 -> 18446744073709551615
+// slice-run: span_ok bytes:00000000000000000000000000000000 0 4 -> 0
+// slice-run: span_ok bytes:00000000000000000000000000000000 4 4 -> 18446744073709551615
+// slice-run: span_ok bytes:00000000000000000000000000000000 1 1 -> 18446744073709551615
+// slice-run: enqueue cells:4=0,0,0,0 4096 4 cells:8=0,0,4,0,0,0,0,0 -> 1 cells=17592186048512,0,0,0
+// slice-run: enqueue cells:4=0,0,0,0 4096 4 cells:8=3,0,4,0,0,0,0,0 -> 18446744073709551615
+// slice-run: retire cells:4=5,0,0,0 3 -> 3 cells=5,3,0,0
+// slice-run: retire cells:4=5,0,0,0 9 -> 0 cells=5,0,0,0
+// slice-run: channel_plan cells:16 3 42 -> 196650 cells=41068,1,36967,1,65536,1048576,1024,8192,51567,52928,196650,67108864,144,50785,140,0
+// slice-run: channel_plan cells:16 128 0 -> 18446744073709551615
+
+fn gp_entry(b: bytes, va: u64, nwords: u64) -> u64 {
+    if b.len > 0 {
+        return 18446744073709551615;
+    }
+    if va & 3 != 0 {
+        return 18446744073709551615;
+    }
+    if va >= 1099511627776 {
+        return 18446744073709551615;
+    }
+    if nwords == 0 || nwords > 2097151 {
+        return 18446744073709551615;
+    }
+    return va | (nwords << 42);
+}
+
+fn gpput_off(b: bytes, entries: u64) -> u64 {
+    if b.len > 0 {
+        return 18446744073709551615;
+    }
+    if entries < 2 || entries > 65536 {
+        return 18446744073709551615;
+    }
+    return entries * 8 + 140;
+}
+
+fn span_ok(b: bytes, off: u64, nwords: u64) -> u64 {
+    if off & 3 != 0 {
+        return 18446744073709551615;
+    }
+    if nwords == 0 || nwords > 2097151 {
+        return 18446744073709551615;
+    }
+    if nwords > 4611686018427387903 {
+        return 18446744073709551615;
+    }
+    let nbytes: u64 = nwords * 4;
+    if off > 18446744073709551615 - nbytes {
+        return 18446744073709551615;
+    }
+    if off + nbytes > b.len {
+        return 18446744073709551615;
+    }
+    return 0;
+}
+
+fn enqueue(ring: cells, va: u64, nwords: u64, st: cells) -> u64 {
+    if st.len < 4 || ring.len < 2 {
+        return 18446744073709551615;
+    }
+    let put: u64 = st[0];
+    let retired: u64 = st[1];
+    let entries: u64 = st[2];
+    if entries != ring.len || entries < 2 {
+        return 18446744073709551615;
+    }
+    if put < retired {
+        return 18446744073709551615;
+    }
+    if put - retired >= entries - 1 {
+        return 18446744073709551615;
+    }
+    if va & 3 != 0 || va >= 1099511627776 || nwords == 0 || nwords > 2097151 {
+        return 18446744073709551615;
+    }
+    let idx: u64 = put % entries;
+    ring[idx] = va | (nwords << 42);
+    st[0] = put + 1;
+    st[3] = (put + 1) % entries;
+    return put + 1;
+}
+
+fn retire(st: cells, upto: u64) -> u64 {
+    if st.len < 2 {
+        return 18446744073709551615;
+    }
+    let put: u64 = st[0];
+    let retired: u64 = st[1];
+    if upto >= retired && upto <= put {
+        st[1] = upto;
+        return upto;
+    }
+    return retired;
+}
+
+fn channel_plan(st: cells, runlist: u64, channel: u64) -> u64 {
+    if st.len < 16 {
+        return 18446744073709551615;
+    }
+    if channel > 4095 || runlist > 127 {
+        return 18446744073709551615;
+    }
+    let token: u64 = channel | (runlist << 16);
+    st[0] = 41068;
+    st[1] = 1;
+    st[2] = 36967;
+    st[3] = 1;
+    st[4] = 65536;
+    st[5] = 1048576;
+    st[6] = 1024;
+    st[7] = 8192;
+    st[8] = 51567;
+    st[9] = 52928;
+    st[10] = token;
+    st[11] = 67108864;
+    st[12] = 144;
+    st[13] = 50785;
+    st[14] = 140;
+    st[15] = 0;
+    return token;
+}

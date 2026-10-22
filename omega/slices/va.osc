@@ -1,0 +1,166 @@
+// slice-entry: va_take va_release
+// CUDA++ NVRM virtual-address allocator, in Omega. Same rules as nvrm.c va_take
+// and va_release: first-fit on a free list sorted by address, then a bump.
+// mem[0] is the bump. mem[1] is the free-list count. Entries start at mem[2],
+// address then size. A failure is all-ones, not zero, so address 0 can be real.
+// Alignment must be a power of two. An overlapping release refuses and leaves
+// the list alone. Coalesce only when the ranges touch.
+// slice-run: va_take cells:8=4096,0,0,0,0,0,0,0 4096 4096 -> 4096 cells=8192,0,0,0,0,0,0,0
+// slice-run: va_take cells:8=4352,0,0,0,0,0,0,0 4096 4096 -> 8192 cells=12288,0,0,0,0,0,0,0
+// slice-run: va_take cells:8=65536,1,20480,4096,0,0,0,0 4096 4096 -> 20480 cells=65536,0,0,0,0,0,0,0
+// slice-run: va_take cells:8=0,0,0,0,0,0,0,0 0 4096 -> 18446744073709551615
+// slice-run: va_take cells:8=0,0,0,0,0,0,0,0 4096 3 -> 18446744073709551615
+// slice-run: va_release cells:8=65536,1,4096,4096,0,0,0,0 8192 4096 -> 0 cells=65536,1,4096,8192,0,0,0,0
+// slice-run: va_release cells:8=65536,1,12288,4096,0,0,0,0 8192 4096 -> 0 cells=65536,1,8192,8192,0,0,0,0
+// slice-run: va_release cells:8=65536,1,4096,8192,0,0,0,0 8192 4096 -> 18446744073709551615 cells=65536,1,4096,8192,0,0,0,0
+
+fn pow2(n: u64) -> u64 {
+    if n == 0 {
+        return 0;
+    }
+    if n & (n - 1) != 0 {
+        return 0;
+    }
+    return 1;
+}
+
+fn va_take(mem: cells, size: u64, align: u64) -> u64 {
+    if mem.len < 4 || size == 0 || pow2(align) == 0 {
+        return 18446744073709551615;
+    }
+    let room: u64 = (mem.len - 2) / 2;
+    let mut count: u64 = mem[1];
+    if count > room {
+        return 18446744073709551615;
+    }
+    let mut i: u64 = 0;
+    while i < count bound 4096 {
+        let base: u64 = mem[2 + 2 * i];
+        let sz: u64 = mem[3 + 2 * i];
+        if align - 1 > 18446744073709551615 - base {
+            return 18446744073709551615;
+        }
+        if sz > 18446744073709551615 - base {
+            return 18446744073709551615;
+        }
+        let rounded: u64 = base + align - 1;
+        let aligned: u64 = rounded & (~(align - 1));
+        let pad: u64 = aligned - base;
+        if pad <= sz && size <= sz - pad {
+            let used_end: u64 = aligned + size;
+            let range_end: u64 = base + sz;
+            if pad == 0 && used_end == range_end {
+                let mut j: u64 = i;
+                while j + 1 < count bound 4096 {
+                    mem[2 + 2 * j] = mem[2 + 2 * (j + 1)];
+                    mem[3 + 2 * j] = mem[3 + 2 * (j + 1)];
+                    j = j + 1;
+                }
+                mem[2 + 2 * (count - 1)] = 0;
+                mem[3 + 2 * (count - 1)] = 0;
+                mem[1] = count - 1;
+            }
+            if pad == 0 && used_end < range_end {
+                mem[2 + 2 * i] = used_end;
+                mem[3 + 2 * i] = range_end - used_end;
+            }
+            if pad > 0 && used_end < range_end && count >= room {
+            } else {
+                if pad > 0 {
+                    mem[3 + 2 * i] = pad;
+                    if used_end < range_end {
+                        let mut j: u64 = count;
+                        while j > i + 1 bound 4096 {
+                            mem[2 + 2 * j] = mem[2 + 2 * (j - 1)];
+                            mem[3 + 2 * j] = mem[3 + 2 * (j - 1)];
+                            j = j - 1;
+                        }
+                        mem[2 + 2 * (i + 1)] = used_end;
+                        mem[3 + 2 * (i + 1)] = range_end - used_end;
+                        mem[1] = count + 1;
+                    }
+                }
+                return aligned;
+            }
+        }
+        i = i + 1;
+    }
+    let next: u64 = mem[0];
+    if align - 1 > 18446744073709551615 - next {
+        return 18446744073709551615;
+    }
+    let rounded: u64 = next + align - 1;
+    let va: u64 = rounded & (~(align - 1));
+    if size > 18446744073709551615 - va {
+        return 18446744073709551615;
+    }
+    mem[0] = va + size;
+    return va;
+}
+
+fn va_release(mem: cells, va: u64, size: u64) -> u64 {
+    if mem.len < 4 || size == 0 {
+        return 18446744073709551615;
+    }
+    if size > 18446744073709551615 - va {
+        return 18446744073709551615;
+    }
+    let end: u64 = va + size;
+    let room: u64 = (mem.len - 2) / 2;
+    let count: u64 = mem[1];
+    if count > room {
+        return 18446744073709551615;
+    }
+    let mut pos: u64 = 0;
+    while pos < count && mem[2 + 2 * pos] < va bound 4096 {
+        pos = pos + 1;
+    }
+    if pos > 0 {
+        let prev: u64 = mem[2 + 2 * (pos - 1)];
+        let psz: u64 = mem[3 + 2 * (pos - 1)];
+        if psz > 18446744073709551615 - prev || prev + psz > va {
+            return 18446744073709551615;
+        }
+    }
+    if pos < count && end > mem[2 + 2 * pos] {
+        return 18446744073709551615;
+    }
+    if count >= room {
+        return 18446744073709551615;
+    }
+    let mut i: u64 = count;
+    while i > pos bound 4096 {
+        mem[2 + 2 * i] = mem[2 + 2 * (i - 1)];
+        mem[3 + 2 * i] = mem[3 + 2 * (i - 1)];
+        i = i - 1;
+    }
+    mem[2 + 2 * pos] = va;
+    mem[3 + 2 * pos] = size;
+    let mut n: u64 = count + 1;
+    if pos + 1 < n && mem[2 + 2 * pos] + mem[3 + 2 * pos] == mem[2 + 2 * (pos + 1)] {
+        mem[3 + 2 * pos] = mem[3 + 2 * pos] + mem[3 + 2 * (pos + 1)];
+        let mut j: u64 = pos + 1;
+        while j + 1 < n bound 4096 {
+            mem[2 + 2 * j] = mem[2 + 2 * (j + 1)];
+            mem[3 + 2 * j] = mem[3 + 2 * (j + 1)];
+            j = j + 1;
+        }
+        mem[2 + 2 * (n - 1)] = 0;
+        mem[3 + 2 * (n - 1)] = 0;
+        n = n - 1;
+    }
+    if pos > 0 && mem[2 + 2 * (pos - 1)] + mem[3 + 2 * (pos - 1)] == mem[2 + 2 * pos] {
+        mem[3 + 2 * (pos - 1)] = mem[3 + 2 * (pos - 1)] + mem[3 + 2 * pos];
+        let mut j: u64 = pos;
+        while j + 1 < n bound 4096 {
+            mem[2 + 2 * j] = mem[2 + 2 * (j + 1)];
+            mem[3 + 2 * j] = mem[3 + 2 * (j + 1)];
+            j = j + 1;
+        }
+        mem[2 + 2 * (n - 1)] = 0;
+        mem[3 + 2 * (n - 1)] = 0;
+        n = n - 1;
+    }
+    mem[1] = n;
+    return 0;
+}
