@@ -1,0 +1,138 @@
+{
+  "scope": "Selected latest-head carry identity audit, not full integration/chip proof. Deliberate destination fixes remain; no source overwritten. PR618 old extraction is not replayed over canonical5.",
+  "files": [
+    {
+      "omega_pr": 614,
+      "omega_head": "19eebe0e04811002f641c0f7b58c1b87ea9b5c42",
+      "canonical_cudapp": "349913f17c083996680c72b32f767b225005155d",
+      "path": "src/omega_sm121_disasm.c",
+      "source_read_rc": 0,
+      "candidate_read_rc": 0,
+      "source_sha256": "085e13f304b48e712f434fad27ab6bcef9328b066c2d9b71ebbf25c4c5be46e0",
+      "candidate_sha256": "085e13f304b48e712f434fad27ab6bcef9328b066c2d9b71ebbf25c4c5be46e0",
+      "byte_identical": true
+    },
+    {
+      "omega_pr": 614,
+      "omega_head": "19eebe0e04811002f641c0f7b58c1b87ea9b5c42",
+      "canonical_cudapp": "349913f17c083996680c72b32f767b225005155d",
+      "path": "src/omega_sm121_disasm.h",
+      "source_read_rc": 0,
+      "candidate_read_rc": 0,
+      "source_sha256": "0ac5f436eccde482f9acd61ed0e8358b1e7aeb33f4bdb9ae82f41ba04c41f26b",
+      "candidate_sha256": "0ac5f436eccde482f9acd61ed0e8358b1e7aeb33f4bdb9ae82f41ba04c41f26b",
+      "byte_identical": true
+    },
+    {
+      "omega_pr": 614,
+      "omega_head": "19eebe0e04811002f641c0f7b58c1b87ea9b5c42",
+      "canonical_cudapp": "349913f17c083996680c72b32f767b225005155d",
+      "path": "tools/sm121dis/sm121dis.c",
+      "source_read_rc": 0,
+      "candidate_read_rc": 0,
+      "source_sha256": "a0fdf121489261de3e53c25fb0eee3cdde5948f82ec0a911cfab9376ddcab3e4",
+      "candidate_sha256": "a0fdf121489261de3e53c25fb0eee3cdde5948f82ec0a911cfab9376ddcab3e4",
+      "byte_identical": true
+    },
+    {
+      "omega_pr": 614,
+      "omega_head": "19eebe0e04811002f641c0f7b58c1b87ea9b5c42",
+      "canonical_cudapp": "349913f17c083996680c72b32f767b225005155d",
+      "path": "tools/sm121dis/check.sh",
+      "source_read_rc": 0,
+      "candidate_read_rc": 0,
+      "source_sha256": "99ee27af114aa9eed45b3b2d94a45a7e3f396033872e0612a800d738ea557dac",
+      "candidate_sha256": "99ee27af114aa9eed45b3b2d94a45a7e3f396033872e0612a800d738ea557dac",
+      "byte_identical": true
+    },
+    {
+      "omega_pr": 615,
+      "omega_head": "a7d6463b9df4485484e207f11fb7802d09aed627",
+      "canonical_cudapp": "349913f17c083996680c72b32f767b225005155d",
+      "path": "src/omega_gpu_gemm.c",
+      "source_read_rc": 0,
+      "candidate_read_rc": 0,
+      "source_sha256": "c1d3f2cbf54f129a680a1c3a16efe217a70b1c35f13547e3c7bb33f0b014bdc5",
+      "candidate_sha256": "c1d3f2cbf54f129a680a1c3a16efe217a70b1c35f13547e3c7bb33f0b014bdc5",
+      "byte_identical": true
+    },
+    {
+      "omega_pr": 615,
+      "omega_head": "a7d6463b9df4485484e207f11fb7802d09aed627",
+      "canonical_cudapp": "349913f17c083996680c72b32f767b225005155d",
+      "path": "src/omega_gpu_gemm.h",
+      "source_read_rc": 0,
+      "candidate_read_rc": 0,
+      "source_sha256": "b657f8a93b97904570b99d4da8a6879117edae8a83ae6747f1a299019a869661",
+      "candidate_sha256": "b657f8a93b97904570b99d4da8a6879117edae8a83ae6747f1a299019a869661",
+      "byte_identical": true
+    },
+    {
+      "omega_pr": 615,
+      "omega_head": "a7d6463b9df4485484e207f11fb7802d09aed627",
+      "canonical_cudapp": "349913f17c083996680c72b32f767b225005155d",
+      "path": "tests/gpu_gemm_test.c",
+      "source_read_rc": 0,
+      "candidate_read_rc": 0,
+      "source_sha256": "653868ce201816eaca7e85d47804af25e361de5ba79a33de8d6b030eeb5d40b6",
+      "candidate_sha256": "653868ce201816eaca7e85d47804af25e361de5ba79a33de8d6b030eeb5d40b6",
+      "byte_identical": true
+    },
+    {
+      "omega_pr": 616,
+      "omega_head": "d7e15f18f5fb81555fe932fe3023c9f5f8ab8ba1",
+      "canonical_cudapp": "349913f17c083996680c72b32f767b225005155d",
+      "path": "src/omega_gpu_scan.c",
+      "source_read_rc": 0,
+      "candidate_read_rc": 0,
+      "source_sha256": "c1412bcd0d61c880b7b659991551bd71d76a32a3a803d7abb66fe74b4be22b98",
+      "candidate_sha256": "c1412bcd0d61c880b7b659991551bd71d76a32a3a803d7abb66fe74b4be22b98",
+      "byte_identical": true
+    },
+    {
+      "omega_pr": 616,
+      "omega_head": "d7e15f18f5fb81555fe932fe3023c9f5f8ab8ba1",
+      "canonical_cudapp": "349913f17c083996680c72b32f767b225005155d",
+      "path": "src/omega_gpu_scan.h",
+      "source_read_rc": 0,
+      "candidate_read_rc": 0,
+      "source_sha256": "71cfb07202533bda9d74ff8bbf3fb96ea7fe02ceb24edb218029cb9fd1af5849",
+      "candidate_sha256": "71cfb07202533bda9d74ff8bbf3fb96ea7fe02ceb24edb218029cb9fd1af5849",
+      "byte_identical": true
+    },
+    {
+      "omega_pr": 616,
+      "omega_head": "d7e15f18f5fb81555fe932fe3023c9f5f8ab8ba1",
+      "canonical_cudapp": "349913f17c083996680c72b32f767b225005155d",
+      "path": "tests/gpu_scan_test.c",
+      "source_read_rc": 0,
+      "candidate_read_rc": 0,
+      "source_sha256": "815d996a8fa0887a18d184a96ca66c996fbb59b3785f14cd60a4fc5ced30895b",
+      "candidate_sha256": "815d996a8fa0887a18d184a96ca66c996fbb59b3785f14cd60a4fc5ced30895b",
+      "byte_identical": true
+    },
+    {
+      "omega_pr": 617,
+      "omega_head": "f792cd1d35b0e9c191647518c3be651a8d86dc21",
+      "canonical_cudapp": "349913f17c083996680c72b32f767b225005155d",
+      "path": "tests/gpu_isolation_test.c",
+      "source_read_rc": 0,
+      "candidate_read_rc": 0,
+      "source_sha256": "d342cd6032e18e61ec52690900363958980cff333e1a73da930ac3bce7e25356",
+      "candidate_sha256": "d342cd6032e18e61ec52690900363958980cff333e1a73da930ac3bce7e25356",
+      "byte_identical": true
+    },
+    {
+      "omega_pr": 617,
+      "omega_head": "f792cd1d35b0e9c191647518c3be651a8d86dc21",
+      "canonical_cudapp": "349913f17c083996680c72b32f767b225005155d",
+      "path": "tests/gpu_streams_test.c",
+      "source_read_rc": 0,
+      "candidate_read_rc": 0,
+      "source_sha256": "797a3f36ed015e1389be3c4dee802c15f79e6217a208e9a9ff37c448f813362a",
+      "candidate_sha256": "797a3f36ed015e1389be3c4dee802c15f79e6217a208e9a9ff37c448f813362a",
+      "byte_identical": true
+    }
+  ],
+  "frozen_tracker": "/home/drakestapleton/handoffs/cudapp-roadmap-20261022/tracker-snapshot.json"
+}
