@@ -1,4 +1,4 @@
-# commit 15fd698b3f4718b7be44ea9d9764c1eab2f6bd47 branch dx/d1-memory, run 2026-10-22T01:36:09Z on spark-b87b
+# commit a462199f106a0a0f095da486a038ccc1c3ad28f0 branch dx/d1-memory, run 2026-10-22T01:49:45Z on spark-b87b
 $ make build/test_omega_gpu_platform_linux && ./build/test_omega_gpu_platform_linux
 PASS LINUX_REF_CAPS_NO_MMIO_NO_IRQ
 PASS HOSTED_DEFAULT_IS_LINUX_REFERENCE
@@ -16,4 +16,4 @@ exit 0
 
 $ grep MemAvailable /proc/meminfo   (this machine now)
 MemTotal:       127598528 kB
-MemAvailable:   64856180 kB
+MemAvailable:   64076016 kB

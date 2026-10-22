@@ -1,4 +1,4 @@
-# commit 15fd698b3f4718b7be44ea9d9764c1eab2f6bd47 branch dx/d1-memory, run 2026-10-22T01:38:42Z on spark-b87b
+# commit a462199f106a0a0f095da486a038ccc1c3ad28f0 branch dx/d1-memory, run 2026-10-22T01:49:49Z on spark-b87b
 # negative control: the reserve check removed from ref_dma_alloc; the D1 case must FAIL
 $ grep -n MUTANT src/omega_gpu_platform_linux.c
 235:    rc = OMEGA_GPU_PLAT_OK; (void)mem_reserve_check; /* MUTANT: D1 check removed */ /* D1: before any slot or driver call; the sentence is in r->diag */
