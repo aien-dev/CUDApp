@@ -15,6 +15,16 @@ CUDA++ keeps growing until every NVIDIA part on the Spark is replaced, and then 
 
 CUDA++ is not affiliated with or endorsed by NVIDIA; CUDA is NVIDIA's trademark.
 
+## How we did it
+
+One person and a team of AI coding agents, one DGX Spark, four weeks. NVIDIA publishes the source of its Linux kernel module, but not its compiler, its driver library or the GPU's machine code. So we skipped every closed layer:
+
+1. **No libcuda.** We wrote our own client for the open kernel module's ioctls, from its MIT headers: client, device, address space, memory, command ring, compute object, doorbell, completion.
+2. **No nvcc, no PTX.** The GPU's machine code is undocumented, so we reverse engineered it: compiled small probe kernels of our own once with NVIDIA's compiler, read the machine code back with NVIDIA's disassembler, compared kernels that differ in one detail to find which bits mean what, cross-checked against Mesa's open NVIDIA compiler, and believed nothing until the chip ran it and gave the right answer. Arithmetic the documents do not pin down (the tensor cores) was measured on the chip until a model matched every output bit.
+3. **Our own encoder, runtime and libraries** on top: 59 instruction kinds, a register allocator, launch descriptors, command lists, matrix multiply, attention.
+
+No NVIDIA binary or listing is in this repository. The whole method, step by step with the files and receipts: [docs/HOW_WE_DID_IT.md](docs/HOW_WE_DID_IT.md).
+
 ## How it fits with Omega
 
 Omega (github.com/aien-spark/omega, AGPL-3.0) is AIEN's language for all computing: the languages Omegese and OSC, their checker and the CPU backends. CUDA++ is the part of the Omega runtime that drives the GPU. Omega uses CUDA++ at a pinned commit (`cudapp.lock` in Omega), the same way it pins its other parts. The code was split out of Omega on 2026-10-21 with its full history; `docs/AUDIT.md` records how, and what was checked before it was published.
