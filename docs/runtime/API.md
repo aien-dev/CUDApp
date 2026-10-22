@@ -4,8 +4,8 @@ Omega Runtime API version: 0.1
 
 Status: first written version, 2026-10-19 (slice R1, omega-mv#594, tracking #593). Source of truth is the C headers in
 `src/`. This file describes them; `docs/runtime/omega_runtime_api.manifest` lists them; `make test-runtime-api` checks the
-list against the headers (a host check, no GPU). Review state: **needs an Opus review against the headers before merge**
-(the check proves the list and every quoted C signature match the headers; it cannot prove the prose is right).
+list against the headers (a host check, no GPU). Review state: reviewed by Opus 5.5 against the headers and the code on 2026-10-22 (L386); its findings are fixed
+in this version. The check proves the list and every quoted C signature match the headers; prose is checked by review.
 
 The version number lives in one header, `src/omega_runtime_api.h` (`OMEGA_RUNTIME_API_VERSION_MAJOR`, `_MINOR`).
 
@@ -48,7 +48,8 @@ library build.
 - raise the platform contract's major number (section 9.2).
 
 MAJOR 0 means "the first written version", not "anything goes": the rule above already binds STABLE entries in 0.x. What
-0 adds is a warning: the project may promote or demote tiers freely until 1.0, and the first 1.0 will be cut only when
+0 adds is a warning: the project may promote entries to STABLE freely until 1.0 (moving a STABLE entry down still needs a
+MAJOR bump, as above), and the first 1.0 will be cut only when
 section 8 (what v0 does not have) has been looked at again.
 
 How it is enforced: a header change that moves any listed entry fails `make test-runtime-api` until the manifest line is
@@ -92,7 +93,7 @@ named states and returns success or exactly one named failure. EXPERIMENTAL.
 **Errors, the latch and parked buffers.**
 - A failing call returns a non-zero value and names its stage in text: `omega_gpu_session_last_error()`. A device-open failure
   carries the driver's own text. Do not read a bare return code as the cause.
-- If the chip's completion cannot be confirmed (a completion wait ran out of time, or a launch was cancelled after submit),
+- If the chip's completion cannot be confirmed (a completion wait ran out of time, the completion poll was refused, or a launch was cancelled after submit),
   the work may still be running and still be reading or writing your buffers. The process then **latches**:
   `omega_gpu_session_is_blocked()` returns 1 for the rest of the process, every later launch is refused, close and reopen are
   refused, and nothing is returned to the platform.
@@ -103,8 +104,9 @@ named states and returns success or exactly one named failure. EXPERIMENTAL.
 **Threads.** One process-wide lock (the platform LOCK service, lock id `OMEGA_GPU_SESSION_LOCK_ID`, which is 0). A call
 sequence that touches the device (open, alloc, launch, readback) is done between `omega_gpu_session_lock()` and
 `omega_gpu_session_unlock()`. Threads therefore take turns on the one channel. The Linux reference lock is a plain
-(non-recursive) pthread mutex (`src/omega_gpu_platform_linux.c:43`), so taking it twice from one thread deadlocks; the
-functions marked "takes the lock itself" below (`omega_gpu_session_close`, `omega_gpu_cmdlist_create`) must be called without it.
+(non-recursive) pthread mutex (`locks[id]`, `src/omega_gpu_platform_linux.c:29` and `:119`), so taking it twice from one thread
+deadlocks. These take the lock themselves and must be called without it: `omega_gpu_session_close`, `omega_gpu_cmdlist_create`,
+`omega_gpu_cmdlist_free`, and every library call of section 9.5 (matmul, elementwise, attention, serving).
 `omega_gpu_session_cancel` may be called from any thread without the lock (header). `omega_gpu_session_is_blocked` reads the latch with an atomic load (`src/omega_gpu_session.c:157`), so it is safe without the lock too.
 `omega_gpu_session_last_error` returns a pointer into one process-wide text buffer: read it under the lock, before the next call.
 
@@ -117,7 +119,8 @@ OmegaGpuMem in, code;
 omega_gpu_session_alloc(bytes, &in);                   /* GPU-uncached data buffer */
 omega_gpu_session_alloc_code(code_size, &code);        /* write the machine code to code.cpu */
 omega_gpu_session_sync_to_gpu(&in);
-OmegaGpuLaunch L = { .code_va = code.va, /* gpr_count, threads_*, grid_*, args, n_args, timeout_ms ... */ };
+OmegaGpuLaunch L = { .code_va = code.va, .timeout_ms = 1000, /* gpr_count, threads_*, grid_*, args, n_args ... */ };
+uint64_t elapsed_ns = 0; uint32_t marker = 0;     /* launch adds to elapsed_ns: start it at 0 */
 int rc = omega_gpu_session_launch(&L, &elapsed_ns, &marker);
 omega_gpu_session_sync_to_cpu(&in);
 omega_gpu_session_free(&in);
@@ -236,7 +239,7 @@ STABLE: the only way to place kernel code; chip-proven.
 int omega_gpu_session_alloc_code(size_t code_size, OmegaGpuMem *out);
 ```
 A CODE buffer (CPU writes, GPU executes, GPU never writes) for `code_size` bytes plus the 2 KB instruction-prefetch tail
-(`src/omega_gpu_code_alloc.h`), the tail zero-filled. The caller writes the code to `out->cpu`. A size of 0 is refused.
+(`src/omega_gpu_code_alloc.h`), the tail zero-filled. The caller writes the code to `out->cpu`. A size of 0 still gets one page (`omega_gpu_code_alloc_bytes` rounds up to at least one page).
 
 #### `omega_gpu_session_free`
 STABLE: the release call; its latch behaviour is part of the error model.
@@ -266,7 +269,8 @@ Makes device writes to the whole buffer visible to the CPU. Same return values a
 STABLE: the staging-buffer type the library APIs use.
 A caller-owned staging buffer that grows to its high-water mark: `mem` (an `OmegaGpuMem`), `cap` (usable bytes), `high_water`
 (largest request so far) and `reserved` (a serving reservation is active, see `omega_gpu_session_scratch_reserve`).
-Zero-initialise it before first use (UNVERIFIED: the header does not say whether this is required).
+Zero-initialise it before first use. This is required: `omega_gpu_session_scratch` reads `reserved`, `cap`, `mem.cpu` and
+`high_water` before it writes them (`src/omega_gpu_session.c:290-296`).
 
 #### `omega_gpu_session_scratch`
 STABLE: used by every library API.
@@ -300,6 +304,15 @@ STABLE: the launch descriptor; chip-proven by every library.
 One launch: a kernel already resident at `code_va`, argument words for constant bank 0 at 0x380 (buffer addresses, then
 parameters), and the grid.
 
+Argument layout and the checks `omega_gpu_session_launch` makes (`src/omega_gpu_session.c:433-446`):
+- a 64-bit GPU address takes two words, the low word first, then the high word;
+- `n_args` is 1 to `OMEGA_GPU_SESSION_MAX_ARGS`, `args` is not NULL, and `threads_x`, `grid_x` and `grid_y` are not 0 (a
+  `threads_y` of 0 means 1); otherwise the launch is refused with "launch arguments" and nothing runs;
+- `gpr_count` is rounded up to a multiple of 8, and to at least 64;
+- `elapsed_ns` is added to, not set: start it at 0.
+What the kernel itself may read in constant bank 0 besides these words, and where GB10 machine code comes from, is slice
+R2 (`examples/hello_gpu`, README "Run your first kernel").
+
 | Field | Meaning (from `src/omega_gpu_session.h`) |
 | --- | --- |
 | `code_va` | GPU address of the kernel code |
@@ -308,7 +321,7 @@ parameters), and the grid.
 | `grid_x`, `grid_y` | grid size |
 | `num_elements` | QMD config num_elements (kept per API for identical words) |
 | `args`, `n_args` | `n_args` words written at constant bank + 0x380; `n_args` at most `OMEGA_GPU_SESSION_MAX_ARGS` (32) |
-| `timeout_ms` | marker poll limit; past it the completion is uncertain and **the process latches** |
+| `timeout_ms` | completion poll limit, applied to each of the launch's two markers in turn (so a launch can wait up to twice this); past it the completion is uncertain and **the process latches**. Must not be 0: 0 runs out at once and latches |
 | `shared_bytes` | shared memory per block; 0 = the default (1024) |
 | `spin_us` | spin-poll window before the platform's sleep-poll; 0 = the process-wide setting |
 
@@ -354,7 +367,7 @@ int omega_gpu_session_is_parked(OmegaGpuBufferHandle h);
 
 ## 8. Not in v0 (so nobody assumes it)
 
-Each line is a gap named in `docs/runtime/ROADMAP.md` section 1; none of it is in the manifest.
+Each line is a gap named in `docs/runtime/ROADMAP.md` section 1 (on branch `runtime/roadmap`, not yet merged); none of it is in the manifest.
 - A device query (name, SM count, memory): there is no API call for it.
 - More than one device or channel in a process; sharing the GPU between processes (a second channel failed under load: omega-mv#523).
 - Recovery after a latch (omega-mv#518): a single timeout ends GPU use for the whole process.
@@ -423,7 +436,7 @@ paragraph is out of date (whether it is chip-qualified on main is UNVERIFIED her
 The entries carried over from aien-sovereign-core's manifest: `src/omega_gpu_matmul_api.h`, `omega_gpu_elementwise_api.h`,
 `omega_gpu_attention_api.h`, `omega_gpu_serving.h` (the functions and structs after the `libraries` comment in the
 manifest). Reason: shapes and formats follow one model (Qwen3-30B); there is no general any-shape GEMM yet
-(`ROADMAP.md` 1.3). They are the surface sovereign-core's Rust binding uses today. They are not described entry by entry in v0;
+(`docs/runtime/ROADMAP.md` 1.3, branch `runtime/roadmap`). They are the surface sovereign-core's Rust binding uses today. They are not described entry by entry in v0;
 their headers are the description. One value differs from sovereign-core's pinned copy: `OMEGA_GPU_MATMUL_MAX_CTAS` is 1024 in
 the header (changed by omega #473, commit 98cecadc), 64 in their manifest. Omega's manifest is canonical; R12 brings theirs level.
 
@@ -482,9 +495,10 @@ Not in the manifest; may change or vanish without notice.
 ## 11. Checking this file
 
 `make test-runtime-api` runs `tools/runtime_api_check.sh` on the real headers and then `tools/runtime_api_negative.sh`, which breaks a
-copy of the headers in eight ways and requires the check to fail each time: a removed function, a missing version macro, a
-changed function signature, a changed struct, a changed constant, a version line in this file that disagrees with the macro, a quoted signature in this file that no header has, and a
-STABLE entry with no section here. It needs no GPU and no physics checkout. It checks: every manifest function against its header
+copy of the headers (or this file) in nine ways and requires the check to fail each time: a removed function, a missing version macro, a
+changed function signature, a changed struct, a changed constant, a version line in this file that disagrees with the macro, a quoted signature in this file that no header has, a quoted
+signature that only appears inside a longer one (`int32_t` inside `uint32_t`), and a STABLE entry with no section here. It needs no GPU and no physics checkout. It checks: every manifest function against its header
 with exact types; sizes, offsets and constants against a compiled probe; the version macros against the manifest and this file;
 that every STABLE entry has a `####` section here and every EXPERIMENTAL one is named here; and that every C signature quoted
-in this file appears verbatim in a header. It does not check that the prose is true. A struct field added inside padding is not seen.
+in this file appears verbatim in a header. It does not check that the prose is true. A struct field added inside padding is not seen, nor a field that changes type but keeps its size, nor a constant
+value quoted in prose.
