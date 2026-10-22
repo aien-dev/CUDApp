@@ -1,5 +1,7 @@
 # D14: recover from a fault without restarting the process
 
+Tracking: [#11](https://github.com/aien-dev/CUDApp/issues/11). Keep open until its exact-commit acceptance gate passes.
+
 Labels: D14
 
 **The pain.** "Pretty much all asynchronous errors (these are errors that occur as a result of device code execution) are sticky." (NVIDIA forums). After one fault the whole process has to restart. `docs/PAIN_POINTS.md` section 2.3.

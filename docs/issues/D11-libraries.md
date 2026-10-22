@@ -1,5 +1,7 @@
 # D11: open libraries with an easy default path
 
+Tracking: [#9](https://github.com/aien-dev/CUDApp/issues/9). Keep open until its exact-commit acceptance gate passes.
+
 Labels: library, D11
 
 **The pain.** Closed libraries nobody outside NVIDIA can read or fix; on new chips they fall back or fail ("SM121 falls through to cutlass/cudnn only.", FlashInfer #3170). `docs/PAIN_POINTS.md` section 2.10.

@@ -1,0 +1,18 @@
+{
+  "utc": "2026-10-22T15:08:42.812644+00:00",
+  "purpose": "Read-only baseline for CUDApp issue 5. No inference, swap, restart or driver modification.",
+  "pid": 3489680,
+  "executable": "/home/drakestapleton/.local/state/aien-q36/bin-19173f9e/aien-serve-http",
+  "binary_sha256": "19173f9ec3b609fe79af644f84741d8808b92ea8eb3ecec4bc945af6f22b3aeb",
+  "model_ids": [
+    "qwen3.6-35b-a3b-fp8"
+  ],
+  "build_manifest_sha256": "80c9354bf98c2e02cf8b437b56747faa0a03dcce36d90b63b876285474f2caaf",
+  "build_manifest": "aien-serve-http LIVE build, L387 motor ship (NO aien-test-switches: answers 400 to aien_test), pinned 2026-10-22T02:43:29Z; same commit and lib as the train candidate bin-bfc41659\nsc ship/motor-l387 f0230a59 (code 59b05a71: + a negative control leaves no state for a later request) = serve/q36-batch-v2 9c62690a (bin-16b0e6f8 source, L354 batch strokes v2 + tools L374)\n  + serve/merge-train 59b896b1 (L384 per-request switches) + serve/q36-prefill-v2 6127db50 (L369 chip prefill)\n  + hum/exact-head-batch 8dd86a36 (L314 exact head per stroke slot)\n  cargo build --release -p aien-serve-http, CARGO_TARGET_DIR=~/workspace/targets/l387/sc-live; host tests qwen36_batch 12/12 (with and without the feature)\nomega ship/motor-l387 6de999da = serve/q36-prefill-v2 60ba3051 (ab81d8f3 ship lib + L314 exact-head-stroke 41269bd8\n  + L356 CN rows 4b079116 + L369 prefill: multi-token GDN, attention, gate rows) + hum/state-precision 19c3b5d2 (L313 bf16 state)\n  lib sha256 110295ef23dc7561; q36 dec sim 27/27 PASS; q36 kernel hashes identical to L369 lib-v3\nlevers ON: L354 batch, L312 strokes v2 (lever 2), L314 exact head, L356 CN rows, L369 prefill (chunks of 128), tools L374\nlevers OFF: L313 bf16 state (AIEN_OMEGA_GDN_STATE_BF16 unset; not validated with the prefill's multi-token GDN)\nlevers OUT (gate not green): L312 levers 3-7 (motor/serve 881f4397), L375 shared prompt cache, L376 team board\nswitches: AIEN_Q36_PREFILL_CHUNK=0 prompts token by token; AIEN_OMEGA_Q36_CN_ROWS=0; AIEN_Q36_STROKE=0 rows in turn; AIEN_Q36_EXACT_HEAD=0\n",
+  "cuda_user_space_libraries_mapped": [],
+  "canonical_cudapp_pin_in_manifest": false,
+  "canonical_backend_verdict": "NOT_VERIFIED: live manifest identifies Omega ship/motor-l387 and a GPU archive hash but no CUDApp pin. This is not evidence of code divergence, and absence of CUDA user libraries is not independent-kernel-driver qualification.",
+  "pending_consumer_pr": "https://github.com/aien-dev/omega-mv/pull/618",
+  "pending_consumer_sha": "67c70741c8cec5c33e28a099d7c83bbd4f3ab839",
+  "pending_consumer_cudapp_pin": "8f0b645dbc859f1b63868cec77880621aa70b42d"
+}

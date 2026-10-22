@@ -1,5 +1,7 @@
 # CUDA++ roadmap: every NVIDIA piece on the Spark, and what replaces it
 
+**Execution order:** motor integration → concurrency/recovery → general math → disassembler → independent-driver hardware qualification. See [priorities and acceptance gates](docs/PRIORITIES.md) and the [GitHub issue index](docs/issues/README.md).
+
 The goal is a DGX Spark with no NVIDIA software running on it except the GPU's own signed firmware, and a GPU stack that does things CUDA does not. Each row names its receipt; a row without a receipt is not done. Status words: PASS (receipt on a named commit), PARTIAL, MISSING, BUILDING (work exists on a branch, no receipt yet).
 
 Sources: Omega `docs/OMEGA.md` sections 2 to 5 (branch `docs/what-omega-is`, 2026-10-21) and the own-driver work L332 (aienos/Aienux branch `feat/own-gpu-driver`).

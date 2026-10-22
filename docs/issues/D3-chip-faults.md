@@ -1,5 +1,7 @@
 # D3, chip half: read the GPU's own fault record after a fault
 
+Tracking: [#12](https://github.com/aien-dev/CUDApp/issues/12). Keep open until its exact-commit acceptance gate passes.
+
 Labels: pain-point, D3
 
 **The pain.** CUDA reports a bad memory access at a later, unrelated call: "might be asynchronously reported at some other API call". vLLM's maintainers: "In our experience the python stack traces for these types of exceptions are basically always incorrect and pretty worthless." `docs/PAIN_POINTS.md` section 2.3.

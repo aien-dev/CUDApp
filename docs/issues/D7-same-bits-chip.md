@@ -1,5 +1,7 @@
 # D7, chip half: same inputs, same bits, on the GPU
 
+Tracking: [#13](https://github.com/aien-dev/CUDApp/issues/13). Keep open until its exact-commit acceptance gate passes.
+
 Labels: D7
 
 **The pain.** "Completely reproducible results are not guaranteed across PyTorch releases, individual commits, or different platforms." (PyTorch docs). Bitwise reproducibility in cuBLAS needs `CUBLAS_WORKSPACE_CONFIG` and costs speed or memory. `docs/PAIN_POINTS.md` section 2.6.

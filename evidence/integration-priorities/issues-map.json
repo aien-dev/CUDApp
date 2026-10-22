@@ -1,0 +1,89 @@
+[
+  {
+    "key": "motor-integration",
+    "title": "Priority 1: qualify the motor against the canonical pinned CUDApp backend",
+    "rank": 1,
+    "number": 5,
+    "url": "https://github.com/aien-dev/CUDApp/issues/5",
+    "verified": true
+  },
+  {
+    "key": "streams-concurrency",
+    "title": "Priority 2: qualify streams, event ordering and process isolation on the GB10",
+    "rank": 2,
+    "number": 6,
+    "url": "https://github.com/aien-dev/CUDApp/issues/6",
+    "verified": true
+  },
+  {
+    "key": "independent-driver",
+    "title": "Priority 5: hardware-qualify the independent driver without changing the working GPU path",
+    "rank": 5,
+    "number": 7,
+    "url": "https://github.com/aien-dev/CUDApp/issues/7",
+    "verified": true
+  },
+  {
+    "key": "D1-memory",
+    "title": "D1: refuse an allocation before it hangs the machine",
+    "rank": 2,
+    "draft": "docs/issues/D1-memory.md",
+    "number": 8,
+    "url": "https://github.com/aien-dev/CUDApp/issues/8",
+    "verified": true
+  },
+  {
+    "key": "D11-libraries",
+    "title": "D11: open libraries with an easy default path",
+    "rank": 3,
+    "draft": "docs/issues/D11-libraries.md",
+    "number": 9,
+    "url": "https://github.com/aien-dev/CUDApp/issues/9",
+    "verified": true
+  },
+  {
+    "key": "D13-disassembler",
+    "title": "D13: finish the independent disassembler and remove nvdisasm execution dependencies",
+    "rank": 4,
+    "draft": "docs/issues/D13-disassembler.md",
+    "number": 10,
+    "url": "https://github.com/aien-dev/CUDApp/issues/10",
+    "verified": true
+  },
+  {
+    "key": "D14-recover",
+    "title": "D14: recover from a fault without restarting the process",
+    "rank": 2,
+    "draft": "docs/issues/D14-recover.md",
+    "number": 11,
+    "url": "https://github.com/aien-dev/CUDApp/issues/11",
+    "verified": true
+  },
+  {
+    "key": "D3-chip-faults",
+    "title": "D3, chip half: read the GPU's own fault record after a fault",
+    "rank": 2,
+    "draft": "docs/issues/D3-chip-faults.md",
+    "number": 12,
+    "url": "https://github.com/aien-dev/CUDApp/issues/12",
+    "verified": true
+  },
+  {
+    "key": "D7-same-bits-chip",
+    "title": "D7, chip half: same inputs, same bits, on the GPU",
+    "rank": 2,
+    "draft": "docs/issues/D7-same-bits-chip.md",
+    "number": 13,
+    "url": "https://github.com/aien-dev/CUDApp/issues/13",
+    "verified": true
+  },
+  {
+    "key": "D8-process-tax",
+    "title": "D8: measure what a CUDA++ process costs beyond its own buffers",
+    "rank": 2,
+    "draft": "docs/issues/D8-process-tax.md",
+    "number": 14,
+    "url": "https://github.com/aien-dev/CUDApp/issues/14",
+    "verified": true
+  }
+]

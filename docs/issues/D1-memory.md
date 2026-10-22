@@ -1,5 +1,7 @@
 # D1: refuse an allocation before it hangs the machine
 
+Tracking: [#8](https://github.com/aien-dev/CUDApp/issues/8). Keep open until its exact-commit acceptance gate passes.
+
 Labels: pain-point, D1, good-first-issue
 
 **The pain.** On the DGX Spark the CPU and GPU share one memory, and the machine has no swap. A memory spike does not end in an error message: "On unified memory a spike goes straight to a global OOM that hard hangs the whole box. No ssh, no ping, needs a power cycle." (github.com/sudoingX/dgx-spark-laguna, FINDINGS.md). `docs/PAIN_POINTS.md` section 2.1.
