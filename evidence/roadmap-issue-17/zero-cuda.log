@@ -1,0 +1,3 @@
+ZERO_CUDA PASS build-roadmap-contracts-bench/native_benchmark_adapter_test needs=[libm.so.6 libc.so.6 ld-linux-aarch64.so.1]
+ZERO_CUDA PASS build-roadmap-contracts-bench/native_benchmark_collect_test needs=[libc.so.6 ld-linux-aarch64.so.1]
+exit_code=0

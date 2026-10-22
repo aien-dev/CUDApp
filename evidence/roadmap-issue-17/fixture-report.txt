@@ -1,0 +1,5 @@
+cudapp.benchmark.v1 contract=cudapp.numeric.v1 kind=fixture
+model quality: NOT_RUN
+["warm",true,{"batch":1,"context":8,"input_tokens":8,"output_tokens":1,"seed":7}]: n=1 total_ns p50=100 p95=100
+instrumentation: unknown
+graph-enabled CUDA comparison: NOT_RUN

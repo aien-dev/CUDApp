@@ -1,0 +1,1 @@
+git diff --exit-code 4fdc3dabc5a0243ad93b6106e76497d0ce428d8a -- src tests tools mk Makefile docs: exit_code=0

@@ -1,0 +1,7 @@
+prepared NOT_RUN manifest; no workload executed
+prepare_exit_code=0
+imported 1 samples
+import_exit_code=0
+report_exit_code=0
+report_text_exit_code=0
+compare_exit_code=0

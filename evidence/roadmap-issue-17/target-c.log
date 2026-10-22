@@ -1,0 +1,74 @@
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -o build-roadmap-contracts-bench/native_benchmark_adapter_test tests/native_benchmark_adapter_test.c src/omega_native_benchmark.c build-roadmap-contracts-bench/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -o build-roadmap-contracts-bench/native_benchmark_collect_test tests/native_benchmark_collect_test.c src/omega_native_benchmark.c src/omega_gpu_numerical_contract.c -lm
+./build-roadmap-contracts-bench/native_benchmark_adapter_test
+native_benchmark_adapter_test: 18 checks PASS (host fixtures; no graph invoked)
+./build-roadmap-contracts-bench/native_benchmark_collect_test
+native_benchmark_collect_test: 12 checks PASS (fixture device callbacks; hardware NOT_RUN)
+node --test tests/native_benchmark_test.mjs
+✔ whole-token, multiturn, boundary-context fixtures match (2.10433ms)
+✔ refuses scale (0.39581ms)
+✔ refuses missing expert (0.381282ms)
+✔ refuses rounding (0.136161ms)
+✔ refuses wrong routing tie (0.084864ms)
+✔ refuses argmax tie (0.057601ms)
+✔ refuses model pin (0.059408ms)
+✔ refuses prompt pin (0.110369ms)
+✔ refuses contract (0.066016ms)
+✔ refuses missing stage (0.144257ms)
+✔ refuses missing turn (0.07984ms)
+✔ refuses context overflow (0.056832ms)
+✔ refuses out of order (0.049537ms)
+✔ refuses nonfinite (0.048736ms)
+✔ refuses empty (0.04888ms)
+✔ refuses non-f32 (0.044096ms)
+✔ refuses missing pin (0.040017ms)
+✔ repeatability requires identical executable pins (0.103424ms)
+✔ signed zeros exact; tolerance explicit and experimental (0.136721ms)
+✔ quantiles from independent samples; raw sessions and unknowns retained (1.708424ms)
+✔ unfavorable candidate preserved and fixture never claims speedup (1.595799ms)
+✔ reject contract mismatch (0.177505ms)
+✔ reject missing hash (0.117248ms)
+✔ reject policy hash (0.110673ms)
+✔ reject empty (0.170769ms)
+✔ reject nonfinite (0.187361ms)
+✔ reject missing metric (0.193232ms)
+✔ reject unknown as zero (0.201744ms)
+✔ reject estimated counter (0.43581ms)
+✔ reject measured estimate (0.360817ms)
+✔ reject timestamp order (0.621571ms)
+✔ reject timestamp poison (0.223633ms)
+✔ reject unknown kind (0.182193ms)
+✔ reject record exceeds total (0.149153ms)
+✔ reject completion exceeds total (0.155424ms)
+✔ reject fake gpu span (0.167889ms)
+✔ reject stamps off fake gpu (0.154913ms)
+✔ reject zero total (0.146097ms)
+✔ reject duplicate session (0.368801ms)
+✔ reject correlated ordinal (0.249841ms)
+✔ reject missing correctness (0.109889ms)
+✔ reject wrong correctness binary (0.111552ms)
+✔ reject wrong correctness binding (0.226033ms)
+✔ reject changed token (0.135184ms)
+✔ reject unsupported context (0.355922ms)
+✔ reject uncovered context (0.14824ms)
+✔ reject unsupported batch (0.127617ms)
+✔ reject seed not validated (0.133041ms)
+✔ paired rejects driver_sha256 (0.460098ms)
+✔ paired rejects model_sha256 (0.286593ms)
+✔ paired rejects prompt_sha256 (0.326482ms)
+✔ paired rejects config_sha256 (0.239425ms)
+✔ paired rejects policy_sha256 (0.451538ms)
+✔ unequal workload/seed, thermal protocol, sample count refuse (1.234709ms)
+✔ adapter capture import usable with unknown fields (0.494339ms)
+✔ CLI prepare never executes and report/compare/import have JSON and text (159.207576ms)
+ℹ tests 56
+ℹ suites 0
+ℹ pass 56
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 236.631171
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_native_benchmark.c -o build-roadmap-contracts-bench/omega_native_benchmark.o
+ar rcs build-roadmap-contracts-bench/libomega_native_benchmark.a build-roadmap-contracts-bench/omega_native_benchmark.o
+exit_code=0

@@ -1,0 +1,118 @@
+✔ whole-token, multiturn, boundary-context fixtures match (0.950402ms)
+✔ refuses scale (0.179137ms)
+✔ refuses missing expert (0.089136ms)
+✔ refuses rounding (0.081248ms)
+✔ refuses wrong routing tie (0.0964ms)
+✔ refuses argmax tie (0.054368ms)
+✔ refuses model pin (0.212641ms)
+✔ refuses prompt pin (0.05464ms)
+✔ refuses contract (0.065648ms)
+✔ refuses missing stage (0.104896ms)
+✔ refuses missing turn (0.079856ms)
+✔ refuses context overflow (0.060816ms)
+✔ refuses out of order (0.045761ms)
+✔ refuses nonfinite (0.044528ms)
+✔ refuses empty (0.065632ms)
+✔ refuses non-f32 (0.063152ms)
+✔ refuses missing pin (0.040144ms)
+✔ repeatability requires identical executable pins (0.116704ms)
+✔ signed zeros exact; tolerance explicit and experimental (0.17128ms)
+✔ quantiles from independent samples; raw sessions and unknowns retained (1.363203ms)
+✔ unfavorable candidate preserved and fixture never claims speedup (1.14405ms)
+✔ reject contract mismatch (0.142944ms)
+✔ reject missing hash (0.141872ms)
+✔ reject policy hash (0.112048ms)
+✔ reject empty (0.127824ms)
+✔ reject nonfinite (0.176593ms)
+✔ reject missing metric (0.164016ms)
+✔ reject unknown as zero (0.168448ms)
+✔ reject estimated counter (0.168801ms)
+✔ reject measured estimate (0.178752ms)
+✔ reject timestamp order (0.334112ms)
+✔ reject timestamp poison (0.181617ms)
+✔ reject fake gpu span (0.578817ms)
+✔ reject stamps off fake gpu (0.172624ms)
+✔ reject zero total (0.1372ms)
+✔ reject duplicate session (0.237361ms)
+✔ reject correlated ordinal (0.237952ms)
+✔ reject missing correctness (0.098064ms)
+✔ reject wrong correctness binary (0.107984ms)
+✔ reject wrong correctness binding (0.238049ms)
+✔ reject changed token (0.109792ms)
+✔ reject unsupported context (0.1216ms)
+✖ reject uncovered context (0.536257ms)
+✖ reject unsupported batch (0.25776ms)
+✖ reject seed not validated (0.442385ms)
+✔ paired rejects driver_sha256 (0.459329ms)
+✔ paired rejects model_sha256 (0.302336ms)
+✔ paired rejects prompt_sha256 (0.255377ms)
+✔ paired rejects config_sha256 (0.2452ms)
+✔ paired rejects policy_sha256 (0.302961ms)
+✔ unequal workload/seed, thermal protocol, sample count refuse (1.599778ms)
+✔ adapter capture import usable with unknown fields (0.296721ms)
+✔ CLI prepare never executes and report/compare/import have JSON and text (176.43318ms)
+ℹ tests 53
+ℹ suites 0
+ℹ pass 50
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 250.799523
+
+✖ failing tests:
+
+test at tests/native_benchmark_test.mjs:67:55
+✖ reject uncovered context (0.536257ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///home/drakestapleton/workspace/cudapp-roadmap-numerics/tests/native_benchmark_test.mjs:67:117)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/native_benchmark_test.mjs:67:55
+✖ reject unsupported batch (0.25776ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///home/drakestapleton/workspace/cudapp-roadmap-numerics/tests/native_benchmark_test.mjs:67:117)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/native_benchmark_test.mjs:67:55
+✖ reject seed not validated (0.442385ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///home/drakestapleton/workspace/cudapp-roadmap-numerics/tests/native_benchmark_test.mjs:67:117)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }
+exit_code=1

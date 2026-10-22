@@ -1,0 +1,1 @@
+FIXTURE batch=1 context=8 seed=7 precision=fp8-e4m3-bf16-f32

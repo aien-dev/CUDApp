@@ -1,0 +1,1 @@
+FIXTURE model, no actual weights or GPU
