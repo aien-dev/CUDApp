@@ -65,7 +65,11 @@ is introduced. #15 owns reproducibility of that harness.
 `make test-numerical-contract` calls the existing FP8 conversion and packers,
 checks every finite e4m3 round trip, signed zero, midpoint rounding and
 subnormal boundaries, refusal of overflow/nonfinite admission, scale-fold
-negative control and strict/tolerance comparator refusals. Existing graph
+negative control and strict/tolerance comparator refusals. An adversarial
+router simulator test covers all-equal logits with exact IDs/tables, 128-expert
+and 256-plus-shared shapes, both simulator fragment orders and both scales.
+Isolated production-source mutants for rounding and reversed tie choice must
+fail their intended assertions. Existing graph
 and router simulator gates are required alongside these new checks.
 
 ## Trace exchange
