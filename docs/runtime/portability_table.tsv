@@ -126,3 +126,5 @@ src/omega_gpu_q38_graph.h	CHIP_SPECIFIC	Carried motor/runtime implementation or 
 src/omega_gpu_scan.c	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	HOSTED_LIBC
 src/omega_gpu_scan.h	CHIP_SPECIFIC	Carried motor/runtime implementation or its interface; tied to the Blackwell kernel and session contracts.	NO_HOSTED_INCLUDE
 src/omega_gpu_scan_ref.c	CHIP_SPECIFIC	Host oracle for the fixed GPU reduction and scan tree; does not execute GPU instructions.	HOSTED_LIBC
+src/omega_gpu_admission.c	CHIP_SPECIFIC	Opt-in Linux cooperative reservation persistence and native DMA admission adapter; uses procfs, flock and owner-checked files; outside the freestanding runtime.	LINUX_DRIVER
+src/omega_gpu_admission.h	CHIP_SPECIFIC	Additive experimental admission API for the native Linux DMA adapter; stable platform and session structures unchanged.	NO_HOSTED_INCLUDE
