@@ -1,0 +1,617 @@
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffunction-sections -fdata-sections -Wl,--gc-sections -o build-l478-green/kernel_dump_test tests/kernel_dump_test.c src/omega_blackwell_codegen.c src/sha256.c
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen.c -o build-l478-green/omega_blackwell_codegen.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_attn.c -o build-l478-green/omega_blackwell_codegen_attn.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_attn256.c -o build-l478-green/omega_blackwell_codegen_attn256.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_bf16.c -o build-l478-green/omega_blackwell_codegen_bf16.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_dec.c -o build-l478-green/omega_blackwell_codegen_dec.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_gdn.c -o build-l478-green/omega_blackwell_codegen_gdn.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_gemm.c -o build-l478-green/omega_blackwell_codegen_gemm.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_moe.c -o build-l478-green/omega_blackwell_codegen_moe.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_moe2.c -o build-l478-green/omega_blackwell_codegen_moe2.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_pattn.c -o build-l478-green/omega_blackwell_codegen_pattn.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_pattn256.c -o build-l478-green/omega_blackwell_codegen_pattn256.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_pf.c -o build-l478-green/omega_blackwell_codegen_pf.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_pfhost.c -o build-l478-green/omega_blackwell_codegen_pfhost.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_qg.c -o build-l478-green/omega_blackwell_codegen_qg.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_qmma.c -o build-l478-green/omega_blackwell_codegen_qmma.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_router.c -o build-l478-green/omega_blackwell_codegen_router.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_tc.c -o build-l478-green/omega_blackwell_codegen_tc.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_tc2.c -o build-l478-green/omega_blackwell_codegen_tc2.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_tern.c -o build-l478-green/omega_blackwell_codegen_tern.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_encoder.c -o build-l478-green/omega_blackwell_encoder.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_engine.c -o build-l478-green/omega_blackwell_engine.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_matmul.c -o build-l478-green/omega_blackwell_matmul.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_qmd.c -o build-l478-green/omega_blackwell_qmd.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_realize.c -o build-l478-green/omega_blackwell_realize.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_submit.c -o build-l478-green/omega_blackwell_submit.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_attention_api.c -o build-l478-green/omega_gpu_attention_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_bf16_gemv_api.c -o build-l478-green/omega_gpu_bf16_gemv_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_chip.c -o build-l478-green/omega_gpu_chip.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_cmdlist.c -o build-l478-green/omega_gpu_cmdlist.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_decode_attn256_api.c -o build-l478-green/omega_gpu_decode_attn256_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_decode_attn_api.c -o build-l478-green/omega_gpu_decode_attn_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_decode_graph.c -o build-l478-green/omega_gpu_decode_graph.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_elementwise_api.c -o build-l478-green/omega_gpu_elementwise_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_engine.c -o build-l478-green/omega_gpu_engine.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_fmt.c -o build-l478-green/omega_gpu_fmt.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_fp8_api.c -o build-l478-green/omega_gpu_fp8_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_fp8_pack.c -o build-l478-green/omega_gpu_fp8_pack.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_fp8gemm_api.c -o build-l478-green/omega_gpu_fp8gemm_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_gdn_api.c -o build-l478-green/omega_gpu_gdn_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_gemm.c -o build-l478-green/omega_gpu_gemm.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_hostmath.c -o build-l478-green/omega_gpu_hostmath.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_matmul_api.c -o build-l478-green/omega_gpu_matmul_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_mem_cached.c -o build-l478-green/omega_gpu_mem_cached.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_moe_api.c -o build-l478-green/omega_gpu_moe_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_pfgemm.c -o build-l478-green/omega_gpu_pfgemm.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_pfhost.c -o build-l478-green/omega_gpu_pfhost.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_platform.c -o build-l478-green/omega_gpu_platform.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_platform_linux.c -o build-l478-green/omega_gpu_platform_linux.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_prefill.c -o build-l478-green/omega_gpu_prefill.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_prefill_attn256_api.c -o build-l478-green/omega_gpu_prefill_attn256_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_prefill_attn_api.c -o build-l478-green/omega_gpu_prefill_attn_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_q36_graph.c -o build-l478-green/omega_gpu_q36_graph.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_q38_graph.c -o build-l478-green/omega_gpu_q38_graph.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_router_api.c -o build-l478-green/omega_gpu_router_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_scan.c -o build-l478-green/omega_gpu_scan.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_scan_ref.c -o build-l478-green/omega_gpu_scan_ref.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_serving.c -o build-l478-green/omega_gpu_serving.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_session.c -o build-l478-green/omega_gpu_session.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_tcgemm_api.c -o build-l478-green/omega_gpu_tcgemm_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_tern_api.c -o build-l478-green/omega_gpu_tern_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_wait.c -o build-l478-green/omega_gpu_wait.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_sm121_disasm.c -o build-l478-green/omega_sm121_disasm.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/sha256.c -o build-l478-green/sha256.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_canonical.c -o build-l478-green/omega_canonical.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_core.c -o build-l478-green/omega_core.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_vector.c -o build-l478-green/omega_vector.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c ./m16/m16_native.c -o build-l478-green/m16_native.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c ./nvrm/nvrm.c -o build-l478-green/nvrm.o
+./build-l478-green/kernel_dump_test
+kernel dump: 13 checks, 0 failures
+ar rcs build-l478-green/libomega_gpu.a build-l478-green/omega_blackwell_codegen.o build-l478-green/omega_blackwell_codegen_attn.o build-l478-green/omega_blackwell_codegen_attn256.o build-l478-green/omega_blackwell_codegen_bf16.o build-l478-green/omega_blackwell_codegen_dec.o build-l478-green/omega_blackwell_codegen_gdn.o build-l478-green/omega_blackwell_codegen_gemm.o build-l478-green/omega_blackwell_codegen_moe.o build-l478-green/omega_blackwell_codegen_moe2.o build-l478-green/omega_blackwell_codegen_pattn.o build-l478-green/omega_blackwell_codegen_pattn256.o build-l478-green/omega_blackwell_codegen_pf.o build-l478-green/omega_blackwell_codegen_pfhost.o build-l478-green/omega_blackwell_codegen_qg.o build-l478-green/omega_blackwell_codegen_qmma.o build-l478-green/omega_blackwell_codegen_router.o build-l478-green/omega_blackwell_codegen_tc.o build-l478-green/omega_blackwell_codegen_tc2.o build-l478-green/omega_blackwell_codegen_tern.o build-l478-green/omega_blackwell_encoder.o build-l478-green/omega_blackwell_engine.o build-l478-green/omega_blackwell_matmul.o build-l478-green/omega_blackwell_qmd.o build-l478-green/omega_blackwell_realize.o build-l478-green/omega_blackwell_submit.o build-l478-green/omega_gpu_attention_api.o build-l478-green/omega_gpu_bf16_gemv_api.o build-l478-green/omega_gpu_chip.o build-l478-green/omega_gpu_cmdlist.o build-l478-green/omega_gpu_decode_attn256_api.o build-l478-green/omega_gpu_decode_attn_api.o build-l478-green/omega_gpu_decode_graph.o build-l478-green/omega_gpu_elementwise_api.o build-l478-green/omega_gpu_engine.o build-l478-green/omega_gpu_fmt.o build-l478-green/omega_gpu_fp8_api.o build-l478-green/omega_gpu_fp8_pack.o build-l478-green/omega_gpu_fp8gemm_api.o build-l478-green/omega_gpu_gdn_api.o build-l478-green/omega_gpu_gemm.o build-l478-green/omega_gpu_hostmath.o build-l478-green/omega_gpu_matmul_api.o build-l478-green/omega_gpu_mem_cached.o build-l478-green/omega_gpu_moe_api.o build-l478-green/omega_gpu_pfgemm.o build-l478-green/omega_gpu_pfhost.o build-l478-green/omega_gpu_platform.o build-l478-green/omega_gpu_platform_linux.o build-l478-green/omega_gpu_prefill.o build-l478-green/omega_gpu_prefill_attn256_api.o build-l478-green/omega_gpu_prefill_attn_api.o build-l478-green/omega_gpu_q36_graph.o build-l478-green/omega_gpu_q38_graph.o build-l478-green/omega_gpu_router_api.o build-l478-green/omega_gpu_scan.o build-l478-green/omega_gpu_scan_ref.o build-l478-green/omega_gpu_serving.o build-l478-green/omega_gpu_session.o build-l478-green/omega_gpu_tcgemm_api.o build-l478-green/omega_gpu_tern_api.o build-l478-green/omega_gpu_wait.o build-l478-green/omega_sm121_disasm.o build-l478-green/sha256.o build-l478-green/omega_canonical.o build-l478-green/omega_core.o build-l478-green/omega_vector.o build-l478-green/m16_native.o build-l478-green/nvrm.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -o build-l478-green/gpu_elementwise_test tests/gpu_elementwise_test.c build-l478-green/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -Itests -o build-l478-green/gpu_reconv_test tests/gpu_reconv_test.c build-l478-green/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -Itests -o build-l478-green/gpu_attention_test tests/gpu_attention_test.c build-l478-green/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -Itests -o build-l478-green/gpu_fp8_api_test tests/gpu_fp8_api_test.c build-l478-green/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -Itests -o build-l478-green/gpu_isolation_test tests/gpu_isolation_test.c build-l478-green/libomega_gpu.a -lpthread -lm
+./build-l478-green/gpu_elementwise_test --host-only
+codegen ex2: 32 insns, 10 gprs, 6 ugprs
+sm121dis ex2: rc=0 insns=32 undecodable=0 missing=0 (private temporary stream)
+codegen xchg: 32 insns, 12 gprs, 6 ugprs
+sm121dis xchg: rc=0 insns=32 undecodable=0 missing=0 (private temporary stream)
+codegen rmsnorm: 80 insns, 25 gprs, 6 ugprs
+sm121dis rmsnorm: rc=0 insns=80 undecodable=0 missing=0 (private temporary stream)
+codegen rope: 32 insns, 17 gprs, 6 ugprs
+sm121dis rope: rc=0 insns=32 undecodable=0 missing=0 (private temporary stream)
+codegen swiglu: 32 insns, 12 gprs, 6 ugprs
+sm121dis swiglu: rc=0 insns=32 undecodable=0 missing=0 (private temporary stream)
+PASS: 24 checks, 0 failed
+./build-l478-green/gpu_reconv_test --host-only
+./build-l478-green/gpu_attention_test --host-only
+codegen paged_bf16: 216 insns, 58 gprs, 6 ugprs
+sm121dis paged_bf16: rc=0 insns=216 undecodable=0 missing=0 (private temporary stream)
+codegen gqa_f32: 184 insns, 56 gprs, 6 ugprs
+sm121dis gqa_f32: rc=0 insns=184 undecodable=0 missing=0 (private temporary stream)
+PASS: 107 checks, 0 failed
+./build-l478-green/gpu_attention_test --sim
+codegen rc_diamond: 37 insns, 14 gprs, 1 regions
+codegen rc_loopbreak: 41 insns, 14 gprs, 1 regions
+codegen rc_nested: 49 insns, 15 gprs, 2 regions
+codegen rc_exit_bar: 40 insns, 18 gprs, 1 regions
+codegen rc_depth16: 107 insns, 14 gprs, 16 regions
+sm121dis diamond: rc=0 insns=40 undecodable=0 missing=0 (private temporary stream)
+sm121dis depth16: rc=0 insns=112 undecodable=0 missing=0 (private temporary stream)
+sm121dis sieve_div2: rc=0 insns=72 undecodable=0 missing=0 (private temporary stream)
+sm121dis forms: rc=0 insns=4 undecodable=0 missing=0 (private temporary stream)
+model rc_diamond n=4096: warp_issues=4736 lane_util=0.878 splits=128 max_frags=2 peak_bars=1
+model rc_diamond n=4096: warp_issues=4736 lane_util=0.878 splits=128 max_frags=2 peak_bars=1
+model rc_loopbreak n=4096: warp_issues=115685 lane_util=0.193 splits=2889 max_frags=28 peak_bars=1
+model rc_loopbreak n=4096: warp_issues=116847 lane_util=0.195 splits=2876 max_frags=2 peak_bars=1
+model rc_nested n=4096: warp_issues=92819 lane_util=0.150 splits=1739 max_frags=20 peak_bars=2
+model rc_nested n=4096: warp_issues=91594 lane_util=0.148 splits=1694 max_frags=2 peak_bars=2
+model rc_exit_bar n=4096: warp_issues=5120 lane_util=0.963 splits=128 max_frags=2 peak_bars=1
+model rc_exit_bar n=4096: warp_issues=5120 lane_util=0.962 splits=128 max_frags=2 peak_bars=1
+model rc_depth16 n=4096: warp_issues=13696 lane_util=0.640 splits=128 max_frags=2 peak_bars=16
+model rc_depth16 n=4096: warp_issues=13696 lane_util=0.637 splits=128 max_frags=2 peak_bars=16
+PASS: 119 checks, 0 failed
+./build-l478-green/gpu_fp8_api_test --host-only
+coal default 1: gate_up 8 x 1536 x 2048 warps 32 rows 1 depth 0 -> spec.coal 1, STG 1, BAR.SYNC 1
+coal default 1: down 8 x 2048 x 768 warps 32 rows 1 depth 0 -> spec.coal 1, STG 1, BAR.SYNC 1
+coal default 1: o_proj 2048 x 4096 warps 8 rows 1 depth 0 -> spec.coal 1, STG 1, BAR.SYNC 1
+deep default 1: qkv 5120x2048 depth 4 (coal 1, shared 8272), o_proj 2048x4096 depth 0, gate_up 8x1536x2048 depth 0
+deep default: 4800 qkv spec_for calls 0.071 ms
+conversion: 254/256 exact, 2 NaN codes refused, 14 codes travel as f32 subnormals (2^-129 .. 7 * 2^-129): the chip must not flush them
+codegen: 244 kernels built, largest 884 IR instructions, peak 88 GPRs
+sm121dis k2048_lb16_r8: rc=0 insns=832 undecodable=0 missing=0 (private temporary stream)
+sm121dis k2048_lb16_r1_deep4: rc=0 insns=456 undecodable=0 missing=0 (private temporary stream)
+sm121dis k768_lb8_r2: rc=0 insns=168 undecodable=0 missing=0 (private temporary stream)
+v2 codegen k=768 lb=8 rows=1: 250 insns, peak 52 GPRs, declared 56
+v2 codegen k=768 lb=8 rows=2: 401 insns, peak 66 GPRs, declared 72
+v2 codegen k=768 lb=8 rows=4: 703 insns, peak 94 GPRs, declared 96
+v2 codegen k=2048 lb=16 rows=1: 473 insns, peak 74 GPRs, declared 80
+v2 codegen k=2048 lb=16 rows=2: 838 insns, peak 108 GPRs, declared 112
+v2 codegen k=4096 lb=16 rows=1: 877 insns, peak 114 GPRs, declared 120
+v2 codegen: 24 kernels built, largest 877 IR instructions, peak 114 GPRs
+v2 k=768 rows=1 warps=16: declared 56 registers, 28672 per SM at one CTA
+v2 k=2048 rows=1 warps=16: declared 80 registers, 40960 per SM at one CTA
+v2 k=4096 rows=1 warps=16: declared 120 registers, 61440 per SM at one CTA
+sm121dis v2_k2048_lb16_r1_w16: rc=0 insns=480 undecodable=0 missing=0 (private temporary stream)
+sched1 codegen: 244 kernels built, 0 stall-distance violations
+sched1 gate_up k2048 lb16 w32: 153 insns (sched0 153), peak 57 GPRs (sched0 51), declared 64; stall cycles in program order 414 (sched0 875); shortened-stall control caught
+sched1 down k768 lb8 w32: 111 insns (sched0 111), peak 47 GPRs (sched0 41), declared 56; stall cycles in program order 358 (sched0 627); shortened-stall control caught
+A/B codegen: 1888 kernels built (coal, wfirst, both x sched 0/1 x mutants), 0 stall-distance violations
+A/B gate_up k2048 lb16 w32: insns 153 / A 183 / B 153 / A+B 183; declared regs A 64 B 56 A+B 64; load batches 3 / 3 / 2 / 2
+A/B down k768 lb8 w32: insns 111 / A 141 / B 111 / A+B 141; declared regs A 56 B 48 A+B 56; load batches 3 / 3 / 2 / 2
+gpu_fp8_api_test: 4997 checks, 0 failed: PASS
+./build-l478-green/gpu_fp8_api_test --sim
+sim one-hot conversion: 256/256 rows exact
+sim k256 lb8 r1 w1                                rc=0 worst_rel=4.868e-08 bad=0 (3 ms)
+sim k256 lb8 r1 w1 deep                           rc=0 worst_rel=4.868e-08 bad=0 (3 ms)
+sim k256 lb8 r2 w2                                rc=0 worst_rel=3.955e-08 bad=0 (4 ms)
+sim k256 lb8 r2 w2                                mutant 1: caught (rc=0 bad=256 worst_rel=4.659e-01)
+sim k256 lb8 r2 w2 mutant 2: one K step, control not applicable
+sim k256 lb8 r2 w2                                mutant 4: caught (rc=0 bad=256 worst_rel=4.659e-01)
+sim k256 lb8 r2 w2 deep                           rc=0 worst_rel=3.955e-08 bad=0 (4 ms)
+sim k256 lb8 r2 w2 deep                           mutant 1: caught (rc=0 bad=256 worst_rel=4.659e-01)
+sim k256 lb8 r2 w2 mutant 2: one K step, control not applicable
+sim k256 lb8 r2 w2 deep                           mutant 4: caught (rc=0 bad=256 worst_rel=4.659e-01)
+sim k768 lb8 r4 w8 (down shape width)             rc=0 worst_rel=3.352e-08 bad=0 (11 ms)
+sim k768 lb8 r4 w8 (down shape width) deep        rc=0 worst_rel=3.352e-08 bad=0 (11 ms)
+sim k768 lb8 r8                                   rc=0 worst_rel=3.023e-08 bad=0 (10 ms)
+sim k2048 lb16 r8 w8 (gate shape width)           rc=0 worst_rel=2.818e-08 bad=0 (37 ms)
+sim k2048 lb16 r8 w8 (gate shape width)           mutant 1: caught (rc=0 bad=384 worst_rel=2.819e-01)
+sim k2048 lb16 r8 w8 (gate shape width)           mutant 2: caught (rc=0 bad=383 worst_rel=1.578e-01)
+sim k2048 lb16 r8 w8 (gate shape width)           mutant 4: caught (rc=0 bad=384 worst_rel=2.819e-01)
+sim k2048 lb16 r1                                 rc=0 worst_rel=2.044e-08 bad=0 (15 ms)
+sim k2048 lb16 r1 deep                            rc=0 worst_rel=2.044e-08 bad=0 (14 ms)
+sim k512 lb16 r2 w3 (odd warps, tail row groups)  rc=0 worst_rel=4.748e-08 bad=0 (7 ms)
+sim k512 lb16 r2 w3 (odd warps, tail row groups) deep rc=0 worst_rel=4.748e-08 bad=0 (8 ms)
+sim 4 experts shared x (gate+up)                  rc=0 worst_rel=2.646e-08 bad=0 (100 ms)
+sim 4 experts shared x (gate+up)                  mutant 1: caught (rc=0 bad=1024 worst_rel=2.538e-01)
+sim 4 experts shared x (gate+up)                  mutant 2: caught (rc=0 bad=1024 worst_rel=1.503e-01)
+sim 4 experts shared x (gate+up)                  mutant 3: caught (rc=0 bad=1024 worst_rel=3.976e-01)
+sim 4 experts shared x (gate+up)                  mutant 4: caught (rc=0 bad=1024 worst_rel=2.538e-01)
+sim 8 groups per-group x, repeated ids (down)     rc=0 worst_rel=4.441e-08 bad=0 (87 ms)
+sim 8 groups per-group x, repeated ids (down)     mutant 1: caught (rc=0 bad=2047 worst_rel=5.011e-01)
+sim 8 groups per-group x, repeated ids (down)     mutant 2: caught (rc=0 bad=2048 worst_rel=6.440e-01)
+sim 8 groups per-group x, repeated ids (down)     mutant 3: caught (rc=0 bad=2048 worst_rel=8.668e-01)
+sim 8 groups per-group x, repeated ids (down)     mutant 4: caught (rc=0 bad=2047 worst_rel=5.011e-01)
+sim 8 groups per-group x, repeated ids (down) deep rc=0 worst_rel=4.441e-08 bad=0 (86 ms)
+sim 8 groups per-group x, repeated ids (down) deep mutant 1: caught (rc=0 bad=2047 worst_rel=5.011e-01)
+sim 8 groups per-group x, repeated ids (down) deep mutant 2: caught (rc=0 bad=2048 worst_rel=6.440e-01)
+sim 8 groups per-group x, repeated ids (down) deep mutant 3: caught (rc=0 bad=2048 worst_rel=8.668e-01)
+sim 8 groups per-group x, repeated ids (down) deep mutant 4: caught (rc=0 bad=2047 worst_rel=5.011e-01)
+sim 2 groups per-group x                          rc=0 worst_rel=7.101e-08 bad=0 (4 ms)
+sim 2 groups per-group x deep                     rc=0 worst_rel=7.101e-08 bad=0 (4 ms)
+sim k768 w7: partial staging round (deep)         rc=0 worst_rel=2.724e-08 bad=0 (26 ms)
+sim k768 w7: partial staging round (deep) deep    rc=0 worst_rel=2.724e-08 bad=0 (25 ms)
+sim k17408 lb16 r2 w8 (Qwen3.8-27B down width, step kernel) rc=0 worst_rel=1.111e-08 bad=0 (110 ms)
+sim battery: worst relative error 7.101e-08 over 12 points, 13361904 warp issues
+sim v2 k2048 lb16 r1 w8 (gate_up/qkv width)          rc=0 worst_rel=2.463e-08 bad=0 identical_to_v1=1PASS gqa_f32_tinyllama_32q4kv_ctx1 n=2048 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=4801148 calls=1 unwritten=0 kv_staged=2048/2048 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_tinyllama_32q4kv_ctx17 n=2048 rc=OK violations=0 worst_scaled_err=0.00189313 chip_ns=0 call_ns=5853074 calls=1 unwritten=0 kv_staged=34816/34816 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_tinyllama_32q4kv_ctx256 n=2048 rc=OK violations=0 worst_scaled_err=0.00183169 chip_ns=0 call_ns=27530239 calls=1 unwritten=0 kv_staged=524288/524288 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_tinyllama_32q4kv_ctx2048 n=2048 rc=OK violations=0 worst_scaled_err=0.00274869 chip_ns=0 call_ns=122939768 calls=1 unwritten=0 kv_staged=4194304/4194304 blocks=1/1 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=2041) NO_RESCALE:CAUGHT(rc=OK,bad=1959) Q_ROW:CAUGHT(rc=OK,bad=2048) OUT_ROW:CAUGHT(rc=OK,bad=2048)
+PASS gqa_f32_tinyllama_32q4kv_ctx65 n=2048 rc=OK violations=0 worst_scaled_err=0.00145684 chip_ns=0 call_ns=6065939 calls=1 unwritten=0 kv_staged=133120/133120 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_tinyllama_32q4kv_ctx128 n=2048 rc=OK violations=0 worst_scaled_err=0.00206007 chip_ns=0 call_ns=7972942 calls=1 unwritten=0 kv_staged=262144/262144 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_tinyllama_32q4kv_ctx129 n=2048 rc=OK violations=0 worst_scaled_err=0.00165735 chip_ns=0 call_ns=9836937 calls=1 unwritten=0 kv_staged=264192/264192 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_tinyllama_32q4kv_ctx300 n=2048 rc=OK violations=0 worst_scaled_err=0.00201893 chip_ns=0 call_ns=18757869 calls=1 unwritten=0 kv_staged=614400/614400 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_tinyllama_32q4kv_ctx1000 n=2048 rc=OK violations=0 worst_scaled_err=0.00297055 chip_ns=0 call_ns=59967099 calls=1 unwritten=0 kv_staged=2048000/2048000 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_llama32_1b_32q8kv_ctx1 n=2048 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=2328670 calls=1 unwritten=0 kv_staged=4096/4096 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_llama32_1b_32q8kv_ctx17 n=2048 rc=OK violations=0 worst_scaled_err=0.00187227 chip_ns=0 call_ns=2895793 calls=1 unwritten=0 kv_staged=69632/69632 blocks=1/1 | mutants 1/1 KV_HEAD:CAUGHT(rc=OK,bad=2048)
+PASS gqa_f32_llama32_1b_32q8kv_ctx256 n=2048 rc=OK violations=0 worst_scaled_err=0.00201723 chip_ns=0 call_ns=15559498 calls=1 unwritten=0 kv_staged=1048576/1048576 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_llama32_1b_32q8kv_ctx2048 n=2048 rc=OK violations=0 worst_scaled_err=0.0029454 chip_ns=0 call_ns=124169167 calls=1 unwritten=0 kv_staged=8388608/8388608 blocks=1/1 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=2045) NO_RESCALE:CAUGHT(rc=OK,bad=1904) Q_ROW:CAUGHT(rc=OK,bad=2042) OUT_ROW:CAUGHT(rc=OK,bad=2042)
+PASS gqa_f32_llama32_1b_32q8kv_ctx65 n=2048 rc=OK violations=0 worst_scaled_err=0.00195964 chip_ns=0 call_ns=6151460 calls=1 unwritten=0 kv_staged=266240/266240 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_llama32_1b_32q8kv_ctx128 n=2048 rc=OK violations=0 worst_scaled_err=0.00170583 chip_ns=0 call_ns=8083711 calls=1 unwritten=0 kv_staged=524288/524288 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_llama32_1b_32q8kv_ctx129 n=2048 rc=OK violations=0 worst_scaled_err=0.0017034 chip_ns=0 call_ns=9880313 calls=1 unwritten=0 kv_staged=528384/528384 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_llama32_1b_32q8kv_ctx300 n=2048 rc=OK violations=0 worst_scaled_err=0.00187268 chip_ns=0 call_ns=19097439 calls=1 unwritten=0 kv_staged=1228800/1228800 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_llama32_1b_32q8kv_ctx1000 n=2048 rc=OK violations=0 worst_scaled_err=0.00303901 chip_ns=0 call_ns=60972161 calls=1 unwritten=0 kv_staged=4096000/4096000 blocks=1/1 | mutants 0/0 
+PASS gqa_rows_f32_tinyllama_32q4kv_base0_rows1 n=2048 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=2335822 calls=1 unwritten=0 kv_staged=2048/2048 blocks=1/1 | mutants 0/0 
+PASS gqa_rows_f32_tinyllama_32q4kv_base17_rows5 n=10240 rc=OK violations=0 worst_scaled_err=0.00268496 chip_ns=0 call_ns=14240386 calls=1 unwritten=0 kv_staged=45056/225280 blocks=1/5 | mutants 0/0 
+PASS gqa_rows_f32_tinyllama_32q4kv_base300_rows40 n=81920 rc=OK violations=0 wor (29 ms)
+sim v2 k2048 lb16 r1 w8 (gate_up/qkv width)          mutant 1: caught (rc=0 bad=256 worst_rel=2.218e-01, identity check differs=1)
+sim v2 k2048 lb16 r1 w8 (gate_up/qkv width)          mutant 2: caught (rc=0 bad=256 worst_rel=1.690e-01, identity check differs=1)
+sim v2 k2048 lb16 r2 w8 (128 B per lane)             rc=0 worst_rel=2.578e-08 bad=0 identical_to_v1=1 (27 ms)
+sim v2 k4096 lb16 r1 w8 (o_proj width)               rc=0 worst_rel=1.878e-08 bad=0 identical_to_v1=1 (56 ms)
+sim v2 k768 lb8 r1 w8 (down width)                   rc=0 worst_rel=2.677e-08 bad=0 identical_to_v1=1 (13 ms)
+sim v2 k768 lb8 r4 w8                                rc=0 worst_rel=3.253e-08 bad=0 identical_to_v1=1 (11 ms)
+sim v2 k768 w7: partial staging round                rc=0 worst_rel=3.262e-08 bad=0 identical_to_v1=1 (25 ms)
+sim v2 4 experts shared x (gate_up)                  rc=0 worst_rel=2.472e-08 bad=0 identical_to_v1=1 (116 ms)
+sim v2 4 experts shared x (gate_up)                  mutant 1: caught (rc=0 bad=1022 worst_rel=2.155e-01, identity check differs=1)
+sim v2 4 experts shared x (gate_up)                  mutant 2: caught (rc=0 bad=1024 worst_rel=1.745e-01, identity check differs=1)
+sim v2 4 experts shared x (gate_up)                  mutant 3: caught (rc=0 bad=1024 worst_rel=3.980e-01, identity check differs=1)
+sim v2 8 groups per-group x, repeated ids (down)     rc=0 worst_rel=4.875e-08 bad=0 identical_to_v1=1 (93 ms)
+sim v2 8 groups per-group x, repeated ids (down)     mutant 1: caught (rc=0 bad=2048 worst_rel=3.773e-01, identity check differs=1)
+sim v2 8 groups per-group x, repeated ids (down)     mutant 2: caught (rc=0 bad=2048 worst_rel=5.105e-01, identity check differs=1)
+sim v2 8 groups per-group x, repeated ids (down)     mutant 3: caught (rc=0 bad=2048 worst_rel=1.327e+00, identity check differs=1)
+sim v2 2 groups per-group x, r8 k256                 rc=0 worst_rel=5.595e-08 bad=0 identical_to_v1=1 (4 ms)
+sim v2 k512 w3 (odd warps, tail row groups)          rc=0 worst_rel=4.233e-08 bad=0 identical_to_v1=1 (8 ms)
+sim v2 battery: 10/10 points bit-identical to variant 1
+sim sched1 k256 lb8 r1 w1                                rc=0 worst_rel=4.868e-08 bad=0 identical_to_sched0=1
+sim sched1 k256 lb8 r1 w1 deep                           rc=0 worst_rel=4.868e-08 bad=0 identical_to_sched0=1
+sim sched1 k256 lb8 r2 w2                                rc=0 worst_rel=3.955e-08 bad=0 identical_to_sched0=1
+sim sched1 k256 lb8 r2 w2 deep                           rc=0 worst_rel=3.955e-08 bad=0 identical_to_sched0=1
+sim sched1 k768 lb8 r4 w8 (down shape width)             rc=0 worst_rel=3.352e-08 bad=0 identical_to_sched0=1
+sim sched1 k768 lb8 r4 w8 (down shape width) deep        rc=0 worst_rel=3.352e-08 bad=0 identical_to_sched0=1
+sim sched1 k768 lb8 r8                                   rc=0 worst_rel=3.023e-08 bad=0 identical_to_sched0=1
+sim sched1 k2048 lb16 r8 w8 (gate shape width)           rc=0 worst_rel=2.818e-08 bad=0 identical_to_sched0=1
+sim sched1 k2048 lb16 r1                                 rc=0 worst_rel=2.044e-08 bad=0 identical_to_sched0=1
+sim sched1 k2048 lb16 r1 deep                            rc=0 worst_rel=2.044e-08 bad=0 identical_to_sched0=1
+sim sched1 k512 lb16 r2 w3 (odd warps, tail row groups)  rc=0 worst_rel=4.748e-08 bad=0 identical_to_sched0=1
+sim sched1 k512 lb16 r2 w3 (odd warps, tail row groups) deep rc=0 worst_rel=4.748e-08 bad=0 identical_to_sched0=1
+sim sched1 4 experts shared x (gate+up)                  rc=0 worst_rel=2.646e-08 bad=0 identical_to_sched0=1
+sim sched1 4 experts shared x (gate+up)                  mutant 1: caught (rc=0 bad=1024 worst_rel=2.538e-01, identity check differs=1)
+sim sched1 4 experts shared x (gate+up)                  mutant 2: caught (rc=0 bad=1024 worst_rel=1.503e-01, identity check differs=1)
+sim sched1 4 experts shared x (gate+up)                  mutant 3: caught (rc=0 bad=1024 worst_rel=3.976e-01, identity check differs=1)
+sim sched1 8 groups per-group x, repeated ids (down)     rc=0 worst_rel=4.441e-08 bad=0 identical_to_sched0=1
+sim sched1 8 groups per-group x, repeated ids (down)     mutant 1: caught (rc=0 bad=2047 worst_rel=5.011e-01, identity check differs=1)
+sim sched1 8 groups per-group x, repeated ids (down)     mutant 2: caught (rc=0 bad=2048 worst_rel=6.440e-01, identity check differs=1)
+sim sched1 8 groups per-group x, repeated ids (down)     mutant 3: caught (rc=0 bad=2048 worst_rel=8.668e-01, identity check differs=1)
+sim sched1 8 groups per-group x, repeated ids (down) deep rc=0 worst_rel=4.441e-08 bad=0 identical_to_sched0=1
+sim sched1 8 groups per-group x, repeated ids (down) deep mutant 1: caught (rc=0 bad=2047 worst_rel=5.011e-01, identity check differs=1)
+sim sched1 8 groups per-group x, repeated ids (down) deep mutant 2: caught (rc=0 bad=2048 worst_rel=6.440e-01, identity check differs=1)
+sim sched1 8 groups per-group x, repeated ids (down) deep mutant 3: caught (rc=0 bad=2048 worst_rel=8.668e-01, identity check differs=1)
+sim sched1 2 groups per-group x                          rc=0 worst_rel=7.101e-08 bad=0 identical_to_sched0=1
+sim sched1 2 groups per-group x deep                     rc=0 worst_rel=7.101e-08 bad=0 identical_to_sched0=1
+sim sched1 k768 w7: partial staging round (deep)         rc=0 worst_rel=2.724e-08 bad=0 identical_to_sched0=1
+sim sched1 k768 w7: partial staging round (deep) deep    rc=0 worst_rel=2.724e-08 bad=0 identical_to_sched0=1
+sim sched1 k17408 lb16 r2 w8 (Qwen3.8-27B down width, step kernel) rc=0 worst_rel=1.111e-08 bad=0 identical_to_sched0=1
+sim sched1 battery: 20/20 runs bit-identical to sched 0
+sim A k256 lb8 r1 w1                                     rc=0 worst_rel=4.868e-08 bad=0 identical_to_default=1
+sim B k256 lb8 r1 w1                                     rc=0 worst_rel=4.868e-08 bad=0 identical_to_default=1
+sim A+B k256 lb8 r1 w1                                   rc=0 worst_rel=4.868e-08 bad=0 identical_to_default=1
+sim A k256 lb8 r1 w1 deep                                rc=0 worst_rel=4.868e-08 bad=0 identical_to_default=1
+sim B k256 lb8 r1 w1 deep                                rc=0 worst_rel=4.868e-08 bad=0 identical_to_default=1
+sim A+B k256 lb8 r1 w1 deep                              rc=0 worst_rel=4.868e-08 bad=0 identical_to_default=1
+sim A k256 lb8 r2 w2                                     rc=0 worst_rel=3.955e-08 bad=0 identical_to_default=1
+sim A k256 lb8 r2 w2                                     mutant 4: caught (rc=-1 bad=0 run 2 (order 0, warp order 1) changed the result)
+sim B k256 lb8 r2 w2                                     rc=0 worst_rel=3.955e-08 bad=0 identical_to_default=1
+sim A+B k256 lb8 r2 w2                                   rc=0 worst_rel=3.955e-08 bad=0 identical_to_default=1
+sim A k256 lb8 r2 w2 deep                                rc=0 worst_rel=3.955e-08 bad=0 identical_to_default=1
+sim A k256 lb8 r2 w2 deep                                mutant 4: caught (rc=-1 bad=0 run 2 (order 0, warp order 1) changed the result)
+sim B k256 lb8 r2 w2 deep                                rc=0 worst_rel=3.955e-08 bad=0 identical_to_default=1
+sim A+B k256 lb8 r2 w2 deep                              rc=0 worst_rel=3.955e-08 bad=0 identical_to_default=1
+sim A k768 lb8 r4 w8 (down shape width)                  rc=0 worst_rel=3.352e-08 bad=0 identical_to_default=1
+sim B k768 lb8 r4 w8 (down shape width)                  rc=0 worst_rel=3.352e-08 bad=0 identical_to_default=1
+sim A+B k768 lb8 r4 w8 (down shape width)                rc=0 worst_rel=3.352e-08 bad=0 identical_to_default=1
+sim A k768 lb8 r4 w8 (down shape width) deep             rc=0 worst_rel=3.352e-08 bad=0 identical_to_default=1
+sim B k768 lb8 r4 w8 (down shape width) deep             rc=0 worst_rel=3.352e-08 bad=0 identical_to_default=1
+sim A+B k768 lb8 r4 w8 (down shape width) deep           rc=0 worst_rel=3.352e-08 bad=0 identical_to_default=1
+sim B k768 lb8 r8                                        rc=0 worst_rel=3.023e-08 bad=0 identical_to_default=1
+sim B k2048 lb16 r8 w8 (gate shape width)                rc=0 worst_rel=2.818e-08 bad=0 identical_to_default=1
+sim A k2048 lb16 r1                                      rc=0 worst_rel=2.044e-08 bad=0 identical_to_default=1
+sim B k2048 lb16 r1                                      rc=0 worst_rel=2.044e-08 bad=0 identical_to_default=1
+sim A+B k2048 lb16 r1                                    rc=0 worst_rel=2.044e-08 bad=0 identical_to_default=1
+sim A k2048 lb16 r1 deep                                 rc=0 worst_rel=2.044e-08 bad=0 identical_to_default=1
+sim B k2048 lb16 r1 deep                                 rc=0 worst_rel=2.044e-08 bad=0 identical_to_default=1
+sim A+B k2048 lb16 r1 deep                               rc=0 worst_rel=2.044e-08 bad=0 identical_to_default=1
+sim A k512 lb16 r2 w3 (odd warps, tail row groups)       rc=0 worst_rel=4.748e-08 bad=0 identical_to_default=1
+sim A k512 lb16 r2 w3 (odd warps, tail row groups)       mutant 5: caught (rc=-1 bad=0 run 0 (order 0, warp order 0): MEM at pc 59: global access outside the declared buffers)
+sim A k512 lb16 r2 w3 (odd warps, tail row groups)       mutant 4: caught (rc=-1 bad=0 run 2 (order 0, warp order 1) changed the result)
+sim B k512 lb16 r2 w3 (odd warps, tail row groups)       rc=0 worst_rel=4.748e-08 bad=0 identical_to_default=1
+sim A+B k512 lb16 r2 w3 (odd warps, tail row groups)     rc=0 worst_rel=4.748e-08 bad=0 identical_to_default=1
+sim A k512 lb16 r2 w3 (odd warps, tail row groups) deep  rc=0 worst_rel=4.748e-08 bad=0 identical_to_default=1
+sim A k512 lb16 r2 w3 (odd warps, tail row groups) deep  mutant 5: caught (rc=-1 bad=0 run 0 (order 0, warp order 0): MEM at pc 97: global access outside the declared buffers)
+sim A k512 lb16 r2 w3 (odd warps, tail row groups) deep  mutant 4: caught (rc=-1 bad=0 run 2 (order 0, warp order 1) changed the result)
+sim B k512 lb16 r2 w3 (odd warps, tail row groups) deep  rc=0 worst_rel=4.748e-08 bad=0 identical_to_default=1
+sim A+B k512 lb16 r2 w3 (odd warps, tail row groups) deep rc=0 worst_rel=4.748e-08 bad=0 identical_to_default=1
+sim B 4 experts shared x (gate+up)                       rc=0 worst_rel=2.646e-08 bad=0 identical_to_default=1
+sim A 8 groups per-group x, repeated ids (down)          rc=0 worst_rel=4.441e-08 bad=0 identical_to_default=1
+sim A 8 groups per-group x, repeated ids (down)          mutant 4: caught (rc=-1 bad=0 run 2 (order 0, warp order 1) changed the result)
+sim B 8 groups per-group x, repeated ids (down)          rc=0 worst_rel=4.441e-08 bad=0 identical_to_default=1
+sim A+B 8 groups per-group x, repeated ids (down)        rc=0 worst_rel=4.441e-08 bad=0 identical_to_default=1
+sim A+B 8 groups per-group x, repeated ids (down)        mutant 1: caught (rc=0 bad=2047 )
+sim A+B 8 groups per-group x, repeated ids (down)        mutant 2: caught (rc=0 bad=2048 )
+sim A+B 8 groups per-group x, repeated ids (down)        mutant 3: caught (rc=0 bad=2048 )
+sim A 8 groups per-group x, repeated ids (down) deep     rc=0 worst_rel=4.441e-08 bad=0 identical_to_default=1
+sim A 8 groups per-group x, repeated ids (down) deep     mutant 4: caught (rc=-1 bad=0 run 2 (order 0, warp order 1) changed the result)
+sim B 8 groups per-group x, repeated ids (down) deep     rc=0 worst_rel=4.441e-08 bad=0 identical_to_default=1
+sim A+B 8 groups per-group x, repeated ids (down) deep   rc=0 worst_rel=4.441e-08 bad=0 identical_to_default=1
+sim A+B 8 groups per-group x, repeated ids (down) deep   mutant 1: caught (rc=0 bad=2047 )
+sim A+B 8 groups per-group x, repeated ids (down) deep   mutant 2: caught (rc=0 bad=2048 )
+sim A+B 8 groups per-group x, repeated ids (down) deep   mutant 3: caught (rc=0 bad=2048 )
+sim A 2 groups per-group x                               rc=0 worst_rel=7.101e-08 bad=0 identical_to_default=1
+sim B 2 groups per-group x                               rc=0 worst_rel=7.101e-08 bad=0 identical_to_default=1
+sim A+B 2 groups per-group x                             rc=0 worst_rel=7.101e-08 bad=0 identical_to_default=1
+sim A+B 2 groups per-group x                             mutant 1: caught (rc=0 bad=256 )
+sim A 2 groups per-group x deep                          rc=0 worst_rel=7.101e-08 bad=0 identical_to_default=1
+sim B 2 groups per-group x deep                          rc=0 worst_rel=7.101e-08 bad=0 identical_st_scaled_err=0.00333664 chip_ns=0 call_ns=810262643 calls=2 unwritten=0 kv_staged=696320/27852800 blocks=1/40 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=81807) NO_RESCALE:CAUGHT(rc=OK,bad=64191) Q_ROW:CAUGHT(rc=OK,bad=81812) OUT_ROW:CAUGHT(rc=OK,bad=81812)
+PASS gqa_rows_f32_llama32_1b_32q8kv_base0_rows1 n=2048 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=2312285 calls=1 unwritten=0 kv_staged=4096/4096 blocks=1/1 | mutants 0/0 
+PASS gqa_rows_f32_llama32_1b_32q8kv_base17_rows5 n=10240 rc=OK violations=0 worst_scaled_err=0.00181178 chip_ns=0 call_ns=14255555 calls=1 unwritten=0 kv_staged=90112/450560 blocks=1/5 | mutants 0/0 
+PASS gqa_rows_f32_llama32_1b_32q8kv_base300_rows40 n=81920 rc=OK violations=0 worst_scaled_err=0.00302101 chip_ns=0 call_ns=812290016 calls=2 unwritten=0 kv_staged=1392640/55705600 blocks=1/40 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=81805) NO_RESCALE:CAUGHT(rc=OK,bad=65973) Q_ROW:CAUGHT(rc=OK,bad=81824) OUT_ROW:CAUGHT(rc=OK,bad=81824)
+PASS gqa_f32_large_scores_32q4kv_ctx256 n=2048 rc=OK violations=0 worst_scaled_err=0.0830785 chip_ns=0 call_ns=15598986 calls=1 unwritten=0 kv_staged=524288/524288 blocks=1/1 | mutants 1/1 NO_MAX:CAUGHT(rc=OK,bad=2048)
+PASS gqa_f32_mha_16q16kv_ctx300 n=1024 rc=OK violations=0 worst_scaled_err=0.00163802 chip_ns=0 call_ns=9526855 calls=1 unwritten=0 kv_staged=2457600/2457600 blocks=1/1 | mutants 3/3 Q_ROW:CAUGHT(rc=OK,bad=1024) OUT_ROW:CAUGHT(rc=OK,bad=1020) KV_HEAD:CAUGHT(rc=OK,bad=1023)
+PASS paged_bf16_tinyllama_32q4kv_bs16_ctx1 n=2048 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=2661295 calls=1 unwritten=0 kv_staged=16384/16384 blocks=1/1 | mutants 1/1 KV_HEAD:CAUGHT(rc=OK,bad=2048)
+PASS paged_bf16_tinyllama_32q4kv_bs16_ctx17 n=2048 rc=OK violations=0 worst_scaled_err=0.00259673 chip_ns=0 call_ns=3313011 calls=1 unwritten=0 kv_staged=32768/32768 blocks=2/2 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=2048) SLOT:CAUGHT(rc=OK,bad=2047)
+PASS paged_bf16_tinyllama_32q4kv_bs16_ctx256 n=2048 rc=OK violations=0 worst_scaled_err=0.0012428 chip_ns=0 call_ns=19904579 calls=1 unwritten=0 kv_staged=262144/262144 blocks=16/16 | mutants 0/0 
+PASS paged_bf16_tinyllama_32q4kv_bs16_ctx2048 n=2048 rc=OK violations=0 worst_scaled_err=0.000511585 chip_ns=0 call_ns=150047781 calls=1 unwritten=0 kv_staged=2097152/2097152 blocks=128/128 | mutants 5/5 KV_HEAD:CAUGHT(rc=OK,bad=2047) SLOT:CAUGHT(rc=OK,bad=2038) NO_RESCALE:CAUGHT(rc=OK,bad=1901) Q_ROW:CAUGHT(rc=OK,bad=2046) OUT_ROW:CAUGHT(rc=OK,bad=2046)
+PASS paged_bf16_tinyllama_32q4kv_bs16_ctx65 n=2048 rc=OK violations=0 worst_scaled_err=0.00182922 chip_ns=0 call_ns=7628684 calls=1 unwritten=0 kv_staged=81920/81920 blocks=5/5 | mutants 0/0 
+PASS paged_bf16_tinyllama_32q4kv_bs16_ctx128 n=2048 rc=OK violations=0 worst_scaled_err=0.00143826 chip_ns=0 call_ns=9825577 calls=1 unwritten=0 kv_staged=131072/131072 blocks=8/8 | mutants 0/0 
+PASS paged_bf16_tinyllama_32q4kv_bs16_ctx129 n=2048 rc=OK violations=0 worst_scaled_err=0.0017437 chip_ns=0 call_ns=11945717 calls=1 unwritten=0 kv_staged=147456/147456 blocks=9/9 | mutants 0/0 
+PASS paged_bf16_tinyllama_32q4kv_bs16_ctx300 n=2048 rc=OK violations=0 worst_scaled_err=0.00124488 chip_ns=0 call_ns=23578681 calls=1 unwritten=0 kv_staged=311296/311296 blocks=19/19 | mutants 0/0 
+PASS paged_bf16_tinyllama_32q4kv_bs16_ctx1000 n=2048 rc=OK violations=0 worst_scaled_err=0.00102811 chip_ns=0 call_ns=80692324 calls=1 unwritten=0 kv_staged=163840/1032192 blocks=10/63 | mutants 0/0 
+PASS paged_bf16_llama32_1b_32q8kv_bs16_ctx1 n=2048 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=2670176 calls=1 unwritten=0 kv_staged=32768/32768 blocks=1/1 | mutants 1/1 KV_HEAD:CAUGHT(rc=OK,bad=2048)
+PASS paged_bf16_llama32_1b_32q8kv_bs16_ctx17 n=2048 rc=OK violations=0 worst_scaled_err=0.00172089 chip_ns=0 call_ns=3354308 calls=1 unwritten=0 kv_staged=65536/65536 blocks=2/2 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=2046) SLOT:CAUGHT(rc=OK,bad=2048)
+PASS paged_bf16_llama32_1b_32q8kv_bs16_ctx256 n=2048 rc=OK violations=0 worst_scaled_err=0.00106374 chip_ns=0 call_ns=19929027 calls=1 unwritten=0 kv_staged=524288/524288 bloto_default=1
+sim A+B 2 groups per-group x deep                        rc=0 worst_rel=7.101e-08 bad=0 identical_to_default=1
+sim A+B 2 groups per-group x deep                        mutant 1: caught (rc=0 bad=256 )
+sim A k768 w7: partial staging round (deep)              rc=0 worst_rel=2.724e-08 bad=0 identical_to_default=1
+sim A k768 w7: partial staging round (deep)              mutant 5: caught (rc=-1 bad=0 run 0 (order 0, warp order 0): MEM at pc 56: global access outside the declared buffers)
+sim A k768 w7: partial staging round (deep)              mutant 4: caught (rc=-1 bad=0 run 2 (order 0, warp order 1) changed the result)
+sim B k768 w7: partial staging round (deep)              rc=0 worst_rel=2.724e-08 bad=0 identical_to_default=1
+sim A+B k768 w7: partial staging round (deep)            rc=0 worst_rel=2.724e-08 bad=0 identical_to_default=1
+sim A k768 w7: partial staging round (deep) deep         rc=0 worst_rel=2.724e-08 bad=0 identical_to_default=1
+sim A k768 w7: partial staging round (deep) deep         mutant 5: caught (rc=-1 bad=0 run 0 (order 0, warp order 0): MEM at pc 90: global access outside the declared buffers)
+sim A k768 w7: partial staging round (deep) deep         mutant 4: caught (rc=-1 bad=0 run 2 (order 0, warp order 1) changed the result)
+sim B k768 w7: partial staging round (deep) deep         rc=0 worst_rel=2.724e-08 bad=0 identical_to_default=1
+sim A+B k768 w7: partial staging round (deep) deep       rc=0 worst_rel=2.724e-08 bad=0 identical_to_default=1
+sim A k17408 lb16 r2 w8 (Qwen3.8-27B down width, step kernel) rc=0 worst_rel=1.111e-08 bad=0 identical_to_default=1
+sim B k17408 lb16 r2 w8 (Qwen3.8-27B down width, step kernel) rc=0 worst_rel=1.111e-08 bad=0 identical_to_default=1
+sim A+B k17408 lb16 r2 w8 (Qwen3.8-27B down width, step kernel) rc=0 worst_rel=1.111e-08 bad=0 identical_to_default=1
+sim A/B battery: 54/54 runs bit-identical to the default
+gpu_fp8_api_test: 214 checks, 0 failed: PASS
+./build-l478-green/gpu_isolation_test --host-only
+[1795666] ok: codegen + encode: work kernel (512 bytes)
+[1795666] ok: codegen + encode: work kernel mutant 1 (512 bytes)
+[1795666] ok: codegen + encode: never-ending kernel (512 bytes)
+[1795666] ok: simulator: work kernel exact on all 4096 elements
+[1795666] ok: simulator red check: work mutant caught (4096 wrong)
+C5 isolation host: PASS (5 checks)
+cks=16/16 | mutants 0/0 
+PASS paged_bf16_llama32_1b_32q8kv_bs16_ctx2048 n=2048 rc=OK violations=0 worst_scaled_err=0.0005717 chip_ns=0 call_ns=151013067 calls=1 unwritten=0 kv_staged=4194304/4194304 blocks=128/128 | mutants 5/5 KV_HEAD:CAUGHT(rc=OK,bad=2048) SLOT:CAUGHT(rc=OK,bad=2044) NO_RESCALE:CAUGHT(rc=OK,bad=1963) Q_ROW:CAUGHT(rc=OK,bad=2048) OUT_ROW:CAUGHT(rc=OK,bad=2048)
+PASS paged_bf16_llama32_1b_32q8kv_bs16_ctx65 n=2048 rc=OK violations=0 worst_scaled_err=0.00153464 chip_ns=0 call_ns=7629869 calls=1 unwritten=0 kv_staged=163840/163840 blocks=5/5 | mutants 0/0 
+PASS paged_bf16_llama32_1b_32q8kv_bs16_ctx128 n=2048 rc=OK violations=0 worst_scaled_err=0.00162767 chip_ns=0 call_ns=9832473 calls=1 unwritten=0 kv_staged=262144/262144 blocks=8/8 | mutants 0/0 
+PASS paged_bf16_llama32_1b_32q8kv_bs16_ctx129 n=2048 rc=OK violations=0 worst_scaled_err=0.0018236 chip_ns=0 call_ns=11910517 calls=1 unwritten=0 kv_staged=294912/294912 blocks=9/9 | mutants 0/0 
+PASS paged_bf16_llama32_1b_32q8kv_bs16_ctx300 n=2048 rc=OK violations=0 worst_scaled_err=0.00136517 chip_ns=0 call_ns=23530120 calls=1 unwritten=0 kv_staged=622592/622592 blocks=19/19 | mutants 0/0 
+PASS paged_bf16_llama32_1b_32q8kv_bs16_ctx1000 n=2048 rc=OK violations=0 worst_scaled_err=0.00108243 chip_ns=0 call_ns=80733700 calls=1 unwritten=0 kv_staged=327680/2064384 blocks=10/63 | mutants 0/0 
+PASS paged_bf16_split1_32q8kv_ctx1000 n=2048 rc=OK violations=0 worst_scaled_err=0.00243892 chip_ns=0 call_ns=68281228 calls=1 unwritten=0 kv_staged=2064384/2064384 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split2_32q8kv_ctx1000 n=2048 rc=OK violations=0 worst_scaled_err=0.00224498 chip_ns=0 call_ns=68933023 calls=1 unwritten=0 kv_staged=2064384/2064384 blocks=63/63 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=2048) SLOT:CAUGHT(rc=OK,bad=2041)
+PASS paged_bf16_split4_32q8kv_ctx1000 n=2048 rc=OK violations=0 worst_scaled_err=0.00103684 chip_ns=0 call_ns=70475609 calls=1 unwritten=0 kv_staged=2064384/2064384 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split8_32q8kv_ctx1000 n=2048 rc=OK violations=0 worst_scaled_err=0.000722397 chip_ns=0 call_ns=73800475 calls=1 unwritten=0 kv_staged=2064384/2064384 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split16_32q8kv_ctx1000 n=2048 rc=OK violations=0 worst_scaled_err=0.00058086 chip_ns=0 call_ns=80745028 calls=1 unwritten=0 kv_staged=2064384/2064384 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split1_32q8kv_ctx100 n=2048 rc=OK violations=0 worst_scaled_err=0.00156533 chip_ns=0 call_ns=8165584 calls=1 unwritten=0 kv_staged=65536/229376 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split2_32q8kv_ctx100 n=2048 rc=OK violations=0 worst_scaled_err=0.00122616 chip_ns=0 call_ns=8855747 calls=1 unwritten=0 kv_staged=65536/229376 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split4_32q8kv_ctx100 n=2048 rc=OK violations=0 worst_scaled_err=0.00122616 chip_ns=0 call_ns=10190171 calls=1 unwritten=0 kv_staged=65536/229376 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split8_32q8kv_ctx100 n=2048 rc=OK violations=0 worst_scaled_err=0.00122616 chip_ns=0 call_ns=13180940 calls=1 unwritten=0 kv_staged=65536/229376 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split16_32q8kv_ctx100 n=2048 rc=OK violations=0 worst_scaled_err=0.00122616 chip_ns=0 call_ns=19530834 calls=1 unwritten=0 kv_staged=65536/229376 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_batch_3seq_32q8kv_ctx40_0_100 n=6144 rc=OK violations=0 worst_scaled_err=0.002081 chip_ns=0 call_ns=9271766 calls=2 unwritten=0 kv_staged=229376/229376 blocks=7/7 | mutants 4/4 KV_HEAD:CAUGHT(rc=OK,bad=4095) SLOT:CAUGHT(rc=OK,bad=4095) Q_ROW:CAUGHT(rc=OK,bad=4092) OUT_ROW:CAUGHT(rc=OK,bad=4092)
+PASS paged_bf16_shared_prefix_4seq_8q2kv_10pre n=2048 rc=OK violations=0 worst_scaled_err=0.00158345 chip_ns=0 call_ns=16315214 calls=1 unwritten=0 kv_staged=155648/401408 blocks=19/49 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=2048) SLOT:CAUGHT(rc=OK,bad=2046)
+PASS paged_bf16_shared_prefix_4seq_32q8kv_10pre n=8192 rc=OK violations=0 worst_scaled_err=0.00205105 chip_ns=0 call_ns=65503692 calls=2 unwritten=0 kv_staged=950272/1605632 blocks=29/49 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=8190) SLOT:CAUGHT(rc=OK,bad=8186)
+mutant NO_MAX: caught 1 of 1
+mutant KV_HEAD: caught 12 of 12
+mutant SLOT: caught 12 of 12
+mutant NO_RESCALE: caught 6 of 6
+mutant Q_ROW: caught 8 of 8
+mutant OUT_ROW: caught 8 of 8
+device_opens=0
+PASS: 219 checks, 0 failed
+./build-l478-green/gpu_attention_test --sweep --sim --out build-l478-green/gpu_attention_sweep_sim.json
+PASS sweep  1q/ 1kv ratio  1 ctx  256: launches=1 ctas=4 call_ms med=1.307 p90=1.307 kernel_ms med=0.000 p90=0.000 kv_staged=12288 (naive 65536) blocks=3/16 q=256 tab=68 out=1056 worst=0.00067717
+PASS sweep  1q/ 1kv ratio  1 ctx 2048: launches=1 ctas=16 call_ms med=9.919 p90=9.919 kernel_ms med=0.000 p90=0.000 kv_staged=77824 (naive 524288) blocks=19/128 q=256 tab=516 out=4224 worst=0.000848912
+PASS sweep  2q/ 1kv ratio  2 ctx  256: launches=1 ctas=8 call_ms med=2.596 p90=2.596 kernel_ms med=0.000 p90=0.000 kv_staged=12288 (naive 65536) blocks=3/16 q=512 tab=68 out=2112 worst=0.000915783
+PASS sweep  2q/ 1kv ratio  2 ctx 2048: launches=1 ctas=32 call_ms med=9.320 p90=9.320 kernel_ms med=0.000 p90=0.000 kv_staged=77824 (naive 524288) blocks=19/128 q=512 tab=516 out=8448 worst=0.000687931
+PASS sweep  2q/ 2kv ratio  1 ctx  256: launches=1 ctas=8 call_ms med=1.273 p90=1.273 kernel_ms med=0.000 p90=0.000 kv_staged=24576 (naive 131072) blocks=3/16 q=512 tab=68 out=2112 worst=0.000706267
+PASS sweep  2q/ 2kv ratio  1 ctx 2048: launches=1 ctas=32 call_ms med=9.360 p90=9.360 kernel_ms med=0.000 p90=0.000 kv_staged=155648 (naive 1048576) blocks=19/128 q=512 tab=516 out=8448 worst=0.000585813
+PASS sweep  4q/ 1kv ratio  4 ctx  256: launches=1 ctas=16 call_ms med=2.499 p90=2.499 kernel_ms med=0.000 p90=0.000 kv_staged=12288 (naive 65536) blocks=3/16 q=1024 tab=68 out=4224 worst=0.00103708
+PASS sweep  4q/ 1kv ratio  4 ctx 2048: launches=1 ctas=64 call_ms med=18.736 p90=18.736 kernel_ms med=0.000 p90=0.000 kv_staged=77824 (naive 524288) blocks=19/128 q=1024 tab=516 out=16896 worst=0.000595022
+PASS sweep  4q/ 2kv ratio  2 ctx  256: launches=1 ctas=16 call_ms med=2.464 p90=2.464 kernel_ms med=0.000 p90=0.000 kv_staged=24576 (naive 131072) blocks=3/16 q=1024 tab=68 out=4224 worst=0.000865513
+PASS sweep  4q/ 2kv ratio  2 ctx 2048: launches=1 ctas=64 call_ms med=18.641 p90=18.641 kernel_ms med=0.000 p90=0.000 kv_staged=155648 (naive 1048576) blocks=19/128 q=1024 tab=516 out=16896 worst=0.000579735
+PASS sweep  4q/ 4kv ratio  1 ctx  256: launches=1 ctas=16 call_ms med=2.476 p90=2.476 kernel_ms med=0.000 p90=0.000 kv_staged=49152 (naive 262144) blocks=3/16 q=1024 tab=68 out=4224 worst=0.000903455
+PASS sweep  4q/ 4kv ratio  1 ctx 2048: launches=1 ctas=64 call_ms med=18.782 p90=18.782 kernel_ms med=0.000 p90=0.000 kv_staged=311296 (naive 2097152) blocks=19/128 q=1024 tab=516 out=16896 worst=0.000634714
+PASS sweep  8q/ 1kv ratio  8 ctx  256: launches=1 ctas=32 call_ms med=4.980 p90=4.980 kernel_ms med=0.000 p90=0.000 kv_staged=12288 (naive 65536) blocks=3/16 q=2048 tab=68 out=8448 worst=0.00103596
+PASS sweep  8q/ 1kv ratio  8 ctx 2048: launches=1 ctas=128 call_ms med=37.325 p90=37.325 kernel_ms med=0.000 p90=0.000 kv_staged=77824 (naive 524288) blocks=19/128 q=2048 tab=516 out=33792 worst=0.000871917
+PASS sweep  8q/ 2kv ratio  4 ctx  256: launches=1 ctas=32 call_ms med=4.935 p90=4.935 kernel_ms med=0.000 p90=0.000 kv_staged=24576 (naive 131072) blocks=3/16 q=2048 tab=68 out=8448 worst=0.000981295
+PASS sweep  8q/ 2kv ratio  4 ctx 2048: launches=1 ctas=128 call_ms med=37.286 p90=37.286 kernel_ms med=0.000 p90=0.000 kv_staged=155648 (naive 1048576) blocks=19/128 q=2048 tab=516 out=33792 worst=0.000863034
+PASS sweep  8q/ 4kv ratio  2 ctx  256: launches=1 ctas=32 call_ms med=4.956 p90=4.956 kernel_ms med=0.000 p90=0.000 kv_staged=49152 (naive 262144) blocks=3/16 q=2048 tab=68 out=8448 worst=0.000938337
+PASS sweep  8q/ 4kv ratio  2 ctx 2048: launches=1 ctas=128 call_ms med=37.457 p90=37.457 kernel_ms med=0.000 p90=0.000 kv_staged=311296 (naive 2097152) blocks=19/128 q=2048 tab=516 out=33792 worst=0.000606712
+PASS sweep  8q/ 8kv ratio  1 ctx  256: launches=1 ctas=32 call_ms med=4.965 p90=4.965 kernel_ms med=0.000 p90=0.000 kv_staged=98304 (naive 524288) blocks=3/16 q=2048 tab=68 out=8448 worst=0.000914011
+PASS sweep  8q/ 8kv ratio  1 ctx 2048: launches=1 ctas=128 call_ms med=37.617 p90=37.617 kernel_ms med=0.000 p90=0.000 kv_staged=622592 (naive 4194304) blocks=19/128 q=2048 tab=516 out=33792 worst=0.000721768
+PASS sweep 16q/ 1kv ratio 16 ctx  256: launches=1 ctas=64 call_ms med=9.922 p90=9.922 kernel_ms med=0.000 p90=0.000 kv_staged=12288 (naive 65536) blocks=3/16 q=4096 tab=68 out=16896 worst=0.000931851
+PASS sweep 16q/ 1kv ratio 16 ctx 2048: launches=1 ctas=256 call_ms med=74.612 p90=74.612 kernel_ms med=0.000 p90=0.000 kv_staged=77824 (naive 524288) blocks=19/128 q=4096 tab=516 out=67584 worst=0.000659197
+PASS sweep 16q/ 2kv ratio  8 ctx  256: launches=1 ctas=64 call_ms med=9.906 p90=9.906 kernel_ms med=0.000 p90=0.000 kv_staged=24576 (naive 131072) blocks=3/16 q=4096 tab=68 out=16896 worst=0.00105378
+PASS sweep 16q/ 2kv ratio  8 ctx 2048: launches=1 ctas=256 call_ms med=74.571 p90=74.571 kernel_ms med=0.000 p90=0.000 kv_staged=155648 (naive 1048576) blocks=19/128 q=4096 tab=516 out=67584 worst=0.000649724
+PASS sweep 16q/ 4kv ratio  4 ctx  256: launches=1 ctas=64 call_ms med=9.853 p90=9.853 kernel_ms med=0.000 p90=0.000 kv_staged=49152 (naive 262144) blocks=3/16 q=4096 tab=68 out=16896 worst=0.00119381
+PASS sweep 16q/ 4kv ratio  4 ctx 2048: launches=1 ctas=256 call_ms med=74.882 p90=74.882 kernel_ms med=0.000 p90=0.000 kv_staged=311296 (naive 2097152) blocks=19/128 q=4096 tab=516 out=67584 worst=0.000790485
+PASS sweep 16q/ 8kv ratio  2 ctx  256: launches=1 ctas=64 call_ms med=9.868 p90=9.868 kernel_ms med=0.000 p90=0.000 kv_staged=98304 (naive 524288) blocks=3/16 q=4096 tab=68 out=16896 worst=0.00109193
+PASS sweep 16q/ 8kv ratio  2 ctx 2048: launches=1 ctas=256 call_ms med=74.972 p90=74.972 kernel_ms med=0.000 p90=0.000 kv_staged=622592 (naive 4194304) blocks=19/128 q=4096 tab=516 out=67584 worst=0.000729671
+PASS sweep 16q/16kv ratio  1 ctx  256: launches=1 ctas=64 call_ms med=9.971 p90=9.971 kernel_ms med=0.000 p90=0.000 kv_staged=196608 (naive 1048576) blocks=3/16 q=4096 tab=68 out=16896 worst=0.00117565
+PASS sweep 16q/16kv ratio  1 ctx 2048: launches=1 ctas=256 call_ms med=75.278 p90=75.278 kernel_ms med=0.000 p90=0.000 kv_staged=1245184 (naive 8388608) blocks=19/128 q=4096 tab=516 out=67584 worst=0.000683009
+PASS sweep 24q/ 1kv ratio 24 ctx  256: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 1kv ratio 24 ctx 2048: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 2kv ratio 12 ctx  256: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 2kv ratio 12 ctx 2048: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 3kv ratio  8 ctx  256: launches=1 ctas=96 call_ms med=14.905 p90=14.905 kernel_ms med=0.000 p90=0.000 kv_staged=36864 (naive 196608) blocks=3/16 q=6144 tab=68 out=25344 worst=0.00109154
+PASS sweep 24q/ 3kv ratio  8 ctx 2048: launches=1 ctas=384 call_ms med=111.551 p90=111.551 kernel_ms med=0.000 p90=0.000 kv_staged=233472 (naive 1572864) blocks=19/128 q=6144 tab=516 out=101376 worst=0.000796466
+PASS sweep 24q/ 4kv ratio  6 ctx  256: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 4kv ratio  6 ctx 2048: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 6kv ratio  4 ctx  256: launches=1 ctas=96 call_ms med=14.812 p90=14.812 kernel_ms med=0.000 p90=0.000 kv_staged=73728 (naive 393216) blocks=3/16 q=6144 tab=68 out=25344 worst=0.00144096
+PASS sweep 24q/ 6kv ratio  4 ctx 2048: launches=1 ctas=384 call_ms med=111.896 p90=111.896 kernel_ms med=0.000 p90=0.000 kv_staged=466944 (naive 3145728) blocks=19/128 q=6144 tab=516 out=101376 worst=0.000826453
+PASS sweep 24q/ 8kv ratio  3 ctx  256: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 8kv ratio  3 ctx 2048: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/12kv ratio  2 ctx  256: launches=1 ctas=96 call_ms med=14.831 p90=14.831 kernel_ms med=0.000 p90=0.000 kv_staged=147456 (naive 786432) blocks=3/16 q=6144 tab=68 out=25344 worst=0.000997479
+PASS sweep 24q/12kv ratio  2 ctx 2048: launches=1 ctas=384 call_ms med=112.696 p90=112.696 kernel_ms med=0.000 p90=0.000 kv_staged=933888 (naive 6291456) blocks=19/128 q=6144 tab=516 out=101376 worst=0.000667221
+PASS sweep 24q/24kv ratio  1 ctx  256: launches=1 ctas=96 call_ms med=14.941 p90=14.941 kernel_ms med=0.000 p90=0.000 kv_staged=294912 (naive 1572864) blocks=3/16 q=6144 tab=68 out=25344 worst=0.00126045
+PASS sweep 24q/24kv ratio  1 ctx 2048: launches=1 ctas=384 call_ms med=113.024 p90=113.024 kernel_ms med=0.000 p90=0.000 kv_staged=1867776 (naive 12582912) blocks=19/128 q=6144 tab=516 out=101376 worst=0.000714818
+PASS sweep 32q/ 1kv ratio 32 ctx  256: launches=1 ctas=128 call_ms med=19.787 p90=19.787 kernel_ms med=0.000 p90=0.000 kv_staged=12288 (naive 65536) blocks=3/16 q=8192 tab=68 out=33792 worst=0.00111822
+PASS sweep 32q/ 1kv ratio 32 ctx 2048: launches=1 ctas=512 call_ms med=149.393 p90=149.393 kernel_ms med=0.000 p90=0.000 kv_staged=77824 (naive 524288) blocks=19/128 q=8192 tab=516 out=135168 worst=0.000919862
+PASS sweep 32q/ 2kv ratio 16 ctx  256: launches=1 ctas=128 call_ms med=19.923 p90=19.923 kernel_ms med=0.000 p90=0.000 kv_staged=24576 (naive 131072) blocks=3/16 q=8192 tab=68 out=33792 worst=0.00115689
+PASS sweep 32q/ 2kv ratio 16 ctx 2048: launches=1 ctas=512 call_ms med=149.233 p90=149.233 kernel_ms med=0.000 p90=0.000 kv_staged=155648 (naive 1048576) blocks=19/128 q=8192 tab=516 out=135168 worst=0.000749667
+PASS sweep 32q/ 4kv ratio  8 ctx  256: launches=1 ctas=128 call_ms med=19.978 p90=19.978 kernel_ms med=0.000 p90=0.000 kv_staged=49152 (naive 262144) blocks=3/16 q=8192 tab=68 out=33792 worst=0.00128202
+PASS sweep 32q/ 4kv ratio  8 ctx 2048: launches=1 ctas=512 call_ms med=150.627 p90=150.627 kernel_ms med=0.000 p90=0.000 kv_staged=311296 (naive 2097152) blocks=19/128 q=8192 tab=516 out=135168 worst=0.000901558
+PASS sweep 32q/ 8kv ratio  4 ctx  256: launches=1 ctas=128 call_ms med=19.961 p90=19.961 kernel_ms med=0.000 p90=0.000 kv_staged=98304 (naive 524288) blocks=3/16 q=8192 tab=68 out=33792 worst=0.00119851
+PASS sweep 32q/ 8kv ratio  4 ctx 2048: launches=1 ctas=512 call_ms med=150.966 p90=150.966 kernel_ms med=0.000 p90=0.000 kv_staged=622592 (naive 4194304) blocks=19/128 q=8192 tab=516 out=135168 worst=0.000801681
+PASS sweep 32q/16kv ratio  2 ctx  256: launches=1 ctas=128 call_ms med=19.990 p90=19.990 kernel_ms med=0.000 p90=0.000 kv_staged=196608 (naive 1048576) blocks=3/16 q=8192 tab=68 out=33792 worst=0.00118402
+PASS sweep 32q/16kv ratio  2 ctx 2048: launches=1 ctas=512 call_ms med=151.471 p90=151.471 kernel_ms med=0.000 p90=0.000 kv_staged=1245184 (naive 8388608) blocks=19/128 q=8192 tab=516 out=135168 worst=0.000809915
+PASS sweep 32q/32kv ratio  1 ctx  256: launches=1 ctas=128 call_ms med=20.131 p90=20.131 kernel_ms med=0.000 p90=0.000 kv_staged=393216 (naive 2097152) blocks=3/16 q=8192 tab=68 out=33792 worst=0.0011642
+PASS sweep 32q/32kv ratio  1 ctx 2048: launches=1 ctas=512 call_ms med=152.180 p90=152.180 kernel_ms med=0.000 p90=0.000 kv_staged=2490368 (naive 16777216) blocks=19/128 q=8192 tab=516 out=135168 worst=0.000958817
+PASS sweep 64q/ 1kv ratio 64 ctx  256: launches=1 ctas=256 call_ms med=39.961 p90=39.961 kernel_ms med=0.000 p90=0.000 kv_staged=12288 (naive 65536) blocks=3/16 q=16384 tab=68 out=67584 worst=0.00138751
+PASS sweep 64q/ 1kv ratio 64 ctx 2048: launches=1 ctas=1024 call_ms med=297.888 p90=297.888 kernel_ms med=0.000 p90=0.000 kv_staged=77824 (naive 524288) blocks=19/128 q=16384 tab=516 out=270336 worst=0.000794728
+PASS sweep 64q/ 2kv ratio 32 ctx  256: launches=1 ctas=256 call_ms med=39.576 p90=39.576 kernel_ms med=0.000 p90=0.000 kv_staged=24576 (naive 131072) blocks=3/16 q=16384 tab=68 out=67584 worst=0.00138727
+PASS sweep 64q/ 2kv ratio 32 ctx 2048: launches=1 ctas=1024 call_ms med=299.315 p90=299.315 kernel_ms med=0.000 p90=0.000 kv_staged=155648 (naive 1048576) blocks=19/128 q=16384 tab=516 out=270336 worst=0.000966828
+PASS sweep 64q/ 4kv ratio 16 ctx  256: launches=1 ctas=256 call_ms med=39.609 p90=39.609 kernel_ms med=0.000 p90=0.000 kv_staged=49152 (naive 262144) blocks=3/16 q=16384 tab=68 out=67584 worst=0.00127321
+PASS sweep 64q/ 4kv ratio 16 ctx 2048: launches=1 ctas=1024 call_ms med=301.722 p90=301.722 kernel_ms med=0.000 p90=0.000 kv_staged=311296 (naive 2097152) blocks=19/128 q=16384 tab=516 out=270336 worst=0.000740042
+PASS sweep 64q/ 8kv ratio  8 ctx  256: launches=1 ctas=256 call_ms med=39.771 p90=39.771 kernel_ms med=0.000 p90=0.000 kv_staged=98304 (naive 524288) blocks=3/16 q=16384 tab=68 out=67584 worst=0.0014985
+PASS sweep 64q/ 8kv ratio  8 ctx 2048: launches=1 ctas=1024 call_ms med=300.286 p90=300.286 kernel_ms med=0.000 p90=0.000 kv_staged=622592 (naive 4194304) blocks=19/128 q=16384 tab=516 out=270336 worst=0.000810292
+PASS sweep 64q/16kv ratio  4 ctx  256: launches=1 ctas=256 call_ms med=39.985 p90=39.985 kernel_ms med=0.000 p90=0.000 kv_staged=196608 (naive 1048576) blocks=3/16 q=16384 tab=68 out=67584 worst=0.00133573
+PASS sweep 64q/16kv ratio  4 ctx 2048: launches=1 ctas=1024 call_ms med=300.853 p90=300.853 kernel_ms med=0.000 p90=0.000 kv_staged=1245184 (naive 8388608) blocks=19/128 q=16384 tab=516 out=270336 worst=0.000784602
+PASS sweep 64q/32kv ratio  2 ctx  256: launches=1 ctas=256 call_ms med=39.892 p90=39.892 kernel_ms med=0.000 p90=0.000 kv_staged=393216 (naive 2097152) blocks=3/16 q=16384 tab=68 out=67584 worst=0.00181348
+PASS sweep 64q/32kv ratio  2 ctx 2048: launches=1 ctas=1024 call_ms med=301.991 p90=301.991 kernel_ms med=0.000 p90=0.000 kv_staged=2490368 (naive 16777216) blocks=19/128 q=16384 tab=516 out=270336 worst=0.000804468
+PASS sweep 64q/64kv ratio  1 ctx  256: launches=1 ctas=256 call_ms med=40.218 p90=40.218 kernel_ms med=0.000 p90=0.000 kv_staged=786432 (naive 4194304) blocks=3/16 q=16384 tab=68 out=67584 worst=0.00132571
+PASS sweep 64q/64kv ratio  1 ctx 2048: launches=1 ctas=1024 call_ms med=303.817 p90=303.817 kernel_ms med=0.000 p90=0.000 kv_staged=4980736 (naive 33554432) blocks=19/128 q=16384 tab=516 out=270336 worst=0.00155178
+sweep: 72 points (64 supported, 8 unsupported by the kernel envelope), device_opens=0
+PASS: 73 checks, 0 failed
+./build-l478-green/gpu_attention_test --hd 128 --host-only
+codegen paged_bf16: 624 insns, 84 gprs, 6 ugprs
+sm121dis paged_bf16: rc=0 insns=624 undecodable=0 missing=0 (private temporary stream)
+codegen gqa_f32: 512 insns, 72 gprs, 6 ugprs
+sm121dis gqa_f32: rc=0 insns=512 undecodable=0 missing=0 (private temporary stream)
+PASS: 107 checks, 0 failed
+./build-l478-green/gpu_attention_test --hd 128 --sim
+PASS gqa_f32_qwen3_4b_32q8kv_ctx1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=10504061 calls=1 unwritten=0 kv_staged=8192/8192 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx17 n=4096 rc=OK violations=0 worst_scaled_err=0.00224179 chip_ns=0 call_ns=11542531 calls=1 unwritten=0 kv_staged=139264/139264 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx256 n=4096 rc=OK violations=0 worst_scaled_err=0.00206282 chip_ns=0 call_ns=17626694 calls=1 unwritten=0 kv_staged=2097152/2097152 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx2048 n=4096 rc=OK violations=0 worst_scaled_err=0.00376301 chip_ns=0 call_ns=134994143 calls=1 unwritten=0 kv_staged=16777216/16777216 blocks=1/1 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=4090) NO_RESCALE:CAUGHT(rc=OK,bad=3905) Q_ROW:CAUGHT(rc=OK,bad=4086) OUT_ROW:CAUGHT(rc=OK,bad=4086)
+PASS gqa_f32_qwen3_4b_32q8kv_ctx127 n=4096 rc=OK violations=0 worst_scaled_err=0.00217901 chip_ns=0 call_ns=8775859 calls=1 unwritten=0 kv_staged=1040384/1040384 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx128 n=4096 rc=OK violations=0 worst_scaled_err=0.00245582 chip_ns=0 call_ns=8693106 calls=1 unwritten=0 kv_staged=1048576/1048576 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx129 n=4096 rc=OK violations=0 worst_scaled_err=0.001674 chip_ns=0 call_ns=12983692 calls=1 unwritten=0 kv_staged=1056768/1056768 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx300 n=4096 rc=OK violations=0 worst_scaled_err=0.00217497 chip_ns=0 call_ns=22378162 calls=1 unwritten=0 kv_staged=2457600/2457600 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00326932 chip_ns=0 call_ns=65086761 calls=1 unwritten=0 kv_staged=8192000/8192000 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=4844172 calls=1 unwritten=0 kv_staged=4096/4096 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx17 n=4096 rc=OK violations=0 worst_scaled_err=0.00195066 chip_ns=0 call_ns=5182142 calls=1 unwritten=0 kv_staged=69632/69632 blocks=1/1 | mutants 1/1 KV_HEAD:CAUGHT(rc=OK,bad=4095)
+PASS gqa_f32_gqa8_32q4kv_ctx256 n=4096 rc=OK violations=0 worst_scaled_err=0.00231763 chip_ns=0 call_ns=16721906 calls=1 unwritten=0 kv_staged=1048576/1048576 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx2048 n=4096 rc=OK violations=0 worst_scaled_err=0.00246504 chip_ns=0 call_ns=129982178 calls=1 unwritten=0 kv_staged=8388608/8388608 blocks=1/1 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=4084) NO_RESCALE:CAUGHT(rc=OK,bad=3914) Q_ROW:CAUGHT(rc=OK,bad=4078) OUT_ROW:CAUGHT(rc=OK,bad=4078)
+PASS gqa_f32_gqa8_32q4kv_ctx127 n=4096 rc=OK violations=0 worst_scaled_err=0.00196909 chip_ns=0 call_ns=8692370 calls=1 unwritten=0 kv_staged=520192/520192 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx128 n=4096 rc=OK violations=0 worst_scaled_err=0.00212764 chip_ns=0 call_ns=8670115 calls=1 unwritten=0 kv_staged=524288/524288 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx129 n=4096 rc=OK violations=0 worst_scaled_err=0.00194043 chip_ns=0 call_ns=12885211 calls=1 unwritten=0 kv_staged=528384/528384 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx300 n=4096 rc=OK violations=0 worst_scaled_err=0.00189108 chip_ns=0 call_ns=22054800 calls=1 unwritten=0 kv_staged=1228800/1228800 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.0028386 chip_ns=0 call_ns=64353589 calls=1 unwritten=0 kv_staged=4096000/4096000 blocks=1/1 | mutants 0/0 
+PASS gqa_rows_f32_qwen3_4b_32q8kv_base0_rows1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=4834988 calls=1 unwritten=0 kv_staged=8192/8192 blocks=1/1 | mutants 0/0 
+PASS gqa_rows_f32_qwen3_4b_32q8kv_base17_rows5 n=20480 rc=OK violations=0 worst_scaled_err=0.00237778 chip_ns=0 call_ns=26124119 calls=1 unwritten=0 kv_staged=180224/901120 blocks=1/5 | mutants 0/0 
+PASS gqa_rows_f32_qwen3_4b_32q8kv_base300_rows40 n=163840 rc=OK violations=0 worst_scaled_err=0.00322638 chip_ns=0 call_ns=913519875 calls=2 unwritten=0 kv_staged=2785280/111411200 blocks=1/40 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=163639) NO_RESCALE:CAUGHT(rc=OK,bad=96453) Q_ROW:CAUGHT(rc=OK,bad=163612) OUT_ROW:CAUGHT(rc=OK,bad=163612)
+PASS gqa_rows_f32_gqa8_32q4kv_base0_rows1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=4828684 calls=1 unwritten=0 kv_staged=4096/4096 blocks=1/1 | mutants 0/0 
+PASS gqa_rows_f32_gqa8_32q4kv_base17_rows5 n=20480 rc=OK violations=0 worst_scaled_err=0.00345221 chip_ns=0 call_ns=25996151 calls=1 unwritten=0 kv_staged=90112/450560 blocks=1/5 | mutants 0/0 
+PASS gqa_rows_f32_gqa8_32q4kv_base300_rows40 n=163840 rc=OK violations=0 worst_scaled_err=0.0038327 chip_ns=0 call_ns=910300050 calls=2 unwritten=0 kv_staged=1392640/55705600 blocks=1/40 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=163627) NO_RESCALE:CAUGHT(rc=OK,bad=98605) Q_ROW:CAUGHT(rc=OK,bad=163626) OUT_ROW:CAUGHT(rc=OK,bad=163626)
+PASS gqa_f32_large_scores_32q4kv_ctx256 n=4096 rc=OK violations=0 worst_scaled_err=0.114366 chip_ns=0 call_ns=16932498 calls=1 unwritten=0 kv_staged=1048576/1048576 blocks=1/1 | mutants 1/1 NO_MAX:CAUGHT(rc=OK,bad=4096)
+PASS gqa_f32_mha_16q16kv_ctx300 n=2048 rc=OK violations=0 worst_scaled_err=0.00257229 chip_ns=0 call_ns=19624178 calls=1 unwritten=0 kv_staged=4915200/4915200 blocks=1/1 | mutants 3/3 Q_ROW:CAUGHT(rc=OK,bad=2045) OUT_ROW:CAUGHT(rc=OK,bad=2048) KV_HEAD:CAUGHT(rc=OK,bad=2045)
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=6301108 calls=1 unwritten=0 kv_staged=65536/65536 blocks=1/1 | mutants 1/1 KV_HEAD:CAUGHT(rc=OK,bad=4096)
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx17 n=4096 rc=OK violations=0 worst_scaled_err=0.00184516 chip_ns=0 call_ns=6666375 calls=1 unwritten=0 kv_staged=131072/131072 blocks=2/2 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=4096) SLOT:CAUGHT(rc=OK,bad=4096)
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx256 n=4096 rc=OK violations=0 worst_scaled_err=0.00164 chip_ns=0 call_ns=20808745 calls=1 unwritten=0 kv_staged=1048576/1048576 blocks=16/16 | mutants 0/0 
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx2048 n=4096 rc=OK violations=0 worst_scaled_err=0.000660915 chip_ns=0 call_ns=171362403 calls=1 unwritten=0 kv_staged=8388608/8388608 blocks=128/128 | mutants 5/5 KV_HEAD:CAUGHT(rc=OK,bad=4094) SLOT:CAUGHT(rc=OK,bad=4088) NO_RESCALE:CAUGHT(rc=OK,bad=3458) Q_ROW:CAUGHT(rc=OK,bad=4088) OUT_ROW:CAUGHT(rc=OK,bad=4088)
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx127 n=4096 rc=OK violations=0 worst_scaled_err=0.00196848 chip_ns=0 call_ns=10575614 calls=1 unwritten=0 kv_staged=524288/524288 blocks=8/8 | mutants 0/0 
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx128 n=4096 rc=OK violations=0 worst_scaled_err=0.00206789 chip_ns=0 call_ns=10447564 calls=1 unwritten=0 kv_staged=524288/524288 blocks=8/8 | mutants 0/0 
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx129 n=4096 rc=OK violations=0 worst_scaled_err=0.00169498 chip_ns=0 call_ns=16985443 calls=1 unwritten=0 kv_staged=589824/589824 blocks=9/9 | mutants 0/0 
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx300 n=4096 rc=OK violations=0 worst_scaled_err=0.00194779 chip_ns=0 call_ns=27709665 calls=1 unwritten=0 kv_staged=1245184/1245184 blocks=19/19 | mutants 0/0 
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00116868 chip_ns=0 call_ns=83290436 calls=1 unwritten=0 kv_staged=655360/4128768 blocks=10/63 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=6137364 calls=1 unwritten=0 kv_staged=32768/32768 blocks=1/1 | mutants 1/1 KV_HEAD:CAUGHT(rc=OK,bad=4096)
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx17 n=4096 rc=OK violations=0 worst_scaled_err=0.00173488 chip_ns=0 call_ns=6774055 calls=1 unwritten=0 kv_staged=65536/65536 blocks=2/2 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=4096) SLOT:CAUGHT(rc=OK,bad=4094)
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx256 n=4096 rc=OK violations=0 worst_scaled_err=0.00161135 chip_ns=0 call_ns=20850601 calls=1 unwritten=0 kv_staged=524288/524288 blocks=16/16 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx2048 n=4096 rc=OK violations=0 worst_scaled_err=0.000630967 chip_ns=0 call_ns=168117872 calls=1 unwritten=0 kv_staged=4194304/4194304 blocks=128/128 | mutants 5/5 KV_HEAD:CAUGHT(rc=OK,bad=4092) SLOT:CAUGHT(rc=OK,bad=4081) NO_RESCALE:CAUGHT(rc=OK,bad=3413) Q_ROW:CAUGHT(rc=OK,bad=4082) OUT_ROW:CAUGHT(rc=OK,bad=4082)
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx127 n=4096 rc=OK violations=0 worst_scaled_err=0.00220911 chip_ns=0 call_ns=10400669 calls=1 unwritten=0 kv_staged=262144/262144 blocks=8/8 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx128 n=4096 rc=OK violations=0 worst_scaled_err=0.00178584 chip_ns=0 call_ns=10187628 calls=1 unwritten=0 kv_staged=262144/262144 blocks=8/8 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx129 n=4096 rc=OK violations=0 worst_scaled_err=0.00170524 chip_ns=0 call_ns=16619553 calls=1 unwritten=0 kv_staged=294912/294912 blocks=9/9 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx300 n=4096 rc=OK violations=0 worst_scaled_err=0.00195843 chip_ns=0 call_ns=28007779 calls=1 unwritten=0 kv_staged=622592/622592 blocks=19/19 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00127854 chip_ns=0 call_ns=82656416 calls=1 unwritten=0 kv_staged=327680/2064384 blocks=10/63 | mutants 0/0 
+PASS paged_bf16_split1_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00280082 chip_ns=0 call_ns=78167094 calls=1 unwritten=0 kv_staged=4128768/4128768 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split2_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00180413 chip_ns=0 call_ns=78602793 calls=1 unwritten=0 kv_staged=4128768/4128768 blocks=63/63 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=4094) SLOT:CAUGHT(rc=OK,bad=4089)
+PASS paged_bf16_split4_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00118133 chip_ns=0 call_ns=80356674 calls=1 unwritten=0 kv_staged=4128768/4128768 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split8_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.000901544 chip_ns=0 call_ns=83542741 calls=1 unwritten=0 kv_staged=4128768/4128768 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split16_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.000901544 chip_ns=0 call_ns=88401618 calls=1 unwritten=0 kv_staged=4128768/4128768 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split1_32q8kv_ctx100 n=4096 rc=OK violations=0 worst_scaled_err=0.00201304 chip_ns=0 call_ns=9628088 calls=1 unwritten=0 kv_staged=131072/458752 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split2_32q8kv_ctx100 n=4096 rc=OK violations=0 worst_scaled_err=0.00201304 chip_ns=0 call_ns=10292636 calls=1 unwritten=0 kv_staged=131072/458752 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split4_32q8kv_ctx100 n=4096 rc=OK violations=0 worst_scaled_err=0.00201304 chip_ns=0 call_ns=11308754 calls=1 unwritten=0 kv_staged=131072/458752 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split8_32q8kv_ctx100 n=4096 rc=OK violations=0 worst_scaled_err=0.00201304 chip_ns=0 call_ns=13745456 calls=1 unwritten=0 kv_staged=131072/458752 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split16_32q8kv_ctx100 n=4096 rc=OK violations=0 worst_scaled_err=0.00201304 chip_ns=0 call_ns=18839133 calls=1 unwritten=0 kv_staged=131072/458752 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_batch_3seq_32q8kv_ctx40_0_100 n=12288 rc=OK violations=0 worst_scaled_err=0.00228801 chip_ns=0 call_ns=16268895 calls=2 unwritten=0 kv_staged=458752/458752 blocks=7/7 | mutants 4/4 KV_HEAD:CAUGHT(rc=OK,bad=8190) SLOT:CAUGHT(rc=OK,bad=8184) Q_ROW:CAUGHT(rc=OK,bad=8190) OUT_ROW:CAUGHT(rc=OK,bad=8190)
+PASS paged_bf16_shared_prefix_4seq_8q2kv_10pre n=4096 rc=OK violations=0 worst_scaled_err=0.00211434 chip_ns=0 call_ns=18670476 calls=1 unwritten=0 kv_staged=311296/802816 blocks=19/49 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=4095) SLOT:CAUGHT(rc=OK,bad=4093)
+PASS paged_bf16_shared_prefix_4seq_32q8kv_10pre n=16384 rc=OK violations=0 worst_scaled_err=0.00189305 chip_ns=0 call_ns=74737842 calls=2 unwritten=0 kv_staged=1900544/3211264 blocks=29/49 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=16379) SLOT:CAUGHT(rc=OK,bad=16365)
+mutant NO_MAX: caught 1 of 1
+mutant KV_HEAD: caught 12 of 12
+mutant SLOT: caught 12 of 12
+mutant NO_RESCALE: caught 6 of 6
+mutant Q_ROW: caught 8 of 8
+mutant OUT_ROW: caught 8 of 8
+device_opens=0
+  hd128 dominant token 5 (warp 0 of chunk 0): rc OK, 0 bad, worst 0
+  hd128 dominant token 40 (warp 1 of chunk 0): rc OK, 0 bad, worst 0
+  hd128 dominant token 70 (warp 2 of chunk 0): rc OK, 0 bad, worst 0
+  hd128 dominant token 100 (warp 3 of chunk 0): rc OK, 0 bad, worst 0
+  hd128 dominant token 127 (warp 3 of chunk 0): rc OK, 0 bad, worst 0
+  hd128 dominant token 131 (warp 0 of chunk 1): rc OK, 0 bad, worst 0
+  hd128 dominant token 299 (warp 1 of chunk 2): rc OK, 0 bad, worst 0
+simulator error 3
+PASS: 227 checks, 0 failed
+./build-l478-green/gpu_attention_test --hd 128 --divergent --sim
+warp simulator error: order 0: SHFL_SPLIT at pc 171: SHFL on a split warp
+PASS gqa_f32_qwen3_4b_32q8kv_ctx1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=3740694 calls=1 unwritten=0 kv_staged=8192/8192 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx17 n=4096 rc=OK violations=0 worst_scaled_err=0.00224179 chip_ns=0 call_ns=5835650 calls=1 unwritten=0 kv_staged=139264/139264 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx256 n=4096 rc=OK violations=0 worst_scaled_err=0.00206282 chip_ns=0 call_ns=39906391 calls=1 unwritten=0 kv_staged=2097152/2097152 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx2048 n=4096 rc=OK violations=0 worst_scaled_err=0.00376301 chip_ns=0 call_ns=311844579 calls=1 unwritten=0 kv_staged=16777216/16777216 blocks=1/1 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=4090) NO_RESCALE:CAUGHT(rc=OK,bad=3905) Q_ROW:CAUGHT(rc=OK,bad=4086) OUT_ROW:CAUGHT(rc=OK,bad=4086)
+PASS gqa_f32_qwen3_4b_32q8kv_ctx127 n=4096 rc=OK violations=0 worst_scaled_err=0.00217901 chip_ns=0 call_ns=20237957 calls=1 unwritten=0 kv_staged=1040384/1040384 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx128 n=4096 rc=OK violations=0 worst_scaled_err=0.00245582 chip_ns=0 call_ns=20143077 calls=1 unwritten=0 kv_staged=1048576/1048576 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx129 n=4096 rc=OK violations=0 worst_scaled_err=0.001674 chip_ns=0 call_ns=22834469 calls=1 unwritten=0 kv_staged=1056768/1056768 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx300 n=4096 rc=OK violations=0 worst_scaled_err=0.00217497 chip_ns=0 call_ns=47496164 calls=1 unwritten=0 kv_staged=2457600/2457600 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00326932 chip_ns=0 call_ns=151175598 calls=1 unwritten=0 kv_staged=8192000/8192000 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=3821895 calls=1 unwritten=0 kv_staged=4096/4096 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx17 n=4096 rc=OK violations=0 worst_scaled_err=0.00195066 chip_ns=0 call_ns=5774706 calls=1 unwritten=0 kv_staged=69632/69632 blocks=1/1 | mutants 1/1 KV_HEAD:CAUGHT(rc=OK,bad=4095)
+PASS gqa_f32_gqa8_32q4kv_ctx256 n=4096 rc=OK violations=0 worst_scaled_err=0.00231763 chip_ns=0 call_ns=39284996 calls=1 unwritten=0 kv_staged=1048576/1048576 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx2048 n=4096 rc=OK violations=0 worst_scaled_err=0.00246504 chip_ns=0 call_ns=306739973 calls=1 unwritten=0 kv_staged=8388608/8388608 blocks=1/1 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=4084) NO_RESCALE:CAUGHT(rc=OK,bad=3914) Q_ROW:CAUGHT(rc=OK,bad=4078) OUT_ROW:CAUGHT(rc=OK,bad=4078)
+PASS gqa_f32_gqa8_32q4kv_ctx127 n=4096 rc=OK violations=0 worst_scaled_err=0.00196909 chip_ns=0 call_ns=20169957 calls=1 unwritten=0 kv_staged=520192/520192 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx128 n=4096 rc=OK violations=0 worst_scaled_err=0.00212764 chip_ns=0 call_ns=20123253 calls=1 unwritten=0 kv_staged=524288/524288 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx129 n=4096 rc=OK violations=0 worst_scaled_err=0.00194043 chip_ns=0 call_ns=22785732 calls=1 unwritten=0 kv_staged=528384/528384 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx300 n=4096 rc=OK violations=0 worst_scaled_err=0.00189108 chip_ns=0 call_ns=47483124 calls=1 unwritten=0 kv_staged=1228800/1228800 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.0028386 chip_ns=0 call_ns=151273087 calls=1 unwritten=0 kv_staged=4096000/4096000 blocks=1/1 | mutants 0/0 
+PASS gqa_rows_f32_qwen3_4b_32q8kv_base0_rows1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=3795334 calls=1 unwritten=0 kv_staged=8192/8192 blocks=1/1 | mutants 0/0 
+PASS gqa_rows_f32_qwen3_4b_32q8kv_base17_rows5 n=20480 rc=OK violations=0 worst_scaled_err=0.00237778 chip_ns=0 call_ns=29443051 calls=1 unwritten=0 kv_staged=180224/901120 blocks=1/5 | mutants 0/0 
+PASS gqa_rows_f32_qwen3_4b_32q8kv_base300_rows40 n=163840 rc=OK violations=0 worst_scaled_err=0.00322638 chip_ns=0 call_ns=1993259708 calls=2 unwritten=0 kv_staged=2785280/111411200 blocks=1/40 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=163639) NO_RESCALE:CAUGHT(rc=OK,bad=96453) Q_ROW:CAUGHT(rc=OK,bad=163612) OUT_ROW:CAUGHT(rc=OK,bad=163612)
+PASS gqa_rows_f32_gqa8_32q4kv_base0_rows1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=3788214 calls=1 unwritten=0 kv_staged=4096/4096 blocks=1/1 | mutants 0/0 
+PASS gqa_rows_f32_gqa8_32q4kv_base17_rows5 n=20480 rc=OK violations=0 worst_scaled_err=0.00345221 chip_ns=0 call_ns=29326779 calls=1 unwritten=0 kv_staged=90112/450560 blocks=1/5 | mutants 0/0 
+PASS gqa_rows_f32_gqa8_32q4kv_base300_rows40 n=163840 rc=OK violations=0 worst_scaled_err=0.0038327 chip_ns=0 call_ns=1987908918 calls=2 unwritten=0 kv_staged=1392640/55705600 blocks=1/40 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=163627) NO_RESCALE:CAUGHT(rc=OK,bad=98605) Q_ROW:CAUGHT(rc=OK,bad=163626) OUT_ROW:CAUGHT(rc=OK,bad=163626)
+PASS gqa_f32_large_scores_32q4kv_ctx256 n=4096 rc=OK violations=0 worst_scaled_err=0.114366 chip_ns=0 call_ns=38833106 calls=1 unwritten=0 kv_staged=1048576/1048576 blocks=1/1 | mutants 1/1 NO_MAX:CAUGHT(rc=OK,bad=4096)
+PASS gqa_f32_mha_16q16kv_ctx300 n=2048 rc=OK violations=0 worst_scaled_err=0.00257229 chip_ns=0 call_ns=40778413 calls=1 unwritten=0 kv_staged=4915200/4915200 blocks=1/1 | mutants 3/3 Q_ROW:CAUGHT(rc=OK,bad=2045) OUT_ROW:CAUGHT(rc=OK,bad=2048) KV_HEAD:CAUGHT(rc=OK,bad=2045)
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=4301897 calls=1 unwritten=0 kv_staged=65536/65536 blocks=1/1 | mutants 1/1 KV_HEAD:CAUGHT(rc=OK,bad=4096)
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx17 n=4096 rc=OK violations=0 worst_scaled_err=0.00184516 chip_ns=0 call_ns=6778936 calls=1 unwritten=0 kv_staged=131072/131072 blocks=2/2 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=4096) SLOT:CAUGHT(rc=OK,bad=4096)
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx256 n=4096 rc=OK violations=0 worst_scaled_err=0.00164 chip_ns=0 call_ns=49699985 calls=1 unwritten=0 kv_staged=1048576/1048576 blocks=16/16 | mutants 0/0 
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx2048 n=4096 rc=OK violations=0 worst_scaled_err=0.000660915 chip_ns=0 call_ns=402052099 calls=1 unwritten=0 kv_staged=8388608/8388608 blocks=128/128 | mutants 5/5 KV_HEAD:CAUGHT(rc=OK,bad=4094) SLOT:CAUGHT(rc=OK,bad=4088) NO_RESCALE:CAUGHT(rc=OK,bad=3458) Q_ROW:CAUGHT(rc=OK,bad=4088) OUT_ROW:CAUGHT(rc=OK,bad=4088)
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx127 n=4096 rc=OK violations=0 worst_scaled_err=0.00196848 chip_ns=0 call_ns=24771345 calls=1 unwritten=0 kv_staged=524288/524288 blocks=8/8 | mutants 0/0 
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx128 n=4096 rc=OK violations=0 worst_scaled_err=0.00206789 chip_ns=0 call_ns=24720096 calls=1 unwritten=0 kv_staged=524288/524288 blocks=8/8 | mutants 0/0 
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx129 n=4096 rc=OK violations=0 worst_scaled_err=0.00169498 chip_ns=0 call_ns=29230107 calls=1 unwritten=0 kv_staged=589824/589824 blocks=9/9 | mutants 0/0 
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx300 n=4096 rc=OK violations=0 worst_scaled_err=0.00194779 chip_ns=0 call_ns=59427610 calls=1 unwritten=0 kv_staged=1245184/1245184 blocks=19/19 | mutants 0/0 
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00116868 chip_ns=0 call_ns=196681321 calls=1 unwritten=0 kv_staged=655360/4128768 blocks=10/63 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=4303817 calls=1 unwritten=0 kv_staged=32768/32768 blocks=1/1 | mutants 1/1 KV_HEAD:CAUGHT(rc=OK,bad=4096)
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx17 n=4096 rc=OK violations=0 worst_scaled_err=0.00173488 chip_ns=0 call_ns=6763959 calls=1 unwritten=0 kv_staged=65536/65536 blocks=2/2 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=4096) SLOT:CAUGHT(rc=OK,bad=4094)
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx256 n=4096 rc=OK violations=0 worst_scaled_err=0.00161135 chip_ns=0 call_ns=49569521 calls=1 unwritten=0 kv_staged=524288/524288 blocks=16/16 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx2048 n=4096 rc=OK violations=0 worst_scaled_err=0.000630967 chip_ns=0 call_ns=401891363 calls=1 unwritten=0 kv_staged=4194304/4194304 blocks=128/128 | mutants 5/5 KV_HEAD:CAUGHT(rc=OK,bad=4092) SLOT:CAUGHT(rc=OK,bad=4081) NO_RESCALE:CAUGHT(rc=OK,bad=3413) Q_ROW:CAUGHT(rc=OK,bad=4082) OUT_ROW:CAUGHT(rc=OK,bad=4082)
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx127 n=4096 rc=OK violations=0 worst_scaled_err=0.00220911 chip_ns=0 call_ns=24747840 calls=1 unwritten=0 kv_staged=262144/262144 blocks=8/8 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx128 n=4096 rc=OK violations=0 worst_scaled_err=0.00178584 chip_ns=0 call_ns=24827952 calls=1 unwritten=0 kv_staged=262144/262144 blocks=8/8 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx129 n=4096 rc=OK violations=0 worst_scaled_err=0.00170524 chip_ns=0 call_ns=29198906 calls=1 unwritten=0 kv_staged=294912/294912 blocks=9/9 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx300 n=4096 rc=OK violations=0 worst_scaled_err=0.00195843 chip_ns=0 call_ns=59140280 calls=1 unwritten=0 kv_staged=622592/622592 blocks=19/19 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00127854 chip_ns=0 call_ns=196051365 calls=1 unwritten=0 kv_staged=327680/2064384 blocks=10/63 | mutants 0/0 
+PASS paged_bf16_split1_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00280082 chip_ns=0 call_ns=185433559 calls=1 unwritten=0 kv_staged=4128768/4128768 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split2_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00180413 chip_ns=0 call_ns=187266803 calls=1 unwritten=0 kv_staged=4128768/4128768 blocks=63/63 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=4094) SLOT:CAUGHT(rc=OK,bad=4089)
+PASS paged_bf16_split4_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00118133 chip_ns=0 call_ns=189903842 calls=1 unwritten=0 kv_staged=4128768/4128768 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split8_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.000901544 chip_ns=0 call_ns=196080246 calls=1 unwritten=0 kv_staged=4128768/4128768 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split16_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.000901544 chip_ns=0 call_ns=210181111 calls=1 unwritten=0 kv_staged=4128768/4128768 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split1_32q8kv_ctx100 n=4096 rc=OK violations=0 worst_scaled_err=0.00201304 chip_ns=0 call_ns=20780729 calls=1 unwritten=0 kv_staged=131072/458752 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split2_32q8kv_ctx100 n=4096 rc=OK violations=0 worst_scaled_err=0.00201304 chip_ns=0 call_ns=22353043 calls=1 unwritten=0 kv_staged=131072/458752 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split4_32q8kv_ctx100 n=4096 rc=OK violations=0 worst_scaled_err=0.00201304 chip_ns=0 call_ns=25248227 calls=1 unwritten=0 kv_staged=131072/458752 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split8_32q8kv_ctx100 n=4096 rc=OK violations=0 worst_scaled_err=0.00201304 chip_ns=0 call_ns=31733176 calls=1 unwritten=0 kv_staged=131072/458752 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split16_32q8kv_ctx100 n=4096 rc=OK violations=0 worst_scaled_err=0.00201304 chip_ns=0 call_ns=45406377 calls=1 unwritten=0 kv_staged=131072/458752 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_batch_3seq_32q8kv_ctx40_0_100 n=12288 rc=OK violations=0 worst_scaled_err=0.00228801 chip_ns=0 call_ns=25311843 calls=2 unwritten=0 kv_staged=458752/458752 blocks=7/7 | mutants 4/4 KV_HEAD:CAUGHT(rc=OK,bad=8190) SLOT:CAUGHT(rc=OK,bad=8184) Q_ROW:CAUGHT(rc=OK,bad=8190) OUT_ROW:CAUGHT(rc=OK,bad=8190)
+PASS paged_bf16_shared_prefix_4seq_8q2kv_10pre n=4096 rc=OK violations=0 worst_scaled_err=0.00211434 chip_ns=0 call_ns=38560224 calls=1 unwritten=0 kv_staged=311296/802816 blocks=19/49 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=4095) SLOT:CAUGHT(rc=OK,bad=4093)
+PASS paged_bf16_shared_prefix_4seq_32q8kv_10pre n=16384 rc=OK violations=0 worst_scaled_err=0.00189305 chip_ns=0 call_ns=153676271 calls=2 unwritten=0 kv_staged=1900544/3211264 blocks=29/49 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=16379) SLOT:CAUGHT(rc=OK,bad=16365)
+mutant NO_MAX: caught 1 of 1
+mutant KV_HEAD: caught 12 of 12
+mutant SLOT: caught 12 of 12
+mutant NO_RESCALE: caught 6 of 6
+mutant Q_ROW: caught 8 of 8
+mutant OUT_ROW: caught 8 of 8
+device_opens=0
+  hd128 dominant token 5 (warp 0 of chunk 0): rc OK, 0 bad, worst 0
+  hd128 dominant token 40 (warp 1 of chunk 0): rc OK, 0 bad, worst 0
+  hd128 dominant token 70 (warp 2 of chunk 0): rc OK, 0 bad, worst 0
+  hd128 dominant token 100 (warp 3 of chunk 0): rc OK, 0 bad, worst 0
+  hd128 dominant token 127 (warp 3 of chunk 0): rc OK, 0 bad, worst 0
+  hd128 dominant token 131 (warp 0 of chunk 1): rc OK, 0 bad, worst 0
+  hd128 dominant token 299 (warp 1 of chunk 2): rc OK, 0 bad, worst 0
+warp simulator error: order 0: SMEM at pc 49: shared access past the declared size
+PASS: 229 checks, 0 failed

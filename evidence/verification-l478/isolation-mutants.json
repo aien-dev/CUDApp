@@ -1,0 +1,46 @@
+[
+  {
+    "name": "original",
+    "source_sha256": "d342cd6032e18e61ec52690900363958980cff333e1a73da930ac3bce7e25356",
+    "binary_sha256": "5ec9ba98c69d081ddc8dc5741f61d15129bf2c13daa3843d39463a2966050f76",
+    "build_command": "timeout 60 quiet-build make OUT_DIR=build-l478-green build-l478-green/gpu_isolation_test",
+    "build_rc": 0,
+    "command": "timeout 30 quiet-build sh tests/test_isolation_dump.sh ./build-l478-green/gpu_isolation_test",
+    "rc": 1,
+    "signal": null,
+    "output": "PASS isolation dump 1\nFAIL isolation dump 2\nFAIL isolation dump 3\nFAIL isolation dump 4\nFAIL isolation dump 5\nFAIL isolation dump 6\nisolation dump: 6 checks, 5 failures"
+  },
+  {
+    "name": "mode-0666",
+    "source_sha256": "ec95000a39649c57f2649b779046f58fa455b65cb21448605ef211cdd26440bc",
+    "binary_sha256": "12832ef94f715a62bf353e1aa4fc3bb2f43a3f2be5b87b3ca9f933f0dd659118",
+    "build_command": "timeout 60 quiet-build make OUT_DIR=build-l478-green build-l478-green/gpu_isolation_test",
+    "build_rc": 0,
+    "command": "timeout 30 quiet-build sh tests/test_isolation_dump.sh ./build-l478-green/gpu_isolation_test",
+    "rc": 1,
+    "signal": null,
+    "output": "PASS isolation dump 1\nFAIL isolation dump 2\nPASS isolation dump 3\nPASS isolation dump 4\nPASS isolation dump 5\nPASS isolation dump 6\nisolation dump: 6 checks, 1 failures"
+  },
+  {
+    "name": "overwrite-existing",
+    "source_sha256": "80b137756b3a96ecf61243c940a92fd5b486c24b34eaa915a36d71710476272b",
+    "binary_sha256": "5804b1836b29989c8b86bc95d1d5241ae3b64692f3e6d43d2b0610f486db906c",
+    "build_command": "timeout 60 quiet-build make OUT_DIR=build-l478-green build-l478-green/gpu_isolation_test",
+    "build_rc": 0,
+    "command": "timeout 30 quiet-build sh tests/test_isolation_dump.sh ./build-l478-green/gpu_isolation_test",
+    "rc": 1,
+    "signal": null,
+    "output": "PASS isolation dump 1\nPASS isolation dump 2\nFAIL isolation dump 3\nFAIL isolation dump 4\nPASS isolation dump 5\nFAIL isolation dump 6\nisolation dump: 6 checks, 3 failures"
+  },
+  {
+    "name": "green",
+    "source_sha256": "834cf7944125b7a5036475a981836ec4de0450d606c6ed42b8b36aa73df03987",
+    "binary_sha256": "28a657a7d562a41d402c5a19a448877b35ee665f3e6c7f539bcfc9ee2f97e0ac",
+    "build_command": "timeout 60 quiet-build make OUT_DIR=build-l478-green build-l478-green/gpu_isolation_test",
+    "build_rc": 0,
+    "command": "timeout 30 quiet-build sh tests/test_isolation_dump.sh ./build-l478-green/gpu_isolation_test",
+    "rc": 0,
+    "signal": null,
+    "output": "PASS isolation dump 1\nPASS isolation dump 2\nPASS isolation dump 3\nPASS isolation dump 4\nPASS isolation dump 5\nPASS isolation dump 6\nisolation dump: 6 checks, 0 failures"
+  }
+]

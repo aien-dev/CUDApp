@@ -19,6 +19,7 @@
 #include "omega_bw_em.h"
 
 #include <stdio.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/select.h>
@@ -109,7 +110,13 @@ static void host_only(void) {
         void *code = ok ? calloc(1, need) : NULL;
         OmegaBlackwellKernel kk;
         ok = ok && code && omega_blackwell_kernel_encode_into(p, code, need, &kk) == 0 && kk.code_size == need;
-        if (ok && k == 2 && g_dump) { FILE *f = fopen(g_dump, "wb"); ok = f && fwrite(code, 1, need, f) == need; if (f) fclose(f); }
+        if (ok && k == 2 && g_dump) {
+            int fd = open(g_dump, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+            FILE *f = fd >= 0 ? fdopen(fd, "wb") : NULL;
+            if (!f && fd >= 0) close(fd);
+            ok = f && fwrite(code, 1, need, f) == need;
+            if (f && fclose(f) != 0) ok = 0;
+        }
         snprintf(w, sizeof w, "codegen + encode: %s (%zu bytes)", k == 0 ? "work kernel" : k == 1 ? "work kernel mutant 1" : "never-ending kernel", need);
         check(ok, w);
         free(code); free(p);

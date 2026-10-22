@@ -19,6 +19,12 @@ the decoder is `src/omega_sm121_disasm.c`, this folder holds the command line an
 
 `nvdisasm` is used only here, as the reference to compare against. Nothing it prints goes into a kernel.
 
+Kernel capture uses `OMEGA_KERNEL_DUMP_DIR` only when it resolves beneath the current checkout or `/tmp`.
+Create that directory with mode 0700, owned by the current user. The corpus script does this for new directories;
+an existing directory with broader permissions is refused. Captures use mode 0600 and never replace an existing
+file or follow a capture-file symlink. Listing checks use private temporary streams and keep all instruction checks.
+`gpu_isolation_test --host-only --dump-hang PATH` likewise creates a new mode-0600 file and refuses an existing path.
+
 ## Who uses it
 
 The checks that used to call `nvdisasm` now call ours:

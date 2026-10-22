@@ -1,0 +1,68 @@
+[
+  {
+    "name": "original",
+    "source_sha256": "3740da2aa102b81b1bce743ef26d031bc325901e0d5c40414482e7ad204c767e",
+    "binary_sha256": "a51bc863393ac82df789fb5320b79097558080fbfd9effb0d730122563629cae",
+    "build_command": "timeout 60 quiet-build make OUT_DIR=build-l478-mutants build-l478-mutants/kernel_dump_test",
+    "build_rc": 0,
+    "command": "timeout 20 quiet-build ./build-l478-mutants/kernel_dump_test",
+    "rc": 1,
+    "signal": null,
+    "output": "FAIL capture mode is 0600 with umask 0\nFAIL shared directory refused\nFAIL escape outside capture roots refused\nFAIL private checkout directory supported\nkernel dump: 13 checks, 4 failures"
+  },
+  {
+    "name": "mode-0666",
+    "source_sha256": "e03626b31ffdbeab3bce15d4cc6fcc9385a202d798a632434f7b8dffb10451d9",
+    "binary_sha256": "b843e8623d0ae77d4b6df5b4802363337dd80c2fd4d1a0933e53b7ae878ea1e6",
+    "build_command": "timeout 60 quiet-build make OUT_DIR=build-l478-mutants build-l478-mutants/kernel_dump_test",
+    "build_rc": 0,
+    "command": "timeout 20 quiet-build ./build-l478-mutants/kernel_dump_test",
+    "rc": 1,
+    "signal": null,
+    "output": "FAIL capture mode is 0600 with umask 0\nFAIL private checkout directory supported\nkernel dump: 13 checks, 2 failures"
+  },
+  {
+    "name": "shared-directory",
+    "source_sha256": "fac99db8bb15039512ecbbef474d1fce1c65225302564e6054b75636af3b57ba",
+    "binary_sha256": "dae27628bea134842c6bbd2a5305985d65d187f00b66af2f7ae316d14303aa7b",
+    "build_command": "timeout 60 quiet-build make OUT_DIR=build-l478-mutants build-l478-mutants/kernel_dump_test",
+    "build_rc": 0,
+    "command": "timeout 20 quiet-build ./build-l478-mutants/kernel_dump_test",
+    "rc": 1,
+    "signal": null,
+    "output": "FAIL shared directory refused\nkernel dump: 13 checks, 1 failures"
+  },
+  {
+    "name": "overwrite-existing",
+    "source_sha256": "f20855ca44544de387bb9bf3398aec1b445ef38177c0164058d535c0b20aa570",
+    "binary_sha256": "2e1de76b2b4a3abc21eaab663128b8a9c57c42b19885a497082640d1bda1fb47",
+    "build_command": "timeout 60 quiet-build make OUT_DIR=build-l478-mutants build-l478-mutants/kernel_dump_test",
+    "build_rc": 0,
+    "command": "timeout 20 quiet-build ./build-l478-mutants/kernel_dump_test",
+    "rc": 1,
+    "signal": null,
+    "output": "FAIL existing file preserved\nkernel dump: 13 checks, 1 failures"
+  },
+  {
+    "name": "unconfined-directory",
+    "source_sha256": "dbd13c2ca726ca9c8ff848f1a4cd259d1e882b6e31041619282f157c25bde8f9",
+    "binary_sha256": "0ce8a6310ac487281bccae76e98aa104c597c3f14bd6d99ec1cd0460f9b2eca2",
+    "build_command": "timeout 60 quiet-build make OUT_DIR=build-l478-mutants build-l478-mutants/kernel_dump_test",
+    "build_rc": 0,
+    "command": "timeout 20 quiet-build ./build-l478-mutants/kernel_dump_test",
+    "rc": 1,
+    "signal": null,
+    "output": "FAIL escape outside capture roots refused\nkernel dump: 13 checks, 1 failures"
+  },
+  {
+    "name": "green",
+    "source_sha256": "62d6fd863755698eb78a070b58d3a34ea81603bcc4377270ec12b9e0018062c2",
+    "binary_sha256": "5140297e160649f421c087d67b2b284e2bc67429ccc20d6e678780fefab47612",
+    "build_command": "timeout 60 quiet-build make OUT_DIR=build-l478-mutants build-l478-mutants/kernel_dump_test",
+    "build_rc": 0,
+    "command": "timeout 20 quiet-build ./build-l478-mutants/kernel_dump_test",
+    "rc": 0,
+    "signal": null,
+    "output": "kernel dump: 13 checks, 0 failures"
+  }
+]

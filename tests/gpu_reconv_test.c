@@ -174,11 +174,10 @@ static int find_op(const BlackwellIRProgram *p, BlackwellIROpcode op, int nth) {
 
 /* --------------------------------------------------------- sm121dis listing */
 static int sm121dis_bytes(const uint8_t *code, size_t bytes, const char *name, const char *const *must, int n_must) {
-    char lst[96];
-    snprintf(lst, sizeof lst, "/tmp/omega_rc_%s_%d.sass", name, (int)getpid());
-    FILE *f = fopen(lst, "w"); if (!f) return -1;
-    int rc = omega_sm121_listing(code, bytes, f); fclose(f);
-    FILE *l = fopen(lst, "r"); if (!l) return -1;
+    FILE *f = tmpfile(); if (!f) return -1;
+    int rc = omega_sm121_listing(code, bytes, f);
+    if (fflush(f) != 0 || fseek(f, 0, SEEK_SET) != 0) { fclose(f); return -1; }
+    FILE *l = f;
     char line[512]; int seen[16] = {0}, bad = 0, insns = 0;
     while (fgets(line, sizeof line, l)) {
         if (!strstr(line, "/*")) continue; /* every address line, 0x1000 and up too */
@@ -189,7 +188,7 @@ static int sm121dis_bytes(const uint8_t *code, size_t bytes, const char *name, c
     fclose(l);
     int miss = 0;
     for (int i = 0; i < n_must && i < 16; i++) if (!seen[i]) { printf("  %s: sm121dis listing lacks %s\n", name, must[i]); miss++; }
-    printf("sm121dis %s: rc=%d insns=%d undecodable=%d missing=%d (%s)\n", name, rc, insns, bad, miss, lst);
+    printf("sm121dis %s: rc=%d insns=%d undecodable=%d missing=%d (%s)\n", name, rc, insns, bad, miss, "private temporary stream");
     return (rc == 0 && bad == 0 && miss == 0) ? 0 : -1;
 }
 static int sm121dis_kernel(OmegaGpuEwOp op, int mutant, const char *name, const char *const *must, int n_must) {

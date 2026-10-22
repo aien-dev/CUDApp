@@ -85,12 +85,11 @@ static size_t compare(const float *got, const float *want, size_t n, double rel,
 static int sm121dis_check(OmegaGpuEwOp op, const char *name, const char *const *must, int n_must) {
     OmegaBlackwellKernel k; memset(&k, 0, sizeof k);
     if (omega_gpu_elementwise_codegen(op, NULL, 0.0f, &k) != OMEGA_GPU_EW_OK) return -1;
-    char lst[64];
-    snprintf(lst, sizeof lst, "/tmp/omega_ew_%s_%d.sass", name, (int)getpid());
-    FILE *f = fopen(lst, "w"); if (!f) { free(k.code); return -1; }
-    int rc = omega_sm121_listing(k.code, k.code_size, f); fclose(f);
+    FILE *f = tmpfile(); if (!f) { free(k.code); return -1; }
+    int rc = omega_sm121_listing(k.code, k.code_size, f);
     free(k.code);
-    FILE *l = fopen(lst, "r"); if (!l) return -1;
+    if (fflush(f) != 0 || fseek(f, 0, SEEK_SET) != 0) { fclose(f); return -1; }
+    FILE *l = f;
     char line[512]; int seen[16] = {0}; int bad = 0, insns = 0;
     while (fgets(line, sizeof line, l)) {
         if (!strstr(line, "/*")) continue; /* every address line, 0x1000 and up too */
@@ -101,7 +100,7 @@ static int sm121dis_check(OmegaGpuEwOp op, const char *name, const char *const *
     fclose(l);
     int miss = 0;
     for (int i = 0; i < n_must; i++) if (!seen[i]) { printf("  %s: sm121dis listing lacks %s\n", name, must[i]); miss++; }
-    printf("sm121dis %s: rc=%d insns=%d undecodable=%d missing=%d (%s)\n", name, rc, insns, bad, miss, lst);
+    printf("sm121dis %s: rc=%d insns=%d undecodable=%d missing=%d (%s)\n", name, rc, insns, bad, miss, "private temporary stream");
     return (rc == 0 && bad == 0 && miss == 0) ? 0 : -1;
 }
 

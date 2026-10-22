@@ -1,0 +1,7 @@
+PASS isolation dump 1
+PASS isolation dump 2
+PASS isolation dump 3
+PASS isolation dump 4
+PASS isolation dump 5
+PASS isolation dump 6
+isolation dump: 6 checks, 0 failures

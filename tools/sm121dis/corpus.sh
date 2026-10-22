@@ -6,7 +6,7 @@
 # `make OUT_DIR=<build-out-dir> sm121dis-corpus-bins` (mk/sm121dis.mk). A test that fails is reported; the run goes on.
 set -u
 OUT=$1; K=$2
-mkdir -p "$K"; K=$(cd "$K" && pwd)
+mkdir -m 700 -p "$K"; K=$(cd "$K" && pwd)
 export OMEGA_KERNEL_DUMP_DIR="$K"
 run() { printf '%s' "$*: "; "$@" > /dev/null 2>&1; rc=$?; echo "exit $rc, $(ls "$K" | wc -l) kernels so far"; }
 for t in gpu_matmul_api_test gpu_elementwise_test gpu_reconv_test gpu_attention_test gpu_moe_window_test gpu_fp8_api_test \

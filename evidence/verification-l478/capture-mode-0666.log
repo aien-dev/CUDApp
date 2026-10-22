@@ -1,0 +1,3 @@
+FAIL capture mode is 0600 with umask 0
+FAIL private checkout directory supported
+kernel dump: 13 checks, 2 failures

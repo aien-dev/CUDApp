@@ -152,13 +152,12 @@ static int sm121dis_check(const OmegaFp8GemvSpec *spec, const char *name) { retu
 static int sm121dis_check_v(int variant, const OmegaFp8GemvSpec *spec, const char *name) {
     OmegaBlackwellKernel k; memset(&k, 0, sizeof k);
     if ((variant == 2 ? omega_blackwell_codegen_fp8_gemv2(spec, &k) : omega_blackwell_codegen_fp8_gemv(spec, &k)) != 0) return -1;
-    char lst[96];
-    snprintf(lst, sizeof lst, "/tmp/omega_fp8_%s_%d.sass", name, (int)getpid());
-    FILE *f = fopen(lst, "w"); if (!f) { omega_blackwell_kernel_free(&k); return -1; }
-    int rc = omega_sm121_listing(k.code, k.code_size, f); fclose(f);
+    FILE *f = tmpfile(); if (!f) { omega_blackwell_kernel_free(&k); return -1; }
+    int rc = omega_sm121_listing(k.code, k.code_size, f);
     omega_blackwell_kernel_free(&k);
     static const char *const must[] = { "LDG.E.128", "FFMA", "SHFL.DOWN", "BSSY", "BSYNC", "STG.E", "LOP3.LUT", "IMAD" };
-    FILE *l = fopen(lst, "r"); if (!l) return -1;
+    if (fflush(f) != 0 || fseek(f, 0, SEEK_SET) != 0) { fclose(f); return -1; }
+    FILE *l = f;
     char line[512]; int seen[8] = {0}; int bad = 0, insns = 0;
     while (fgets(line, sizeof line, l)) {
         if (!strstr(line, "/*") || !strstr(line, "*/")) continue; /* every address line */
@@ -170,7 +169,7 @@ static int sm121dis_check_v(int variant, const OmegaFp8GemvSpec *spec, const cha
     fclose(l);
     int miss = 0;
     for (int i = 0; i < 8; i++) if (!seen[i]) { printf("  %s: sm121dis listing lacks %s\n", name, must[i]); miss++; }
-    printf("sm121dis %s: rc=%d insns=%d undecodable=%d missing=%d (%s)\n", name, rc, insns, bad, miss, lst);
+    printf("sm121dis %s: rc=%d insns=%d undecodable=%d missing=%d (%s)\n", name, rc, insns, bad, miss, "private temporary stream");
     return (rc == 0 && bad == 0 && miss == 0) ? 0 : -1;
 }
 

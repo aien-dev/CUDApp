@@ -10,6 +10,10 @@
 #ifndef OMEGA_GPU_NO_POSIX
 #include <stdio.h>
 #include <stdlib.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #define BW_DIAG(...) fprintf(stderr, __VA_ARGS__)
 #else
 #define BW_DIAG(...) ((void)0)
@@ -1006,19 +1010,34 @@ int omega_blackwell_verify_codegen_fixtures_fb1cut4(void) {
 
 /* Kernel capture (C6 of docs/OMEGA.md, tools/sm121dis): with OMEGA_KERNEL_DUMP_DIR set, every encoded kernel is written
  * there as <first 16 hex of its SHA-256>.bin, once per distinct body, so the disassembler can be checked against nvdisasm on
- * every kernel the library builds. Unset (the normal case) it does nothing; the freestanding build has no files. */
+ * every kernel the library builds. The directory must be private, owned by this user, and resolve beneath the
+ * current checkout or /tmp. Unset (the normal case) it does nothing; the freestanding build has no files. */
 void omega_kernel_dump(const uint8_t *code, size_t len) {
 #ifndef OMEGA_GPU_NO_POSIX
     const char *dir = getenv("OMEGA_KERNEL_DUMP_DIR");
     if (!dir || !dir[0] || !code || !len) return;
+    char path[PATH_MAX], root[PATH_MAX];
+    if (!realpath(dir, path) || !getcwd(root, sizeof root)) return;
+    size_t rn = strlen(root);
+    if (strncmp(path, "/tmp/", 5) != 0 &&
+        !(rn > 1 && strncmp(path, root, rn) == 0 && path[rn] == '/')) return;
+    int dfd = open(path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    if (dfd < 0) return;
+    struct stat st;
+    if (fstat(dfd, &st) != 0 || st.st_uid != geteuid() || (st.st_mode & 0077) != 0) {
+        close(dfd); return;
+    }
     uint8_t d[SHA256_DIGEST_SIZE]; sha256_hash(code, len, d);
-    char path[4096]; int n = snprintf(path, sizeof path, "%s/", dir);
-    if (n < 0 || (size_t)n + 21 > sizeof path) return;
-    for (unsigned i = 0; i < 8; i++) n += snprintf(path + n, sizeof path - (size_t)n, "%02x", d[i]);
-    snprintf(path + n, sizeof path - (size_t)n, ".bin");
-    FILE *f = fopen(path, "wbx"); /* x: an existing body is left alone */
-    if (!f) return;
-    if (fwrite(code, 1, len, f) != len) BW_DIAG("omega_kernel_dump: short write %s\n", path);
+    static const char hex[] = "0123456789abcdef";
+    char name[21];
+    for (unsigned i = 0; i < 8; i++) { name[2 * i] = hex[d[i] >> 4]; name[2 * i + 1] = hex[d[i] & 15]; }
+    memcpy(name + 16, ".bin", 5);
+    int fd = openat(dfd, name, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+    close(dfd);
+    if (fd < 0) return; /* Existing bodies and symlinks are left alone. */
+    FILE *f = fdopen(fd, "wb");
+    if (!f) { close(fd); return; }
+    if (fwrite(code, 1, len, f) != len) BW_DIAG("omega_kernel_dump: short write %s\n", name);
     fclose(f);
 #else
     (void)code; (void)len;

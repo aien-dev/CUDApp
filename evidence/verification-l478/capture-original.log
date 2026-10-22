@@ -1,0 +1,5 @@
+FAIL capture mode is 0600 with umask 0
+FAIL shared directory refused
+FAIL escape outside capture roots refused
+FAIL private checkout directory supported
+kernel dump: 13 checks, 4 failures
