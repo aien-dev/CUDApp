@@ -1,20 +1,43 @@
 {
-  "contract":"cudapp.numeric.v1",
-  "trace_schema":"cudapp.trace.v1",
-  "host_full_suite":{"status":"PASS","command":"quiet-build timeout 900 make -j2 OUT_DIR=build-roadmap-contracts-bench test","exit_code":0,"existing_targets":33,"log":"host-suite-green.log"},
-  "new_host_api":{"status":"PASS","checks":285},
-  "new_generated_router_simulator":{"status":"PASS","checks":236},
-  "trace_fixture_comparator":{"status":"PASS","tests":19,"model_validation":"NOT_RUN"},
-  "mutants":{"production_wrong_rounding":"KILLED_INTENDED_ASSERTION","production_wrong_tie":"KILLED_INTENDED_ASSERTION","router_wrong_mask":"DETECTED","router_wrong_directory":"DETECTED","existing_expert_omission_and_glue_mutants":"PRESERVED"},
-  "existing_graph_stage_simulator":"PASS_IN_FULL_HOST_SUITE",
-  "real_model_trace":"NOT_RUN",
-  "multi_turn_and_context_model_validation":"NOT_RUN",
-  "model_quality":"NOT_RUN",
-  "GB10":"NOT_RUN",
-  "driver_qualification":"NOT_RUN",
-  "integration_5_6":"NOT_RUN",
-  "repeatability_13_chip":"NOT_RUN",
-  "shared_timing_experiment":"NOT_RUN",
-  "target_model":"qwen3.6-35b-a3b-fp8 (not contacted)",
-  "model_config_prompt_driver_binary_hardware_pins":"NOT_RUN: no actual model or GPU collection in this receipt"
+  "contract": "cudapp.numeric.v1",
+  "trace_schema": "cudapp.trace.v1",
+  "host_full_suite": {
+    "status": "PASS",
+    "command": "quiet-build timeout 900 make -j2 OUT_DIR=build-roadmap-contracts-bench test",
+    "exit_code": 0,
+    "existing_targets": 33,
+    "log": "host-suite-green.log",
+    "provenance": "Runtime/test C unchanged a0ef918..3565287; final additional mutant recipe verified in target-final.log and child full suite at 4fdc3dabc5a0243ad93b6106e76497d0ce428d8a."
+  },
+  "new_host_api": {
+    "status": "PASS",
+    "checks": 285
+  },
+  "new_generated_router_simulator": {
+    "status": "PASS",
+    "checks": 236
+  },
+  "trace_fixture_comparator": {
+    "status": "PASS",
+    "tests": 19,
+    "model_validation": "NOT_RUN"
+  },
+  "mutants": {
+    "production_wrong_rounding": "KILLED_INTENDED_ASSERTION",
+    "production_wrong_tie": "KILLED_INTENDED_ASSERTION",
+    "router_wrong_mask": "DETECTED",
+    "router_wrong_directory": "DETECTED",
+    "existing_expert_omission_and_glue_mutants": "PRESERVED"
+  },
+  "existing_graph_stage_simulator": "PASS_IN_FULL_HOST_SUITE",
+  "real_model_trace": "NOT_RUN",
+  "multi_turn_and_context_model_validation": "NOT_RUN",
+  "model_quality": "NOT_RUN",
+  "GB10": "NOT_RUN",
+  "driver_qualification": "NOT_RUN",
+  "integration_5_6": "NOT_RUN",
+  "repeatability_13_chip": "NOT_RUN",
+  "shared_timing_experiment": "NOT_RUN",
+  "target_model": "qwen3.6-35b-a3b-fp8 (not contacted)",
+  "model_config_prompt_driver_binary_hardware_pins": "NOT_RUN: no actual model or GPU collection in this receipt"
 }
