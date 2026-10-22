@@ -13,7 +13,7 @@ CUDA++ keeps growing until every NVIDIA part on the Spark is replaced, and then 
 - my own GPU driver replaces NVIDIA's kernel modules `nvidia.ko` and `nvidia-uvm.ko` (AIEN work item L332);
 - my own disassembler replaces `nvdisasm`;
 - only the GSP firmware stays NVIDIA's, for a physical reason: the GPU checks its signature and boots nothing else;
-- beyond CUDA: owning the whole path from program to chip, so one submission per generated word, whole-model kernels that stay resident on the GPU, and zero-copy use of the memory the CPU and GPU share.
+- beyond CUDA: owning the whole path from program to chip, so the launch path, the scheduling and the memory are mine to change. CUDA already batches launches with graphs, keeps kernels resident with cooperative groups, and reaches the memory the CPU and GPU share through unified memory; what it does not do is let me change those mechanisms, or run without its own driver library. `ROADMAP.md` section 3 states each of those rows with what CUDA does today next to what owning the path gives me.
 
 CUDA++ is not affiliated with or endorsed by NVIDIA; CUDA is NVIDIA's trademark.
 
@@ -110,7 +110,7 @@ PASS means a receipt exists on a named commit. Status words come from Omega's `d
 
 <p align="center"><img src="docs/img/ceilings.svg" width="100%" alt="Roofline of the GB10 from my own probes: 115.14 TFLOPS tensor-core peak and 195.1 GB/s memory reads, meeting at 590 operations per byte."></p>
 
-Every speed number is held against what this machine can physically do, measured by my own probe kernels. Generating a word of text reads each active weight once and does about one operation per byte, far left of the ridge, so its speed is set by memory, not by the tensor cores. The head-to-head measurement against llama.cpp and vLLM on this Spark is Omega bar P0 (AIEN L394).
+Every speed number is held against what this machine can physically do, measured by my own probe kernels. Generating a word of text reads each active weight once and does about one operation per byte, far left of the ridge, so its speed is set by memory, not by the tensor cores. The head-to-head measurement against llama.cpp and vLLM on this Spark is Omega bar P0 (AIEN L394). The same work on CUDA's own stack, in one window on this Spark, is prepared in `yardstick/cuda-vecadd/`; its host half is done, both sides hash the same output bytes, and no comparison number is published until the window runs.
 
 ## What is in here
 

@@ -37,18 +37,20 @@ From Omega `docs/OMEGA.md` section 3. Each needs a receipt on the exact commit; 
 
 ## 3. More than CUDA
 
-Things a CUDA stack does not do, because it does not own the whole path. Omega `docs/OMEGA.md` bar P4: at least one measured win from each before it is claimed.
+What owning the whole path lets me do. CUDA covers more of this than a roadmap table usually admits, so every row states what CUDA does today next to what owning the path gives me, and the row is only claimed as a win once it is measured (Omega `docs/OMEGA.md` bar P4).
 
-| Item | Why CUDA cannot | Status |
-| --- | --- | --- |
-| One submission per generated word | CUDA launches go through the runtime and driver per kernel or per graph; I write the command list myself | PARTIAL: command lists exist (`src/omega_gpu_cmdlist.*`); extra launch in a list costs 24 to 31 us today with wait-for-idle (`evidence/OWN30B-LAUNCH-COST-20261014T0120Z/`) |
-| Resident whole-model kernel | needs control of scheduling and memory below the CUDA API | MISSING (AIEN L272) |
-| Zero-copy shared memory | the GB10's CPU and GPU share one memory; CUDA still stages through its own allocators | PARTIAL: weights shared between processes through the driver client (physics `feat/shared-mem` 82467f19, 1 GiB import in 171 ms; not yet in CUDA++ main) |
-| My own driver's launch path | CUDA's is fixed by NVIDIA | BUILDING (L332) |
+| Item | What CUDA does today | What owning the path gives me | Status |
+| --- | --- | --- | --- |
+| One submission per generated word | CUDA Graphs put many launches into one submission, but each launch still goes through the runtime and the driver, and the graph is theirs to schedule | I write the command list myself, so a word's work is one list I control from the program to the doorbell | PARTIAL: command lists exist (`src/omega_gpu_cmdlist.*`); extra launch in a list costs 24 to 31 us today with wait-for-idle (`evidence/OWN30B-LAUNCH-COST-20261014T0120Z/`) |
+| Resident whole-model kernel | cooperative groups let a CUDA kernel stay resident, but where its blocks sit, when they are preempted and what memory they hold are the driver's and the runtime's decisions | residency, block placement and memory are decisions in my own scheduler, below the API | MISSING (AIEN L272) |
+| Zero-copy shared memory | the GB10's CPU and GPU share one memory, and CUDA reaches it through unified memory and mapped host memory, and shares buffers between processes with IPC handles | the buffer is the memory: no caching allocator, the size is what I asked for, and a reserve is checked before the driver (D1) | PARTIAL: weights shared between processes through the driver client (physics `feat/shared-mem` 82467f19, 1 GiB import in 171 ms; not yet in CUDA++ main) |
+| My own driver's launch path | CUDA's launch path is NVIDIA's and closed, and only NVIDIA's driver drives the chip | the launch path itself is a thing I can change | BUILDING (L332) |
 
 ## 4. Speed
 
 Speed is reported against the physical ceiling of this machine, not only against yesterday. The table and the ceilings are in Omega `docs/OMEGA.md` section 5; the head-to-head measurement against llama.cpp and vLLM on this Spark is bar P0 (AIEN L394, running).
+
+The same work on CUDA's own stack, on this Spark, is prepared but not run. `yardstick/cuda-vecadd/` holds the CUDA program (nvcc 13.0, the same inputs, the same eight launches of 131072 elements, the same timing shape) and `run.sh` runs both sides in one `spark-window`, so both numbers come from one machine state. The host half is done and it is the equivalence check: `hello_gpu --sim` and a plain CPU reference both hash `72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6`, so the two stacks are doing the same work and only time is left to compare. `evidence/cuda-head-to-head-20261022T1408Z/` records the preparation and the window refusal (the chip is reserved; AIEN L451 asks for one bounded window). No CUDA comparison number is published until it runs.
 
 ## 5. The developer bar: better to use than CUDA
 

@@ -1,0 +1,16 @@
+prep receipt, no chip used. 2026-10-22T14:0xZ
+
+$ spark-window open cudapp-cuda-h2h --gb10 exclusive --quiet exclusive --lease 15 --wait
+spark-window: refused, the chip is reserved: L424 L401 L400 L386 L312 L354 L355 L356 L314 L313 L352 L369 L371 L375 L376 (Drake 2026-10-21 ~02:10Z: many conversations per beat first, every lever to the ceiling; the PR judge shares; L424 prepended 2026-10-22T04:43Z). Do non-chip work; the coordinator lifts it.
+status: window requested (BOARD + ~/handoffs/restart-requests.md), chip run PENDING. No CUDA number is published until it runs.
+
+== CUDA++ hello_gpu on the host warp simulator (no GPU) ==
+checked 1048576 of 1048576 elements: 0 wrong, 0 never written
+work: 12582912 bytes moved (8388608 read, 4194304 written), 1048576 floating-point operations
+output sha256 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+PASS
+
+== the same job computed on the CPU (yardstick/cuda-vecadd/host_check.c) ==
+host reference: 1048576 elements, c[i] = a[i] + b[i] on the CPU, same inputs as hello_gpu and vecadd_cuda
+written to /tmp/h2h/expected.bin (4194304 bytes)
+72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6  /tmp/h2h/expected.bin
