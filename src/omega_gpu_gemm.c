@@ -257,7 +257,16 @@ static struct {
     OmegaGemmCfg cfg[2];
     OmegaGpuMem code[2][OMEGA_GEMM_K_COUNT];
     uint32_t gpr[2][OMEGA_GEMM_K_COUNT];
+    int hooked;
 } g;
+
+/* lock held; the session calls it right before it closes the device (also in omega_gpu_session_recover): the kernels go
+ * with the device, the next call builds them again on the new one */
+static void on_session_close(void) {
+    for (unsigned t = 0; t < 2; t++)
+        for (unsigned k = 0; k < OMEGA_GEMM_K_COUNT; k++) if (g.code[t][k].cpu) omega_gpu_session_free(&g.code[t][k]);
+    memset(g.code, 0, sizeof g.code);
+}
 
 static const OmegaGemmCfg *cfg_of(OmegaGpuGemmType t) {
     if (!g.set[t]) { omega_gpu_gemm_default_cfg(t, &g.cfg[t]); g.set[t] = 1; }
@@ -289,6 +298,10 @@ const char *omega_gpu_gemm_rc_name(int rc) {
 /* lock held */
 static int kernel_locked(OmegaGpuGemmType t, OmegaGemmKind k) {
     if (g.code[t][k].cpu) return OMEGA_GPU_GEMM_OK;
+    if (!g.hooked) { /* without the hook a kernel would outlive its device */
+        if (omega_gpu_session_on_close(on_session_close) != 0) return OMEGA_GPU_GEMM_CHIP_FAIL;
+        g.hooked = 1;
+    }
     BlackwellIRProgram *prog = omega_gpu_host_calloc(1, sizeof *prog);
     if (!prog) return OMEGA_GPU_GEMM_CODEGEN_FAIL;
     int rc = OMEGA_GPU_GEMM_OK;
