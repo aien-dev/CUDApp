@@ -1,0 +1,56 @@
+{
+  "utc": "2026-10-22T14:57:40.463288+00:00",
+  "host": "spark-b87b",
+  "system": "Linux-7.0.0-1019-nvidia-aarch64-with-glibc2.39",
+  "source_commit": "ad605130518a3e0a73918829abd3290d739f90d9",
+  "inherited_transpose_commit": "57a4d45cbc3eecafffb4e425bec9fa53d5642c4a",
+  "arithmetic_reuse_commit": "f564d78bb356f257e308319cb489b9b3369fb970",
+  "compiler_sha256": "10d7565239ca6bd3cca344b65a03c0f3498acd95e82ab3d420bd01408b01398e",
+  "source_sha256": {
+    "docs/SPARSE_CORE.md": "a564f46d40ae6ad914c2d13fba73fe153103b21dce1a77de1e6de21cab1e63e4",
+    "docs/superpowers/plans/2026-10-22-sparse-core.md": "150c70a57146f9d4af2bc5a728220dd27523e549f96c21214f6798410d7672c3",
+    "docs/superpowers/specs/2026-10-22-sparse-core.md": "77897c5d13bbbaf2df119fa3986f7660deb730537d7d4523a8b7b3b17f3df65e",
+    "mk/sparse-core.mk": "63fac681f198a478b8acee8b71d685fafaefb9b67c7647763ae9e9e671d6dc28",
+    "omega/libraries/binary32.om": "4ce25c69786156687ef1e71a74bee58ee3e27265a5728802e909bbdb00841bfb",
+    "omega/libraries/fdiv.om": "0c8649771f2b07010365b8b0cad897dfc4e15c604a8b52d02de3495a423673a5",
+    "omega/libraries/sparse_convert.om": "b12efe415f6b4a8322e2f118df45b7ee48c51826654b7acb905a53a5af3e2ad2",
+    "omega/libraries/sparse_core.om": "5bb60d38bc9e09da3c656cb5b009d49806767c8eeb61c90f8b954772fd877f0d",
+    "omega/libraries/sparse_gemm.om": "2b5d88c000d0d5832a2ac990c9db9a16d92f3f3bafd4d5da8f3fc5a37495df39",
+    "omega/libraries/sparse_solve.om": "9340b0a0749853e060810fd578de701a5370987b1a7b1f24f7e07ca437baf110",
+    "tests/libraries/sparse_core_driver.om": "e4b85c82caeca716675397745e33d925bc5de26b153bc035b053b12141a5f6b2",
+    "tests/libraries/sparse_core_state.om": "9530da2136f28c9b2f0d80c8bcb35b469b79c72d748b193210e411aa979936a0",
+    "tests/libraries/test_sparse_core.py": "9955dacf484bacb532350ed93c2fb46e9a70c5d33e3db15ba286a5e16eddc482"
+  },
+  "executable_sha256": "27db7cb57aafc11a4e40d419fdc4b3ba720e9df4469135609dc3c0cce3a4ccb4",
+  "test_counts": {
+    "convert": 324,
+    "gemm": 288,
+    "solve": 296
+  },
+  "total_oracle_refusal_checks": 908,
+  "compiled_mutants_caught": [
+    "conversion-value",
+    "conversion-row",
+    "product-math",
+    "product-structural-zero",
+    "product-partial-publish",
+    "solve-diagonal",
+    "solve-order",
+    "solve-triangle-check"
+  ],
+  "direct_state_check": "PASS; capacity/late-arithmetic/validation refusal and repeated calls",
+  "commands": {
+    "new_suite": "make test-sparse-core OMEGA_SEED_COMPILER=/path/to/pinned/omc",
+    "inherited_suite": "make test-csr-transpose OMEGA_SEED_COMPILER=/path/to/pinned/omc",
+    "ordinary_host_suite": "timeout 480 quiet-build make -j4 test"
+  },
+  "return_codes": {
+    "new_suite": 0,
+    "inherited_suite": 0,
+    "ordinary_host_suite": 0
+  },
+  "ordinary_host_suite_targets": 33,
+  "ordinary_host_source_note": "Run once during finalization; all existing 33-target host-suite sources unchanged. Separate Omega suites rerun after final source commit.",
+  "scope": "HOST ONLY; dimensions <=64, stored entries <=256; no GPU execution, CUDA ABI compatibility or performance qualification",
+  "review": "Author review recorded. Fresh Codex review exited 1 on usage limit before findings; independent desk review pending L455."
+}

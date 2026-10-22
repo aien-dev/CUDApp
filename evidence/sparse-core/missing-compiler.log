@@ -1,0 +1,2 @@
+Set OMEGA_SEED_COMPILER to the SHA-pinned Linux AArch64 omc (docs/CSR_TRANSPOSE.md).
+make: *** [mk/sparse-core.mk:5: test-sparse-core] Error 2

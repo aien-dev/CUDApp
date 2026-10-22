@@ -1,0 +1,9 @@
+python3 tests/libraries/test_sparse_core.py --compiler "/bin/true" --out "build/sparse-core" --mutants
+Traceback (most recent call last):
+  File "/home/drakestapleton/workspace/hermes-desk/cudapp-sparse-core/tests/libraries/test_sparse_core.py", line 372, in <module>
+    main()
+  File "/home/drakestapleton/workspace/hermes-desk/cudapp-sparse-core/tests/libraries/test_sparse_core.py", line 313, in main
+    assert hashlib.sha256(compiler.read_bytes()).hexdigest() == COMPILER_SHA, 'unqualified compiler'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: unqualified compiler
+make: *** [mk/sparse-core.mk:6: test-sparse-core] Error 1
