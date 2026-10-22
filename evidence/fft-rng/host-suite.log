@@ -1,0 +1,1541 @@
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen.c -o build/omega_blackwell_codegen.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_attn.c -o build/omega_blackwell_codegen_attn.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_bf16.c -o build/omega_blackwell_codegen_bf16.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_dec.c -o build/omega_blackwell_codegen_dec.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_gemm.c -o build/omega_blackwell_codegen_gemm.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_moe.c -o build/omega_blackwell_codegen_moe.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_moe2.c -o build/omega_blackwell_codegen_moe2.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_pattn.c -o build/omega_blackwell_codegen_pattn.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_pf.c -o build/omega_blackwell_codegen_pf.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_pfhost.c -o build/omega_blackwell_codegen_pfhost.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_qg.c -o build/omega_blackwell_codegen_qg.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_qmma.c -o build/omega_blackwell_codegen_qmma.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_router.c -o build/omega_blackwell_codegen_router.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_tc.c -o build/omega_blackwell_codegen_tc.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_tc2.c -o build/omega_blackwell_codegen_tc2.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_tern.c -o build/omega_blackwell_codegen_tern.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_encoder.c -o build/omega_blackwell_encoder.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_engine.c -o build/omega_blackwell_engine.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_matmul.c -o build/omega_blackwell_matmul.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_qmd.c -o build/omega_blackwell_qmd.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_realize.c -o build/omega_blackwell_realize.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_submit.c -o build/omega_blackwell_submit.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_attention_api.c -o build/omega_gpu_attention_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_bf16_gemv_api.c -o build/omega_gpu_bf16_gemv_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_chip.c -o build/omega_gpu_chip.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_cmdlist.c -o build/omega_gpu_cmdlist.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_decode_attn_api.c -o build/omega_gpu_decode_attn_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_decode_graph.c -o build/omega_gpu_decode_graph.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_elementwise_api.c -o build/omega_gpu_elementwise_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_engine.c -o build/omega_gpu_engine.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_fmt.c -o build/omega_gpu_fmt.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_fp8_api.c -o build/omega_gpu_fp8_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_fp8_pack.c -o build/omega_gpu_fp8_pack.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_fp8gemm_api.c -o build/omega_gpu_fp8gemm_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_hostmath.c -o build/omega_gpu_hostmath.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_matmul_api.c -o build/omega_gpu_matmul_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_mem_cached.c -o build/omega_gpu_mem_cached.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_moe_api.c -o build/omega_gpu_moe_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_pfgemm.c -o build/omega_gpu_pfgemm.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_pfhost.c -o build/omega_gpu_pfhost.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_platform.c -o build/omega_gpu_platform.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_platform_linux.c -o build/omega_gpu_platform_linux.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_prefill.c -o build/omega_gpu_prefill.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_prefill_attn_api.c -o build/omega_gpu_prefill_attn_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_router_api.c -o build/omega_gpu_router_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_serving.c -o build/omega_gpu_serving.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_session.c -o build/omega_gpu_session.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_tcgemm_api.c -o build/omega_gpu_tcgemm_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_tern_api.c -o build/omega_gpu_tern_api.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_gpu_wait.c -o build/omega_gpu_wait.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/sha256.c -o build/sha256.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_canonical.c -o build/omega_canonical.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_core.c -o build/omega_core.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_vector.c -o build/omega_vector.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c ./m16/m16_native.c -o build/m16_native.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c ./nvrm/nvrm.c -o build/nvrm.o
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Isrc -o build/test_omega_gpu_code_alloc tests/test_omega_gpu_code_alloc.c
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Isrc -DOMEGA_NUMERIC_CPU_ONLY -o build/test_omega_gpu_engine_compile tests/test_omega_gpu_engine_compile.c src/omega_gpu_engine.c
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Isrc -DOMEGA_NUMERIC_CPU_ONLY -o build/test_omega_gpu_engine tests/test_omega_gpu_engine.c src/omega_gpu_engine.c
+sh tools/gpu_engine_mutations.sh
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c -o build/omega_blackwell_engine_syntax.o src/omega_blackwell_engine.c
+make build/libomega_gpu.a
+make[1]: Entering directory '/home/drakestapleton/workspace/hermes-desk/cudapp-fft-rng'
+ar rcs build/libomega_gpu.a build/omega_blackwell_codegen.o build/omega_blackwell_codegen_attn.o build/omega_blackwell_codegen_bf16.o build/omega_blackwell_codegen_dec.o build/omega_blackwell_codegen_gemm.o build/omega_blackwell_codegen_moe.o build/omega_blackwell_codegen_moe2.o build/omega_blackwell_codegen_pattn.o build/omega_blackwell_codegen_pf.o build/omega_blackwell_codegen_pfhost.o build/omega_blackwell_codegen_qg.o build/omega_blackwell_codegen_qmma.o build/omega_blackwell_codegen_router.o build/omega_blackwell_codegen_tc.o build/omega_blackwell_codegen_tc2.o build/omega_blackwell_codegen_tern.o build/omega_blackwell_encoder.o build/omega_blackwell_engine.o build/omega_blackwell_matmul.o build/omega_blackwell_qmd.o build/omega_blackwell_realize.o build/omega_blackwell_submit.o build/omega_gpu_attention_api.o build/omega_gpu_bf16_gemv_api.o build/omega_gpu_chip.o build/omega_gpu_cmdlist.o build/omega_gpu_decode_attn_api.o build/omega_gpu_decode_graph.o build/omega_gpu_elementwise_api.o build/omega_gpu_engine.o build/omega_gpu_fmt.o build/omega_gpu_fp8_api.o build/omega_gpu_fp8_pack.o build/omega_gpu_fp8gemm_api.o build/omega_gpu_hostmath.o build/omega_gpu_matmul_api.o build/omega_gpu_mem_cached.o build/omega_gpu_moe_api.o build/omega_gpu_pfgemm.o build/omega_gpu_pfhost.o build/omega_gpu_platform.o build/omega_gpu_platform_linux.o build/omega_gpu_prefill.o build/omega_gpu_prefill_attn_api.o build/omega_gpu_router_api.o build/omega_gpu_serving.o build/omega_gpu_session.o build/omega_gpu_tcgemm_api.o build/omega_gpu_tern_api.o build/omega_gpu_wait.o build/sha256.o build/omega_canonical.o build/omega_core.o build/omega_vector.o build/m16_native.o build/nvrm.o
+make[1]: Leaving directory '/home/drakestapleton/workspace/hermes-desk/cudapp-fft-rng'
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -ffunction-sections -fdata-sections \
+	-Isrc -Itests -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -o build/test_omega_blackwell_engine tests/test_omega_blackwell_engine.c tests/fake_m16_native.c \
+	src/omega_blackwell_submit.c src/omega_blackwell_engine.c src/omega_gpu_engine.c src/omega_blackwell_matmul.c src/omega_blackwell_codegen.c src/omega_blackwell_encoder.c src/omega_blackwell_qmd.c src/omega_blackwell_realize.c src/omega_vector.c src/omega_core.c src/omega_canonical.c src/sha256.c -Wl,--gc-sections -lm
+VALIDATE_SKIPPED KILLED  MUT:VALIDATE_SKIPPED (harness exit 139 (crash or abort))
+PHYSICS_DIR="." sh tools/gpu_engine_backend_mutations.sh
+VALID_PROGRAM KILLED  MUT:VALID_PROGRAM (harness exit 139 (crash or abort))
+VALID_LAYOUT KILLED  MUT:VALID_LAYOUT (1 failing case(s), first: VALID_ARGS_LAYOUT)
+VALID_COUNT_ZERO KILLED  MUT:VALID_COUNT_ZERO (1 failing case(s), first: VALID_ARGS_ZERO_ELEMENTS)
+VALID_ALIGN KILLED  MUT:VALID_ALIGN (1 failing case(s), first: VALID_ARGS_OUTPUT_ALIGNMENT)
+VALID_POISON_COUNT KILLED  MUT:VALID_POISON_COUNT (harness exit 139 (crash or abort))
+BE_ALLOC_CHECK_CPU KILLED  a buffer without a CPU mapping is refused (ALLOC) (8 failing case(s), first: m_nocpu_marker_refused_as_alloc)
+VALID_FLAGS KILLED  MUT:VALID_FLAGS (1 failing case(s), first: VALID_ARGS_UNKNOWN_FLAG)
+VALID_TIMEOUT_MARKER1 KILLED  MUT:VALID_TIMEOUT_MARKER1 (1 failing case(s), first: VALID_ARGS_ZERO_MARKER_TIMEOUT)
+VALID_TIMEOUT_MARKER2 KILLED  MUT:VALID_TIMEOUT_MARKER2 (1 failing case(s), first: VALID_ARGS_ZERO_MARKER2_TIMEOUT_WITH_C3)
+BLOCK_CHECK_SKIPPED KILLED  MUT:BLOCK_CHECK_SKIPPED (2 failing case(s), first: CERTAIN_BLOCKS_NEXT_JOB_NO_BACKEND_CALL)
+BE_ALLOC_CHECK_SIZE KILLED  a buffer smaller than asked is refused (ALLOC) (6 failing case(s), first: m_short_pb_refused_as_alloc)
+BACKEND_CHECK_SKIPPED KILLED  MUT:BACKEND_CHECK_SKIPPED (harness exit 139 (crash or abort))
+OPEN_NOT_TRACKED KILLED  MUT:OPEN_NOT_TRACKED (20 failing case(s), first: CCESS_FULL_RUN)
+ALLOC_NOT_TRACKED KILLED  MUT:ALLOC_NOT_TRACKED (20 failing case(s), first: CCESS_FULL_RUN)
+CLEANUP_SKIPPED_CHANNEL KILLED  MUT:CLEANUP_SKIPPED_CHANNEL (1 failing case(s), first: IL_CHANNEL_CREATE)
+BE_ALLOC_CHECK_ALIGN KILLED  a GPU address that is not 256-byte aligned is refused (ALLOC) (29 failing case(s), first: m_misaligned_qmd_refused_as_alloc)
+CLEANUP_SKIPPED_ALLOC KILLED  MUT:CLEANUP_SKIPPED_ALLOC (1 failing case(s), first: IL_ALLOC)
+CLEANUP_SKIPPED_COPY_IN KILLED  MUT:CLEANUP_SKIPPED_COPY_IN (1 failing case(s), first: IL_PREPARE_COPY_IN)
+CLEANUP_SKIPPED_SUBMIT KILLED  MUT:CLEANUP_SKIPPED_SUBMIT (2 failing case(s), first: IL_SUBMIT_IS_NOT_UNCERTAIN)
+FREE_UNALLOCATED KILLED  MUT:FREE_UNALLOCATED (3 failing case(s), first: IL_DEVICE_OPEN)
+FREE_SKIPPED KILLED  MUT:FREE_SKIPPED (20 failing case(s), first: CCESS_FULL_RUN)
+BE_ALLOC_OWN_CHECK_NOTE KILLED  the backend's own refusal text reaches the result (7 failing case(s), first: m_short_pb_own_check_text)
+CLOSE_SKIPPED KILLED  MUT:CLOSE_SKIPPED (20 failing case(s), first: CCESS_FULL_RUN)
+CLEANUP_OVERWRITES_FIRST KILLED  MUT:CLEANUP_OVERWRITES_FIRST (3 failing case(s), first: EANUP_FIRST_CLEANUP_FAULT_KEPT)
+CLEANUP_FLAG_NOT_SET KILLED  MUT:CLEANUP_FLAG_NOT_SET (5 failing case(s), first: EANUP_FREE_FAILS_AFTER_GOOD_RUN)
+POISON_FILL_SKIPPED KILLED  MUT:POISON_FILL_SKIPPED (18 failing case(s), first: LL_ORDER_FULL_RUN)
+STATE_PREPARED_SKIPPED KILLED  MUT:STATE_PREPARED_SKIPPED (3 failing case(s), first: ATE_ADVANCES_STEP_BY_STEP)
+STATE_SUBMITTED_SKIPPED KILLED  MUT:STATE_SUBMITTED_SKIPPED (4 failing case(s), first: ATE_ADVANCES_STEP_BY_STEP)
+BE_ALLOC_OWN_CHECK_FREE KILLED  a buffer that fails its own checks is freed, not leaked (7 failing case(s), first: m_short_pb_balanced)
+STATE_GPU_COMPLETE_SKIPPED KILLED  MUT:STATE_GPU_COMPLETE_SKIPPED (3 failing case(s), first: ATE_ADVANCES_STEP_BY_STEP)
+STATE_OUTPUT_VISIBLE_SKIPPED KILLED  MUT:STATE_OUTPUT_VISIBLE_SKIPPED (5 failing case(s), first: CHANGED_NOTHING_WRITTEN)
+STATE_OUTPUT_PRODUCED_SKIPPED KILLED  MUT:STATE_OUTPUT_PRODUCED_SKIPPED (4 failing case(s), first: ATE_ADVANCES_STEP_BY_STEP)
+STATE_SUCCESS_SKIPPED KILLED  MUT:STATE_SUCCESS_SKIPPED (4 failing case(s), first: CCESS_FULL_RUN)
+SUCCESS_AFTER_CLEANUP_FAIL KILLED  MUT:SUCCESS_AFTER_CLEANUP_FAIL (3 failing case(s), first: EANUP_FREE_FAILS_AFTER_GOOD_RUN)
+BE_ROLE_FREE_SKIPPED KILLED  free_buf really frees a program, input or output buffer (28 failing case(s), first: m_success_balanced)
+MARKER1_WAIT_SKIPPED KILLED  MUT:MARKER1_WAIT_SKIPPED (10 failing case(s), first: LL_ORDER_FULL_RUN)
+MARKER1_TIMEOUT_WRONG KILLED  MUT:MARKER1_TIMEOUT_WRONG (1 failing case(s), first: R_STEP_TIMEOUTS_FROM_JOB)
+MARKER1_RESULT_IGNORED KILLED  MUT:MARKER1_RESULT_IGNORED (2 failing case(s), first: CERTAIN_MARKER_TIMEOUT)
+UNCERTAIN_FREES_MARKER1 KILLED  MUT:UNCERTAIN_FREES_MARKER1 (1 failing case(s), first: CERTAIN_MARKER_TIMEOUT)
+MARKER2_WAIT_SKIPPED KILLED  MUT:MARKER2_WAIT_SKIPPED (7 failing case(s), first: LL_ORDER_FULL_RUN)
+BE_SCRATCH_FREE_SKIPPED KILLED  release_scratch really frees all four SCRATCH parts (32 failing case(s), first: m_success_balanced)
+C3_FLAG_IGNORED KILLED  MUT:C3_FLAG_IGNORED (1 failing case(s), first: _C3_SKIPS_MARKER2_ONLY)
+MARKER2_RESULT_IGNORED KILLED  MUT:MARKER2_RESULT_IGNORED (1 failing case(s), first: CERTAIN_MARKER2_UNKNOWN_STATE)
+UNCERTAIN_FREES_MARKER2 KILLED  MUT:UNCERTAIN_FREES_MARKER2 (1 failing case(s), first: CERTAIN_MARKER2_UNKNOWN_STATE)
+RELEASE_WAIT_SKIPPED KILLED  MUT:RELEASE_WAIT_SKIPPED (7 failing case(s), first: LL_ORDER_FULL_RUN)
+RELEASE_RESULT_IGNORED KILLED  MUT:RELEASE_RESULT_IGNORED (1 failing case(s), first: CERTAIN_RELEASE_DRIVER_FAULT)
+UNCERTAIN_FREES_RELEASE KILLED  MUT:UNCERTAIN_FREES_RELEASE (1 failing case(s), first: CERTAIN_RELEASE_DRIVER_FAULT)
+BE_SCRATCH_FREE_ERROR_DROPPED KILLED  a failed SCRATCH part free is reported (2 failing case(s), first: m_cleanup_free_scratch_name_step_state)
+BARRIER_SKIPPED KILLED  MUT:BARRIER_SKIPPED (6 failing case(s), first: LL_ORDER_FULL_RUN)
+BARRIER_RESULT_IGNORED KILLED  MUT:BARRIER_RESULT_IGNORED (1 failing case(s), first: IL_VISIBILITY_BARRIER)
+RETAINED_FLAG_NOT_SET KILLED  MUT:RETAINED_FLAG_NOT_SET (3 failing case(s), first: CERTAIN_MARKER_TIMEOUT)
+NO_BLOCK KILLED  MUT:NO_BLOCK (4 failing case(s), first: CERTAIN_MARKER_TIMEOUT)
+WAITED_NOT_A_DIFFERENCE KILLED  MUT:WAITED_NOT_A_DIFFERENCE (3 failing case(s), first: CERTAIN_MARKER_TIMEOUT)
+BE_SCRATCH_FREE_STOPS_AT_ERROR KILLED  one failed SCRATCH part free does not leave the other parts allocated (1 failing case(s), first: m_cleanup_free_scratch_all_four_parts_attempted)
+POISON_INDEX_FIXED KILLED  MUT:POISON_INDEX_FIXED (4 failing case(s), first: CHANGED_NOTHING_WRITTEN)
+UNCHANGED_COUNT_SATURATES KILLED  MUT:UNCHANGED_COUNT_SATURATES (3 failing case(s), first: CHANGED_NOTHING_WRITTEN)
+UNCHANGED_CHECK_SKIPPED KILLED  MUT:UNCHANGED_CHECK_SKIPPED (6 failing case(s), first: CHANGED_NOTHING_WRITTEN)
+mutants: 49 total, 49 killed, 0 survived as redundant, 0 survived as test gaps (receipt /tmp/mutrun.pnlPsx/out.json)
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -ffp-contract=off -fno-fast-math -pthread -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c -o build/test_omega_gpu_engine_gb10.o tests/test_omega_gpu_engine_gb10.c
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -ffp-contract=off -Isrc -Itests -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include \
+	-o build/gpu_serving_alloc_count_test tests/gpu_serving_alloc_count_test.c tests/fake_m16_native.c src/omega_gpu_session.c src/omega_gpu_platform.c src/omega_gpu_platform_linux.c src/omega_gpu_fmt.c src/omega_gpu_matmul_api.c src/omega_gpu_attention_api.c src/omega_gpu_serving.c src/omega_gpu_wait.c src/omega_blackwell_codegen.c src/omega_blackwell_encoder.c src/omega_blackwell_qmd.c src/omega_blackwell_matmul.c src/sha256.c -lm
+BE_SCRATCH_ALLOC_FAIL_NO_RELEASE KILLED  a failed SCRATCH allocation frees the parts that did succeed (the core does not) (5 failing case(s), first: m_alloc2_balanced)
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin -fno-stack-protector -U_FORTIFY_SOURCE -DOMEGA_GPU_NO_POSIX -DOMEGA_NUMERIC_CPU_ONLY -Isrc -c -o build/gpu_fs/omega_gpu_engine.o src/omega_gpu_engine.c
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin -fno-stack-protector -U_FORTIFY_SOURCE -DOMEGA_GPU_NO_POSIX -DOMEGA_NUMERIC_CPU_ONLY -Isrc -c -o build/gpu_fs/omega_gpu_platform.o src/omega_gpu_platform.c
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin -fno-stack-protector -U_FORTIFY_SOURCE -DOMEGA_GPU_NO_POSIX -DOMEGA_NUMERIC_CPU_ONLY -Isrc -c -o build/gpu_fs/omega_blackwell_encoder.o src/omega_blackwell_encoder.c
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin -fno-stack-protector -U_FORTIFY_SOURCE -DOMEGA_GPU_NO_POSIX -DOMEGA_NUMERIC_CPU_ONLY -Isrc -c -o build/gpu_fs/omega_blackwell_codegen.o src/omega_blackwell_codegen.c
+BE_ERRNO_NOT_RESTORED KILLED  the frees after a failed SCRATCH allocation do not clobber the errno the core reads (3 failing case(s), first: m_alloc2_errno_code_text)
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin -fno-stack-protector -U_FORTIFY_SOURCE -DOMEGA_GPU_NO_POSIX -DOMEGA_NUMERIC_CPU_ONLY -Isrc -c -o build/gpu_fs/omega_blackwell_matmul.o src/omega_blackwell_matmul.c
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin -fno-stack-protector -U_FORTIFY_SOURCE -DOMEGA_GPU_NO_POSIX -DOMEGA_NUMERIC_CPU_ONLY -Isrc -c -o build/gpu_fs/omega_blackwell_qmd.o src/omega_blackwell_qmd.c
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin -fno-stack-protector -U_FORTIFY_SOURCE -DOMEGA_GPU_NO_POSIX -DOMEGA_NUMERIC_CPU_ONLY -Isrc -c -o build/gpu_fs/omega_blackwell_realize.o src/omega_blackwell_realize.c
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin -fno-stack-protector -U_FORTIFY_SOURCE -DOMEGA_GPU_NO_POSIX -DOMEGA_NUMERIC_CPU_ONLY -Isrc -c -o build/gpu_fs/sha256.o src/sha256.c
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin -fno-stack-protector -U_FORTIFY_SOURCE -DOMEGA_GPU_NO_POSIX -DOMEGA_NUMERIC_CPU_ONLY -Isrc -c -o build/gpu_fs/omega_gpu_session.o src/omega_gpu_session.c
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin -fno-stack-protector -U_FORTIFY_SOURCE -DOMEGA_GPU_NO_POSIX -DOMEGA_NUMERIC_CPU_ONLY -Isrc -c -o build/gpu_fs/omega_gpu_fmt.o src/omega_gpu_fmt.c
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin -fno-stack-protector -U_FORTIFY_SOURCE -DOMEGA_GPU_NO_POSIX -DOMEGA_NUMERIC_CPU_ONLY -Isrc -c -o build/gpu_fs/omega_gpu_matmul_api.o src/omega_gpu_matmul_api.c
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin -fno-stack-protector -U_FORTIFY_SOURCE -DOMEGA_GPU_NO_POSIX -DOMEGA_NUMERIC_CPU_ONLY -Isrc -c -o build/gpu_fs/omega_gpu_attention_api.o src/omega_gpu_attention_api.c
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin -fno-stack-protector -U_FORTIFY_SOURCE -DOMEGA_GPU_NO_POSIX -DOMEGA_NUMERIC_CPU_ONLY -Isrc -c -o build/gpu_fs/omega_gpu_serving.o src/omega_gpu_serving.c
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin -fno-stack-protector -U_FORTIFY_SOURCE -DOMEGA_GPU_NO_POSIX -DOMEGA_NUMERIC_CPU_ONLY -Isrc -c -o build/gpu_fs/omega_gpu_wait.o src/omega_gpu_wait.c
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Isrc -DOMEGA_NUMERIC_CPU_ONLY -DOMEGA_GPU_NO_POSIX \
+	-o build/test_omega_gpu_engine_freestanding tests/test_omega_gpu_engine.c build/gpu_fs/omega_gpu_engine.o
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Isrc -o build/test_omega_gpu_platform tests/test_omega_gpu_platform.c build/gpu_fs/omega_gpu_platform.o
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Isrc -o build/test_codegen_hosted tests/test_omega_codegen_freestanding.c \
+	src/omega_blackwell_codegen.c src/omega_blackwell_matmul.c src/sha256.c
+BE_ALLOC_FAIL_TEXT_RESTORE SURVIVED_REDUNDANT  the failure text survives the cleanup frees (redundant: release_scratch writes neither c->text nor the driver text on a successful free, in the simulated driver and in nvrm_free (physics nvrm.h: free only zeroes the NvrmMem); the restore is a safety net for a driver that writes text on success, which no model here does)
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -Isrc -Itests -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include \
+	-o build/test_omega_gpu_platform_linux tests/test_omega_gpu_platform_linux.c tests/fake_m16_native.c src/omega_gpu_session.c src/omega_gpu_platform.c src/omega_gpu_platform_linux.c src/omega_gpu_fmt.c src/omega_blackwell_qmd.c src/omega_gpu_mem_cached.c src/omega_gpu_cmdlist.c src/omega_blackwell_codegen.c src/omega_blackwell_encoder.c src/omega_blackwell_matmul.c src/omega_blackwell_realize.c src/sha256.c -lm
+BE_SCRATCH_PB_NOT_INSTALLED KILLED  the large pushbuffer ring replaces the channel's 4 KiB buffer (1 failing case(s), first: m_success_large_pushbuffer_ring)
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -Isrc -o build/test_omega_gpu_wait tests/test_omega_gpu_wait.c src/omega_gpu_wait.c
+cc -O2 -Wall -Wextra -Werror -I m16 tests/test_m16_gpu_wait.c m16/m16_gpu_wait.c -o build/m16_gpu_wait/test_real
+MUTANT STALL_NEVER_RESETS killed by progress_resets_idle
+MUTANT PROGRESS_EXTENDS_HARD killed by hard_deadline_with_progress
+MUTANT NO_BARRIER killed by barrier_before_read
+M16_GPU_WAIT_MUTANTS PASS (3/3 killed)
+CC="cc" tools/runtime_api_check.sh docs/runtime/omega_runtime_api.manifest . build/runtime-api/real docs/runtime/API.md
+BE_PB_REPLACED_RESET SURVIVED_REDUNDANT  the flag that records the replaced ring is cleared after SCRATCH is freed (redundant: the zeroing of m.pb_mem stays (it is a separate line); a stale flag only repeats that harmless zeroing, and open memsets the whole context each run. physics m16_native_close is only nvrm_close(&ctx->rm) and never reads pb_mem)
+RESULT: PASS (runtime API 0.1: 91 functions, 28 structs, 236 fields, 159 constants match the headers)
+CC="cc" tools/runtime_api_negative.sh docs/runtime/omega_runtime_api.manifest . build/runtime-api docs/runtime/API.md
+BE_BUSY_CHECK_DROPPED KILLED  a second open while a run is retained is refused (14 failing case(s), first: m_unc_marker_hang_second_open_refused_by_backend)
+BE_OPEN_FAIL_KEEPS_BUSY KILLED  a failed open releases the busy flag (72 failing case(s), first: m_open_fail_then_next_run_ok)
+BE_CLOSE_BUSY_CLEAR_DROPPED KILLED  close releases the busy flag so the next run can open (171 failing case(s), first: m_noc3_returns_ok)
+NEGATIVE CONTROL removed-function: FAILED as it must (header disagrees with manifest: fn omega_gpu_session_alloc_code)
+NEGATIVE CONTROL missing-version: FAILED as it must (version macro missing: OMEGA_RUNTIME_API_VERSION_MAJOR)
+BE_OPEN_MEMSET_DROPPED KILLED  open resets the whole context, including the previous run's snapshot (4 failing case(s), first: m_noc3_run_info_marker2_not_reported)
+BE_OPEN_NATIVE_FLAG_DROPPED KILLED  a failed open still reports the driver's own text (14 failing case(s), first: m_open_fail_driver_text_reported)
+BE_OPEN_ERROR_IGNORED KILLED  a failed driver open is reported (DEVICE_OPEN) (5 failing case(s), first: m_open_fail_name_step_state)
+NEGATIVE CONTROL changed-signature: FAILED as it must (header disagrees with manifest: fn omega_gpu_session_free)
+BE_OPEN_LAST_RC_DROPPED KILLED  the failed open's driver code reaches the result (1 failing case(s), first: m_open_fail_errno_and_driver_code)
+NEGATIVE CONTROL changed-struct: FAILED as it must (manifest says `struct OmegaGpuLaunch )
+NEGATIVE CONTROL changed-constant: FAILED as it must (manifest says `const OMEGA_GPU_SESSION_MAX_ARGS )
+NEGATIVE CONTROL version-doc-mismatch: FAILED as it must (must contain the line "Omega Runtime API version:)
+BE_CHANNEL_ERROR_IGNORED KILLED  a failed channel create is reported (CHANNEL_CREATE) (2 failing case(s), first: m_channel_fail_name_step_state)
+NEGATIVE CONTROL stable-without-doc: FAILED as it must (STABLE entry omega_gpu_session_launch has no)
+NEGATIVE CONTROL wrong-quoted-signature: FAILED as it must (signature quoted in)
+BE_CHANNEL_LAST_RC_DROPPED KILLED  the failed channel create's driver code reaches the result (1 failing case(s), first: m_channel_fail_errno_text_code)
+NEGATIVE CONTROL signature-inside-another: FAILED as it must (signature quoted in)
+RESULT: PASS (every negative control was caught)
+sh tools/runtime_portability_check.sh . docs/runtime/portability_table.tsv mk/omega-gpu-engine.mk
+BE_ALLOC_LAST_RC_DROPPED KILLED  the failed allocation's driver code reaches the result (4 failing case(s), first: m_alloc5_errno_code_text)
+PASS: 102 rows, every omega_gpu_* / omega_blackwell_* / omega_bw_* file in src/ has one and the rows agree with the includes
+sh tools/runtime_portability_controls.sh build/runtime_r3_controls docs/runtime/portability_table.tsv mk/omega-gpu-engine.mk
+CONTROL unchanged: PASS as required (scratch copy of the real tree and table)
+BE_ALLOC_UNKNOWN_ROLE_ACCEPTED KILLED  alloc refuses an unknown role (harness exit 139 (crash or abort))
+CONTROL new-file-no-row: FAIL as required (a new omega_gpu_ file with no row)
+    FAIL: no row in the table for src/omega_gpu_zz_dummy.c
+BE_ROLE_MEM_UPPER_BOUND KILLED  a role above the last one has no buffer slot (4 failing case(s), first: m_guard_alloc_unknown_role_refused)
+CONTROL row-missing-file: FAIL as required (a row for a file that does not exist)
+    FAIL: row names a missing file: src/omega_gpu_zz_ghost.c
+BE_ROLE_MEM_LOWER_BOUND KILLED  a negative role has no buffer slot (2 failing case(s), first: m_guard_copy_in_negative_role_refused)
+CONTROL portable-includes-nvrm: FAIL as required (a PORTABLE file that includes nvrm.h)
+    FAIL: src/omega_gpu_wait.c: PORTABLE but includes a Linux/NVRM header: nvrm.h
+BE_ROUND_PAGES_ZERO_ACCEPTED KILLED  a zero-byte allocation is refused (3 failing case(s), first: m_guard_alloc_zero_bytes_refused)
+CONTROL portable-row-on-linux-file: FAIL as required (the real Linux backend relabelled PORTABLE)
+    FAIL: src/omega_gpu_platform_linux.c: PORTABLE but includes a Linux/NVRM header: omega_gpu_platform_linux.h m16_native.h nvrm.h pthread.h
+BE_ROUND_PAGES_NO_ROUNDING KILLED  allocation sizes round up to whole pages (1 failing case(s), first: m_guard_alloc_rounds_up_to_whole_pages)
+CONTROL portable-row-on-chip-file: FAIL as required (a file that includes Blackwell headers relabelled PORTABLE)
+    FAIL: src/omega_gpu_attention_api.c: PORTABLE but includes a Blackwell chip header: omega_blackwell_codegen.h omega_bw_reconv.h omega_blackwell_qmd.h omega_blackwell_submit.h
+BE_ROUND_PAGES_MINIMUM SURVIVED_REDUNDANT  one-page minimum (redundant: after the zero check, rounding any nonzero byte count up to a page multiple already gives at least one page, so the minimum can never apply)
+CONTROL guarded-include: PASS as required (an nvrm.h include inside #ifndef OMEGA_GPU_NO_POSIX is the hosted-only build and must not count)
+BE_COPY_IN_NO_MEMCPY KILLED  copy_in really copies the program and the inputs (34 failing case(s), first: m_success_returns_ok)
+CONTROL freestanding-claim-broken: FAIL as required (a freestanding-closure file that gained stdlib.h)
+    FAIL: src/omega_gpu_fmt.c: is in GPU_FS_SRCS but the include scan finds stdlib.h
+ALL CONTROLS BEHAVED AS REQUIRED
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -DCUDAPP_NVIDIA_OPEN_ABI='"580.173.02"' -o build/cudapp-doctor tools/doctor/cudapp_doctor.c src/omega_gpu_chip.c
+ar rcs build/libomega_gpu.a build/omega_blackwell_codegen.o build/omega_blackwell_codegen_attn.o build/omega_blackwell_codegen_bf16.o build/omega_blackwell_codegen_dec.o build/omega_blackwell_codegen_gemm.o build/omega_blackwell_codegen_moe.o build/omega_blackwell_codegen_moe2.o build/omega_blackwell_codegen_pattn.o build/omega_blackwell_codegen_pf.o build/omega_blackwell_codegen_pfhost.o build/omega_blackwell_codegen_qg.o build/omega_blackwell_codegen_qmma.o build/omega_blackwell_codegen_router.o build/omega_blackwell_codegen_tc.o build/omega_blackwell_codegen_tc2.o build/omega_blackwell_codegen_tern.o build/omega_blackwell_encoder.o build/omega_blackwell_engine.o build/omega_blackwell_matmul.o build/omega_blackwell_qmd.o build/omega_blackwell_realize.o build/omega_blackwell_submit.o build/omega_gpu_attention_api.o build/omega_gpu_bf16_gemv_api.o build/omega_gpu_chip.o build/omega_gpu_cmdlist.o build/omega_gpu_decode_attn_api.o build/omega_gpu_decode_graph.o build/omega_gpu_elementwise_api.o build/omega_gpu_engine.o build/omega_gpu_fmt.o build/omega_gpu_fp8_api.o build/omega_gpu_fp8_pack.o build/omega_gpu_fp8gemm_api.o build/omega_gpu_hostmath.o build/omega_gpu_matmul_api.o build/omega_gpu_mem_cached.o build/omega_gpu_moe_api.o build/omega_gpu_pfgemm.o build/omega_gpu_pfhost.o build/omega_gpu_platform.o build/omega_gpu_platform_linux.o build/omega_gpu_prefill.o build/omega_gpu_prefill_attn_api.o build/omega_gpu_router_api.o build/omega_gpu_serving.o build/omega_gpu_session.o build/omega_gpu_tcgemm_api.o build/omega_gpu_tern_api.o build/omega_gpu_wait.o build/sha256.o build/omega_canonical.o build/omega_core.o build/omega_vector.o build/m16_native.o build/nvrm.o
+./build/test_omega_gpu_code_alloc
+OMEGA_GPU_CODE_ALLOC PASS
+NO_TAIL mutant: killed (5 failing checks)
+grep: src/runtime/*.c: No such file or directory
+source scan: no page-only code sizing
+OMEGA_GPU_CODE_ALLOC_GATE PASS
+./build/test_omega_gpu_engine_compile
+SUMMARY failed=0
+./build/test_omega_gpu_engine
+[PASS] SUCCESS_FULL_RUN
+[PASS] CALL_ORDER_FULL_RUN
+[PASS] STATE_ADVANCES_STEP_BY_STEP
+[PASS] ROLES_BYTES_AND_REVERSE_FREE_ORDER
+[PASS] PER_STEP_TIMEOUTS_FROM_JOB
+[PASS] POISON_WRITTEN_BEFORE_SUBMIT
+[PASS] NO_C3_SKIPS_MARKER2_ONLY
+[PASS] FAIL_DEVICE_OPEN
+[PASS] FAIL_CHANNEL_CREATE
+[PASS] FAIL_ALLOC
+[PASS] FAIL_PREPARE_COPY_IN
+[PASS] FAIL_PREPARE_FILL_POISON
+[PASS] FAIL_PREPARE_BUILD
+[PASS] FAIL_SUBMIT_IS_NOT_UNCERTAIN
+[PASS] FAIL_VISIBILITY_BARRIER
+[PASS] FAIL_VISIBILITY_COPY_OUT
+[PASS] UNCERTAIN_MARKER_TIMEOUT
+[PASS] UNCERTAIN_BLOCKS_NEXT_JOB_NO_BACKEND_CALL
+[PASS] UNCERTAIN_TEST_RESET_CLEARS_BLOCK
+[PASS] UNCERTAIN_MARKER2_UNKNOWN_STATE
+[PASS] UNCERTAIN_RELEASE_DRIVER_FAULT
+[PASS] UNCHANGED_NOTHING_WRITTEN
+[PASS] UNCHANGED_PARTIAL_EXACT_COUNT
+[PASS] UNCHANGED_LAST_WORD_ONLY
+[PASS] UNCHANGED_FIRST_WORD_ONLY
+[PASS] UNCHANGED_ALL_WRITTEN_IS_SUCCESS
+[PASS] UNCHANGED_NEEDS_POISON_FILL
+[PASS] CLEANUP_FREE_FAILS_AFTER_GOOD_RUN
+[PASS] CLEANUP_CLOSE_FAILS_AFTER_GOOD_RUN
+[PASS] CLEANUP_FIRST_CLEANUP_FAULT_KEPT
+[PASS] CLEANUP_FAULT_NEVER_OVERWRITES_FIRST_FAILURE
+[PASS] CLEANUP_FAULT_AFTER_UNCHANGED_KEEPS_UNCHANGED
+[PASS] INVALID_ARGS_PROGRAM
+[PASS] INVALID_ARGS_LAYOUT
+[PASS] INVALID_ARGS_ZERO_ELEMENTS
+[PASS] INVALID_ARGS_BUFFERS
+[PASS] INVALID_ARGS_OUTPUT_ALIGNMENT
+[PASS] INVALID_ARGS_POISON
+[PASS] INVALID_ARGS_UNKNOWN_FLAG
+[PASS] INVALID_ARGS_ZERO_MARKER_TIMEOUT
+[PASS] INVALID_ARGS_ZERO_RELEASE_TIMEOUT
+[PASS] INVALID_ARGS_ZERO_VISIBILITY_TIMEOUT
+[PASS] INVALID_ARGS_ZERO_MARKER2_TIMEOUT_WITH_C3
+[PASS] INVALID_ARGS_NULL_JOB
+[PASS] INVALID_ARGS_NULL_RESULT
+[PASS] BLOCKED_REFUSES_BEFORE_ANY_CHECK_OR_CALL
+[PASS] BLOCK_RESET_ALLOWS_JOBS_AGAIN
+[PASS] NO_BACKEND_NOT_IMPLEMENTED
+[PASS] BACKEND_TABLE_INCOMPLETE_REFUSED
+SUMMARY passed=49 failed=0
+./build/test_omega_blackwell_engine
+[PASS] sim_setup_encoder_ok
+[PASS] sim_success_returns_ok
+[PASS] sim_success_state
+[PASS] sim_success_result_flags_clear
+[PASS] sim_success_not_blocked
+[PASS] sim_success_output_values
+[PASS] sim_success_unchanged_zero
+[PASS] sim_success_call_order
+[PASS] sim_success_driver_counts
+[PASS] sim_success_all_allocs_gpu_uncached
+[PASS] sim_success_alloc_sizes
+[PASS] sim_success_balanced
+[PASS] sim_success_large_pushbuffer_ring
+[PASS] sim_success_pushbuffer_parses
+[PASS] sim_success_doorbell_state_captured
+[PASS] sim_success_marker1_zeroed_before_doorbell
+[PASS] sim_success_marker2_zeroed_before_doorbell
+[PASS] sim_success_semaphore_zeroed_before_doorbell
+[PASS] sim_success_semaphore_init_value
+[PASS] sim_success_pushbuffer_order
+[PASS] sim_success_one_flush_two_releases
+[PASS] sim_success_cbank_upload_words_and_place
+[PASS] sim_success_args_upload_words_and_place
+[PASS] sim_success_qmd0_is_not_the_kernel_and_place
+[PASS] sim_success_qmd1_is_the_kernel_and_place
+[PASS] sim_success_flush_operation
+[PASS] sim_success_release1_address_payload_flags
+[PASS] sim_success_release2_is_marker_page_plus_0x10
+[PASS] sim_success_release2_payload_and_flags
+[PASS] sim_success_kernel_ran_once_with_right_program
+[PASS] sim_success_kernel_threads_and_count
+[PASS] sim_success_kernel_arguments_are_a_b_output
+[PASS] sim_success_kernel_program_and_cbank_addresses
+[PASS] sim_success_marker_and_semaphore_places
+[PASS] sim_success_poison_reached_device_output
+[PASS] sim_success_poison_never_equals_a_sum
+[PASS] sim_success_wait_counts
+[PASS] sim_success_wait_expected_values
+[PASS] sim_success_wait_timeouts_come_from_the_job
+[PASS] sim_success_wait_order_marker_marker2_semaphore
+[PASS] sim_success_run_info_words
+[PASS] sim_success_run_info_launch_time_set
+[PASS] sim_success_run_info_done_time_after_launch
+[PASS] sim_noc3_returns_ok
+[PASS] sim_noc3_output_values
+[PASS] sim_noc3_no_flush_in_pushbuffer
+[PASS] sim_noc3_one_release_only
+[PASS] sim_noc3_marker2_never_waited
+[PASS] sim_noc3_marker1_and_semaphore_waited
+[PASS] sim_noc3_run_info_marker2_not_reported
+[PASS] sim_noc3_balanced
+[PASS] sim_twice_first_ok
+[PASS] sim_twice_second_ok_busy_flag_released
+[PASS] sim_twice_driver_opened_and_closed_twice
+[PASS] sim_open_fail_name_step_state
+[PASS] sim_open_fail_errno_and_driver_code
+[PASS] sim_open_fail_driver_text_reported
+[PASS] sim_open_fail_nothing_else_touched
+[PASS] sim_open_fail_not_retained_not_blocked
+[PASS] sim_open_fail_run_info_reset_at_open
+[PASS] sim_open_fail_then_next_run_ok
+[PASS] sim_channel_fail_name_step_state
+[PASS] sim_channel_fail_errno_text_code
+[PASS] sim_channel_fail_closed_nothing_allocated
+[PASS] sim_channel_fail_then_next_run_ok
+[PASS] sim_alloc1_name_step_state
+[PASS] sim_alloc1_errno_code_text
+[PASS] sim_alloc1_stops_at_the_failure
+[PASS] sim_alloc1_balanced
+[PASS] sim_alloc2_name_step_state
+[PASS] sim_alloc2_errno_code_text
+[PASS] sim_alloc2_stops_at_the_failure
+[PASS] sim_alloc2_balanced
+[PASS] sim_alloc3_name_step_state
+[PASS] sim_alloc3_errno_code_text
+[PASS] sim_alloc3_stops_at_the_failure
+[PASS] sim_alloc3_balanced
+[PASS] sim_alloc4_name_step_state
+[PASS] sim_alloc4_errno_code_text
+[PASS] sim_alloc4_stops_at_the_failure
+[PASS] sim_alloc4_balanced
+[PASS] sim_alloc5_name_step_state
+[PASS] sim_alloc5_errno_code_text
+[PASS] sim_alloc5_stops_at_the_failure
+[PASS] sim_alloc5_balanced
+[PASS] sim_alloc6_name_step_state
+[PASS] sim_alloc6_errno_code_text
+[PASS] sim_alloc6_stops_at_the_failure
+[PASS] sim_alloc6_balanced
+[PASS] sim_alloc7_name_step_state
+[PASS] sim_alloc7_errno_code_text
+[PASS] sim_alloc7_stops_at_the_failure
+[PASS] sim_alloc7_balanced
+[PASS] sim_alloc8_name_step_state
+[PASS] sim_alloc8_errno_code_text
+[PASS] sim_alloc8_stops_at_the_failure
+[PASS] sim_alloc8_balanced
+[PASS] sim_short_pb_refused_as_alloc
+[PASS] sim_short_pb_own_check_text
+[PASS] sim_short_pb_balanced
+[PASS] sim_nocpu_marker_refused_as_alloc
+[PASS] sim_nocpu_marker_own_check_text
+[PASS] sim_nocpu_marker_balanced
+[PASS] sim_misaligned_qmd_refused_as_alloc
+[PASS] sim_misaligned_qmd_own_check_text
+[PASS] sim_misaligned_qmd_balanced
+[PASS] sim_short_input_a_refused_as_alloc
+[PASS] sim_short_input_a_own_check_text
+[PASS] sim_short_input_a_balanced
+[PASS] sim_nocpu_input_a_refused_as_alloc
+[PASS] sim_nocpu_input_a_own_check_text
+[PASS] sim_nocpu_input_a_balanced
+[PASS] sim_misaligned_input_a_refused_as_alloc
+[PASS] sim_misaligned_input_a_own_check_text
+[PASS] sim_misaligned_input_a_balanced
+[PASS] sim_nocpu_output_refused_as_alloc
+[PASS] sim_nocpu_output_own_check_text
+[PASS] sim_nocpu_output_balanced
+[PASS] sim_submit_fail_name_step_state
+[PASS] sim_submit_fail_errno_code_text
+[PASS] sim_submit_fail_is_not_uncertain
+[PASS] sim_submit_fail_cleaned_up
+[PASS] sim_unc_marker_hang_name_step_wait
+[PASS] sim_unc_marker_hang_last_state_submitted
+[PASS] sim_unc_marker_hang_limit_and_waited_ms
+[PASS] sim_unc_marker_hang_observed_words
+[PASS] sim_unc_marker_hang_sync_valid_mask
+[PASS] sim_unc_marker_hang_retained_and_blocked
+[PASS] sim_unc_marker_hang_nothing_freed_nothing_closed
+[PASS] sim_unc_marker_hang_driver_code
+[PASS] sim_unc_marker_hang_run_info_marker
+[PASS] sim_unc_marker_hang_run_info_done_time_only_if_marker_succeeded
+[PASS] sim_unc_marker_hang_run_info_marker2_when_it_was_the_failed_wait
+[PASS] sim_unc_marker_hang_run_info_semaphore_when_it_was_the_failed_wait
+[PASS] sim_unc_marker_hang_no_marker2_wait_with_noc3
+[PASS] sim_unc_marker_hang_next_job_blocked
+[PASS] sim_unc_marker_hang_second_open_refused_by_backend
+[PASS] sim_unc_marker_hang_still_retained_after_refusals
+[PASS] sim_unc_marker_hang_drained_through_the_table
+[PASS] sim_unc_marker_hang_backend_works_again_after_drain
+[PASS] sim_unc_marker2_hang_name_step_wait
+[PASS] sim_unc_marker2_hang_last_state_submitted
+[PASS] sim_unc_marker2_hang_limit_and_waited_ms
+[PASS] sim_unc_marker2_hang_observed_words
+[PASS] sim_unc_marker2_hang_sync_valid_mask
+[PASS] sim_unc_marker2_hang_retained_and_blocked
+[PASS] sim_unc_marker2_hang_nothing_freed_nothing_closed
+[PASS] sim_unc_marker2_hang_driver_code
+[PASS] sim_unc_marker2_hang_run_info_marker
+[PASS] sim_unc_marker2_hang_run_info_done_time_only_if_marker_succeeded
+[PASS] sim_unc_marker2_hang_run_info_marker2_when_it_was_the_failed_wait
+[PASS] sim_unc_marker2_hang_run_info_semaphore_when_it_was_the_failed_wait
+[PASS] sim_unc_marker2_hang_no_marker2_wait_with_noc3
+[PASS] sim_unc_marker2_hang_next_job_blocked
+[PASS] sim_unc_marker2_hang_second_open_refused_by_backend
+[PASS] sim_unc_marker2_hang_still_retained_after_refusals
+[PASS] sim_unc_marker2_hang_drained_through_the_table
+[PASS] sim_unc_marker2_hang_backend_works_again_after_drain
+[PASS] sim_unc_semaphore_hang_name_step_wait
+[PASS] sim_unc_semaphore_hang_last_state_submitted
+[PASS] sim_unc_semaphore_hang_limit_and_waited_ms
+[PASS] sim_unc_semaphore_hang_observed_words
+[PASS] sim_unc_semaphore_hang_sync_valid_mask
+[PASS] sim_unc_semaphore_hang_retained_and_blocked
+[PASS] sim_unc_semaphore_hang_nothing_freed_nothing_closed
+[PASS] sim_unc_semaphore_hang_driver_code
+[PASS] sim_unc_semaphore_hang_run_info_marker
+[PASS] sim_unc_semaphore_hang_run_info_done_time_only_if_marker_succeeded
+[PASS] sim_unc_semaphore_hang_run_info_marker2_when_it_was_the_failed_wait
+[PASS] sim_unc_semaphore_hang_run_info_semaphore_when_it_was_the_failed_wait
+[PASS] sim_unc_semaphore_hang_no_marker2_wait_with_noc3
+[PASS] sim_unc_semaphore_hang_next_job_blocked
+[PASS] sim_unc_semaphore_hang_second_open_refused_by_backend
+[PASS] sim_unc_semaphore_hang_still_retained_after_refusals
+[PASS] sim_unc_semaphore_hang_drained_through_the_table
+[PASS] sim_unc_semaphore_hang_backend_works_again_after_drain
+[PASS] sim_unc_marker_overshoot_name_step_wait
+[PASS] sim_unc_marker_overshoot_last_state_submitted
+[PASS] sim_unc_marker_overshoot_limit_and_waited_ms
+[PASS] sim_unc_marker_overshoot_observed_words
+[PASS] sim_unc_marker_overshoot_sync_valid_mask
+[PASS] sim_unc_marker_overshoot_driver_text
+[PASS] sim_unc_marker_overshoot_retained_and_blocked
+[PASS] sim_unc_marker_overshoot_nothing_freed_nothing_closed
+[PASS] sim_unc_marker_overshoot_driver_code
+[PASS] sim_unc_marker_overshoot_run_info_marker
+[PASS] sim_unc_marker_overshoot_run_info_done_time_only_if_marker_succeeded
+[PASS] sim_unc_marker_overshoot_run_info_marker2_when_it_was_the_failed_wait
+[PASS] sim_unc_marker_overshoot_run_info_semaphore_when_it_was_the_failed_wait
+[PASS] sim_unc_marker_overshoot_no_marker2_wait_with_noc3
+[PASS] sim_unc_marker_overshoot_next_job_blocked
+[PASS] sim_unc_marker_overshoot_second_open_refused_by_backend
+[PASS] sim_unc_marker_overshoot_still_retained_after_refusals
+[PASS] sim_unc_marker_overshoot_drained_through_the_table
+[PASS] sim_unc_marker_overshoot_backend_works_again_after_drain
+[PASS] sim_unc_marker2_overshoot_name_step_wait
+[PASS] sim_unc_marker2_overshoot_last_state_submitted
+[PASS] sim_unc_marker2_overshoot_limit_and_waited_ms
+[PASS] sim_unc_marker2_overshoot_observed_words
+[PASS] sim_unc_marker2_overshoot_sync_valid_mask
+[PASS] sim_unc_marker2_overshoot_driver_text
+[PASS] sim_unc_marker2_overshoot_retained_and_blocked
+[PASS] sim_unc_marker2_overshoot_nothing_freed_nothing_closed
+[PASS] sim_unc_marker2_overshoot_driver_code
+[PASS] sim_unc_marker2_overshoot_run_info_marker
+[PASS] sim_unc_marker2_overshoot_run_info_done_time_only_if_marker_succeeded
+[PASS] sim_unc_marker2_overshoot_run_info_marker2_when_it_was_the_failed_wait
+[PASS] sim_unc_marker2_overshoot_run_info_semaphore_when_it_was_the_failed_wait
+[PASS] sim_unc_marker2_overshoot_no_marker2_wait_with_noc3
+[PASS] sim_unc_marker2_overshoot_next_job_blocked
+[PASS] sim_unc_marker2_overshoot_second_open_refused_by_backend
+[PASS] sim_unc_marker2_overshoot_still_retained_after_refusals
+[PASS] sim_unc_marker2_overshoot_drained_through_the_table
+[PASS] sim_unc_marker2_overshoot_backend_works_again_after_drain
+[PASS] sim_unc_semaphore_overshoot_name_step_wait
+[PASS] sim_unc_semaphore_overshoot_last_state_submitted
+[PASS] sim_unc_semaphore_overshoot_limit_and_waited_ms
+[PASS] sim_unc_semaphore_overshoot_observed_words
+[PASS] sim_unc_semaphore_overshoot_sync_valid_mask
+[PASS] sim_unc_semaphore_overshoot_driver_text
+[PASS] sim_unc_semaphore_overshoot_retained_and_blocked
+[PASS] sim_unc_semaphore_overshoot_nothing_freed_nothing_closed
+[PASS] sim_unc_semaphore_overshoot_driver_code
+[PASS] sim_unc_semaphore_overshoot_run_info_marker
+[PASS] sim_unc_semaphore_overshoot_run_info_done_time_only_if_marker_succeeded
+[PASS] sim_unc_semaphore_overshoot_run_info_marker2_when_it_was_the_failed_wait
+[PASS] sim_unc_semaphore_overshoot_run_info_semaphore_when_it_was_the_failed_wait
+[PASS] sim_unc_semaphore_overshoot_no_marker2_wait_with_noc3
+[PASS] sim_unc_semaphore_overshoot_next_job_blocked
+[PASS] sim_unc_semaphore_overshoot_second_open_refused_by_backend
+[PASS] sim_unc_semaphore_overshoot_still_retained_after_refusals
+[PASS] sim_unc_semaphore_overshoot_drained_through_the_table
+[PASS] sim_unc_semaphore_overshoot_backend_works_again_after_drain
+[PASS] sim_unc_noc3_semaphore_hang_name_step_wait
+[PASS] sim_unc_noc3_semaphore_hang_last_state_submitted
+[PASS] sim_unc_noc3_semaphore_hang_limit_and_waited_ms
+[PASS] sim_unc_noc3_semaphore_hang_observed_words
+[PASS] sim_unc_noc3_semaphore_hang_sync_valid_mask
+[PASS] sim_unc_noc3_semaphore_hang_retained_and_blocked
+[PASS] sim_unc_noc3_semaphore_hang_nothing_freed_nothing_closed
+[PASS] sim_unc_noc3_semaphore_hang_driver_code
+[PASS] sim_unc_noc3_semaphore_hang_run_info_marker
+[PASS] sim_unc_noc3_semaphore_hang_run_info_done_time_only_if_marker_succeeded
+[PASS] sim_unc_noc3_semaphore_hang_run_info_marker2_when_it_was_the_failed_wait
+[PASS] sim_unc_noc3_semaphore_hang_run_info_semaphore_when_it_was_the_failed_wait
+[PASS] sim_unc_noc3_semaphore_hang_no_marker2_wait_with_noc3
+[PASS] sim_unc_noc3_semaphore_hang_next_job_blocked
+[PASS] sim_unc_noc3_semaphore_hang_second_open_refused_by_backend
+[PASS] sim_unc_noc3_semaphore_hang_still_retained_after_refusals
+[PASS] sim_unc_noc3_semaphore_hang_drained_through_the_table
+[PASS] sim_unc_noc3_semaphore_hang_backend_works_again_after_drain
+[PASS] sim_cleanup_free_role_name_step_state
+[PASS] sim_cleanup_free_role_flag_errno_text
+[PASS] sim_cleanup_free_role_every_free_attempted_and_closed
+[PASS] sim_cleanup_free_role_words_still_mapped_at_capture
+[PASS] sim_cleanup_free_role_not_uncertaiGB10_VECTOR_FAIL failure=CLEANUP step=FREE state=OUTPUT_PRODUCED drv_rc=-1 errno=5 text="fake driver says no"
+GB10_VECTOR_FAIL failure=OUTPUT_UNCHANGED step=SCAN state=OUTPUT_VISIBLE drv_rc=0 errno=0 text=""
+GB10_VECTOR_FAIL failure=COMPLETION_WAIT step=WAIT_MARKER state=SUBMITTED drv_rc=-1 errno=0 text=""
+n
+[PASS] sim_cleanup_free_scratch_name_step_state
+[PASS] sim_cleanup_free_scratch_code_and_text
+[PASS] sim_cleanup_free_scratch_all_four_parts_attempted
+[PASS] sim_cleanup_free_scratch_sync_words_unmapped_before_free
+[PASS] sim_cleanup_close_name_step_state
+[PASS] sim_cleanup_close_flag_errno_text
+[PASS] sim_cleanup_close_all_freed_first
+[PASS] sim_cleanup_close_failure_still_releases_busy_flag
+[PASS] sim_unchanged_nowrite_name_step_state
+[PASS] sim_unchanged_nowrite_counts_every_word
+[PASS] sim_unchanged_nowrite_completion_was_seen
+[PASS] sim_unchanged_nowrite_cleaned_up_not_retained
+[PASS] sim_unchanged_half_counts_the_unwritten_half
+[PASS] sim_unchanged_wrong_program_bytes_detected
+[PASS] sim_guard_open_ok
+[PASS] sim_guard_channel_ok
+[PASS] sim_guard_alloc_zero_bytes_refused
+[PASS] sim_guard_alloc_unknown_role_refused
+[PASS] sim_guard_alloc_rounds_up_to_whole_pages
+[PASS] sim_guard_free_after_rounding_ok
+[PASS] sim_guard_wait_before_build_refused_without_driver_call
+[PASS] sim_guard_submit_before_build_refused
+[PASS] sim_guard_build_without_buffers_refused
+[PASS] sim_guard_alloc_scratch_ok
+[PASS] sim_guard_alloc_program_ok
+[PASS] sim_guard_alloc_a_ok
+[PASS] sim_guard_alloc_b_ok
+[PASS] sim_guard_alloc_output_ok
+[PASS] sim_guard_copy_in_negative_role_refused
+[PASS] sim_guard_free_negative_role_refused
+[PASS] sim_guard_build_null_job_refused
+[PASS] sim_guard_build_unknown_layout_refused
+[PASS] sim_guard_build_zero_count_refused
+[PASS] sim_guard_build_count_beyond_the_buffers_refused
+[PASS] sim_guard_copy_in_too_long_refused
+[PASS] sim_guard_copy_in_unknown_role_refused
+[PASS] sim_guard_copy_in_null_source_refused
+[PASS] sim_guard_fill_poison_too_long_refused
+[PASS] sim_guard_fill_poison_null_refused
+[PASS] sim_guard_copy_out_too_long_refused
+[PASS] sim_guard_copy_out_null_refused
+[PASS] sim_guard_free_unknown_role_refused
+[PASS] sim_guard_valid_copy_in_ok
+[PASS] sim_guard_valid_fill_poison_ok
+[PASS] sim_guard_valid_copy_out_returns_the_poison
+[PASS] sim_guard_drain_ok
+[PASS] sim_guard_nothing_leaked
+[PASS] sim_close_setup_through_the_table
+[PASS] sim_close_words_mapped_after_build
+[PASS] sim_close_returns_zero
+[PASS] sim_close_unmaps_every_sync_word
+[PASS] sim_close_released_everything
+[PASS] sim_vec_spec_init
+[PASS] sim_vec_success_returns_zero
+[PASS] sim_vec_success_output_values
+[PASS] sim_vec_success_parity_verified
+[PASS] sim_vec_success_completion_marker_and_semaphore
+[PASS] sim_vec_success_shape_fields
+[PASS] sim_vec_success_timestamps
+[PASS] sim_vec_success_timeouts_are_5000_each
+[PASS] sim_vec_success_all_protections_on
+[PASS] sim_vec_success_encoded_program_reached_the_device
+[PASS] sim_vec_success_poison_is_the_complement_of_the_sum
+[PASS] sim_vec_success_poison_never_collides_even_for_0xdeadbeef
+[PASS] sim_vec_success_balanced
+[PASS] sim_vec_wrong_math_returns_nonzero
+[PASS] sim_vec_wrong_math_parity_not_verified
+[PASS] sim_vec_cleanup_fault_returns_nonzero
+[PASS] sim_vec_unwritten_output_returns_nonzero
+[PASS] sim_vec_hang_returns_nonzero
+[PASS] sim_vec_hang_blocks_the_process_and_retains
+[PASS] sim_vec_hang_drains
+[PASS] sim_vec_null_spec_refused
+[PASS] sim_vec_null_output_refused
+[PASS] sim_vec_null_input_refused
+[PASS] sim_vec_zero_count_refused
+[PASS] sim_vec_refusals_never_touch_the_driver
+[PASS] sim_vec_works_again
+SUMMARY passed=334 failed=0
+./build/gpu_serving_alloc_count_test plain
+BE_COPY_IN_BOUNDS KILLED  copy_in refuses a length beyond the buffer (1 failing case(s), first: m_guard_copy_in_too_long_refused)
+MEASURE phase LOAD (session+6 weights) allocs   10  frees    0  alloc_bytes    924852224  matmul_calls     0 (code-cache misses 0, of which on a shape seen before 0, other scratch growth 0)  attention_calls     0 (allocs 0)
+MEASURE   alloc sizes (6 distinct): 65536x2 4096x2 20971520x2 5242880x1 49807360x2 777912320x1
+MEASURE   free  sizes (0 distinct):
+MEASURE phase WARMUP decode ctx=1    allocs   17  frees    4  alloc_bytes     11214848  matmul_calls   253 (code-cache misses 6, of which on a shape seen before 0, other scratch growth 6)  attention_calls    36 (allocs 5)
+MEASURE   alloc sizes (10 distinct): 81920x1 262144x1 4096x7 12288x1 8192x1 16384x2 ... last 9723904x1
+MEASURE   free  sizes (4 distinct): 81920x1 262144x1 131072x1 622592x1
+MEASURE phase PREFILL-A 100 tokens   allocs  107  frees  105  alloc_bytes     45051904  matmul_calls   253 (code-cache misses 5, of which on a shape seen before 0, other scratch growth 3)  attention_calls  3600 (allocs 99)
+MEASURE   alloc sizes (102 distinct): 573440x2 4096x5 16384x1 24576x1 32768x1 40960x1 ... last 2179072x1
+MEASURE   free  sizes (101 distinct): 311296x2 8192x1 16384x1 24576x1 32768x1 40960x1 ... last 917504x1
+MEASURE phase DECODE-A 64 tokens     allocs   70  frees   70  alloc_bytes     69492736  matmul_calls 16192 (code-cache misses 6, of which on a shape seen before 6, other scratch growth 0)  attention_calls  2304 (allocs 64)
+MEASURE   alloc sizes (65 distinct): 4096x6 827392x1 835584x1 843776x1 851968x1 860160x1 ... last 1343488x1
+MEASURE   free  sizes (65 distinct): 4096x6 819200x1 827392x1 835584x1 843776x1 851968x1 ... last 1335296x1
+MEASURE phase PREFILL-B 200 tokens   allocs  212  frees  212  alloc_bytes    435912704  matmul_calls   506 (code-cache misses 11, of which on a shape seen before 1, other scratch growth 1)  attention_calls  7200 (allocs 200)
+MEASURE   alloc sizes (202 distinct): 8192x5 1351680x1 1359872x1 1368064x1 1376256x1 1384448x1 ... last 2981888x1
+MEASURE   free  sizes (202 distinct): 4096x8 1343488x1 1351680x1 1359872x1 1368064x1 1376256x1 ... last 8192x3
+MEASURE phase DECODE-B 64 tokens     allocs   69  frees   69  alloc_bytes    207900672  matmul_calls 16192 (code-cache misses 5, of which on a shape seen before 5, other scratch growth 0)  attention_calls  2304 (allocs 64)
+MEASURE   alloc sizes (65 distinct): 4096x5 2990080x1 2998272x1 3006464x1 3014656x1 3022848x1 ... last 3506176x1
+MEASURE   free  sizes (66 distinct): 8192x2 2981888x1 4096x3 2990080x1 2998272x1 3006464x1 ... last 3497984x1
+MEASURE AFTER WARM-UP: 458 driver allocations, 456 driver frees over 428 tokens of context (final ctx 428)
+MEASURE distinct matmul kernel shapes seen (kp,np,grid_x): 21 (cache slots: 8)
+MEASURE live driver buffers at end: 25 ; session opens: 1 ; launches reaching the fake: 48840
+MEASURE return codes: matmul ok 0, matmul poison-check CHIP_FAIL 33396, attention ok 0, attention UNWRITTEN 15444, other 0
+MEASURE leaked at close: 0
+gpu_serving_alloc_count_test plain: PASS (0 failed checks)
+./build/gpu_serving_alloc_count_test reserve
+MEASURE phase LOAD (session+6 weights) allocs   10  frees    0  alloc_bytes    924852224  matmul_calls     0 (code-cache misses 0, of which on a shape seen before 0, other scratch growth 0)  attention_calls     0 (allocs 0)
+MEASURE   alloc sizes (6 distinct): 65536x2 4096x2 20971520x2 5242880x1 49807360x2 777912320x1
+MEASURE   free  sizes (0 distinct):
+MEASURE phase WARMUP decode ctx=1    allocs   17  frees    4  alloc_bytes     11214848  matmul_calls   253 (code-cache misses 6, of which on a shape seen before 0, other scratch growth 6)  attention_calls    36 (allocs 5)
+MEASURE   alloc sizes (10 distinct): 81920x1 262144x1 4096x7 12288x1 8192x1 16384x2 ... last 9723904x1
+MEASURE   free  sizes (4 distinct): 81920x1 262144x1 131072x1 622592x1
+MEASURE phase WARMUP row classes     allocs   21  frees    0  alloc_bytes       106496  matmul_calls  1012 (code-cache misses 21, of which on a shape seen before 6, other scratch growth 0)  attention_calls 10836 (allocs 0)
+MEASURE phase PREFILL-A 100 tokens   allocs    0  frees    0  alloc_bytes            0  matmul_calls   253 (code-cache misses 0, of which on a shape seen before 0, other scratch growth 0)  attention_calls  3600 (allocs 0)
+MEASURE phase DECODE-A 64 tokens     allocs    0  frees    0  alloc_bytes            0  matmul_calls 16192 (code-cache misses 0, of which on a shape seen before 0, other scratch growth 0)  attention_calls  2304 (allocs 0)
+MEASURE phase PREFILL-B 200 tokens   allocs    0  frees    0  alloc_bytes            0  matmul_calls   506 (code-cache misses 0, of which on a shape seen before 0, other scratch growth 0)  attention_calls  7200 (allocs 0)
+MEASURE phase DECODE-B 64 tokens     allocs    0  frees    0  alloc_bytes            0  matmul_calls 16192 (code-cache misses 0, of which on a shape seen before 0, other scratch growth 0)  attention_calls  2304 (allocs 0)
+MEASURE AFTER WARM-UP: 0 driver allocations, 0 driver frees over 428 tokens of context (final ctx 428)
+MEASURE distinct matmul kernel shapes seen (kp,np,grid_x): 21 (cache slots: 32)
+MEASURE live driver buffers at end: 38 ; session opens: 1 ; launches reaching the fake: 60688
+MEASURE return codes: matmul ok 0, matmul poison-check CHIP_FAIL 34408, attention ok 0, attention UNWRITTEN 26280, other 0
+MEASURE leaked at close: 0
+gpu_serving_alloc_count_test reserve: PASS (0 failed checks)
+./build/gpu_serving_alloc_count_test bounds
+MEASURE bounds: refused calls made 0 driver allocations; 33 rows -> TOO_LARGE, ctx 257 -> TOO_LARGE; error "serving reservation exceeded: ..."
+gpu_serving_alloc_count_test bounds: PASS (0 failed checks)
+./build/gpu_serving_alloc_count_test bounds-block
+BE_COPY_IN_NULL_SOURCE KILLED  copy_in refuses a NULL source (harness exit 139 (crash or abort))
+MEASURE bounds-block: 16 and 64 tokens (one 64-token block) served with 0 driver traffic; 65 tokens -> TOO_LARGE
+gpu_serving_alloc_count_test bounds-block: PASS (0 failed checks)
+./build/gpu_serving_alloc_count_test rollback
+MEASURE rollback: 6 injected failures during reserve, none left anything flagged; the un-injected control stayed reserved
+gpu_serving_alloc_count_test rollback: PASS (0 failed checks)
+./build/gpu_serving_alloc_count_test sweep
+BE_FILL_POISON_DROPPED KILLED  the device output is pre-filled with the poison words (7 failing case(s), first: m_success_poison_reached_device_output)
+MEASURE sweep prepare: 83 driver allocations (one code buffer per distinct kernel)
+MEASURE sweep serving (rows 1..256 x 6 shapes, twice): 0 driver allocations, 83 distinct kernels, 0 refused, 0 other
+gpu_serving_alloc_count_test sweep: PASS (0 failed checks)
+./build/gpu_serving_alloc_count_test pin
+gpu_serving_alloc_count_test pin: PASS (0 failed checks)
+./build/gpu_serving_alloc_count_test seal-bare
+gpu_serving_alloc_count_test seal-bare: PASS (0 failed checks)
+./build/gpu_serving_alloc_count_test update
+gpu_serving_alloc_count_test update: PASS (0 failed checks)
+BE_FILL_POISON_SHORT KILLED  every output word is pre-filled, including the last (6 failing case(s), first: m_success_poison_reached_device_output)
+sweep-skip (control): MEASURE sweep serving (rows 1..256 x 6 shapes, twice): 174 driver allocations, 83 distinct kernels, 0 refused, 0 other
+BE_FILL_POISON_BOUNDS KILLED  fill_poison refuses a length beyond the output buffer (1 failing case(s), first: m_guard_fill_poison_too_long_refused)
+reserve-skip (no reservation call): fails as required (5 failing checks)
+gcc -r -nostdlib -o build/gpu_fs/omega_gpu_freestanding.o build/gpu_fs/omega_gpu_engine.o build/gpu_fs/omega_gpu_platform.o build/gpu_fs/omega_blackwell_encoder.o build/gpu_fs/omega_blackwell_codegen.o build/gpu_fs/omega_blackwell_matmul.o build/gpu_fs/omega_blackwell_qmd.o build/gpu_fs/omega_blackwell_realize.o build/gpu_fs/sha256.o build/gpu_fs/omega_gpu_session.o build/gpu_fs/omega_gpu_fmt.o build/gpu_fs/omega_gpu_matmul_api.o build/gpu_fs/omega_gpu_attention_api.o build/gpu_fs/omega_gpu_serving.o build/gpu_fs/omega_gpu_wait.o
+freestanding GPU link (14 files): only memcmp memcpy memset strcmp strlen undefined
+./build/test_omega_gpu_wait
+real  never_written                ok
+real  written_late                 ok
+real  marker2_gate                 ok
+real  seq_wrap32                   ok
+real  progress_resets_idle         ok
+real  barrier_each_read            ok
+real  hard_deadline_with_progress  ok
+real  fixed_overshoot              ok
+real  invalid_state                ok
+real  abort                        ok
+real  queue_wrap_sentinel          ok
+mutant naive_wall_clock           killed mask 3ff (required 3ff)
+mutant fixed_accepts_overshoot    killed mask 082 (required 080)
+mutant seq_unsigned_compare       killed mask 379 (required 008)
+gpu_wait: checks=130 real_failures=0 required_kills=12/12
+OMEGA_GPU_WAIT_HOST PASS
+unflagged: PASS
+OMEGA_GPU_WAIT_MUTANT_STALL_NO_RESET: killed (6 failing checks)
+OMEGA_GPU_WAIT_MUTANT_PROGRESS_EXTENDS_HARD: killed (3 failing checks)
+OMEGA_GPU_WAIT_MUTANT_NO_READ_BARRIER: killed (4 failing checks)
+OMEGA_GPU_WAIT_MUTANTS PASS
+build/m16_gpu_wait/test_real
+real  never_written                ok
+real  written_late                 ok
+real  marker2_gate                 ok
+real  seq_wrap32                   ok
+real  progress_resets_idle         ok
+real  barrier_before_read          ok
+real  hard_deadline_with_progress  ok
+real  fixed_overshoot              ok
+real  invalid_state                ok
+real  abort                        ok
+real  failure_classes              ok
+mutant naive_wall_clock           killed mask 7ff (required 7ff)
+mutant fixed_accepts_overshoot    killed mask 482 (required 080)
+mutant seq_unsigned_compare       killed mask 779 (required 008)
+m16_gpu_wait: checks=149 real_failures=0 required_kills=13/13
+M16_GPU_WAIT_HOST PASS
+sh tests/doctor/run.sh build/cudapp-doctor
+PASS gb10-ready
+PASS no-module
+PASS module-version
+PASS closed-module
+PASS unknown-chip
+PASS no-gpu
+PASS no-uvm
+PASS no-permission
+PASS memory-line
+doctor tests: 9 passed, 0 failed
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -o build/hello_gpu examples/hello_gpu/hello_gpu.c build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -o build/gpu_matmul_api_test tests/gpu_matmul_api_test.c build/libomega_gpu.a -lpthread -lm
+BE_COPY_OUT_NO_MEMCPY KILLED  copy_out really reads the device output back (20 failing case(s), first: m_success_output_values)
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -o build/gpu_matmul_r4_receipt tests/gpu_matmul_r4_receipt.c build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -o build/gpu_elementwise_test tests/gpu_elementwise_test.c build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -Itests -o build/gpu_reconv_test tests/gpu_reconv_test.c build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -Itests -o build/gpu_attention_test tests/gpu_attention_test.c build/libomega_gpu.a -lpthread -lm
+BE_COPY_OUT_BOUNDS KILLED  copy_out refuses a length beyond the output buffer (1 failing case(s), first: m_guard_copy_out_too_long_refused)
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -o build/gpu_moe_window_test tests/gpu_moe_window_test.c build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -Itests -o build/gpu_fp8_api_test tests/gpu_fp8_api_test.c build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -Itests -o build/gpu_decode_attn_test tests/gpu_decode_attn_test.c build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -Itests -o build/gpu_router_test tests/gpu_router_test.c build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -Itests -o build/gpu_bf16_gemv_test tests/gpu_bf16_gemv_test.c build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -DWS_MAX_THREADS=512 -Itests -o build/gpu_fp8gemm_test tests/gpu_fp8gemm_test.c build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -o build/gpu_gpr_boundary_test tests/gpu_gpr_boundary_test.c build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -Itests -o build/gpu_cmdlist_test tests/gpu_cmdlist_test.c build/libomega_gpu.a -lpthread -lm
+BE_BUILD_LAYOUT_CHECK KILLED  build refuses a missing job and an unsupported layout (harness exit 139 (crash or abort))
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -o build/gpu_decode_graph_test tests/gpu_decode_graph_test.c build/libomega_gpu.a -lpthread -lm
+./build/test_omega_gpu_engine_freestanding
+[PASS] SUCCESS_FULL_RUN
+[PASS] CALL_ORDER_FULL_RUN
+[PASS] STATE_ADVANCES_STEP_BY_STEP
+[PASS] ROLES_BYTES_AND_REVERSE_FREE_ORDER
+[PASS] PER_STEP_TIMEOUTS_FROM_JOB
+[PASS] POISON_WRITTEN_BEFORE_SUBMIT
+[PASS] NO_C3_SKIPS_MARKER2_ONLY
+[PASS] FAIL_DEVICE_OPEN
+[PASS] FAIL_CHANNEL_CREATE
+[PASS] FAIL_ALLOC
+[PASS] FAIL_PREPARE_COPY_IN
+[PASS] FAIL_PREPARE_FILL_POISON
+[PASS] FAIL_PREPARE_BUILD
+[PASS] FAIL_SUBMIT_IS_NOT_UNCERTAIN
+[PASS] FAIL_VISIBILITY_BARRIER
+[PASS] FAIL_VISIBILITY_COPY_OUT
+[PASS] UNCERTAIN_MARKER_TIMEOUT
+[PASS] UNCERTAIN_BLOCKS_NEXT_JOB_NO_BACKEND_CALL
+[PASS] UNCERTAIN_TEST_RESET_CLEARS_BLOCK
+[PASS] UNCERTAIN_MARKER2_UNKNOWN_STATE
+[PASS] UNCERTAIN_RELEASE_DRIVER_FAULT
+[PASS] UNCHANGED_NOTHING_WRITTEN
+[PASS] UNCHANGED_PARTIAL_EXACT_COUNT
+[PASS] UNCHANGED_LAST_WORD_ONLY
+[PASS] UNCHANGED_FIRST_WORD_ONLY
+[PASS] UNCHANGED_ALL_WRITTEN_IS_SUCCESS
+[PASS] UNCHANGED_NEEDS_POISON_FILL
+[PASS] CLEANUP_FREE_FAILS_AFTER_GOOD_RUN
+[PASS] CLEANUP_CLOSE_FAILS_AFTER_GOOD_RUN
+[PASS] CLEANUP_FIRST_CLEANUP_FAULT_KEPT
+[PASS] CLEANUP_FAULT_NEVER_OVERWRITES_FIRST_FAILURE
+[PASS] CLEANUP_FAULT_AFTER_UNCHANGED_KEEPS_UNCHANGED
+[PASS] INVALID_ARGS_PROGRAM
+[PASS] INVALID_ARGS_LAYOUT
+[PASS] INVALID_ARGS_ZERO_ELEMENTS
+[PASS] INVALID_ARGS_BUFFERS
+[PASS] INVALID_ARGS_OUTPUT_ALIGNMENT
+[PASS] INVALID_ARGS_POISON
+[PASS] INVALID_ARGS_UNKNOWN_FLAG
+[PASS] INVALID_ARGS_ZERO_MARKER_TIMEOUT
+[PASS] INVALID_ARGS_ZERO_RELEASE_TIMEOUT
+[PASS] INVALID_ARGS_ZERO_VISIBILITY_TIMEOUT
+[PASS] INVALID_ARGS_ZERO_MARKER2_TIMEOUT_WITH_C3
+[PASS] INVALID_ARGS_NULL_JOB
+[PASS] INVALID_ARGS_NULL_RESULT
+[PASS] BLOCKED_REFUSES_BEFORE_ANY_CHECK_OR_CALL
+[PASS] BLOCK_RESET_ALLOWS_JOBS_AGAIN
+[PASS] NO_BACKEND_NOT_IMPLEMENTED
+[PASS] BACKEND_TABLE_INCOMPLETE_REFUSED
+[PASS] FREESTANDING_NO_CLOCK_REFUSED_BEFORE_ANY_CALL
+SUMMARY passed=50 failed=0
+./build/test_omega_gpu_platform
+PASS REFUSAL_NAMES_DISTINCT
+PASS NEGOTIATE_ABI_SERVICES_LIMITS
+PASS SERVICE_TABLE_MATCHES_CLAIMS_NO_HIDDEN_FALLBACK
+PASS SESSION_SERVICES_ABI_1_1_POLLING_NOT_IRQ
+PASS BUFFER_DESC_KIND_LENGTH_RIGHTS_CACHE
+PASS HANDLES_TYPED_GENERATIONED_LIMITED
+PASS HANDLE_AND_ADDRESS_SHAPES
+SUMMARY passed=7 failed=0
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Isrc -DOMEGA_GPU_NO_POSIX -o build/test_codegen_freestanding tests/test_omega_codegen_freestanding.c \
+	build/gpu_fs/omega_blackwell_codegen.o build/gpu_fs/omega_blackwell_matmul.o build/gpu_fs/sha256.o
+printf 'void *malloc(unsigned long);\nvoid *omega_gpu_fs_control(void) { return malloc(16); }\n' > build/gpu_fs/control/canary.c
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin -fno-stack-protector -U_FORTIFY_SOURCE -DOMEGA_GPU_NO_POSIX -DOMEGA_NUMERIC_CPU_ONLY -Isrc -c -o build/gpu_fs/control/canary.o build/gpu_fs/control/canary.c
+gcc -r -nostdlib -o build/gpu_fs/control/with_canary.o build/gpu_fs/omega_gpu_engine.o build/gpu_fs/omega_gpu_platform.o build/gpu_fs/omega_blackwell_encoder.o build/gpu_fs/omega_blackwell_codegen.o build/gpu_fs/omega_blackwell_matmul.o build/gpu_fs/omega_blackwell_qmd.o build/gpu_fs/omega_blackwell_realize.o build/gpu_fs/sha256.o build/gpu_fs/omega_gpu_session.o build/gpu_fs/omega_gpu_fmt.o build/gpu_fs/omega_gpu_matmul_api.o build/gpu_fs/omega_gpu_attention_api.o build/gpu_fs/omega_gpu_serving.o build/gpu_fs/omega_gpu_wait.o build/gpu_fs/control/canary.o
+allowlist control: a malloc caller is refused by the nm -u check (as required)
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Isrc -DOMEGA_GPU_NO_POSIX -o build/test_omega_gpu_session_platform tests/test_omega_gpu_session_platform.c build/gpu_fs/omega_gpu_freestanding.o
+mutant release-when-latched killed: 1 case(s) failed
+mutant ignore-cancel killed: 1 case(s) failed
+mutant no-latch-on-timeout killed: 2 case(s) failed
+mutant stale-not-counted killed: 1 case(s) failed
+BE_BUILD_COUNT_OVERFLOW SURVIVED_REDUNDANT  grid arithmetic overflow guard (redundant: an element count above UINT32_MAX - 63 needs at least 16 GiB of input, output and input buffers, so the buffer-size check in the same condition chain refuses it first; only the grid rounding (n + 63) could overflow, and it is never reached)
+mutant marker-not-polled killed: 6 case(s) failed
+mutant close-while-latched killed: 3 case(s) failed
+test-gpu-session-mutants: 6 of 6 mutants killed
+sh tests/dx/hello_sim_test.sh build/hello_gpu
+PASS sim-pass (exit 0)
+PASS sim-checks
+PASS work-line
+PASS hashes-printed
+PASS same-bits-twice
+PASS fault-exit (exit 1)
+PASS fault-report
+PASS fault-address-is-end-of-a
+hello --sim tests: 8 passed, 0 failed
+tools/zero-cuda-gate.sh --self-test
+ZERO_CUDA FAIL /tmp/tmp.mJq4rU7TLu/probe.so needs: libcudart.so.13
+ZERO_CUDA FAIL /tmp/tmp.mJq4rU7TLu/probe.so imports: cudaMalloc
+ZERO_CUDA SELF-TEST PASS (CUDA probe rejected, clean library accepted)
+tools/zero-cuda-gate.sh build/hello_gpu build/gpu_matmul_api_test
+ZERO_CUDA PASS build/hello_gpu needs=[libm.so.6 libc.so.6 ld-linux-aarch64.so.1]
+ZERO_CUDA PASS build/gpu_matmul_api_test needs=[libc.so.6 ld-linux-aarch64.so.1]
+./build/gpu_matmul_api_test --host-only
+ERROR: looped MatMul tensor codegen requires M%16, N%8, K%16 (got 16x24x16)
+fragment kernel K=2560 N=4096 unroll 4: 72 instructions, 48 registers
+blocked kernel K=4096 N=24576 rt=4 ct=4 unroll 1: 208 instructions, 108 registers
+blocked kernel K=12288 N=4096 rt=4 ct=4 unroll 1: 208 instructions, 108 registers
+blocked kernel K=4096 N=6144 rt=4 ct=4 unroll 1: 208 instructions, 108 registers
+PASS: 178 checks, 0 failed
+./build/gpu_matmul_r4_receipt --host-only
+host 37x80x52 comparator controls: clean=0 perturbed=1 stale=1 unwritten=1
+PASS: 7 checks, 0 failed
+./build/gpu_elementwise_test --host-only
+BE_BUILD_BUFFERS_SIZE KILLED  build refuses buffers smaller than the element count needs (1 failing case(s), first: m_guard_build_count_beyond_the_buffers_refused)
+codegen ex2: 32 insns, 10 gprs, 6 ugprs
+nvdisasm ex2: rc=0 insns=32 undecodable=0 missing=0 (/tmp/omega_ew_ex2_2767803.sass)
+codegen xchg: 32 insns, 12 gprs, 6 ugprs
+nvdisasm xchg: rc=0 insns=32 undecodable=0 missing=0 (/tmp/omega_ew_xchg_2767803.sass)
+codegen rmsnorm: 80 insns, 25 gprs, 6 ugprs
+nvdisasm rmsnorm: rc=0 insns=80 undecodable=0 missing=0 (/tmp/omega_ew_rmsnorm_2767803.sass)
+codegen rope: 32 insns, 17 gprs, 6 ugprs
+nvdisasm rope: rc=0 insns=32 undecodable=0 missing=0 (/tmp/omega_ew_rope_2767803.sass)
+codegen swiglu: 32 insns, 12 gprs, 6 ugprs
+nvdisasm swiglu: rc=0 insns=32 undecodable=0 missing=0 (/tmp/omega_ew_swiglu_2767803.sass)
+PASS: 24 checks, 0 failed
+./build/gpu_reconv_test --host-only
+BE_C3_FLAG_IGNORED KILLED  the NO_C3 flag removes the L2 flush and the second marker (4 failing case(s), first: m_noc3_no_flush_in_pushbuffer)
+codegen rc_diamond: 37 insns, 14 gprs, 1 regions
+codegen rc_loopbreak: 41 insns, 14 gprs, 1 regions
+codegen rc_nested: 49 insns, 15 gprs, 2 regions
+codegen rc_exit_bar: 40 insns, 18 gprs, 1 regions
+codegen rc_depth16: 107 insns, 14 gprs, 16 regions
+nvdisasm diamond: rc=0 insns=40 undecodable=0 missing=0 (/tmp/omega_rc_diamond_2769433.sass)
+nvdisasm depth16: rc=0 insns=112 undecodable=0 missing=0 (/tmp/omega_rc_depth16_2769433.sass)
+nvdisasm sieve_div2: rc=0 insns=72 undecodable=0 missing=0 (/tmp/omega_rc_sieve_div2_2769433.sass)
+nvdisasm forms: rc=0 insns=4 undecodable=0 missing=0 (/tmp/omega_rc_forms_2769433.sass)
+model rc_diamond n=4096: warp_issues=4736 lane_util=0.878 splits=128 max_frags=2 peak_bars=1
+model rc_diamond n=4096: warp_issues=4736 lane_util=0.878 splits=128 max_frags=2 peak_bars=1
+model rc_loopbreak n=4096: warp_issues=115685 lane_util=0.193 splits=2889 max_frags=28 peak_bars=1
+model rc_loopbreak n=4096: warp_issues=116847 lane_util=0.195 splits=2876 max_frags=2 peak_bars=1
+model rc_nested n=4096: warp_issues=92819 lane_util=0.150 splits=1739 max_frags=20 peak_bars=2
+model rc_nested n=4096: warp_issues=91594 lane_util=0.148 splits=1694 max_frags=2 peak_bars=2
+model rc_exit_bar n=4096: warp_issues=5120 lane_util=0.963 splits=128 max_frags=2 peak_bars=1
+model rc_exit_bar n=4096: warp_issues=5120 lane_util=0.962 splits=128 max_frags=2 peak_bars=1
+model rc_depth16 n=4096: warp_issues=13696 lane_util=0.640 splits=128 max_frags=2 peak_bars=16
+model rc_depth16 n=4096: warp_issues=13696 lane_util=0.637 splits=128 max_frags=2 peak_bars=16
+PASS: 119 checks, 0 failed
+./build/gpu_attention_test --host-only
+BE_C3_NEVER KILLED  with flags 0 the L2 flush and the second marker are in the pushbuffer (191 failing case(s), first: m_success_returns_ok)
+codegen paged_bf16: 216 insns, 58 gprs, 6 ugprs
+nvdisasm paged_bf16: rc=0 insns=216 of 216 undecodable=0 missing=0 (/tmp/omega_attn_paged_bf16_2775208.sass)
+codegen gqa_f32: 184 insns, 56 gprs, 6 ugprs
+nvdisasm gqa_f32: rc=0 insns=184 of 184 undecodable=0 missing=0 (/tmp/omega_attn_gqa_f32_2775208.sass)
+PASS: 107 checks, 0 failed
+./build/gpu_attention_test --sim
+BE_THREADS_WRONG KILLED  the launch covers every element (33 failing case(s), first: m_success_returns_ok)
+BE_GRID_ROUNDS_DOWN KILLED  the grid rounds up so a partial last block still runs (33 failing case(s), first: m_success_returns_ok)
+BE_ARGS_C_SWAPPED KILLED  the kernel writes the OUTPUT buffer (35 failing case(s), first: m_success_returns_ok)
+PASS gqa_f32_tinyllama_32q4kv_ctx1 n=2048 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=4789594 calls=1 unwritten=0 kv_staged=2048/2048 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_tinyllama_32q4kv_ctx17 n=2048 rc=OK violations=0 worst_scaled_err=0.00189313 chip_ns=0 call_ns=5873363 calls=1 unwritten=0 kv_staged=34816/34816 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_tinyllama_32q4kv_ctx256 n=2048 rc=OK violations=0 worst_scaled_err=0.00183169 chip_ns=0 call_ns=34540462 calls=1 unwritten=0 kv_staged=524288/524288 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_tinyllama_32q4kv_ctx2048 n=2048 rc=OK violations=0 worst_scaled_err=0.00274869 chip_ns=0 call_ns=123854859 calls=1 unwritten=0 kv_staged=4194304/4194304 blocks=1/1 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=2041) NO_RESCALE:CAUGHT(rc=OK,bad=1959) Q_ROW:CAUGHT(rc=OK,bad=2048) OUT_ROW:CAUGHT(rc=OK,bad=2048)
+PASS gqa_f32_tinyllama_32q4kv_ctx65 n=2048 rc=OK violations=0 worst_scaled_err=0.00145684 chip_ns=0 call_ns=6162374 calls=1 unwritten=0 kv_staged=133120/133120 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_tinyllama_32q4kv_ctx128 n=2048 rc=OK violations=0 worst_scaled_err=0.00206007 chip_ns=0 call_ns=8054087 calls=1 unwritten=0 kv_staged=262144/262144 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_tinyllama_32q4kv_ctx129 n=2048 rc=OK violations=0 worst_scaled_err=0.00165735 chip_ns=0 call_ns=9882919 calls=1 unwritten=0 kv_staged=264192/264192 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_tinyllama_32q4kv_ctx300 n=2048 rc=OK violations=0 worst_scaled_err=0.00201893 chip_ns=0 call_ns=18919254 calls=1 unwritten=0 kv_staged=614400/614400 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_tinyllama_32q4kv_ctx1000 n=2048 rc=OK violations=0 worst_scaled_err=0.00297055 chip_ns=0 call_ns=60528257 calls=1 unwritten=0 kv_staged=2048000/2048000 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_llama32_1b_32q8kv_ctx1 n=2048 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=2368869 calls=1 unwritten=0 kv_staged=4096/4096 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_llama32_1b_32q8kv_ctx17 n=2048 rc=OK violations=0 worst_scaled_err=0.00187227 chip_ns=0 call_ns=2903593 calls=1 unwritten=0 kv_staged=69632/69632 blocks=1/1 | mutants 1/1 KV_HEAD:CAUGHT(rc=OK,bad=2048)
+PASS gqa_f32_llama32_1b_32q8kv_ctx256 n=2048 rc=OK violations=0 worst_scaled_err=0.00201723 chip_ns=0 call_ns=15767770 calls=1 unwritten=0 kv_staged=1048576/1048576 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_llama32_1b_32q8kv_ctx2048 n=2048 rc=OK violations=0 worst_scaled_err=0.0029454 chip_ns=0 call_ns=125240871 calls=1 unwritten=0 kv_staged=8388608/8388608 blocks=1/1 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=2045) NO_RESCALE:CAUGHT(rc=OK,bad=1904) Q_ROW:CAUGHT(rc=OK,bad=2042) OUT_ROW:CAUGHT(rc=OK,bad=2042)
+PASS gqa_f32_llama32_1b_32q8kv_ctx65 n=2048 rc=OK violations=0 worst_scaled_err=0.00195964 chip_ns=0 call_ns=6293799 calls=1 unwritten=0 kv_staged=266240/266240 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_llama32_1b_32q8kv_ctx128 n=2048 rc=OK violations=0 worst_scaled_err=0.00170583 chip_ns=0 call_ns=8158200 calls=1 unwritten=0 kv_staged=524288/524288 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_llama32_1b_32q8kv_ctx129 n=2048 rc=OK violations=0 worst_scaled_err=0.0017034 chip_ns=0 call_ns=9972791 calls=1 unwritten=0 kv_staged=528384/528384 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_llama32_1b_32q8kv_ctx300 n=2048 rc=OK violations=0 worst_scaled_err=0.00187268 chip_ns=0 call_ns=19210680 calls=1 unwritten=0 kv_staged=1228800/1228800 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_llama32_1b_32q8kv_ctx1000 n=2048 rc=OK violations=0 worst_scaled_err=0.00303901 chip_ns=0 call_ns=61610171 calls=1 unwritten=0 kv_staged=4096000/4096000 blocks=1/1 | mutants 0/0 
+PASS gqa_rows_f32_tinyllama_32q4kv_base0_rows1 n=2048 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=2349972 calls=1 unwritten=0 kv_staged=2048/2048 blocks=1/1 | mutants 0/0 
+PASS gqa_rows_f32_tinyllama_32q4kv_base17_rows5 n=10240 rc=OK violations=0 worst_scaled_err=0.00268496 chip_ns=0 call_ns=14349422 calls=1 unwritten=0 kv_staged=45056/225280 blocks=1/5 | mutants 0/0 
+PASS gqa_rows_f32_tinyllama_32q4kv_base300_rows40 n=81920 rc=OK violations=0 worBE_ARGS_A_B_SWAPPED KILLED  the kernel gets input A and input B in the right argument slots (1 failing case(s), first: m_success_kernel_arguments_are_a_b_output)
+BE_PROGRAM_VA KILLED  the QMD points at the program buffer (35 failing case(s), first: m_success_returns_ok)
+st_scaled_err=0.00333664 chip_ns=0 call_ns=814163712 calls=2 unwritten=0 kv_staged=696320/27852800 blocks=1/40 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=81807) NO_RESCALE:CAUGHT(rc=OK,bad=64191) Q_ROW:CAUGHT(rc=OK,bad=81812) OUT_ROW:CAUGHT(rc=OK,bad=81812)
+PASS gqa_rows_f32_llama32_1b_32q8kv_base0_rows1 n=2048 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=2305476 calls=1 unwritten=0 kv_staged=4096/4096 blocks=1/1 | mutants 0/0 
+PASS gqa_rows_f32_llama32_1b_32q8kv_base17_rows5 n=10240 rc=OK violations=0 worst_scaled_err=0.00181178 chip_ns=0 call_ns=14328861 calls=1 unwritten=0 kv_staged=90112/450560 blocks=1/5 | mutants 0/0 
+PASS gqa_rows_f32_llama32_1b_32q8kv_base300_rows40 n=81920 rc=OK violations=0 worst_scaled_err=0.00302101 chip_ns=0 call_ns=814206532 calls=2 unwritten=0 kv_staged=1392640/55705600 blocks=1/40 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=81805) NO_RESCALE:CAUGHT(rc=OK,bad=65973) Q_ROW:CAUGHT(rc=OK,bad=81824) OUT_ROW:CAUGHT(rc=OK,bad=81824)
+PASS gqa_f32_large_scores_32q4kv_ctx256 n=2048 rc=OK violations=0 worst_scaled_err=0.0830785 chip_ns=0 call_ns=15644281 calls=1 unwritten=0 kv_staged=524288/524288 blocks=1/1 | mutants 1/1 NO_MAX:CAUGHT(rc=OK,bad=2048)
+PASS gqa_f32_mha_16q16kv_ctx300 n=1024 rc=OK violations=0 worst_scaled_err=0.00163802 chip_ns=0 call_ns=9528947 calls=1 unwritten=0 kv_staged=2457600/2457600 blocks=1/1 | mutants 3/3 Q_ROW:CAUGHT(rc=OK,bad=1024) OUT_ROW:CAUGHT(rc=OK,bad=1020) KV_HEAD:CAUGHT(rc=OK,bad=1023)
+PASS paged_bf16_tinyllama_32q4kv_bs16_ctx1 n=2048 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=2681815 calls=1 unwritten=0 kv_staged=16384/16384 blocks=1/1 | mutants 1/1 KV_HEAD:CAUGHT(rc=OK,bad=2048)
+PASS paged_bf16_tinyllama_32q4kv_bs16_ctx17 n=2048 rc=OK violations=0 worst_scaled_err=0.00259673 chip_ns=0 call_ns=3322909 calls=1 unwritten=0 kv_staged=32768/32768 blocks=2/2 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=2048) SLOT:CAUGHT(rc=OK,bad=2047)
+PASS paged_bf16_tinyllama_32q4kv_bs16_ctx256 n=2048 rc=OK violations=0 worst_scaled_err=0.0012428 chip_ns=0 call_ns=19963599 calls=1 unwritten=0 kv_staged=262144/262144 blocks=16/16 | mutants 0/0 
+PASS paged_bf16_tinyllama_32q4kv_bs16_ctx2048 n=2048 rc=OK violations=0 worst_scaled_err=0.000511585 chip_ns=0 call_ns=151104715 calls=1 unwritten=0 kv_staged=2097152/2097152 blocks=128/128 | mutants 5/5 KV_HEAD:CAUGHT(rc=OK,bad=2047) SLOT:CAUGHT(rc=OK,bad=2038) NO_RESCALE:CAUGHT(rc=OK,bad=1901) Q_ROW:CAUGHT(rc=OK,bad=2046) OUT_ROW:CAUGHT(rc=OK,bad=2046)
+PASS paged_bf16_tinyllama_32q4kv_bs16_ctx65 n=2048 rc=OK violations=0 worst_scaled_err=0.00182922 chip_ns=0 call_ns=7744692 calls=1 unwritten=0 kv_staged=81920/81920 blocks=5/5 | mutants 0/0 
+PASS paged_bf16_tinyllama_32q4kv_bs16_ctx128 n=2048 rc=OK violations=0 worst_scaled_err=0.00143826 chip_ns=0 call_ns=9907334 calls=1 unwritten=0 kv_staged=131072/131072 blocks=8/8 | mutants 0/0 
+PASS paged_bf16_tinyllama_32q4kv_bs16_ctx129 n=2048 rc=OK violations=0 worst_scaled_err=0.0017437 chip_ns=0 call_ns=11961785 calls=1 unwritten=0 kv_staged=147456/147456 blocks=9/9 | mutants 0/0 
+PASS paged_bf16_tinyllama_32q4kv_bs16_ctx300 n=2048 rc=OK violations=0 worst_scaled_err=0.00124488 chip_ns=0 call_ns=23674992 calls=1 unwritten=0 kv_staged=311296/311296 blocks=19/19 | mutants 0/0 
+PASS paged_bf16_tinyllama_32q4kv_bs16_ctx1000 n=2048 rc=OK violations=0 worst_scaled_err=0.00102811 chip_ns=0 call_ns=80943253 calls=1 unwritten=0 kv_staged=163840/1032192 blocks=10/63 | mutants 0/0 
+PASS paged_bf16_llama32_1b_32q8kv_bs16_ctx1 n=2048 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=2708615 calls=1 unwritten=0 kv_staged=32768/32768 blocks=1/1 | mutants 1/1 KV_HEAD:CAUGHT(rc=OK,bad=2048)
+PASS paged_bf16_llama32_1b_32q8kv_bs16_ctx17 n=2048 rc=OK violations=0 worst_scaled_err=0.00172089 chip_ns=0 call_ns=3305341 calls=1 unwritten=0 kv_staged=65536/65536 blocks=2/2 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=2046) SLOT:CAUGHT(rc=OK,bad=2048)
+PASS paged_bf16_llama32_1b_32q8kv_bs16_ctx256 n=2048 rc=OK violations=0 worst_scaled_err=0.00106374 chip_ns=0 call_ns=20074896 calls=1 unwritten=0 kv_staged=524288/524288 bloBE_CBANK_VA KILLED  the QMD points at the constant bank buffer (harness exit 139 (crash or abort))
+cks=16/16 | mutants 0/0 
+PASS paged_bf16_llama32_1b_32q8kv_bs16_ctx2048 n=2048 rc=OK violations=0 worst_scaled_err=0.0005717 chip_ns=0 call_ns=151940082 calls=1 unwritten=0 kv_staged=4194304/4194304 blocks=128/128 | mutants 5/5 KV_HEAD:CAUGHT(rc=OK,bad=2048) SLOT:CAUGHT(rc=OK,bad=2044) NO_RESCALE:CAUGHT(rc=OK,bad=1963) Q_ROW:CAUGHT(rc=OK,bad=2048) OUT_ROW:CAUGHT(rc=OK,bad=2048)
+PASS paged_bf16_llama32_1b_32q8kv_bs16_ctx65 n=2048 rc=OK violations=0 worst_scaled_err=0.00153464 chip_ns=0 call_ns=7705779 calls=1 unwritten=0 kv_staged=163840/163840 blocks=5/5 | mutants 0/0 
+PASS paged_bf16_llama32_1b_32q8kv_bs16_ctx128 n=2048 rc=OK violations=0 worst_scaled_err=0.00162767 chip_ns=0 call_ns=9874998 calls=1 unwritten=0 kv_staged=262144/262144 blocks=8/8 | mutants 0/0 
+PASS paged_bf16_llama32_1b_32q8kv_bs16_ctx129 n=2048 rc=OK violations=0 worst_scaled_err=0.0018236 chip_ns=0 call_ns=11947192 calls=1 unwritten=0 kv_staged=294912/294912 blocks=9/9 | mutants 0/0 
+PASS paged_bf16_llama32_1b_32q8kv_bs16_ctx300 n=2048 rc=OK violations=0 worst_scaled_err=0.00136517 chip_ns=0 call_ns=23704128 calls=1 unwritten=0 kv_staged=622592/622592 blocks=19/19 | mutants 0/0 
+PASS paged_bf16_llama32_1b_32q8kv_bs16_ctx1000 n=2048 rc=OK violations=0 worst_scaled_err=0.00108243 chip_ns=0 call_ns=81325448 calls=1 unwritten=0 kv_staged=327680/2064384 blocks=10/63 | mutants 0/0 
+PASS paged_bf16_split1_32q8kv_ctx1000 n=2048 rc=OK violations=0 worst_scaled_err=0.00243892 chip_ns=0 call_ns=68772106 calls=1 unwritten=0 kv_staged=2064384/2064384 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split2_32q8kv_ctx1000 n=2048 rc=OK violations=0 worst_scaled_err=0.00224498 chip_ns=0 call_ns=69336351 calls=1 unwritten=0 kv_staged=2064384/2064384 blocks=63/63 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=2048) SLOT:CAUGHT(rc=OK,bad=2041)
+PASS paged_bf16_split4_32q8kv_ctx1000 n=2048 rc=OK violations=0 worst_scaled_err=0.00103684 chip_ns=0 call_ns=70805980 calls=1 unwritten=0 kv_staged=2064384/2064384 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split8_32q8kv_ctx1000 n=2048 rc=OK violations=0 worst_scaled_err=0.000722397 chip_ns=0 call_ns=74209114 calls=1 unwritten=0 kv_staged=2064384/2064384 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split16_32q8kv_ctx1000 n=2048 rc=OK violations=0 worst_scaled_err=0.00058086 chip_ns=0 call_ns=81178967 calls=1 unwritten=0 kv_staged=2064384/2064384 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split1_32q8kv_ctx100 n=2048 rc=OK violations=0 worst_scaled_err=0.00156533 chip_ns=0 call_ns=8234904 calls=1 unwritten=0 kv_staged=65536/229376 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split2_32q8kv_ctx100 n=2048 rc=OK violations=0 worst_scaled_err=0.00122616 chip_ns=0 call_ns=8865278 calls=1 unwritten=0 kv_staged=65536/229376 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split4_32q8kv_ctx100 n=2048 rc=OK violations=0 worst_scaled_err=0.00122616 chip_ns=0 call_ns=10224521 calls=1 unwritten=0 kv_staged=65536/229376 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split8_32q8kv_ctx100 n=2048 rc=OK violations=0 worst_scaled_err=0.00122616 chip_ns=0 call_ns=13274900 calls=1 unwritten=0 kv_staged=65536/229376 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split16_32q8kv_ctx100 n=2048 rc=OK violations=0 worst_scaled_err=0.00122616 chip_ns=0 call_ns=19700588 calls=1 unwritten=0 kv_staged=65536/229376 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_batch_3seq_32q8kv_ctx40_0_100 n=6144 rc=OK violations=0 worst_scaled_err=0.002081 chip_ns=0 call_ns=9310497 calls=2 unwritten=0 kv_staged=229376/229376 blocks=7/7 | mutants 4/4 KV_HEAD:CAUGHT(rc=OK,bad=4095) SLOT:CAUGHT(rc=OK,bad=4095) Q_ROW:CAUGHT(rc=OK,bad=4092) OUT_ROW:CAUGHT(rc=OK,bad=4092)
+PASS paged_bf16_shared_prefix_4seq_8q2kv_10pre n=2048 rc=OK violations=0 worst_scaled_err=0.00158345 chip_ns=0 call_ns=16416191 calls=1 unwritten=0 kv_staged=155648/401408 blocks=19/49 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=2048) SLOT:CAUGHT(rc=OK,bad=2046)
+PASS paged_bf16_shared_prefix_4seq_32q8kv_10pre n=8192 rc=OK violations=0 worst_scaled_err=0.00205105 chip_ns=0 call_ns=65774976 calls=2 unwritten=0 kv_staged=950272/1605632 blocks=29/49 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=8190) SLOT:CAUGHT(rc=OK,bad=8186)
+mutant NO_MAX: caught 1 of 1
+mutant KV_HEAD: caught 12 of 12
+mutant SLOT: caught 12 of 12
+mutant NO_RESCALE: caught 6 of 6
+mutant Q_ROW: caught 8 of 8
+mutant OUT_ROW: caught 8 of 8
+device_opens=0
+PASS: 219 checks, 0 failed
+./build/gpu_attention_test --sweep --sim --out build/gpu_attention_sweep_sim.json
+PASS sweep  1q/ 1kv ratio  1 ctx  256: launches=1 ctas=4 call_ms med=0.631 p90=0.631 kernel_ms med=0.000 p90=0.000 kv_staged=12288 (naive 65536) blocks=3/16 q=256 tab=68 out=1056 worst=0.00067717
+PASS sweep  1q/ 1kv ratio  1 ctx 2048: launches=1 ctas=16 call_ms med=4.709 p90=4.709 kernel_ms med=0.000 p90=0.000 kv_staged=77824 (naive 524288) blocks=19/128 q=256 tab=516 out=4224 worst=0.000848912
+PASS sweep  2q/ 1kv ratio  2 ctx  256: launches=1 ctas=8 call_ms med=1.241 p90=1.241 kernel_ms med=0.000 p90=0.000 kv_staged=12288 (naive 65536) blocks=3/16 q=512 tab=68 out=2112 worst=0.000915783
+PASS sweep  2q/ 1kv ratio  2 ctx 2048: launches=1 ctas=32 call_ms med=9.361 p90=9.361 kernel_ms med=0.000 p90=0.000 kv_staged=77824 (naive 524288) blocks=19/128 q=512 tab=516 out=8448 worst=0.000687931
+PASS sweep  2q/ 2kv ratio  1 ctx  256: launches=1 ctas=8 call_ms med=1.249 p90=1.249 kernel_ms med=0.000 p90=0.000 kv_staged=24576 (naive 131072) blocks=3/16 q=512 tab=68 out=2112 worst=0.000706267
+PASS sweep  2q/ 2kv ratio  1 ctx 2048: launches=1 ctas=32 call_ms med=9.539 p90=9.539 kernel_ms med=0.000 p90=0.000 kv_staged=155648 (naive 1048576) blocks=19/128 q=512 tab=516 out=8448 worst=0.000585813
+PASS sweep  4q/ 1kv ratio  4 ctx  256: launches=1 ctas=16 call_ms med=2.517 p90=2.517 kernel_ms med=0.000 p90=0.000 kv_staged=12288 (naive 65536) blocks=3/16 q=1024 tab=68 out=4224 worst=0.00103708
+PASS sweep  4q/ 1kv ratio  4 ctx 2048: launches=1 ctas=64 call_ms med=18.752 p90=18.752 kernel_ms med=0.000 p90=0.000 kv_staged=77824 (naive 524288) blocks=19/128 q=1024 tab=516 out=16896 worst=0.000595022
+PASS sweep  4q/ 2kv ratio  2 ctx  256: launches=1 ctas=16 call_ms med=2.485 p90=2.485 kernel_ms med=0.000 p90=0.000 kv_staged=24576 (naive 131072) blocks=3/16 q=1024 tab=68 out=4224 worst=0.000865513
+PASS sweep  4q/ 2kv ratio  2 ctx 2048: launches=1 ctas=64 call_ms med=18.785 p90=18.785 kernel_ms med=0.000 p90=0.000 kv_staged=155648 (naive 1048576) blocks=19/128 q=1024 tab=516 out=16896 worst=0.000579735
+PASS sweep  4q/ 4kv ratio  1 ctx  256: launches=1 ctas=16 call_ms med=2.486 p90=2.486 kernel_ms med=0.000 p90=0.000 kv_staged=49152 (naive 262144) blocks=3/16 q=1024 tab=68 out=4224 worst=0.000903455
+PASS sweep  4q/ 4kv ratio  1 ctx 2048: launches=1 ctas=64 call_ms med=18.909 p90=18.909 kernel_ms med=0.000 p90=0.000 kv_staged=311296 (naive 2097152) blocks=19/128 q=1024 tab=516 out=16896 worst=0.000634714
+PASS sweep  8q/ 1kv ratio  8 ctx  256: launches=1 ctas=32 call_ms med=4.985 p90=4.985 kernel_ms med=0.000 p90=0.000 kv_staged=12288 (naive 65536) blocks=3/16 q=2048 tab=68 out=8448 worst=0.00103596
+PASS sweep  8q/ 1kv ratio  8 ctx 2048: launches=1 ctas=128 call_ms med=37.541 p90=37.541 kernel_ms med=0.000 p90=0.000 kv_staged=77824 (naive 524288) blocks=19/128 q=2048 tab=516 out=33792 worst=0.000871917
+PASS sweep  8q/ 2kv ratio  4 ctx  256: launches=1 ctas=32 call_ms med=4.978 p90=4.978 kernel_ms med=0.000 p90=0.000 kv_staged=24576 (naive 131072) blocks=3/16 q=2048 tab=68 out=8448 worst=0.000981295
+PASS sweep  8q/ 2kv ratio  4 ctx 2048: launches=1 ctas=128 call_ms med=37.758 p90=37.758 kernel_ms med=0.000 p90=0.000 kv_staged=155648 (naive 1048576) blocks=19/128 q=2048 tab=516 out=33792 worst=0.000863034
+PASS sweep  8q/ 4kv ratio  2 ctx  256: launches=1 ctas=32 call_ms med=4.967 p90=4.967 kernel_ms med=0.000 p90=0.000 kv_staged=49152 (naive 262144) blocks=3/16 q=2048 tab=68 out=8448 worst=0.000938337
+PASS sweep  8q/ 4kv ratio  2 ctx 2048: launches=1 ctas=128 call_ms med=37.824 p90=37.824 kernel_ms med=0.000 p90=0.000 kv_staged=311296 (naive 2097152) blocks=19/128 q=2048 tab=516 out=33792 worst=0.000606712
+PASS sweep  8q/ 8kv ratio  1 ctx  256: launches=1 ctas=32 call_ms med=5.020 p90=5.020 kernel_ms med=0.000 p90=0.000 kv_staged=98304 (naive 524288) blocks=3/16 q=2048 tab=68 out=8448 worst=0.000914011
+PASS sweep  8q/ 8kv ratio  1 ctx 2048: launches=1 ctas=128 call_ms med=37.863 p90=37.863 kernel_ms med=0.000 p90=0.000 kv_staged=622592 (naive 4194304) blocks=19/128 q=2048 tab=516 out=33792 worst=0.000721768
+PASS sweep 16q/ 1kv ratio 16 ctx  256: launchBE_SEM_VA KILLED  the QMD release semaphore address is the word the host waits on (180 failing case(s), first: m_success_returns_ok)
+es=1 ctas=64 call_ms med=10.012 p90=10.012 kernel_ms med=0.000 p90=0.000 kv_staged=12288 (naive 65536) blocks=3/16 q=4096 tab=68 out=16896 worst=0.000931851
+PASS sweep 16q/ 1kv ratio 16 ctx 2048: launches=1 ctas=256 call_ms med=74.960 p90=74.960 kernel_ms med=0.000 p90=0.000 kv_staged=77824 (naive 524288) blocks=19/128 q=4096 tab=516 out=67584 worst=0.000659197
+PASS sweep 16q/ 2kv ratio  8 ctx  256: launches=1 ctas=64 call_ms med=9.958 p90=9.958 kernel_ms med=0.000 p90=0.000 kv_staged=24576 (naive 131072) blocks=3/16 q=4096 tab=68 out=16896 worst=0.00105378
+PASS sweep 16q/ 2kv ratio  8 ctx 2048: launches=1 ctas=256 call_ms med=75.176 p90=75.176 kernel_ms med=0.000 p90=0.000 kv_staged=155648 (naive 1048576) blocks=19/128 q=4096 tab=516 out=67584 worst=0.000649724
+PASS sweep 16q/ 4kv ratio  4 ctx  256: launches=1 ctas=64 call_ms med=9.956 p90=9.956 kernel_ms med=0.000 p90=0.000 kv_staged=49152 (naive 262144) blocks=3/16 q=4096 tab=68 out=16896 worst=0.00119381
+PASS sweep 16q/ 4kv ratio  4 ctx 2048: launches=1 ctas=256 call_ms med=75.396 p90=75.396 kernel_ms med=0.000 p90=0.000 kv_staged=311296 (naive 2097152) blocks=19/128 q=4096 tab=516 out=67584 worst=0.000790485
+PASS sweep 16q/ 8kv ratio  2 ctx  256: launches=1 ctas=64 call_ms med=9.962 p90=9.962 kernel_ms med=0.000 p90=0.000 kv_staged=98304 (naive 524288) blocks=3/16 q=4096 tab=68 out=16896 worst=0.00109193
+PASS sweep 16q/ 8kv ratio  2 ctx 2048: launches=1 ctas=256 call_ms med=75.682 p90=75.682 kernel_ms med=0.000 p90=0.000 kv_staged=622592 (naive 4194304) blocks=19/128 q=4096 tab=516 out=67584 worst=0.000729671
+PASS sweep 16q/16kv ratio  1 ctx  256: launches=1 ctas=64 call_ms med=10.073 p90=10.073 kernel_ms med=0.000 p90=0.000 kv_staged=196608 (naive 1048576) blocks=3/16 q=4096 tab=68 out=16896 worst=0.00117565
+PASS sweep 16q/16kv ratio  1 ctx 2048: launches=1 ctas=256 call_ms med=76.236 p90=76.236 kernel_ms med=0.000 p90=0.000 kv_staged=1245184 (naive 8388608) blocks=19/128 q=4096 tab=516 out=67584 worst=0.000683009
+PASS sweep 24q/ 1kv ratio 24 ctx  256: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 1kv ratio 24 ctx 2048: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 2kv ratio 12 ctx  256: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 2kv ratio 12 ctx 2048: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 3kv ratio  8 ctx  256: launches=1 ctas=96 call_ms med=14.896 p90=14.896 kernel_ms med=0.000 p90=0.000 kv_staged=36864 (naive 196608) blocks=3/16 q=6144 tab=68 out=25344 worst=0.00109154
+PASS sweep 24q/ 3kv ratio  8 ctx 2048: launches=1 ctas=384 call_ms med=112.360 p90=112.360 kernel_ms med=0.000 p90=0.000 kv_staged=233472 (naive 1572864) blocks=19/128 q=6144 tab=516 out=101376 worst=0.000796466
+PASS sweep 24q/ 4kv ratio  6 ctx  256: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 4kv ratio  6 ctx 2048: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 6kv ratio  4 ctx  256: launches=1 ctas=96 call_ms med=14.912 p90=14.912 kernel_ms med=0.000 p90=0.000 kv_staged=73728 (naive 393216) blocks=3/16 q=6144 tab=68 out=25344 worst=0.00144096
+PASS sweep 24q/ 6kv ratio  4 ctx 2048: launches=1 ctas=384 call_ms med=112.485 p90=112.485 kernel_ms med=0.000 p90=0.000 kv_staged=466944 (naive 3145728) blocks=19/128 q=6144 tab=516 out=101376 worst=0.000826453
+PASS sweep 24q/ 8kv ratio  3 ctx  256: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/ 8kv ratio  3 ctx 2048: unsupported_by_kernel_envelope (rc=BAD_ARGS)
+PASS sweep 24q/12kv ratio  2 ctx  256: launches=1 ctas=96 call_ms med=14.945 p90=14.945 kernel_ms med=0.000 p90=0.000 kv_staged=147456 (naive 786432) blocks=3/16 q=6144 tab=68 out=25344 worst=0.000997479
+PASS sweep 24q/12kv ratio  2 ctx 2048: launches=1 ctas=384 call_ms med=113.457 p90=113.457 kernel_ms med=0.000 p90=0.000 kv_staged=933888 (naive 6291456) blocks=19/128 q=6144 tab=516 out=101376 worst=0.000667221
+PASS sweep 24q/24kv ratio  1 ctx  256: launches=1 ctas=96 call_ms med=15.002 p90=15.002 kernel_ms med=0.000 p90=0.000 kv_staged=294912 (naive 1572864) blocks=3/16 q=6144 tab=6BE_MARKER_VA KILLED  the first release lands on the word the host waits on (187 failing case(s), first: m_success_returns_ok)
+BE_SEM_ZERO_DROPPED KILLED  the semaphore word is zeroed before the doorbell (no stale DONE) (1 failing case(s), first: m_success_semaphore_zeroed_before_doorbell)
+8 out=25344 worst=0.00126045
+PASS sweep 24q/24kv ratio  1 ctx 2048: launches=1 ctas=384 call_ms med=114.215 p90=114.215 kernel_ms med=0.000 p90=0.000 kv_staged=1867776 (naive 12582912) blocks=19/128 q=6144 tab=516 out=101376 worst=0.000714818
+PASS sweep 32q/ 1kv ratio 32 ctx  256: launches=1 ctas=128 call_ms med=20.060 p90=20.060 kernel_ms med=0.000 p90=0.000 kv_staged=12288 (naive 65536) blocks=3/16 q=8192 tab=68 out=33792 worst=0.00111822
+PASS sweep 32q/ 1kv ratio 32 ctx 2048: launches=1 ctas=512 call_ms med=150.054 p90=150.054 kernel_ms med=0.000 p90=0.000 kv_staged=77824 (naive 524288) blocks=19/128 q=8192 tab=516 out=135168 worst=0.000919862
+PASS sweep 32q/ 2kv ratio 16 ctx  256: launches=1 ctas=128 call_ms med=19.882 p90=19.882 kernel_ms med=0.000 p90=0.000 kv_staged=24576 (naive 131072) blocks=3/16 q=8192 tab=68 out=33792 worst=0.00115689
+PASS sweep 32q/ 2kv ratio 16 ctx 2048: launches=1 ctas=512 call_ms med=150.062 p90=150.062 kernel_ms med=0.000 p90=0.000 kv_staged=155648 (naive 1048576) blocks=19/128 q=8192 tab=516 out=135168 worst=0.000749667
+PASS sweep 32q/ 4kv ratio  8 ctx  256: launches=1 ctas=128 call_ms med=19.891 p90=19.891 kernel_ms med=0.000 p90=0.000 kv_staged=49152 (naive 262144) blocks=3/16 q=8192 tab=68 out=33792 worst=0.00128202
+PASS sweep 32q/ 4kv ratio  8 ctx 2048: launches=1 ctas=512 call_ms med=152.611 p90=152.611 kernel_ms med=0.000 p90=0.000 kv_staged=311296 (naive 2097152) blocks=19/128 q=8192 tab=516 out=135168 worst=0.000901558
+PASS sweep 32q/ 8kv ratio  4 ctx  256: launches=1 ctas=128 call_ms med=19.950 p90=19.950 kernel_ms med=0.000 p90=0.000 kv_staged=98304 (naive 524288) blocks=3/16 q=8192 tab=68 out=33792 worst=0.00119851
+PASS sweep 32q/ 8kv ratio  4 ctx 2048: launches=1 ctas=512 call_ms med=150.952 p90=150.952 kernel_ms med=0.000 p90=0.000 kv_staged=622592 (naive 4194304) blocks=19/128 q=8192 tab=516 out=135168 worst=0.000801681
+PASS sweep 32q/16kv ratio  2 ctx  256: launches=1 ctas=128 call_ms med=20.057 p90=20.057 kernel_ms med=0.000 p90=0.000 kv_staged=196608 (naive 1048576) blocks=3/16 q=8192 tab=68 out=33792 worst=0.00118402
+PASS sweep 32q/16kv ratio  2 ctx 2048: launches=1 ctas=512 call_ms med=151.298 p90=151.298 kernel_ms med=0.000 p90=0.000 kv_staged=1245184 (naive 8388608) blocks=19/128 q=8192 tab=516 out=135168 worst=0.000809915
+PASS sweep 32q/32kv ratio  1 ctx  256: launches=1 ctas=128 call_ms med=20.031 p90=20.031 kernel_ms med=0.000 p90=0.000 kv_staged=393216 (naive 2097152) blocks=3/16 q=8192 tab=68 out=33792 worst=0.0011642
+PASS sweep 32q/32kv ratio  1 ctx 2048: launches=1 ctas=512 call_ms med=152.263 p90=152.263 kernel_ms med=0.000 p90=0.000 kv_staged=2490368 (naive 16777216) blocks=19/128 q=8192 tab=516 out=135168 worst=0.000958817
+PASS sweep 64q/ 1kv ratio 64 ctx  256: launches=1 ctas=256 call_ms med=39.730 p90=39.730 kernel_ms med=0.000 p90=0.000 kv_staged=12288 (naive 65536) blocks=3/16 q=16384 tab=68 out=67584 worst=0.00138751
+PASS sweep 64q/ 1kv ratio 64 ctx 2048: launches=1 ctas=1024 call_ms med=299.758 p90=299.758 kernel_ms med=0.000 p90=0.000 kv_staged=77824 (naive 524288) blocks=19/128 q=16384 tab=516 out=270336 worst=0.000794728
+PASS sweep 64q/ 2kv ratio 32 ctx  256: launches=1 ctas=256 call_ms med=39.791 p90=39.791 kernel_ms med=0.000 p90=0.000 kv_staged=24576 (naive 131072) blocks=3/16 q=16384 tab=68 out=67584 worst=0.00138727
+PASS sweep 64q/ 2kv ratio 32 ctx 2048: launches=1 ctas=1024 call_ms med=299.615 p90=299.615 kernel_ms med=0.000 p90=0.000 kv_staged=155648 (naive 1048576) blocks=19/128 q=16384 tab=516 out=270336 worst=0.000966828
+PASS sweep 64q/ 4kv ratio 16 ctx  256: launches=1 ctas=256 call_ms med=39.787 p90=39.787 kernel_ms med=0.000 p90=0.000 kv_staged=49152 (naive 262144) blocks=3/16 q=16384 tab=68 out=67584 worst=0.00127321
+PASS sweep 64q/ 4kv ratio 16 ctx 2048: launches=1 ctas=1024 call_ms med=304.723 p90=304.723 kernel_ms med=0.000 p90=0.000 kv_staged=311296 (naive 2097152) blocks=19/128 q=16384 tab=516 out=270336 worst=0.000740042
+PASS sweep 64q/ 8kv ratio  8 ctx  256: launches=1 ctas=256 call_ms med=39.804 p90=39.804 kernel_ms med=0.000 BE_MARKER_ZERO_DROPPED KILLED  the first marker word is zeroed before the doorbell (no stale payload) (5 failing case(s), first: m_success_marker1_zeroed_before_doorbell)
+BE_MARKER2_ZERO_DROPPED KILLED  the second marker word is zeroed before the doorbell (5 failing case(s), first: m_success_marker2_zeroed_before_doorbell)
+p90=0.000 kv_staged=98304 (naive 524288) blocks=3/16 q=16384 tab=68 out=67584 worst=0.0014985
+PASS sweep 64q/ 8kv ratio  8 ctx 2048: launches=1 ctas=1024 call_ms med=301.850 p90=301.850 kernel_ms med=0.000 p90=0.000 kv_staged=622592 (naive 4194304) blocks=19/128 q=16384 tab=516 out=270336 worst=0.000810292
+PASS sweep 64q/16kv ratio  4 ctx  256: launches=1 ctas=256 call_ms med=40.027 p90=40.027 kernel_ms med=0.000 p90=0.000 kv_staged=196608 (naive 1048576) blocks=3/16 q=16384 tab=68 out=67584 worst=0.00133573
+PASS sweep 64q/16kv ratio  4 ctx 2048: launches=1 ctas=1024 call_ms med=302.552 p90=302.552 kernel_ms med=0.000 p90=0.000 kv_staged=1245184 (naive 8388608) blocks=19/128 q=16384 tab=516 out=270336 worst=0.000784602
+PASS sweep 64q/32kv ratio  2 ctx  256: launches=1 ctas=256 call_ms med=40.042 p90=40.042 kernel_ms med=0.000 p90=0.000 kv_staged=393216 (naive 2097152) blocks=3/16 q=16384 tab=68 out=67584 worst=0.00181348
+PASS sweep 64q/32kv ratio  2 ctx 2048: launches=1 ctas=1024 call_ms med=303.956 p90=303.956 kernel_ms med=0.000 p90=0.000 kv_staged=2490368 (naive 16777216) blocks=19/128 q=16384 tab=516 out=270336 worst=0.000804468
+PASS sweep 64q/64kv ratio  1 ctx  256: launches=1 ctas=256 call_ms med=40.056 p90=40.056 kernel_ms med=0.000 p90=0.000 kv_staged=786432 (naive 4194304) blocks=3/16 q=16384 tab=68 out=67584 worst=0.00132571
+PASS sweep 64q/64kv ratio  1 ctx 2048: launches=1 ctas=1024 call_ms med=304.690 p90=304.690 kernel_ms med=0.000 p90=0.000 kv_staged=4980736 (naive 33554432) blocks=19/128 q=16384 tab=516 out=270336 worst=0.00155178
+sweep: 72 points (64 supported, 8 unsupported by the kernel envelope), device_opens=0
+PASS: 73 checks, 0 failed
+./build/gpu_attention_test --hd 128 --host-only
+codegen paged_bf16: 624 insns, 84 gprs, 6 ugprs
+nvdisasm paged_bf16: rc=0 insns=624 of 624 undecodable=0 missing=0 (/tmp/omega_attn_paged_bf16_2808108.sass)
+codegen gqa_f32: 512 insns, 72 gprs, 6 ugprs
+nvdisasm gqa_f32: rc=0 insns=512 of 512 undecodable=0 missing=0 (/tmp/omega_attn_gqa_f32_2808108.sass)
+PASS: 107 checks, 0 failed
+./build/gpu_attention_test --hd 128 --sim
+BE_NOC3_MARKER2_REPORTED KILLED  with NO_C3 the second marker is neither waited for nor reported (1 failing case(s), first: m_unc_noc3_semaphore_hang_sync_valid_mask)
+BE_MARKER2_OFFSET_CHANGED KILLED  the second marker is 0x10 bytes after the first (1 failing case(s), first: m_success_release2_is_marker_page_plus_0x10)
+BE_MARKER2_PAYLOAD_CHANGED KILLED  the second marker payload is 0x46464646 (11 failing case(s), first: m_success_release2_payload_and_flags)
+PASS gqa_f32_qwen3_4b_32q8kv_ctx1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=4863738 calls=1 unwritten=0 kv_staged=8192/8192 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx17 n=4096 rc=OK violations=0 worst_scaled_err=0.00224179 chip_ns=0 call_ns=5244622 calls=1 unwritten=0 kv_staged=139264/139264 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx256 n=4096 rc=OK violations=0 worst_scaled_err=0.00206282 chip_ns=0 call_ns=17400201 calls=1 unwritten=0 kv_staged=2097152/2097152 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx2048 n=4096 rc=OK violations=0 worst_scaled_err=0.00376301 chip_ns=0 call_ns=135230434 calls=1 unwritten=0 kv_staged=16777216/16777216 blocks=1/1 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=4090) NO_RESCALE:CAUGHT(rc=OK,bad=3905) Q_ROW:CAUGHT(rc=OK,bad=4086) OUT_ROW:CAUGHT(rc=OK,bad=4086)
+PASS gqa_f32_qwen3_4b_32q8kv_ctx127 n=4096 rc=OK violations=0 worst_scaled_err=0.00217901 chip_ns=0 call_ns=8763357 calls=1 unwritten=0 kv_staged=1040384/1040384 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx128 n=4096 rc=OK violations=0 worst_scaled_err=0.00245582 chip_ns=0 call_ns=8600315 calls=1 unwritten=0 kv_staged=1048576/1048576 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx129 n=4096 rc=OK violations=0 worst_scaled_err=0.001674 chip_ns=0 call_ns=13012738 calls=1 unwritten=0 kv_staged=1056768/1056768 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx300 n=4096 rc=OK violations=0 worst_scaled_err=0.00217497 chip_ns=0 call_ns=22374420 calls=1 unwritten=0 kv_staged=2457600/2457600 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00326932 chip_ns=0 call_ns=64922058 calls=1 unwritten=0 kv_staged=8192000/8192000 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=4684393 calls=1 unwritten=0 kv_staged=4096/4096 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx17 n=4096 rc=OK violations=0 worst_scaled_err=0.00195066 chip_ns=0 call_ns=5196957 calls=1 unwritten=0 kv_staged=69632/69632 blocks=1/1 | mutants 1/1 KV_HEAD:CAUGHT(rc=OK,bad=4095)
+PASS gqa_f32_gqa8_32q4kv_ctx256 n=4096 rc=OK violations=0 worst_scaled_err=0.00231763 chip_ns=0 call_ns=16677267 calls=1 unwritten=0 kv_staged=1048576/1048576 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx2048 n=4096 rc=OK violations=0 worst_scaled_err=0.00246504 chip_ns=0 call_ns=129703442 calls=1 unwritten=0 kv_staged=8388608/8388608 blocks=1/1 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=4084) NO_RESCALE:CAUGHT(rc=OK,bad=3914) Q_ROW:CAUGHT(rc=OK,bad=4078) OUT_ROW:CAUGHT(rc=OK,bad=4078)
+PASS gqa_f32_gqa8_32q4kv_ctx127 n=4096 rc=OK violations=0 worst_scaled_err=0.00196909 chip_ns=0 call_ns=8530155 calls=1 unwritten=0 kv_staged=520192/520192 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx128 n=4096 rc=OK violations=0 worst_scaled_err=0.00212764 chip_ns=0 call_ns=8625963 calls=1 unwritten=0 kv_staged=524288/524288 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx129 n=4096 rc=OK violations=0 worst_scaled_err=0.00194043 chip_ns=0 call_ns=12744736 calls=1 unwritten=0 kv_staged=528384/528384 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx300 n=4096 rc=OK violations=0 worst_scaled_err=0.00189108 chip_ns=0 call_ns=22219107 calls=1 unwritten=0 kv_staged=1228800/1228800 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.0028386 chip_ns=0 call_ns=64242659 calls=1 unwritten=0 kv_staged=4096000/4096000 blocks=1/1 | mutants 0/0 
+PASS gqa_rows_f32_qwen3_4b_32q8kv_base0_rows1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=4875611 calls=1 unwritten=0 kv_staged=8192/8192 blocks=1/1 | mutants 0/0 
+PASS gqa_rows_f32_qwen3_4b_32q8kv_base17_rows5 n=20480 rc=OK violations=0 worst_scaled_err=0.00237778 chip_ns=0 call_ns=26345927 calls=1 unwritten=0 kv_staged=180224/901120 blocks=1/5 | mutants 0/0 
+PASS gqa_rows_f32_qwen3_4b_32q8kv_base300_rows40 n=163840 rc=OK violations=0 worst_scaled_err=0.00322638 chip_ns=0 call_ns=9197BE_RELEASE1_PAYLOAD_ZERO KILLED  the first release writes the completion payload (185 failing case(s), first: m_success_returns_ok)
+BE_RELEASE2_PAYLOAD_ZERO KILLED  the second release writes its payload (176 failing case(s), first: m_success_returns_ok)
+BE_FLUSH_OP_DROPPED KILLED  the L2 flush operation word is L2_FLUSH_DIRTY (176 failing case(s), first: m_success_returns_ok)
+53911 calls=2 unwritten=0 kv_staged=2785280/111411200 blocks=1/40 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=163639) NO_RESCALE:CAUGHT(rc=OK,bad=96453) Q_ROW:CAUGHT(rc=OK,bad=163612) OUT_ROW:CAUGHT(rc=OK,bad=163612)
+PASS gqa_rows_f32_gqa8_32q4kv_base0_rows1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=4864923 calls=1 unwritten=0 kv_staged=4096/4096 blocks=1/1 | mutants 0/0 
+PASS gqa_rows_f32_gqa8_32q4kv_base17_rows5 n=20480 rc=OK violations=0 worst_scaled_err=0.00345221 chip_ns=0 call_ns=26764619 calls=1 unwritten=0 kv_staged=90112/450560 blocks=1/5 | mutants 0/0 
+PASS gqa_rows_f32_gqa8_32q4kv_base300_rows40 n=163840 rc=OK violations=0 worst_scaled_err=0.0038327 chip_ns=0 call_ns=913373604 calls=2 unwritten=0 kv_staged=1392640/55705600 blocks=1/40 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=163627) NO_RESCALE:CAUGHT(rc=OK,bad=98605) Q_ROW:CAUGHT(rc=OK,bad=163626) OUT_ROW:CAUGHT(rc=OK,bad=163626)
+PASS gqa_f32_large_scores_32q4kv_ctx256 n=4096 rc=OK violations=0 worst_scaled_err=0.114366 chip_ns=0 call_ns=16805668 calls=1 unwritten=0 kv_staged=1048576/1048576 blocks=1/1 | mutants 1/1 NO_MAX:CAUGHT(rc=OK,bad=4096)
+PASS gqa_f32_mha_16q16kv_ctx300 n=2048 rc=OK violations=0 worst_scaled_err=0.00257229 chip_ns=0 call_ns=19592828 calls=1 unwritten=0 kv_staged=4915200/4915200 blocks=1/1 | mutants 3/3 Q_ROW:CAUGHT(rc=OK,bad=2045) OUT_ROW:CAUGHT(rc=OK,bad=2048) KV_HEAD:CAUGHT(rc=OK,bad=2045)
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=6157142 calls=1 unwritten=0 kv_staged=65536/65536 blocks=1/1 | mutants 1/1 KV_HEAD:CAUGHT(rc=OK,bad=4096)
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx17 n=4096 rc=OK violations=0 worst_scaled_err=0.00184516 chip_ns=0 call_ns=6699739 calls=1 unwritten=0 kv_staged=131072/131072 blocks=2/2 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=4096) SLOT:CAUGHT(rc=OK,bad=4096)
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx256 n=4096 rc=OK violations=0 worst_scaled_err=0.00164 chip_ns=0 call_ns=20929000 calls=1 unwritten=0 kv_staged=1048576/1048576 blocks=16/16 | mutants 0/0 
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx2048 n=4096 rc=OK violations=0 worst_scaled_err=0.000660915 chip_ns=0 call_ns=175249428 calls=1 unwritten=0 kv_staged=8388608/8388608 blocks=128/128 | mutants 5/5 KV_HEAD:CAUGHT(rc=OK,bad=4094) SLOT:CAUGHT(rc=OK,bad=4088) NO_RESCALE:CAUGHT(rc=OK,bad=3458) Q_ROW:CAUGHT(rc=OK,bad=4088) OUT_ROW:CAUGHT(rc=OK,bad=4088)
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx127 n=4096 rc=OK violations=0 worst_scaled_err=0.00196848 chip_ns=0 call_ns=10752543 calls=1 unwritten=0 kv_staged=524288/524288 blocks=8/8 | mutants 0/0 
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx128 n=4096 rc=OK violations=0 worst_scaled_err=0.00206789 chip_ns=0 call_ns=10536124 calls=1 unwritten=0 kv_staged=524288/524288 blocks=8/8 | mutants 0/0 
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx129 n=4096 rc=OK violations=0 worst_scaled_err=0.00169498 chip_ns=0 call_ns=17066710 calls=1 unwritten=0 kv_staged=589824/589824 blocks=9/9 | mutants 0/0 
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx300 n=4096 rc=OK violations=0 worst_scaled_err=0.00194779 chip_ns=0 call_ns=28048951 calls=1 unwritten=0 kv_staged=1245184/1245184 blocks=19/19 | mutants 0/0 
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00116868 chip_ns=0 call_ns=82735992 calls=1 unwritten=0 kv_staged=655360/4128768 blocks=10/63 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=6333512 calls=1 unwritten=0 kv_staged=32768/32768 blocks=1/1 | mutants 1/1 KV_HEAD:CAUGHT(rc=OK,bad=4096)
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx17 n=4096 rc=OK violations=0 worst_scaled_err=0.00173488 chip_ns=0 call_ns=6788156 calls=1 unwritten=0 kv_staged=65536/65536 blocks=2/2 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=4096) SLOT:CAUGHT(rc=OK,bad=4094)
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx256 n=4096 rc=OK violations=0 worst_scaled_err=0.00161135 chip_ns=0 call_ns=21644686 calls=1 unwritten=0 kv_staged=524288/524288 blocks=16/16 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx2048 n=4096BE_FLUSH_METHOD_CHANGED KILLED  the flush uses the memory-operation method (185 failing case(s), first: m_success_returns_ok)
+ rc=OK violations=0 worst_scaled_err=0.000630967 chip_ns=0 call_ns=169973286 calls=1 unwritten=0 kv_staged=4194304/4194304 blocks=128/128 | mutants 5/5 KV_HEAD:CAUGHT(rc=OK,bad=4092) SLOT:CAUGHT(rc=OK,bad=4081) NO_RESCALE:CAUGHT(rc=OK,bad=3413) Q_ROW:CAUGHT(rc=OK,bad=4082) OUT_ROW:CAUGHT(rc=OK,bad=4082)
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx127 n=4096 rc=OK violations=0 worst_scaled_err=0.00220911 chip_ns=0 call_ns=10340251 calls=1 unwritten=0 kv_staged=262144/262144 blocks=8/8 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx128 n=4096 rc=OK violations=0 worst_scaled_err=0.00178584 chip_ns=0 call_ns=10325787 calls=1 unwritten=0 kv_staged=262144/262144 blocks=8/8 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx129 n=4096 rc=OK violations=0 worst_scaled_err=0.00170524 chip_ns=0 call_ns=17562635 calls=1 unwritten=0 kv_staged=294912/294912 blocks=9/9 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx300 n=4096 rc=OK violations=0 worst_scaled_err=0.00195843 chip_ns=0 call_ns=28062727 calls=1 unwritten=0 kv_staged=622592/622592 blocks=19/19 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00127854 chip_ns=0 call_ns=85210205 calls=1 unwritten=0 kv_staged=327680/2064384 blocks=10/63 | mutants 0/0 
+PASS paged_bf16_split1_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00280082 chip_ns=0 call_ns=78074286 calls=1 unwritten=0 kv_staged=4128768/4128768 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split2_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00180413 chip_ns=0 call_ns=79778478 calls=1 unwritten=0 kv_staged=4128768/4128768 blocks=63/63 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=4094) SLOT:CAUGHT(rc=OK,bad=4089)
+PASS paged_bf16_split4_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00118133 chip_ns=0 call_ns=82752295 calls=1 unwritten=0 kv_staged=4128768/4128768 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split8_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.000901544 chip_ns=0 call_ns=85590161 calls=1 unwritten=0 kv_staged=4128768/4128768 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split16_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.000901544 chip_ns=0 call_ns=91778582 calls=1 unwritten=0 kv_staged=4128768/4128768 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split1_32q8kv_ctx100 n=4096 rc=OK violations=0 worst_scaled_err=0.00201304 chip_ns=0 call_ns=9446915 calls=1 unwritten=0 kv_staged=131072/458752 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split2_32q8kv_ctx100 n=4096 rc=OK violations=0 worst_scaled_err=0.00201304 chip_ns=0 call_ns=10357675 calls=1 unwritten=0 kv_staged=131072/458752 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split4_32q8kv_ctx100 n=4096 rc=OK violations=0 worst_scaled_err=0.00201304 chip_ns=0 call_ns=11518757 calls=1 unwritten=0 kv_staged=131072/458752 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split8_32q8kv_ctx100 n=4096 rc=OK violations=0 worst_scaled_err=0.00201304 chip_ns=0 call_ns=14114892 calls=1 unwritten=0 kv_staged=131072/458752 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split16_32q8kv_ctx100 n=4096 rc=OK violations=0 worst_scaled_err=0.00201304 chip_ns=0 call_ns=19181961 calls=1 unwritten=0 kv_staged=131072/458752 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_batch_3seq_32q8kv_ctx40_0_100 n=12288 rc=OK violations=0 worst_scaled_err=0.00228801 chip_ns=0 call_ns=16531378 calls=2 unwritten=0 kv_staged=458752/458752 blocks=7/7 | mutants 4/4 KV_HEAD:CAUGHT(rc=OK,bad=8190) SLOT:CAUGHT(rc=OK,bad=8184) Q_ROW:CAUGHT(rc=OK,bad=8190) OUT_ROW:CAUGHT(rc=OK,bad=8190)
+PASS paged_bf16_shared_prefix_4seq_8q2kv_10pre n=4096 rc=OK violations=0 worst_scaled_err=0.00211434 chip_ns=0 call_ns=18504243 calls=1 unwritten=0 kv_staged=311296/802816 blocks=19/49 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=4095) SLOT:CAUGHT(rc=OK,bad=4093)
+PASS paged_bf16_shared_prefix_4seq_32q8kv_10pre n=16384 rc=OK violations=0 worst_scaled_err=0.00189305 chip_ns=0 call_ns=74525023 calls=2 unwritten=0 kv_staged=1900544/3211264 blocks=29/49 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=16379) SLOT:CAUGHT(rc=OK,bad=16365)
+mutant NO_MAX: caught 1 of 1
+mutant KV_HEAD: caught 12 of 12
+mutant SLOT: caught 12 of 12
+mutant NO_RESCALE: caught 6 of 6
+mutant Q_ROW: caught 8 of 8
+mutant OUT_ROW: caught 8 of 8
+device_opens=0
+  hd128 dominant token 5 (warp 0 of chunk 0): rc OK, 0 bad, worst 0
+  hd128 dominant token 40 (warp 1 of chunk 0): rc OK, 0 bad, worst 0
+  hd128 dominant token 70 (warp 2 of chunk 0): rc OK, 0 bad, worst 0
+  hd128 dominant token 100 (warp 3 of chunk 0): rc OK, 0 bad, worst 0
+  hd128 dominant token 127 (warp 3 of chunk 0): rc OK, 0 bad, worst 0
+  hd128 dominant token 131 (warp 0 of chunk 1): rc OK, 0 bad, worst 0
+  hd128 dominant token 299 (warp 1 of chunk 2): rc OK, 0 bad, worst 0
+simulator error 3
+PASS: 227 checks, 0 failed
+./build/gpu_attention_test --hd 128 --divergent --sim
+BE_WFI_FLAG_RELEASE1 KILLED  the first release waits for idle (WFI) (1 failing case(s), first: m_success_release1_address_payload_flags)
+BE_WFI_FLAG_RELEASE2 KILLED  the second release waits for idle (WFI) (1 failing case(s), first: m_success_release2_payload_and_flags)
+BE_BARRIER_IN_BUILD SURVIVED_REDUNDANT  dsb sy after zeroing the sync words (redundant: a CPU barrier instruction has no effect a host test can observe (the fake driver runs on the same core); it is verified on the chip only (Phase B))
+BE_QMD_RELEASE_CHECK SURVIVED_REDUNDANT  extra QMD1 release-word checks (redundant: the real descriptor builder always produces these words (src/omega_blackwell_qmd.c), so no input makes the check fire; it guards a future change of the builder, which tests/test_omega_blackwell_qmd.c style checks cover)
+BE_PB_OVERFLOW SURVIVED_REDUNDANT  pushbuffer word-capacity guard (redundant: the vector pushbuffer is a fixed 492 words against a 1024-word capacity, so it cannot overflow for any job)
+BE_SUBMIT_NOTHING_BUILT SURVIVED_REDUNDANT  submit before build is refused (redundant: the driver refuses an empty submission too (physics m16_native.c m16_native_enqueue_methods: count == 0 returns -1), so the result is the same refusal)
+BE_LAUNCH_NS_DROPPED KILLED  the launch time is recorded before the doorbell (9 failing case(s), first: m_success_run_info_launch_time_set)
+warp simulator error: order 0: SHFL_SPLIT at pc 171: SHFL on a split warp
+PASS gqa_f32_qwen3_4b_32q8kv_ctx1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=3600223 calls=1 unwritten=0 kv_staged=8192/8192 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx17 n=4096 rc=OK violations=0 worst_scaled_err=0.00224179 chip_ns=0 call_ns=5546465 calls=1 unwritten=0 kv_staged=139264/139264 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx256 n=4096 rc=OK violations=0 worst_scaled_err=0.00206282 chip_ns=0 call_ns=37986430 calls=1 unwritten=0 kv_staged=2097152/2097152 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx2048 n=4096 rc=OK violations=0 worst_scaled_err=0.00376301 chip_ns=0 call_ns=298778339 calls=1 unwritten=0 kv_staged=16777216/16777216 blocks=1/1 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=4090) NO_RESCALE:CAUGHT(rc=OK,bad=3905) Q_ROW:CAUGHT(rc=OK,bad=4086) OUT_ROW:CAUGHT(rc=OK,bad=4086)
+PASS gqa_f32_qwen3_4b_32q8kv_ctx127 n=4096 rc=OK violations=0 worst_scaled_err=0.00217901 chip_ns=0 call_ns=19304521 calls=1 unwritten=0 kv_staged=1040384/1040384 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx128 n=4096 rc=OK violations=0 worst_scaled_err=0.00245582 chip_ns=0 call_ns=19246057 calls=1 unwritten=0 kv_staged=1048576/1048576 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx129 n=4096 rc=OK violations=0 worst_scaled_err=0.001674 chip_ns=0 call_ns=21767392 calls=1 unwritten=0 kv_staged=1056768/1056768 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx300 n=4096 rc=OK violations=0 worst_scaled_err=0.00217497 chip_ns=0 call_ns=45504944 calls=1 unwritten=0 kv_staged=2457600/2457600 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_qwen3_4b_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00326932 chip_ns=0 call_ns=144391366 calls=1 unwritten=0 kv_staged=8192000/8192000 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=3649072 calls=1 unwritten=0 kv_staged=4096/4096 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx17 n=4096 rc=OK violations=0 worst_scaled_err=0.00195066 chip_ns=0 call_ns=5468064 calls=1 unwritten=0 kv_staged=69632/69632 blocks=1/1 | mutants 1/1 KV_HEAD:CAUGHT(rc=OK,bad=4095)
+PASS gqa_f32_gqa8_32q4kv_ctx256 n=4096 rc=OK violations=0 worst_scaled_err=0.00231763 chip_ns=0 call_ns=37477658 calls=1 unwritten=0 kv_staged=1048576/1048576 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx2048 n=4096 rc=OK violations=0 worst_scaled_err=0.00246504 chip_ns=0 call_ns=293037633 calls=1 unwritten=0 kv_staged=8388608/8388608 blocks=1/1 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=4084) NO_RESCALE:CAUGHT(rc=OK,bad=3914) Q_ROW:CAUGHT(rc=OK,bad=4078) OUT_ROW:CAUGHT(rc=OK,bad=4078)
+PASS gqa_f32_gqa8_32q4kv_ctx127 n=4096 rc=OK violations=0 worst_scaled_err=0.00196909 chip_ns=0 call_ns=19184377 calls=1 unwritten=0 kv_staged=520192/520192 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx128 n=4096 rc=OK violations=0 worst_scaled_err=0.00212764 chip_ns=0 call_ns=19147913 calls=1 unwritten=0 kv_staged=524288/524288 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx129 n=4096 rc=OK violations=0 worst_scaled_err=0.00194043 chip_ns=0 call_ns=21712207 calls=1 unwritten=0 kv_staged=528384/528384 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx300 n=4096 rc=OK violations=0 worst_scaled_err=0.00189108 chip_ns=0 call_ns=45294686 calls=1 unwritten=0 kv_staged=1228800/1228800 blocks=1/1 | mutants 0/0 
+PASS gqa_f32_gqa8_32q4kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.0028386 chip_ns=0 call_ns=144182436 calls=1 unwritten=0 kv_staged=4096000/4096000 blocks=1/1 | mutants 0/0 
+PASS gqa_rows_f32_qwen3_4b_32q8kv_base0_rows1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=3656960 calls=1 unwritten=0 kv_staged=8192/8192 blocks=1/1 | mutants 0/0 
+PASS gqa_rows_f32_qwen3_4b_32q8kv_base17_rows5 n=20480 rc=OK violations=0 worst_scaled_err=0.00237778 chip_ns=0 call_ns=28224633 calls=1 unwritten=0 kv_staged=180224/901120 blocks=1/5 | mutants 0/0 
+PASS gqa_rows_f32_qwen3_4b_32q8kv_base300_rows4BE_SUBMIT_ERROR_IGNORED KILLED  a failed submit is reported (SUBMIT), not treated as launched (13 failing case(s), first: m_submit_fail_name_step_state)
+BE_WAIT_UNMAPPED_ACCEPTED KILLED  a wait before build or after free is refused without a driver call (harness exit 139 (crash or abort))
+BE_WAIT_DRIVER_RC_DROPPED KILLED  the driver's wait code reaches the result (4 failing case(s), first: m_unc_marker_hang_driver_code)
+BE_WAIT_RC_MAPPING SURVIVED_REDUNDANT  timeout versus driver fault classification (redundant: the engine core treats every nonzero wait result the same (uncertain completion), and the real m16_native_wait_marker returns only 0 or -1 (m16_native.c))
+BE_WAIT_EQUALITY_RECHECK KILLED  an overshoot of the ">=" compare is refused (UNKNOWN_STATE) (37 failing case(s), first: m_unc_marker_overshoot_name_step_wait)
+BE_WAIT_SNAPSHOT_DROPPED KILLED  the observed word is recorded after every wait (185 failing case(s), first: m_success_returns_ok)
+BE_MARKER_DONE_NS_ALWAYS KILLED  the completion time is recorded only when the first marker wait succeeded (2 failing case(s), first: m_unc_marker_hang_run_info_done_time_only_if_marker_succeeded)
+0 n=163840 rc=OK violations=0 worst_scaled_err=0.00322638 chip_ns=0 call_ns=1929151037 calls=2 unwritten=0 kv_staged=2785280/111411200 blocks=1/40 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=163639) NO_RESCALE:CAUGHT(rc=OK,bad=96453) Q_ROW:CAUGHT(rc=OK,bad=163612) OUT_ROW:CAUGHT(rc=OK,bad=163612)
+PASS gqa_rows_f32_gqa8_32q4kv_base0_rows1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=3654800 calls=1 unwritten=0 kv_staged=4096/4096 blocks=1/1 | mutants 0/0 
+PASS gqa_rows_f32_gqa8_32q4kv_base17_rows5 n=20480 rc=OK violations=0 worst_scaled_err=0.00345221 chip_ns=0 call_ns=28246841 calls=1 unwritten=0 kv_staged=90112/450560 blocks=1/5 | mutants 0/0 
+PASS gqa_rows_f32_gqa8_32q4kv_base300_rows40 n=163840 rc=OK violations=0 worst_scaled_err=0.0038327 chip_ns=0 call_ns=1915422730 calls=2 unwritten=0 kv_staged=1392640/55705600 blocks=1/40 | mutants 4/4 SLOT:CAUGHT(rc=OK,bad=163627) NO_RESCALE:CAUGHT(rc=OK,bad=98605) Q_ROW:CAUGHT(rc=OK,bad=163626) OUT_ROW:CAUGHT(rc=OK,bad=163626)
+PASS gqa_f32_large_scores_32q4kv_ctx256 n=4096 rc=OK violations=0 worst_scaled_err=0.114366 chip_ns=0 call_ns=37480490 calls=1 unwritten=0 kv_staged=1048576/1048576 blocks=1/1 | mutants 1/1 NO_MAX:CAUGHT(rc=OK,bad=4096)
+PASS gqa_f32_mha_16q16kv_ctx300 n=2048 rc=OK violations=0 worst_scaled_err=0.00257229 chip_ns=0 call_ns=39506876 calls=1 unwritten=0 kv_staged=4915200/4915200 blocks=1/1 | mutants 3/3 Q_ROW:CAUGHT(rc=OK,bad=2045) OUT_ROW:CAUGHT(rc=OK,bad=2048) KV_HEAD:CAUGHT(rc=OK,bad=2045)
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=4219269 calls=1 unwritten=0 kv_staged=65536/65536 blocks=1/1 | mutants 1/1 KV_HEAD:CAUGHT(rc=OK,bad=4096)
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx17 n=4096 rc=OK violations=0 worst_scaled_err=0.00184516 chip_ns=0 call_ns=6590586 calls=1 unwritten=0 kv_staged=131072/131072 blocks=2/2 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=4096) SLOT:CAUGHT(rc=OK,bad=4096)
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx256 n=4096 rc=OK violations=0 worst_scaled_err=0.00164 chip_ns=0 call_ns=47654068 calls=1 unwritten=0 kv_staged=1048576/1048576 blocks=16/16 | mutants 0/0 
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx2048 n=4096 rc=OK violations=0 worst_scaled_err=0.000660915 chip_ns=0 call_ns=384467503 calls=1 unwritten=0 kv_staged=8388608/8388608 blocks=128/128 | mutants 5/5 KV_HEAD:CAUGHT(rc=OK,bad=4094) SLOT:CAUGHT(rc=OK,bad=4088) NO_RESCALE:CAUGHT(rc=OK,bad=3458) Q_ROW:CAUGHT(rc=OK,bad=4088) OUT_ROW:CAUGHT(rc=OK,bad=4088)
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx127 n=4096 rc=OK violations=0 worst_scaled_err=0.00196848 chip_ns=0 call_ns=23712977 calls=1 unwritten=0 kv_staged=524288/524288 blocks=8/8 | mutants 0/0 
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx128 n=4096 rc=OK violations=0 worst_scaled_err=0.00206789 chip_ns=0 call_ns=23662336 calls=1 unwritten=0 kv_staged=524288/524288 blocks=8/8 | mutants 0/0 
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx129 n=4096 rc=OK violations=0 worst_scaled_err=0.00169498 chip_ns=0 call_ns=27995255 calls=1 unwritten=0 kv_staged=589824/589824 blocks=9/9 | mutants 0/0 
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx300 n=4096 rc=OK violations=0 worst_scaled_err=0.00194779 chip_ns=0 call_ns=56996055 calls=1 unwritten=0 kv_staged=1245184/1245184 blocks=19/19 | mutants 0/0 
+PASS paged_bf16_qwen3_4b_32q8kv_bs16_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00116868 chip_ns=0 call_ns=187999883 calls=1 unwritten=0 kv_staged=655360/4128768 blocks=10/63 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx1 n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=0 call_ns=4218389 calls=1 unwritten=0 kv_staged=32768/32768 blocks=1/1 | mutants 1/1 KV_HEAD:CAUGHT(rc=OK,bad=4096)
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx17 n=4096 rc=OK violations=0 worst_scaled_err=0.00173488 chip_ns=0 call_ns=6577514 calls=1 unwritten=0 kv_staged=65536/65536 blocks=2/2 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=4096) SLOT:CAUGHT(rc=OK,bad=4094)
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx256 n=4096 rc=OK violations=0 worst_scaled_err=0.00161135 chip_ns=0 call_ns=47563603 calls=1 unwritten=0 kv_staged=524288BE_WAIT_MARKER_WRONG_WORD KILLED  wait_marker waits on the first marker word (186 failing case(s), first: m_success_returns_ok)
+BE_WAIT_SEMAPHORE_WRONG_VALUE KILLED  the release semaphore wait is for DONE (6), not the initial value (5) (174 failing case(s), first: m_success_returns_ok)
+/524288 blocks=16/16 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx2048 n=4096 rc=OK violations=0 worst_scaled_err=0.000630967 chip_ns=0 call_ns=383773515 calls=1 unwritten=0 kv_staged=4194304/4194304 blocks=128/128 | mutants 5/5 KV_HEAD:CAUGHT(rc=OK,bad=4092) SLOT:CAUGHT(rc=OK,bad=4081) NO_RESCALE:CAUGHT(rc=OK,bad=3413) Q_ROW:CAUGHT(rc=OK,bad=4082) OUT_ROW:CAUGHT(rc=OK,bad=4082)
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx127 n=4096 rc=OK violations=0 worst_scaled_err=0.00220911 chip_ns=0 call_ns=23699025 calls=1 unwritten=0 kv_staged=262144/262144 blocks=8/8 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx128 n=4096 rc=OK violations=0 worst_scaled_err=0.00178584 chip_ns=0 call_ns=23634001 calls=1 unwritten=0 kv_staged=262144/262144 blocks=8/8 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx129 n=4096 rc=OK violations=0 worst_scaled_err=0.00170524 chip_ns=0 call_ns=28050152 calls=1 unwritten=0 kv_staged=294912/294912 blocks=9/9 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx300 n=4096 rc=OK violations=0 worst_scaled_err=0.00195843 chip_ns=0 call_ns=56917302 calls=1 unwritten=0 kv_staged=622592/622592 blocks=19/19 | mutants 0/0 
+PASS paged_bf16_gqa8_32q4kv_bs16_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00127854 chip_ns=0 call_ns=187754585 calls=1 unwritten=0 kv_staged=327680/2064384 blocks=10/63 | mutants 0/0 
+PASS paged_bf16_split1_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00280082 chip_ns=0 call_ns=177764241 calls=1 unwritten=0 kv_staged=4128768/4128768 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split2_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00180413 chip_ns=0 call_ns=179338208 calls=1 unwritten=0 kv_staged=4128768/4128768 blocks=63/63 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=4094) SLOT:CAUGHT(rc=OK,bad=4089)
+PASS paged_bf16_split4_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.00118133 chip_ns=0 call_ns=182238089 calls=1 unwritten=0 kv_staged=4128768/4128768 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split8_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.000901544 chip_ns=0 call_ns=188134909 calls=1 unwritten=0 kv_staged=4128768/4128768 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split16_32q8kv_ctx1000 n=4096 rc=OK violations=0 worst_scaled_err=0.000901544 chip_ns=0 call_ns=201787478 calls=1 unwritten=0 kv_staged=4128768/4128768 blocks=63/63 | mutants 0/0 
+PASS paged_bf16_split1_32q8kv_ctx100 n=4096 rc=OK violations=0 worst_scaled_err=0.00201304 chip_ns=0 call_ns=19907071 calls=1 unwritten=0 kv_staged=131072/458752 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split2_32q8kv_ctx100 n=4096 rc=OK violations=0 worst_scaled_err=0.00201304 chip_ns=0 call_ns=21400365 calls=1 unwritten=0 kv_staged=131072/458752 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split4_32q8kv_ctx100 n=4096 rc=OK violations=0 worst_scaled_err=0.00201304 chip_ns=0 call_ns=24297383 calls=1 unwritten=0 kv_staged=131072/458752 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split8_32q8kv_ctx100 n=4096 rc=OK violations=0 worst_scaled_err=0.00201304 chip_ns=0 call_ns=30501037 calls=1 unwritten=0 kv_staged=131072/458752 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_split16_32q8kv_ctx100 n=4096 rc=OK violations=0 worst_scaled_err=0.00201304 chip_ns=0 call_ns=43518177 calls=1 unwritten=0 kv_staged=131072/458752 blocks=2/7 | mutants 0/0 
+PASS paged_bf16_batch_3seq_32q8kv_ctx40_0_100 n=12288 rc=OK violations=0 worst_scaled_err=0.00228801 chip_ns=0 call_ns=24375607 calls=2 unwritten=0 kv_staged=458752/458752 blocks=7/7 | mutants 4/4 KV_HEAD:CAUGHT(rc=OK,bad=8190) SLOT:CAUGHT(rc=OK,bad=8184) Q_ROW:CAUGHT(rc=OK,bad=8190) OUT_ROW:CAUGHT(rc=OK,bad=8190)
+PASS paged_bf16_shared_prefix_4seq_8q2kv_10pre n=4096 rc=OK violations=0 worst_scaled_err=0.00211434 chip_ns=0 call_ns=36891366 calls=1 unwritten=0 kv_staged=311296/802816 blocks=19/49 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=4095) SLOT:CAUGHT(rc=OK,bad=4093)
+PASS paged_bf16_shared_prefix_4seq_32q8kv_10pre n=16384 rc=OK violations=0 worst_scaled_err=0.00189305 chip_ns=0 call_ns=147617351 calls=2 unwritten=0 kv_staged=1900544/3211264 blocks=29/49 | mutants 2/2 KV_HEAD:CAUGHT(rc=OK,bad=16379) SLOT:CAUGHT(rc=OK,bad=16365)
+mutant NO_MAX: caught 1 of 1
+mutant KV_HEAD: caught 12 of 12
+mutant SLOT: caught 12 of 12
+mutant NO_RESCALE: caught 6 of 6
+mutant Q_ROW: caught 8 of 8
+mutant OUT_ROW: caught 8 of 8
+device_opens=0
+  hd128 dominant token 5 (warp 0 of chunk 0): rc OK, 0 bad, worst 0
+  hd128 dominant token 40 (warp 1 of chunk 0): rc OK, 0 bad, worst 0
+  hd128 dominant token 70 (warp 2 of chunk 0): rc OK, 0 bad, worst 0
+  hd128 dominant token 100 (warp 3 of chunk 0): rc OK, 0 bad, worst 0
+  hd128 dominant token 127 (warp 3 of chunk 0): rc OK, 0 bad, worst 0
+  hd128 dominant token 131 (warp 0 of chunk 1): rc OK, 0 bad, worst 0
+  hd128 dominant token 299 (warp 1 of chunk 2): rc OK, 0 bad, worst 0
+warp simulator error: order 0: SMEM at pc 49: shared access past the declared size
+PASS: 229 checks, 0 failed
+./build/gpu_moe_window_test --host-only
+host-only: alignment refusals that need a tensor (col0 % 8, window past n) run in the chip gate
+PASS: 23 checks, 0 failed
+./build/gpu_fp8_api_test --host-only
+BE_DIAG_DRV_RC_DROPPED KILLED  diagnostics report the raw driver code (16 failing case(s), first: m_open_fail_errno_and_driver_code)
+conversion: 254/256 exact, 2 NaN codes refused, 14 codes travel as f32 subnormals (2^-129 .. 7 * 2^-129): the chip must not flush them
+codegen: 180 kernels built, largest 884 IR instructions, peak 88 GPRs
+nvdisasm k2048_lb16_r8: rc=0 insns=832 undecodable=0 missing=0 (/tmp/omega_fp8_k2048_lb16_r8_2869456.sass)
+nvdisasm k2048_lb16_r1_deep4: rc=0 insns=456 undecodable=0 missing=0 (/tmp/omega_fp8_k2048_lb16_r1_deep4_2869456.sass)
+nvdisasm k768_lb8_r2: rc=0 insns=168 undecodable=0 missing=0 (/tmp/omega_fp8_k768_lb8_r2_2869456.sass)
+v2 codegen k=768 lb=8 rows=1: 250 insns, peak 52 GPRs, declared 56
+v2 codegen k=768 lb=8 rows=2: 401 insns, peak 66 GPRs, declared 72
+v2 codegen k=768 lb=8 rows=4: 703 insns, peak 94 GPRs, declared 96
+v2 codegen k=2048 lb=16 rows=1: 473 insns, peak 74 GPRs, declared 80
+v2 codegen k=2048 lb=16 rows=2: 838 insns, peak 108 GPRs, declared 112
+v2 codegen k=4096 lb=16 rows=1: 877 insns, peak 114 GPRs, declared 120
+v2 codegen: 24 kernels built, largest 877 IR instructions, peak 114 GPRs
+v2 k=768 rows=1 warps=16: declared 56 registers, 28672 per SM at one CTA
+v2 k=2048 rows=1 warps=16: declared 80 registers, 40960 per SM at one CTA
+v2 k=4096 rows=1 warps=16: declared 120 registers, 61440 per SM at one CTA
+nvdisasm v2_k2048_lb16_r1_w16: rc=0 insns=480 undecodable=0 missing=0 (/tmp/omega_fp8_v2_k2048_lb16_r1_w16_2869456.sass)
+gpu_fp8_api_test: 1482 checks, 0 failed: PASS
+./build/gpu_fp8_api_test --sim
+sim one-hot conversion: 256/256 rows exact
+sim k256 lb8 r1 w1                                rc=0 worst_rel=4.868e-08 bad=0 (4 ms)
+sim k256 lb8 r1 w1 deep                           rc=0 worst_rel=4.868e-08 bad=0 (3 ms)
+sim k256 lb8 r2 w2                                rc=0 worst_rel=3.955e-08 bad=0 (4 ms)
+sim k256 lb8 r2 w2                                mutant 1: caught (rc=0 bad=256 worst_rel=4.659e-01)
+sim k256 lb8 r2 w2 mutant 2: one K step, control not applicable
+sim k256 lb8 r2 w2                                mutant 4: caught (rc=0 bad=256 worst_rel=4.659e-01)
+sim k256 lb8 r2 w2 deep                           rc=0 worst_rel=3.955e-08 bad=0 (4 ms)
+sim k256 lb8 r2 w2 deep                           mutant 1: caught (rc=0 bad=256 worst_rel=4.659e-01)
+sim k256 lb8 r2 w2 mutant 2: one K step, control not applicable
+sim k256 lb8 r2 w2 deep                           mutant 4: caught (rc=0 bad=256 worst_rel=4.659e-01)
+sim k768 lb8 r4 w8 (down shape width)             rc=0 worst_rel=3.352e-08 bad=0 (10 ms)
+sim k768 lb8 r4 w8 (down shape width) deep        rc=0 worst_rel=3.352e-08 bad=0 (10 ms)
+sim k768 lb8 r8                                   rc=0 worst_rel=3.023e-08 bad=0 (10 ms)
+sim k2048 lb16 r8 w8 (gate shape width)           rc=0 worst_rel=2.818e-08 bad=0 (35 ms)
+sim k2048 lb16 r8 w8 (gate shape width)           mutant 1: caught (rc=0 bad=384 worst_rel=2.819e-01)
+sim k2048 lb16 r8 w8 (gate shape width)           mutant 2: caught (rc=0 bad=383 worst_rel=1.578e-01)
+sim k2048 lb16 r8 w8 (gate shape width)           mutant 4: caught (rc=0 bad=384 worst_rel=2.819e-01)
+sim k2048 lb16 r1                                 rc=0 worst_rel=2.044e-08 bad=0 (14 ms)
+sim k2048 lb16 r1 deep                            rc=0 worst_rel=2.044e-08 bad=0 (13 ms)
+sim k512 lb16 r2 w3 (odd warps, tail row groups)  rc=0 worst_rel=4.748e-08 bad=0 (7 ms)
+sim k512 lb16 r2 w3 (odd warps, tail row groups) deep rc=0 worst_rel=4.748e-08 bad=0 (7 ms)
+sim 4 experts shared x (gate+up)                  rc=0 worst_rel=2.646e-08 bad=0 (93 ms)
+sim 4 experts shared x (gate+up)                  mutant 1: caught (rc=0 bad=1024 worst_rel=2.538e-01)
+sim 4 experts shared x (gate+up)                  mutant 2: caught (rc=0 bad=1024 worst_rel=1.503e-01)
+sim 4 experts shared x (gate+up)                  mutant 3: caught (rc=0 bad=1024 worst_rel=3.976e-01)
+sim 4 experts shared x (gate+up)                  mutant 4: caught (rc=0 bad=1024 worst_rel=2.538e-01)
+sim 8 groups per-group x, repeated ids (down)     rc=0 worst_rel=4.441e-08 bad=0 (81 ms)
+sim 8 groups per-group x, repeated ids (down)     mutant 1: caught (rc=0 bad=2047 worst_rel=5.011e-01)
+sim 8 groups per-group x, repeated ids (down)     mutant 2: caught (rc=0 bad=2048 worst_rel=6.440e-01)
+sim 8 groups per-group x, repeated ids (down)     mutant 3: caught (rc=0 bad=2048 worst_rel=8.668e-01)
+sim 8 groups per-group x, repeated ids (down)     mutant 4: caught (rc=0 bad=2047 worst_rel=5.011e-01)
+sim 8 groups per-group x, repeated ids (down) deep rc=0 worst_rel=4.441e-08 bad=0 (80 ms)
+sim 8 groups per-group x, repeated ids (down) deep mutant 1: caught (rc=0 bad=2047 worst_rel=5.011e-01)
+sim 8 groups per-group x, repeated ids (down) deep mutant 2: caught (rc=0 bad=2048 worst_rel=6.440e-01)
+sim 8 groups per-group x, repeated ids (down) deep mutant 3: caught (rc=0 bad=2048 worst_rel=8.668e-01)
+sim 8 groups per-group x, repeated ids (down) deep mutant 4: caught (rc=0 bad=2047 worst_rel=5.011e-01)
+sim 2 groups per-group x                          rc=0 worst_rel=7.101e-08 bad=0 (4 ms)
+sim 2 groups per-group x deep                     rc=0 worst_rel=7.101e-08 bad=0 (4 ms)
+sim k768 w7: partial staging round (deep)         rc=0 worst_rel=2.724e-08 bad=0 (24 ms)
+sim k768 w7: partial staging round (deep) deep    rc=0 worst_rel=2.724e-08 bad=0 (23 ms)
+sim battery: worst relative error 7.101e-08 over 11 points, 12579824 warp issues
+sim v2 k2048 lb16 r1 w8 (gate_up/qkv width)          rc=0 worst_rel=2.463e-08 bad=0 identical_to_v1=1 (27 ms)
+sim v2 k2048 lb16 r1 w8 (gate_up/qkv width)          mutant 1: caught (rc=0 bad=256 worst_reBE_DIAG_TEXT_OWN_DROPPED KILLED  diagnostics report the backend's own text (10 failing case(s), first: m_short_pb_own_check_text)
+l=2.218e-01, identity check differs=1)
+sim v2 k2048 lb16 r1 w8 (gate_up/qkv width)          mutant 2: caught (rc=0 bad=256 worst_rel=1.690e-01, identity check differs=1)
+sim v2 k2048 lb16 r2 w8 (128 B per lane)             rc=0 worst_rel=2.578e-08 bad=0 identical_to_v1=1 (25 ms)
+sim v2 k4096 lb16 r1 w8 (o_proj width)               rc=0 worst_rel=1.878e-08 bad=0 identical_to_v1=1 (53 ms)
+sim v2 k768 lb8 r1 w8 (down width)                   rc=0 worst_rel=2.677e-08 bad=0 identical_to_v1=1 (12 ms)
+sim v2 k768 lb8 r4 w8                                rc=0 worst_rel=3.253e-08 bad=0 identical_to_v1=1 (10 ms)
+sim v2 k768 w7: partial staging round                rc=0 worst_rel=3.262e-08 bad=0 identical_to_v1=1 (24 ms)
+sim v2 4 experts shared x (gate_up)                  rc=0 worst_rel=2.472e-08 bad=0 identical_to_v1=1 (109 ms)
+sim v2 4 experts shared x (gate_up)                  mutant 1: caught (rc=0 bad=1022 worst_rel=2.155e-01, identity check differs=1)
+sim v2 4 experts shared x (gate_up)                  mutant 2: caught (rc=0 bad=1024 worst_rel=1.745e-01, identity check differs=1)
+sim v2 4 experts shared x (gate_up)                  mutant 3: caught (rc=0 bad=1024 worst_rel=3.980e-01, identity check differs=1)
+sim v2 8 groups per-group x, repeated ids (down)     rc=0 worst_rel=4.875e-08 bad=0 identical_to_v1=1 (86 ms)
+sim v2 8 groups per-group x, repeated ids (down)     mutant 1: caught (rc=0 bad=2048 worst_rel=3.773e-01, identity check differs=1)
+sim v2 8 groups per-group x, repeated ids (down)     mutant 2: caught (rc=0 bad=2048 worst_rel=5.105e-01, identity check differs=1)
+sim v2 8 groups per-group x, repeated ids (down)     mutant 3: caught (rc=0 bad=2048 worst_rel=1.327e+00, identity check differs=1)
+sim v2 2 groups per-group x, r8 k256                 rc=0 worst_rel=5.595e-08 bad=0 identical_to_v1=1 (4 ms)
+sim v2 k512 w3 (odd warps, tail row groups)          rc=0 worst_rel=4.233e-08 bad=0 identical_to_v1=1 (7 ms)
+sim v2 battery: 10/10 points bit-identical to variant 1
+gpu_fp8_api_test: 70 checks, 0 failed: PASS
+build/gpu_decode_attn_test --host-only
+rope rows vs libm: 1013 positions x 64 dims, 1 one-ulp differences, 0 worse
+hostmath vs libm: sincos max abs 2.22e-16, pow/exp/log max rel 1.31e-14
+codegen depth 1: 988 instructions, 112 registers (declared 120, 256 threads -> 30720 of 65536)
+codegen depth 2: 996 instructions, 116 registers (declared 120, 256 threads -> 30720 of 65536)
+codegen depth 3: 1004 instructions, 120 registers (declared 128, 256 threads -> 32768 of 65536)
+codegen depth 4: 1012 instructions, 124 registers (declared 128, 256 threads -> 32768 of 65536)
+gpu_decode_attn_test: 41 checks, 0 failed: PASS
+build/gpu_decode_attn_test --sim
+BE_DIAG_TEXT_DRIVER_DROPPED KILLED  diagnostics fall back to the driver's text (14 failing case(s), first: m_open_fail_driver_text_reported)
+sim context 1                                          depth 1: ok bad=0 worst=0.000 rows: ok (0 one-ulp k flips)
+sim context 7                                          depth 2: ok bad=0 worst=0.000 rows: ok (0 one-ulp k flips)
+sim context 7, sharp q (x4)                            depth 4: ok bad=0 worst=0.000 rows: ok (0 one-ulp k flips)
+sim context 256 (full chunk, 1 split)                  depth 4: ok bad=0 worst=0.000 rows: ok (0 one-ulp k flips)
+sim context 257 (2 splits, last holds one position)    depth 4: ok bad=0 worst=0.000 rows: ok (0 one-ulp k flips)
+sim context 301 (2 splits)                             depth 3: ok bad=0 worst=0.000 rows: ok (0 one-ulp k flips)
+sim context 701 (3 splits)                             depth 4: ok bad=0 worst=0.000 rows: ok (0 one-ulp k flips)
+sim context 701 (per_split 512: 2 chunks per CTA)      depth 2: ok bad=0 worst=0.000 rows: ok (0 one-ulp k flips)
+sim mutant 1 at context 301: caught (bad=4601 worst=24.241 rows: k[0] chip bf76 ref becc)
+sim mutant 2 at context 301: caught (bad=3756 worst=37.139 rows: ok (0 one-ulp k flips))
+sim mutant 3 at context 301: caught (bad=2114 worst=16.257 rows: v[0] chip 0000 ref bf4c)
+sim mutant 4 at context 301: caught (bad=2233 worst=21.965 rows: ok (0 one-ulp k flips))
+sim: 6925320 warp issues in total
+gpu_decode_attn_test: 12 checks, 0 failed: PASS
+./build/gpu_router_test --host-only
+codegen warps  8 depth 1: 567 instructions, 44 registers (declared 48, register file 12288 of 65536)
+codegen warps  8 depth 2: 567 instructions, 44 registers (declared 48, register file 12288 of 65536)
+codegen warps  8 depth 4: 567 instructions, 46 registers (declared 48, register file 12288 of 65536)
+codegen warps  8 depth 8: 567 instructions, 60 registers (declared 64, register file 16384 of 65536)
+codegen warps 16 depth 1: 543 instructions, 40 registers (declared 48, register file 24576 of 65536)
+codegen warps 16 depth 2: 543 instructions, 40 registers (declared 48, register file 24576 of 65536)
+codegen warps 16 depth 4: 543 instructions, 46 registers (declared 48, register file 24576 of 65536)
+codegen warps 16 depth 8: 543 instructions, 60 registers (declared 64, register file 32768 of 65536)
+codegen warps 32 depth 1: 547 instructions, 40 registers (declared 48, register file 49152 of 65536)
+codegen warps 32 depth 2: 547 instructions, 40 registers (declared 48, register file 49152 of 65536)
+codegen warps 32 depth 4: 547 instructions, 46 registers (declared 48, register file 49152 of 65536)
+codegen warps 32 depth 8: 547 instructions, 60 registers (declared 64, register file 65536 of 65536)
+gpu_router_test: 69 checks, 0 failed: PASS
+./build/gpu_router_test --sim
+sim depth 8 norm: ok ids equal, w max abs 4.14e-08, x' max abs 1.67e-07 (of 2.05), tables ok, margin 1.40e-01
+sim depth 8 norm seed 12: ok ids equal, w max abs 2.88e-08, x' max abs 1.67e-07 (of 2.03), tables ok, margin 7.86e-02
+sim depth 8 no-norm: ok ids equal, w max abs 2.89e-08, x' max abs 1.33e-07 (of 2.05), tables ok, margin 2.17e-02
+sim depth 4 norm: ok ids equal, w max abs 5.29e-08, x' max abs 3.03e-07 (of 2.04), tables ok, margin 5.94e-02
+sim depth 1 norm: ok ids equal, w max abs 5.22e-08, x' max abs 2.82e-07 (of 2.00), tables ok, margin 4.43e-02
+sim depth 2 norm out_scale 2^64: ok ids equal, w max abs 5.07e-08, x' max abs 1.37e-07 (of 2.08), tables ok, margin 1.20e-01
+sim mutant 1: caught (bad mask 5) ids DIFFER, w max abs 0.00e+00, x' max abs 3.45e-01 (of 2.07), tables ok, margin 1.39e-01
+sim mutant 2: caught (bad mask 1) ids DIFFER, w max abs 0.00e+00, x' max abs 1.81e-07 (of 2.07), tables ok, margin 1.39e-01
+sim mutant 3: caught (bad mask 8) ids equal, w max abs 2.02e-08, x' max abs 1.81e-07 (of 2.07), tables WRONG, margin 1.39e-01
+sim mutant 4: caught (bad mask 2) ids equal, w max abs 6.91e-01, x' max abs 1.81e-07 (of 2.07), tables ok, margin 1.39e-01
+sim: 630654 warp issues in total
+gpu_router_test: 10 checks, 0 failed: PASS
+build/gpu_bf16_gemv_test --host-only
+host-only: emulation, oracle, budgets
+emulation vs oracle: abs 3.577e-08, scale 63.821
+codegen rows 1 warps  4 depth 8: 266 instructions, 60 registers (declared 64, register file 8192 of 65536)
+codegen rows 1 warps  8 depth 8: 234 instructions, 60 registers (declared 64, register file 16384 of 65536)
+codegen rows 1 warps 16 depth 8: 218 instructions, 60 registers (declared 64, register file 32768 of 65536)
+codegen rows 1 warps 32 depth 8: 210 instructions, 60 registers (declared 64, register file 65536 of 65536)
+gpu_bf16_gemv_test: 185 checks, 0 failed: PASS
+build/gpu_bf16_gemv_test --sim
+sim k 2048 n 100 rows 1 warps 8 depth 8 grid 2: ok 0 of 100 rows differ from the emulation (bit-identical)
+sim k 2048 n 100 rows 1 warps 8 depth 4 grid 3: ok 0 of 100 rows differ from the emulation (bit-identical)
+sim k 2048 n 64 rows 1 warps 8 depth 1 grid 2: ok 0 of 64 rows differ from the emulation (bit-identical)
+sim k 2048 n 96 rows 2 warps 8 depth 4 grid 2: ok 0 of 96 rows differ from the emulation (bit-identical)
+sim k 2048 n 96 rows 4 warps 8 depth 4 grid 1: ok 0 of 96 rows differ from the emulation (bit-identical)
+sim k 512 n 70 rows 1 warps 8 depth 2 grid 2: ok 0 of 70 rows differ from the emulation (bit-identical)
+sim k 512 n 70 rows 2 warps 4 depth 1 grid 3: ok 0 of 70 rows differ from the emulation (bit-identical)
+sim k 4096 n 40 rows 1 warps 8 depth 16 grid 2: ok 0 of 40 rows differ from the emulation (bit-identical)
+sim mutant 1: caught 64 of 64 rows differ from the emulation
+sim mutant 2: caught 64 of 64 rows differ from the emulation
+sim mutant 3: caught 64 of 64 rows differ from the emulation
+sim: 297068 warp issues in total
+gpu_bf16_gemv_test: 11 checks, 0 failed: PASS
+build/gpu_fp8gemm_test --host-only
+host-only: emulation, permutation, budgets
+emulation vs oracle: worst relative error 2.00e-08 of the term scale
+codegen k 2048 lane 16 mt  8 warps 16: 797 instructions, 107 registers (declared 112, register file 57344 of 65536), shared 16384 B
+codegen k 4096 lane 16 mt  8 warps 16: 797 instructions, 107 registers (declared 112, register file 57344 of 65536), shared 16384 B
+codegen k 1024 lane 16 mt  8 warps 16: 788 instructions, 104 registers (declared 112, register file 57344 of 65536), shared 16384 B
+codegen k  768 lane  8 mt  8 warps 16: 683 instructions, 103 registers (declared 104, register file 53248 of 65536), shared 8192 B
+codegen k  768 lane  8 mt  8 warps  8: 731 instructions, 103 registers (declared 104, register file 26624 of 65536), shared 8192 B
+codegen k 2048 lane  8 mt  8 warps 16: 541 instructions, 103 registers (declared 104, register file 53248 of 65536), shared 8192 B
+codegen k 2048 lane 16 mt  4 warps 16: 509 instructions, 99 registers (declared 104, register file 53248 of 65536), shared 8192 B
+codegen k 2048 lane 16 mt  8 warps 32: 765 instructions, 107 registers (declared 112, register file 114688 of 65536) DOES NOT FIT, shared 16384 B
+codegen k 2048 lane 16 mt  8 warps  8: 861 instructions, 107 registers (declared 112, register file 28672 of 65536), shared 16384 B
+codegen k 2048 lane 16 mt  4 warps  8: 541 instructions, 99 registers (declared 104, register file 26624 of 65536), shared 8192 B
+codegen k 4096 lane 16 mt  4 warps  8: 541 instructions, 99 registers (declared 104, register file 26624 of 65536), shared 8192 B
+gpu_fp8gemm_test: 53 checks, 0 failed: PASS
+build/gpu_fp8gemm_test --sim
+sim k 2048 n 40 lane 16 mt 8 warps 16 grid 2: ok 0 of 600 outputs differ from the emulation (bit-identical)
+sim k 4096 n 20 lane 16 mt 8 warps 16 grid 1: ok 0 of 220 outputs differ from the emulation (bit-identical)
+sim k 1024 n 33 lane 16 mt 8 warps 16 grid 2: ok 0 of 99 outputs differ from the emulation (bit-identical)
+sim k 768 n 130 lane 8 mt 8 warps 16 grid 2: ok 0 of 2730 outputs differ from the emulation (bit-identical)
+sim k 768 n 24 lane 8 mt 8 warps 8 grid 1: ok 0 of 264 outputs differ from the emulation (bit-identical)
+sim k 2048 n 16 lane 16 mt 4 warps 16 grid 1: ok 0 of 160 outputs differ from the emulation (bit-identical)
+sim mutant 1: caught 600 of 600 outputs differ from the emulation
+sim mutant 2: caught 600 of 600 outputs differ from the emulation
+sim mutant 3: caught 600 of 600 outputs differ from the emulation
+sim: 3444454 warp issues in total
+gpu_fp8gemm_test: 9 checks, 0 failed: PASS
+build/gpu_gpr_boundary_test
+fp8 gemv sweep: 2091 variants, 0 below peak + 2
+router peak 46 -> declared 48
+decode attn peak 124 -> declared 128
+matmul fragment kernels: 117 built, 12 at a boundary (session declares the raw peak), 0 of those selected for a model shape
+gpu_gpr_boundary_test: 298 checks, 0 failed: PASS
+./build/gpu_cmdlist_test --host-only
+codegen axpy: 23 insns, peak 12 gprs, declared 16
+codegen res add|norm: 128 insns, peak 40 gprs, declared 48
+codegen res combine|norm: 264 insns, peak 49 gprs, declared 56
+codegen res add: 45 insns, peak 28 gprs, declared 32
+codegen swiglu: 29 insns, peak 16 gprs, declared 24
+codegen argmax: 165 insns, peak 32 gprs, declared 40
+codegen argmax indexed: 160 insns, peak 40 gprs, declared 48
+host-only: 20 checks, 0 failed: PASS
+./build/gpu_cmdlist_test --sim
+sim res mode 5 scale 1 mutant 0: x identical, y 0/2048 outside tolerance
+sim res mode 5 scale 1 mutant 1: x identical, y 2047/2048 outside tolerance
+sim res mode 6 scale 1 mutant 0: x identical, y 0/2048 outside tolerance
+sim res mode 6 scale 1 mutant 1: x DIFFERS, y 2047/2048 outside tolerance
+sim res mode 5 scale 2^64 mutant 0: x identical, y 0/2048 outside tolerance
+sim res mode 5 scale 2^64 mutant 1: x identical, y 2047/2048 outside tolerance
+sim res mode 6 scale 2^64 mutant 0: x identical, y 0/2048 outside tolerance
+sim res mode 6 scale 2^64 mutant 1: x DIFFERS, y 2048/2048 outside tolerance
+sim swiglu mutant 0: 0/6144 outside tolerance
+sim swiglu mutant 1: 6144/6144 outside tolerance
+sim argmax tie 0 mutant 0: index 151625 value 49.9996 (ref 151625)
+sim argmax tie 0 mutant 1: index 151625 value 49.9996 (ref 151625)
+sim argmax tie 1 mutant 0: index 1007 value 60 (ref 1007)
+sim argmax tie 1 mutant 1: index 28784 value 49.9999 (ref 1007)
+sim: 39 checks, 0 failed: PASS
+./build/gpu_decode_graph_test --host-only
+dgraph prefetch 0 (red 0)
+fp8 knobs: variant 1 barrier 0 (wfi+inval_all) cta_budget 0 shape 0/0/0 cached 0
+ok: RES NORM builds (101 instructions, peak 40 registers)
+ok: RES ADD builds (45 instructions, peak 28 registers)
+ok: RES COMBINE|NORM builds (264 instructions, peak 49 registers)
+ok: SWIGLU builds (29 instructions, peak 16 registers)
+ok: ARGMAX identity builds (165 instructions, peak 32 registers)
+ok: ARGMAX indexed builds (160 instructions, peak 40 registers)
+ok: SWIGLU mutant 1 builds (29 instructions, peak 16 registers)
+ok: RES COMBINE|NORM mutant 2 builds (246 instructions, peak 49 registers)
+ok: RES ADD|COMBINE refused by codegen
+ok: fp8 record without a list: BAD_ARGS
+ok: bf16 record without a list: BAD_ARGS
+ok: router record without a list: BAD_ARGS
+ok: decode attn record without a list: BAD_ARGS
+ok: fp8 record with tab_va 0: BAD_ARGS
+ok: bf16 record with x_va 0: BAD_ARGS
+ok: router record with a NULL router: BAD_ARGS
+ok: decode attn record with a NULL cache: BAD_ARGS
+ok: graph create with an empty config: BAD_ARGS
+host-only: 18 checks, 0 failed: PASS
+./build/test_codegen_hosted --dump > build/codegen_dump_hosted.txt
+./build/test_codegen_freestanding --dump > build/codegen_dump_freestanding.txt
+cmp build/codegen_dump_hosted.txt build/codegen_dump_freestanding.txt
+codegen dumps byte-identical: 14 fixtures, 24448 code bytes
+./build/test_codegen_freestanding
+BE_DIAG_MARKER_DROPPED KILLED  diagnostics report the first marker word (7 failing case(s), first: m_unc_marker2_hang_observed_words)
+BE_DIAG_MARKER2_DROPPED KILLED  diagnostics report the second marker word (6 failing case(s), first: m_unc_marker_hang_observed_words)
+BE_DIAG_SEMAPHORE_DROPPED KILLED  diagnostics report the semaphore word (8 failing case(s), first: m_unc_marker_hang_observed_words)
+BE_DIAG_VALID_MARKER_DROPPED KILLED  the first marker is flagged valid only when mapped (9 failing case(s), first: m_unc_marker_hang_sync_valid_mask)
+BE_DIAG_VALID_MARKER2_DROPPED KILLED  the second marker is flagged valid only when mapped (8 failing case(s), first: m_unc_marker_hang_sync_valid_mask)
+BE_DIAG_VALID_SEMAPHORE_DROPPED KILLED  the semaphore is flagged valid only when mapped (9 failing case(s), first: m_unc_marker_hang_sync_valid_mask)
+BE_FREE_SCRATCH_ROLE_DROPPED KILLED  free_buf of SCRATCH frees the four SCRATCH parts (51 failing case(s), first: m_success_returns_ok)
+BE_FREE_UNKNOWN_ROLE_ACCEPTED KILLED  free_buf refuses an unknown role (2 failing case(s), first: m_guard_free_negative_role_refused)
+BE_FREE_ERROR_DROPPED KILLED  a failed free is reported (CLEANUP) (6 failing case(s), first: m_cleanup_free_role_name_step_state)
+BE_RELEASE_KEEPS_MARKER_POINTER KILLED  the first marker word is unmapped before SCRATCH is freed (1 failing case(s), first: m_cleanup_free_scratch_sync_words_unmapped_before_free)
+BE_RELEASE_KEEPS_MARKER2_POINTER KILLED  the second marker word is unmapped before SCRATCH is freed (1 failing case(s), first: m_cleanup_free_scratch_sync_words_unmapped_before_free)
+BE_RELEASE_KEEPS_SEM_POINTER KILLED  the semaphore word is unmapped before SCRATCH is freed (1 failing case(s), first: m_cleanup_free_scratch_sync_words_unmapped_before_free)
+bf16 sweep: all 2^32 inputs equal the hosted __bf16 cast
+PASS: freestanding codegen contract (14 fixtures, 0 failing checks)
+./build/test_omega_gpu_session_platform
+PASS INSTALL_REFUSALS_ABI_1_1
+PASS FREESTANDING_NO_DEFAULT_PLATFORM
+PASS OPEN_LAUNCH_CLOSE_TYPED_UNCACHED_POLLING
+PASS OPEN_FAILURE_KEEPS_DRIVER_TEXT
+PASS CANCEL_BEFORE_SUBMIT_NOT_LATCHED
+PASS CANCEL_AFTER_SUBMIT_LATCHES_AND_PARKS
+PASS TIMEOUT_PARKS_NEVER_RELEASES
+PASS TIMEOUT_LATCH_REFUSES_CLOSE_REOPEN_INSTALL
+PASS STALE_HANDLE_REFUSED_AFTER_CLOSE_REOPEN
+PASS SERVING_RESERVATION_REFUSES_WITHOUT_ALLOC
+PASS MATMUL_CODE_BUFFER_ENCODED_IN_PLACE
+PASS WAIT_REFUSES_WITHOUT_CLOCK
+PASS FMT_BOUNDED_MATCHES_SNPRINTF
+test_omega_gpu_session_platform: 13 passed, 0 failed
+./build/test_omega_gpu_platform_linux
+PASS LINUX_REF_CAPS_NO_MMIO_NO_IRQ
+PASS HOSTED_DEFAULT_IS_LINUX_REFERENCE
+PASS SAME_DRIVER_CALLS_AND_ORDER_AS_BEFORE
+PASS REFERENCE_REFUSALS_CACHED_POLLED_RING_STALE
+PASS OPEN_FAILURE_KEEPS_DRIVER_TEXT
+PASS MARKER_NEVER_LATCHES_AND_PARKS
+PASS L2_INVAL_PREFIX_ONCE_AFTER_CACHED_HOST_WRITE
+PASS CMDLIST_NEAR_CAP_SUBMITS_WITH_L2_INVAL_PENDING
+  refusal: dma_alloc: refused 2.0 MiB: 4.0 GiB of memory is free and CUDA++ keeps 4.0 GiB free (CUDAPP_MEM_RESERVE_MIB=4096), because the CPU and GPU share it and running it out freezes the machine. Free buffers or use a smaller batch.
+  session: dma_alloc: refused 2.0 MiB: 4.0 GiB of memory is free and CUDA++ keeps 4.0 GiB free (CUDAPP_MEM_RESERVE_MIB=4096), because the CPU and GPU share it and running it out freezes the machine. Free buffers or use a smaller batch.
+PASS D1_MEMORY_RESERVE_REFUSES_BEFORE_THE_DRIVER
+test_omega_gpu_platform_linux (reference only, simulated driver): 9 passed, 0 failed
+BE_CLOSE_KEEPS_MARKER_POINTER KILLED  close unmaps the first marker word (1 failing case(s), first: m_close_unmaps_every_sync_word)
+BE_CLOSE_KEEPS_MARKER2_POINTER KILLED  close unmaps the second marker word (1 failing case(s), first: m_close_unmaps_every_sync_word)
+BE_CLOSE_KEEPS_SEM_POINTER KILLED  close unmaps the semaphore word (1 failing case(s), first: m_close_unmaps_every_sync_word)
+BE_CLOSE_NOT_CALLED KILLED  close really closes the driver (36 failing case(s), first: m_success_driver_counts)
+BE_CLOSE_ERROR_IGNORED KILLED  a failed close is reported (CLEANUP) (2 failing case(s), first: m_cleanup_close_name_step_state)
+WRAP_POISON_NOT_COMPLEMENT KILLED  the poison word is the complement of the expected sum (7 failing case(s), first: m_vec_success_returns_zero)
+WRAP_POISON_CONSTANT KILLED  the poison word never collides with a legitimate sum (0xdeadbeef is one) (7 failing case(s), first: m_vec_success_returns_zero)
+WRAP_ENGINE_FAILURE_IGNORED KILLED  an engine failure (here a cleanup fault) fails the wrapper (1 failing case(s), first: m_vec_cleanup_fault_returns_nonzero)
+WRAP_ORACLE_IGNORED KILLED  the host oracle decides success, not the engine (1 failing case(s), first: m_vec_wrong_math_returns_nonzero)
+WRAP_PARITY_FLAG_FORCED KILLED  parity_verified follows the oracle (1 failing case(s), first: m_vec_wrong_math_parity_not_verified)
+WRAP_MARKER_NOT_REPORTED KILLED  the completion marker is reported (1 failing case(s), first: m_vec_success_completion_marker_and_semaphore)
+WRAP_SEMAPHORE_NOT_REPORTED KILLED  the semaphore value is reported (1 failing case(s), first: m_vec_success_completion_marker_and_semaphore)
+WRAP_LAUNCH_TIME_NOT_REPORTED KILLED  the launch time is reported (1 failing case(s), first: m_vec_success_timestamps)
+WRAP_DONE_TIME_NOT_REPORTED KILLED  the completion time is reported (1 failing case(s), first: m_vec_success_timestamps)
+WRAP_ELAPSED_NOT_REPORTED KILLED  the elapsed time is reported (1 failing case(s), first: m_vec_success_timestamps)
+WRAP_SM_ARCH_NOT_REPORTED KILLED  the architecture is reported (1 failing case(s), first: m_vec_success_shape_fields)
+WRAP_ELEMENT_COUNT_NOT_REPORTED KILLED  the element count is reported (1 failing case(s), first: m_vec_success_shape_fields)
+WRAP_NULL_GUARD_DROPPED KILLED  a NULL argument is refused before any use (harness exit 139 (crash or abort))
+WRAP_ZERO_COUNT_GUARD SURVIVED_REDUNDANT  a zero element count is refused by the wrapper (redundant: the engine refuses element_count 0 as INVALID_ARGS (src/omega_gpu_engine.c job_valid) and the wrapper then returns -1, so the result is the same refusal)
+WRAP_MARKER_TIMEOUT KILLED  the first marker wait limit is 5000 ms (1 failing case(s), first: m_vec_success_timeouts_are_5000_each)
+WRAP_SEMAPHORE_TIMEOUT KILLED  the semaphore wait limit is 5000 ms (1 failing case(s), first: m_vec_success_timeouts_are_5000_each)
+WRAP_MARKER2_TIMEOUT KILLED  the second marker wait limit is 5000 ms (1 failing case(s), first: m_vec_success_timeouts_are_5000_each)
+WRAP_VISIBILITY_TIMEOUT SURVIVED_REDUNDANT  the visibility limit is 5000 ms (redundant: the Blackwell barrier callback ignores its timeout argument (it is a CPU dsb sy that cannot wait), so no host observation depends on the value)
+WRAP_FLAGS_ALL_PROTECTIONS KILLED  the wrapper runs with every protection on (flags 0) (2 failing case(s), first: m_vec_success_timeouts_are_5000_each)
+WRAP_BACKEND_NOT_INSTALLED KILLED  the wrapper installs the Blackwell backend itself (13 failing case(s), first: m_vec_success_returns_zero)
+WRAP_PROGRAM_LENGTH KILLED  the whole encoded program is handed to the engine (7 failing case(s), first: m_vec_success_returns_zero)
+WRAP_MARKER_CHECK SURVIVED_REDUNDANT  second check of the marker payload (redundant: the backend wait_word already refuses any first-marker value other than 0x44444444 (UNKNOWN_STATE), so the engine fails before this line is reached)
+WRAP_SEMAPHORE_CHECK SURVIVED_REDUNDANT  second check of the semaphore value (redundant: the backend wait_word already refuses any semaphore value other than DONE (6), so the engine fails before this line is reached)
+mutants: 120 total, 107 killed, 13 survived as redundant, 0 survived as test gaps (receipt /tmp/mutrun.NsLh2e/out.json)
+CUDA++ HOST TESTS PASS (33 targets)

@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/home/drakestapleton/workspace/hermes-desk/cudapp-fft-rng/tests/libraries/test_fft.py", line 37, in <module>
+    if __name__=='__main__': main()
+                             ^^^^^^
+  File "/home/drakestapleton/workspace/hermes-desk/cudapp-fft-rng/tests/libraries/test_fft.py", line 22, in main
+    assert a.binary.is_file(),'FFT implementation executable is missing'
+           ^^^^^^^^^^^^^^^^^^
+AssertionError: FFT implementation executable is missing

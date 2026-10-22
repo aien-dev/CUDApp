@@ -1,0 +1,64 @@
+note SPDX-License-Identifier MIT
+note Iterative radix 2 complex FFT binary32 components round at each operation
+note Forward inv false negative exponent inverse inv true positive exponent
+note Inverse is unnormalized like cuFFT fixed pool capacity 1024 complex values
+note twinit from twiddle1024.om must be called before fft
+fn fftfly a edit ulong 2048 p ulong q ulong k ulong inv bool to void
+wr = get tw mul k 2
+wi = get tw add mul k 2 1
+if inv
+wi = xor wi 2147483648
+end
+br = get a mul q 2
+bi = get a add mul q 2 1
+tr = fsub fmul wr br fmul wi bi
+ti = fadd fmul wr bi fmul wi br
+br = get a mul p 2
+bi = get a add mul p 2 1
+put a mul p 2 fadd br tr
+put a add mul p 2 1 fadd bi ti
+put a mul q 2 fsub br tr
+put a add mul q 2 1 fsub bi ti
+end
+fn fftrev a edit ulong 2048 n ulong to void
+j = ulong 0
+for i ulong n
+if lt i j
+r = get a mul i 2
+s = get a add mul i 2 1
+put a mul i 2 get a mul j 2
+put a add mul i 2 1 get a add mul j 2 1
+put a mul j 2 r
+put a add mul j 2 1 s
+end
+bit = shr n 1
+while and ne bit 0 ne and j bit 0
+j = xor j bit
+bit = shr bit 1
+end
+j = xor j bit
+end
+end
+fn fft a edit ulong 2048 n ulong inv bool to int
+if or eq n 0 gt n 1024
+ret 1
+end
+if ne and n sub n 1 0
+ret 1
+end
+fftrev a n
+m = ulong 2
+while le m n
+half = shr m 1
+step = div ulong 1024 m
+for block ulong div n m
+base = mul block m
+for j ulong half
+p = add base j
+fftfly a p add p half mul j step inv
+end
+end
+m = mul m 2
+end
+ret 0
+end

@@ -1,0 +1,76 @@
+note SPDX-License-Identifier MIT
+note Host test adapter n u32 direction i32 then interleaved binary32 real imaginary
+note Refuse malformed request before output no GPU or CUDA API claim
+global inp uchar 8201
+global out uchar 8192
+fn load at ulong to ulong
+v = ulong 0
+for i ulong 4
+v = or v shl ulong get inp add at i mul i 8
+end
+ret v
+end
+fn store at ulong v ulong to void
+for j ulong 4
+put out add at j uchar and shr v mul j 8 255
+end
+end
+fn output a view ulong 2048 n ulong to int
+for i ulong mul n 2
+store mul i 4 get a i
+end
+p = ulong 0
+while lt p mul n 8
+r = write 1 out p sub mul n 8 p
+if le r 0
+ret 3
+end
+p = add p ulong r
+end
+ret 0
+end
+fn main to int
+size = ulong 0
+go = true
+while go
+if eq size 8201
+ret 2
+end
+r = read 0 inp size sub 8201 size
+if lt r 0
+ret 2
+end
+if eq r 0
+go = false
+else
+size = add size ulong r
+end
+end
+if lt size 8
+ret 2
+end
+n = load 0
+d = load 4
+if or eq n 0 gt n 1024
+ret 2
+end
+if ne and n sub n 1 0
+ret 2
+end
+if and ne d 1 ne d 4294967295
+ret 2
+end
+if ne size add ulong 8 mul n 8
+ret 2
+end
+a = new ulong 2048 0
+for i ulong mul n 2
+put a i load add ulong 8 mul i 4
+end
+twinit
+code = fft a n eq d 1
+if ne code 0
+ret code
+end
+ret output a n
+end

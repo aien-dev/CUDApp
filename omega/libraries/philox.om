@@ -1,0 +1,20 @@
+note SPDX-License-Identifier MIT
+note Philox4x32-10 from Salmon et al Parallel Random Numbers As Easy As 1 2 3
+note Independent implementation of the published algorithm no vendor source
+note Words are carried as ulong but explicitly reduced modulo 2^32
+fn philox a edit ulong 4 k0 ulong k1 ulong to void
+x = k0
+y = k1
+for r ulong 10
+p = mul get a 0 3528531795
+q = mul get a 2 3449720151
+u = xor xor shr q 32 get a 1 x
+v = xor xor shr p 32 get a 3 y
+put a 0 and u 4294967295
+put a 1 and q 4294967295
+put a 2 and v 4294967295
+put a 3 and p 4294967295
+x = and add x 2654435769 4294967295
+y = and add y 3144134277 4294967295
+end
+end

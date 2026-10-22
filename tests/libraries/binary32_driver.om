@@ -1,0 +1,52 @@
+note SPDX-License-Identifier MIT
+note Binary32 arithmetic test driver repeated op a b u32 little endian records
+global inp uchar 12
+global out uchar 4
+fn load at ulong to ulong
+v = ulong 0
+for i ulong 4
+v = or v shl ulong get inp add at i mul i 8
+end
+ret v
+end
+fn main to int
+go = true
+while go
+n = ulong 0
+while lt n 12
+r = read 0 inp n sub 12 n
+if lt r 0
+ret 2
+end
+if eq r 0
+if eq n 0
+ret 0
+end
+ret 2
+end
+n = add n ulong r
+end
+op = load 0
+if gt op 1
+ret 2
+end
+v = ulong 0
+if eq op 0
+v = fadd load 4 load 8
+else
+v = fmul load 4 load 8
+end
+for i ulong 4
+put out i uchar and shr v mul i 8 255
+end
+n = ulong 0
+while lt n 4
+r = write 1 out n sub 4 n
+if le r 0
+ret 3
+end
+n = add n ulong r
+end
+end
+ret 0
+end

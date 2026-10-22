@@ -1,0 +1,15 @@
+python3 tools/libraries/build.py --omega-source "/home/drakestapleton/workspace/omega-in-omega" --out "build/fft-rng-native"
+SEED PASS f623467e21f9ea8a862a7c92965227fb67263e8e omc 10d7565239ca6bd3cca344b65a03c0f3498acd95e82ab3d420bd01408b01398e
+BUILD philox bytes 2680 sha256 02e0783cbd7ec5a1ae0dd514929f06f079549b92fe26b3c01e3938a4a620b528
+BUILD binary32 bytes 4276 sha256 e3b87a28fe8e2651f0d7e3396c4f4bb8a5dd0f9404f187557c15d504a79f49eb
+BUILD fft bytes 27640 sha256 a4d14b449209dad4238d7714cb05bda82c095c4cc8f75ef92e2895de29e9ad24
+python3 tests/libraries/test_philox.py "build/fft-rng-native/philox"
+PHILOX PASS 405 checks (published KATs, random counters, offset/carry, split calls, bounds)
+python3 tests/libraries/test_binary32.py "build/fft-rng-native/binary32"
+BINARY32 PASS 41000 arithmetic cases + 3 malformed requests; exact bits except NaN payload
+python3 tests/libraries/test_fft.py "build/fft-rng-native/fft"
+FFT PASS 207 checks; C2C f32 N=1..1024, both signs, unnormalized inverse, DFT and refusals
+python3 tests/libraries/mutants.py "build/fft-rng-native"
+MUTANT CAUGHT round-count compiled and failed value comparison
+MUTANT CAUGHT rounding compiled and failed value comparison
+MUTANT CAUGHT fft-sign compiled and failed value comparison
