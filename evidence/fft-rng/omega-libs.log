@@ -1,0 +1,8 @@
+arith RC=0
+potrf RC=0
+npp RC=0
+blas1 RC=0
+idct RC=0
+sqrt-jam-mutant RC=1
+build/fft-rng-native/potrf: ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, no section header
+	not a dynamic executable

@@ -1,0 +1,65 @@
+note SPDX-License-Identifier MIT
+note Lower Cholesky, unrolled so each step is a short function
+note Not the cuSOLVER API. A non positive pivot refuses
+global pa ulong 9
+global pl ulong 9
+fn piv x ulong to ulong
+ret fsqrt x
+end
+fn zrow to void
+i = ulong 0
+while lt i 9
+put pl i 0
+i = add i 1
+end
+end
+fn step0 to int
+put pl 0 piv get pa 0
+if eq get pl 0 2143289344
+ret 1
+end
+put pl 3 fdiv get pa 3 get pl 0
+put pl 6 fdiv get pa 6 get pl 0
+ret 0
+end
+fn step1 n ulong to int
+put pl 4 piv fsub get pa 4 fmul get pl 3 get pl 3
+if eq get pl 4 2143289344
+ret 1
+end
+if eq n 2
+ret 0
+end
+put pl 7 fdiv fsub get pa 7 fmul get pl 6 get pl 3 get pl 4
+ret 0
+end
+fn step2 to int
+acc = fadd fmul get pl 6 get pl 6 fmul get pl 7 get pl 7
+put pl 8 piv fsub get pa 8 acc
+if eq get pl 8 2143289344
+ret 1
+end
+ret 0
+end
+fn potrf n ulong to int
+if or eq n 0 gt n 3
+ret 1
+end
+zrow
+if ne step0 0
+ret 2
+end
+if eq n 1
+ret 0
+end
+if ne step1 n 0
+ret 3
+end
+if eq n 2
+ret 0
+end
+if ne step2 0
+ret 4
+end
+ret 0
+end

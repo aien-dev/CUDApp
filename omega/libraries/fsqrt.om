@@ -1,0 +1,49 @@
+note SPDX-License-Identifier MIT
+note binary32 square root round to nearest ties even
+note Negative nonzero and NaN refuse as a canonical quiet NaN
+fn isqrt u ulong to ulong
+res = ulong 0
+bit = ulong 2147483648
+while ne bit 0
+trial = add res bit
+if le mul trial trial u
+res = trial
+end
+bit = shr bit 1
+end
+ret res
+end
+fn floordiv2 z long to long
+if ge z 0
+ret div z 2
+end
+ret sub long 0 div add sub long 0 z 1 2
+end
+fn fsqrt a ulong to ulong
+ax = and a 2147483647
+if and ne and a 2147483648 0 ne ax 0
+ret 2143289344
+end
+if gt ax 2139095040
+ret 2143289344
+end
+if or eq ax 0 eq ax 2139095040
+ret ax
+end
+m = fmant a
+e = fexp a
+while lt m 8388608
+m = shl m 1
+e = sub e 1
+end
+if ne and e 1 0
+m = shl m 1
+e = sub e 1
+end
+e = add floordiv2 sub e 127 127
+res = isqrt shl m 32
+if ne sub shl m 32 mul res res 0
+res = or res 1
+end
+ret fpack 0 e fjam res 1
+end

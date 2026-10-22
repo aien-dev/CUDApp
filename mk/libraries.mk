@@ -11,4 +11,5 @@ test-libraries-native: libraries-native
 	python3 tests/libraries/test_binary32.py "$(LIBRARY_OUT)/binary32"
 	python3 tests/libraries/test_sparse.py "$(LIBRARY_OUT)/sparse"
 	python3 tests/libraries/test_fft.py "$(LIBRARY_OUT)/fft"
+	@set -e; for b in arith potrf npp blas1 idct; do "$(LIBRARY_OUT)/$$b"; done
 	python3 tests/libraries/mutants.py "$(LIBRARY_OUT)"

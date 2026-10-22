@@ -1,0 +1,89 @@
+note SPDX-License-Identifier MIT
+note Self-check. Expected bits were computed in Wolfram not by this program
+fn chk g ulong w ulong to int
+if ne g w
+ret 1
+end
+ret 0
+end
+fn chkdiv to int
+if ne chk fdiv 1065353216 1073741824 1056964608 0
+ret 1
+end
+if ne chk fdiv 1065353216 1077936128 1051372203 0
+ret 1
+end
+if ne chk fdiv 1073741824 1065353216 1073741824 0
+ret 1
+end
+if ne chk fdiv 1065353216 1065353216 1065353216 0
+ret 1
+end
+if ne chk fdiv 3212836864 1073741824 3204448256 0
+ret 1
+end
+if ne chk fdiv 0 1065353216 0 0
+ret 1
+end
+if ne chk fdiv 1065353216 0 2139095040 0
+ret 1
+end
+if ne chk fdiv 0 0 2143289344 0
+ret 1
+end
+if ne chk fdiv 2139095040 1073741824 2139095040 0
+ret 1
+end
+if ne chk fdiv 1073741824 2139095040 0 0
+ret 1
+end
+if ne chk fdiv 2139095040 2139095040 2143289344 0
+ret 1
+end
+if ne chk fdiv 2143289344 1065353216 2143289344 0
+ret 1
+end
+if ne chk fdiv 1 2 1056964608 0
+ret 1
+end
+ret 0
+end
+fn chksqrt to int
+if ne chk fsqrt 1065353216 1065353216 0
+ret 1
+end
+if ne chk fsqrt 1082130432 1073741824 0
+ret 1
+end
+if ne chk fsqrt 1048576000 1056964608 0
+ret 1
+end
+if ne chk fsqrt 1073741824 1068827891 0
+ret 1
+end
+if ne chk fsqrt 0 0 0
+ret 1
+end
+if ne chk fsqrt 2139095040 2139095040 0
+ret 1
+end
+if ne chk fsqrt 3212836864 2143289344 0
+ret 1
+end
+if ne chk fsqrt 2143289344 2143289344 0
+ret 1
+end
+if ne chk fsqrt 1 439682291 0
+ret 1
+end
+ret 0
+end
+fn main to int
+if ne chkdiv 0
+ret 1
+end
+if ne chksqrt 0
+ret 1
+end
+ret 0
+end

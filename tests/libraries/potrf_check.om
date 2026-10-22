@@ -1,0 +1,87 @@
+note SPDX-License-Identifier MIT
+note Cholesky self-check. Integer factor and one rounded factor from Wolfram
+fn chk g ulong w ulong to int
+if ne g w
+ret 1
+end
+ret 0
+end
+fn load3 to void
+put pa 0 1082130432
+put pa 1 1094713344
+put pa 2 3246391296
+put pa 3 1094713344
+put pa 4 1108606976
+put pa 5 3257663488
+put pa 6 3246391296
+put pa 7 3257663488
+put pa 8 1120141312
+end
+fn load2 to void
+put pa 0 1073741824
+put pa 1 1056964608
+put pa 2 0
+put pa 3 1056964608
+put pa 4 1077936128
+put pa 5 0
+put pa 6 0
+put pa 7 0
+put pa 8 1065353216
+end
+fn loadbad to void
+put pa 0 1065353216
+put pa 1 1073741824
+put pa 2 0
+put pa 3 1073741824
+put pa 4 1065353216
+put pa 5 0
+put pa 6 0
+put pa 7 0
+put pa 8 1065353216
+end
+fn main to int
+load3
+code = potrf 3
+if ne code 0
+ret code
+end
+if ne chk get pl 0 1073741824 0
+ret 11
+end
+if ne chk get pl 3 1086324736 0
+ret 12
+end
+if ne chk get pl 4 1065353216 0
+ret 13
+end
+if ne chk get pl 6 3238002688 0
+ret 14
+end
+if ne chk get pl 7 1084227584 0
+ret 15
+end
+if ne chk get pl 8 1077936128 0
+ret 16
+end
+load2
+if ne potrf 3 0
+ret 21
+end
+if ne chk get pl 0 1068827891 0
+ret 22
+end
+if ne chk get pl 3 1052050675 0
+ret 23
+end
+if ne chk get pl 4 1071188185 0
+ret 24
+end
+if ne chk get pl 8 1065353216 0
+ret 25
+end
+loadbad
+if eq potrf 3 0
+ret 31
+end
+ret 0
+end

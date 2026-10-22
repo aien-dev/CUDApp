@@ -1,0 +1,49 @@
+note SPDX-License-Identifier MIT
+note Level-1 self-check exact binary32 values
+fn chk g ulong w ulong to int
+if ne g w
+ret 1
+end
+ret 0
+end
+fn main to int
+put na 0 1065353216
+put na 1 1073741824
+put na 2 1077936128
+put nb 0 1082130432
+put nb 1 1084227584
+put nb 2 1086324736
+if ne chk fdot 3 1107296256 0
+ret 2
+end
+put na 0 1065353216
+put na 1 1073741824
+put ny 0 1077936128
+put ny 1 1082130432
+if ne faxpy 2 1073741824 0
+ret 3
+end
+if ne chk get ny 0 1084227584 0
+ret 1
+end
+if ne chk get ny 1 1090519040 0
+ret 6
+end
+put na 0 1073741824
+put na 1 1082130432
+if ne fscal 2 1056964608 0
+ret 4
+end
+if ne chk get ny 0 1065353216 0
+ret 1
+end
+if ne chk get ny 1 1073741824 0
+ret 1
+end
+put na 0 1077936128
+put na 1 1082130432
+if ne chk fnrm 2 1084227584 0
+ret 5
+end
+ret 0
+end

@@ -1,0 +1,123 @@
+note SPDX-License-Identifier MIT
+note 8 by 8 inverse DCT cosine table from Wolfram binary32
+note T x u equals c u times cos of (2x+1) u pi over 16 divided by 2
+note Two passes give the JPEG one quarter scale. Not an nvJPEG file decoder
+global cs ulong 64
+global cf ulong 64
+global px ulong 64
+global tmp ulong 64
+fn idctinit to void
+put cs 0 1052050675
+put cs 1 1056642238
+put cs 2 1055687518
+put cs 3 1054137137
+put cs 4 1052050675
+put cs 5 1049508314
+put cs 6 1044639509
+put cs 7 1036502466
+put cs 8 1052050675
+put cs 9 1054137137
+put cs 10 1044639509
+put cs 11 3183986114
+put cs 12 3199534323
+put cs 13 3204125886
+put cs 14 3203171166
+put cs 15 3196991962
+put cs 16 1052050675
+put cs 17 1049508314
+put cs 18 3192123157
+put cs 19 3204125886
+put cs 20 3199534323
+put cs 21 1036502466
+put cs 22 1055687518
+put cs 23 1054137137
+put cs 24 1052050675
+put cs 25 1036502466
+put cs 26 3203171166
+put cs 27 3196991962
+put cs 28 1052050675
+put cs 29 1054137137
+put cs 30 3192123157
+put cs 31 3204125886
+put cs 32 1052050675
+put cs 33 3183986114
+put cs 34 3203171166
+put cs 35 1049508314
+put cs 36 1052050675
+put cs 37 3201620785
+put cs 38 3192123157
+put cs 39 1056642238
+put cs 40 1052050675
+put cs 41 3196991962
+put cs 42 3192123157
+put cs 43 1056642238
+put cs 44 3199534323
+put cs 45 3183986114
+put cs 46 1055687518
+put cs 47 3201620785
+put cs 48 1052050675
+put cs 49 3201620785
+put cs 50 1044639509
+put cs 51 1036502466
+put cs 52 3199534323
+put cs 53 1056642238
+put cs 54 3203171166
+put cs 55 1049508314
+put cs 56 1052050675
+put cs 57 3204125886
+put cs 58 1055687518
+put cs 59 3201620785
+put cs 60 1052050675
+put cs 61 3196991962
+put cs 62 1044639509
+put cs 63 3183986114
+end
+fn dotrow y ulong x ulong to ulong
+acc = ulong 0
+u = ulong 0
+while lt u 8
+term = fmul get cf add mul y 8 u get cs add mul x 8 u
+acc = fadd acc term
+u = add u 1
+end
+ret acc
+end
+fn idctrow to void
+y = ulong 0
+while lt y 8
+x = ulong 0
+while lt x 8
+put tmp add mul y 8 x dotrow y x
+x = add x 1
+end
+y = add y 1
+end
+end
+fn dotcol y ulong x ulong to ulong
+acc = ulong 0
+v = ulong 0
+while lt v 8
+term = fmul get tmp add mul v 8 x get cs add mul y 8 v
+acc = fadd acc term
+v = add v 1
+end
+ret acc
+end
+fn idctcol to void
+y = ulong 0
+while lt y 8
+x = ulong 0
+while lt x 8
+put px add mul y 8 x dotcol y x
+x = add x 1
+end
+y = add y 1
+end
+end
+fn idct8 to int
+idctinit
+idctrow
+idctcol
+ret 0
+end
+

@@ -1,0 +1,73 @@
+note SPDX-License-Identifier MIT
+note Element arithmetic for a bounded image not the NPP API
+note Eight binary32 pixels. No vendor source
+global na ulong 8
+global nb ulong 8
+global ny ulong 8
+fn fgt a ulong b ulong to bool
+ax = and a 2147483647
+bx = and b 2147483647
+if or gt ax 2139095040 gt bx 2139095040
+ret false
+end
+if and eq ax 0 eq bx 0
+ret false
+end
+sa = and a 2147483648
+sb = and b 2147483648
+if ne sa sb
+ret eq sa 0
+end
+if eq sa 0
+ret gt a b
+end
+ret lt a b
+end
+fn nadd n ulong to int
+if gt n 8
+ret 1
+end
+i = ulong 0
+while lt i n
+put ny i fadd get na i get nb i
+i = add i 1
+end
+ret 0
+end
+fn nmul n ulong to int
+if gt n 8
+ret 1
+end
+i = ulong 0
+while lt i n
+put ny i fmul get na i get nb i
+i = add i 1
+end
+ret 0
+end
+fn nsub n ulong to int
+if gt n 8
+ret 1
+end
+i = ulong 0
+while lt i n
+put ny i fsub get na i get nb i
+i = add i 1
+end
+ret 0
+end
+fn nthr n ulong t ulong to int
+if gt n 8
+ret 1
+end
+i = ulong 0
+while lt i n
+if fgt get na i t
+put ny i get na i
+else
+put ny i 0
+end
+i = add i 1
+end
+ret 0
+end

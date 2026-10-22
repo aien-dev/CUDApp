@@ -11,7 +11,12 @@ EXPECTED='10d7565239ca6bd3cca344b65a03c0f3498acd95e82ab3d420bd01408b01398e'
 PARTS={'philox':['omega/libraries/philox.om','tests/libraries/philox_driver.om'],
        'binary32':['omega/libraries/binary32.om','tests/libraries/binary32_driver.om'],
        'fft':['omega/libraries/binary32.om','omega/libraries/twiddle1024.om','omega/libraries/fft.om','tests/libraries/fft_driver.om'],
-       'sparse':['omega/libraries/binary32.om','omega/libraries/sparse.om','tests/libraries/sparse_driver.om']}
+       'sparse':['omega/libraries/binary32.om','omega/libraries/sparse.om','tests/libraries/sparse_driver.om'],
+       'arith':['omega/libraries/binary32.om','omega/libraries/fdiv.om','omega/libraries/fsqrt.om','tests/libraries/arith_check.om'],
+       'potrf':['omega/libraries/binary32.om','omega/libraries/fdiv.om','omega/libraries/fsqrt.om','omega/libraries/potrf.om','tests/libraries/potrf_check.om'],
+       'npp':['omega/libraries/binary32.om','omega/libraries/npp.om','tests/libraries/npp_check.om'],
+       'blas1':['omega/libraries/binary32.om','omega/libraries/fdiv.om','omega/libraries/fsqrt.om','omega/libraries/blas1.om','tests/libraries/blas1_check.om'],
+       'idct':['omega/libraries/binary32.om','omega/libraries/idct.om','tests/libraries/idct_check.om']}
 def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()
 def run(args, **kw): return subprocess.run([str(x) for x in args],check=True,**kw)
 def compile_source(compiler,src,target):

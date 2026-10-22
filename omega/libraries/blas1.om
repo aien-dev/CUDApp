@@ -1,0 +1,47 @@
+note SPDX-License-Identifier MIT
+note Level-1 products on eight binary32 values not the cuBLAS API
+note na and nb are the vectors ny is the axpy destination
+global na ulong 8
+global nb ulong 8
+global ny ulong 8
+fn fdot n ulong to ulong
+acc = ulong 0
+i = ulong 0
+while lt i n
+acc = fadd acc fmul get na i get nb i
+i = add i 1
+end
+ret acc
+end
+fn faxpy n ulong a ulong to int
+if gt n 8
+ret 1
+end
+i = ulong 0
+while lt i n
+put ny i fadd get ny i fmul a get na i
+i = add i 1
+end
+ret 0
+end
+fn fscal n ulong a ulong to int
+if gt n 8
+ret 1
+end
+i = ulong 0
+while lt i n
+put ny i fmul a get na i
+i = add i 1
+end
+ret 0
+end
+fn fnrm n ulong to ulong
+acc = ulong 0
+i = ulong 0
+while lt i n
+v = get na i
+acc = fadd acc fmul v v
+i = add i 1
+end
+ret fsqrt acc
+end

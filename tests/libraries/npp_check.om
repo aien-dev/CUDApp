@@ -1,0 +1,59 @@
+note SPDX-License-Identifier MIT
+note Image arithmetic self-check exact binary32 cases
+fn chk g ulong w ulong to int
+if ne g w
+ret 1
+end
+ret 0
+end
+fn main to int
+put na 0 1065353216
+put nb 0 1073741824
+put na 1 1056964608
+put nb 1 1056964608
+if ne nadd 2 0
+ret 1
+end
+if ne chk get ny 0 1077936128 0
+ret 1
+end
+if ne nmul 2 0
+ret 1
+end
+if ne chk get ny 1 1048576000 0
+ret 1
+end
+put na 0 1077936128
+put nb 0 1065353216
+if ne nsub 1 0
+ret 1
+end
+if ne chk get ny 0 1073741824 0
+ret 1
+end
+put na 0 1073741824
+put na 1 1065353216
+put na 2 1056964608
+if ne nthr 3 1065353216 0
+ret 1
+end
+if ne chk get ny 0 1073741824 0
+ret 1
+end
+if ne chk get ny 1 0 0
+ret 1
+end
+if ne chk get ny 2 0 0
+ret 1
+end
+if fgt 2143289344 0
+ret 1
+end
+if fgt 0 2147483648
+ret 1
+end
+if not fgt 3212836864 3221225472
+ret 1
+end
+ret 0
+end

@@ -1,0 +1,22 @@
+note SPDX-License-Identifier MIT
+note DC block 128 must become one binary32 value in every pixel
+note That value was computed in Wolfram with the same multiply order
+fn main to int
+i = ulong 0
+while lt i 64
+put cf i 0
+i = add i 1
+end
+put cf 0 1124073472
+if ne idct8 0
+ret 1
+end
+i = ulong 0
+while lt i 64
+if ne get px i 1098907647
+ret 1
+end
+i = add i 1
+end
+ret 0
+end
