@@ -1,0 +1,7 @@
+{
+  "command": "quiet-build make -j4 test",
+  "exit_code": 0,
+  "log": "repository-host-test.log.gz",
+  "raw_sha256": "2cf0fd1b0cfe29b35421cad9f40f0f561fb11f56e68f7d2a838dd35bc05f1094",
+  "compressed_sha256": "38fa0b300463c2cbbc5e760a491bf554f03e6e2561d34e2926c25ebb6b361f82"
+}

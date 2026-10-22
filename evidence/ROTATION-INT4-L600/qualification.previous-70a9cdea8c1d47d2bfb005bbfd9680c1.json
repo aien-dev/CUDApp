@@ -1,0 +1,73 @@
+{
+  "scope": "offline approximate representation; no inference/GPU qualification",
+  "compiler_sha256": "191b776ef98821597c3e30655da6d680a9b66edbc9ceaca3c39c61ea6df098e9",
+  "source_sha256": "90eb57181ea3e23843f9e2be454f42c9d1512c800963dd9f751e8ece64ac2117",
+  "binary_sha256": "9b90e023d335c7675acdd9498228463cb573b9e894d05bc7654a037453688ab4",
+  "suite_total": 605,
+  "suite_passed": 605,
+  "io_controls": [
+    {
+      "case": "closed-read",
+      "rc": 74,
+      "pass": true
+    },
+    {
+      "case": "closed-write",
+      "rc": 74,
+      "pass": true
+    },
+    {
+      "case": "full-output-device",
+      "rc": 74,
+      "pass": true
+    },
+    {
+      "case": "fragmented-input-no-early-output",
+      "rc": 0,
+      "pass": true
+    }
+  ],
+  "mutants": [
+    {
+      "name": "lose-fp8-sign",
+      "source_sha256": "eabc81cb17d124c0ea6f909ccbc6388d28cd5db1bb8b4bdaa828127041a7e2c3",
+      "binary_sha256": "dd943df0af3869237c8b57647699129a5d562be58cf7a616a0bd01f8d8fae742",
+      "caught": 48,
+      "total": 605,
+      "change_before": "v = neg v\n",
+      "change_after": "v = v\n"
+    },
+    {
+      "name": "wrong-inverse-normalization",
+      "source_sha256": "0bf262fd6a10e43269573ea2e33613c30c7117503145b71f432f769316f77a2a",
+      "binary_sha256": "339cc07073919d4c33b05743d0633036be8ce98f685e93824df19dae26bfefff",
+      "caught": 30,
+      "total": 605,
+      "change_before": "denom = 458752\n",
+      "change_after": "denom = 3584\n"
+    },
+    {
+      "name": "ties-away-instead-of-even",
+      "source_sha256": "408e99265a319b2c7f3401212338851c802e132cb1098e46d1feffb714389ebb",
+      "binary_sha256": "124c6afd26d91e70c54fe41bdc0adb65e5430f86b89b79aa3f7df0608735fa2f",
+      "caught": 21,
+      "total": 605,
+      "change_before": "if or gt twice m and eq twice m ne rem q 2 0\n",
+      "change_after": "if ge twice m\n"
+    }
+  ],
+  "source_closure": {
+    "mk/native-rotquant.mk": "50b5e87efb4e446bf5de85d95fe6010c93716e4b6194b2656c5a63944ef39e7e",
+    "native/rotquant/CONTRACT.md": "a7700f5ff3fdef9b78deb9a8947f24d8d9f5ac6063a16d0d096e8cd08fe7e8c5",
+    "native/rotquant/experiment.py": "f1e185be430fe7e09c673d55c7d42dcbd596bdd512e956506a176d55267e8941",
+    "native/rotquant/qualify_rotation.py": "680d3630077637772d25d18d76d863805bf1d385f1fa7112229df49d9b1cdd60",
+    "native/rotquant/rotquant.om": "90eb57181ea3e23843f9e2be454f42c9d1512c800963dd9f751e8ece64ac2117",
+    "native/rotquant/test_rotation.py": "6fd5aca15d889bd845c9a2ff19298522086a69aa8873b03f9d39797d7ebdb76d",
+    "native/rotquant/test_safety.py": "e696c69dffed63f04c26e5a938a597b5953f1f1eac753cffe4465e147d48d91e",
+    "native/weightpack/qualify.py": "b08a5d3b4245dae6c89f5eb2490157b84047639af9197d40b004d6a127bf9092",
+    "native/weightpack/test_weightpack.py": "d166a1fa30a2ad120ad9ab97f306ce1c194f208e92caa12923fd0e9cb4229d05",
+    "native/weightpack/weightpack.om": "9b841b643de67b001da4f1e7576e30e46e9b827a39166b7179460d249dce727c"
+  },
+  "real_matrix_count": 5,
+  "comparison_sha256": "4586d6d486b512d709e2786e18fb5a706b1775825e5c8ab32bf20aa9bb8a077d"
+}

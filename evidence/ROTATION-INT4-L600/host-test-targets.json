@@ -1,0 +1,41 @@
+{
+  "make_database_exit": 1,
+  "target_lines": [
+    "test: test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-attention test-gpu-moe-window test-gpu-fp8 test-gpu-decode-attn test-gpu-router test-gpu-bf16-gemv test-gpu-fp8gemm test-gpu-gpr-boundary test-gpu-cmdlist test-gpu-decode-graph test-gpu-code-alloc test-gpu-engine-compile test-gpu-engine test-gpu-engine-mutants test-gpu-engine-backend-compile test-gpu-engine-prod-build test-gpu-engine-sim test-gpu-engine-backend-mutants test-gpu-engine-gb10-compile test-gpu-serving-alloc test-gpu-engine-freestanding test-codegen-freestanding test-gpu-session-platform test-gpu-wait test-gpu-wait-mutants host-tests-m16 test-runtime-api test-runtime-portability test-doctor test-hello-sim"
+  ],
+  "unique_prerequisites": [
+    "host-tests-m16",
+    "test-codegen-freestanding",
+    "test-doctor",
+    "test-gpu-attention",
+    "test-gpu-bf16-gemv",
+    "test-gpu-cmdlist",
+    "test-gpu-code-alloc",
+    "test-gpu-decode-attn",
+    "test-gpu-decode-graph",
+    "test-gpu-elementwise",
+    "test-gpu-engine",
+    "test-gpu-engine-backend-compile",
+    "test-gpu-engine-backend-mutants",
+    "test-gpu-engine-compile",
+    "test-gpu-engine-freestanding",
+    "test-gpu-engine-gb10-compile",
+    "test-gpu-engine-mutants",
+    "test-gpu-engine-prod-build",
+    "test-gpu-engine-sim",
+    "test-gpu-fp8",
+    "test-gpu-fp8gemm",
+    "test-gpu-gpr-boundary",
+    "test-gpu-matmul-api",
+    "test-gpu-moe-window",
+    "test-gpu-reconv",
+    "test-gpu-router",
+    "test-gpu-serving-alloc",
+    "test-gpu-session-platform",
+    "test-gpu-wait",
+    "test-gpu-wait-mutants",
+    "test-hello-sim",
+    "test-runtime-api",
+    "test-runtime-portability"
+  ]
+}

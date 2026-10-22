@@ -1,0 +1,361 @@
+{
+  "scope": "Offline representation and synthetic linear-output diagnostics only.",
+  "model": "qwen3.6-35b-a3b-fp8-95a723d0",
+  "config_sha256": "570ef7ea45a7e1d3de2b1d3c70c4ac3562d0e768acdc195778cb4f4d95025845",
+  "numpy_version": "2.5.4",
+  "ml_dtypes_version": "0.6.0",
+  "finite_format_codes_independently_verified": 254,
+  "vectors_per_matrix": 40,
+  "vector_rng_seed": 49001,
+  "real_model_activations": false,
+  "model_quality_tested": false,
+  "timing_or_energy_tested": false,
+  "source_weights_retained": false,
+  "matrices": [
+    {
+      "layer": 0,
+      "expert": 0,
+      "projection": "gate_proj",
+      "tensor": "model.language_model.layers.0.mlp.experts.0.gate_proj.weight",
+      "shape": [
+        512,
+        2048
+      ],
+      "dtype": "F8_E4M3",
+      "header_sha256": "e8d702c06e671af59015c9e98700c579be3f4ec08e16669fc5d5a69757911d79",
+      "raw_sha256": "81e8478424044de8eb00b884f24aaf93d65f8a402f4bc788a96b7d6da6212838",
+      "scale_sha256": "7320b35f20afd6aec789e56d2b1196db917166c70c63f6799ef849631df28cdc",
+      "scale_shape": [
+        4,
+        16
+      ],
+      "diagnostic_vectors_sha256": "8e24948df0aa1cef4f38494923d627e2d969f85ecf563a8ff507d2059003a0af",
+      "raw_bytes_with_scales": 1048704,
+      "original_zero_channels": 280,
+      "lossless_zero_packed_bytes_with_scales": 547476,
+      "lossless_comparator_is_not_an_equal_bit_approximation": true,
+      "modes": {
+        "identity": {
+          "frame_count": 32,
+          "packed_bytes_including_frames": 557440,
+          "packed_sha256": "ca4c91ca604f8f82e3906012c5480a92cc33e37c0385e727b9b19381d43ff524",
+          "zero_quantizer_blocks": 4480,
+          "all_native_codes_and_numerators_match_oracle": true,
+          "relative_weight_frobenius_error": 0.1383513133179485,
+          "relative_synthetic_output_error": 0.14334023663778653,
+          "profile_output_errors": {
+            "rademacher": 0.14153926434734088,
+            "gaussian": 0.1413320495144001,
+            "impulses": 0.15116971022603726
+          },
+          "max_relative_vector_error": 0.18126055255132095,
+          "zero_reference_vectors": 0,
+          "nonzero_outputs_for_zero_reference_vectors": 0,
+          "max_absolute_error_on_zero_reference_vectors": 0.0,
+          "reconstructed_zero_rows": 280,
+          "reconstructed_zero_columns": 0,
+          "total_bytes_with_unchanged_scales": 557568
+        },
+        "hadamard": {
+          "frame_count": 32,
+          "packed_bytes_including_frames": 557440,
+          "packed_sha256": "b1104727f9ab9a0ca85f9a3ebd53c0397f9845728a2d7f5640e29fa3a254496c",
+          "zero_quantizer_blocks": 4480,
+          "all_native_codes_and_numerators_match_oracle": true,
+          "relative_weight_frobenius_error": 0.11681424038387521,
+          "relative_synthetic_output_error": 0.12276593197703056,
+          "profile_output_errors": {
+            "rademacher": 0.12193370033865132,
+            "gaussian": 0.12109560096182793,
+            "impulses": 0.12794378530478934
+          },
+          "max_relative_vector_error": 0.16192779659397918,
+          "zero_reference_vectors": 0,
+          "nonzero_outputs_for_zero_reference_vectors": 0,
+          "max_absolute_error_on_zero_reference_vectors": 0.0,
+          "reconstructed_zero_rows": 280,
+          "reconstructed_zero_columns": 0,
+          "total_bytes_with_unchanged_scales": 557568
+        }
+      },
+      "rotation_weight_error_ratio": 0.8443305493994233,
+      "rotation_synthetic_output_error_ratio": 0.8564652525811982
+    },
+    {
+      "layer": 0,
+      "expert": 0,
+      "projection": "up_proj",
+      "tensor": "model.language_model.layers.0.mlp.experts.0.up_proj.weight",
+      "shape": [
+        512,
+        2048
+      ],
+      "dtype": "F8_E4M3",
+      "header_sha256": "e8d702c06e671af59015c9e98700c579be3f4ec08e16669fc5d5a69757911d79",
+      "raw_sha256": "20e8a45852934d5be753e701e2c1f8cad90c4e5c5c98f1419421fb0923aef155",
+      "scale_sha256": "cf3534da7ef4c5b2802297690c412973f76fbbcad00e956475781ae53128a3ef",
+      "scale_shape": [
+        4,
+        16
+      ],
+      "diagnostic_vectors_sha256": "8e24948df0aa1cef4f38494923d627e2d969f85ecf563a8ff507d2059003a0af",
+      "raw_bytes_with_scales": 1048704,
+      "original_zero_channels": 280,
+      "lossless_zero_packed_bytes_with_scales": 547476,
+      "lossless_comparator_is_not_an_equal_bit_approximation": true,
+      "modes": {
+        "identity": {
+          "frame_count": 32,
+          "packed_bytes_including_frames": 557440,
+          "packed_sha256": "421a57292e09244728139ee52e270cbae166e533e8fd6a2e0f284785b08d76b9",
+          "zero_quantizer_blocks": 4480,
+          "all_native_codes_and_numerators_match_oracle": true,
+          "relative_weight_frobenius_error": 0.12163336949711762,
+          "relative_synthetic_output_error": 0.12028851057899198,
+          "profile_output_errors": {
+            "rademacher": 0.12018071204211307,
+            "gaussian": 0.12084562063400577,
+            "impulses": 0.11940199583580549
+          },
+          "max_relative_vector_error": 0.1400901049009155,
+          "zero_reference_vectors": 0,
+          "nonzero_outputs_for_zero_reference_vectors": 0,
+          "max_absolute_error_on_zero_reference_vectors": 0.0,
+          "reconstructed_zero_rows": 280,
+          "reconstructed_zero_columns": 0,
+          "total_bytes_with_unchanged_scales": 557568
+        },
+        "hadamard": {
+          "frame_count": 32,
+          "packed_bytes_including_frames": 557440,
+          "packed_sha256": "d8a7a04f29bdbb8481ca0a571838e3e6bbf66d5691579a6b621fb9984aaeedac",
+          "zero_quantizer_blocks": 4480,
+          "all_native_codes_and_numerators_match_oracle": true,
+          "relative_weight_frobenius_error": 0.11707152318153391,
+          "relative_synthetic_output_error": 0.11442881225713733,
+          "profile_output_errors": {
+            "rademacher": 0.11410509433105696,
+            "gaussian": 0.11417382064602782,
+            "impulses": 0.1155788642611383
+          },
+          "max_relative_vector_error": 0.1309639170147785,
+          "zero_reference_vectors": 0,
+          "nonzero_outputs_for_zero_reference_vectors": 0,
+          "max_absolute_error_on_zero_reference_vectors": 0.0,
+          "reconstructed_zero_rows": 280,
+          "reconstructed_zero_columns": 0,
+          "total_bytes_with_unchanged_scales": 557568
+        }
+      },
+      "rotation_weight_error_ratio": 0.9624951085837361,
+      "rotation_synthetic_output_error_ratio": 0.951286300797559
+    },
+    {
+      "layer": 0,
+      "expert": 0,
+      "projection": "down_proj",
+      "tensor": "model.language_model.layers.0.mlp.experts.0.down_proj.weight",
+      "shape": [
+        2048,
+        512
+      ],
+      "dtype": "F8_E4M3",
+      "header_sha256": "e8d702c06e671af59015c9e98700c579be3f4ec08e16669fc5d5a69757911d79",
+      "raw_sha256": "e0132e90c275e9d168ec7480c08b7d1f083a7cdebce00081a7e1fb965d513fb8",
+      "scale_sha256": "058abc072944f309c54aab3ffbe408940f2cefe1b2ef28251b37077972ef986e",
+      "scale_shape": [
+        16,
+        4
+      ],
+      "diagnostic_vectors_sha256": "d60c0bf62b841899fc4edeb694b66eb53245d9802ba99a2cade56713067f1fcd",
+      "raw_bytes_with_scales": 1048704,
+      "original_zero_channels": 280,
+      "lossless_zero_packed_bytes_with_scales": 547476,
+      "lossless_comparator_is_not_an_equal_bit_approximation": true,
+      "modes": {
+        "identity": {
+          "frame_count": 32,
+          "packed_bytes_including_frames": 557440,
+          "packed_sha256": "733d33a7d56d7ab69b6c19fc5a81fd957321e4a53ea95f599325d5bff934613e",
+          "zero_quantizer_blocks": 0,
+          "all_native_codes_and_numerators_match_oracle": true,
+          "relative_weight_frobenius_error": 0.10889453496418994,
+          "relative_synthetic_output_error": 0.1085631068517477,
+          "profile_output_errors": {
+            "rademacher": 0.10897292116413244,
+            "gaussian": 0.1086869688792584,
+            "impulses": 0.10781012495016577
+          },
+          "max_relative_vector_error": 0.11863599380241997,
+          "zero_reference_vectors": 3,
+          "nonzero_outputs_for_zero_reference_vectors": 0,
+          "max_absolute_error_on_zero_reference_vectors": 0.0,
+          "reconstructed_zero_rows": 0,
+          "reconstructed_zero_columns": 280,
+          "total_bytes_with_unchanged_scales": 557568
+        },
+        "hadamard": {
+          "frame_count": 32,
+          "packed_bytes_including_frames": 557440,
+          "packed_sha256": "7d209c5d6eb24b5be4c6e892006fe57b4f15d09b5929c2987e75a6b665d4d7cc",
+          "zero_quantizer_blocks": 0,
+          "all_native_codes_and_numerators_match_oracle": true,
+          "relative_weight_frobenius_error": 0.1155192272988722,
+          "relative_synthetic_output_error": 0.11110667829193184,
+          "profile_output_errors": {
+            "rademacher": 0.11526948289706615,
+            "gaussian": 0.11616768381942606,
+            "impulses": 0.09704823391601795
+          },
+          "max_relative_vector_error": 0.12677785053708987,
+          "zero_reference_vectors": 3,
+          "nonzero_outputs_for_zero_reference_vectors": 3,
+          "max_absolute_error_on_zero_reference_vectors": 0.035497694604335286,
+          "reconstructed_zero_rows": 0,
+          "reconstructed_zero_columns": 0,
+          "total_bytes_with_unchanged_scales": 557568
+        }
+      },
+      "rotation_weight_error_ratio": 1.0608358567935554,
+      "rotation_synthetic_output_error_ratio": 1.0234294274910316
+    },
+    {
+      "layer": 20,
+      "expert": 128,
+      "projection": "up_proj",
+      "tensor": "model.language_model.layers.20.mlp.experts.128.up_proj.weight",
+      "shape": [
+        512,
+        2048
+      ],
+      "dtype": "F8_E4M3",
+      "header_sha256": "052f48ae90649f8849eaa1069994bd0d355aefb2762690f3e9ac97f0fc0c5dc5",
+      "raw_sha256": "2eb5db2c68b4b32e0c3ecd50fc23ffc188c249af6faa95d649e85f983c8dfb35",
+      "scale_sha256": "833922ba739ded0ef99869b70c9de5af06cc3984a0a7abc5ef88ece3580dc1f4",
+      "scale_shape": [
+        4,
+        16
+      ],
+      "diagnostic_vectors_sha256": "8e24948df0aa1cef4f38494923d627e2d969f85ecf563a8ff507d2059003a0af",
+      "raw_bytes_with_scales": 1048704,
+      "original_zero_channels": 0,
+      "lossless_zero_packed_bytes_with_scales": 1048724,
+      "lossless_comparator_is_not_an_equal_bit_approximation": true,
+      "modes": {
+        "identity": {
+          "frame_count": 32,
+          "packed_bytes_including_frames": 557440,
+          "packed_sha256": "6fc994597f27ca439dbcd18e8ca984b938d312577dfcc139ac748fdaa4741254",
+          "zero_quantizer_blocks": 0,
+          "all_native_codes_and_numerators_match_oracle": true,
+          "relative_weight_frobenius_error": 0.1199209658524649,
+          "relative_synthetic_output_error": 0.11944152144419729,
+          "profile_output_errors": {
+            "rademacher": 0.12016173377113379,
+            "gaussian": 0.11927649604956135,
+            "impulses": 0.11833851341123192
+          },
+          "max_relative_vector_error": 0.14384841367479526,
+          "zero_reference_vectors": 0,
+          "nonzero_outputs_for_zero_reference_vectors": 0,
+          "max_absolute_error_on_zero_reference_vectors": 0.0,
+          "reconstructed_zero_rows": 0,
+          "reconstructed_zero_columns": 0,
+          "total_bytes_with_unchanged_scales": 557568
+        },
+        "hadamard": {
+          "frame_count": 32,
+          "packed_bytes_including_frames": 557440,
+          "packed_sha256": "bde902b5d3c7af66297accef7a583d22cf282f72312edfdf655f1a4dada1a29d",
+          "zero_quantizer_blocks": 0,
+          "all_native_codes_and_numerators_match_oracle": true,
+          "relative_weight_frobenius_error": 0.11723490818079263,
+          "relative_synthetic_output_error": 0.11724638930648684,
+          "profile_output_errors": {
+            "rademacher": 0.11733933653018956,
+            "gaussian": 0.1180390730343812,
+            "impulses": 0.11550257813559522
+          },
+          "max_relative_vector_error": 0.13805056428698234,
+          "zero_reference_vectors": 0,
+          "nonzero_outputs_for_zero_reference_vectors": 0,
+          "max_absolute_error_on_zero_reference_vectors": 0.0,
+          "reconstructed_zero_rows": 0,
+          "reconstructed_zero_columns": 0,
+          "total_bytes_with_unchanged_scales": 557568
+        }
+      },
+      "rotation_weight_error_ratio": 0.9776014339729648,
+      "rotation_synthetic_output_error_ratio": 0.9816216997977877
+    },
+    {
+      "layer": 39,
+      "expert": 255,
+      "projection": "down_proj",
+      "tensor": "model.language_model.layers.39.mlp.experts.255.down_proj.weight",
+      "shape": [
+        2048,
+        512
+      ],
+      "dtype": "F8_E4M3",
+      "header_sha256": "5424ffd3a7dac75c3fdbe3348b693f8c95c19e58fcb94c15bb104bd8b3b5ddaf",
+      "raw_sha256": "452a5b320745342feb9f93e0c1b641d63aa892ceee304fe16af9a3c7b261c43b",
+      "scale_sha256": "5d0212b017d91d54f82cb7ad0c796dde1bd03638c5ca285586c847b5db6d0463",
+      "scale_shape": [
+        16,
+        4
+      ],
+      "diagnostic_vectors_sha256": "d60c0bf62b841899fc4edeb694b66eb53245d9802ba99a2cade56713067f1fcd",
+      "raw_bytes_with_scales": 1048704,
+      "original_zero_channels": 0,
+      "lossless_zero_packed_bytes_with_scales": 1048724,
+      "lossless_comparator_is_not_an_equal_bit_approximation": true,
+      "modes": {
+        "identity": {
+          "frame_count": 32,
+          "packed_bytes_including_frames": 557440,
+          "packed_sha256": "685484bfb1a4d1b380c0ddd3b33cd3406fe52e436a522cea61c9737afa5bcf91",
+          "zero_quantizer_blocks": 0,
+          "all_native_codes_and_numerators_match_oracle": true,
+          "relative_weight_frobenius_error": 0.12973330661223115,
+          "relative_synthetic_output_error": 0.13002595284209925,
+          "profile_output_errors": {
+            "rademacher": 0.12750536159774092,
+            "gaussian": 0.13141091915112643,
+            "impulses": 0.1324178495836585
+          },
+          "max_relative_vector_error": 0.1545365318922358,
+          "zero_reference_vectors": 0,
+          "nonzero_outputs_for_zero_reference_vectors": 0,
+          "max_absolute_error_on_zero_reference_vectors": 0.0,
+          "reconstructed_zero_rows": 0,
+          "reconstructed_zero_columns": 0,
+          "total_bytes_with_unchanged_scales": 557568
+        },
+        "hadamard": {
+          "frame_count": 32,
+          "packed_bytes_including_frames": 557440,
+          "packed_sha256": "a625cb523e8362d35cea5d5ae36bbbd2c90c700d9d37c7d0fd794a61d4e4f10f",
+          "zero_quantizer_blocks": 0,
+          "all_native_codes_and_numerators_match_oracle": true,
+          "relative_weight_frobenius_error": 0.11705831097961775,
+          "relative_synthetic_output_error": 0.11758395368408224,
+          "profile_output_errors": {
+            "rademacher": 0.11714682272866726,
+            "gaussian": 0.11793619759211864,
+            "impulses": 0.11778602832129013
+          },
+          "max_relative_vector_error": 0.12759489664264786,
+          "zero_reference_vectors": 0,
+          "nonzero_outputs_for_zero_reference_vectors": 0,
+          "max_absolute_error_on_zero_reference_vectors": 0.0,
+          "reconstructed_zero_rows": 0,
+          "reconstructed_zero_columns": 0,
+          "total_bytes_with_unchanged_scales": 557568
+        }
+      },
+      "rotation_weight_error_ratio": 0.9022996024413487,
+      "rotation_synthetic_output_error_ratio": 0.9043114171743366
+    }
+  ]
+}

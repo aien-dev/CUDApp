@@ -1,0 +1,26 @@
+{
+  "source": "Parsed actual WolframLanguageEvaluator output for checks.wl, recorded in this session",
+  "result": {
+    "HadamardSquared128I": true,
+    "FoldedLinearIdentity": true,
+    "NormalizedQuantizerRatio": true,
+    "MaxFP8Units": 229376,
+    "MaxHadamardUnits": 29360128,
+    "MaxNumerator": 26306674688,
+    "Denominators": [
+      3584,
+      458752
+    ],
+    "FrameCaps": [
+      32780,
+      17420,
+      262160
+    ],
+    "QuantizedBytes": 557568,
+    "QuantizedSavedPercent": 46.8326620286,
+    "LosslessSparseBytes": 547476,
+    "SparseLosslessSavedPercent": 47.7949926767,
+    "HadamardAddsPerBlock": 896,
+    "PayloadBitsPerWeight": 4.25
+  }
+}

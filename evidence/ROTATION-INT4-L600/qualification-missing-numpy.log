@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/home/drakestapleton/workspace/cudapp-rotation-int4/native/rotquant/qualify_rotation.py", line 130, in <module>
+    main()
+  File "/home/drakestapleton/workspace/cudapp-rotation-int4/native/rotquant/qualify_rotation.py", line 118, in main
+    import experiment
+  File "/home/drakestapleton/workspace/cudapp-rotation-int4/native/rotquant/experiment.py", line 9, in <module>
+    import numpy as np
+ModuleNotFoundError: No module named 'numpy'

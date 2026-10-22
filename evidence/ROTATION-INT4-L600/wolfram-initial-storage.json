@@ -1,0 +1,5 @@
+{
+  "raw_sha256": "1a4ae41ff300caee4aba115f352042139d0ad8bf9db7ba9e91c43e189d5b6381",
+  "stored_sha256": "4d43d842c3962175c794e75c02ce205f69fab25399d6133ce7fabfe6150ae739",
+  "note": "Initial symbolic-vector expression did not establish linear identity. Final checks.wl and wolfram-results.json supersede that part; original diagnostic retained losslessly."
+}

@@ -1,0 +1,60 @@
+python3 native/weightpack/qualify.py --invalidate-only --build "build/weightpack" --evidence "build/weightpack/evidence"
+python3 native/weightpack/qualify.py --compiler "/home/drakestapleton/handoffs/quantum-development-L600/toolchain-replay/build/bootstrap/omc" --build "build/weightpack" --evidence "build/weightpack/evidence"
+{
+  "source_sha256": "9b841b643de67b001da4f1e7576e30e46e9b827a39166b7179460d249dce727c",
+  "compiler_sha256": "191b776ef98821597c3e30655da6d680a9b66edbc9ceaca3c39c61ea6df098e9",
+  "binary_sha256": "939fef5d9ee207a9a5e504e599f735f756022010741640040b1a99bef374586f",
+  "suite_total": 464,
+  "suite_passed": 464,
+  "io_controls": [
+    {
+      "case": "closed-read",
+      "rc": 74,
+      "pass": true
+    },
+    {
+      "case": "closed-write",
+      "rc": 74,
+      "pass": true
+    },
+    {
+      "case": "full-output-device",
+      "rc": 74,
+      "pass": true
+    },
+    {
+      "case": "fragmented-input-no-early-output",
+      "rc": 0,
+      "pass": true
+    }
+  ],
+  "mutants": [
+    {
+      "name": "lose-zero-sign",
+      "source_sha256": "aa92a8581c5651547d3a334d08a66198add8572979367dbcfddb2ab628348316",
+      "binary_sha256": "2001e179f40ab0d0c61a577d7e5265b6edc0fc507c6d7866a5204837742319f7",
+      "caught": 85,
+      "total": 464,
+      "change_before": "if negative\nret 1\n",
+      "change_after": "if negative\nret 0\n"
+    },
+    {
+      "name": "wrong-orientation",
+      "source_sha256": "9dfc3f44801fa4773e2fa050a9b8a186a05707ab83d41a30d5ae2ae7e2c9848e",
+      "binary_sha256": "d1e7297ca895bc9d04ea34616a0c4d8204e2a943d174c37786b528c28dfe7898",
+      "caught": 161,
+      "total": 464,
+      "change_before": "if eq get shape 2 0\n",
+      "change_after": "if eq get shape 2 1\n"
+    },
+    {
+      "name": "accept-trailing-sparse",
+      "source_sha256": "fc3ae6874b8518904a3a1eff7a1af2a4c84e74a068ae03e06bb11754f2949061",
+      "binary_sha256": "d85502259071dabd3c5a4c938e402185eddf10ef098c4a75ed6f99c62bfedb8f",
+      "caught": 2,
+      "total": 464,
+      "change_before": "if ne p n\nret 65\nend\n",
+      "change_after": ""
+    }
+  ]
+}

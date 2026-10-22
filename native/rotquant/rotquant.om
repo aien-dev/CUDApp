@@ -1,0 +1,271 @@
+note SPDX-License-Identifier: MIT
+note Offline approximate RQU1/RQP1/RQR1 codec; see CONTRACT.md.
+note All arithmetic and transformation execute in seeded native Omega.
+global inp uchar 32781
+global out uchar 262160
+global vec long 128
+fn load32 p ulong to ulong
+v = ulong 0
+for i ulong 4
+v = add v shl ulong get inp add p i mul i 8
+end
+ret v
+end
+fn store32 p ulong v ulong to void
+for i ulong 4
+put out add p i uchar and shr v mul i 8 255
+end
+end
+fn absolute v long to ulong
+if lt v 0
+ret ulong neg v
+end
+ret ulong v
+end
+fn store64 p ulong v long to void
+negative = lt v 0
+mag = absolute v
+if negative
+mag = sub mag 1
+end
+for i ulong 8
+b = and shr mag mul i 8 255
+if negative
+b = sub 255 b
+end
+put out add p i uchar b
+end
+end
+fn fp8 b ulong to long
+e = and shr b 3 15
+f = and b 7
+m = f
+if ne e 0
+m = shl add 8 f sub e 1
+end
+v = long m
+if ne and b 128 0
+v = neg v
+end
+ret v
+end
+fn loadvec p ulong to bool
+for i ulong 128
+b = ulong get inp add p i
+if eq and b 127 127
+ret false
+end
+put vec i fp8 b
+end
+ret true
+end
+fn butterfly a ulong b ulong to void
+x = get vec a
+y = get vec b
+put vec a add x y
+put vec b sub x y
+end
+fn stage h ulong to void
+stride = mul h 2
+for group ulong div 128 stride
+base = mul group stride
+for j ulong h
+a = add base j
+butterfly a add a h
+end
+end
+end
+fn hadamard to void
+h = ulong 1
+while lt h 128
+stage h
+h = mul h 2
+end
+end
+fn peak to ulong
+m = ulong 0
+for i ulong 128
+v = absolute get vec i
+if gt v m
+m = v
+end
+end
+ret m
+end
+fn codeval v long m ulong to ulong
+if eq m 0
+ret 7
+end
+top = mul absolute v 7
+q = div top m
+twice = mul rem top m 2
+if or gt twice m and eq twice m ne rem q 2 0
+q = add q 1
+end
+if lt v 0
+ret sub 7 q
+end
+ret add 7 q
+end
+fn packpair p ulong i ulong m ulong to void
+j = mul i 2
+lo = codeval get vec j m
+hi = codeval get vec add j 1 m
+b = add lo shl hi 4
+put out add p i uchar b
+end
+fn encodeblock b ulong mode ulong to bool
+start = add 12 mul b 128
+if not loadvec start
+ret false
+end
+if eq mode 1
+hadamard
+end
+m = peak
+p = add 12 mul b 68
+store32 p m
+p = add p 4
+for i ulong 64
+packpair p i m
+end
+ret true
+end
+fn nibble p ulong i ulong to ulong
+b = ulong get inp add p div i 2
+if eq rem i 2 0
+ret and b 15
+end
+ret shr b 4
+end
+fn loadq p ulong m ulong to bool
+saturate = false
+for i ulong 128
+code = nibble p i
+if eq code 15
+ret false
+end
+if and eq m 0 ne code 7
+ret false
+end
+if or eq code 0 eq code 14
+saturate = true
+end
+v = sub long code 7
+put vec i v
+end
+if and ne m 0 not saturate
+ret false
+end
+ret true
+end
+fn writeval p ulong i ulong m ulong to void
+v = mul get vec i long m
+store64 add p mul i 8 v
+end
+fn decodeblock b ulong mode ulong to bool
+p = add 12 mul b 68
+m = load32 p
+limit = ulong 229376
+if eq mode 1
+limit = 29360128
+end
+if gt m limit
+ret false
+end
+if not loadq add p 4 m
+ret false
+end
+if eq mode 1
+hadamard
+end
+p = add 16 mul b 1024
+for i ulong 128
+writeval p i m
+end
+ret true
+end
+fn header middle ulong to void
+for i ulong 12
+put out i get inp i
+end
+put out 2 uchar middle
+end
+fn publish n ulong to int
+p = ulong 0
+for attempt ulong 262161
+if ge p n
+ret 0
+end
+w = write 1 out p sub n p
+if le w 0
+ret 74
+end
+p = add p ulong w
+end
+ret 74
+end
+fn dispatch n ulong to int
+if lt n 12
+ret 65
+end
+if not and eq get inp 0 82 and eq get inp 1 81 eq get inp 3 49
+ret 65
+end
+kind = ulong get inp 2
+if not or eq kind 85 eq kind 80
+ret 65
+end
+blocks = load32 4
+mode = load32 8
+if or eq blocks 0 gt blocks 256
+ret 65
+end
+if gt mode 1
+ret 65
+end
+if eq kind 85
+if ne n add 12 mul blocks 128
+ret 65
+end
+header 80
+for b ulong blocks
+if not encodeblock b mode
+ret 65
+end
+end
+ret publish add 12 mul blocks 68
+end
+if ne n add 12 mul blocks 68
+ret 65
+end
+header 82
+denom = ulong 3584
+if eq mode 1
+denom = 458752
+end
+store32 12 denom
+for b ulong blocks
+if not decodeblock b mode
+ret 65
+end
+end
+ret publish add 16 mul blocks 1024
+end
+fn main to int
+n = ulong 0
+for attempt ulong 32782
+if ge n len inp
+ret 65
+end
+r = read 0 inp n sub len inp n
+if lt r 0
+ret 74
+end
+if eq r 0
+ret dispatch n
+end
+n = add n ulong r
+end
+ret 65
+end
