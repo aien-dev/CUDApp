@@ -1,0 +1,12 @@
+# commit f426e68ca2bf65486f51419578028dba7cf735d3 branch dx/d3-faults, run 2026-10-22T01:36:07Z on spark-b87b
+$ make test-hello-sim
+PASS sim-pass (exit 0)
+PASS sim-checks
+PASS work-line
+PASS hashes-printed
+PASS same-bits-twice
+PASS fault-exit (exit 1)
+PASS fault-report
+PASS fault-address-is-end-of-a
+hello --sim tests: 8 passed, 0 failed
+exit 0
