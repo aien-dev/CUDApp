@@ -13,7 +13,6 @@ Householder calibration matched stored bits 3216192308 and 3192704208 before tho
 
 2026-10-22T11:48Z paper listing check
 source: Marsaglia, Journal of Statistical Software 8(14), 2003, page 5
-archive pdf sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  /dev/null
 C oracle: gcc -O0 -std=c11 of the page-5 listing with uint32_t words, not unsigned long
 C outputs: 246875399 3690007200 1264581005 3906711041 1866187943 2481925219 2464530826 1604040631
 Wolfram evaluation of the same listing: the same eight words
