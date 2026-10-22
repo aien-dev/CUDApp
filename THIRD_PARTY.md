@@ -22,7 +22,7 @@ Some comments in `src/` cite Mesa's open NVIDIA driver as the source of a hardwa
 opcodes and bit positions (`nak/sm70_encode.rs`), instruction latencies (`nak/sm120_instr_latencies.rs`),
 the QMD layout (`nak/qmd.rs`), reconvergence scopes (`nak_nir_lower_cf.c`), the compute dispatch and
 cache-invalidate sequence (`nvk_cmd_dispatch.c`), the shader-heap prefetch note (`nvk_device.c`), and
-class method offsets (`clcec0.h`). The encoder, scheduler and command-list code in CUDA++ is our own;
+class method offsets (`clcec0.h`). The encoder, scheduler and command-list code in CUDA++ is my own;
 the latency values used by `src/omega_gpu_elementwise_api.c` were taken from Mesa's tables. These
 Mesa files are MIT (checked 2026-10-21 at gitlab.freedesktop.org/mesa/mesa, branch main, first lines of
 each file):
@@ -45,4 +45,4 @@ each file):
   by NVIDIA's kernel module from the system's own firmware folder; CUDA++ never ships it.
 - Some host tests print a listing through NVIDIA's `nvdisasm` when it happens to be installed, as a
   cross-check. No listing made by NVIDIA tools is stored in this repository (one such file was kept out
-  of the history at extraction, see `docs/AUDIT.md`). Our own disassembler is on the roadmap (C6).
+  of the history at extraction, see `docs/AUDIT.md`). My own disassembler is on the roadmap (C6).
