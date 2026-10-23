@@ -1,0 +1,702 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note CUL1 public domain adapter. See docs/learn53/CONTRACT.md.
+note Caller owns/pins kt; only ko contains candidate observations. No code execution.
+global kt uchar 4096
+global ko uchar 1032
+fn kw i ulong to ulong
+v = ulong 0
+for j ulong 4
+v = or v shl ulong get kt add mul i 4 j mul j 8
+end
+ret v
+end
+fn kc i ulong to ulong
+v = ulong 0
+for j ulong 4
+v = or v shl ulong get ko add mul i 4 j mul j 8
+end
+ret v
+end
+fn kshape to ulong
+op = kw 2
+m = kw 5
+n = kw 6
+k = kw 7
+if eq op 3
+if eq m 2
+if eq n 3
+if eq k 2
+ret 301
+end
+end
+end
+if eq m 3
+if eq n 2
+if eq k 3
+ret 302
+end
+end
+end
+ret 0
+end
+if ne n 1
+ret 0
+end
+if ne k 1
+ret 0
+end
+base = mul op 100
+if eq m 3
+ret add base 1
+end
+if eq m 8
+ret add base 2
+end
+if eq m 17
+ret add base 3
+end
+ret 0
+end
+fn kextent rows ulong cols ulong stride ulong to ulong
+ret add mul sub rows 1 stride cols
+end
+fn kstrides to int
+op = kw 2
+m = kw 5
+if eq op 3
+if lt kw 8 kw 7
+ret 65
+end
+if lt kw 9 kw 6
+ret 65
+end
+if lt kw 10 kw 6
+ret 65
+end
+if ne kw 11 kextent m kw 7 kw 8
+ret 65
+end
+if ne kw 12 kextent kw 7 kw 6 kw 9
+ret 65
+end
+if ne kw 13 kextent m kw 6 kw 10
+ret 65
+end
+ret 0
+end
+if eq kw 8 0
+ret 65
+end
+if ne kw 11 kextent m 1 kw 8
+ret 65
+end
+if eq op 2
+if ne kw 9 0
+ret 65
+end
+if ne kw 12 0
+ret 65
+end
+if ne kw 10 1
+ret 65
+end
+if ne kw 13 1
+ret 65
+end
+ret 0
+end
+if eq kw 9 0
+ret 65
+end
+if eq kw 10 0
+ret 65
+end
+if ne kw 12 kextent m 1 kw 9
+ret 65
+end
+if ne kw 13 kextent m 1 kw 10
+ret 65
+end
+ret 0
+end
+fn kvalid n ulong to int
+note All variable reads follow size/count validation. Bounds precede arithmetic.
+if lt n 96
+ret 65
+end
+if gt n 4096
+ret 65
+end
+if ne kw 0 827086147
+ret 65
+end
+if ne kw 1 1
+ret 69
+end
+if gt kw 11 256
+ret 65
+end
+if gt kw 12 256
+ret 65
+end
+if eq kw 13 0
+ret 65
+end
+if gt kw 13 256
+ret 65
+end
+if ne n add 96 mul 4 add kw 11 kw 12
+ret 65
+end
+if ne kw 23 0
+ret 65
+end
+if eq kw 16 0
+ret 65
+end
+if ne kw 21 0
+ret 65
+end
+if ne kw 22 0
+ret 65
+end
+if lt kw 2 1
+ret 69
+end
+if gt kw 2 3
+ret 69
+end
+if ne kw 3 1
+ret 69
+end
+if ne kw 4 0
+ret 69
+end
+if ne kw 17 1
+ret 69
+end
+if ne kw 18 0
+ret 69
+end
+if ne kw 19 1
+ret 69
+end
+if ne kw 20 1
+ret 69
+end
+if eq kw 14 0
+ret 65
+end
+if gt kw 14 3
+ret 65
+end
+if ne kw 14 1
+ret 77
+end
+family = kshape
+if eq family 0
+ret 69
+end
+if ne kw 15 family
+ret 65
+end
+for i ulong 3
+if gt kw add i 8 32
+ret 65
+end
+end
+ret kstrides
+end
+fn ksum to ulong
+v = ulong 0
+for i ulong kw 5
+v = and add v kw add 24 mul i kw 8 4294967295
+end
+ret v
+end
+fn kdot row ulong col ulong to ulong
+v = ulong 0
+for i ulong kw 7
+a = kw add 24 add mul row kw 8 i
+b = kw add add 24 kw 11 add mul i kw 9 col
+v = and add v mul a b 4294967295
+end
+ret v
+end
+fn kexpect pos ulong to ulong
+op = kw 2
+if eq op 2
+ret ksum
+end
+stride = kw 10
+row = div pos stride
+col = rem pos stride
+if eq op 3
+if ge col kw 6
+ret 2779096485
+end
+ret kdot row col
+end
+if ne col 0
+ret 2779096485
+end
+a = kw add 24 mul row kw 8
+b = kw add add 24 kw 11 mul row kw 9
+ret and add a b 4294967295
+end
+fn keval n ulong c ulong to int
+status = kvalid n
+if ne status 0
+ret status
+end
+note Candidate result length is not trusted. No caller-supplied PASS or tolerance.
+if ne c mul 4 add kw 13 2
+ret 65
+end
+if ne kc 0 2779096485
+ret 1
+end
+if ne kc add kw 13 1 2779096485
+ret 1
+end
+for i ulong kw 13
+if ne kc add i 1 kexpect i
+ret 1
+end
+end
+ret 0
+end
+note SPDX-License-Identifier: AGPL-3.0-only
+note Eight fixed public development tasks. Not a sealed pool or a process runner.
+fn kput p ulong v ulong to void
+for i ulong 4
+put kt add mul p 4 i uchar and shr v mul i 8 255
+end
+end
+fn kbase id ulong to void
+for i ulong 4096
+put kt i 0
+end
+kput 0 827086147
+kput 1 1
+kput 3 1
+kput 5 3
+kput 6 1
+kput 7 1
+kput 8 2
+kput 9 2
+kput 10 2
+kput 11 5
+kput 12 5
+kput 13 5
+kput 14 1
+kput 16 id
+kput 17 1
+kput 19 1
+kput 20 1
+end
+fn klinear id ulong to void
+if eq id 1
+kput 2 1
+kput 15 101
+kput 24 4294967295
+kput 25 111
+kput 26 7
+kput 27 222
+kput 28 9
+kput 29 1
+kput 30 333
+kput 31 4
+kput 32 444
+kput 33 6
+ret
+end
+if eq id 4
+kput 2 2
+kput 15 201
+kput 9 0
+kput 10 1
+kput 12 0
+kput 13 1
+kput 24 4294967295
+kput 25 111
+kput 26 2
+kput 27 222
+kput 28 3
+ret
+end
+n = ulong 8
+if or eq id 3 eq id 6
+n = 17
+end
+kput 5 n
+kput 8 1
+kput 10 1
+kput 11 n
+if le id 3
+kput 2 1
+kput 9 1
+kput 12 n
+kput 13 n
+kput 15 add 100 id
+a = ulong 7
+b = ulong 9
+if eq id 3
+a = 4294967295
+b = 3
+end
+for i ulong n
+kput add 24 i a
+kput add add 24 n i b
+end
+else
+kput 2 2
+kput 9 0
+kput 12 0
+kput 13 1
+kput 15 add 197 id
+for i ulong n
+kput add 24 i 4294967295
+end
+end
+end
+fn kmatrix id ulong to void
+kput 2 3
+if eq id 7
+kput 5 2
+kput 6 3
+kput 7 2
+kput 8 3
+kput 9 4
+kput 10 4
+kput 11 5
+kput 12 7
+kput 13 7
+kput 15 301
+kput 24 1
+kput 25 2
+kput 26 999
+kput 27 3
+kput 28 4
+kput 29 5
+kput 30 6
+kput 31 7
+kput 32 999
+kput 33 8
+kput 34 9
+kput 35 10
+else
+kput 5 3
+kput 6 2
+kput 7 3
+kput 8 3
+kput 9 2
+kput 10 2
+kput 11 9
+kput 12 6
+kput 13 6
+kput 15 302
+for i ulong 9
+kput add 24 i add i 1
+end
+for i ulong 6
+kput add 33 i add i 1
+end
+end
+end
+fn kload id ulong to ulong
+note Reject before modifying either caller buffer. Valid loads never touch ko.
+if or eq id 0 gt id 8
+ret 0
+end
+kbase id
+if le id 6
+klinear id
+else
+kmatrix id
+end
+ret add 96 mul 4 add kw 11 kw 12
+end
+note SPDX-License-Identifier: AGPL-3.0-only
+note Public fixtures, never sealed evaluation. Expected literals independently checked with Wolfram.
+text okmsg "PASS "
+text badmsg "FAIL "
+global nums uchar 32
+global tally ulong 2
+global saved uchar 4096
+fn digit n ulong to void
+if ge n 10
+digit div n 10
+end
+put nums 0 uchar add 48 rem n 10
+w = write 1 nums 0 1
+end
+fn check yes bool to void
+put tally 0 add get tally 0 1
+if yes
+w = write 1 okmsg 0 len okmsg
+else
+w = write 1 badmsg 0 len badmsg
+put tally 1 add get tally 1 1
+end
+digit get tally 0
+put nums 0 10
+w = write 1 nums 0 1
+end
+fn tw p ulong v ulong to void
+for i ulong 4
+put kt add mul p 4 i uchar and shr v mul i 8 255
+end
+end
+fn cw p ulong v ulong to void
+for i ulong 4
+put ko add mul p 4 i uchar and shr v mul i 8 255
+end
+end
+fn header op ulong to void
+for i ulong 4096
+put kt i 0
+end
+for i ulong 258
+cw i 2779096485
+end
+tw 0 827086147
+tw 1 1
+tw 2 op
+tw 3 1
+tw 5 3
+tw 6 1
+tw 7 1
+tw 8 2
+tw 9 2
+tw 10 2
+tw 11 5
+tw 12 5
+tw 13 5
+tw 14 1
+tw 15 add mul op 100 1
+tw 16 1
+tw 17 1
+tw 19 1
+tw 20 1
+end
+fn vec to void
+header 1
+tw 24 4294967295
+tw 25 111
+tw 26 7
+tw 27 222
+tw 28 9
+tw 29 1
+tw 30 333
+tw 31 4
+tw 32 444
+tw 33 6
+cw 1 0
+cw 3 11
+cw 5 15
+end
+fn red to void
+header 2
+tw 9 0
+tw 10 1
+tw 12 0
+tw 13 1
+tw 24 4294967295
+tw 25 111
+tw 26 2
+tw 27 222
+tw 28 3
+cw 1 4
+end
+fn mat to void
+header 3
+tw 5 2
+tw 6 3
+tw 7 2
+tw 8 3
+tw 9 4
+tw 10 4
+tw 11 5
+tw 12 7
+tw 13 7
+tw 24 1
+tw 25 2
+tw 26 999
+tw 27 3
+tw 28 4
+tw 29 5
+tw 30 6
+tw 31 7
+tw 32 999
+tw 33 8
+tw 34 9
+tw 35 10
+cw 1 21
+cw 2 24
+cw 3 27
+cw 5 47
+cw 6 54
+cw 7 61
+end
+note SPDX-License-Identifier: AGPL-3.0-only
+note Literal output oracle only. No kexpect/keval calls construct expected values.
+fn csize id ulong to ulong
+if eq id 1
+ret 136
+end
+if eq id 2
+ret 160
+end
+if eq id 3
+ret 232
+end
+if eq id 4
+ret 116
+end
+if eq id 5
+ret 128
+end
+if eq id 6
+ret 164
+end
+if eq id 7
+ret 144
+end
+if eq id 8
+ret 156
+end
+ret 0
+end
+fn coutn id ulong to ulong
+if eq id 1
+ret 28
+end
+if eq id 2
+ret 40
+end
+if eq id 3
+ret 76
+end
+if and ge id 4 le id 6
+ret 12
+end
+if eq id 7
+ret 36
+end
+if eq id 8
+ret 32
+end
+ret 0
+end
+fn cvalues id ulong to void
+for i ulong 258
+cw i 2779096485
+end
+if eq id 1
+cw 1 0
+cw 3 11
+cw 5 15
+end
+if eq id 2
+for i ulong 8
+cw add i 1 16
+end
+end
+if eq id 3
+for i ulong 17
+cw add i 1 2
+end
+end
+if eq id 4
+cw 1 4
+end
+if eq id 5
+cw 1 4294967288
+end
+if eq id 6
+cw 1 4294967279
+end
+if eq id 7
+cw 1 21
+cw 2 24
+cw 3 27
+cw 5 47
+cw 6 54
+cw 7 61
+end
+if eq id 8
+cw 1 22
+cw 2 28
+cw 3 49
+cw 4 64
+cw 5 76
+cw 6 100
+end
+end
+note SPDX-License-Identifier: AGPL-3.0-only
+fn ctest to void
+for i ulong 8
+id = add i 1
+cvalues id
+n = kload id
+check eq n csize id
+check eq kvalid n 0
+check eq kw 16 id
+check eq kw 14 1
+check eq kw 4 0
+check eq kw 21 0
+check eq kw 22 0
+check eq keval n coutn id 0
+last = sub div coutn id 4 2
+cw last 4294967294
+check eq keval n coutn id 1
+end
+end
+fn cstable to void
+n = kload 1
+cvalues 1
+for i ulong 4096
+put saved i get kt i
+end
+check eq kload 0 0
+check eq kload 9 0
+check eq kload 18446744073709551615 0
+same = true
+for i ulong 4096
+if ne get saved i get kt i
+same = false
+end
+end
+check same
+check eq keval n 28 0
+note Loading a task must not forge or erase observed candidate output.
+cw 3 12
+check eq kload 1 136
+check eq kc 3 12
+check eq keval 136 28 1
+note Poisoned task policy is reset by compiled catalog, not honored.
+tw 21 1
+tw 22 99
+tw 14 3
+tw 16 99
+tw 28 0
+check eq kload 1 136
+cvalues 1
+check eq keval 136 28 0
+same = true
+for i ulong 4096
+if ne get saved i get kt i
+same = false
+end
+end
+check same
+end
+fn main to int
+ctest
+cstable
+if ne get tally 1 0
+ret 1
+end
+ret 0
+end
