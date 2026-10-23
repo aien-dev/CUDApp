@@ -37,6 +37,10 @@ Use the pinned seeded compiler191b776e on the Spark and require compile0 plus a 
 
 Preserved `index-controls/index-missing-contract.all.om` reproduces the missing-contract RED66. `index-controls/index-no-bit5.all.om` reproduces the lower-half positives/upper-half failures. All first-party executable semantics and assertions are Omega; shell/SSH perform host orchestration and existing utilities inspect outputs. The external Apple compiler supplies reference bytes only.
 
+## Frozen-source replay
+
+A complete source export at `da94831331abd3c66d05541fc53017ce4ed30371` was rebuilt with the pinned compiler. All seven reconstructed executables exactly matched the tested binaries. The full index/pressure/control matrix passed again from the committed capture archives, followed by96 G16-axis and64 non-x G17 refusal regressions. `m5-index-frozen-replay.log` and `.stderr` retain the actual commands' output; the latter includes old-archive xattr warnings and expected native refusal traces. No historical logs were relabelled as this replay.
+
 ## Not closed
 
 This is a bounded synchronous functional model of two compiler-source families, not a general ISA qualification. It does not settle physical memory-register identities, cache/discard flags, constant-program effects, scheduling/interlocks, memory ordering or arbitrary instruction combinations. The independent L742 warning about the G17P-labelled dependency reference remains applicable. The newer source needs its own independent review; the original L742 report is not reused as approval.
