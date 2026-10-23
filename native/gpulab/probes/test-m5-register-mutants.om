@@ -1,0 +1,63 @@
+note SPDX-License-Identifier: MIT
+note Field-directed changes to the independently compiled pressure-one input.
+fn flip p ulong mask uchar to bool
+old = get capture p
+put capture p xor old mask
+accepted = probe
+put capture p old
+if accepted
+ret false
+end
+ret probe
+end
+fn controls to int
+if not probe
+ret 66
+end
+if or ne octet 118 175 ne octet add ulong 118 6 161
+ret 65
+end
+if not flip add ulong 118 9 uchar 1
+ret 1
+end
+if not flip add ulong 118 3 uchar 32
+ret 2
+end
+if not flip add ulong 118 12 uchar 4
+ret 3
+end
+if not flip add ulong 118 7 uchar 8
+ret 4
+end
+if not flip 68 uchar 16
+ret 5
+end
+if not flip add ulong 68 1 uchar 4
+ret 6
+end
+if not flip add ulong 68 3 uchar 2
+ret 7
+end
+if not flip add ulong 92 1 uchar 1
+ret 8
+end
+if not flip sub get captured 0 4 uchar 1
+ret 9
+end
+ret 0
+end
+fn main to int
+n = ulong 0
+for i ulong 4096
+count = read 0 capture n 1
+if lt count 0
+ret 74
+end
+if eq count 0
+put captured 0 n
+ret controls
+end
+n = add n 1
+end
+ret 65
+end

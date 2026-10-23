@@ -1,0 +1,22 @@
+note SPDX-License-Identifier: MIT
+note Run against exact Apple-compiled pressure corpus text sections.
+note A missing decoder must fail this real compiler-output cross-check.
+fn main to int
+n = ulong 0
+for i ulong 4096
+count = read 0 capture n 1
+if lt count 0
+ret 74
+end
+if eq count 0
+put captured 0 n
+if not probe
+logged = write 2 trace 0 2
+ret 66
+end
+ret 0
+end
+n = add n 1
+end
+ret 65
+end

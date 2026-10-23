@@ -1,0 +1,2 @@
+test-m5-registers-red-final: ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, no section header
+compiled_missing_decoder_runtime_rc=66 expected=66

@@ -1,0 +1,327 @@
+note SPDX-License-Identifier: MIT
+note G17 scalar register-field research; not an executable target backend.
+note Only accepts the frozen pressure-source family. Synchronous functional
+note evaluation does NOT qualify hardware dependency, cache or latency rules.
+global capture uchar 4096
+global captured ulong 1
+global trace uchar 2
+global value ulong 128
+global defined uchar 128
+global seen uchar 40
+global stats ulong 4
+note stats: loads, stores, additions, multiply-adds.
+fn octet p ulong to ulong
+ret ulong get capture p
+end
+fn dest p ulong to ulong
+v = or and shr octet p 4 1 and shr octet p 4 8
+v = or v and shr octet add p 7 2 6
+v = or v and shr octet add p 7 1 16
+v = or v and shr octet add p 2 2 32
+ret or v and shl octet add p 2 3 64
+end
+fn sourcea p ulong to ulong
+ret or shr octet add p 8 7 shl and octet add p 9 127 1
+end
+fn sourceb p ulong to ulong
+v = or and shr octet add p 1 1 1 and shr octet add p 3 4 14
+v = or v and shr octet add p 5 3 16
+ret or v shl and octet add p 8 1 5
+end
+fn sourcec p ulong to ulong
+v = or and shr octet add p 12 1 23 and shr octet add p 8 1 8
+ret or v shl and octet add p 10 1 5
+end
+fn datareg p ulong to ulong
+v = or shr octet p 4 and shr octet add p 2 2 48
+ret or v and shl octet add p 5 2 64
+end
+fn inputvalue base ulong index ulong to ulong
+if eq base 0
+ret add 1000 mul index 13
+end
+if eq base 1
+ret add 2000 mul index 17
+end
+ret add 3000 mul index 19
+end
+fn expected gid ulong offset ulong to ulong
+if eq offset 0
+ret and add mul inputvalue 0 gid inputvalue 1 gid inputvalue 2 gid 4294967295
+end
+if le offset 3
+ret inputvalue sub offset 1 gid
+end
+ret inputvalue 0 add gid sub offset 3
+end
+fn memory p ulong gid ulong to ulong
+if ne and octet p 15 15
+ret 0
+end
+if ne and octet add p 2 63 3
+ret 0
+end
+if ne and octet add p 1 3 0
+ret 0
+end
+if ne and octet add p 3 1 0
+ret 0
+end
+base = shr octet add p 1 2
+index = shr octet add p 3 1
+r = datareg p
+if or ge r 128 ge index 128
+ret 0
+end
+if eq get defined index 0
+ret 0
+end
+address = get value index
+if or lt address gid gt address add gid 34
+ret 0
+end
+if not or eq octet add p 6 0 eq octet add p 6 16
+ret 0
+end
+last = octet add p 7
+if not or eq last 64 eq last 192
+ret 0
+end
+if eq octet add p 4 1
+ret storepart p gid r address
+end
+ret loadpart p base r address
+end
+fn storepart p ulong gid ulong r ulong address ulong to ulong
+if ne shr octet add p 1 2 3
+ret 0
+end
+if not or eq and octet add p 5 15 2 eq and octet add p 5 15 6
+ret 0
+end
+if eq get defined r 0
+ret 0
+end
+offset = sub address gid
+if ne get seen offset 0
+ret 0
+end
+if ne get value r expected gid offset
+ret 0
+end
+put seen offset 1
+put stats 1 add get stats 1 1
+if eq octet add p 7 192
+if lt sub get captured 0 p 10
+ret 0
+end
+if or ne octet add p 8 0 ne octet add p 9 32
+ret 0
+end
+ret 10
+end
+ret 8
+end
+fn loadpart p ulong base ulong r ulong address ulong to ulong
+if gt base 2
+ret 0
+end
+if gt octet add p 4 24
+ret 0
+end
+if ne rem octet add p 4 8 0
+ret 0
+end
+if not or or eq octet add p 5 2 eq octet add p 5 18 eq octet add p 5 34
+ret 0
+end
+put value r inputvalue base address
+put defined r 1
+put stats 0 add get stats 0 1
+if eq octet add p 7 192
+if lt sub get captured 0 p 14
+ret 0
+end
+if or ne octet add p 8 65 ne octet add p 9 0
+ret 0
+end
+if ne octet add p 10 128
+ret 0
+end
+for i ulong 3
+if ne octet add add p 11 i 0
+ret 0
+end
+end
+ret 14
+end
+ret 8
+end
+fn arithmetic p ulong to ulong
+if ne and octet p 103 39
+ret 0
+end
+if ne and octet add p 2 119 4
+ret 0
+end
+if ne and octet add p 3 31 26
+ret 0
+end
+if not or eq octet add p 5 0 eq octet add p 5 128
+ret 0
+end
+if ne and octet add p 7 199 2
+ret 0
+end
+if ne octet add p 11 0
+ret 0
+end
+a = sourcea p
+d = dest p
+if or ge a 128 ge d 128
+ret 0
+end
+if eq get defined a 0
+ret 0
+end
+if eq octet add p 6 163
+if not or eq octet add p 4 37 eq octet add p 4 69
+ret 0
+end
+if ne and octet add p 8 127 32
+ret 0
+end
+if not or or eq octet add p 10 1 eq octet add p 10 17 eq octet add p 10 33
+ret 0
+end
+imm = add and octet add p 1 3 mul shr octet add p 3 5 4
+imm = add imm mul shr octet add p 5 7 32
+put value d and add get value a imm 4294967295
+put defined d 1
+put stats 2 add get stats 2 1
+ret 12
+end
+if ne octet add p 6 161
+ret 0
+end
+if lt sub get captured 0 p 14
+ret 0
+end
+if not or eq octet add p 4 33 eq octet add p 4 41
+ret 0
+end
+if ne and octet add p 8 110 8
+ret 0
+end
+if ne and octet add p 10 254 64
+ret 0
+end
+if ne and octet add p 12 209 0
+ret 0
+end
+if ne octet add p 13 0
+ret 0
+end
+b = sourceb p
+c = sourcec p
+if or ge b 128 ge c 128
+ret 0
+end
+if or eq get defined b 0 eq get defined c 0
+ret 0
+end
+put value d and add mul get value a get value b get value c 4294967295
+put defined d 1
+put stats 3 add get stats 3 1
+ret 14
+end
+fn initlane gid ulong to bool
+for i ulong 128
+put value i 0
+put defined i 0
+end
+for i ulong 40
+put seen i 0
+end
+for i ulong 4
+put stats i 0
+end
+if ne and octet 64 15 12
+ret false
+end
+if or or ne octet 65 160 ne octet 66 16 ne octet 67 6
+ret false
+end
+r = shr octet 64 4
+put value r gid
+put defined r 1
+ret true
+end
+fn lane gid ulong to bool
+if not initlane gid
+ret false
+end
+p = ulong 68
+for step ulong 256
+put trace 0 uchar and p 255
+put trace 1 uchar shr p 8
+remain = sub get captured 0 p
+if eq remain 4
+ret finished p
+end
+if lt remain 8
+ret false
+end
+size = ulong 0
+if eq and octet add p 2 63 3
+size = memory p gid
+else
+if ge remain 12
+size = arithmetic p
+end
+end
+if or eq size 0 gt size remain
+ret false
+end
+p = add p size
+end
+ret false
+end
+fn finished p ulong to bool
+if or or or ne octet p 14 ne octet add p 1 0 ne octet add p 2 0 ne octet add p 3 0
+ret false
+end
+if or lt get stats 0 3 gt get stats 0 34
+ret false
+end
+if ne get stats 1 add get stats 0 1
+ret false
+end
+if or ne get stats 2 get stats 0 ne get stats 3 1
+ret false
+end
+for i ulong get stats 1
+if ne get seen i 1
+ret false
+end
+end
+ret true
+end
+fn probe to bool
+if or lt get captured 0 72 gt get captured 0 4096
+ret false
+end
+note Symbol-table acquisition independently establishes main at octet 64.
+for i ulong 26
+if or ne octet add 12 mul i 2 6 ne octet add 13 mul i 2 0
+ret false
+end
+end
+if not lane 0
+ret false
+end
+if not lane 7
+ret false
+end
+ret lane 31
+end

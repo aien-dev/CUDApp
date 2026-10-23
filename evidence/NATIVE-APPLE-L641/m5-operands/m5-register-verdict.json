@@ -1,0 +1,157 @@
+{
+  "verdict": "HOLD_NOT_FULL_CORPUS_PASS",
+  "attempted_cases": 32,
+  "accepted_cases": 30,
+  "refused_cases": [
+    18,
+    25
+  ],
+  "gid_values_per_accepted_case": [
+    0,
+    7,
+    31
+  ],
+  "case_results": [
+    {
+      "case": 0,
+      "runtime_rc": 0
+    },
+    {
+      "case": 1,
+      "runtime_rc": 0
+    },
+    {
+      "case": 2,
+      "runtime_rc": 0
+    },
+    {
+      "case": 3,
+      "runtime_rc": 0
+    },
+    {
+      "case": 4,
+      "runtime_rc": 0
+    },
+    {
+      "case": 5,
+      "runtime_rc": 0
+    },
+    {
+      "case": 6,
+      "runtime_rc": 0
+    },
+    {
+      "case": 7,
+      "runtime_rc": 0
+    },
+    {
+      "case": 8,
+      "runtime_rc": 0
+    },
+    {
+      "case": 9,
+      "runtime_rc": 0
+    },
+    {
+      "case": 10,
+      "runtime_rc": 0
+    },
+    {
+      "case": 11,
+      "runtime_rc": 0
+    },
+    {
+      "case": 12,
+      "runtime_rc": 0
+    },
+    {
+      "case": 13,
+      "runtime_rc": 0
+    },
+    {
+      "case": 14,
+      "runtime_rc": 0
+    },
+    {
+      "case": 15,
+      "runtime_rc": 0
+    },
+    {
+      "case": 16,
+      "runtime_rc": 0
+    },
+    {
+      "case": 17,
+      "runtime_rc": 0
+    },
+    {
+      "case": 18,
+      "runtime_rc": 66
+    },
+    {
+      "case": 19,
+      "runtime_rc": 0
+    },
+    {
+      "case": 20,
+      "runtime_rc": 0
+    },
+    {
+      "case": 21,
+      "runtime_rc": 0
+    },
+    {
+      "case": 22,
+      "runtime_rc": 0
+    },
+    {
+      "case": 23,
+      "runtime_rc": 0
+    },
+    {
+      "case": 24,
+      "runtime_rc": 0
+    },
+    {
+      "case": 25,
+      "runtime_rc": 66
+    },
+    {
+      "case": 26,
+      "runtime_rc": 0
+    },
+    {
+      "case": 27,
+      "runtime_rc": 0
+    },
+    {
+      "case": 28,
+      "runtime_rc": 0
+    },
+    {
+      "case": 29,
+      "runtime_rc": 0
+    },
+    {
+      "case": 30,
+      "runtime_rc": 0
+    },
+    {
+      "case": 31,
+      "runtime_rc": 0
+    }
+  ],
+  "field_mutation_controls": {
+    "count": 9,
+    "runtime_rc": 0,
+    "restored_positive_after_each": true
+  },
+  "cross_g16_runtime_rc": 66,
+  "physical_execution": "NOT_RUN",
+  "production_target105": "STILL_REFUSED",
+  "unknowns": [
+    "Alternate eight-byte entry in pressure18 and25",
+    "Dependency/cache/scheduling semantics not qualified"
+  ],
+  "native_source_sha256": "d4bfcb71aa2f1c48843c58442a6eb0f83a2948165719715a174334c21631413d"
+}

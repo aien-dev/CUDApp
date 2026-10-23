@@ -1,0 +1,8 @@
+note SPDX-License-Identifier: MIT
+note Missing-behavior control for independently compiled G17 pressure probes.
+global capture uchar 4096
+global captured ulong 1
+global trace uchar 2
+fn probe to bool
+ret false
+end
