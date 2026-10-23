@@ -1,0 +1,3 @@
+emitter_rc=0
+stub_rc=0
+valid_cli_red_check_rc=1

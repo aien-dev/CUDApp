@@ -1,0 +1,11 @@
+--- native/learn53/task.om
++++ mutant/task.om
+@@ -242,7 +242,7 @@
+ end
+ a = kw add 24 mul row kw 8
+ b = kw add add 24 kw 11 mul row kw 9
+-ret and add a b 4294967295
++ret 0
+ end
+ fn keval n ulong c ulong to int
+ status = kvalid n
