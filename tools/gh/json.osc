@@ -1,0 +1,439 @@
+// slice-entry: json_valid json_find json_type_at json_num_at
+// JSON for our tools, in Omega. This is the parse half of every wrapped
+// binary we are replacing (gh speaks JSON on every call). One pass, no
+// recursion: the container stack is the caller's cells, 1 = object, 2 =
+// array, st[1..top]. Depth past the stack refuses. Strings honor the
+// escapes the spec allows and refuse every other one. Numbers follow the
+// grammar: -? (0 | [1-9][0-9]*) (. digits+)? ([eE] [+-]? digits+)?.
+// json_find locates a key's value offset and never matches a key inside a
+// string value, because strings are consumed whole. json_num_at reads a
+// plain nonnegative integer and refuses anything with a sign, a fraction
+// or an exponent. Offsets in the run lines are Wolfram-derived.
+// slice-run: json_valid bytes:313233 cells:64 -> 0
+// slice-run: json_valid bytes:7b7d cells:64 -> 0
+// slice-run: json_valid bytes:5b5d cells:64 -> 0
+// slice-run: json_valid bytes:7b2261223a317d cells:64 -> 0
+// slice-run: json_valid bytes:5b312c5b325d5d cells:64 -> 0
+// slice-run: json_valid bytes:7b2261223a7b2262223a747275657d7d cells:64 -> 0
+// slice-run: json_valid bytes:2d302e356532 cells:64 -> 0
+// slice-run: json_valid bytes:5b312c cells:64 -> 18446744073709551615
+// slice-run: json_valid bytes:7b2261227d cells:64 -> 18446744073709551615
+// slice-run: json_valid bytes:7b2261223a312c7d cells:64 -> 18446744073709551615
+// slice-run: json_valid bytes:22756e7465726d cells:64 -> 18446744073709551615
+// slice-run: json_valid bytes:5b30315d cells:64 -> 18446744073709551615
+// slice-run: json_valid bytes:7b2761273a317d cells:64 -> 18446744073709551615
+// slice-run: json_valid bytes:7b2261223a31202262223a327d cells:64 -> 18446744073709551615
+// slice-run: json_valid bytes:747275 cells:64 -> 18446744073709551615
+// slice-run: json_valid bytes:6e756c cells:64 -> 18446744073709551615
+// slice-run: json_valid bytes:5b225c71225d cells:64 -> 18446744073709551615
+// slice-run: json_valid bytes:7b2261223a315d cells:64 -> 18446744073709551615
+// slice-run: json_valid bytes:5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d cells:64 -> 18446744073709551615
+// slice-run: json_find bytes:7b226e616d65223a22636c61756465222c2278223a34327d bytes:78 -> 21
+// slice-run: json_find bytes:5b7b2261223a225c22785c22227d2c2278222c375d bytes:78 -> 18446744073709551615
+// slice-run: json_find bytes:7b226964223a3132332c2273223a227a227d bytes:6964 -> 6
+// slice-run: json_find bytes:7b226e616d65223a22636c61756465222c2278223a34327d bytes:6e6f7065 -> 18446744073709551615
+// slice-run: json_type_at bytes:7b226964223a5b312c325d7d 0 -> 1
+// slice-run: json_type_at bytes:7b226964223a5b312c325d7d 6 -> 2
+// slice-run: json_type_at bytes:7b226e616d65223a22636c61756465222c2278223a34327d 21 -> 4
+// slice-run: json_num_at bytes:7b226e223a34327d 5 -> 42
+// slice-run: json_num_at bytes:7b226964223a3132332c2273223a227a227d 6 -> 123
+// slice-run: json_num_at bytes:2d3132 0 -> 18446744073709551615
+
+fn is_ws(c: u64) -> u64 {
+    if c == 32 || c == 9 || c == 10 || c == 13 {
+        return 1;
+    }
+    return 0;
+}
+
+fn is_hex(c: u64) -> u64 {
+    if c >= 48 && c <= 57 {
+        return 1;
+    }
+    if c >= 97 && c <= 102 {
+        return 1;
+    }
+    if c >= 65 && c <= 70 {
+        return 1;
+    }
+    return 0;
+}
+
+fn str_end(b: bytes, i: u64) -> u64 {
+    let mut j: u64 = i + 1;
+    while j < b.len bound 4096 {
+        let c: u64 = b[j];
+        if c == 92 {
+            j = j + 1;
+            if j >= b.len {
+                return 18446744073709551615;
+            }
+            let e: u64 = b[j];
+            if e == 117 {
+                if j + 4 >= b.len {
+                    return 18446744073709551615;
+                }
+                if is_hex(b[j + 1]) == 0 || is_hex(b[j + 2]) == 0 || is_hex(b[j + 3]) == 0 || is_hex(b[j + 4]) == 0 {
+                    return 18446744073709551615;
+                }
+                j = j + 5;
+            } else {
+                if e != 34 && e != 92 && e != 47 && e != 98 && e != 102 && e != 110 && e != 114 && e != 116 {
+                    return 18446744073709551615;
+                }
+                j = j + 1;
+            }
+        } else {
+            if c == 34 {
+                return j + 1;
+            }
+            j = j + 1;
+        }
+    }
+    return 18446744073709551615;
+}
+
+fn num_end(b: bytes, i: u64) -> u64 {
+    let mut j: u64 = i;
+    if j < b.len && b[j] == 45 {
+        j = j + 1;
+    }
+    if j >= b.len {
+        return 18446744073709551615;
+    }
+    if b[j] == 48 {
+        j = j + 1;
+    } else {
+        if b[j] < 49 || b[j] > 57 {
+            return 18446744073709551615;
+        }
+        while j < b.len && b[j] >= 48 && b[j] <= 57 bound 4096 {
+            j = j + 1;
+        }
+    }
+    if j < b.len && b[j] == 46 {
+        j = j + 1;
+        if j >= b.len || b[j] < 48 || b[j] > 57 {
+            return 18446744073709551615;
+        }
+        while j < b.len && b[j] >= 48 && b[j] <= 57 bound 4096 {
+            j = j + 1;
+        }
+    }
+    if j < b.len && (b[j] == 101 || b[j] == 69) {
+        j = j + 1;
+        if j < b.len && (b[j] == 43 || b[j] == 45) {
+            j = j + 1;
+        }
+        if j >= b.len || b[j] < 48 || b[j] > 57 {
+            return 18446744073709551615;
+        }
+        while j < b.len && b[j] >= 48 && b[j] <= 57 bound 4096 {
+            j = j + 1;
+        }
+    }
+    return j;
+}
+
+fn json_valid(b: bytes, st: cells) -> u64 {
+    if st.len < 64 {
+        return 18446744073709551615;
+    }
+    let mut i: u64 = 0;
+    let mut top: u64 = 0;
+    let mut want: u64 = 1;
+    let mut bad: u64 = 0;
+    // one char per iteration: exactly one group handles it, in want order
+    while i < b.len && bad == 0 bound 4096 {
+        let c: u64 = b[i];
+        let mut handled: u64 = 0;
+        if is_ws(c) == 1 {
+            i = i + 1;
+            handled = 1;
+        }
+        if handled == 0 && want == 6 {
+            bad = 1;
+            handled = 1;
+        }
+        if handled == 0 && want == 4 {
+            if c == 58 {
+                st[top] = 3;
+                want = 1;
+                i = i + 1;
+            } else {
+                bad = 1;
+            }
+            handled = 1;
+        }
+        if handled == 0 && want == 5 {
+            if c == 125 {
+                if top > 0 && st[top] == 1 {
+                    top = top - 1;
+                    if top == 0 {
+                        want = 6;
+                    } else {
+                        if st[top] == 2 {
+                            want = 2;
+                        } else {
+                            want = 3;
+                        }
+                    }
+                    i = i + 1;
+                } else {
+                    bad = 1;
+                }
+            } else {
+                if c == 34 {
+                    let ke: u64 = str_end(b, i);
+                    if ke == 18446744073709551615 {
+                        bad = 1;
+                    }
+                    i = ke;
+                    want = 4;
+                } else {
+                    bad = 1;
+                }
+            }
+            handled = 1;
+        }
+        if handled == 0 && want == 2 {
+            if c == 93 {
+                top = top - 1;
+                if top == 0 {
+                    want = 6;
+                } else {
+                    if st[top] == 2 {
+                        want = 2;
+                    } else {
+                        want = 3;
+                    }
+                }
+                i = i + 1;
+            } else {
+                if c == 44 {
+                    want = 1;
+                    i = i + 1;
+                } else {
+                    bad = 1;
+                }
+            }
+            handled = 1;
+        }
+        if handled == 0 && want == 3 {
+            if c == 125 {
+                top = top - 1;
+                if top == 0 {
+                    want = 6;
+                } else {
+                    if st[top] == 2 {
+                        want = 2;
+                    } else {
+                        want = 3;
+                    }
+                }
+                i = i + 1;
+            } else {
+                bad = 1;
+            }
+            handled = 1;
+        }
+        if handled == 0 && want == 1 {
+            if c == 93 {
+                if top > 0 && st[top] == 2 {
+                    top = top - 1;
+                    if top == 0 {
+                        want = 6;
+                    } else {
+                        if st[top] == 2 {
+                            want = 2;
+                        } else {
+                            want = 3;
+                        }
+                    }
+                    i = i + 1;
+                    handled = 1;
+                } else {
+                    bad = 1;
+                    handled = 1;
+                }
+            }
+            if c == 123 {
+                if top + 1 >= st.len {
+                    bad = 1;
+                }
+                top = top + 1;
+                st[top] = 1;
+                want = 5;
+                i = i + 1;
+                handled = 1;
+            }
+            if c == 91 {
+                if top + 1 >= st.len {
+                    bad = 1;
+                }
+                top = top + 1;
+                st[top] = 2;
+                want = 1;
+                i = i + 1;
+                handled = 1;
+            }
+            if c == 34 {
+                let se: u64 = str_end(b, i);
+                if se == 18446744073709551615 {
+                    bad = 1;
+                }
+                i = se;
+                handled = 2;
+            }
+            if c == 116 {
+                if i + 3 >= b.len || b[i + 1] != 114 || b[i + 2] != 117 || b[i + 3] != 101 {
+                    bad = 1;
+                }
+                i = i + 4;
+                handled = 2;
+            }
+            if c == 102 {
+                if i + 4 >= b.len || b[i + 1] != 97 || b[i + 2] != 108 || b[i + 3] != 115 || b[i + 4] != 101 {
+                    bad = 1;
+                }
+                i = i + 5;
+                handled = 2;
+            }
+            if c == 110 {
+                if i + 3 >= b.len || b[i + 1] != 117 || b[i + 2] != 108 || b[i + 3] != 108 {
+                    bad = 1;
+                }
+                i = i + 4;
+                handled = 2;
+            }
+            if c == 45 || (c >= 48 && c <= 57) {
+                let ne: u64 = num_end(b, i);
+                if ne == 18446744073709551615 {
+                    bad = 1;
+                }
+                i = ne;
+                handled = 2;
+            }
+            if handled == 0 {
+                bad = 1;
+                handled = 1;
+            }
+        }
+        // value end: the top container decides what may follow
+        if handled == 2 && bad == 0 && c != 32 && c != 9 && c != 10 && c != 13 {
+            if top == 0 {
+                want = 6;
+            } else {
+                if st[top] == 2 {
+                    want = 2;
+                } else {
+                    want = 3;
+                }
+            }
+        }
+    }
+    if bad == 0 && want == 6 && top == 0 {
+        return 0;
+    }
+    return 18446744073709551615;
+}
+
+
+
+fn json_find(b: bytes, key: bytes) -> u64 {
+    let mut i: u64 = 0;
+    while i < b.len bound 4096 {
+        let c: u64 = b[i];
+        if c == 34 {
+            let e: u64 = str_end(b, i);
+            if e == 18446744073709551615 {
+                return 18446744073709551615;
+            }
+            if e - i - 2 == key.len {
+                let mut k: u64 = 0;
+                let mut eq: u64 = 1;
+                while k < key.len bound 4096 {
+                    if b[i + 1 + k] != key[k] {
+                        eq = 0;
+                    }
+                    k = k + 1;
+                }
+                if eq == 1 {
+                    let mut j: u64 = e;
+                    while j < b.len && is_ws(b[j]) == 1 bound 4096 {
+                        j = j + 1;
+                    }
+                    if j < b.len && b[j] == 58 {
+                        j = j + 1;
+                        while j < b.len && is_ws(b[j]) == 1 bound 4096 {
+                            j = j + 1;
+                        }
+                        if j >= b.len {
+                            return 18446744073709551615;
+                        }
+                        return j;
+                    }
+                }
+            }
+            i = e;
+        } else {
+            i = i + 1;
+        }
+    }
+    return 18446744073709551615;
+}
+
+fn json_type_at(b: bytes, off: u64) -> u64 {
+    if off >= b.len {
+        return 18446744073709551615;
+    }
+    let c: u64 = b[off];
+    if c == 123 {
+        return 1;
+    }
+    if c == 91 {
+        return 2;
+    }
+    if c == 34 {
+        return 3;
+    }
+    if c == 45 || (c >= 48 && c <= 57) {
+        return 4;
+    }
+    if c == 116 {
+        return 5;
+    }
+    if c == 102 {
+        return 6;
+    }
+    if c == 110 {
+        return 7;
+    }
+    return 18446744073709551615;
+}
+
+fn json_num_at(b: bytes, off: u64) -> u64 {
+    if off >= b.len {
+        return 18446744073709551615;
+    }
+    let mut j: u64 = off;
+    let mut v: u64 = 0;
+    if b[j] == 45 || b[j] == 46 || b[j] == 101 || b[j] == 69 {
+        return 18446744073709551615;
+    }
+    if b[j] < 48 || b[j] > 57 {
+        return 18446744073709551615;
+    }
+    while j < b.len && b[j] >= 48 && b[j] <= 57 bound 4096 {
+        let d: u64 = b[j] - 48;
+        if v > (18446744073709551615 - d) / 10 {
+            return 18446744073709551615;
+        }
+        v = v * 10 + d;
+        j = j + 1;
+    }
+    if j < b.len && (b[j] == 46 || b[j] == 101 || b[j] == 69) {
+        return 18446744073709551615;
+    }
+    return v;
+}
