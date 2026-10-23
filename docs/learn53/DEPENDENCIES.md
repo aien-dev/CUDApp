@@ -1,6 +1,6 @@
 # CUDA-LEARN dependency and evidence reconciliation
 
-Inspection baseline: CUDApp public main `80f3a2492eef315106feebfdffcb32de39be7d95`.
+Historical inspection baseline: CUDApp public main `80f3a2492eef315106feebfdffcb32de39be7d95`.
 All #52-60 issue bodies/comments, #15/#16/#17/#19/#22/#26/#35 addenda, and linked Omega/trainer/RSI requirements were fetched before editing. Only existing open CUDApp PR was #28 (LocalRouter); it does not implement these tasks. No active CUDA-LEARN implementation owner was displaced. Parent ledger L777; independent review L778. Canonical backend, compiler, runtime, source owners and Merge Desk remain unchanged.
 
 ## Preserved implementation and evidence
@@ -30,7 +30,7 @@ These refs and receipts are left immutable. No cherry-pick of the legacy runners
 | #59 | NOT_RUN parameter training; current public fixtures are development-only, not a trained corpus | #53/#54 validated task/action/feedback interface, native gradients/update/checkpoint/resume under Omega606 and existing trainer L491, then aien-train3/4. No inference-budget gain mislabelled training |
 | #60 | NOT_RUN | qualified native rollout/update path and objective snapshot semantics from Omega606/aien-train3/4, #16/#17/#35; must compare exact logits/probabilities/KV and wrong-snapshot controls. No probability cache or optimizer consumer changed |
 
-Omega #653's existing L775/L776 work is stopped at an account cap. Its coordination record explicitly says TICK-OFF is set and continuation is queued/unacknowledged. This chat did not restart them or invent a replacement framework. A dependency request was appended to the existing L775 inbox naming the public domain adapter and requesting its qualified immutable interface. Missing process/deadline/isolation/build-host primitives remain with Omega #635/#636/L408/L605. Native library tests proceed independently; authenticated custody and whole-workload qualification do not.
+At the initial inspection Omega #653's existing L775/L776 work was stopped at an account cap (superseded by the continuation below). Its coordination record explicitly says TICK-OFF is set and continuation is queued/unacknowledged. This chat did not restart them or invent a replacement framework. A dependency request was appended to the existing L775 inbox naming the public domain adapter and requesting its qualified immutable interface. Missing process/deadline/isolation/build-host primitives remain with Omega #635/#636/L408/L605. Native library tests proceed independently; authenticated custody and whole-workload qualification do not.
 
 ## Identity and cost limits
 
@@ -39,3 +39,22 @@ This slice is not using a model/tokenizer, policy checkpoint, generated GPU bina
 No candidates generated, no optimization/training arms, no model inference or GPU time requested. Full lifecycle baseline, uncertainty, performance, energy, and caller CPU/GPU/time/token budget enforcement are NOT_RUN. Output/input byte capacities and executed check counts are measured/verified separately. Existing host suite timing printouts are diagnostics, not performance evidence.
 
 No superseded production code/dependency was removed because none has yet been qualified and cut over by this additive domain slice. Legacy C/.osc/build/runner presence remains unfinished work under its existing owners, never the accepted final state. Removing it now would discard un-replaced consumers. A future integration must qualify and delete those active paths while preserving history.
+
+## Continuation: canonical component became available
+
+Source94ada80cd8acf2c31441ab1dcee98f896ce884c4 adds the frozen public catalog and
+an actual native composition with Omega653 core84d03c5523f39ca1045d1c313c5f62597779462b.
+L775/L776 were resumed by their authorized owner, not this chat. Published
+upstream headdd28ebc0a84abc4dab3a38bde49aeae98c846c78 carries the bounded185-check
+component and public observation evidence. This supersedes the old stopped-owner
+status, not the remaining process/custody/full-cost gates. The continuation uses
+that exact core by external source lock, without copying it into active product
+source or changing its owner. Catalog83 and adapter160 assertions pass; detailed
+limits and receipts are in CATALOG.md and LEARN53-L777-CONTINUATION.
+
+Canonical admission/accounting is now exercised through the domain adapter,
+including complete membership, failed outcomes, identity mismatch and cost
+rejection. Metadata/cost test fixtures are explicitly synthetic. Actual native
+candidate supervision, independent source/structure/lineage metadata, protected
+splits, real cost collection, hot operators, GB10 and integrated consumers remain
+unqualified. No validated training records or complete baseline costs are claimed.
