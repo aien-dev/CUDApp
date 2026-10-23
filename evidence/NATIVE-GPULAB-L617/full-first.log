@@ -1,0 +1,2 @@
+omc: line 530: error 13
+make: *** [native/gpulab/Makefile:26: build/native-gpulab/test-amd-oracle] Error 13

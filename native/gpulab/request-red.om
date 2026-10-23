@@ -1,0 +1,10 @@
+note Compilable target-dispatch refusal baseline.
+global request uchar 9
+fn parse_request n ulong to bool
+resetcode
+ret false
+end
+fn build_request target ulong depth ulong to bool
+resetcode
+ret false
+end

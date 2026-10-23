@@ -1,0 +1,34 @@
+note Native negative control: preserve byte count, flip the first instruction bit.
+global bytes uchar 4097
+fn main to int
+n = ulong 0
+for attempt ulong 4098
+if ge n len bytes
+ret 65
+end
+r = read 0 bytes n sub len bytes n
+if lt r 0
+ret 74
+end
+if eq r 0
+if eq n 0
+ret 65
+end
+put bytes 0 xor get bytes 0 uchar 1
+p = ulong 0
+for writeone ulong 4097
+if eq p n
+ret 0
+end
+w = write 1 bytes p sub n p
+if le w 0
+ret 74
+end
+p = add p ulong w
+end
+ret 74
+end
+n = add n ulong r
+end
+ret 65
+end

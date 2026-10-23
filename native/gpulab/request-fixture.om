@@ -1,0 +1,45 @@
+note Native transport fixture. Input one ASCII selector; output request bytes.
+note 1 AMD, 2 Apple, 3 bad target, 4 depth0, 5 depth65, 6 short, 7 trailing, 8 high bits.
+global frame uchar 9
+global selector uchar 1
+fn main to int
+rc = read 0 selector 0 1
+if ne rc 1
+ret 64
+end
+s = ulong get selector 0
+if or lt s 49 gt s 56
+ret 64
+end
+put frame 0 1
+put frame 4 4
+n = ulong 8
+if eq s 50
+put frame 0 2
+end
+if eq s 51
+put frame 0 3
+end
+if eq s 52
+put frame 4 0
+end
+if eq s 53
+put frame 4 65
+end
+if eq s 54
+n = ulong 7
+end
+if eq s 55
+n = ulong 9
+end
+if eq s 56
+put frame 3 1
+end
+for i ulong n
+rc = write 1 frame i 1
+if ne rc 1
+ret 74
+end
+end
+ret 0
+end

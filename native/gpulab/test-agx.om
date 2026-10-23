@@ -1,0 +1,166 @@
+note Apple gate: native Omega fixtures, scalar oracle and negative controls.
+global checks ulong 2
+global logbuf uchar 32
+fn number v ulong to void
+n = ulong 0
+again = true
+while again
+put logbuf n uchar add rem v 10 48
+v = div v 10
+n = add n 1
+again = ne v 0
+end
+for i ulong n
+w = write 1 logbuf sub sub n i 1 1
+end
+put logbuf 0 10
+w = write 1 logbuf 0 1
+end
+fn check pass bool id ulong to void
+put checks 0 add get checks 0 1
+if not pass
+put checks 1 add get checks 1 1
+number id
+end
+end
+fn sxbyte v ulong to ulong
+v = rem v 256
+if ge v 128
+ret lowword sub v 256
+end
+ret v
+end
+fn fillcase rows ulong depth ulong seed ulong to void
+for i ulong len mem
+put mem i 3735928559
+end
+for r ulong rows
+for k ulong depth
+put mem add mul r depth k sxbyte add add mul r 71 mul k 29 seed
+end
+end
+for k ulong depth
+put mem add 2048 k sxbyte add mul k 43 mul seed 13
+end
+end
+fn oracle r ulong depth ulong to ulong
+sum = ulong 0
+for k ulong depth
+w = get mem add mul r depth k
+x = get mem add 2048 k
+sum = lowword add sum mul w x
+end
+ret sum
+end
+fn verify rows ulong depth ulong to bool
+for r ulong rows
+if ne get mem add 3072 r oracle r depth
+ret false
+end
+end
+for r ulong sub 32 rows
+if ne get mem add 3072 add rows r 3735928559
+ret false
+end
+end
+ret true
+end
+fn untouched to bool
+for r ulong 32
+if ne get mem add 3072 r 3735928559
+ret false
+end
+end
+ret true
+end
+fn goldens to void
+note Literal bytes captured from Apple-produced corpus, not our encoder.
+resetcode
+agx_imm 1 0
+check eq word 0 6 1378 501
+resetcode
+agx_alu 14 42 1 588
+check eq word 0 8 157840119054 502
+resetcode
+agx_alu 30 19 708 11
+check eq word 0 8 2999191966 503
+resetcode
+agx_mem false 1 0 1
+check eq word 0 8 5277656050305285 504
+resetcode
+agx_mem true 1 4 0
+check eq word 0 8 5277656048470341 505
+end
+fn positive rows ulong depth ulong to void
+fillcase rows depth add rows depth
+check agx_generate depth 510
+check eq get used 0 add 18 mul depth 50 511
+check eq agx_run rows depth 0 512
+check verify rows depth 513
+end
+fn negative mode ulong to void
+fillcase 3 4 7
+if not agx_generate 4
+check false 519
+ret
+end
+if eq mode 0
+put code 0 255
+end
+if eq mode 1
+put used 0 sub get used 0 1
+end
+if eq mode 2
+note wait a -> wait b, must not complete group-a loads.
+put code 23 1
+end
+if eq mode 3
+note Clear the uniform-base flag: this register-base form is unsupported.
+put code 9 6
+end
+if eq mode 4
+note Change source r8 to r10 in first multiply, legal but wrong arithmetic.
+put code 26 84
+end
+if eq mode 5
+note Stop before pending final store completes.
+p = sub get used 0 4
+put code p 136
+end
+if eq mode 6
+note Corrupt reserved high instruction bit.
+put code 31 128
+end
+rc = agx_run 3 4
+if eq mode 4
+check or ne rc 0 not verify 3 4 524
+else
+check ne rc 0 add 520 mode
+check untouched add 540 mode
+end
+end
+fn main to int
+goldens
+for depth ulong 64
+for rows ulong 32
+positive add rows 1 add depth 1
+end
+end
+for mode ulong 7
+negative mode
+end
+check not agx_generate 0 560
+check eq get used 0 0 561
+check not agx_generate 65 562
+check eq get used 0 0 563
+check ne agx_run 0 1 0 564
+check ne agx_run 33 1 0 565
+check ne agx_run 1 0 0 566
+check ne agx_run 1 65 0 567
+number get checks 0
+number get checks 1
+if ne get checks 1 0
+ret 1
+end
+ret 0
+end

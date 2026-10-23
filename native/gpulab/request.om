@@ -1,0 +1,41 @@
+note SPDX-License-Identifier: MIT
+note GPULAB request: two little-endian u32 words, target then depth; EOF required.
+fn build_request target ulong depth ulong to bool
+resetcode
+if eq target 1
+ret amd_generate depth
+end
+if eq target 2
+ret agx_generate depth
+end
+ret false
+end
+global request uchar 9
+fn request_word p ulong to ulong
+v = ulong 0
+for i ulong 4
+v = or v shl ulong get request add p i mul i 8
+end
+ret v
+end
+fn parse_request n ulong to bool
+resetcode
+if ne n 8
+ret false
+end
+ret build_request request_word 0 request_word 4
+end
+fn write_code to int
+p = ulong 0
+for attempt ulong 4096
+if eq p get used 0
+ret 0
+end
+n = write 1 code p sub get used 0 p
+if le n 0
+ret 74
+end
+p = add p ulong n
+end
+ret 74
+end

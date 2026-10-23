@@ -1,0 +1,35 @@
+note Native comparator: full 64-column shader versus independently assembled AMD bytes.
+global oraclein uchar 4097
+text good "LLVM FULL-SHADER BYTES PASS\n"
+fn main to int
+if not amd_generate 64
+ret 1
+end
+n = ulong 0
+for attempt ulong 4097
+if ge n len oraclein
+ret 65
+end
+rc = read 0 oraclein n sub len oraclein n
+if lt rc 0
+ret 74
+end
+if eq rc 0
+if ne n get used 0
+ret 2
+end
+for i ulong n
+if ne get code i get oraclein i
+ret 3
+end
+end
+w = write 1 good 0 len good
+if ne w long len good
+ret 74
+end
+ret 0
+end
+n = add n ulong rc
+end
+ret 65
+end

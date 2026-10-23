@@ -1,0 +1,65 @@
+note Native protocol boundary gate. Does not spawn another language or runtime.
+text passmsg "REQUEST PASS\n"
+fn checkrequest to int
+for target ulong 2
+for depth ulong 64
+for i ulong 9
+put request i 0
+end
+put request 0 uchar add target 1
+put request 4 uchar add depth 1
+if not parse_request 8
+ret 1
+end
+end
+end
+for n ulong 8
+if parse_request n
+ret 2
+end
+if ne get used 0 0
+ret 3
+end
+end
+if parse_request 9
+ret 4
+end
+put request 0 3
+if parse_request 8
+ret 5
+end
+put request 0 1
+put request 7 1
+if parse_request 8
+ret 6
+end
+put request 7 0
+put request 3 1
+if parse_request 8
+ret 7
+end
+put request 3 0
+put request 4 0
+if parse_request 8
+ret 8
+end
+put request 4 65
+if parse_request 8
+ret 9
+end
+if ne get used 0 0
+ret 10
+end
+ret 0
+end
+fn main to int
+rc = checkrequest
+if ne rc 0
+ret rc
+end
+n = write 1 passmsg 0 len passmsg
+if ne n long len passmsg
+ret 74
+end
+ret 0
+end

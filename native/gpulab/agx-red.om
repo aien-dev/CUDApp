@@ -1,0 +1,17 @@
+note Compilable Apple refusal baseline, not product.
+fn agx_imm dst ulong value ulong to void
+ret
+end
+fn agx_alu op ulong dst ulong srca ulong srcb ulong to void
+ret
+end
+fn agx_mem store bool r ulong base ulong index ulong to void
+ret
+end
+fn agx_generate depth ulong to bool
+resetcode
+ret false
+end
+fn agx_run rows ulong depth ulong to int
+ret 77
+end

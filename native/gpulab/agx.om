@@ -1,0 +1,183 @@
+note SPDX-License-Identifier: MIT
+note Handwritten G13/G14 AGX subset. Register numbers here are 32-bit words.
+note Field layout reference: Mesa AGX2.xml, MIT Valve, pin in README.
+fn agx_imm dst ulong value ulong to void
+v = or 354 shl dst 10
+emit or v shl value 16 6
+end
+fn agx_alu op ulong dst ulong srca ulong srcb ulong to void
+v = or op shl dst 7
+v = or v shl srca 16
+emit or v shl srcb 28 8
+end
+fn agx_rr op ulong dst ulong srca ulong srcb ulong to void
+agx_alu op add 2 mul dst 8 add 576 mul srca 2 add 576 mul srcb 2
+end
+fn agx_inc r ulong to void
+agx_alu 14 add 2 mul r 8 1 add 576 mul r 2
+end
+fn agx_mem store bool r ulong base ulong index ulong to void
+v = ulong 5277656048206085
+if store
+v = ulong 5277656048206149
+end
+v = or v shl r 11
+v = or v shl base 16
+v = or v shl and index 7 21
+v = or v shl shr index 3 32
+emit v 8
+end
+fn agx_generate depth ulong to bool
+resetcode
+if or lt depth 1 gt depth 64
+ret false
+end
+agx_imm 6 0
+for k ulong depth
+agx_mem false 8 0 0
+agx_mem false 9 4 1
+emit 56 2
+agx_rr 30 7 8 9
+agx_rr 14 6 6 7
+agx_inc 0
+agx_inc 1
+end
+agx_mem true 6 8 2
+emit 56 2
+emit 136 2
+ret true
+end
+fn agx_operand raw ulong to ulong
+if le raw 63
+ret raw
+end
+if or lt raw 576 gt raw 638
+put state 4 1
+ret 0
+end
+if ne rem raw 2 0
+put state 4 1
+ret 0
+end
+ret rv div sub raw 576 2
+end
+fn agx_arithmetic a ulong to ulong
+op = and a 127
+if not or eq op 14 eq op 30
+ret 0
+end
+fixed = and a not ulong 549621562368
+if ne fixed add op 256
+ret 0
+end
+dst = and shr a 10 31
+x = agx_operand and shr a 16 2047
+y = agx_operand and shr a 28 2047
+if eq op 14
+wr dst add x y
+else
+wr dst mul x y
+end
+ret 8
+end
+fn agx_memory a ulong to ulong
+fixed = and a not ulong 12900628480
+store = eq fixed 5277656048206149
+if not or store eq fixed 5277656048206085
+ret 0
+end
+base = and shr a 16 15
+address = ulong 0
+if eq base 4
+address = ulong 8192
+else
+if eq base 8
+address = ulong 12288
+else
+if ne base 0
+ret 0
+end
+end
+end
+index = or and shr a 21 7 shl and shr a 32 3 3
+address = add address mul rv index 4
+r = and shr a 11 31
+if store
+storemem address rv r
+else
+loadmem r address
+end
+ret 8
+end
+fn agx_step pc ulong to ulong
+if gt add pc 2 get used 0
+ret 0
+end
+small = word pc 2
+if eq small 56
+waitloads
+ret 2
+end
+if eq small 312
+note Group b wait does not complete group a loads or stores.
+ret 2
+end
+if gt add pc 6 get used 0
+ret 0
+end
+a = word pc 6
+if eq and a not ulong 281474976676864 354
+wr and shr a 10 31 and shr a 16 4294967295
+ret 6
+end
+if gt add pc 8 get used 0
+ret 0
+end
+a = word pc 8
+n = agx_arithmetic a
+if ne n 0
+ret n
+end
+ret agx_memory a
+end
+fn agx_lane lane ulong to bool
+laneinit lane
+put reg 0 mul lane get state 1
+put reg 1 0
+put reg 2 lane
+pc = ulong 0
+for step ulong 1024
+if gt add pc 2 get used 0
+ret false
+end
+if eq word pc 2 136
+if ne add pc 2 get used 0
+ret false
+end
+ret complete
+end
+n = agx_step pc
+if or eq n 0 ne get state 4 0
+ret false
+end
+pc = add pc n
+end
+ret false
+end
+fn agx_run rows ulong depth ulong to int
+if not dimensions rows depth
+ret 65
+end
+if or eq get used 0 0 gt get used 0 len code
+ret 65
+end
+put state 0 rows
+put state 1 depth
+for lane ulong rows
+if not agx_lane lane
+ret 66
+end
+end
+publishresults
+ret 0
+end

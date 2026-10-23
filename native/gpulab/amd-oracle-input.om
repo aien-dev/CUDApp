@@ -1,0 +1,60 @@
+note Native fixture writer for the independent LLVM instruction oracle.
+text prefix "v_mov_b32 v6, 0\n"
+text loadw "global_load_dword v8, v[0:1], off offset:"
+text loadx "global_load_dword v9, v[2:3], off offset:"
+text mathtext "s_waitcnt vmcnt(0)\nv_mul_lo_u32 v7, v8, v9\nv_add_u32 v6, v6, v7\n"
+text suffix "global_store_dword v[4:5], v6, off\ns_waitcnt vmcnt(0)\ns_endpgm\n"
+text newline "\n"
+global dec uchar 16
+fn number v ulong to int
+n = ulong 0
+again = true
+while again
+put dec n uchar add rem v 10 48
+v = div v 10
+n = add n 1
+again = ne v 0
+end
+for i ulong n
+rc = write 1 dec sub sub n i 1 1
+if ne rc 1
+ret 74
+end
+end
+rc = write 1 newline 0 1
+if ne rc 1
+ret 74
+end
+ret 0
+end
+fn main to int
+rc = write 1 prefix 0 len prefix
+if ne rc long len prefix
+ret 74
+end
+for k ulong 64
+rc = write 1 loadw 0 len loadw
+if ne rc long len loadw
+ret 74
+end
+if ne number mul k 4 0
+ret 74
+end
+rc = write 1 loadx 0 len loadx
+if ne rc long len loadx
+ret 74
+end
+if ne number mul k 4 0
+ret 74
+end
+rc = write 1 mathtext 0 len mathtext
+if ne rc long len mathtext
+ret 74
+end
+end
+rc = write 1 suffix 0 len suffix
+if ne rc long len suffix
+ret 74
+end
+ret 0
+end

@@ -1,0 +1,2 @@
+omc: line 21: error 11
+make: *** [native/gpulab/Makefile:31: build/native-gpulab/amd-oracle-input] Error 11

@@ -1,0 +1,21 @@
+note Standalone native emitter. Binary request on stdin; EOF and exact length required.
+fn main to int
+n = ulong 0
+for attempt ulong 10
+if ge n len request
+ret 65
+end
+rc = read 0 request n sub len request n
+if lt rc 0
+ret 74
+end
+if eq rc 0
+if not parse_request n
+ret 65
+end
+ret write_code
+end
+n = add n ulong rc
+end
+ret 65
+end
