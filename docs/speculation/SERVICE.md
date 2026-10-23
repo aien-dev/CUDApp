@@ -99,8 +99,10 @@ prefix, then acknowledge any correction token at its real consumption boundary.
 Native timing must cover draft, verify, commit, host, policy/transport and setup.
 First-divergence checks remain mandatory; this interface adds no numerical waiver.
 
-That connection would require new code in the existing Rust engine. The current
-experiment's Omega-only rule has not been waived. A decision on that boundary is
-pending; no Rust connection, model launch or hardware trial is delivered here.
+The user confirmed strict Omega implementation and authorized extending Omega's
+compiler and runtime to supply this connection. Native device access, mapped
+memory and the full model/state attachment remain prerequisites. The existing
+Rust engine remains a reference for behavior. No model launch or hardware trial
+is delivered by this policy-service component.
 A strictly Omega attachment instead depends on the existing native ABI/runtime
 owner. The presence of native host facilities does not establish that ABI.
