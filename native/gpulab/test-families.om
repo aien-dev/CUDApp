@@ -1,0 +1,74 @@
+note SPDX-License-Identifier: MIT
+text ok "APPLE FAMILY GATE PASS: M1 M2 M3; M4 M5 REFUSED\n"
+fn familytest to int
+for t ulong 3
+for k ulong 64
+id = add 101 t
+depth = add 1 k
+if not build_request id depth
+ret 1
+end
+for i ulong len mem
+put mem i 3735928559
+end
+for r ulong 3
+for j ulong depth
+put mem add mul r depth j add r 1
+end
+end
+for j ulong depth
+put mem add 2048 j 2
+end
+if ne family_run id 3 depth 0
+ret 2
+end
+for r ulong 3
+want = mul mul add r 1 depth 2
+if ne get mem add 3072 r want
+ret 3
+end
+end
+end
+end
+for t ulong 2
+id = add 104 t
+if build_request id 4
+ret 4
+end
+if ne get used 0 0
+ret 5
+end
+if not build_request 103 4
+ret 6
+end
+for r ulong 32
+put mem add 3072 r 3735928559
+end
+if eq family_run id 3 4 0
+ret 7
+end
+for r ulong 32
+if ne get mem add 3072 r 3735928559
+ret 8
+end
+end
+end
+if build_request 106 4
+ret 9
+end
+if ne get used 0 0
+ret 10
+end
+ret 0
+end
+fn main to int
+rc = familytest
+if ne rc 0
+ret rc
+end
+n = write 1 ok 0 len ok
+if ne n long len ok
+ret 74
+end
+ret 0
+end

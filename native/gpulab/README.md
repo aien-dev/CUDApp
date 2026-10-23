@@ -8,7 +8,9 @@ The Makefile and command examples are host build/process glue. The seed compiler
 produces static AArch64 Linux executables using Linux read/write/exit syscalls.
 No C, Rust, Python, Metal, Vulkan, HIP, CUDA or third-party inference runtime is
 built or linked into this lab. LLVM is used only as an independent AMD assembler
-oracle. Wolfram supplies independent calculations and fixture values; it is not
+oracle. A pinned external Python M3 assembler was also run to produce the frozen
+validation fixture; Python is not used by this lab's build or execution path.
+Wolfram supplies independent calculations and fixture values; it is not
 a runtime dependency.
 
 ## What executes
@@ -17,6 +19,13 @@ a runtime dependency.
 |---|---|---|
 | AMD `gfx1100`, RDNA3 | Real instruction words for global 32-bit loads/stores, wait, move, integer multiply/add and program end | Omega decodes the emitted bytes and executes the supported instructions against bounded virtual registers/memory |
 | Apple G13/G14 AGX | Real-format load/store, wait, immediate, integer multiply/add and stop bytes | Separate Omega instruction decoder and executor using the same bounded virtual-memory contract |
+| Apple G15 / M3 | Separate 14-byte memory and 12-byte integer multiply-add encoding, with base-M3 long waits | Separate Omega decoder; entire depth-64 output matches the pinned external M3 assembler |
+
+**M1–M5 expansion is incomplete.** Explicit request IDs 101=M1, 102=M2,
+103=M3 are enabled for the bounded virtual subset. IDs 104=M4 and 105=M5
+are reserved and deliberately refused, not mapped to an older ISA. None of
+these rows qualifies every Pro/Max/Ultra SKU or physical GPU execution.
+See [generation coverage and evidence gaps](APPLE_GENERATIONS.md).
 
 The workload is `y[row] = sum(W[row,k] * x[k])`, with depth 1..64 and rows 1..32.
 Signed-byte values are **sign-extended into 32-bit storage**; accumulation is
@@ -93,7 +102,8 @@ claim hostile-race filesystem isolation. Run fresh replays in separate exports.
 ## Standalone code generation
 
 `build/native-gpulab/emit-main` consumes exactly eight bytes on stdin followed by
-EOF: little-endian u32 target (`1=gfx1100`, `2=G13/G14`) and little-endian u32 depth.
+EOF: little-endian u32 target (`1=gfx1100`, `2=G13/G14`, `101=M1`, `102=M2`,
+`103=M3`) and little-endian u32 depth. `104=M4` and `105=M5` currently refuse.
 It produces raw instruction bytes on stdout. Unsupported target/depth or malformed
 length returns 65 with no stdout. Transport errors return 74 or an OS signal;
 a failed output write may leave partial bytes, so consumers must stage output and
@@ -152,8 +162,8 @@ Apple GPU. A simulator and emitter can share a mistaken interpretation; oracle
 coverage narrows that risk, not eliminates it.
 
 **HARDWARE NOT_RUN. SPEED NOT_MEASURED. FULL-MODEL INFERENCE NOT_IMPLEMENTED.**
-No claims about other AMD generations, CDNA matrix instructions, Apple M3 and
-later generations, Linux/Windows GPU driver portability, or beating another
+No claims about other AMD generations, CDNA matrix instructions, Apple M4 and
+later generation support, Linux/Windows GPU driver portability, or beating another
 engine follow from these tests. Follow-on work is real launch-ABI integration,
 additional inference operations and formats, then exact-model hardware
 qualification and end-to-end measurement. Those are not hidden behind a simulator

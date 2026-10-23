@@ -8,12 +8,16 @@ if ne rc 1
 ret 64
 end
 s = ulong get selector 0
-if or lt s 49 gt s 56
+if not or and ge s 49 le s 56 and ge s 65 le s 69
 ret 64
 end
 put frame 0 1
 put frame 4 4
 n = ulong 8
+note A..E select explicit M1..M5 targets; D/E must currently refuse.
+if ge s 65
+put frame 0 uchar add sub s 65 101
+end
 if eq s 50
 put frame 0 2
 end

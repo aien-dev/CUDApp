@@ -1,0 +1,11 @@
+note Compilable missing-G15 baseline.
+fn m3_generate depth ulong to bool
+resetcode
+ret false
+end
+fn m3_run rows ulong depth ulong to int
+ret 65
+end
+fn m3_lane lane ulong to bool
+ret false
+end

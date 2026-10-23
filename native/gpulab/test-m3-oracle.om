@@ -1,0 +1,38 @@
+note SPDX-License-Identifier: MIT
+note Compare all K64 instruction bytes with independently assembled fixture.
+global external uchar 4096
+text passed "M3 INDEPENDENT ASSEMBLER K64 BYTE MATCH PASS\n"
+fn compare n ulong to int
+if not m3_generate 64
+ret 1
+end
+if ne n get used 0
+ret 2
+end
+for i ulong n
+if ne get external i get code i
+ret 3
+end
+end
+if ne write 1 passed 0 len passed long len passed
+ret 74
+end
+ret 0
+end
+fn main to int
+n = ulong 0
+for attempt ulong 4097
+if ge n len external
+ret 65
+end
+r = read 0 external n sub len external n
+if lt r 0
+ret 74
+end
+if eq r 0
+ret compare n
+end
+n = add n ulong r
+end
+ret 65
+end
