@@ -64,5 +64,6 @@
   "four_arm_census_complete": true,
   "same_source_payloads_in_all_arms": true,
   "scope": "all routed/shared expert gate/up/down payloads in40 layers, not other model tensors or GPU residency",
-  "quality_complete": false
+  "quality_complete": true,
+  "candidate_quality_accepted": false
 }

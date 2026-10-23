@@ -1,0 +1,67 @@
+{
+  "arm": "identity",
+  "groups": {
+    "golden": {
+      "positions": 2560,
+      "reference_mean_nll": 0.08896000469688195,
+      "candidate_mean_nll": 0.11237303963362714,
+      "nll_ratio": 1.2631860802674375,
+      "nll_ratio_limit": 1.07,
+      "agreement": {
+        "0.1": {
+          "positions": 2538,
+          "agree": 2481,
+          "fraction": 0.9775413711583925,
+          "floor": 0.98,
+          "pass": false
+        },
+        "1.0": {
+          "positions": 2351,
+          "agree": 2337,
+          "fraction": 0.9940450871969375,
+          "floor": 0.998,
+          "pass": false
+        }
+      },
+      "minimum_logit_cosine": 0.7160657165490707,
+      "mean_kl": 0.0243254783221716,
+      "pass": false
+    },
+    "heldout": {
+      "positions": 2560,
+      "reference_mean_nll": 0.12532170475921625,
+      "candidate_mean_nll": 0.1478824079929612,
+      "nll_ratio": 1.1800223135895844,
+      "nll_ratio_limit": 1.07,
+      "agreement": {
+        "0.1": {
+          "positions": 2521,
+          "agree": 2446,
+          "fraction": 0.9702499008330028,
+          "floor": 0.98,
+          "pass": false
+        },
+        "1.0": {
+          "positions": 2267,
+          "agree": 2258,
+          "fraction": 0.9960299955888839,
+          "floor": 0.998,
+          "pass": false
+        }
+      },
+      "minimum_logit_cosine": 0.7916775134929729,
+      "mean_kl": 0.023822729229666065,
+      "pass": false
+    }
+  },
+  "agpl": {
+    "positions": 399,
+    "mean_nll_rise": 0.07903087825852005,
+    "limit": 0.069,
+    "pass": false
+  },
+  "candidate_quality_pass": false,
+  "gpu_execution_tested": false,
+  "inference_acceleration_tested": false,
+  "production_changed": false
+}

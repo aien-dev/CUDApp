@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "/home/drakestapleton/workspace/targets/l600-rotation-reference/release/q36_rotation_quality",
+    "--precompute",
+    "/home/drakestapleton/models/qwen3.6-35b-a3b-fp8-95a723d0",
+    "0",
+    "5",
+    "/home/drakestapleton/handoffs/quantum-development-L600/rotation-full-v1/identity/layers-0"
+  ],
+  "exit_code": 0,
+  "started_unix": 1792717132.9492996,
+  "ended_unix": 1792717517.4448793,
+  "not_a_runtime_benchmark": true
+}

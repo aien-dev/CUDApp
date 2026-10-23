@@ -1,0 +1,67 @@
+{
+  "arm": "nine-level-mutant",
+  "groups": {
+    "golden": {
+      "positions": 2560,
+      "reference_mean_nll": 0.08896000469688195,
+      "candidate_mean_nll": 0.2153059021445734,
+      "nll_ratio": 2.4202550671866128,
+      "nll_ratio_limit": 1.07,
+      "agreement": {
+        "0.1": {
+          "positions": 2538,
+          "agree": 2367,
+          "fraction": 0.9326241134751773,
+          "floor": 0.98,
+          "pass": false
+        },
+        "1.0": {
+          "positions": 2351,
+          "agree": 2267,
+          "fraction": 0.9642705231816249,
+          "floor": 0.998,
+          "pass": false
+        }
+      },
+      "minimum_logit_cosine": 0.5217899525790327,
+      "mean_kl": 0.14499783967517993,
+      "pass": false
+    },
+    "heldout": {
+      "positions": 2560,
+      "reference_mean_nll": 0.12532170475921625,
+      "candidate_mean_nll": 0.3028564738534677,
+      "nll_ratio": 2.4166322540485186,
+      "nll_ratio_limit": 1.07,
+      "agreement": {
+        "0.1": {
+          "positions": 2521,
+          "agree": 2254,
+          "fraction": 0.8940896469654899,
+          "floor": 0.98,
+          "pass": false
+        },
+        "1.0": {
+          "positions": 2267,
+          "agree": 2134,
+          "fraction": 0.94133215703573,
+          "floor": 0.998,
+          "pass": false
+        }
+      },
+      "minimum_logit_cosine": 0.4944126761022239,
+      "mean_kl": 0.19850018030409028,
+      "pass": false
+    }
+  },
+  "agpl": {
+    "positions": 399,
+    "mean_nll_rise": 0.20453410910800182,
+    "limit": 0.069,
+    "pass": false
+  },
+  "candidate_quality_pass": false,
+  "gpu_execution_tested": false,
+  "inference_acceleration_tested": false,
+  "production_changed": false
+}

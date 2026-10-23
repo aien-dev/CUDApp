@@ -1,6 +1,6 @@
 # Rotation-aware INT4, zero-support preservation and model qualification
 
-**Status: host representation qualified; full-corpus quality evaluation still running. No GPU qualification, speedup, deployment or adoption claim. CUDApp #49 remains open.**
+**Final verdict for these three frozen INT4 candidates: NO-GO. The complete model-quality experiment finished and rejected identity, Hadamard and zero-aware INT4 under the predeclared limits. The negative control was rejected too. Host representation remains qualified; no GPU qualification, speedup, deployment or adoption is claimed. CUDApp #49 remains open for its broader unmet integration/full-cost criteria.**
 
 This continues the [first native rotation experiment](../ROTATION-INT4-L600/README.md). The new zero-aware mode fixes the measured destruction of structural zeros without adding a selector byte. Implementation and review are personal, as requested; this is not an independent-review certificate.
 
@@ -16,7 +16,7 @@ This continues the [first native rotation experiment](../ROTATION-INT4-L600/READ
 | Hadamard INT4 | 17,195,397,120 | 106,453,476 |
 | Zero-aware INT4 | 17,195,397,120 | 0 |
 
-Sources: [payload census](payload-census.json), per-layer native receipts under `precompute/`, and the [frozen contract](../../native/rotquant/CONTRACT.md). The zero-aware arm rotated 246,850,026 of 252,641,280 blocks. Numerical zero preservation is not signed-zero byte preservation; the separate lossless codec retains that stronger contract. The nine-level negative control also completed the same 30,840-matrix census; all four arms consumed identical source payloads/scales and each executed 1,973,760 native transactions. Its quality rejection is still pending, not inferred from its intentionally coarser grid.
+Sources: [payload census](payload-census.json), per-layer native receipts under `precompute/`, and the [frozen contract](../../native/rotquant/CONTRACT.md). The zero-aware arm rotated 246,850,026 of 252,641,280 blocks. Numerical zero preservation is not signed-zero byte preservation; the separate lossless codec retains that stronger contract. The nine-level negative control also completed the same 30,840-matrix census; all four arms consumed identical source payloads/scales and each executed 1,973,760 native transactions. Its full-corpus quality rejection is now measured, not inferred from its intentionally coarser grid.
 
 ## How the new mode works
 
@@ -54,7 +54,7 @@ The external AIEN host-reference source is `e1608d17ce0839886f85f8486f900d50c792
 
 The reference is test-only Rust transport, unchanged-scale widening and instrumentation around AIEN's existing CPU forward pass. It is not a native GPU inference implementation. GPU graph attachment explicitly refuses reconstructed test matrices. CPU-stub GPU libraries are intentional for this oracle, not a production acceptance result.
 
-The final diagnostic reference source is [`7ab43aed49e2ec8791ebd8f8f4c6cb62d8fe9fe7`](https://github.com/aien-dev/aien-sovereign-core-mv/tree/7ab43aed49e2ec8791ebd8f8f4c6cb62d8fe9fe7). A fresh export of that entire tree passed **406 package tests, 0 failures, with the same 21 existing ignored tests**, using the qualified native stream and actual native no-op control. Its earlier replay invocation omitted required fixture environment variables; the resulting five setup failures are preserved, separately from the corrected run. The active full-corpus batch still uses the immutable earlier `e1608d17` / `f66d514c...` reference executable, not a binary replaced during a run.
+The final diagnostic reference source is [`7ab43aed49e2ec8791ebd8f8f4c6cb62d8fe9fe7`](https://github.com/aien-dev/aien-sovereign-core-mv/tree/7ab43aed49e2ec8791ebd8f8f4c6cb62d8fe9fe7). A fresh export of that entire tree passed **406 package tests, 0 failures, with the same 21 existing ignored tests**, using the qualified native stream and actual native no-op control. Its earlier replay invocation omitted required fixture environment variables; the resulting five setup failures are preserved, separately from the corrected run. The completed full-corpus batch used the immutable earlier `e1608d17` / `f66d514c...` reference executable, not a binary replaced during a run.
 
 ## Frozen model-quality experiment
 
@@ -81,11 +81,29 @@ The earlier 32-position diagnostic is retained under `smoke32/`, but it is not t
 
 This is one frozen prompt with 36 input tokens and 32 scored positions. Final-logit metrics include all input positions. Each linear probe uses the actual candidate's activation input against the original matrix on that same input; the down-projection input can differ between arms. These particular real probes contain no exactly-zero reference outputs, so the published synthetic/unit zero-output tests remain separate. These diagnostics do not establish full-corpus quality or tune its thresholds.
 
-## Remaining acceptance and explicit GPU block
+## Complete quality verdict and acceptance disposition
 
-1. Finish all declared corpus positions and the model-quality negative control; publish the complete verdict, including any rejection.
-2. Additional real-activation diagnostics and exact-source reference replay are complete as scoped above; they do not replace the pending full-corpus gate.
-3. A passing quality result alone does not authorize adoption. Native GPU attachment, setup, temporary/resident memory, actual traffic, prefill, decode and paired energy/latency remain unqualified.
+The batch executed **44 arm/prompt cases**, with **5,519 scored positions per arm** and **22,076 candidate-scored positions** total. Every case's FP8 control passed, and the FP8 logits/positions match across all four arms. The pipeline's exit 0 means the experiment completed and its negative control was rejected; it does **not** mean any candidate passed.
+
+The frozen criterion permits at most a 7% mean-NLL increase in each group. All three candidates exceed it in both groups, and all three fail both held-out agreement floors. Hadamard and zero-aware pass the separate AGPL passage criterion, but that cannot compensate for a failed group. Full aggregate results are in [qualification.json](full-quality/qualification.json); every per-position output, tensor identity, command status and log is retained losslessly under `full-quality/`.
+
+| Arm | Golden mean-NLL increase | Held-out mean-NLL increase | Held-out agreement, margin >= 0.1 | Held-out agreement, margin >= 1 | AGPL mean-NLL change | Verdict |
+|---|---:|---:|---:|---:|---:|---|
+| Acceptance | <= 7% | <= 7% | >= 98% | >= 99.8% | <= +0.069 nats | All required |
+| Identity | 26.32% | 18.00% | 97.0250% | 99.6030% | +0.079031 | REJECT |
+| Hadamard | 17.73% | 18.53% | 97.4217% | 99.4707% | -0.051946 | REJECT |
+| Zero-aware | 16.64% | 16.49% | 97.5407% | 99.3383% | -0.062920 | REJECT |
+| Nine-level negative control | 142.03% | 141.66% | 89.4090% | 94.1332% | +0.204534 | REJECT |
+
+The held-out agreement denominators are 2,521 positions at margin >= 0.1 and 2,267 at margin >= 1. The golden denominators are 2,538 and 2,351 respectively. Loss percentages are relative changes in mean negative log-likelihood, **not percentages of answers wrong**.
+
+Teacher-forced perplexity (`exp(mean NLL)`) on the held-out reference sequences is 1.1335130509603708 for FP8, 1.1593765549307917 for identity, 1.1601455260338407 for Hadamard, and 1.1571834659811564 for zero-aware. These goldens score frozen reference-model tokens, not a general natural-text perplexity benchmark or a broad task suite. The separate AGPL text passage and all group-specific means/perplexities are retained in the audit. The acceptance rule is the predeclared NLL ratio, not a post-result replacement with a more favorable perplexity ratio.
+
+The [independent audit](full-quality/independent-audit.json) recounts every case/position, recomputes sums and acceptance without calling the original `quality()` function, compares all actual source/native receipts against the full precompute census, and verifies identical baselines across arms. [Post-run checkpoint hashing](whole-model-postrun-closure.json) re-reads the complete recorded model closure and agrees with the earlier file hashes. [Wolfram checks](wolfram-final-check.md) independently confirm the derived percentages, perplexities, counts and held-out rejection.
+
+The model-quality acceptance was measured, but failed. **Do not promote these candidates, weaken the limits, select only the favorable passage, or treat the storage saving as a speedup.** Zero preservation is a useful representation property, not proof of preserved model quality. This rules out these specific calibration-free block-128 INT4 candidates for adoption; it does not prove that every rotation, precision or calibration scheme must fail. A changed candidate requires a newly frozen experiment, not another attempt to pass the same run.
+
+Native GPU attachment, setup, temporary/resident memory, actual traffic, prefill, decode and paired energy/latency remain unqualified. No hardware experiment was launched for a quality-rejected candidate. The broader issue remains open; this bounded experiment is complete with a reproducible no-go.
 
 The checked GPU candidate `0e0b486c300c78ed335b26e86b1fed29d858adad` explicitly labels its output **LAB ONLY, LAUNCH PROHIBITED**, refuses production `sm_121`, and provides no qualified launcher/runtime/checker attachment. See [gpu-dependency.json](gpu-dependency.json). The dependency remains with existing owner L408; no duplicate compiler worker or legacy product workaround was introduced. No driver, live serving configuration or default model path was changed.
 
@@ -104,7 +122,7 @@ make -C "$SOURCE" test-native-rotquant \
 python3 "$SOURCE/native/rotquant/test_quality_rule.py"
 ```
 
-The oracle environment pins `numpy==2.5.4` and `ml-dtypes==0.6.0`; use `OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1`. Source reconstruction, errors, raw refusal/negative-control output and corpus hashes are published. Cached model weights and checkpoint tensors are not published. The full-model runner is `native/rotquant/run_model_qualification.py`; use a new output root and the exact binaries/source/corpus identities recorded in [its inputs receipt](full-batch-inputs.json). The active batch uses at most two disjoint CPU arm workers, with memory checks and no timing claim. The [whole-checkpoint closure](whole-model-input-closure.json) records actual file hashes and capture times; individual expert hashes are independently bound in every precompute receipt.
+The oracle environment pins `numpy==2.5.4` and `ml-dtypes==0.6.0`; use `OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1`. Source reconstruction, errors, raw refusal/negative-control output and corpus hashes are published. Cached model weights and checkpoint tensors are not published. The full-model runner is `native/rotquant/run_model_qualification.py`; use a new output root and the exact binaries/source/corpus identities recorded in [its inputs receipt](full-batch-inputs.json). The batch used at most two disjoint CPU arm workers, with memory checks and no timing claim. The [whole-checkpoint closure](whole-model-input-closure.json) records actual file hashes and capture times; individual expert hashes are independently bound in every precompute receipt. [final_audit.py](final_audit.py) records the post-run recount/hash/archive procedure, separately from the model execution.
 
 Reference reproduction uses the exact external-reference commit and `cargo test --offline --release -p aien-inference-abi --features rotation-qualification -- --test-threads=1`, followed by the matching release binary build. Set `AIEN_FORCE_CPU_STUB=1`, an isolated `CARGO_TARGET_DIR`, the qualified `AIEN_ROTQUANT_BIN` and `AIEN_ROTQUANT_SHA256`, an owned `AIEN_ROTQUANT_CACHE_TESTROOT`, and `AIEN_ROTQUANT_NOOP` built from [native-noop.om](native-noop.om). The actual commands and exit codes are in the replay status; [replay_and_diagnose.py](replay_and_diagnose.py) records the qualified Spark layout. For a different layout, copy the frozen corpus files byte-for-byte and relocate each manifest entry's `path` while retaining its original path and hashes; the script's recorded absolute paths are provenance, not portable installation defaults.
 

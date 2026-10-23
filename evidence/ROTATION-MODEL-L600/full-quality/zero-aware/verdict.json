@@ -1,0 +1,67 @@
+{
+  "arm": "zero-aware",
+  "groups": {
+    "golden": {
+      "positions": 2560,
+      "reference_mean_nll": 0.08896000469688195,
+      "candidate_mean_nll": 0.10376414843971142,
+      "nll_ratio": 1.1664134775315311,
+      "nll_ratio_limit": 1.07,
+      "agreement": {
+        "0.1": {
+          "positions": 2538,
+          "agree": 2498,
+          "fraction": 0.9842395587076438,
+          "floor": 0.98,
+          "pass": true
+        },
+        "1.0": {
+          "positions": 2351,
+          "agree": 2343,
+          "fraction": 0.9965971926839643,
+          "floor": 0.998,
+          "pass": false
+        }
+      },
+      "minimum_logit_cosine": 0.7963421009443139,
+      "mean_kl": 0.01768954280477805,
+      "pass": false
+    },
+    "heldout": {
+      "positions": 2560,
+      "reference_mean_nll": 0.12532170475921625,
+      "candidate_mean_nll": 0.1459890060650872,
+      "nll_ratio": 1.1649139815451723,
+      "nll_ratio_limit": 1.07,
+      "agreement": {
+        "0.1": {
+          "positions": 2521,
+          "agree": 2459,
+          "fraction": 0.9754065846886156,
+          "floor": 0.98,
+          "pass": false
+        },
+        "1.0": {
+          "positions": 2267,
+          "agree": 2252,
+          "fraction": 0.9933833259814733,
+          "floor": 0.998,
+          "pass": false
+        }
+      },
+      "minimum_logit_cosine": 0.9034322055199787,
+      "mean_kl": 0.0217141605793057,
+      "pass": false
+    }
+  },
+  "agpl": {
+    "positions": 399,
+    "mean_nll_rise": -0.06291965974681445,
+    "limit": 0.069,
+    "pass": true
+  },
+  "candidate_quality_pass": false,
+  "gpu_execution_tested": false,
+  "inference_acceleration_tested": false,
+  "production_changed": false
+}
