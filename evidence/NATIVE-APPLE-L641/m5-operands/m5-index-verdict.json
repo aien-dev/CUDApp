@@ -1,0 +1,29 @@
+{
+  "status": "PRESSURE_AND_INDEX_FUNCTIONAL_PROFILES_PASS_PRODUCTION_HOLD",
+  "source_sha256": "2d8ffb719d95a6e66ce0611ffabd4fe29bc2b39f47bd20e5fc2d9699d234d24b",
+  "groups": {
+    "INDEX_CASE": 64,
+    "INDEX_MUTATIONS_CASE": 64,
+    "G16_INDEX_REFUSAL_CASE": 64,
+    "PRESSURE_REJECTS_INDEX_CASE": 64,
+    "PRESSURE_REGRESSION_CASE": 32,
+    "INDEX_REJECTS_PRESSURE_CASE": 32
+  },
+  "index_encoded_immediate_bit_controls": 384,
+  "wrong_original_source_K_controls": 64,
+  "compiled_drop_bit5_unchanged_cases": 32,
+  "compiled_drop_bit5_refused_cases": 32,
+  "header_entry_bit_controls_regression": 448,
+  "pressure_field_controls_regression": 9,
+  "gids": [
+    0,
+    7,
+    31
+  ],
+  "envelope_cases": 6,
+  "production_target105": "STILL_REFUSED",
+  "physical_execution": "NOT_RUN",
+  "dependency_contract": "UNQUALIFIED",
+  "scope": "source-family semantic contracts only; no new opcode encoding or decoder field map",
+  "zero_K_bit_control_target": "output-address add1; no encoded add-zero is claimed"
+}

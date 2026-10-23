@@ -1,0 +1,109 @@
+note SPDX-License-Identifier: MIT
+note Six encoded immediate-bit controls and a wrong source-K control.
+note Every rejected perturbation is followed by the restored positive.
+global selector uchar 1
+fn getimm p ulong to ulong
+v = add and octet add p 1 3 mul shr octet add p 3 5 4
+ret add v mul shr octet add p 5 7 32
+end
+fn findadd want ulong to ulong
+p = add ulong 64 entrylen
+for step ulong 256
+remain = sub get captured 0 p
+if lt remain 8
+ret 0
+end
+size = ulong 0
+if eq and octet add p 2 63 3
+size = 8
+if eq octet add p 7 192
+size = 14
+if eq octet add p 4 1
+size = 10
+end
+end
+else
+size = 14
+if eq octet add p 6 163
+size = 12
+if eq getimm p want
+ret p
+end
+end
+end
+p = add p size
+end
+ret 0
+end
+fn flip p ulong mask uchar to bool
+old = get capture p
+put capture p xor old mask
+accepted = probe
+put capture p old
+if accepted
+ret false
+end
+ret probe
+end
+fn controls to int
+if not probe
+ret 66
+end
+k = get family 1
+put family 1 xor k 1
+accepted = probe
+put family 1 k
+if or accepted not probe
+ret 7
+end
+if eq k 0
+k = 1
+end
+p = findadd k
+if eq p 0
+ret 67
+end
+if not flip add p 1 uchar 1
+ret 1
+end
+if not flip add p 1 uchar 2
+ret 2
+end
+if not flip add p 3 uchar 32
+ret 3
+end
+if not flip add p 3 uchar 64
+ret 4
+end
+if not flip add p 3 uchar 128
+ret 5
+end
+if not flip add p 5 uchar 128
+ret 6
+end
+ret 0
+end
+fn main to int
+count = read 0 selector 0 1
+if ne count 1
+ret 65
+end
+if gt get selector 0 63
+ret 65
+end
+put family 0 1
+put family 1 ulong get selector 0
+n = ulong 0
+for i ulong 4096
+count = read 0 capture n 1
+if lt count 0
+ret 74
+end
+if eq count 0
+put captured 0 n
+ret controls
+end
+n = add n 1
+end
+ret 65
+end

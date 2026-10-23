@@ -1,0 +1,32 @@
+note SPDX-License-Identifier: MIT
+note Stdin: original MSL index selector K, then independently compiled text.
+note The capture must produce all six source-specified stores at three gids.
+global selector uchar 1
+fn main to int
+count = read 0 selector 0 1
+if ne count 1
+ret 65
+end
+if gt get selector 0 63
+ret 65
+end
+put family 0 1
+put family 1 ulong get selector 0
+n = ulong 0
+for i ulong 4096
+count = read 0 capture n 1
+if lt count 0
+ret 74
+end
+if eq count 0
+put captured 0 n
+if not probe
+logged = write 2 trace 0 2
+ret 66
+end
+ret 0
+end
+n = add n 1
+end
+ret 65
+end

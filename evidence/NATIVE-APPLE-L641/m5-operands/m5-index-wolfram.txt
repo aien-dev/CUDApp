@@ -1,0 +1,5 @@
+Input:
+<|"indexCases" -> 64, "immediateBitControls" -> 64*6, "nonzeroKControls" -> 63*6, "zeroKAddressControls" -> 6, "wrongKControls" -> 64, "bit5UnchangedCases" -> Length[Range[0,31]], "bit5RefusedCases" -> Length[Range[32,63]]|>
+Actual result:
+Out[1]= <|"indexCases" -> 64, "immediateBitControls" -> 384, "nonzeroKControls" -> 378, "zeroKAddressControls" -> 6, "wrongKControls" -> 64, "bit5UnchangedCases" -> 32, "bit5RefusedCases" -> 32|>
+Counts were also checked against exact runtime case membership. This calculation is not a native runtime dependency or hardware evidence.

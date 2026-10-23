@@ -1,0 +1,44 @@
+[
+  {
+    "name": "empty",
+    "rc": 65,
+    "expected": 65,
+    "stdout_hex": "",
+    "stderr_hex": ""
+  },
+  {
+    "name": "selector64",
+    "rc": 65,
+    "expected": 65,
+    "stdout_hex": "",
+    "stderr_hex": ""
+  },
+  {
+    "name": "selector255",
+    "rc": 65,
+    "expected": 65,
+    "stdout_hex": "",
+    "stderr_hex": ""
+  },
+  {
+    "name": "missing_capture",
+    "rc": 66,
+    "expected": 66,
+    "stdout_hex": "",
+    "stderr_hex": "0000"
+  },
+  {
+    "name": "truncated",
+    "rc": 66,
+    "expected": 66,
+    "stdout_hex": "",
+    "stderr_hex": "e400"
+  },
+  {
+    "name": "trailing_byte",
+    "rc": 66,
+    "expected": 66,
+    "stdout_hex": "",
+    "stderr_hex": "e400"
+  }
+]

@@ -1,4 +1,6 @@
-# Immediate-index acquisition complete; interpretation pending
+# Immediate-index acquisition: historical receipt
+
+> The acquisition-only status below is retained from9b81e9d. The later native semantic profile passes all64 G17 cases; see [M5-INDEX-SEMANTICS.md](M5-INDEX-SEMANTICS.md). Target105 remains refused.
 
 Continuation of M5-OPERAND-RESEARCH.md, after source/evidence commit f5c6118e60ade1e09469ba78bbb003e02e0fc81f.
 

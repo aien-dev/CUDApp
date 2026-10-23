@@ -1,6 +1,6 @@
 note SPDX-License-Identifier: MIT
 note G17 scalar register-field research; not an executable target backend.
-note Only accepts the frozen pressure-source family. Synchronous functional
+note Accepts the frozen pressure and immediate-index source profiles.
 note evaluation does NOT qualify hardware dependency, cache or latency rules.
 global capture uchar 4096
 global captured ulong 1
@@ -9,6 +9,8 @@ global value ulong 128
 global defined uchar 128
 global seen uchar 40
 global stats ulong 4
+global family ulong 2
+note family: zero is pressure; one carries the independently named index K.
 note stats: loads, stores, additions, multiply-adds.
 fn octet p ulong to ulong
 ret ulong get capture p
@@ -52,6 +54,15 @@ end
 if le offset 3
 ret inputvalue sub offset 1 gid
 end
+if eq get family 0 1
+if eq offset 4
+ret inputvalue 0 add gid get family 1
+end
+if eq offset 5
+ret add gid get family 1
+end
+ret 0
+end
 ret inputvalue 0 add gid sub offset 3
 end
 fn memory p ulong gid ulong to ulong
@@ -77,7 +88,11 @@ if eq get defined index 0
 ret 0
 end
 address = get value index
-if or lt address gid gt address add gid 34
+addrmax = ulong 34
+if eq get family 0 1
+addrmax = 63
+end
+if or lt address gid gt address add gid addrmax
 ret 0
 end
 if not or eq octet add p 6 0 eq octet add p 6 16
@@ -103,6 +118,12 @@ if eq get defined r 0
 ret 0
 end
 offset = sub address gid
+if ge offset 40
+ret 0
+end
+if and eq get family 0 1 gt offset 5
+ret 0
+end
 if ne get seen offset 0
 ret 0
 end
@@ -309,9 +330,30 @@ p = add p size
 end
 ret false
 end
+fn indexend to bool
+if or or ne get stats 0 4 ne get stats 1 6 ne get stats 3 1
+ret false
+end
+want = ulong 5
+if gt get family 1 5
+want = 6
+end
+if ne get stats 2 want
+ret false
+end
+for i ulong 6
+if ne get seen i 1
+ret false
+end
+end
+ret true
+end
 fn finished p ulong to bool
 if or or or ne octet p 14 ne octet add p 1 0 ne octet add p 2 0 ne octet add p 3 0
 ret false
+end
+if eq get family 0 1
+ret indexend
 end
 if or lt get stats 0 3 gt get stats 0 34
 ret false
@@ -352,6 +394,12 @@ end
 ret not or or or ne octet 8 14 ne octet 9 0 ne octet 10 0 ne octet 11 0
 end
 fn probe to bool
+if or gt get family 0 1 gt get family 1 63
+ret false
+end
+if and eq get family 0 0 ne get family 1 0
+ret false
+end
 if or lt get captured 0 72 gt get captured 0 4096
 ret false
 end

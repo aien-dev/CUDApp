@@ -1,5 +1,7 @@
 # G17 axis minimal pairs and bounded pressure-entry contract
 
+> Entry-only source snapshot `10c05b26a14e8a3623d6bf86a10ea30bb4803566`; reproduce this receipt from that pin. The subsequent shared pressure/index source and its separate results are documented in [M5-INDEX-SEMANTICS.md](M5-INDEX-SEMANTICS.md). Neither snapshot enables the production M5 backend.
+
 ## Verdict
 
 **BOUNDED_PRESSURE_PASS_PRODUCTION_HOLD.** The research-only Omega interpreter now accepts all32 frozen pressure programs at gid0,7,31. This is not an M5 backend, complete ISA decoder, physical dependency model or hardware result. Target105 remains refused; M1–M4 functional files remain unchanged from4ff284212aad09ebf60832d83a25e2a6f8ef5ef3.
