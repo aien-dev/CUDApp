@@ -1,0 +1,16 @@
+{
+  "base": "232332422bfdc31c8918085b50f13c1e18ab702e",
+  "functional": "a91726cd24dbff5a6f67a1246fea0ddf1422f93a",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "raw_log_sha256": {
+    "mac-original-red.log": "c837a8594320ad3ae355c084befd578dedbfd3d2f4252ee04139118ed781a4b6",
+    "mac-focused-green.log": "60855f5460d3a644f4941983668f7f09542bf34e360328c85113c485c0118a60",
+    "mac-full-host-fail.log": "1375d199d7eed5a2702da6b2676791c386a6891099d618644e1cf63ff5fc2535"
+  },
+  "mac_focused_exit": 0,
+  "mac_baseline_exit": 2,
+  "mac_full_host_exit": 2,
+  "no_abi_or_runtime_change": true,
+  "linux_full_host": "RUNNING",
+  "independent_shell_review": "RUNNING L640"
+}

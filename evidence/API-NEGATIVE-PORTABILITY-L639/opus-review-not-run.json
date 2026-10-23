@@ -1,0 +1,7 @@
+{
+  "result": "You've hit your weekly limit \u00b7 resets Oct 26 at 9am (America/Chicago)",
+  "num_turns": 1,
+  "modelUsage": {},
+  "api_error": "usage_limit_reached",
+  "scope": "fresh Opus probe refused; not a completed review or evidence historical review never happened"
+}
