@@ -1,0 +1,62 @@
+{
+  "capturedAt": "2026-10-23T15:01:02.539Z",
+  "repositoryDatabases": 44,
+  "registeredWorktrees": 596,
+  "missingWorktrees": [
+    "/tmp/wt494",
+    "/tmp/wt495",
+    "/tmp/wt512",
+    "/tmp/wt518",
+    "/tmp/wt520",
+    "/tmp/wt522"
+  ],
+  "dirtyWorktrees": 212,
+  "workingSnapshots": 203,
+  "stagedSnapshots": 2,
+  "conflictAlternatives": 9,
+  "unpublishedBranchReferences": 146,
+  "screenedBlobs": 9154,
+  "scope": "Discovered workspace clones and registered worktrees for Core/Omega/CUDApp and existing omega-bridge; excludes ignored files, arbitrary reflog-only objects and unrelated repositories",
+  "archives": [
+    {
+      "group": "core",
+      "repo": "aien-sovereign-core-mv",
+      "branchRefs": 74,
+      "workingSnapshots": 85,
+      "stagedSnapshots": 2,
+      "conflictSnapshots": 9,
+      "excludedEntries": 7,
+      "preservedCommits": 367
+    },
+    {
+      "group": "omega",
+      "repo": "omega-mv",
+      "branchRefs": 67,
+      "workingSnapshots": 108,
+      "stagedSnapshots": 0,
+      "conflictSnapshots": 0,
+      "excludedEntries": 4,
+      "preservedCommits": 308
+    },
+    {
+      "group": "cudapp",
+      "repo": "CUDApp",
+      "branchRefs": 5,
+      "workingSnapshots": 7,
+      "stagedSnapshots": 0,
+      "conflictSnapshots": 0,
+      "excludedEntries": 6963,
+      "preservedCommits": 20
+    },
+    {
+      "group": "bridge",
+      "repo": "omega-bridge",
+      "branchRefs": 0,
+      "workingSnapshots": 3,
+      "stagedSnapshots": 0,
+      "conflictSnapshots": 0,
+      "excludedEntries": 8,
+      "preservedCommits": 3
+    }
+  ]
+}
