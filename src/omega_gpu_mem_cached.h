@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 #ifndef OMEGA_GPU_MEM_CACHED_H
 #define OMEGA_GPU_MEM_CACHED_H
 /* GPU-cached device-visible memory for read-only weights (OWN-30B L2 kernel-time cut).

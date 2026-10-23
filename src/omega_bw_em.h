@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* omega_bw_em.h: the IR emitter helpers shared by the OWN-30B tensor-core generators (T3/T3b; private, static, header-only).
  * Moved verbatim out of omega_blackwell_codegen_tc.c (T3 cut 1, chip-proven scheduling rules); see that file for the history. */
 #ifndef OMEGA_BW_EM_H

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /*
  * omega_gpu_session.c: FB-1 cut 4b, made portable in native v1 P07 cut C (session part). See the header.
  *

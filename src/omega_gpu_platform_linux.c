@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* omega_gpu_platform_linux.c -- Linux REFERENCE implementation of OmegaGpuPlatform 1.1. REFERENCE ONLY: see the
  * header. Every driver call here is the one src/omega_gpu_session.c made directly before P07 cut C, in the same
  * order, so the launch path on GB10 under Linux is unchanged:

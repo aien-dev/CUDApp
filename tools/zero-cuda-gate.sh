@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: AGPL-3.0-only
 # Copied from aien-sovereign-core scripts/zero-cuda-gate.sh at 14126c62 (written by aien-dev, Drake's account).
 # Zero-CUDA gate (FB-1 cut 6): fails when a binary needs an NVIDIA CUDA library or
 # imports a CUDA runtime/driver/cuBLAS/NVRTC symbol. AIEN reaches the GB10 only through

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /*
  * Simulated GB10 driver for the host test of the Blackwell GPU engine backend
  * (tests/test_omega_blackwell_engine.c). NOT_RUN: written in cut A3b2 and never

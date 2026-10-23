@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* omega_gpu_hostmath: libm-free double-precision log / exp / pow / sincos (see the header). */
 #include "omega_gpu_hostmath.h"
 #include <stdint.h>

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* omega_gpu_platform_linux.h -- the Linux REFERENCE implementation of OmegaGpuPlatform (ABI 1.1).
  *
  * REFERENCE ONLY (native v1 P07 cut C, session part; aienos#286). This is today's GB10 path under Linux

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* omega_gpu_fp8_pack.c: host side of the FP8 e4m3 GEMV (OWN-30B Cut 6). See omega_gpu_fp8_api.h.
  *
  * The weight bytes keep the checkpoint's row-major [n][k] order on the device (a warp reads

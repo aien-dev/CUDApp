@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: AGPL-3.0-only
 # fresh-checkout-hello.sh <branch> [log-file]
 # Proves the README's "Run your first kernel" works from nothing: clones <branch> from GitHub into an
 # empty temporary folder, takes the commands from that section of the README (the first bash block), runs

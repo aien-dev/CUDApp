@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /*
  * Host test of the Omega GPU Engine core (A3a) against a FAKE backend.
  * No device, no physics headers. Every case prints "[PASS] id" or "[FAIL] id";

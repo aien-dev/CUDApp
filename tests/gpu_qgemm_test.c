@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* gpu_qgemm_test.c (OWN-30B L1 GEMM, W-L1G, 2026-10-14): the native FP8 prefill path (omega_blackwell_codegen_qg.h).
  *   --host-only  reference self-checks
  *   --sim        kernels in the warp simulator bit-identical to the C reference; mutants caught (a simulator error is a FAIL)

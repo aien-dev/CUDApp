@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /*
  * m16_native.h -- M16 libcuda-free native accelerator interface.
  *

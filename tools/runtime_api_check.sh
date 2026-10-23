@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: AGPL-3.0-only
 # runtime_api_check.sh -- host check of the Omega Runtime API manifest against the C headers (no GPU, no physics).
 #
 #   tools/runtime_api_check.sh [--bless] MANIFEST ROOT WORK_DIR [API_MD]

@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: AGPL-3.0-only
 # tests/run_nvrm_lifecycle_gates.sh -- M19R nvrm_free()/wait_marker_ge() lifecycle gates.
 set -euo pipefail
 

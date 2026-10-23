@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* omega_gpu_fp8_api.c: FP8 e4m3 GEMV entry points on the shared session (OWN-30B Cut 6 / Cut 5).
  * See the header. Submission path and buffer policy are the matmul API's: every buffer both sides
  * touch is GPU-uncached (nvos.h NVOS32_ATTR2_GPU_CACHEABLE: "For system memory this will not be

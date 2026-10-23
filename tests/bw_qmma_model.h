@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* bw_qmma_model.h (OWN-30B L1 GEMM, W-L1G, 2026-10-14): parametrised C model of one QMMA.16832.F32.E4M3.E4M3 dot product
  *   d = c + sum_{k<32} a_k * b_k      (a_k, b_k e4m3 values given as f32; products exact in double)
  * Same family as tests/bw_hmma_model.h (chip-exact for HMMA: evidence bf9b0378) widened for FP8: the vendor documents no

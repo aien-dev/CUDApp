@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* omega_gpu_tern_api.c: KT1 W2A8 ternary GEMV on the shared session, ternary engine stage T0 (2026-10-15). See the header.
  * Buffer policy: weights GPU-cached by default (written once by the CPU before any GPU read, then only read by the GPU;
  * omega_gpu_mem_cached.h). Everything else both sides touch (x, a_scale, scales, y) is GPU-uncached (nvos.h

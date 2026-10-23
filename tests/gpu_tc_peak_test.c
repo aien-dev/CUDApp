@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* gpu_tc_peak_test.c (OWN-30B T3, 2026-10-13): tensor-core throughput ceiling on GB10 (HMMA.16816.F32.BF16).
  *   --host-only  the generator in the warp simulator: every accumulator 16 * iters
  *   (default)    the chip (caller holds flock /tmp/aien-gb10.lock): a sweep of issue stall x accumulator chains x warps x CTAs;

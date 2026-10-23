@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /*
  * Omega GPU Engine: run one already-built GPU kernel job and return SUCCESS or
  * exactly one named failure.

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /*
  * gpu_serving_alloc_count_test: MEASUREMENT of driver (RM) allocations and frees made by the real
  * native GPU stack (session + matmul API + attention API) while it "serves" a Qwen3-4B-shaped

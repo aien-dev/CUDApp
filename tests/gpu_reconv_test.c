@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* gpu_reconv_test: structured warp reconvergence (omega #308) on Omega's own Blackwell codegen.
  *
  *   ./gpu_reconv_test --host-only            encoder golden words, region bookkeeping, codegen refusals,

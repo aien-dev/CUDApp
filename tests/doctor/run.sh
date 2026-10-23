@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: AGPL-3.0-only
 # Host test for `cudapp-doctor` (CUDA++ developer bar D2 and D6, docs/PAIN_POINTS.md).
 #   usage: tests/doctor/run.sh build/cudapp-doctor      (CUDAPP_DOCTOR_SHOW=1 also prints what each fake machine is told)
 # No GPU and no device file is opened: every case is a fake machine built under a temporary

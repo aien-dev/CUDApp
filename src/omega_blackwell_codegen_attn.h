@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 #ifndef OMEGA_BLACKWELL_CODEGEN_ATTN_H
 #define OMEGA_BLACKWELL_CODEGEN_ATTN_H
 /*

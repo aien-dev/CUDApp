@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /*
  * gpu_cmdlist_test: OWN-30B W-L2 decode launch collapse (omega_gpu_cmdlist.h + omega_blackwell_codegen_dec.h).
  *   --host-only   codegen budgets and refusals of the four glue kernels (no device)

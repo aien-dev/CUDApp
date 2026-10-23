@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: AGPL-3.0-only
 # Copied from the Hermes Agent grounded-citations skill (MIT) to check docs/PAIN_POINTS.md: see section 5 there.
 """Citation ledger for grounded answers and documents.
 

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* gpu_fp8_api_test: OWN-30B Cut 6 / Cut 5 gate for omega_gpu_fp8_api (FP8 e4m3 block-scaled GEMV).
  *
  *   ./gpu_fp8_api_test --host-only          exhaustive 256-code e4m3 conversion vs the reference decode

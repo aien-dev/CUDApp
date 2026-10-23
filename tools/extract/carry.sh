@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: AGPL-3.0-only
 # carry.sh: bring the GPU half of an Omega branch over to CUDA++, with its whole history
 # (merges and their conflict resolutions included).
 #

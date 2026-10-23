@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /*
  * omega_gpu_cmdlist.c: many launches in one submission (see the header).
  *

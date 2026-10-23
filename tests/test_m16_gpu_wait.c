@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* Host test for src/m16_gpu_wait.c: fake memory, fake clock, no GPU.
  * Every scenario runs against the real primitive (must behave) and against
  * mutants (a naive wall-clock loop, a fixed wait that accepts overshoot, a

@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: AGPL-3.0-only
 # Omega runtime R3 (omega-mv#596): the portability table must match the source tree.
 #   usage: runtime_portability_check.sh <root> <table.tsv> <engine.mk>
 # Host only, no compiler, no device. POSIX sh + awk.

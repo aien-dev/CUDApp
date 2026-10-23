@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* omega_gpu_chip.c: the qualified-chip table and the refusal sentence (developer bar D6).
  * See omega_gpu_chip.h. Hosted: reads sysfs with stdio and dirent. */
 #include "omega_gpu_chip.h"

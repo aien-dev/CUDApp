@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* test_omega_gpu_platform_linux: the Linux REFERENCE platform (src/omega_gpu_platform_linux.c, reference only) on the
  * simulated driver (tests/fake_m16_native.c). Host program, hosted build, opens no device.
  *

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: AGPL-3.0-only
 # Omega GPU Engine (docs/numeric/OMEGA_GPU_ENGINE.md). Picked up by
 # `-include mk/*.mk`. Host only: opens no device; needs no physics headers except the two A3b1 targets, not
 # part of `all` or `test`.

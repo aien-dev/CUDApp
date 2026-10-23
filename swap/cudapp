@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: AGPL-3.0-only
 # cudapp: swap NVIDIA's CUDA stack for CUDA++ and back, one command each way.
 #
 #   cudapp swap status            what is installed, what is loaded, what the loader finds, who holds the GPU

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* omega_gpu_platform.c -- contract checks and the handle table of
  * src/omega_gpu_platform.h. Freestanding: no libc beyond memset. */
 #include "omega_gpu_platform.h"

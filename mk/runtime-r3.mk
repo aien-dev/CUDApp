@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: AGPL-3.0-only
 # Omega runtime R3 (omega-mv#596): the portability table (docs/runtime/portability_table.tsv) must match src/.
 # Picked up by `-include mk/*.mk`. Host only: no compiler, no device, no physics headers.
 #   test-runtime-portability-check     every src/omega_gpu_*, omega_blackwell_*, omega_bw_* file has a row, every row names a

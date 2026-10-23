@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* test_omega_codegen_freestanding.c -- native v1 P07 cut A.2 (aienos#286, aien-architecture#190).
  *
  * Built twice by mk/omega-gpu-engine.mk (make test-codegen-freestanding):

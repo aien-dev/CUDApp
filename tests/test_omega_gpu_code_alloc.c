@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* GPU code buffer sizing (src/omega_gpu_code_alloc.h): code + 2 KB instruction prefetch tail, page rounded.
  * Host only. The NO_TAIL mutant (the page-rounded size used before omega#323) must fail. */
 #include "omega_gpu_code_alloc.h"

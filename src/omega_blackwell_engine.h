@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /*
  * Omega GPU Engine, Blackwell GB10 backend (cut A3b1).
  *

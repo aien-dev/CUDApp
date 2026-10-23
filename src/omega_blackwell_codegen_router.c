@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /*
  * omega_blackwell_codegen_router.c: the one-launch MoE router kernel (see the header). Emitter rules follow
  * omega_blackwell_codegen_attn.c / omega_blackwell_codegen_moe.c (control words, read barrier on every load,

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /*
  * Phase B only: needs the GB10, queen's go, quiet flag via chip_run; never run in Phase A.
  *

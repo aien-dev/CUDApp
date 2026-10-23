@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* gpu_tc_probe_test.c (OWN-30B T3, 2026-10-13): characterise the chip's HMMA.16816.F32.BF16 arithmetic.
  *   --host-only   model self-checks (the model family reproduces exact sums on exactly representable cases)
  *   (default)     chip: CASES single-HMMA cases (one warp each) with operand classes chosen to separate the models

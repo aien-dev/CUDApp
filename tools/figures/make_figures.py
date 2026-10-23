@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: AGPL-3.0-only
 """Draw the README figures (docs/img/*.svg) from this repository's own data.
 
 Run from the repository root:   python3 tools/figures/make_figures.py
@@ -279,7 +279,7 @@ def fig_stack():
             s.pill(mid - w / 2, y + rh / 2 - 12, lab, col, size=13, w=w, filled=True)
         y += rh + gap
     ly = y + 16
-    for lab, col, x in (("closed, replaced by CUDA++", INK3, 48), ("mine, MIT", GREEN, 300),
+    for lab, col, x in (("closed, replaced by CUDA++", INK3, 48), ("first-party, AGPL", GREEN, 300),
                         ("NVIDIA open source, replaced next", BLUE, 440), ("NVIDIA signed firmware, stays", AMBER, 740)):
         s.rect(x, ly - 11, 14, 14, stroke=col, fill="#0b1a17" if col == GREEN else CARD, rx=3, sw=1.5)
         s.text(x + 22, ly + 1, lab, size=14, fill=INK2)

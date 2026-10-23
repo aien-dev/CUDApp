@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: AGPL-3.0-only
 # audit-selftest.sh: negative control for audit-scan.sh. Plants one fake secret
 # per rule in a throwaway repo (one in a deleted file, one in a commit message)
 # and fails unless every planted one is found.

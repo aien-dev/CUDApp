@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* bw_hmma_model.h (OWN-30B T3, 2026-10-13): parametrised C model of one HMMA.16816.F32.BF16 dot product
  *   d = c + sum_{k<16} a_k * b_k      (a_k, b_k bf16 values given as f32; products are exact in double)
  * The vendor documents no rounding behaviour for mma (DOCS SILENT, Context7 PTX ISA). Published measurements of earlier

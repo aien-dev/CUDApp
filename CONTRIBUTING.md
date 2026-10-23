@@ -49,7 +49,7 @@ CUDA++'s libraries (matrix multiply, attention, elementwise, mixture-of-experts 
 
 ## Reverse engineering, translation and ports are welcome
 
-CUDA++ is MIT. You may read, disassemble, reverse engineer and translate anything CUDA++ produces, including the machine code it writes, and run it or port it to any hardware, NVIDIA or not. We ask only that you keep the licence notice. This is on purpose: CUDA's licence forbids reverse engineering its output to target other hardware (`docs/PAIN_POINTS.md` section 2.8), and CUDA++ will never do that to anyone.
+The current first-party license is AGPL-3.0-only. You may read, disassemble, reverse engineer and translate CUDA++ output, including its machine code, and port CUDA++ to any hardware, subject to the applicable license and retained third-party notices. This is deliberate: CUDA's license restricts reverse engineering its output to target other hardware (`docs/PAIN_POINTS.md`, section 2.8); CUDA++ does not impose that restriction on its own output.
 
 Do not send us NVIDIA's code or binaries. CUDA++ stores no NVIDIA binary, cubin, PTX or firmware, and no listing printed by NVIDIA's tools (`docs/AUDIT.md`). If you used NVIDIA's compiler or disassembler on your own small kernels to learn an encoding, say so in the code comment, as the existing code does (`docs/HOW_WE_DID_IT.md`, step 2).
 
@@ -67,4 +67,4 @@ Plain English and short sentences. Say what a thing does, not how good it is. A 
 
 ## Licence
 
-By contributing you agree that your contribution is licensed under the MIT licence in `LICENSE`.
+By contributing, you agree that your contribution is licensed under AGPL-3.0-only as stated in `LICENSE`. If your contribution contains third-party material, identify it and its license before submission; do not submit material you are not authorized to contribute.

@@ -1,6 +1,6 @@
 # Third-party material in CUDA++
 
-CUDA++ is MIT (see `LICENSE`). Two outside sources are in it or cited by it. Both are MIT too.
+The first-party material in the transition candidate is AGPL-3.0-only (`LICENSE`). This repository also contains and cites third-party material under separate terms. Those grants and notices remain in force; they are not replaced by the project license.
 
 ## 1. NVIDIA open GPU kernel module headers (copied, unchanged)
 
@@ -38,6 +38,10 @@ each file):
     furnished to do so, subject to the following conditions: The above copyright notice and this
     permission notice shall be included in all copies or substantial portions of the Software.
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+
+## Public-source quotations
+
+`docs/PAIN_POINTS.md` contains attributed quotations from the public sources listed there. They remain third-party text; the repository license does not relicense them.
 
 ## Not in CUDA++
 

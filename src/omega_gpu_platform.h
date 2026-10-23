@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* omega_gpu_platform.h -- native platform contract for the Omega GPU engine.
  *
  * Native v1 P07 cut A (aienos#286 cut A, aien-architecture#190). This header

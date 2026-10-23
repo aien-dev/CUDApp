@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* gpu_elementwise_test: FB-1 cut 4 gate for omega_gpu_elementwise_api.
  *
  *   ./gpu_elementwise_test --host-only          refusals, codegen, word fixtures, register budget,

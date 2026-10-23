@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: AGPL-3.0-only
 # Omega GPU Engine BACKEND mutation sweep (cut A3b2), a thin adapter over
 # tools/mutation_runner.sh, table reader. One mutant per protection in
 # src/omega_blackwell_engine.c (the Blackwell backend) and in the vector wrapper

@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: AGPL-3.0-only
 # Negative and positive controls for tools/runtime_portability_check.sh (omega-mv#596, slice R3).
 #   usage: runtime_portability_controls.sh <scratch-dir> <table.tsv> <engine.mk>
 # Each control builds a scratch copy of the GPU source files, breaks one thing, and requires the

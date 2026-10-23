@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* omega_blackwell_codegen_pfhost.c: router logits and MoE combine for the whole-prompt prefill (W-L1G-D). See the header. */
 #include "omega_blackwell_codegen_pfhost.h"
 #include "omega_bw_em.h"

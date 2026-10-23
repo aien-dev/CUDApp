@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: AGPL-3.0-only
 # Developer bar D2 and D6 (docs/PAIN_POINTS.md): `make doctor` says, in sentences, whether this
 # machine can run CUDA++ and what to do if not. It reads files under /proc, /sys and /dev only:
 # it opens no device and needs no GPU window. `make hello-gpu` runs it first.

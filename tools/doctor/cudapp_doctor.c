@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* cudapp-doctor: is this machine ready for CUDA++, and if not, what exactly to do.
  *
  * Developer bar D2 and D6 (docs/PAIN_POINTS.md). CUDA's install needs a driver, a toolkit, a

@@ -4,9 +4,9 @@
 
 # CUDA++
 
-**CUDA++ is the GPU half of the Omega runtime, under the MIT licence so anyone can use it.** You write a GPU program, CUDA++ turns it into the GPU's own machine code and runs it on an NVIDIA GPU, with no NVIDIA user-space software anywhere: no CUDA toolkit, no `nvcc`, no PTX, no `libcuda`, no cuBLAS.
+**CUDA++ is the GPU half of the Omega runtime. This transition candidate licenses first-party CUDA++ material under AGPL-3.0-only.** You write a GPU program, CUDA++ turns it into the GPU's own machine code and runs it on an NVIDIA GPU, with no NVIDIA user-space software anywhere: no CUDA toolkit, no `nvcc`, no PTX, no `libcuda`, no cuBLAS.
 
-> **Licensing transition notice:** A future AGPL-3.0 release is being considered, but no transition has taken effect: this branch leaves `LICENSE` unchanged. The exact MIT-licensed canonical snapshot verified for this documentation is [`232332422bfdc31c8918085b50f13c1e18ab702e`](https://github.com/aien-dev/CUDApp/tree/232332422bfdc31c8918085b50f13c1e18ab702e). Do not assume later commits are MIT. See [the licensing transition and audit limits](docs/LICENSING_TRANSITION.md) for tested checkout commands, provenance disclosures, and the remaining audit.
+> **Licensing status:** This branch is the AGPL-3.0-only transition candidate; canonical `main` is still the MIT snapshot at [`232332422bfdc31c8918085b50f13c1e18ab702e`](https://github.com/aien-dev/CUDApp/tree/232332422bfdc31c8918085b50f13c1e18ab702e). The old MIT grant and third-party notices are preserved. See [the transition and provenance audit](docs/LICENSING_TRANSITION.md).
 
 It runs on the NVIDIA GB10 (the DGX Spark, compute capability sm_121) today. The 35-billion-parameter model AIEN serves on the Spark runs on this code: on 2026-10-21 the live server had only the C library, the maths library, `libgcc_s` and the loader mapped, and zero CUDA libraries (receipt in Omega: `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`).
 
@@ -277,17 +277,16 @@ Receipt: `evidence/dx/d3-faults/hello-sim-spark.txt`. **FIXED on the simulator.*
 
 **The pain.** CUDA's licence: "You may not reverse engineer, decompile or disassemble any portion of the output generated using SDK elements for the purpose of translating such output artifacts to target a non-NVIDIA platform." ([CUDA EULA](https://docs.nvidia.com/cuda/eula/index.html)) And a developer: "I hope someone is working on hardware agnostic solutions, we need more GPUs, not less." ([r/LocalLLaMA](https://www.reddit.com/r/LocalLLaMA/comments/1b6gfjt/cuda_crackdown_nvidias_licensing_update_targets))
 
-**How CUDA++ fixes it.** MIT. Reverse engineering CUDA++'s output, translating it and porting it to any hardware are allowed and welcome (`CONTRIBUTING.md`). No NVIDIA binary is stored or run.
+**How CUDA++ addresses it.** This candidate uses AGPL-3.0-only for first-party material and preserves the earlier MIT grant for its pinned historical snapshot. Reverse engineering CUDA++ output, translating it and porting it to any hardware are allowed under the applicable license (`CONTRIBUTING.md`). Third-party notices remain in force.
 
 **The command that shows it:**
 
 ```
-$ head -1 LICENSE; git ls-files -z | xargs -0 file -b | grep -c -E "ELF|archive|PE32|Mach-O"
-MIT License
-0
+$ grep -m1 "^ *Version 3," LICENSE
+                       Version 3, 19 November 2007
 ```
 
-Receipt: `evidence/dx/pain-points/licence.txt`. **FIXED.** The GPU's signed firmware stays NVIDIA's: the chip checks its signature.
+The earlier MIT-era output is retained as a dated receipt at `evidence/dx/pain-points/licence.txt`; it describes the historical tree, not this candidate. The GPU's signed firmware stays NVIDIA's: the chip checks its signature.
 
 ### 9. Compiling at run time, and hangs while it compiles (517 GitHub issues match "JIT compilation" hang cuda)
 
@@ -369,4 +368,4 @@ The C names still carry the `omega_` prefix they had inside Omega, so Omega's wo
 
 ## Licence
 
-MIT, Copyright (c) 2026 Drake Stapleton (`LICENSE`). Third-party material and its notices: `THIRD_PARTY.md`.
+AGPL-3.0-only for first-party material in this candidate (`LICENSE`). Historical MIT grant: `LICENSE-MIT`. Third-party terms and notices: `THIRD_PARTY.md`.

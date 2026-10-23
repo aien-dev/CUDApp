@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* omega_blackwell_codegen_bf16.c: bf16 streaming GEMV kernel (the lm_head), OWN-30B 2026-10-13. See the header.
  * The emitter helpers below are copies of omega_blackwell_codegen_moe.c's (same chip-learned scheduling rules: every
  * instruction waits on everything still pending; variable-latency results go through scoreboard 0, stores set the read

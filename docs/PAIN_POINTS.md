@@ -2,7 +2,7 @@
 
 This is the research behind CUDA++'s developer bar (section 3). It asks two questions: what do people who use CUDA and its libraries actually run into, and why do they stay anyway? Then it turns the answers into rows anyone can check.
 
-Written 2026-10-22 for AIEN ledger item L400. Every outside claim has a numbered source at the end; every quote is copied word for word from the page and was checked against the saved page text by a script (section 5). Where CUDA is better today, section 4 says so.
+Written 2026-10-22 for AIEN ledger item L400. The license statements and receipt below describe the tree as it stood on that date; the current transition candidate is documented in `docs/LICENSING_TRANSITION.md`. Every outside claim has a numbered source at the end; every quote is attributed and was checked against the saved page text by a script (section 5). Where CUDA is better today, section 4 says so.
 
 ## 1. How this was done
 
@@ -136,7 +136,7 @@ ZLUDA itself ("ZLUDA is a drop-in replacement for CUDA on non-NVIDIA GPUs."[67])
 
 **Why people stay.** The clause targets other hardware. People who stay on NVIDIA hardware are not affected by it, and that is the point: it keeps the software where the hardware is.
 
-**CUDA++'s answer (row D9).** CUDA++ is MIT. Reverse engineering CUDA++'s output, translating it, and porting CUDA++ to any hardware, NVIDIA or not, are all allowed and welcome, and `CONTRIBUTING.md` says so. CUDA++ uses no NVIDIA licensed software at run time and stores no NVIDIA binary (`docs/AUDIT.md`). One thing stays NVIDIA's: the GPU's signed firmware, because the chip checks its signature. Status: DONE (receipt in section 3, D9).
+**CUDA++'s answer (row D9, as of 2026-10-22).** The then-current tree was MIT. Reverse engineering CUDA++'s output, translating it, and porting CUDA++ to any hardware, NVIDIA or not, were allowed and welcome. The current candidate license and preserved MIT snapshot are recorded in `docs/LICENSING_TRANSITION.md`. CUDA++ uses no NVIDIA licensed software at run time and stores no NVIDIA binary (`docs/AUDIT.md`). One thing stays NVIDIA's: the GPU's signed firmware, because the chip checks its signature. Status: DONE (receipt in section 3, D9).
 
 ### 2.9 Compiling at run time, and hangs while it compiles (rank 9)
 
@@ -194,7 +194,7 @@ Each row has a done-when anyone can run. A row is DONE only with a receipt on a 
 | D6 | A new chip works on day one or is refused with a sentence | `make doctor` names any unqualified NVIDIA GPU with what is missing and the porting steps; never a bare "no kernel image"; host test with an unknown PCI id | DONE (`evidence/dx/d2-doctor/fake-machines.txt`) |
 | D7 | Same inputs, same bits, at no cost | Two runs of the same job give the same output hash, on the simulator and on the chip | simulator half DONE; chip half open |
 | D8 | No per-process CUDA tax | The memory a CUDA++ process holds beyond its own buffers is measured and printed | PLANNED (needs a chip window) |
-| D9 | No licence that stops you | MIT; CONTRIBUTING.md welcomes reverse engineering of CUDA++'s output and ports to any hardware; no NVIDIA binary stored (AUDIT.md) | DONE (receipt `evidence/dx/pain-points/licence.txt`) |
+| D9 | No licence that stops you | At 2026-10-22, MIT and reverse-engineering/port rights; current candidate is AGPL-3.0-only with the exact MIT snapshot preserved (`docs/LICENSING_TRANSITION.md`) | Historical receipt `evidence/dx/pain-points/licence.txt` |
 | D10 | No compiling at run time | hello-gpu prints its kernel build time and the hash of its machine code, identical across runs; no cache directory | DONE for hello-gpu |
 | D11 | Open libraries with an easy default path | Any-shape GEMM, reductions, scans, sorts in source with host references | PLANNED (L386, Omega bar C3) |
 | D12 | Work per answer, against the machine's own ceiling | Every example prints bytes moved, operations and the floor time at the measured ceiling; with a chip window, the measured time next to it | simulator half DONE; chip half open |
@@ -222,7 +222,7 @@ The citation ledger (`evidence/dx/pain-points/ledger.json`) maps each [n] to its
 python3 sources.py --ledger evidence/dx/pain-points/ledger.json verify docs/PAIN_POINTS.md --evidence
 ```
 
-`sources.py` is the grounded-citations script used by AIEN's agents (MIT); a copy is in `tools/dx/sources.py`.
+`sources.py` is the grounded-citations script used by AIEN's agents; the copy in `tools/dx/sources.py` carries this candidate's AGPL-3.0-only notice.
 
 ## Sources
 

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 #include <math.h>
 #include "omega_blackwell_submit.h"
 #include "omega_blackwell_qmd.h"

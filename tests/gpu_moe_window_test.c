@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: AGPL-3.0-only */
 /* gpu_moe_window_test: OWN-30B cut 2 gate for omega_gpu_moe_api (column windows over a resident tensor).
  *
  *   ./gpu_moe_window_test --host-only            argument refusals (alignment rule fail-closed) and the packed
