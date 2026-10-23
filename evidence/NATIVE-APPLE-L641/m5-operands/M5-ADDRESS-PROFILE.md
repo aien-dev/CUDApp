@@ -29,6 +29,12 @@ Concatenate `m5-address-registers.om` with `test-m5-address-registers.om` or `te
 
 The producer and its exact goldens/refusal gate are under `native/gpulab/probes/l761-address/`. Host utilities handle build/transport and inspect archived bytes; all new behavioral implementation and assertions are Omega. Apple compiler executables are not redistributed. No foreign inference runtime or GPU dispatch is introduced.
 
+## Frozen-source replay
+
+The full source tree at `e9ff18accda8372584d20cd14bd9db3747b7e733` was exported into fresh private output space. Seven reconstructed model/control executables matched the author artifacts byte-for-byte. The producer also matched its prior binary and regenerated all16 captured sources exactly. The full address matrix, compiled alternative, prior pressure/index gates, header/entry controls and field controls passed. A freshly built index-mutation driver additionally passed all64 cases;64 G16 index,96 G16 axis and64 non-x G17 refusals were retained.
+
+The first replay reached the earlier gates but stopped when its hash inventory expected an unstaged `address-tail-as-index.all.om` filename. No native assertion was waived: the corrected orchestration materializes that exact committed control source before compiling/hashing it. The first command/stdout/stderr are preserved as `m5-address-frozen-failed-*`; the complete fresh replay is `m5-address-frozen-command.txt` and `m5-address-frozen-replay.*`. Old tar provenance-xattr warnings and expected refusal traces remain in raw stderr.
+
 ## Acceptance still open
 
 This is a new bounded research profile, not production target105 support or full M1–M5 completion. The final address extension needs independent source review. General G17g instruction boundaries, physical memory-register identities, modifier/cache/dependency semantics, arbitrary scheduling and hardware behavior remain unqualified. The original pressure/index core and M1–M4 production files remain unchanged.

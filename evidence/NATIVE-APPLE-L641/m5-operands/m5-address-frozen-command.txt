@@ -1,0 +1,109 @@
+set -euo pipefail
+OLD=$HOME/handoffs/native-apple-L641
+ROOT=$OLD/address-source-replay-r2
+cd "$ROOT"
+printf 'SOURCE_PIN=e9ff18accda8372584d20cd14bd9db3747b7e733\n'
+OMC=$HOME/handoffs/quantum-development-L600/toolchain/build/bootstrap/omc
+printf '191b776ef98821597c3e30655da6d680a9b66edbc9ceaca3c39c61ea6df098e9  %s\n' "$OMC" | sha256sum -c -
+EVID=evidence/NATIVE-APPLE-L641/m5-operands
+(cd "$EVID" && sha256sum -c address-archive.sha256)
+mkdir -m 700 L761-parent entry-replay-v1
+tar -xzf "$EVID/m5-address-corpus-L761.tar.gz" -C L761-parent
+(cd L761-parent/m5-address-research-L761/corpus && sha256sum -c SHA256SUMS)
+ln -s m5-address-research-L761/corpus L761-parent/corpus
+ln -s ../native/gpulab/probes/l761-address L761-parent/sources
+for family in pressure index axis; do tar -xzf "$EVID/m5-$family-corpus.tar.gz" -C entry-replay-v1; done
+for spec in address-contract:test-m5-address-registers address-mutants:test-m5-address-mutants address-pressure:test-m5-registers address-index:test-m5-index-registers address-entry:test-m5-entry-mutants address-fields:test-m5-register-mutants address-index-mutants:test-m5-index-mutants; do
+ name=${spec%%:*}; driver=${spec#*:}
+ { dd if=native/gpulab/probes/m5-address-registers.om status=none; dd if=native/gpulab/probes/$driver.om status=none; } > "$name.all.om"
+ quiet-build "$OMC" < "$name.all.om" > "$name"
+ test -s "$name"; chmod +x "$name"; file "$name"
+ if test "$name" != address-index-mutants; then cmp "$name" "$OLD/$name"; fi
+done
+dd if="$EVID/address-controls/tail-as-index.all.om" of=address-tail-as-index.all.om status=none
+quiet-build "$OMC" < address-tail-as-index.all.om > address-tail-as-index
+chmod +x address-tail-as-index
+cmp address-tail-as-index "$OLD/address-tail-as-index"
+
+set -euo pipefail
+BASE=$HOME/handoffs/native-apple-L641/address-source-replay-r2
+cd "$BASE/L761-parent"
+OMC=$HOME/handoffs/quantum-development-L600/toolchain/build/bootstrap/omc
+quiet-build "$OMC" < sources/m5-address-input.om > producer
+chmod +x producer
+cmp producer "$HOME/handoffs/native-apple-L641/L761-address/address-generator-r2"
+sha256sum producer sources/*.om
+for n in 0 4 8 12 15; do
+ testfile=test-m5-address-input-$n.om
+ if test "$n" -eq 0; then testfile=test-m5-address-input.om; fi
+ quiet-build "$OMC" < "sources/$testfile" > "golden$n"
+ chmod +x "golden$n"
+ { printf "$(printf '\%03o' "$n")"; } | ./producer | "./golden$n"
+ printf 'SOURCE_GOLDEN=%s RC=0\n' "$n"
+done
+for n in {0..15}; do
+ stem=$(printf 's%02d' "$n")
+ printf "$(printf '\%03o' "$n")" | ./producer > reproduced.metal
+ cmp reproduced.metal "corpus/$stem.metal"
+ printf 'SOURCE_CAPTURE_IDENTITY=%s PASS\n' "$n"
+ for prog in address-contract address-mutants; do
+  { printf "$(printf '\%03o' "$n")"; dd if="corpus/applegpu_g17g-$stem.text" status=none; } | "$BASE/$prog"
+  printf '%s=%s RC=0\n' "$prog" "$n"
+ done
+ set +e
+ { printf "$(printf '\%03o' "$n")"; dd if="corpus/applegpu_g16g-$stem.text" status=none; } | "$BASE/address-contract"
+ rc=$?
+ set -e
+ test "$rc" -eq 66
+ printf 'G16_ADDRESS_REFUSAL=%s RC=66\n' "$n"
+done
+cd "$BASE"
+for n in {0..31}; do
+ ./address-pressure < "entry-replay-v1/m5-pressure-corpus/applegpu_g17g-p$n.text"
+ printf 'PRESSURE_REGRESSION=%s RC=0\n' "$n"
+done
+for n in {0..63}; do
+ { printf "$(printf '\%03o' "$n")"; dd if="entry-replay-v1/m5-index-corpus/applegpu_g17g-i$n.text" status=none; } | ./address-index
+ printf 'INDEX_REGRESSION=%s RC=0\n' "$n"
+done
+for n in 1 18 25; do
+ ./address-entry < "entry-replay-v1/m5-pressure-corpus/applegpu_g17g-p$n.text"
+ printf 'ENTRY_REGRESSION=%s RC=0\n' "$n"
+done
+./address-fields < entry-replay-v1/m5-pressure-corpus/applegpu_g17g-p1.text
+printf 'NINE_FIELDS_REGRESSION_PASS\n'
+sha256sum address-{contract,mutants,tail-as-index,pressure,index,entry,fields}.all.om address-{contract,mutants,tail-as-index,pressure,index,entry,fields}
+printf 'ADDRESS_PARENT_NATIVE_REPLAY_PASS; HARDWARE_NOT_RUN\n'
+
+
+for n in {0..15}; do
+ stem=$(printf 's%02d' "$n")
+ set +e
+ { printf "$(printf '\%03o' "$n")"; dd if="L761-parent/corpus/applegpu_g17g-$stem.text" status=none; } | ./address-tail-as-index
+ rc=$?
+ set -e
+ expect=0
+ if test "$n" -ge 8 && test "$n" -le 11; then expect=66; fi
+ test "$rc" -eq "$expect"
+ printf 'TAIL_INDEX_FAULT=%s RC=%s\n' "$n" "$rc"
+done
+for n in {0..63}; do
+ { printf "$(printf '\%03o' "$n")"; dd if="entry-replay-v1/m5-index-corpus/applegpu_g17g-i$n.text" status=none; } | ./address-index-mutants
+ printf 'INDEX_MUTANTS_REGRESSION=%s RC=0\n' "$n"
+ set +e
+ { printf "$(printf '\%03o' "$n")"; dd if="entry-replay-v1/m5-index-corpus/applegpu_g16g-i$n.text" status=none; } | ./address-index
+ rc=$?
+ set -e
+ test "$rc" -eq 66
+ printf 'G16_INDEX_REGRESSION=%s RC=66\n' "$n"
+done
+for n in {0..95}; do
+ set +e; ./address-pressure < entry-replay-v1/m5-axis-corpus/applegpu_g16g-p$n.text; rc=$?; set -e
+ test "$rc" -eq 66; printf 'G16_AXIS_REGRESSION=%s RC=66\n' "$n"
+done
+for n in {32..95}; do
+ set +e; ./address-pressure < entry-replay-v1/m5-axis-corpus/applegpu_g17g-p$n.text; rc=$?; set -e
+ test "$rc" -eq 66; printf 'NON_X_REGRESSION=%s RC=66\n' "$n"
+done
+sha256sum address-index-mutants.all.om address-index-mutants
+printf 'ADDRESS_FROZEN_SOURCE_REPLAY_PASS; NO_HARDWARE; PRODUCTION_HOLD\n'
