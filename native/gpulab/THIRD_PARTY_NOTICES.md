@@ -106,6 +106,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ADevWithAnIdea/agx-re at `c677ff970ca9d5ab98770100e790f8a62c60a2a0` was
 read for published M4/M5 observations and limitations. Its GPL implementation
-was not copied or executed. No M4/M5 implementation is qualified by this lab;
-those request IDs refuse. Source links and unresolved fields are recorded in
-APPLE_GENERATIONS.md.
+was not copied or executed. Later independent Apple compiler captures corrected
+an overgeneralized M4 assumption; M5 still refuses. Source links and unresolved
+fields are recorded in APPLE_GENERATIONS.md.
+
+## Apple compiler oracle for G16 and G17
+
+Apple Metal 32023.830 from the public MetalToolchain 17B54 asset was used as an
+external compiler oracle on probe source emitted by our Omega writers. Apple's
+toolchain remains proprietary and is not redistributed or linked into this lab.
+The corpus contains our generated probe programs and their compiler output, not
+Apple toolchain implementation. The normal suite uses frozen fixtures only.
+The BSD-3-Clause reference above also independently assembles the shared-field
+G16 profile and disassembles G16 compiler output; it is not an M5 decoder.

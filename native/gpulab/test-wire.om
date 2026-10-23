@@ -23,6 +23,9 @@ end
 if and eq n 220 eq word 0 2 108
 rc = m3_run 3 4
 end
+if and eq n 190 eq word 0 2 108
+rc = m4_run 3 4
+end
 if ne rc 0
 ret rc
 end

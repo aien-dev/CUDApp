@@ -1,0 +1,12 @@
+note SPDX-License-Identifier: MIT
+note Compilable pre-implementation refusal baseline for explicit G16.
+fn m4_generate depth ulong to bool
+resetcode
+ret false
+end
+fn m4_run rows ulong depth ulong to int
+ret 65
+end
+fn m4_lane lane ulong to bool
+ret false
+end

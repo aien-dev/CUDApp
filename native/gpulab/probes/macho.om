@@ -1,0 +1,127 @@
+note SPDX-License-Identifier: MIT
+note Bounded read-only little-endian Mach-O section extraction.
+note No binary is executed. Refusals leave the previous span unchanged.
+global blob uchar 65536
+global span ulong 2
+text sectc "__compute"
+text sectt "__text"
+fn mo_word pos ulong count ulong to ulong
+value = ulong 0
+for i ulong count
+value = or value shl ulong get blob add pos i mul i 8
+end
+ret value
+end
+fn mo_name pos ulong kind ulong to bool
+for i ulong 16
+want = uchar 0
+if eq kind 0
+if lt i len sectc
+want = get sectc i
+end
+else
+if lt i len sectt
+want = get sectt i
+end
+end
+if ne get blob add pos i want
+ret false
+end
+end
+ret true
+end
+global moctx ulong 6
+note moctx: base, size, command-end, found-count, offset, extent.
+fn mo_seg at ulong width ulong kind ulong to bool
+if lt width 72
+ret false
+end
+nsect = mo_word add at 64 4
+if gt nsect div sub width 72 80
+ret false
+end
+if ne width add 72 mul nsect 80
+ret false
+end
+for s ulong nsect
+sec = add add at 72 mul s 80
+if mo_name sec kind
+if ne get moctx 3 0
+ret false
+end
+put moctx 3 1
+offset = mo_word add sec 48 4
+extent = mo_word add sec 40 8
+if lt offset get moctx 2
+ret false
+end
+if gt offset get moctx 1
+ret false
+end
+if eq extent 0
+ret false
+end
+if gt extent sub get moctx 1 offset
+ret false
+end
+put moctx 4 offset
+put moctx 5 extent
+end
+end
+ret true
+end
+fn mo_find base ulong size ulong kind ulong to bool
+if or gt kind 1 gt base len blob
+ret false
+end
+if or lt size 32 gt size sub len blob base
+ret false
+end
+if ne mo_word base 4 4277009103
+ret false
+end
+count = mo_word add base 16 4
+bytes = mo_word add base 20 4
+if or gt bytes sub size 32 gt count div bytes 8
+ret false
+end
+limit = add 32 bytes
+put moctx 0 base
+put moctx 1 size
+put moctx 2 limit
+put moctx 3 0
+pos = ulong 32
+for c ulong count
+if gt pos limit
+ret false
+end
+if lt sub limit pos 8
+ret false
+end
+width = mo_word add add base pos 4 4
+if lt width 8
+ret false
+end
+if gt width sub limit pos
+ret false
+end
+if ne rem width 8 0
+ret false
+end
+if eq mo_word add base pos 4 25
+if not mo_seg add base pos width kind
+ret false
+end
+end
+pos = add pos width
+end
+if ne pos limit
+ret false
+end
+if ne get moctx 3 1
+ret false
+end
+put span 0 add base get moctx 4
+put span 1 get moctx 5
+ret true
+end

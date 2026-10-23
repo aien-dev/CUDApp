@@ -1,0 +1,260 @@
+   0: 1C A0 11 06 60 00 00 00                    get_sr.todo      0, r1, sr32 (thread_position_in_grid.x)
+   8: 9F 11 54 00 03 00 08 88 10 14              iadd             r0.cache, 0, r1, lsl 2, wait 0
+  12: 9F 01 54 04 03 00 00 88 14 04              iadd             r2.cache, 0, r0.discard, lsl 4
+  1c: 9F 01 54 0A 02 02 10 8C 11 04              iadd             r5, 1, r2.cache
+  26: 9F 01 54 08 02 04 10 88 11 04              iadd             r4, 2, r2
+  30: 67 00 54 00 00 02 20 00 11 00 00 40 46 00  device_load      0, i32, x, r0, u0_u1, r2, lsl 2, 0, 1, 1, 0
+  3e: 67 00 54 12 01 00 00 00 11 00 00 40 02 00  device_load      0, i32, x, r9, u2_u3, 0, 0, 1, 1, 0
+  4c: 9F 01 54 06 02 06 10 8C 11 04              iadd             r3, 3, r2.cache
+  56: 67 00 54 24 00 85 20 00 11 00 00 40 46 00  device_load      0, i32, x, r18, u0_u1, r5.discard, lsl 2, 0, 1, 1, 0
+  64: 67 00 54 2A 01 00 00 00 11 80 00 40 02 00  device_load      0, i32, x, r21, u2_u3, 0, 4, 1, 1, 0
+  72: 9F 01 54 0A 02 08 10 8C 11 04              iadd             r5, 4, r2.cache
+  7c: 67 00 54 0C 00 84 20 00 11 00 00 40 46 00  device_load      0, i32, x, r6, u0_u1, r4.discard, lsl 2, 0, 1, 1, 0
+  8a: 67 00 54 18 01 00 00 00 11 00 01 40 02 00  device_load      0, i32, x, r12, u2_u3, 0, 8, 1, 1, 0
+  98: 9F 01 54 08 02 0A 10 8C 11 04              iadd             r4, 5, r2.cache
+  a2: 67 00 54 0E 00 83 20 00 D1 00 00 40 46 00  device_load      3, i32, x, r7, u0_u1, r3.discard, lsl 2, 0, 1, 1, 0
+  b0: 67 00 54 B8 01 00 00 00 D1 80 01 40 02 00  device_load      3, i32, x, r92, u2_u3, 0, 12, 1, 1, 0
+  be: 9F 01 54 06 02 0C 10 8C 11 04              iadd             r3, 6, r2.cache
+  c8: 67 00 54 5E 00 85 20 00 D1 00 00 40 46 00  device_load      3, i32, x, r47, u0_u1, r5.discard, lsl 2, 0, 1, 1, 0
+  d6: 67 00 54 62 01 00 00 00 D1 00 02 40 02 00  device_load      3, i32, x, r49, u2_u3, 0, 16, 1, 1, 0
+  e4: 9F 01 54 0A 02 0E 10 8C 11 04              iadd             r5, 7, r2.cache
+  ee: 67 00 54 50 00 84 20 00 D1 00 00 40 46 00  device_load      3, i32, x, r40, u0_u1, r4.discard, lsl 2, 0, 1, 1, 0
+  fc: 67 00 54 58 01 00 00 00 D1 80 02 40 02 00  device_load      3, i32, x, r44, u2_u3, 0, 20, 1, 1, 0
+ 10a: 9F 01 54 08 02 10 10 8C 11 04              iadd             r4, 8, r2.cache
+ 114: 67 00 54 46 00 83 20 00 D1 00 00 40 46 00  device_load      3, i32, x, r35, u0_u1, r3.discard, lsl 2, 0, 1, 1, 0
+ 122: 67 00 54 5C 01 00 00 00 D1 00 03 40 02 00  device_load      3, i32, x, r46, u2_u3, 0, 24, 1, 1, 0
+ 130: 9F 01 54 06 02 12 10 8C 11 04              iadd             r3, 9, r2.cache
+ 13a: 67 00 54 52 00 85 20 00 D1 00 00 40 46 00  device_load      3, i32, x, r41, u0_u1, r5.discard, lsl 2, 0, 1, 1, 0
+ 148: 67 00 54 56 01 00 00 00 D1 80 03 40 02 00  device_load      3, i32, x, r43, u2_u3, 0, 28, 1, 1, 0
+ 156: 9F 01 54 0A 02 14 10 8C 11 04              iadd             r5, 10, r2.cache
+ 160: 67 00 54 3E 00 84 20 00 D1 00 00 40 46 00  device_load      3, i32, x, r31, u0_u1, r4.discard, lsl 2, 0, 1, 1, 0
+ 16e: 67 00 54 4C 01 00 00 00 D1 00 04 40 02 00  device_load      3, i32, x, r38, u2_u3, 0, 32, 1, 1, 0
+ 17c: 9F 01 54 08 02 16 10 8C 11 04              iadd             r4, 11, r2.cache
+ 186: 67 00 54 34 00 83 20 00 D1 00 00 40 46 00  device_load      3, i32, x, r26, u0_u1, r3.discard, lsl 2, 0, 1, 1, 0
+ 194: 67 00 54 4A 01 00 00 00 D1 80 04 40 02 00  device_load      3, i32, x, r37, u2_u3, 0, 36, 1, 1, 0
+ 1a2: 9F 01 54 06 02 18 10 8C 11 04              iadd             r3, 12, r2.cache
+ 1ac: 67 00 54 40 00 85 20 00 11 01 00 40 46 00  device_load      4, i32, x, r32, u0_u1, r5.discard, lsl 2, 0, 1, 1, 0
+ 1ba: 67 00 54 44 01 00 00 00 11 01 05 40 02 00  device_load      4, i32, x, r34, u2_u3, 0, 40, 1, 1, 0
+ 1c8: 9F 01 54 0A 02 1A 10 8C 11 04              iadd             r5, 13, r2.cache
+ 1d2: 67 00 54 08 00 84 20 00 11 01 00 40 46 00  device_load      4, i32, x, r4, u0_u1, r4.discard, lsl 2, 0, 1, 1, 0
+ 1e0: 67 00 54 3A 01 00 00 00 11 81 05 40 02 00  device_load      4, i32, x, r29, u2_u3, 0, 44, 1, 1, 0
+ 1ee: 9F 01 54 10 02 1C 10 8C 11 04              iadd             r8, 14, r2.cache
+ 1f8: 67 00 54 22 00 83 20 00 11 01 00 40 46 00  device_load      4, i32, x, r17, u0_u1, r3.discard, lsl 2, 0, 1, 1, 0
+ 206: 67 00 54 38 01 00 00 00 11 01 06 40 02 00  device_load      4, i32, x, r28, u2_u3, 0, 48, 1, 1, 0
+ 214: 9F 01 54 06 02 1E 10 8C 11 04              iadd             r3, 15, r2.cache
+ 21e: 67 00 54 2E 00 85 20 00 11 01 00 40 46 00  device_load      4, i32, x, r23, u0_u1, r5.discard, lsl 2, 0, 1, 1, 0
+ 22c: 67 00 54 32 01 00 00 00 11 81 06 40 02 00  device_load      4, i32, x, r25, u2_u3, 0, 52, 1, 1, 0
+ 23a: 9F 01 54 0A 02 20 10 8C 11 04              iadd             r5, 16, r2.cache
+ 244: 67 00 54 28 00 88 20 00 11 01 00 40 46 00  device_load      4, i32, x, r20, u0_u1, r8.discard, lsl 2, 0, 1, 1, 0
+ 252: 67 00 54 2C 01 00 00 00 11 01 07 40 02 00  device_load      4, i32, x, r22, u2_u3, 0, 56, 1, 1, 0
+ 260: 9F 01 54 10 02 22 10 8C 11 04              iadd             r8, 17, r2.cache
+ 26a: 67 00 54 16 00 83 20 00 11 01 00 40 46 00  device_load      4, i32, x, r11, u0_u1, r3.discard, lsl 2, 0, 1, 1, 0
+ 278: 67 00 54 26 01 00 00 00 11 81 07 40 02 00  device_load      4, i32, x, r19, u2_u3, 0, 60, 1, 1, 0
+ 286: 9F 01 54 06 02 24 10 8C 11 04              iadd             r3, 18, r2.cache
+ 290: 67 00 54 0A 00 85 20 00 11 01 00 40 46 00  device_load      4, i32, x, r5, u0_u1, r5.discard, lsl 2, 0, 1, 1, 0
+ 29e: 67 00 54 20 01 00 00 00 11 01 08 40 02 00  device_load      4, i32, x, r16, u2_u3, 0, 64, 1, 1, 0
+ 2ac: 67 00 54 1A 00 88 20 00 91 00 00 40 46 00  device_load      2, i32, x, r13, u0_u1, r8.discard, lsl 2, 0, 1, 1, 0
+ 2ba: 67 00 54 1C 01 00 00 00 91 80 08 40 02 00  device_load      2, i32, x, r14, u2_u3, 0, 68, 1, 1, 0
+ 2c8: 67 00 54 10 00 83 20 00 91 00 00 40 46 00  device_load      2, i32, x, r8, u0_u1, r3.discard, lsl 2, 0, 1, 1, 0
+ 2d6: 67 00 54 14 01 00 00 00 91 00 09 40 02 00  device_load      2, i32, x, r10, u2_u3, 0, 72, 1, 1, 0
+ 2e4: 9F 01 54 1E 02 26 10 8C 11 04              iadd             r15, 19, r2.cache
+ 2ee: 9F 01 54 30 02 28 10 8C 11 04              iadd             r24, 20, r2.cache
+ 2f8: 9F 01 54 06 02 2A 10 8C 11 04              iadd             r3, 21, r2.cache
+ 302: 67 00 54 B4 00 8F 20 00 51 00 00 40 46 00  device_load      1, i32, x, r90, u0_u1, r15.discard, lsl 2, 0, 1, 1, 0
+ 310: 67 00 54 B6 01 00 00 00 51 80 09 40 02 00  device_load      1, i32, x, r91, u2_u3, 0, 76, 1, 1, 0
+ 31e: 9F 01 54 1E 02 2C 10 8C 11 04              iadd             r15, 22, r2.cache
+ 328: 67 00 54 AE 00 98 20 00 51 00 00 40 46 00  device_load      1, i32, x, r87, u0_u1, r24.discard, lsl 2, 0, 1, 1, 0
+ 336: 67 00 54 B2 01 00 00 00 51 00 0A 40 02 00  device_load      1, i32, x, r89, u2_u3, 0, 80, 1, 1, 0
+ 344: 9F 01 54 30 02 2E 10 8C 11 04              iadd             r24, 23, r2.cache
+ 34e: 67 00 54 AC 00 83 20 00 51 00 00 40 46 00  device_load      1, i32, x, r86, u0_u1, r3.discard, lsl 2, 0, 1, 1, 0
+ 35c: 67 00 54 B0 01 00 00 00 51 80 0A 40 02 00  device_load      1, i32, x, r88, u2_u3, 0, 84, 1, 1, 0
+ 36a: 9F 01 54 06 02 30 10 8C 11 04              iadd             r3, 24, r2.cache
+ 374: 67 00 54 A8 00 8F 20 00 51 00 00 40 46 00  device_load      1, i32, x, r84, u0_u1, r15.discard, lsl 2, 0, 1, 1, 0
+ 382: 67 00 54 AA 01 00 00 00 51 00 0B 40 02 00  device_load      1, i32, x, r85, u2_u3, 0, 88, 1, 1, 0
+ 390: 9F 01 54 1E 02 32 10 8C 11 04              iadd             r15, 25, r2.cache
+ 39a: 67 00 54 A2 00 98 20 00 51 00 00 40 46 00  device_load      1, i32, x, r81, u0_u1, r24.discard, lsl 2, 0, 1, 1, 0
+ 3a8: 67 00 54 A6 01 00 00 00 51 80 0B 40 02 00  device_load      1, i32, x, r83, u2_u3, 0, 92, 1, 1, 0
+ 3b6: 9F 01 54 30 02 34 10 8C 11 04              iadd             r24, 26, r2.cache
+ 3c0: 67 00 54 A0 00 83 20 00 51 00 00 40 46 00  device_load      1, i32, x, r80, u0_u1, r3.discard, lsl 2, 0, 1, 1, 0
+ 3ce: 67 00 54 A4 01 00 00 00 51 00 0C 40 02 00  device_load      1, i32, x, r82, u2_u3, 0, 96, 1, 1, 0
+ 3dc: 9F 01 54 06 02 36 10 8C 11 04              iadd             r3, 27, r2.cache
+ 3e6: 67 00 54 9C 00 8F 20 00 51 00 00 40 46 00  device_load      1, i32, x, r78, u0_u1, r15.discard, lsl 2, 0, 1, 1, 0
+ 3f4: 67 00 54 9E 01 00 00 00 51 80 0C 40 02 00  device_load      1, i32, x, r79, u2_u3, 0, 100, 1, 1, 0
+ 402: 9F 01 54 1E 02 38 10 8C 11 04              iadd             r15, 28, r2.cache
+ 40c: 67 00 54 96 00 98 20 00 51 00 00 40 46 00  device_load      1, i32, x, r75, u0_u1, r24.discard, lsl 2, 0, 1, 1, 0
+ 41a: 67 00 54 9A 01 00 00 00 51 00 0D 40 02 00  device_load      1, i32, x, r77, u2_u3, 0, 104, 1, 1, 0
+ 428: 9F 01 54 30 02 3A 10 8C 11 04              iadd             r24, 29, r2.cache
+ 432: 67 00 54 94 00 83 20 00 51 00 00 40 46 00  device_load      1, i32, x, r74, u0_u1, r3.discard, lsl 2, 0, 1, 1, 0
+ 440: 67 00 54 98 01 00 00 00 51 80 0D 40 02 00  device_load      1, i32, x, r76, u2_u3, 0, 108, 1, 1, 0
+ 44e: 9F 01 54 06 02 3C 10 8C 11 04              iadd             r3, 30, r2.cache
+ 458: 67 00 54 90 00 8F 20 00 51 00 00 40 46 00  device_load      1, i32, x, r72, u0_u1, r15.discard, lsl 2, 0, 1, 1, 0
+ 466: 67 00 54 92 01 00 00 00 51 00 0E 40 02 00  device_load      1, i32, x, r73, u2_u3, 0, 112, 1, 1, 0
+ 474: 9F 01 54 1E 02 3E 10 8C 11 04              iadd             r15, 31, r2.cache
+ 47e: 67 00 54 8A 00 98 20 00 51 00 00 40 46 00  device_load      1, i32, x, r69, u0_u1, r24.discard, lsl 2, 0, 1, 1, 0
+ 48c: 67 00 54 8E 01 00 00 00 51 80 0E 40 02 00  device_load      1, i32, x, r71, u2_u3, 0, 116, 1, 1, 0
+ 49a: 9F 01 54 30 02 40 10 8C 11 04              iadd             r24, 32, r2.cache
+ 4a4: 67 00 54 88 00 83 20 00 51 00 00 40 46 00  device_load      1, i32, x, r68, u0_u1, r3.discard, lsl 2, 0, 1, 1, 0
+ 4b2: 67 00 54 8C 01 00 00 00 51 00 0F 40 02 00  device_load      1, i32, x, r70, u2_u3, 0, 120, 1, 1, 0
+ 4c0: 9F 01 54 06 02 42 10 8C 11 04              iadd             r3, 33, r2.cache
+ 4ca: 67 00 54 84 00 8F 20 00 51 00 00 40 46 00  device_load      1, i32, x, r66, u0_u1, r15.discard, lsl 2, 0, 1, 1, 0
+ 4d8: 67 00 54 86 01 00 00 00 51 80 0F 40 02 00  device_load      1, i32, x, r67, u2_u3, 0, 124, 1, 1, 0
+ 4e6: 9F 01 54 1E 02 44 10 8C 11 04              iadd             r15, 34, r2.cache
+ 4f0: 67 00 54 7E 00 98 20 00 51 00 00 40 46 00  device_load      1, i32, x, r63, u0_u1, r24.discard, lsl 2, 0, 1, 1, 0
+ 4fe: 67 00 54 82 01 00 00 00 51 00 10 40 02 00  device_load      1, i32, x, r65, u2_u3, 0, 128, 1, 1, 0
+ 50c: 9F 01 54 30 02 46 10 8C 11 04              iadd             r24, 35, r2.cache
+ 516: 67 00 54 7C 00 83 20 00 51 00 00 40 46 00  device_load      1, i32, x, r62, u0_u1, r3.discard, lsl 2, 0, 1, 1, 0
+ 524: 67 00 54 80 01 00 00 00 51 80 10 40 02 00  device_load      1, i32, x, r64, u2_u3, 0, 132, 1, 1, 0
+ 532: 9F 01 54 06 02 48 10 8C 11 04              iadd             r3, 36, r2.cache
+ 53c: 67 00 54 78 00 8F 20 00 51 00 00 40 46 00  device_load      1, i32, x, r60, u0_u1, r15.discard, lsl 2, 0, 1, 1, 0
+ 54a: 67 00 54 7A 01 00 00 00 51 00 11 40 02 00  device_load      1, i32, x, r61, u2_u3, 0, 136, 1, 1, 0
+ 558: 9F 01 54 1E 02 4A 10 8C 11 04              iadd             r15, 37, r2.cache
+ 562: 67 00 54 72 00 98 20 00 51 00 00 40 46 00  device_load      1, i32, x, r57, u0_u1, r24.discard, lsl 2, 0, 1, 1, 0
+ 570: 67 00 54 76 01 00 00 00 51 80 11 40 02 00  device_load      1, i32, x, r59, u2_u3, 0, 140, 1, 1, 0
+ 57e: 9F 01 54 30 02 4C 10 8C 11 04              iadd             r24, 38, r2.cache
+ 588: 67 00 54 70 00 83 20 00 51 00 00 40 46 00  device_load      1, i32, x, r56, u0_u1, r3.discard, lsl 2, 0, 1, 1, 0
+ 596: 67 00 54 74 01 00 00 00 51 00 12 40 02 00  device_load      1, i32, x, r58, u2_u3, 0, 144, 1, 1, 0
+ 5a4: 9F 01 54 06 02 4E 10 8C 11 04              iadd             r3, 39, r2.cache
+ 5ae: 67 00 54 6C 00 8F 20 00 51 00 00 40 46 00  device_load      1, i32, x, r54, u0_u1, r15.discard, lsl 2, 0, 1, 1, 0
+ 5bc: 67 00 54 6E 01 00 00 00 51 80 12 40 02 00  device_load      1, i32, x, r55, u2_u3, 0, 148, 1, 1, 0
+ 5ca: 9F 01 54 1E 02 50 10 8C 11 04              iadd             r15, 40, r2.cache
+ 5d4: 67 00 54 66 00 98 20 00 51 00 00 40 46 00  device_load      1, i32, x, r51, u0_u1, r24.discard, lsl 2, 0, 1, 1, 0
+ 5e2: 67 00 54 6A 01 00 00 00 51 00 13 40 02 00  device_load      1, i32, x, r53, u2_u3, 0, 152, 1, 1, 0
+ 5f0: 9F 01 54 30 02 52 10 8C 11 04              iadd             r24, 41, r2.cache
+ 5fa: 67 00 54 64 00 83 20 00 51 00 00 40 46 00  device_load      1, i32, x, r50, u0_u1, r3.discard, lsl 2, 0, 1, 1, 0
+ 608: 67 00 54 68 01 00 00 00 51 80 13 40 02 00  device_load      1, i32, x, r52, u2_u3, 0, 156, 1, 1, 0
+ 616: 9F 01 54 06 02 54 10 8C 11 04              iadd             r3, 42, r2.cache
+ 620: 67 00 54 5A 00 8F 20 00 51 00 00 40 46 00  device_load      1, i32, x, r45, u0_u1, r15.discard, lsl 2, 0, 1, 1, 0
+ 62e: 67 00 54 60 01 00 00 00 51 00 14 40 02 00  device_load      1, i32, x, r48, u2_u3, 0, 160, 1, 1, 0
+ 63c: 9F 01 54 1E 02 56 10 88 11 04              iadd             r15, 43, r2
+ 646: 67 00 54 4E 00 98 20 00 51 00 00 40 46 00  device_load      1, i32, x, r39, u0_u1, r24.discard, lsl 2, 0, 1, 1, 0
+ 654: 67 00 54 54 01 00 00 00 51 80 14 40 02 00  device_load      1, i32, x, r42, u2_u3, 0, 164, 1, 1, 0
+ 662: 9F 10 54 00 03 24 00 00 D0 26 0A 00        imadd            r0.cache, r9.discard, r0.discard, 0, wait 0
+ 66e: 67 00 54 42 00 83 20 00 51 00 00 40 46 00  device_load      1, i32, x, r33, u0_u1, r3.discard, lsl 2, 0, 1, 1, 0
+ 67c: 9F 01 54 12 02 58 10 8C 11 04              iadd             r9, 44, r2.cache
+ 686: 67 00 54 48 01 00 00 00 51 00 15 40 02 00  device_load      1, i32, x, r36, u2_u3, 0, 168, 1, 1, 0
+ 694: 9F 01 54 06 02 5A 10 8C 11 04              iadd             r3, 45, r2.cache
+ 69e: 9F 00 54 00 03 54 90 00 D0 2F 2A 00        imadd            r0.cache, r21.discard, r18.discard, r0.discard
+ 6aa: 67 00 54 36 00 8F 20 00 51 01 00 40 46 00  device_load      5, i32, x, r27, u0_u1, r15.discard, lsl 2, 0, 1, 1, 0
+ 6b8: 67 00 54 3C 01 00 00 00 51 81 15 40 02 00  device_load      5, i32, x, r30, u2_u3, 0, 172, 1, 1, 0
+ 6c6: 9F 00 54 00 03 30 30 00 D0 2F 2A 00        imadd            r0.cache, r12.discard, r6.discard, r0.discard
+ 6d2: 9F 01 54 0C 02 5C 10 8C 11 04              iadd             r6, 46, r2.cache
+ 6dc: 67 00 54 2A 00 89 20 00 51 01 00 40 46 00  device_load      5, i32, x, r21, u0_u1, r9.discard, lsl 2, 0, 1, 1, 0
+ 6ea: 67 00 54 30 01 00 00 00 51 01 16 40 02 00  device_load      5, i32, x, r24, u2_u3, 0, 176, 1, 1, 0
+ 6f8: 9F 80 54 00 03 70 39 00 D0 2F 2A 00        imadd            r0.cache, r92.discard, r7.discard, r0.discard, wait 3
+ 704: 67 00 54 1E 00 83 20 00 51 01 00 40 46 00  device_load      5, i32, x, r15, u0_u1, r3.discard, lsl 2, 0, 1, 1, 0
+ 712: 9F 01 54 06 02 5E 10 8C 11 04              iadd             r3, 47, r2.cache
+ 71c: 67 00 54 24 01 00 00 00 51 81 16 40 02 00  device_load      5, i32, x, r18, u2_u3, 0, 180, 1, 1, 0
+ 72a: 9F 01 54 0E 02 60 10 8C 11 04              iadd             r7, 48, r2.cache
+ 734: 9F 00 54 00 03 C4 78 01 D0 2F 2A 00        imadd            r0.cache, r49.discard, r47.discard, r0.discard
+ 740: 67 00 54 12 00 86 20 00 51 01 00 40 46 00  device_load      5, i32, x, r9, u0_u1, r6.discard, lsl 2, 0, 1, 1, 0
+ 74e: 67 00 54 18 01 00 00 00 51 01 17 40 02 00  device_load      5, i32, x, r12, u2_u3, 0, 184, 1, 1, 0
+ 75c: 9F 00 54 00 03 B0 40 01 D0 2F 2A 00        imadd            r0.cache, r44.discard, r40.discard, r0.discard
+ 768: 9F 01 54 50 02 62 10 8C 11 04              iadd             r40, 49, r2.cache
+ 772: 67 00 54 06 00 83 20 00 51 01 00 40 46 00  device_load      5, i32, x, r3, u0_u1, r3.discard, lsl 2, 0, 1, 1, 0
+ 780: 67 00 54 0C 01 00 00 00 51 81 17 40 02 00  device_load      5, i32, x, r6, u2_u3, 0, 188, 1, 1, 0
+ 78e: 9F 00 54 00 03 B8 18 01 D0 2F 2A 00        imadd            r0.cache, r46.discard, r35.discard, r0.discard
+ 79a: 67 00 54 5E 00 87 20 00 51 01 00 40 46 00  device_load      5, i32, x, r47, u0_u1, r7.discard, lsl 2, 0, 1, 1, 0
+ 7a8: 9F 01 54 46 02 64 10 8C 11 04              iadd             r35, 50, r2.cache
+ 7b2: 67 00 54 62 01 00 00 00 51 01 18 40 02 00  device_load      5, i32, x, r49, u2_u3, 0, 192, 1, 1, 0
+ 7c0: 9F 01 54 0E 02 66 10 8C 11 04              iadd             r7, 51, r2.cache
+ 7ca: 9F 00 54 00 03 AC 48 01 D0 2F 2A 00        imadd            r0.cache, r43.discard, r41.discard, r0.discard
+ 7d6: 67 00 54 58 00 A8 20 00 51 01 00 40 46 00  device_load      5, i32, x, r44, u0_u1, r40.discard, lsl 2, 0, 1, 1, 0
+ 7e4: 67 00 54 5C 01 00 00 00 51 81 18 40 02 00  device_load      5, i32, x, r46, u2_u3, 0, 196, 1, 1, 0
+ 7f2: 9F 00 54 00 03 98 F8 00 D0 2F 2A 00        imadd            r0.cache, r38.discard, r31.discard, r0.discard
+ 7fe: 9F 01 54 3E 02 68 10 8C 11 04              iadd             r31, 52, r2.cache
+ 808: 67 00 54 52 00 A3 20 00 11 00 00 40 46 00  device_load      0, i32, x, r41, u0_u1, r35.discard, lsl 2, 0, 1, 1, 0
+ 816: 67 00 54 56 01 00 00 00 11 00 19 40 02 00  device_load      0, i32, x, r43, u2_u3, 0, 200, 1, 1, 0
+ 824: 9F 00 54 00 03 94 D0 00 D0 2F 2A 00        imadd            r0.cache, r37.discard, r26.discard, r0.discard
+ 830: 67 00 54 4C 00 87 20 00 11 00 00 40 46 00  device_load      0, i32, x, r38, u0_u1, r7.discard, lsl 2, 0, 1, 1, 0
+ 83e: 9F 01 54 34 02 6A 10 8C 11 04              iadd             r26, 53, r2.cache
+ 848: 67 00 54 50 01 00 00 00 11 80 19 40 02 00  device_load      0, i32, x, r40, u2_u3, 0, 204, 1, 1, 0
+ 856: 9F 01 54 0E 02 6C 10 8C 11 04              iadd             r7, 54, r2.cache
+ 860: 9F 00 55 00 03 88 00 01 D0 2F 2A 00        imadd            r0.cache, r34.discard, r32.discard, r0.discard, wait 4
+ 86c: 67 00 54 46 00 9F 20 00 11 00 00 40 46 00  device_load      0, i32, x, r35, u0_u1, r31.discard, lsl 2, 0, 1, 1, 0
+ 87a: 67 00 54 4A 01 00 00 00 11 00 1A 40 02 00  device_load      0, i32, x, r37, u2_u3, 0, 208, 1, 1, 0
+ 888: 9F 00 54 00 03 74 20 00 D0 2F 2A 00        imadd            r0.cache, r29.discard, r4.discard, r0.discard
+ 894: 9F 01 54 08 02 6E 10 8C 11 04              iadd             r4, 55, r2.cache
+ 89e: 67 00 54 40 00 9A 20 00 11 00 00 40 46 00  device_load      0, i32, x, r32, u0_u1, r26.discard, lsl 2, 0, 1, 1, 0
+ 8ac: 67 00 54 44 01 00 00 00 11 80 1A 40 02 00  device_load      0, i32, x, r34, u2_u3, 0, 212, 1, 1, 0
+ 8ba: 9F 00 54 00 03 70 88 00 D0 2F 2A 00        imadd            r0.cache, r28.discard, r17.discard, r0.discard
+ 8c6: 67 00 54 3A 00 87 20 00 11 00 00 40 46 00  device_load      0, i32, x, r29, u0_u1, r7.discard, lsl 2, 0, 1, 1, 0
+ 8d4: 9F 01 54 22 02 70 10 8C 11 04              iadd             r17, 56, r2.cache
+ 8de: 67 00 54 3E 01 00 00 00 11 00 1B 40 02 00  device_load      0, i32, x, r31, u2_u3, 0, 216, 1, 1, 0
+ 8ec: 9F 01 54 0E 02 72 10 8C 11 04              iadd             r7, 57, r2.cache
+ 8f6: 9F 00 54 00 03 64 B8 00 D0 2F 2A 00        imadd            r0.cache, r25.discard, r23.discard, r0.discard
+ 902: 67 00 54 34 00 84 20 00 11 00 00 40 46 00  device_load      0, i32, x, r26, u0_u1, r4.discard, lsl 2, 0, 1, 1, 0
+ 910: 67 00 54 38 01 00 00 00 11 80 1B 40 02 00  device_load      0, i32, x, r28, u2_u3, 0, 220, 1, 1, 0
+ 91e: 9F 01 54 08 02 74 10 8C 11 04              iadd             r4, 58, r2.cache
+ 928: 9F 00 54 00 03 58 A0 00 D0 2F 2A 00        imadd            r0.cache, r22.discard, r20.discard, r0.discard
+ 934: 67 00 54 2E 00 91 20 00 11 00 00 40 46 00  device_load      0, i32, x, r23, u0_u1, r17.discard, lsl 2, 0, 1, 1, 0
+ 942: 67 00 54 32 01 00 00 00 11 00 1C 40 02 00  device_load      0, i32, x, r25, u2_u3, 0, 224, 1, 1, 0
+ 950: 9F 00 54 00 03 4C 58 00 D0 2F 2A 00        imadd            r0.cache, r19.discard, r11.discard, r0.discard
+ 95c: 67 00 54 28 00 87 20 00 D1 00 00 40 46 00  device_load      3, i32, x, r20, u0_u1, r7.discard, lsl 2, 0, 1, 1, 0
+ 96a: 9F 01 54 16 02 76 10 8C 11 04              iadd             r11, 59, r2.cache
+ 974: 67 00 54 2C 01 00 00 00 D1 80 1C 40 02 00  device_load      3, i32, x, r22, u2_u3, 0, 228, 1, 1, 0
+ 982: 9F 01 54 0E 02 78 10 8C 11 04              iadd             r7, 60, r2.cache
+ 98c: 9F 00 54 00 03 40 28 00 D0 2F 2A 00        imadd            r0.cache, r16.discard, r5.discard, r0.discard
+ 998: 67 00 54 22 00 84 20 00 D1 00 00 40 46 00  device_load      3, i32, x, r17, u0_u1, r4.discard, lsl 2, 0, 1, 1, 0
+ 9a6: 9F 01 54 0A 02 7A 10 8C 11 04              iadd             r5, 61, r2.cache
+ 9b0: 67 00 54 26 01 00 00 00 D1 00 1D 40 02 00  device_load      3, i32, x, r19, u2_u3, 0, 232, 1, 1, 0
+ 9be: 9F 01 54 08 02 7C 10 8C 11 04              iadd             r4, 62, r2.cache
+ 9c8: 9F 40 54 00 03 38 68 00 D0 2F 2A 00        imadd            r0.cache, r14.discard, r13.discard, r0.discard, wait 2
+ 9d4: 67 00 54 1C 00 8B 20 00 D1 00 00 40 46 00  device_load      3, i32, x, r14, u0_u1, r11.discard, lsl 2, 0, 1, 1, 0
+ 9e2: 67 00 54 20 01 00 00 00 D1 80 1D 40 02 00  device_load      3, i32, x, r16, u2_u3, 0, 236, 1, 1, 0
+ 9f0: 9F 00 54 00 02 28 40 00 D0 2F 2A 00        imadd            r0, r10.discard, r8.discard, r0.discard
+ 9fc: 67 00 54 16 00 87 20 00 D1 00 00 40 46 00  device_load      3, i32, x, r11, u0_u1, r7.discard, lsl 2, 0, 1, 1, 0
+ a0a: 67 00 54 1A 01 00 00 00 D1 00 1E 40 02 00  device_load      3, i32, x, r13, u2_u3, 0, 240, 1, 1, 0
+ a18: 67 00 54 10 00 85 20 00 D1 00 00 40 46 00  device_load      3, i32, x, r8, u0_u1, r5.discard, lsl 2, 0, 1, 1, 0
+ a26: 67 00 54 14 01 00 00 00 D1 80 1E 40 02 00  device_load      3, i32, x, r10, u2_u3, 0, 244, 1, 1, 0
+ a34: 67 00 54 0A 00 84 20 00 91 00 00 40 46 00  device_load      2, i32, x, r5, u0_u1, r4.discard, lsl 2, 0, 1, 1, 0
+ a42: 67 00 54 0E 01 00 00 00 91 00 1F 40 02 00  device_load      2, i32, x, r7, u2_u3, 0, 248, 1, 1, 0
+ a50: 9F 01 54 04 02 7E 10 88 15 04              iadd             r2, 63, r2.discard
+ a5a: 67 00 54 04 00 82 20 00 11 01 00 40 46 00  device_load      4, i32, x, r2, u0_u1, r2.discard, lsl 2, 0, 1, 1, 0
+ a68: 67 00 44 08 01 00 00 00 11 81 1F 40 02 00  device_load      4, i32, x, r4, u2_u3, 0, 252, 1, 0, 0
+ a76: 9F 20 54 00 03 6C D1 02 D0 2F 2A 00        imadd            r0.cache, r91.discard, r90.discard, r0.discard, wait 1
+ a82: 9F 00 54 00 03 64 B9 02 D0 2F 2A 00        imadd            r0.cache, r89.discard, r87.discard, r0.discard
+ a8e: 9F 00 54 00 03 60 B1 02 D0 2F 2A 00        imadd            r0.cache, r88.discard, r86.discard, r0.discard
+ a9a: 9F 00 54 00 03 54 A1 02 D0 2F 2A 00        imadd            r0.cache, r85.discard, r84.discard, r0.discard
+ aa6: 9F 00 54 00 03 4C 89 02 D0 2F 2A 00        imadd            r0.cache, r83.discard, r81.discard, r0.discard
+ ab2: 9F 00 54 00 03 48 81 02 D0 2F 2A 00        imadd            r0.cache, r82.discard, r80.discard, r0.discard
+ abe: 9F 00 54 00 03 3C 71 02 D0 2F 2A 00        imadd            r0.cache, r79.discard, r78.discard, r0.discard
+ aca: 9F 00 54 00 03 34 59 02 D0 2F 2A 00        imadd            r0.cache, r77.discard, r75.discard, r0.discard
+ ad6: 9F 00 54 00 03 30 51 02 D0 2F 2A 00        imadd            r0.cache, r76.discard, r74.discard, r0.discard
+ ae2: 9F 00 54 00 03 24 41 02 D0 2F 2A 00        imadd            r0.cache, r73.discard, r72.discard, r0.discard
+ aee: 9F 00 54 00 03 1C 29 02 D0 2F 2A 00        imadd            r0.cache, r71.discard, r69.discard, r0.discard
+ afa: 9F 00 54 00 03 18 21 02 D0 2F 2A 00        imadd            r0.cache, r70.discard, r68.discard, r0.discard
+ b06: 9F 00 54 00 03 0C 11 02 D0 2F 2A 00        imadd            r0.cache, r67.discard, r66.discard, r0.discard
+ b12: 9F 00 54 00 03 04 F9 01 D0 2F 2A 00        imadd            r0.cache, r65.discard, r63.discard, r0.discard
+ b1e: 9F 00 54 00 03 00 F1 01 D0 2F 2A 00        imadd            r0.cache, r64.discard, r62.discard, r0.discard
+ b2a: 9F 00 54 00 03 F4 E0 01 D0 2F 2A 00        imadd            r0.cache, r61.discard, r60.discard, r0.discard
+ b36: 9F 00 54 00 03 EC C8 01 D0 2F 2A 00        imadd            r0.cache, r59.discard, r57.discard, r0.discard
+ b42: 9F 00 54 00 03 E8 C0 01 D0 2F 2A 00        imadd            r0.cache, r58.discard, r56.discard, r0.discard
+ b4e: 9F 00 54 00 03 DC B0 01 D0 2F 2A 00        imadd            r0.cache, r55.discard, r54.discard, r0.discard
+ b5a: 9F 00 54 00 03 D4 98 01 D0 2F 2A 00        imadd            r0.cache, r53.discard, r51.discard, r0.discard
+ b66: 9F 00 54 00 03 D0 90 01 D0 2F 2A 00        imadd            r0.cache, r52.discard, r50.discard, r0.discard
+ b72: 9F 00 54 00 03 C0 68 01 D0 2F 2A 00        imadd            r0.cache, r48.discard, r45.discard, r0.discard
+ b7e: 9F 00 54 00 03 A8 38 01 D0 2F 2A 00        imadd            r0.cache, r42.discard, r39.discard, r0.discard
+ b8a: 9F 00 54 00 03 90 08 01 D0 2F 2A 00        imadd            r0.cache, r36.discard, r33.discard, r0.discard
+ b96: 9F 00 56 00 03 78 D8 00 D0 2F 2A 00        imadd            r0.cache, r30.discard, r27.discard, r0.discard, wait 5
+ ba2: 9F 00 54 00 03 60 A8 00 D0 2F 2A 00        imadd            r0.cache, r24.discard, r21.discard, r0.discard
+ bae: 9F 00 54 00 03 48 78 00 D0 2F 2A 00        imadd            r0.cache, r18.discard, r15.discard, r0.discard
+ bba: 9F 00 54 00 03 30 48 00 D0 2F 2A 00        imadd            r0.cache, r12.discard, r9.discard, r0.discard
+ bc6: 9F 00 54 00 03 18 18 00 D0 2F 2A 00        imadd            r0.cache, r6.discard, r3.discard, r0.discard
+ bd2: 9F 00 54 00 03 C4 78 01 D0 2F 2A 00        imadd            r0.cache, r49.discard, r47.discard, r0.discard
+ bde: 9F 00 54 00 03 B8 60 01 D0 2F 2A 00        imadd            r0.cache, r46.discard, r44.discard, r0.discard
+ bea: 9F 10 54 00 03 AC 48 01 D0 2F 2A 00        imadd            r0.cache, r43.discard, r41.discard, r0.discard, wait 0
+ bf6: 9F 00 54 00 03 A0 30 01 D0 2F 2A 00        imadd            r0.cache, r40.discard, r38.discard, r0.discard
+ c02: 9F 00 54 00 03 94 18 01 D0 2F 2A 00        imadd            r0.cache, r37.discard, r35.discard, r0.discard
+ c0e: 9F 00 54 00 03 88 00 01 D0 2F 2A 00        imadd            r0.cache, r34.discard, r32.discard, r0.discard
+ c1a: 9F 00 54 00 03 7C E8 00 D0 2F 2A 00        imadd            r0.cache, r31.discard, r29.discard, r0.discard
+ c26: 9F 00 54 00 03 70 D0 00 D0 2F 2A 00        imadd            r0.cache, r28.discard, r26.discard, r0.discard
+ c32: 9F 00 54 00 03 64 B8 00 D0 2F 2A 00        imadd            r0.cache, r25.discard, r23.discard, r0.discard
+ c3e: 9F 80 54 00 03 58 A0 00 D0 2F 2A 00        imadd            r0.cache, r22.discard, r20.discard, r0.discard, wait 3
+ c4a: 9F 00 54 00 03 4C 88 00 D0 2F 2A 00        imadd            r0.cache, r19.discard, r17.discard, r0.discard
+ c56: 9F 00 54 00 03 40 70 00 D0 2F 2A 00        imadd            r0.cache, r16.discard, r14.discard, r0.discard
+ c62: 9F 00 54 00 03 34 58 00 D0 2F 2A 00        imadd            r0.cache, r13.discard, r11.discard, r0.discard
+ c6e: 9F 00 54 00 03 28 40 00 D0 2F 2A 00        imadd            r0.cache, r10.discard, r8.discard, r0.discard
+ c7a: 9F 40 54 00 03 1C 28 00 D0 2F 2A 00        imadd            r0.cache, r7.discard, r5.discard, r0.discard, wait 2
+ c86: 9F 00 55 00 02 10 10 00 D0 2F 2A 00        imadd            r0, r4.discard, r2.discard, r0.discard, wait 4
+ c92: E7 00 54 00 02 01 21 00 11 00 00 90 11 00  device_store     0, i32, x, r0, u4_u5, r1.discard, lsl 2, 0, 1, 1
+ ca0: 0E 00 00 00                                stop             

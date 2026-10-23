@@ -1,0 +1,136 @@
+note SPDX-License-Identifier: MIT
+note Synthetic Mach-O section-reader contract tests, independent of Apple.
+global fails ulong 1
+global checks ulong 1
+global logbuf uchar 32
+fn number v ulong to void
+n = ulong 0
+again = true
+while again
+put logbuf n uchar add rem v 10 48
+v = div v 10
+n = add n 1
+again = ne v 0
+end
+for i ulong n
+w = write 1 logbuf sub sub n i 1 1
+end
+put logbuf 0 10
+w = write 1 logbuf 0 1
+end
+fn check ok bool tag ulong to void
+put checks 0 add get checks 0 1
+if not ok
+number tag
+put fails 0 add get fails 0 1
+end
+end
+fn setword at ulong value ulong count ulong to void
+for i ulong count
+put blob add at i uchar and shr value mul i 8 255
+end
+end
+fn fixture to void
+for i ulong 512
+put blob i 0
+end
+setword 0 4277009103 4
+setword 16 1 4
+setword 20 152 4
+setword 32 25 4
+setword 36 152 4
+setword 96 1 4
+for i ulong len sectc
+put blob add 104 i get sectc i
+end
+setword 144 8 8
+setword 152 256 4
+end
+fn main to int
+fixture
+check mo_find 0 512 0 900
+check eq get span 0 256 901
+check eq get span 1 8 902
+for n ulong 184
+fixture
+check not mo_find 0 n 0 add 1000 n
+end
+fixture
+setword 0 0 4
+check not mo_find 0 512 0 1200
+fixture
+setword 36 0 4
+check not mo_find 0 512 0 1201
+fixture
+setword 20 151 4
+check not mo_find 0 512 0 1202
+fixture
+setword 96 2 4
+check not mo_find 0 512 0 1203
+fixture
+setword 144 18446744073709551615 8
+check not mo_find 0 512 0 1204
+fixture
+setword 152 510 4
+check not mo_find 0 512 0 1205
+fixture
+setword 152 64 4
+check not mo_find 0 512 0 1206
+fixture
+put blob 113 1
+check not mo_find 0 512 0 1207
+fixture
+check not mo_find 0 512 1 1208
+fixture
+check not mo_find 65530 512 0 1209
+fixture
+setword 144 0 8
+check not mo_find 0 512 0 1210
+fixture
+setword 16 2 4
+check not mo_find 0 512 0 1211
+fixture
+setword 20 304 4
+setword 16 2 4
+for i ulong 152
+put blob add 184 i get blob add 32 i
+end
+setword 152 400 4
+setword 304 400 4
+check not mo_find 0 512 0 1212
+fixture
+for n ulong 80
+check not mo_find 0 add 184 n 0 add 1300 n
+end
+fixture
+check mo_find 0 264 0 1400
+check eq get span 0 256 1401
+check eq get span 1 8 1402
+for i ulong 16
+put blob add 104 i 0
+end
+for i ulong len sectt
+put blob add 104 i get sectt i
+end
+check mo_find 0 512 1 1403
+check eq get span 0 256 1404
+fixture
+for i ulong 512
+put blob add 512 i get blob i
+end
+check mo_find 512 512 0 1405
+check eq get span 0 768 1406
+check eq get span 1 8 1407
+put span 0 12345
+put span 1 6789
+put blob 512 0
+check not mo_find 512 512 0 1408
+check eq get span 0 12345 1409
+check eq get span 1 6789 1410
+number get checks 0
+number get fails 0
+if ne get fails 0 0
+ret 1
+end
+ret 0
+end

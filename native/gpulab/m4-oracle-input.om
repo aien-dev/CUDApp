@@ -1,0 +1,57 @@
+note SPDX-License-Identifier: MIT
+note Independent assembler input, not a dump of our emitted instruction bits.
+global digits uchar 24
+text init "mov_imm r6, 0\n"
+text loadw "device_load 0, i32, x, r8, u0_u1, r0, lsl 2, "
+text loadx "device_load 0, i32, x, r9, u2_u3, r1, lsl 2, "
+text tail ", 0, 1, 0\n"
+text mad "wait 0\nimadd r6, r8, r9, r6, wait 0\n"
+text finish "device_store 0, i32, x, r6, u4_u5, r2, lsl 2, 0, 0, 1\nwait 0\nstop\n"
+fn number value ulong to bool
+n = ulong 0
+again = true
+while again
+put digits n uchar add rem value 10 48
+value = div value 10
+n = add n 1
+again = ne value 0
+end
+for i ulong n
+if ne write 1 digits sub sub n i 1 1 1
+ret false
+end
+end
+ret true
+end
+fn main to int
+if ne write 1 init 0 len init long len init
+ret 74
+end
+for k ulong 64
+if ne write 1 loadw 0 len loadw long len loadw
+ret 74
+end
+if not number mul k 4
+ret 74
+end
+if ne write 1 tail 0 len tail long len tail
+ret 74
+end
+if ne write 1 loadx 0 len loadx long len loadx
+ret 74
+end
+if not number mul k 4
+ret 74
+end
+if ne write 1 tail 0 len tail long len tail
+ret 74
+end
+if ne write 1 mad 0 len mad long len mad
+ret 74
+end
+end
+if ne write 1 finish 0 len finish long len finish
+ret 74
+end
+ret 0
+end

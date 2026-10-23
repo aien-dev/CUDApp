@@ -1,0 +1,175 @@
+note SPDX-License-Identifier: MIT
+note G16 bounded profile; common operand fields checked against Apple G16 captures.
+note External reference: TellowKrinkle/applegpu M3 bde26552eaca66a0ba2d5a6362e08b90693fa4cc.
+note Uniform pointer slots: u0_u1 weights; u2_u3 vector; u4_u5 output.
+fn m4_mem store bool r ulong base ulong index ulong offset ulong to void
+lo = ulong 9007199260246119
+hi = or ulong 300647710737 shl offset 13
+if store
+lo = ulong 9007199260246247
+hi = or ulong 75161927697 shl offset 11
+end
+lo = or lo shl r 25
+lo = or lo shl base 32
+lo = or lo shl index 40
+emit lo 8
+emit hi 6
+end
+fn m4_mad dst ulong a ulong b ulong c ulong to void
+lo = or ulong 8595443871 shl dst 25
+lo = or lo shl a 42
+lo = or lo shl b 51
+lo = or lo shl c 60
+emit lo 8
+emit 2761168 4
+end
+fn m4_generate depth ulong to bool
+resetcode
+if or lt depth 1 gt depth 64
+ret false
+end
+emit 108 2
+for k ulong depth
+m4_mem false 8 0 0 mul k 4
+m4_mem false 9 1 1 mul k 4
+emit 1030 2
+m4_mad 6 8 9 6
+end
+m4_mem true 6 2 2 0
+emit 1030 2
+emit 14 4
+ret true
+end
+fn m4_memory pc ulong to ulong
+lo = word pc 8
+hi = word add pc 8 6
+fixed = and lo not ulong 34098785550336
+store = eq fixed 9007199260246247
+if not or store eq fixed 9007199260246119
+ret 0
+end
+offset = ulong 0
+if store
+if ne and hi not ulong 134215680 75161927697
+ret 0
+end
+offset = and shr hi 11 65535
+else
+if ne and hi not ulong 536862720 300647710737
+ret 0
+end
+offset = and shr hi 13 65535
+end
+note Signed offset field: negative offsets are outside this bounded subset.
+if ge offset 32768
+ret 0
+end
+base = and shr lo 32 3
+if gt base 2
+ret 0
+end
+address = ulong 0
+if eq base 1
+address = ulong 8192
+end
+if eq base 2
+address = ulong 12288
+end
+index = and shr lo 40 31
+address = add add address mul rv index 4 offset
+r = and shr lo 25 31
+if store
+value = rv r
+if ne get state 4 0
+ret 0
+end
+storemem address value
+else
+if ne get state 4 0
+ret 0
+end
+loadmem r address
+end
+ret 14
+end
+fn m4_step pc ulong to ulong
+remain = sub get used 0 pc
+if lt remain 2
+ret 0
+end
+small = word pc 2
+if eq and small not ulong 32752 12
+wr and shr small 4 15 shr small 8
+put state 7 0
+ret 2
+end
+if eq small 1030
+waitloads
+put state 7 1
+ret 2
+end
+if ge remain 12
+lo = word pc 8
+hi = word add pc 8 4
+if and eq hi 2761168 eq and lo not ulong 17327665537508966400 8595443871
+note This profile requires an explicit short wait before integer accumulation.
+if ne get state 7 1
+ret 0
+end
+a = rv and shr lo 42 15
+b = rv and shr lo 51 15
+c = rv and shr lo 60 15
+wr and shr lo 25 15 add mul a b c
+put state 7 0
+ret 12
+end
+end
+put state 7 0
+if ge remain 14
+ret m4_memory pc
+end
+ret 0
+end
+fn m4_lane lane ulong to bool
+laneinit lane
+put reg 0 mul lane get state 1
+put reg 1 0
+put reg 2 lane
+pc = ulong 0
+for step ulong 1024
+if ge pc get used 0
+ret false
+end
+if ge sub get used 0 pc 4
+if eq word pc 4 14
+if ne add pc 4 get used 0
+ret false
+end
+ret complete
+end
+end
+n = m4_step pc
+if or eq n 0 ne get state 4 0
+ret false
+end
+pc = add pc n
+end
+ret false
+end
+fn m4_run rows ulong depth ulong to int
+if not dimensions rows depth
+ret 65
+end
+if or eq get used 0 0 gt get used 0 len code
+ret 65
+end
+put state 0 rows
+put state 1 depth
+for lane ulong rows
+if not m4_lane lane
+ret 66
+end
+end
+publishresults
+ret 0
+end

@@ -1,0 +1,8 @@
+note SPDX-License-Identifier: MIT
+global blob uchar 65536
+global span ulong 2
+text sectc "__compute"
+text sectt "__text"
+fn mo_find base ulong size ulong kind ulong to bool
+ret false
+end

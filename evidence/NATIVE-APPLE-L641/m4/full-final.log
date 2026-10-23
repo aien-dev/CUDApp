@@ -1,0 +1,37 @@
+AMD native gate
+8224
+0
+Apple native gate
+8218
+0
+M3 native gate: refused mutants, changed answers, equivalent probes, checks, failures
+559
+37
+12
+140293
+0
+M4 native gate: refused mutants, changed answers, equivalent probes, checks, failures
+463
+37
+12
+140137
+0
+APPLE FAMILY GATE PASS: M1 M2 M3 M4; M5 REFUSED
+Cross-target exhaustive signed-byte gate
+262930
+0
+REQUEST PASS
+EMITTER TO VIRTUAL GPU PASS
+EMITTER TO VIRTUAL GPU PASS
+EMITTER TO VIRTUAL GPU PASS
+EMITTER TO VIRTUAL GPU PASS
+EMITTER TO VIRTUAL GPU PASS
+EMITTER TO VIRTUAL GPU PASS
+LLVM FULL-SHADER BYTES PASS
+native/gpulab/fixtures/m3-k64.bin: OK
+M3 INDEPENDENT ASSEMBLER K64 BYTE MATCH PASS
+M3 MUTATED ORACLE REFUSED rc=3
+native/gpulab/fixtures/m4-k64.bin: OK
+M4 SHARED-FIELD ASSEMBLER K64 BYTE MATCH PASS
+M4 MUTATED ORACLE REFUSED rc=3
+NATIVE GPULAB SUITE PASS; HARDWARE NOT_RUN; SPEED NOT_MEASURED

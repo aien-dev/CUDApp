@@ -1,0 +1,39 @@
+note SPDX-License-Identifier: MIT
+note Read a bounded compiler container and emit its nested __text section.
+global one uchar 1
+fn main to int
+size = ulong 0
+more = true
+while more
+if eq size len blob
+n = read 0 one 0 1
+if lt n 0
+ret 74
+end
+if ne n 0
+ret 65
+end
+more = false
+else
+n = read 0 blob size sub len blob size
+if lt n 0
+ret 74
+end
+if eq n 0
+more = false
+else
+size = add size ulong n
+end
+end
+end
+if not mo_find 0 size 0
+ret 65
+end
+if not mo_find get span 0 get span 1 1
+ret 65
+end
+if ne write 1 blob get span 0 get span 1 long get span 1
+ret 74
+end
+ret 0
+end

@@ -1,0 +1,184 @@
+note SPDX-License-Identifier: MIT
+note G16 bounded functional gate; Apple G16 captures and pinned assembler oracle.
+global checks ulong 2
+global mutants ulong 3
+global logbuf uchar 32
+fn number v ulong to void
+n = ulong 0
+again = true
+while again
+put logbuf n uchar add rem v 10 48
+v = div v 10
+n = add n 1
+again = ne v 0
+end
+for i ulong n
+w = write 1 logbuf sub sub n i 1 1
+end
+put logbuf 0 10
+w = write 1 logbuf 0 1
+end
+fn check pass bool id ulong to void
+put checks 0 add get checks 0 1
+if not pass
+put checks 1 add get checks 1 1
+number id
+end
+end
+fn sxbyte v ulong to ulong
+v = rem v 256
+if ge v 128
+ret lowword sub v 256
+end
+ret v
+end
+fn fillcase rows ulong depth ulong seed ulong to void
+for i ulong len mem
+put mem i 3735928559
+end
+for r ulong rows
+for k ulong depth
+put mem add mul r depth k sxbyte add add mul r 71 mul k 29 seed
+end
+end
+for k ulong depth
+put mem add 2048 k sxbyte add mul k 43 mul seed 13
+end
+end
+fn oracle r ulong depth ulong to ulong
+sum = ulong 0
+for k ulong depth
+w = get mem add mul r depth k
+x = get mem add 2048 k
+sum = lowword add sum mul w x
+end
+ret sum
+end
+fn verify rows ulong depth ulong to bool
+for r ulong rows
+if ne get mem add 3072 r oracle r depth
+ret false
+end
+end
+for r ulong sub 32 rows
+if ne get mem add 3072 add rows r 3735928559
+ret false
+end
+end
+ret true
+end
+fn clean to bool
+for r ulong 32
+if ne get mem add 3072 r 3735928559
+ret false
+end
+end
+ret true
+end
+fn main to int
+note Early failure gives a bounded meaningful RED with the refusal stub.
+check m4_generate 1 701
+if ne get checks 1 0
+number get checks 0
+number get checks 1
+ret 1
+end
+check eq get used 0 64 702
+note Literal little-endian byte groups, not emitter-derived integers.
+check eq word 0 2 108 703
+check eq word 2 4 273940583 704
+check eq word 6 4 2097152 705
+check eq word 10 4 17 706
+check eq word 14 2 70 707
+check eq word 32 4 206835871 708
+check eq word 36 4 1615339522 709
+check eq word 40 4 2761168 710
+for r ulong 32
+for k ulong 64
+rows = add r 1
+depth = add k 1
+fillcase rows depth add rows depth
+check m4_generate depth 711
+check eq get used 0 add 22 mul 42 depth 712
+check eq m4_run rows depth 0 713
+check verify rows depth 714
+end
+end
+note Exhaustive signed-byte multiplication through actual decoded program.
+check m4_generate 1 715
+fillcase 1 1 0
+for a ulong 256
+for b ulong 256
+put mem 0 sxbyte a
+put mem 2048 sxbyte b
+put mem 3072 3735928559
+check eq m4_run 1 1 0 716
+check eq get mem 3072 lowword mul sxbyte a sxbyte b 717
+end
+end
+note Every truncated prefix of a K4 stream refuses transactionally.
+check m4_generate 4 718
+n = get used 0
+fillcase 3 4 7
+for prefix ulong n
+put used 0 prefix
+check ne m4_run 3 4 0 719
+check clean 720
+end
+put used 0 n
+note Single-bit mutations: decoder refusal, changed-answer detection, or equivalence.
+check m4_generate 1 721
+n = get used 0
+for p ulong n
+old = get code p
+for b ulong 8
+fillcase 3 1 add p b
+put code p xor old uchar shl ulong 1 b
+rc = m4_run 3 1
+if eq rc 0
+if verify 3 1
+put mutants 2 add get mutants 2 1
+else
+put mutants 1 add get mutants 1 1
+end
+else
+check clean 723
+put mutants 0 add get mutants 0 1
+end
+end
+put code p old
+end
+check gt get mutants 0 0 722
+check gt get mutants 1 0 739
+number get mutants 0
+number get mutants 1
+number get mutants 2
+note Last load reads beyond weights only on lane 2: output remains unpublished.
+check m4_generate 4 724
+fillcase 3 4 7
+note Last weight load offset 12 -> 16. Instruction begins at 128.
+put code 137 0
+put code 138 2
+put state 0 3
+put state 1 4
+check m4_lane 0 725
+check m4_lane 1 726
+check not m4_lane 2 727
+check clean 728
+check ne m4_run 3 4 0 729
+check clean 730
+check not m4_generate 0 731
+check eq get used 0 0 732
+check not m4_generate 65 733
+check eq get used 0 0 734
+check ne m4_run 0 1 0 735
+check ne m4_run 33 1 0 736
+check ne m4_run 1 0 0 737
+check ne m4_run 1 65 0 738
+number get checks 0
+number get checks 1
+if ne get checks 1 0
+ret 1
+end
+ret 0
+end

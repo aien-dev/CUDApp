@@ -9,7 +9,10 @@ produces static AArch64 Linux executables using Linux read/write/exit syscalls.
 No C, Rust, Python, Metal, Vulkan, HIP, CUDA or third-party inference runtime is
 built or linked into this lab. LLVM is used only as an independent AMD assembler
 oracle. A pinned external Python M3 assembler was also run to produce the frozen
-validation fixture; Python is not used by this lab's build or execution path.
+validation fixtures; Python is not used by this lab's build or execution path.
+Apple Metal 32023.830 was used separately to compile Omega-generated probe input
+for G16 and G17. Its tools and generated programs are external oracles, not the
+implementation or a runtime fallback. They are not required for the normal suite.
 Wolfram supplies independent calculations and fixture values; it is not
 a runtime dependency.
 
@@ -20,10 +23,11 @@ a runtime dependency.
 | AMD `gfx1100`, RDNA3 | Real instruction words for global 32-bit loads/stores, wait, move, integer multiply/add and program end | Omega decodes the emitted bytes and executes the supported instructions against bounded virtual registers/memory |
 | Apple G13/G14 AGX | Real-format load/store, wait, immediate, integer multiply/add and stop bytes | Separate Omega instruction decoder and executor using the same bounded virtual-memory contract |
 | Apple G15 / M3 | Separate 14-byte memory and 12-byte integer multiply-add encoding, with base-M3 long waits | Separate Omega decoder; entire depth-64 output matches the pinned external M3 assembler |
+| Apple G16 / M4 | Independently cross-compiled G16 operand evidence, shared G15 operand fields and short waits | Separate Omega G16 decoder; 140137 checks, full K64 shared-field assembler match |
 
 **M1–M5 expansion is incomplete.** Explicit request IDs 101=M1, 102=M2,
-103=M3 are enabled for the bounded virtual subset. IDs 104=M4 and 105=M5
-are reserved and deliberately refused, not mapped to an older ISA. None of
+103=M3 and 104=M4 are enabled for the bounded virtual subset. ID 105=M5
+remains deliberately refused, not mapped to an older ISA. None of
 these rows qualifies every Pro/Max/Ultra SKU or physical GPU execution.
 See [generation coverage and evidence gaps](APPLE_GENERATIONS.md).
 
@@ -103,7 +107,7 @@ claim hostile-race filesystem isolation. Run fresh replays in separate exports.
 
 `build/native-gpulab/emit-main` consumes exactly eight bytes on stdin followed by
 EOF: little-endian u32 target (`1=gfx1100`, `2=G13/G14`, `101=M1`, `102=M2`,
-`103=M3`) and little-endian u32 depth. `104=M4` and `105=M5` currently refuse.
+`103=M3`, `104=M4`) and little-endian u32 depth. `105=M5` currently refuses.
 It produces raw instruction bytes on stdout. Unsupported target/depth or malformed
 length returns 65 with no stdout. Transport errors return 74 or an OS signal;
 a failed output write may leave partial bytes, so consumers must stage output and

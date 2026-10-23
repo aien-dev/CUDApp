@@ -1,0 +1,64 @@
+note SPDX-License-Identifier: MIT
+note External compiler probe only, not an Omega implementation backend.
+note Stdin is one selector byte 0..5 followed by EOF.
+global input uchar 2
+text start "#include <metal_stdlib>\nusing namespace metal;\nkernel void k(volatile device const uint *a [[buffer(0)]], volatile device const uint *b [[buffer(1)]], volatile device const uint *c [[buffer(2)]], device uint *out [[buffer(3)]], uint gid [[thread_position_in_grid]]) {\nuint va=a[gid]; uint vb=b[gid]; uint vc=c[gid];\nout[gid] = "
+text e0 "va * vb + vc;\n}\n"
+text e1 "va * vc + vb;\n}\n"
+text e2 "vb * vc + va;\n}\n"
+text e3 "va * vb;\n}\n"
+text e4 "va + vb + vc;\n}\n"
+text e5 "(va | vb) + vc;\n}\n"
+fn main to int
+n = read 0 input 0 1
+if lt n 0
+ret 74
+end
+if ne n 1
+ret 65
+end
+id = get input 0
+if gt id 5
+ret 65
+end
+n = read 0 input 1 1
+if lt n 0
+ret 74
+end
+if ne n 0
+ret 65
+end
+if ne write 1 start 0 len start long len start
+ret 74
+end
+n = long 0
+size = ulong 0
+if eq id 0
+size = len e0
+n = write 1 e0 0 size
+end
+if eq id 1
+size = len e1
+n = write 1 e1 0 size
+end
+if eq id 2
+size = len e2
+n = write 1 e2 0 size
+end
+if eq id 3
+size = len e3
+n = write 1 e3 0 size
+end
+if eq id 4
+size = len e4
+n = write 1 e4 0 size
+end
+if eq id 5
+size = len e5
+n = write 1 e5 0 size
+end
+if ne n long size
+ret 74
+end
+ret 0
+end

@@ -11,7 +11,10 @@ end
 if eq target 103
 ret m3_generate depth
 end
-note 104 M4 and 105 M5 are reserved, not silently mapped to an older ISA.
+if eq target 104
+ret m4_generate depth
+end
+note 105 M5 remains reserved: G17 is not the G15/G16 instruction format.
 ret false
 end
 fn family_run target ulong rows ulong depth ulong to int
@@ -20,6 +23,9 @@ ret agx_run rows depth
 end
 if eq target 103
 ret m3_run rows depth
+end
+if eq target 104
+ret m4_run rows depth
 end
 ret 65
 end

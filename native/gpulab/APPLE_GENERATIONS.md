@@ -9,7 +9,7 @@ hardware drivers or a full inference runtime.
 | M1 | 101 | G13/G14 bounded GEMV subset | Existing pinned AGX2 tables and byte fixtures | NOT_RUN |
 | M2 | 102 | G13/G14 bounded GEMV subset | Same shared subset; not a new per-SKU hardware result | NOT_RUN |
 | M3 | 103 | Separate G15 bounded GEMV emitter and decoder | Full K64 shader equals pinned M3 assembler; 140,293 native checks, zero failures | NOT_RUN |
-| M4 | 104 | REFUSED; implementation pending | Later-generation captures investigated; full kernel operand contract not established here | NOT_RUN |
+| M4 | 104 | Separate G16 bounded emitter and decoder, short waits | Apple G16 scalar/vector/volatile operand captures; full shared-field assembler K64 match; 140137 native checks, zero failures | NOT_RUN |
 | M5 | 105 | REFUSED; implementation pending | Split-memory captures investigated; raw/implicit operand semantics remain unresolved | NOT_RUN |
 
 Do not call a recognized ID support. No claim that every Pro/Max/Ultra variant
@@ -40,9 +40,28 @@ not claims of universal equivalence. The final two numbers are 140293 checks
 and 0 failures. Compile failures are not behavioral RED results.
 
 `test-families.om` exercises the enabled IDs at every depth with three rows and
-checks that M4/M5 cannot execute even when handed valid older-family code.
+checks that M5 and unknown IDs cannot execute even when handed valid older-family code.
 The Makefile also drives real request -> emitter -> wire-consumer processes for
-M1/M2/M3, and checks M4/M5 exit65 with zero output.
+M1/M2/M3/M4, and checks M5 exit65 with zero output.
+
+## M4 implementation and evidence boundary
+
+`m4.om` is a separate G16 profile using the shared G15/G16 memory and integer
+operand fields, with an explicit two-byte `wait 0`. It does not call `m3_run`.
+Its program size is `22 + 42*K`: K1=64, K4=190 and K64=2710 bytes.
+The lab entry state and transactional output contract are the same as M3.
+The native gate passes 140137 checks with zero failures. K1 bit mutations yield
+463 refusals, 37 changed answers detected, and 12 equivalent-on-probe outcomes.
+Final-lane-only memory faults and all truncated K4 prefixes remain transactional.
+G15 and G16 profiles reject each other's different wait sequences.
+
+The evidence has two distinct layers. Apple's independent G16 compiler produces
+scalar/vector/volatile kernels whose memory and integer operand fields decode
+under the pinned G15 reference. The complete Omega-generated K64 profile equals
+the independent shared-field assembler. The latter is not an Apple compiler
+byte-for-byte match of the complete kernel: Apple optimizes registers, memory
+scheduling and constant programs differently. No physical M4 execution or
+all-SKU support is asserted.
 
 ## External M3 oracle
 
@@ -79,7 +98,7 @@ Upstream source closure SHA256:
 21aafd33b0134634ec5a7bd2ec38370b876658855e83d348fe0f3b4957068205 srgb.py
 ```
 
-## Why M4/M5 are still refused, and the remaining experiment
+## M5 remains refused; earlier M4 uncertainty was resolved
 
 Investigated [ADevWithAnIdea/agx-re](https://github.com/ADevWithAnIdea/agx-re/tree/c677ff970ca9d5ab98770100e790f8a62c60a2a0)
 at the pinned commit, specifically `docs/isa/encoding-tables.md`,
@@ -89,7 +108,10 @@ at the pinned commit, specifically `docs/isa/encoding-tables.md`,
 These are external reports, not measurements reproduced by this task. The GPL
 implementation was not copied, built, imported or executed.
 
-The captures have different arithmetic encodings from the M3 reference. The M5
+The earlier inference that M4 also required the M5 arithmetic format was wrong.
+Independent Apple `applegpu_g16g` compilation and the pinned G15 disassembler
+show shared G15/G16 operand fields in the scalar, vector and volatile probes.
+The `applegpu_g17g` compiler output really differs. The M5
 report says its load/store data registers are implicit/positional, calls general
 ALU packing raw/unmapped, and reports legacy 0x67/0xe7 occurrence without proving
 that arbitrary M3 operand fields preserve semantics. Treating those facts as a
@@ -103,7 +125,9 @@ in Omega and compare whole generated shaders against that independent corpus.
 Capture the M5 positional-register and address-generation state explicitly,
 including load/store dependencies. Do not infer it from mnemonic names.
 
-The available Mac was checked: Apple M2; `xcrun --find metal` and
-`xcrun --find metal-tt` both reported unavailable. No M4/M5 device run or compiler
-output was fabricated. This is an unresolved evidence/acquisition gate, not a
-claim that newer chips cannot be supported.
+The Mac is an M2, but the missing compiler was acquired from Apple's public
+MetalToolchain 17B54 asset and mounted read-only in the lab workspace.
+Apple Metal 32023.830 and the native translator were actually run for G16 and
+G17. No system installation or device dispatch was required. M5 evidence work
+now uses real compiler captures rather than waiting for a locally installed SDK.
+See `../../evidence/NATIVE-APPLE-L641/m4/README.md` for provenance and limitations.

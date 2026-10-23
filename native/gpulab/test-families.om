@@ -1,7 +1,7 @@
 note SPDX-License-Identifier: MIT
-text ok "APPLE FAMILY GATE PASS: M1 M2 M3; M4 M5 REFUSED\n"
+text ok "APPLE FAMILY GATE PASS: M1 M2 M3 M4; M5 REFUSED\n"
 fn familytest to int
-for t ulong 3
+for t ulong 4
 for k ulong 64
 id = add 101 t
 depth = add 1 k
@@ -31,7 +31,7 @@ end
 end
 end
 for t ulong 2
-id = add 104 t
+id = add 105 t
 if build_request id 4
 ret 4
 end
@@ -51,6 +51,24 @@ for r ulong 32
 if ne get mem add 3072 r 3735928559
 ret 8
 end
+end
+end
+note G15 long-wait and G16 short-wait profiles do not silently alias.
+if not build_request 103 4
+ret 11
+end
+if eq family_run 104 3 4 0
+ret 12
+end
+if not build_request 104 4
+ret 13
+end
+if eq family_run 103 3 4 0
+ret 14
+end
+for r ulong 32
+if ne get mem add 3072 r 3735928559
+ret 15
 end
 end
 if build_request 106 4

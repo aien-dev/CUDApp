@@ -26,7 +26,8 @@
 ## Task 2: family dispatch and later ISA
 - [x] Give M1..M5 distinct IDs, preserve legacy request IDs 1 and 2.
 - [ ] Establish generation-specific byte/operand evidence before enabling each new family. Unknown semantics refuse, never alias G15/G14.
-- [ ] Implement M4 and M5 only once the complete bounded kernel has independently checkable operand layouts. Record unresolved fields precisely.
+- [x] Implement separate G16/M4 short-wait profile after independent Apple G16 compiler captures corrected the earlier ISA assumption; native 140137/0 and full 2710-byte shared-field assembler match.
+- [ ] Implement M5 only once the complete bounded kernel has independently checkable operand layouts. G17 compiler corpus now exists; operand/control packing remains under investigation.
 - [x] Exercise actual binary request and emitted-wire paths for every enabled family, and refusal for every disabled family.
 
 ## Task 3: frozen replay and publication
@@ -34,4 +35,4 @@
 - [ ] Push one candidate, verify remote head, update desk intake with exact scope. Keep L641 open if any M1–M5 acceptance row is incomplete.
 
 ## Research ruling
-TellowKrinkle's G15 reference encodes imadd with low opcode 0x1f (plus add bit), whereas ADevWithAnIdea's later captures use 0x2f and report M5 data-register packing as implicit/positional and m5_alu operands raw/unmapped. Opcode similarity is not enough to enable later-generation GEMV. M3 is implementable now; M4/M5 completion remains evidence-gated, not declared impossible.
+Initial evidence left M4/M5 unresolved. Direct Apple compiler acquisition corrected the M4 premise: applegpu_g16g captures decode with G15 operand fields, while applegpu_g17g differs. The G16 short-wait profile now has independent compiler-field evidence and full shared-field assembler comparison. M5 remains evidence-gated; controlled role probes show 14-byte integer multiply-add forms and warn against a generic 12-byte ALU label. No hardware launch is authorized by these offline results.
