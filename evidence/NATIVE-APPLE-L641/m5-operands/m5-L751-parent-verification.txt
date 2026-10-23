@@ -1,0 +1,36 @@
+{
+  "report_sha256": "e93c92a704f6fa75e2b9ec1cf35750a5888460cba6522c12799c8702ba02f612",
+  "capture_lengths": [
+    232,
+    232
+  ],
+  "i1_add_0x5c": "27 01 04 1a 25 00 a3 02 20 85 01 00",
+  "i2_add_0x5c": "27 02 04 1a 25 00 a3 02 20 85 01 00",
+  "i1_i2_differing_offsets": [
+    68,
+    76,
+    93,
+    121,
+    127,
+    133,
+    188,
+    191,
+    193,
+    196,
+    199,
+    201
+  ]
+}
+
+825eb77cb8fc2d0accd02df40705fed9a7011f05beec8977d525dee177d0b3df  index
+cb122f3c750bd9c129ba769813ad751fee912be04d377cd3ad4142c8d5b9ac33  mutants
+b5e9241326491611e19356ee7c57584bb65c89306dcde6718b209ac5ec453a0d  entry
+6d57bf29336d482e3d56afb84692e23be2ac1cfc5775973a4d979dae5b0477d5  entmut
+index:   ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, no section header
+mutants: ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, no section header
+entry:   ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, no section header
+entmut:  ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, no section header
+PARENT_REPLAY_INDEX_K32_RC=0
+PARENT_REPLAY_INDEX_MUTANTS_K32_RC=0
+PARENT_REPLAY_ENTRY_P18_RC=0
+PARENT_REPLAY_ENTRY_MUTANTS_P18_RC=0
