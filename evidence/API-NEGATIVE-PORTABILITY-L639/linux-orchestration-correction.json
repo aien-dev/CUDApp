@@ -1,0 +1,10 @@
+{
+  "consumed_job": "proc_4804dc3e7bdd",
+  "exit": 124,
+  "raw_log_sha256": "3efd109715c22fe56bc5fa3bbcfe44e2479f445b37da441d7ebf40033b324258",
+  "cause": "180second outer aggregate cap expired during existing host mutation suite; secondary cleanup errors are retained, not reclassified as passing controls",
+  "own_orphan_cleanup": "PPID1 mutationrunner2387445 under ownL639 testworktree and its currentcompilerchildren terminated after ledgerintent; no agents,model,driver orGPU touched",
+  "correction": "Fresh isolated exacta917source, query makeHOST_TESTS, execute every declared target separately bounded900seconds, stop onfirstactualfailure/no retry/no skippedtarget; processgroup cleanup prevents orphan",
+  "replacement_job": "proc_f9ce1e9f4d71",
+  "replacement_result": "RUNNING"
+}
