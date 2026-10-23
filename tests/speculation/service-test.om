@@ -90,6 +90,7 @@ xput 2 op
 xput 3 get xmeta 3
 xput 4 count
 bytes = mul add count 5 8
+started = monons
 r = write int get xmeta 1 xreq 0 bytes
 check eq r long bytes
 v = xread 0 56
@@ -107,6 +108,11 @@ if gt xget 5 5
 ret 999
 end
 check eq xread 56 mul xget 5 8 0
+check gt xget 6 0
+check le xget 6 ulong sub monons started
+if ne xget 4 0
+check eq xget 5 0
+end
 ret xget 4
 end
 fn xinit to void
