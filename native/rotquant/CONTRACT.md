@@ -82,3 +82,25 @@ evidence trees are refused without following them. This is single-user preflight
 not protection against concurrent malicious filesystem replacement.
 The test/oracle/runtime dependency hashes and versions are recorded; NumPy and
 ml-dtypes are independent host references, never linked to the native product.
+
+## Version2 and streaming extension
+
+Version1 behavior above is retained byte-for-byte. Version2 changes only the magic
+version byte (RQU2/RQP2/RQR2) and adds mode2. This zero-aware mode selects identity
+whenever a source block contains any numerical zero, otherwise Hadamard. Bit31 of
+the existing packed maximum indicates Hadamard; the remaining31 bits are M.
+Thus metadata and complete encoded bytes equal modes0/1. Decoder mode2 always
+uses denominator458752 and multiplies identity-block numerators by128. Original
+scalar zeros, rows and columns are preserved numerically, not by signed-zero bytes.
+
+`stream.om` is concatenated after this codec with the original main renamed.
+It accepts up to999999 consecutive complete v1/v2 frames; clean EOF between frames
+succeeds. Exactly the limit succeeds only on EOF; any following byte refuses.
+A refused frame publishes no bytes for that frame; preceding successful frames
+remain. I/O failure can leave a partial transport write and invalidates the host
+transaction. The single-frame command retains its original EOF requirement.
+
+The public qualification command also builds this entry, compares against the
+independent Fraction/sign-matrix oracle, exercises both transaction-limit edges,
+and catches selector, inverse-factor and zero-selection mutants. None of this
+qualifies direct packed GPU execution; the model-quality adapter is test-only.

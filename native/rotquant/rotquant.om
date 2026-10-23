@@ -114,17 +114,33 @@ hi = codeval get vec add j 1 m
 b = add lo shl hi 4
 put out add p i uchar b
 end
+fn choosemode mode ulong to ulong
+if ne mode 2
+ret mode
+end
+for i ulong 128
+if eq get vec i 0
+ret 0
+end
+end
+ret 1
+end
 fn encodeblock b ulong mode ulong to bool
 start = add 12 mul b 128
 if not loadvec start
 ret false
 end
-if eq mode 1
+selected = choosemode mode
+if eq selected 1
 hadamard
 end
 m = peak
 p = add 12 mul b 68
-store32 p m
+tag = m
+if and eq mode 2 eq selected 1
+tag = add tag 2147483648
+end
+store32 p tag
 p = add p 4
 for i ulong 64
 packpair p i m
@@ -166,8 +182,13 @@ end
 fn decodeblock b ulong mode ulong to bool
 p = add 12 mul b 68
 m = load32 p
+selected = mode
+if eq mode 2
+selected = shr m 31
+m = and m 2147483647
+end
 limit = ulong 229376
-if eq mode 1
+if eq selected 1
 limit = 29360128
 end
 if gt m limit
@@ -176,8 +197,11 @@ end
 if not loadq add p 4 m
 ret false
 end
-if eq mode 1
+if eq selected 1
 hadamard
+end
+if and eq mode 2 eq selected 0
+m = mul m 128
 end
 p = add 16 mul b 1024
 for i ulong 128
@@ -209,7 +233,11 @@ fn dispatch n ulong to int
 if lt n 12
 ret 65
 end
-if not and eq get inp 0 82 and eq get inp 1 81 eq get inp 3 49
+if not and eq get inp 0 82 eq get inp 1 81
+ret 65
+end
+version = ulong get inp 3
+if not or eq version 49 eq version 50
 ret 65
 end
 kind = ulong get inp 2
@@ -221,7 +249,7 @@ mode = load32 8
 if or eq blocks 0 gt blocks 256
 ret 65
 end
-if gt mode 1
+if or gt mode 2 and eq version 49 gt mode 1
 ret 65
 end
 if eq kind 85
@@ -241,7 +269,7 @@ ret 65
 end
 header 82
 denom = ulong 3584
-if eq mode 1
+if ne mode 0
 denom = 458752
 end
 store32 12 denom

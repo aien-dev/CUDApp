@@ -31,7 +31,9 @@ def native_matrix(binary, raw, shape, mode):
     source_units = (decoded_fp8*512).astype(np.int64).reshape(-1, 128)
     assert np.array_equal(source_units.reshape(-1)/512, decoded_fp8)
     # Independent dense sign-matrix multiplication, not the product butterfly.
-    transformed = source_units @ H if mode else source_units
+    rotate = np.ones(len(source_units), dtype=bool) if mode == 1 else np.all(source_units != 0, axis=1) if mode == 2 else np.zeros(len(source_units), dtype=bool)
+    transformed = source_units.copy()
+    transformed[rotate] = source_units[rotate] @ H
     maxima = np.abs(transformed).max(axis=1)
     safe = np.maximum(maxima, 1)[:, None]
     magnitude = np.abs(transformed)*7
@@ -39,23 +41,28 @@ def native_matrix(binary, raw, shape, mode):
     rounded = quotient + ((2*remainder > safe) | ((2*remainder == safe) & (quotient % 2 != 0)))
     quantized = rounded * np.sign(transformed)
     assert np.abs(quantized).max() <= 7
-    numerators = (quantized @ H if mode else quantized) * maxima[:, None]
+    inverse = quantized.copy()
+    inverse[rotate] = quantized[rotate] @ H
+    if mode == 2:
+        inverse[~rotate] *= 128
+    numerators = inverse * maxima[:, None]
     denominator = 458752 if mode else 3584
+    version = b'2' if mode == 2 else b'1'
     restored = []
     packed_parts = []
     for start in range(0, len(source_units), 256):
         count = min(256, len(source_units)-start)
         block_raw = raw[start*128:(start+count)*128]
-        request = struct.pack('<4sII', b'RQU1', count, mode) + block_raw
+        request = struct.pack('<4sII', b'RQU'+version, count, mode) + block_raw
         packed = invoke(binary, request)
-        expected = bytearray(struct.pack('<4sII', b'RQP1', count, mode))
+        expected = bytearray(struct.pack('<4sII', b'RQP'+version, count, mode))
         for b in range(start, start+count):
             q = quantized[b]+7
-            expected += struct.pack('<I', int(maxima[b]))
+            expected += struct.pack('<I', int(maxima[b]) | (int(rotate[b]) << 31 if mode == 2 else 0))
             expected += (q[::2] | (q[1::2] << 4)).astype(np.uint8).tobytes()
         assert packed == bytes(expected)
         reconstructed = invoke(binary, packed)
-        assert reconstructed[:16] == struct.pack('<4sIII', b'RQR1', count, mode, denominator)
+        assert reconstructed[:16] == struct.pack('<4sIII', b'RQR'+version, count, mode, denominator)
         actual = np.frombuffer(reconstructed, dtype='<i8', offset=16).reshape(count, 128)
         assert np.array_equal(actual, numerators[start:start+count])
         restored.append(actual.copy())
@@ -135,12 +142,14 @@ def experiment(model, binary, lossless_binary):
         assert np.isfinite(reference).all()
         vectors = diagnostic_vectors(cols)
         modes = {}
-        for mode, name in [(0, 'identity'), (1, 'hadamard')]:
+        for mode, name in [(0, 'identity'), (1, 'hadamard'), (2, 'zero-aware')]:
             reconstructed, receipt = native_matrix(binary, raw, (rows, cols), mode)
             receipt.update(error_metrics(reference, reconstructed*expanded, vectors))
             receipt['total_bytes_with_unchanged_scales'] = receipt['packed_bytes_including_frames']+len(scales)
             modes[name] = receipt
-        assert modes['identity']['total_bytes_with_unchanged_scales'] == modes['hadamard']['total_bytes_with_unchanged_scales']
+        assert len({m['total_bytes_with_unchanged_scales'] for m in modes.values()}) == 1
+        assert modes['zero-aware']['reconstructed_zero_rows'] >= int(np.count_nonzero(np.all(reference == 0, axis=1)))
+        assert modes['zero-aware']['reconstructed_zero_columns'] >= int(np.count_nonzero(np.all(reference == 0, axis=0)))
         axis = int(projection == 'down_proj')
         dense = common.oracle.raw_frame(rows, cols, axis, raw)
         packed = invoke(lossless_binary, dense)

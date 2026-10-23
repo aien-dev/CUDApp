@@ -1,0 +1,74 @@
+note SPDX-License-Identifier: MIT
+note Concatenate after rotquant.om with its main renamed single_main.
+note Each complete frame is a transaction. Prior frames survive later refusal.
+fn readexact start ulong finish ulong clean bool to int
+p = start
+for attempt ulong 32782
+if ge p finish
+ret 1
+end
+r = read 0 inp p sub finish p
+if lt r 0
+ret 74
+end
+if eq r 0
+if and clean eq p start
+ret 0
+end
+ret 65
+end
+p = add p ulong r
+end
+ret 65
+end
+fn framedsize to ulong
+if not and eq get inp 0 82 eq get inp 1 81
+ret 0
+end
+if not or eq get inp 3 49 eq get inp 3 50
+ret 0
+end
+blocks = load32 4
+if or eq blocks 0 gt blocks 256
+ret 0
+end
+mode = load32 8
+if or gt mode 2 and eq get inp 3 49 gt mode 1
+ret 0
+end
+if eq get inp 2 85
+ret add 12 mul blocks 128
+end
+if eq get inp 2 80
+ret add 12 mul blocks 68
+end
+ret 0
+end
+fn main to int
+for txn ulong 999999
+status = readexact 0 12 true
+if ne status 1
+ret status
+end
+n = framedsize
+if eq n 0
+ret 65
+end
+status = readexact 12 n false
+if ne status 1
+ret status
+end
+status = dispatch n
+if ne status 0
+ret status
+end
+end
+r = read 0 inp 0 1
+if lt r 0
+ret 74
+end
+if eq r 0
+ret 0
+end
+ret 65
+end

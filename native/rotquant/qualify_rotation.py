@@ -80,6 +80,43 @@ def mutants(compiler, source, build, evidence):
     return rows
 
 
+def qualify_stream(compiler, source, stream_source, build, evidence):
+    import test_stream
+    native_source = source.replace(b'fn main to int\n', b'fn single_main to int\n')+stream_source
+    require(source.count(b'fn main to int\n') == 1, 'main must be unique')
+    stream = compile_native(compiler, native_source, build/'rotquant-stream')
+    result = test_stream.suite(build/'rotquant', stream)
+    write_json(evidence/'v2-stream-suite.json', result)
+    require(result['failed'] == 0, 'v2/stream suite failed')
+    capacity = []
+    raw = test_stream.request(bytes(128), 0)
+    expected = test_stream.packed(bytes(128), 0)*999999
+    for count, status in [(999999, 0), (1000000, 65)]:
+        p = subprocess.run([str(stream)], input=raw*count, capture_output=True, timeout=60)
+        row = {'transactions': count, 'actual_rc': p.returncode, 'expected_rc': status,
+               'actual_sha256': sha(p.stdout), 'expected_sha256': sha(expected),
+               'actual_bytes': len(p.stdout), 'expected_bytes': len(expected),
+               'pass': p.returncode == status and p.stdout == expected and not p.stderr}
+        capacity.append(row)
+    write_json(evidence/'stream-capacity.json', capacity)
+    require(all(row['pass'] for row in capacity), 'stream boundary failure')
+    mutations = [('lost-selector', b'tag = add tag 2147483648\n', b'tag = tag\n'),
+                 ('lost-identity-normalization', b'm = mul m 128\n', b'm = m\n'),
+                 ('rotate-through-zero', b'if eq get vec i 0\n', b'if eq get vec i 99999999\n')]
+    caught = []
+    for name, before, after in mutations:
+        require(source.count(before) == 1, name+' mutation not unique')
+        mutant = compile_native(compiler, source.replace(before, after), build/('mutant-'+name))
+        verdict = test_stream.suite(mutant)
+        write_json(evidence/('mutant-'+name+'.json'), verdict)
+        require(verdict['failed'] > 0, name+' escaped')
+        caught.append({'name': name, 'caught': verdict['failed'], 'total': verdict['total'],
+                       'binary_sha256': sha(mutant.read_bytes())})
+    return {'source_sha256': sha(native_source), 'binary_sha256': sha(stream.read_bytes()),
+            'suite_total': result['total'], 'suite_passed': result['passed'],
+            'capacity_cases': capacity, 'io_controls': io_controls(stream), 'mutants': caught}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--compiler', type=Path)
@@ -110,7 +147,8 @@ def main():
                'binary_sha256': sha(binary.read_bytes()), 'suite_total': result['total'],
                'suite_passed': result['passed'], 'io_controls': io_controls(binary),
                'mutants': mutants(compiler, source, build, evidence)}
-    dependency_paths = list(here.glob('*.py')) + [here/'rotquant.om', here/'CONTRACT.md',
+    summary['stream'] = qualify_stream(compiler, source, (here/'stream.om').read_bytes(), build, evidence)
+    dependency_paths = list(here.glob('*.py')) + [here/'rotquant.om', here/'stream.om', here/'CONTRACT.md',
                         here.parent/'weightpack/qualify.py', here.parent/'weightpack/test_weightpack.py',
                         here.parent/'weightpack/weightpack.om', here.parents[1]/'mk/native-rotquant.mk']
     summary['source_closure'] = {str(p.relative_to(here.parents[1])): sha(p.read_bytes()) for p in sorted(dependency_paths)}
