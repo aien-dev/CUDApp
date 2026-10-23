@@ -19,7 +19,7 @@ preserved. The new branch is proposed work, not current merged runtime behavior.
 | Reading actual model files | Native read-only probe passes2,442 mapped/file comparisons over66 shards. This proves access only. |
 | Complete native GPU runtime | Still open under the existing launcher/canonical backend owners. The new memory operations do not implement RM/UVM object lifecycle, GPU virtual address management, parameter-pointer binding, submission, synchronization or coherency. |
 | Complete 27B model and speculative state | Existing historical Rust integration remains a behavioral reference. Its numeric transforms, kernel selection, MTP, cache/recurrent state, rollback and correction-token consumption must be attached through the native path. |
-| Final compiler qualification | Consume the existing branch-range correction and final-source review before qualifying a new model executable. |
+| Final compiler qualification | The existing branch-range correction is integrated in Omega078455c9. Its native gate and full host qualification pass; all seven experiment executables reproduce byte-identically. Final independent source review remains required. |
 | Four-arm experiment and issue closure | Requires the complete path, full-state correctness, calibration and held-out physical trials. Still NOT_RUN. |
 
 The file probe does not substitute for model execution. Historical fixed-chain

@@ -28,3 +28,9 @@ To repeat after building the compiler, compile `tests/speculation/model-map-test
 to a native executable and pass one existing local shard path as its sole argument.
 Success prints `MODEL_MAP_SAMPLES_PASS 37` and exits0. The complete local index
 enumeration and artifact identities remain in the private experiment handoff.
+
+The corrected compiler at Omega078455c9 incorporates the existing branch-range
+fix. Its full host and native branch gates pass. All seven experiment executables,
+including this probe, rebuild byte-identically under that compiler; see
+`corrected-compiler-reproduction.json`. The prior real-file run therefore remains
+bound to the same executable bytes. No additional model/GPU run is implied.
