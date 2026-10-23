@@ -1,0 +1,7 @@
+FAIL line 195: reserve(a, 1, &r) == -ENOENT
+PASS transitions, stale generations, accounting and seal
+PASS synchronized real-process contenders and abandoned reservation cleanup
+PASS SIGKILL committed-owner recovery, foreign tokens and inherited-context refusal
+PASS live-PID/different-start and previous-boot ownership FIXTURES
+PASS SIGKILL midway through actual persistent write, previous transaction preserved
+exit_code=1

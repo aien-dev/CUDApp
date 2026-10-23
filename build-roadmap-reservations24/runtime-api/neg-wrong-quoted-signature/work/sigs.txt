@@ -1,0 +1,1 @@
+FAIL: signature quoted in build-roadmap-reservations24/runtime-api/neg-wrong-quoted-signature/API.md but in no header: uint64_t omega_gpu_session_open_count(void);

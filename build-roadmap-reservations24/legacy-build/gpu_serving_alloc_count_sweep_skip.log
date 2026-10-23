@@ -1,0 +1,3 @@
+MEASURE sweep serving (rows 1..256 x 6 shapes, twice): 174 driver allocations, 83 distinct kernels, 0 refused, 0 other
+FAIL tests/gpu_serving_alloc_count_test.c:385: serving made 174 driver allocations
+gpu_serving_alloc_count_test sweep-skip: FAIL (1 failed checks)

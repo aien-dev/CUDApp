@@ -1,0 +1,19 @@
+real  never_written                ok
+real  written_late                 ok
+real  marker2_gate                 ok
+real  seq_wrap32                   ok
+  FAIL: progress_resets_idle: steady progress must not stall
+  FAIL: progress_resets_idle: progress_count 1
+real  progress_resets_idle         FAIL
+real  barrier_each_read            ok
+  FAIL: hard_deadline_with_progress: hard deadline TIMEOUT (got 2)
+real  hard_deadline_with_progress  FAIL
+real  fixed_overshoot              ok
+real  invalid_state                ok
+real  abort                        ok
+real  queue_wrap_sentinel          ok
+mutant naive_wall_clock           killed mask 3ff (required 3ff)
+mutant fixed_accepts_overshoot    killed mask 0d2 (required 080)
+mutant seq_unsigned_compare       killed mask 379 (required 008)
+gpu_wait: checks=130 real_failures=3 required_kills=12/12
+OMEGA_GPU_WAIT_HOST FAIL

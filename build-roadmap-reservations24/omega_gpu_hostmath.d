@@ -1,0 +1,3 @@
+build-roadmap-reservations24/omega_gpu_hostmath.o: \
+ src/omega_gpu_hostmath.c src/omega_gpu_hostmath.h
+src/omega_gpu_hostmath.h:

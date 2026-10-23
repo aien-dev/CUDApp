@@ -1,0 +1,2 @@
+FAIL line 94: omega_gpu_admission_acquire(a, r) == -EPERM
+exit_code=1

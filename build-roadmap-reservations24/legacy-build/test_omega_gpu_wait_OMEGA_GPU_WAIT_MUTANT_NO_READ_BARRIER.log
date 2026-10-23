@@ -1,0 +1,18 @@
+real  never_written                ok
+real  written_late                 ok
+real  marker2_gate                 ok
+real  seq_wrap32                   ok
+real  progress_resets_idle         ok
+  FAIL: barrier_each_read: barriers 1 polls 6
+  FAIL: barrier_each_read: a barrier must precede every read (6 of 6 polls unordered)
+real  barrier_each_read            FAIL
+real  hard_deadline_with_progress  ok
+real  fixed_overshoot              ok
+real  invalid_state                ok
+real  abort                        ok
+real  queue_wrap_sentinel          ok
+mutant naive_wall_clock           killed mask 3ff (required 3ff)
+mutant fixed_accepts_overshoot    killed mask 0a2 (required 080)
+mutant seq_unsigned_compare       killed mask 379 (required 008)
+gpu_wait: checks=130 real_failures=2 required_kills=12/12
+OMEGA_GPU_WAIT_HOST FAIL

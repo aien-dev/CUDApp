@@ -1,0 +1,44 @@
+PASS INSTALL_REFUSALS_ABI_1_1
+PASS FREESTANDING_NO_DEFAULT_PLATFORM
+  expect failed at line 250: fk.desc[s->marker.handle.index].rights & OMEGA_GPU_RIGHT_HOST_POLLED
+  expect failed at line 256: omega_gpu_session_launch(&L, &el, &mk) == 0
+  expect failed at line 257: mk == OMEGA_BW_MARKER_COMPLETION_PAYLOAD && fk.submits == 1 && fk.retires == 1 && el > 0
+  expect failed at line 260: !omega_gpu_session_is_blocked()
+  expect failed at line 263: omega_gpu_session_alloc_code(100, &code) == 0
+  expect failed at line 264: fk.t.kind[code.handle.index] == OMEGA_GPU_HANDLE_BUF_CODE
+  expect failed at line 265: (fk.desc[code.handle.index].rights & OMEGA_GPU_RIGHT_GPU_EXEC) && !(fk.desc[code.handle.index].rights & OMEGA_GPU_RIGHT_GPU_WRITE)
+  expect failed at line 267: code.cpu == NULL && fk.frees == 1
+  expect failed at line 271: fk.dev_closes == 1 && fk.frees == 5 && fk.t.nlive == 0
+  expect failed at line 272: !omega_gpu_session_is_open()
+FAIL OPEN_LAUNCH_CLOSE_TYPED_UNCACHED_POLLING
+PASS OPEN_FAILURE_KEEPS_DRIVER_TEXT
+  expect failed at line 287: omega_gpu_session_launch(&L, NULL, NULL) == 0
+  expect failed at line 290: fk.dev_closes == 1
+FAIL CANCEL_BEFORE_SUBMIT_NOT_LATCHED
+  expect failed at line 352: omega_gpu_session_launch(&L, NULL, NULL) == OMEGA_GPU_SESSION_CANCELLED
+  expect failed at line 354: strstr(omega_gpu_session_last_error(), "cancelled after submit") != NULL
+FAIL CANCEL_AFTER_SUBMIT_LATCHES_AND_PARKS
+  expect failed at line 327: strstr(omega_gpu_session_last_error(), "timed out") != NULL
+  expect failed at line 328: fk.polls >= 25 && fk.ns - t0 >= 25ull * 1000000u
+FAIL TIMEOUT_PARKS_NEVER_RELEASES
+PASS TIMEOUT_LATCH_REFUSES_CLOSE_REOPEN_INSTALL
+  expect failed at line 383: omega_gpu_session_launch(&L, NULL, NULL) == 0
+  expect failed at line 385: omega_gpu_session_recover() == -1 && fk.dev_closes == 0
+  expect failed at line 388: omega_gpu_session_alloc(4096, &user) == 0
+  expect failed at line 390: omega_gpu_session_launch(&L, NULL, NULL) == -1 && omega_gpu_session_is_blocked()
+  expect failed at line 393: omega_gpu_session_recoveries() == 0
+  expect failed at line 394: omega_gpu_session_recover() == 0
+  expect failed at line 404: omega_gpu_session_launch(&L, NULL, NULL) == 0
+  expect failed at line 407: fk.dev_closes == 2 && fk.t.nlive == 0
+FAIL TIMEOUT_RECOVER_SAME_PROCESS
+PASS RECOVER_TEARDOWN_FAULT_STAYS_LATCHED
+PASS RECOVER_MODULE_LATCH
+  expect failed at line 469: omega_gpu_session_launch(&L, NULL, NULL) == 0
+  expect failed at line 472: fk.dev_closes == 2 && fk.t.nlive == 0
+FAIL STALE_HANDLE_REFUSED_AFTER_CLOSE_REOPEN
+PASS SERVING_RESERVATION_REFUSES_WITHOUT_ALLOC
+  expect failed at line 534: fk.t.nlive == 0
+FAIL MATMUL_CODE_BUFFER_ENCODED_IN_PLACE
+PASS WAIT_REFUSES_WITHOUT_CLOCK
+PASS FMT_BOUNDED_MATCHES_SNPRINTF
+test_omega_gpu_session_platform: 9 passed, 7 failed

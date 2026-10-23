@@ -1,0 +1,17 @@
+real  never_written                ok
+real  written_late                 ok
+real  marker2_gate                 ok
+real  seq_wrap32                   ok
+real  progress_resets_idle         ok
+  FAIL: barrier_before_read: barrier-before-read order: polls 101 barriers 0 (want 3, 4)
+real  barrier_before_read          FAIL
+real  hard_deadline_with_progress  ok
+real  fixed_overshoot              ok
+real  invalid_state                ok
+real  abort                        ok
+real  failure_classes              ok
+mutant naive_wall_clock           killed mask 7ff (required 7ff)
+mutant fixed_accepts_overshoot    killed mask 4a2 (required 080)
+mutant seq_unsigned_compare       killed mask 779 (required 008)
+m16_gpu_wait: checks=149 real_failures=1 required_kills=13/13
+M16_GPU_WAIT_HOST FAIL

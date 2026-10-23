@@ -1,0 +1,3 @@
+FAIL line 127: omega_gpu_admission_cancel(a, parent_token) == -ESTALE
+FAIL line 49: (writing ? write(fd, p, n) : read(fd, p, n)) == (ssize_t)n
+exit_code=1

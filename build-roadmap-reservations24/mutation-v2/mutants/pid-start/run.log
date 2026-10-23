@@ -1,0 +1,3 @@
+FAIL line 150: !reserve(a, 8192, &next)
+PASS SIGKILL committed-owner recovery, foreign tokens and inherited-context refusal
+exit_code=1

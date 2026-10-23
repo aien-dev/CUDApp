@@ -1,0 +1,9 @@
+build-roadmap-reservations24/runtime-api/neg-missing-version/work/probe.c:7:2: error: #error "version macro missing: OMEGA_RUNTIME_API_VERSION_MAJOR"
+    7 | #error "version macro missing: OMEGA_RUNTIME_API_VERSION_MAJOR"
+      |  ^~~~~
+build-roadmap-reservations24/runtime-api/neg-missing-version/work/probe.c: In function ‘main’:
+build-roadmap-reservations24/runtime-api/neg-missing-version/work/probe.c:297:70: error: ‘OMEGA_RUNTIME_API_VERSION_MAJOR’ undeclared (first use in this function); did you mean ‘OMEGA_RUNTIME_API_VERSION_MINOR’?
+  297 |   printf("const OMEGA_RUNTIME_API_VERSION_MAJOR %lld\n", (long long)(OMEGA_RUNTIME_API_VERSION_MAJOR));
+      |                                                                      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                                                      OMEGA_RUNTIME_API_VERSION_MINOR
+build-roadmap-reservations24/runtime-api/neg-missing-version/work/probe.c:297:70: note: each undeclared identifier is reported only once for each function it appears in

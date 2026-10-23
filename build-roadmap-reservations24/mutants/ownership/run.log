@@ -1,0 +1,3 @@
+FAIL line 124: omega_gpu_admission_cancel(a, parent_token) == -ESTALE
+Alarm clock
+exit_code=142

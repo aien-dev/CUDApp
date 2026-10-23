@@ -1,0 +1,2 @@
+FAIL line 68: omega_gpu_admission_cancel(a, stale) == -ESTALE
+exit_code=1

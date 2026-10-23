@@ -1,0 +1,30 @@
+MEASURE phase LOAD (session+6 weights) allocs   10  frees    0  alloc_bytes    924852224  matmul_calls     0 (code-cache misses 0, of which on a shape seen before 0, other scratch growth 0)  attention_calls     0 (allocs 0)
+MEASURE   alloc sizes (6 distinct): 65536x2 4096x2 20971520x2 5242880x1 49807360x2 777912320x1
+MEASURE   free  sizes (0 distinct):
+MEASURE phase WARMUP decode ctx=1    allocs   17  frees    4  alloc_bytes     11214848  matmul_calls   253 (code-cache misses 6, of which on a shape seen before 0, other scratch growth 6)  attention_calls    36 (allocs 5)
+MEASURE   alloc sizes (10 distinct): 81920x1 262144x1 4096x7 12288x1 8192x1 16384x2 ... last 9723904x1
+MEASURE   free  sizes (4 distinct): 81920x1 262144x1 131072x1 622592x1
+MEASURE phase WARMUP row classes     allocs  152  frees  150  alloc_bytes     71929856  matmul_calls  1012 (code-cache misses 22, of which on a shape seen before 7, other scratch growth 3)  attention_calls 10836 (allocs 127)
+MEASURE phase PREFILL-A 100 tokens   allocs    5  frees    5  alloc_bytes        20480  matmul_calls   253 (code-cache misses 5, of which on a shape seen before 5, other scratch growth 0)  attention_calls  3600 (allocs 0)
+MEASURE   alloc sizes (1 distinct): 4096x5
+MEASURE   free  sizes (1 distinct): 4096x5
+MEASURE phase DECODE-A 64 tokens     allocs   42  frees   42  alloc_bytes     43229184  matmul_calls 16192 (code-cache misses 6, of which on a shape seen before 6, other scratch growth 0)  attention_calls  2304 (allocs 36)
+MEASURE   alloc sizes (37 distinct): 4096x6 1056768x1 1064960x1 1073152x1 1081344x1 1089536x1 ... last 1343488x1
+MEASURE   free  sizes (37 distinct): 4096x6 1048576x1 1056768x1 1064960x1 1073152x1 1081344x1 ... last 1335296x1
+MEASURE phase PREFILL-B 200 tokens   allocs  211  frees  211  alloc_bytes    433422336  matmul_calls   506 (code-cache misses 11, of which on a shape seen before 11, other scratch growth 0)  attention_calls  7200 (allocs 200)
+MEASURE   alloc sizes (202 distinct): 8192x5 1351680x1 1359872x1 1368064x1 1376256x1 1384448x1 ... last 2981888x1
+MEASURE   free  sizes (202 distinct): 4096x8 1343488x1 1351680x1 1359872x1 1368064x1 1376256x1 ... last 8192x3
+MEASURE phase DECODE-B 64 tokens     allocs   69  frees   69  alloc_bytes    207900672  matmul_calls 16192 (code-cache misses 5, of which on a shape seen before 5, other scratch growth 0)  attention_calls  2304 (allocs 64)
+MEASURE   alloc sizes (65 distinct): 4096x5 2990080x1 2998272x1 3006464x1 3014656x1 3022848x1 ... last 3506176x1
+MEASURE   free  sizes (66 distinct): 8192x2 2981888x1 4096x3 2990080x1 2998272x1 3006464x1 ... last 3497984x1
+MEASURE AFTER WARM-UP: 327 driver allocations, 327 driver frees over 428 tokens of context (final ctx 428)
+MEASURE distinct matmul kernel shapes seen (kp,np,grid_x): 21 (cache slots: 8)
+MEASURE live driver buffers at end: 25 ; session opens: 1 ; launches reaching the fake: 60688
+MEASURE return codes: matmul ok 0, matmul poison-check CHIP_FAIL 34408, attention ok 0, attention UNWRITTEN 26280, other 0
+FAIL tests/gpu_serving_alloc_count_test.c:657: serving made 327 driver allocations and 327 frees after warm-up; the reservation promises none
+FAIL tests/gpu_serving_alloc_count_test.c:658: phase PREFILL-A 100 tokens: 5 allocs, 5 frees
+FAIL tests/gpu_serving_alloc_count_test.c:658: phase DECODE-A 64 tokens: 42 allocs, 42 frees
+FAIL tests/gpu_serving_alloc_count_test.c:658: phase PREFILL-B 200 tokens: 211 allocs, 211 frees
+FAIL tests/gpu_serving_alloc_count_test.c:658: phase DECODE-B 64 tokens: 69 allocs, 69 frees
+MEASURE leaked at close: 0
+gpu_serving_alloc_count_test reserve-skip: FAIL (5 failed checks)

@@ -1,0 +1,6 @@
+FAIL: 2560 B of code -> 8192 (got 4096)
+FAIL: 2688 B of code -> 8192 (got 4096)
+FAIL: 2049 B of code needs a second page (got 4096)
+FAIL: 16 KB capacity -> 20 KB (got 16384)
+FAIL: 2049 B of code -> 4096 B (needs >= code + 2048, page multiple)
+OMEGA_GPU_CODE_ALLOC FAIL (5)

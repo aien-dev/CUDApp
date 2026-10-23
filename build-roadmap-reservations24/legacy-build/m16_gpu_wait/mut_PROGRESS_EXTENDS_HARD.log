@@ -1,0 +1,18 @@
+real  never_written                ok
+real  written_late                 ok
+real  marker2_gate                 ok
+real  seq_wrap32                   ok
+real  progress_resets_idle         ok
+real  barrier_before_read          ok
+  FAIL: hard_deadline_with_progress: hard deadline TIMEOUT (got 2)
+real  hard_deadline_with_progress  FAIL
+real  fixed_overshoot              ok
+real  invalid_state                ok
+real  abort                        ok
+  FAIL: failure_classes: counter moved, missed hard deadline -> late_progress (got late_progress)
+real  failure_classes              FAIL
+mutant naive_wall_clock           killed mask 7ff (required 7ff)
+mutant fixed_accepts_overshoot    killed mask 4c2 (required 080)
+mutant seq_unsigned_compare       killed mask 779 (required 008)
+m16_gpu_wait: checks=149 real_failures=2 required_kills=13/13
+M16_GPU_WAIT_HOST FAIL
