@@ -1,0 +1,133 @@
+note SPDX-License-Identifier: MIT
+note Compile-only source producer; generated kernels must never be launched.
+global input uchar 2
+global digits uchar 24
+text start "#include <metal_stdlib>\nusing namespace metal;\nkernel void k(volatile device const uint *a [[buffer(0)]], volatile device const uint *b [[buffer(1)]], volatile device const uint *c [[buffer(2)]], device uint *out [[buffer(3)]], uint gid [[thread_position_in_grid]]) {\nuint j=b[gid];\n"
+text loadhead "uint r"
+text loadmid "=c[gid+"
+text loadtail "];\n"
+text addrhead "uint addr="
+text direct "gid;\n"
+text direct5 "gid+5;\n"
+text gather "j;\n"
+text gather5 "j+5;\n"
+text loadv "uint v=a[addr];\n"
+text stores "out[gid]=v; out[gid+1]=addr; out[gid+2]=j;\n"
+text sthead "out[gid+"
+text stmid "]=r"
+text sttail ";\n"
+text finish "}\n"
+fn number value ulong to bool
+n = ulong 0
+again = true
+while again
+put digits n uchar add rem value 10 48
+value = div value 10
+n = add n 1
+again = ne value 0
+end
+for i ulong n
+if ne write 1 digits sub sub n i 1 1 1
+ret false
+end
+end
+ret true
+end
+fn loadln i ulong to bool
+if ne write 1 loadhead 0 len loadhead long len loadhead
+ret false
+end
+if not number i
+ret false
+end
+if ne write 1 loadmid 0 len loadmid long len loadmid
+ret false
+end
+if not number i
+ret false
+end
+ret eq write 1 loadtail 0 len loadtail long len loadtail
+end
+fn storeln i ulong to bool
+if ne write 1 sthead 0 len sthead long len sthead
+ret false
+end
+if not number add i 3
+ret false
+end
+if ne write 1 stmid 0 len stmid long len stmid
+ret false
+end
+if not number i
+ret false
+end
+ret eq write 1 sttail 0 len sttail long len sttail
+end
+fn main to int
+n = read 0 input 0 1
+if lt n 0
+ret 74
+end
+if ne n 1
+ret 65
+end
+selector = ulong get input 0
+if gt selector 15
+ret 65
+end
+n = read 0 input 1 1
+if lt n 0
+ret 74
+end
+if ne n 0
+ret 65
+end
+pressure = rem selector 4
+family = div selector 4
+if ne write 1 start 0 len start long len start
+ret 74
+end
+for i ulong pressure
+if not loadln i
+ret 74
+end
+end
+if ne write 1 addrhead 0 len addrhead long len addrhead
+ret 74
+end
+if eq family 0
+if ne write 1 direct 0 len direct long len direct
+ret 74
+end
+end
+if eq family 1
+if ne write 1 direct5 0 len direct5 long len direct5
+ret 74
+end
+end
+if eq family 2
+if ne write 1 gather 0 len gather long len gather
+ret 74
+end
+end
+if eq family 3
+if ne write 1 gather5 0 len gather5 long len gather5
+ret 74
+end
+end
+if ne write 1 loadv 0 len loadv long len loadv
+ret 74
+end
+if ne write 1 stores 0 len stores long len stores
+ret 74
+end
+for i ulong pressure
+if not storeln i
+ret 74
+end
+end
+if ne write 1 finish 0 len finish long len finish
+ret 74
+end
+ret 0
+end

@@ -1,0 +1,1 @@
+Compiled static AArch64 old core with new address driver. Runtime selector8 rc=66, stdout=, stderr=0000. Expected refusal66 for missing family contract.

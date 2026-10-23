@@ -1,0 +1,32 @@
+note SPDX-License-Identifier: MIT
+global input uchar 16
+fn main to int
+at = ulong 0
+for i ulong 4
+at = mul i 3
+n = read 0 input at 3
+if lt n 0
+ret 74
+end
+if ne n 3
+ret 65
+end
+if ne get input at uchar i
+ret 1
+end
+if ne get input add at 1 65
+ret 2
+end
+if ne get input add at 2 0
+ret 3
+end
+end
+n = read 0 input 12 1
+if lt n 0
+ret 74
+end
+if ne n 0
+ret 65
+end
+ret 0
+end

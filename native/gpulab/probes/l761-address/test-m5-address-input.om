@@ -1,0 +1,25 @@
+note SPDX-License-Identifier: MIT
+global probe uchar 8192
+text golden "#include <metal_stdlib>\nusing namespace metal;\nkernel void k(volatile device const uint *a [[buffer(0)]], volatile device const uint *b [[buffer(1)]], volatile device const uint *c [[buffer(2)]], device uint *out [[buffer(3)]], uint gid [[thread_position_in_grid]]) {\nuint j=b[gid];\nuint addr=gid;\nuint v=a[addr];\nout[gid]=v; out[gid+1]=addr; out[gid+2]=j;\n}\n"
+fn main to int
+size = ulong 0
+for i ulong 8192
+n = read 0 probe size 1
+if lt n 0
+ret 74
+end
+if eq n 0
+if ne size len golden
+ret 1
+end
+for j ulong len golden
+if ne get probe j get golden j
+ret 2
+end
+end
+ret 0
+end
+size = add size 1
+end
+ret 65
+end

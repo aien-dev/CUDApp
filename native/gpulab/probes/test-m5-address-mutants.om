@@ -1,0 +1,92 @@
+note SPDX-License-Identifier: MIT
+note Compile with m5-address-registers.om. Mutations are software controls only.
+global selector uchar 1
+fn addrpos to ulong
+for i ulong get captured 0
+if and ge i 64 le add i 14 get captured 0
+if and eq and octet i 15 15 eq octet add i 1 0
+if and eq and octet add i 2 63 3 eq octet add i 4 24
+if eq octet add i 7 192
+ret i
+end
+end
+end
+end
+end
+ret 0
+end
+fn mutbit p ulong mask ulong to bool
+old = octet p
+put capture p uchar xor old mask
+bad = probe
+put capture p uchar old
+if bad
+ret false
+end
+ret probe
+end
+fn cases to int
+if not probe
+ret 1
+end
+saved = get family 1
+put family 1 xor saved 8
+bad = probe
+put family 1 saved
+if bad
+ret 2
+end
+if not probe
+ret 3
+end
+put family 1 xor saved 1
+bad = probe
+put family 1 saved
+if bad
+ret 4
+end
+if not probe
+ret 5
+end
+p = addrpos
+if eq p 0
+ret 6
+end
+if not mutbit p 16
+ret 7
+end
+if not mutbit add p 1 4
+ret 8
+end
+if not mutbit add p 3 2
+ret 9
+end
+if not mutbit add p 9 32
+ret 10
+end
+ret 0
+end
+fn main to int
+count = read 0 selector 0 1
+if ne count 1
+ret 65
+end
+if gt get selector 0 15
+ret 65
+end
+put family 0 2
+put family 1 ulong get selector 0
+n = ulong 0
+for i ulong 4096
+count = read 0 capture n 1
+if lt count 0
+ret 74
+end
+if eq count 0
+put captured 0 n
+ret cases
+end
+n = add n 1
+end
+ret 65
+end

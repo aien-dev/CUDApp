@@ -1,0 +1,505 @@
+note SPDX-License-Identifier: MIT
+note G17 scalar register-field research; not an executable target backend.
+note Private bounded address-family extension of da94831 research core.
+note Captured tail20 is admitted by exact source profile, NOT decoded as a wait.
+note evaluation does NOT qualify hardware dependency, cache or latency rules.
+global capture uchar 4096
+global captured ulong 1
+global trace uchar 2
+global value ulong 128
+global defined uchar 128
+global seen uchar 40
+global stats ulong 4
+global family ulong 2
+note family: zero is pressure; one carries the independently named index K.
+note stats: loads, stores, additions, multiply-adds.
+fn octet p ulong to ulong
+ret ulong get capture p
+end
+fn dest p ulong to ulong
+v = or and shr octet p 4 1 and shr octet p 4 8
+v = or v and shr octet add p 7 2 6
+v = or v and shr octet add p 7 1 16
+v = or v and shr octet add p 2 2 32
+ret or v and shl octet add p 2 3 64
+end
+fn sourcea p ulong to ulong
+ret or shr octet add p 8 7 shl and octet add p 9 127 1
+end
+fn sourceb p ulong to ulong
+v = or and shr octet add p 1 1 1 and shr octet add p 3 4 14
+v = or v and shr octet add p 5 3 16
+ret or v shl and octet add p 8 1 5
+end
+fn sourcec p ulong to ulong
+v = or and shr octet add p 12 1 23 and shr octet add p 8 1 8
+ret or v shl and octet add p 10 1 5
+end
+fn datareg p ulong to ulong
+v = or shr octet p 4 and shr octet add p 2 2 48
+ret or v and shl octet add p 5 2 64
+end
+fn inputvalue base ulong index ulong to ulong
+if eq base 0
+ret add 1000 mul index 13
+end
+if eq base 1
+if eq get family 0 2
+ret add 8 and xor index 21 31
+end
+ret add 2000 mul index 17
+end
+ret add 3000 mul index 19
+end
+fn gathidx gid ulong to ulong
+mode = div get family 1 4
+idx = gid
+if ge mode 2
+idx = inputvalue 1 gid
+end
+ret add idx mul rem mode 2 5
+end
+fn gathexp gid ulong offset ulong to ulong
+if eq offset 0
+ret inputvalue 0 gathidx gid
+end
+if eq offset 1
+ret gathidx gid
+end
+if eq offset 2
+ret inputvalue 1 gid
+end
+ret inputvalue 2 add gid sub offset 3
+end
+fn expected gid ulong offset ulong to ulong
+if eq get family 0 2
+ret gathexp gid offset
+end
+if eq offset 0
+ret and add mul inputvalue 0 gid inputvalue 1 gid inputvalue 2 gid 4294967295
+end
+if le offset 3
+ret inputvalue sub offset 1 gid
+end
+if eq get family 0 1
+if eq offset 4
+ret inputvalue 0 add gid get family 1
+end
+if eq offset 5
+ret add gid get family 1
+end
+ret 0
+end
+ret inputvalue 0 add gid sub offset 3
+end
+fn memory p ulong gid ulong to ulong
+if ne and octet p 15 15
+ret 0
+end
+if ne and octet add p 2 63 3
+ret 0
+end
+if ne and octet add p 1 3 0
+ret 0
+end
+if ne and octet add p 3 1 0
+ret 0
+end
+base = shr octet add p 1 2
+index = shr octet add p 3 1
+r = datareg p
+if or ge r 128 ge index 128
+ret 0
+end
+if eq get defined index 0
+ret 0
+end
+address = get value index
+addrmax = ulong 34
+if eq get family 0 1
+addrmax = 63
+end
+if eq get family 0 2
+if gt address 63
+ret 0
+end
+else
+if or lt address gid gt address add gid addrmax
+ret 0
+end
+end
+if not or eq octet add p 6 0 eq octet add p 6 16
+ret 0
+end
+last = octet add p 7
+if not or eq last 64 eq last 192
+ret 0
+end
+if eq octet add p 4 1
+ret storepart p gid r address
+end
+ret loadpart p base r address
+end
+fn storecap to ulong
+if eq get family 0 1
+ret 6
+end
+if eq get family 0 2
+ret add 3 rem get family 1 4
+end
+ret 40
+end
+fn outbase to ulong
+if and eq get family 0 2 eq rem get family 1 4 0
+ret 2
+end
+ret 3
+end
+fn storepart p ulong gid ulong r ulong address ulong to ulong
+if ne shr octet add p 1 2 outbase
+ret 0
+end
+if not or eq and octet add p 5 15 2 eq and octet add p 5 15 6
+ret 0
+end
+if eq get defined r 0
+ret 0
+end
+offset = sub address gid
+if ge offset storecap
+ret 0
+end
+if ne get seen offset 0
+ret 0
+end
+if ne get value r expected gid offset
+ret 0
+end
+put seen offset 1
+put stats 1 add get stats 1 1
+if eq octet add p 7 192
+if lt sub get captured 0 p 10
+ret 0
+end
+if or ne octet add p 8 0 ne octet add p 9 32
+ret 0
+end
+ret 10
+end
+ret 8
+end
+fn loadtail p ulong base ulong to bool
+tail = ulong 0
+if eq get family 0 2
+if and eq base 0 eq div get family 1 4 2
+tail = 32
+end
+end
+ret and eq octet add p 8 65 eq octet add p 9 tail
+end
+fn loadpart p ulong base ulong r ulong address ulong to ulong
+if gt base 2
+ret 0
+end
+if gt octet add p 4 24
+ret 0
+end
+if ne rem octet add p 4 8 0
+ret 0
+end
+if not or or eq octet add p 5 2 eq octet add p 5 18 eq octet add p 5 34
+ret 0
+end
+put value r inputvalue base address
+put defined r 1
+put stats 0 add get stats 0 1
+if eq octet add p 7 192
+if lt sub get captured 0 p 14
+ret 0
+end
+if not loadtail p base
+ret 0
+end
+if ne octet add p 10 128
+ret 0
+end
+for i ulong 3
+if ne octet add add p 11 i 0
+ret 0
+end
+end
+ret 14
+end
+ret 8
+end
+fn arithmetic p ulong to ulong
+if ne and octet p 103 39
+ret 0
+end
+if ne and octet add p 2 119 4
+ret 0
+end
+if ne and octet add p 3 31 26
+ret 0
+end
+if not or eq octet add p 5 0 eq octet add p 5 128
+ret 0
+end
+if ne and octet add p 7 199 2
+ret 0
+end
+if ne octet add p 11 0
+ret 0
+end
+a = sourcea p
+d = dest p
+if or ge a 128 ge d 128
+ret 0
+end
+if eq get defined a 0
+ret 0
+end
+if eq octet add p 6 163
+if not or eq octet add p 4 37 eq octet add p 4 69
+ret 0
+end
+if ne and octet add p 8 127 32
+ret 0
+end
+if not or or eq octet add p 10 1 eq octet add p 10 17 eq octet add p 10 33
+ret 0
+end
+imm = add and octet add p 1 3 mul shr octet add p 3 5 4
+imm = add imm mul shr octet add p 5 7 32
+put value d and add get value a imm 4294967295
+put defined d 1
+put stats 2 add get stats 2 1
+ret 12
+end
+if ne octet add p 6 161
+ret 0
+end
+if lt sub get captured 0 p 14
+ret 0
+end
+if not or eq octet add p 4 33 eq octet add p 4 41
+ret 0
+end
+if ne and octet add p 8 110 8
+ret 0
+end
+if ne and octet add p 10 254 64
+ret 0
+end
+if ne and octet add p 12 209 0
+ret 0
+end
+if ne octet add p 13 0
+ret 0
+end
+b = sourceb p
+c = sourcec p
+if or ge b 128 ge c 128
+ret 0
+end
+if or eq get defined b 0 eq get defined c 0
+ret 0
+end
+put value d and add mul get value a get value b get value c 4294967295
+put defined d 1
+put stats 3 add get stats 3 1
+ret 14
+end
+note Frozen entry-block contracts, not a general new opcode decoder.
+note Axis minimal pairs change only byte65; x18/x25 reproduce old captures.
+fn entrylen to ulong
+if eq octet 64 52
+if or or ne octet 65 128 ne octet 66 1 ne octet 67 26
+ret 0
+end
+if or or or ne octet 68 64 ne octet 69 0 ne octet 70 160 ne octet 71 2
+ret 0
+end
+ret 8
+end
+if ne and octet 64 15 12
+ret 0
+end
+if or or ne octet 65 160 ne octet 66 16 ne octet 67 6
+ret 0
+end
+ret 4
+end
+fn initlane gid ulong to bool
+for i ulong 128
+put value i 0
+put defined i 0
+end
+for i ulong 40
+put seen i 0
+end
+for i ulong 4
+put stats i 0
+end
+n = entrylen
+if eq n 0
+ret false
+end
+r = shr octet 64 4
+if eq n 8
+note Only this exact eight-byte block is admitted; its live result is r1.
+r = 1
+end
+put value r gid
+put defined r 1
+ret true
+end
+fn lane gid ulong to bool
+if not initlane gid
+ret false
+end
+p = add ulong 64 entrylen
+for step ulong 256
+put trace 0 uchar and p 255
+put trace 1 uchar shr p 8
+remain = sub get captured 0 p
+if eq remain 4
+ret finished p
+end
+if lt remain 8
+ret false
+end
+size = ulong 0
+if eq and octet add p 2 63 3
+size = memory p gid
+else
+if ge remain 12
+size = arithmetic p
+end
+end
+if or eq size 0 gt size remain
+ret false
+end
+p = add p size
+end
+ret false
+end
+fn indexend to bool
+if or or ne get stats 0 4 ne get stats 1 6 ne get stats 3 1
+ret false
+end
+want = ulong 5
+if gt get family 1 5
+want = 6
+end
+if ne get stats 2 want
+ret false
+end
+for i ulong 6
+if ne get seen i 1
+ret false
+end
+end
+ret true
+end
+fn gathend to bool
+pressure = rem get family 1 4
+mode = div get family 1 4
+if or ne get stats 0 add 2 pressure ne get stats 1 add 3 pressure
+ret false
+end
+if ne get stats 3 0
+ret false
+end
+want = add 2 pressure
+if or eq mode 3 and eq mode 1 ne pressure 3
+want = add want 1
+end
+if ne get stats 2 want
+ret false
+end
+for i ulong add 3 pressure
+if ne get seen i 1
+ret false
+end
+end
+ret true
+end
+fn finished p ulong to bool
+if or or or ne octet p 14 ne octet add p 1 0 ne octet add p 2 0 ne octet add p 3 0
+ret false
+end
+if eq get family 0 1
+ret indexend
+end
+if eq get family 0 2
+ret gathend
+end
+if or lt get stats 0 3 gt get stats 0 34
+ret false
+end
+if ne get stats 1 add get stats 0 1
+ret false
+end
+if or ne get stats 2 get stats 0 ne get stats 3 1
+ret false
+end
+for i ulong get stats 1
+if ne get seen i 1
+ret false
+end
+end
+ret true
+end
+note Admit only the two captured constant-program contexts, without
+note claiming that this synchronous model executes their physical effects.
+fn constok to bool
+if eq entrylen 8
+if or or or ne octet 0 14 ne octet 1 0 ne octet 2 0 ne octet 3 0
+ret false
+end
+for i ulong 4
+if or ne octet add 4 mul i 2 6 ne octet add 5 mul i 2 0
+ret false
+end
+end
+ret true
+end
+if or or or ne octet 0 35 ne octet 1 0 ne octet 2 7 ne octet 3 2
+ret false
+end
+if or or or ne octet 4 66 ne octet 5 32 ne octet 6 160 ne octet 7 2
+ret false
+end
+ret not or or or ne octet 8 14 ne octet 9 0 ne octet 10 0 ne octet 11 0
+end
+fn probe to bool
+if or gt get family 0 2 gt get family 1 63
+ret false
+end
+if and eq get family 0 2 gt get family 1 15
+ret false
+end
+if and eq get family 0 0 ne get family 1 0
+ret false
+end
+if or lt get captured 0 72 gt get captured 0 4096
+ret false
+end
+if not constok
+ret false
+end
+note Symbol-table acquisition independently establishes main at octet 64.
+for i ulong 26
+if or ne octet add 12 mul i 2 6 ne octet add 13 mul i 2 0
+ret false
+end
+end
+if not lane 0
+ret false
+end
+if not lane 7
+ret false
+end
+ret lane 31
+end

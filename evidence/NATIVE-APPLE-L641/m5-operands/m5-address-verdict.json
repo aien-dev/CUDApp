@@ -1,0 +1,33 @@
+{
+  "status": "BOUNDED_ADDRESS_PROFILE_PASS_PRODUCTION_HOLD",
+  "core_sha256": "06be6bf3e5c487f3dd8c77b2f657ca1550c20b645ffe8b73127b1644cb090a7b",
+  "groups": {
+    "address-contract": 16,
+    "address-mutants": 16,
+    "G16_ADDRESS_REFUSAL": 16,
+    "PRESSURE_REGRESSION": 32,
+    "INDEX_REGRESSION": 64
+  },
+  "gids": [
+    0,
+    7,
+    31
+  ],
+  "per_capture_controls": {
+    "field_bit_refusals": 4,
+    "wrong_source_selector_refusals": 2,
+    "restored_positive_after_each": true
+  },
+  "field_bit_controls_total": 64,
+  "wrong_selector_controls_total": 32,
+  "compiled_tail_as_index_fault": {
+    "0": 12,
+    "66": 4
+  },
+  "native_regression_header_entry_controls": 448,
+  "native_regression_field_controls": 9,
+  "original_model_unchanged": true,
+  "physical_execution": "NOT_RUN",
+  "target105": "STILL_REFUSED",
+  "independent_review": "PENDING"
+}
