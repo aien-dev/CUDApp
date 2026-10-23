@@ -1,0 +1,413 @@
+{
+  "test_source": "743416c8a78a148ab4c9f5e06238725a683c5d52",
+  "compiler_source": "d80b428c6ed9e3864fd7fc02cd7392bd4ad67f56",
+  "compiler_sha256": "1d1aad082539399920bc6c90ff41f0a0c3a1ca3225e518fd0d259e0aeb71732d",
+  "test_source_sha256": "ad77916b90d002be45c9adcf5bfb026e5a169f9fd5007fda965f7faad62b7d72",
+  "executable_sha256": "64e3eb413b399707cda7623f9782559776081aa2a0d714167f60cc60c8852b3a",
+  "evidence_class": "read-only-native-file-mappings-of-existing-weight-artifacts",
+  "shards": 66,
+  "samples_per_shard": 37,
+  "sample_comparisons": 2442,
+  "rows": [
+    {
+      "shard": 1,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 2,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 3,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 4,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 5,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 6,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 7,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 8,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 9,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 10,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 11,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 12,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 13,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 14,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 15,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 16,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 17,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 18,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 19,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 20,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 21,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 22,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 23,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 24,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 25,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 26,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 27,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 28,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 29,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 30,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 31,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 32,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 33,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 34,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 35,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 36,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 37,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 38,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 39,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 40,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 41,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 42,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 43,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 44,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 45,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 46,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 47,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 48,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 49,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 50,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 51,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 52,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 53,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 54,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 55,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 56,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 57,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 58,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 59,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 60,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 61,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 62,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 63,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 64,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 65,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    },
+    {
+      "shard": 66,
+      "status": 0,
+      "stdout": "MODEL_MAP_SAMPLES_PASS 37\n",
+      "stderr": ""
+    }
+  ],
+  "full_file_checksum_performed": false,
+  "full_safetensors_validation": false,
+  "model_execution": false,
+  "hardware_trials": "NOT_RUN"
+}
