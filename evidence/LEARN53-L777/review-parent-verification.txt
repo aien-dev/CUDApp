@@ -1,0 +1,8 @@
+[{"path": "native/learn53/stream.om", "same": true}, {"path": "native/learn53/task.om", "same": true}, {"path": "native/learn53/wire.om", "same": true}, {"path": "tests/learn53/fixtures.om", "same": true}, {"path": "tests/learn53/stream-check.om", "same": true}, {"path": "tests/learn53/stream-fixtures.om", "same": true}, {"path": "tests/learn53/stream-input.om", "same": true}, {"path": "tests/learn53/stream-unit.om", "same": true}, {"path": "tests/learn53/unit.om", "same": true}]
+hashes
+core.elf 06682c257f1465736569fd17ea6d42933c4dc82f361420c6b60dfdef10d2c681
+frame.elf e34796a6b14823e321d1f6b92fb0be22ba8aec705daa3835979eb5a39c2877c7
+probe.elf 1f76316bc3cfab78609c90d5445aa6c2113e048fbbfbeca81daa8b2d7ffc1fd8
+probe-full.om 9ccd5dc198d54d679c39455ee376c6fdbadc8ee389e502311dfa2527ab1eadb5
+stream.elf 474c6d7d2200aad721d744106f430bed8ded85dba8a34a931829165d4cf73466
+emitter.elf c903ed879c506e1bbb35453ba39bfa1e41bbfa0f160cd7e4d5d8980a4bd80aa2
