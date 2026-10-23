@@ -1,0 +1,3 @@
+# Preserve exact protocol bytes in the evidence bundle.
+raw/*.headers -text -diff
+raw/*.sse -text -diff

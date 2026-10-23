@@ -1,0 +1,11 @@
+thread 3536244 panic: unrecognized command line argument: --test-filter
+/home/drakestapleton/services/localrouter-candidate-20261022/tools/zig-0.17.0/lib/compiler/test_runner.zig:62:18: 0x11e1c6f in main (test)
+            panic("unrecognized command line argument: {s}", .{arg});
+                 ^
+/home/drakestapleton/services/localrouter-candidate-20261022/tools/zig-0.17.0/lib/std/start.zig:789:88: 0x11dfbbf in callMain (test)
+    if (fn_info.param_types[0].? == std.process.Init.Minimal) return wrapMain(root.main(.{
+                                                                                       ^
+../sysdeps/nptl/libc_start_call_main.h:58:16: 0xeee2dc1e84c3 in __libc_start_call_main (../sysdeps/aarch64/libc-start.c)
+../csu/libc-start.c:360:3: 0xeee2dc1e8597 in __libc_start_main_impl (../sysdeps/aarch64/libc-start.c)
+???:?:?: 0x10cae2f in ??? (???)
+/usr/bin/timeout: the monitored command dumped core

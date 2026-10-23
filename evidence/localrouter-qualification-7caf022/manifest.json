@@ -1,0 +1,57 @@
+{
+  "artifact": "LocalRouter-Omega qualification evidence",
+  "disposition": "partial; not drop-in/release-qualified",
+  "evidence_branch": "qualification/localrouter-7caf022-evidence-20261023",
+  "evidence_base": {
+    "repository": "aien-dev/CUDApp",
+    "commit": "e1f51071269614e25e8ef74aec4fbf4e318d0060",
+    "pr": 28,
+    "issue": 27
+  },
+  "localrouter": {
+    "repository": "jayleaton/localrouter",
+    "commit": "7caf022157c7aba57d19452bed9002967da6a67a",
+    "branch": "qualification/localrouter-7caf022-20261023",
+    "executable": "zig-out/bin/localrouter",
+    "sha256": "8d02bcfc022398a99f2999ca4daa57b642fc49c664b2adb069534d790d31d66a"
+  },
+  "toolchain": {
+    "zig_version": "0.17.0",
+    "zig_sha256": "5165c9a2d17938a8173839b3adf81d025b558d38d9e9711237a6fa5b8d8bb3f7"
+  },
+  "probe": {
+    "localrouter_bind": "127.0.0.1:18329",
+    "backend_relay": "127.0.0.1:18330",
+    "omega_service": "127.0.0.1:18091",
+    "omega_model_id": "qwen3.6-35b-a3b-fp8",
+    "backend_mode": "socat relay to pre-existing Omega service; not a supervised Omega child",
+    "new_model_process_or_weights": false,
+    "existing_stub_18327_modified": false,
+    "existing_omega_18091_modified": false
+  },
+  "verification": {
+    "upstream_integration_suite": {
+      "command": "quiet-build /usr/bin/timeout -k 5 300s ./zig-out/bin/integration-test",
+      "exit_code": 0,
+      "passed": 41,
+      "failed": 0
+    },
+    "cudapp_setup_tests": {
+      "command": "python3 -m unittest discover -s tests/localrouter -p test_setup.py -v",
+      "exit_code": 0,
+      "passed": 9,
+      "failed": 0
+    },
+    "live_omega_compatible_chat": true,
+    "live_omega_multimodal": false,
+    "live_omega_supervised_lifecycle": false,
+    "same_workload_speed_comparison": false,
+    "behavioral_parity_corpus": false
+  },
+  "limits": [
+    "CUDApp candidate profile is text-only and expects tool-call rejection, while live LocalRouter tool-call probe returns 200.",
+    "Voice page is static HTML only; no voice, realtime, transcription, image, video, or paired computer-control workload was qualified.",
+    "Unload/reload was observed only through a relay and does not qualify backend lifecycle or memory release.",
+    "L458 findings 1-3 are owned/resolved by L479; dependency bootstrap and STABLE recovery findings 4-5 remain owned by L457."
+  ]
+}

@@ -1,0 +1,6 @@
+Command: Zig 0.17.0 `zig test src/api/http.zig --test-filter "a handler failing after reading the body is logged without a crash"`
+
+Output:
+1/1 http.test.a handler failing after reading the body is logged without a crash...[default] (warn): POST /v1/images/generations: ClientGone
+OK
+All 1 tests passed.

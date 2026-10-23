@@ -1,0 +1,1 @@
+{"object":"list","data":[{"id":"qwen3.6-35b-a3b-fp8","kind":"chat","state":"unloaded","resident_bytes":0,"idle_ttl_s":300,"priority":100,"keep_loaded":false,"lane":"chat","capabilities":["chat_completion"],"last_error":""}],"mem_available_bytes":68360699904,"reserve_bytes":8589934592,"budget_bytes":0,"voice_sessions":0}

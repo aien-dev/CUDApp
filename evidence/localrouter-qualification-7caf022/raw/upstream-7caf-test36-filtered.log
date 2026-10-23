@@ -1,0 +1,14 @@
+1/1 models.test.model tools: a voice session hears voice pause before the voice models go, and resume after the video...info: keep_loaded chat: loaded (40 MiB)
+info: keep_loaded mouth: loaded (8 MiB)
+info: keep_loaded ears: loaded (8 MiB)
+info: keep_loaded img: loaded (40 MiB)
+info: reserve_for vid: on request (hold 180 s)
+info: reserve_for vid: unloading img (priority 10, 40 MiB); it comes back after the job
+info: reserve_for vid: unloading ears (priority 50, 8 MiB); it comes back after the job
+info: reserve_for vid: unloading mouth (priority 60, 8 MiB); it comes back after the job
+info: keep_loaded mouth: loaded (8 MiB)
+info: voice models are back
+info: keep_loaded ears: loaded (8 MiB)
+info: keep_loaded img: loaded (40 MiB)
+OK
+All 1 tests passed.

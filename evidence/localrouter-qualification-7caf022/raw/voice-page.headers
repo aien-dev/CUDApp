@@ -1,0 +1,6 @@
+HTTP/1.1 200 OK
+content-length: 171398
+content-type: text/html; charset=utf-8
+cache-control: no-store
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' blob:; style-src 'unsafe-inline'; worker-src blob:; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self' ws: wss:
+

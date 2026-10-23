@@ -1,0 +1,146 @@
+1/41 integration.test_0...OK
+2/41 integration.test.images: deterministic, validated, and concurrent requests queue...OK
+3/41 integration.test.mcp: initialize, tools, an image inline and a video by URL, a job polled to completion...OK
+4/41 integration.test.memory budget: least recently used tool is evicted, oversized requests get 503...info: evicting a (priority 0) for b: it needs 64 MiB more, 65300 MiB available of which 64 MiB is the reserve
+info: evicting b (priority 0) for big: it needs 200 MiB more, 65275 MiB available of which 64 MiB is the reserve
+OK
+5/41 integration.test.a killed worker fails one job; the next one reloads; cancel and idle unload...OK
+6/41 integration.test.overhead: idle daemon RSS and API latency...
+overhead: /v1/models p50 858 us, p99 1748 us; idle daemon RSS 16556 KiB
+OK
+7/41 router.test.image inputs: edits over multipart, JSON and MCP; image to video; capability refusals...OK
+8/41 router.test.model choice: per-capability defaults, explicit models, clear refusals over HTTP, MCP and the CLI...OK
+9/41 router.test.URL inputs: private, loopback and link-local addresses are refused unless allowed; the daemon's own URLs work...OK
+10/41 router.test.priority and keep_loaded: loaded at start, kept past the TTL, evicted last, back when memory frees...info: keep_loaded keep: loaded (40 MiB)
+info: evicting low (priority 0) for big: it needs 80 MiB more, 65301 MiB available of which 64 MiB is the reserve
+info: evicting big (priority 0) for huge: it needs 130 MiB more, 65250 MiB available of which 64 MiB is the reserve
+info: evicting keep (priority 10) for huge: it needs 130 MiB more, 65328 MiB available of which 64 MiB is the reserve
+info: keep_loaded keep: loaded (40 MiB)
+OK
+11/41 router.test.mcp-stdio: lines in, lines out, notifications silent, an unreachable daemon answers with an error...OK
+12/41 speech.test.text to speech: HTTP and MCP, formats, voices, speed and refusals...OK
+13/41 speech.test.speech to text: uploads decode to 16 kHz mono, response formats, limits and refusals...OK
+14/41 speech.test.transcription jobs: memory priced by duration, cancel kills the worker, a crashed worker fails one job...OK
+15/41 speech.test.an external speech worker: the cmd protocol for both kinds, its refusals, cancellation and a crash...OK
+16/41 chat.test.chat models and routing: kind and capability, priority 100 and keep_loaded by default, refusals...info: keep_loaded chat: loaded (40 MiB)
+OK
+17/41 chat.test.chat whole replies: the body passes through, reasoning on by default and off on request, limits...info: keep_loaded chat: loaded (40 MiB)
+OK
+18/41 chat.test.chat streaming: SSE framing, deltas join to the whole reply, the usage chunk, headers...info: keep_loaded chat: loaded (40 MiB)
+OK
+19/41 chat.test.chat tool calls: whole and streamed, tool_choice none, and the follow-up with the tool's result...info: keep_loaded chat: loaded (40 MiB)
+OK
+20/41 chat.test.chat errors: engine refusals mapped, request validation, a dead server reloads, a failed start...info: keep_loaded chat: loaded (40 MiB)
+OK
+21/41 chat.test.chat qualification gate: unqualified refuses, is never loaded, and serves once the file says qualified...warning: keep_loaded chat: load failed: model 'chat' is not GPU-qualified on this host: /tmp/localrouter-it-chat-qual-f1574ee7be3482b7.json does not exist; an operator runs the model's qualify script on this machine first
+OK
+22/41 chat.test.chat eviction: priority 100 outlasts image tools, still yields when nothing else makes room, comes back...info: keep_loaded chat: loaded (40 MiB)
+info: evicting img-a (priority 0) for img-b: it needs 40 MiB more, 65320 MiB available of which 64 MiB is the reserve
+info: evicting img-b (priority 0) for huge: it needs 90 MiB more, 65336 MiB available of which 64 MiB is the reserve
+info: evicting chat (priority 100) for huge: it needs 90 MiB more, 65380 MiB available of which 64 MiB is the reserve
+info: keep_loaded chat: loaded (40 MiB)
+OK
+23/41 chat.test.chat cancel: a streaming client that hangs up cancels the job and the model stays loaded...info: keep_loaded chat: loaded (40 MiB)
+OK
+24/41 chat.test.chat GPU lock: held while the server runs, released on unload, a held lock fails the load...info: keep_loaded chat: loaded (40 MiB)
+warning: the GPU lock /tmp/localrouter-it-chat-gpu.lock is held by another job outside LocalRouter; nothing loads until it is free
+warning: the GPU lock /tmp/localrouter-it-chat-gpu.lock is held by another job outside LocalRouter; nothing loads until it is free
+OK
+25/41 chat.test.chat over MCP: list_models, prompt and messages, reasoning off, tool calls, tool errors...info: keep_loaded chat: loaded (40 MiB)
+OK
+26/41 jarvis.test.one box: chat, text to speech and speech to text loaded together within the budget, under one GPU lock...info: keep_loaded chat: loaded (40 MiB)
+info: keep_loaded tts: loaded (8 MiB)
+info: keep_loaded stt: loaded (8 MiB)
+OK
+27/41 jarvis.test.one box: a job that needs the machine evicts stt, then tts, then chat, and they come back by themselves...info: keep_loaded chat: loaded (40 MiB)
+info: keep_loaded tts: loaded (8 MiB)
+info: keep_loaded stt: loaded (8 MiB)
+info: evicting stt (priority 10) for img-a: it needs 50 MiB more, 65423 MiB available of which 64 MiB is the reserve
+info: evicting img-a (priority 0) for img-b: it needs 56 MiB more, 65382 MiB available of which 64 MiB is the reserve
+info: evicting tts (priority 50) for img-b: it needs 56 MiB more, 65390 MiB available of which 64 MiB is the reserve
+info: evicting img-b (priority 0) for video: it needs 94 MiB more, 65371 MiB available of which 64 MiB is the reserve
+info: evicting chat (priority 100) for video: it needs 94 MiB more, 65431 MiB available of which 64 MiB is the reserve
+info: keep_loaded chat: loaded (40 MiB)
+info: keep_loaded tts: loaded (8 MiB)
+info: voice models are back
+info: keep_loaded stt: loaded (8 MiB)
+OK
+28/41 jarvis.test.one box: after a video job, chat, tts and stt come back at once, unloading the idle video before its TTL...info: keep_loaded chat: loaded (66 MiB)
+info: keep_loaded tts: loaded (8 MiB)
+info: keep_loaded stt: loaded (8 MiB)
+info: evicting stt (priority 10) for video: it needs 99 MiB more, 65291 MiB available of which 64 MiB is the reserve
+info: evicting tts (priority 50) for video: it needs 99 MiB more, 65291 MiB available of which 64 MiB is the reserve
+info: evicting chat (priority 100) for video: it needs 99 MiB more, 65291 MiB available of which 64 MiB is the reserve
+info: evicting video (priority 0) for chat: it needs 66 MiB more, 65319 MiB available of which 64 MiB is the reserve
+info: keep_loaded tts: loaded (8 MiB)
+info: keep_loaded chat: loaded (66 MiB)
+info: voice models are back
+info: keep_loaded stt: loaded (8 MiB)
+OK
+29/41 drama3.test.Drama 3: refused until qualified, whole and streamed speech, voices, references, long form, errors and unload...warning: POST /v1/audio/speech: StreamIncomplete
+warning: POST /v1/audio/speech: StreamIncomplete
+OK
+30/41 drama3.test.Jarvis box: chat, Drama 3 and Whisper warm together under LocalRouter's admission; evicted lowest priority first...info: keep_loaded chat: loaded (24 MiB)
+info: keep_loaded fishaudio/drama-3: loaded (42 MiB)
+info: keep_loaded whisper: loaded (8 MiB)
+info: evicting whisper (priority 10) for img: it needs 39 MiB more, 65327 MiB available of which 64 MiB is the reserve
+info: evicting img (priority 0) for video: it needs 94 MiB more, 65341 MiB available of which 64 MiB is the reserve
+info: evicting fishaudio/drama-3 (priority 50) for video: it needs 94 MiB more, 65341 MiB available of which 64 MiB is the reserve
+info: evicting chat (priority 100) for video: it needs 94 MiB more, 65345 MiB available of which 64 MiB is the reserve
+info: keep_loaded chat: loaded (24 MiB)
+info: keep_loaded fishaudio/drama-3: loaded (42 MiB)
+info: voice models are back
+info: keep_loaded whisper: loaded (8 MiB)
+OK
+31/41 voice.test.voice: a spoken turn over the WebSocket, barge-in, a tool call that makes an image, the page and the lanes...info: keep_loaded ears: loaded (8 MiB)
+info: keep_loaded mouth: loaded (8 MiB)
+info: voice sess_a9c7b389a8da4655: chat request for resp_000002, 11 ms after the turn ended
+voice: speech_stopped to first audio delta with zero-latency fakes: 344 ms
+info: voice sess_a9c7b389a8da4655: chat request for resp_000005, 19 ms after the turn ended
+info: voice sess_a9c7b389a8da4655: chat request for resp_000008, 6 ms after the turn ended
+info: voice sess_a9c7b389a8da4655: chat request for resp_000011, 17 ms after the turn ended
+info: voice: model tool list_models {}
+info: voice sess_a9c7b389a8da4655: chat request for resp_000015
+OK
+32/41 mcp.test.mcp tools: a strict schema each, models with state and memory, voices, images by job id, actionable errors...OK
+33/41 mcp.test.mcp transcribe_audio by path: only files inside local_files are read...OK
+34/41 mcp.test.computer control without a paired device: the tools, the helper's socket and the approval routes all refuse...OK
+35/41 models.test.model tools: reserve_for unloads the image model only, never chat, and it comes back after the video...info: keep_loaded chat: loaded (40 MiB)
+info: keep_loaded mouth: loaded (8 MiB)
+info: keep_loaded ears: loaded (8 MiB)
+info: keep_loaded img: loaded (40 MiB)
+info: reserve_for vid: on request (hold 180 s)
+info: reserve_for vid: unloading img (priority 10, 40 MiB); it comes back after the job
+info: keep_loaded img: loaded (40 MiB)
+OK
+36/41 models.test.model tools: a voice session hears voice pause before the voice models go, and resume after the video...info: keep_loaded chat: loaded (40 MiB)
+info: keep_loaded mouth: loaded (8 MiB)
+info: keep_loaded ears: loaded (8 MiB)
+info: keep_loaded img: loaded (40 MiB)
+info: reserve_for vid: on request (hold 180 s)
+info: reserve_for vid: unloading img (priority 10, 40 MiB); it comes back after the job
+info: reserve_for vid: unloading ears (priority 50, 8 MiB); it comes back after the job
+info: reserve_for vid: unloading mouth (priority 60, 8 MiB); it comes back after the job
+info: keep_loaded mouth: loaded (8 MiB)
+info: voice models are back
+info: keep_loaded ears: loaded (8 MiB)
+info: keep_loaded img: loaded (40 MiB)
+OK
+37/41 models.test.model tools: the chat model is never unloaded; unload_model comes back after hold_s; load_model; refusals...info: keep_loaded chat: loaded (40 MiB)
+info: keep_loaded mouth: loaded (8 MiB)
+info: keep_loaded ears: loaded (8 MiB)
+info: keep_loaded img: loaded (40 MiB)
+info: unload_model img: unloaded on request, back within 10 s
+info: keep_loaded img: loaded (40 MiB)
+info: unload_model img: unloaded on request, back within 600 s
+info: load_model img: on request
+OK
+38/41 pairing.test.pairing required: /mcp and /v1/realtime need a paired token; codes trade once; revoke and the guard act at once...info: pairing: paired device 0f9d5c0f (kitchen tablet)
+warning: pairing: 5 wrong codes within 10 minutes; every pending code is discarded (make a new one with localrouter pair add NAME)
+info: pairing: paired device 7b02393b (spare)
+OK
+39/41 pairing.test.pairing off (the default): /mcp and /v1/realtime need no token; /v1/pair still pairs...info: pairing: paired device 25fc1b80 (phone)
+OK
+40/41 pairing.test.computer control needs paired devices even with pairing off: scopes gate every route; a paired helper runs a control; a lock waits for the tap...OK
+41/41 pairing.test.pairing required and scopes: a desktop helper's token reaches neither /mcp nor /v1/realtime; an unscoped device keeps both...OK
+All 41 tests passed.

@@ -1,0 +1,1 @@
+{"object":"list","data":[{"id":"qwen3.6-35b-a3b-fp8","object":"model","created":0,"owned_by":"localrouter","name":"Omega live text probe","kind":"chat","machine":"spark-b87b","running":false,"resident_bytes":0,"capabilities":["chat_completion"],"default_for":["chat_completion"]}]}
