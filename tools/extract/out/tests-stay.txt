@@ -1,7 +1,0 @@
-tests/gpu_tern_test.c stays: includes src/algebra/realize_common.h
-tests/runtime/rx_r12_silicon.c stays: includes src/runtime/aienos_cap.h src/runtime/rx_world.h src/runtime/rx_resident_gpu.h src/omega_evidence.h
-tests/test_omega_divsqrt_gb10.c stays: includes src/omega_numeric.h src/omega_numeric_divsqrt_gb10.h
-tests/test_omega_numeric.c stays: includes src/omega_numeric.h src/omega_numeric_provenance.h src/omega_numeric_divsqrt_gb10.h
-tests/test_omega_numeric_transc_gb10.c stays: includes src/omega_numeric.h src/omega_numeric_divsqrt_gb10.h src/omega_numeric_transc.h
-tests/test_omega_reduce.c stays: includes src/omega_numeric.h src/omega_numeric_reduce.h
-tests/runtime/rx_compose_gpu_skill.h stays: includes an Omega-only test helper

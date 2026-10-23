@@ -1,0 +1,26 @@
+[
+  {
+    "group": "core",
+    "blobs": 2667,
+    "bytes": 31366921,
+    "flagged": 0
+  },
+  {
+    "group": "omega",
+    "blobs": 5771,
+    "bytes": 80785588,
+    "flagged": 0
+  },
+  {
+    "group": "cudapp",
+    "blobs": 580,
+    "bytes": 17853972,
+    "flagged": 2
+  },
+  {
+    "group": "bridge",
+    "blobs": 136,
+    "bytes": 266320,
+    "flagged": 0
+  }
+]

@@ -1,0 +1,50 @@
+[
+  {
+    "sha": "f28b2ec5dfdca0e947b714b98ffe1ee5d468329f",
+    "ref": "refs/orphan-candidates-20261023/03/backup/pre-selftest-rewrite"
+  },
+  {
+    "sha": "e9ff18accda8372584d20cd14bd9db3747b7e733",
+    "ref": "refs/orphan-candidates-20261023/03/feat/native-amd-agx-lab"
+  },
+  {
+    "sha": "1ee104fda3fbc9e018e99e3ea37cce185eddf43b",
+    "ref": "refs/orphan-candidates-20261023/03/runtime/r1-api"
+  },
+  {
+    "sha": "ac6460b9146a5b9b0ca73b01889f8841e4ea99f2",
+    "ref": "refs/orphan-candidates-20261023/03/runtime/r2-hello"
+  },
+  {
+    "sha": "e8501a59321a8e3e6a4eeff86bc938b4d31753ee",
+    "ref": "refs/orphan-candidates-20261023/03/runtime/r3-portability"
+  },
+  {
+    "sha": "8c58ad133f1e1d983b4c87edaa5c5085fd52ddc1",
+    "ref": "refs/orphan-imported-snapshots-20261023/03/w84"
+  },
+  {
+    "sha": "e2bb05ea216539bba001c3c50a26b99aa4fdc478",
+    "ref": "refs/orphan-imported-snapshots-20261023/03/w85"
+  },
+  {
+    "sha": "6b9025edd5777e41e0c35a3270a6551285c071b6",
+    "ref": "refs/orphan-imported-snapshots-20261023/03/w86"
+  },
+  {
+    "sha": "e41af6004b00c3fafe795d09b005b112ccfaa3dc",
+    "ref": "refs/orphan-imported-snapshots-20261023/03/w87"
+  },
+  {
+    "sha": "afcf3dc302e879b70e18716edc50c36ee80ee76b",
+    "ref": "refs/orphan-imported-snapshots-20261023/03/w89"
+  },
+  {
+    "sha": "346acaba9eb19504b69d909d1240b0c16b14ae40",
+    "ref": "refs/orphan-imported-snapshots-20261023/03/w90"
+  },
+  {
+    "sha": "06bba1d4836f9456395ce1bd0552603794fed23a",
+    "ref": "refs/orphan-imported-snapshots-20261023/03/w91"
+  }
+]

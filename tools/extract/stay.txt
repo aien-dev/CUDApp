@@ -1,9 +1,0 @@
-# Omega-side bridges: the GPU part reaches these only through Omega's own gate
-# suite. They stay in Omega and build there against the pinned CUDA++ headers.
-src/omega_blackwell_gates.c
-src/omega_accelerator_world.c
-src/omega_accelerator_world.h
-src/omega_evidence.c
-src/omega_evidence.h
-src/omega_physics_dir.h
-src/omega_blackwell_gates.h

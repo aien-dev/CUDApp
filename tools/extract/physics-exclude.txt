@@ -1,2 +1,0 @@
-# Built artifact (an ELF of nvrm/lifecycle_gates.c), never kept.
-nvrm/lifecycle_gates

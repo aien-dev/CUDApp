@@ -1,0 +1,27 @@
+[
+  {
+    "commit": "f28b2ec5dfdca0e947b714b98ffe1ee5d468329f",
+    "branch": "backup/pre-selftest-rewrite",
+    "source_repository": "/home/drakestapleton/workspace/cudapp"
+  },
+  {
+    "commit": "e9ff18accda8372584d20cd14bd9db3747b7e733",
+    "branch": "feat/native-amd-agx-lab",
+    "source_repository": "/home/drakestapleton/workspace/cudapp"
+  },
+  {
+    "commit": "1ee104fda3fbc9e018e99e3ea37cce185eddf43b",
+    "branch": "runtime/r1-api",
+    "source_repository": "/home/drakestapleton/workspace/cudapp"
+  },
+  {
+    "commit": "ac6460b9146a5b9b0ca73b01889f8841e4ea99f2",
+    "branch": "runtime/r2-hello",
+    "source_repository": "/home/drakestapleton/workspace/cudapp"
+  },
+  {
+    "commit": "e8501a59321a8e3e6a4eeff86bc938b4d31753ee",
+    "branch": "runtime/r3-portability",
+    "source_repository": "/home/drakestapleton/workspace/cudapp"
+  }
+]

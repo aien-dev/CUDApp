@@ -1,2 +1,0 @@
-d2-doctor 8f3a6a2 make -k test rc=2; failing targets: test-gpu-attention test-gpu-engine-backend-mutants test-gpu-engine-mutants test-runtime-api test-runtime-portability-check test-runtime-portability-controls 
-# make -k test on this commit; main fc90713 fails the same 6 targets (~/handoffs/l400/suite-main.log), so this branch adds none
