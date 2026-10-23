@@ -19,6 +19,9 @@ Read [CONTRACT.md](CONTRACT.md) for the component and stream interfaces,
 [READINESS.md](READINESS.md) for actual dependencies, and
 [the receipt](../../evidence/speculation/README.md) for executed checks.
 
+[SERVICE.md](SERVICE.md) describes the persistent native process interface and
+its real parent/child pipe tests, including the exact remaining engine boundary.
+
 ## What remains
 
 The existing model, drafter, accepted-state owner and native benchmark owner
