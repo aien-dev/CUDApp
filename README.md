@@ -4,9 +4,9 @@
 
 # CUDA++
 
-**CUDA++ is the GPU half of the Omega runtime. This transition candidate licenses first-party CUDA++ material under AGPL-3.0-only.** You write a GPU program, CUDA++ turns it into the GPU's own machine code and runs it on an NVIDIA GPU, with no NVIDIA user-space software anywhere: no CUDA toolkit, no `nvcc`, no PTX, no `libcuda`, no cuBLAS.
+**CUDA++ is the GPU half of the Omega runtime. First-party CUDA++ material in this revision is licensed under AGPL-3.0-only.** You write a GPU program, CUDA++ turns it into the GPU's own machine code and runs it on an NVIDIA GPU, with no NVIDIA user-space software anywhere: no CUDA toolkit, no `nvcc`, no PTX, no `libcuda`, no cuBLAS.
 
-> **Licensing status:** This branch is the AGPL-3.0-only transition candidate; canonical `main` is still the MIT snapshot at [`232332422bfdc31c8918085b50f13c1e18ab702e`](https://github.com/aien-dev/CUDApp/tree/232332422bfdc31c8918085b50f13c1e18ab702e). The old MIT grant and third-party notices are preserved. See [the transition and provenance audit](docs/LICENSING_TRANSITION.md).
+> **Licensing status:** This revision uses AGPL-3.0-only for first-party material. For the historical MIT version, use [`232332422bfdc31c8918085b50f13c1e18ab702e`](https://github.com/aien-dev/CUDApp/tree/232332422bfdc31c8918085b50f13c1e18ab702e). The old MIT grant and third-party notices are preserved. See [the transition and provenance audit](docs/LICENSING_TRANSITION.md).
 
 It runs on the NVIDIA GB10 (the DGX Spark, compute capability sm_121) today. The 35-billion-parameter model AIEN serves on the Spark runs on this code: on 2026-10-21 the live server had only the C library, the maths library, `libgcc_s` and the loader mapped, and zero CUDA libraries (receipt in Omega: `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`).
 

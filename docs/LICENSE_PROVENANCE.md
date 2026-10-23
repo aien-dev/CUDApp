@@ -4,7 +4,7 @@
 
 ## Commit and identity evidence
 
-The transition candidate at `f271a06f81242bd5a4ef9bce5804aa599a7bf84a` contains 189 commits. `git log` across that exact history returned these author identities:
+The transition candidate at `d478c56856dacedc2b93c1d08ec70ef8c270e436` contains 189 commits. `git log` across that exact history returned these author identities:
 
 | Commit author identity | Commits | Attribution used for this candidate |
 | --- | ---: | --- |
@@ -27,7 +27,7 @@ Co-author trailers name Drake Stapleton and AI coding tools: Claude Opus 5.5, Cl
 
 ## Reproducible checks and limits
 
-On an isolated clone at the transition candidate commit `f271a06f81242bd5a4ef9bce5804aa599a7bf84a`, `tools/extract/audit-selftest.sh` passed: it planted 15 test credentials (including a deleted-history blob and commit message) and the scanner found all 15. `tools/extract/audit-scan.sh` scanned all objects and messages reachable from that candidate history: 1,325 blobs, zero binary blobs, zero credential-pattern hits, and 505 private-data-pattern matches in 16 distinct categories. The private matches include documented commit identities, build-home paths, PTX manual section numbers, example addresses, self-test values, and public clone/URL text; the summary was inspected. The later change to this audit record is documentation-only.
+On an isolated clone at the transition candidate commit `d478c56856dacedc2b93c1d08ec70ef8c270e436`, `tools/extract/audit-selftest.sh` passed: it planted 15 test credentials (including a deleted-history blob and commit message) and the scanner found all 15. `tools/extract/audit-scan.sh` scanned all objects and messages reachable from that candidate history: 1,325 blobs, zero binary blobs, zero credential-pattern hits, and 505 private-data-pattern matches in 16 distinct categories. The private matches include documented commit identities, build-home paths, PTX manual section numbers, example addresses, self-test values, and public clone/URL text; the summary was inspected. These results were independently reproduced on that exact commit during review L759. Subsequent documentation corrections do not expand the scope of these historical scan results.
 
 A source-and-notice search of the candidate tree excluding NVIDIA's vendor directory confirmed first-party source files carried MIT SPDX tags before transition, and found MIT notices in the retained third-party material and historical audit/evidence. In the transition candidate, first-party SPDX tags are changed to AGPL-3.0-only; `docs/AUDIT.md`, the captured historical MIT receipt, and vendor files are intentionally left unchanged. Review of tracked `THIRD_PARTY.md`, `docs/HOW_I_DID_IT.md`, `docs/DRIVER.md`, and source citations preserves the NVIDIA and Mesa disclosures.
 

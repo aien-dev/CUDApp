@@ -1,24 +1,33 @@
-# CUDA++ licensing: AGPL-3.0-only candidate and MIT snapshot
+# CUDA++: why AGPL, and how to use the MIT version
 
-**This branch is the authorized AGPL transition candidate.** At this ref, first-party CUDA++ material without a more specific notice is licensed under AGPL-3.0-only (`LICENSE`); first-party source SPDX identifiers are updated to match. This does not change canonical `main`: it remains at `232332422bfdc31c8918085b50f13c1e18ab702e`, whose `LICENSE` is MIT. The transition applies to the candidate tree only when and if the authorized publisher integrates it. This branch is not a claim that the default branch or any release has changed.
+**First-party CUDA++ material in this revision is offered under AGPL-3.0-only**, except where a file carries a different explicit notice. The license applies to this revision whether obtained from a branch or a release. Earlier MIT grants remain valid; this change does not revoke them.
 
-## License scope and retained grants
+## Why we built it, and why the license changed
 
-The root `LICENSE` is the AGPL-3.0-only license for first-party CUDA++ software and project material unless a file carries a different explicit license notice. The existing first-party MIT license is preserved verbatim as [`LICENSE-MIT`](../LICENSE-MIT) for users reproducing the historical MIT checkout below. That earlier MIT permission remains available for the earlier snapshot; this candidate does not retract it or purport to change the terms of copies already received under it.
+We built CUDA++ to give people an independently implemented path to their NVIDIA GPU without depending on NVIDIA's proprietary user-space compiler, runtime, driver library or math libraries. The goal was to remove that software dependency, not to distribute NVIDIA's proprietary implementation under our name.
 
-Third-party material keeps its own terms and notices. In particular, the NVIDIA open-kernel-module headers remain under their per-file MIT notices in `third_party/nvidia-open-580.173.02/`; `THIRD_PARTY.md` records the source and scope. Mesa/NVK/NAK is cited for hardware facts and values, with MIT attribution; the audit found no Mesa source code copied. `docs/PAIN_POINTS.md` contains attributed quotations from its cited public sources. Those quotations remain third-party text, not newly authored AGPL text. The license transition does not change any third-party grant.
+The foundation came from our own implementation and interoperability research. We wrote probe kernels, inspected their outputs using vendor tools offline, compared one-variable changes, consulted public technical references and permissively licensed projects, and tested our own encodings and runtime on hardware. We acknowledge that reverse engineering openly. The method and source references are documented in [HOW_I_DID_IT.md](HOW_I_DID_IT.md); the scoped provenance review is in [LICENSE_PROVENANCE.md](LICENSE_PROVENANCE.md).
 
-The rationale is straightforward: CUDA++ is first-party software built through independent implementation and hardware research. AGPL-3.0-only is the project's chosen reciprocal license for eligible first-party work, including its applicable source-sharing conditions. This is a licensing decision, not a conclusion about every possible use or every line's legal status.
+Understanding hardware behavior and writing our own implementation is different from taking proprietary source code. The documented provenance identifies our implementation work separately from the third-party material we actually include. We do not claim NVIDIA's open-source headers, Mesa's contributions, NVIDIA's firmware, or anyone else's work as ours. The audit records evidence and its limits, not a universal legal guarantee.
 
-## Provenance
+The MIT foundation remains available to everyone at the exact revision below. Going forward, our first-party improvements build on that foundation under AGPL-3.0-only. We chose reciprocity so that improvements to covered CUDA++ software remain available to its users under the license's source-sharing conditions, including applicable network-use provisions. This does not automatically license every program using a GPU, every service client, or generated output under AGPL.
 
-Drake Stapleton describes the work as independently authored, with AI coding agents used as tools. The method includes original probe kernels, offline use of vendor compiler/disassembler tools on those probes, comparisons between one-variable probes, public technical references, and execution on the hardware. Historical reverse engineering is acknowledged and documented in [`docs/HOW_I_DID_IT.md`](HOW_I_DID_IT.md). These facts describe the process; they do not prove that every line in every revision is free of third-party influence.
+This is not a claim that every NVIDIA component has been replaced: the documented working path still uses NVIDIA's open kernel modules and signed firmware. Omega's separate standalone Apache-2.0 language/toolchain extraction is a distinct, pending effort.
 
-The bounded current-history evidence, identity rows, source categories, and limits are in [`docs/LICENSE_PROVENANCE.md`](LICENSE_PROVENANCE.md). The earlier [`docs/AUDIT.md`](AUDIT.md) remains a historical record and is not rewritten as a current audit. The current audit found no outside human author in the candidate's commit metadata. It is not a legal opinion or a guarantee against infringement.
+## What remains under its original terms
 
-## Reproduce the historical MIT snapshot
+- NVIDIA's open-kernel-module interface headers retain their MIT notices in `third_party/nvidia-open-580.173.02/`.
+- Mesa/NVK/NAK hardware facts and references retain their attribution in [THIRD_PARTY.md](../THIRD_PARTY.md). The historical audit reports no copied Mesa source code.
+- Attributed quotations remain third-party text, not our newly authored work.
+- The original first-party MIT license is preserved verbatim in [LICENSE-MIT](../LICENSE-MIT). It documents prior grants, not a blanket MIT option for future AGPL contributions.
 
-The exact canonical snapshot verified for this transition is commit `232332422bfdc31c8918085b50f13c1e18ab702e`. It is a historical checkout, not a tag, fork, or assertion that it was the final MIT commit. The commands were exercised against the canonical repository and returned this commit with `LICENSE` beginning `MIT License`:
+## Get the MIT foundation
+
+Use this exact historical commit:
+
+`232332422bfdc31c8918085b50f13c1e18ab702e`
+
+These checkout commands were tested against the public repository:
 
 ```sh
 git clone --no-checkout https://github.com/aien-dev/CUDApp.git CUDApp-mit-snapshot
@@ -29,4 +38,12 @@ git rev-parse HEAD
 head -1 LICENSE
 ```
 
-The documented commands identify that exact tree; they do not infer a license for other commits. Omega's separate planned Apache-2.0 extraction (L752) remains a distinct, pending effort and is not included in this transition.
+The final commands show that exact commit and `MIT License`. To develop your own fork from this foundation, create a branch there:
+
+```sh
+git switch -c my-mit-development 232332422bfdc31c8918085b50f13c1e18ab702e
+```
+
+You can push that branch to a repository you control. GitHub's fork button alone does not select the historical version: explicitly check out the pinned commit. This is an existing MIT snapshot, not a claim that we created a separate hosted fork or that it was the final MIT commit.
+
+Keep the MIT license and third-party notices when redistributing that version. Later AGPL-only contributions do not become MIT merely because you copy them onto this branch. The terms attached to the material you actually use continue to apply.
