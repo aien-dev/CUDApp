@@ -6,6 +6,8 @@
 
 **CUDA++ is the GPU half of the Omega runtime, under the MIT licence so anyone can use it.** You write a GPU program, CUDA++ turns it into the GPU's own machine code and runs it on an NVIDIA GPU, with no NVIDIA user-space software anywhere: no CUDA toolkit, no `nvcc`, no PTX, no `libcuda`, no cuBLAS.
 
+> **Licensing transition notice:** A future AGPL-3.0 release is being considered, but no transition has taken effect: this branch leaves `LICENSE` unchanged. The exact MIT-licensed canonical snapshot verified for this documentation is [`232332422bfdc31c8918085b50f13c1e18ab702e`](https://github.com/aien-dev/CUDApp/tree/232332422bfdc31c8918085b50f13c1e18ab702e). Do not assume later commits are MIT. See [the licensing transition and audit limits](docs/LICENSING_TRANSITION.md) for tested checkout commands, provenance disclosures, and the remaining audit.
+
 It runs on the NVIDIA GB10 (the DGX Spark, compute capability sm_121) today. The 35-billion-parameter model AIEN serves on the Spark runs on this code: on 2026-10-21 the live server had only the C library, the maths library, `libgcc_s` and the loader mapped, and zero CUDA libraries (receipt in Omega: `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`).
 
 CUDA++ keeps growing until every NVIDIA part on the Spark is replaced, and then does things CUDA does not:
