@@ -1,5 +1,5 @@
 {
-  "source": "9ff84f025ee1b333365a3d95e487240e086d4991",
+  "source": "1b5414577368e58ed562964a4e61785faad75f2c",
   "compiler_sha256": "191b776ef98821597c3e30655da6d680a9b66edbc9ceaca3c39c61ea6df098e9",
   "evidence_class": "synthetic-native-host",
   "hardware_trials": "NOT_RUN",
@@ -36,8 +36,8 @@
     {
       "name": "report-test",
       "compile_exit": 0,
-      "source_sha256": "d65545cd72c031f51a908d7b6b2cbf5351ea7f026402e1d5c6d71a4c5b7e806e",
-      "executable_sha256": "3f8eb6488da901caa165861acb9ff4512194ae0bb112cc0ef5b5e672626e6398",
+      "source_sha256": "616ab6a8cc4af935f51a93ac18572fbefbdaa8d7d6f9fcae631d611154189848",
+      "executable_sha256": "8c199e1d92a1c82d9c1250283bc532a0c34b3af6aafa65f505b23cb8b025af92",
       "ordered_inputs": [
         "native/speculation/policy.om",
         "native/speculation/report.om",
@@ -45,7 +45,7 @@
         "tests/speculation/report-test.om"
       ],
       "exit": 0,
-      "stdout": "SPECULATION_TESTS_PASS 251\n",
+      "stdout": "SPECULATION_TESTS_PASS 299\n",
       "stderr": ""
     },
     {
@@ -65,8 +65,8 @@
     {
       "name": "replay",
       "compile_exit": 0,
-      "source_sha256": "ce21d37c915a2e5bddb2a293b04352874231dbfc1ca229ff3bcd28d6701c3767",
-      "executable_sha256": "b40c4353a0d823a17af010909c36d7ee951b725f3acaef8fd6bb94fc155f404a",
+      "source_sha256": "311a451f30924ac34189e020c12e9964d52d790af3018de400bfd193be6b6055",
+      "executable_sha256": "60600a1816ede70401ce53895c040297b080ff8ade82d4e93c193fcfba58b90e",
       "ordered_inputs": [
         "native/speculation/policy.om",
         "native/speculation/costs.om",
@@ -253,8 +253,8 @@
     {
       "name": "mutant-ignore-output",
       "compile_exit": 0,
-      "source_sha256": "fcb45510f360d59cb1ad60740f1fb1f1d57b2fd33d712a1deab022aef17b56fc",
-      "executable_sha256": "db6c59ad3b863c56eb396e6367754e193d519ac30cf21af918a50cd058e01408",
+      "source_sha256": "ad7e2061a8511ffcedc4c9952b9fe2e13cffe731e2793fc1002d286ea16d1d9b",
+      "executable_sha256": "670740c4a4c0cfa8a54c77e4e404c1935e8de5373820ce2600a42da832c49618",
       "test": "report-test",
       "before": "right = get praw add add row 3 i\nif ne left right",
       "after": "right = get praw add add row 3 i\nif ne left left",
@@ -266,8 +266,8 @@
     {
       "name": "mutant-wrong-arm",
       "compile_exit": 0,
-      "source_sha256": "f1fd4cf6e41dcff72bce0332ec788dfb4d1a0b36df511e0694fe733654519563",
-      "executable_sha256": "f9efefe91d545d114e4c9ff79a752c1e659b32587f129e1760a7be87e02c9282",
+      "source_sha256": "ae6b60cb73dc6162cc9f6805d4fb9ad41abca1e8619ff14eab912b1eba3786b2",
+      "executable_sha256": "7320add81dafe3f29891e219148c7b839984ebd34bd6aa830c4259dc9c317972",
       "test": "report-test",
       "before": "if ne get pobs add i 24 expected\nret 69\nend",
       "after": "note mutant accepts wrong arm build",
@@ -279,14 +279,27 @@
     {
       "name": "mutant-overclaim-five",
       "compile_exit": 0,
-      "source_sha256": "505b00aee704b17e85dd7d0c0a58d0450e29f0b9f44132b969c0c02ba6268cd3",
-      "executable_sha256": "13f56585276df739ddb978c9d891bd3a465c394b3454275fa8e5f53006435517",
+      "source_sha256": "16c2b31e36d22c3d78b5a5a513269587f02dd948b8df61f65c293ef826655a67",
+      "executable_sha256": "42e585692bae7eae1d05dc47b152ca2ab1611533fda5f420fcf56169b48bdd4b",
       "test": "report-test",
       "before": "ret k\nend\nfn pmeasure",
       "after": "ret 1\nend\nfn pmeasure",
       "expected_exit": 1,
       "exit": 1,
       "stdout": "102\n103\n104\n105\n108\nSPECULATION_TESTS_FAIL 5\n",
+      "stderr": ""
+    },
+    {
+      "name": "mutant-missing-base-identity",
+      "test": "report-test",
+      "before": "if eq nonzero 0\nret 69\nend\nend\nfor i ulong 32",
+      "after": "note mutant accepts missing base identities\nend\nfor i ulong 32",
+      "expected_exit": 1,
+      "compile_exit": 0,
+      "source_sha256": "498d3346a519bb0c26d359854deb1d72a297e4689f4b77f9ad2c670655936f71",
+      "executable_sha256": "ee572737325a7a9907da6ff9e7f7498ac2fef804b8ddc19616b9da6b0a6f5240",
+      "exit": 1,
+      "stdout": "263\n266\n269\n272\n293\n296\nSPECULATION_TESTS_FAIL 6\n",
       "stderr": ""
     }
   ],
