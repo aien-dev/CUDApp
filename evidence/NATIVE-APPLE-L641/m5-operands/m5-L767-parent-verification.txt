@@ -1,0 +1,26 @@
+COMMAND
+set -euo pipefail
+cd ~/handoffs/native-apple-L641/address-source-replay-r2
+sha256sum native/gpulab/probes/m5-address-registers.om address-contract address-mutants
+for n in 0 8 15; do
+ stem=$(printf 's%02d' "$n")
+ for bin in address-contract address-mutants; do
+ { printf "$(printf '\%03o' "$n")"; dd if="L761-parent/corpus/applegpu_g17g-$stem.text" status=none; } | ./$bin
+ printf 'L767_PARENT_FOCUSED %s selector=%s RC=0\n' "$bin" "$n"
+ done
+done
+
+STDOUT
+06be6bf3e5c487f3dd8c77b2f657ca1550c20b645ffe8b73127b1644cb090a7b  native/gpulab/probes/m5-address-registers.om
+3eae868450072c3818fa60512575e52e37d8b88a369ad4224285cecb0a620763  address-contract
+dc5be372beeb4bbf17ebdb5f79303cffa87a0365da513e36d707640917835e55  address-mutants
+L767_PARENT_FOCUSED address-contract selector=0 RC=0
+L767_PARENT_FOCUSED address-mutants selector=0 RC=0
+L767_PARENT_FOCUSED address-contract selector=8 RC=0
+L767_PARENT_FOCUSED address-mutants selector=8 RC=0
+L767_PARENT_FOCUSED address-contract selector=15 RC=0
+L767_PARENT_FOCUSED address-mutants selector=15 RC=0
+
+STDERR
+
+SSH_EXIT=0

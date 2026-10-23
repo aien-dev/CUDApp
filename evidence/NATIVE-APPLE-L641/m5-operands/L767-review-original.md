@@ -1,0 +1,30 @@
+# L767 independent review — frozen L761 / G17 address family
+
+Review scope: source pin `e9ff18accda8372584d20cd14bd9db3747b7e733`, evidence pin `12da74bc1c77bd77f8110a323340696c88e8ba51`. Spark tree was read-only. No source edits, full-suite replay, GPU launch, or implementation work was performed.
+
+## Verdicts
+
+- **Bounded-source acceptance: supported, with scope limits.** I found no source-level correctness defect in the frozen L761 producer or the G17 address-family interpreter extension. The experimental core SHA-256 is the brief-pinned `06be6bf3e5c487f3dd8c77b2f657ca1550c20b645ffe8b73127b1644cb090a7b`; its Git-pinned bytes match. Existing frozen replay evidence reports exact regeneration of 16 source captures and passes address, compiled-control, and regression gates. This independent review did not repeat those gates.
+- **General G17g ISA / physical behavior: not accepted.** This model is a narrow, synchronous functional interpreter profile over captured programs. It does not establish general instruction boundaries/decoding, physical memory-register identity, scheduling/dependency or cache semantics, or hardware behavior; production target 105 remains held.
+
+## Source review and evidence checks
+
+The core's address handling uses an already-established prefix register extraction, computes the effective address from that modeled register, and bounds accesses by family. `seen[]` is reset with register-definition and operation counters at each lane; stored values are checked against source-derived `expected()` values rather than merely against decoded bytes. The gather family uses an independently synthetic `b[gid] = 8 + ((gid xor 21) & 31)` mapping, which separates `j` from `gid`. Family/pressure selector bounds are explicit. Load/store/add/MAD counts, output slots, all expected store offsets, and source values are checked at completion. Failed capture mutations restore the exact original byte before checking that the positive capture passes again.
+
+Tail admission is narrowly scoped: the tail must be exactly `0x20` only for the family-2 direct-`j` `a` load; it must be zero for other cases. It is an admission condition, not executed as wait/cache/register/dependency semantics. The control replacing the address-register field with this tail only falsifies that literal substitution within this model (the recorded 4 direct-`j` negatives with 12 other positives); it does not rule out all physical mappings. No broad source overclaim is warranted.
+
+The byte-identity check of the core against the frozen Git source passed. Existing evidence cross-checks: corpus archive SHA-256 `5ccbc4ec0c62356f076a65066a10f36d99b96d782b07f88754c70f45578b57ae`; frozen replay log SHA-256 `87226e795d3632c6448d95d8607c2085d4a4aa9286d9caa6ef032869b7834d53`; frozen stderr SHA-256 `c60077edfbfd8cb3a9321da23f965030ac63fdeb048560cd3130d3a6c58e2ce9`. The replay log records `ADDRESS_FROZEN_SOURCE_REPLAY_PASS; NO_HARDWARE; PRODUCTION_HOLD`, all 16 `SOURCE_CAPTURE_IDENTITY` cases passing, and G16-axis/non-x refusal controls. The preserved initial 12/16 and compile-time expression-depth failures are correctly distinguished from final runtime acceptance. The earlier replay's missing assembled-control filename was an orchestration/hash-inventory failure, not a test pass; the corrected replay materialized the committed control and retained the earlier failure.
+
+The frozen G17 profile is source-specific: it admits the exact captured block/context and checks three gids. The new producer likewise has explicit selector/read/EOF checks and source assembly for the four address families. It is not a general disassembler or program loader. Existing parent reports—not this independent review—supply the raw executed totals and exact-build reproduction.
+
+## GEMV depth corpus: next missing semantic form
+
+The first concrete new source-level operation beyond identity indexing is **K-scaled row-base formation**, `base = gid * K`, with `K=2` in `k2.metal` (and repeated across `k64.metal`). `k1.metal` has the identity case `gid * 1`, so it does not discriminate this requirement. Existing address captures model bounded `gid`/`gid+5`/`j`/`j+5` forms and do not implement general integer multiplication for effective-address formation. The need is supported by the source, not by a refusal from an unrelated source profile.
+
+For the raw captured G17 `k2` text: `applegpu_g17g-k2.text`, length 170 bytes, SHA-256 `be167f23857758ad50c8764d54cb3342900ec35e74e5d2e4f0b803a222eca7a4`; at captured-text offsets `0x44..0x4f` the exact bytes are `27 04 04 1a 2d 00 a3 02 a0 80 04 00`. I do **not** assign those bytes an opcode meaning from the existing address-profile decoder. The source/capture pairing makes K-scaled base computation the first semantic gap to target; a dedicated offline native test should vary K=1/2 (and a further non-identity K), probe multiple gids, and assert effective addresses and resulting dot-product inputs. Extend the native byte interpreter only after independently establishing the instruction boundaries and semantics for this form. The `k2` container `applegpu_g17g-k2.gpubin` is 7,920 bytes, SHA-256 `0daa2df5b01b46fb2b2af41acfa88088467216d454193c0f902f2a898fba00cb`.
+
+This is a proposed next discrimination path, not a claim that I ran a GEMV decoder test. No k1/k2/k64 binary was fed to a mismatched original-source profile; source-profile refusal is not decoder evidence. No GPU execution was attempted.
+
+## Limits / handoff
+
+No focused executable counterexample was needed to resolve a specific source defect; this review relies on direct source inspection plus exact frozen artifact/raw-log identity checks, not a duplicate full test suite. Parent should retain the bounded-profile and production-hold language. Unresolved: general instruction semantics, compiler/backend equivalence beyond exact captured source output, arbitrary GEMV K/address cases, memory dependencies, and hardware qualification.
