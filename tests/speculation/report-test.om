@@ -191,5 +191,15 @@ green
 small
 outcomes
 invalid
+note Missing baseline identities must not make an unqualified base look comparable.
+for a ulong 2
+for d ulong 8
+group 6
+for j ulong 4
+put parmids add add mul a 32 mul d 4 j 0
+end
+check eq pstart 6 69
+end
+end
 ret finish
 end

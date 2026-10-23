@@ -106,6 +106,8 @@ Each group is one fixture at one initial context (1024 or 32768 tokens) and one
 controller cold/warm mode. `pconfig` holds context, warm flag, fixture ID,
 minimum usable output length and require-device flag. `parmids` contains the
 32 expected identity words for each arm: base, ordinary, fixed, adaptive.
+Every digest must be nonzero, including differing baseline build identities.
+An unused component binds the digest of an explicitly named absent identity.
 Weights/tokenizer/numerical recipe/protocol must match across all arms. The base
 may have a different backend/executable; ordinary/fixed/adaptive share those.
 Fixed/adaptive additionally share drafter and candidate generator. `pstart(n)`
