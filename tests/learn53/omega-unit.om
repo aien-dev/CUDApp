@@ -1,0 +1,231 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note SYNTHETIC unit metadata, pins and costs, NEVER a real benchmark record.
+fn afix to void
+for i ulong 2048
+put LT i 0
+end
+for i ulong 24
+put LS i 0
+end
+for i ulong 8
+id = add i 1
+a = mul i 32
+n = kload id
+put LT a id
+put LT add a 1 2
+put LT add a 2 1
+put LT add a 3 kw 2
+put LT add a 4 1
+put LT add a 5 1
+put LT add a 6 53
+put LT add a 7 1
+for j ulong 20
+put LT add a add 8 j add add mul i 100 j 1
+end
+put LT add a 28 csize id
+put LT add a 29 coutn id
+put LT add a 30 1000000
+end
+for i ulong 4
+put LPin i add i 1
+put LPin add i 4 add i 1
+put LPin add i 8 add i 5
+put LPin add i 12 add i 5
+end
+for i ulong 9
+put LC i 0
+end
+put LC 0 10
+put LC 1 20
+put LC 2 30
+put LC 3 40
+put LC 4 50
+put LC 5 60
+put LC 6 4096
+end
+fn agood id ulong to void
+cvalues id
+for i ulong 256
+put LGot i get ko i
+end
+end
+fn aobs to void
+for i ulong 8
+id = add i 1
+agood id
+check eq aobserve id 0 0 coutn id 0
+put LGot sub coutn id 1 0
+check eq aobserve id 0 0 coutn id 7
+end
+agood 1
+check eq aobserve 0 0 0 28 10
+check eq aobserve 9 0 0 28 10
+check eq aobserve 18446744073709551615 0 0 28 10
+check eq aobserve 1 0 0 0 9
+check eq aobserve 1 0 0 27 7
+check eq aobserve 1 0 0 257 10
+check eq aobserve 1 0 0 18446744073709551615 10
+check eq aobserve 1 0 101 0 8
+check eq aobserve 1 7 0 28 10
+for i ulong 6
+check eq aobserve 1 add i 1 0 28 add i 1
+end
+note A task mutation is discarded; correct output for weakened task is wrong.
+n = kload 1
+tw 28 0
+tw 21 1
+tw 22 99
+tw 14 3
+check eq aobserve 1 0 0 28 0
+check eq kw 28 9
+check eq kw 21 0
+check eq kw 22 0
+check eq kw 14 1
+cw 5 6
+for i ulong 28
+put LGot i get ko i
+end
+check eq aobserve 1 0 0 28 7
+note Wrong logical output, skipped write, dense stride, PASS spoof, wrong task.
+for i ulong 4
+agood 1
+if eq i 0
+cw 3 12
+end
+if eq i 1
+cw 5 2779096485
+end
+if eq i 2
+cw 2 11
+cw 3 15
+cw 5 2779096485
+end
+if eq i 3
+cw 1 1397965136
+end
+for j ulong 28
+put LGot j get ko j
+end
+check eq aobserve 1 0 0 28 7
+end
+agood 1
+check eq aobserve 2 0 0 28 7
+end
+fn aall to void
+afix
+check eq abegin 1000 0
+check eq abegin 1000 20
+for i ulong 8
+id = add i 1
+agood id
+check eq aattempt i 1 0 0 coutn id 0
+end
+check eq lfinish 0
+check eq get LS 18 1
+check eq get LS 4 8
+check eq get LS 5 8
+check eq get LS 3 8
+check eq get LS 16 8
+check eq get LS 14 4096
+note A subsequent invalid begin clears old completed-valid state.
+put LT 1 3
+check eq abegin 1000 1
+check eq get LS 18 0
+end
+fn amissing to void
+afix
+check eq abegin 1000 0
+for i ulong 7
+id = add i 1
+agood id
+check eq aattempt i 1 0 0 coutn id 0
+end
+check eq lfinish 30
+check eq get LS 18 0
+afix
+check eq abegin 1000 0
+agood 1
+check eq aattempt 0 1 0 0 28 0
+check eq aattempt 0 1 0 0 28 28
+check eq lfinish 28
+check eq get LS 18 0
+afix
+check eq abegin 1000 0
+check eq aattempt 8 1 0 0 28 27
+check eq lfinish 27
+end
+fn abad to void
+afix
+check eq abegin 1000 0
+for i ulong 8
+id = add i 1
+agood id
+if eq id 8
+put LGot 4 0
+end
+check eq aattempt i 1 0 0 coutn id 0
+end
+check eq lfinish 0
+check eq get LS 18 1
+check eq get LS 4 7
+check eq get LS 5 7
+note A valid experiment can report failure, never silently drop that task.
+check eq get LS 1 8
+check eq get LS 3 8
+end
+fn apins to void
+for i ulong 8
+afix
+check eq abegin 1000 0
+p = add i 4
+if ge i 4
+p = add i 8
+end
+put LPin p 999
+agood 1
+check eq aattempt 0 1 0 0 28 26
+check eq get LS 4 0
+check eq lfinish 26
+end
+afix
+check eq abegin 1000 0
+put LC 0 18446744073709551615
+agood 1
+check eq aattempt 0 1 0 0 28 23
+check eq get LS 4 0
+check eq lfinish 23
+afix
+check eq abegin 1 0
+agood 1
+check eq aattempt 0 1 0 0 28 29
+check eq lfinish 29
+check eq get LS 18 0
+end
+fn ameta to void
+for i ulong 32
+if or lt i 8 ge i 28
+afix
+put LT i 999
+check eq abegin 1000 1
+check eq get LS 18 0
+end
+end
+afix
+for i ulong 4
+put LT add i 8 0
+end
+check eq abegin 1000 6
+check eq get LS 18 0
+end
+fn main to int
+aobs
+aall
+amissing
+abad
+apins
+ameta
+if ne get tally 1 0
+ret 1
+end
+ret 0
+end

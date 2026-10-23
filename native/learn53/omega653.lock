@@ -1,0 +1,12 @@
+{
+  "schema": "cudapp-learn53-omega653-source-lock-v1",
+  "repository": "https://github.com/aien-dev/omega-mv.git",
+  "revision": "84d03c5523f39ca1045d1c313c5f62597779462b",
+  "path": "src/learning/benchmark/core.om",
+  "sha256": "a5a2e74c815f9ca6a90dbdfbfc7ecc343f0362c824064f2058e9d1d7c119c40c",
+  "contract": "docs/learning/benchmark-v1.md",
+  "license_file": "LICENSE",
+  "license": "AGPL-3.0",
+  "construction": "explicit immutable source export; no mutable sibling or prebuilt override",
+  "scope": "bounded public host component only; full653 independent review and final acceptance remain outside this pin receipt"
+}

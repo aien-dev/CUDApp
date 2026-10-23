@@ -1,0 +1,66 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+fn ctest to void
+for i ulong 8
+id = add i 1
+cvalues id
+n = kload id
+check eq n csize id
+check eq kvalid n 0
+check eq kw 16 id
+check eq kw 14 1
+check eq kw 4 0
+check eq kw 21 0
+check eq kw 22 0
+check eq keval n coutn id 0
+last = sub div coutn id 4 2
+cw last 4294967294
+check eq keval n coutn id 1
+end
+end
+fn cstable to void
+n = kload 1
+cvalues 1
+for i ulong 4096
+put saved i get kt i
+end
+check eq kload 0 0
+check eq kload 9 0
+check eq kload 18446744073709551615 0
+same = true
+for i ulong 4096
+if ne get saved i get kt i
+same = false
+end
+end
+check same
+check eq keval n 28 0
+note Loading a task must not forge or erase observed candidate output.
+cw 3 12
+check eq kload 1 136
+check eq kc 3 12
+check eq keval 136 28 1
+note Poisoned task policy is reset by compiled catalog, not honored.
+tw 21 1
+tw 22 99
+tw 14 3
+tw 16 99
+tw 28 0
+check eq kload 1 136
+cvalues 1
+check eq keval 136 28 0
+same = true
+for i ulong 4096
+if ne get saved i get kt i
+same = false
+end
+end
+check same
+end
+fn main to int
+ctest
+cstable
+if ne get tally 1 0
+ret 1
+end
+ret 0
+end
