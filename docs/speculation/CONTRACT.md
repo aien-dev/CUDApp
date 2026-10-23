@@ -72,6 +72,15 @@ shape. Prefix survival uses a 7/8 previous + 1/8 observed update, clamped
 monotonically. Only completed past rounds teach the policy. Frozen development
 costs guide probes; no future fixture result is inspected.
 
+The observed cost deliberately uses the latest single sample, without smoothing.
+It responds promptly to a cost step but is sensitive to timing noise; this is a
+policy choice to evaluate on development trials, not an established advantage.
+Recovery probes are eligible when ordinary wins and at least eight total rounds
+have completed since the previous probe (or request start). Eight bounds probing
+to at most one in eight completed rounds while permitting recovery within a
+256-token request. This is an initial engineering choice, not a tuned optimum.
+Any tuning must use development data and a new frozen experiment identity.
+
 `sstate[6]` counts emitted tokens, `[7]` consumed tokens, `[8]` an emitted but
 unconsumed correction/bonus. `sresume()` acknowledges that the actual state owner
 consumed that token. Selection is refused until that acknowledgement. Context
@@ -144,12 +153,16 @@ time, adaptive median/p95 TTFT, adaptive peak memory, verdict, evidence class.
 Output counts agree within pairs, so the time ratio equals the committed-token
 throughput ratio. Ratios are rounded down to millionths. Percentiles use nearest
 rank; an even-count median averages its two central values.
+Time and TTFT quantiles are each sorted independently. They are not the time or
+TTFT of the pair at the median speed ratio; the speed ratio remains paired.
 
 The interval uses [exact binomial order statistics](https://itl.nist.gov/div898/software/dataplot/refman1/auxillar/mediancl.htm): choose the largest k whose
 lower-tail probability is at most 1/40, then use sorted ratios k and n-k+1.
 It assumes independent paired repetitions. Five pairs cannot give a finite
 distribution-free 95% interval, so they produce an inconclusive result with
 unbounded upper endpoint. More repeats improve resolution; noise is retained.
+The wire representation of that endpoint is `18446744073709551615`, a sentinel
+for no finite bound, not a measured ratio. Its lower endpoint and verdict are 0.
 Verdicts: 0 inconclusive, 1 improvement (entire interval above 1), 2 no detectable
 improvement (both bounds exactly 1 at the stated resolution), 3 regression
 (entire interval below 1). A too-short EOS output makes the result inconclusive.

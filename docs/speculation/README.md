@@ -6,7 +6,7 @@ replay, with synthetic tests. It is not a completed model experiment.
 The implementation chooses a chain length using expected committed output
 divided by the whole round cost. It keeps ordinary and fixed modes available,
 falls back when observed speculation loses, and makes a bounded recovery probe
-after eight completed ordinary rounds. A separate collector validates and keeps
+at most once per eight completed rounds. A separate collector validates and keeps
 raw timing observations. The report compares adaptive against base, ordinary and
 fixed, checks exact greedy output identity first, and retains failed attempts.
 
