@@ -1,0 +1,180 @@
+{
+  "source": "b5eaf26f2bc590fe6b0d54a793b43827079ed624",
+  "compiler_source": "f0499f415571bdd7496b6de391096915e78f7556",
+  "compiler_sha256": "e5d60db892c8f21cc8c9128af26d8bded0e96d7f92946f5a549397c43a872649",
+  "evidence_class": "native-host-processes-with-synthetic-policy-data",
+  "hardware_trials": "NOT_RUN",
+  "programs": [
+    {
+      "name": "service",
+      "compile_exit": 0,
+      "source_sha256": "25092c9bb231907e314dd7990438f5c955b2fd021718d23fdefaca9ede576dde",
+      "executable_sha256": "dc0dd2a196583c5f300765ab50474cbc3bed653f2f241eedc26ad6cc5a211bda",
+      "ordered_inputs": [
+        "native/speculation/policy.om",
+        "native/speculation/service.om"
+      ]
+    },
+    {
+      "name": "service-test",
+      "compile_exit": 0,
+      "source_sha256": "2ed63ec39be291809d0d8e9d77a22a4b64a177885437f62f269de5ce519425b9",
+      "executable_sha256": "48b8d60f20b4289c90b04d37dde7df34972f40bf3aae128c7ce8ec8d7c625613",
+      "ordered_inputs": [
+        "native/speculation/policy.om",
+        "tests/speculation/support.om",
+        "tests/speculation/service-test.om"
+      ],
+      "exit": 0,
+      "stdout": "SPECULATION_TESTS_PASS 337\n",
+      "stderr": ""
+    },
+    {
+      "name": "policy-test",
+      "compile_exit": 0,
+      "source_sha256": "f50bfdc312abd37a4e0891e4bac5e37d929a0b0dc4238b21cdfab899fd9d8717",
+      "executable_sha256": "5c76fb1256abe9bbe28d447318d6779bf187422f978df91d490ec9d6fb048c12",
+      "ordered_inputs": [
+        "native/speculation/policy.om",
+        "tests/speculation/support.om",
+        "tests/speculation/policy-test.om"
+      ],
+      "exit": 0,
+      "stdout": "SPECULATION_TESTS_PASS 106\n",
+      "stderr": ""
+    },
+    {
+      "name": "cost-test",
+      "compile_exit": 0,
+      "source_sha256": "6a20052efd03f2252128b7100da56c6f3f3aae290c98b9723f5a25612031d20d",
+      "executable_sha256": "019de1453715538737302c6d8d59cd6c8d2f1fd2211731e3c854ec3b85b0343f",
+      "ordered_inputs": [
+        "native/speculation/policy.om",
+        "native/speculation/costs.om",
+        "tests/speculation/support.om",
+        "tests/speculation/cost-test.om"
+      ],
+      "exit": 0,
+      "stdout": "SPECULATION_TESTS_PASS 125\n",
+      "stderr": ""
+    },
+    {
+      "name": "report-test",
+      "compile_exit": 0,
+      "source_sha256": "616ab6a8cc4af935f51a93ac18572fbefbdaa8d7d6f9fcae631d611154189848",
+      "executable_sha256": "8c199e1d92a1c82d9c1250283bc532a0c34b3af6aafa65f505b23cb8b025af92",
+      "ordered_inputs": [
+        "native/speculation/policy.om",
+        "native/speculation/report.om",
+        "tests/speculation/support.om",
+        "tests/speculation/report-test.om"
+      ],
+      "exit": 0,
+      "stdout": "SPECULATION_TESTS_PASS 299\n",
+      "stderr": ""
+    },
+    {
+      "name": "oracle-test",
+      "compile_exit": 0,
+      "source_sha256": "a49f8640b645ea3bf730dd9a2b8ef977ce020aec7909660362b2a07aecc4be74",
+      "executable_sha256": "d2101761e494610743ce8bffc6df2b1068a17d60bd10eafa417de06223df8fb5",
+      "ordered_inputs": [
+        "native/speculation/policy.om",
+        "tests/speculation/support.om",
+        "tests/speculation/oracle-test.om"
+      ],
+      "exit": 0,
+      "stdout": "SPECULATION_TESTS_PASS 12801\n",
+      "stderr": ""
+    }
+  ],
+  "controls": [
+    {
+      "name": "mutant-sequence",
+      "compile_exit": 0,
+      "source_sha256": "ecd2bda2154a5a81e4b0810f771353ab0db81a4652fdb4ab217a2b1bde7cc5fa",
+      "executable_sha256": "5774b4e0f521edc52063c4feeed3ff35c69ed566642c42cba32a843fc1442cd0",
+      "before": "if ne wget 3 get wstate 1",
+      "after": "if ne wget 3 wget 3",
+      "test": "service-test",
+      "expected_exit": 1,
+      "exit": 1,
+      "stdout": "271\n274\nSPECULATION_TESTS_FAIL 2\n",
+      "stderr": ""
+    },
+    {
+      "name": "mutant-version",
+      "compile_exit": 0,
+      "source_sha256": "0105d5b8aac51454727e20c22a88126394360b2b891d47252fe0d6198bd01156",
+      "executable_sha256": "58f5213ef0da1ab26bdbb354d7d7470aac8aa463710b455259bbad56452a065d",
+      "before": "if ne wget 1 1",
+      "after": "if ne wget 1 wget 1",
+      "test": "service-test",
+      "expected_exit": 1,
+      "exit": 1,
+      "stdout": "285\n288\nSPECULATION_TESTS_FAIL 2\n",
+      "stderr": ""
+    },
+    {
+      "name": "mutant-device-class",
+      "compile_exit": 0,
+      "source_sha256": "2e0b12692c5fb1609e4c830f861912c4f01a14d21ccea7955cf1249dd84d3c92",
+      "executable_sha256": "795d80ae0c0753d48854468e637c018739e2e261bd0e50299f46b822c0e25d1d",
+      "before": "if eq wget 6 1\nif ne get sprofile 4 2\nret 69\nend\nend",
+      "after": "note mutant admits synthetic device initialization",
+      "test": "service-test",
+      "expected_exit": 1,
+      "exit": 1,
+      "stdout": "36\n48\n60\n108\n109\n110\n111\n123\n147\n148\n149\n150\n163\n175\n199\n200\nSPECULATION_TESTS_FAIL 16\n",
+      "stderr": ""
+    },
+    {
+      "name": "mutant-active-eof",
+      "compile_exit": 0,
+      "source_sha256": "2f1f0b58a0a705393d9a6aba7decd67b51daa7cfecabfc892571d68487d263ba",
+      "executable_sha256": "bc3c84708ddfa453c7fd60b873999f0770b44e3a94e4e1c1f791380f46dca87a",
+      "before": "if eq v 1\nif eq get wstate 0 2\nret 75",
+      "after": "if eq v 1\nif eq get wstate 0 2\nret 0",
+      "test": "service-test",
+      "expected_exit": 1,
+      "exit": 1,
+      "stdout": "316\nSPECULATION_TESTS_FAIL 1\n",
+      "stderr": ""
+    },
+    {
+      "name": "mutant-stale-payload",
+      "compile_exit": 0,
+      "source_sha256": "f7c994de2bc271206910d060c3c790bac5d1b1904f28916431910c92c03a3ccc",
+      "executable_sha256": "d869cbc0eb32ffb7059718d1e3dcd7de311425b4c060d6f82c35477ee0f052b8",
+      "before": "put wstate 2 0\nif eq op 1",
+      "after": "note mutant retains stale response payload\nif eq op 1",
+      "test": "service-test",
+      "expected_exit": 1,
+      "exit": 1,
+      "stdout": "121\n133\n160\n183\nSPECULATION_TESTS_FAIL 4\n",
+      "stderr": ""
+    },
+    {
+      "name": "mutant-zero-clock",
+      "compile_exit": 0,
+      "source_sha256": "337c7667e8bbcf82e998f89e7565474bbbe61b033af530573bdebeb508dccd5b",
+      "executable_sha256": "f9971db289eb959440c32a0ef63ce9e6efa4ecf608f608c5845d0264d9206ed2",
+      "before": "wput 6 ulong elapsed",
+      "after": "wput 6 0",
+      "test": "service-test",
+      "expected_exit": 1,
+      "exit": 1,
+      "stdout": "11\n22\n34\n46\n58\n69\n81\n93\n105\n119\n131\n143\n158\n170\n181\n193\n205\n216\n227\n239\n251\n262\n298\n309\nSPECULATION_TESTS_FAIL 24\n",
+      "stderr": ""
+    }
+  ],
+  "host_qualification": {
+    "positive_groups": 9,
+    "negative_controls": 41,
+    "original_fixtures": 70,
+    "exit": 0,
+    "raw_log_sha256": "ba7e19fbc9570816f6f9d3959aadc56a5faac1edde1e520cc8b928e66979f2fd",
+    "initial_partial_export_fixture_count": 0,
+    "initial_partial_export_qualifies": false
+  }
+}
