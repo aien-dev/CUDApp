@@ -1,0 +1,6 @@
+build/native-gpulab/test-m3: OK
+build/native-gpulab/test-families: OK
+build/native-gpulab/test-m3-oracle: OK
+build/native-gpulab/m3-oracle-input: OK
+build/native-gpulab/emit-main: OK
+build/native-gpulab/test-wire: OK

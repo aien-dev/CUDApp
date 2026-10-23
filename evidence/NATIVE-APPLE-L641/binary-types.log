@@ -1,0 +1,2 @@
+build/native-gpulab/test-m3:   ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, no section header
+build/native-gpulab/emit-main: ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, no section header
