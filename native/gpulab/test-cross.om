@@ -147,14 +147,19 @@ put state 0 3
 put state 1 4
 poison
 if eq target 1
+note Final weight load moves from offset12 to16: only lane2 crosses weights.
+put code 100 16
 check amd_lane 0 637
 check amd_lane 1 638
+check not amd_lane 2 642
 else
+note Before the final term, advance weight index by2 rather than1.
+put code 142 2
 check agx_lane 0 637
 check agx_lane 1 638
+check not agx_lane 2 642
 end
 check clean 639
-put code 0 255
 check ne run target 3 4 0 640
 check clean 641
 end

@@ -122,7 +122,7 @@ They have no hardware launcher or production attachment.
 See `../../evidence/NATIVE-GPULAB-L617/`:
 - compilable refusal baselines and raw RED logs;
 - AMD 8,224 checks and AGX 8,218 checks;
-- cross-target 262,928 checks, including every signed-byte operand pair, Wolfram
+- cross-target 262,930 checks, including every signed-byte operand pair, Wolfram
   dot/extreme fixtures, every truncated prefix of depth-four shaders, extra bytes,
   invalid sizes/targets and no-publication-on-fault checks;
 - complete AMD depth-64 emitted shader byte equality with independent LLVM output;

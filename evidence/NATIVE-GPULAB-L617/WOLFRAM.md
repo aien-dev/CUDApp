@@ -80,3 +80,16 @@ Table[Table[r+k,{k,0,3}].{1,2,3,4},{r,0,2}]
 Returned `{2068,3218}`, `{2048,2112,3104}`, `{20,30,40}`, `6498`,
 `{148,218}`. Both generated maximum-depth programs fit the 4096-byte code buffer.
 These are capacities and exact arithmetic, **not throughput calculations**.
+
+## Late-lane transactional fault
+
+```wolfram
+<|"AMDLastWeightLoadByteOffsetK4" -> 4+3*32,
+  "AGXPreLastWeightIndexIncrementImmediateByteK4" -> 6+2*50+(8+8+2+8+8)+2,
+  "LateLaneFaultWeightIndices" -> Table[r*4+4,{r,0,2}],
+  "PermittedWeightSlots" -> Range[0,3*4-1]|>
+```
+
+Returned offsets `100` and `142`, accessed weight slots `{4,8,12}` and permitted
+slots `{0,1,2,3,4,5,6,7,8,9,10,11}`. The native gate confirms lanes 0 and 1 finish,
+lane 2 faults, and the full failed dispatch publishes no output from any lane.
