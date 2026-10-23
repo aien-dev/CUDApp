@@ -1,0 +1,172 @@
+note Test harness and fixture generation are native Omega.
+global tally ulong 3
+global digits uchar 32
+fn number v ulong to void
+n = ulong 0
+again = true
+while again
+put digits n uchar add rem v 10 48
+v = div v 10
+n = add n 1
+again = ne v 0
+end
+for i ulong n
+w = write 1 digits sub sub n i 1 1
+end
+put digits 0 10
+w = write 1 digits 0 1
+end
+fn check pass bool id ulong to void
+put tally 0 add get tally 0 1
+if not pass
+put tally 1 add get tally 1 1
+number id
+end
+end
+fn signed8 v ulong to ulong
+v = rem v 256
+if ge v 128
+ret lowword sub v 256
+end
+ret v
+end
+fn fillcase rows ulong depth ulong seed ulong to void
+for i ulong len mem
+put mem i 3735928559
+end
+for r ulong rows
+for k ulong depth
+v = rem add add mul r 71 mul k 29 seed 256
+put mem add mul r depth k signed8 v
+end
+end
+for k ulong depth
+v = rem add mul k 43 mul seed 13 256
+put mem add 2048 k signed8 v
+end
+end
+fn refdot row ulong depth ulong to ulong
+sum = ulong 0
+for k ulong depth
+w = get mem add mul row depth k
+x = get mem add 2048 k
+sum = lowword add sum mul w x
+end
+ret sum
+end
+fn unchanged rows ulong to bool
+for i ulong 32
+if ne get mem add 3072 i 3735928559
+ret false
+end
+end
+ret true
+end
+fn verify rows ulong depth ulong to bool
+for r ulong rows
+if ne get mem add 3072 r refdot r depth
+ret false
+end
+end
+for r ulong sub 32 rows
+if ne get mem add 3072 add rows r 3735928559
+ret false
+end
+end
+ret true
+end
+fn runpositive rows ulong depth ulong seed ulong to void
+fillcase rows depth seed
+check amd_generate depth 100
+check eq get used 0 add 20 mul depth 32 101
+rc = amd_run rows depth
+check eq rc 0 102
+check verify rows depth 103
+end
+fn goldens to void
+check amd_generate 1 200
+check eq word 0 4 2114716288 201
+check eq word 4 4 3696361472 202
+check eq word 8 4 142344192 203
+check eq word 20 4 3213427703 204
+check eq word 24 4 3609985031 205
+check eq word 28 4 135944 206
+check eq word 32 4 1242304262 207
+check eq word 36 4 3697934336 208
+check eq word 40 4 8128004 209
+check eq word 48 4 3215982592 210
+end
+fn negative mode ulong to void
+fillcase 3 4 7
+ok = amd_generate 4
+if not ok
+check false 299
+ret
+end
+if eq mode 0
+put code 0 255
+end
+if eq mode 1
+put used 0 sub get used 0 1
+end
+if eq mode 2
+note Replace first wait with valid nop. Dependent multiply must refuse pending loads.
+put code 20 0
+put code 21 0
+put code 22 128
+put code 23 191
+end
+if eq mode 3
+note Address pair v0 -> v31 must refuse.
+put code 8 31
+end
+if eq mode 4
+note Change first load to out-of-bounds signed offset 4095.
+put code 4 255
+put code 5 31
+end
+if eq mode 5
+note Change multiply source v8 -> v10: valid encoding, wrong result.
+put code 28 10
+end
+if eq mode 6
+note Omit final wait by shortening before the end marker.
+p = sub get used 0 8
+put code p 0
+put code add p 1 0
+put code add p 2 128
+put code add p 3 191
+end
+rc = amd_run 3 4
+if eq mode 5
+check or ne rc 0 not verify 3 4 305
+else
+check ne rc 0 add 300 mode
+check unchanged 3 add 320 mode
+end
+end
+fn main to int
+goldens
+for depth ulong 64
+for rows ulong 32
+runpositive add rows 1 add depth 1 add rows depth
+end
+end
+for mode ulong 7
+negative mode
+end
+check not amd_generate 0 400
+check eq get used 0 0 401
+check not amd_generate 65 402
+check eq get used 0 0 403
+check ne amd_run 0 1 0 404
+check ne amd_run 33 1 0 405
+check ne amd_run 1 0 0 406
+check ne amd_run 1 65 0 407
+number get tally 0
+number get tally 1
+if ne get tally 1 0
+ret 1
+end
+ret 0
+end

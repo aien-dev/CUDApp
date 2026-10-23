@@ -1,0 +1,136 @@
+note SPDX-License-Identifier: MIT
+note Native Omega GPU ISA laboratory. No device or foreign runtime calls.
+global code uchar 4096
+global used ulong 1
+global mem ulong 4096
+global reg ulong 32
+global pend ulong 32
+global busy uchar 32
+global result ulong 32
+global state ulong 8
+note state: rows, depth, lane, pc, fault, written, pending-store, steps.
+fn lowword v ulong to ulong
+ret and v 4294967295
+end
+fn word p ulong n ulong to ulong
+v = ulong 0
+for i ulong n
+v = or v shl ulong get code add p i mul i 8
+end
+ret v
+end
+fn emit v ulong n ulong to void
+p = get used 0
+for i ulong n
+put code add p i uchar and shr v mul i 8 255
+end
+put used 0 add p n
+end
+fn resetcode to void
+put used 0 0
+for i ulong len code
+put code i 0
+end
+end
+fn rv r ulong to ulong
+if ge r 32
+put state 4 1
+ret 0
+end
+if ne get busy r 0
+put state 4 2
+ret 0
+end
+ret get reg r
+end
+fn wr r ulong v ulong to void
+if ge r 32
+put state 4 1
+ret
+end
+if ne get busy r 0
+put state 4 2
+ret
+end
+put reg r lowword v
+end
+fn waitloads to void
+for r ulong 32
+if ne get busy r 0
+put reg r get pend r
+put busy r 0
+end
+end
+put state 6 0
+end
+fn loadmem r ulong address ulong to void
+if or ge r 32 ne rem address 4 0
+put state 4 3
+ret
+end
+if ne get busy r 0
+put state 4 2
+ret
+end
+p = div address 4
+valid = lt p mul get state 0 get state 1
+if and ge p 2048 lt p add 2048 get state 1
+valid = true
+end
+if not valid
+put state 4 3
+ret
+end
+put pend r get mem p
+put busy r 1
+end
+fn storemem address ulong value ulong to void
+expected = mul add 3072 get state 2 4
+if ne address expected
+put state 4 3
+ret
+end
+if ne get state 5 0
+put state 4 4
+ret
+end
+put result get state 2 lowword value
+put state 5 1
+put state 6 1
+end
+fn laneinit lane ulong to void
+for r ulong 32
+put reg r 0
+put pend r 0
+put busy r 0
+end
+put state 2 lane
+for s ulong 5
+put state add s 3 0
+end
+end
+fn complete to bool
+if ne get state 4 0
+ret false
+end
+if ne get state 5 1
+ret false
+end
+if ne get state 6 0
+ret false
+end
+for r ulong 32
+if ne get busy r 0
+ret false
+end
+end
+ret true
+end
+fn publishresults to void
+for lane ulong get state 0
+put mem add 3072 lane get result lane
+end
+end
+fn dimensions rows ulong depth ulong to bool
+ret and and ge rows 1 le rows 32 and ge depth 1 le depth 64
+end

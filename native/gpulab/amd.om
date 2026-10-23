@@ -1,0 +1,168 @@
+note SPDX-License-Identifier: MIT
+note gfx1100 RDNA3 only. Machine-code oracle: LLVM18, independent of this emitter.
+fn amd_generate depth ulong to bool
+resetcode
+if or lt depth 1 gt depth 64
+ret false
+end
+emit 2114716288 4
+for k ulong depth
+emit add 3696361472 mul k 4 4
+emit 142344192 4
+emit add 3696361472 mul k 4 4
+emit or shl ulong 9 24 or shl ulong 124 16 2 4
+emit 3213427703 4
+emit 3609985031 4
+emit 135944 4
+emit 1242304262 4
+end
+emit 3697934336 4
+emit 8128004 4
+emit 3213427703 4
+emit 3215982592 4
+ret true
+end
+fn amd_address pair ulong offset ulong to ulong
+if ge pair 31
+put state 4 1
+ret 0
+end
+lo = rv pair
+hi = rv add pair 1
+if ne hi 0
+put state 4 3
+ret 0
+end
+if ge offset 4096
+put state 4 3
+ret 0
+end
+ret add lo offset
+end
+fn amd_memory a ulong b ulong to ulong
+isload = eq and a 4294959104 3696361472
+isstore = eq and a 4294959104 3697934336
+if not or isload isstore
+ret 0
+end
+pair = and b 255
+middle = and shr b 16 255
+if ne middle 124
+ret 0
+end
+address = amd_address pair and a 8191
+if isload
+if ne and shr b 8 255 0
+ret 0
+end
+loadmem shr b 24 address
+else
+if ne shr b 24 0
+ret 0
+end
+value = rv and shr b 8 255
+storemem address value
+end
+ret 8
+end
+fn amd_multiply a ulong b ulong to ulong
+if ne and a 4294967040 3609985024
+ret 0
+end
+if ne shr b 18 0
+ret 0
+end
+s = and b 511
+t = and shr b 9 511
+if or lt s 256 lt t 256
+ret 0
+end
+x = rv sub s 256
+y = rv sub t 256
+wr and a 255 mul x y
+ret 8
+end
+fn amd_add a ulong to ulong
+if ne and a 4261412864 1241513984
+ret 0
+end
+s = and a 511
+if lt s 256
+ret 0
+end
+x = rv sub s 256
+y = rv and shr a 9 255
+wr and shr a 17 255 add x y
+ret 4
+end
+fn amd_step pc ulong to ulong
+if gt add pc 4 get used 0
+ret 0
+end
+a = word pc 4
+if eq a 2114716288
+wr 6 0
+ret 4
+end
+if eq a 3213427703
+waitloads
+ret 4
+end
+if eq a 3212836864
+ret 4
+end
+n = amd_add a
+if ne n 0
+ret n
+end
+if gt add pc 8 get used 0
+ret 0
+end
+b = word add pc 4 4
+n = amd_memory a b
+if ne n 0
+ret n
+end
+ret amd_multiply a b
+end
+fn amd_lane lane ulong to bool
+laneinit lane
+put reg 0 mul mul lane get state 1 4
+put reg 2 8192
+put reg 4 mul add 3072 lane 4
+pc = ulong 0
+for step ulong 1024
+if gt add pc 4 get used 0
+ret false
+end
+if eq word pc 4 3215982592
+if ne add pc 4 get used 0
+ret false
+end
+ret complete
+end
+n = amd_step pc
+if or eq n 0 ne get state 4 0
+ret false
+end
+pc = add pc n
+end
+ret false
+end
+fn amd_run rows ulong depth ulong to int
+if not dimensions rows depth
+ret 65
+end
+if or eq get used 0 0 gt get used 0 len code
+ret 65
+end
+put state 0 rows
+put state 1 depth
+for lane ulong rows
+if not amd_lane lane
+ret 66
+end
+end
+publishresults
+ret 0
+end

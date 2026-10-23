@@ -1,0 +1,8 @@
+note Compilable refusal baseline, retained only as RED evidence.
+fn amd_generate depth ulong to bool
+resetcode
+ret false
+end
+fn amd_run rows ulong depth ulong to int
+ret 77
+end
