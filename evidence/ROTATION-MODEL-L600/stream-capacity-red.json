@@ -1,0 +1,11 @@
+{
+  "transactions": 999999,
+  "actual_rc": 65,
+  "expected_rc": 0,
+  "output_bytes": 79999920,
+  "expected_output_bytes": 79999920,
+  "output_sha256": "3d16830cbde583fd3a8af262dfe0434973f3b888091a92a6101624932da0a13d",
+  "expected_sha256": "3d16830cbde583fd3a8af262dfe0434973f3b888091a92a6101624932da0a13d",
+  "seconds_not_a_benchmark": 1.6673261459800415,
+  "pass": false
+}

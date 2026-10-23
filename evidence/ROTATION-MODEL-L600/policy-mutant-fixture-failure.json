@@ -1,0 +1,5 @@
+{
+  "rc": 5,
+  "stderr": "\n----------------------------------------------------------------------\nRan 0 tests in 0.000s\n\nNO TESTS RAN\n",
+  "classification": "invalid harness: unittest inspected another __main__ namespace, zero tests, not an escaped mutant"
+}

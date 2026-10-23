@@ -1,0 +1,10 @@
+{
+  "command": "AIEN_FORCE_CPU_STUB=1 cargo test --offline -p aien-inference-abi --features rotation-qualification -- --test-threads=1",
+  "passed": 403,
+  "failed": 0,
+  "ignored": 21,
+  "result_groups": 44,
+  "log_sha256": "16b3c5fe66b15963024d824909b4895d7fef1e559986b9c36919578117ecb1e9",
+  "exit_zero_proof": "original runner created reference-final-build.log only after assert p.returncode == 0; foreground tool timed out while that runner continued",
+  "reference_source": "e1608d17ce0839886f85f8486f900d50c7924200"
+}

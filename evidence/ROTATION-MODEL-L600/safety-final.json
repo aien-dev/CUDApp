@@ -1,0 +1,78 @@
+{
+  "total": 8,
+  "passed": 8,
+  "cases": [
+    {
+      "case": "missing-compiler",
+      "pass": true,
+      "rc": 1,
+      "old_receipt_archived": true,
+      "no_current_PASS": true,
+      "victim_preserved": true,
+      "wrong_compiler_not_executed": true
+    },
+    {
+      "case": "wrong-pin",
+      "pass": true,
+      "rc": 1,
+      "old_receipt_archived": true,
+      "no_current_PASS": true,
+      "victim_preserved": true,
+      "wrong_compiler_not_executed": true
+    },
+    {
+      "case": "optimized-cli",
+      "pass": true,
+      "rc": 1,
+      "old_receipt_archived": true,
+      "no_current_PASS": true,
+      "victim_preserved": true,
+      "wrong_compiler_not_executed": true
+    },
+    {
+      "case": "missing-make-compiler",
+      "pass": true,
+      "rc": 2,
+      "old_receipt_archived": true,
+      "no_current_PASS": true,
+      "victim_preserved": true,
+      "wrong_compiler_not_executed": true
+    },
+    {
+      "case": "optimized-make",
+      "pass": true,
+      "rc": 2,
+      "old_receipt_archived": true,
+      "no_current_PASS": true,
+      "victim_preserved": true,
+      "wrong_compiler_not_executed": true
+    },
+    {
+      "case": "symlink-build",
+      "pass": true,
+      "rc": 1,
+      "old_receipt_archived": true,
+      "no_current_PASS": true,
+      "victim_preserved": true,
+      "wrong_compiler_not_executed": true
+    },
+    {
+      "case": "hardlink-output",
+      "pass": true,
+      "rc": 1,
+      "old_receipt_archived": true,
+      "no_current_PASS": true,
+      "victim_preserved": true,
+      "wrong_compiler_not_executed": true
+    },
+    {
+      "case": "fifo-output",
+      "pass": true,
+      "rc": 1,
+      "old_receipt_archived": true,
+      "no_current_PASS": true,
+      "victim_preserved": true,
+      "wrong_compiler_not_executed": true
+    }
+  ]
+}

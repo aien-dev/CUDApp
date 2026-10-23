@@ -1,0 +1,43 @@
+{
+  "source_commit": "0e0b486c300c78ed335b26e86b1fed29d858adad",
+  "path": "docs/CUDA-CPP-GPU.md",
+  "sha256": "158fbd386bb3c1c08879bfc5cfd67c04f938884b526e61ddefa044db8e0c4e5e",
+  "production_target_qualified": false,
+  "actual_gpu_qualification": "NOT_RUN",
+  "reasons": [
+    {
+      "line": 8,
+      "text": "It is **offline lab code, not qualified GPU execution**. No hardware scheduling,"
+    },
+    {
+      "line": 9,
+      "text": "launcher, GPU source-checker proof, runtime attachment or live consumer cutover is"
+    },
+    {
+      "line": 10,
+      "text": "claimed. The installed command refuses `run --target sm_121-lab`. The production"
+    },
+    {
+      "line": 11,
+      "text": "`sm_121` target still refuses. No driver, module, firmware or model was touched."
+    },
+    {
+      "line": 37,
+      "text": "bounded by the parser's128-node cap. This is not a production register allocator."
+    },
+    {
+      "line": 54,
+      "text": "The production backend is handwritten Omega and reads neither reference at runtime."
+    },
+    {
+      "line": 66,
+      "text": "| 12 | uint32 flags1, **LAB ONLY, LAUNCH PROHIBITED** |"
+    },
+    {
+      "line": 76,
+      "text": "flag as a production executable. It must separately validate code, ABI, device,"
+    }
+  ],
+  "existing_owner": "L408",
+  "no_new_compiler_worker": true
+}

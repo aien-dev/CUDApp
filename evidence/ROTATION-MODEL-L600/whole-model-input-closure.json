@@ -1,0 +1,372 @@
+{
+  "root": "/home/drakestapleton/models/qwen3.6-35b-a3b-fp8-95a723d0",
+  "started_unix": 1792718975.4215267,
+  "completed_unix": 1792719081.101641,
+  "files": [
+    {
+      "file": "LICENSE",
+      "bytes": 11343,
+      "mtime_ns": 1792528317710891340,
+      "inode": 38706509,
+      "sha256": "50cbab8a892c5f2993b8c7351a99182507472def3b1374558308605d99b86b32"
+    },
+    {
+      "file": "config.json",
+      "bytes": 37000,
+      "mtime_ns": 1792528318468895083,
+      "inode": 38704745,
+      "sha256": "570ef7ea45a7e1d3de2b1d3c70c4ac3562d0e768acdc195778cb4f4d95025845"
+    },
+    {
+      "file": "configuration.json",
+      "bytes": 58,
+      "mtime_ns": 1792528318689282331,
+      "inode": 38704746,
+      "sha256": "c1b09db419119513247e9b8b912c4b9897106c9b20c6cada7e107d993c5435eb"
+    },
+    {
+      "file": "generation_config.json",
+      "bytes": 202,
+      "mtime_ns": 1792528318921554262,
+      "inode": 38704747,
+      "sha256": "e70c136c1b78ddc1fb0905bac8e733a4dc448d4f852a5dd75143fffc70be550e"
+    },
+    {
+      "file": "layers-0.safetensors",
+      "bytes": 843713608,
+      "mtime_ns": 1792528328228943296,
+      "inode": 38704748,
+      "sha256": "969ed52b6d4a45e1c919115aed81a48a00004625a0406eebf630e829ff97c5bf"
+    },
+    {
+      "file": "layers-1.safetensors",
+      "bytes": 843713608,
+      "mtime_ns": 1792528337989991566,
+      "inode": 38704749,
+      "sha256": "9b6714f0a7b7f9f7ed9eceefc31af655de1863bd83a23d735aa8dbad2cc03dfe"
+    },
+    {
+      "file": "layers-10.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528347320037750,
+      "inode": 38704750,
+      "sha256": "5cc57c2d6e18830429e2c9ea27a0b7d15e6502c74463d3d4ec6b621c699a5ef8"
+    },
+    {
+      "file": "layers-11.safetensors",
+      "bytes": 837094000,
+      "mtime_ns": 1792528357779089576,
+      "inode": 38704751,
+      "sha256": "0f85558bc82b754230204607f55a3035fd39a6ad4e7f0f5613aa40a632566cab"
+    },
+    {
+      "file": "layers-12.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528367581138196,
+      "inode": 38706024,
+      "sha256": "0eb974e0b80092a722d10140647aedc14647831007ea7d898b892064c9fb4d0d"
+    },
+    {
+      "file": "layers-13.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528379480197281,
+      "inode": 38706025,
+      "sha256": "7d4bbdc09e40a3ccfa503c5149c7bb477b07bf8a75ca81613aa68031d995cbf8"
+    },
+    {
+      "file": "layers-14.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528391270255892,
+      "inode": 38706558,
+      "sha256": "0c6c07e10d047dd742b90fdfdbe734d5b4627fcae7728f8319413194c8d6f171"
+    },
+    {
+      "file": "layers-15.safetensors",
+      "bytes": 837094000,
+      "mtime_ns": 1792528400995304286,
+      "inode": 38706525,
+      "sha256": "786c965fcbc9544aa97524e986ff7e1e2303b6c22812249b283b8c590ada7a77"
+    },
+    {
+      "file": "layers-16.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528410185350058,
+      "inode": 38706526,
+      "sha256": "dbbaab6eef74ab4f24d374ce94203c8f439019a26d322d8b02fb1cee6ed70267"
+    },
+    {
+      "file": "layers-17.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528419477396377,
+      "inode": 38706557,
+      "sha256": "29a35db86d591da297ac0ff46f773bf5e5386035172b6c637e00cf0786b0fdc9"
+    },
+    {
+      "file": "layers-18.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528428783442804,
+      "inode": 38706559,
+      "sha256": "99db8f52e91928e6a362c4510b15112c0c5d2eb0e9279b3413ec1db2016f1b2b"
+    },
+    {
+      "file": "layers-19.safetensors",
+      "bytes": 837094000,
+      "mtime_ns": 1792528437891488280,
+      "inode": 38706560,
+      "sha256": "b1bc3e93c3a22adc01a77b4a2d5e2171e9588e2478ed648526596700ffa566c7"
+    },
+    {
+      "file": "layers-2.safetensors",
+      "bytes": 843713608,
+      "mtime_ns": 1792528446958533586,
+      "inode": 38708008,
+      "sha256": "7ca3668d7dde8c47e796186f9a459afe6f86a60e547bc2f72fcc87543e4a718e"
+    },
+    {
+      "file": "layers-20.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528456462581114,
+      "inode": 38706527,
+      "sha256": "027f68acf35eb9e9fc41ae12154c18da1b0126bee7eaf16a177cfcbeaafbc7a6"
+    },
+    {
+      "file": "layers-21.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528466792632814,
+      "inode": 38706528,
+      "sha256": "79205dfb7fe145b26e5941f1b9590a870bc9e1df3127a67bd1ac32f1a12ad75f"
+    },
+    {
+      "file": "layers-22.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528476315680513,
+      "inode": 38706529,
+      "sha256": "94e7674ffb28f4cd9cf8859c6d0440cbd5d4d3a6dc33193a0442642ae303cd17"
+    },
+    {
+      "file": "layers-23.safetensors",
+      "bytes": 837094000,
+      "mtime_ns": 1792528485459726348,
+      "inode": 38706548,
+      "sha256": "51a7c63c51959faa40c369c80ddac42233cd13d7ad6603e75574bbeeca72e98d"
+    },
+    {
+      "file": "layers-24.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528494122769802,
+      "inode": 38708009,
+      "sha256": "8c64b42cb8abc93ff5e5ac801c556da6eb81545a151c10320618bae250c9efd9"
+    },
+    {
+      "file": "layers-25.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528503120814966,
+      "inode": 38708010,
+      "sha256": "18ca830020bd0c7af5f99257112e1c5ba457673d4fd926e6eafcb3127edb06b5"
+    },
+    {
+      "file": "layers-26.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528512322861186,
+      "inode": 38708011,
+      "sha256": "a3fcd9cfeeb8ef52b749041df0986865cd2b6822a67bd69d0e0692571e49cfde"
+    },
+    {
+      "file": "layers-27.safetensors",
+      "bytes": 837094000,
+      "mtime_ns": 1792528521356906594,
+      "inode": 38708012,
+      "sha256": "48829a4c312ecaf44e03bd9266245549982c326c0311b37694eb29dde4f30c62"
+    },
+    {
+      "file": "layers-28.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528531376956992,
+      "inode": 38708013,
+      "sha256": "9e40e51e6b2fbd04642cdfe3e66f4936bb74ef880ea8ff5417ec2075c47a938f"
+    },
+    {
+      "file": "layers-29.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528541803009469,
+      "inode": 38708014,
+      "sha256": "154e2b6da74a5c7921382d1738a57d4a7a9465594f68aa2f7e269340cef27d76"
+    },
+    {
+      "file": "layers-3.safetensors",
+      "bytes": 837092440,
+      "mtime_ns": 1792528550934055459,
+      "inode": 38708015,
+      "sha256": "9ebbd0a7aa2f82f516ec339b66b317f5a7d710d244c42d00f4fea22478bac7da"
+    },
+    {
+      "file": "layers-30.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528560040101353,
+      "inode": 38708016,
+      "sha256": "292aa0e63dfbd0c757945021b0995b83d7f561985202df9fbfe591c61911f9fa"
+    },
+    {
+      "file": "layers-31.safetensors",
+      "bytes": 837094000,
+      "mtime_ns": 1792528571588159593,
+      "inode": 38708017,
+      "sha256": "21073b1a747d3736b46dc4f84ed66ae287ee3acb699807757a06d77de98af99e"
+    },
+    {
+      "file": "layers-32.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528580052202308,
+      "inode": 38708018,
+      "sha256": "52e7905b111b6fbfb2b91b9f5b4fd748e61c93cbd39e988d1fabbcd9e00f4f20"
+    },
+    {
+      "file": "layers-33.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528589137248182,
+      "inode": 38708020,
+      "sha256": "bcc4ad3526f6bb99ae9af57cc319da6bfd69228e5d0bcbd678590323f240cccb"
+    },
+    {
+      "file": "layers-34.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528598177293856,
+      "inode": 38708021,
+      "sha256": "f52d1343ed110f00a661fcdc17e530a5f3c22a9397469bd2f41e22c8a2ffe9f1"
+    },
+    {
+      "file": "layers-35.safetensors",
+      "bytes": 837094000,
+      "mtime_ns": 1792528606940338154,
+      "inode": 38708022,
+      "sha256": "a079648624f32732831382efa86c72bf03bc58336dcfe6b8ae11f4fcba33e2ea"
+    },
+    {
+      "file": "layers-36.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528616082384394,
+      "inode": 38708032,
+      "sha256": "f293aff9b2498b7a86303bfb928a03b62b1763bf71f0fe35c14d2d1712292673"
+    },
+    {
+      "file": "layers-37.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528624969429368,
+      "inode": 38708254,
+      "sha256": "918c26a832494ea368013e5fce8dba0e98923cc62f69d0b21f752dfeb241d404"
+    },
+    {
+      "file": "layers-38.safetensors",
+      "bytes": 843715168,
+      "mtime_ns": 1792528634935479830,
+      "inode": 38708255,
+      "sha256": "2cd43a74c05a8f112c4f137f8139f217601a6035f6474c256b4bac315ccf5c39"
+    },
+    {
+      "file": "layers-39.safetensors",
+      "bytes": 837094000,
+      "mtime_ns": 1792528644049526003,
+      "inode": 38708256,
+      "sha256": "0e347a8527fb41e4dde7e92a359feb0709d770d2b7ab4f2081c940205b85dba9"
+    },
+    {
+      "file": "layers-4.safetensors",
+      "bytes": 843713608,
+      "mtime_ns": 1792528653684574842,
+      "inode": 38708257,
+      "sha256": "3fda002efe01809173b2a9179d529e04f1a9e28d58038cf47fea02b1251c544e"
+    },
+    {
+      "file": "layers-5.safetensors",
+      "bytes": 843713608,
+      "mtime_ns": 1792528662735620745,
+      "inode": 38708258,
+      "sha256": "85f08db02168b263497757002827eb15c44c9ae46962ec26f19a648a0f5fb826"
+    },
+    {
+      "file": "layers-6.safetensors",
+      "bytes": 843713608,
+      "mtime_ns": 1792528671711666289,
+      "inode": 38708259,
+      "sha256": "0601aa7cd21d29efdd6330614aaff2b9a7e4b599d1de894fdb50525033c8725a"
+    },
+    {
+      "file": "layers-7.safetensors",
+      "bytes": 837092440,
+      "mtime_ns": 1792528680237709570,
+      "inode": 38708260,
+      "sha256": "ec6d9082f26b2e3d6010114cac16d71626836a53812782690bce582bf2baac51"
+    },
+    {
+      "file": "layers-8.safetensors",
+      "bytes": 843713608,
+      "mtime_ns": 1792528689253755360,
+      "inode": 38708261,
+      "sha256": "a4284bb825ff85f6166208edfb8315897771db03dae82a078bc69014c695502a"
+    },
+    {
+      "file": "layers-9.safetensors",
+      "bytes": 843713608,
+      "mtime_ns": 1792528697572797628,
+      "inode": 38708262,
+      "sha256": "f2bc291ccdccde1094f34e5d2f506e2b8a3857327faa9ffbd2d3a5d75de9d23a"
+    },
+    {
+      "file": "model.safetensors.index.json",
+      "bytes": 6329223,
+      "mtime_ns": 1792528698187800754,
+      "inode": 38708264,
+      "sha256": "6f176f344e41d35b17af12904e33401da5ebff3b49fccb8bfa0185bc2d50f9d6"
+    },
+    {
+      "file": "mtp.safetensors",
+      "bytes": 853860608,
+      "mtime_ns": 1792528709340857452,
+      "inode": 38708265,
+      "sha256": "3e9c9fef90a5c02314cf27eeccc72f9f61ce711c12c869244c7127c787b5bd7d"
+    },
+    {
+      "file": "outside.safetensors",
+      "bytes": 2927422112,
+      "mtime_ns": 1792528738695006824,
+      "inode": 38708266,
+      "sha256": "bb9755bc8ebd638e6a9994ae75064f9a6ac3f56541c00a10a90b7a930d24cc4f"
+    },
+    {
+      "file": "preprocessor_config.json",
+      "bytes": 390,
+      "mtime_ns": 1792528738970112209,
+      "inode": 38708267,
+      "sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516"
+    },
+    {
+      "file": "tokenizer.json",
+      "bytes": 12807982,
+      "mtime_ns": 1792528739847012691,
+      "inode": 38708268,
+      "sha256": "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42"
+    },
+    {
+      "file": "tokenizer_config.json",
+      "bytes": 16718,
+      "mtime_ns": 1792528740041807795,
+      "inode": 38708269,
+      "sha256": "5186f0defcd7f232382c7f0aebcd2252d073bb921ab240e407b7ae8745d2b29b"
+    },
+    {
+      "file": "video_preprocessor_config.json",
+      "bytes": 385,
+      "mtime_ns": 1792528740244532171,
+      "inode": 38708270,
+      "sha256": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13"
+    },
+    {
+      "file": "vocab.json",
+      "bytes": 6722759,
+      "mtime_ns": 1792528740594016495,
+      "inode": 38708271,
+      "sha256": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003"
+    }
+  ],
+  "note": "whole checkpoint/model metadata closure, not only the transformed expert matrices; raw model weights are not published"
+}

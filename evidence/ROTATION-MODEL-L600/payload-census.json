@@ -1,0 +1,68 @@
+{
+  "arms": [
+    {
+      "raw_bytes": 32338083840,
+      "scale_bytes": 3947520,
+      "packed_bytes_with_scales": 17195397120,
+      "original_zero_weights": 363374628,
+      "lost_zero_weights": 0,
+      "rotated_blocks": 0,
+      "blocks": 252641280,
+      "arm": "identity",
+      "tensors": 30840,
+      "layers": 40,
+      "native_transactions": 1973760,
+      "original_bytes_with_scales": 32342031360,
+      "saved_percent": 46.83266202856097
+    },
+    {
+      "raw_bytes": 32338083840,
+      "scale_bytes": 3947520,
+      "packed_bytes_with_scales": 17195397120,
+      "original_zero_weights": 363374628,
+      "lost_zero_weights": 106453476,
+      "rotated_blocks": 252641280,
+      "blocks": 252641280,
+      "arm": "hadamard",
+      "tensors": 30840,
+      "layers": 40,
+      "native_transactions": 1973760,
+      "original_bytes_with_scales": 32342031360,
+      "saved_percent": 46.83266202856097
+    },
+    {
+      "raw_bytes": 32338083840,
+      "scale_bytes": 3947520,
+      "packed_bytes_with_scales": 17195397120,
+      "original_zero_weights": 363374628,
+      "lost_zero_weights": 0,
+      "rotated_blocks": 246850026,
+      "blocks": 252641280,
+      "arm": "zero-aware",
+      "tensors": 30840,
+      "layers": 40,
+      "native_transactions": 1973760,
+      "original_bytes_with_scales": 32342031360,
+      "saved_percent": 46.83266202856097
+    },
+    {
+      "raw_bytes": 32338083840,
+      "scale_bytes": 3947520,
+      "packed_bytes_with_scales": 17195397120,
+      "original_zero_weights": 363374628,
+      "lost_zero_weights": 112995404,
+      "rotated_blocks": 252641280,
+      "blocks": 252641280,
+      "arm": "nine-level-mutant",
+      "tensors": 30840,
+      "layers": 40,
+      "native_transactions": 1973760,
+      "original_bytes_with_scales": 32342031360,
+      "saved_percent": 46.83266202856097
+    }
+  ],
+  "four_arm_census_complete": true,
+  "same_source_payloads_in_all_arms": true,
+  "scope": "all routed/shared expert gate/up/down payloads in40 layers, not other model tensors or GPU residency",
+  "quality_complete": false
+}

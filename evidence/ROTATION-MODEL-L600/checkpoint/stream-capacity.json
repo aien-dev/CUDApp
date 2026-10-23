@@ -1,0 +1,22 @@
+[
+  {
+    "transactions": 999999,
+    "actual_rc": 0,
+    "expected_rc": 0,
+    "actual_sha256": "3d16830cbde583fd3a8af262dfe0434973f3b888091a92a6101624932da0a13d",
+    "expected_sha256": "3d16830cbde583fd3a8af262dfe0434973f3b888091a92a6101624932da0a13d",
+    "actual_bytes": 79999920,
+    "expected_bytes": 79999920,
+    "pass": true
+  },
+  {
+    "transactions": 1000000,
+    "actual_rc": 65,
+    "expected_rc": 65,
+    "actual_sha256": "3d16830cbde583fd3a8af262dfe0434973f3b888091a92a6101624932da0a13d",
+    "expected_sha256": "3d16830cbde583fd3a8af262dfe0434973f3b888091a92a6101624932da0a13d",
+    "actual_bytes": 79999920,
+    "expected_bytes": 79999920,
+    "pass": true
+  }
+]

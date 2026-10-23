@@ -1,0 +1,5 @@
+{
+  "command": "quiet-build make -j4 test",
+  "exit_code": 0,
+  "raw_sha256": "9a6b0b242f3787867c874924735e87b66542b99d652a323778b7ad3d7e16059e"
+}

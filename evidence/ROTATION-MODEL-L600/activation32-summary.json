@@ -1,0 +1,170 @@
+{
+  "scope": "one frozen prompt; diagnostic only, not full model quality qualification",
+  "arms": [
+    {
+      "arm": "identity",
+      "input_tokens": 36,
+      "scored_positions": 32,
+      "layer_count": 40,
+      "final_logits": {
+        "cosine": 0.9923947029179467,
+        "elements": 8939520,
+        "max_absolute_error": 2.9178667068481445,
+        "mean_squared_error": 0.11967538248571706,
+        "reference_squared_norm": 70487103.63951594,
+        "relative_l2": 0.12319828990818375,
+        "spurious_nonzero_outputs": 0,
+        "squared_error": 1069840.4752387174,
+        "zero_reference_elements": 0
+      },
+      "real_linear_probes": [
+        {
+          "activation_origin": "current candidate full-model forward, actual FFN matmul input",
+          "activation_sha256": "0d2aa32eca3eb7a42e7482e87b44422855b44596daa645ca1941758e96d54435",
+          "error_squared_norm": 48.45368603880601,
+          "input_vectors": 36,
+          "max_absolute_error": 0.53612220287323,
+          "reference_squared_norm": 11102.880372228343,
+          "relative_output_error": 0.06606106641791983,
+          "spurious_nonzero_outputs": 0,
+          "tensor": "model.language_model.layers.0.mlp.shared_expert.gate_proj.weight",
+          "zero_reference_outputs": 0
+        },
+        {
+          "activation_origin": "current candidate full-model forward, actual FFN matmul input",
+          "activation_sha256": "0d2aa32eca3eb7a42e7482e87b44422855b44596daa645ca1941758e96d54435",
+          "error_squared_norm": 30.695145633751547,
+          "input_vectors": 36,
+          "max_absolute_error": 0.23566579818725586,
+          "reference_squared_norm": 3432.6537092937097,
+          "relative_output_error": 0.09456269749742445,
+          "spurious_nonzero_outputs": 0,
+          "tensor": "model.language_model.layers.0.mlp.shared_expert.up_proj.weight",
+          "zero_reference_outputs": 0
+        },
+        {
+          "activation_origin": "current candidate full-model forward, actual FFN matmul input",
+          "activation_sha256": "516861ea2c2d4c01a9721ddb03a2b60db835e590add460a07b6700bcbd32fa01",
+          "error_squared_norm": 1.0512711067438867,
+          "input_vectors": 36,
+          "max_absolute_error": 0.08548922836780548,
+          "reference_squared_norm": 79.71132045363348,
+          "relative_output_error": 0.11484110495542857,
+          "spurious_nonzero_outputs": 0,
+          "tensor": "model.language_model.layers.0.mlp.shared_expert.down_proj.weight",
+          "zero_reference_outputs": 0
+        }
+      ]
+    },
+    {
+      "arm": "hadamard",
+      "input_tokens": 36,
+      "scored_positions": 32,
+      "layer_count": 40,
+      "final_logits": {
+        "cosine": 0.994654615355907,
+        "elements": 8939520,
+        "max_absolute_error": 3.155231475830078,
+        "mean_squared_error": 0.08505316045611808,
+        "reference_squared_norm": 70487103.63951594,
+        "relative_l2": 0.1038598032250566,
+        "spurious_nonzero_outputs": 0,
+        "squared_error": 760334.4289606767,
+        "zero_reference_elements": 0
+      },
+      "real_linear_probes": [
+        {
+          "activation_origin": "current candidate full-model forward, actual FFN matmul input",
+          "activation_sha256": "0d2aa32eca3eb7a42e7482e87b44422855b44596daa645ca1941758e96d54435",
+          "error_squared_norm": 30.69629270413944,
+          "input_vectors": 36,
+          "max_absolute_error": 0.27378273010253906,
+          "reference_squared_norm": 11102.880372228343,
+          "relative_output_error": 0.052580551073038634,
+          "spurious_nonzero_outputs": 0,
+          "tensor": "model.language_model.layers.0.mlp.shared_expert.gate_proj.weight",
+          "zero_reference_outputs": 0
+        },
+        {
+          "activation_origin": "current candidate full-model forward, actual FFN matmul input",
+          "activation_sha256": "0d2aa32eca3eb7a42e7482e87b44422855b44596daa645ca1941758e96d54435",
+          "error_squared_norm": 22.64181116326702,
+          "input_vectors": 36,
+          "max_absolute_error": 0.15143635869026184,
+          "reference_squared_norm": 3432.6537092937097,
+          "relative_output_error": 0.08121581097353144,
+          "spurious_nonzero_outputs": 0,
+          "tensor": "model.language_model.layers.0.mlp.shared_expert.up_proj.weight",
+          "zero_reference_outputs": 0
+        },
+        {
+          "activation_origin": "current candidate full-model forward, actual FFN matmul input",
+          "activation_sha256": "e23851790993e48725e6b328ac702382420a98a66deb88a275690047a76fc071",
+          "error_squared_norm": 0.6356758188323616,
+          "input_vectors": 36,
+          "max_absolute_error": 0.04205155372619629,
+          "reference_squared_norm": 76.53843196993455,
+          "relative_output_error": 0.09113350324869476,
+          "spurious_nonzero_outputs": 0,
+          "tensor": "model.language_model.layers.0.mlp.shared_expert.down_proj.weight",
+          "zero_reference_outputs": 0
+        }
+      ]
+    },
+    {
+      "arm": "zero-aware",
+      "input_tokens": 36,
+      "scored_positions": 32,
+      "layer_count": 40,
+      "final_logits": {
+        "cosine": 0.9946997740919689,
+        "elements": 8939520,
+        "max_absolute_error": 3.1348352432250977,
+        "mean_squared_error": 0.08425684389872715,
+        "reference_squared_norm": 70487103.63951594,
+        "relative_l2": 0.10337246227464822,
+        "spurious_nonzero_outputs": 0,
+        "squared_error": 753215.7411695493,
+        "zero_reference_elements": 0
+      },
+      "real_linear_probes": [
+        {
+          "activation_origin": "current candidate full-model forward, actual FFN matmul input",
+          "activation_sha256": "0d2aa32eca3eb7a42e7482e87b44422855b44596daa645ca1941758e96d54435",
+          "error_squared_norm": 30.764290690866197,
+          "input_vectors": 36,
+          "max_absolute_error": 0.2852354049682617,
+          "reference_squared_norm": 11102.880372228343,
+          "relative_output_error": 0.052638756697582,
+          "spurious_nonzero_outputs": 0,
+          "tensor": "model.language_model.layers.0.mlp.shared_expert.gate_proj.weight",
+          "zero_reference_outputs": 0
+        },
+        {
+          "activation_origin": "current candidate full-model forward, actual FFN matmul input",
+          "activation_sha256": "0d2aa32eca3eb7a42e7482e87b44422855b44596daa645ca1941758e96d54435",
+          "error_squared_norm": 22.67069288263517,
+          "input_vectors": 36,
+          "max_absolute_error": 0.15143635869026184,
+          "reference_squared_norm": 3432.6537092937097,
+          "relative_output_error": 0.08126759359588037,
+          "spurious_nonzero_outputs": 0,
+          "tensor": "model.language_model.layers.0.mlp.shared_expert.up_proj.weight",
+          "zero_reference_outputs": 0
+        },
+        {
+          "activation_origin": "current candidate full-model forward, actual FFN matmul input",
+          "activation_sha256": "f1f0faa5e02a359a7aa45414cf1ca7628be2dd658965eb69cff444f4faf20774",
+          "error_squared_norm": 0.6376917922485591,
+          "input_vectors": 36,
+          "max_absolute_error": 0.04203510284423828,
+          "reference_squared_norm": 76.59211080101818,
+          "relative_output_error": 0.09124590739880861,
+          "spurious_nonzero_outputs": 0,
+          "tensor": "model.language_model.layers.0.mlp.shared_expert.down_proj.weight",
+          "zero_reference_outputs": 0
+        }
+      ]
+    }
+  ]
+}

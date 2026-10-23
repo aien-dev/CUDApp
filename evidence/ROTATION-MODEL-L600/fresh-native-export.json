@@ -1,0 +1,16 @@
+{
+  "source_commit": "6605ee7f006fc32cd59a13ee8895ec3fe232411a",
+  "public_make_exit_code": 0,
+  "model_replay_exit_code": 0,
+  "native_binary_identical": true,
+  "stream_binary_identical": true,
+  "source_closure_identical": true,
+  "comparison_bytes_identical": true,
+  "comparison_sha256": "483c1b57e15a1b9d2136a08be54b6ea8db6bbc496f5c13d7d08cdce16688f832",
+  "v1_cases": 609,
+  "v2_stream_cases": 141,
+  "maximum_transaction_cases": 2,
+  "policy_tests": 5,
+  "working_directory": "/home/drakestapleton/handoffs/quantum-development-L600",
+  "source_export": "/home/drakestapleton/handoffs/quantum-development-L600/rotation-v2-export"
+}

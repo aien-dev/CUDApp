@@ -1,0 +1,16 @@
+{
+  "commit": "e1608d17ce0839886f85f8486f900d50c7924200",
+  "base": "f0230a59eec985c3290ac78c0cc04322bacf9f0a",
+  "source_closure": {
+    "crates/aien-inference-abi/Cargo.toml": "91c5722a21e0c29ba34b9f73569a35774712e976e7f69e5e8633a923c45ebf11",
+    "crates/aien-inference-abi/src/lib.rs": "1d9724e8e515c095363d985e0cfec6135e84e4f05f368178bb6cb1fe5a69d68b",
+    "crates/aien-inference-abi/src/qwen38.rs": "5fdc7c4f83a8128a82b440c61d7bd88d68e53357fe871b7bd0b1c5d7b414dc03",
+    "crates/aien-inference-abi/src/qwen38_omega.rs": "50059dec82f07594d06206e6a2bdeb7b59d3ba8eb8079f68c86175cd5e7fb10e",
+    "crates/aien-inference-abi/src/qwen38_omega/moe.rs": "9a0e9def27b88daf2f175167843f053ff86cbf4877f51a7d31f29851134af365",
+    "crates/aien-inference-abi/src/rotation_reference.rs": "f09968696014b742fefcc9d283169074951090a29bb08269d8075fea4130bfab",
+    "crates/aien-inference-abi/src/rotation-fixtures.bin": "72fc182727e38656d723795aa5c0cce457237a0f680e312781f69a9df68194a2",
+    "crates/aien-inference-abi/src/bin/q36_rotation_quality.rs": "8818bffd806dd40e7bba349fb798af95929d2d55d39957af61371ba11c6c49f4"
+  },
+  "binary_sha256": "f66d514c4849a4513e52395a23537b45ff941b9e857d928d6b70b59fbf3f1fe9",
+  "scope": "named external host oracle; not product runtime or GPU attachment"
+}

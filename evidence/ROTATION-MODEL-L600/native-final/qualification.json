@@ -1,0 +1,143 @@
+{
+  "scope": "offline approximate representation; no inference/GPU qualification",
+  "compiler_sha256": "191b776ef98821597c3e30655da6d680a9b66edbc9ceaca3c39c61ea6df098e9",
+  "source_sha256": "ef6fbe394b8eed255ef59a5825f4847a892a62f47f48410c98a9c45efd6c9b70",
+  "binary_sha256": "109d8ff2b033ce35302331cd32b62ecea227be589f92078a089902698119a0d1",
+  "suite_total": 609,
+  "suite_passed": 609,
+  "io_controls": [
+    {
+      "case": "closed-read",
+      "rc": 74,
+      "pass": true
+    },
+    {
+      "case": "closed-write",
+      "rc": 74,
+      "pass": true
+    },
+    {
+      "case": "full-output-device",
+      "rc": 74,
+      "pass": true
+    },
+    {
+      "case": "fragmented-input-no-early-output",
+      "rc": 0,
+      "pass": true
+    }
+  ],
+  "mutants": [
+    {
+      "name": "lose-fp8-sign",
+      "source_sha256": "0751d4d98a491cfed545f85b6c296e61beeaaf6dfa508839f2cec016be419d21",
+      "binary_sha256": "70bcd8eaf072bdaa75bf79a23c941f04a221949433eaf4dd391309b43ca201e2",
+      "caught": 50,
+      "total": 609,
+      "change_before": "v = neg v\n",
+      "change_after": "v = v\n"
+    },
+    {
+      "name": "wrong-inverse-normalization",
+      "source_sha256": "740dc4dc62ff20c41979de20d4debe87620bc3d73c09c97605282d5734271cc7",
+      "binary_sha256": "f06860ab5ffb9b5dc93f565bc7a95bfa079b98c209606b2c81d90f22b8d62fb7",
+      "caught": 31,
+      "total": 609,
+      "change_before": "denom = 458752\n",
+      "change_after": "denom = 3584\n"
+    },
+    {
+      "name": "ties-away-instead-of-even",
+      "source_sha256": "70aac2285850c78d84a23d305a5aff99fcee21fdb3250444bbf376b6f01cd469",
+      "binary_sha256": "e9e5855879ef82d4542a9820e8c973afb979aa93b4016d24259d4a01e5cf9798",
+      "caught": 22,
+      "total": 609,
+      "change_before": "if or gt twice m and eq twice m ne rem q 2 0\n",
+      "change_after": "if ge twice m\n"
+    }
+  ],
+  "stream": {
+    "source_sha256": "10ffc3fa7f46be7ffb4d8e9436f78def73c44ead7dad3559a5bd702c28ad930e",
+    "binary_sha256": "2343c13036b002d65b8c7cbd26fbbb6f4c966de21ad3b8e80c77ff2c0b451ce3",
+    "suite_total": 141,
+    "suite_passed": 141,
+    "capacity_cases": [
+      {
+        "transactions": 999999,
+        "actual_rc": 0,
+        "expected_rc": 0,
+        "actual_sha256": "3d16830cbde583fd3a8af262dfe0434973f3b888091a92a6101624932da0a13d",
+        "expected_sha256": "3d16830cbde583fd3a8af262dfe0434973f3b888091a92a6101624932da0a13d",
+        "actual_bytes": 79999920,
+        "expected_bytes": 79999920,
+        "pass": true
+      },
+      {
+        "transactions": 1000000,
+        "actual_rc": 65,
+        "expected_rc": 65,
+        "actual_sha256": "3d16830cbde583fd3a8af262dfe0434973f3b888091a92a6101624932da0a13d",
+        "expected_sha256": "3d16830cbde583fd3a8af262dfe0434973f3b888091a92a6101624932da0a13d",
+        "actual_bytes": 79999920,
+        "expected_bytes": 79999920,
+        "pass": true
+      }
+    ],
+    "io_controls": [
+      {
+        "case": "closed-read",
+        "rc": 74,
+        "pass": true
+      },
+      {
+        "case": "closed-write",
+        "rc": 74,
+        "pass": true
+      },
+      {
+        "case": "full-output-device",
+        "rc": 74,
+        "pass": true
+      },
+      {
+        "case": "fragmented-input-no-early-output",
+        "rc": 0,
+        "pass": true
+      }
+    ],
+    "mutants": [
+      {
+        "name": "lost-selector",
+        "caught": 8,
+        "total": 135,
+        "binary_sha256": "410e218f63b1c5b82edc21a1d4bc274633e472000c8f1049abe95be775f05ec3"
+      },
+      {
+        "name": "lost-identity-normalization",
+        "caught": 7,
+        "total": 135,
+        "binary_sha256": "c86bf1f522d38471c82c9568d84d44e4158677fe6196f05bdf9611e8fc7208da"
+      },
+      {
+        "name": "rotate-through-zero",
+        "caught": 9,
+        "total": 135,
+        "binary_sha256": "1e632bff77fb24cb56b5f59ac0676cce11033d82a969a316cdcae98bd0d908a5"
+      }
+    ]
+  },
+  "source_closure": {
+    "mk/native-rotquant.mk": "50b5e87efb4e446bf5de85d95fe6010c93716e4b6194b2656c5a63944ef39e7e",
+    "native/rotquant/CONTRACT.md": "e952b48d129cb4e995c250100dba5f68637dc13ef4bc9ecdadcd95a06bf7c353",
+    "native/rotquant/experiment.py": "f1e185be430fe7e09c673d55c7d42dcbd596bdd512e956506a176d55267e8941",
+    "native/rotquant/qualify_rotation.py": "cdb3855d8fe16288a89a6c2990b5f9748f6192b7c213ae4a738e54a06f7f50a9",
+    "native/rotquant/rotquant.om": "ef6fbe394b8eed255ef59a5825f4847a892a62f47f48410c98a9c45efd6c9b70",
+    "native/rotquant/stream.om": "67b3e25e813e917cb4d907b67d17e925ac0c0afd4a5cb0efbdd3be6baa03f958",
+    "native/rotquant/test_rotation.py": "6ee7cd3a70cb72266878e8021616a962d08d51585be3c44f124304517c7e70e3",
+    "native/rotquant/test_safety.py": "e696c69dffed63f04c26e5a938a597b5953f1f1eac753cffe4465e147d48d91e",
+    "native/rotquant/test_stream.py": "0aef709d8abbfa0e70b44ab68474deeea403ad0b7e18b5a473e33506d9b89b5a",
+    "native/weightpack/qualify.py": "b08a5d3b4245dae6c89f5eb2490157b84047639af9197d40b004d6a127bf9092",
+    "native/weightpack/test_weightpack.py": "d166a1fa30a2ad120ad9ab97f306ce1c194f208e92caa12923fd0e9cb4229d05",
+    "native/weightpack/weightpack.om": "9b841b643de67b001da4f1e7576e30e46e9b827a39166b7179460d249dce727c"
+  }
+}

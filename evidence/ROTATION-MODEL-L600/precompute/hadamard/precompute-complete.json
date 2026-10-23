@@ -1,0 +1,207 @@
+{
+  "layers": [
+    {
+      "layer": 0,
+      "tensor_count": 771,
+      "receipt_sha256": "72f75e5d2b52904ada83202bab904a09e70ad5ee0b0d077e7c8022e45b3ba739"
+    },
+    {
+      "layer": 1,
+      "tensor_count": 771,
+      "receipt_sha256": "61f56ed40fb6dde5cdd5e9f09e05534633fa3a8a6b5528c5da4a9a8863a71771"
+    },
+    {
+      "layer": 2,
+      "tensor_count": 771,
+      "receipt_sha256": "62bff155ed83690f5ae7a78f91a06c38055c9247fd204d6131608858ff0f7a53"
+    },
+    {
+      "layer": 3,
+      "tensor_count": 771,
+      "receipt_sha256": "75de7f1f603ff3b5e4aa4aa8864b971156de2b799a7821c4bd24a86f7832de5a"
+    },
+    {
+      "layer": 4,
+      "tensor_count": 771,
+      "receipt_sha256": "4d73d72ea6f44ec63dbd32a7bbe81952db4552dff1e5bdd9f24ee8be8db59412"
+    },
+    {
+      "layer": 5,
+      "tensor_count": 771,
+      "receipt_sha256": "badcf9bee240f5b7341e184a145c8a72970de406878c687282358cb45d1c40b9"
+    },
+    {
+      "layer": 6,
+      "tensor_count": 771,
+      "receipt_sha256": "08e39a475ebbd970257d46ae140807861615a198a061c77d814a9a864face5d6"
+    },
+    {
+      "layer": 7,
+      "tensor_count": 771,
+      "receipt_sha256": "cc3293e454e4a4425bc6de00ebe247998c913f07a4b19441c17027794ec1e53b"
+    },
+    {
+      "layer": 8,
+      "tensor_count": 771,
+      "receipt_sha256": "e955c59c18d9776a7104f5b034d40c1b5143686fc3cdf196bab95854a2d5c532"
+    },
+    {
+      "layer": 9,
+      "tensor_count": 771,
+      "receipt_sha256": "392d9e6825f8b01f1f72b84bac87f10237daba6cee74e6bae0a596e687ccbf5c"
+    },
+    {
+      "layer": 10,
+      "tensor_count": 771,
+      "receipt_sha256": "fb0351646d12148061a35006f2e0c0712c69f9b8cbb6edc58f5b4e65186ee8df"
+    },
+    {
+      "layer": 11,
+      "tensor_count": 771,
+      "receipt_sha256": "d138435e497037b61997a284db908f4b2effe8b5303de7b52c4ea063bc863e71"
+    },
+    {
+      "layer": 12,
+      "tensor_count": 771,
+      "receipt_sha256": "e4ebfaeb982f40efd8eda98256c50a868c89b902ba348db5c3c9b2e8b9278bd3"
+    },
+    {
+      "layer": 13,
+      "tensor_count": 771,
+      "receipt_sha256": "5706535687912e65d6ae2f0045a9f2e6dff590d0b2e55865660a0fb37444c060"
+    },
+    {
+      "layer": 14,
+      "tensor_count": 771,
+      "receipt_sha256": "dd5aaba188b08a60616c8c93c900669b7ccae85a00535bf37f76f7edd31eae30"
+    },
+    {
+      "layer": 15,
+      "tensor_count": 771,
+      "receipt_sha256": "d88a7420cd533ab69508bd728e7ac95347d9aa023e6df820cd80529bf1cf3efa"
+    },
+    {
+      "layer": 16,
+      "tensor_count": 771,
+      "receipt_sha256": "178d89fa91895d9ec2b234ecdeea04923b68652de4e762cd4ecb0a67c3d709aa"
+    },
+    {
+      "layer": 17,
+      "tensor_count": 771,
+      "receipt_sha256": "0ab0b3665e3293b29695d90b5ce105c3061b48441a2ec01d557276b6c04526d2"
+    },
+    {
+      "layer": 18,
+      "tensor_count": 771,
+      "receipt_sha256": "e5e78932042e95d05778045b7116e7f6b4c18c779a259d515bdacd4eedcc9d0d"
+    },
+    {
+      "layer": 19,
+      "tensor_count": 771,
+      "receipt_sha256": "90fcf6b274ab35a8fa4422262943f3f000c2d959e43b4c8243d5c4f2d93967a5"
+    },
+    {
+      "layer": 20,
+      "tensor_count": 771,
+      "receipt_sha256": "206720be8d33714ada31d576a5e42898a85b34fc6d804870e7e96850c4b156bf"
+    },
+    {
+      "layer": 21,
+      "tensor_count": 771,
+      "receipt_sha256": "c410932453a9212b324e9ff3eb7b0d87d9d2cce55bf734db7dfaf2f118f7b50d"
+    },
+    {
+      "layer": 22,
+      "tensor_count": 771,
+      "receipt_sha256": "08c61dafa5a7ccf1ec88b7cc0a86e8afee468f0a90c9357601b0a2dcc8340a2a"
+    },
+    {
+      "layer": 23,
+      "tensor_count": 771,
+      "receipt_sha256": "0ee1c230fb59e662cdad58f9574a20832039dfb0ab466bb67bc558871f11d240"
+    },
+    {
+      "layer": 24,
+      "tensor_count": 771,
+      "receipt_sha256": "4e6e341997f762105b14fe0010b3c8e7006b9fe409b9b0b42872c9344937c9e4"
+    },
+    {
+      "layer": 25,
+      "tensor_count": 771,
+      "receipt_sha256": "7b633660a6e9ae62f06f463009df05dc2cd07446abfcf0f06fb6038d46b188c2"
+    },
+    {
+      "layer": 26,
+      "tensor_count": 771,
+      "receipt_sha256": "f442c8a830594290a3afb7e8a859bfd492a58829640586c4756ff71e3aae01b8"
+    },
+    {
+      "layer": 27,
+      "tensor_count": 771,
+      "receipt_sha256": "3a7ca2181a3b56552790963fd5b369136edd80ac6de4c6ff44a824d00d48c2a1"
+    },
+    {
+      "layer": 28,
+      "tensor_count": 771,
+      "receipt_sha256": "f3fd13d8e96948a4ffee29776598af50f58562c32e3c44b2fa0cf997949973bc"
+    },
+    {
+      "layer": 29,
+      "tensor_count": 771,
+      "receipt_sha256": "bec22672fb3f7cb81a929fb1b25200acb18ff6e125da2a71ce8a512c852d3bc6"
+    },
+    {
+      "layer": 30,
+      "tensor_count": 771,
+      "receipt_sha256": "bfadad4268609b46e9ec65d3f8a44a06d8af863499692fb4c0e33c4f55e9062a"
+    },
+    {
+      "layer": 31,
+      "tensor_count": 771,
+      "receipt_sha256": "ba624815ae3f30905634b51480ea32c9073e2e239e562b12c34ebb05a70dadd9"
+    },
+    {
+      "layer": 32,
+      "tensor_count": 771,
+      "receipt_sha256": "d0faec55a0f5ed0c14a53be9a5105e649cf1c287d772ac317a44f48ce43c3f39"
+    },
+    {
+      "layer": 33,
+      "tensor_count": 771,
+      "receipt_sha256": "127ab204fc089bd5c57f38372211b7f76d8727698b14bee9dfd21ecac573c8ea"
+    },
+    {
+      "layer": 34,
+      "tensor_count": 771,
+      "receipt_sha256": "fbb7e5b3f50dc72f2d6224b5ce6fd0d267bba45ac276c183066eef06df42df50"
+    },
+    {
+      "layer": 35,
+      "tensor_count": 771,
+      "receipt_sha256": "abfa9a5d74efd1a3fb6ca06991805dce31b1f0f80a425255e750c516e14394e3"
+    },
+    {
+      "layer": 36,
+      "tensor_count": 771,
+      "receipt_sha256": "3fd1c49e7ba14f3fc7e98a5be4bb1db481c948ec4fda5e10d7a899f508e55e24"
+    },
+    {
+      "layer": 37,
+      "tensor_count": 771,
+      "receipt_sha256": "e1c1142d54ef6c40e295aef629322db3e08d2ae18fc8df6d9286ccb23d8a1998"
+    },
+    {
+      "layer": 38,
+      "tensor_count": 771,
+      "receipt_sha256": "83ddf877196280540cd12bfc61b69b9d94e47e0bb2be144fbd952826c7f75dd6"
+    },
+    {
+      "layer": 39,
+      "tensor_count": 771,
+      "receipt_sha256": "5b1a24cda480eaa310a4ad57880ff7a6bd2581670e22df18159f3a6e343f4d2d"
+    }
+  ],
+  "tensor_count": 30840,
+  "expanded_reference_cache_bytes": 129387315177,
+  "not_packed_product_storage": true
+}

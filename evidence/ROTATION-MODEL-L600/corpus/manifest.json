@@ -1,0 +1,79 @@
+{
+  "p1": {
+    "path": "/home/drakestapleton/handoffs/quantum-development-L600/rotation-corpus/p1.json",
+    "source_path": "/home/drakestapleton/workspace/sc-l355/evidence/l355-w4/runs/forced-fp8-p1.json",
+    "source_sha256": "e5d51c34564817719a3e2ffb4a74ab961603f890fdb24b506c825c3575f20572",
+    "frozen_sha256": "2fccb04a1371a3cebd18590f8c38014f86bfc48e4b746c1a0e3d991a88dfd3d0",
+    "positions": 512
+  },
+  "p2": {
+    "path": "/home/drakestapleton/handoffs/quantum-development-L600/rotation-corpus/p2.json",
+    "source_path": "/home/drakestapleton/workspace/sc-hum-state-precision/evidence/hum-state-precision/drift-p2.json",
+    "source_sha256": "d4eadc41aa12c069e6087d3ebad480a6e2ef7ec224b424ba649b436450d79e7e",
+    "frozen_sha256": "e775cb66898feecd875541de996fdc4438137983880e7ed8b974f33ee724cecf",
+    "positions": 512
+  },
+  "p3": {
+    "path": "/home/drakestapleton/handoffs/quantum-development-L600/rotation-corpus/p3.json",
+    "source_path": "/home/drakestapleton/workspace/sc-hum-state-precision/evidence/hum-state-precision/drift-p3.json",
+    "source_sha256": "38d48ff9c9b3b643ef77375afe159985ebfb54b25b6400a920e1bc67b0170ee8",
+    "frozen_sha256": "a4a09826e96825f90f3f1e459b83dfbd2fa883f78984c331c06d0074fe0e261a",
+    "positions": 512
+  },
+  "p4": {
+    "path": "/home/drakestapleton/handoffs/quantum-development-L600/rotation-corpus/p4.json",
+    "source_path": "/home/drakestapleton/workspace/sc-hum-state-precision/evidence/hum-state-precision/drift-p4.json",
+    "source_sha256": "6d7a78334c346d47c873f5083e281c652da08e35da139ca717bbe5a178334bdc",
+    "frozen_sha256": "3331f5fba53304db5d5c37a25e0afa33c5c54d6fa857f070a680b17ef9313319",
+    "positions": 512
+  },
+  "chat-max-24": {
+    "path": "/home/drakestapleton/handoffs/quantum-development-L600/rotation-corpus/chat-max-24.json",
+    "source_path": "/home/drakestapleton/workspace/sc-hum-state-precision/evidence/hum-state-precision/drift-chat-max-24.json",
+    "source_sha256": "847f1518199cdc52d999c1771dccee82d51058800321b188e2a9249c296ce129",
+    "frozen_sha256": "698d612380bf418f701a466348c1cc1abed669ac8d2871f75ef04cb46954e37f",
+    "positions": 512
+  },
+  "h1": {
+    "path": "/home/drakestapleton/handoffs/quantum-development-L600/rotation-corpus/h1.json",
+    "source_path": "/home/drakestapleton/workspace/sc-l355/evidence/l355-w4/runs/forced-fp8-h1.json",
+    "source_sha256": "12e4e03f72f61ce0dde0a088134960d2ce5cf85d622d91f5b8446bc859e10b9c",
+    "frozen_sha256": "f0b3731903f71177c410e7d973f9600861e597a2eadf273a61274ffd1e327e6c",
+    "positions": 512
+  },
+  "h2": {
+    "path": "/home/drakestapleton/handoffs/quantum-development-L600/rotation-corpus/h2.json",
+    "source_path": "/home/drakestapleton/workspace/sc-l355/evidence/l355-w4/runs/forced-fp8-h2.json",
+    "source_sha256": "16b6c98d2d96681713f6a95b86b86cb58e6dc79c1995e2c4e5fde930d09b091e",
+    "frozen_sha256": "7a053a14839f2c8e02e25f45ceeb23a2e88b3ab286cf86a02eb39136502abc35",
+    "positions": 512
+  },
+  "h3": {
+    "path": "/home/drakestapleton/handoffs/quantum-development-L600/rotation-corpus/h3.json",
+    "source_path": "/home/drakestapleton/workspace/sc-l355/evidence/l355-w4/runs/forced-fp8-h3.json",
+    "source_sha256": "7876b98c5de90454a97787f56d6d5a2bf75c43e6365c88765262395d775d1be5",
+    "frozen_sha256": "20acde824b5e77ef81e628b3296777c20c95878de7b3d3b8f2c3ff5ef6dc7b48",
+    "positions": 512
+  },
+  "h4": {
+    "path": "/home/drakestapleton/handoffs/quantum-development-L600/rotation-corpus/h4.json",
+    "source_path": "/home/drakestapleton/workspace/sc-l355/evidence/l355-w4/runs/forced-fp8-h4.json",
+    "source_sha256": "90414d9f03a882b0e768b48e66034260f250f57333930375331ac330be06a709",
+    "frozen_sha256": "e5186bdced30b126e37cafbe78907784c992f0886962215741b37cf8cc0121bf",
+    "positions": 512
+  },
+  "h5": {
+    "path": "/home/drakestapleton/handoffs/quantum-development-L600/rotation-corpus/h5.json",
+    "source_path": "/home/drakestapleton/workspace/sc-l355/evidence/l355-w4/runs/forced-fp8-h5.json",
+    "source_sha256": "7b194eec97582788adf225da982cf20fc13ae475b559aa0aeb6570c26724c1f6",
+    "frozen_sha256": "e8bade56b96b98855eff11c364c6242e491934d74bf6402e35d4644f7cf76509",
+    "positions": 512
+  },
+  "agpl": {
+    "path": "/home/drakestapleton/handoffs/quantum-development-L600/rotation-corpus/passage-agpl.txt",
+    "source_path": "/home/drakestapleton/workspace/sc-l355/evidence/q36-host-20261020/passage-agpl.txt",
+    "frozen_sha256": "153a01796d0766259ab8846fe50ed7c9db39778b9593f433c0ce286900cd43e3",
+    "input_tokens": 400,
+    "scored_positions": 399
+  }
+}

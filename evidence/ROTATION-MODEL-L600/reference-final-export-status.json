@@ -1,0 +1,121 @@
+{
+  "source": "7ab43aed49e2ec8791ebd8f8f4c6cb62d8fe9fe7",
+  "steps": [
+    {
+      "command": [
+        "/home/drakestapleton/.local/bin/quiet-build",
+        "/home/drakestapleton/.cargo/bin/cargo",
+        "test",
+        "--offline",
+        "--release",
+        "-p",
+        "aien-inference-abi",
+        "--features",
+        "rotation-qualification",
+        "--",
+        "--test-threads=1"
+      ],
+      "log": "reference-final-export-suite.log",
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "/home/drakestapleton/.local/bin/quiet-build",
+        "/home/drakestapleton/.cargo/bin/cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "aien-inference-abi",
+        "--features",
+        "rotation-qualification",
+        "--bin",
+        "q36_rotation_quality"
+      ],
+      "log": "reference-final-export-build.log",
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "/home/drakestapleton/.local/bin/quiet-build",
+        "nice",
+        "-n",
+        "10",
+        "/home/drakestapleton/handoffs/quantum-development-L600/reference-activation-final-target/release/q36_rotation_quality",
+        "/home/drakestapleton/models/qwen3.6-35b-a3b-fp8-95a723d0",
+        "/home/drakestapleton/handoffs/quantum-development-L600/rotation-corpus/p1.json",
+        "32",
+        "/home/drakestapleton/handoffs/quantum-development-L600/rotation-activation32/identity",
+        "identity"
+      ],
+      "log": "activation32-identity.log",
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "/home/drakestapleton/.local/bin/quiet-build",
+        "nice",
+        "-n",
+        "10",
+        "/home/drakestapleton/handoffs/quantum-development-L600/reference-activation-final-target/release/q36_rotation_quality",
+        "/home/drakestapleton/models/qwen3.6-35b-a3b-fp8-95a723d0",
+        "/home/drakestapleton/handoffs/quantum-development-L600/rotation-corpus/p1.json",
+        "32",
+        "/home/drakestapleton/handoffs/quantum-development-L600/rotation-activation32/hadamard",
+        "hadamard"
+      ],
+      "log": "activation32-hadamard.log",
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "/home/drakestapleton/.local/bin/quiet-build",
+        "nice",
+        "-n",
+        "10",
+        "/home/drakestapleton/handoffs/quantum-development-L600/reference-activation-final-target/release/q36_rotation_quality",
+        "/home/drakestapleton/models/qwen3.6-35b-a3b-fp8-95a723d0",
+        "/home/drakestapleton/handoffs/quantum-development-L600/rotation-corpus/p1.json",
+        "32",
+        "/home/drakestapleton/handoffs/quantum-development-L600/rotation-activation32/zero-aware",
+        "zero-aware"
+      ],
+      "log": "activation32-zero-aware.log",
+      "exit_code": 0
+    }
+  ],
+  "complete": true,
+  "binary_sha256": "19784d98975237f33e135ad76f11ef3a21fbf726ac9b234bf75ec3dd39236a0f",
+  "tests": {
+    "passed": 406,
+    "failed": 0,
+    "ignored": 21,
+    "groups": 44
+  },
+  "diagnostics": [
+    {
+      "arm": "identity",
+      "scored_positions": 32,
+      "layers": 40,
+      "shared_linear_probes": 3,
+      "logits_identical_to_earlier_smoke": true,
+      "all_cache_hits": true
+    },
+    {
+      "arm": "hadamard",
+      "scored_positions": 32,
+      "layers": 40,
+      "shared_linear_probes": 3,
+      "logits_identical_to_earlier_smoke": true,
+      "all_cache_hits": true
+    },
+    {
+      "arm": "zero-aware",
+      "scored_positions": 32,
+      "layers": 40,
+      "shared_linear_probes": 3,
+      "logits_identical_to_earlier_smoke": true,
+      "all_cache_hits": true
+    }
+  ]
+}

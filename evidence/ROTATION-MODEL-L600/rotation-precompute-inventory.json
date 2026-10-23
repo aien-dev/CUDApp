@@ -1,0 +1,252 @@
+{
+  "scope": "metadata sizing before native all-expert precomputation; not payload census",
+  "layers": [
+    {
+      "layer": 0,
+      "header_sha256": "1fb08672f4aed66e9c7050772d575882c264056177fdac98174810dbf49e1a16",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 1,
+      "header_sha256": "51b4e965364be722d800c694c2575d86627481b118ae0e81936c611f9afdc003",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 2,
+      "header_sha256": "27f4b72bbe256af4ecdd241ab97387b73721852a5665dfbd06bffc93febab4c2",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 3,
+      "header_sha256": "970e343e0a1804cc9ea989122095b43863946920c2dd04c5932775e22526b40e",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 4,
+      "header_sha256": "247ae9bd6dcd712a5fc47403216be479a66e8d6eeae6515a8ce780db374fe75b",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 5,
+      "header_sha256": "e8f8477fe64c101b11af4a6b561595086ee3bb6c2504c778136738a4e9988c07",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 6,
+      "header_sha256": "5ff3d095763ee50dcf505176ab6e7f51619fc30c3fd2cddf2bc9fb212c9b5146",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 7,
+      "header_sha256": "fd02172a12e1985573ef015a30cf30584c0babf1dee4cb21e429b5e01a5e1f1f",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 8,
+      "header_sha256": "dac50b2e535b9ca02b3fafcceab0c1f084a18dce538b679b196a8d342a10ccab",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 9,
+      "header_sha256": "7706eab288bd3d3fdc64e226d84c9bd25f9b5a81880d47bc41f9a82341068e76",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 10,
+      "header_sha256": "ab67528f5d4035b366165559289010288798aa6755fbe4c6c378be894dae29dc",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 11,
+      "header_sha256": "c2a7b8639d6c1d2b7d77d145ab72a926da44f21c5ed4d73d90ed6c365c692d11",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 12,
+      "header_sha256": "d67d5ba33ce1faae06ea3acc4750bf5dbd5ee07fd58c5243bd7eb5b038e8af2d",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 13,
+      "header_sha256": "c5b79cfb0a7c90e706c1a629ba49f50956e65cce2b4d145ef7bf21e45075917d",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 14,
+      "header_sha256": "f31f5dfbc304382700a0d99256d42009292262caeb8a7b9b52d4902a23aca25d",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 15,
+      "header_sha256": "2a4eef04221313995fa629ac6ab8a3b44c660a81db74ac6c285341770fcd8144",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 16,
+      "header_sha256": "b1ab0d666e2d17e2410f4943e57d77f588240351d6f3ee6b0f293827bbd7df5f",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 17,
+      "header_sha256": "1186c5c947f2355ee25fb4961026ea9b9295c81582c172132d281a609c156c3f",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 18,
+      "header_sha256": "71336585756ea3c98bf4b67bd40bd8c8935787bad1aad4bf6b5abe76e012a1ba",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 19,
+      "header_sha256": "7c444020664a3844b267a36aaf3a35fae25caf033b972b887e115b1bcb35ae0b",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 20,
+      "header_sha256": "7ac31a5411b4e772d987e746f8a9393dacfa5fbdd7d94de20f3dcc31b0da7e9a",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 21,
+      "header_sha256": "6f40128680e06106b2c7165544bc65b5d7c1f83749992b802673fd06c4022440",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 22,
+      "header_sha256": "80b3fdecfe0c1d702f3256361556e662ba97fdfa7aa732d0f095c53e23ec8a6d",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 23,
+      "header_sha256": "81e58790f76af9e761bb312f4166f487d5844aec2fb76ef83da427a92e80c517",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 24,
+      "header_sha256": "8dee66710caa5485db0ba513f6dbc77e1b3ba0ca916a1b3058327b53ab24b0d0",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 25,
+      "header_sha256": "36b30b0ca630673d4e763a8bcd71e937339c1ec3dee13cdda18d4cae93862376",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 26,
+      "header_sha256": "908c3689f624d074d089d3c4107669218e0aff50b6080073c2ff839a2d8c5828",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 27,
+      "header_sha256": "6216d844c219fa1eca8c4ea341c8537d283192f3061ab5af232644c7f835148f",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 28,
+      "header_sha256": "27fd9266fbb2c54f9c303c97566940b19ea1ef4e3d29efe97297f3e424208ea1",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 29,
+      "header_sha256": "339e275aebe03c8dbf1301341ddda44386c1e84fa0f3fb7f3a15855f695d3650",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 30,
+      "header_sha256": "e4768d37f4a70bd84b268b3c305312f9cd0a11cb90ddcb1ce018f18e1ead7708",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 31,
+      "header_sha256": "148680811c6d576199349030af23f888d1538f7a55e62ab68223a0674ad70aeb",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 32,
+      "header_sha256": "823c7505d9b7b8d7a2f49512e1993966fa7527a5cda1de283027df3f51fd9fe0",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 33,
+      "header_sha256": "673f0780e7987189726b966fc9839bf6fd0ebaf2c84f9a0f142d6809f091243d",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 34,
+      "header_sha256": "160b009434140200e04ec09ff0d64dec93ea1da6321c58ec440fc1240640aee0",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 35,
+      "header_sha256": "5999a337a4f9665bc475b0f0444ec4e88e4ac3044fb5866ab01356ef6128a9dc",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 36,
+      "header_sha256": "d6bb657384631fa202df9f189d488af0422f225a5f335054a61372bc186c0ea5",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 37,
+      "header_sha256": "d3b9faa4a08ceeef5c803914ead7b047050c9680fd2ffdd25aadfc9801a56929",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 38,
+      "header_sha256": "50a096f43ceaad34e4ff9127915c911aa0b6d734a731aeb2a1c570e458f6968f",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    },
+    {
+      "layer": 39,
+      "header_sha256": "840df97076d782f505cb4d87c9b2e28d5c3a8d197d8edf5c33aedc19b9df3977",
+      "tensor_count": 771,
+      "raw_bytes": 808452096
+    }
+  ],
+  "tensor_count": 30840,
+  "raw_fp8_bytes": 32338083840,
+  "four_arm_reference_f32_cache_bytes_excluding_headers": 517409341440,
+  "free_disk_bytes": 923885916160,
+  "remaining_disk_floor_bytes": 107374182400,
+  "config_sha256": "570ef7ea45a7e1d3de2b1d3c70c4ac3562d0e768acdc195778cb4f4d95025845",
+  "tokenizer_sha256": "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42"
+}

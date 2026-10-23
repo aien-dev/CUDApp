@@ -1,0 +1,30 @@
+{
+  "completed_arms": [
+    {
+      "arm": "identity",
+      "tensors": 30840,
+      "weights": 32338083840,
+      "original_bytes_with_scales": 32342031360,
+      "packed_bytes_with_scales": 17195397120,
+      "original_zero_weights": 363374628,
+      "lost_zero_weights": 0,
+      "rotated_blocks": 0,
+      "blocks": 252641280,
+      "fraction_bytes_saved": 0.4683266202856097
+    },
+    {
+      "arm": "hadamard",
+      "tensors": 30840,
+      "weights": 32338083840,
+      "original_bytes_with_scales": 32342031360,
+      "packed_bytes_with_scales": 17195397120,
+      "original_zero_weights": 363374628,
+      "lost_zero_weights": 106453476,
+      "rotated_blocks": 252641280,
+      "blocks": 252641280,
+      "fraction_bytes_saved": 0.4683266202856097
+    }
+  ],
+  "all_four_arms_complete": false,
+  "not_runtime_memory_or_speed": true
+}

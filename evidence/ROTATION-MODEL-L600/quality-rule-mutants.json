@@ -1,0 +1,12 @@
+[
+  {
+    "name": "loosen-nll",
+    "rc": 1,
+    "stderr": "....F\n======================================================================\nFAIL: test_primary_bound_is_not_relaxed (__main__.QualityRule.test_primary_bound_is_not_relaxed)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<string>\", line 17, in test_primary_bound_is_not_relaxed\nAssertionError: True is not false\n\n----------------------------------------------------------------------\nRan 5 tests in 0.001s\n\nFAILED (failures=1)\n"
+  },
+  {
+    "name": "loosen-confident",
+    "rc": 1,
+    "stderr": "F....\n======================================================================\nFAIL: test_confident_boundary (__main__.QualityRule.test_confident_boundary)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<string>\", line 24, in test_confident_boundary\nAssertionError: True is not false\n\n----------------------------------------------------------------------\nRan 5 tests in 0.001s\n\nFAILED (failures=1)\n"
+  }
+]

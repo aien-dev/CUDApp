@@ -1,0 +1,14 @@
+[
+  {
+    "source": "fn main to int\nfor transaction ulong 1\nend\nret 0\nend\n",
+    "rc": 13,
+    "stderr": "omc: line 2: error 13\n",
+    "bytes": 0
+  },
+  {
+    "source": "fn main to int\nfor txn ulong 1\nend\nret 0\nend\n",
+    "rc": 0,
+    "stderr": "",
+    "bytes": 232
+  }
+]

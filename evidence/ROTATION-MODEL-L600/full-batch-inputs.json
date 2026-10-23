@@ -1,0 +1,16 @@
+{
+  "argv": {
+    "root": "/home/drakestapleton/handoffs/quantum-development-L600/rotation-full-v1",
+    "reference": "/home/drakestapleton/workspace/targets/l600-rotation-reference/release/q36_rotation_quality",
+    "reference_sha": "f66d514c4849a4513e52395a23537b45ff941b9e857d928d6b70b59fbf3f1fe9",
+    "native": "/home/drakestapleton/workspace/cudapp-rotation-int4/build/rotquant-v2-final/rotquant-stream",
+    "mutant": "/home/drakestapleton/handoffs/quantum-development-L600/rotation-nine-level-mutant",
+    "corpus": "/home/drakestapleton/handoffs/quantum-development-L600/rotation-corpus",
+    "inventory": "/home/drakestapleton/handoffs/quantum-development-L600/rotation-precompute-inventory.json",
+    "model": "/home/drakestapleton/models/qwen3.6-35b-a3b-fp8-95a723d0",
+    "precompute_workers": 8
+  },
+  "corpus_manifest_sha256": "792bd267e51bd8f266fe48a66729dc8cc4d1ea2a8244c78bcbdf80dfd37ae6ef",
+  "inventory_sha256": "7c22379a906bc71121945b98afa389a993d2065c9164395c6e62c51e38ee1f9e",
+  "quality_rules_frozen": true
+}
