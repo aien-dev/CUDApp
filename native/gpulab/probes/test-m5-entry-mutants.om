@@ -1,0 +1,52 @@
+note SPDX-License-Identifier: MIT
+note Structural controls for the frozen eight-byte x-entry block.
+note Every changed bit must refuse; each restored original must pass.
+fn flip p ulong mask uchar to bool
+old = get capture p
+put capture p xor old mask
+accepted = probe
+put capture p old
+if accepted
+ret false
+end
+ret probe
+end
+fn controls to int
+if not probe
+ret 66
+end
+for k ulong 96
+p = div k 8
+mask = uchar shl ulong 1 rem k 8
+if not flip p mask
+ret 2
+end
+end
+n = ulong 4
+if eq octet 64 52
+n = 8
+end
+for k ulong mul n 8
+p = add ulong 64 div k 8
+mask = uchar shl ulong 1 rem k 8
+if not flip p mask
+ret 1
+end
+end
+ret 0
+end
+fn main to int
+n = ulong 0
+for i ulong 4096
+count = read 0 capture n 1
+if lt count 0
+ret 74
+end
+if eq count 0
+put captured 0 n
+ret controls
+end
+n = add n 1
+end
+ret 65
+end

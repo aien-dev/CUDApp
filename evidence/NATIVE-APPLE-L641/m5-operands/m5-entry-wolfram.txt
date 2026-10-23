@@ -1,0 +1,13 @@
+Wolfram Language evaluator input:
+<|"captureCount" -> 3*32*2, "axisMinimalPairs" -> 2*32*2, "headerEntryBitControls" -> (12*8+4*8)+2*(12*8+8*8), "ordinaryAxisSelectorBytes" -> IntegerString[{160,161,162},16,2], "wideAxisSelectorBytes" -> IntegerString[{128,129,130},16,2]|>
+
+Actual evaluator result:
+Out[1]= <|"captureCount" -> 192, "axisMinimalPairs" -> 128, "headerEntryBitControls" -> 448, "ordinaryAxisSelectorBytes" -> {"a0", "a1", "a2"}, "wideAxisSelectorBytes" -> {"80", "81", "82"}|>
+
+Separate arithmetic-only diagnostic input:
+aa=FromDigits[#,16]& /@ {"34","80","01","1a","40","00","a0","02"}; bb=ReplacePart[aa,2->129]; cc=ReplacePart[aa,2->130]; dst=BitOr[BitAnd[BitShiftRight[aa[[1]],4],1],BitAnd[BitShiftRight[aa[[1]],4],8],BitAnd[BitShiftRight[aa[[8]],2],6],BitAnd[BitShiftRight[aa[[8]],1],16],BitAnd[BitShiftRight[aa[[3]],2],32],BitAnd[BitShiftLeft[aa[[3]],3],64]]; {"xorXY"->MapThread[BitXor,{aa,bb}],"xorXZ"->MapThread[BitXor,{aa,cc}],"existingALUDestinationExtraction"->dst,"sharedOldClassLengthRule"->If[BitAnd[aa[[1]],7]==4&&BitAnd[aa[[2]],128]!=0&&MemberQ[{1,2},BitAnd[aa[[3]],3]],8,"unknown"]}
+
+Actual evaluator result:
+Out[1]= {"xorXY" -> {0, 1, 0, 0, 0, 0, 0, 0}, "xorXZ" -> {0, 2, 0, 0, 0, 0, 0, 0}, "existingALUDestinationExtraction" -> 1, "sharedOldClassLengthRule" -> 8}
+
+Boundary: the separate diagnostic computes what existing formulas return; it does not prove that an older-generation length rule or an ALU destination formula applies to a G17 entry opcode. The implementation admits an exact eight-byte block and its observed r1 dataflow contract, not a generalized entry-register field decoder. Wolfram is a reference calculation only, not a native dependency. Actual capture/case membership and runtime counts are independently recounted from files/logs, not inferred solely from the above products.

@@ -1,4 +1,6 @@
-# G17 operand investigation: partial functional result, HOLD
+# G17 operand investigation: historical partial result, HOLD
+
+> Historical receipt for source `f5c6118e60ade1e09469ba78bbb003e02e0fc81f`. Reproduce the commands below from that pin, not current HEAD. The subsequent axis/entry experiment reaches32/32 within the bounded research profile; see [M5-AXIS-ENTRY.md](M5-AXIS-ENTRY.md), `m5-entry-verdict.json`, and the original L742 review plus its disposition. Production M5 remains refused. The historical observations below are retained rather than rewritten as a newer test run.
 
 This is research evidence for L641, not an enabled M5 backend. **Target105 still refuses. No GPU execution, dependency-scheduling qualification, performance result, merge approval or full M1–M5 completion is claimed.** The existing M1–M4 implementation remains unchanged from functional source `4ff284212aad09ebf60832d83a25e2a6f8ef5ef3`; its frozen replay is recorded in the parent evidence directory.
 

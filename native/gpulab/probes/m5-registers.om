@@ -235,6 +235,26 @@ put defined d 1
 put stats 3 add get stats 3 1
 ret 14
 end
+note Frozen entry-block contracts, not a general new opcode decoder.
+note Axis minimal pairs change only byte65; x18/x25 reproduce old captures.
+fn entrylen to ulong
+if eq octet 64 52
+if or or ne octet 65 128 ne octet 66 1 ne octet 67 26
+ret 0
+end
+if or or or ne octet 68 64 ne octet 69 0 ne octet 70 160 ne octet 71 2
+ret 0
+end
+ret 8
+end
+if ne and octet 64 15 12
+ret 0
+end
+if or or ne octet 65 160 ne octet 66 16 ne octet 67 6
+ret 0
+end
+ret 4
+end
 fn initlane gid ulong to bool
 for i ulong 128
 put value i 0
@@ -246,13 +266,15 @@ end
 for i ulong 4
 put stats i 0
 end
-if ne and octet 64 15 12
-ret false
-end
-if or or ne octet 65 160 ne octet 66 16 ne octet 67 6
+n = entrylen
+if eq n 0
 ret false
 end
 r = shr octet 64 4
+if eq n 8
+note Only this exact eight-byte block is admitted; its live result is r1.
+r = 1
+end
 put value r gid
 put defined r 1
 ret true
@@ -261,7 +283,7 @@ fn lane gid ulong to bool
 if not initlane gid
 ret false
 end
-p = ulong 68
+p = add ulong 64 entrylen
 for step ulong 256
 put trace 0 uchar and p 255
 put trace 1 uchar shr p 8
@@ -307,8 +329,33 @@ end
 end
 ret true
 end
+note Admit only the two captured constant-program contexts, without
+note claiming that this synchronous model executes their physical effects.
+fn constok to bool
+if eq entrylen 8
+if or or or ne octet 0 14 ne octet 1 0 ne octet 2 0 ne octet 3 0
+ret false
+end
+for i ulong 4
+if or ne octet add 4 mul i 2 6 ne octet add 5 mul i 2 0
+ret false
+end
+end
+ret true
+end
+if or or or ne octet 0 35 ne octet 1 0 ne octet 2 7 ne octet 3 2
+ret false
+end
+if or or or ne octet 4 66 ne octet 5 32 ne octet 6 160 ne octet 7 2
+ret false
+end
+ret not or or or ne octet 8 14 ne octet 9 0 ne octet 10 0 ne octet 11 0
+end
 fn probe to bool
 if or lt get captured 0 72 gt get captured 0 4096
+ret false
+end
+if not constok
 ret false
 end
 note Symbol-table acquisition independently establishes main at octet 64.

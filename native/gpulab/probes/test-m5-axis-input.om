@@ -1,0 +1,49 @@
+note SPDX-License-Identifier: MIT
+note Exact pressure-one source golden for each thread-index axis.
+global input uchar 2048
+text prefix "#include <metal_stdlib>\nusing namespace metal;\nkernel void k(volatile device const uint *a [[buffer(0)]], volatile device const uint *b [[buffer(1)]], volatile device const uint *c [[buffer(2)]], device uint *out [[buffer(3)]], uint3 pos [[thread_position_in_grid]]) {\nuint gid=pos."
+text suffix ";\nuint va=a[gid]; uint vb=b[gid]; uint vc=c[gid];\nuint v0=a[gid+1];\nout[gid] = va * vb + vc;\nout[gid+1] = va; out[gid+2] = vb; out[gid+3] = vc;\nout[gid+4] = v0;\n}\n"
+fn matches axis ulong size ulong to bool
+if ne size add add len prefix 1 len suffix
+ret false
+end
+for i ulong len prefix
+if ne get input i get prefix i
+ret false
+end
+end
+if ne ulong get input len prefix add 120 axis
+ret false
+end
+for j ulong len suffix
+if ne get input add add len prefix 1 j get suffix j
+ret false
+end
+end
+ret true
+end
+fn main to int
+r = read 0 input 0 1
+if ne r 1
+ret 65
+end
+axis = ulong get input 0
+if gt axis 2
+ret 65
+end
+size = ulong 0
+for i ulong 2048
+n = read 0 input size 1
+if lt n 0
+ret 74
+end
+if eq n 0
+if not matches axis size
+ret 1
+end
+ret 0
+end
+size = add size 1
+end
+ret 65
+end

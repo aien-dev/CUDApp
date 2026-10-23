@@ -1,0 +1,30 @@
+{
+  "status": "BOUNDED_PRESSURE_PASS_PRODUCTION_HOLD",
+  "groups": {
+    "PRESSURE_CASE": 32,
+    "AXIS_X_CASE": 32,
+    "G16_REFUSAL_CASE": 96,
+    "NON_X_REFUSAL_CASE": 64
+  },
+  "unique_pressure_programs": 32,
+  "gids": [
+    0,
+    7,
+    31
+  ],
+  "axis_capture_count": 192,
+  "minimal_pairs_byte65_only": 128,
+  "header_entry_bit_refusals_with_restored_controls": 448,
+  "field_mutations_with_restored_controls": 9,
+  "compiled_wrong_r0_refusals": [
+    18,
+    25
+  ],
+  "old_entry_red": 66,
+  "header_admission_red": 2,
+  "source_sha256": "df07b719e3a6582f375e643042268dd1e4a49cef76db954a1cfca1f248e677cf",
+  "hardware": "NOT_RUN",
+  "dependency_contract": "UNQUALIFIED",
+  "target105": "STILL_REFUSED",
+  "entry_contract": "Exact eight-byte x-entry block plus captured constant-program context only; not a general instruction/physical effects decode"
+}
