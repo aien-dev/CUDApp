@@ -121,5 +121,21 @@ fn main to int
 collect
 reject
 capacity
+fixture
+check eq cstart 0
+sample 0 0
+put sprofile 2 1
+check eq cadd 69
+check eq cseal 69
+fixture
+check eq cstart 0
+put sprofile 3 64000
+check eq cadd 69
+check eq cseal 69
+fixture
+check eq cstart 0
+put srows 11 0
+check eq cadd 69
+check eq cseal 69
 ret finish
 end

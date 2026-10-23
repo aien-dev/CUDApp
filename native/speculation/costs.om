@@ -71,9 +71,9 @@ end
 ret 0
 end
 fn cvalid to int
-bound = cbound
-if ne bound 0
-ret bound
+status = cbound
+if ne status 0
+ret status
 end
 for i ulong 32
 if ne get cbind i get sid i
@@ -188,9 +188,9 @@ ret 0
 end
 fn cseal to int
 note All enabled rows need at least five observations. No partial table publication.
-bound = cbound
-if ne bound 0
-ret bound
+status = cbound
+if ne status 0
+ret status
 end
 if ne get sstate 0 0
 ret 75
