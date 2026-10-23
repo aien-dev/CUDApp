@@ -1,0 +1,414 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note One homogeneous held-out fixture/context/cold-or-warm group per report.
+note All attempts retained, invalid attempts poison the group; never retry until green.
+global pconfig ulong 5
+global pbind ulong 39
+global parmids ulong 128
+global pinned ulong 128
+global pobs ulong 56
+global praw ulong 14336
+global pslots ulong 128
+global pstate ulong 4
+global ratios ulong 32
+global times ulong 32
+global firsts ulong 32
+global summary ulong 12
+fn pstart n ulong to int
+put pstate 3 0
+if lt n 5
+ret 65
+end
+if gt n 32
+ret 65
+end
+if ne get pconfig 0 1024
+if ne get pconfig 0 32768
+ret 77
+end
+end
+if gt get pconfig 1 1
+ret 65
+end
+if eq get pconfig 2 0
+ret 65
+end
+if eq get pconfig 3 0
+ret 65
+end
+if gt get pconfig 3 256
+ret 65
+end
+if gt get pconfig 4 1
+ret 65
+end
+v = svalid
+if ne v 0
+ret v
+end
+v = pids
+if ne v 0
+ret v
+end
+if eq get pconfig 4 1
+if ne get sprofile 4 2
+ret 69
+end
+end
+for i ulong 32
+put pbind i get sid i
+end
+put pbind 32 get sprofile 1
+put pbind 33 get sprofile 4
+for i ulong 5
+put pbind add i 34 get pconfig i
+end
+for i ulong 128
+put pinned i get parmids i
+end
+for i ulong 128
+put pslots i 0
+end
+for i ulong 4
+put pstate i 0
+end
+put pstate 3 n
+ret 0
+end
+fn pids to int
+note Same model/tokenizer/numerics/protocol in all arms. Base build may differ.
+for a ulong 4
+for i ulong 32
+required = false
+if lt i 12
+required = true
+end
+if ge i 28
+required = true
+end
+if gt a 0
+if lt i 20
+required = true
+end
+end
+if ge a 2
+required = true
+end
+if required
+if ne get parmids add mul a 32 i get sid i
+ret 69
+end
+end
+end
+end
+ret 0
+end
+fn pvalid to int
+if eq get pstate 3 0
+ret 75
+end
+for i ulong 5
+if ne get pbind add i 34 get pconfig i
+ret 69
+end
+end
+for i ulong 32
+if ne get pbind i get sid i
+ret 69
+end
+if ne get sid i get sid add i 32
+ret 69
+end
+end
+if ne get pbind 32 get sprofile 1
+ret 69
+end
+if ne get pbind 33 get sprofile 4
+ret 69
+end
+ord = get pstate 0
+if ge ord mul get pstate 3 4
+ret 65
+end
+if ne get pobs 22 ord
+ret 65
+end
+pair = div ord 4
+if ne get pobs 0 pair
+ret 65
+end
+if ne get pobs 1 rem add ord pair 4
+ret 65
+end
+for i ulong 32
+expected = get pinned add mul get pobs 1 32 i
+if ne get pobs add i 24 expected
+ret 69
+end
+end
+if ne get pobs 2 get pconfig 2
+ret 69
+end
+if ne get pobs 23 get pconfig 0
+ret 69
+end
+if ne get pobs 20 get pbind 32
+ret 69
+end
+if ne get pobs 21 get pconfig 1
+ret 69
+end
+for d ulong 2
+v = ulong 0
+for j ulong 4
+v = or v get pobs add add 3 mul d 4 j
+end
+if eq v 0
+ret 69
+end
+end
+if eq get pobs 11 0
+ret 65
+end
+if gt get pobs 11 256
+ret 65
+end
+if lt get pobs 13 get pobs 12
+ret 65
+end
+if lt get pobs 14 get pobs 13
+ret 65
+end
+elapsed = sub get pobs 14 get pobs 12
+if eq elapsed 0
+ret 65
+end
+if gt elapsed 1000000000
+ret 65
+end
+if eq get pobs 15 0
+ret 65
+end
+if lt get pobs 16 1
+ret 65
+end
+if gt get pobs 16 2
+ret 65
+end
+if eq get pobs 16 2
+if ne get pobs 11 256
+ret 65
+end
+end
+if ne get pobs 17 1
+ret 69
+end
+if ne get pobs 18 1
+ret 75
+end
+if ne get pobs 19 0
+ret 75
+end
+ret 0
+end
+fn padd to int
+n = get pstate 0
+if ge n 256
+ret 77
+end
+status = pvalid
+for i ulong 56
+put praw add mul n 56 i get pobs i
+end
+put pstate 0 add n 1
+if ne status 0
+put pstate 1 add get pstate 1 1
+ret status
+end
+slot = add mul get pobs 0 4 get pobs 1
+if ne get pslots slot 0
+put pstate 1 add get pstate 1 1
+ret 65
+end
+put pslots slot add n 1
+if lt get pobs 11 get pconfig 3
+put pstate 2 1
+end
+ret 0
+end
+fn prow pair ulong arm ulong to ulong
+ret mul sub get pslots add mul pair 4 arm 1 56
+end
+fn pfinish to int
+if eq get pstate 3 0
+ret 75
+end
+for i ulong 5
+if ne get pbind add i 34 get pconfig i
+ret 69
+end
+end
+if ne get pstate 1 0
+ret 75
+end
+if ne get pstate 0 mul get pstate 3 4
+ret 75
+end
+for i ulong 32
+if ne get pbind i get sid i
+ret 69
+end
+if ne get sid i get sid add i 32
+ret 69
+end
+end
+if ne get pbind 32 get sprofile 1
+ret 69
+end
+if ne get pbind 33 get sprofile 4
+ret 69
+end
+for p ulong get pstate 3
+for a ulong 4
+if eq get pslots add mul p 4 a 0
+ret 75
+end
+end
+base = prow p 0
+if not pprompt base prow 0 0
+ret 69
+end
+for a ulong 4
+row = prow p a
+if not pequal base row
+ret 69
+end
+end
+end
+ret 0
+end
+fn pprompt a ulong b ulong to bool
+for i ulong 4
+left = get praw add add a 3 i
+right = get praw add add b 3 i
+if ne left right
+ret false
+end
+end
+ret true
+end
+fn pequal base ulong row ulong to bool
+note Exact greedy output digest and length must agree before speed is interpreted.
+for i ulong 9
+left = get praw add add base 3 i
+right = get praw add add row 3 i
+if ne left right
+ret false
+end
+end
+if ne get praw add base 16 get praw add row 16
+ret false
+end
+ret true
+end
+fn psort n ulong to void
+for i ulong n
+for j ulong sub n 1
+if gt get ratios j get ratios add j 1
+t = get ratios j
+put ratios j get ratios add j 1
+put ratios add j 1 t
+end
+if gt get times j get times add j 1
+t = get times j
+put times j get times add j 1
+put times add j 1 t
+end
+if gt get firsts j get firsts add j 1
+t = get firsts j
+put firsts j get firsts add j 1
+put firsts add j 1 t
+end
+end
+end
+end
+fn prank n ulong to ulong
+note Exact two-sided 95% distribution-free interval for median paired ratio.
+note P[Binomial(n,1/2) < k] <= 1/40. n <=32 keeps every product in uint64.
+choose = ulong 1
+sum = ulong 0
+k = ulong 0
+for i ulong add div n 2 1
+sum = add sum choose
+if le mul sum 40 shl 1 n
+k = add i 1
+end
+choose = div mul choose sub n i add i 1
+end
+ret k
+end
+fn pmeasure pair ulong arm ulong to void
+a = prow pair 3
+b = prow pair arm
+ta = sub get praw add a 14 get praw add a 12
+tb = sub get praw add b 14 get praw add b 12
+put ratios pair div mul tb 1000000 ta
+put times pair ta
+put firsts pair sub get praw add a 13 get praw add a 12
+if gt get praw add a 15 get summary 9
+put summary 9 get praw add a 15
+end
+end
+fn preport arm ulong to int
+if gt arm 2
+ret 65
+end
+for i ulong 12
+put summary i 0
+end
+status = pfinish
+if ne status 0
+ret status
+end
+n = get pstate 3
+for p ulong n
+pmeasure p arm
+end
+psort n
+mid = div n 2
+put summary 0 n
+put summary 1 arm
+put summary 2 get ratios mid
+put summary 5 get times mid
+put summary 7 get firsts mid
+if eq rem n 2 0
+put summary 2 div add get ratios mid get ratios sub mid 1 2
+put summary 5 div add get times mid get times sub mid 1 2
+put summary 7 div add get firsts mid get firsts sub mid 1 2
+end
+p95 = sub div add mul n 95 99 100 1
+put summary 6 get times p95
+put summary 8 get firsts p95
+rank = prank n
+put summary 11 get pbind 33
+if eq rank 0
+put summary 4 18446744073709551615
+ret 0
+end
+put summary 3 get ratios sub rank 1
+put summary 4 get ratios sub n rank
+if eq get pstate 2 1
+ret 0
+end
+if gt get summary 3 1000000
+put summary 10 1
+end
+if lt get summary 4 1000000
+put summary 10 3
+end
+if eq get summary 3 1000000
+if eq get summary 4 1000000
+put summary 10 2
+end
+end
+ret 0
+end

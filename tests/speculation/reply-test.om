@@ -1,0 +1,66 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+global answer uchar 881
+fn aw i ulong to ulong
+v = ulong 0
+for j ulong 8
+v = or v shl ulong get answer add mul i 8 j mul j 8
+end
+ret v
+end
+fn main to int
+n = ulong 0
+for i ulong 882
+if gt n 880
+ret 65
+end
+r = read 0 answer n sub 881 n
+if lt r 0
+ret 74
+end
+if eq r 0
+if lt n 40
+ret 65
+end
+check eq aw 0 827867987
+check eq aw 1 1
+check eq aw 3 1
+if eq aw 2 1
+check eq n 80
+check eq aw 4 5
+check eq aw 5 31
+check eq aw 6 32
+check eq aw 7 32000000
+check eq aw 8 101
+check eq aw 9 0
+ret finish
+end
+if eq aw 2 2
+check eq n 880
+check eq aw 4 105
+check eq aw 9 102
+check eq aw 11 5
+check eq aw 89 106
+check eq aw 90 110
+ret finish
+end
+if eq aw 2 3
+check eq n 328
+check eq aw 4 36
+for a ulong 3
+b = add 5 mul a 12
+check eq aw b 8
+check eq aw add b 1 a
+check eq aw add b 2 2000000
+check eq aw add b 3 2000000
+check eq aw add b 4 2000000
+check eq aw add b 10 1
+check eq aw add b 11 1
+end
+ret finish
+end
+ret 77
+end
+n = add n ulong r
+end
+ret 65
+end

@@ -1,0 +1,115 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Native emitter for synthetic public stream fixtures. Selector1 policy,2 costs,3 pairs.
+global frame uchar 32768
+global selector uchar 2
+fn fw i ulong v ulong to void
+for j ulong 8
+put frame add mul i 8 j uchar and shr v mul j 8 255
+end
+end
+fn fcost to ulong
+fw 182 35
+for r ulong 7
+for n ulong 5
+b = add 183 mul add mul r 5 n 16
+fw b r
+fw add b 1 n
+fw add b 2 1
+fw add b 5 add 100 n
+fw add b 8 1
+fw add b 10 add 106 n
+fw add b 11 add 100 mul r 10
+fw add b 12 add slen r 1
+fw add b 13 7
+fw add b 14 1
+fw add b 15 63
+end
+end
+ret 5944
+end
+fn fpairs to ulong
+fw 182 1024
+fw 184 1
+fw 185 32
+fw 187 8
+fw 188 32
+for i ulong 128
+fw add i 189 get sid rem i 32
+end
+for ord ulong 32
+b = add 317 mul ord 56
+arm = rem add ord div ord 4 4
+fw b div ord 4
+fw add b 1 arm
+fw add b 2 1
+for i ulong 8
+fw add add b 3 i add i 1
+end
+fw add b 11 64
+fw add b 12 1000
+fw add b 13 1010
+fw add b 14 1200
+if eq arm 3
+fw add b 14 1100
+end
+fw add b 15 1000
+fw add b 16 1
+fw add b 17 1
+fw add b 18 1
+fw add b 20 7
+fw add b 22 ord
+fw add b 23 1024
+for i ulong 32
+fw add add b 24 i get sid i
+end
+end
+ret 16872
+end
+fn main to int
+r = read 0 selector 0 2
+if ne r 1
+ret 65
+end
+mode = ulong get selector 0
+if lt mode 1
+ret 65
+end
+if gt mode 3
+ret 65
+end
+fixture
+fw 0 827867987
+fw 1 1
+fw 2 mode
+for i ulong 64
+fw add i 4 get sid i
+end
+for i ulong 6
+fw add i 68 get sprofile i
+end
+for i ulong 77
+fw add i 74 get srows i
+end
+for i ulong 31
+fw add i 151 get sprior i
+end
+bytes = ulong 1520
+if eq mode 1
+fw 184 1000
+fw 185 256
+fw 186 1000
+fw 187 7
+fw 188 2
+end
+if eq mode 2
+bytes = fcost
+end
+if eq mode 3
+bytes = fpairs
+end
+w = write 1 frame 0 bytes
+if ne w long bytes
+ret 74
+end
+ret 0
+end

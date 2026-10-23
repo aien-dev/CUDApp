@@ -1,0 +1,125 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+fn sample r ulong n ulong to void
+for i ulong 16
+put cobs i 0
+end
+put cobs 0 r
+put cobs 1 n
+put cobs 2 1
+put cobs 5 add 100 n
+put cobs 8 1
+put cobs 10 add 106 n
+put cobs 11 add 100 mul r 10
+put cobs 12 add slen r 1
+put cobs 13 7
+put cobs 14 1
+put cobs 15 63
+end
+fn collect to void
+fixture
+check eq cstart 0
+check eq cseal 75
+for r ulong 7
+for i ulong 5
+sample r i
+check eq cadd 0
+end
+end
+check eq cseal 0
+check eq scost 0 108
+check eq get srows 4 102
+check eq get srows 6 5
+check eq get crange 0 106
+check eq get crange 1 110
+check eq get craw 74 110
+check eq get srows 10 5
+check eq get srows 75 160
+check eq svalid 0
+check eq sbegin 0 0
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 2 0 0
+check eq get decision 3 108
+scancel
+end
+fn reject to void
+fixture
+check eq cstart 0
+sample 0 0
+put cobs 15 31
+check eq cadd 65
+sample 0 0
+put cobs 5 0
+check eq cadd 65
+sample 0 0
+put cobs 2 0
+check eq cadd 75
+sample 0 0
+put cobs 3 1
+check eq cadd 75
+sample 0 0
+put cobs 10 100
+check eq cadd 65
+sample 0 0
+put cobs 10 18446744073709551615
+check eq cadd 65
+sample 0 0
+put cobs 5 18446744073709551615
+check eq cadd 65
+sample 0 0
+put cobs 4 1
+check eq cadd 65
+sample 0 0
+put cobs 13 8
+check eq cadd 69
+sample 0 0
+put cobs 14 2
+check eq cadd 69
+sample 0 0
+put cobs 12 2
+check eq cadd 65
+sample 7 0
+check eq cadd 65
+sample 0 0
+put cobs 11 0
+check eq cadd 65
+sample 0 1
+check eq cadd 65
+check eq get ccount 0 0
+sample 0 0
+check eq cadd 0
+check eq cadd 65
+check eq get ccount 0 1
+put sid 0 999
+check eq cseal 69
+sample 0 1
+check eq cadd 69
+end
+fn capacity to void
+fixture
+note Unsupported shapes must be declared before collection, not dropped after observing costs.
+for r ulong 7
+if gt r 0
+put srows mul r 11 0
+end
+end
+check eq cstart 0
+for i ulong 32
+sample 0 i
+check eq cadd 0
+end
+sample 0 32
+check eq cadd 77
+check eq get ccount 0 32
+check eq get craw 506 137
+check eq cseal 0
+check eq get srows 11 0
+put srows 11 1
+check eq cseal 69
+end
+fn main to int
+collect
+reject
+capacity
+ret finish
+end
