@@ -1,0 +1,39 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Public developer replay only; trusted framework attachment remains NOT_RUN.
+note No launch, timing, candidate source, model, credentials, files or network.
+text verdict "HOST_ONLY 0\n"
+fn kpublish to int
+p = ulong 0
+for i ulong 13
+if ge p len verdict
+ret 0
+end
+w = write 1 verdict p sub len verdict p
+if le w 0
+ret 74
+end
+p = add p ulong w
+end
+ret 74
+end
+fn main to int
+n = ulong 0
+for i ulong 5138
+if ge n 5137
+ret 65
+end
+r = read 0 packet n sub 5137 n
+if lt r 0
+ret 74
+end
+if eq r 0
+status = kframe n
+if ne status 0
+ret status
+end
+ret kpublish
+end
+n = add n ulong r
+end
+ret 65
+end

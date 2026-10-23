@@ -1,0 +1,268 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note CUL1 public domain adapter. See docs/learn53/CONTRACT.md.
+note Caller owns/pins kt; only ko contains candidate observations. No code execution.
+global kt uchar 4096
+global ko uchar 1032
+fn kw i ulong to ulong
+v = ulong 0
+for j ulong 4
+v = or v shl ulong get kt add mul i 4 j mul j 8
+end
+ret v
+end
+fn kc i ulong to ulong
+v = ulong 0
+for j ulong 4
+v = or v shl ulong get ko add mul i 4 j mul j 8
+end
+ret v
+end
+fn kshape to ulong
+op = kw 2
+m = kw 5
+n = kw 6
+k = kw 7
+if eq op 3
+if eq m 2
+if eq n 3
+if eq k 2
+ret 301
+end
+end
+end
+if eq m 3
+if eq n 2
+if eq k 3
+ret 302
+end
+end
+end
+ret 0
+end
+if ne n 1
+ret 0
+end
+if ne k 1
+ret 0
+end
+base = mul op 100
+if eq m 3
+ret add base 1
+end
+if eq m 8
+ret add base 2
+end
+if eq m 17
+ret add base 3
+end
+ret 0
+end
+fn kextent rows ulong cols ulong stride ulong to ulong
+ret add mul sub rows 1 stride cols
+end
+fn kstrides to int
+op = kw 2
+m = kw 5
+if eq op 3
+if lt kw 8 kw 7
+ret 65
+end
+if lt kw 9 kw 6
+ret 65
+end
+if lt kw 10 kw 6
+ret 65
+end
+if ne kw 11 kextent m kw 7 kw 8
+ret 65
+end
+if ne kw 12 kextent kw 7 kw 6 kw 9
+ret 65
+end
+if ne kw 13 kextent m kw 6 kw 10
+ret 65
+end
+ret 0
+end
+if eq kw 8 0
+ret 65
+end
+if ne kw 11 kextent m 1 kw 8
+ret 65
+end
+if eq op 2
+if ne kw 9 0
+ret 65
+end
+if ne kw 12 0
+ret 65
+end
+if ne kw 10 1
+ret 65
+end
+if ne kw 13 1
+ret 65
+end
+ret 0
+end
+if eq kw 9 0
+ret 65
+end
+if eq kw 10 0
+ret 65
+end
+if ne kw 12 kextent m 1 kw 9
+ret 65
+end
+if ne kw 13 kextent m 1 kw 10
+ret 65
+end
+ret 0
+end
+fn kvalid n ulong to int
+note All variable reads follow size/count validation. Bounds precede arithmetic.
+if lt n 96
+ret 65
+end
+if gt n 4096
+ret 65
+end
+if ne kw 0 827086147
+ret 65
+end
+if ne kw 1 1
+ret 69
+end
+if gt kw 11 256
+ret 65
+end
+if gt kw 12 256
+ret 65
+end
+if eq kw 13 0
+ret 65
+end
+if gt kw 13 256
+ret 65
+end
+if ne n add 96 mul 4 add kw 11 kw 12
+ret 65
+end
+if ne kw 23 0
+ret 65
+end
+if eq kw 16 0
+ret 65
+end
+if ne kw 21 0
+ret 65
+end
+if ne kw 22 0
+ret 65
+end
+if lt kw 2 1
+ret 69
+end
+if gt kw 2 3
+ret 69
+end
+if ne kw 3 1
+ret 69
+end
+if ne kw 4 0
+ret 69
+end
+if ne kw 17 1
+ret 69
+end
+if ne kw 18 0
+ret 69
+end
+if ne kw 19 1
+ret 69
+end
+if ne kw 20 1
+ret 69
+end
+if eq kw 14 0
+ret 65
+end
+if gt kw 14 3
+ret 65
+end
+if ne kw 14 1
+ret 77
+end
+family = kshape
+if eq family 0
+ret 69
+end
+if ne kw 15 family
+ret 65
+end
+for i ulong 3
+if gt kw add i 8 32
+ret 65
+end
+end
+ret kstrides
+end
+fn ksum to ulong
+v = ulong 0
+for i ulong kw 5
+v = and add v kw add 24 mul i kw 8 4294967295
+end
+ret v
+end
+fn kdot row ulong col ulong to ulong
+v = ulong 0
+for i ulong kw 7
+a = kw add 24 add mul row kw 8 i
+b = kw add add 24 kw 11 add mul i kw 9 col
+v = and add v mul a b 4294967295
+end
+ret v
+end
+fn kexpect pos ulong to ulong
+op = kw 2
+if eq op 2
+ret ksum
+end
+stride = kw 10
+row = div pos stride
+col = rem pos stride
+if eq op 3
+if ge col kw 6
+ret 2779096485
+end
+ret kdot row col
+end
+if ne col 0
+ret 2779096485
+end
+a = kw add 24 mul row kw 8
+b = kw add add 24 kw 11 mul row kw 9
+ret and add a b 4294967295
+end
+fn keval n ulong c ulong to int
+status = kvalid n
+if ne status 0
+ret status
+end
+note Candidate result length is not trusted. No caller-supplied PASS or tolerance.
+if ne c mul 4 add kw 13 2
+ret 65
+end
+if ne kc 0 2779096485
+ret 1
+end
+if ne kc add kw 13 1 2779096485
+ret 1
+end
+for i ulong kw 13
+if ne kc add i 1 kexpect i
+ret 1
+end
+end
+ret 0
+end
