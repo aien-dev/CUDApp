@@ -38,7 +38,7 @@ git rev-parse HEAD
 head -1 LICENSE
 ```
 
-The final commands show that exact commit and `MIT License`. To develop ymy own fork from this foundation, create a branch there:
+The final commands show that exact commit and `MIT License`. To develop your own fork from this foundation, create a branch there:
 
 ```sh
 git switch -c my-mit-development 232332422bfdc31c8918085b50f13c1e18ab702e
