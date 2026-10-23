@@ -1,0 +1,9 @@
+build/native-gpulab/test-amd: OK
+build/native-gpulab/test-agx: OK
+build/native-gpulab/test-m3: OK
+build/native-gpulab/test-m4: OK
+build/native-gpulab/test-cross: OK
+build/native-gpulab/test-families: OK
+build/native-gpulab/emit-main: OK
+build/native-gpulab/test-wire: OK
+build/native-gpulab/test-m4-oracle: OK

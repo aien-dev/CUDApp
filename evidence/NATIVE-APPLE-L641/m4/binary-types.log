@@ -1,0 +1,7 @@
+build/native-gpulab/test-m4:                    ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, no section header
+build/native-gpulab-probes/apple-oracle-input:  ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, no section header
+build/native-gpulab-probes/apple-operand-input: ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, no section header
+build/native-gpulab-probes/m5-roles-input:      ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, no section header
+build/native-gpulab-probes/macho-test:          ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, no section header
+build/native-gpulab-probes/macho-extract:       ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, no section header
+build/native-gpulab-probes/macho-inner:         ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, no section header

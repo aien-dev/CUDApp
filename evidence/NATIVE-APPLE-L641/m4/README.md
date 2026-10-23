@@ -20,9 +20,14 @@ assembler/disassembler are external validation tools only.
   remain in the runner. G15/G16 cross-profile refusals are checked explicitly.
 - Hardware: NOT_RUN. Speed: NOT_MEASURED. Independent review: PENDING.
 
-Fresh replay and identity logs accompany the frozen source candidate. The
-`source-files.sha256` inventory identifies its complete native/gpulab input set;
-`native-binaries.sha256` identifies executable outputs, not hardware code.
+Frozen functional source: `4ff284212aad09ebf60832d83a25e2a6f8ef5ef3`.
+A fresh `git archive` replay passed the complete native suite, the independent
+Mach-O reader tests (291 checks, zero failures), all 24 frozen compiler-container
+extractions, and source-writer valid/refusal checks. The replay command is
+`bash m4-replay.sh 4ff284212aad09ebf60832d83a25e2a6f8ef5ef3`; the orchestration
+script is included beside this receipt. `source-files.sha256` inventories the
+complete frozen native/gpulab input set. `native-binaries.sha256` identifies
+executable outputs, not hardware code.
 
 ## Correction to the earlier M4 premise
 
