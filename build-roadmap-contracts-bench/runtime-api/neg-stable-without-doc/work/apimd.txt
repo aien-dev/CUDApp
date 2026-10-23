@@ -1,0 +1,1 @@
+FAIL: STABLE entry omega_gpu_session_launch has no "#### `omega_gpu_session_launch`" section in build-roadmap-contracts-bench/runtime-api/neg-stable-without-doc/API.md

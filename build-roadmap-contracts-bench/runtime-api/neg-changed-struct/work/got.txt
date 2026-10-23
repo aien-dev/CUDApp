@@ -1,0 +1,425 @@
+const OMEGA_RUNTIME_API_VERSION_MAJOR 0
+const OMEGA_RUNTIME_API_VERSION_MINOR 2
+const OMEGA_RUNTIME_API_VERSION_MAJOR 0
+const OMEGA_RUNTIME_API_VERSION_MINOR 2
+struct OmegaGpuDeviceHandle 8 4
+field OmegaGpuDeviceHandle index 0 4
+field OmegaGpuDeviceHandle generation 4 4
+struct OmegaGpuBufferHandle 8 4
+field OmegaGpuBufferHandle index 0 4
+field OmegaGpuBufferHandle generation 4 4
+struct OmegaGpuQueueHandle 8 4
+field OmegaGpuQueueHandle index 0 4
+field OmegaGpuQueueHandle generation 4 4
+struct OmegaCpuView 16 8
+field OmegaCpuView ptr 0 8
+field OmegaCpuView len 8 8
+struct OmegaGpuVa 8 8
+field OmegaGpuVa va 0 8
+struct OmegaGpuBusAddr 8 8
+field OmegaGpuBusAddr iova 0 8
+struct OmegaGpuBufferDesc 24 8
+field OmegaGpuBufferDesc kind 0 4
+field OmegaGpuBufferDesc rights 4 4
+field OmegaGpuBufferDesc gpu_cache 8 4
+field OmegaGpuBufferDesc align 12 4
+field OmegaGpuBufferDesc bytes 16 8
+struct OmegaGpuPlatformCaps 56 8
+field OmegaGpuPlatformCaps abi_major 0 4
+field OmegaGpuPlatformCaps abi_minor 4 4
+field OmegaGpuPlatformCaps services 8 4
+field OmegaGpuPlatformCaps max_devices 12 4
+field OmegaGpuPlatformCaps max_buffers 16 4
+field OmegaGpuPlatformCaps max_queues 20 4
+field OmegaGpuPlatformCaps max_inflight 24 4
+field OmegaGpuPlatformCaps max_buffer_bytes 32 8
+field OmegaGpuPlatformCaps max_total_bytes 40 8
+field OmegaGpuPlatformCaps submit_prefix_words 48 4
+struct OmegaGpuPlatform 184 8
+field OmegaGpuPlatform ctx 0 8
+field OmegaGpuPlatform time_now_ms 8 8
+field OmegaGpuPlatform wait_ms 16 8
+field OmegaGpuPlatform lock 24 8
+field OmegaGpuPlatform unlock 32 8
+field OmegaGpuPlatform mmio_read32 40 8
+field OmegaGpuPlatform mmio_write32 48 8
+field OmegaGpuPlatform dma_alloc 56 8
+field OmegaGpuPlatform dma_free 64 8
+field OmegaGpuPlatform sync_cpu_to_gpu 72 8
+field OmegaGpuPlatform sync_gpu_to_cpu 80 8
+field OmegaGpuPlatform poll_word 88 8
+field OmegaGpuPlatform irq_wait 96 8
+field OmegaGpuPlatform device_open 104 8
+field OmegaGpuPlatform device_close 112 8
+field OmegaGpuPlatform diag_text 120 8
+field OmegaGpuPlatform queue_open 128 8
+field OmegaGpuPlatform queue_close 136 8
+field OmegaGpuPlatform queue_submit 144 8
+field OmegaGpuPlatform queue_retire 152 8
+field OmegaGpuPlatform time_now_ns 160 8
+field OmegaGpuPlatform host_alloc 168 8
+field OmegaGpuPlatform host_free 176 8
+struct OmegaGpuHandleTable 69648 8
+field OmegaGpuHandleTable generation 0 16384
+field OmegaGpuHandleTable kind 16384 16384
+field OmegaGpuHandleTable bytes 32768 32768
+field OmegaGpuHandleTable live 65536 4096
+field OmegaGpuHandleTable nlive 69632 4
+field OmegaGpuHandleTable total_bytes 69640 8
+struct OmegaGpuMem 40 8
+field OmegaGpuMem handle 0 8
+field OmegaGpuMem kind 8 4
+field OmegaGpuMem cpu 16 8
+field OmegaGpuMem va 24 8
+field OmegaGpuMem size 32 8
+struct OmegaGpuSession 192 8
+field OmegaGpuSession dev 0 8
+field OmegaGpuSession queue 8 8
+field OmegaGpuSession pb 16 40
+field OmegaGpuSession cbank 56 40
+field OmegaGpuSession marker 96 40
+field OmegaGpuSession qmd 136 40
+field OmegaGpuSession opens 176 4
+field OmegaGpuSession last_open_ns 184 8
+struct OmegaGpuScratch 64 8
+field OmegaGpuScratch mem 0 40
+field OmegaGpuScratch cap 40 8
+field OmegaGpuScratch high_water 48 8
+field OmegaGpuScratch reserved 56 1
+struct OmegaGpuLaunch 64 8
+field OmegaGpuLaunch code_va 0 8
+field OmegaGpuLaunch gpr_count 8 4
+field OmegaGpuLaunch threads_x 12 4
+field OmegaGpuLaunch threads_y 16 4
+field OmegaGpuLaunch grid_x 20 4
+field OmegaGpuLaunch grid_y 24 4
+field OmegaGpuLaunch num_elements 32 8
+field OmegaGpuLaunch args 40 8
+field OmegaGpuLaunch n_args 48 4
+field OmegaGpuLaunch timeout_ms 52 4
+field OmegaGpuLaunch shared_bytes 56 4
+field OmegaGpuLaunch spin_us 60 4
+struct OmegaGpuParkStats 16 8
+field OmegaGpuParkStats buffers 0 4
+field OmegaGpuParkStats untracked 4 4
+field OmegaGpuParkStats bytes 8 8
+struct OmegaGpuCmdListOpts 32 8
+field OmegaGpuCmdListOpts mode 0 4
+field OmegaGpuCmdListOpts barrier 4 4
+field OmegaGpuCmdListOpts timeout_ms 8 8
+field OmegaGpuCmdListOpts spin_us 16 4
+field OmegaGpuCmdListOpts stamps 20 4
+field OmegaGpuCmdListOpts skip_launch 24 4
+struct OmegaGpuCmdListStats 40 8
+field OmegaGpuCmdListStats launches 0 4
+field OmegaGpuCmdListStats submits 4 4
+field OmegaGpuCmdListStats words 8 4
+field OmegaGpuCmdListStats elapsed_ns 16 8
+field OmegaGpuCmdListStats host_ns 24 8
+field OmegaGpuCmdListStats sems_done 32 4
+field OmegaGpuCmdListStats first_missing 36 4
+struct OmegaGpuTimeouts 32 8
+field OmegaGpuTimeouts marker_ms 0 8
+field OmegaGpuTimeouts release_semaphore_ms 8 8
+field OmegaGpuTimeouts marker2_ms 16 8
+field OmegaGpuTimeouts visibility_ms 24 8
+struct OmegaGpuJob 128 8
+field OmegaGpuJob program 0 8
+field OmegaGpuJob program_len 8 8
+field OmegaGpuJob layout 16 4
+field OmegaGpuJob element_count 20 4
+field OmegaGpuJob input_a 24 8
+field OmegaGpuJob input_a_len 32 8
+field OmegaGpuJob input_b 40 8
+field OmegaGpuJob input_b_len 48 8
+field OmegaGpuJob output 56 8
+field OmegaGpuJob output_len 64 8
+field OmegaGpuJob poison 72 8
+field OmegaGpuJob poison_count 80 8
+field OmegaGpuJob timeouts 88 32
+field OmegaGpuJob flags 120 4
+struct OmegaGpuResult 208 8
+field OmegaGpuResult failure 0 4
+field OmegaGpuResult last_state 4 4
+field OmegaGpuResult failed_step 8 4
+field OmegaGpuResult wait 12 4
+field OmegaGpuResult wait_timeout_ms 16 8
+field OmegaGpuResult waited_ms 24 8
+field OmegaGpuResult drv_rc 32 4
+field OmegaGpuResult err_no 36 4
+field OmegaGpuResult drv_text 40 128
+field OmegaGpuResult sync_valid 168 4
+field OmegaGpuResult marker 172 4
+field OmegaGpuResult marker2 176 4
+field OmegaGpuResult semaphore 180 4
+field OmegaGpuResult retained 184 4
+field OmegaGpuResult cleanup_failed 188 4
+field OmegaGpuResult n_outputs 192 8
+field OmegaGpuResult output_unchanged_words 200 8
+struct OmegaGpuBackendDiag 148 4
+field OmegaGpuBackendDiag drv_rc 0 4
+field OmegaGpuBackendDiag drv_text 4 128
+field OmegaGpuBackendDiag sync_valid 132 4
+field OmegaGpuBackendDiag marker 136 4
+field OmegaGpuBackendDiag marker2 140 4
+field OmegaGpuBackendDiag semaphore 144 4
+struct OmegaGpuBackend 128 8
+field OmegaGpuBackend ctx 0 8
+field OmegaGpuBackend open_device 8 8
+field OmegaGpuBackend create_channel 16 8
+field OmegaGpuBackend alloc 24 8
+field OmegaGpuBackend copy_in 32 8
+field OmegaGpuBackend fill_poison 40 8
+field OmegaGpuBackend build 48 8
+field OmegaGpuBackend submit 56 8
+field OmegaGpuBackend wait_marker 64 8
+field OmegaGpuBackend wait_marker2 72 8
+field OmegaGpuBackend wait_release_semaphore 80 8
+field OmegaGpuBackend barrier 88 8
+field OmegaGpuBackend copy_out 96 8
+field OmegaGpuBackend diagnostics 104 8
+field OmegaGpuBackend free_buf 112 8
+field OmegaGpuBackend close 120 8
+struct OmegaGpuMatmulInfo 160 8
+field OmegaGpuMatmulInfo m 0 4
+field OmegaGpuMatmulInfo k 4 4
+field OmegaGpuMatmulInfo n 8 4
+field OmegaGpuMatmulInfo padded_m 12 4
+field OmegaGpuMatmulInfo padded_n 16 4
+field OmegaGpuMatmulInfo k_slices 20 4
+field OmegaGpuMatmulInfo chip_calls 24 4
+field OmegaGpuMatmulInfo rows_per_call 28 4
+field OmegaGpuMatmulInfo elapsed_ns 32 8
+field OmegaGpuMatmulInfo max_abs_err 40 4
+field OmegaGpuMatmulInfo max_rel_err 44 4
+field OmegaGpuMatmulInfo mismatch_count 48 8
+field OmegaGpuMatmulInfo parity_verified 56 1
+field OmegaGpuMatmulInfo completion_marker 60 4
+field OmegaGpuMatmulInfo kernel_cache_hit 64 1
+field OmegaGpuMatmulInfo target_chip 65 64
+field OmegaGpuMatmulInfo sm_architecture 132 4
+field OmegaGpuMatmulInfo grid_x 136 4
+field OmegaGpuMatmulInfo grid_y 140 4
+field OmegaGpuMatmulInfo padded_k 144 4
+field OmegaGpuMatmulInfo resident 148 1
+field OmegaGpuMatmulInfo oracle_ran 149 1
+field OmegaGpuMatmulInfo call_ns 152 8
+struct OmegaGpuAllocStats 40 8
+field OmegaGpuAllocStats allocs 0 8
+field OmegaGpuAllocStats alloc_bytes 8 8
+field OmegaGpuAllocStats alloc_failures 16 8
+field OmegaGpuAllocStats frees 24 8
+field OmegaGpuAllocStats stale_refusals 32 8
+struct OmegaGpuServingBounds 44 4
+field OmegaGpuServingBounds max_context 0 4
+field OmegaGpuServingBounds max_seqs 4 4
+field OmegaGpuServingBounds num_q_heads 8 4
+field OmegaGpuServingBounds num_kv_heads 12 4
+field OmegaGpuServingBounds head_dim 16 4
+field OmegaGpuServingBounds kv_block_size 20 4
+field OmegaGpuServingBounds max_rows 24 4
+field OmegaGpuServingBounds max_k 28 4
+field OmegaGpuServingBounds max_n 32 4
+field OmegaGpuServingBounds max_n_one_row 36 4
+field OmegaGpuServingBounds kernel_slots 40 4
+struct OmegaGpuEwInfo 120 8
+field OmegaGpuEwInfo chip_calls 0 4
+field OmegaGpuEwInfo elapsed_ns 8 8
+field OmegaGpuEwInfo completion_marker 16 4
+field OmegaGpuEwInfo unwritten_words 20 4
+field OmegaGpuEwInfo kernel_cache_hit 24 1
+field OmegaGpuEwInfo gpr_count 28 4
+field OmegaGpuEwInfo insn_count 32 4
+field OmegaGpuEwInfo threads_per_cta 36 4
+field OmegaGpuEwInfo ctas_last_launch 40 4
+field OmegaGpuEwInfo target_chip 44 64
+field OmegaGpuEwInfo sm_architecture 108 4
+field OmegaGpuEwInfo call_ns 112 8
+struct OmegaGpuAttnInfo 176 8
+field OmegaGpuAttnInfo chip_calls 0 4
+field OmegaGpuAttnInfo elapsed_ns 8 8
+field OmegaGpuAttnInfo call_ns 16 8
+field OmegaGpuAttnInfo completion_marker 24 4
+field OmegaGpuAttnInfo unwritten_words 28 4
+field OmegaGpuAttnInfo gpr_count 32 4
+field OmegaGpuAttnInfo insn_count 36 4
+field OmegaGpuAttnInfo kernel_cache_hit 40 1
+field OmegaGpuAttnInfo ctas_last_launch 44 4
+field OmegaGpuAttnInfo threads_per_cta 48 4
+field OmegaGpuAttnInfo target_chip 52 64
+field OmegaGpuAttnInfo sm_architecture 116 4
+field OmegaGpuAttnInfo kv_bytes_staged 120 8
+field OmegaGpuAttnInfo kv_bytes_naive 128 8
+field OmegaGpuAttnInfo kv_blocks_logical 136 4
+field OmegaGpuAttnInfo kv_blocks_unique 140 4
+field OmegaGpuAttnInfo q_bytes 144 8
+field OmegaGpuAttnInfo tab_bytes 152 8
+field OmegaGpuAttnInfo out_bytes 160 8
+field OmegaGpuAttnInfo kv_source 168 4
+struct OmegaGpuKvLayout 64 8
+field OmegaGpuKvLayout block_stride_bytes 0 8
+field OmegaGpuKvLayout layer_stride_bytes 8 8
+field OmegaGpuKvLayout kv_plane_stride_bytes 16 8
+field OmegaGpuKvLayout token_stride_bytes 24 8
+field OmegaGpuKvLayout head_stride_bytes 32 8
+field OmegaGpuKvLayout pool_bytes 40 8
+field OmegaGpuKvLayout num_blocks 48 4
+field OmegaGpuKvLayout num_layers 52 4
+field OmegaGpuKvLayout block_size 56 4
+const OMEGA_GPU_MATMUL_OK 0
+const OMEGA_GPU_MATMUL_BAD_ARGS -1
+const OMEGA_GPU_MATMUL_TOO_LARGE -2
+const OMEGA_GPU_MATMUL_CODEGEN_FAIL -3
+const OMEGA_GPU_MATMUL_CHIP_FAIL -4
+const OMEGA_GPU_MATMUL_PARITY_FAIL -5
+const OMEGA_GPU_MATMUL_TILE_M 16
+const OMEGA_GPU_MATMUL_TILE_N 8
+const OMEGA_GPU_MATMUL_TILE_K 16
+const OMEGA_GPU_MATMUL_MAX_CTAS 1024
+const OMEGA_GPU_EW_OK 0
+const OMEGA_GPU_EW_BAD_ARGS -1
+const OMEGA_GPU_EW_TOO_LARGE -2
+const OMEGA_GPU_EW_CODEGEN_FAIL -3
+const OMEGA_GPU_EW_CHIP_FAIL -4
+const OMEGA_GPU_EW_UNWRITTEN -5
+const OMEGA_GPU_ATTN_OK 0
+const OMEGA_GPU_ATTN_BAD_ARGS -1
+const OMEGA_GPU_ATTN_TOO_LARGE -2
+const OMEGA_GPU_ATTN_CODEGEN_FAIL -3
+const OMEGA_GPU_ATTN_CHIP_FAIL -4
+const OMEGA_GPU_ATTN_UNWRITTEN -5
+const OMEGA_GPU_ATTN_KV_STAGED 0
+const OMEGA_GPU_PLATFORM_ABI_MAJOR 1
+const OMEGA_GPU_PLATFORM_ABI_MINOR 3
+const OMEGA_GPU_POLL_TIMED_OUT 100
+const OMEGA_GPU_HANDLE_SLOTS 4096
+const OMEGA_GPU_HANDLE_DEVICE 1
+const OMEGA_GPU_HANDLE_BUF_DATA 2
+const OMEGA_GPU_HANDLE_BUF_CODE 3
+const OMEGA_GPU_HANDLE_BUF_QUEUE 4
+const OMEGA_GPU_HANDLE_QUEUE 5
+const OMEGA_GPU_HANDLE_KIND_COUNT 6
+const OMEGA_GPU_RIGHT_CPU_READ 1
+const OMEGA_GPU_RIGHT_CPU_WRITE 2
+const OMEGA_GPU_RIGHT_GPU_READ 4
+const OMEGA_GPU_RIGHT_GPU_WRITE 8
+const OMEGA_GPU_RIGHT_GPU_EXEC 16
+const OMEGA_GPU_RIGHT_HOST_POLLED 32
+const OMEGA_GPU_RIGHT_ALL 63
+const OMEGA_GPU_CACHE_GPU_UNCACHED 0
+const OMEGA_GPU_CACHE_GPU_CACHED 1
+const OMEGA_GPU_SVC_TIME 1
+const OMEGA_GPU_SVC_WAIT 2
+const OMEGA_GPU_SVC_LOCK 4
+const OMEGA_GPU_SVC_MMIO 8
+const OMEGA_GPU_SVC_DMA 16
+const OMEGA_GPU_SVC_SYNC 32
+const OMEGA_GPU_SVC_COMPLETION 64
+const OMEGA_GPU_SVC_IRQ 128
+const OMEGA_GPU_SVC_REQUIRED_V1 127
+const OMEGA_GPU_SVC_DEVICE 256
+const OMEGA_GPU_SVC_QUEUE 512
+const OMEGA_GPU_SVC_CLOCK_NS 1024
+const OMEGA_GPU_SVC_HOST_MEM 2048
+const OMEGA_GPU_SVC_REQUIRED_SESSION 3959
+const OMEGA_GPU_SVC_ALL 4095
+const OMEGA_GPU_PLAT_OK 0
+const OMEGA_GPU_PLAT_REFUSED_ARGS 1
+const OMEGA_GPU_PLAT_REFUSED_ABI 2
+const OMEGA_GPU_PLAT_REFUSED_MISSING_SERVICE 3
+const OMEGA_GPU_PLAT_REFUSED_NULL_SERVICE 4
+const OMEGA_GPU_PLAT_REFUSED_BAD_HANDLE 5
+const OMEGA_GPU_PLAT_REFUSED_STALE_HANDLE 6
+const OMEGA_GPU_PLAT_REFUSED_BAD_LENGTH 7
+const OMEGA_GPU_PLAT_REFUSED_BAD_RIGHTS 8
+const OMEGA_GPU_PLAT_REFUSED_BAD_KIND 9
+const OMEGA_GPU_PLAT_REFUSED_CACHE_POLICY 10
+const OMEGA_GPU_PLAT_REFUSED_LIMIT 11
+const OMEGA_GPU_PLAT_REFUSED_BUSY 12
+const OMEGA_GPU_PLAT_REFUSED_DEVICE 13
+const OMEGA_GPU_PLAT_REFUSAL_COUNT 14
+const OMEGA_GPU_SESSION_MAX_SPIN_US 1000000
+const OMEGA_GPU_SESSION_MAX_ARGS 32
+const OMEGA_GPU_SESSION_POLL_SLICE_MS 1
+const OMEGA_GPU_SESSION_LOCK_ID 0
+const OMEGA_GPU_SESSION_SCRATCH_RESERVED -2
+const OMEGA_GPU_SESSION_CANCELLED -3
+const OMEGA_GPU_SESSION_PARK_MAX 512
+const OMEGA_GPU_COMPLETION_POLLING 1
+const OMEGA_GPU_CMDLIST_MAX_LAUNCHES 4096
+const OMEGA_GPU_CMDLIST_BANK_BYTES 1024
+const OMEGA_GPU_CMDLIST_QMD_BYTES 1024
+const OMEGA_GPU_CMDLIST_PCAS 0
+const OMEGA_GPU_CMDLIST_INLINE 1
+const OMEGA_GPU_CMDLIST_BARRIER_WFI 0
+const OMEGA_GPU_CMDLIST_BARRIER_NONE 1
+const OMEGA_GPU_CMDLIST_BARRIER_WFI_ONLY 2
+const OMEGA_GPU_CMDLIST_BARRIER_WFI_DATA 3
+const OMEGA_GPU_CMDLIST_BARRIER_FLUSH_DATA 4
+const OMEGA_GPU_ENGINE_FLAG_NO_C3 1
+const OMEGA_GPU_ENGINE_JOB_OUTPUTS 1
+const OMEGA_GPU_ENGINE_SEMAPHORE_WORDS 1
+const OMEGA_GPU_ENGINE_DRV_TEXT_BYTES 128
+const OMEGA_GPU_SYNC_MARKER 1
+const OMEGA_GPU_SYNC_MARKER2 2
+const OMEGA_GPU_SYNC_SEMAPHORE 4
+const OMEGA_GPU_BACKEND_TIMEOUT 1
+const OMEGA_GPU_BACKEND_UNKNOWN_STATE 2
+const OMEGA_GPU_ENGINE_OK 0
+const OMEGA_GPU_ENGINE_DEVICE_OPEN 1
+const OMEGA_GPU_ENGINE_CHANNEL_CREATE 2
+const OMEGA_GPU_ENGINE_ALLOC 3
+const OMEGA_GPU_ENGINE_PREPARE 4
+const OMEGA_GPU_ENGINE_SUBMIT 5
+const OMEGA_GPU_ENGINE_COMPLETION_WAIT 6
+const OMEGA_GPU_ENGINE_RELEASE_WAIT 7
+const OMEGA_GPU_ENGINE_VISIBILITY_WAIT 8
+const OMEGA_GPU_ENGINE_OUTPUT_UNCHANGED 9
+const OMEGA_GPU_ENGINE_INVALID_ARGS 10
+const OMEGA_GPU_ENGINE_INTERNAL_INVARIANT 11
+const OMEGA_GPU_ENGINE_CLEANUP 12
+const OMEGA_GPU_ENGINE_UNCERTAIN_COMPLETION_BLOCKED 13
+const OMEGA_GPU_ENGINE_FAILURE_COUNT 14
+const OMEGA_GPU_ENGINE_STATE_INITIAL 0
+const OMEGA_GPU_ENGINE_STATE_PREPARED 1
+const OMEGA_GPU_ENGINE_STATE_SUBMITTED 2
+const OMEGA_GPU_ENGINE_STATE_GPU_COMPLETE 3
+const OMEGA_GPU_ENGINE_STATE_OUTPUT_VISIBLE 4
+const OMEGA_GPU_ENGINE_STATE_OUTPUT_PRODUCED 5
+const OMEGA_GPU_ENGINE_STATE_SUCCESS 6
+const OMEGA_GPU_ENGINE_STATE_COUNT 7
+const OMEGA_GPU_ENGINE_WAIT_NONE 0
+const OMEGA_GPU_ENGINE_WAIT_MARKER 1
+const OMEGA_GPU_ENGINE_WAIT_RELEASE_SEMAPHORE 2
+const OMEGA_GPU_ENGINE_WAIT_MARKER2 3
+const OMEGA_GPU_ENGINE_WAIT_COUNT 4
+const OMEGA_GPU_ENGINE_STEP_NONE 0
+const OMEGA_GPU_ENGINE_STEP_VALIDATE 1
+const OMEGA_GPU_ENGINE_STEP_BACKEND_CHECK 2
+const OMEGA_GPU_ENGINE_STEP_BLOCKED 3
+const OMEGA_GPU_ENGINE_STEP_NOT_IMPLEMENTED 4
+const OMEGA_GPU_ENGINE_STEP_OPEN_DEVICE 5
+const OMEGA_GPU_ENGINE_STEP_CREATE_CHANNEL 6
+const OMEGA_GPU_ENGINE_STEP_ALLOC 7
+const OMEGA_GPU_ENGINE_STEP_COPY_IN 8
+const OMEGA_GPU_ENGINE_STEP_FILL_POISON 9
+const OMEGA_GPU_ENGINE_STEP_BUILD 10
+const OMEGA_GPU_ENGINE_STEP_SUBMIT 11
+const OMEGA_GPU_ENGINE_STEP_WAIT_MARKER 12
+const OMEGA_GPU_ENGINE_STEP_WAIT_MARKER2 13
+const OMEGA_GPU_ENGINE_STEP_WAIT_RELEASE_SEMAPHORE 14
+const OMEGA_GPU_ENGINE_STEP_BARRIER 15
+const OMEGA_GPU_ENGINE_STEP_COPY_OUT 16
+const OMEGA_GPU_ENGINE_STEP_SCAN 17
+const OMEGA_GPU_ENGINE_STEP_FREE 18
+const OMEGA_GPU_ENGINE_STEP_CLOSE 19
+const OMEGA_GPU_ENGINE_STEP_CLOCK_CHECK 20
+const OMEGA_GPU_ENGINE_STEP_COUNT 21
+const OMEGA_GPU_LAYOUT_VECTOR_1D 0
+const OMEGA_GPU_LAYOUT_COUNT 1
+const OMEGA_GPU_BUF_SCRATCH 0
+const OMEGA_GPU_BUF_PROGRAM 1
+const OMEGA_GPU_BUF_INPUT_A 2
+const OMEGA_GPU_BUF_INPUT_B 3
+const OMEGA_GPU_BUF_OUTPUT 4
+const OMEGA_GPU_BUF_ROLE_COUNT 5

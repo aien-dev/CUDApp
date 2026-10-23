@@ -1,0 +1,1 @@
+FAIL: signature quoted in build-roadmap-contracts-bench/runtime-api/neg-signature-inside-another/API.md but in no header: int32_t omega_gpu_session_open_count(void);

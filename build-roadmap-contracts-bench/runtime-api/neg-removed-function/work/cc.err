@@ -1,0 +1,7 @@
+build-roadmap-contracts-bench/runtime-api/neg-removed-function/work/probe.c:75:56: error: ‘omega_gpu_session_alloc_code’ undeclared here (not in a function); did you mean ‘omega_gpu_session_alloc_cached’?
+   75 | _Static_assert(__builtin_types_compatible_p(__typeof__(omega_gpu_session_alloc_code), int32_t (size_t, OmegaGpuMem *)), "signature of omega_gpu_session_alloc_code");
+      |                                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                                        omega_gpu_session_alloc_cached
+build-roadmap-contracts-bench/runtime-api/neg-removed-function/work/probe.c:75:16: error: expression in static assertion is not an integer
+   75 | _Static_assert(__builtin_types_compatible_p(__typeof__(omega_gpu_session_alloc_code), int32_t (size_t, OmegaGpuMem *)), "signature of omega_gpu_session_alloc_code");
+      |                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
