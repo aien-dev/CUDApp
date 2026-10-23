@@ -53,6 +53,12 @@ Compile `m5-axis-input.om` and `test-m5-axis-input.om` separately. The exact-sou
 
 The acquisition archive includes original sources, compiler outputs/logs, extracted text, symbols, hashes and final exit sentinel. Archive metadata xattrs are excluded; the earlier transfer emitted harmless provenance-xattr warnings, not capture or test failures. Final raw stderr is retained separately because expected refusing native controls emit their two-byte diagnostic offset.
 
+## Frozen-source replay
+
+A complete Git archive of source `10c05b26a14e8a3623d6bf86a10ea30bb4803566` was exported into fresh Spark output space. Its archived pressure/axis inputs passed their checksum manifests; all32 pressure and32 x replay inputs,448 structural controls, nine field controls,96 G16 refusals and64 non-x refusals passed again. All eight reconstructed native executables were byte-identical to the originally tested executables; compiled old-entry/wrong-register/header controls retained their expected failures. Exact receipts are `m5-entry-frozen-replay.log` and `.stderr`.
+
+The first replay attempt stopped before building or testing because `archives.sha256` contains repository-root-relative paths but was invoked inside the evidence directory. That setup failure is retained as `m5-entry-frozen-replay-failed-cwd.*`. The corrected invocation runs that manifest from the exported repository root and `axis-archive.sha256` from the evidence directory; neither manifest nor any acceptance check was weakened. Old pressure archives emit provenance-xattr warnings on GNU tar; the raw stderr preserves those warnings and expected diagnostic bytes.
+
 ## Remaining work
 
 The immediate0–63 corpus still needs its semantic gate. General memory-register roles, modifier/entry semantics and G17g dependency scheduling remain unresolved beyond the stated profiles. A production M5 emitter/interpreter and positive M1–M5 completion remain open; this result supplies evidence for those tasks, not a substitute definition of done.
