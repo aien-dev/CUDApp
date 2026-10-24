@@ -1,0 +1,8 @@
+Native-host test outputs: $OUT/cudapp-teardown-host.8HY0gC
+e7127867f16249da2197225870a14fcd0a72b23498cfbe5493c955cc520fa731  $OUT/cudapp-teardown-host.8HY0gC/after-unit.om
+98886f4e40f36a56655f2f6ce2b35cf72cbd20baa5528c993d41a470cae1c8ea  $OUT/cudapp-teardown-host.8HY0gC/after.om
+7e80409894963128f59e9810dcd3835ef78eba122ef7092261d8a7ebaf932939  $OUT/cudapp-teardown-host.8HY0gC/before-unit.om
+a63b1ab13e30d26f03e022fbb586786551ced447439d666b8d108b9126330a12  $OUT/cudapp-teardown-host.8HY0gC/before.om
+c8e589f87c9bf2742f6d0e174bff1f6434ab7584c8eabc31244b69c6c2c335a1  $OUT/cudapp-teardown-host.8HY0gC/after.elf
+b5262b3584fa2ee52a4afe4df23f595730b4c8a991599b45e2f0b52f74311120  $OUT/cudapp-teardown-host.8HY0gC/before.elf
+PASS: original cleanup fails its assertion; repaired cleanup passes refusal, retry and close-once controls

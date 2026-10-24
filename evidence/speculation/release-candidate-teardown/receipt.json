@@ -1,0 +1,83 @@
+{
+  "schema": "cudapp-release-candidate-receipt-v1",
+  "scope": "Focused candidate: CUDApp main 22e9d9b plus PR #71 (merged into experiment/27b-adaptive-sizing as 52db648), cherry-picked unchanged. Refs #65; does not finish #65.",
+  "base": "22e9d9bad9b9238996b05b68dfd73e4036ed354f",
+  "candidate_code_commit": "2e2421694f6110bd84885ae0b2d3caf249809d34",
+  "cherry_picked": {
+    "1f3a484ba0c76e26d469a17cd1b0b149c87b7f64": "cb11d10 fix: retain unpublished mappings after failed cleanup",
+    "be2faa05982fe3ceec50769263487d6f5dbe1b66": "2e24216 fix: respect pinned compiler identifier widths in teardown fixture"
+  },
+  "pr71_identity": "the four changed files are blob-identical to 52db648",
+  "host": "Linux 7.0.0-1019-nvidia aarch64, NVIDIA open kernel module 580.173.02 (unchanged)",
+  "compiler": {
+    "omega_source": "aien-dev/omega-mv d7390d88d07dbf48cfbb0583070599c350f814d3 (fresh clone)",
+    "omc_om_sha256": "fe67a0c31e42fcf6d86fce786b0a16b46a95daf3c7da1af7b6974df68ecfe400",
+    "om4_bin_sha256": "d0da40e45f1fcc45d9a39c9c52c9d745b545e076970729e51c12d76ef519efab",
+    "build": "sh seed/omega-from-seed.sh (seed0 -> hex1 -> asm2 -> om4 -> omc; stage1 = stage2 = stage3), RC=0",
+    "omc_sha256": "9749f38841a55917d41924a68bce31463ec2339910bddd5e6cbf6ea4420551db",
+    "matches_pin": true
+  },
+  "source_sha256": {
+    "native/nvrm/context.om": "98886f4e40f36a56655f2f6ce2b35cf72cbd20baa5528c993d41a470cae1c8ea",
+    "native/blackwell/vector.om": "011816cae457368289d21e98016db5206ec54b9a0e33944c80fb7cebaa9e7831",
+    "native/blackwell/launch.om": "580fe48ab61d496c5cae1567dcb9b1b895c52f5eba9e2138767bd79c3779cf0b",
+    "tests/speculation/native-kernel-test.om": "20b5d20f1eb3dcf96e4def3ed830007d4daa424973580b3f98f985f390133402",
+    "tests/speculation/vector-checks.om": "e889c195571b48033bcd9c8d9c6a8eeffddf3954265e4038789adb18e57834fa",
+    "tests/speculation/vector-checks-test.om": "3f88a1eacca3bd4cdd6b25ca18ebb7a650b0b559cae394aea05a0da61533a80e",
+    "tests/speculation/teardown-host-test.om": "b8764745d6fcde343b86ae273e0c630e15a63a58344d212e577b75404992b018",
+    "tests/speculation/run-teardown-host.sh": "5eff8a350b32d30277c3c8dcf3e21639273deab234cf494286998eb329da5097"
+  },
+  "teardown_host": {
+    "command": "sh tests/speculation/run-teardown-host.sh $OMC",
+    "exit": 0,
+    "result": "PASS: original cleanup fails its assertion; repaired cleanup passes refusal, retry and close-once controls",
+    "before": {"source": "f9cd649 native/nvrm/context.om", "exit": 1, "stderr": "NATIVE_TEARDOWN_HOST_FAIL", "unit_sha256": "7e80409894963128f59e9810dcd3835ef78eba122ef7092261d8a7ebaf932939", "elf_sha256": "b5262b3584fa2ee52a4afe4df23f595730b4c8a991599b45e2f0b52f74311120"},
+    "after": {"source": "candidate native/nvrm/context.om", "exit": 0, "stdout": "NATIVE_TEARDOWN_HOST_PASS", "unit_sha256": "e7127867f16249da2197225870a14fcd0a72b23498cfbe5493c955cc520fa731", "elf_sha256": "c8e589f87c9bf2742f6d0e174bff1f6434ab7584c8eabc31244b69c6c2c335a1"},
+    "repeat_run": "second run produced identical unit and ELF hashes"
+  },
+  "mutants": {
+    "harness": "outside the repository; each mutant edits one line group of the candidate context.om and runs the unchanged run-teardown-host.sh; KILLED requires after-arm exit 1 with NATIVE_TEARDOWN_HOST_FAIL",
+    "results": {
+      "M1 unpublished mapping not retained (drop put nvunpub 0 m)": "KILLED",
+      "M2 unpublished handle cleared on unmap refusal": "KILLED",
+      "M3 BAR handle cleared on unmap refusal": "KILLED",
+      "M4 state-2 retry skipped (ret true)": "KILLED",
+      "M5 failed finish returns to live state, so retry repeats close and driver calls": "KILLED",
+      "M6 fault cleared on successful cleanup (reuse allowed)": "KILLED",
+      "M7 nvcpumap fault/state guard removed": "DETECTED by runtime trap 5 (exit 105), not by fixture assertion",
+      "M7b guard keeps only the state test": "SURVIVED",
+      "M7c guard keeps only the fault test": "SURVIVED",
+      "M8 descriptor number not retired after close": "KILLED"
+    },
+    "gap": "The only faulted-mapping case has state 2 and fault 1 together, so either half of the new nvcpumap guard alone satisfies it. A live-state (1) faulted context is not exercised."
+  },
+  "vector_host_regression": {
+    "unit_sha256": "f3d9dca2d4aafe31002039eb7b6bbeacd665084ca99ace75c6724195d91e0012",
+    "elf_sha256": "49c9ee660f06b9cd9905d9593aac87c0628c2183a99053f19697eb7c5f4e0276",
+    "exit": 0,
+    "result": "VECTOR_CHECKS_HOST_PASS",
+    "note": "byte-identical to the 0cf8cd7 receipt"
+  },
+  "physical": {
+    "window": "spark-window 20261024T223505Z-e73fdd, --gb10 shared --quiet none, opened and closed by the run; live model server on 18091 answered before and after",
+    "start": "2026-10-24T22:35:09Z",
+    "end": "2026-10-24T22:35:20Z",
+    "unit_sha256": "ff29f45a27c7ee27fb636ad5de64bc7540b060059f45cdd3a57e8b6c7944df91",
+    "elf_sha256": "b0754a4e42f3fc511b358748e34a103bb945080784965ddef97543957e9c8d38",
+    "command": "strace -f -o kernel-syscalls.log ./kernel.elf",
+    "exit": 0,
+    "stdout": "NATIVE_SM121_VECTOR_PASS",
+    "stderr_bytes": 0,
+    "syscall_lines": 105044,
+    "failed_syscalls": 0,
+    "raw_trace_sha256": "ae78c97a970fc9cb3b93b25425b4d7f3c3235f3bd10a65560672ae293cbcf659",
+    "raw_trace_location": "retained privately on the test host, not published",
+    "sequence": "refuse 0 and 1048577 elements; correct sizes 1, 63, 64, 65, 257, 4097, 65537, 1048576 (every element plus up to 64 untouched tail words); fresh wrong-math program at 4097 must mismatch; fresh corrected program at 4097 must match; nvstop succeeds with no fault",
+    "build_recipe_check": "the same recipe applied to 0cf8cd7 reproduces that receipt's unit b3a36ac6 and ELF e3da26b0 exactly"
+  },
+  "not_run": [
+    "independent hardware rerun by a second person or machine",
+    "faulted live-state nvcpumap refusal (see mutants.gap)",
+    "FP8 arithmetic", "27B inference", "speculative-state rollback", "AIENOS integration", "four-arm comparison", "performance measurements"
+  ]
+}
