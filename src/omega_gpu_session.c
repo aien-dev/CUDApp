@@ -59,6 +59,7 @@ static OmegaGpuSession g_s;
 static bool g_open;
 static uint32_t g_blocked;  /* latched (atomic) */
 static uint32_t g_locked;   /* session lock held (atomic) */
+static uint32_t g_lock_depth; /* nested holds by the holding thread; written only with the platform lock held */
 static uint32_t g_cancel;   /* cancel requested (atomic) */
 static uint32_t g_spin_us;  /* omega_gpu_session_set_spin_us; 0 = poll_word only */
 static char g_err[320] = "";
@@ -174,13 +175,15 @@ static void fail_plat(const char *stage, int rc) {
 void omega_gpu_session_lock(void) {
     const OmegaGpuPlatform *p = platform();
     if (!p) return;
-    (void)p->lock(p->ctx, OMEGA_GPU_SESSION_LOCK_ID);
+    if (p->lock(p->ctx, OMEGA_GPU_SESSION_LOCK_ID) != 0) return; /* not held: no count */
+    g_lock_depth++;
     STORE(g_locked, 1u);
 }
 void omega_gpu_session_unlock(void) {
     const OmegaGpuPlatform *p = LOAD(g_p);
     if (!p) return;
-    STORE(g_locked, 0u);
+    if (g_lock_depth > 0u) g_lock_depth--; /* only the holder reaches here with a count */
+    if (g_lock_depth == 0u) STORE(g_locked, 0u);
     (void)p->unlock(p->ctx, OMEGA_GPU_SESSION_LOCK_ID);
 }
 bool omega_gpu_session_is_open(void) { return g_open; }

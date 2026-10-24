@@ -84,6 +84,14 @@ $(GPU_EW_TEST): tests/gpu_elementwise_test.c src/omega_gpu_elementwise_api.h $(O
 test-gpu-elementwise: $(GPU_EW_TEST)
 	./$(GPU_EW_TEST) --host-only
 
+# The session lock is reentrant for its holder (a caller holding it may call API helpers that take it internally).
+.PHONY: test-gpu-session-lock-reentrant
+GPU_LOCK_REENTRANT_TEST = $(OUT_DIR)/gpu_session_lock_reentrant_test
+$(GPU_LOCK_REENTRANT_TEST): tests/gpu_session_lock_reentrant_test.c src/omega_gpu_session.h src/omega_gpu_elementwise_api.h $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -o $@ tests/gpu_session_lock_reentrant_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+test-gpu-session-lock-reentrant: $(GPU_LOCK_REENTRANT_TEST)
+	./$(GPU_LOCK_REENTRANT_TEST)
+
 # omega #308: structured warp reconvergence (BSSY/BSYNC regions). test-gpu-reconv is
 # host-only (encoder goldens, region bookkeeping, refusals, nvdisasm listing, every probe
 # kernel through the SIMT warp simulator tests/bw_warp_sim.h against the oracle, mutation
@@ -267,7 +275,7 @@ $(GPU_L2_REUSE_TEST): tests/gpu_l2_reuse_test.c src/omega_gpu_fp8_api.h src/omeg
 	$(CC) $(CFLAGS) -ffp-contract=off -o $@ tests/gpu_l2_reuse_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
 
 # Every host-only check: no GPU, no device opened. The chip gates are listed in README.md.
-HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-attention test-gpu-moe-window \
+HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-session-lock-reentrant test-gpu-reconv test-gpu-attention test-gpu-moe-window \
 	test-gpu-fp8 test-gpu-decode-attn test-gpu-router test-gpu-bf16-gemv test-gpu-fp8gemm test-gpu-gpr-boundary \
 	test-gpu-cmdlist test-gpu-decode-graph test-gpu-code-alloc test-gpu-engine-compile test-gpu-engine \
 	test-gpu-engine-mutants test-gpu-engine-backend-compile test-gpu-engine-prod-build test-gpu-engine-sim \

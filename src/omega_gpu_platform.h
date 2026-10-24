@@ -178,6 +178,8 @@ typedef struct {
     /* TIME, WAIT, LOCK */
     uint64_t (*time_now_ms)(void *ctx);
     int (*wait_ms)(void *ctx, uint64_t ms);
+    /* lock id OMEGA_GPU_SESSION_LOCK_ID (the session lock) must be recursive: a holder may lock it again and the lock is
+     * released by the matching outermost unlock (omega_gpu_session.h); the session counts the nesting itself */
     int (*lock)(void *ctx, uint32_t lock_id);
     int (*unlock)(void *ctx, uint32_t lock_id);
     /* MMIO: bounded by (device, region); the platform refuses an offset past the region. */

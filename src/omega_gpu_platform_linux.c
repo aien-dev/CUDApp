@@ -57,7 +57,10 @@ typedef struct {
 
 static LinuxRef g_ref = {
     .mu = PTHREAD_MUTEX_INITIALIZER,
-    .locks = {PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER},
+    /* RECURSIVE: the LOCK service is reentrant for its holder (omega_gpu_session.h, the session lock); a normal mutex
+     * hung a thread that held the session lock and then called an API helper that takes it internally */
+    .locks = {PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP, PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP,
+              PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP, PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP},
 };
 
 /* omega #457: MEM_OP_A..D = 0, 0, 0, OPERATION L2_SYSMEM_NCOH_INVALIDATE 0x11 in D bits 31:27 (clc96f.h:30-73), the

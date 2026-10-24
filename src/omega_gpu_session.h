@@ -156,7 +156,13 @@ void omega_gpu_host_free(void *p);
 /* ---- lock, open, state ---- */
 
 /* Take the session lock (platform LOCK service, lock id OMEGA_GPU_SESSION_LOCK_ID). Does not touch the device.
- * Without a platform it is a no-op and the open that follows refuses. */
+ * Without a platform it is a no-op and the open that follows refuses.
+ *
+ * REENTRANT for the thread that holds it: a caller that has taken the lock may call any API helper that takes it
+ * internally (omega_gpu_elementwise_codegen, the fp8, moe, router, attention and graph helpers) and the inner
+ * lock/unlock pair only nests; the lock is released by the outermost unlock. Every lock must be paired with one
+ * unlock on the same thread. The platform LOCK service for OMEGA_GPU_SESSION_LOCK_ID must therefore be recursive
+ * (the Linux reference uses recursive mutexes); the session counts the nesting itself. */
 #define OMEGA_GPU_SESSION_LOCK_ID 0u
 void omega_gpu_session_lock(void);
 void omega_gpu_session_unlock(void);
