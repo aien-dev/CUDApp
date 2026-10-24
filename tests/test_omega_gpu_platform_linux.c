@@ -226,16 +226,19 @@ static void c_l2_inval_prefix_once(void) {
 /* Fable review of omega #459: a stamped standalone list of >= 1167 launches filled one submission to 16381 words; with
  * the 5-word prefix pending that is 16386 > 16384 ring words, refused BAD_LENGTH on every retry. The command list must
  * budget the prefix the platform publishes (caps.submit_prefix_words). */
+/* 2048 launches (about 14 ring words each) fill the 16384-word ring so the list splits into exactly 2 submissions.
+ * OMEGA_GPU_CMDLIST_MAX_LAUNCHES is 4096 since L312, which would split into 4, so the count is pinned here. */
+#define NEAR_CAP_LAUNCHES 2048u
 static void c_cmdlist_near_cap_with_l2_inval_pending(void) {
     fake_reset();
     fk.kernel_mode = FK_KERNEL_SKIP;
     fk.alloc_max = 4u << 20; /* the 2048-launch bank and QMD buffers are 2 MiB each */
     OmegaGpuCmdList *cl = NULL;
-    EXPECT(omega_gpu_cmdlist_create(OMEGA_GPU_CMDLIST_MAX_LAUNCHES, &cl) == 0);
+    EXPECT(omega_gpu_cmdlist_create(NEAR_CAP_LAUNCHES, &cl) == 0);
     if (!cl) { printf("  %s\n", omega_gpu_session_last_error()); return; }
     omega_gpu_session_lock();
     OmegaGpuLaunch L = launch_desc(1000);
-    for (uint32_t i = 0; i < OMEGA_GPU_CMDLIST_MAX_LAUNCHES; i++) EXPECT(omega_gpu_cmdlist_add(cl, &L) == (int)i);
+    for (uint32_t i = 0; i < NEAR_CAP_LAUNCHES; i++) EXPECT(omega_gpu_cmdlist_add(cl, &L) == (int)i);
     const OmegaGpuPlatform *p = omega_gpu_session_platform();
     OmegaGpuMem cached;
     EXPECT(omega_gpu_session_alloc_cached(4096, &cached) == 0);
@@ -246,7 +249,7 @@ static void c_cmdlist_near_cap_with_l2_inval_pending(void) {
     const int rc = omega_gpu_cmdlist_submit(cl, &o, &st);
     if (rc != 0) printf("  cmdlist submit: %s (platform: %s)\n", omega_gpu_session_last_error(), p->diag_text(p->ctx));
     EXPECT(rc == 0);
-    EXPECT(st.sems_done == OMEGA_GPU_CMDLIST_MAX_LAUNCHES && st.first_missing == -1);
+    EXPECT(st.sems_done == NEAR_CAP_LAUNCHES && st.first_missing == -1);
     EXPECT(st.submits == 2 && fk.submit_calls - submits0 == 2);
     EXPECT(count_l2_inval() == 1); /* the first submission only */
     for (int i = 0; i < fk.nev; i++)
