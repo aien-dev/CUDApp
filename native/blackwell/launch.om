@@ -1,0 +1,288 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Native VECTOR_1D launch ABI continued from canonical CUDApp349913f1.
+note QMD, driver constant template and packet sequence: omega_blackwell_qmd.c/engine.c.
+global gbmem long 8
+global gbmax uint 1
+global gbq0 uint 96
+global gbq1 uint 96
+global gbcb uint 224
+global gbargs uint 7
+global gbcmd uchar 65536
+global gbused ulong 1
+fn gblo v ulong to uint
+ret uint and v 4294967295
+end
+fn gbhi v ulong to uint
+ret uint shr v 32
+end
+fn gbemit w uint to void
+for i ulong 4
+put gbcmd get gbused 0 uchar and shr w mul i 8 255
+put gbused 0 add get gbused 0 1
+end
+end
+fn gbmth subc uint method uint count uint to void
+gbemit or or or uint 536870912 shl count 16 shl subc 13 shr method 2
+end
+fn gbptr va ulong to void
+gbemit gbhi va
+gbemit gblo va
+end
+fn gbdriver cb ulong to void
+for i ulong 224
+put gbcb i 0
+end
+note Nonzero words of the existing observed driver template, not a new inferred ABI.
+put gbcb 0 641859584
+put gbcb 1 3
+put gbcb 48 2499697920
+put gbcb 49 3893478299
+put gbcb 62 1048575
+put gbcb 64 536870912
+put gbcb 65 3
+put gbcb 66 570425344
+put gbcb 67 3
+put gbcb 68 gbhi cb
+put gbcb 69 gblo cb
+put gbcb 70 604045312
+put gbcb 71 3
+put gbcb 80 1
+put gbcb 82 67158016
+put gbcb 83 2
+put gbcb 91 1024
+put gbcb 108 79311560
+put gbcb 114 1
+put gbcb 118 288
+put gbcb 126 632711424
+put gbcb 127 3
+for i ulong 3
+put gbcb add 128 i 1
+put gbcb add 132 i 1065353216
+end
+put gbcb 135 1024
+for i ulong 4
+put gbcb add 136 i 1
+end
+put gbcb 148 79311560
+put gbcb 154 1
+put gbcb 158 288
+put gbcb 166 632711424
+put gbcb 167 3
+for i ulong 3
+put gbcb add 168 i 1
+put gbcb add 172 i 1065353216
+end
+put gbcb 175 1024
+for i ulong 4
+put gbcb add 176 i 1
+end
+put gbcb 180 48
+put gbcb 183 16777216
+put gbcb 185 59840
+put gbcb 189 59840
+put gbcb 190 16777216
+put gbcb 191 59839
+put gbcb 210 gbhi add cb 896
+put gbcb 211 gblo add cb 896
+put gbcb 212 gbhi add cb 924
+put gbcb 213 gblo add cb 924
+put gbcb 216 64
+put gbcb 217 1
+put gbcb 218 1
+put gbcb 220 1
+put gbcb 221 1
+put gbcb 222 1
+put gbcb 223 16776640
+end
+fn gbqmd n uint to void
+q = mapaddr get gbmem 2
+cb = mapaddr get gbmem 1
+code = mapaddr get gbmem 4
+scratch = add q 16384
+for i ulong 96
+put gbq0 i 0
+put gbq1 i 0
+end
+put gbq0 4 8388610
+put gbq0 10 2293760
+put gbq0 12 gblo shr add q 4096 8
+put gbq0 14 5243392
+put gbq0 34 65537
+put gbq0 35 2049
+put gbq1 4 20905984
+put gbq1 9 3
+put gbq1 10 1638400
+put gbq1 12 gblo shr q 8
+put gbq1 14 793772964
+put gbq1 15 gblo add q 8192
+put gbq1 16 gbhi add q 8192
+put gbq1 17 6
+put gbq1 19 2172715008
+put gbq1 20 56
+put gbq1 22 67108864
+put gbq1 32 gblo shr code 4
+put gbq1 33 or uint and shr code 36 2097151 20971520
+put gbq1 34 65600
+put gbq1 35 135169
+put gbq1 36 78923784
+put gbq1 39 div add n 63 64
+put gbq1 40 1
+put gbq1 41 1
+put gbq1 42 gblo shr cb 6
+put gbq1 43 or uint and shr cb 38 524287 33554432
+put gbq1 44 gblo shr scratch 6
+put gbq1 45 or uint and shr scratch 38 524287 75497472
+put gbq1 52 gblo shr add cb 768 6
+put gbq1 53 or uint and shr add cb 768 38 524287 8388608
+put gbq1 56 gblo shr scratch 6
+put gbq1 57 or uint and shr scratch 38 524287 2147483648
+put gbq1 58 271581201
+put gbq1 59 gblo shr code 8
+gbdriver cb
+for i ulong 3
+va = mapaddr get gbmem add i 5
+put gbargs mul i 2 gblo va
+put gbargs add mul i 2 1 gbhi va
+end
+put gbargs 6 n
+end
+fn gbsetup to void
+gbemit 536944737
+gbemit 52928
+gbemit 536944786
+gbemit 1
+gbemit 536944808
+gbemit 15
+gbemit 536946013
+gbemit 3
+gbemit 536946014
+gbemit 536870912
+gbemit 536946015
+gbemit 1048575
+gbemit 536946007
+gbemit 3
+gbemit 536946008
+gbemit 570425344
+gbemit 536946009
+gbemit 0
+end
+fn gbdma va ulong count uint to void
+gbmth 1 392 2
+gbptr va
+gbmth 1 384 2
+gbemit mul count 4
+gbemit 1
+gbmth 1 432 1
+gbemit 65
+gbemit or or uint 1610621037 shl count 16 0
+end
+fn gbinline va ulong which bool to void
+gbmth 1 792 98
+gbemit or uint 1073741824 uint and shr va 40 511
+gbemit gblo shr va 8
+for i ulong 96
+if which
+gbemit get gbq1 i
+else
+gbemit get gbq0 i
+end
+end
+end
+fn gbrel va ulong value uint to void
+gbmth 0 92 5
+gbemit gblo va
+gbemit gbhi va
+gbemit value
+gbemit 0
+gbemit 1048577
+end
+fn gbbuild n uint to void
+gbqmd n
+put gbused 0 0
+gbsetup
+cb = mapaddr get gbmem 1
+q = mapaddr get gbmem 2
+mark = mapaddr get gbmem 3
+gbdma cb 224
+for i ulong 224
+gbemit get gbcb i
+end
+gbdma add cb 896 7
+for i ulong 7
+gbemit get gbargs i
+end
+gbinline q false
+gbdma add q 8192 1
+gbemit 1
+gbinline add q 4096 true
+gbrel mark 1145324612
+note C3: flush GPU L2 dirty lines, then a second WFI release before CPU readback.
+gbmth 0 40 4
+gbemit 0
+gbemit 0
+gbemit 0
+gbemit 2147483648
+gbrel add mark 16 1179010630
+end
+fn gbopen n uint to bool
+if or eq n 0 gt n 1048576
+put nverr 0 neg long 22
+ret false
+end
+if not nvfull
+ret false
+end
+if not nvchan
+ret false
+end
+put gbmax 0 n
+for i ulong 8
+size = ulong 4096
+if or eq i 0 eq i 2
+size = ulong 65536
+end
+if ge i 5
+size = mul ulong n 4
+end
+m = nvalloc size true
+if le m 0
+ret false
+end
+put gbmem i m
+end
+gbvec
+r = mapwrite get gbmem 4 0 gbcode 0 get gblen 0
+ret eq r long get gblen 0
+end
+fn gblaunch n uint to bool
+if or or eq n 0 gt n get gbmax 0 ne get nvfault 0 0
+put nverr 0 neg long 22
+ret false
+end
+put nvstage 0 40
+gbbuild n
+r = mapset get gbmem 2 8192 4 0
+r = mapset get gbmem 3 0 4 0
+r = mapset get gbmem 3 16 4 0
+r = mapwrite get gbmem 0 0 gbcmd 0 get gbused 0
+put nvstage 0 41
+if not nvsend get gbmem 0 0 uint div get gbused 0 4
+ret false
+end
+put nvstage 0 42
+if not nvwait get gbmem 3 16 1179010630 5000000000
+ret false
+end
+put nvstage 0 43
+if ne mapget get gbmem 3 0 4 1145324612
+put nverr 0 neg long 5
+put nvfault 0 1
+ret false
+end
+if ne mapget get gbmem 2 8192 4 6
+put nverr 0 neg long 5
+put nvfault 0 1
+ret false
+end
+ret true
+end

@@ -1,0 +1,49 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Seed vecadd.s2 instruction forms, handwritten Omega emission of the same512bytes.
+note Each quad is one128-bit instruction. References: Omega57f5f425 seed/sm121.
+global gbcode uchar 4096
+global gblen ulong 1
+fn gbword v uint to void
+for j ulong 4
+put gbcode get gblen 0 uchar and shr v mul j 8 255
+put gblen 0 add get gblen 0 1
+end
+end
+fn gbquad a uint b uint c uint d uint to void
+gbword a
+gbword b
+gbword c
+gbword d
+end
+fn gbvec to void
+put gblen 0 0
+note Stack constant, block ID, block size, thread ID and element count.
+gbquad 4278287234 57088 2048 1040896
+gbquad 620825 0 9472 926208
+gbquad 4278482860 27648 134219776 926208
+gbquad 31001 0 8448 926208
+gbquad 4278548396 29440 134219776 942592
+note Linear index and bounds predicate; inactive threads exit before any access.
+gbquad 151616548 4 260964864 2083328
+gbquad 151026700 5 200302704 3136000
+gbquad 2381 0 58720256 1042944
+note Input/output addresses and memory descriptor from the constant bank.
+gbquad 4278352770 57344 2560 926208
+gbquad 4278482860 27392 134220288 945664
+gbquad 4278483842 57856 2560 962560
+gbquad 4278614914 58368 2560 975360
+note Address formation and independent input loads, retaining scheduling waits.
+gbquad 151156773 4 126746626 2083840
+gbquad 33716609 4 203299072 3088896
+gbquad 151287845 4 126746628 5229568
+gbquad 67467649 4 203299072 991744
+gbquad 151418917 4 126746630 9429504
+note Unsigned32-bit addition, output store, exit and unreachable self-branch guard.
+gbquad 34173456 5 134209791 17811968
+gbquad 100694406 9 202381572 1040896
+gbquad 31053 0 58720256 1042944
+gbquad 16546119 4294967292 58982399 1032192
+for i ulong 11
+gbquad 31000 0 0 1032192
+end
+end

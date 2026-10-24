@@ -48,9 +48,10 @@ excluded from qualified evidence; subsequent probes required confirmed admission
 | FIFO submission | 2,052 distinct completion payloads passed across two contexts, including ring wrap. A deliberately wrong expected payload timed out and latched the fault. |
 
 These are correctness probes under shared hardware admission. The FIFO test
-executes semaphore commands, not an SM kernel. There is no model inference,
-GPU arithmetic qualification, AIENOS endpoint integration or timing comparison
-in this evidence. Full-state rollback, all four experiment arms and issues63-66
+executes semaphore commands. The subsequent [native kernel qualification](NATIVE-KERNEL.md)
+separately covers integer vector arithmetic. There is no model inference,
+AIENOS endpoint integration or timing comparison in this device evidence.
+Full-state rollback, all four experiment arms and issues63-66
 remain open. Cleanup refusal injection and independent final-source review remain
 required alongside the next kernel/model stages.
 
