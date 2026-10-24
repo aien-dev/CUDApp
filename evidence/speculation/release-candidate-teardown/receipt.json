@@ -31,8 +31,20 @@
     "command": "sh tests/speculation/run-teardown-host.sh $OMC",
     "exit": 0,
     "result": "PASS: original cleanup fails its assertion; repaired cleanup passes refusal, retry and close-once controls",
-    "before": {"source": "f9cd649 native/nvrm/context.om", "exit": 1, "stderr": "NATIVE_TEARDOWN_HOST_FAIL", "unit_sha256": "7e80409894963128f59e9810dcd3835ef78eba122ef7092261d8a7ebaf932939", "elf_sha256": "b5262b3584fa2ee52a4afe4df23f595730b4c8a991599b45e2f0b52f74311120"},
-    "after": {"source": "candidate native/nvrm/context.om", "exit": 0, "stdout": "NATIVE_TEARDOWN_HOST_PASS", "unit_sha256": "e7127867f16249da2197225870a14fcd0a72b23498cfbe5493c955cc520fa731", "elf_sha256": "c8e589f87c9bf2742f6d0e174bff1f6434ab7584c8eabc31244b69c6c2c335a1"},
+    "before": {
+      "source": "f9cd649 native/nvrm/context.om",
+      "exit": 1,
+      "stderr": "NATIVE_TEARDOWN_HOST_FAIL",
+      "unit_sha256": "7e80409894963128f59e9810dcd3835ef78eba122ef7092261d8a7ebaf932939",
+      "elf_sha256": "b5262b3584fa2ee52a4afe4df23f595730b4c8a991599b45e2f0b52f74311120"
+    },
+    "after": {
+      "source": "candidate native/nvrm/context.om",
+      "exit": 0,
+      "stdout": "NATIVE_TEARDOWN_HOST_PASS",
+      "unit_sha256": "e7127867f16249da2197225870a14fcd0a72b23498cfbe5493c955cc520fa731",
+      "elf_sha256": "c8e589f87c9bf2742f6d0e174bff1f6434ab7584c8eabc31244b69c6c2c335a1"
+    },
     "repeat_run": "second run produced identical unit and ELF hashes"
   },
   "mutants": {
@@ -59,7 +71,7 @@
     "note": "byte-identical to the 0cf8cd7 receipt"
   },
   "physical": {
-    "window": "spark-window 20261024T223505Z-e73fdd, --gb10 shared --quiet none, opened and closed by the run; live model server on 18091 answered before and after",
+    "window": "spark-window 20261024T223505Z-e73fdd, --gb10 shared --quiet none, opened and closed by the run (window held 17 s, test 11 s); live model server on 18091 listed its model on checks just before and after (not saved as files)",
     "start": "2026-10-24T22:35:09Z",
     "end": "2026-10-24T22:35:20Z",
     "unit_sha256": "ff29f45a27c7ee27fb636ad5de64bc7540b060059f45cdd3a57e8b6c7944df91",
@@ -78,6 +90,17 @@
   "not_run": [
     "independent hardware rerun by a second person or machine",
     "faulted live-state nvcpumap refusal (see mutants.gap)",
-    "FP8 arithmetic", "27B inference", "speculative-state rollback", "AIENOS integration", "four-arm comparison", "performance measurements"
-  ]
+    "FP8 arithmetic",
+    "27B inference",
+    "speculative-state rollback",
+    "AIENOS integration",
+    "four-arm comparison",
+    "performance measurements"
+  ],
+  "review": {
+    "reviewer": "independent Fable 5.1 agent, no shared conclusions",
+    "verdict": "APPROVE WITH NOTES",
+    "blocking": 0,
+    "reran": "seed compiler rebuild, teardown fixture, four before-arm variants, all ten mutants, unit/ELF hash recomputation; no GPU"
+  }
 }

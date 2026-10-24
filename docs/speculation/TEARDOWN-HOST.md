@@ -101,7 +101,7 @@ outside this host fixture.
 
 ## Supported-host qualification
 
-On 2026-10-24 the candidate on `main` (22e9d9b plus this repair, code commit
+On 2026-10-24 a candidate based on `main` (22e9d9b plus this repair, code commit
 2e24216) was compiled with the pinned compiler rebuilt from seed and run on
 Linux AArch64: the original cleanup failed by assertion and the repair passed.
 Mutants, the GPU vector rerun and the remaining fixture gap are recorded in

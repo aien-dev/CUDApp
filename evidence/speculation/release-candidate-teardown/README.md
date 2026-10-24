@@ -29,7 +29,7 @@ refusing `nvstart` after cleanup. Mutants M1 to M6 and M8 break one of these
 each and are killed by the fixture's own assertion.
 
 The GPU run used a shared spark-window (`--gb10 shared --quiet none`) for
-11 seconds beside the live model server, which answered before and after.
+11 seconds of test run (17 seconds of window) beside the live model server. A model-list request to that server succeeded just before and just after; those two checks were not saved as files.
 It is a correctness result. No timing or performance is claimed. Older
 receipts were used only to check the build recipe; the same recipe applied to
 0cf8cd7 reproduces that receipt's unit `b3a36ac6…` and ELF `e3da26b0…`.
@@ -77,6 +77,11 @@ sha256sum kernel-unit.om kernel.elf   # ff29f45a… and b0754a4e…
 ./kernel.elf                          # NATIVE_SM121_VECTOR_PASS, exit 0
 ```
 
+The vector host regression row is rebuilt with the recipe in
+`docs/speculation/NATIVE-KERNEL.md` (declarations before `fn supply` in
+`vector-checks-test.om`, then `vector-checks.om`, then the remainder) and runs
+on the CPU. `mutants.sh` merges the two scripts that produced `mutants.log`.
+
 Exit 77 or `NOT_RUN` from the teardown script means an unsupported host and
 is not a pass.
 
@@ -87,3 +92,8 @@ is not a pass.
 - The live-state faulted `nvcpumap` fixture case above.
 - Everything else #65 asks for: FP8 arithmetic, the 27B model, speculative
   state rollback, AIENOS attachment and the four-arm comparison.
+- Review follow-ups (not defects in this candidate): add `maphold`,
+  `mapbind`, `mapaddr`, `mapget`, `mapset`, `mapwrite`, `sleepns` and `monons`
+  to the composer's escape guard; pin the before arm to 22e9d9b (same
+  `context.om` blob as f9cd649, which lives only on side branches); the early
+  `nvcpumap` failure paths ignore a failed descriptor close (pre-existing).
