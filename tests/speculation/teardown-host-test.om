@@ -2,9 +2,12 @@ note SPDX-License-Identifier: AGPL-3.0-only
 note Synthetic host refusal fixture. The private unit replaces device calls, close and mapdrop.
 note No GPU file is opened and no kernel, model, or hardware result is claimed.
 global tchecks ulong 1
-global tblocked uchar 3
-global tlive uchar 3
-global tdrops ulong 3
+global tblocked uchar 4
+global tlive uchar 4
+global tdrops ulong 4
+global tmapmode uchar 1
+global tmapcloses ulong 1
+global tmapopens ulong 1
 global tcloses ulong 2
 global tdrivercalls ulong 1
 global tdriverfail uchar 1
@@ -19,8 +22,22 @@ exit int 1
 end
 end
 fn tunexpected to long
+if ne get tmapmode 0 0
+put tmapopens 0 add get tmapopens 0 1
+ret 42
+end
 tcheck false
 ret neg long 5
+end
+fn tmapnew fd int offset ulong size ulong access int mode int to long
+tcheck eq get tmapmode 0 1
+tcheck eq fd 42
+tcheck eq offset 0
+tcheck eq size 4096
+tcheck eq access 3
+tcheck eq mode 1
+put tlive 3 1
+ret 14
 end
 fn tdriver to long
 note A retry after descriptor closure must never issue another RM or UVM call.
@@ -33,7 +50,7 @@ end
 ret 0
 end
 fn tdrop m long to long
-tcheck and ge m 11 le m 13
+tcheck and ge m 11 le m 14
 i = ulong sub m 11
 tcheck eq get tlive i 1
 put tdrops i add get tdrops i 1
@@ -44,6 +61,11 @@ put tlive i 0
 ret 0
 end
 fn tclose fd int to long
+if eq fd 42
+put tmapcloses 0 add get tmapcloses 0 1
+tcheck eq get tmapcloses 0 1
+ret neg long 5
+end
 tcheck and ge fd 40 le fd 41
 i = ulong sub fd 40
 put tcloses i add get tcloses i 1
@@ -202,6 +224,42 @@ tcheck eq get tdrivercalls 0 0
 tcheck nvstop
 tclosed
 end
+fn tunpublished to void
+note Close fails after mapping succeeds; a refused unmap must remain reachable.
+tprepare
+put tmapmode 0 1
+put tmapopens 0 0
+put tmapcloses 0 0
+put tblocked 3 1
+put tdrops 3 0
+put tlive 3 0
+tcheck eq nvcpumap 201 4096 false 0 neg long 1
+tcheck eq get tmapopens 0 1
+tcheck eq get tmapcloses 0 1
+tcheck eq get tlive 3 1
+tcheck eq get tdrops 3 1
+tcheck eq get nvfault 0 1
+tcheck not nvstop
+tcheck eq get nvstate 0 2
+tcheck eq get tlive 3 1
+note A faulted caller cannot overwrite the quarantined handle or reopen a descriptor.
+tcheck eq nvcpumap 202 4096 false 0 neg long 1
+tcheck eq get tmapopens 0 1
+before = get tdrivercalls 0
+tcheck not nvstop
+tcheck eq get tdrivercalls 0 before
+tcheck eq get tmapcloses 0 1
+put tblocked 3 0
+tcheck nvstop
+tclosed
+tcheck eq get tlive 3 0
+tcheck eq get nvfault 0 1
+count = get tdrops 3
+tcheck nvstop
+tcheck eq get tdrops 3 count
+tcheck not nvstart
+put tmapmode 0 0
+end
 fn main to int
 note Closed contexts stay idempotent without touching descriptors or mappings.
 tcheck nvstop
@@ -228,6 +286,7 @@ tcheck eq get nvfault 0 1
 tcheck nvstop
 tclosed
 tcheck not nvstart
+tunpublished
 tcheck eq write 1 tok 0 len tok long len tok
 ret 0
 end
