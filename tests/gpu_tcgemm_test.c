@@ -128,6 +128,7 @@ static int host_only(void) {
     /* production shapes: instructions and registers (declared = peak + 2 rounded to 8 <= 128; 32 * warps * declared <= 65536) */
     static const OmegaTcGemmSpec shapes[] = {
         { 2048, 4, 2, 8, 0 }, { 768, 4, 2, 8, 0 }, { 4096, 4, 2, 8, 0 }, { 2048, 4, 1, 8, 0 }, { 2048, 2, 2, 4, 0 }, { 2048, 4, 2, 4, 0 }, { 768, 4, 2, 4, 0 },
+        { 5120, 4, 2, 8, 0 }, { 17408, 4, 2, 8, 0 }, { 32768, 4, 2, 8, 0 }, /* Qwen3.8-27B widths and the new cap (omega#541) */
     };
     static BlackwellIRProgram prog;
     for (size_t i = 0; i < sizeof shapes / sizeof shapes[0]; i++) {
@@ -197,6 +198,7 @@ static int sim_tests(void) {
         { 2, 256, 256, 20, 7, 0, { 256, 4, 1, 8, 0 } },
         { 2, 128, 256, 33, 5, 1, { 256, 1, 4, 4, 0 } },
         { 1, 512, 256, 64, 64, 0, { 256, 4, 2, 8, 0 } },  /* dense: one expert, four CTAs across n */
+        { 1, 128, 17408, 64, 64, 0, { 17408, 4, 2, 8, 0 } }, /* Qwen3.8-27B down width (omega#541) */
     };
     for (size_t i = 0; i < sizeof pts / sizeof pts[0]; i++) {
         Prob p; prob_make(&p, pts[i].E, pts[i].n, pts[i].k, pts[i].M, pts[i].xr, pts[i].skew);
@@ -287,6 +289,9 @@ int chip_tests(int argc, char **argv) {
     uint32_t E, n, k;
     if (!strcmp(shape, "gateup")) { E = 128; n = 1536; k = 2048; } else if (!strcmp(shape, "down")) { E = 128; n = 2048; k = 768; }
     else if (!strcmp(shape, "qkv")) { E = 1; n = 5120; k = 2048; } else if (!strcmp(shape, "o")) { E = 1; n = 2048; k = 4096; }
+    /* Qwen3.8-27B dense shapes (omega#541): MLP gate or up, down (k 17408), DeltaNet in_proj_qkv, out_proj / o_proj */
+    else if (!strcmp(shape, "q38gate")) { E = 1; n = 17408; k = 5120; } else if (!strcmp(shape, "q38down")) { E = 1; n = 5120; k = 17408; }
+    else if (!strcmp(shape, "q38qkv")) { E = 1; n = 10240; k = 5120; } else if (!strcmp(shape, "q38o")) { E = 1; n = 5120; k = 6144; }
     else { printf("unknown shape %s\n", shape); return 1; }
     const uint32_t M = E == 1 ? tokens : tokens * 8u;
     if (reps > 64) reps = 64;

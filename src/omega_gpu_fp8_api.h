@@ -33,7 +33,7 @@
  *         capsule GATE_UP [128][1536][2048] and DOWN [128][2048][768] layouts; attention
  *         projections have experts = 1, e.g. q_proj [4096][2048]).
  *     scale_inv_bf16: experts * (n/128) * (k/128) bf16, [expert][n/128][k/128] (`weight_scale_inv`).
- *     Requires n % 128 == 0, k % 128 == 0, 128 <= k <= 16384, experts >= 1. Refuses any e4m3 NaN
+ *     Requires n % 128 == 0, k % 128 == 0, 128 <= k <= 32768 (omega#541), experts >= 1. Refuses any e4m3 NaN
  *     code (0x7F, 0xFF) in w with OMEGA_GPU_FP8_NAN_WEIGHT (nothing uploaded), a NaN/inf scale with
  *     BAD_ARGS. Weights are copied byte for byte (no reorder); scales are stored as f32 * 2^56.
  *     Opens the device on first use. Resident until omega_gpu_fp8_tensor_free.
@@ -83,6 +83,7 @@ enum {
 
 #define OMEGA_GPU_FP8_MAX_GROUPS 64u
 #define OMEGA_GPU_FP8_MAX_CTAS 256u /* default CTA budget per group for a single projection; the elementwise and attention rows paths proved 1024 */
+#define OMEGA_GPU_FP8_BIGK_CTAS 384u /* big-k rule: CTA budget of a single projection with k > 4096 (Qwen3.8-27B), split evenly (2026-10-19) */
 #define OMEGA_GPU_FP8_GROUPED_CTAS 6u /* CTAs per group for a grouped launch (32 warps each): measured best for 8 experts */
 
 typedef struct {
@@ -104,6 +105,11 @@ typedef struct OmegaGpuFp8Tensor OmegaGpuFp8Tensor;
 
 int omega_gpu_fp8_tensor_upload(uint32_t experts, uint32_t n, uint32_t k, const uint8_t *w,
                                 const uint16_t *scale_inv_bf16, OmegaGpuFp8Tensor **out);
+/* Host-only quantiser (qwen38/decode-speed, the FP8 lm_head): bf16 [n][k] -> e4m3 [n][k] + scale_inv bf16 [n/128][k/128], the
+ * upload format above. Per 128 x 128 block: scale = max|w| / 448 rounded up to bf16 (1 for an all-zero block), w8 = e4m3(w / scale),
+ * round to nearest even, saturating at 448 (never the NaN code). n, k multiples of 128. OMEGA_GPU_FP8_BAD_ARGS on an inf/NaN weight. */
+int omega_gpu_fp8_quantize_bf16(uint32_t n, uint32_t k, const uint16_t *w_bf16, uint8_t *w8, uint16_t *scale_inv_bf16);
+uint8_t omega_gpu_fp8_e4m3_rne(float v); /* one value, the rounding the quantiser uses */
 void omega_gpu_fp8_tensor_free(OmegaGpuFp8Tensor *t);
 void omega_gpu_fp8_tensor_shape(const OmegaGpuFp8Tensor *t, uint32_t *experts, uint32_t *n, uint32_t *k);
 
@@ -146,6 +152,10 @@ void omega_gpu_fp8_set_depth(int set, uint32_t depth);
 /* The depth the automatic choice makes for a spec (k, lane_bytes, rows, warps filled in), n rows, `groups` experts:
  * deep only for a single projection of at most 4 MiB of weights (measured, see omega_gpu_fp8_api.c). */
 uint32_t omega_gpu_fp8_depth_for(const OmegaFp8GemvSpec *spec, uint32_t n, uint32_t groups);
+/* The deep default was measured (SPEED-1B, 2026-10-17) while the launch descriptor allowed 16 KiB of shared memory; the
+ * 32 KiB cap (#559, Qwen3.8 bf16 GEMV) would newly admit the 30B o_proj (16464 bytes), which no run has measured. The
+ * automatic choice keeps the measured bound; set_depth still reaches anything the descriptor allows. */
+#define OMEGA_GPU_FP8_DEEP_MAX_SHARED_BYTES 16384u
 /* Register-file check for a spec (chip-found rule: 32 * warps * declared registers <= 65536, declared = peak + 1 rounded
  * up to 8). OK, TOO_LARGE (last_error names the counts) or CODEGEN_FAIL. The automatic depth choice and every build apply it. */
 int omega_gpu_fp8_kernel_fits(const OmegaFp8GemvSpec *spec, uint32_t *declared);
@@ -162,6 +172,34 @@ void omega_gpu_fp8_set_weight_cache(int on);
  * per group for grouped launches (the shape and budget knobs above still override). */
 void omega_gpu_fp8_set_variant(int variant);
 int omega_gpu_fp8_variant(void);
+/* Kernel schedule (CUT5, measurement knob; clears the kernel cache): 0 (default) = the emitted stalls, 1 = the bytes of a step
+ * decoded in a software pipeline plus the dependency-driven stall pass (OmegaFp8GemvSpec.sched; y bit-identical to 0). Variant 1
+ * only (variant 2 ignores it). Never set: the first kernel build reads env AIEN_OMEGA_FP8_SCHED ("1" = 1). */
+void omega_gpu_fp8_set_sched(int sched);
+int omega_gpu_fp8_sched(void);
+/* CUT5 variants (variant 1 only; each setter clears the kernel cache; never set: the env is read once at the first build).
+ * A, coalesced output (OmegaFp8GemvSpec.coal; applied where warps * rows <= 32): ON by default since SPEED-A (2026-10-17,
+ *    OWN-30B decode graph 24.49 -> 21.34 ms/token, tokens identical to golden); AIEN_OMEGA_FP8_COAL=0 or set_coal(0) restores
+ *    the earlier kernel (one 4-byte STG per row, no shared slots).
+ * B, weight loads before the x loads in each K step (OmegaFp8GemvSpec.wfirst): OFF by default; AIEN_OMEGA_FP8_WFIRST=1 turns it on. */
+void omega_gpu_fp8_set_coal(int on);
+int omega_gpu_fp8_coal(void);
+void omega_gpu_fp8_set_wfirst(int on);
+int omega_gpu_fp8_wfirst(void);
+/* SPEED-1B (2026-10-17): the automatic deep kernel (x staged in shared memory, every load of the row in flight) for single
+ * projections whenever it fits the register file and the launch descriptor's shared-memory limit; ON by default (qkv 5120 x 2048
+ * cold 0.732 -> 0.853 of line). AIEN_OMEGA_FP8_DEEP=0 or set_deep(0) keeps the step-by-step kernel everywhere. */
+void omega_gpu_fp8_set_deep(int on);
+int omega_gpu_fp8_deep(void);
+/* Big-k rule (qwen38/decode-speed): single projections with k > 4096 get 16 warps per CTA and, when x fits the launch
+ * descriptor's shared memory, the deep kernel at the largest step count that divides the row within the lane budget
+ * (k 5120: 5 steps, k 6144: 6). 1 (default since 2026-10-19: Qwen3.8-27B whole model 151.6 -> 142-143 ms per token,
+ * golden 24/24) or 0; env AIEN_OMEGA_FP8_BIGK when never set. Shapes with k <= 4096 (the 30B lane) are unchanged. */
+void omega_gpu_fp8_set_bigk(int on);
+int omega_gpu_fp8_bigk(void);
+/* Host-only: the spec the automatic choice makes for a call of k columns, n rows, `groups` experts under the current knobs
+ * (shape, depth, sched, coal, wfirst, mutant). No chip, no kernel build. */
+void omega_gpu_fp8_spec_for(uint32_t k, uint32_t n, uint32_t groups, OmegaFp8GemvSpec *spec);
 #define OMEGA_GPU_FP8_V2_WARPS 16u
 #define OMEGA_GPU_FP8_V2_GROUPED_CTAS 12u
 int omega_gpu_fp8_weight_cache(void);

@@ -26,6 +26,7 @@
 #include "omega_gpu_session.h"
 #include "omega_gpu_fmt.h"
 #include "omega_gpu_cmdlist.h"
+#include "omega_blackwell_qmd.h" /* OMEGA_BW_QMD_MAX_SHARED_BYTES: the deep kernel's x stage must fit the launch descriptor */
 #include <stdlib.h>
 #include <string.h>
 
@@ -58,6 +59,10 @@ static struct {
     int variant, variant_set; /* GEMV variant 1 or 2 (omega_gpu_fp8_set_variant / AIEN_OMEGA_FP8_GEMV), read once */
     int weights_cached; /* omega_gpu_fp8_set_weight_cache: uploads after it allocate GPU-cached (read-only weights) */
     int weights_cached_set; /* 0: never set, the first upload reads env AIEN_OMEGA_FP8_WEIGHT_CACHE (W-L2d: "1" = cached) */
+    int sched, sched_set; /* CUT5: kernel schedule 0 (default) or 1 (pipelined decode + stall pass), variant 1 only; env AIEN_OMEGA_FP8_SCHED when never set */
+    int coal, coal_set, wfirst, wfirst_set; /* CUT5 variants A (coalesced output) and B (weights before x), variant 1 only; env AIEN_OMEGA_FP8_COAL / AIEN_OMEGA_FP8_WFIRST when never set */
+    int deep, deep_set; /* SPEED-1B: automatic deep kernel for single projections whenever it fits (1, default) or never (0); env AIEN_OMEGA_FP8_DEEP when never set */
+    int bigk, bigk_set; /* qwen38/decode-speed: single projections with k > 4096 (Qwen3.8-27B) get 16 warps and a partial-depth deep kernel when x fits; default on, env AIEN_OMEGA_FP8_BIGK when never set */
     bool hooked;
     Slot cache[CACHE_SLOTS];
     unsigned next;
@@ -123,6 +128,43 @@ void omega_gpu_fp8_set_variant(int variant) {
     omega_gpu_session_unlock();
 }
 int omega_gpu_fp8_variant(void) { return variant_now(); }
+
+/* ---- kernel schedule (CUT5): 0 = emitted stalls (default), 1 = pipelined decode + dependency stall pass (variant 1 only) ---- */
+static int sched_now(void) {
+    if (!g.sched_set) {
+        const char *v = getenv("AIEN_OMEGA_FP8_SCHED");
+        g.sched = (v && v[0] == '1' && v[1] == 0) ? 1 : 0;
+        g.sched_set = 1;
+    }
+    return g.sched;
+}
+void omega_gpu_fp8_set_sched(int sched) {
+    omega_gpu_session_lock();
+    g.sched = sched == 1 ? 1 : 0; g.sched_set = 1;
+    cache_clear_locked();
+    omega_gpu_session_unlock();
+}
+int omega_gpu_fp8_sched(void) { return sched_now(); }
+/* ---- CUT5 variants A and B (variant 1 only): 0 = off, 1 = on. Never set: the env decides once; A (coal) defaults ON (env
+ * value "0" turns it off; SPEED-A 2026-10-17: OWN-30B decode graph 24.49 -> 21.34 ms/token, tokens identical), B (wfirst)
+ * defaults OFF (env value "1" turns it on; cold bench: not distinguishable from noise) ---- */
+static int flag_now(int *v, int *set, const char *env, int dflt) {
+    if (!*set) {
+        const char *s = getenv(env);
+        *v = (s && s[0] == '0' && s[1] == 0) ? 0 : (s && s[0] == '1' && s[1] == 0) ? 1 : dflt;
+        *set = 1;
+    }
+    return *v;
+}
+static void flag_set(int *v, int *set, int on) { omega_gpu_session_lock(); *v = on == 1 ? 1 : 0; *set = 1; cache_clear_locked(); omega_gpu_session_unlock(); }
+void omega_gpu_fp8_set_coal(int on) { flag_set(&g.coal, &g.coal_set, on); }
+int omega_gpu_fp8_coal(void) { return flag_now(&g.coal, &g.coal_set, "AIEN_OMEGA_FP8_COAL", 1); }
+void omega_gpu_fp8_set_wfirst(int on) { flag_set(&g.wfirst, &g.wfirst_set, on); }
+int omega_gpu_fp8_wfirst(void) { return flag_now(&g.wfirst, &g.wfirst_set, "AIEN_OMEGA_FP8_WFIRST", 0); }
+void omega_gpu_fp8_set_deep(int on) { flag_set(&g.deep, &g.deep_set, on); }
+int omega_gpu_fp8_deep(void) { return flag_now(&g.deep, &g.deep_set, "AIEN_OMEGA_FP8_DEEP", 1); }
+void omega_gpu_fp8_set_bigk(int on) { flag_set(&g.bigk, &g.bigk_set, on); }
+int omega_gpu_fp8_bigk(void) { return flag_now(&g.bigk, &g.bigk_set, "AIEN_OMEGA_FP8_BIGK", 1); }
 /* codegen by variant */
 static int prog_for(int variant, const OmegaFp8GemvSpec *spec, BlackwellIRProgram *prog) {
     return variant == 2 ? omega_blackwell_codegen_fp8_gemv2_prog(spec, prog) : omega_blackwell_codegen_fp8_gemv_prog(spec, prog);
@@ -218,15 +260,37 @@ static int kernel_for(const OmegaFp8GemvSpec *spec, Slot **out, bool *hit) {
 uint32_t omega_gpu_fp8_depth_for(const OmegaFp8GemvSpec *spec, uint32_t n, uint32_t groups) {
     if (g.depth_set) return g.depth;
     uint32_t ks = spec->k / (32u * spec->lane_bytes);
+    /* big k (qwen38/decode-speed, opt-in AIEN_OMEGA_FP8_BIGK=1): the whole row cannot be in flight, so the largest step
+     * count that divides KS within the 128-byte lane budget; x' still has to fit the launch descriptor's shared memory */
+    const int partial = ks * spec->rows * spec->lane_bytes > 128u && spec->k > 4096u && groups == 1u && omega_gpu_fp8_bigk();
+    if (partial) { do ks--; while (ks > 1u && (spec->k / (32u * spec->lane_bytes) % ks || ks * spec->rows * spec->lane_bytes > 128u)); if (ks < 2u) return 0; }
     if (ks * spec->rows * spec->lane_bytes > 128u || spec->k % (32u * spec->warps) || spec->k > 512u * spec->warps) return 0;
-    /* Measured (evidence OWN30B-FP8-GEMV-fc05176a-*, main vs depth0 in one run): the deep kernel wins on single
-     * projections up to a few MB (gate+up 1536x2048: 30 us vs 51; k_proj: 30 vs 44) and loses on the grouped
-     * 8-expert launches (its per-CTA x staging re-reads 8 KB per CTA: 188 us vs 150) and on o_proj (79 vs 64). */
-    if (groups != 1u || (uint64_t)n * spec->k > (4u << 20)) return 0;
+    /* Measured (evidence OWN30B-FP8-GEMV-fc05176a-*, main vs depth0 in one run, before variant A): the deep kernel won on
+     * single projections up to a few MB (gate+up 1536x2048: 30 us vs 51; k_proj: 30 vs 44) and lost on the grouped
+     * 8-expert launches (its per-CTA x staging re-reads 8 KB per CTA: 188 us vs 150) and on o_proj (79 vs 64), so the rule
+     * was "classic above 4 MB". Re-measured under A (SPEED-1B, 2026-10-17, cold GPU-stamped, 5/5 interleaved,
+     * ~/workspace/investigations/2026-10-17-SPEED-1B): deep wins on qkv 5120 x 2048 (10.5 MB) 51.8 us vs 60.4 (0.853 vs 0.732
+     * of the 237.2 GB/s line, floor spread 0.078), so the size clause is gone. o_proj 2048 x 4096 is not a candidate: its deep
+     * kernel's x stage exceeds the launch descriptor's shared-memory limit (qmd build (shared_bytes), 5/5), which is the bound
+     * checked below. AIEN_OMEGA_FP8_DEEP=0 or set_deep(0) restores the classic kernel everywhere. */
+    (void)n;
+    if (groups != 1u || !omega_gpu_fp8_deep()) return 0;
     OmegaFp8GemvSpec deep = *spec; deep.depth = ks; deep.mutant = 0;
+    if (omega_fp8_gemv_shared_bytes(&deep) > (partial ? OMEGA_BW_QMD_MAX_SHARED_BYTES : OMEGA_GPU_FP8_DEEP_MAX_SHARED_BYTES)) return 0;
+    /* The register check builds the whole kernel (codegen + register allocation). spec_for runs on every launch and every
+     * record, so the answer is remembered per spec: SPEED-1B graph A/B (2026-10-17) measured the unremembered check at
+     * 853..1172 us of host record time per token (48 qkv records) against 45..113 us without the deep default. The answer is
+     * a pure function of the spec (deterministic codegen), so the memo never needs clearing; spec_for zeroes the struct,
+     * so memcmp over the padding is exact. */
+    static struct { OmegaFp8GemvSpec spec; uint32_t fits; } memo[8];
+    static unsigned memo_n, memo_next;
+    for (unsigned i = 0; i < memo_n; i++)
+        if (memcmp(&memo[i].spec, &deep, sizeof deep) == 0) return memo[i].fits ? ks : 0;
     uint32_t peak = 0;
-    if (omega_fp8_gemv_prog_stats(&deep, NULL, &peak) != 0 || (uint64_t)32u * spec->warps * gpr_declared(peak) > 65536u) return 0;
-    return ks;
+    const uint32_t fits = omega_fp8_gemv_prog_stats(&deep, NULL, &peak) == 0 && (uint64_t)32u * spec->warps * gpr_declared(peak) <= 65536u;
+    const unsigned at = memo_n < 8u ? memo_n++ : (memo_next++ % 8u);
+    memo[at].spec = deep; memo[at].fits = fits;
+    return fits ? ks : 0;
 }
 
 static void spec_for(uint32_t k, uint32_t n, uint32_t groups, OmegaFp8GemvSpec *spec) {
@@ -237,14 +301,24 @@ static void spec_for(uint32_t k, uint32_t n, uint32_t groups, OmegaFp8GemvSpec *
      * for 8 groups) measured fastest: down 2048x768 x 8 went from 181 us (256 x 8 CTAs of 8 warps) to 90 us
      * (4..6 x 8 CTAs of 32 warps); gate+up 146 -> 140 us (probe logs listed in ~/handoffs/own30b-K-report.md). */
     if (groups > 1u && !g.warps) spec->warps = 32u;
+    /* big k (opt-in AIEN_OMEGA_FP8_BIGK=1): 16 warps per CTA (sweep 2026-10-19, ~/workspace/omega-q38-speed-work/runs/sweep1:
+     * warps 16 beat 8 on every Qwen3.8-27B projection, 4 lost) */
+    if (groups == 1u && k > 4096u && !g.warps && omega_gpu_fp8_bigk()) spec->warps = 16u;
     if (variant_now() == 2) {
         /* variant 2 (W-L2c): 16 warps per CTA (two CTAs per SM at its register count) for every launch unless overridden;
          * the whole row group is always in flight (depth = KS, informational: the generator ignores the field). */
         if (!g.warps) spec->warps = OMEGA_GPU_FP8_V2_WARPS;
         spec->depth = spec->k / (32u * spec->lane_bytes);
-    } else spec->depth = omega_gpu_fp8_depth_for(spec, n, groups);
+    } else {
+        spec->sched = (uint32_t)sched_now();
+        spec->coal = omega_gpu_fp8_coal() && spec->warps * spec->rows <= 32u; /* A: shapes whose round fits one store warp */
+        spec->wfirst = (uint32_t)omega_gpu_fp8_wfirst();                       /* B: deep kernels ignore it */
+        spec->depth = omega_gpu_fp8_depth_for(spec, n, groups);                /* after coal: the deep kernel's shared bytes include A's slots */
+    }
     spec->mutant = g.mutant;
 }
+/* Host-only: the spec the automatic choice makes for a call (no chip, no cache; tests check the defaults with it). */
+void omega_gpu_fp8_spec_for(uint32_t k, uint32_t n, uint32_t groups, OmegaFp8GemvSpec *spec) { spec_for(k, n, groups, spec); }
 
 int omega_gpu_fp8_prepare(uint32_t k) {
     OmegaFp8GemvSpec spec; spec_for(k, 1u << 20, 1, &spec);
@@ -325,6 +399,11 @@ static int gemv_core(const OmegaGpuFp8Tensor *t, uint32_t groups, const uint32_t
     uint32_t grid_x = (RG + spec.warps - 1) / spec.warps;
     const int variant = variant_now();
     uint32_t budget = g.cta_budget_set ? g.cta_budget : (groups > 1u ? (variant == 2 ? OMEGA_GPU_FP8_V2_GROUPED_CTAS : OMEGA_GPU_FP8_GROUPED_CTAS) : OMEGA_GPU_FP8_MAX_CTAS);
+    /* big-k grid (qwen38/decode-speed): up to OMEGA_GPU_FP8_BIGK_CTAS CTAs, split so every warp gets the same number of row
+     * groups, at least two (measured, runs/sweep5 and sweep7: budget 384 over 256 gave mix +3%, gate_up +2.6%; the n = 5120
+     * shapes run best at 160 CTAs, two row groups per warp: o_proj 186 -> 198 GB/s) */
+    const int bigk_grid = !g.cta_budget_set && groups == 1u && k > 4096u && omega_gpu_fp8_bigk();
+    if (bigk_grid) { uint32_t waves = (grid_x + OMEGA_GPU_FP8_BIGK_CTAS - 1u) / OMEGA_GPU_FP8_BIGK_CTAS; if (waves < 2u) waves = 2u; grid_x = (grid_x + waves - 1u) / waves; budget = grid_x; }
     if (grid_x > budget) grid_x = budget;
     if (grid_x == 0) grid_x = 1;
 
@@ -430,3 +509,61 @@ int omega_gpu_fp8_gemv_grouped_record(OmegaGpuCmdList *cl, const OmegaGpuFp8Tens
 /* ---- weight cache policy (OWN-30B L2 kernel-time cut) ---- */
 void omega_gpu_fp8_set_weight_cache(int on) { omega_gpu_session_lock(); g.weights_cached = on ? 1 : 0; g.weights_cached_set = 1; omega_gpu_session_unlock(); }
 int omega_gpu_fp8_weight_cache(void) { return g.weights_cached; }
+
+/* ---- host quantiser (qwen38/decode-speed: the FP8 lm_head) ---- */
+
+/* f32 -> e4m3 (bias 7, max 448, no infinities), round to nearest, ties to even; |v| >= 448 (and NaN) saturate to 448:
+ * 0x7F (NaN) is never produced. Pure integer/float bit work, no libm. */
+uint8_t omega_gpu_fp8_e4m3_rne(float v) {
+    uint32_t u; memcpy(&u, &v, 4);
+    const uint8_t s = (uint8_t)((u >> 24) & 0x80u);
+    u &= 0x7FFFFFFFu;
+    float a; memcpy(&a, &u, 4);
+    if (!(a < 448.0f)) return (uint8_t)(s | 0x7Eu);
+    const int ex = (int)(u >> 23) - 127;
+    if (ex < -6) { /* e4m3 subnormals: units of 2^-9 (code 8 is the smallest normal, 2^-6) */
+        const float x = a * 512.0f; uint32_t xi = (uint32_t)x; const float fr = x - (float)xi;
+        if (fr > 0.5f || (fr == 0.5f && (xi & 1u))) xi++;
+        return (uint8_t)(s | xi);
+    }
+    const uint32_t m = u & 0x7FFFFFu, rb = (m >> 19) & 1u, st = m & 0x7FFFFu;
+    uint32_t q = m >> 20, e = (uint32_t)(ex + 7);
+    if (rb && (st || (q & 1u))) q++;
+    if (q == 8u) { q = 0; e++; }
+    uint32_t code = (e << 3) | q;
+    if (code > 0x7Eu) code = 0x7Eu;
+    return (uint8_t)(s | code);
+}
+
+int omega_gpu_fp8_quantize_bf16(uint32_t n, uint32_t k, const uint16_t *w, uint8_t *w8, uint16_t *scale_inv_bf16) {
+    if (!w || !w8 || !scale_inv_bf16 || n == 0 || k == 0 || n % OMEGA_FP8_BLOCK || k % OMEGA_FP8_BLOCK) return OMEGA_GPU_FP8_BAD_ARGS;
+    const uint32_t kb = k / OMEGA_FP8_BLOCK;
+    for (uint32_t bn = 0; bn < n / OMEGA_FP8_BLOCK; bn++)
+        for (uint32_t bk = 0; bk < kb; bk++) {
+            float amax = 0.0f;
+            for (uint32_t r = 0; r < OMEGA_FP8_BLOCK; r++) {
+                const uint16_t *row = w + ((size_t)bn * OMEGA_FP8_BLOCK + r) * k + (size_t)bk * OMEGA_FP8_BLOCK;
+                for (uint32_t c = 0; c < OMEGA_FP8_BLOCK; c++) {
+                    uint32_t b = (uint32_t)(row[c] & 0x7FFFu) << 16; float f; memcpy(&f, &b, 4);
+                    if (!(f <= 3.0e38f)) return OMEGA_GPU_FP8_BAD_ARGS; /* inf / NaN weight */
+                    if (f > amax) amax = f;
+                }
+            }
+            /* scale = amax / 448 rounded UP to bf16, so every |w / scale| <= 448 before rounding; an all-zero block gets 1 */
+            uint16_t sb = 0x3F80u;
+            if (amax > 0.0f) {
+                const float q = amax / 448.0f; uint32_t b; memcpy(&b, &q, 4);
+                sb = (uint16_t)((b >> 16) + ((b & 0xFFFFu) ? 1u : 0u));
+            }
+            scale_inv_bf16[(size_t)bn * kb + bk] = sb;
+            uint32_t sbits = (uint32_t)sb << 16; float sc; memcpy(&sc, &sbits, 4);
+            for (uint32_t r = 0; r < OMEGA_FP8_BLOCK; r++) {
+                const size_t at = ((size_t)bn * OMEGA_FP8_BLOCK + r) * k + (size_t)bk * OMEGA_FP8_BLOCK;
+                for (uint32_t c = 0; c < OMEGA_FP8_BLOCK; c++) {
+                    uint32_t b = (uint32_t)w[at + c] << 16; float f; memcpy(&f, &b, 4);
+                    w8[at + c] = omega_gpu_fp8_e4m3_rne(f / sc);
+                }
+            }
+        }
+    return OMEGA_GPU_FP8_OK;
+}

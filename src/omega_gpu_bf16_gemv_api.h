@@ -86,6 +86,9 @@ int omega_gpu_bf16_gemv_bf16(const OmegaGpuBf16Tensor *t, const uint16_t *x, flo
  * kernel is refused (TOO_LARGE): warm the shape up with one non-record call (or omega_gpu_bf16_prepare) first. */
 struct OmegaGpuCmdList;
 int omega_gpu_bf16_gemv_record(struct OmegaGpuCmdList *cl, const OmegaGpuBf16Tensor *t, uint64_t x_va, uint64_t y_va);
+/* ROWS form (sc #642 prefill): `rows` token rows in one launch (grid_y = rows <= 65535); row r reads x_va + r * k f32
+ * and writes y_va + r * n f32. Record-only; the kernel (spec.ystride = n) is cached per n like any other shape. */
+int omega_gpu_bf16_gemv_rows_record(struct OmegaGpuCmdList *cl, const OmegaGpuBf16Tensor *t, uint32_t rows, uint64_t x_va, uint64_t y_va);
 int omega_gpu_bf16_prepare(uint32_t k);
 const char *omega_gpu_bf16_rc_name(int rc);
 const char *omega_gpu_bf16_last_error(void);

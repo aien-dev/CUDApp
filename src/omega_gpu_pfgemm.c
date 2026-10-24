@@ -18,6 +18,7 @@
 #include "omega_gpu_prefill.h"
 #include "omega_blackwell_codegen_tc2.h"
 #include "omega_gpu_fp8_api.h"
+#include "omega_gpu_cmdlist.h"
 #include "omega_gpu_fmt.h"
 #include <stdlib.h>
 #include <string.h>
@@ -127,19 +128,32 @@ int omega_gpu_pf_gemm(const OmegaPfWeights *w, uint64_t tiles_va, uint32_t ntile
 static int pq_mutant;
 void omega_gpu_pf_quant_test_set_mutant(int m) { pq_mutant = m; }
 static int gen_pq(const OmegaPfKey *key, void *prog) { OmegaPqSpec s; memcpy(&s, key->words, sizeof s); return omega_blackwell_codegen_pq_prog(&s, prog); }
-int omega_gpu_pf_quant(uint32_t k, uint32_t in_type, uint32_t rows, uint64_t x_va, uint64_t q_va, uint64_t s_va, uint64_t *ns) {
+/* cl non-NULL: record (caller holds the lock) instead of launch */
+static int pq_core(OmegaGpuCmdList *cl, uint32_t k, uint32_t in_type, uint32_t rows, uint64_t x_va, uint64_t q_va, uint64_t s_va, uint64_t *ns) {
     OmegaPqSpec s; memset(&s, 0, sizeof s); s.k = k; s.in_type = in_type; s.mutant = pq_mutant;
+    const uint32_t kb = k / 128u;
+    if (k % 128u == 0 && kb > 32u) for (s.groups = 32u; kb % s.groups; s.groups--) {} /* wide row: split over ctaid.y */
+    const uint32_t g = s.groups ? s.groups : kb, gy = s.groups ? kb / s.groups : 1u;
     if (!omega_pq_spec_ok(&s) || !x_va || !q_va || !s_va) return OMEGA_GPU_PF_BAD_ARGS;
     if (rows == 0) return OMEGA_GPU_PF_OK;
     OmegaPfKey key; memset(&key, 0, sizeof key); key.kind = KIND_PQ; memcpy(key.words, &s, sizeof s);
     const uint32_t args[OMEGA_PQ_ARGS_WORDS] = { (uint32_t)x_va, (uint32_t)(x_va >> 32), (uint32_t)q_va, (uint32_t)(q_va >> 32), (uint32_t)s_va, (uint32_t)(s_va >> 32) };
-    omega_gpu_session_lock();
+    if (!cl) omega_gpu_session_lock();
     int rc = omega_gpu_pf_open_locked();
     OmegaPfKernel kern;
     if (rc == OMEGA_GPU_PF_OK) rc = omega_gpu_pf_kernel_locked(&key, gen_pq, &kern);
-    if (rc == OMEGA_GPU_PF_OK) rc = omega_gpu_pf_launch_locked(&kern, 32u * (k / 128u), rows, 1, 0, args, OMEGA_PQ_ARGS_WORDS, ns);
-    omega_gpu_session_unlock();
+    if (rc == OMEGA_GPU_PF_OK)
+        rc = cl ? omega_gpu_pf_record_locked(cl, &kern, 32u * g, rows, gy, 0, args, OMEGA_PQ_ARGS_WORDS)
+                : omega_gpu_pf_launch_locked(&kern, 32u * g, rows, gy, 0, args, OMEGA_PQ_ARGS_WORDS, ns);
+    if (!cl) omega_gpu_session_unlock();
     return rc;
+}
+int omega_gpu_pf_quant(uint32_t k, uint32_t in_type, uint32_t rows, uint64_t x_va, uint64_t q_va, uint64_t s_va, uint64_t *ns) {
+    return pq_core(NULL, k, in_type, rows, x_va, q_va, s_va, ns);
+}
+int omega_gpu_pf_quant_record(OmegaGpuCmdList *cl, uint32_t k, uint32_t in_type, uint32_t rows, uint64_t x_va, uint64_t q_va, uint64_t s_va) {
+    if (!cl) return OMEGA_GPU_PF_BAD_ARGS;
+    return pq_core(cl, k, in_type, rows, x_va, q_va, s_va, NULL);
 }
 
 /* ---- native FP8 path (W-L1G): grouped GEMM on QMMA (omega_blackwell_codegen_qg.h) ---- */
@@ -189,7 +203,8 @@ uint32_t omega_gpu_pf_qgemm_tiles(const OmegaGpuFp8Tensor *t, const uint32_t *co
 
 static int gen_qg(const OmegaPfKey *key, void *prog) { OmegaQgSpec s; memcpy(&s, key->words, sizeof s); return omega_blackwell_codegen_qgemm_prog(&s, prog); }
 
-int omega_gpu_pf_qgemm(uint32_t n, uint32_t k, uint32_t layout, uint64_t tiles_va, uint32_t ntiles, uint64_t rowidx_va, uint64_t xq_va, uint64_t xs_va, uint64_t y_va, uint64_t *ns) {
+static int qg_core(OmegaGpuCmdList *cl, uint32_t n, uint32_t k, uint32_t layout, uint64_t tiles_va, uint32_t ntiles, uint64_t rowidx_va, uint64_t xq_va,
+                   uint64_t xs_va, uint64_t y_va, uint64_t *ns) {
     if (!tiles_va || !xq_va || !xs_va || !y_va) return OMEGA_GPU_PF_BAD_ARGS;
     if (layout != OMEGA_GPU_PF_PLAIN && layout != OMEGA_GPU_PF_SWIGLU_NAT) return OMEGA_GPU_PF_BAD_ARGS;
     if (ntiles == 0) return OMEGA_GPU_PF_OK;
@@ -206,11 +221,21 @@ int omega_gpu_pf_qgemm(uint32_t n, uint32_t k, uint32_t layout, uint64_t tiles_v
     const uint64_t va[5] = { tiles_va, rowidx_va, xq_va, y_va, xs_va };
     for (int i = 0; i < 5; i++) { args[2 * i] = (uint32_t)va[i]; args[2 * i + 1] = (uint32_t)(va[i] >> 32); }
     args[10] = n;
-    omega_gpu_session_lock();
+    if (!cl) omega_gpu_session_lock();
     int rc = omega_gpu_pf_open_locked();
     OmegaPfKernel kern;
     if (rc == OMEGA_GPU_PF_OK) rc = omega_gpu_pf_kernel_locked(&key, gen_qg, &kern);
-    if (rc == OMEGA_GPU_PF_OK) rc = omega_gpu_pf_launch_locked(&kern, 32u * s.warps, n / span, ntiles, omega_qg_shared_bytes(&s), args, OMEGA_QG_ARGS_WORDS, ns);
-    omega_gpu_session_unlock();
+    if (rc == OMEGA_GPU_PF_OK)
+        rc = cl ? omega_gpu_pf_record_locked(cl, &kern, 32u * s.warps, n / span, ntiles, omega_qg_shared_bytes(&s), args, OMEGA_QG_ARGS_WORDS)
+                : omega_gpu_pf_launch_locked(&kern, 32u * s.warps, n / span, ntiles, omega_qg_shared_bytes(&s), args, OMEGA_QG_ARGS_WORDS, ns);
+    if (!cl) omega_gpu_session_unlock();
     return rc;
+}
+int omega_gpu_pf_qgemm(uint32_t n, uint32_t k, uint32_t layout, uint64_t tiles_va, uint32_t ntiles, uint64_t rowidx_va, uint64_t xq_va, uint64_t xs_va, uint64_t y_va, uint64_t *ns) {
+    return qg_core(NULL, n, k, layout, tiles_va, ntiles, rowidx_va, xq_va, xs_va, y_va, ns);
+}
+int omega_gpu_pf_qgemm_record(OmegaGpuCmdList *cl, uint32_t n, uint32_t k, uint32_t layout, uint64_t tiles_va, uint32_t ntiles,
+                              uint64_t rowidx_va, uint64_t xq_va, uint64_t xs_va, uint64_t y_va) {
+    if (!cl) return OMEGA_GPU_PF_BAD_ARGS;
+    return qg_core(cl, n, k, layout, tiles_va, ntiles, rowidx_va, xq_va, xs_va, y_va, NULL);
 }

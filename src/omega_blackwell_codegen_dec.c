@@ -162,6 +162,7 @@ static const uint32_t C_INV2048 = 0x3A000000u; /* 1/2048 */
 static const uint32_t C_NLOG2E = 0xBFB8AA3Bu;  /* -1.4426950f */
 static const uint32_t C_ONE = 0x3F800000u;
 static const uint32_t C_2P23 = 0x4B000000u;
+static uint32_t f32_bits(float f) { uint32_t u; memcpy(&u, &f, sizeof u); return u; }
 
 static int gen_axpy(Em *e, const OmegaDecSpec *sp) {
     if (sp->stride == 0 || sp->stride % OMEGA_DEC_THREADS) return -1;
@@ -190,13 +191,23 @@ static int gen_axpy(Em *e, const OmegaDecSpec *sp) {
     return e->err;
 }
 
+/* n quads of a thread's contiguous run at a + 16 q: one read barrier chain (the first load opens it) */
+static void ldg_quads(Em *e, const int *q, unsigned n, int a, uint32_t base, int udesc) {
+    for (unsigned k = 0; k < n; k++) ldg(e, BW_IR_LDG_E_128, q[k], a, base + 16u * k, udesc, k == 0);
+}
+static int new_quads(Em *e, int *q, unsigned n) { for (unsigned k = 0; k < n; k++) q[k] = V128(e); return e->err; }
+
+#define RES_MAX_VALS 32u /* width 8192 */
+
 static int gen_res(Em *e, const OmegaDecSpec *sp) {
-    const uint32_t M = sp->mode;
-    if (M == 0 || M > 7 || ((M & OMEGA_DEC_RES_ADD) && (M & OMEGA_DEC_RES_COMBINE))) return -1;
+    const uint32_t M = sp->mode, H = sp->width ? sp->width : OMEGA_DEC_HIDDEN, N = H / OMEGA_DEC_THREADS, Q = N / 4u;
+    if ((M & 7u) == 0 || M > 15 || ((M & OMEGA_DEC_RES_ADD) && (M & OMEGA_DEC_RES_COMBINE))) return -1;
+    if ((M & OMEGA_DEC_RES_ROWS) && (M & OMEGA_DEC_RES_COMBINE)) return -1;
+    if (H % (4u * OMEGA_DEC_THREADS) || N > RES_MAX_VALS || ((M & OMEGA_DEC_RES_COMBINE) && H != OMEGA_DEC_HIDDEN)) return -1;
     int udesc = UV64(e), px = V64(e), pa = V64(e), pw = V64(e), pnw = V64(e), py = V64(e), eps = V(e), scale = V(e);
     int tid = V(e), warp = V(e), lane = V(e), one = V(e), toff = V(e), t = V(e), t2 = V(e), a0 = V(e);
-    int xa = V64(e), xq0 = V128(e), xq1 = V128(e);
-    if (e->err) return -1;
+    int xa = V64(e), xq[RES_MAX_VALS / 4];
+    if (new_quads(e, xq, Q)) return -1;
     ldcu64(e, udesc, 0x358);
     ldc64(e, px, OMEGA_DEC_RES_X); ldc64(e, pa, OMEGA_DEC_RES_A); ldc64(e, pw, OMEGA_DEC_RES_W); ldc64(e, pnw, OMEGA_DEC_RES_NW); ldc64(e, py, OMEGA_DEC_RES_Y);
     ldc32(e, eps, OMEGA_DEC_RES_EPS); ldc32(e, scale, OMEGA_DEC_RES_SCALE);
@@ -204,17 +215,24 @@ static int gen_res(Em *e, const OmegaDecSpec *sp) {
     movi(e, one, 1);
     shr(e, warp, tid, 5);
     andi(e, R(lane), R(tid), 31u);
-    imadi(e, R(toff), R(tid), 32u, NOREG);
-    imadw(e, xa, toff, 1u, px);
-    ldg(e, BW_IR_LDG_E_128, xq0, xa, 0, udesc, 1); ldg(e, BW_IR_LDG_E_128, xq1, xa, 16, udesc, 0);
-    Op x[8];
-    for (unsigned i = 0; i < 8; i++) x[i] = i < 4 ? S(xq0, i) : S(xq1, i - 4);
-    if (M & OMEGA_DEC_RES_ADD) {
-        int aa = V64(e), aq0 = V128(e), aq1 = V128(e);
+    imadi(e, R(toff), R(tid), 4u * N, NOREG);
+    int roff = toff; /* the row's x, a and y offset: toff, plus ctaid.y * width in the rows form */
+    if (M & OMEGA_DEC_RES_ROWS) {
+        int cy = V(e); roff = V(e);
         if (e->err) return -1;
-        imadw(e, aa, toff, 1u, pa);
-        ldg(e, BW_IR_LDG_E_128, aq0, aa, 0, udesc, 1); ldg(e, BW_IR_LDG_E_128, aq1, aa, 16, udesc, 0);
-        for (unsigned i = 0; i < 8; i++) fadd(e, x[i], x[i], i < 4 ? S(aq0, i) : S(aq1, i - 4));
+        s2r(e, cy, BW_SR_CTAID_Y);
+        imadi(e, R(roff), R(cy), 4u * H, toff);
+    }
+    imadw(e, xa, roff, 1u, px);
+    ldg_quads(e, xq, Q, xa, 0, udesc);
+    Op x[RES_MAX_VALS];
+    for (unsigned i = 0; i < N; i++) x[i] = S(xq[i / 4], i % 4);
+    if (M & OMEGA_DEC_RES_ADD) {
+        int aa = V64(e), aq[RES_MAX_VALS / 4];
+        if (new_quads(e, aq, Q)) return -1;
+        imadw(e, aa, roff, 1u, pa);
+        ldg_quads(e, aq, Q, aa, 0, udesc);
+        for (unsigned i = 0; i < N; i++) fadd(e, x[i], x[i], S(aq[i / 4], i % 4));
     }
     if (M & OMEGA_DEC_RES_COMBINE) {
         int wq0 = V128(e), wq1 = V128(e), da = V64(e), dq0 = V128(e), dq1 = V128(e), m[8];
@@ -237,27 +255,29 @@ static int gen_res(Em *e, const OmegaDecSpec *sp) {
     if (M & (OMEGA_DEC_RES_ADD | OMEGA_DEC_RES_COMBINE)) {
         int sa = V64(e);
         if (e->err) return -1;
-        for (unsigned i = 0; i < 8; i++) { if (i == 0) imadw(e, sa, toff, 1u, px); else imadw(e, sa, one, 4u, sa); stg(e, sa, x[i], udesc); }
+        for (unsigned i = 0; i < N; i++) { if (i == 0) imadw(e, sa, roff, 1u, px); else imadw(e, sa, one, 4u, sa); stg(e, sa, x[i], udesc); }
     }
     if (M & OMEGA_DEC_RES_NORM) {
-        int sq = V(e), rs = V(e), na = V64(e), nq0 = V128(e), nq1 = V128(e), ya = V64(e), yv = V(e);
+        int sq = V(e), rs = V(e), na = V64(e), nq[RES_MAX_VALS / 4];
+        new_quads(e, nq, Q);
+        int ya = V64(e), yv = V(e); /* allocated after the quads, as before the width field: the same program at 2048 */
         if (e->err) return -1;
         imadw(e, na, toff, 1u, pnw);
-        ldg(e, BW_IR_LDG_E_128, nq0, na, 0, udesc, 1); ldg(e, BW_IR_LDG_E_128, nq1, na, 16, udesc, 0);
+        ldg_quads(e, nq, Q, na, 0, udesc);
         fmul(e, R(sq), x[0], x[0]);
-        for (unsigned i = 1; i < 8; i++) ffma(e, R(sq), x[i], x[i], R(sq));
+        for (unsigned i = 1; i < N; i++) ffma(e, R(sq), x[i], x[i], R(sq));
         warp_sum(e, sq, t);
         imadi(e, R(a0), R(warp), 4u, NOREG); imadi(e, R(a0), R(one), OMEGA_DEC_SM_RED, a0);
         lane0_sts(e, lane, one, a0, R(sq));
         bar_sync(e);
         cta_reduce8(e, sq, OMEGA_DEC_SM_RED, 0, a0);
-        movi(e, t2, C_INV2048);
+        movi(e, t2, H == OMEGA_DEC_HIDDEN ? C_INV2048 : f32_bits(1.0f / (float)H));
         ffma(e, R(rs), R(sq), R(t2), R(eps));
         mufu(e, BW_IR_MUFU_RSQ, R(rs), R(rs));
-        imadw(e, ya, toff, 1u, py);
-        for (unsigned i = 0; i < 8; i++) {
+        imadw(e, ya, roff, 1u, py);
+        for (unsigned i = 0; i < N; i++) {
             fmul(e, R(yv), x[i], R(rs));
-            if (sp->mutant != 1) fmul(e, R(yv), R(yv), i < 4 ? S(nq0, i) : S(nq1, i - 4));
+            if (sp->mutant != 1) fmul(e, R(yv), R(yv), S(nq[i / 4], i % 4));
             fmul(e, R(yv), R(yv), R(scale));
             if (i) imadw(e, ya, one, 4u, ya);
             stg(e, ya, R(yv), udesc);
@@ -268,6 +288,8 @@ static int gen_res(Em *e, const OmegaDecSpec *sp) {
 }
 
 static int gen_swiglu(Em *e, const OmegaDecSpec *sp) {
+    const uint32_t I = sp->width ? sp->width : OMEGA_DEC_INTER;
+    if (I % OMEGA_DEC_THREADS) return -1;
     int udesc = UV64(e), pgu = V64(e), pact = V64(e), scale = V(e), tid = V(e), cx = V(e), cy = V(e), c = V(e), gi = V(e), ai = V(e);
     int ga = V64(e), ua = V64(e), aa = V64(e), gv = V(e), uv = V(e), t = V(e), cst = V(e), ui = V(e);
     if (e->err) return -1;
@@ -275,11 +297,11 @@ static int gen_swiglu(Em *e, const OmegaDecSpec *sp) {
     ldc64(e, pgu, OMEGA_DEC_SW_GU); ldc64(e, pact, OMEGA_DEC_SW_ACT); ldc32(e, scale, OMEGA_DEC_SW_SCALE);
     s2r(e, tid, BW_SR_TID_X); s2r(e, cx, BW_SR_CTAID_X); s2r(e, cy, BW_SR_CTAID_Y);
     imadi(e, R(c), R(cx), OMEGA_DEC_THREADS, tid);
-    imadi(e, R(gi), R(cy), 2u * OMEGA_DEC_INTER, c);
-    imadi(e, R(ai), R(cy), OMEGA_DEC_INTER, c);
+    imadi(e, R(gi), R(cy), 2u * I, c);
+    imadi(e, R(ai), R(cy), I, c);
     /* the up half sits INTER floats after the gate: its own address (the 32-bit LDG.E encoding carries no immediate
      * offset, omega_blackwell_codegen.c BW_IR_LDG_E; the warp simulator caught the dropped offset, 2026-10-13) */
-    movi(e, cst, sp->mutant == 1 ? OMEGA_DEC_INTER - 1u : OMEGA_DEC_INTER);
+    movi(e, cst, sp->mutant == 1 ? I - 1u : I);
     imadi(e, R(ui), R(cst), 1u, gi);
     imadw(e, ga, gi, 4u, pgu);
     imadw(e, ua, ui, 4u, pgu);
@@ -359,6 +381,62 @@ static int gen_argmax(Em *e, const OmegaDecSpec *sp) {
     return e->err;
 }
 
+static int gen_gather(Em *e, const OmegaDecSpec *sp) {
+    const uint32_t N = sp->width, IS = sp->stride;
+    if (N == 0 || IS == 0) return -1;
+    int udesc = UV64(e), pin = V64(e), ptab = V64(e), pout = V64(e), tid = V(e), cx = V(e), cy = V(e), n = V(e), lim = V(e);
+    int ta = V64(e), tv = V(e), idx = V(e), ia = V64(e), val = V(e), o = V(e), oa = V64(e);
+    if (e->err) return -1;
+    ldcu64(e, udesc, 0x358);
+    ldc64(e, pin, OMEGA_DEC_GA_IN); ldc64(e, ptab, OMEGA_DEC_GA_TAB); ldc64(e, pout, OMEGA_DEC_GA_OUT);
+    s2r(e, tid, BW_SR_TID_X); s2r(e, cx, BW_SR_CTAID_X); s2r(e, cy, BW_SR_CTAID_Y);
+    imadi(e, R(n), R(cx), OMEGA_DEC_THREADS, tid);
+    movi(e, lim, N);
+    isetp_ge_u32(e, n, lim);
+    Region r = region_skip_if_p0(e);
+    imadw(e, ta, n, 4u, ptab);
+    ldg(e, BW_IR_LDG_E, tv, ta, 0, udesc, 1);
+    imadi(e, R(idx), R(cy), IS, tv);
+    if (sp->mutant == 1) { movi(e, lim, 1); imadi(e, R(idx), R(lim), 1u, idx); }
+    imadw(e, ia, idx, 4u, pin);
+    ldg(e, BW_IR_LDG_E, val, ia, 0, udesc, 1);
+    imadi(e, R(o), R(cy), N, n);
+    imadw(e, oa, o, 4u, pout);
+    stg(e, oa, R(val), udesc);
+    region_end(e, r);
+    tail(e);
+    return e->err;
+}
+
+static int gen_gate(Em *e, const OmegaDecSpec *sp) {
+    int udesc = UV64(e), pa = V64(e), pg = V64(e), pout = V64(e), lim = V(e), tid = V(e), cx = V(e), n = V(e);
+    int aa = V64(e), ga = V64(e), oa = V64(e), av = V(e), gv = V(e), t = V(e), cst = V(e);
+    if (e->err) return -1;
+    ldcu64(e, udesc, 0x358);
+    ldc64(e, pa, OMEGA_DEC_GT_A); ldc64(e, pg, OMEGA_DEC_GT_G); ldc64(e, pout, OMEGA_DEC_GT_OUT); ldc32(e, lim, OMEGA_DEC_GT_N);
+    s2r(e, tid, BW_SR_TID_X); s2r(e, cx, BW_SR_CTAID_X);
+    imadi(e, R(n), R(cx), OMEGA_DEC_THREADS, tid);
+    isetp_ge_u32(e, n, lim);
+    Region r = region_skip_if_p0(e);
+    imadw(e, aa, n, 4u, pa); imadw(e, ga, n, 4u, pg); imadw(e, oa, n, 4u, pout);
+    ldg(e, BW_IR_LDG_E, av, aa, 0, udesc, 1);
+    ldg(e, BW_IR_LDG_E, gv, ga, 0, udesc, 0);
+    if (sp->mutant == 1) mov(e, R(t), R(av));
+    else {
+        movi(e, cst, C_NLOG2E);
+        fmul(e, R(t), R(gv), R(cst));
+        mufu(e, BW_IR_MUFU_EX2, R(t), R(t));
+        movi(e, cst, C_ONE);
+        fadd(e, R(t), R(t), R(cst));
+        mufu(e, BW_IR_MUFU_RCP, R(t), R(t));
+        fmul(e, R(t), R(av), R(t));
+    }
+    stg(e, oa, R(t), udesc);
+    region_end(e, r);
+    tail(e);
+    return e->err;
+}
+
 int omega_blackwell_codegen_dec_prog(const OmegaDecSpec *spec, BlackwellIRProgram *prog) {
     if (!spec || !prog) return -1;
     omega_bw_ir_init(prog);
@@ -369,6 +447,8 @@ int omega_blackwell_codegen_dec_prog(const OmegaDecSpec *spec, BlackwellIRProgra
     case OMEGA_DEC_RES: rc = gen_res(&em, spec); break;
     case OMEGA_DEC_SWIGLU: rc = gen_swiglu(&em, spec); break;
     case OMEGA_DEC_ARGMAX: rc = gen_argmax(&em, spec); break;
+    case OMEGA_DEC_GATHER: rc = gen_gather(&em, spec); break;
+    case OMEGA_DEC_GATE: rc = gen_gate(&em, spec); break;
     default: return -1;
     }
     if (rc != 0 || em.err || em.depth != 0) return -1;

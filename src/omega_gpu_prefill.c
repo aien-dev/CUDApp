@@ -21,6 +21,7 @@
 #include "omega_blackwell_codegen_qmma.h"
 #include "omega_gpu_platform.h"
 #include "omega_gpu_fmt.h"
+#include "omega_gpu_cmdlist.h"
 #include <string.h>
 
 #define PF_SLOTS 64
@@ -132,6 +133,17 @@ int omega_gpu_pf_launch_locked(const OmegaPfKernel *k, uint32_t threads, uint32_
     g.chip_ns += t; g.launches++;
     if (ns) *ns += t;
     return OMEGA_GPU_PF_OK;
+}
+
+int omega_gpu_pf_record_locked(OmegaGpuCmdList *cl, const OmegaPfKernel *k, uint32_t threads, uint32_t grid_x, uint32_t grid_y,
+                               uint32_t shared_bytes, const uint32_t *args, uint32_t n_args) {
+    if (!cl || !k || !threads || !grid_x || !grid_y) return OMEGA_GPU_PF_BAD_ARGS;
+    if ((uint64_t)threads * k->gpr_declared > 65536u) { omega_gpu_session_set_error("prefill record: registers x threads exceed the file"); return OMEGA_GPU_PF_TOO_LARGE; }
+    if (!omega_bw_gpr_declared_ok(k->gpr_declared, k->gpr_peak)) { omega_gpu_session_set_error("declared registers below peak + 2: refusing to record"); return OMEGA_GPU_PF_CHIP_FAIL; }
+    OmegaGpuLaunch L = { .code_va = k->code_va, .gpr_count = k->gpr_declared, .threads_x = threads, .threads_y = 1, .grid_x = grid_x, .grid_y = grid_y,
+                         .num_elements = (size_t)threads * grid_x * grid_y, .args = args, .n_args = n_args, .timeout_ms = PF_TIMEOUT_MS,
+                         .shared_bytes = shared_bytes, .spin_us = PF_SPIN_US };
+    return omega_gpu_cmdlist_add(cl, &L) < 0 ? OMEGA_GPU_PF_CHIP_FAIL : OMEGA_GPU_PF_OK;
 }
 
 static int gen_copy(const OmegaPfKey *key, void *prog) { (void)key; return omega_blackwell_codegen_pf_copy_prog(prog); }

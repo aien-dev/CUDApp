@@ -61,7 +61,7 @@ int main(void) {
     /* every buildable fp8 GEMV variant */
     { unsigned bad = 0, n = 0;
       for (unsigned k = 256; k <= 8192; k += 256) for (unsigned lb = 8; lb <= 16; lb += 8) for (unsigned rows = 1; rows <= 8; rows *= 2) for (unsigned w = 1; w <= 32; w *= 2) for (unsigned dp = 0; dp <= 8; dp += dp ? dp : 1) {
-          OmegaFp8GemvSpec s = { k, lb, rows, w, dp, 0 }; uint32_t peak = 0, decl = 0;
+          OmegaFp8GemvSpec s = { .k = k, .lane_bytes = lb, .rows = rows, .warps = w, .depth = dp, .mutant = 0 }; uint32_t peak = 0, decl = 0;
           if (omega_fp8_gemv_prog_stats(&s, NULL, &peak) != 0) continue;
           n++; (void)omega_gpu_fp8_kernel_fits(&s, &decl);
           if (!omega_bw_gpr_declared_ok(decl, peak) && decl != 0) bad++;

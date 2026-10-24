@@ -39,7 +39,8 @@
  *   0x398 RG  u32  row groups (n / rows)
  *   0x39c stride u32 row groups per warp iteration (grid_x * warps)
  * Grid: grid_x CTAs, grid_y = 1. The kernel does not depend on n or the grid: one kernel per (k, rows, warps, depth,
- * mutant) serves every n.
+ * mutant) serves every n. ROWS form (spec.ystride != 0, sc #642 prefill): grid_y token rows, row cy reads x + cy * k
+ * floats and writes y + cy * ystride floats (the Qwen3.8-27B DeltaNet a|b projection of a prefill chunk).
  *
  * mutant (tests only): 1 pairs the two halves of every word with the wrong x (low half takes the high half's x and
  * back), 2 never advances the x pointer (every step uses step 0's x: wrong whenever KS >= 2), 3 drops the last word
@@ -67,6 +68,8 @@ typedef struct {
     uint32_t warps;  /* 1 .. 32 (the host simulator runs up to 8) */
     uint32_t depth;  /* K steps per loop iteration: divides k / 256; rows * depth <= 16 */
     int mutant;      /* 0 production; 1, 2, 3 as above */
+    uint32_t ystride; /* 0: one x row (grid_y 1). Else the ROWS form: token row ctaid.y reads x + cy * k and writes
+                       * y + cy * ystride (floats; ystride >= n). The default program is unchanged. */
 } OmegaBf16GemvSpec;
 
 int omega_blackwell_codegen_bf16_gemv_prog(const OmegaBf16GemvSpec *spec, BlackwellIRProgram *prog);

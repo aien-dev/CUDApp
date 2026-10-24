@@ -100,6 +100,8 @@ typedef struct {
     uint32_t smem_bytes;
     WsRange ranges[WS_MAX_RANGES]; int nranges; /* when > 0, every global access must fall in one */
     int order;                /* 0 = lowest pc first, 1 = highest pc first */
+    uint32_t warp_sched;      /* warp visit order per barrier phase: 0 ascending, 1 descending, else a seed for a fresh shuffle each phase
+                               * (the chip gives no order between warps; port of omega#490 bw_warp_sim_k.h) */
     int trace;                /* print every issue of warp 0 of CTA (0,0) */
     /* results */
     int err; int err_pc; char msg[200];
@@ -314,9 +316,15 @@ static int ws_run(WsSim *s, uint32_t grid_x, uint32_t grid_y) {
         /* Barrier phases: every warp runs until all of its fragments are parked at BAR.SYNC or it
          * has finished (exited lanes do not hold the barrier up: INFERRED, see WS_E_BAR_SPLIT).
          * Then every parked fragment is released and the next phase starts. */
+        uint32_t rng = s->warp_sched;
         for (int phase = 0; ; phase++) {
             int parked = 0;
-            for (uint32_t w = 0; w < nw && !s->err; w++) {
+            /* visit order: a slot or barrier mistake that the ascending order hides must show under the reversed or a shuffled one */
+            uint32_t vis[WS_MAX_WARPS];
+            for (uint32_t i = 0; i < nw; i++) vis[i] = s->warp_sched == 1 ? nw - 1u - i : i;
+            if (s->warp_sched > 1) for (uint32_t i = nw - 1u; i > 0; i--) { rng = rng * 1664525u + 1013904223u; uint32_t j = (rng >> 8) % (i + 1u); uint32_t t = vis[i]; vis[i] = vis[j]; vis[j] = t; }
+            for (uint32_t vi = 0; vi < nw && !s->err; vi++) {
+                const uint32_t w = vis[vi];
                 if (warps[w].nfrag == 0) continue;
                 int r = ws_run_warp(s, &warps[w], w, cx, cy, trace && w == 0);
                 if (r < 0) break;

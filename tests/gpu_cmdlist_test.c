@@ -138,13 +138,13 @@ static int specs_build(void) {
 /* ---- host-only ---- */
 static int host_only(void) {
     const struct { const char *name; OmegaDecSpec s; } cases[] = {
-        { "axpy", { OMEGA_DEC_AXPY, 0, AXPY_STRIDE, 0 } },
-        { "res add|norm", { OMEGA_DEC_RES, OMEGA_DEC_RES_ADD | OMEGA_DEC_RES_NORM, 0, 0 } },
-        { "res combine|norm", { OMEGA_DEC_RES, OMEGA_DEC_RES_COMBINE | OMEGA_DEC_RES_NORM, 0, 0 } },
-        { "res add", { OMEGA_DEC_RES, OMEGA_DEC_RES_ADD, 0, 0 } },
-        { "swiglu", { OMEGA_DEC_SWIGLU, 0, 0, 0 } },
-        { "argmax", { OMEGA_DEC_ARGMAX, 0, 0, 0 } },
-        { "argmax indexed", { OMEGA_DEC_ARGMAX, 1, 0, 0 } },
+        { "axpy", { OMEGA_DEC_AXPY, 0, AXPY_STRIDE, 0, 0 } },
+        { "res add|norm", { OMEGA_DEC_RES, OMEGA_DEC_RES_ADD | OMEGA_DEC_RES_NORM, 0, 0, 0 } },
+        { "res combine|norm", { OMEGA_DEC_RES, OMEGA_DEC_RES_COMBINE | OMEGA_DEC_RES_NORM, 0, 0, 0 } },
+        { "res add", { OMEGA_DEC_RES, OMEGA_DEC_RES_ADD, 0, 0, 0 } },
+        { "swiglu", { OMEGA_DEC_SWIGLU, 0, 0, 0, 0 } },
+        { "argmax", { OMEGA_DEC_ARGMAX, 0, 0, 0, 0 } },
+        { "argmax indexed", { OMEGA_DEC_ARGMAX, 1, 0, 0, 0 } },
     };
     for (unsigned i = 0; i < sizeof cases / sizeof cases[0]; i++) {
         uint32_t insns = 0, gprs = 0;
@@ -153,9 +153,18 @@ static int host_only(void) {
         CHECK(gprs <= 200, "%s gprs %u within budget", cases[i].name, gprs);
         printf("codegen %s: %u insns, peak %u gprs, declared %u\n", cases[i].name, insns, gprs, omega_bw_gpr_declared(gprs));
     }
-    OmegaDecSpec bad[] = { { OMEGA_DEC_AXPY, 0, 0, 0 }, { OMEGA_DEC_AXPY, 0, 100, 0 }, { OMEGA_DEC_RES, 0, 0, 0 },
-                           { OMEGA_DEC_RES, OMEGA_DEC_RES_ADD | OMEGA_DEC_RES_COMBINE, 0, 0 }, { (OmegaDecKind)0, 0, 0, 0 }, { OMEGA_DEC_RES, 8, 0, 0 } };
+    OmegaDecSpec bad[] = { { OMEGA_DEC_AXPY, 0, 0, 0, 0 }, { OMEGA_DEC_AXPY, 0, 100, 0, 0 }, { OMEGA_DEC_RES, 0, 0, 0, 0 },
+                           { OMEGA_DEC_RES, OMEGA_DEC_RES_ADD | OMEGA_DEC_RES_COMBINE, 0, 0, 0 }, { (OmegaDecKind)0, 0, 0, 0, 0 }, { OMEGA_DEC_RES, 8, 0, 0, 0 } };
     for (unsigned i = 0; i < sizeof bad / sizeof bad[0]; i++) CHECK(omega_dec_prog_stats(&bad[i], NULL, NULL) != 0, "refusal %u", i);
+    /* widths (sc #642): 5120 and 8192 build; not a multiple of 1024, above 8192, COMBINE off 2048, SWIGLU off 256 refuse */
+    OmegaDecSpec w; memset(&w, 0, sizeof w); w.kind = OMEGA_DEC_RES; w.mode = OMEGA_DEC_RES_ADD | OMEGA_DEC_RES_NORM;
+    w.width = 5120; CHECK(omega_dec_prog_stats(&w, NULL, NULL) == 0, "codegen res width 5120");
+    w.width = 8192; CHECK(omega_dec_prog_stats(&w, NULL, NULL) == 0, "codegen res width 8192");
+    w.width = 3000; CHECK(omega_dec_prog_stats(&w, NULL, NULL) != 0, "refusal res width 3000");
+    w.width = 9216; CHECK(omega_dec_prog_stats(&w, NULL, NULL) != 0, "refusal res width 9216");
+    w.width = 5120; w.mode = OMEGA_DEC_RES_COMBINE | OMEGA_DEC_RES_NORM; CHECK(omega_dec_prog_stats(&w, NULL, NULL) != 0, "refusal combine width 5120");
+    memset(&w, 0, sizeof w); w.kind = OMEGA_DEC_SWIGLU; w.width = 17408; CHECK(omega_dec_prog_stats(&w, NULL, NULL) == 0, "codegen swiglu width 17408");
+    w.width = 17409; CHECK(omega_dec_prog_stats(&w, NULL, NULL) != 0, "refusal swiglu width 17409");
     return g_failed ? 1 : 0;
 }
 
@@ -228,6 +237,150 @@ static int sim_mode(void) {
         if (!mut) CHECK(oi2[0] == g.am_ref && ov2[0] == logits[g.am_ref], "sim argmax tie %d: %u (ref %u)", tie, oi2[0], g.am_ref);
         else if (tie) CHECK(oi2[0] != g.am_ref, "sim argmax mutant caught (max at a j == 7 slot)");
         printf("sim argmax tie %d mutant %d: index %u value %g (ref %u)\n", tie, mut, oi2[0], ov2[0], g.am_ref);
+    }
+    return g_failed ? 1 : 0;
+}
+
+/* ---- Qwen3.8-27B widths (sc #642): RES over 5120, SWIGLU over one dense 17408 row ---- */
+#define WH 5120u
+#define WI 17408u
+static int sim_wide(void) {
+    static Kern kw[4];
+    static float x[WH], xr[WH], a[WH], nw[WH], y[WH], yr[WH], gu[2 * WI], act[WI], actr[WI];
+    const uint32_t modes[3] = { OMEGA_DEC_RES_ADD | OMEGA_DEC_RES_NORM, OMEGA_DEC_RES_NORM, OMEGA_DEC_RES_ADD };
+    for (int mi = 0; mi < 3; mi++) for (int mut = 0; mut < 2; mut++) {
+        if (mut && !(modes[mi] & OMEGA_DEC_RES_NORM)) continue;
+        OmegaDecSpec s; memset(&s, 0, sizeof s); s.kind = OMEGA_DEC_RES; s.mode = modes[mi]; s.mutant = mut; s.width = WH;
+        if (kern_prog(&kw[0], &s)) { CHECK(0, "codegen res width %u mode %u", WH, modes[mi]); return 1; }
+        uint32_t sd = 300 + mi;
+        for (unsigned i = 0; i < WH; i++) { x[i] = frand(&sd, -2, 2); a[i] = frand(&sd, -1, 1); nw[i] = frand(&sd, 0.5f, 1.5f); y[i] = -7.0f; }
+        memcpy(xr, x, sizeof x);
+        /* ref_res at width WH */
+        if (modes[mi] & OMEGA_DEC_RES_ADD) for (unsigned i = 0; i < WH; i++) xr[i] = xr[i] + a[i];
+        if (modes[mi] & OMEGA_DEC_RES_NORM) {
+            double sq = 0; for (unsigned i = 0; i < WH; i++) sq += (double)xr[i] * xr[i];
+            float rs = (float)(1.0 / sqrt(sq / WH + (double)EPS));
+            for (unsigned i = 0; i < WH; i++) { float v = xr[i] * rs; v = v * nw[i]; yr[i] = v * SCALE_2P64; }
+        }
+        uint32_t args[OMEGA_DEC_RES_WORDS] = { 0 };
+        put64(args, OMEGA_DEC_RES_X, (uintptr_t)x); put64(args, OMEGA_DEC_RES_A, (uintptr_t)a); put64(args, OMEGA_DEC_RES_NW, (uintptr_t)nw);
+        put64(args, OMEGA_DEC_RES_Y, (uintptr_t)y); putf(args, OMEGA_DEC_RES_EPS, EPS); putf(args, OMEGA_DEC_RES_SCALE, SCALE_2P64);
+        WsRange r[4] = { { (uintptr_t)x, (uintptr_t)x + sizeof x }, { (uintptr_t)a, (uintptr_t)a + sizeof a },
+                         { (uintptr_t)nw, (uintptr_t)nw + sizeof nw }, { (uintptr_t)y, (uintptr_t)y + sizeof y } };
+        if (sim_one(&kw[0], args, OMEGA_DEC_RES_WORDS, 1, 1, r, 4, "res wide")) return 1;
+        int xbad = memcmp(x, xr, sizeof x) != 0, ybad = 0;
+        if (modes[mi] & OMEGA_DEC_RES_NORM) for (unsigned i = 0; i < WH; i++) if (!close_rel(y[i], yr[i], 2e-5f, 1e-6f)) ybad++;
+        if (!mut) { CHECK(!xbad, "sim res width %u mode %u: x bit-identical", WH, modes[mi]); CHECK(ybad == 0, "sim res width %u mode %u: y within 2e-5 (%d bad)", WH, modes[mi], ybad); }
+        else CHECK(ybad > 0, "sim res width %u mode %u mutant caught", WH, modes[mi]);
+        printf("sim res width %u mode %u mutant %d: x %s, y %d/%u outside tolerance\n", WH, modes[mi], mut, xbad ? "DIFFERS" : "identical", ybad, WH);
+    }
+    for (int mut = 0; mut < 2; mut++) {
+        OmegaDecSpec s; memset(&s, 0, sizeof s); s.kind = OMEGA_DEC_SWIGLU; s.mutant = mut; s.width = WI;
+        if (kern_prog(&kw[1], &s)) { CHECK(0, "codegen swiglu width %u", WI); return 1; }
+        uint32_t sd = 400;
+        for (unsigned i = 0; i < 2 * WI; i++) gu[i] = frand(&sd, -4, 4);
+        for (unsigned c = 0; c < WI; c++) { float v = gu[c], u = gu[WI + c]; actr[c] = v / (1.0f + expf(-v)) * u * SCALE_2P64; act[c] = -7.0f; }
+        uint32_t args[OMEGA_DEC_SW_WORDS] = { 0 }; put64(args, OMEGA_DEC_SW_GU, (uintptr_t)gu); put64(args, OMEGA_DEC_SW_ACT, (uintptr_t)act); putf(args, OMEGA_DEC_SW_SCALE, SCALE_2P64);
+        WsRange r[2] = { { (uintptr_t)gu, (uintptr_t)gu + sizeof gu }, { (uintptr_t)act, (uintptr_t)act + sizeof act } };
+        if (sim_one(&kw[1], args, OMEGA_DEC_SW_WORDS, WI / OMEGA_DEC_THREADS, 1, r, 2, "swiglu wide")) return 1;
+        int bad = 0; for (unsigned i = 0; i < WI; i++) if (!close_rel(act[i], actr[i], 5e-5f, 1e-6f)) bad++;
+        if (!mut) CHECK(bad == 0, "sim swiglu width %u within 5e-5 (%d bad)", WI, bad); else CHECK(bad > 0, "sim swiglu width %u mutant caught", WI);
+        printf("sim swiglu width %u mutant %d: %d/%u outside tolerance\n", WI, mut, bad, WI);
+    }
+    /* RES rows form: 3 rows of [5120], ADD|NORM, row r at r * 5120 (nw shared); the mutant drops the weight */
+    {
+        enum { ROWS = 3 };
+        static float rx[ROWS * WH], rxr[ROWS * WH], ra[ROWS * WH], ry[ROWS * WH], ryr[ROWS * WH];
+        for (int mut = 0; mut < 2; mut++) {
+            OmegaDecSpec s; memset(&s, 0, sizeof s); s.kind = OMEGA_DEC_RES; s.mode = OMEGA_DEC_RES_ADD | OMEGA_DEC_RES_NORM | OMEGA_DEC_RES_ROWS; s.mutant = mut; s.width = WH;
+            if (kern_prog(&kw[2], &s)) { CHECK(0, "codegen res rows"); return 1; }
+            uint32_t sd = 500;
+            for (unsigned i = 0; i < ROWS * WH; i++) { rx[i] = frand(&sd, -2, 2); ra[i] = frand(&sd, -1, 1); ry[i] = -7.0f; }
+            for (unsigned i = 0; i < WH; i++) nw[i] = frand(&sd, 0.5f, 1.5f);
+            for (unsigned r = 0; r < ROWS; r++) {
+                float *xx = rxr + r * WH;
+                for (unsigned i = 0; i < WH; i++) xx[i] = rx[r * WH + i] + ra[r * WH + i];
+                double sq = 0; for (unsigned i = 0; i < WH; i++) sq += (double)xx[i] * xx[i];
+                float rs = (float)(1.0 / sqrt(sq / WH + (double)EPS));
+                for (unsigned i = 0; i < WH; i++) { float v = xx[i] * rs; v = v * nw[i]; ryr[r * WH + i] = v * SCALE_2P64; }
+            }
+            uint32_t args[OMEGA_DEC_RES_WORDS] = { 0 };
+            put64(args, OMEGA_DEC_RES_X, (uintptr_t)rx); put64(args, OMEGA_DEC_RES_A, (uintptr_t)ra); put64(args, OMEGA_DEC_RES_NW, (uintptr_t)nw);
+            put64(args, OMEGA_DEC_RES_Y, (uintptr_t)ry); putf(args, OMEGA_DEC_RES_EPS, EPS); putf(args, OMEGA_DEC_RES_SCALE, SCALE_2P64);
+            WsRange r[4] = { { (uintptr_t)rx, (uintptr_t)rx + sizeof rx }, { (uintptr_t)ra, (uintptr_t)ra + sizeof ra },
+                             { (uintptr_t)nw, (uintptr_t)nw + sizeof nw }, { (uintptr_t)ry, (uintptr_t)ry + sizeof ry } };
+            if (sim_one(&kw[2], args, OMEGA_DEC_RES_WORDS, 1, ROWS, r, 4, "res rows")) return 1;
+            int xbad = memcmp(rx, rxr, sizeof rx) != 0, ybad = 0;
+            for (unsigned i = 0; i < ROWS * WH; i++) if (!close_rel(ry[i], ryr[i], 2e-5f, 1e-6f)) ybad++;
+            if (!mut) { CHECK(!xbad, "sim res rows: x bit-identical"); CHECK(ybad == 0, "sim res rows: y within 2e-5 (%d bad)", ybad); }
+            else CHECK(ybad > 0, "sim res rows mutant caught");
+            printf("sim res rows %d x %u mutant %d: x %s, y %d/%u outside tolerance\n", ROWS, WH, mut, xbad ? "DIFFERS" : "identical", ybad, ROWS * WH);
+        }
+        OmegaDecSpec bad; memset(&bad, 0, sizeof bad); bad.kind = OMEGA_DEC_RES; bad.mode = OMEGA_DEC_RES_COMBINE | OMEGA_DEC_RES_ROWS;
+        CHECK(omega_dec_prog_stats(&bad, NULL, NULL) != 0, "refusal res rows with combine");
+        bad.mode = OMEGA_DEC_RES_ROWS; CHECK(omega_dec_prog_stats(&bad, NULL, NULL) != 0, "refusal res rows alone");
+    }
+    /* GATHER: 3 rows, input stride 14343, out width 14336 (the Qwen3.8 attention row), random source table */
+    {
+        enum { ROWS = 3, GW = 14336, GS = 14343 };
+        static float gin[ROWS * GS], gout[ROWS * GW];
+        static uint32_t tab[GW];
+        for (int mut = 0; mut < 2; mut++) {
+            OmegaDecSpec s; memset(&s, 0, sizeof s); s.kind = OMEGA_DEC_GATHER; s.mutant = mut; s.width = GW; s.stride = GS;
+            if (kern_prog(&kw[3], &s)) { CHECK(0, "codegen gather"); return 1; }
+            uint32_t sd = 600;
+            for (unsigned i = 0; i < ROWS * GS; i++) gin[i] = frand(&sd, -3, 3);
+            for (unsigned i = 0; i < GW; i++) { sd = sd * 1664525u + 1013904223u; tab[i] = sd % (GS - 1); }
+            for (unsigned i = 0; i < ROWS * GW; i++) gout[i] = -7.0f;
+            uint32_t args[OMEGA_DEC_GA_WORDS] = { 0 };
+            put64(args, OMEGA_DEC_GA_IN, (uintptr_t)gin); put64(args, OMEGA_DEC_GA_TAB, (uintptr_t)tab); put64(args, OMEGA_DEC_GA_OUT, (uintptr_t)gout);
+            WsRange r[3] = { { (uintptr_t)gin, (uintptr_t)gin + sizeof gin }, { (uintptr_t)tab, (uintptr_t)tab + sizeof tab }, { (uintptr_t)gout, (uintptr_t)gout + sizeof gout } };
+            if (sim_one(&kw[3], args, OMEGA_DEC_GA_WORDS, (GW + OMEGA_DEC_THREADS - 1) / OMEGA_DEC_THREADS, ROWS, r, 3, "gather")) return 1;
+            int bad = 0;
+            for (unsigned rr = 0; rr < ROWS; rr++) for (unsigned n = 0; n < GW; n++) if (memcmp(&gout[rr * GW + n], &gin[rr * GS + tab[n]], 4)) bad++;
+            if (!mut) CHECK(bad == 0, "sim gather bit-exact (%d bad)", bad); else CHECK(bad > 0, "sim gather mutant caught");
+            printf("sim gather %d x %u mutant %d: %d/%u wrong\n", ROWS, GW, mut, bad, ROWS * GW);
+        }
+        OmegaDecSpec bad; memset(&bad, 0, sizeof bad); bad.kind = OMEGA_DEC_GATHER; bad.width = 0; bad.stride = 1;
+        CHECK(omega_dec_prog_stats(&bad, NULL, NULL) != 0, "refusal gather width 0");
+    }
+    /* GATE in place over 6144 + 100 values (a tail CTA), mutant drops the gate */
+    {
+        enum { GN = 6244 };
+        static float a[GN], g[GN], ref[GN];
+        for (int mut = 0; mut < 2; mut++) {
+            OmegaDecSpec s; memset(&s, 0, sizeof s); s.kind = OMEGA_DEC_GATE; s.mutant = mut;
+            if (kern_prog(&kw[3], &s)) { CHECK(0, "codegen gate"); return 1; }
+            uint32_t sd = 700;
+            for (unsigned i = 0; i < GN; i++) { a[i] = frand(&sd, -3, 3) * SCALE_2P64; g[i] = frand(&sd, -8, 8); ref[i] = a[i] * (1.0f / (1.0f + expf(-g[i]))); }
+            uint32_t args[OMEGA_DEC_GT_WORDS] = { 0 };
+            put64(args, OMEGA_DEC_GT_A, (uintptr_t)a); put64(args, OMEGA_DEC_GT_G, (uintptr_t)g); put64(args, OMEGA_DEC_GT_OUT, (uintptr_t)a);
+            args[(OMEGA_DEC_GT_N - 0x380) / 4] = GN;
+            WsRange r[2] = { { (uintptr_t)a, (uintptr_t)a + sizeof a }, { (uintptr_t)g, (uintptr_t)g + sizeof g } };
+            if (sim_one(&kw[3], args, OMEGA_DEC_GT_WORDS, (GN + OMEGA_DEC_THREADS - 1) / OMEGA_DEC_THREADS, 1, r, 2, "gate")) return 1;
+            int bad = 0; for (unsigned i = 0; i < GN; i++) if (!close_rel(a[i], ref[i], 5e-5f, 1e-6f)) bad++;
+            if (!mut) CHECK(bad == 0, "sim gate within 5e-5 (%d bad)", bad); else CHECK(bad > 0, "sim gate mutant caught");
+            printf("sim gate %u mutant %d: %d/%u outside tolerance\n", GN, mut, bad, GN);
+        }
+    }
+    /* SWIGLU over rows: the group index is the row (gu [3][2 * 17408] -> act [3][17408]) */
+    {
+        enum { ROWS = 3 };
+        static float rgu[ROWS * 2 * WI], ract[ROWS * WI];
+        OmegaDecSpec s; memset(&s, 0, sizeof s); s.kind = OMEGA_DEC_SWIGLU; s.width = WI;
+        if (kern_prog(&kw[1], &s)) { CHECK(0, "codegen swiglu rows"); return 1; }
+        uint32_t sd = 800;
+        for (unsigned i = 0; i < ROWS * 2 * WI; i++) rgu[i] = frand(&sd, -4, 4);
+        uint32_t args[OMEGA_DEC_SW_WORDS] = { 0 }; put64(args, OMEGA_DEC_SW_GU, (uintptr_t)rgu); put64(args, OMEGA_DEC_SW_ACT, (uintptr_t)ract); putf(args, OMEGA_DEC_SW_SCALE, 1.0f);
+        WsRange r[2] = { { (uintptr_t)rgu, (uintptr_t)rgu + sizeof rgu }, { (uintptr_t)ract, (uintptr_t)ract + sizeof ract } };
+        if (sim_one(&kw[1], args, OMEGA_DEC_SW_WORDS, WI / OMEGA_DEC_THREADS, ROWS, r, 2, "swiglu rows")) return 1;
+        int bad = 0;
+        for (unsigned rr = 0; rr < ROWS; rr++) for (unsigned c = 0; c < WI; c++) {
+            float v = rgu[rr * 2 * WI + c], u = rgu[rr * 2 * WI + WI + c], want = v / (1.0f + expf(-v)) * u;
+            if (!close_rel(ract[rr * WI + c], want, 5e-5f, 1e-6f)) bad++;
+        }
+        CHECK(bad == 0, "sim swiglu rows within 5e-5 (%d bad)", bad);
+        printf("sim swiglu rows %d x %u: %d outside tolerance\n", ROWS, WI, bad);
     }
     return g_failed ? 1 : 0;
 }
@@ -474,7 +627,7 @@ int main(int argc, char **argv) {
         else { printf("usage: %s [--host-only|--sim] [--reps N] [--spin-us U] [--out receipt.json]\n", argv[0]); return 2; }
     }
     if (reps == 0) reps = 1;
-    int rc = host ? host_only() : sim ? sim_mode() : chip_run(out, reps);
+    int rc = host ? host_only() : sim ? (sim_mode() | sim_wide()) : chip_run(out, reps);
     printf("%s: %d checks, %d failed: %s\n", host ? "host-only" : sim ? "sim" : "chip", g_checks, g_failed, rc ? "FAIL" : "PASS");
     return rc;
 }

@@ -50,11 +50,14 @@ typedef struct {
     uint32_t grid_y;
     uint32_t gpr_count;
     /* Shared memory per CTA in bytes (clcec0qmd.h SHARED_MEMORY_SIZE_SHIFTED7, 128-byte units).
-     * 0 keeps the long-standing 1024. At most OMEGA_BW_QMD_MAX_SHARED_BYTES, well inside the
-     * TARGET_SM_CONFIG this QMD declares (word 36). */
+     * 0 keeps the long-standing 1024. At most OMEGA_BW_QMD_MAX_SHARED_BYTES: word 36 declares
+     * MIN_ and TARGET_SM_CONFIG_SHARED_MEM_SIZE 9 = 32 KB (mesa nak qmd.rs gv100_smem_size_to_hw:
+     * size_kb / 4 + 1; SM >= 120 configs 0, 8, 16, 32, 64, 100 KB, nouveau_device.c), and a CTA must fit
+     * the MIN config. Raised from 16 KiB for the bf16 GEMV at k 5120 (20 KiB of x, sc #642); above
+     * 32 KiB the MIN / TARGET fields must follow the size (not done yet: every launch keeps one word 36). */
     uint32_t shared_bytes;
 } OmegaBlackwellQmdConfig;
-#define OMEGA_BW_QMD_MAX_SHARED_BYTES 16384u
+#define OMEGA_BW_QMD_MAX_SHARED_BYTES 32768u
 
 /* Build QMD 0: GRID_NULL null-barrier grid with dependence counter 2 */
 int omega_blackwell_build_qmd0(uint32_t *qmd0_words, uint64_t qmd0_va, uint64_t qmd1_va);

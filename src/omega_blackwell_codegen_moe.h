@@ -75,7 +75,7 @@ extern "C" {
 #define OMEGA_FP8_X_EXP 64      /* x' = x * 2^64 (host, exact) */
 #define OMEGA_FP8_SCALE_EXP 56  /* S' = S * 2^56 (host, exact for every finite bf16 scale below 2^72) */
 #define OMEGA_FP8_BLOCK 128u    /* scale block (rows and columns) */
-#define OMEGA_FP8_MAX_K 16384u
+#define OMEGA_FP8_MAX_K 32768u /* the step kernel and the tensor-core kernel loop over k; 17408 is the Qwen3.8-27B down_proj (omega#541) */
 #define OMEGA_FP8_MAX_GROUPS 64u /* group table entries per launch buffer (8 experts today) */
 
 /* argument word offsets */
@@ -99,8 +99,27 @@ typedef struct {
                           * loads of D consecutive K steps before using any of them (D x more bytes in
                           * flight per warp); x comes from shared memory (LDS.128). Needs KS % D == 0,
                           * rows * D * lane_bytes <= 128, k % (32 * warps) == 0 and k <= 512 * warps (staging rounds). */
-    int mutant;          /* 0 production; 1, 2, 3 as above */
+    int mutant;          /* 0 production; 1, 2, 3 as above; 4, 5 with coal = 1 (below) */
+    uint32_t sched;      /* 0 (default, chip-proven): every fixed-latency instruction stalls 6, one byte decoded at a time.
+                          * 1 (CUT5, measurement variant): the bytes of a step are decoded in a 3-deep software pipeline with
+                          * their own temporaries, and a pass after register allocation (omega_fp8_schedule_stalls) gives each
+                          * instruction the smallest stall that keeps every user >= OMEGA_FP8_FIXED_LAT cycles behind each
+                          * fixed-latency write (the repo rule, omega_gpu_elementwise_api.c:13). The FFMA order is unchanged,
+                          * so y is bit-identical to sched 0. Appended last: earlier fields keep their offsets. */
+    uint32_t coal;       /* 0 (default): lane 0 of each warp stores its R row results (4-byte STG each) to y.
+                          * 1 (CUT5 variant A, after omega#490 KT1): the CTA works in rounds (row groups uc .. uc + W - 1,
+                          * uc uniform); lane 0 of each warp parks its R results in shared slots (two slot sets alternating by
+                          * round, one BAR.SYNC per round) and warp 0 stores the round's W * R consecutive rows with one
+                          * coalesced STG. A warp past the last row group recomputes row group RG - 1 and its slot is never
+                          * stored. Needs warps * rows <= 32. Test mutants: 4 = one slot set (the round race), 5 = no clamp. */
+    uint32_t wfirst;     /* 0 (default): each K step issues the x' loads, then the scale address IMADs, then the weight and
+                          * scale loads. The IMADs wait on the x' loads' scoreboard (every fixed-latency op waits on the pending
+                          * loads, emit()), so each step pays the x' round trip before any weight load goes out.
+                          * 1 (CUT5 variant B): scale addresses first, then weight, scale and x' loads in one batch with no wait
+                          * between them. Ignored by deep kernels (depth >= 1), which read x' from shared memory. */
 } OmegaFp8GemvSpec;
+
+#define OMEGA_FP8_FIXED_LAT 6u /* cycles a fixed-latency result needs before a user (the repo keeps 6; hardware minimum 5) */
 
 /* 0 on success (prog solved and register-allocated), -1 on a refused spec or an allocator failure. */
 int omega_blackwell_codegen_fp8_gemv_prog(const OmegaFp8GemvSpec *spec, BlackwellIRProgram *prog);
@@ -111,7 +130,8 @@ int omega_blackwell_codegen_fp8_gemv(const OmegaFp8GemvSpec *spec, OmegaBlackwel
 /* K steps the kernel runs: k / (32 * lane_bytes). 0 when the spec is refused. */
 uint32_t omega_fp8_gemv_steps(const OmegaFp8GemvSpec *spec);
 
-/* Shared memory bytes the launch must declare: k * 4 for a deep kernel, 0 otherwise. */
+/* Shared memory bytes the launch must declare: k * 4 + 16 for a deep kernel, 0 otherwise, plus 2 * warps * rows * 4
+ * (the two output slot sets) when coal = 1. */
 uint32_t omega_fp8_gemv_shared_bytes(const OmegaFp8GemvSpec *spec);
 
 /* The IR instruction count and peak GPR count of the solved program (for budgets in tests). */

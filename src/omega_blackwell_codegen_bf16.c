@@ -143,6 +143,7 @@ static int spec_ok(const OmegaBf16GemvSpec *s) {
     uint32_t ks = s->k / 256u;
     if (s->depth == 0 || s->depth > 16 || ks % s->depth || s->rows * s->depth > 16u) return 0;
     if (s->mutant < 0 || s->mutant > 3) return 0;
+    if (s->ystride > (1u << 28)) return 0; /* ystride * 4 fits the 32-bit IMAD.WIDE immediate */
     if ((uint64_t)(s->rows - 1) * s->k * 2u + 512u * s->depth >= (1u << 23)) return 0; /* 24-bit signed LDG immediate */
     return 1;
 }
@@ -165,6 +166,13 @@ int omega_blackwell_codegen_bf16_gemv_prog(const OmegaBf16GemvSpec *spec, Blackw
     ldc64(e, pwb, OMEGA_BF16_ARG_W); ldc64(e, px, OMEGA_BF16_ARG_X); ldc64(e, py, OMEGA_BF16_ARG_Y);
     ldc32(e, rgn, OMEGA_BF16_ARG_RG); ldc32(e, stride, OMEGA_BF16_ARG_STRIDE);
     s2r(e, tid, BW_SR_TID_X); s2r(e, cx, BW_SR_CTAID_X);
+    if (spec->ystride) { /* ROWS form: this CTA row's x and y */
+        int cy = V(e);
+        if (e->err) return -1;
+        s2r(e, cy, BW_SR_CTAID_Y);
+        imadw(e, px, cy, K * 4u, px);
+        imadw(e, py, cy, spec->ystride * 4u, py);
+    }
     movi(e, one, 1);
     shr(e, warp, tid, 0, 5);
     andi(e, lane, tid, 0, 31);
