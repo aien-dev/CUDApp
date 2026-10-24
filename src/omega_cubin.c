@@ -10,6 +10,8 @@
 
 #define ELF_HDR 64u
 #define SH_HDR 64u
+#define PHDR_ENT 56u
+#define PHDR_COUNT 5u
 #define SYM_ENT 24u
 
 typedef struct {
@@ -28,6 +30,21 @@ static void put16(uint8_t *p, uint16_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(
 static void put32(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); p[2] = (uint8_t)(v >> 16); p[3] = (uint8_t)(v >> 24); }
 static void put64(uint8_t *p, uint64_t v) { put32(p, (uint32_t)v); put32(p + 4, (uint32_t)(v >> 32)); }
 static size_t align_up(size_t n, size_t a) { return a ? (n + a - 1) / a * a : n; }
+
+/* One Elf64_Phdr. The cubin loader reads the PT_LOAD ranges to find the text,
+ * constant and shared segments; without them cuModuleLoadData rejects the image
+ * (REVIEW C-22, confirmed on-device: error 200). */
+static void put_phdr(uint8_t *p, uint32_t type, uint32_t flags, uint64_t off,
+                     uint64_t filesz, uint64_t memsz) {
+    put32(p + 0, type);
+    put32(p + 4, flags);
+    put64(p + 8, off);
+    put64(p + 16, 0);   /* p_vaddr */
+    put64(p + 24, 0);   /* p_paddr */
+    put64(p + 32, filesz);
+    put64(p + 40, memsz);
+    put64(p + 48, 8);   /* p_align */
+}
 
 static int name_ok(const char *s) {
     size_t n;
@@ -279,12 +296,17 @@ int omega_cubin_pack(const char *fn_name,
     }
     off = align_up(off, 8);
     size_t shoff = off;
-    size_t total = shoff + SH_HDR * nsec;
+    size_t phoff = shoff + SH_HDR * nsec;
+    size_t total = phoff + PHDR_ENT * PHDR_COUNT;
     uint8_t *buf = calloc(1, total);
     if (!buf) {
         free(info); free(text_copy); free(cbank);
         return OMEGA_CUBIN_E_MEM;
     }
+    /* Segment ranges: text (index 4), constant bank (5), shared reserved (9). */
+    uint64_t text_off = sec_off[4], text_sz = secs[4].size;
+    uint64_t const_off = sec_off[5], const_sz = secs[5].size;
+    uint64_t shared_off = sec_off[9], shared_sz = secs[9].size;
     /* ELF header. */
     memcpy(buf, "\177ELF", 4);
     buf[4] = 2; buf[5] = 1; buf[6] = 1;
@@ -294,12 +316,12 @@ int omega_cubin_pack(const char *fn_name,
     put16(buf + 18, 190);             /* EM_CUDA */
     put32(buf + 20, 1);
     put64(buf + 24, 0);               /* e_entry */
-    put64(buf + 32, 0);               /* e_phoff, no program headers */
+    put64(buf + 32, phoff);           /* e_phoff */
     put64(buf + 40, shoff);
     put32(buf + 48, OMEGA_CUBIN_EFLAGS_SM121);
     put16(buf + 52, ELF_HDR);
-    put16(buf + 54, 56);
-    put16(buf + 56, 0);               /* e_phnum */
+    put16(buf + 54, PHDR_ENT);
+    put16(buf + 56, PHDR_COUNT);      /* e_phnum */
     put16(buf + 58, SH_HDR);
     put16(buf + 60, (uint16_t)nsec);
     put16(buf + 62, 1);               /* .shstrtab */
@@ -319,6 +341,17 @@ int omega_cubin_pack(const char *fn_name,
         put32(p + 44, secs[i].info);
         put64(p + 48, secs[i].align);
         put64(p + 56, secs[i].entsize);
+    }
+    /* Program header table (after the section header table, like the reference).
+     * 0: PHDR (the table itself), 1: LOAD R (the table), 2: LOAD R|E (text),
+     * 3: LOAD R|W (shared, zero file size), 4: LOAD R (constant bank). */
+    {
+        uint8_t *ph = buf + phoff;
+        put_phdr(ph + 0 * PHDR_ENT, 6, 4, phoff, PHDR_ENT * PHDR_COUNT, PHDR_ENT * PHDR_COUNT);
+        put_phdr(ph + 1 * PHDR_ENT, 1, 4, phoff, PHDR_ENT * PHDR_COUNT, PHDR_ENT * PHDR_COUNT);
+        put_phdr(ph + 2 * PHDR_ENT, 1, 5, text_off, text_sz, text_sz);
+        put_phdr(ph + 3 * PHDR_ENT, 1, 6, shared_off, 0, shared_sz);
+        put_phdr(ph + 4 * PHDR_ENT, 1, 4, const_off, const_sz, const_sz);
     }
     free(info);
     free(text_copy);
