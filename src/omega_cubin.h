@@ -11,7 +11,8 @@
  * produced and digest-bound by the existing CUDApp code generator.
  *
  * Layout facts below were established from a ptxas 13.0.88 -arch=sm_121
- * reference output and are re-checked by nvdisasm/cuobjdump in the host test:
+ * reference output and are re-checked by nvdisasm/cuobjdump in
+ * tools/artifact_smoke.sh (the C test checks the digest/identity layer):
  *   - ELF64 little-endian, e_machine 190 (EM_CUDA), e_flags 0x6007902 (sm_121),
  *     OS/ABI 0x41 (NV), ABI version 8;
  *   - kernel parameters live in constant bank 0 starting at byte 0x380;
@@ -24,6 +25,16 @@
  *     offline tools.
  * Nothing here is copied from an NVIDIA binary; these are ABI facts checked
  * against a public tool's output on this host.
+ *
+ * Limits, deliberate and recorded:
+ *   - e_phoff/e_phnum are 0: this is a section-based container. The ptxas
+ *     reference also carries PT_LOAD program headers; whether cuModuleLoadData
+ *     needs them is exactly what the NOT_RUN device probe must decide.
+ *   - EIATTR_EXIT_INSTR_OFFSETS is omitted because this writer does not decode
+ *     SASS and will not fabricate the EXIT byte offset. ptxas emits it; the
+ *     driver treats it as optional metadata until a device load proves else.
+ *   - sh_info of the .nv.* sections uses this writer's section indices, which
+ *     cuobjdump accepts; it does not reproduce ptxas's symbol indices.
  */
 #ifndef OMEGA_CUBIN_H
 #define OMEGA_CUBIN_H

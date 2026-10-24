@@ -130,6 +130,30 @@ static int rewrite_manifest(const char *src, const char *dst, const char *key, c
     }
 }
 
+/* Edit one line and deliberately leave artifact_id untouched: this is the
+ * naive NOT_RUN -> PASS tamper the artifact id must catch. */
+static int rewrite_manifest_raw(const char *src, const char *dst, const char *key, const char *val) {
+    size_t n; uint8_t *m = readf(src, &n); char *out; size_t cap = n + strlen(val) + 128, o = 0;
+    char *p;
+    if (!m) return -1;
+    out = malloc(cap); if (!out) { free(m); return -1; }
+    size_t klen = strlen(key), vlen = strlen(val);
+    p = (char *)m;
+    while (*p) {
+        char *nl = strchr(p, '\n'); size_t len = nl ? (size_t)(nl - p) : strlen(p);
+        if ((size_t)len > klen && strncmp(p, key, klen) == 0 && p[klen] == '=') {
+            memcpy(out + o, key, klen); o += klen; out[o++] = '=';
+            memcpy(out + o, val, vlen); o += vlen; out[o++] = '\n';
+        } else {
+            memcpy(out + o, p, len); o += len; out[o++] = '\n';
+        }
+        if (!nl) break;
+        p = nl + 1;
+    }
+    int rc = writef(dst, out, o);
+    free(m); free(out); return rc;
+}
+
 static void build_matmul(OmegaBlackwellKernel *k, uint32_t q0[96], uint32_t q1[96], uint32_t cb[10],
                          OmegaCubinParam ps[3], OmegaBlackwellQmdConfig *cfg, char spec_hex[65]) {
     OmegaMatMulSpec spec;
@@ -264,6 +288,10 @@ int main(int argc, char **argv) {
         CHECK(omega_native_artifact_admit(bad, "580.173.02", id, err, sizeof err) == OMEGA_ARTIFACT_E_DRIVER, "too-new driver requirement accepted");
         CHECK(rewrite_manifest(m0, badman, "contract_id", "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz") == 0, "rewrite contract");
         CHECK(omega_native_artifact_admit(bad, "580.173.02", id, err, sizeof err) == OMEGA_ARTIFACT_E_CONTRACT, "malformed contract id accepted");
+        CHECK(rewrite_manifest_raw(m0, badman, "qualification",
+              "offline-disassembly=PASS;device-load=PASS;device-exec=PASS") == 0, "raw qualification rewrite");
+        CHECK(omega_native_artifact_admit(bad, "580.173.02", id, err, sizeof err) == OMEGA_ARTIFACT_E_DIGEST,
+              "unhashed NOT_RUN -> PASS tamper accepted");
     }
 
     /* Export refusals. */
@@ -278,6 +306,13 @@ int main(int argc, char **argv) {
         q1[32] = 0x1234; q1[33] = 0;
         CHECK(omega_native_artifact_export(&a, p2, id, err, sizeof err) == OMEGA_ARTIFACT_E_RELOC, "live code VA accepted");
         q1[32] = 0; q1[33] = 0xa << 21;
+        q1[56] = 0x12345678;
+        CHECK(omega_native_artifact_export(&a, p2, id, err, sizeof err) == OMEGA_ARTIFACT_E_RELOC, "live scratch VA accepted");
+        q1[56] = 0; q1[57] |= 1u;
+        CHECK(omega_native_artifact_export(&a, p2, id, err, sizeof err) == OMEGA_ARTIFACT_E_RELOC, "live scratch high VA accepted");
+        q1[57] &= ~0x7ffffu; q1[59] = 0xdeadbeefu;
+        CHECK(omega_native_artifact_export(&a, p2, id, err, sizeof err) == OMEGA_ARTIFACT_E_RELOC, "live prefetch VA accepted");
+        q1[59] = 0;
     }
     {
         uint8_t *out = NULL; size_t outn = 0;

@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 /* artifact-export: offline handoff for one CUDApp-generated GPU realization.
  *
- *   artifact-export matmul    --m M --k K --n N --contract-id HEX --out PREFIX [--commit HEX]
- *   artifact-export attention --q-heads HQ --kv-heads HKV --contract-id HEX --out PREFIX [--commit HEX]
+ *   artifact-export matmul    --m M --k K --n N --contract-id HEX --out PREFIX --commit HEX
+ *   artifact-export attention --q-heads HQ --kv-heads HKV --contract-id HEX --out PREFIX --commit HEX
  *
  * Opens no device. Emits a cubin, zero-VA QMD templates, cbank bytes, a
  * canonical manifest and a JSON mirror. Exit: 0 ok, 2 usage, 3 refusal, 4 I/O. */
@@ -18,8 +18,8 @@
 
 static void usage(void) {
     fprintf(stderr,
-            "usage: artifact-export matmul --m M --k K --n N --contract-id HEX --out PREFIX [--commit HEX]\n"
-            "       artifact-export attention --q-heads H --kv-heads H --contract-id HEX --out PREFIX [--commit HEX]\n");
+            "usage: artifact-export matmul --m M --k K --n N --contract-id HEX --out PREFIX --commit HEX\n"
+            "       artifact-export attention --q-heads H --kv-heads H --contract-id HEX --out PREFIX --commit HEX\n");
 }
 
 static uint32_t num(const char *s) {
@@ -35,7 +35,7 @@ static void hex32(const uint8_t b[32], char out[65]) {
 }
 
 int main(int argc, char **argv) {
-    const char *mode, *out = NULL, *contract = NULL, *commit = "UNKNOWN";
+    const char *mode, *out = NULL, *contract = NULL, *commit = NULL;
     uint32_t m = 0, k = 0, n = 0, hq = 0, hkv = 0;
     if (argc < 2) { usage(); return 2; }
     mode = argv[1];
@@ -51,6 +51,30 @@ int main(int argc, char **argv) {
         else { usage(); return 2; }
     }
     if (!out || !contract || strlen(contract) != 64) { usage(); return 2; }
+    if (!commit || strlen(commit) != 40) { fprintf(stderr, "--commit must be a 40-hex source revision\n"); usage(); return 2; }
+    for (const char *h = commit; *h; h++) {
+        if (!((*h >= '0' && *h <= '9') || (*h >= 'a' && *h <= 'f'))) {
+            fprintf(stderr, "--commit must be lowercase 40-hex\n"); return 2;
+        }
+    }
+    /* The frozen v1 ids and bounds. An export under a frozen id but outside the
+     * frozen range would let a consumer admit an artifact the contract forbids
+     * (REVIEW C-11). */
+    if (strcmp(mode, "matmul") == 0) {
+        if (strcmp(contract, "647116fc1ba1e1394982fc8ba181ce565293f160a6b56afc0f02b2128a675704") != 0) {
+            fprintf(stderr, "contract id is not matmul-bf16-v1\n"); return 3;
+        }
+        if (m > 8192u || k > 16384u || n > 8192u) {
+            fprintf(stderr, "shape outside matmul-bf16-v1 bounds (m<=8192,k<=16384,n<=8192)\n"); return 3;
+        }
+    } else if (strcmp(mode, "attention") == 0) {
+        if (strcmp(contract, "003696e422bba7274877ba9e01a61076ea0f862f32760cbaa06c60f85a115359") != 0) {
+            fprintf(stderr, "contract id is not gqa-causal-v1\n"); return 3;
+        }
+        if (hq > 64u || hkv > 64u) {
+            fprintf(stderr, "heads outside gqa-causal-v1 bounds (hq<=64,hkv<=64)\n"); return 3;
+        }
+    }
 
     OmegaNativeArtifact a;
     memset(&a, 0, sizeof a);
@@ -105,7 +129,7 @@ int main(int argc, char **argv) {
         }
         (void)spec_hexp;
         uint32_t hpc = omega_gpu_attention_heads_per_cta(128, log2gqa);
-        uint32_t shared = 4u * hpc * 128u * 4u;
+        uint32_t shared = (3u * hpc + 1u) * 128u * 4u;
         cfg.gpr_count = kern.gpr_count;
         cfg.threads_per_block = 128; cfg.threads_x = 128;
         cfg.grid_x = hq / hpc; cfg.grid_y = 1;
@@ -121,6 +145,9 @@ int main(int argc, char **argv) {
         a.tolerance = "rel<=1e-3,abs<=1e-4";
         a.grid_x = cfg.grid_x; a.grid_y = 1; a.block_x = 128; a.block_y = 1; a.block_z = 1;
         a.shared_bytes = shared; a.cbank_words = 16;
+        /* Offline template: pointers and runtime strides are loader-supplied;
+         * the query-head count is a contract constant, so bind it. */
+        cbank[14] = hq;
     } else {
         usage(); return 2;
     }

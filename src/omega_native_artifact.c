@@ -95,6 +95,8 @@ static int qmd_template_ok(const uint32_t q0[OMEGA_ARTIFACT_QMD_WORDS],
     if (q1[42] != 0 || (q1[43] & 0x7ffffu) != 0) return 0;
     if (q1[44] != 0 || (q1[45] & 0x7ffffu) != 0) return 0;
     if (q1[52] != (0x300u >> 6) || (q1[53] & 0x7ffffu) != 0) return 0;
+    /* CB7 scratch VA and the code-prefetch VA must also be templates. */
+    if (q1[56] != 0 || (q1[57] & 0x7ffffu) != 0 || q1[59] != 0) return 0;
     return 1;
 }
 
@@ -143,11 +145,17 @@ int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_p
 
     {
         uint32_t cbank_end = OMEGA_CUBIN_PARAM_BASE;
-        for (size_t i = 0; i < a->nparams; i++) cbank_end = a->params[i].offset + a->params[i].size;
+        for (size_t i = 0; i < a->nparams; i++) {
+            uint32_t e = a->params[i].offset + a->params[i].size;
+            if (e > cbank_end) cbank_end = e;
+        }
         rc = omega_cubin_pack(a->kernel_function, a->text, a->text_len, a->params, a->nparams,
                               cbank_end, a->gpr_count, 64u, &cub, &cub_len, err, err_cap);
     }
-    if (rc != OMEGA_CUBIN_OK) return OMEGA_ARTIFACT_E_UNSUPPORTED;
+    if (rc != OMEGA_CUBIN_OK) {
+        if (err && err[0] == 0) snprintf(err, err_cap, "cubin pack refused: %s", omega_cubin_rc_name(rc));
+        return (rc == OMEGA_CUBIN_E_MEM) ? OMEGA_ARTIFACT_E_MEM : OMEGA_ARTIFACT_E_UNSUPPORTED;
+    }
     if (a->cbank_offset != OMEGA_CUBIN_PARAM_BASE || a->cbank_words == 0 || a->cbank_words > 256) {
         free(cub);
         if (err) snprintf(err, err_cap, "cbank offset/words outside the supported layout");
@@ -183,6 +191,8 @@ int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_p
             append(&p, &rem, "qmd1_sha256=%s\n", q1_hex) ||
             append(&p, &rem, "qmd_template=zero-va-v1\n") ||
             append(&p, &rem, "cbank_offset=0x%x\n", a->cbank_offset) ||
+            append(&p, &rem, "cbank_words=%zu\n", a->cbank_words) ||
+            append(&p, &rem, "cbank_args=template\n") ||
             append(&p, &rem, "cbank_args_sha256=%s\n", cb_hex) ||
             append(&p, &rem, "grid=%u,%u,1\n", a->grid_x, a->grid_y) ||
             append(&p, &rem, "block=%u,%u,%u\n", a->block_x, a->block_y, a->block_z) ||
@@ -192,7 +202,9 @@ int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_p
             append(&p, &rem, "accumulation=%s\n", a->accumulation) ||
             append(&p, &rem, "tolerance=%s\n", a->tolerance) ||
             append(&p, &rem, "min_driver=%s\n", a->min_driver) ||
-            append(&p, &rem, "requires=%s\n", a->requires)) {
+            append(&p, &rem, "requires=%s\n", a->requires) ||
+            append(&p, &rem, "qualification=%s\n", a->qualification) ||
+            append(&p, &rem, "provenance_source_commit=%s\n", a->source_commit)) {
             free(cub);
             if (err) snprintf(err, err_cap, "identity block overflow");
             return OMEGA_ARTIFACT_E_ARG;
@@ -208,9 +220,7 @@ int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_p
             if (append(&mp, &mr, "%s\n", OMEGA_ARTIFACT_FORMAT) ||
                 append(&mp, &mr, "artifact_id=%s\n", id) ||
                 append(&mp, &mr, "%s", idbuf) ||
-                append(&mp, &mr, "provenance_tool=%s\n", a->tool_version) ||
-                append(&mp, &mr, "provenance_source_commit=%s\n", a->source_commit) ||
-                append(&mp, &mr, "qualification=%s\n", a->qualification)) {
+                append(&mp, &mr, "provenance_tool=%s\n", a->tool_version)) {
                 free(cub); free(manifest);
                 if (err) snprintf(err, err_cap, "manifest overflow");
                 return OMEGA_ARTIFACT_E_ARG;
@@ -249,6 +259,11 @@ int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_p
         json_put(f, "kernel_function", a->kernel_function, 0);
         json_put(f, "text_sha256", text_hex, 0);
         json_put(f, "cubin_sha256", cub_hex, 0);
+        fprintf(f, "  \"text_size\": %zu,\n  \"cubin_size\": %zu,\n", a->text_len, cub_len);
+        fprintf(f, "  \"cbank_offset\": %u,\n  \"cbank_words\": %zu,\n", a->cbank_offset, a->cbank_words);
+        fprintf(f, "  \"grid\": [%u,%u,1],\n  \"block\": [%u,%u,%u],\n",
+                a->grid_x, a->grid_y, a->block_x, a->block_y, a->block_z);
+        fprintf(f, "  \"shared_bytes\": %u,\n  \"gpr_count\": %u,\n", a->shared_bytes, a->gpr_count);
         json_put(f, "qmd0_sha256", q0_hex, 0);
         json_put(f, "qmd1_sha256", q1_hex, 0);
         json_put(f, "cbank_args_sha256", cb_hex, 0);
@@ -268,12 +283,14 @@ int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_p
     if (write_file(path, manifest, mlen)) { rc = OMEGA_ARTIFACT_E_IO; goto done; }
     snprintf(path, sizeof path, "%s.sha256", out_prefix);
     {
+        uint8_t md[32]; char mhex[65];
+        sha256_hash(manifest, mlen, md); hex64(md, mhex);
         FILE *f = fopen(path, "wb");
         if (!f) { rc = OMEGA_ARTIFACT_E_IO; goto done; }
         /* Role names, never absolute or caller-chosen paths: the listing is
          * byte-identical for the same artifact exported under any prefix. */
         fprintf(f, "%s  artifact_id\n", id);
-        fprintf(f, "%s  manifest\n", id);
+        fprintf(f, "%s  manifest\n", mhex);
         fprintf(f, "%s  cubin\n", cub_hex);
         fprintf(f, "%s  text\n", text_hex);
         fprintf(f, "%s  qmd0\n", q0_hex);
@@ -289,6 +306,41 @@ done:
 }
 
 /* ---- admission ------------------------------------------------------- */
+
+static uint16_t rd16(const uint8_t *p) { return (uint16_t)(p[0] | (p[1] << 8)); }
+static uint32_t rd32(const uint8_t *p) { return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24); }
+static uint64_t rd64(const uint8_t *p) { return (uint64_t)rd32(p) | ((uint64_t)rd32(p + 4) << 32); }
+
+/* Confirm that the cubin's .text.<function> bytes are exactly the bound text
+ * and that its section table is well formed. The digest of text.bin alone says
+ * nothing about what the cubin actually contains (REVIEW C-21). */
+static int cubin_text_matches(const uint8_t *cub, size_t n, const char *fn,
+                              const uint8_t *text, size_t tn) {
+    if (n < 64 || memcmp(cub, "\177ELF", 4) != 0) return 0;
+    if (rd16(cub + 18) != 190) return 0;
+    uint64_t shoff = rd64(cub + 40);
+    uint16_t shentsize = rd16(cub + 58), shnum = rd16(cub + 60), shstrndx = rd16(cub + 62);
+    if (shentsize != 64 || shnum == 0 || shstrndx >= shnum) return 0;
+    if (shoff > n || (uint64_t)shnum * 64 > n - shoff) return 0;
+    const uint8_t *shstr = cub + shoff + (uint64_t)shstrndx * 64;
+    uint64_t stroff = rd64(shstr + 24), strsz = rd64(shstr + 32);
+    if (stroff > n || strsz > n - stroff) return 0;
+    char want[128];
+    int wl = snprintf(want, sizeof want, ".text.%s", fn);
+    if (wl <= 0 || (size_t)wl >= sizeof want) return 0;
+    for (uint16_t i = 0; i < shnum; i++) {
+        const uint8_t *sh = cub + shoff + (uint64_t)i * 64;
+        uint32_t name = rd32(sh);
+        if (name >= strsz) continue;
+        const char *s = (const char *)cub + stroff + name;
+        size_t max = (size_t)(strsz - name);
+        if (strnlen(s, max) != (size_t)wl || memcmp(s, want, (size_t)wl) != 0) continue;
+        uint64_t off = rd64(sh + 24), sz = rd64(sh + 32);
+        if (off > n || sz != tn || sz > n - off) return 0;
+        return memcmp(cub + off, text, tn) == 0;
+    }
+    return 0;
+}
 
 static char *find_line(char *buf, const char *key) {
     size_t k = strlen(key);
@@ -386,6 +438,40 @@ int omega_native_artifact_admit(const char *out_prefix, const char *current_driv
                 rc = OMEGA_ARTIFACT_E_DIGEST; goto done;
             }
         }
+    }
+    {
+        char fn[1100], v[64];
+        uint8_t *t = NULL, *c = NULL, *q = NULL;
+        size_t tn = 0, cn = 0, qn = 0;
+        int ok = 0;
+        p = find_line(ident, "kernel_function=");
+        if (!p || copy_value(p, v, sizeof v) || v[0] == 0) { rc = OMEGA_ARTIFACT_E_FORMAT; goto done; }
+        snprintf(fn, sizeof fn, "%s.text.bin", out_prefix); t = read_file(fn, &tn);
+        snprintf(fn, sizeof fn, "%s.cubin", out_prefix); c = read_file(fn, &cn);
+        if (!t || !c) { rc = OMEGA_ARTIFACT_E_IO; goto cross_done; }
+        ok = cubin_text_matches(c, cn, v, t, tn);
+        if (!ok) { if (err) snprintf(err, err_cap, "cubin text does not match text.bin"); rc = OMEGA_ARTIFACT_E_DIGEST; goto cross_done; }
+        snprintf(fn, sizeof fn, "%s.qmd1.bin", out_prefix); q = read_file(fn, &qn);
+        if (!q || qn != OMEGA_ARTIFACT_QMD_WORDS * 4u) { rc = OMEGA_ARTIFACT_E_FORMAT; goto cross_done; }
+        {
+            uint32_t a[OMEGA_ARTIFACT_QMD_WORDS], b[OMEGA_ARTIFACT_QMD_WORDS];
+            snprintf(fn, sizeof fn, "%s.qmd0.bin", out_prefix); free(q); q = read_file(fn, &qn);
+            if (!q || qn != OMEGA_ARTIFACT_QMD_WORDS * 4u) { rc = OMEGA_ARTIFACT_E_FORMAT; goto cross_done; }
+            memcpy(a, q, sizeof a);
+            snprintf(fn, sizeof fn, "%s.qmd1.bin", out_prefix); free(q); q = read_file(fn, &qn);
+            if (!q || qn != sizeof b) { rc = OMEGA_ARTIFACT_E_FORMAT; goto cross_done; }
+            memcpy(b, q, sizeof b);
+            if (!qmd_template_ok(a, b)) { if (err) snprintf(err, err_cap, "QMD contains a live address"); rc = OMEGA_ARTIFACT_E_RELOC; goto cross_done; }
+        }
+        p = find_line(ident, "cbank_words=");
+        if (!p || copy_value(p, v, sizeof v)) { rc = OMEGA_ARTIFACT_E_FORMAT; goto cross_done; }
+        {
+            unsigned long w = strtoul(v, NULL, 10);
+            snprintf(fn, sizeof fn, "%s.cbank_args.bin", out_prefix); free(q); q = read_file(fn, &qn);
+            if (!q || w == 0 || w > 256 || qn != w * 4u) { rc = OMEGA_ARTIFACT_E_FORMAT; goto cross_done; }
+        }
+cross_done:
+        free(t); free(c); free(q);
     }
     {
         char v[128];

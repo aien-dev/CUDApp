@@ -79,23 +79,29 @@ static size_t put_attr2(uint8_t *p, uint16_t id) {
 }
 
 static size_t build_param_info(uint8_t *p, const OmegaCubinParam *params, size_t nparams, uint32_t cbank_size) {
-    size_t o = 0, total = 0;
+    size_t o = 0;
+    uint32_t end = OMEGA_CUBIN_PARAM_BASE;
     (void)cbank_size;
     for (size_t i = 0; i < nparams; i++) {
-        uint32_t w2 = (uint32_t)i | (params[i].offset << 8);
+        /* ptxas ABI: ordinal in bits 0..15, offset relative to the parameter
+         * base in bits 16..31. An absolute offset here makes every loader bind
+         * the wrong argument (REVIEW C-01). */
+        uint32_t w2 = (uint32_t)i | ((params[i].offset - OMEGA_CUBIN_PARAM_BASE) << 16);
         uint32_t type = params[i].is_pointer ? 0x0021f500u : 0x0011f000u;
         uint8_t d[12];
         put32(d, 0);
         put32(d + 4, w2);
         put32(d + 8, type);
         o += put_attr4(p + o, 0x17, d, sizeof d);
-        total += params[i].size;
+        if (params[i].offset + params[i].size > end) end = params[i].offset + params[i].size;
     }
-    o += put_attr3(p + o, 0x19, (uint16_t)total);
+    /* ptxas uses the end of the last parameter, not the sum of sizes: gaps
+     * between parameters are part of the constant bank (REVIEW C-04). */
+    o += put_attr3(p + o, 0x19, (uint16_t)(end - OMEGA_CUBIN_PARAM_BASE));
     {
         uint8_t d[8];
         put32(d, 3); /* symbol index of .nv.constant0.<fn> in this writer */
-        put32(d + 4, OMEGA_CUBIN_PARAM_BASE | ((OMEGA_CUBIN_PARAM_BASE + total) << 16));
+        put32(d + 4, OMEGA_CUBIN_PARAM_BASE | ((end - OMEGA_CUBIN_PARAM_BASE) << 16));
         o += put_attr4(p + o, 0x0a, d, sizeof d);
     }
     return o;
@@ -175,14 +181,14 @@ int omega_cubin_pack(const char *fn_name,
     {
         size_t o = 0;
         uint8_t d[8];
-        put32(d, 2); put32(d + 4, 4);            /* first function symbol, symbol count */
+        put32(d, 2); put32(d + 4, gpr_count);    /* first function symbol, register count */
         o += put_attr4(ginfo + o, 0x2f, d, 8);
         put32(d, 2); put32(d + 4, 0);
         o += put_attr4(ginfo + o, 0x11, d, 8);
         o += put_attr4(ginfo + o, 0x12, d, 8);
     }
     uint8_t compat[36] = {
-        0x02,0x09,0x00,0x00, 0x02,0x02,0x01,0x00, 0x02,0x05,0x05,0x00,
+        0x02,0x09,0x00,0x00, 0x02,0x02,0x02,0x00, 0x02,0x05,0x05,0x00,
         0x03,0x07,0x01,0x01, 0x02,0x03,0x00,0x00, 0x02,0x06,0x01,0x00,
         0x04,0x0b,0x08,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00
     };
@@ -206,15 +212,12 @@ int omega_cubin_pack(const char *fn_name,
         io += put_attr4(info + io, 0x37, d, 4);
     }
     io += build_param_info(info + io, params, nparams, cbank_size);
-    io += put_attr2(info + io, 0x50);
+    io += put_attr3(info + io, 0x50, 0);
     io += put_attr3(info + io, 0x1b, (uint16_t)gpr_count);
     io += put_attr3(info + io, 0x5f, 0x0101);
     io += put_attr2(info + io, 0x4a);
-    {
-        uint8_t d[4];
-        put32(d, 0x10);
-        io += put_attr4(info + io, 0x1c, d, 4);
-    }
+    /* EIATTR_EXIT_INSTR_OFFSETS omitted: the writer does not decode SASS, and
+     * a fabricated first-instruction offset is worse than no entry (REVIEW C-06). */
     io += put_attr4(info + io, 0x36, (uint8_t[4]){0,0,0,0}, 4);
     size_t info_len = io;
 
@@ -257,7 +260,7 @@ int omega_cubin_pack(const char *fn_name,
     secs[s++] = (Sec){ ".strtab", 3, 0, strtab, strtab_len, 0, 0, 1, 0 };
     secs[s++] = (Sec){ ".symtab", 2, 0, symtab, sizeof symtab, 2, 2, 8, SYM_ENT };
     secs[s++] = (Sec){ text_name, 1, 0x6, text_copy, text_len, 3, 2, 128, 0 };
-    secs[s++] = (Sec){ cbank_name, 1, 0x42, cbank, cbank_size, 3, 4, 4, 0 };
+    secs[s++] = (Sec){ cbank_name, 1, 0x42, cbank, cbank_size, 3, 4, 16, 0 };
     secs[s++] = (Sec){ ".nv.info", 0x70000000u, 0, ginfo, sizeof ginfo, 3, 0, 4, 0 };
     secs[s++] = (Sec){ ".nv.compat", 0x70000086u, 0, compat, sizeof compat, 0, 0, 4, 0 };
     secs[s++] = (Sec){ info_name, 0x70000000u, 0x40, info, info_len, 3, 4, 4, 0 };
@@ -276,7 +279,7 @@ int omega_cubin_pack(const char *fn_name,
     }
     off = align_up(off, 8);
     size_t shoff = off;
-    size_t total = shoff + SH_HDR * (nsec + 1);
+    size_t total = shoff + SH_HDR * nsec;
     uint8_t *buf = calloc(1, total);
     if (!buf) {
         free(info); free(text_copy); free(cbank);
@@ -298,7 +301,7 @@ int omega_cubin_pack(const char *fn_name,
     put16(buf + 54, 56);
     put16(buf + 56, 0);               /* e_phnum */
     put16(buf + 58, SH_HDR);
-    put16(buf + 60, (uint16_t)(nsec + 1));
+    put16(buf + 60, (uint16_t)nsec);
     put16(buf + 62, 1);               /* .shstrtab */
     for (size_t i = 1; i < nsec; i++) {
         if (secs[i].type != 8 && secs[i].size) memcpy(buf + sec_off[i], secs[i].data, secs[i].size);
