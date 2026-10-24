@@ -23,7 +23,7 @@ error, so a subsequent call cannot close a newly reused descriptor number.
 
 The same ownership rule applies before `nvcpumap` publishes a mapping to its
 caller. If descriptor close fails and its immediate unmap is refused,
-`nvunpublished` retains that mapping for `nvmapfinish`. A faulted or inactive
+`nvunpub` retains that mapping for `nvmapfinish`. A faulted or inactive
 context refuses another `nvcpumap`, so the retained handle cannot be overwritten.
 Failed `mapbind` is different: the pinned compiler contract retires that handle.
 
@@ -81,6 +81,16 @@ timeout. The repaired source must then compile and exit 0 with the PASS marker.
 An unsupported host returns 77 and `NOT_RUN`; it is not a test pass.
 
 ## Current qualification limit
+
+The source-compatibility review uses the exact pinned `seed/omc/omc.om`, not
+a different compiler profile. Its `topname` and `s_fn` readers limit globals,
+texts and parameter names to eight bytes; function names may be 63 bytes.
+The initial source review missed overlong names in both this repair and the
+inherited fixture. They are now shortened without changing cleanup behavior.
+The fixture's custom calls use scalar arguments only; the compiler's prohibition
+on passing globals to ordinary `view`/`edit` parameters does not apply to them.
+The `tmapnew` fake preserves the native word's five scalar types and long result.
+This is source inspection, not evidence that either unit compiles or executes.
 
 Native compilation and execution are **NOT_RUN** in the merge-review workspace,
 which is x86_64 and has no runnable AArch64 compiler or emulator. The fixture and
