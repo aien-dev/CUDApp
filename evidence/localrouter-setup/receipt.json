@@ -1,0 +1,50 @@
+{
+  "baseline_commit": "232332422bfdc31c8918085b50f13c1e18ab702e",
+  "issue": "https://github.com/aien-dev/CUDApp/issues/27",
+  "machine": "x86_64",
+  "python": "3.12.14",
+  "source_sha256": {
+    "tools/localrouter/setup.py": "06508aca53b9d067c8e63e6b46de061f859b7251177cfe7afdfa812bd0817dd9",
+    "tools/localrouter/README.md": "c0d97ef86675b041f2a61f0cab44fd61492a40e63ebce41bc86ab03ae8c8381b",
+    "tests/localrouter/test_setup.py": "61174009fd756eba2b7ed8eece9cbbde0717389aa55595d4576f6770eb3e00bb",
+    "tests/localrouter/negative_control.py": "23e251f883a629c00bc0b6557331f56a38927cfe632ece133c5759ac70b83a2b"
+  },
+  "checks": [
+    {
+      "command": "python3 -m unittest discover -s tests/localrouter -v",
+      "exit_code": 0,
+      "result": "PASS",
+      "tests": 9,
+      "log": "python-tests.log",
+      "scope": "Python client and loopback fixtures only"
+    },
+    {
+      "command": "python3 tests/localrouter/negative_control.py",
+      "exit_code": 0,
+      "result": "PASS",
+      "log": "negative-control.log",
+      "scope": "removing shared-lock rejection causes intended test failure"
+    },
+    {
+      "command": "make test",
+      "exit_code": 2,
+      "result": "FAIL",
+      "log": "host-suite.log",
+      "cause": "existing unguarded AArch64 dsb sy in omega_blackwell_engine.c on x86_64"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "result": "PASS"
+    }
+  ],
+  "not_run": [
+    "real LocalRouter Zig build/tests (Zig 0.17.0 unavailable in this workspace)",
+    "real LocalRouter + aien-serve-http integration",
+    "GB10 correctness and model/memory measurements",
+    "unload/reload/cancel and child-process cleanup",
+    "runtime CUDA library/provenance verification",
+    "MCP client integration"
+  ],
+  "live_service_changes": false
+}
