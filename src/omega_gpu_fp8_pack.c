@@ -23,6 +23,7 @@
 #include "omega_gpu_fp8_api.h"
 #include "omega_blackwell_codegen_moe.h"
 #include "omega_blackwell_matmul.h"
+#include "omega_gpu_hostmath.h"
 #include <math.h>
 #include <string.h>
 
@@ -31,8 +32,8 @@ float omega_fp8_e4m3_ref(uint8_t b) {
     float mantissa = (float)(b & 0x07);
     float sign = (b & 0x80) ? -1.0f : 1.0f;
     if (exponent == 0x0f && (b & 0x07) == 0x07) return NAN; /* 0x7f / 0xff */
-    if (exponent == 0) return sign * mantissa * ldexpf(1.0f, -9);
-    return sign * (1.0f + mantissa / 8.0f) * ldexpf(1.0f, exponent - 7);
+    if (exponent == 0) return sign * mantissa * omega_hostmath_pow2f(-9);
+    return sign * (1.0f + mantissa / 8.0f) * omega_hostmath_pow2f(exponent - 7);
 }
 
 uint32_t omega_fp8_e4m3_kernel_bits(uint8_t b) {
@@ -49,7 +50,7 @@ size_t omega_fp8_pack_scan_nan(const uint8_t *w, size_t count, size_t *first) {
 }
 
 int omega_fp8_pack_scales(const uint16_t *bf16, size_t count, float *out, int mutant_no_fold) {
-    const float fold = mutant_no_fold ? 1.0f : ldexpf(1.0f, OMEGA_FP8_SCALE_EXP);
+    const float fold = mutant_no_fold ? 1.0f : omega_hostmath_pow2f(OMEGA_FP8_SCALE_EXP);
     for (size_t i = 0; i < count; i++) {
         float s = omega_bf16_to_fp32(bf16[i]);
         if (!(fabsf(s) <= 3.0e38f)) return -1; /* NaN or inf scale */
@@ -61,12 +62,12 @@ int omega_fp8_pack_scales(const uint16_t *bf16, size_t count, float *out, int mu
 }
 
 void omega_fp8_pack_x_f32(const float *x, uint32_t k, float *out) {
-    const float fold = ldexpf(1.0f, OMEGA_FP8_X_EXP);
+    const float fold = omega_hostmath_pow2f(OMEGA_FP8_X_EXP);
     for (uint32_t i = 0; i < k; i++) out[i] = x[i] * fold;
 }
 
 void omega_fp8_pack_x_bf16(const uint16_t *x, uint32_t k, float *out) {
-    const float fold = ldexpf(1.0f, OMEGA_FP8_X_EXP);
+    const float fold = omega_hostmath_pow2f(OMEGA_FP8_X_EXP);
     for (uint32_t i = 0; i < k; i++) out[i] = omega_bf16_to_fp32(x[i]) * fold;
 }
 

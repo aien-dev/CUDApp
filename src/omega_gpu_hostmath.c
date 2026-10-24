@@ -96,3 +96,12 @@ void omega_hostmath_sincos(double a, double *s, double *c) {
     default: *s = -cr; *c = sr; break;
     }
 }
+
+float omega_hostmath_pow2f(int e) {
+    uint32_t u;
+    if (e > 127) u = 0x7f800000u;                        /* +inf */
+    else if (e >= -126) u = (uint32_t)(e + 127) << 23;   /* normal: biased exponent, zero mantissa */
+    else if (e >= -149) u = 1u << (e + 149);             /* subnormal: one mantissa bit */
+    else u = 0;
+    float f; memcpy(&f, &u, 4); return f;
+}

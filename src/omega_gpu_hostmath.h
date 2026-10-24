@@ -28,9 +28,12 @@
  *   pow(b, e):   b > 0 finite; exp(e * log(b)). Relative error about |e * log b| * 2^-52.
  *   sincos(a):   valid for |a| < 2^20 * pi/2 (about 1.6e6; the RoPE table needs pos < 65536). Three-part
  *                Cody-Waite reduction with the fdlibm pi/2 pieces, series to r^16. Absolute error about 1e-16.
+ *   pow2f(e):    2^e as f32, exact (built from the bit pattern) for -149 <= e <= 127; 0 below, +inf above.
+ *                Replaces ldexpf(1.0f, e) (omega-mv#471).
  */
 double omega_hostmath_log(double x);
 double omega_hostmath_exp(double y);
 double omega_hostmath_pow(double base, double e);
 void omega_hostmath_sincos(double a, double *s, double *c);
+float omega_hostmath_pow2f(int e);
 #endif

@@ -154,6 +154,13 @@ static void host_math_vs_libm(void) {
     printf("hostmath vs libm: sincos max abs %.3g, pow/exp/log max rel %.3g\n", maxd, maxr);
     CHECK(omega_hostmath_exp(0.0) == 1.0 && omega_hostmath_log(1.0) == 0.0 && omega_hostmath_pow(THETA, 0.0) == 1.0, "hostmath identities");
     CHECK(omega_hostmath_log(-1.0) != omega_hostmath_log(-1.0) && omega_hostmath_exp(-800.0) == 0.0, "hostmath log(-1) is NaN, exp(-800) is 0");
+    /* omega-mv#471: pow2f replaces ldexpf(1.0f, e) in libomega_gpu.a; bit-identical over the whole f32 range and past both ends */
+    unsigned pow2_bad = 0;
+    for (int e = -170; e <= 150; e++) {
+        float h = omega_hostmath_pow2f(e), l = ldexpf(1.0f, e);
+        if (memcmp(&h, &l, sizeof h) != 0) { pow2_bad++; printf("  pow2f(%d) = %a, ldexpf = %a\n", e, (double)h, (double)l); }
+    }
+    CHECK(pow2_bad == 0, "hostmath pow2f vs ldexpf(1, e) for e in [-170, 150]: %u differ", pow2_bad);
 }
 
 /* compares out (f32 [4096]) against the reference; returns the number of elements outside the tolerance and the worst ratio */
