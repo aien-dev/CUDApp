@@ -1,0 +1,22 @@
+{
+  "source": "7678607",
+  "original_oracle": "origin/fix/runtime-api-portable-controls-L639:evidence/API-NEGATIVE-PORTABILITY-L639/test_fixture_failures.py",
+  "adaptations": [
+    "root=Path.cwd()",
+    "scratch=/tmp"
+  ],
+  "results": [
+    {
+      "case": "edit-failure",
+      "exit": 1,
+      "stdout": "NEGATIVE CONTROL removed-function: BROKEN (fixture edit failed)\nNEGATIVE CONTROL missing-version: BROKEN (fixture edit failed)\nNEGATIVE CONTROL changed-signature: BROKEN (fixture edit failed)\nNEGATIVE CONTROL changed-struct: BROKEN (fixture edit failed)\nNEGATIVE CONTROL changed-constant: BROKEN (fixture edit failed)\nNEGATIVE CONTROL version-doc-mismatch: BROKEN (fixture edit failed)\nNEGATIVE CONTROL stable-without-doc: BROKEN (fixture edit failed)\nNEGATIVE CONTROL wrong-quoted-signature: BROKEN (fixture edit failed)\nNEGATIVE CONTROL signature-inside-another: BROKEN (fixture edit failed)\nRESULT: FAIL (a negative control was not caught)\n",
+      "stderr": ""
+    },
+    {
+      "case": "edit-noop",
+      "exit": 1,
+      "stdout": "NEGATIVE CONTROL removed-function: BROKEN (the edit changed nothing)\nNEGATIVE CONTROL missing-version: BROKEN (the edit changed nothing)\nNEGATIVE CONTROL changed-signature: BROKEN (the edit changed nothing)\nNEGATIVE CONTROL changed-struct: BROKEN (the edit changed nothing)\nNEGATIVE CONTROL changed-constant: BROKEN (the edit changed nothing)\nNEGATIVE CONTROL version-doc-mismatch: BROKEN (the edit changed nothing)\nNEGATIVE CONTROL stable-without-doc: BROKEN (the edit changed nothing)\nNEGATIVE CONTROL wrong-quoted-signature: BROKEN (the edit changed nothing)\nNEGATIVE CONTROL signature-inside-another: BROKEN (the edit changed nothing)\nRESULT: FAIL (a negative control was not caught)\n",
+      "stderr": ""
+    }
+  ]
+}
