@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "runtime_sha256": "a502e645e22f8e61bcdec6e5f09e81a75edabf2d9968fc00294bc780da73504e",
+  "compiler_source": "d7390d88d07dbf48cfbb0583070599c350f814d3",
+  "compiler_sha256": "9749f38841a55917d41924a68bce31463ec2339910bddd5e6cbf6ea4420551db",
+  "canonical_nvrm_reference": "349913f17c083996680c72b32f767b225005155d",
+  "driver_abi": "NVIDIA580.173.02",
+  "admission": "explicit user authorization; confirmed shared correctness window; no timings",
+  "probes": {
+    "device": {
+      "result": "NATIVE_DEVICE_CONTEXT_PASS",
+      "source_sha256": "6c873bb21179b7fc919dda79d14d3379e8ec4b8d2286a907cfd36b1f23222343",
+      "translation_unit_sha256": "4cc17e341310770a7d8e6fccf0dee344bf574d139b21affe0fb96e5dd839a9d9",
+      "executable_sha256": "4c3b9444be63c534e3debf177bc93cdc5c5f88bdabb974a709fb32ab608344e6",
+      "raw_trace_sha256": "c87b412ed1125089c2636450414ebce3cff15288e22e7f2afae1c2c62e7a20ea",
+      "ioctl_calls": 33,
+      "failed_syscalls": 0,
+      "mmap_calls": 0,
+      "munmap_calls": 0
+    },
+    "memory": {
+      "result": "NATIVE_DEVICE_MEMORY_PASS",
+      "source_sha256": "de5b1906c5c117b05c1a11fdd466e95221cfd3d998625f04d2ad92477ee0c37a",
+      "translation_unit_sha256": "396b77510192c4c2aac6ced020717ba4c836396271d609c56095657c62cbadcc",
+      "executable_sha256": "483dd6c11c6bed28ea11f35e2fb32d0df2125af49206d7e17310f0a8a79ce248",
+      "raw_trace_sha256": "b349402a1bc554379644491ff9cc7ad73dba472d503ba04827d5397265e97308",
+      "ioctl_calls": 162,
+      "failed_syscalls": 0,
+      "mmap_calls": 24,
+      "munmap_calls": 12
+    },
+    "channel": {
+      "result": "NATIVE_DEVICE_CHANNEL_PASS",
+      "source_sha256": "4afabac5121101c9ad02595c34f3bcf167581f02eb95dab0a78b5b6c52618999",
+      "translation_unit_sha256": "1381cf34f492ad7367e777cf35fabf2e9d5ff56867de7aad9856335c78bf7526",
+      "executable_sha256": "c815d0fe433b037d8417685aad1eb4efeec162d7895059d82bc5d9f4ea1e8dc3",
+      "raw_trace_sha256": "5a2774785d184f56c60fe20e8c874204c143d0417eaf3e327b8d93cad1d67972",
+      "ioctl_calls": 162,
+      "failed_syscalls": 0,
+      "mmap_calls": 18,
+      "munmap_calls": 12
+    },
+    "submit": {
+      "result": "NATIVE_DEVICE_SUBMIT_PASS",
+      "source_sha256": "58aade7d377d11a46827b7a86104680f1671e94568ab9015ce56aea523ce337a",
+      "translation_unit_sha256": "5b938e1051347de85bd3ae6b357481efbfe32b75c36f8a907e70d189de556fe0",
+      "executable_sha256": "7facdcddc2c5ad123e52d87d8bcd7084290fc86ec3b23a3e44d6ceaf004891e9",
+      "raw_trace_sha256": "8744f074020964ede93dfa1fc079e29bddd976febe5716c459b1d1fb31f2e442",
+      "ioctl_calls": 210,
+      "failed_syscalls": 0,
+      "mmap_calls": 30,
+      "munmap_calls": 18
+    }
+  },
+  "checks": {
+    "buffer_allocations": 12,
+    "buffer_contexts": 3,
+    "buffer_bytes_compared": 3379200,
+    "empty_channel_cycles": 3,
+    "fifo_completion_writes": 2052,
+    "fifo_ring_wrap_contexts": 2,
+    "wrong_expected_payload_timeout": "PASS; fault latched and further submission refused"
+  },
+  "excluded": "Earlier UVM scheduling-unconfirmed attempt is not qualification evidence",
+  "not_run": [
+    "SM kernel execution",
+    "model inference",
+    "full speculative-state rollback",
+    "AIENOS endpoint integration",
+    "four-arm experiment",
+    "performance comparisons"
+  ],
+  "review": "independent final-source review pending"
+}

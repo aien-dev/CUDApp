@@ -1,0 +1,80 @@
+note Physical FIFO semaphore writes, including ring wrap and timeout latching.
+note No SM kernel, model inference, performance claim or live-service replacement.
+global diag uchar 24
+text ok "NATIVE_DEVICE_SUBMIT_PASS\n"
+text bad "NATIVE_DEVICE_SUBMIT_FAIL\n"
+fn pack off ulong v long to void
+for i ulong 8
+put diag add off i uchar and shr v mul i 8 255
+end
+end
+fn ck yes bool to void
+if not yes
+pack 0 long get nvstage 0
+pack 8 get nverr 0
+closed = nvstop
+pack 16 long get nvfault 0
+r = write 2 bad 0 len bad
+r = write 1 diag 0 len diag
+exit int 80
+end
+end
+fn packet pb long sem long value uint to void
+va = mapaddr sem
+ck eq mapset sem 0 4 0 0
+ck eq mapset pb 0 4 537198615 0
+ck eq mapset pb 4 4 and va 4294967295 0
+ck eq mapset pb 8 4 shr va 32 0
+ck eq mapset pb 12 4 ulong value 0
+ck eq mapset pb 16 4 0 0
+ck eq mapset pb 20 4 1048577 0
+end
+fn main to int
+for attempt ulong 2
+ck nvfull
+ck nvchan
+pb = nvalloc 4096 false
+sem = nvalloc 4096 false
+ck gt pb 0
+ck gt sem 0
+ck not nvsend pb 0 0
+ck not nvsend pb 4096 6
+ck not nvsend pb 1 6
+ck eq get nvput 0 0
+for i uint 1026
+value = add i 1
+packet pb sem value
+ck eq mapget sem 0 4 0
+ck nvsend pb 0 6
+ck not nvsend pb 0 6
+ck not nvdrop sem
+ck eq get nverr 0 neg long 16
+ck nvwait sem 0 value 2000000000
+ck eq mapget sem 0 4 ulong value
+ck eq get nvput 0 get nvret 0
+end
+ck nvdrop sem
+ck nvdrop pb
+ck nvstop
+ck eq get nvfault 0 0
+end
+note A deliberately wrong expected payload must time out and prevent further work.
+ck nvfull
+ck nvchan
+pb = nvalloc 4096 false
+sem = nvalloc 4096 false
+ck gt pb 0
+ck gt sem 0
+packet pb sem 4096
+ck nvsend pb 0 6
+ck not nvwait sem 0 4097 1000000
+ck eq get nverr 0 neg long 110
+ck eq get nvfault 0 1
+ck not nvsend pb 0 6
+ck not nvdrop sem
+ck nvstop
+ck not nvstart
+ck eq get nverr 0 neg long 5
+ck eq write 1 ok 0 len ok long len ok
+ret 0
+end
