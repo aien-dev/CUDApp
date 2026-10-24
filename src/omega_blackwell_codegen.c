@@ -23,8 +23,10 @@
  * (omega_blackwell_kernel_encode_into: the caller supplies the code buffer and its capacity); the allocating
  * generators, their diagnostics and the printing variation self-test exist only in the hosted build. */
 #ifndef OMEGA_GPU_NO_POSIX
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #define BW_DIAG(...) fprintf(stderr, __VA_ARGS__)
 #else
 #define BW_DIAG(...) ((void)0)
@@ -1027,14 +1029,18 @@ void omega_kernel_dump(const uint8_t *code, size_t len) {
     const char *dir = getenv("OMEGA_KERNEL_DUMP_DIR");
     if (!dir || !dir[0] || !code || !len) return;
     uint8_t d[SHA256_DIGEST_SIZE]; sha256_hash(code, len, d);
-    char path[4096]; int n = snprintf(path, sizeof path, "%s/", dir);
-    if (n < 0 || (size_t)n + 21 > sizeof path) return;
-    for (unsigned i = 0; i < 8; i++) n += snprintf(path + n, sizeof path - (size_t)n, "%02x", d[i]);
-    snprintf(path + n, sizeof path - (size_t)n, ".bin");
-    FILE *f = fopen(path, "wbx"); /* x: an existing body is left alone */
-    if (!f) return;
+    char path[4096];
+    int n = snprintf(path, sizeof path, "%s/%02x%02x%02x%02x%02x%02x%02x%02x.bin",
+                     dir, (unsigned)d[0], (unsigned)d[1], (unsigned)d[2], (unsigned)d[3],
+                     (unsigned)d[4], (unsigned)d[5], (unsigned)d[6], (unsigned)d[7]);
+    if (n < 0 || (size_t)n >= sizeof path) return;
+    /* Private, exclusive creation: an existing body or symlink is left alone. */
+    int fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+    if (fd < 0) return;
+    FILE *f = fdopen(fd, "wb");
+    if (!f) { close(fd); return; }
     if (fwrite(code, 1, len, f) != len) BW_DIAG("omega_kernel_dump: short write %s\n", path);
-    fclose(f);
+    if (fclose(f) != 0) BW_DIAG("omega_kernel_dump: close failed %s\n", path);
 #else
     (void)code; (void)len;
 #endif

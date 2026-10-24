@@ -168,12 +168,15 @@ static int sm121dis_check_v(int variant, const OmegaFp8GemvSpec *spec, const cha
     OmegaBlackwellKernel k; memset(&k, 0, sizeof k);
     if ((variant == 2 ? omega_blackwell_codegen_fp8_gemv2(spec, &k) : omega_blackwell_codegen_fp8_gemv(spec, &k)) != 0) return -1;
     char lst[96];
-    snprintf(lst, sizeof lst, "/tmp/omega_fp8_%s_%d.sass", name, (int)getpid());
-    FILE *f = fopen(lst, "w"); if (!f) { omega_blackwell_kernel_free(&k); return -1; }
-    int rc = omega_sm121_listing(k.code, k.code_size, f); fclose(f);
+    snprintf(lst, sizeof lst, "/tmp/omega_fp8_%s_%d.sass.XXXXXX", name, (int)getpid());
+    int fd = mkstemp(lst); /* private, unique listing; read back the same descriptor */
+    FILE *f = fd >= 0 ? fdopen(fd, "w+") : NULL;
+    if (!f) { if (fd >= 0) close(fd); omega_blackwell_kernel_free(&k); return -1; }
+    int rc = omega_sm121_listing(k.code, k.code_size, f);
     omega_blackwell_kernel_free(&k);
     static const char *const must[] = { "LDG.E.128", "FFMA", "SHFL.DOWN", "BSSY", "BSYNC", "STG.E", "LOP3.LUT", "IMAD" };
-    FILE *l = fopen(lst, "r"); if (!l) return -1;
+    if (fflush(f) != 0 || fseek(f, 0, SEEK_SET) != 0) { fclose(f); return -1; }
+    FILE *l = f;
     char line[512]; int seen[8] = {0}; int bad = 0, insns = 0;
     while (fgets(line, sizeof line, l)) {
         if (!strstr(line, "/*") || !strstr(line, "*/")) continue; /* every address line */
@@ -182,7 +185,8 @@ static int sm121dis_check_v(int variant, const OmegaFp8GemvSpec *spec, const cha
         if (strstr(line, ".FTZ")) { printf("  %s: flush-to-zero instruction: %s", name, line); bad++; } /* e4m3 subnormals travel as f32 subnormals */
         for (int i = 0; i < 8; i++) if (strstr(line, must[i])) seen[i] = 1;
     }
-    fclose(l);
+    if (ferror(l)) rc = -1;
+    if (fclose(l) != 0) rc = -1;
     int miss = 0;
     for (int i = 0; i < 8; i++) if (!seen[i]) { printf("  %s: sm121dis listing lacks %s\n", name, must[i]); miss++; }
     printf("sm121dis %s: rc=%d insns=%d undecodable=%d missing=%d (%s)\n", name, rc, insns, bad, miss, lst);

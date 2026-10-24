@@ -190,10 +190,13 @@ static int find_op(const BlackwellIRProgram *p, BlackwellIROpcode op, int nth) {
 /* --------------------------------------------------------- sm121dis listing */
 static int sm121dis_bytes(const uint8_t *code, size_t bytes, const char *name, const char *const *must, int n_must) {
     char lst[96];
-    snprintf(lst, sizeof lst, "/tmp/omega_rc_%s_%d.sass", name, (int)getpid());
-    FILE *f = fopen(lst, "w"); if (!f) return -1;
-    int rc = omega_sm121_listing(code, bytes, f); fclose(f);
-    FILE *l = fopen(lst, "r"); if (!l) return -1;
+    snprintf(lst, sizeof lst, "/tmp/omega_rc_%s_%d.sass.XXXXXX", name, (int)getpid());
+    int fd = mkstemp(lst); /* private, unique listing; read back the same descriptor */
+    FILE *f = fd >= 0 ? fdopen(fd, "w+") : NULL;
+    if (!f) { if (fd >= 0) close(fd); return -1; }
+    int rc = omega_sm121_listing(code, bytes, f);
+    if (fflush(f) != 0 || fseek(f, 0, SEEK_SET) != 0) { fclose(f); return -1; }
+    FILE *l = f;
     char line[512]; int seen[16] = {0}, bad = 0, insns = 0;
     while (fgets(line, sizeof line, l)) {
         if (!strstr(line, "/*")) continue; /* every address line, 0x1000 and up too */
@@ -201,7 +204,8 @@ static int sm121dis_bytes(const uint8_t *code, size_t bytes, const char *name, c
         if (strstr(line, "?") || strstr(line, "error")) bad++;
         for (int i = 0; i < n_must && i < 16; i++) if (strstr(line, must[i])) seen[i] = 1;
     }
-    fclose(l);
+    if (ferror(l)) rc = -1;
+    if (fclose(l) != 0) rc = -1;
     int miss = 0;
     for (int i = 0; i < n_must && i < 16; i++) if (!seen[i]) { printf("  %s: sm121dis listing lacks %s\n", name, must[i]); miss++; }
     printf("sm121dis %s: rc=%d insns=%d undecodable=%d missing=%d (%s)\n", name, rc, insns, bad, miss, lst);
