@@ -1,0 +1,66 @@
+{
+  "tool": "WolframLanguageEvaluator",
+  "role": "external independent mathematical oracle, not a runtime dependency",
+  "evaluations": [
+    {
+      "input": "<|\"magicCUL1LittleEndian\"->FromDigits[Reverse[ToCharacterCode[\"CUL1\"]],256],\"guard\"->FromDigits[\"A5A5A5A5\",16],\"u32add\"->Mod[{4294967295,7,9}+{1,4,6},2^32],\"sum\"->Mod[Total[{4294967295,2,3}],2^32],\"matmul\"->Mod[{{1,2},{3,4}}.{{5,6,7},{8,9,10}},2^32],\"matmulOverflow\"->Mod[{{4294967295,2},{3,4}}.{{5,6,7},{8,9,10}},2^32]|>",
+      "output": {
+        "magicCUL1LittleEndian": 827086147,
+        "guard": 2779096485,
+        "u32add": [
+          0,
+          11,
+          15
+        ],
+        "sum": 4,
+        "matmul": [
+          [
+            21,
+            24,
+            27
+          ],
+          [
+            47,
+            54,
+            61
+          ]
+        ],
+        "matmulOverflow": [
+          [
+            11,
+            12,
+            13
+          ],
+          [
+            47,
+            54,
+            61
+          ]
+        ]
+      }
+    },
+    {
+      "input": "<|\"matmul302\"->{{1,2,3},{4,5,6},{7,8,9}}.{{1,2},{3,4},{5,6}},\"reduce17wrap\"->Mod[17 (2^32-1),2^32],\"extent17stride15\"->((17-1)15+1),\"manifestLargest\"->96+4(2((17-1)15+1)),\"outputLargest\"->4(((17-1)15+1)+2)|>",
+      "output": {
+        "matmul302": [
+          [
+            22,
+            28
+          ],
+          [
+            49,
+            64
+          ],
+          [
+            76,
+            100
+          ]
+        ],
+        "reduce17wrap": 4294967279,
+        "extent17stride15": 241,
+        "manifestLargest": 2024,
+        "outputLargest": 972
+      }
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Development fixture emitter: exactly one input byte, public catalog ID1..8.
+global CIn uchar 2
+fn main to int
+pos = ulong 0
+done = false
+while eq done false bound 3
+r = read 0 CIn pos sub 2 pos
+if lt r 0
+ret 74
+end
+if eq r 0
+done = true
+else
+pos = add pos ulong r
+if eq pos 2
+ret 65
+end
+end
+end
+if ne pos 1
+ret 65
+end
+n = kload ulong get CIn 0
+if eq n 0
+ret 77
+end
+pos = 0
+while lt pos n bound 257
+w = write 1 kt pos sub n pos
+if le w 0
+ret 74
+end
+pos = add pos ulong w
+end
+ret 0
+end

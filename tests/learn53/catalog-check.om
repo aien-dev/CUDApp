@@ -1,0 +1,34 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Emitter stream checker; first byte selects expected catalog, remaining bytes task.
+global CBuf uchar 258
+fn main to int
+pos = ulong 0
+done = false
+while eq done false bound 259
+r = read 0 CBuf pos sub 258 pos
+if lt r 0
+ret 1
+end
+if eq r 0
+done = true
+else
+pos = add pos ulong r
+if eq pos 258
+ret 1
+end
+end
+end
+if eq pos 0
+ret 1
+end
+n = kload ulong get CBuf 0
+if or eq n 0 ne pos add n 1
+ret 1
+end
+for i ulong n
+if ne get kt i get CBuf add i 1
+ret 1
+end
+end
+ret 0
+end

@@ -1,0 +1,56 @@
+{
+  "source": "11ad6a0a7783f5d221de79111d6abba4ee1ae52f",
+  "compiler_sha256": "191b776ef98821597c3e30655da6d680a9b66edbc9ceaca3c39c61ea6df098e9",
+  "results": [
+    {
+      "name": "unit",
+      "build_and_byte_comparison": {
+        "output": "06682c257f1465736569fd17ea6d42933c4dc82f361420c6b60dfdef10d2c681  out/unit.elf",
+        "exit_code": 0,
+        "error": null
+      },
+      "execution": {
+        "output": "rc=0",
+        "exit_code": 0,
+        "error": null
+      }
+    },
+    {
+      "name": "stream-unit",
+      "build_and_byte_comparison": {
+        "output": "e34796a6b14823e321d1f6b92fb0be22ba8aec705daa3835979eb5a39c2877c7  out/stream-unit.elf",
+        "exit_code": 0,
+        "error": null
+      },
+      "execution": {
+        "output": "rc=0",
+        "exit_code": 0,
+        "error": null
+      }
+    },
+    {
+      "name": "stream",
+      "build_and_byte_comparison": {
+        "output": "474c6d7d2200aad721d744106f430bed8ded85dba8a34a931829165d4cf73466  out/stream.elf",
+        "exit_code": 0,
+        "error": null
+      }
+    },
+    {
+      "name": "stream-input",
+      "build_and_byte_comparison": {
+        "output": "c903ed879c506e1bbb35453ba39bfa1e41bbfa0f160cd7e4d5d8980a4bd80aa2  out/stream-input.elf",
+        "exit_code": 0,
+        "error": null
+      }
+    },
+    {
+      "name": "stream-check",
+      "build_and_byte_comparison": {
+        "output": "6e5e767d1175ad4e187dc1e496b5eaf83df362117810c6993adaef92274cec0d  out/stream-check.elf",
+        "exit_code": 0,
+        "error": null
+      }
+    }
+  ]
+}

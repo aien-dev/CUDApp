@@ -1,0 +1,42 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Public data-only frame decoder. Not a sandbox or task-custody service.
+global packet uchar 5137
+fn kp p ulong to ulong
+v = ulong 0
+for j ulong 4
+v = or v shl ulong get packet add p j mul j 8
+end
+ret v
+end
+fn kframe n ulong to int
+if lt n 8
+ret 65
+end
+if gt n 5136
+ret 65
+end
+t = kp 0
+if lt t 96
+ret 65
+end
+if gt t 4096
+ret 65
+end
+if gt t sub n 8
+ret 65
+end
+c = kp add t 4
+if gt c 1032
+ret 65
+end
+if ne n add add t c 8
+ret 65
+end
+for i ulong t
+put kt i get packet add i 4
+end
+for i ulong c
+put ko i get packet add add t 8 i
+end
+ret keval t c
+end

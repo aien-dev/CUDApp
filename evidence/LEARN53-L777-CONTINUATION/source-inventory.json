@@ -1,0 +1,108 @@
+{
+  "source": "94ada80cd8acf2c31441ab1dcee98f896ce884c4",
+  "count": 17,
+  "files": [
+    {
+      "path": "native/learn53/catalog.om",
+      "sha256": "4cfcb3d0b73f8f0a1b764005a7a0cebe188e46830dedc085d5b91fedbc075a95",
+      "bytes": 1855,
+      "worktree_equal": true
+    },
+    {
+      "path": "native/learn53/omega-adapter.om",
+      "sha256": "f42dc4673a9317487bc54226cda2f47c9817a057b179c742b64cea416079988b",
+      "bytes": 1629,
+      "worktree_equal": true
+    },
+    {
+      "path": "native/learn53/omega653.lock",
+      "sha256": "7e2dc1cb6fdba685f6f5b8ff9cef1f94a543d6c4e57814bb3f9af3a240f158d7",
+      "bytes": 625,
+      "worktree_equal": true
+    },
+    {
+      "path": "native/learn53/stream.om",
+      "sha256": "c0577085ecf43f1217f808f6dd9d2c8a23369f89b3d61b8535feec0689885944",
+      "bytes": 632,
+      "worktree_equal": true
+    },
+    {
+      "path": "native/learn53/task.om",
+      "sha256": "5cb929e58af85d82d83a449c8d50d6be94e6377d2f7b9e888258148e746f605a",
+      "bytes": 3304,
+      "worktree_equal": true
+    },
+    {
+      "path": "native/learn53/wire.om",
+      "sha256": "0982af7c252ce6234689310f1251e125d80830c6b66b9f5fc10b5b1fc869d9b1",
+      "bytes": 594,
+      "worktree_equal": true
+    },
+    {
+      "path": "tests/learn53/catalog-check.om",
+      "sha256": "c05d50d0695ba212a3875bb25d97d7a9837653c8708b408a762c292f595e7590",
+      "bytes": 516,
+      "worktree_equal": true
+    },
+    {
+      "path": "tests/learn53/catalog-export.om",
+      "sha256": "a591528dffad2817af5d24b2a2ba6372dc5444cef20d8c080ebca84fccaf3e78",
+      "bytes": 533,
+      "worktree_equal": true
+    },
+    {
+      "path": "tests/learn53/catalog-fixtures.om",
+      "sha256": "a3f5d40add782fc7c9a0552fc95157a1dddbdb6462663cb61d7b08a0004bcb29",
+      "bytes": 940,
+      "worktree_equal": true
+    },
+    {
+      "path": "tests/learn53/catalog-unit.om",
+      "sha256": "98fb92c1dde4d2984d143528a09dfc56d9c90d42f11b6b86df576efdd95d9d57",
+      "bytes": 1085,
+      "worktree_equal": true
+    },
+    {
+      "path": "tests/learn53/fixtures.om",
+      "sha256": "e354fbecbf719fd28fb736c1a685a72ef14dd2137d947bc8b085f787f87e73c1",
+      "bytes": 1563,
+      "worktree_equal": true
+    },
+    {
+      "path": "tests/learn53/omega-unit.om",
+      "sha256": "dd1a1f29049412efb2ec60b5b190b2da06d50936e6ae5939406c5c134d32ddb5",
+      "bytes": 3903,
+      "worktree_equal": true
+    },
+    {
+      "path": "tests/learn53/stream-check.om",
+      "sha256": "00af4dbadd66334269bd93f6a323bdfc8a729d192f62dd4722b3e4b9a84e79a9",
+      "bytes": 349,
+      "worktree_equal": true
+    },
+    {
+      "path": "tests/learn53/stream-fixtures.om",
+      "sha256": "97dfb3d8dd523b167c4813fdca8ea8022771f77630df646046bd9623815cf74f",
+      "bytes": 365,
+      "worktree_equal": true
+    },
+    {
+      "path": "tests/learn53/stream-input.om",
+      "sha256": "e78761593851f5030ac3c98ff8e611a4176549905c3431426f8cd4cfcb27b294",
+      "bytes": 410,
+      "worktree_equal": true
+    },
+    {
+      "path": "tests/learn53/stream-unit.om",
+      "sha256": "019de5f335b6bf9c765e82ca6a308290233c677c37dac61fdbae66aeec8fe79f",
+      "bytes": 615,
+      "worktree_equal": true
+    },
+    {
+      "path": "tests/learn53/unit.om",
+      "sha256": "70ba454d3ae1c52c02af8668f271d352269141e35ad17246bfcdf86d602deb8a",
+      "bytes": 4468,
+      "worktree_equal": true
+    }
+  ]
+}

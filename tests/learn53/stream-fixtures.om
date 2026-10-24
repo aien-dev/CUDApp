@@ -1,0 +1,18 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Native data-frame tests. No generated program is compiled or executed here.
+fn pw p ulong v ulong to void
+for i ulong 4
+put packet add p i uchar and shr v mul i 8 255
+end
+end
+fn frame to void
+vec
+pw 0 136
+for i ulong 136
+put packet add 4 i get kt i
+end
+pw 140 28
+for i ulong 28
+put packet add 144 i get ko i
+end
+end

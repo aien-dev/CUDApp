@@ -1,0 +1,28 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+text expected "HOST_ONLY 0\n"
+global seen uchar 32
+fn main to int
+n = ulong 0
+for j ulong 33
+if ge n 32
+ret 1
+end
+r = read 0 seen n sub 32 n
+if lt r 0
+ret 74
+end
+if eq r 0
+if ne n len expected
+ret 1
+end
+for i ulong n
+if ne get seen i get expected i
+ret 1
+end
+end
+ret 0
+end
+n = add n ulong r
+end
+ret 1
+end

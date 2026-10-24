@@ -1,0 +1,38 @@
+fn main to int
+vec
+note Independently test count arithmetic and no mutation on rejected manifest.
+tw 11 4294967295
+for i ulong 4096
+put saved i get kt i
+end
+if ne kvalid 136 65
+ret 1
+end
+for i ulong 4096
+if ne get saved i get kt i
+ret 2
+end
+end
+vec
+note Stride/count boundary rejection followed by recovery.
+tw 8 32
+tw 11 94
+if ne keval 136 28 65
+ret 3
+end
+vec
+if ne keval 136 28 0
+ret 4
+end
+note Matmul sparse output padding is checked at every physical word.
+mat
+cw 4 0
+if ne keval 144 36 1
+ret 5
+end
+mat
+if ne keval 144 36 0
+ret 6
+end
+ret 0
+end

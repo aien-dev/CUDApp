@@ -1,0 +1,39 @@
+emit1=0
+check1=0
+emit2=0
+check2=0
+emit3=0
+check3=0
+emit4=0
+check4=0
+emit5=0
+check5=0
+emit6=0
+check6=0
+emit7=0
+check7=0
+emit8=0
+check8=0
+refuse-empty=65
+refuse-zero=77
+refuse-nine=77
+refuse-huge=77
+refuse-extra=65
+0 /home/drakestapleton/handoffs/cuda-learn-L777/replay-94ada80/out/refuse-empty.stdout
+0 /home/drakestapleton/handoffs/cuda-learn-L777/replay-94ada80/out/refuse-extra.stdout
+0 /home/drakestapleton/handoffs/cuda-learn-L777/replay-94ada80/out/refuse-huge.stdout
+0 /home/drakestapleton/handoffs/cuda-learn-L777/replay-94ada80/out/refuse-nine.stdout
+0 /home/drakestapleton/handoffs/cuda-learn-L777/replay-94ada80/out/refuse-zero.stdout
+0 total
+6d503f93f7ffe2a13d2b58561a87c496e4abf0fcdfe3e8aba645a18b582f12b3  /home/drakestapleton/handoffs/cuda-learn-L777/replay-94ada80/out/catalog-check.elf
+8b0492ed620f8e5b6f920192bc4d9ed7e06135504b7f8639df7cb4f1fd9f33c2  /home/drakestapleton/handoffs/cuda-learn-L777/replay-94ada80/out/catalog.elf
+9e8eda6d33ae06477ea6452687bfd8818cdf13d89efe5cccf8debeb75a138a03  /home/drakestapleton/handoffs/cuda-learn-L777/replay-94ada80/out/catalog-export.elf
+11fcf90d6e98543aab604b35fb3f72383af003c12515d050de7dad20d6527069  /home/drakestapleton/handoffs/cuda-learn-L777/replay-94ada80/out/omega.elf
+e38d883e73dfe47d7de09baf2a0c8bc9a65a7c01adc5b1a319e7ac283046b4a2  /home/drakestapleton/handoffs/cuda-learn-L777/replay-94ada80/out/task-1.cul
+7088309528d45479db25178a48bd09a628ea805ecf086c49b95a242d19845ef4  /home/drakestapleton/handoffs/cuda-learn-L777/replay-94ada80/out/task-2.cul
+d1777193f2c1329ca3bc50ed79a2d43cc19ada2b90c047d3cb2fe34d9834f074  /home/drakestapleton/handoffs/cuda-learn-L777/replay-94ada80/out/task-3.cul
+5b6f5a91859c7fc4681a2646a4546005f89c64894426ab2851a5d54fa373fa24  /home/drakestapleton/handoffs/cuda-learn-L777/replay-94ada80/out/task-4.cul
+ffcfaf45ff4b84e20484491d45a01a47169fc02f0f0dfdf701702fc1e5884f9d  /home/drakestapleton/handoffs/cuda-learn-L777/replay-94ada80/out/task-5.cul
+b550dac61fa80d6db97841dbe1dfaec137e717fbf4c72c74dc9b3302cb771049  /home/drakestapleton/handoffs/cuda-learn-L777/replay-94ada80/out/task-6.cul
+9cbd2ea428a19b187d122ee0f0ff75902e9580bd2f4edb51ea795a7cc5b7820a  /home/drakestapleton/handoffs/cuda-learn-L777/replay-94ada80/out/task-7.cul
+dec444cdb9ca83979466f079d7b9b2086a99d520a7952ddffd6f998936ee1e89  /home/drakestapleton/handoffs/cuda-learn-L777/replay-94ada80/out/task-8.cul

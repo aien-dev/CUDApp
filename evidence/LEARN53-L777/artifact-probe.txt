@@ -1,0 +1,10 @@
+strace_run_rc=0
+native_stdout_check_rc=0
+f04527112871cbe655d51d60aef5bb0b778d5a7a285dd7c3d27096801c19cef3  out/public-frame.bin
+474c6d7d2200aad721d744106f430bed8ded85dba8a34a931829165d4cf73466  out/stream.elf
+  584 out/stream-check.elf
+ 9108 out/stream.elf
+13560 out/stream-input.elf
+14980 out/stream-unit.elf
+25636 out/unit.elf
+63868 total

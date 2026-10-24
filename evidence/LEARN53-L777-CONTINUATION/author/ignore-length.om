@@ -1,0 +1,86 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Compose with exact omega653.lock core. No fork, runner, signer or cost collector.
+note LT/LPin/LC/status/exit are trusted executor inputs, not candidate claims.
+fn aword p ulong v ulong to void
+for i ulong 4
+put LWant add mul p 4 i uchar and shr v mul i 8 255
+end
+end
+fn aobserve id ulong status ulong code ulong n ulong to ulong
+tn = kload id
+if eq tn 0
+ret 10
+end
+if ne kvalid tn 0
+ret 10
+end
+for i ulong 256
+put LWant i 0
+end
+aword 0 2779096485
+for i ulong kw 13
+aword add i 1 kexpect i
+end
+aword add kw 13 1 2779096485
+want = mul 4 add kw 13 2
+ret lobserve status 0 code want want
+end
+fn afields to bool
+for i ulong 8
+a = mul i 32
+id = add i 1
+n = kload id
+if ne get LT a id
+ret false
+end
+if ne get LT add a 1 2
+ret false
+end
+if ne get LT add a 2 1
+ret false
+end
+if ne get LT add a 3 kw 2
+ret false
+end
+if ne get LT add a 4 1
+ret false
+end
+if ne get LT add a 5 1
+ret false
+end
+if ne get LT add a 6 53
+ret false
+end
+if ne get LT add a 7 1
+ret false
+end
+if ne get LT add a 28 n
+ret false
+end
+if ne get LT add a 29 mul 4 add kw 13 2
+ret false
+end
+if ne get LT add a 30 1000000
+ret false
+end
+if ne get LT add a 31 0
+ret false
+end
+end
+ret true
+end
+fn abegin budget ulong to ulong
+note Canonical active-run refusal preserves the existing run.
+if eq get LS 0 1
+ret 20
+end
+if eq afields false
+note Invalid count invokes canonical fresh-run invalidation, including stale scores.
+ret lbegin 0 1 budget
+end
+ret lbegin 8 1 budget
+end
+fn aattempt idx ulong ordinal ulong status ulong code ulong n ulong to ulong
+outcome = aobserve add idx 1 status code n
+ret lattempt idx ordinal outcome
+end

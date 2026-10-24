@@ -1,0 +1,23 @@
+source_closure 17 all exact
+upstream185-review exit 0 checks 185 elf e9f0335f45ee5e7644da795b07cd1e71a595cc918e8fb6ad11a13aa3aa48bf09
+catalog-review exit 0 checks 83 elf 8b0492ed620f8e5b6f920192bc4d9ed7e06135504b7f8639df7cb4f1fd9f33c2
+omega-review exit 0 checks 160 elf 11fcf90d6e98543aab604b35fb3f72383af003c12515d050de7dad20d6527069
+original-core-review exit 0 checks 77 elf f88637fad13bb395297ee6fc96b96427ce8a31a5ab62719e72ee9ba262ec29dd
+original-stream-review exit 0 checks 17 elf e34796a6b14823e321d1f6b92fb0be22ba8aec705daa3835979eb5a39c2877c7
+actual_total 522
+ignore-outcome exit 1 FAIL 2 ELF ea67974ce32faf9f21606a355ab2b8c2de3fa3bc543c326ae2ea219c763573bc
+omit-task exit 1 FAIL 11 ELF 57f27e435c9ca79a6b3ec0d000a03276aabf5866ac5a24214668a42d25b09d52
+ignore-length exit 1 FAIL 4 ELF 702251c771cb0383bca693b5b9bf396e19feba436a4a6c095ad2a53c58b3818f
+task 1 bytes 136 export 0 check 0 hash e38d883e73dfe47d7de09baf2a0c8bc9a65a7c01adc5b1a319e7ac283046b4a2
+task 2 bytes 160 export 0 check 0 hash 7088309528d45479db25178a48bd09a628ea805ecf086c49b95a242d19845ef4
+task 3 bytes 232 export 0 check 0 hash d1777193f2c1329ca3bc50ed79a2d43cc19ada2b90c047d3cb2fe34d9834f074
+task 4 bytes 116 export 0 check 0 hash 5b6f5a91859c7fc4681a2646a4546005f89c64894426ab2851a5d54fa373fa24
+task 5 bytes 128 export 0 check 0 hash ffcfaf45ff4b84e20484491d45a01a47169fc02f0f0dfdf701702fc1e5884f9d
+task 6 bytes 164 export 0 check 0 hash b550dac61fa80d6db97841dbe1dfaec137e717fbf4c72c74dc9b3302cb771049
+task 7 bytes 144 export 0 check 0 hash 9cbd2ea428a19b187d122ee0f0ff75902e9580bd2f4edb51ea795a7cc5b7820a
+task 8 bytes 156 export 0 check 0 hash dec444cdb9ca83979466f079d7b9b2086a99d520a7952ddffd6f998936ee1e89
+refusal empty exit 65 stdout_bytes 0
+refusal two exit 65 stdout_bytes 0
+refusal id0 exit 77 stdout_bytes 0
+refusal id9 exit 77 stdout_bytes 0
+refusal max exit 77 stdout_bytes 0

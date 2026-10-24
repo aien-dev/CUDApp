@@ -1,0 +1,42 @@
+fn main to int
+frame
+check eq kframe 172 0
+check eq kframe 0 65
+check eq kframe 7 65
+check eq kframe 5137 65
+check eq kframe 18446744073709551615 65
+check eq kframe 171 65
+check eq kframe 173 65
+pw 0 4294967295
+check eq kframe 172 65
+frame
+pw 0 4097
+check eq kframe 172 65
+frame
+pw 0 95
+check eq kframe 172 65
+frame
+pw 140 4294967295
+check eq kframe 172 65
+frame
+pw 140 1033
+check eq kframe 172 65
+frame
+pw 140 0
+check eq kframe 144 65
+frame
+pw 148 9
+check eq kframe 172 1
+frame
+pw 88 1
+check eq kframe 172 65
+frame
+pw 60 3
+check eq kframe 172 77
+frame
+check eq kframe 172 0
+if ne get tally 1 0
+ret 1
+end
+ret 0
+end
