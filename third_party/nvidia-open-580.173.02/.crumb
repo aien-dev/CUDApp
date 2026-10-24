@@ -14,6 +14,18 @@
     }
   ],
   "extensions": {
+    "generated": {
+      "children": [],
+      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiled_at": "2026-10-24T04:15:29Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:f868e96a89e9f5d71e6243a5ccbb0aa690e99feccb7ceddee5a40bbc412cbd58",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 69,
+      "generated_at_commit": "158985e5e0bcc39d1cf5d0b4ce10f1206c2e2a74",
+      "source_tree": "sha256:a7cf927570805606944f84b683cc89e7ced0708fa4e3023ae6f844a082d32611"
+    },
     "owner_lane": "",
     "provenance": {
       "entries": [
