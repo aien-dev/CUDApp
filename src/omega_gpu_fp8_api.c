@@ -363,6 +363,34 @@ void omega_gpu_fp8_tensor_free(OmegaGpuFp8Tensor *t) {
 
 /* ---- the GEMV (lock held inside) ---- */
 
+/* L310 (2026-10-24): CTAs per group of a grouped launch. A grouped CTA is 32 warps = 1024 threads; CC 12.x holds 1536
+ * resident threads per SM (CUDA Programming Guide, Compute Capabilities, Table 30), so one such CTA fits per SM and the
+ * GB10's 48 SMs (GB10 Superchip Whitepaper WP-12718-001_v02, Table 4) hold one wave of 48 CTAs. The compiled 6 was
+ * measured on 8 groups (48 CTAs = one wave). The 35B launches 9 groups: 54 CTAs run as two waves, the second 6 CTAs wide;
+ * 5 per group (45 = one wave) measured gate_up + down 6.962 -> 5.874 ms per 1-row step
+ * (~/workspace/investigations/2026-10-24-l310-grouped-ctas). Env, read once like the other switches:
+ *   AIEN_OMEGA_FP8_GROUPED_CTAS=1..256  exact CTAs per group (experiments; wins over the wave rule);
+ *   AIEN_OMEGA_FP8_GROUPED_WAVE=1       wave rule: min(GROUPED_CTAS, SM_COUNT / groups), at least 1.
+ * Neither set: the compiled GROUPED_CTAS, unchanged until the merge train has judged the wave arm. */
+uint32_t omega_gpu_fp8_grouped_ctas_rule(uint32_t groups, uint32_t forced, int wave) {
+    if (forced >= 1u && forced <= OMEGA_GPU_FP8_MAX_CTAS) return forced;
+    if (!wave || groups == 0u) return OMEGA_GPU_FP8_GROUPED_CTAS;
+    uint32_t one_wave = OMEGA_GPU_SM_COUNT / groups;
+    if (one_wave == 0u) one_wave = 1u;
+    return one_wave < OMEGA_GPU_FP8_GROUPED_CTAS ? one_wave : OMEGA_GPU_FP8_GROUPED_CTAS;
+}
+static uint32_t env_u32(const char *name) { /* 0 when unset, empty or not a plain number */
+    const char *e = getenv(name); uint32_t n = 0;
+    if (!e || !*e) return 0;
+    for (; *e >= '0' && *e <= '9' && n < 1000u; e++) n = n * 10u + (uint32_t)(*e - '0');
+    return *e ? 0 : n;
+}
+uint32_t omega_gpu_fp8_grouped_ctas_auto(uint32_t groups) {
+    static uint32_t forced; static int wave, set;
+    if (!set) { forced = env_u32("AIEN_OMEGA_FP8_GROUPED_CTAS"); const char *w = getenv("AIEN_OMEGA_FP8_GROUPED_WAVE"); wave = w && w[0] == '1' && !w[1]; set = 1; }
+    return omega_gpu_fp8_grouped_ctas_rule(groups, forced, wave);
+}
+
 /* dev_tab / dev_x non-zero: the group table / the x' row already sit on the device (written by the router launch).
  * rec non-NULL (record path, caller holds the session lock): dev_tab, dev_x and dev_y are required, the launch is
  * appended to rec instead of submitted, and nothing is staged, poisoned or read back (the list's per-launch semaphore
@@ -382,7 +410,7 @@ static int gemv_core(const OmegaGpuFp8Tensor *t, uint32_t groups, const uint32_t
     const uint32_t RG = n / spec.rows;
     uint32_t grid_x = (RG + spec.warps - 1) / spec.warps;
     const int variant = variant_now();
-    uint32_t budget = g.cta_budget_set ? g.cta_budget : (groups > 1u ? (variant == 2 ? OMEGA_GPU_FP8_V2_GROUPED_CTAS : OMEGA_GPU_FP8_GROUPED_CTAS) : OMEGA_GPU_FP8_MAX_CTAS);
+    uint32_t budget = g.cta_budget_set ? g.cta_budget : (groups > 1u ? (variant == 2 ? OMEGA_GPU_FP8_V2_GROUPED_CTAS : omega_gpu_fp8_grouped_ctas_auto(groups)) : OMEGA_GPU_FP8_MAX_CTAS);
     /* big-k grid (qwen38/decode-speed): up to OMEGA_GPU_FP8_BIGK_CTAS CTAs, split so every warp gets the same number of row
      * groups, at least two (measured, runs/sweep5 and sweep7: budget 384 over 256 gave mix +3%, gate_up +2.6%; the n = 5120
      * shapes run best at 160 CTAs, two row groups per warp: o_proj 186 -> 198 GB/s) */

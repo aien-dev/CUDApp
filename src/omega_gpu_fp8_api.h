@@ -69,6 +69,7 @@ enum {
 #define OMEGA_GPU_FP8_MAX_CTAS 256u /* default CTA budget per group for a single projection; the elementwise and attention rows paths proved 1024 */
 #define OMEGA_GPU_FP8_BIGK_CTAS 384u /* big-k rule: CTA budget of a single projection with k > 4096 (Qwen3.8-27B), split evenly (2026-10-19) */
 #define OMEGA_GPU_FP8_GROUPED_CTAS 6u /* CTAs per group for a grouped launch (32 warps each): measured best for 8 experts */
+#define OMEGA_GPU_SM_COUNT 48u /* GB10: 48 SMs (NVIDIA GB10 Superchip Whitepaper WP-12718-001_v02, Table 4); one 32-warp CTA per SM (CC 12.x, 1536 resident threads, CUDA Programming Guide Table 30) */
 
 typedef struct {
     uint32_t experts, n, k, groups;
@@ -145,6 +146,14 @@ uint32_t omega_gpu_fp8_depth_for(const OmegaFp8GemvSpec *spec, uint32_t n, uint3
 int omega_gpu_fp8_kernel_fits(const OmegaFp8GemvSpec *spec, uint32_t *declared);
 /* CTAs per group per launch (0 restores the automatic choice: MAX_CTAS single, GROUPED_CTAS grouped). */
 void omega_gpu_fp8_set_cta_budget(uint32_t ctas);
+/* Grouped-launch CTA rule (L310, 2026-10-24). rule(groups, forced, wave): forced in 1..MAX_CTAS wins; else wave != 0 gives
+ * min(GROUPED_CTAS, SM_COUNT / groups) (at least 1), the count that keeps groups x CTAs inside one wave of the 48 SMs;
+ * else the compiled GROUPED_CTAS. auto(groups) applies the rule with the env read once at the first call:
+ * AIEN_OMEGA_FP8_GROUPED_CTAS=n (exact, experiments) and AIEN_OMEGA_FP8_GROUPED_WAVE=1 (wave rule). Default: neither set,
+ * the compiled 6 (measured on 8 groups = one wave). The 35B launches 9 groups: 54 CTAs = two waves, the wave rule gives 5
+ * (measured: gate_up + down 6.962 -> 5.874 ms per 1-row step, investigations/2026-10-24-l310-grouped-ctas). Servers log auto(). */
+uint32_t omega_gpu_fp8_grouped_ctas_rule(uint32_t groups, uint32_t forced, int wave);
+uint32_t omega_gpu_fp8_grouped_ctas_auto(uint32_t groups);
 /* 1: tensors uploaded from now on live in GPU-cached memory (read-only weights; omega_gpu_mem_cached.h). Default 0:
  * GPU-uncached like every session buffer. Tensors already uploaded keep their policy. Never set: the first upload reads env
  * AIEN_OMEGA_FP8_WEIGHT_CACHE ("1" = cached; W-L2d, so sc can switch it without a code change). */
