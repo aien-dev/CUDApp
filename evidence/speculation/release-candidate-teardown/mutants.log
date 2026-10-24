@@ -1,0 +1,10 @@
+M1-unpub-not-retained KILLED diff=1 sha=118cabf4808f32f1
+M2-unpub-dropped-on-refusal KILLED diff=1 sha=3394d24d0f3c5ac1
+M3-bar-dropped-on-refusal KILLED diff=1 sha=2fc121c3ceb33671
+M4-retry-skipped KILLED diff=2 sha=01511979ad4c914a
+M5-retry-redoes-close-and-driver KILLED diff=1 sha=a87d61290ffacad3
+M6-fault-cleared KILLED diff=1 sha=149f41131b8fd0aa
+M7-faulted-map-allowed INVALID(rc=1 after.exit=105) diff=4 sha=c3dab8bc47e10bd3
+M8-descriptor-not-retired KILLED diff=1 sha=040e9c267f58d03b
+M7b-guard-state-only SURVIVED diff=2 sha=8643b1db2554c71b
+M7c-guard-fault-only SURVIVED diff=2 sha=0eefcd6a32b2045b

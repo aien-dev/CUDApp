@@ -21,7 +21,7 @@ fi
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 74
 out=$(mktemp -d "${TMPDIR:-/tmp}/cudapp-teardown-host.XXXXXX") || exit 74
 echo "Native-host test outputs: $out"
-base=5e037c7e3d0226abadaa10af9d44bc6339109b3f
+base=f9cd649c1dca92ad81009bcd05a959f34c25c76e
 git -C "$root" show "$base:native/nvrm/context.om" > "$out/before.om" || exit 74
 cp "$root/native/nvrm/context.om" "$out/after.om" || exit 74
 for arm in before after; do
@@ -29,11 +29,11 @@ for arm in before after; do
   awk '
     $2 == "=" && ($3 == "devcall" || $3 == "devctl" || $3 == "uvmctl") { print $1 " = tdriver"; next }
     $2 == "=" && $3 == "fopen" { print $1 " = tunexpected"; next }
-    { for (i=1; i<=NF; i++) { if ($i == "mapdrop") $i="tdrop"; if ($i == "fclose") $i="tclose" }; print }
+    { for (i=1; i<=NF; i++) { if ($i == "mapdrop") $i="tdrop"; if ($i == "fclose") $i="tclose"; if ($i == "mapnew") $i="tmapnew" }; print }
   ' "$out/$arm.om" > "$out/$arm-unit.om" || exit 74
   cat "$root/tests/speculation/teardown-host-test.om" >> "$out/$arm-unit.om" || exit 74
   # A new or differently shaped device effect must not silently escape the shim.
-  awk '$1 != "note" { for (i=1; i<=NF; i++) if ($i == "devcall" || $i == "devctl" || $i == "uvmctl" || $i == "fopen" || $i == "fclose" || $i == "mapdrop") exit 1 }' "$out/$arm-unit.om" || {
+  awk '$1 != "note" { for (i=1; i<=NF; i++) if ($i == "devcall" || $i == "devctl" || $i == "uvmctl" || $i == "fopen" || $i == "fclose" || $i == "mapdrop" || $i == "mapnew") exit 1 }' "$out/$arm-unit.om" || {
     echo 'REFUSED: unbound OS effect in teardown fixture' >&2
     exit 69
   }

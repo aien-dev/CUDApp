@@ -2,13 +2,16 @@ note SPDX-License-Identifier: AGPL-3.0-only
 note Synthetic host refusal fixture. The private unit replaces device calls, close and mapdrop.
 note No GPU file is opened and no kernel, model, or hardware result is claimed.
 global tchecks ulong 1
-global tblocked uchar 3
-global tlive uchar 3
-global tdrops ulong 3
+global tblocked uchar 4
+global tlive uchar 4
+global tdrops ulong 4
+global tmapmode uchar 1
+global tmclose ulong 1
+global tmopen ulong 1
 global tcloses ulong 2
-global tdrivercalls ulong 1
-global tdriverfail uchar 1
-global tclosefail uchar 1
+global tdcalls ulong 1
+global tdfail uchar 1
+global tcfail uchar 1
 text tok "NATIVE_TEARDOWN_HOST_PASS\n"
 text tbad "NATIVE_TEARDOWN_HOST_FAIL\n"
 fn tcheck yes bool to void
@@ -19,21 +22,35 @@ exit int 1
 end
 end
 fn tunexpected to long
+if ne get tmapmode 0 0
+put tmopen 0 add get tmopen 0 1
+ret 42
+end
 tcheck false
 ret neg long 5
+end
+fn tmapnew fd int offset ulong size ulong access int mode int to long
+tcheck eq get tmapmode 0 1
+tcheck eq fd 42
+tcheck eq offset 0
+tcheck eq size 4096
+tcheck eq access 3
+tcheck eq mode 1
+put tlive 3 1
+ret 14
 end
 fn tdriver to long
 note A retry after descriptor closure must never issue another RM or UVM call.
 tcheck eq get nvstate 0 1
-put tdrivercalls 0 add get tdrivercalls 0 1
-if ne get tdriverfail 0 0
-put tdriverfail 0 0
+put tdcalls 0 add get tdcalls 0 1
+if ne get tdfail 0 0
+put tdfail 0 0
 ret neg long 11
 end
 ret 0
 end
 fn tdrop m long to long
-tcheck and ge m 11 le m 13
+tcheck and ge m 11 le m 14
 i = ulong sub m 11
 tcheck eq get tlive i 1
 put tdrops i add get tdrops i 1
@@ -44,12 +61,17 @@ put tlive i 0
 ret 0
 end
 fn tclose fd int to long
+if eq fd 42
+put tmclose 0 add get tmclose 0 1
+tcheck eq get tmclose 0 1
+ret neg long 5
+end
 tcheck and ge fd 40 le fd 41
 i = ulong sub fd 40
 put tcloses i add get tcloses i 1
 note A descriptor number could be reused after the first close, even if close reports an error.
 tcheck eq get tcloses i 1
-if and eq i 0 ne get tclosefail 0 0
+if and eq i 0 ne get tcfail 0 0
 ret neg long 5
 end
 ret 0
@@ -81,9 +103,9 @@ end
 for i ulong 2
 put tcloses i 0
 end
-put tdrivercalls 0 0
-put tdriverfail 0 0
-put tclosefail 0 0
+put tdcalls 0 0
+put tdfail 0 0
+put tcfail 0 0
 put nverr 0 0
 put nvfault 0 0
 put nvstate 0 1
@@ -146,29 +168,29 @@ for i ulong len nvfd
 tcheck eq get nvfd i neg int 1
 end
 end
-fn tretry which ulong driver_refusal bool to void
+fn tretry which ulong drvfail bool to void
 tprepare
 put tblocked which 1
-if driver_refusal
+if drvfail
 note Refuse channel destruction before its handles retire; retry must not free them through closed fds.
 put nvobj 6 101
 put nvobj 8 102
 put nvobj 9 103
-put tdriverfail 0 1
+put tdfail 0 1
 end
 tcheck not nvstop
 tretained which
-before = get tdrivercalls 0
+before = get tdcalls 0
 tcheck not nvstop
 tretained which
-tcheck eq get tdrivercalls 0 before
+tcheck eq get tdcalls 0 before
 for i ulong 2
 tcheck eq get tcloses i 1
 end
 put tblocked which 0
 tcheck nvstop
 tclosed
-tcheck eq get tdrivercalls 0 before
+tcheck eq get tdcalls 0 before
 tcheck eq get nvfault 0 1
 tcheck not nvstart
 tcheck eq get nverr 0 neg long 5
@@ -198,9 +220,45 @@ end
 for i ulong 2
 tcheck eq get tcloses i 0
 end
-tcheck eq get tdrivercalls 0 0
+tcheck eq get tdcalls 0 0
 tcheck nvstop
 tclosed
+end
+fn tunpublished to void
+note Close fails after mapping succeeds; a refused unmap must remain reachable.
+tprepare
+put tmapmode 0 1
+put tmopen 0 0
+put tmclose 0 0
+put tblocked 3 1
+put tdrops 3 0
+put tlive 3 0
+tcheck eq nvcpumap 201 4096 false 0 neg long 1
+tcheck eq get tmopen 0 1
+tcheck eq get tmclose 0 1
+tcheck eq get tlive 3 1
+tcheck eq get tdrops 3 1
+tcheck eq get nvfault 0 1
+tcheck not nvstop
+tcheck eq get nvstate 0 2
+tcheck eq get tlive 3 1
+note A faulted caller cannot overwrite the quarantined handle or reopen a descriptor.
+tcheck eq nvcpumap 202 4096 false 0 neg long 1
+tcheck eq get tmopen 0 1
+before = get tdcalls 0
+tcheck not nvstop
+tcheck eq get tdcalls 0 before
+tcheck eq get tmclose 0 1
+put tblocked 3 0
+tcheck nvstop
+tclosed
+tcheck eq get tlive 3 0
+tcheck eq get nvfault 0 1
+count = get tdrops 3
+tcheck nvstop
+tcheck eq get tdrops 3 count
+tcheck not nvstart
+put tmapmode 0 0
 end
 fn main to int
 note Closed contexts stay idempotent without touching descriptors or mappings.
@@ -221,13 +279,14 @@ tretry 1 true
 tphaseguard
 note An error from the descriptor close must latch the fault without retrying that descriptor.
 tprepare
-put tclosefail 0 1
+put tcfail 0 1
 tcheck not nvstop
 tclosed
 tcheck eq get nvfault 0 1
 tcheck nvstop
 tclosed
 tcheck not nvstart
+tunpublished
 tcheck eq write 1 tok 0 len tok long len tok
 ret 0
 end

@@ -21,6 +21,12 @@ cleanup latches `nvfault`; successful cleanup does not make the context reusable
 Descriptor numbers are retired after their first close attempt, including an
 error, so a subsequent call cannot close a newly reused descriptor number.
 
+The same ownership rule applies before `nvcpumap` publishes a mapping to its
+caller. If descriptor close fails and its immediate unmap is refused,
+`nvunpub` retains that mapping for `nvmapfinish`. A faulted or inactive
+context refuses another `nvcpumap`, so the retained handle cannot be overwritten.
+Failed `mapbind` is different: the pinned compiler contract retires that handle.
+
 ## Fixture and isolation
 
 The handwritten `tests/speculation/teardown-host-test.om` runs the actual
@@ -32,6 +38,9 @@ The disclosed shell composer replaces only these OS effects:
 - Device opens become an immediate test assertion failure.
 - Unmap and close become stateful fakes that count calls, reject double release,
   and can refuse an otherwise valid synthetic mapping.
+- The unpublished-mapping case allows one synthetic descriptor open and replaces
+  `mapnew` with a fake that returns a fourth owned mapping; no real mapping or
+  device open is performed.
 
 The composer refuses an unbound device/open/close/unmap verb. It never changes
 the tracked runtime file. The fixture does not open `/dev/nvidia*`, allocate GPU
@@ -47,6 +56,10 @@ Retries must make no extra descriptor closes or driver calls. The context fault
 must remain set, and `nvstart` must still refuse reuse. A direct `nvmforce` call
 while driver resources are live must refuse without changing ownership flags,
 handles, addresses or lengths and without making an OS effect.
+The additional close-error/unmap-refusal case checks that the unpublished
+mapping survives two shutdown attempts, is released on a later successful
+retry, and is never double-unmapped. It also checks refusal of another mapping
+attempt while that context is faulted.
 
 ## Reproduction
 
@@ -62,12 +75,22 @@ sh tests/speculation/run-teardown-host.sh /absolute/path/to/pinned-omc
 
 The script retains a private temporary directory with exact source units, ELF
 files, compiler logs, stdout/stderr, exit statuses, and hashes. It compiles the
-original `5e037c7e3d0226abadaa10af9d44bc6339109b3f` context with the same fixture
+original `f9cd649c1dca92ad81009bcd05a959f34c25c76e` context with the same fixture
 first: it must fail by a test assertion (exit 1), not compilation error, trap or
 timeout. The repaired source must then compile and exit 0 with the PASS marker.
 An unsupported host returns 77 and `NOT_RUN`; it is not a test pass.
 
 ## Current qualification limit
+
+The source-compatibility review uses the exact pinned `seed/omc/omc.om`, not
+a different compiler profile. Its `topname` and `s_fn` readers limit globals,
+texts and parameter names to eight bytes; function names may be 63 bytes.
+The initial source review missed overlong names in both this repair and the
+inherited fixture. They are now shortened without changing cleanup behavior.
+The fixture's custom calls use scalar arguments only; the compiler's prohibition
+on passing globals to ordinary `view`/`edit` parameters does not apply to them.
+The `tmapnew` fake preserves the native word's five scalar types and long result.
+This is source inspection, not evidence that either unit compiles or executes.
 
 Native compilation and execution are **NOT_RUN** in the merge-review workspace,
 which is x86_64 and has no runnable AArch64 compiler or emulator. The fixture and
@@ -75,3 +98,11 @@ repair remain candidates for source review and supported-host qualification.
 Existing hardware receipts describe older source and must not be reused to
 approve this change. Real kernel/model behavior and production activation remain
 outside this host fixture.
+
+## Supported-host qualification
+
+On 2026-10-24 a candidate based on `main` (22e9d9b plus this repair, code commit
+2e24216) was compiled with the pinned compiler rebuilt from seed and run on
+Linux AArch64: the original cleanup failed by assertion and the repair passed.
+Mutants, the GPU vector rerun and the remaining fixture gap are recorded in
+`evidence/speculation/release-candidate-teardown/`.
