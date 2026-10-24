@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * omega_gpu_matmul_api.c: FB-1 cut 1b, on the shared session since cut 4b.
  * See the header for the contract.

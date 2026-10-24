@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * gpu_prefill_attn_test: the tensor-core causal prefill attention (omega_gpu_prefill_attn_api.h, OWN-30B L1 attention).
  *   --host-only   codegen budgets (instructions <= 1024, declared registers <= 128, placeholders patched against the

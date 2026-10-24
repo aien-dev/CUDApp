@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_blackwell_codegen_tc2.c: tensor-core grouped FP8 GEMM v2 (OWN-30B T3b). See the header. The K loop, staging and
  * decode are cut 1's (omega_blackwell_codegen_tc.c, chip gate OWN30B-T3-TCGEMM-6d2803ec) with the scale folded through the
  * accumulator and the v2 epilogues. */

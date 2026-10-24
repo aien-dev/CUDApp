@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * omega_gpu_moe_api.c: column windows over a resident bf16 tensor (OWN-30B cut 2). See the header.
  *

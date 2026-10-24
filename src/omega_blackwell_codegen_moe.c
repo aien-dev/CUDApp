@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_blackwell_codegen_moe.c: FP8 e4m3 block-scaled GEMV kernel (OWN-30B Cut 6 / Cut 5).
  * See the header for the contract and the argument words.
  *

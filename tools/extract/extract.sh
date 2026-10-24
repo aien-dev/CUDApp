@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # extract.sh: cut the CUDA++ history out of Omega and physics with git's own
 # tools (fast-export path-limited, fast-import into fresh repos). No git-filter-repo
 # (it is Python; the project has none).

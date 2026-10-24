@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_blackwell_codegen_tern.c: KT1 W2A8 ternary GEMV kernel, ternary engine stage T0 (2026-10-15). See the header.
  * The emitter helpers are copies of omega_blackwell_codegen_bf16.c's (same chip-learned scheduling rules: every
  * instruction waits on everything still pending; variable-latency results go through scoreboard 0, stores set the read

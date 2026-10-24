@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_gpu_platform.c -- contract checks and the handle table of
  * src/omega_gpu_platform.h. Freestanding: no libc beyond memset. */
 #include "omega_gpu_platform.h"

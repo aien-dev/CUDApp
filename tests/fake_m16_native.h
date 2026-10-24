@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * Simulated GB10 driver for the host test of the Blackwell GPU engine backend
  * (tests/test_omega_blackwell_engine.c). NOT_RUN: written in cut A3b2 and never

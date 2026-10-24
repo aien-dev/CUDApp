@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * omega_cubin: package Omega-generated sm_121 machine code into the NVIDIA
  * cubin ELF container that the CUDA driver (and MAX's device layer) can load.

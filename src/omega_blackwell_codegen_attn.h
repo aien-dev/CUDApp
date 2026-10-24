@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 #ifndef OMEGA_BLACKWELL_CODEGEN_ATTN_H
 #define OMEGA_BLACKWELL_CODEGEN_ATTN_H
 /*

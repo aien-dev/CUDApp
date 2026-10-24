@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* cubin_probe: load an exported sm_121 cubin through the CUDA driver and run it.
  *
  * This is an interop qualification tool, not part of libomega_gpu: it links

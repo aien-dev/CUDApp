@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_gpu_pfgemm.c: device-resident tensor-core FP8 grouped GEMM v2 (OWN-30B T3b). See omega_gpu_prefill.h. */
 #include "omega_gpu_prefill.h"
 #include "omega_blackwell_codegen_tc2.h"

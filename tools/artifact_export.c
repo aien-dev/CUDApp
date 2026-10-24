@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* artifact-export: offline handoff for one CUDApp-generated GPU realization.
  *
  *   artifact-export matmul    --m M --k K --n N --contract-id HEX --out PREFIX --commit HEX

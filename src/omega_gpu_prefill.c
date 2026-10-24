@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_gpu_prefill.c: device-resident prefill buffers, kernel cache and launch helper (OWN-30B T3b). See the header. */
 #include "omega_gpu_prefill.h"
 #include "omega_blackwell_codegen_pf.h"

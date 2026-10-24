@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_gpu_hostmath: libm-free double-precision log / exp / pow / sincos (see the header). */
 #include "omega_gpu_hostmath.h"
 #include <stdint.h>

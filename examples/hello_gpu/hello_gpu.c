@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* hello_gpu: the smallest complete Omega program. It adds two arrays of one million floats on the GPU
  * (c[i] = a[i] + b[i]) and checks every answer on the CPU.
  *

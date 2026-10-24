@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_blackwell_codegen_qmma.c: QMMA.16832.F32.E4M3.E4M3 placeholder, patch, probe and peak kernels (W-L1G). See the header. */
 #include "omega_blackwell_codegen_qmma.h"
 #include "omega_bw_em.h"

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* gpu_l2_stale_test: omega #457 regression test (chip). After the host rewrites a GPU-cached (CPU_WRITE | GPU_READ) buffer that the GPU has
  * already read, does the next launch read the old bytes from GPU L2?
  *

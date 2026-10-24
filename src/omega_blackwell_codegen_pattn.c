@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * omega_blackwell_codegen_pattn.c: causal prefill attention on tensor cores (see the header).
  * Emitter rules are those of omega_blackwell_codegen_attn.c / omega_blackwell_codegen_tc.c (control words, the read

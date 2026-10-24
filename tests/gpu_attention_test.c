@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* gpu_attention_test: FB-1 cut 5 gate for omega_gpu_attention_api.
  *
  *   ./gpu_attention_test --host-only          refusals, codegen (both kernel families and every

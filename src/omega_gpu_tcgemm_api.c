@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_gpu_tcgemm_api.c: tensor-core FP8 grouped GEMM on the shared session (OWN-30B T3 cut 1). See the header.
  * Submission path and buffer policy follow omega_gpu_fp8gemm_api.c (GPU-uncached buffers, one omega_gpu_session_launch). */
 #include "omega_gpu_tcgemm_api.h"

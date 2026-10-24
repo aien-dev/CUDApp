@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_cubin: sm_121 cubin container writer. See omega_cubin.h for the ABI
  * facts and for what this file deliberately does not do. No device is opened,
  * no address is produced, no launch is performed. */

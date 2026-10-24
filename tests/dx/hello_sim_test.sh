@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Host test for developer bar rows D3, D4, D7, D10 and D12 (docs/PAIN_POINTS.md), on hello_gpu --sim.
 #   usage: tests/dx/hello_sim_test.sh build/hello_gpu
 # No GPU: --sim runs the same kernel program on the host warp simulator (tests/bw_warp_sim.h).

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * nvrm.h -- PHYSICS native accelerator substrate (NVRM client), used by M16 qualification,
  * FORGE realization and the NVRM gates in this tree. M17 (OMEGA_BLACKWELL_VECTOR) was

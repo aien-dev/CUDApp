@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * Host test of the REAL Blackwell backend (src/omega_blackwell_engine.c), the
  * REAL engine core (src/omega_gpu_engine.c) and the REAL vector wrapper

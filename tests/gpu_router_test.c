@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * gpu_router_test: the one-launch MoE router (omega_gpu_router_api.h), OWN-30B cut 8 item 2.
  *   --host-only   oracle sanity, codegen budgets and refusals, the libm-free pieces (no device)

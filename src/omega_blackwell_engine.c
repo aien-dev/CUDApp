@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * Omega GPU Engine, Blackwell GB10 backend (cut A3b1). See
  * src/omega_blackwell_engine.h and docs/numeric/OMEGA_GPU_ENGINE.md.

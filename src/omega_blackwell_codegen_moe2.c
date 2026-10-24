@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_blackwell_codegen_moe2.c: FP8 e4m3 block-scaled GEMV, variant 2 (row-pipelined). See the header.
  *
  * Scheduling: variant 1's chip-learned rules (every instruction waits on everything pending; variable-latency

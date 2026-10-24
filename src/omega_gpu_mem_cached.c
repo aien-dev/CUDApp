@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 #include "omega_gpu_mem_cached.h"
 #include <string.h>
 #include "omega_gpu_platform.h"

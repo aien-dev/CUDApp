@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # audit-scan.sh: secrets, private data and binaries in EVERY object of a repo's
 # history (every blob ever reachable from any ref, plus every commit and tag
 # message), not just the tip.

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * omega_gpu_decode_attn_api.c: resident KV cache, RoPE table and launch for the one-launch decode attention (the
  * double-precision host reference lives in tests/gpu_decode_attn_test.c so the library links without libm). See

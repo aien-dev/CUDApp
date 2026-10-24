@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # graph.sh: decide which Omega files belong to CUDA++ (the GPU half) from the
 # include graph plus the header/source link rule.
 #

@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # runtime_api_negative.sh -- negative controls for tools/runtime_api_check.sh (R1, omega-mv#594).
 #
 #   tools/runtime_api_negative.sh MANIFEST ROOT WORK_DIR API_MD

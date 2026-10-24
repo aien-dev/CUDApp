@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* Contract tests for src/omega_gpu_platform.h (native v1 P07 cut A). Host
  * program, links the FREESTANDING object of src/omega_gpu_platform.c. Opens
  * no device. Every rule in the header comment has a case here, and every

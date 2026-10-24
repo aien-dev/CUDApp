@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Omega GPU Engine mutation sweep, a thin adapter over tools/mutation_runner.sh.
 # For each rule marked MUT:<name> in src/omega_gpu_engine.c the runner copies the
 # needed files to a scratch directory, breaks that one protection, rebuilds

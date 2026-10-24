@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_gpu_attention_api.c: FB-1 cut 5 (2026-10-04). See the header.
  *
  * Layout: (1) kernel codegen on the BlackwellIR with the serialising scheduler

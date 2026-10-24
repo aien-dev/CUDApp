@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* gpu_qmma_probe_test.c (OWN-30B L1 GEMM, W-L1G, 2026-10-14): characterise the GB10's QMMA.16832.F32.E4M3.E4M3.
  *   --host-only  patch self-test against the nvcc oracle bits; model self-checks
  *   (default)    chip (caller holds flock /tmp/aien-gb10.lock):

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_gpu_pfhost.c: launchers for the whole-prompt router logits and MoE combine (W-L1G-D). See omega_gpu_pfhost.h. */
 #include "omega_gpu_pfhost.h"
 #include "omega_blackwell_codegen_pfhost.h"

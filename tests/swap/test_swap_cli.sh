@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Host test of `cudapp swap` on a fake machine root (no root rights, no GPU, nothing outside a temp dir touched).
 # Every system command the tool runs (ldconfig, depmod, update-initramfs, lsinitramfs, mokutil, fuser, make, modinfo,
 # uname) is a fake on PATH that logs its call, so the test sees exactly what the tool would do.

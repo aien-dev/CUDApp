@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * gpu_decode_graph_test: OWN-30B W-L2a, one Qwen3-30B-A3B decode token as ONE command list (omega_gpu_decode_graph.h).
  *   --host-only   glue-kernel specs the graph builds (codegen, no device) and the record entry points' argument refusals

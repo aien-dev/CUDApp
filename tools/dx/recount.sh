@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Re-run the GitHub issue search counts behind docs/PAIN_POINTS.md and print then and now.
 #   usage: tools/dx/recount.sh [evidence/dx/pain-points/counts.json]
 # Uses GitHub's public search API (unauthenticated: about 10 searches a minute, so it waits 7 s between

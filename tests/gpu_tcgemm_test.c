@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* gpu_tcgemm_test.c (OWN-30B T3, 2026-10-13): tensor-core grouped FP8 GEMM (omega_blackwell_codegen_tc.h).
  *   --host-only  program statistics and register budgets for the production shapes; the C emulation (exact HMMA model,
  *                tests/bw_hmma_model.h) against a double oracle; permutation and decode checks

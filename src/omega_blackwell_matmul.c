@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 #include "omega_blackwell_matmul.h"
 #include "sha256.h"
 #ifndef OMEGA_GPU_NO_POSIX

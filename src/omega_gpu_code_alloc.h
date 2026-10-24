@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* Size of a GPU code buffer. Header only: no device, no physics headers.
  *
  * The SM instruction cache prefetches past the last instruction of a kernel, so the code buffer must

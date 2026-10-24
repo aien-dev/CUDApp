@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * gpu_serving_alloc_count_test: MEASUREMENT of driver (RM) allocations and frees made by the real
  * native GPU stack (session + matmul API + attention API) while it "serves" a Qwen3-4B-shaped

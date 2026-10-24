@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_gpu_platform.h -- native platform contract for the Omega GPU engine.
  *
  * Native v1 P07 cut A (aienos#286 cut A, aien-architecture#190). This header

@@ -4,9 +4,9 @@
 
 # CUDA++
 
-**CUDA++ is the GPU half of the Omega runtime. First-party CUDA++ material in this revision is licensed under AGPL-3.0-only.** You write a GPU program, CUDA++ turns it into the GPU's own machine code and runs it on an NVIDIA GPU, with no NVIDIA user-space software anywhere: no CUDA toolkit, no `nvcc`, no PTX, no `libcuda`, no cuBLAS.
+**CUDA++ is the GPU half of the Omega runtime. First-party CUDA++ material in this revision is licensed under Apache-2.0 WITH LLVM-exception.** You write a GPU program, CUDA++ turns it into the GPU's own machine code and runs it on an NVIDIA GPU, with no NVIDIA user-space software anywhere: no CUDA toolkit, no `nvcc`, no PTX, no `libcuda`, no cuBLAS.
 
-> **Licensing status:** This revision uses AGPL-3.0-only for first-party material. For the historical MIT version, use [`232332422bfdc31c8918085b50f13c1e18ab702e`](https://github.com/aien-dev/CUDApp/tree/232332422bfdc31c8918085b50f13c1e18ab702e). The old MIT grant and third-party notices are preserved. See [the transition and provenance audit](docs/LICENSING_TRANSITION.md).
+> **Licensing status:** This revision uses Apache-2.0 WITH LLVM-exception for first-party material. For the historical MIT version, use [`232332422bfdc31c8918085b50f13c1e18ab702e`](https://github.com/aien-dev/CUDApp/tree/232332422bfdc31c8918085b50f13c1e18ab702e). The old MIT grant and third-party notices are preserved. See [the transition and provenance audit](docs/LICENSING_TRANSITION.md).
 
 It runs on the NVIDIA GB10 (the DGX Spark, compute capability sm_121) today. The 35-billion-parameter model AIEN serves on the Spark runs on this code: on 2026-10-21 the live server had only the C library, the maths library, `libgcc_s` and the loader mapped, and zero CUDA libraries (receipt in Omega: `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`).
 
@@ -277,7 +277,7 @@ Receipt: `evidence/dx/d3-faults/hello-sim-spark.txt`. **FIXED on the simulator.*
 
 **The pain.** CUDA's licence: "You may not reverse engineer, decompile or disassemble any portion of the output generated using SDK elements for the purpose of translating such output artifacts to target a non-NVIDIA platform." ([CUDA EULA](https://docs.nvidia.com/cuda/eula/index.html)) And a developer: "I hope someone is working on hardware agnostic solutions, we need more GPUs, not less." ([r/LocalLLaMA](https://www.reddit.com/r/LocalLLaMA/comments/1b6gfjt/cuda_crackdown_nvidias_licensing_update_targets))
 
-**How CUDA++ addresses it.** This candidate uses AGPL-3.0-only for first-party material and preserves the earlier MIT grant for its pinned historical snapshot. Reverse engineering CUDA++ output, translating it and porting it to any hardware are allowed under the applicable license (`CONTRIBUTING.md`). Third-party notices remain in force.
+**How CUDA++ addresses it.** This candidate uses Apache-2.0 WITH LLVM-exception for first-party material and preserves the earlier MIT grant for its pinned historical snapshot. Reverse engineering CUDA++ output, translating it and porting it to any hardware are allowed under the applicable license (`CONTRIBUTING.md`). Third-party notices remain in force.
 
 **The command that shows it:**
 
@@ -360,7 +360,7 @@ make doctor   # is this machine ready? one line per check, each problem with its
 
 ## How it fits with Omega
 
-[Omega](https://github.com/aien-dev/omega-mv) (AGPL-3.0) is AIEN's language for all computing: the languages Omegese and OSC, their checker and the CPU backends. CUDA++ is the part of the Omega runtime that drives the GPU. Omega uses CUDA++ at a pinned commit (`cudapp.lock` in Omega), the same way it pins its other parts. The code was split out of Omega on 2026-10-21 with its full history; `docs/AUDIT.md` records how, and what was checked before it was published.
+[Omega](https://github.com/aien-dev/omega-mv) (Apache-2.0 WITH LLVM-exception) is AIEN's language for all computing: the languages Omegese and OSC, their checker and the CPU backends. CUDA++ is the part of the Omega runtime that drives the GPU. Omega uses CUDA++ at a pinned commit (`cudapp.lock` in Omega), the same way it pins its other parts. The code was split out of Omega on 2026-10-21 with its full history; `docs/AUDIT.md` records how, and what was checked before it was published.
 
 ## Names
 
@@ -368,4 +368,4 @@ The C names still carry the `omega_` prefix they had inside Omega, so Omega's wo
 
 ## Licence
 
-AGPL-3.0-only for first-party material in this candidate (`LICENSE`). Historical MIT grant: `LICENSE-MIT`. Third-party terms and notices: `THIRD_PARTY.md`.
+Apache-2.0 WITH LLVM-exception for first-party material in this candidate (`LICENSE`). Historical MIT grant: `LICENSE-MIT`. Third-party terms and notices: `THIRD_PARTY.md`.

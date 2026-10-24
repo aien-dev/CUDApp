@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_blackwell_codegen_gemm.c: FP8 e4m3 block-scaled grouped GEMM for prefill (OWN-30B builder F item 26). See the
  * header for the contract. The emitter helpers are copies of omega_blackwell_codegen_moe.c's (same chip-learned
  * scheduling rules) plus one addition: weight and scale prefetch loads use scoreboards 3 (buffer A) and 4 (buffer B)

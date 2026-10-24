@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 #ifndef M16_GPU_WAIT_H
 #define M16_GPU_WAIT_H
 

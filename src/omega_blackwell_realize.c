@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 #include "omega_blackwell_realize.h"
 #include "sha256.h"
 #include <string.h>

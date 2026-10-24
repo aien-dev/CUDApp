@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_bw_em_q.h: private emitters for the native FP8 ops (W-L1G, 2026-10-14). Include after omega_bw_em.h.
  * Both are placeholders patched by omega_qmma_patch_code (omega_blackwell_codegen_qmma.h). */
 #ifndef OMEGA_BW_EM_Q_H

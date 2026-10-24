@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Omega runtime R1 (omega-mv#594): the Runtime API manifest checked against the headers. Host only, no GPU, no physics checkout.
 # Picked up by `-include mk/*.mk` at the top of the Makefile, so no extra include line is needed.
 RUNTIME_API_MANIFEST ?= docs/runtime/omega_runtime_api.manifest

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_native_artifact: offline digest-bound handoff for one GPU realization.
  * See the header. No device, no launch, no live address. */
 #include "omega_native_artifact.h"

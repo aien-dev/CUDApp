@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* gpu_l2_reuse_test: does an FP8 GEMV that re-reads weights another launch just read run faster? (OWN-30B W-L2d, 2026-10-14)
  *
  * Question behind it: a decode token has ~120 us per layer where DRAM is idle (attention at pos 300 ~73 us latency-bound,

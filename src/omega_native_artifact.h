@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * omega_native_artifact: export one already-generated CUDApp/Omega GPU
  * realization as an offline, digest-bound handoff artifact.

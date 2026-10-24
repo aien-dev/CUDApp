@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * omega_gpu_decode_graph.c: one decode token as one command list (see the header). Records the four decode APIs'
  * *_record launches and the omega_blackwell_codegen_dec glue kernels into an omega_gpu_cmdlist. Buffers:

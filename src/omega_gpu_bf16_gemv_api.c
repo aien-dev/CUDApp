@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_gpu_bf16_gemv_api.c: bf16 streaming GEMV (lm_head) on the shared session, OWN-30B 2026-10-13.
  * See the header. Submission path and buffer policy are the FP8 API's: every buffer both sides touch is
  * GPU-uncached (nvos.h NVOS32_ATTR2_GPU_CACHEABLE: "For system memory this will not be coherent with direct CPU

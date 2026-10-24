@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_gpu_chip.h: which GPUs CUDA++ has machine code for, and what it says about the others.
  *
  * Developer bar D6 (docs/PAIN_POINTS.md): a GPU works on day one or is refused with a sentence
