@@ -7,18 +7,18 @@ Source: `src/omega_cubin.{c,h}`, `src/omega_native_artifact.{c,h}`,
 ## Commands and results
 ```
 make -j8 test-native-artifact
-# test_gpu_artifact_export: 42 checks, 0 failed
+# test_gpu_artifact_export: 47 checks, 0 failed
 
 ./tools/artifact_smoke.sh evidence/MAX-INTEROP/68
 # ARTIFACT SMOKE PASS   (nvdisasm + cuobjdump accept both cubins)
 
 ./build/artifact-export matmul --m 16 --k 16 --n 8 \
   --contract-id 647116fc... --out evidence/MAX-INTEROP/68/matmul-16x16x8
-# artifact_id=8dcc18e06f2306a785dd413c73f7289e12df0df995066ccb8cd5ff985a709db6
+# artifact_id=7c5ab77748c1cd29a50b9cb91efcce6d8200eb30646ce88142f31ba4d7d5544c
 
 ./build/artifact-export attention --q-heads 8 --kv-heads 1 \
   --contract-id 003696e4... --out evidence/MAX-INTEROP/68/attention-hd128-gqa8
-# artifact_id=b7c2c772ca3401160fa18c73d7c653114db20f928aaa993f217657e81df95cb8
+# artifact_id=48eac870570fd978aa011973bfc3407fedc6de2f1f1fbe1fb943cc96c9f95c22
 ```
 
 Both cubins are sm_121 ELF (`e_machine=190`, `e_flags=0x6007902`), carry the
