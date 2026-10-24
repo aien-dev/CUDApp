@@ -27,6 +27,8 @@ global nvbar long 1
 global nvfifo long 1
 global nvnotify long 1
 global nvchva long 1
+note A mapping not yet published to its caller remains owned after failed cleanup.
+global nvunpublished long 1
 global nvtoken uint 1
 global nvchreg uchar 1
 global nvsched uchar 1
@@ -249,6 +251,15 @@ put nverr 0 neg long 16
 ret false
 end
 ok = true
+if gt get nvunpublished 0 0
+r = mapdrop get nvunpublished 0
+if ne r 0
+put nverr 0 r
+ok = false
+else
+put nvunpublished 0 0
+end
+end
 if gt get nvbar 0 0
 r = mapdrop get nvbar 0
 if ne r 0
@@ -434,6 +445,10 @@ end
 note Low GPU command addresses are reserved without replacement before an owned bind.
 note BAR mappings may use Linux-selected addresses; GPU buffers stay below 40 bits.
 fn nvcpumap obj uint size ulong system bool flags uint to long
+if or ne get nvfault 0 0 ne get nvstate 0 1
+put nverr 0 neg long 5
+ret neg long 1
+end
 fd = neg long 1
 if system
 fd = fopen nvctl 0 len nvctl 524290 0
@@ -489,6 +504,9 @@ put nverr 0 r
 put nvfault 0 1
 if gt m 0
 r = mapdrop m
+if ne r 0
+put nvunpublished 0 m
+end
 end
 ret neg long 1
 end
