@@ -77,7 +77,7 @@ int main(void) {
         CHECK(omega_fp8gemm_prog_stats(&s, NULL, &peak) == 0, "gemm k%u mt%u builds", ks[i], mts[j]); (void)omega_gpu_fp8gemm_kernel_fits(&s, &decl);
         CHECK(omega_bw_gpr_declared_ok(decl, peak), "gemm k%u mt%u: peak %u declared %u", ks[i], mts[j], peak, decl); } }
     /* router and decode attention: the launcher uses omega_bw_gpr_declared(peak) (static), so check the helper on the real peak */
-    { OmegaRouterSpec s = { OMEGA_GPU_ROUTER_WARPS, OMEGA_GPU_ROUTER_DEPTH, 0 }; uint32_t peak = 0;
+    { OmegaRouterSpec s = { .warps = OMEGA_GPU_ROUTER_WARPS, .depth = OMEGA_GPU_ROUTER_DEPTH }; uint32_t peak = 0;
       CHECK(omega_router_prog_stats(&s, NULL, &peak) == 0 && omega_bw_gpr_declared_ok(omega_bw_gpr_declared(peak), peak), "router peak %u", peak); printf("router peak %u -> declared %u\n", peak, omega_bw_gpr_declared(peak)); }
     { OmegaDecodeAttnSpec s = { OMEGA_GPU_DATTN_DEPTH, 0 }; uint32_t peak = 0;
       CHECK(omega_decode_attn_prog_stats(&s, NULL, &peak) == 0 && omega_bw_gpr_declared_ok(omega_bw_gpr_declared(peak), peak), "decode attn peak %u", peak); printf("decode attn peak %u -> declared %u\n", peak, omega_bw_gpr_declared(peak)); }
