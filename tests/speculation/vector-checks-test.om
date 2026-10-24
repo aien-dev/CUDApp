@@ -1,0 +1,51 @@
+note CPU-only regression at the seeded dynamic-loop limit, no device opens.
+global gbmem long 8
+global gbmax uint 1
+text ok "VECTOR_CHECKS_HOST_PASS\n"
+fn ck yes bool to void
+if not yes
+exit int 80
+end
+end
+fn supply i ulong to void
+ck eq mapget get gbmem 5 mul i 4 4 aval i 257
+ck eq mapget get gbmem 6 mul i 4 4 bval i 257
+ck eq mapget get gbmem 7 mul i 4 4 xor expect i 257 4294967295
+r = mapset get gbmem 7 mul i 4 4 expect i 257
+end
+fn run n uint to void
+put gbmax 0 add n 64
+for i ulong 3
+m = mapnew neg int 1 0 mul ulong get gbmax 0 4 3 34
+ck gt m 0
+put gbmem add i 5 m
+end
+prepare n 257
+note Check every prepared input and poison value, then supply the expected result.
+base = ulong 0
+while lt base ulong n
+count = sub ulong n base
+if gt count 65536
+count = ulong 65536
+end
+for j ulong count
+supply add base j
+end
+base = add base count
+end
+verify n 257 false
+r = mapset get gbmem 7 mul sub ulong n 1 4 4 xor expect sub ulong n 1 257 1
+verify n 257 true
+for i ulong 3
+ck eq mapdrop get gbmem add i 5 0
+end
+end
+fn main to int
+run 1
+run 999999
+run 1000000
+run 1000001
+run 1048576
+ck eq write 1 ok 0 len ok long len ok
+ret 0
+end

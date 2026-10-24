@@ -1,0 +1,37 @@
+{
+  "compiler": "9749f38841a55917d41924a68bce31463ec2339910bddd5e6cbf6ea4420551db",
+  "programs": {
+    "policy": {
+      "sha256": "5c76fb1256abe9bbe28d447318d6779bf187422f978df91d490ec9d6fb048c12",
+      "result": "SPECULATION_TESTS_PASS 106"
+    },
+    "cost": {
+      "sha256": "019de1453715538737302c6d8d59cd6c8d2f1fd2211731e3c854ec3b85b0343f",
+      "result": "SPECULATION_TESTS_PASS 125"
+    },
+    "report": {
+      "sha256": "8c199e1d92a1c82d9c1250283bc532a0c34b3af6aafa65f505b23cb8b025af92",
+      "result": "SPECULATION_TESTS_PASS 299"
+    },
+    "oracle": {
+      "sha256": "d2101761e494610743ce8bffc6df2b1068a17d60bd10eafa417de06223df8fb5",
+      "result": "SPECULATION_TESTS_PASS 12801"
+    },
+    "service": {
+      "sha256": "dc0dd2a196583c5f300765ab50474cbc3bed653f2f241eedc26ad6cc5a211bda"
+    },
+    "client": {
+      "sha256": "48b8d60f20b4289c90b04d37dde7df34972f40bf3aae128c7ce8ec8d7c625613",
+      "result": "SPECULATION_TESTS_PASS 337"
+    },
+    "map": {
+      "sha256": "1904f039f081da34430393159721df4578eb2849cb506f477e22a3b044e3b4d1"
+    }
+  },
+  "model_mapping": {
+    "shards": 66,
+    "sampled_comparisons": 2442,
+    "result": "PASS",
+    "scope": "sampled file access only"
+  }
+}

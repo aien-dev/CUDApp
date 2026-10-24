@@ -1,0 +1,438 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Chain sizing component. Integer microseconds and prefix survival millionths.
+note This component never launches a model or mutates its KV/recurrent/drafter state.
+global scontrol ulong 2
+global sid ulong 64
+global ssaved ulong 32
+global sprofile ulong 6
+global srows ulong 77
+global sprior ulong 31
+global survive ulong 31
+global measured ulong 7
+global sstate ulong 15
+global decision ulong 5
+fn slen row ulong to ulong
+if eq row 0
+ret 0
+end
+if eq row 6
+ret 31
+end
+ret shl 1 sub row 1
+end
+fn scost row ulong to ulong
+total = ulong 0
+for p ulong 6
+total = add total get srows add add mul row 11 3 p
+end
+ret total
+end
+fn sheader to int
+if ne get sprofile 0 1
+ret 69
+end
+if eq get sprofile 1 0
+ret 69
+end
+if ge get sprofile 2 get sprofile 3
+ret 65
+end
+if gt get sprofile 3 131072
+ret 65
+end
+if lt get sprofile 4 1
+ret 69
+end
+if gt get sprofile 4 2
+ret 69
+end
+if ne get sprofile 5 1
+ret 77
+end
+note Eight complete digest identities; all-zero digests cannot bind a profile.
+for d ulong 8
+nonzero = ulong 0
+for j ulong 4
+i = add mul d 4 j
+v = get sid i
+if ne v get sid add i 32
+ret 69
+end
+nonzero = or nonzero v
+end
+if eq nonzero 0
+ret 69
+end
+end
+ret 0
+end
+fn svalid to int
+status = sheader
+if ne status 0
+ret status
+end
+if ne get srows 0 1
+ret 77
+end
+for r ulong 7
+b = mul r 11
+enabled = get srows b
+if gt enabled 1
+ret 65
+end
+if eq enabled 1
+if ne get srows add b 1 slen r
+ret 65
+end
+if ne get srows add b 2 add slen r 1
+ret 65
+end
+if eq get srows add b 4 0
+ret 65
+end
+if eq get srows add b 9 0
+ret 65
+end
+if lt get srows add b 10 5
+ret 65
+end
+if gt get srows add b 10 1000000
+ret 65
+end
+for p ulong 6
+if gt get srows add add b 3 p 1000000000
+ret 65
+end
+end
+if eq r 0
+if ne get srows add b 3 0
+ret 65
+end
+end
+end
+end
+ret 0
+end
+fn sbegin warm ulong to int
+if gt warm 1
+ret 65
+end
+if ne get sstate 0 0
+ret 75
+end
+s = svalid
+if ne s 0
+ret s
+end
+prev = ulong 1000000
+for i ulong 31
+v = get sprior i
+if gt v prev
+ret 65
+end
+prev = v
+end
+if eq warm 1
+if ne get sstate 11 1
+ret 69
+end
+if ne get sstate 10 get sprofile 1
+ret 69
+end
+for i ulong 32
+if ne get ssaved i get sid i
+ret 69
+end
+end
+else
+for i ulong 31
+put survive i get sprior i
+end
+for i ulong 7
+put measured i 0
+end
+end
+for i ulong 15
+put sstate i 0
+end
+for i ulong 5
+put decision i 0
+end
+for i ulong 32
+put ssaved i get sid i
+end
+put sstate 10 get sprofile 1
+put sstate 11 1
+ret 0
+end
+fn sexpect r ulong to ulong
+v = ulong 1000000
+for i ulong slen r
+v = add v get survive i
+end
+ret v
+end
+fn sprice r ulong to ulong
+if ne get measured r 0
+ret get measured r
+end
+ret scost r
+end
+fn sfits r ulong to bool
+b = mul r 11
+if ne get srows b 1
+ret false
+end
+if gt get srows add b 9 get sstate 12
+ret false
+end
+n = add slen r 1
+if gt n get sstate 2
+ret false
+end
+if gt n sub get sprofile 3 get sstate 3
+ret false
+end
+ret true
+end
+fn sbetter a ulong b ulong observed bool to bool
+ca = scost a
+cb = scost b
+if observed
+ca = sprice a
+cb = sprice b
+end
+left = mul sexpect a cb
+right = mul sexpect b ca
+ret gt left right
+end
+fn sselect context ulong remain ulong memory ulong epoch ulong mode ulong fixed ulong to int
+note Modes 0 ordinary, 1 fixed draft length, 2 adaptive. Any non-greedy sampling uses ordinary.
+if ne get sstate 11 1
+ret 75
+end
+if ne get sstate 0 0
+ret 75
+end
+if ne get sstate 8 0
+ret 75
+end
+if ne get sstate 9 0
+ret 75
+end
+for i ulong 5
+put decision i 0
+end
+v = svalid
+if ne v 0
+ret v
+end
+if gt mode 2
+ret 65
+end
+if gt get scontrol 0 1
+ret 65
+end
+if eq remain 0
+ret 65
+end
+if gt remain 256
+ret 65
+end
+if gt get sstate 5 0
+if ne context get sstate 14
+ret 69
+end
+if gt remain sub get sstate 13 get sstate 6
+ret 65
+end
+else
+put sstate 13 remain
+end
+if ne epoch get sprofile 1
+ret 69
+end
+if ne epoch get sstate 10
+ret 69
+end
+for i ulong 32
+if ne get ssaved i get sid i
+ret 69
+end
+end
+if eq get scontrol 0 1
+if ne get sprofile 4 2
+ret 69
+end
+end
+if lt context get sprofile 2
+ret 69
+end
+if ge context get sprofile 3
+ret 69
+end
+put sstate 2 remain
+put sstate 3 context
+put sstate 12 memory
+if not sfits 0
+ret 77
+end
+ret srank mode fixed
+end
+fn srank mode ulong fixed ulong to int
+best = ulong 0
+probe = ulong 0
+reason = ulong 1
+if eq get scontrol 1 0
+if eq mode 1
+found = false
+for r ulong 7
+if eq slen r fixed
+if sfits r
+best = r
+found = true
+end
+end
+end
+if not found
+ret 77
+end
+end
+if eq mode 2
+reason = 3
+for r ulong 7
+if gt r 0
+if sfits r
+note Cross products bounded by 32e6 * 6e9, below uint64 maximum.
+if sbetter r best true
+best = r
+reason = 0
+end
+if eq probe 0
+probe = r
+else
+if sbetter r probe false
+probe = r
+end
+end
+end
+end
+end
+if eq best 0
+if ne probe 0
+if ge sub get sstate 5 get sstate 4 8
+best = probe
+reason = 4
+put sstate 4 get sstate 5
+end
+end
+end
+end
+else
+reason = 2
+end
+put decision 0 slen best
+put decision 1 add slen best 1
+put decision 2 sexpect best
+put decision 3 sprice best
+put decision 4 reason
+put sstate 0 1
+put sstate 1 best
+ret 0
+end
+fn scancel to void
+note Cancels an uncommitted observation. Actual backend rollback belongs to its state owner.
+put sstate 0 0
+put sstate 9 1
+end
+fn sresume to int
+note Caller attests it consumed the emitted correction/bonus using the existing state owner.
+if ne get sstate 8 1
+ret 75
+end
+if ne get sstate 0 0
+ret 75
+end
+put sstate 7 add get sstate 7 1
+put sstate 14 add get sstate 14 1
+put sstate 8 0
+ret 0
+end
+fn sobserve accepted ulong commit_n ulong elapsed ulong eos ulong complete ulong to int
+if ne get sstate 0 1
+ret 75
+end
+if ne complete 1
+ret 75
+end
+k = get decision 0
+if gt accepted k
+ret 65
+end
+if eq commit_n 0
+ret 65
+end
+if gt commit_n add accepted 1
+ret 65
+end
+if gt commit_n get sstate 2
+ret 65
+end
+if gt eos 1
+ret 65
+end
+if eq eos 1
+if gt accepted commit_n
+ret 65
+end
+end
+if eq eos 0
+if ne commit_n add accepted 1
+ret 65
+end
+end
+if eq elapsed 0
+ret 65
+end
+if gt elapsed 6000000000
+ret 65
+end
+slearn accepted elapsed
+put sstate 0 0
+put sstate 5 add get sstate 5 1
+put sstate 6 add get sstate 6 commit_n
+used = commit_n
+if gt commit_n accepted
+used = accepted
+put sstate 8 1
+end
+put sstate 7 add get sstate 7 used
+put sstate 14 add get sstate 3 used
+if eq eos 1
+put sstate 9 1
+end
+if eq commit_n get sstate 2
+put sstate 9 1
+end
+ret 0
+end
+fn slearn accepted ulong elapsed ulong to void
+k = get decision 0
+note Only completed past rounds teach the estimator; never read future fixture answers.
+for i ulong k
+event = ulong 0
+if lt i accepted
+event = 1000000
+end
+put survive i div add mul get survive i 7 event 8
+end
+prev = ulong 1000000
+for i ulong 31
+if gt get survive i prev
+put survive i prev
+end
+prev = get survive i
+end
+r = get sstate 1
+put measured r elapsed
+end

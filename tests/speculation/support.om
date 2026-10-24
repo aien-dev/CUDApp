@@ -1,0 +1,64 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Synthetic test support. None of these values are hardware observations.
+global tally ulong 2
+global digits uchar 32
+text passmsg "SPECULATION_TESTS_PASS "
+text failmsg "SPECULATION_TESTS_FAIL "
+fn number n ulong to void
+if ge n 10
+number div n 10
+end
+put digits 0 uchar add 48 rem n 10
+w = write 1 digits 0 1
+end
+fn check yes bool to void
+put tally 0 add get tally 0 1
+if not yes
+put tally 1 add get tally 1 1
+number get tally 0
+put digits 0 10
+w = write 1 digits 0 1
+end
+end
+fn finish to int
+if ne get tally 1 0
+w = write 1 failmsg 0 len failmsg
+number get tally 1
+put digits 0 10
+w = write 1 digits 0 1
+ret 1
+end
+w = write 1 passmsg 0 len passmsg
+number get tally 0
+put digits 0 10
+w = write 1 digits 0 1
+ret 0
+end
+fn fixture to void
+for i ulong 64
+put sid i add rem i 32 1
+end
+for i ulong 77
+put srows i 0
+end
+put sprofile 0 1
+put sprofile 1 7
+put sprofile 2 1000
+put sprofile 3 33000
+put sprofile 4 1
+put sprofile 5 1
+for r ulong 7
+base = mul r 11
+put srows base 1
+put srows add base 1 slen r
+put srows add base 2 add slen r 1
+put srows add base 4 100
+put srows add base 8 1
+put srows add base 9 add 100 mul r 10
+put srows add base 10 5
+end
+for i ulong 31
+put sprior i 1000000
+end
+check eq sbegin 0 0
+end

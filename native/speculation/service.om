@@ -1,0 +1,259 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Persistent native policy process. The model owner retains every model-state operation.
+note SCP1 request: magic, version, operation, sequence, body words. All words little-endian u64.
+global wreq uchar 2048
+global wout uchar 128
+global wstate ulong 4
+fn wget i ulong to ulong
+v = ulong 0
+for j ulong 8
+v = or v shl ulong get wreq add mul i 8 j mul j 8
+end
+ret v
+end
+fn wput i ulong v ulong to void
+for j ulong 8
+put wout add mul i 8 j uchar and shr v mul j 8 255
+end
+end
+fn wread off ulong n ulong to int
+done = ulong 0
+for retry ulong 1000000
+if eq done n
+ret 0
+end
+r = read 0 wreq add off done sub n done
+if eq r 0
+if eq done 0
+ret 1
+end
+ret 65
+end
+if lt r 0
+if ne r neg long 4
+ret 74
+end
+else
+done = add done ulong r
+end
+end
+ret 74
+end
+fn wwrite n ulong to int
+done = ulong 0
+for retry ulong 1000000
+if eq done n
+ret 0
+end
+r = write 1 wout done sub n done
+if eq r 0
+ret 74
+end
+if lt r 0
+if ne r neg long 4
+ret 74
+end
+else
+done = add done ulong r
+end
+end
+ret 74
+end
+fn wshape op ulong to ulong
+if eq op 1
+ret 178
+end
+if eq op 2
+ret 3
+end
+if eq op 3
+ret 6
+end
+if eq op 4
+ret 5
+end
+ret 0
+end
+fn winit to int
+if ne get wstate 0 0
+ret 75
+end
+for i ulong 64
+put sid i wget add i 5
+end
+for i ulong 6
+put sprofile i wget add i 69
+end
+for i ulong 77
+put srows i wget add i 75
+end
+for i ulong 31
+put sprior i wget add i 152
+end
+v = svalid
+if ne v 0
+ret v
+end
+put wstate 0 1
+ret 0
+end
+fn wbegin to int
+phase = get wstate 0
+if ne phase 1
+if ne phase 3
+ret 75
+end
+end
+if gt wget 6 1
+ret 65
+end
+if eq wget 6 1
+if ne get sprofile 4 2
+ret 69
+end
+end
+v = sbegin wget 5
+if ne v 0
+ret v
+end
+put scontrol 0 wget 6
+put scontrol 1 wget 7
+put wstate 0 2
+ret 0
+end
+fn wselect to int
+v = sselect wget 5 wget 6 wget 7 wget 8 wget 9 wget 10
+if ne v 0
+ret v
+end
+for i ulong 5
+wput add i 7 get decision i
+end
+put wstate 2 5
+ret 0
+end
+fn wobserve to int
+v = sobserve wget 5 wget 6 wget 7 wget 8 wget 9
+if ne v 0
+ret v
+end
+for i ulong 4
+wput add i 7 get sstate add i 6
+end
+put wstate 2 4
+ret 0
+end
+fn wcall op ulong to int
+put wstate 2 0
+if eq op 1
+ret winit
+end
+if eq op 2
+ret wbegin
+end
+if eq op 8
+if eq get wstate 0 2
+ret 75
+end
+put wstate 3 1
+ret 0
+end
+if ne get wstate 0 2
+ret 75
+end
+if eq op 3
+ret wselect
+end
+if eq op 4
+ret wobserve
+end
+if eq op 5
+ret sresume
+end
+if eq op 6
+scancel
+put wstate 0 3
+ret 0
+end
+if ne get sstate 9 1
+ret 75
+end
+if ne get sstate 0 0
+ret 75
+end
+put wstate 0 3
+ret 0
+end
+fn wpacket to int
+if ne wget 0 827343699
+ret 65
+end
+if ne wget 1 1
+ret 69
+end
+op = wget 2
+if lt op 1
+ret 77
+end
+if gt op 8
+ret 77
+end
+if ne wget 3 get wstate 1
+ret 69
+end
+if ne wget 4 wshape op
+ret 65
+end
+v = wread 40 mul wget 4 8
+if eq v 1
+ret 65
+end
+if ne v 0
+ret v
+end
+start = monons
+if lt start 0
+ret 74
+end
+status = wcall op
+elapsed = sub monons start
+if lt elapsed 0
+ret 74
+end
+wput 0 827343699
+wput 1 1
+wput 2 op
+wput 3 get wstate 1
+wput 4 ulong status
+wput 5 get wstate 2
+wput 6 ulong elapsed
+v = wwrite mul add get wstate 2 7 8
+if ne v 0
+ret v
+end
+put wstate 1 add get wstate 1 1
+ret 0
+end
+fn main to int
+put wstate 1 1
+for command ulong 1000000
+v = wread 0 40
+if eq v 1
+if eq get wstate 0 2
+ret 75
+end
+ret 0
+end
+if ne v 0
+ret v
+end
+v = wpacket
+if ne v 0
+ret v
+end
+if eq get wstate 3 1
+ret 0
+end
+end
+ret 77
+end

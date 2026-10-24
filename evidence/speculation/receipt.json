@@ -1,0 +1,323 @@
+{
+  "source": "1b5414577368e58ed562964a4e61785faad75f2c",
+  "compiler_sha256": "191b776ef98821597c3e30655da6d680a9b66edbc9ceaca3c39c61ea6df098e9",
+  "evidence_class": "synthetic-native-host",
+  "hardware_trials": "NOT_RUN",
+  "programs": [
+    {
+      "name": "policy-test",
+      "compile_exit": 0,
+      "source_sha256": "f50bfdc312abd37a4e0891e4bac5e37d929a0b0dc4238b21cdfab899fd9d8717",
+      "executable_sha256": "5c76fb1256abe9bbe28d447318d6779bf187422f978df91d490ec9d6fb048c12",
+      "ordered_inputs": [
+        "native/speculation/policy.om",
+        "tests/speculation/support.om",
+        "tests/speculation/policy-test.om"
+      ],
+      "exit": 0,
+      "stdout": "SPECULATION_TESTS_PASS 106\n",
+      "stderr": ""
+    },
+    {
+      "name": "cost-test",
+      "compile_exit": 0,
+      "source_sha256": "6a20052efd03f2252128b7100da56c6f3f3aae290c98b9723f5a25612031d20d",
+      "executable_sha256": "019de1453715538737302c6d8d59cd6c8d2f1fd2211731e3c854ec3b85b0343f",
+      "ordered_inputs": [
+        "native/speculation/policy.om",
+        "native/speculation/costs.om",
+        "tests/speculation/support.om",
+        "tests/speculation/cost-test.om"
+      ],
+      "exit": 0,
+      "stdout": "SPECULATION_TESTS_PASS 125\n",
+      "stderr": ""
+    },
+    {
+      "name": "report-test",
+      "compile_exit": 0,
+      "source_sha256": "616ab6a8cc4af935f51a93ac18572fbefbdaa8d7d6f9fcae631d611154189848",
+      "executable_sha256": "8c199e1d92a1c82d9c1250283bc532a0c34b3af6aafa65f505b23cb8b025af92",
+      "ordered_inputs": [
+        "native/speculation/policy.om",
+        "native/speculation/report.om",
+        "tests/speculation/support.om",
+        "tests/speculation/report-test.om"
+      ],
+      "exit": 0,
+      "stdout": "SPECULATION_TESTS_PASS 299\n",
+      "stderr": ""
+    },
+    {
+      "name": "oracle-test",
+      "compile_exit": 0,
+      "source_sha256": "a49f8640b645ea3bf730dd9a2b8ef977ce020aec7909660362b2a07aecc4be74",
+      "executable_sha256": "d2101761e494610743ce8bffc6df2b1068a17d60bd10eafa417de06223df8fb5",
+      "ordered_inputs": [
+        "native/speculation/policy.om",
+        "tests/speculation/support.om",
+        "tests/speculation/oracle-test.om"
+      ],
+      "exit": 0,
+      "stdout": "SPECULATION_TESTS_PASS 12801\n",
+      "stderr": ""
+    },
+    {
+      "name": "replay",
+      "compile_exit": 0,
+      "source_sha256": "311a451f30924ac34189e020c12e9964d52d790af3018de400bfd193be6b6055",
+      "executable_sha256": "60600a1816ede70401ce53895c040297b080ff8ade82d4e93c193fcfba58b90e",
+      "ordered_inputs": [
+        "native/speculation/policy.om",
+        "native/speculation/costs.om",
+        "native/speculation/report.om",
+        "native/speculation/replay.om"
+      ]
+    },
+    {
+      "name": "packet-fixture",
+      "compile_exit": 0,
+      "source_sha256": "f6036495f35aca5f12569ca1d0825c309b9dd66c99a224b99663c7e56363a19d",
+      "executable_sha256": "a0aca5564fb12bbfb23fa4188278f9a23c18c857f1127aa225aff725e4fbddcc",
+      "ordered_inputs": [
+        "native/speculation/policy.om",
+        "tests/speculation/support.om",
+        "tests/speculation/packet-fixture.om"
+      ]
+    },
+    {
+      "name": "reply-test",
+      "compile_exit": 0,
+      "source_sha256": "5cf249113db3d54a3b24f0120c52de2a7f66a068fb846a05a3166d65d17733ac",
+      "executable_sha256": "e68a13a6614bfabe41db9923c8cd69b7e98cd1d106d9eb5e88fb37d672ec1102",
+      "ordered_inputs": [
+        "native/speculation/policy.om",
+        "tests/speculation/support.om",
+        "tests/speculation/reply-test.om"
+      ]
+    }
+  ],
+  "roundtrips": [
+    {
+      "mode": 1,
+      "fixture_exit": 0,
+      "replay_exit": 0,
+      "check_exit": 0,
+      "input_sha256": "ca2daf889fdee9cf313dacedc162a0e465fd58672a74728918077f8b1fa580c3",
+      "reply_sha256": "5397c56d626b39488760d3943a9ae83f4e670df7c460eba1e4daa91f738190c5",
+      "check_stdout": "SPECULATION_TESTS_PASS 10\n"
+    },
+    {
+      "mode": 2,
+      "fixture_exit": 0,
+      "replay_exit": 0,
+      "check_exit": 0,
+      "input_sha256": "672b2048a1c62a06b150a277afb993e13ba944f012de1d5bc2a2b60dc72de440",
+      "reply_sha256": "a5863a4e6de0229333d026d55cfab60cb69c8d2ee87332b02840263ec08625c2",
+      "check_stdout": "SPECULATION_TESTS_PASS 9\n"
+    },
+    {
+      "mode": 3,
+      "fixture_exit": 0,
+      "replay_exit": 0,
+      "check_exit": 0,
+      "input_sha256": "b83a0512bba1fe7630fe6ec06169506ff08be0b3156c0f38412fd41a402453cf",
+      "reply_sha256": "69725222d2e5404a999b96c2f450620c7c12a872b7d4d98fe094ef32fb679888",
+      "check_stdout": "SPECULATION_TESTS_PASS 26\n"
+    }
+  ],
+  "negative_inputs": [
+    {
+      "name": "empty",
+      "expected_exit": 65,
+      "exit": 65,
+      "stdout_bytes": 0,
+      "stderr": ""
+    },
+    {
+      "name": "unaligned",
+      "expected_exit": 65,
+      "exit": 65,
+      "stdout_bytes": 0,
+      "stderr": ""
+    },
+    {
+      "name": "truncated",
+      "expected_exit": 65,
+      "exit": 65,
+      "stdout_bytes": 0,
+      "stderr": ""
+    },
+    {
+      "name": "oversized",
+      "expected_exit": 65,
+      "exit": 65,
+      "stdout_bytes": 0,
+      "stderr": ""
+    },
+    {
+      "name": "bad-magic",
+      "expected_exit": 65,
+      "exit": 65,
+      "stdout_bytes": 0,
+      "stderr": ""
+    },
+    {
+      "name": "bad-version",
+      "expected_exit": 69,
+      "exit": 69,
+      "stdout_bytes": 0,
+      "stderr": ""
+    },
+    {
+      "name": "unknown-operation",
+      "expected_exit": 77,
+      "exit": 77,
+      "stdout_bytes": 0,
+      "stderr": ""
+    },
+    {
+      "name": "synthetic-refuses-device",
+      "expected_exit": 69,
+      "exit": 69,
+      "stdout_bytes": 0,
+      "stderr": ""
+    }
+  ],
+  "behavioral_controls": [
+    {
+      "name": "mutant-always-ordinary",
+      "compile_exit": 0,
+      "source_sha256": "08eb917be4bd5aa73d28425a8700c0294e8abfe820324adfb5c5982eca43031c",
+      "executable_sha256": "43b60a0e2c0adff048a1d7c8a19e544115755c4a3e528f16edfa549a4a01a470",
+      "test": "policy-test",
+      "before": "ret srank mode fixed",
+      "after": "ret srank 0 fixed",
+      "expected_exit": 1,
+      "exit": 1,
+      "stdout": "3\n4\n5\n8\n9\n10\n11\n13\n14\n17\n27\n30\n48\n50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n61\n62\n63\n64\n65\n66\n67\n68\n69\n70\n71\n72\n86\n90\n91\n94\n95\n98\n99\n101\n105\n106\nSPECULATION_TESTS_FAIL 46\n",
+      "stderr": ""
+    },
+    {
+      "name": "mutant-ignore-epoch",
+      "compile_exit": 0,
+      "source_sha256": "fcf3dab21409d42849eaf13725d0a77499f9b4986a57b3762e884481b6530256",
+      "executable_sha256": "f573b6e397ad3d278a0f7f1c0548b328e91cee2a6b2dd924863df41660e4336e",
+      "test": "policy-test",
+      "before": "if ne epoch get sprofile 1\nret 69\nend\nif ne epoch get sstate 10\nret 69\nend",
+      "after": "note mutant omits both epoch checks",
+      "expected_exit": 1,
+      "exit": 1,
+      "stdout": "41\n42\n43\n44\n45\nSPECULATION_TESTS_FAIL 5\n",
+      "stderr": ""
+    },
+    {
+      "name": "mutant-unfinished-round",
+      "compile_exit": 0,
+      "source_sha256": "ad4473145fbfe26b58d1e686be5a7fc9125aba64051cf2a953e54cb4a32ac279",
+      "executable_sha256": "623a5b51bef8414f186ae02850490eb009277e8bbda745ce6d58426db9f70341",
+      "test": "policy-test",
+      "before": "if ne complete 1\nret 75\nend",
+      "after": "note mutant admits incomplete round",
+      "expected_exit": 1,
+      "exit": 1,
+      "stdout": "78\n79\n80\n81\n84\n86\n87\n88\n89\n90\n91\n92\n93\n94\n95\nSPECULATION_TESTS_FAIL 15\n",
+      "stderr": ""
+    },
+    {
+      "name": "mutant-consumed-state",
+      "compile_exit": 0,
+      "source_sha256": "e6ee0d7fd2a2ef1e250468ba0b7cf8c4eeb57e15ab510bea8a62279cffafda4b",
+      "executable_sha256": "6bdf754e1a5074b74310f26956d7669068b3f1c37987346a7aa238af0887dff0",
+      "test": "policy-test",
+      "before": "used = accepted",
+      "after": "used = commit_n",
+      "expected_exit": 1,
+      "exit": 1,
+      "stdout": "10\n14\n84\n86\n87\n88\n94\n95\nSPECULATION_TESTS_FAIL 8\n",
+      "stderr": ""
+    },
+    {
+      "name": "mutant-ignore-host-gap",
+      "compile_exit": 0,
+      "source_sha256": "a14ed5772982c80309fe450b5557724506ec1a2ca3397e168cff6578dedc206f",
+      "executable_sha256": "e20f261d21a4008dc5a083b63bfafa4394f60b3bf953ee98bb98e93c41830c5b",
+      "test": "cost-test",
+      "before": "put csum p add get csum p sub get cobs 10 sum",
+      "after": "put csum p get csum p",
+      "expected_exit": 1,
+      "exit": 1,
+      "stdout": "40\n42\n51\nSPECULATION_TESTS_FAIL 3\n",
+      "stderr": ""
+    },
+    {
+      "name": "mutant-ignore-output",
+      "compile_exit": 0,
+      "source_sha256": "ad7e2061a8511ffcedc4c9952b9fe2e13cffe731e2793fc1002d286ea16d1d9b",
+      "executable_sha256": "670740c4a4c0cfa8a54c77e4e404c1935e8de5373820ce2600a42da832c49618",
+      "test": "report-test",
+      "before": "right = get praw add add row 3 i\nif ne left right",
+      "after": "right = get praw add add row 3 i\nif ne left left",
+      "expected_exit": 1,
+      "exit": 1,
+      "stdout": "77\n78\nSPECULATION_TESTS_FAIL 2\n",
+      "stderr": ""
+    },
+    {
+      "name": "mutant-wrong-arm",
+      "compile_exit": 0,
+      "source_sha256": "ae6b60cb73dc6162cc9f6805d4fb9ad41abca1e8619ff14eab912b1eba3786b2",
+      "executable_sha256": "7320add81dafe3f29891e219148c7b839984ebd34bd6aa830c4259dc9c317972",
+      "test": "report-test",
+      "before": "if ne get pobs add i 24 expected\nret 69\nend",
+      "after": "note mutant accepts wrong arm build",
+      "expected_exit": 1,
+      "exit": 1,
+      "stdout": "233\nSPECULATION_TESTS_FAIL 1\n",
+      "stderr": ""
+    },
+    {
+      "name": "mutant-overclaim-five",
+      "compile_exit": 0,
+      "source_sha256": "16c2b31e36d22c3d78b5a5a513269587f02dd948b8df61f65c293ef826655a67",
+      "executable_sha256": "42e585692bae7eae1d05dc47b152ca2ab1611533fda5f420fcf56169b48bdd4b",
+      "test": "report-test",
+      "before": "ret k\nend\nfn pmeasure",
+      "after": "ret 1\nend\nfn pmeasure",
+      "expected_exit": 1,
+      "exit": 1,
+      "stdout": "102\n103\n104\n105\n108\nSPECULATION_TESTS_FAIL 5\n",
+      "stderr": ""
+    },
+    {
+      "name": "mutant-missing-base-identity",
+      "test": "report-test",
+      "before": "if eq nonzero 0\nret 69\nend\nend\nfor i ulong 32",
+      "after": "note mutant accepts missing base identities\nend\nfor i ulong 32",
+      "expected_exit": 1,
+      "compile_exit": 0,
+      "source_sha256": "498d3346a519bb0c26d359854deb1d72a297e4689f4b77f9ad2c670655936f71",
+      "executable_sha256": "ee572737325a7a9907da6ff9e7f7498ac2fef804b8ddc19616b9da6b0a6f5240",
+      "exit": 1,
+      "stdout": "263\n266\n269\n272\n293\n296\nSPECULATION_TESTS_FAIL 6\n",
+      "stderr": ""
+    }
+  ],
+  "reconstruction": {
+    "bridge_revision": "0fc7d8662cb799e7c206b17c18ea4c3ec2b8fea9",
+    "seed_input": "29b12760f4c962606411d6bf25032aedef063301",
+    "bootstrap_exit": 0,
+    "bootstrap_result": "PASS source-only seed bootstrap and compiler fixpoint",
+    "development_tools": [
+      "git",
+      "existing shell bootstrap",
+      "cat",
+      "Node.js orchestration",
+      "readelf",
+      "strace",
+      "quiet-build",
+      "timeout"
+    ],
+    "product_runtime": "freestanding seeded Omega ELF"
+  }
+}

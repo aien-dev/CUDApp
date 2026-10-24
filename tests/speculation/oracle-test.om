@@ -1,0 +1,68 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Independent finite oracle: a two-outcome drafter accepts everything with p,
+note or rejects the first token with 1-p, so E = 1 + k*p without a survival loop.
+global lens ulong 7
+global oparams ulong 4
+fn oracle to ulong
+best = ulong 0
+be = ulong 1000000
+bt = ulong 101
+for r ulong 7
+k = get lens r
+if le add k 1 get oparams 2
+if le add 100 mul r 10 get oparams 3
+expect = add 1000000 mul k get oparams 0
+cost = add 101 mul get oparams 1 mul k k
+if gt mul expect bt mul be cost
+best = k
+be = expect
+bt = cost
+end
+end
+end
+end
+ret best
+end
+fn trialcase remain ulong to void
+put oparams 2 remain
+check eq sbegin 0 0
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 remain get oparams 3 7 2 0 0
+check eq get decision 0 oracle
+check le get decision 1 remain
+check le get decision 2 32000000
+scancel
+end
+fn sweep to void
+fixture
+put lens 0 0
+put lens 1 1
+put lens 2 2
+put lens 3 4
+put lens 4 8
+put lens 5 16
+put lens 6 31
+for p ulong 5
+put oparams 0 mul p 250000
+for i ulong 31
+put sprior i get oparams 0
+end
+for curve ulong 8
+put oparams 1 curve
+for r ulong 7
+put srows add mul r 11 4 add 100 mul curve mul get lens r get lens r
+end
+for m ulong 2
+put oparams 3 add 130 mul m 30
+for i ulong 32
+trialcase add i 1
+end
+end
+end
+end
+end
+fn main to int
+sweep
+ret finish
+end

@@ -1,0 +1,52 @@
+note Physical empty-channel lifecycle. No command packets or GPU kernels submitted.
+global diag uchar 24
+text ok "NATIVE_DEVICE_CHANNEL_PASS\n"
+text bad "NATIVE_DEVICE_CHANNEL_FAIL\n"
+fn pack off ulong v long to void
+for i ulong 8
+put diag add off i uchar and shr v mul i 8 255
+end
+end
+fn ck yes bool to void
+if not yes
+pack 0 long get nvstage 0
+pack 8 get nverr 0
+closed = nvstop
+pack 16 long get nvfault 0
+r = write 2 bad 0 len bad
+r = write 1 diag 0 len diag
+exit int 80
+end
+end
+fn main to int
+for attempt ulong 3
+ck nvfull
+ck nvchan
+ck not nvchan
+ck eq get nverr 0 neg long 16
+ck eq get nvsched 0 1
+ck eq get nvchreg 0 1
+ck eq get nvput 0 0
+ck eq mapget get nvfifo 0 8332 4 0
+ck lt mapaddr get nvfifo 0 1099511627776
+ck not nvdrop get nvfifo 0
+ck eq get nverr 0 neg long 16
+put nverr 0 0
+ck nvstop
+ck nvstop
+for i ulong len nvmflag
+ck eq get nvmflag i 0
+end
+for i ulong len nvobj
+ck eq get nvobj i 0
+end
+for i ulong len nvfd
+ck eq get nvfd i neg int 1
+end
+ck eq get nvbar 0 0
+ck eq get nvchva 0 0
+ck eq get nvfault 0 0
+end
+ck eq write 1 ok 0 len ok long len ok
+ret 0
+end

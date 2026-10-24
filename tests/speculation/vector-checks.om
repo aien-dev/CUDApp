@@ -1,0 +1,66 @@
+note Shared whole-vector checks, chunked below the seeded dynamic-loop limit.
+fn aval i ulong salt ulong to ulong
+ret and add mul i 2654435761 salt 4294967295
+end
+fn bval i ulong salt ulong to ulong
+ret and xor add mul i 2246822519 3266489917 salt 4294967295
+end
+fn expect i ulong salt ulong to ulong
+ret and add aval i salt bval i salt 4294967295
+end
+fn putvec i ulong salt ulong to void
+r = mapset get gbmem 5 mul i 4 4 aval i salt
+r = mapset get gbmem 6 mul i 4 4 bval i salt
+r = mapset get gbmem 7 mul i 4 4 xor expect i salt 4294967295
+end
+fn match i ulong salt ulong to bool
+ret eq mapget get gbmem 7 mul i 4 4 expect i salt
+end
+fn prepare n uint salt ulong to void
+base = ulong 0
+while lt base ulong n
+count = sub ulong n base
+if gt count 65536
+count = ulong 65536
+end
+for j ulong count
+putvec add base j salt
+end
+base = add base count
+end
+tail = sub get gbmax 0 n
+if gt tail 64
+tail = uint 64
+end
+for i ulong ulong tail
+r = mapset get gbmem 7 mul add ulong n i 4 4 3735928559
+end
+end
+fn verify n uint salt ulong wrong bool to void
+mism = ulong 0
+base = ulong 0
+while lt base ulong n
+count = sub ulong n base
+if gt count 65536
+count = ulong 65536
+end
+for j ulong count
+if not match add base j salt
+mism = add mism 1
+end
+end
+base = add base count
+end
+if wrong
+ck gt mism 0
+else
+ck eq mism 0
+end
+tail = sub get gbmax 0 n
+if gt tail 64
+tail = uint 64
+end
+for i ulong ulong tail
+ck eq mapget get gbmem 7 mul add ulong n i 4 4 3735928559
+end
+end

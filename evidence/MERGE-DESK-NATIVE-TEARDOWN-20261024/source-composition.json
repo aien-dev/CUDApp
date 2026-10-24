@@ -1,0 +1,22 @@
+{
+  "result": "PASS",
+  "scope": "Source composition and OS-effect isolation guard only; no native compile/execution",
+  "source": "ff5b4f9f1b13cffff2669e8207fe38cb5831366f",
+  "base": "5e037c7e3d0226abadaa10af9d44bc6339109b3f",
+  "rows": [
+    {
+      "arm": "before",
+      "unit_sha256": "10a2c7238aba855c0b44edcf12b582f4d4aaed1986609791ab3d1417c6a91ee3",
+      "compose_exit": 0,
+      "effect_guard_exit": 0,
+      "unbound_device_mutant_exit": 1
+    },
+    {
+      "arm": "after",
+      "unit_sha256": "7f14d32c61a0c18c449a0b949441ceb8d6287d6b1e00c5a17eb21a286406ed5f",
+      "compose_exit": 0,
+      "effect_guard_exit": 0,
+      "unbound_device_mutant_exit": 1
+    }
+  ]
+}
