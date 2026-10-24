@@ -1,0 +1,25 @@
+AIEN Sovereign Ecosystem (AienOS / Omega / CUDA++ / INTERPLANE)
+Copyright 2024-2026 Drake Stapleton and AIEN Contributors (https://github.com/aien-dev)
+
+This product includes software developed as part of the AIEN Sovereign
+Ecosystem (https://www.aienos.com).
+
+The Omega language (omega-mv), CUDA++ GPU toolchain (CUDApp), Aienux kernel,
+INTERPLANE protocol, and FORGE realization layer (physics-mv) are foundational
+components designed and architected by Drake Stapleton.
+
+TRADEMARK NOTICE:
+Pursuant to Section 6 of the Apache License, Version 2.0, this license does not
+grant permission to use the trade names, trademarks, service marks, or product
+names of the Licensor. "AIEN", "AienOS", "Aienux", "Omega", "CUDA++", "CUDApp",
+"INTERPLANE", and "FORGE" are trademarks of Drake Stapleton. Any derivative
+works or redistributions modified from the canonical upstream repositories
+(https://github.com/aien-dev) may not be branded or marketed as official
+"AienOS Verified" or "Omega" distributions without express written permission.
+
+THIRD-PARTY COMPONENTS:
+The interface headers under third_party/nvidia-open-580.173.02/ retain NVIDIA's
+MIT notices and COPYING, and are not relicensed by this project. See
+THIRD_PARTY.md. Earlier first-party grants (MIT, and AGPL-3.0-only for the
+revisions published under it) remain valid for the revisions they covered; this
+notice does not revoke them.
