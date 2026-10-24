@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "source_commit": "0cf8cd7d5825f89955bce2dbde97f817fb18b355",
+  "source_sha256": {
+    "native/nvrm/context.om": "a502e645e22f8e61bcdec6e5f09e81a75edabf2d9968fc00294bc780da73504e",
+    "native/blackwell/vector.om": "011816cae457368289d21e98016db5206ec54b9a0e33944c80fb7cebaa9e7831",
+    "native/blackwell/launch.om": "580fe48ab61d496c5cae1567dcb9b1b895c52f5eba9e2138767bd79c3779cf0b",
+    "tests/speculation/native-kernel-test.om": "20b5d20f1eb3dcf96e4def3ed830007d4daa424973580b3f98f985f390133402",
+    "tests/speculation/native-launch-data.om": "6bf811db7351ceec3e11f6737db1837cbeb38298f04afcacfbfa3b8e5ec734c8",
+    "tests/speculation/vector-checks.om": "e889c195571b48033bcd9c8d9c6a8eeffddf3954265e4038789adb18e57834fa",
+    "tests/speculation/vector-checks-test.om": "3f88a1eacca3bd4cdd6b25ca18ebb7a650b0b559cae394aea05a0da61533a80e"
+  },
+  "compiler_source": "d7390d88d07dbf48cfbb0583070599c350f814d3",
+  "compiler_sha256": "9749f38841a55917d41924a68bce31463ec2339910bddd5e6cbf6ea4420551db",
+  "program_reference": "omega-mv@57f5f425:seed/sm121/vecadd.bin",
+  "host_differential": {
+    "program_sha256": "39f3dfdfc529a75a8274a27900acf4e7382b7f280a211e0412c51609f44b62a1",
+    "program_bytes": 512,
+    "descriptor_words": 2115,
+    "fixtures": 5,
+    "result": "PASS",
+    "oracle_source": "349913f17c083996680c72b32f767b225005155d",
+    "oracle_scope": "Independent C host reference only; never linked into Omega runtime or executed on GPU"
+  },
+  "host_regression": {
+    "result": "VECTOR_CHECKS_HOST_PASS",
+    "sizes": [
+      1,
+      999999,
+      1000000,
+      1000001,
+      1048576
+    ],
+    "unit_sha256": "f3d9dca2d4aafe31002039eb7b6bbeacd665084ca99ace75c6724195d91e0012",
+    "executable_sha256": "49c9ee660f06b9cd9905d9593aac87c0628c2183a99053f19697eb7c5f4e0276"
+  },
+  "physical": {
+    "result": "NATIVE_SM121_VECTOR_PASS",
+    "exit": 0,
+    "admission": "confirmed shared correctness window, explicit user authorization",
+    "unit_sha256": "b3a36ac6455446305ea01f8fb354fc328aafafb00d2dfc921f824a577459e77b",
+    "executable_sha256": "e3da26b0b184df99594f28decb988683a38c3d19d3b4e6e8a189767dbc6d73cb",
+    "raw_trace_sha256": "5da67d795313776b49d56660fa6adb67f29953e566880ba7d229db1cedef6ca7",
+    "failed_syscalls": 0,
+    "correct_sizes": [
+      1,
+      63,
+      64,
+      65,
+      257,
+      4097,
+      65537,
+      1048576
+    ],
+    "wrong_math_size": 4097,
+    "restored_program_size": 4097,
+    "output_check": "every element plus up to64 untouched tail elements",
+    "context_cleanup": "PASS"
+  },
+  "excluded": {
+    "first_attempt_exit": 104,
+    "cause": "CPU dynamic loop limit exceeded; independently reproduced at1000001",
+    "fix": "checker chunking; compiler guard unchanged"
+  },
+  "not_run": [
+    "FP8 arithmetic",
+    "27B inference",
+    "complete speculative-state rollback",
+    "AIENOS integration",
+    "four-arm comparison",
+    "performance measurements"
+  ],
+  "review": "independent final-source review pending"
+}
