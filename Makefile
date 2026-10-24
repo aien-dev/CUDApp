@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # CUDA++ build. Plain make + gcc; no CUDA toolkit, no NVIDIA user-space library.
 #
 #   make            libomega_gpu.a (= libcudapp.a): GPU toolchain + runtime + libraries + driver client
