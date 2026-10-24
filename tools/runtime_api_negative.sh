@@ -31,10 +31,20 @@ control() {
   name=$1; expect=$2; file=$3; expr=$4
   d=$WORK/neg-$name; rm -rf "$d"; mkdir -p "$d/src"; cp "$ROOT"/src/omega_*.h "$d/src/"; cp "$APIMD" "$d/API.md"
   case $file in
-    API.md) sed -i "$expr" "$d/API.md" ;;
-    *) sed -i "$expr" "$d/src/$file" ;;
+    API.md) target=$d/API.md ;;
+    *) target=$d/src/$file ;;
   esac
-  if cmp -s "$ROOT/src/$file" "$d/src/$file" 2>/dev/null && [ "$file" != API.md ]; then echo "NEGATIVE CONTROL $name: BROKEN (the edit changed nothing)"; bad=1; return; fi
+  # POSIX sed has no -i. Generate a private replacement, then verify the mutation
+  # before moving it over the scratch fixture; never edit the real headers/docs.
+  if ! sed -e "$expr" "$target" > "$d/edit.tmp"; then
+    echo "NEGATIVE CONTROL $name: BROKEN (fixture edit failed)"; bad=1; return
+  fi
+  if cmp -s "$target" "$d/edit.tmp"; then
+    echo "NEGATIVE CONTROL $name: BROKEN (the edit changed nothing)"; bad=1; return
+  fi
+  if ! mv "$d/edit.tmp" "$target"; then
+    echo "NEGATIVE CONTROL $name: BROKEN (fixture replacement failed)"; bad=1; return
+  fi
   out=$("$HERE/runtime_api_check.sh" "$MANIFEST" "$d" "$d/work" "$d/API.md" 2>&1); rc=$?
   if [ $rc -ne 0 ] && printf '%s\n' "$out" | grep -qF "$expect"; then echo "NEGATIVE CONTROL $name: FAILED as it must ($expect)"
   else echo "NEGATIVE CONTROL $name: NOT CAUGHT (rc=$rc, wanted \"$expect\")"; printf '%s\n' "$out" | head -5; bad=1; fi
