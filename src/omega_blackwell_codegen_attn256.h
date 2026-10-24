@@ -79,6 +79,11 @@
 #define OMEGA_DATTN256_ARG_OUT_SCALE 0x3dcu /* f32 multiplier on the output */
 #define OMEGA_DATTN256_ARG_QK_SCALE 0x3e0u /* f32 (1/sqrt(256)) * log2(e) */
 #define OMEGA_DATTN256_ARGS_WORDS 25u
+/* L369 multi-token mode (spec.multi = 1) only: */
+#define OMEGA_DATTN256_ARG_XSTRIDE 0x3e4u  /* u32 bytes between token t and t+1 qkv rows */
+#define OMEGA_DATTN256_ARG_OSTRIDE 0x3e8u  /* u32 bytes between output rows (attend) */
+#define OMEGA_DATTN256_ARG_PSTRIDE 0x3ecu  /* u32 bytes between tokens' partial blocks (attend; >= vy * splits * 6192) */
+#define OMEGA_DATTN256_MULTI_ARGS_WORDS 28u
 
 /* shared memory map (bytes) */
 #define OMEGA_DATTN256_SM_Q 0u             /* q'[6][256] f32: 6144 (warps 6, 7 stage k and v at 6144.. 8191: inside SM_S, unused then) */
@@ -98,7 +103,23 @@ typedef struct {
                       * cache rows as the decode step does (same instruction sequence, so the same bits), writes q' as bf16
                       * to ARG_OUT in the attend kernel's A-fragment layout (OMEGA_PATTN256_QF_*), and exits. Mutants 1
                       * and 3 apply; ARG_PART, ARG_CNT, ARG_PER_SPLIT, ARG_SPLITS and ARG_OUT_SCALE are not read. */
+    uint32_t q_heads, kv_heads, q_per_cta; /* Q36 (sc L306): the model shape. 0, 0, 0 = 24, 4, 6 (Qwen3.8-27B, the program
+                      * before these fields existed). Qwen3.6-35B-A3B: 16, 2, 4. The grid is (splits, q_heads / q_per_cta): CTA row cy
+                      * ("virtual head") owns q heads cy*q_per_cta .. +q_per_cta-1 and reads KV head cy / G, G = (q_heads / q_per_cta) /
+                      * kv_heads (1 or 2; with 2 both CTA rows of a KV head write the same new K/V bits to the cache). q_per_cta <= 6
+                      * (warps 6, 7 build k and v). Appended last. */
+    uint32_t multi;  /* L369: 1 = T prompt tokens at positions ARG_POS + t, qkv rows ARG_XSTRIDE bytes apart (per_split must be 256;
+                      * vy a power of two). With prep = 1: grid (T, vy), CTA (t, cy) writes token t's k_new / v_new into the cache
+                      * exactly as prep does and nothing else (no q'). With prep = 0 (attend): grid (splits_max, T * vy), CTA (cx, t *
+                      * vy + cy) is the decode step of token t (splits = pos_t / 256 + 1; CTAs with cx >= splits exit at once) WITHOUT
+                      * the K/V append (the prep launch before it wrote every token's rows; a split never reads past its token);
+                      * out row t at ARG_OUT + t * ARG_OSTRIDE, partials at ARG_PART + t * ARG_PSTRIDE, counters at ARG_CNT + t * vy * 4.
+                      * Every value is the decode launch's, bit for bit (same instructions, same combine order). */
 } OmegaDecodeAttn256Spec;
+
+/* The shape a spec selects: 0 ok, -1 unsupported. */
+typedef struct { uint32_t qh, kvh, h, vy, g, qkv_words, out_words; } OmegaDattn256Shape;
+int omega_dattn256_shape(const OmegaDecodeAttn256Spec *spec, OmegaDattn256Shape *s);
 
 /* Builds the IR program (register-allocated) into *prog. 0 ok, -1 refused (depth 0 or > 4, mutant outside 0..5,
  * or the program outgrew BW_MAX_IR_INSNS / BW_MAX_VREGS). */

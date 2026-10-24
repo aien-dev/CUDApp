@@ -94,6 +94,27 @@ void omega_gpu_fp8gemm_set_cta_budget(uint32_t ctas_per_segment);
 /* TEST ONLY: deliberately wrong kernels 1 (scale dropped), 2 (scale pointer never advances), 3 (neighbour row's x). */
 void omega_gpu_fp8gemm_test_set_mutant(int mutant);
 
+/* ---- the stroke's record path (L312 v2: one weight read per layer for every conversation on the chip) ----
+ * omega_gpu_fp8gemm_record appends ONE launch of the grouped GEMM to cl; every buffer is the caller's, in device memory:
+ *   seg_va: segs entries of OMEGA_GEMM_SEG_BYTES {w_va, s_va, row0, cnt} (omega_gpu_fp8_tensor_entry, or a kernel on
+ *           the chip writes them); a segment with cnt 0 is skipped by its CTAs (the group kernel leaves trailing
+ *           segments empty when fewer experts are distinct);
+ *   xp_va:  x' rows (k f32 each, permuted and * 2^64, omega_fp8gemm_permute_x) followed by mt rows of padding the
+ *           kernel may read; y_va: rows * n f32;
+ *   xmap_va, ymap_va: both 0 (x' row and y row of sorted row p are p) or both u32 tables of rows + mt entries:
+ *           x' row XMAP[p] feeds sorted row p and its output lands in y row YMAP[p] (padding entries 0). With maps the
+ *           kernel runs at mt <= 4 (rowmap at mt 8 does not fit the register file); mt 0 = the API's choice for segs.
+ *   cta_budget 0 = the API's choice (omega_gpu_fp8gemm_cta_budget_for). rows: the y rows (num_elements), <= 1024.
+ * The caller holds omega_gpu_session_lock(). Nothing is staged, poisoned or read back (the list's per-launch semaphore
+ * and the caller's end-of-token checks replace the poison check). A kernel cache miss that would evict a resident kernel
+ * is refused (TOO_LARGE): call omega_gpu_fp8gemm_prepare_shape for the shape first (segs, mt, rowmap as recorded). */
+struct OmegaGpuCmdList;
+int omega_gpu_fp8gemm_record(struct OmegaGpuCmdList *cl, const OmegaGpuFp8Tensor *t, uint32_t rows, uint32_t segs, uint64_t seg_va,
+                             uint64_t xp_va, uint64_t y_va, uint64_t xmap_va, uint64_t ymap_va, uint32_t mt, uint32_t cta_budget,
+                             OmegaGpuFp8GemmInfo *info);
+int omega_gpu_fp8gemm_prepare_shape(uint32_t k, uint32_t segs, uint32_t mt, int rowmap);
+uint32_t omega_gpu_fp8gemm_cta_budget_for(uint32_t segs);
+
 /* host helper: the permuted, 2^64-scaled x' row the kernel reads (k values in, k out) */
 void omega_fp8gemm_permute_x(const float *x, uint32_t k, uint32_t lane_bytes, float *out);
 

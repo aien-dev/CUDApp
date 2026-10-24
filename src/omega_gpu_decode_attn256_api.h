@@ -64,6 +64,11 @@ typedef struct {
 } OmegaGpuDecodeAttn256Info;
 
 int omega_gpu_decode_attn256_cache_alloc(uint32_t layers, uint32_t max_pos, double rope_theta, uint32_t rotary_dim, OmegaGpuDecodeAttn256Cache **out);
+/* Q36 (sc L306): the same for another model shape (OmegaDecodeAttn256Spec.q_heads / kv_heads / q_per_cta; 0, 0, 0 = the 27B,
+ * the plain alloc). Qwen3.6-35B-A3B: 16, 2, 4. qkv rows are (q_heads + 2 kv_heads) * 256 f32, out q_heads * 256; the cache has
+ * kv_heads planes; partials and split counters one per CTA row (q_heads / q_per_cta <= 16). */
+int omega_gpu_decode_attn256_cache_alloc_shape(uint32_t layers, uint32_t max_pos, double rope_theta, uint32_t rotary_dim, uint32_t q_heads,
+                                               uint32_t kv_heads, uint32_t q_per_cta, OmegaGpuDecodeAttn256Cache **out);
 void omega_gpu_decode_attn256_cache_free(OmegaGpuDecodeAttn256Cache *c);
 int omega_gpu_decode_attn256_set_norms(OmegaGpuDecodeAttn256Cache *c, uint32_t layer, const float *q_norm, const float *k_norm);
 int omega_gpu_decode_attn256(OmegaGpuDecodeAttn256Cache *c, uint32_t layer, uint32_t pos, const float *qkv, float eps,
@@ -76,6 +81,15 @@ int omega_gpu_decode_attn256_record(struct OmegaGpuCmdList *cl, OmegaGpuDecodeAt
                                     float eps, float out_scale, uint64_t out_va);
 /* Caller holds the lock, after the list ran: OK when the four split counters are zero, else CHIP_FAIL. */
 int omega_gpu_decode_attn256_counters_check(OmegaGpuDecodeAttn256Cache *c);
+/* L369 multi-token prompt attention: tokens prompt tokens of one conversation at positions pos0 .. pos0 + tokens - 1 (qkv rows
+ * xstride bytes apart, outputs ostride bytes apart), every output bit-identical to `tokens` decode records in order. Records
+ * one prep launch (every token's K/V rows, the decode step's own instructions) and the attend launches (grid (splits, n * vy),
+ * groups of n tokens whose partials fit a shared 64 MiB buffer). per_split must be the default 256. multi_prepare builds the
+ * two kernels and the buffer (call before recording, outside the record lock). TEST: set_multi_mutant(1) drops the prep launch. */
+int omega_gpu_decode_attn256_multi_prepare(OmegaGpuDecodeAttn256Cache *c);
+int omega_gpu_decode_attn256_multi_record(struct OmegaGpuCmdList *cl, OmegaGpuDecodeAttn256Cache *c, uint32_t layer, uint32_t pos0, uint32_t tokens,
+                                          uint64_t qkv_va, uint32_t xstride, float eps, float out_scale, uint64_t out_va, uint32_t ostride);
+void omega_gpu_decode_attn256_test_set_multi_mutant(int mutant);
 int omega_gpu_decode_attn256_cache_write(OmegaGpuDecodeAttn256Cache *c, uint32_t layer, uint32_t kv_head, uint32_t pos, uint32_t count,
                                          const uint16_t *k_bf16, const uint16_t *v_bf16); /* count rows from pos, one sync */
 int omega_gpu_decode_attn256_cache_read(OmegaGpuDecodeAttn256Cache *c, uint32_t layer, uint32_t kv_head, uint32_t pos,
@@ -88,6 +102,8 @@ typedef struct {
     uint64_t rope_va;           /* f32 [max_pos][cos 128 | sin 128] */
     uint64_t q_norm_va, k_norm_va; /* f32 [256] each for `layer` */
     uint64_t part_va, cnt_va;   /* the cross-split partials and counters (prefill may reuse them) */
+    uint32_t q_heads, kv_heads, q_per_cta; /* the cache's head shape, resolved (24 / 4 / 6 for the 27B) */
+    uint32_t qkv_words, out_words;         /* f32 per token row of the q|k|v input and of the output */
 } OmegaGpuDecodeAttn256CacheView;
 int omega_gpu_decode_attn256_cache_view(const OmegaGpuDecodeAttn256Cache *c, uint32_t layer, OmegaGpuDecodeAttn256CacheView *out);
 

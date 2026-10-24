@@ -155,7 +155,17 @@ static void consume(Em *e, unsigned sb) { e->pending |= e->held & (1u << sb); e-
 #define SM_V 8192u         /* V block, [np 16][lane 32][16 B]: b0, b1 of dim tiles 2np and 2np + 1 */
 static const uint32_t NEG_BIG = 0xF149F2CAu; /* -1e30f */
 
-int omega_pattn256_spec_ok(const OmegaPrefillAttn256Spec *s) { return s && s->mutant >= 0 && s->mutant <= 2; }
+int omega_pattn256_shape(const OmegaPrefillAttn256Spec *spec, OmegaPattn256Shape *s) {
+    const uint32_t qh = spec->q_heads ? spec->q_heads : 24u, kvh = spec->kv_heads ? spec->kv_heads : 4u;
+    if (kvh == 0 || qh % kvh || qh / kvh > 8u) return -1;
+    s->qh = qh; s->kvh = kvh; s->group = qh / kvh; s->out_words = qh * 256u; s->qf_pair_bytes = qh * 1024u;
+    return 0;
+}
+
+int omega_pattn256_spec_ok(const OmegaPrefillAttn256Spec *s) {
+    OmegaPattn256Shape sh;
+    return s && s->mutant >= 0 && s->mutant <= 2 && omega_pattn256_shape(s, &sh) == 0;
+}
 
 int omega_blackwell_codegen_prefill_attn256_prog(const OmegaPrefillAttn256Spec *spec, BlackwellIRProgram *prog) {
     if (!omega_pattn256_spec_ok(spec) || !prog) return -1;
@@ -163,6 +173,8 @@ int omega_blackwell_codegen_prefill_attn256_prog(const OmegaPrefillAttn256Spec *
     if (omega_bw_ir_set_gpr_limit(prog, BW_PHYS_GPR_HW_LIMIT) != 0) return -1;
     Em em; memset(&em, 0, sizeof em); em.p = prog; Em *e = &em;
     const int MUT = spec->mutant;
+    OmegaPattn256Shape SH;
+    if (omega_pattn256_shape(spec, &SH) != 0) return -1;
 
     /* ---- arguments and identities ---- */
     int udesc = UV64(e);
@@ -194,10 +206,10 @@ int omega_blackwell_codegen_prefill_attn256_prog(const OmegaPrefillAttn256Spec *
     {
         int g = V(e), hg = V(e), tp = V(e), tpm = V(e), c5 = V(e), ad64 = V64(e); if (e->err) return -1;
         shr(e, g, lane, 2);
-        movi(e, R(c5), 5u);
-        imadi(e, R(t1), R(g), 0xffffffffu, c5);          /* 5 - g */
-        shr(e, t2, t1, 31);                              /* 1 when g > 5 */
-        imadr(e, hg, t2, t1, g);                         /* min(g, 5) */
+        movi(e, R(c5), SH.group - 1u);
+        imadi(e, R(t1), R(g), 0xffffffffu, c5);          /* group-1 - g */
+        shr(e, t2, t1, 31);                              /* 1 when g > group-1 */
+        imadr(e, hg, t2, t1, g);                         /* min(g, group-1) */
         shr(e, t1, warp, 1);
         imadi(e, R(tokA), R(t1), 2u, cxw);               /* the tile's first chunk token */
         shr(e, tp, tokA, 1);
@@ -205,7 +217,7 @@ int omega_blackwell_codegen_prefill_attn256_prog(const OmegaPrefillAttn256Spec *
         imadi(e, R(tpm), R(one), 0xffffffffu, mc); shr(e, tpm, tpm, 1);
         imadi(e, R(t1), R(tp), 0xffffffffu, tpm);        /* tpm - tp */
         shr(e, t2, t1, 31); imadr(e, tp, t2, t1, tp);
-        imadi(e, R(t1), R(tp), 4u, cy); imadi(e, R(t1), R(t1), 6u, hg); imadi(e, R(t1), R(t1), 1024u, NOREG);
+        imadi(e, R(t1), R(tp), SH.kvh, cy); imadi(e, R(t1), R(t1), SH.group, hg); imadi(e, R(t1), R(t1), 1024u, NOREG);
         andi(e, R(t2), R(lane), 3u); imadi(e, R(t1), R(t2), 16u, t1);
         imadw(e, ad64, t1, 1u, pqf);
         for (unsigned s = 0; s < 16; s++) ldg_wide(e, BW_IR_LDG_E_128, q[s], ad64, s * 64u, udesc, s == 0);
@@ -343,12 +355,12 @@ int omega_blackwell_codegen_prefill_attn256_prog(const OmegaPrefillAttn256Spec *
         mufu(e, BW_IR_MUFU_RCP, R(lA), R(lA), 1); mufu(e, BW_IR_MUFU_RCP, R(lB), R(lB), 0);
         fmul(e, R(lA), R(lA), R(osc)); fmul(e, R(lB), R(lB), R(osc));
         for (unsigned i = 0; i < 16; i++) for (unsigned k = 0; k < 4; k++) fmul(e, S(o[i], k), S(o[i], k), R(k < 2 ? lA : lB));
-        /* out + ((etok*24 + cy*6 + g)*256 + (warp&1)*128 + 2t)*4 */
+        /* out + ((etok*qh + cy*group + g)*256 + (warp&1)*128 + 2t)*4 */
         shr(e, g, elane, 2); andi(e, R(tq), R(elane), 3u);
-        imadi(e, R(t1), R(etok), 24u, NOREG); imadi(e, R(t1), R(ecy), 6u, t1); iadd(e, t1, t1, g); imadi(e, R(t1), R(t1), 1024u, NOREG);
+        imadi(e, R(t1), R(etok), SH.qh, NOREG); imadi(e, R(t1), R(ecy), SH.group, t1); iadd(e, t1, t1, g); imadi(e, R(t1), R(t1), 1024u, NOREG);
         andi(e, R(t2), R(ewarp), 1u); imadi(e, R(t1), R(t2), 512u, t1); imadi(e, R(t1), R(tq), 8u, t1);
         imadw(e, po, t1, 1u, pout);
-        movi(e, R(c6), 6u);
+        movi(e, R(c6), SH.group);
         isetp_ge_u32(e, g, c6);
         Region rg = region_skip_if_p0(e);
         for (unsigned row = 0; row < 2; row++) {
@@ -356,7 +368,7 @@ int omega_blackwell_codegen_prefill_attn256_prog(const OmegaPrefillAttn256Spec *
             isetp_ge_u32(e, t1, emc);
             const int b = bra_if_p0_fwd(e);
             for (unsigned i = 0; i < 16; i++) {
-                const uint32_t off = row * OMEGA_PATTN256_OUT_WORDS * 4u + i * 32u;
+                const uint32_t off = row * SH.out_words * 4u + i * 32u;
                 stg(e, po, off, S(o[i], 2 * row), udesc); stg(e, po, off + 4u, S(o[i], 2 * row + 1), udesc);
             }
             patch_bra(e, b, here(e));

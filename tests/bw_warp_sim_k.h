@@ -58,6 +58,7 @@
  * The simulator runs CTAs one after another, so an atomic counter sees every earlier CTA's add. */
 
 #include "omega_blackwell_codegen.h"
+#include "omega_blackwell_codegen_tc.h"
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -106,6 +107,7 @@ typedef struct {
     WsRange ranges[WS_MAX_RANGES]; int nranges; /* when > 0, every global access must fall in one */
     int order;                /* 0 = lowest pc first, 1 = highest pc first */
     int trace;                /* print every issue of warp 0 of CTA (0,0) */
+    uint64_t step_budget;     /* scheduling steps per warp before "step budget" (0 = 2e9); tests of a dropped loop guard set it low */
     /* results */
     int err; int err_pc; char msg[200];
     uint64_t warp_issues;     /* fragment-instruction issues (the chip's cost unit for divergence) */
@@ -129,6 +131,7 @@ static void ws_wr64(WsLane *l, int v, uint64_t x, const BlackwellIRProgram *p) {
 static uint32_t ws_rds(const WsLane *l, int v, unsigned sub, const BlackwellIRProgram *p) { if (v < 0) return 0; int ph = p->regalloc.vreg_to_phys[v]; return ph < 0 ? 0 : l->r[(ph + sub) & 0xff]; }
 static void ws_wrs(WsLane *l, int v, unsigned sub, uint32_t x, const BlackwellIRProgram *p) { if (v < 0) return; int ph = p->regalloc.vreg_to_phys[v]; if (ph >= 0) l->r[(ph + sub) & 0xff] = x; }
 static float ws_u2f(uint32_t u) { float f; memcpy(&f, &u, 4); return f; }
+static uint32_t ws_k_bf16_rn(uint32_t u) { if ((u & 0x7fffffffu) > 0x7f800000u) return 0x7fc0u; return (u + 0x7fffu + ((u >> 16) & 1u)) >> 16; } /* f32 bits -> bf16 bits, round to nearest even (as bw_warp_sim_tc.h) */
 static uint32_t ws_f2u(float f) { uint32_t u; memcpy(&u, &f, 4); return u; }
 static uint32_t ws_lut3(uint32_t lut, uint32_t a, uint32_t b, uint32_t c) {
     uint32_t r = 0;
@@ -182,7 +185,9 @@ static void ws_lane_exec(WsSim *s, WsLane *l, const BlackwellIRInsn *in, int pc,
     case BW_IR_FMUL: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_u2f(a) * ws_u2f(b)), p); break;
     case BW_IR_I2FP: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u((float)(int32_t)a), p); break; /* I2FP.F32.S32, round to nearest */
     case BW_IR_FFMA: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fmaf(ws_u2f(a), ws_u2f(b), ws_u2f(c))), p); break;
-    case BW_IR_FMNMX_MAX: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fmaxf(ws_u2f(a), ws_u2f(b))), p); break;
+    case BW_IR_FMNMX_MAX:
+        if (in->imm == OMEGA_TC_MARK_F2FP) { ws_wrs(l, in->dst_vreg, in->dst_subreg, (ws_k_bf16_rn(a) << 16) | ws_k_bf16_rn(b), p); break; } /* F2FP.BF16.F32.PACK_AB placeholder (L313 bf16 state) */
+        ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fmaxf(ws_u2f(a), ws_u2f(b))), p); break;
     case BW_IR_FMNMX_MIN: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fminf(ws_u2f(a), ws_u2f(b))), p); break;
     case BW_IR_MUFU_EX2: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(exp2f(ws_u2f(a))), p); break;
     case BW_IR_MUFU_RCP: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(1.0f / ws_u2f(a)), p); break;
@@ -221,7 +226,7 @@ static int ws_run_warp(WsSim *s, WsWarp *w, uint32_t warp, uint32_t cx, uint32_t
     const uint32_t live_all = 0xffffffffu;
     for (uint64_t guard = 0;; guard++) {
         if (s->err) return -1;
-        if (guard > 2000000000ull) { ws_fail(s, WS_E_STEPS, -1, "step budget"); return -1; }
+        if (guard > (s->step_budget ? s->step_budget : 2000000000ull)) { ws_fail(s, WS_E_STEPS, -1, "step budget"); return -1; }
         int fi = ws_pick(s, w);
         if (fi < 0) {
             /* nothing runnable: parked at the CTA barrier, finished, or lanes waiting at a BSYNC

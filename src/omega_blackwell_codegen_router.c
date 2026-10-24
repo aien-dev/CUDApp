@@ -166,11 +166,30 @@ static const uint32_t C_2P23 = 0x4B000000u;  /* 8388608.0f; also the OR mask tha
 static const uint32_t C_LOG2E = 0x3FB8AA3Bu; /* 1.4426950f */
 static const uint32_t C_INV2048 = 0x3A000000u; /* 1/2048 */
 
+int omega_router_smem(const OmegaRouterSpec *spec, OmegaRouterSmem *m) {
+    const uint32_t ex = spec->experts ? spec->experts : OMEGA_ROUTER_EXPERTS;
+    if ((ex != 128u && ex != 256u) || spec->shared > 1u) return -1;
+    if (ex == OMEGA_ROUTER_EXPERTS && !spec->shared) {
+        m->logit = OMEGA_ROUTER_SM_LOGIT; m->red = OMEGA_ROUTER_SM_RED; m->bc = OMEGA_ROUTER_SM_BC;
+        m->sel = OMEGA_ROUTER_SM_SEL; m->selv = OMEGA_ROUTER_SM_SELV; m->total = OMEGA_ROUTER_SHARED_BYTES;
+        return 0;
+    }
+    m->logit = OMEGA_ROUTER_SM_XN + OMEGA_ROUTER_HIDDEN * 4u;
+    m->red = m->logit + (((ex + spec->shared) * 4u + 15u) & 0xfffffff0u);
+    m->bc = m->red + 128u; m->sel = m->bc + 16u; m->selv = m->sel + 48u; m->total = m->selv + 32u;
+    return 0;
+}
+
 int omega_blackwell_codegen_router_prog(const OmegaRouterSpec *spec, BlackwellIRProgram *prog) {
     if (!spec || !prog) return -1;
     const uint32_t W = spec->warps, D = spec->depth;
     const int MUT = spec->mutant;
-    if ((W != 8 && W != 16 && W != 32) || (D != 1 && D != 2 && D != 4 && D != 8) || MUT < 0 || MUT > 4) return -1;
+    OmegaRouterSmem L;
+    const uint32_t XST = spec->xstride, LBST = spec->lbstride; /* ROWS form when set */
+    if ((W != 8 && W != 16 && W != 32) || (D != 1 && D != 2 && D != 4 && D != 8) || MUT < 0 || MUT > 6 || omega_router_smem(spec, &L)) return -1;
+    if ((XST != 0) != (LBST != 0) || (XST && (XST < OMEGA_ROUTER_HIDDEN * 4u || (XST & 15u) || (LBST & 15u))) || (MUT == 6 && !XST)) return -1;
+    const uint32_t EX = spec->experts ? spec->experts : OMEGA_ROUTER_EXPERTS, SHX = spec->shared, EPL = EX / 32u; /* logits per lane */
+    if (MUT == 5 && !SHX) return -1;
     const uint32_t E = 64u / W; /* x values per thread: 8, 4 or 2 */
     omega_bw_ir_init(prog);
     Em em; memset(&em, 0, sizeof em); em.p = prog; Em *e = &em;
@@ -183,6 +202,13 @@ int omega_blackwell_codegen_router_prog(const OmegaRouterSpec *spec, BlackwellIR
     if (e->err) return -1;
     ldcu64(e, udesc, 0x358);
     ldc64(e, px, OMEGA_ROUTER_ARG_X); ldc64(e, pgate, OMEGA_ROUTER_ARG_GATE); ldc64(e, pnorm, OMEGA_ROUTER_ARG_NORM); ldc64(e, pxout, OMEGA_ROUTER_ARG_XOUT);
+    if (XST) { /* ROWS form: this CTA's x row and output buffer */
+        int cy = V(e);
+        if (e->err) return -1;
+        s2r(e, cy, BW_SR_CTAID_Y);
+        if (MUT != 6) imadw(e, px, cy, XST, px);
+        imadw(e, pxout, cy, LBST, pxout);
+    }
     ldc32(e, eps, OMEGA_ROUTER_ARG_EPS); ldc32(e, oscale, OMEGA_ROUTER_ARG_OUT_SCALE);
     s2r(e, tid, BW_SR_TID_X);
     movi(e, one, 1); movrz(e, R(zero)); movi(e, c2p23, C_2P23); movi(e, cneg, NEG_BIG);
@@ -209,13 +235,13 @@ int omega_blackwell_codegen_router_prog(const OmegaRouterSpec *spec, BlackwellIR
     fmul(e, R(sq), xe[0], xe[0]);
     for (unsigned i = 1; i < E; i++) ffma(e, R(sq), xe[i], xe[i], R(sq));
     warp_sum(e, sq, ts);
-    imadi(e, R(a0), R(warp), 4u, NOREG); imadi(e, R(a0), R(one), OMEGA_ROUTER_SM_RED, a0);
+    imadi(e, R(a0), R(warp), 4u, NOREG); imadi(e, R(a0), R(one), L.red, a0);
     lane0_sts(e, lane, one, a0, R(sq));
     bar_sync(e);
     /* every thread sums the W partials (quads of 4) */
     {
         int rq0 = V128(e), rq1 = V128(e);
-        movi(e, a0, OMEGA_ROUTER_SM_RED);
+        movi(e, a0, L.red);
         for (uint32_t q = 0; q < W / 4; q += 2) {
             lds128(e, rq0, a0, q * 16u, 1);
             if (q + 1 < W / 4) lds128(e, rq1, a0, (q + 1) * 16u, 0);
@@ -248,7 +274,7 @@ int omega_blackwell_codegen_router_prog(const OmegaRouterSpec *spec, BlackwellIR
     for (unsigned i = 0; i < 4; i++) acc[i] = V(e);
     for (uint32_t d = 0; d < D; d++) ld[d] = V128(e);
     if (e->err) return -1;
-    movi(e, c128, OMEGA_ROUTER_EXPERTS);
+    movi(e, c128, EX + SHX);                      /* rows: the experts, then the shared gate */
     mov(e, R(ex), R(warp));
     imadi(e, R(lane16), R(lane), 16u, NOREG);
     imadi(e, R(lane32), R(lane), 32u, NOREG);
@@ -276,7 +302,7 @@ int omega_blackwell_codegen_router_prog(const OmegaRouterSpec *spec, BlackwellIR
     }
     fadd(e, R(acc[0]), R(acc[0]), R(acc[1])); fadd(e, R(acc[2]), R(acc[2]), R(acc[3])); fadd(e, R(acc[0]), R(acc[0]), R(acc[2]));
     warp_sum(e, acc[0], ts);
-    imadi(e, R(la), R(ex), 4u, NOREG); imadi(e, R(la), R(one), OMEGA_ROUTER_SM_LOGIT, la);
+    imadi(e, R(la), R(ex), 4u, NOREG); imadi(e, R(la), R(one), L.logit, la);
     lane0_sts(e, lane, one, la, R(acc[0]));
     imadi(e, R(ex), R(one), W, ex);
     bra(e, L_e);
@@ -285,64 +311,70 @@ int omega_blackwell_codegen_router_prog(const OmegaRouterSpec *spec, BlackwellIR
     bar_sync(e);
 
     /* ---- phase 3: top-8 (every warp, uniform barriers) ---- */
-    int vq = V128(e), lane4 = V(e), ej[4], fj[4], lm = V(e), mr = V(e), lc = V(e), cj = V(e), ne = V(e), ci = V(e), cm = V(e);
+    int vq = V128(e), vq2 = EPL > 4u ? V128(e) : -1, lane4 = V(e), ej[8], fj[8], lm = V(e), mr = V(e), lc = V(e), cj = V(e), ne = V(e), ci = V(e), cm = V(e);
     int bc = V(e), bc4 = V(e), r = V(e), c8 = V(e), sa = V(e);
-    for (unsigned j = 0; j < 4; j++) { ej[j] = V(e); fj[j] = V(e); }
+    for (unsigned j = 0; j < EPL; j++) { ej[j] = V(e); fj[j] = V(e); }
     if (e->err) return -1;
-    lds128(e, vq, lane16, OMEGA_ROUTER_SM_LOGIT, 1);
-    imadi(e, R(lane4), R(lane), 4u, NOREG);
-    for (unsigned j = 0; j < 4; j++) {
+#define VQ(j) ((j) < 4u ? S(vq, (j)) : S(vq2, (j) - 4u))
+    /* lane L holds logits EPL*L .. EPL*L + EPL-1 (the shared gate row, index EX, is never loaded here) */
+    if (EPL == 4u) lds128(e, vq, lane16, L.logit, 1);
+    else { lds128(e, vq, lane32, L.logit, 1); lds128(e, vq2, lane32, L.logit + 16u, 0); }
+    imadi(e, R(lane4), R(lane), EPL, NOREG);
+    for (unsigned j = 0; j < EPL; j++) {
         imadi(e, R(ej[j]), R(one), j, lane4);
         lop3(e, fj[j], ej[j], c2p23, NOREG, 0xfcu);         /* bits 0x4B000000 | ej = the float 2^23 + ej: monotonic in ej, never zero */
     }
-    movi(e, bc, OMEGA_ROUTER_SM_BC); movi(e, bc4, OMEGA_ROUTER_SM_BC + 4u);
+    movi(e, bc, L.bc); movi(e, bc4, L.bc + 4u);
     movrz(e, R(r)); movi(e, c8, OMEGA_ROUTER_TOPK);
     const int L_r = here(e);
     loop_begin(e);
     isetp_ge_u32(e, r, c8);
     const int bra_rdone = bra_if_p0_fwd(e);
     /* the round's max */
-    fmaxx(e, R(lm), S(vq, 0), S(vq, 1)); fmaxx(e, R(lm), R(lm), S(vq, 2)); fmaxx(e, R(lm), R(lm), S(vq, 3));
+    fmaxx(e, R(lm), VQ(0u), VQ(1u));
+    for (unsigned j = 2; j < EPL; j++) fmaxx(e, R(lm), R(lm), VQ(j));
     warp_max(e, lm, ts);
     lane0_sts(e, lane, one, bc, R(lm));
     bar_sync(e);
     lds32(e, R(mr), bc, 1);
     /* lowest index holding it: candidate = 2^23 + ej when equal, else lifted by 0x30000000 (about 6e35, still positive) */
-    for (unsigned j = 0; j < 4; j++) {
-        ne_of(e, ne, S(vq, j), R(mr), t1, t2);
+    for (unsigned j = 0; j < EPL; j++) {
+        ne_of(e, ne, VQ(j), R(mr), t1, t2);
         imadi(e, R(cj), R(ne), 0x30000000u, fj[j]);
         if (j == 0) mov(e, R(lc), R(cj)); else fminn(e, R(lc), R(lc), R(cj));
     }
     warp_min(e, lc, ts);
-    imadi(e, R(sa), R(r), 4u, NOREG); imadi(e, R(sa), R(one), OMEGA_ROUTER_SM_SELV, sa);
+    imadi(e, R(sa), R(r), 4u, NOREG); imadi(e, R(sa), R(one), L.selv, sa);
     isetp_ge_u32(e, lane, one);
     { Region rg = region_skip_if_p0(e); sts32(e, bc4, R(lc)); sts32(e, sa, R(mr)); region_end(e, rg); }
     bar_sync(e);
     lds32(e, R(ci), bc4, 1);
-    andi(e, R(ci), R(ci), 0x7fu);                         /* the chosen expert id: the low bits of 2^23 + ej */
-    imadi(e, R(sa), R(r), 4u, NOREG); imadi(e, R(sa), R(one), OMEGA_ROUTER_SM_SEL, sa);
+    andi(e, R(ci), R(ci), EX - 1u);                       /* the chosen expert id: the low bits of 2^23 + ej */
+    imadi(e, R(sa), R(r), 4u, NOREG); imadi(e, R(sa), R(one), L.sel, sa);
     lane0_sts(e, lane, one, sa, R(ci));
     if (MUT == 2) xorr(e, R(cm), R(ci), R(one)); else mov(e, R(cm), R(ci));
     /* mask the winner: v = min(v, ne ? +1e30 : -1e30) */
-    for (unsigned j = 0; j < 4; j++) {
+    for (unsigned j = 0; j < EPL; j++) {
         ne_of(e, ne, R(ej[j]), R(cm), t1, t2);
         imadi(e, R(cj), R(ne), 0x80000000u, cneg);
-        fminn(e, S(vq, j), S(vq, j), R(cj));
+        fminn(e, VQ(j), VQ(j), R(cj));
     }
     imadi(e, R(r), R(one), 1u, r);
     bra(e, L_r);
     loop_end(e);
     patch_bra(e, bra_rdone, here(e));
+    if (SHX) { movi(e, t1, EX); movi(e, sa, L.sel + 32u); lane0_sts(e, lane, one, sa, R(t1)); } /* slot 8: the shared expert */
     bar_sync(e);
     /* full 128-way softmax sum (den when norm_topk_prob is off): original logits from shared, l_0 = selv[0] */
     int full = V(e), m0 = V(e), cl2e = V(e);
     if (e->err) return -1;
     movi(e, cl2e, C_LOG2E);
-    lds128(e, vq, lane16, OMEGA_ROUTER_SM_LOGIT, 1);
-    movi(e, sa, OMEGA_ROUTER_SM_SELV);
+    if (EPL == 4u) lds128(e, vq, lane16, L.logit, 1);
+    else { lds128(e, vq, lane32, L.logit, 1); lds128(e, vq2, lane32, L.logit + 16u, 0); }
+    movi(e, sa, L.selv);
     lds32(e, R(m0), sa, 0);
-    for (unsigned j = 0; j < 4; j++) {
-        fsub(e, R(ts), S(vq, j), R(m0)); fmul(e, R(ts), R(ts), R(cl2e)); mufu(e, BW_IR_MUFU_EX2, R(ts), R(ts));
+    for (unsigned j = 0; j < EPL; j++) {
+        fsub(e, R(ts), VQ(j), R(m0)); fmul(e, R(ts), R(ts), R(cl2e)); mufu(e, BW_IR_MUFU_EX2, R(ts), R(ts));
         if (j == 0) mov(e, R(full), R(ts)); else fadd(e, R(full), R(full), R(ts));
     }
     warp_sum(e, full, ts);
@@ -360,8 +392,15 @@ int omega_blackwell_codegen_router_prog(const OmegaRouterSpec *spec, BlackwellIR
     ldc64(e, pids, OMEGA_ROUTER_ARG_IDS); ldc64(e, pwts, OMEGA_ROUTER_ARG_WTS);
     ldc64(e, pdgu, OMEGA_ROUTER_ARG_DIR_GU); ldc64(e, pddn, OMEGA_ROUTER_ARG_DIR_DN);
     ldc64(e, ptgu, OMEGA_ROUTER_ARG_TAB_GU); ldc64(e, ptdn, OMEGA_ROUTER_ARG_TAB_DN);
+    if (XST) { /* ROWS form: the outputs of this CTA's row (the directories are shared) */
+        int cy = V(e);
+        if (e->err) return -1;
+        s2r(e, cy, BW_SR_CTAID_Y);
+        imadw(e, pids, cy, LBST, pids); imadw(e, pwts, cy, LBST, pwts);
+        imadw(e, ptgu, cy, LBST, ptgu); imadw(e, ptdn, cy, LBST, ptdn);
+    }
     ldc32(e, ntk, OMEGA_ROUTER_ARG_NORM_TOPK);
-    movi(e, sa, OMEGA_ROUTER_SM_SELV);
+    movi(e, sa, L.selv);
     lds128(e, sv0, sa, 0, 1); lds128(e, sv1, sa, 16, 0);
     for (unsigned i = 0; i < 8; i++) {
         Op v = i < 4 ? S(sv0, i) : S(sv1, i - 4);
@@ -380,15 +419,23 @@ int omega_blackwell_codegen_router_prog(const OmegaRouterSpec *spec, BlackwellIR
     {
         Region rg = region_skip_if_p0(e);
         for (unsigned i = 0; i < 8; i++) { imadw(e, wa64, one, i * 4u, pwts); stg(e, BW_IR_STG_E, wa64, R(er[i]), udesc); }
+        if (SHX) {                                    /* slot 8: sigmoid(shared gate) = RCP(1 + EX2(-l * log2 e)) */
+            movi(e, sa, L.logit + EX * 4u); lds32(e, R(ts), sa, 1);
+            movi(e, t1, 0xBFB8AA3Bu); fmul(e, R(ts), R(ts), R(t1)); mufu(e, BW_IR_MUFU_EX2, R(ts), R(ts));
+            movi(e, t1, 0x3f800000u); fadd(e, R(ts), R(ts), R(t1)); mufu(e, BW_IR_MUFU_RCP, R(ts), R(ts));
+            if (MUT == 5) movi(e, ts, 0x3f800000u);
+            imadw(e, wa64, one, 32u, pwts); stg(e, BW_IR_STG_E, wa64, R(ts), udesc);
+        }
         region_end(e, rg);
     }
-    /* lanes 0..7: id_g and the two directory entries of id_g into the two group tables */
+    /* lanes 0..7 (0..8 with the shared slot): id_g and the two directory entries of id_g into the two group tables */
+    if (SHX) movi(e, c8, OMEGA_ROUTER_TOPK + 1u);
     isetp_ge_u32(e, lane, c8);
     {
         Region rg = region_skip_if_p0(e);
         int si = V(e), da = V64(e), q0 = V64(e), q1 = V64(e), ta = V64(e), tb = V64(e);
         if (e->err) return -1;
-        imadi(e, R(sa), R(lane), 4u, NOREG); imadi(e, R(sa), R(one), OMEGA_ROUTER_SM_SEL, sa);
+        imadi(e, R(sa), R(lane), 4u, NOREG); imadi(e, R(sa), R(one), L.sel, sa);
         lds32(e, R(si), sa, 1);
         imadw(e, da, lane, 4u, pids);
         stg(e, BW_IR_STG_E, da, R(si), udesc);

@@ -83,12 +83,39 @@ typedef struct {
     int mutant; /* TEST ONLY. 0 none; 1 no decay (decay = 1); 2 beta = 1; 3 the output gate is z, not silu(z);
                  * 4 the conv tail is not shifted (the next step convolves stale history). */
     int copy;   /* 0: the GDN kernels. OMEGA_GDN_COPY / OMEGA_GDN_ZERO: omega_blackwell_codegen_gdn_copy_prog */
+    uint32_t ratio; /* value heads per key head (16 key heads): 0 = 3 (Qwen3.8-27B, 48 value heads, the program before
+                     * this field existed); 2 = Qwen3.6-35B-A3B (32 value heads, conv 8192). Appended last. */
+    uint32_t state_bf16; /* L313: 1 = the state is stored bf16 (round to nearest even on store, exact widen on load), half the
+                          * bytes; compute stays f32. 0 = f32 (the program before this field existed). Appended last. */
 } OmegaGdnSpec;
+
+/* The shape a spec selects (Q36, sc L306). The 27B constants above are the ratio-3 values. */
+typedef struct {
+    uint32_t r, vh;           /* ratio, value heads (16 r) */
+    uint32_t conv, vdim;      /* conv channels 4096 + 128 vh, value width 128 vh */
+    uint32_t par_scal, par_norm, par_bytes; /* the parameter block: conv taps [conv][4] | {negA, dt_bias} [vh] | norm [128] */
+    uint32_t tail_bytes, state_bytes;       /* per layer */
+    uint32_t post_grid_y;     /* vh / 8 */
+} OmegaGdnShape;
+int omega_gdn_shape(const OmegaGdnSpec *spec, OmegaGdnShape *s); /* 0 ok, -1 unsupported ratio */
 
 /* Builds the register-allocated IR program into *prog. 0 ok, -1 refused. */
 int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog);
 /* Instruction and peak-register counts (host, no device). */
 int omega_gdn_prog_stats(const OmegaGdnSpec *spec, uint32_t *insns, uint32_t *gprs);
+
+/* ---- multi-token decode (L369, 2026-10-21): T decode steps of every head in ONE launch, bit for bit the decode program
+ * T times (omega_blackwell_codegen_gdn.c). Same grid, threads, shared memory and argument block as the decode step plus
+ * the four words below; token t reads qkv + t * xstride, z + t * xstride, ab + t * abstride and writes out + t * ostride
+ * (bytes). Per CTA the state S stays in the 64 registers and the conv tails in registers for the whole loop (one load
+ * before it, one store after it); the per-token arithmetic is the decode step's, instruction for instruction. T >= 1. */
+#define OMEGA_GDN_MULTI_ARG_T 0x3c8u        /* u32 tokens */
+#define OMEGA_GDN_MULTI_ARG_XSTRIDE 0x3ccu  /* u32 bytes between the qkv rows (and the z rows) of consecutive tokens */
+#define OMEGA_GDN_MULTI_ARG_ABSTRIDE 0x3d0u /* u32 bytes between the ab rows */
+#define OMEGA_GDN_MULTI_ARG_OSTRIDE 0x3d4u  /* u32 bytes between the out rows */
+#define OMEGA_GDN_MULTI_ARGS_WORDS 22u
+int omega_blackwell_codegen_gdn_multi_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog);
+int omega_gdn_multi_prog_stats(const OmegaGdnSpec *spec, uint32_t *insns, uint32_t *gprs);
 
 /* ---- state copy / zero (qwen38/decode-speed, 2026-10-19): the tail and state live in GPU-cached memory (nvos.h
  * NVOS32_ATTR2_GPU_CACHEABLE_YES: "For system memory this will not be coherent with direct CPU mappings"), so the host

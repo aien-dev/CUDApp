@@ -42,8 +42,10 @@
  * {a0, a1, a2, a3} = {(tok 2tp, dims 16s+2t, +1), (tok 2tp+1, same), (tok 2tp, dims 16s+8+2t, +1), (tok 2tp+1, same)},
  * each register = bf16 of the lower dim in the low half. */
 #define OMEGA_PATTN256_QF_PAIR_BYTES 24576u /* one token pair, all 4 KV heads */
-#define OMEGA_PATTN256_QF_OFF(tp, c, g, s, t) \
-    ((((((uint64_t)(tp) * 4u + (c)) * 6u + (g)) * 16u + (s)) * 4u + (t)) * 16u)
+#define OMEGA_PATTN256_QF_OFF(tp, c, g, s, t) OMEGA_PATTN256_QF_OFF_SHAPE(4u, 6u, tp, c, g, s, t)
+/* the same layout at kvh KV heads of grp query heads each */
+#define OMEGA_PATTN256_QF_OFF_SHAPE(kvh, grp, tp, c, g, s, t) \
+    ((((((uint64_t)(tp) * (kvh) + (c)) * (grp) + (g)) * 16u + (s)) * 4u + (t)) * 16u)
 
 /* constant bank 0 at 0x380 */
 #define OMEGA_PATTN256_ARG_QF 0x380u        /* bf16 QF, ceil(m / 2) token pairs */
@@ -58,7 +60,13 @@
 
 typedef struct {
     int mutant;      /* TEST ONLY. 0 none; 1 no causal mask; 2 O is never rescaled by alpha. Each must be caught. */
+    uint32_t q_heads, kv_heads; /* 0 = the 27B (24, 4). Grid y = kv_heads; q_heads / kv_heads (1..8) heads per CTA,
+                                * the tile rows past the group repeat its last head and are never stored (Q36: 16, 2). */
 } OmegaPrefillAttn256Spec;
+
+/* Shape of one spec: the QF layout is QF_OFF with c < kv and g < group, a token pair = q * 1024 bytes. */
+typedef struct { uint32_t qh, kvh, group, out_words, qf_pair_bytes; } OmegaPattn256Shape;
+int omega_pattn256_shape(const OmegaPrefillAttn256Spec *spec, OmegaPattn256Shape *s);
 
 int omega_pattn256_spec_ok(const OmegaPrefillAttn256Spec *spec);
 /* Builds the register-allocated IR program. 0 ok, -1 refused or over BW_MAX_IR_INSNS / BW_MAX_VREGS / the registers. */

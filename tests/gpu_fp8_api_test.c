@@ -1120,7 +1120,19 @@ static int chip_run(const char *out_path, uint32_t reps) {
     return 0;
 }
 
+/* L310: the grouped-launch CTA rule, pure, no chip. 8 groups keep the measured 6; 9 groups (the 35B) get 5 = one wave of 48. */
+static void rule_checks(void) {
+    static const struct { uint32_t groups, forced; int wave, want; } c[] = {
+        {8, 0, 1, 6}, {9, 0, 1, 5}, {9, 0, 0, 6}, {9, 5, 0, 5}, {9, 5, 1, 5}, {9, 300, 1, 5}, {2, 0, 1, 6}, {48, 0, 1, 1}, {64, 0, 1, 1}, {0, 0, 1, 6} };
+    for (size_t i = 0; i < sizeof c / sizeof c[0]; i++) {
+        uint32_t got = omega_gpu_fp8_grouped_ctas_rule(c[i].groups, c[i].forced, c[i].wave);
+        if (got != (uint32_t)c[i].want) { fprintf(stderr, "grouped CTA rule: groups %u forced %u wave %d: got %u want %d\n", c[i].groups, c[i].forced, c[i].wave, got, c[i].want); exit(1); }
+    }
+    printf("grouped CTA rule: %zu/%zu ok (8 groups -> 6, 9 groups -> 5)\n", sizeof c / sizeof c[0], sizeof c / sizeof c[0]);
+}
+
 int main(int argc, char **argv) {
+    rule_checks();
     int host = 0, sim = 0; const char *out_path = NULL; uint32_t reps = 20, lb = 0, rows = 0, warps = 0, budget = 0, spin = 2000, depth = 0; int depth_set = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--host-only") == 0) host = 1;

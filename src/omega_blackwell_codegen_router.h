@@ -27,7 +27,10 @@
  *     directory a device table of 128 x {w_va u64, s_va u64} built once per layer from the resident FP8 tensors;
  *   - ids[8] u32 and weights[8] f32 (descending by logit) for the host combine.
  *
- * Grid 1 x 1, `warps` warps (8, 16 or 32). Per CTA:
+ * Grid 1 x 1, `warps` warps (8, 16 or 32). ROWS form (spec.xstride and spec.lbstride set; L312 stroke lever 2, the router
+ * once per layer for every conversation): grid 1 x rows, CTA cy reads the residual row at X + cy * xstride bytes and writes
+ * x', ids, weights and both tables at their pointers + cy * lbstride bytes (the directories are shared); every row is
+ * computed exactly as the plain kernel computes it alone. Per CTA:
  *   phase 1  thread t: E = 64 / warps consecutive x values and norm weights; sum of squares reduced per warp
  *            (SHFL.DOWN) and across warps through shared memory; r = RSQ(ss / 2048 + eps); xn = x * r * w staged
  *            in shared memory (f32 [2048]) and stored * out_scale to x'.
@@ -88,8 +91,23 @@ typedef struct {
     uint32_t depth;  /* weight steps in flight per warp: 1, 2, 4 or 8 */
     int mutant;      /* TEST ONLY. 0 none; 1 RMSNorm without the weight; 2 the mask after each argmax round removes
                       * expert id ^ 1 (the winner can be picked again); 3 the directory entries copied are those of
-                      * id ^ 1; 4 the weights are not normalised (den = 1). */
+                      * id ^ 1; 4 the weights are not normalised (den = 1); 5 (shared only) the shared expert's
+                      * weight is 1 instead of sigmoid(gate); 6 (ROWS form only) every CTA reads row 0's x (rows 1.. wrong).
+                      * Mutant 6 must be caught by the rows parity test. */
+    uint32_t experts; /* routed experts: 0 or 128 (the 30B), 256 (Qwen3.6-35B-A3B) */
+    uint32_t shared;  /* 0, or 1: the weight has one more row (the shared expert gate, row `experts`) that never
+                       * enters the top-8 or the softmax; slot 8 of ids / weights / both tables is the shared expert:
+                       * id = experts, weight = sigmoid(row . xn), directory[experts] (the directory has experts + 1
+                       * entries). */
+    uint32_t xstride;  /* 0: one row (grid_y 1). Else the ROWS form (with lbstride): bytes between consecutive x rows
+                        * (>= 8192, a multiple of 16); CTA cy reads X + cy * xstride. */
+    uint32_t lbstride; /* ROWS form: bytes between consecutive output buffers (a multiple of 16): CTA cy writes
+                        * XOUT, IDS, WTS, TAB_GU and TAB_DN at + cy * lbstride. Both or neither of the strides are set. */
 } OmegaRouterSpec;
+
+/* Shared memory map of a spec (bytes); the OMEGA_ROUTER_SM_* constants are the 128 / no-shared case. */
+typedef struct { uint32_t logit, red, bc, sel, selv, total; } OmegaRouterSmem;
+int omega_router_smem(const OmegaRouterSpec *spec, OmegaRouterSmem *m); /* 0 ok, -1 refused shape */
 
 /* Builds the register-allocated IR program into *prog. 0 ok, -1 refused. */
 int omega_blackwell_codegen_router_prog(const OmegaRouterSpec *spec, BlackwellIRProgram *prog);

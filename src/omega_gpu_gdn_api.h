@@ -60,6 +60,10 @@ typedef struct {
 } OmegaGpuGdnInfo;
 
 int omega_gpu_gdn_alloc(uint32_t layers, OmegaGpuGdn **out);
+/* Q36 (sc L306): the same with value heads per key head `ratio` (OmegaGdnSpec.ratio: 0 = 3, Qwen3.8-27B, the plain alloc;
+ * 2 = Qwen3.6-35B-A3B). Every size the other calls use (conv dim, value width, tail, state, parameter block, prefill
+ * rows) follows the ratio; the comments elsewhere in this header give the ratio-3 numbers. */
+int omega_gpu_gdn_alloc_ratio(uint32_t layers, uint32_t ratio, OmegaGpuGdn **out);
 void omega_gpu_gdn_free(OmegaGpuGdn *g);
 int omega_gpu_gdn_set_layer(OmegaGpuGdn *g, uint32_t layer, const float *conv_w, const float *a_log, const float *dt_bias,
                             const float *norm_w);
@@ -75,6 +79,17 @@ int omega_gpu_gdn_record(struct OmegaGpuCmdList *cl, OmegaGpuGdn *g, uint32_t la
 int omega_gpu_gdn_read_out(OmegaGpuGdn *g, float *out);
 const char *omega_gpu_gdn_last_error(void);
 const char *omega_gpu_gdn_rc_name(int rc);
+
+/* ---- multi-token decode (L369, 2026-10-21): T decode steps of layer `layer` in ONE launch, bit for bit the decode step
+ * T times (omega_blackwell_codegen_gdn.h, multi-token decode). Token t reads qkv_va + t * xstride, z_va + t * xstride,
+ * ab_va + t * abstride and writes its [vdim] output row at out_va + t * ostride (bytes; 16-byte aligned rows, 8 for ab).
+ *   int omega_gpu_gdn_multi_prepare(g);  builds the kernel now (the record path refuses a kernel cache miss)
+ *   int omega_gpu_gdn_multi_record(cl, g, layer, T, qkv_va, z_va, xstride, ab_va, abstride, out_va, ostride, eps_l2,
+ *                                  eps_norm, in_scale, out_scale);   appended to cl; the caller holds the session lock */
+int omega_gpu_gdn_multi_prepare(OmegaGpuGdn *g);
+int omega_gpu_gdn_multi_record(struct OmegaGpuCmdList *cl, OmegaGpuGdn *g, uint32_t layer, uint32_t tokens, uint64_t qkv_va,
+                               uint64_t z_va, uint32_t xstride, uint64_t ab_va, uint32_t abstride, uint64_t out_va, uint32_t ostride,
+                               float eps_l2, float eps_norm, float in_scale, float out_scale);
 
 /* ---- prefill (omega#543, 2026-10-18): T >= 3 new tokens of one layer in three launches (prep, scan, post; see
  * omega_blackwell_codegen_gdn.h), continuing from the layer's tail and state exactly as T decode steps would, and leaving
@@ -112,6 +127,10 @@ int omega_gdn_pack_params(const float *conv_w, const float *a_log, const float *
  * three copies of a key head disagree bit for bit) */
 void omega_gdn_pack_tail(const float *tail, float *dev);
 int omega_gdn_unpack_tail(const float *dev, float *tail);
+/* The same for a ratio (see omega_gpu_gdn_alloc_ratio); -1 on an unsupported ratio. */
+int omega_gdn_pack_params_r(uint32_t ratio, const float *conv_w, const float *a_log, const float *dt_bias, const float *norm_w, uint8_t *block);
+int omega_gdn_pack_tail_r(uint32_t ratio, const float *tail, float *dev);
+int omega_gdn_unpack_tail_r(uint32_t ratio, const float *dev, float *tail);
 
 void omega_gpu_gdn_test_set_mutant(int mutant); /* TEST ONLY: OmegaGdnSpec.mutant; clears the kernel cache */
 

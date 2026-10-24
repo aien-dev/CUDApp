@@ -77,6 +77,10 @@ typedef struct {
 } OmegaGpuRouterInfo;
 
 int omega_gpu_router_alloc(uint32_t layers, OmegaGpuRouter **out);
+/* Qwen3.6-35B-A3B shape (sc L306): experts 256 (0 = 128) and shared 1. Then set_layer's gate_bf16 is [experts + 1][2048]
+ * (the last row = shared_expert_gate), the directories have experts + 1 entries (entry `experts` = the shared expert),
+ * and ids / weights / both tables have 9 slots: slot 8 = {experts, sigmoid(shared gate . xn), directory[experts]}. */
+int omega_gpu_router_alloc_shape(uint32_t layers, uint32_t experts, uint32_t shared, OmegaGpuRouter **out);
 void omega_gpu_router_free(OmegaGpuRouter *r);
 int omega_gpu_router_set_layer(OmegaGpuRouter *r, uint32_t layer, const uint16_t *gate_bf16, const float *norm_w);
 int omega_gpu_router_set_directory(OmegaGpuRouter *r, uint32_t layer, const uint64_t *gu, const uint64_t *dn);
@@ -94,6 +98,21 @@ typedef struct { uint64_t xout_va, ids_va, wts_va, tab_gu_va, tab_dn_va; } Omega
 struct OmegaGpuCmdList;
 int omega_gpu_router_record(struct OmegaGpuCmdList *cl, OmegaGpuRouter *r, uint32_t layer, uint64_t x_va, float eps, int norm_topk,
                             float out_scale, OmegaGpuRouterDevOut *out);
+/* The stroke (L312 v2): the same launch with every output in the caller's device buffer at lb_va (256-byte aligned,
+ * omega_gpu_router_layout_bytes(r) bytes, the launch buffer's layout: xout, ids, wts, tab_gu, tab_dn at the offsets
+ * out reports). One buffer per conversation, so N routers of one layer can sit in one list. */
+int omega_gpu_router_record_to(struct OmegaGpuCmdList *cl, OmegaGpuRouter *r, uint32_t layer, uint64_t x_va, float eps, int norm_topk,
+                               float out_scale, uint64_t lb_va, OmegaGpuRouterDevOut *out);
+/* Lever 2 (L312, the stroke): one launch routes `rows` conversations of one layer, each exactly as it is routed alone:
+ * row i reads the residual row at x_va + i * xstride (bytes, >= 8192, a multiple of 16) and writes the record_to layout at
+ * lb_va + i * lbstride (lb_va 256-aligned, lbstride a multiple of 256 >= omega_gpu_router_layout_bytes). out = row 0's
+ * buffers (row i's are + i * lbstride). rows 1 = record_to. The rows kernel has its own cache slot beside the plain one and
+ * must be resident before recording: omega_gpu_router_prepare_rows (a cache miss while recording is refused). */
+#define OMEGA_GPU_ROUTER_MAX_ROWS 64u
+int omega_gpu_router_prepare_rows(OmegaGpuRouter *r, uint32_t xstride, uint32_t lbstride);
+int omega_gpu_router_record_rows(struct OmegaGpuCmdList *cl, OmegaGpuRouter *r, uint32_t layer, uint64_t x_va, uint32_t xstride, float eps,
+                                 int norm_topk, float out_scale, uint64_t lb_va, uint32_t lbstride, uint32_t rows, OmegaGpuRouterDevOut *out);
+uint32_t omega_gpu_router_layout_bytes(const OmegaGpuRouter *r);
 int omega_gpu_router_read_back(OmegaGpuRouter *r, float *xout, uint64_t *tab_gu, uint64_t *tab_dn);
 const char *omega_gpu_router_last_error(void);
 const char *omega_gpu_router_rc_name(int rc);
