@@ -1,3 +1,19 @@
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2026 Drake Stapleton (AIEN / aien-dev)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 /* gpu_qgemm_test.c (OWN-30B L1 GEMM, W-L1G, 2026-10-14): the native FP8 prefill path (omega_blackwell_codegen_qg.h).
  *   --host-only  reference self-checks
  *   --sim        kernels in the warp simulator bit-identical to the C reference; mutants caught (a simulator error is a FAIL)

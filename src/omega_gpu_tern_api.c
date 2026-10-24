@@ -1,3 +1,19 @@
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2026 Drake Stapleton (AIEN / aien-dev)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 /* omega_gpu_tern_api.c: KT1 W2A8 ternary GEMV on the shared session, ternary engine stage T0 (2026-10-15). See the header.
  * Buffer policy: weights GPU-cached by default (written once by the CPU before any GPU read, then only read by the GPU;
  * omega_gpu_mem_cached.h). Everything else both sides touch (x, a_scale, scales, y) is GPU-uncached (nvos.h

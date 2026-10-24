@@ -1,3 +1,19 @@
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2026 Drake Stapleton (AIEN / aien-dev)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 /* gpu_tc_probe_test.c (OWN-30B T3, 2026-10-13): characterise the chip's HMMA.16816.F32.BF16 arithmetic.
  *   --host-only   model self-checks (the model family reproduces exact sums on exactly representable cases)
  *   (default)     chip: CASES single-HMMA cases (one warp each) with operand classes chosen to separate the models

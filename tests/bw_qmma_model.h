@@ -1,3 +1,19 @@
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2026 Drake Stapleton (AIEN / aien-dev)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 /* bw_qmma_model.h (OWN-30B L1 GEMM, W-L1G, 2026-10-14): parametrised C model of one QMMA.16832.F32.E4M3.E4M3 dot product
  *   d = c + sum_{k<32} a_k * b_k      (a_k, b_k e4m3 values given as f32; products exact in double)
  * Same family as tests/bw_hmma_model.h (chip-exact for HMMA: evidence bf9b0378) widened for FP8: the vendor documents no

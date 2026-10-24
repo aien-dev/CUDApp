@@ -1,3 +1,19 @@
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2026 Drake Stapleton (AIEN / aien-dev)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 /* gpu_gpr_boundary_test: host-only audit of the declared-register rule (OWN-30B, 2026-10-13).
  * Rule (omega_blackwell_codegen.h): declared = peak + 2 rounded up to a multiple of 8. A fp8 grouped GEMM kernel with
  * peak 103 declared 104 (the old peak + 1 rule) hung the chip; the same program declared 112 ran.
