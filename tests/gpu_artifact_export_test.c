@@ -156,7 +156,8 @@ static void fill_artifact(OmegaNativeArtifact *a, const char *contract, const ch
                           const char *op, const char *name, const char *fn,
                           uint32_t gx, uint32_t gy, uint32_t bx, uint32_t shared) {
     memset(a, 0, sizeof *a);
-    a->op = op; a->contract_name = name; a->contract_id_hex = contract;
+    a->op = op; a->shape = "shape=test"; a->bounds = "bounds=test";
+    a->contract_name = name; a->contract_id_hex = contract;
     a->semantic_spec_id_hex = spec_hex;
     a->kernel_function = fn; a->precision = "bf16"; a->accumulation = "fp32";
     a->tolerance = "abs<=1e-5*max(1,abs(ref))";

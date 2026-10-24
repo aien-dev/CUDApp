@@ -115,7 +115,7 @@ int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_p
 
     if (err && err_cap) err[0] = 0;
     if (out_id) out_id[0] = 0;
-    if (!a || !out_prefix || !out_id || !a->op || !a->contract_name || !a->kernel_function ||
+    if (!a || !out_prefix || !out_id || !a->op || !a->shape || !a->bounds || !a->contract_name || !a->kernel_function ||
         !a->text || !a->text_len || !a->params || !a->qmd0 || !a->qmd1 || !a->cbank_args ||
         !a->semantic_spec_id_hex || !a->contract_id_hex || !a->min_driver || !a->requires ||
         !a->precision || !a->accumulation || !a->tolerance || !a->source_commit || !a->tool_version ||
@@ -166,6 +166,8 @@ int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_p
         char idbuf[MANIFEST_CAP], *p = idbuf;
         size_t rem = sizeof idbuf;
         if (append(&p, &rem, "op=%s\n", a->op) ||
+            append(&p, &rem, "shape=%s\n", a->shape) ||
+            append(&p, &rem, "bounds=%s\n", a->bounds) ||
             append(&p, &rem, "contract=%s\n", a->contract_name) ||
             append(&p, &rem, "contract_id=%s\n", a->contract_id_hex) ||
             append(&p, &rem, "semantic_spec_id=%s\n", a->semantic_spec_id_hex) ||
@@ -236,6 +238,8 @@ int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_p
         fprintf(f, "{\n  \"format\": \"%s\",\n", OMEGA_ARTIFACT_FORMAT);
         json_put(f, "artifact_id", id, 0);
         json_put(f, "op", a->op, 0);
+        json_put(f, "shape", a->shape, 0);
+        json_put(f, "bounds", a->bounds, 0);
         json_put(f, "contract", a->contract_name, 0);
         json_put(f, "contract_id", a->contract_id_hex, 0);
         json_put(f, "semantic_spec_id", a->semantic_spec_id_hex, 0);
@@ -385,6 +389,10 @@ int omega_native_artifact_admit(const char *out_prefix, const char *current_driv
     }
     {
         char v[128];
+        p = find_line(ident, "shape=");
+        if (!p || copy_value(p, v, sizeof v) || v[0] == 0) { rc = OMEGA_ARTIFACT_E_FORMAT; goto done; }
+        p = find_line(ident, "bounds=");
+        if (!p || copy_value(p, v, sizeof v) || v[0] == 0) { rc = OMEGA_ARTIFACT_E_FORMAT; goto done; }
         p = find_line(ident, "isa=");
         if (!p || copy_value(p, v, sizeof v) || strcmp(v, "sm_121") != 0) { rc = OMEGA_ARTIFACT_E_ISA; goto done; }
         p = find_line(ident, "kernel_format=");

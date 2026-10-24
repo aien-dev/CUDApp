@@ -1,7 +1,9 @@
 {
   "format": "omega-native-artifact/1",
-  "artifact_id": "67cb8a5765c35c50f02f431ec8c92728c42282ae50629e9ebf414edada0dbdb6",
+  "artifact_id": "b7c2c772ca3401160fa18c73d7c653114db20f928aaa993f217657e81df95cb8",
   "op": "gqa-causal-attention",
+  "shape": "r>=1,base=0,hq=8,hkv=1,hd=128",
+  "bounds": "hq<=64,hkv<=64,hd=128,rows+base<=4096",
   "contract": "gqa-causal-v1",
   "contract_id": "003696e422bba7274877ba9e01a61076ea0f862f32760cbaa06c60f85a115359",
   "semantic_spec_id": "639668d5b3001b950b7daf922d03b9dbebd9b4333ad04c48639caa2e84158a43",

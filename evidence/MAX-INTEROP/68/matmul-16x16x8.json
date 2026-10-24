@@ -1,7 +1,9 @@
 {
   "format": "omega-native-artifact/1",
-  "artifact_id": "6704f28dc349a4e102cdfecbb5090e61c4424d3cebc565cac96365754782a0d6",
+  "artifact_id": "8dcc18e06f2306a785dd413c73f7289e12df0df995066ccb8cd5ff985a709db6",
   "op": "matmul",
+  "shape": "m=16,k=16,n=8",
+  "bounds": "m<=8192,k<=16384,n<=8192",
   "contract": "matmul-bf16-v1",
   "contract_id": "647116fc1ba1e1394982fc8ba181ce565293f160a6b56afc0f02b2128a675704",
   "semantic_spec_id": "433818f04a6d185a0f5d22c4bfe1fd623bfd658638e8ea2829cd966b6eb2f40a",

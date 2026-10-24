@@ -127,6 +127,16 @@ int main(int argc, char **argv) {
     if (omega_blackwell_build_qmd0(q0, 0, 0) != 0 || omega_blackwell_build_qmd1(q1, &cfg) != 0) {
         fprintf(stderr, "QMD template refused\n"); return 3;
     }
+    static char shapebuf[128], boundsbuf[128];
+    if (strcmp(mode, "matmul") == 0) {
+        snprintf(shapebuf, sizeof shapebuf, "m=%u,k=%u,n=%u", m, k, n);
+        snprintf(boundsbuf, sizeof boundsbuf, "m<=8192,k<=16384,n<=8192");
+    } else {
+        snprintf(shapebuf, sizeof shapebuf, "r>=1,base=0,hq=%u,hkv=%u,hd=128", hq, hkv);
+        snprintf(boundsbuf, sizeof boundsbuf, "hq<=64,hkv<=64,hd=128,rows+base<=4096");
+    }
+    a.shape = shapebuf;
+    a.bounds = boundsbuf;
     a.contract_id_hex = contract;
     a.semantic_spec_id_hex = spec_hex;
     a.kernel_function = (strcmp(mode, "matmul") == 0) ? "omega_matmul_bf16" : "omega_gqa_attention_causal";

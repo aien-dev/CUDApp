@@ -40,6 +40,8 @@ enum {
 
 typedef struct {
     const char *op;                 /* "matmul" or "gqa-causal-attention" */
+    const char *shape;              /* e.g. "m=16,k=16,n=8" */
+    const char *bounds;             /* contract limits, e.g. "m<=8192,k<=16384,n<=8192" */
     const char *contract_name;      /* e.g. "matmul-bf16-v1" */
     const char *contract_id_hex;    /* 64 lowercase hex */
     const char *semantic_spec_id_hex; /* 64 lowercase hex */
