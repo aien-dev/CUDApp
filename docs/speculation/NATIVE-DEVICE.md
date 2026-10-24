@@ -26,6 +26,15 @@ and context reuse are refused. Partial allocation state remains recorded until
 cleanup. The table has96 live allocation slots; the compiler has128 mapping
 slots. These are bounded runtime resources, not model-sized allocation arenas.
 
+Teardown has three explicit phases: closed, driver resources live, and
+descriptors closed with CPU mapping cleanup pending. A failed unmap retains its
+mapping handle. A later `nvstop` retries only those mappings; it does not repeat
+RM/UVM operations or descriptor closes. The context fault stays latched even
+after cleanup succeeds. The [host refusal fixture](TEARDOWN-HOST.md) checks this
+contract with substituted OS effects. Its native compilation and execution
+remain NOT_RUN until replayed with the pinned compiler on Linux AArch64; the
+earlier physical receipts do not qualify this source change.
+
 GPU buffers first reserve unused page-aligned CPU addresses below1TiB. File
 binding can replace only that owned reservation. The same address is serialized
 into the GPU mappings. This matters because a command entry's address field is

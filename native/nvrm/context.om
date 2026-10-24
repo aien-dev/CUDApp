@@ -18,6 +18,7 @@ global nvsm uint 1
 global nvcls uint 3
 global nvuuid uchar 16
 global nvreg uchar 2
+note Context phases:0 closed,1 driver resources live,2 descriptors closed with mapping cleanup pending.
 global nvstate uchar 1
 global nvmm uint 1
 global nvfault uchar 1
@@ -149,6 +150,9 @@ fn nvstop to bool
 if eq get nvstate 0 0
 ret true
 end
+if eq get nvstate 0 2
+ret nvmapfinish
+end
 ok = true
 if nvchstop
 if not nvmclose
@@ -160,9 +164,11 @@ end
 if gt get nvbar 0 0
 r = mapdrop get nvbar 0
 if ne r 0
+put nverr 0 r
 ok = false
-end
+else
 put nvbar 0 0
+end
 end
 if ne get nvobj 5 0
 if not nvfree get nvobj 2 get nvobj 5
@@ -225,14 +231,63 @@ end
 put nvfd i neg int 1
 end
 end
-put nvstate 0 0
-if not nvmforce
+note Close is attempted once per descriptor. Never repeat driver calls after this phase.
+put nvstate 0 2
+put nvsched 0 0
+if not nvmapfinish
 ok = false
 end
 if not ok
 put nvfault 0 1
 end
 ret ok
+end
+note The driver descriptors are closed; only owned CPU mappings may be retried here.
+fn nvmapfinish to bool
+if ne get nvstate 0 2
+put nverr 0 neg long 16
+ret false
+end
+ok = true
+if gt get nvbar 0 0
+r = mapdrop get nvbar 0
+if ne r 0
+put nverr 0 r
+ok = false
+else
+put nvbar 0 0
+end
+end
+if gt get nvchva 0 0
+r = mapdrop get nvchva 0
+if ne r 0
+put nverr 0 r
+ok = false
+else
+put nvchva 0 0
+end
+end
+if not nvmforce
+ok = false
+end
+if not ok
+put nvfault 0 1
+ret false
+end
+note Descriptor closure retired every driver object, including a refused channel teardown.
+for i ulong len nvobj
+put nvobj i 0
+end
+for i ulong len nvreg
+put nvreg i 0
+end
+put nvchreg 0 0
+put nvput 0 0
+put nvret 0 0
+put nvfifo 0 0
+put nvnotify 0 0
+put nvstate 0 0
+ret true
 end
 fn nvstart to bool
 if ne get nvfault 0 0
@@ -509,16 +564,30 @@ ret ok
 end
 note Called only after the owning driver context is closed, including error teardown.
 fn nvmforce to bool
+if ne get nvstate 0 2
+put nverr 0 neg long 16
+ret false
+end
 ok = true
 for i ulong len nvmflag
+note Driver-owned flags and handles retired when the descriptors closed.
+put nvmflag i and get nvmflag i 2
+put nvmobj i 0
 if ne and get nvmflag i 2 0
 r = mapdrop get nvmmap i
 if ne r 0
+put nverr 0 r
 ok = false
 else
 put nvmflag i 0
 put nvmmap i 0
+put nvmaddr i 0
+put nvmlen i 0
 end
+else
+put nvmmap i 0
+put nvmaddr i 0
+put nvmlen i 0
 end
 end
 ret ok
