@@ -1,0 +1,5 @@
+artifact_id=ba6db6e3e35a668c81997fd883a086a0f5b631773bb917d42708f616433f9b52
+op=matmul
+contract_id=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+cubin=build/artifact-test/cli.cubin
+cli rc=0

@@ -1,0 +1,10 @@
+artifact_id=6704f28dc349a4e102cdfecbb5090e61c4424d3cebc565cac96365754782a0d6
+op=matmul
+contract_id=647116fc1ba1e1394982fc8ba181ce565293f160a6b56afc0f02b2128a675704
+cubin=evidence/MAX-INTEROP/68/matmul-16x16x8.cubin
+matmul rc=0
+artifact_id=67cb8a5765c35c50f02f431ec8c92728c42282ae50629e9ebf414edada0dbdb6
+op=gqa-causal-attention
+contract_id=003696e422bba7274877ba9e01a61076ea0f862f32760cbaa06c60f85a115359
+cubin=evidence/MAX-INTEROP/68/attention-hd128-gqa8.cubin
+attention rc=0
