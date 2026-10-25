@@ -36,8 +36,8 @@ static const uint8_t omsha_zero[OMSHA_PIECE];
  * the types above), never a recoverable condition, so it aborts like a failed assert. */
 static void omsha_call(sha256_ctx *ctx, const uint8_t *block, size_t n, unsigned op, uint8_t *out)
 {
-    uint64_t unused;
-    if (omega_omsha(&unused, ctx, sizeof *ctx, block, OMSHA_PIECE, n, op, out, SHA256_DIGEST_SIZE) != 0)
+    uint64_t unused, sched[64]; /* message-schedule scratch; the Omega unit writes it before reading */
+    if (omega_omsha(&unused, ctx, sizeof *ctx, block, OMSHA_PIECE, n, op, out, SHA256_DIGEST_SIZE, sched, 64) != 0)
         abort();
 }
 
