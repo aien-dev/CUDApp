@@ -124,3 +124,20 @@ And@@Flatten[Table[64+64*n+63 < 64+64*c,{c,1,64},{n,0,c-1}]] -> True
 ```
 
 This is MODELED arithmetic, not a measured device memory-safety result.
+
+## Current compiler compatibility, separate receipt
+
+A later check used `omega-mv@7505b3a3e3cf5ee46933e3a89a021b4289037983`,
+without changing the historical pins or receipt above. Its
+`seed/omc/omc.om` SHA256 is
+`c792b401193d8477d38965d6ddb0fd0cb8fd5ac24fcb92fae9af52037a765f1c`.
+Executed through the same unchanged external oracle, its self-output matches
+`499236398aabc652e2dae27fe4bdc4c5db3d3726314356e0dbef23e3345803ec`,
+the pinned commit's `seed/out/omc.sha256`.
+
+All three unmodified units and all twelve semantic mutants compile with
+exit 0 and empty compiler stderr under this newer compiler source. The three
+positive ELF files are byte-identical to the earlier compiler's outputs.
+This is compatibility of these units only, not a full compiler qualification
+or execution of those AArch64 files. See the additive
+`evidence/device-trace/current-compiler-7505b3a/receipt.json` receipt.

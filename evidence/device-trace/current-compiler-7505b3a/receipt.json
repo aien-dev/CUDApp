@@ -1,0 +1,138 @@
+{
+  "schema": "cudapp-device-trace-current-compiler-v1",
+  "measured_at": "2026-10-25T23:35:20Z",
+  "code_commit": "0efa7fc018ecbf2a10d7ac2dbbfb153128436276",
+  "measured_branch_head": "f6ba12f16268b59179337378307e077498adcfbd",
+  "compiler_repository": "https://github.com/aien-dev/omega-mv",
+  "compiler_commit": "7505b3a3e3cf5ee46933e3a89a021b4289037983",
+  "compiler_path": "seed/omc/omc.om",
+  "compiler_source_sha256": "c792b401193d8477d38965d6ddb0fd0cb8fd5ac24fcb92fae9af52037a765f1c",
+  "expected_compiler_sha256": "499236398aabc652e2dae27fe4bdc4c5db3d3726314356e0dbef23e3345803ec",
+  "oracle_commit": "190130b71d0a59b93f01c515218a5509b149a145",
+  "oracle_source_sha256": "52e747096c1d978103432460a2978b21a604cc5d3e961bbe4b253fcc7636290e",
+  "self_output_command": "./omega_ref run omc-current.om < omc-current.om > omc-current-self.elf 2> omc-current-self.err",
+  "self_output_exit": 0,
+  "self_output_stderr_bytes": 0,
+  "self_output_sha256": "499236398aabc652e2dae27fe4bdc4c5db3d3726314356e0dbef23e3345803ec",
+  "positive_units": {
+    "contract": {
+      "unit_sha256": "99a509601b6a8c28613e7c30e4ad21e1b325a4784f6ffeda2976fa22441c2e37",
+      "command": "./omega_ref run omc-current.om < contract.om > contract.current.elf 2> contract.current.err",
+      "compiler_exit": 0,
+      "stderr_bytes": 0,
+      "elf_sha256": "45126fa63a93eccfa9572b27462bd7da538e25fff9958d817c405010dc2335fd",
+      "matches_prior_compiler_elf": true
+    },
+    "golden": {
+      "unit_sha256": "64cf6f2d92d84950dd4dca59539a01e5eae2dede47ba1be096278cb435f0e07f",
+      "command": "./omega_ref run omc-current.om < golden.om > golden.current.elf 2> golden.current.err",
+      "compiler_exit": 0,
+      "stderr_bytes": 0,
+      "elf_sha256": "dfabec3ebb1dd5a9576e788b543e4ad86dd8304d9767198a5f81edd6273eda8e",
+      "matches_prior_compiler_elf": true
+    },
+    "disabled": {
+      "unit_sha256": "cf516ae2ed0c32acc4b06a9c94eb13674b7795390c9c6e7714909cc8ac473873",
+      "command": "./omega_ref run omc-current.om < disabled.om > disabled.current.elf 2> disabled.current.err",
+      "compiler_exit": 0,
+      "stderr_bytes": 0,
+      "elf_sha256": "e36b6223740bdd859c2e5d5443a562391481d9c07dfb6a13c5bfea73cbbbee1b",
+      "matches_prior_compiler_elf": true
+    }
+  },
+  "mutant_compilation": [
+    {
+      "name": "mutant-capacity",
+      "compiler_exit": 0,
+      "stderr_bytes": 0,
+      "unit_sha256": "fee221d58fb51acf46145bb29f89ad3dac7c76433521e2b568b25cd5b69b44c3",
+      "elf_sha256": "4af91ad02a8b7e928c3d1a7c2eb8f945b594cfc5e24763d5789147499c7732f0"
+    },
+    {
+      "name": "mutant-failed_init",
+      "compiler_exit": 0,
+      "stderr_bytes": 0,
+      "unit_sha256": "84da9f601e6928cc3c6991e5fe59d1ab0f523945aa03d28748b18abbaa600896",
+      "elf_sha256": "b592dec333abb35b268b777fcece24f141548b132693cc96498bba808c49dab3"
+    },
+    {
+      "name": "mutant-flag_consistency",
+      "compiler_exit": 0,
+      "stderr_bytes": 0,
+      "unit_sha256": "1399d04d31bcabf5410b507eeef6bfbd2366f4a41e4f393c04dd77c6506a2348",
+      "elf_sha256": "84ee7ad7e8aae82aabb9636b3c7980418cacd0ef0b3f43fba2b45136934072cb"
+    },
+    {
+      "name": "mutant-loss_full",
+      "compiler_exit": 0,
+      "stderr_bytes": 0,
+      "unit_sha256": "f3990b4cbcd113ad8aedc640a9689e1e8d50870fd3732a94aa55e5d08b839ccb",
+      "elf_sha256": "c1eb6dfa8bfc10d1551b7c0c3fe82c0a330c29abb0ad363f75d6b842aa102e99"
+    },
+    {
+      "name": "mutant-overflow",
+      "compiler_exit": 0,
+      "stderr_bytes": 0,
+      "unit_sha256": "4a77413b4e4ec5e6275cda5d8547320dc25d823cee7dee011304df8e13412dfc",
+      "elf_sha256": "3b55816764c445fa98122737dbe247037254d33f954d398d6321a505549e5c3f"
+    },
+    {
+      "name": "mutant-record_provenance",
+      "compiler_exit": 0,
+      "stderr_bytes": 0,
+      "unit_sha256": "d8ef0c6a2e5a6b426d75e5dd809260fb80ad84edc0bcabbf5dd17362ed50a4be",
+      "elf_sha256": "47c14e6487ecbaa0eafa5e93fe7423f09b493d9da58efad54f05de9ae8fad6dd"
+    },
+    {
+      "name": "mutant-reserved",
+      "compiler_exit": 0,
+      "stderr_bytes": 0,
+      "unit_sha256": "7af24520c23f3318ac7bcec469fa205f7dc786fe077cb2338cb3642b35ba2490",
+      "elf_sha256": "4343b492a9c9f28a100c282762ec8ea35d6ca1186df1af519c64be27830ca2b6"
+    },
+    {
+      "name": "mutant-saturation_flag",
+      "compiler_exit": 0,
+      "stderr_bytes": 0,
+      "unit_sha256": "0123c3603a036769c4cf8288df9cd2ad0e84faa550a275d5e3c34d423a79067e",
+      "elf_sha256": "db830f22e02bff7a70d95099bdbad9e7cd22463f0fbcf39450f6f22f91bd8f5b"
+    },
+    {
+      "name": "mutant-selection",
+      "compiler_exit": 0,
+      "stderr_bytes": 0,
+      "unit_sha256": "c7a4155e7d5b676bad02bb0d28393ae7cb6dc256c325026662b5cb73fa574ca3",
+      "elf_sha256": "6a4af24b401bfa809dc83358c2b27a339e9e918352c03ba10336d727736305d8"
+    },
+    {
+      "name": "mutant-sequence",
+      "compiler_exit": 0,
+      "stderr_bytes": 0,
+      "unit_sha256": "b3fc7b18f869ae173602d5994d811fb7738f66f4a69148d3dabd48a4e36bdb53",
+      "elf_sha256": "bc3d7be3c0ab31aa6bc89dd066df0e90aa8d3f8369a42202617d338b566dab9c"
+    },
+    {
+      "name": "mutant-stale",
+      "compiler_exit": 0,
+      "stderr_bytes": 0,
+      "unit_sha256": "06e1418930d53f557b1270d2121660a2e9b2d038c87ba5d5165f0263f60817b6",
+      "elf_sha256": "91ee22a429a5ea2f05c1b1fa0ae798ec6a44e9e71b2caf44729b337222c638de"
+    },
+    {
+      "name": "mutant-unused",
+      "compiler_exit": 0,
+      "stderr_bytes": 0,
+      "unit_sha256": "8062a6c9329520b29f7773d64210645b428aa42357108f32accf9c4f5252dca3",
+      "elf_sha256": "bdcce7734f6e269735f7deab68e0aa69150780af68024e350ec35d26e89e3148"
+    }
+  ],
+  "result": "PASS for externally interpreted compiler acceptance and exact-byte positive-output compatibility",
+  "not_run": [
+    "Native AArch64 compiler execution",
+    "Native AArch64 generated ELF execution",
+    "Full compiler qualification",
+    "Full CUDApp repository suite",
+    "All GPU execution and performance"
+  ],
+  "history": "Additive compatibility receipt. Does not modify or supersede the earlier measured source receipt."
+}
