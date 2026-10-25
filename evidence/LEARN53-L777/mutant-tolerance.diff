@@ -1,0 +1,11 @@
+--- native/learn53/task.om
++++ mutant/task.om
+@@ -154,7 +154,7 @@
+ if eq kw 16 0
+ ret 65
+ end
+-if ne kw 21 0
++if ne kw 21 kw 21
+ ret 65
+ end
+ if ne kw 22 0

@@ -1,0 +1,27 @@
+note Physical device context acceptance. No kernels, timings or model execution.
+text ok "NATIVE_DEVICE_CONTEXT_PASS\n"
+text bad "NATIVE_DEVICE_CONTEXT_FAIL\n"
+global result uchar 24
+fn pack off ulong v long to void
+for i ulong 8
+put result add off i uchar and shr v mul i 8 255
+end
+end
+fn main to int
+for attempt ulong 3
+good = nvstart
+stage = get nvstage 0
+error = get nverr 0
+closed = nvstop
+if not and good closed
+r = write 2 bad 0 len bad
+pack 0 long stage
+pack 8 error
+pack 16 long get nvsm 0
+r = write 1 result 0 len result
+ret 1
+end
+end
+r = write 1 ok 0 len ok
+ret 0
+end

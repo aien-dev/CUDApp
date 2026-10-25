@@ -1,0 +1,239 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+fn flat to void
+fixture
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 2 0 0
+check eq get decision 0 31
+check eq get decision 1 32
+check eq get decision 2 32000000
+check eq get decision 3 101
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 2 0 75
+check eq sobserve 31 32 101 0 1 0
+check eq get sstate 6 32
+check eq get sstate 7 31
+check eq get sstate 8 1
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1031 224 1000 7 2 0 75
+check eq sresume 0
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1032 224 1000 7 2 0 0
+scancel
+end
+fn stepped to void
+fixture
+put srows 70 1000
+put srows 59 1000
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 2 0 0
+check eq get decision 0 8
+scancel
+fixture
+for i ulong 31
+put sprior i 0
+end
+check eq sbegin 0 0
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 2 0 0
+check eq get decision 0 0
+scancel
+fixture
+note Exact tie: ordinary expected1/cost101 and k1 expected2/cost202.
+for r ulong 7
+put srows add mul r 11 4 sub mul add slen r 1 101 1
+end
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 2 0 0
+check eq get decision 0 0
+scancel
+end
+fn bounds to void
+fixture
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 3 1000 7 2 0 0
+check eq get decision 0 2
+scancel
+fixture
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 130 7 2 0 0
+check eq get decision 0 4
+scancel
+fixture
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 32999 256 1000 7 2 0 0
+check eq get decision 0 0
+scancel
+check eq sselect 1000 256 1000 7 2 0 75
+check eq sbegin 0 0
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 33000 256 1000 7 2 0 69
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 999 256 1000 7 2 0 69
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 99 7 2 0 77
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 0 1000 7 2 0 65
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 257 1000 7 2 0 65
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 8 2 0 69
+put scontrol 0 1
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 2 0 69
+put scontrol 0 0
+put scontrol 1 1
+check eq sselect 1000 256 1000 7 2 0 0
+check eq get decision 0 0
+check eq get decision 4 2
+scancel
+fixture
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 1 8 0
+check eq get decision 0 8
+scancel
+check eq sbegin 0 0
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 1 3 77
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 3 0 65
+end
+fn invalid to void
+fixture
+put sid 31 999
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 2 0 69
+fixture
+put sprofile 0 2
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 2 0 69
+fixture
+put sprofile 5 2
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 2 0 77
+fixture
+put srows 68 31
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 2 0 65
+fixture
+put srows 4 0
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 2 0 65
+fixture
+put srows 4 18446744073709551615
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 2 0 65
+fixture
+put srows 10 4
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 2 0 65
+fixture
+put sprior 2 1000001
+check eq sbegin 0 65
+fixture
+put sprior 1 0
+check eq sbegin 0 65
+fixture
+put srows 66 0
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 2 0 0
+check eq get decision 0 16
+scancel
+fixture
+for i ulong 4
+put sid i 0
+put sid add i 32 0
+end
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 2 0 69
+end
+fn recovery to void
+fixture
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 2 0 0
+check eq sobserve 32 33 101 0 1 65
+check eq sobserve 31 32 101 0 0 75
+check eq get sstate 6 0
+check eq sobserve 31 32 0 0 1 65
+check eq sobserve 0 1 10000 0 1 0
+check eq get sstate 8 1
+check eq sresume 0
+note Every speculative row now has a measured loss; fallback until bounded probe.
+for r ulong 7
+if gt r 0
+put measured r 10000
+end
+end
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1001 255 1000 7 2 0 0
+check eq get decision 0 0
+check eq get decision 4 3
+check eq sobserve 0 1 101 0 1 0
+check eq sresume 0
+put sstate 5 8
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1002 254 1000 7 2 0 0
+check gt get decision 0 0
+check eq get decision 4 4
+check eq sobserve get decision 0 add get decision 0 1 101 0 1 0
+check eq sresume 0
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1034 222 1000 7 2 0 0
+check gt get decision 0 0
+scancel
+fixture
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1000 256 1000 7 2 0 0
+check eq sobserve 3 4 101 1 1 0
+check eq get sstate 9 1
+put scontrol 0 0
+put scontrol 1 0
+check eq sselect 1004 252 1000 7 2 0 75
+check eq sbegin 0 0
+check eq get sstate 6 0
+check eq get measured 6 0
+check eq get survive 3 1000000
+check eq sbegin 1 0
+put sprofile 1 8
+check eq sbegin 1 69
+end
+fn main to int
+flat
+stepped
+bounds
+invalid
+recovery
+ret finish
+end

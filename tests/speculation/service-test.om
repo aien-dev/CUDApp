@@ -1,0 +1,259 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Actual native parent/child pipe exchange. Synthetic policy data, no model or GPU.
+global xreq uchar 2048
+global xresp uchar 128
+global xexec uchar 4096
+global xfds uchar 16
+global xstat uchar 4
+global xmeta ulong 5
+fn xput i ulong v ulong to void
+for j ulong 8
+put xreq add mul i 8 j uchar and shr v mul j 8 255
+end
+end
+fn xget i ulong to ulong
+v = ulong 0
+for j ulong 8
+v = or v shl ulong get xresp add mul i 8 j mul j 8
+end
+ret v
+end
+fn xfd off ulong to int
+v = ulong 0
+for j ulong 4
+v = or v shl ulong get xfds add off j mul j 8
+end
+ret int v
+end
+fn xspawn to int
+n = argread 1 xexec 4 4092
+if lt n 1
+ret 65
+end
+put xexec 0 1
+put xexec 1 0
+put xexec 2 uchar and ulong n 255
+put xexec 3 uchar shr ulong n 8
+if ne pipefds xfds 0 8 524288 0
+ret 74
+end
+if ne pipefds xfds 8 8 524288 0
+ret 74
+end
+pid = fork
+if lt pid 0
+ret 74
+end
+if eq pid 0
+if ne dupfd xfd 0 0 0 0
+exit 111
+end
+if ne dupfd xfd 12 1 0 1
+exit 111
+end
+for i ulong 4
+r = fclose xfd mul i 4
+end
+r = execprog xexec 0 add ulong n 4
+exit 111
+end
+r = fclose xfd 0
+r = fclose xfd 12
+put xmeta 0 ulong pid
+put xmeta 1 ulong xfd 4
+put xmeta 2 ulong xfd 8
+put xmeta 3 1
+ret 0
+end
+fn xread off ulong n ulong to int
+done = ulong 0
+for attempt ulong 128
+if eq done n
+ret 0
+end
+r = waitio int get xmeta 2 1 5000000000
+if le r 0
+ret 74
+end
+r = read int get xmeta 2 xresp add off done sub n done
+if le r 0
+ret 74
+end
+done = add done ulong r
+end
+ret 74
+end
+fn xcall op ulong count ulong to ulong
+xput 0 827343699
+xput 1 1
+xput 2 op
+xput 3 get xmeta 3
+xput 4 count
+bytes = mul add count 5 8
+started = monons
+r = write int get xmeta 1 xreq 0 bytes
+check eq r long bytes
+v = xread 0 56
+check eq v 0
+if ne v 0
+ret 999
+end
+check eq xget 0 827343699
+check eq xget 1 1
+check eq xget 2 op
+check eq xget 3 get xmeta 3
+check le xget 5 5
+put xmeta 3 add get xmeta 3 1
+if gt xget 5 5
+ret 999
+end
+check eq xread 56 mul xget 5 8 0
+check gt xget 6 0
+check le xget 6 ulong sub monons started
+if ne xget 4 0
+check eq xget 5 0
+end
+ret xget 4
+end
+fn xinit to void
+for i ulong 64
+xput add i 5 get sid i
+end
+for i ulong 6
+xput add i 69 get sprofile i
+end
+for i ulong 77
+xput add i 75 get srows i
+end
+for i ulong 31
+xput add i 152 get sprior i
+end
+check eq xcall 1 178 0
+end
+fn xbegin warm ulong device ulong to ulong
+xput 5 warm
+xput 6 device
+xput 7 0
+ret xcall 2 3
+end
+fn xselect context ulong remain ulong mode ulong k ulong to ulong
+xput 5 context
+xput 6 remain
+xput 7 1000
+xput 8 7
+xput 9 mode
+xput 10 k
+ret xcall 3 6
+end
+fn xobs a ulong n ulong eos ulong full ulong to ulong
+xput 5 a
+xput 6 n
+xput 7 100
+xput 8 eos
+xput 9 full
+ret xcall 4 5
+end
+fn xreap code ulong to void
+if ne get xmeta 1 18446744073709551615
+r = fclose int get xmeta 1
+end
+r = fclose int get xmeta 2
+r = waitpid int get xmeta 0 xstat 0 4 0
+check eq r long get xmeta 0
+check eq get xstat 0 0
+check eq ulong get xstat 1 code
+end
+fn exchange to void
+check eq xspawn 0
+xinit
+check eq xcall 1 178 75
+check eq xbegin 0 1 69
+check eq xbegin 1 0 69
+check eq xbegin 0 0 0
+check eq xbegin 0 0 75
+check eq xcall 8 0 75
+check eq xcall 7 0 75
+check eq xselect 1000 64 2 0 0
+check eq xget 7 31
+check eq xget 8 32
+check eq xget 9 32000000
+check eq xselect 1000 64 2 0 75
+check eq xobs 2 3 0 0 75
+check eq xobs 2 3 0 1 0
+check eq xget 7 3
+check eq xget 8 2
+check eq xget 9 1
+check eq xget 10 0
+check eq xselect 1003 61 2 0 75
+check eq xcall 5 0 0
+check eq xselect 1002 61 2 0 69
+check eq xselect 1003 61 2 0 0
+check eq xget 7 31
+check eq xcall 6 0 0
+check eq xbegin 1 0 0
+check eq xselect 1000 2 1 1 0
+check eq xget 7 1
+check eq xobs 0 1 1 1 0
+check eq xget 10 1
+check eq xcall 7 0 0
+check eq xcall 8 0 0
+xreap 0
+end
+fn broken kind ulong code ulong to void
+check eq xspawn 0
+if eq kind 3
+xinit
+check eq xbegin 0 0 0
+else
+xput 0 827343699
+xput 1 1
+xput 2 8
+xput 3 1
+xput 4 0
+bytes = ulong 40
+if eq kind 0
+xput 3 2
+end
+if eq kind 1
+bytes = 7
+end
+if eq kind 2
+xput 1 2
+end
+if eq kind 4
+xput 4 1
+end
+if eq kind 5
+xput 2 2
+xput 4 3
+bytes = 48
+end
+if eq kind 6
+xput 2 9
+end
+r = write int get xmeta 1 xreq 0 bytes
+check eq r long bytes
+end
+r = fclose int get xmeta 1
+put xmeta 1 18446744073709551615
+r = waitio int get xmeta 2 1 5000000000
+check gt r 0
+r = read int get xmeta 2 xresp 0 128
+check eq r 0
+xreap code
+end
+fn main to int
+if ne argcnt 2
+ret 64
+end
+fixture
+exchange
+broken 0 69
+broken 1 65
+broken 2 69
+broken 3 75
+broken 4 65
+broken 5 65
+broken 6 77
+ret finish
+end

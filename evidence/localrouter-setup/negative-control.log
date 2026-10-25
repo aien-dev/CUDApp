@@ -1,0 +1,2 @@
+PASS: shared-lock guard removed in scratch copy; intended rejection test failed
+mutant exit code: 1

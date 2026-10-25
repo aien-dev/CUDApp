@@ -1,0 +1,57 @@
+note Physical seeded Omega vector-kernel qualification, full output checks and safe wrong-math control.
+global diag uchar 24
+text ok "NATIVE_SM121_VECTOR_PASS\n"
+text bad "NATIVE_SM121_VECTOR_FAIL\n"
+fn pack off ulong v long to void
+for i ulong 8
+put diag add off i uchar and shr v mul i 8 255
+end
+end
+fn ck yes bool to void
+if not yes
+pack 0 long get nvstage 0
+pack 8 get nverr 0
+closed = nvstop
+pack 16 long get nvfault 0
+r = write 2 bad 0 len bad
+r = write 1 diag 0 len diag
+exit int 80
+end
+end
+fn trial n uint salt ulong wrong bool to void
+prepare n salt
+ck gblaunch n
+verify n salt wrong
+end
+fn program wrong bool to void
+gbvec
+if wrong
+note IADD3 R9,R2,RZ safely computes the wrong value while retaining all memory bounds.
+put gbcode 276 255
+end
+m = nvalloc 4096 true
+ck gt m 0
+put gbmem 4 m
+ck eq mapwrite m 0 gbcode 0 get gblen 0 long get gblen 0
+end
+fn main to int
+ck gbopen 1048576
+ck not gblaunch 0
+ck not gblaunch 1048577
+trial 1 1 false
+trial 63 17 false
+trial 64 31 false
+trial 65 47 false
+trial 257 63 false
+trial 4097 97 false
+trial 65537 131 false
+trial 1048576 257 false
+program true
+trial 4097 311 true
+program false
+trial 4097 367 false
+ck nvstop
+ck eq get nvfault 0 0
+ck eq write 1 ok 0 len ok long len ok
+ret 0
+end

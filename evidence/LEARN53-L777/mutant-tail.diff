@@ -1,0 +1,11 @@
+--- native/learn53/task.om
++++ mutant/task.om
+@@ -259,7 +259,7 @@
+ if ne kc add kw 13 1 2779096485
+ ret 1
+ end
+-for i ulong kw 13
++for i ulong sub kw 13 1
+ if ne kc add i 1 kexpect i
+ ret 1
+ end

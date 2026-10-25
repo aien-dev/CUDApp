@@ -1,0 +1,82 @@
+note Physical RM/UVM buffer lifecycle and CPU access. No kernel or GPU coherence claim.
+global payload uchar 256
+global readback uchar 256
+global diag uchar 24
+text ok "NATIVE_DEVICE_MEMORY_PASS\n"
+text bad "NATIVE_DEVICE_MEMORY_FAIL\n"
+fn pack off ulong v long to void
+for i ulong 8
+put diag add off i uchar and shr v mul i 8 255
+end
+end
+fn ck yes bool to void
+if not yes
+pack 0 long get nvstage 0
+pack 8 get nverr 0
+closed = nvstop
+pack 16 long get nvfault 0
+r = write 2 bad 0 len bad
+r = write 1 diag 0 len diag
+exit int 80
+end
+end
+fn checkmem m long size ulong salt uint to void
+ck gt m 0
+ck eq and mapaddr m 4095 0
+ck eq mapget m 0 8 0
+ck eq mapget m sub size 8 8 0
+for i ulong 256
+put payload i uchar and add uint i salt 255
+end
+off = ulong 0
+while lt off size
+ck eq mapwrite m off payload 0 256 256
+off = add off 256
+end
+off = ulong 0
+while lt off size
+ck eq mapread m off readback 0 256 256
+for i ulong 256
+ck eq get readback i get payload i
+end
+off = add off 256
+end
+end
+fn main to int
+ck nvstop
+for attempt uint 3
+ck nvfull
+ck not nvstart
+ck eq get nverr 0 neg long 16
+put nverr 0 0
+a = nvalloc 4096 true
+checkmem a 4096 attempt
+b = nvalloc 65536 false
+checkmem b 65536 add attempt 17
+ck ne mapaddr a mapaddr b
+ck eq mapget a 0 4 ulong add uint 50462976 mul attempt 16843009
+ck nvdrop a
+ck not nvdrop a
+ck eq get nverr 0 neg long 22
+put nverr 0 0
+c = nvalloc 1048576 true
+checkmem c 1048576 add attempt 31
+ck ne c a
+ck nvdrop b
+ck nvdrop c
+d = nvalloc 4097 true
+checkmem d 8192 add attempt 47
+note The final live buffer is intentionally released by context shutdown.
+ck nvstop
+ck nvstop
+for i ulong len nvmflag
+ck eq get nvmflag i 0
+end
+for i ulong len nvfd
+ck eq get nvfd i neg int 1
+end
+ck eq get nvfault 0 0
+end
+ck eq write 1 ok 0 len ok long len ok
+ret 0
+end

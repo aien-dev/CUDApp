@@ -1,0 +1,43 @@
+{
+  "recorded_at": "2026-10-24T06:15:10.714300+00:00",
+  "candidate_source": "767860788cfeb51f35058e372ba36f1ffb0a9ae4",
+  "main_base": "c196256acd56fb76a7f34430b2c0028f5d11deac",
+  "original_patch": "a91726cd24dbff5a6f67a1246fea0ddf1422f93a",
+  "scope": "Existing portable shell fixture repair transplanted to current main; no runtime or GPU code changed",
+  "environment": {
+    "system": "Linux",
+    "machine": "x86_64",
+    "compiler": "cc (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0"
+  },
+  "checks": [
+    {
+      "command": "make test-runtime-api",
+      "exit": 0,
+      "result": "PASS; API manifest and all nine negative controls"
+    },
+    {
+      "command": "existing L639 test_fixture_failures.py oracle, with only cwd and /tmp path adaptations",
+      "exit": 0,
+      "result": "PASS; edit error and no-op refuse all nine controls each"
+    },
+    {
+      "command": "git diff --check origin/main HEAD",
+      "exit": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "make -j2 OUT_DIR=build/desk-portability test",
+      "exit": 2,
+      "result": "FAIL; AArch64 dsb sy assembly in src/omega_blackwell_engine.c:393 and :558 on x86_64; independent started mutation target finished49/49 killed"
+    }
+  ],
+  "native_omega_tests": "NOT_RUN; native compiler targets AArch64, no AArch64 emulator available in this workspace",
+  "gpu": "NOT_RUN",
+  "deployment": "NOT_RUN",
+  "merge_qualification": "NOT_QUALIFIED; focused repair passes, full mandatory host gate failed",
+  "sha256": {
+    "focused.log": "60855f5460d3a644f4941983668f7f09542bf34e360328c85113c485c0118a60",
+    "fixture-refusals.json": "9e09a9eea8982a2e12aa90030345cf7d82b71717c4c02acdeecf750c548f6342",
+    "full-host.log": "d0262aa774c3549c216702d0f1113897f88d508384ea498be8436426f16ed2bd"
+  }
+}

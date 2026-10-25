@@ -1,0 +1,40 @@
+{
+  "compiler_sha256": "9f48f66a9ee9f6a166df615a7ab9c48bf5b06ac2ba544ac51e52e9a3d290a6c4",
+  "programs": [
+    {
+      "name": "service",
+      "sha256": "dc0dd2a196583c5f300765ab50474cbc3bed653f2f241eedc26ad6cc5a211bda",
+      "identical_to_tested_binary": true
+    },
+    {
+      "name": "service-test",
+      "sha256": "48b8d60f20b4289c90b04d37dde7df34972f40bf3aae128c7ce8ec8d7c625613",
+      "identical_to_tested_binary": true
+    },
+    {
+      "name": "policy-test",
+      "sha256": "5c76fb1256abe9bbe28d447318d6779bf187422f978df91d490ec9d6fb048c12",
+      "identical_to_tested_binary": true
+    },
+    {
+      "name": "cost-test",
+      "sha256": "019de1453715538737302c6d8d59cd6c8d2f1fd2211731e3c854ec3b85b0343f",
+      "identical_to_tested_binary": true
+    },
+    {
+      "name": "report-test",
+      "sha256": "8c199e1d92a1c82d9c1250283bc532a0c34b3af6aafa65f505b23cb8b025af92",
+      "identical_to_tested_binary": true
+    },
+    {
+      "name": "oracle-test",
+      "sha256": "d2101761e494610743ce8bffc6df2b1068a17d60bd10eafa417de06223df8fb5",
+      "identical_to_tested_binary": true
+    },
+    {
+      "name": "model-map-test",
+      "sha256": "64e3eb413b399707cda7623f9782559776081aa2a0d714167f60cc60c8852b3a",
+      "identical_to_tested_binary": true
+    }
+  ]
+}

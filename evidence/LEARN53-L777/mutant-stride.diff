@@ -1,0 +1,11 @@
+--- native/learn53/task.om
++++ mutant/task.om
+@@ -240,7 +240,7 @@
+ if ne col 0
+ ret 2779096485
+ end
+-a = kw add 24 mul row kw 8
++a = kw add 24 row
+ b = kw add add 24 kw 11 mul row kw 9
+ ret and add a b 4294967295
+ end

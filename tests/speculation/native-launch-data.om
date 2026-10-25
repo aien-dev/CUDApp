@@ -1,0 +1,53 @@
+note Host-only launch-data differential. The managed address reservations touch no GPU.
+fn main to int
+gbvec
+if ne write 1 gbcode 0 get gblen 0 512
+ret 80
+end
+for trial ulong 5
+base = add 68719476736 mul trial 1073741824
+for i ulong 8
+h = maphold add base mul i 65536 65536
+if le h 0
+ret 81
+end
+put gbmem i h
+end
+n = uint 1
+if eq trial 1
+n = uint 63
+end
+if eq trial 2
+n = uint 64
+end
+if eq trial 3
+n = uint 65
+end
+if eq trial 4
+n = uint 4097
+end
+gbqmd n
+put gbused 0 0
+for i ulong 224
+gbemit get gbcb i
+end
+for i ulong 96
+gbemit get gbq0 i
+end
+for i ulong 96
+gbemit get gbq1 i
+end
+for i ulong 7
+gbemit get gbargs i
+end
+if ne write 1 gbcmd 0 get gbused 0 1692
+ret 82
+end
+for i ulong 8
+if ne mapdrop get gbmem i 0
+ret 83
+end
+end
+end
+ret 0
+end

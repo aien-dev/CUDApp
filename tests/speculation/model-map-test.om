@@ -1,0 +1,77 @@
+note Read-only weight-file attachment test. No tensor math, GPU or inference is performed.
+note argv[1] is one local safetensors shard. Compare real mapped bytes with independent file reads.
+global path uchar 4096
+global meta uchar 128
+global after uchar 128
+global mapped uchar 4096
+global direct uchar 4096
+text pass "MODEL_MAP_SAMPLES_PASS 37\n"
+fn check yes bool to void
+if not yes
+exit int 80
+end
+end
+fn sizeword to ulong
+v = ulong 0
+for i ulong 8
+v = or v shl ulong get meta add i 48 mul i 8
+end
+ret v
+end
+fn compare fd int handle long off ulong n ulong to void
+check eq mapread handle off mapped 0 n long n
+check eq fseek fd long off 0 long off
+used = ulong 0
+while lt used n
+got = read fd direct used sub n used
+check gt got 0
+used = add used ulong got
+end
+for i ulong n
+check eq get mapped i get direct i
+end
+end
+fn main to int
+check eq argcnt 2
+pn = argread 1 path 0 len path
+check and gt pn 0 lt pn long len path
+fd = fopen path 0 ulong pn 524288 0
+check ge fd 0
+check eq fstat int fd meta 0 128 0
+size = sizeword
+check and ge size 16 le size 68719476736
+handle = mapnew int fd 0 size 1 2
+check gt handle 0
+compare int fd handle 0 8
+header = ulong 0
+for i ulong 8
+header = or header shl ulong get mapped i mul i 8
+end
+check and ge header 2 le header sub size 8
+check le header 67108864
+compare int fd handle 8 1
+check eq get mapped 0 123
+compare int fd handle add 7 header 1
+check or eq get mapped 0 125 eq get mapped 0 32
+take = ulong 4096
+if lt size take
+take = size
+end
+compare int fd handle 0 take
+compare int fd handle sub size take take
+for i ulong 32
+off = div mul sub size take i 31
+compare int fd handle off take
+end
+note Recheck file identity, length and modification metadata. atime is allowed to change.
+check eq fstat int fd after 0 128 0
+for i ulong 128
+if or or lt i 16 and ge i 48 lt i 56 and ge i 88 lt i 120
+check eq get after i get meta i
+end
+end
+check eq mapdrop handle 0
+check eq fclose int fd 0
+check eq write 1 pass 0 len pass long len pass
+ret 0
+end

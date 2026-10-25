@@ -1,0 +1,93 @@
+{
+  "schema": "cudapp.merge-desk.native-teardown-review.v1",
+  "recorded_at": "2026-10-24T06:33:10.999249+00:00",
+  "qualification": "DRAFT_UNQUALIFIED",
+  "base": "5e037c7e3d0226abadaa10af9d44bc6339109b3f",
+  "source": "ff5b4f9f1b13cffff2669e8207fe38cb5831366f",
+  "runtime_source_commit": "c80a51f8c5993c985b555ccaf280d1da0e09d171",
+  "host": {
+    "system": "Linux",
+    "machine": "x86_64"
+  },
+  "related": [
+    "https://github.com/aien-dev/CUDApp/issues/65",
+    "https://github.com/aien-dev/CUDApp/pull/67",
+    "https://github.com/aien-dev/CUDApp/pull/67#pullrequestreview-5637134696"
+  ],
+  "files": [
+    {
+      "path": "native/nvrm/context.om",
+      "sha256": "a63b1ab13e30d26f03e022fbb586786551ced447439d666b8d108b9126330a12"
+    },
+    {
+      "path": "tests/speculation/teardown-host-test.om",
+      "sha256": "d75d354630c0efef2062f67507e7d9f6898b618fb3abf7931ccbfb8380a8d167"
+    },
+    {
+      "path": "tests/speculation/run-teardown-host.sh",
+      "sha256": "6e03d388f77d93d422e056da0ac65a600a4866614eb832eaddc0ec5e6cf53ced"
+    }
+  ],
+  "checks": [
+    {
+      "name": "shell syntax",
+      "command": "sh -n tests/speculation/run-teardown-host.sh",
+      "result": "PASS",
+      "exit": 0
+    },
+    {
+      "name": "private source composition and effect guard",
+      "result": "PASS",
+      "receipt": "source-composition.json",
+      "native_compilation": false,
+      "native_execution": false
+    },
+    {
+      "name": "whitespace",
+      "command": "git diff --check origin/experiment/27b-adaptive-sizing HEAD",
+      "result": "PASS",
+      "exit": 0
+    },
+    {
+      "name": "native fixture",
+      "command": "sh tests/speculation/run-teardown-host.sh /unavailable/pinned-omc",
+      "result": "NOT_RUN",
+      "exit": 77,
+      "reason": "Requires Linux AArch64 and the pinned runnable compiler; workspace is x86_64 with no emulator"
+    },
+    {
+      "name": "required legacy host suite",
+      "command": "make -j2 OUT_DIR=build/teardown-review test",
+      "result": "FAIL",
+      "exit": 2,
+      "reason": "Existing unconditional dsb sy in src/omega_blackwell_engine.c:393,558 rejected by x86 assembler",
+      "log": "full-host.log"
+    },
+    {
+      "name": "already-started legacy mutation target",
+      "result": "PASS",
+      "killed": 49,
+      "total": 49,
+      "scope": "Legacy target only; does not exercise the native .om repair"
+    },
+    {
+      "name": "independent runtime source review",
+      "result": "NO_NEW_SOURCE_BLOCKER",
+      "scope": "Runtime c80a51f unchanged in source candidate; source-order/state-transition review, no native execution"
+    },
+    {
+      "name": "GPU execution",
+      "result": "NOT_RUN"
+    },
+    {
+      "name": "real 27B inference",
+      "result": "NOT_RUN"
+    },
+    {
+      "name": "deployment",
+      "result": "NOT_RUN"
+    }
+  ],
+  "next_gate": "Run baseline assertion-failure and repaired PASS with the pinned compiler on Linux AArch64; retain fresh exact-source evidence and existing signed integration gates",
+  "remote_mutations": false
+}

@@ -1,0 +1,428 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note CUL1 public domain adapter. See docs/learn53/CONTRACT.md.
+note Caller owns/pins kt; only ko contains candidate observations. No code execution.
+global kt uchar 4096
+global ko uchar 1032
+fn kw i ulong to ulong
+v = ulong 0
+for j ulong 4
+v = or v shl ulong get kt add mul i 4 j mul j 8
+end
+ret v
+end
+fn kc i ulong to ulong
+v = ulong 0
+for j ulong 4
+v = or v shl ulong get ko add mul i 4 j mul j 8
+end
+ret v
+end
+fn kshape to ulong
+op = kw 2
+m = kw 5
+n = kw 6
+k = kw 7
+if eq op 3
+if eq m 2
+if eq n 3
+if eq k 2
+ret 301
+end
+end
+end
+if eq m 3
+if eq n 2
+if eq k 3
+ret 302
+end
+end
+end
+ret 0
+end
+if ne n 1
+ret 0
+end
+if ne k 1
+ret 0
+end
+base = mul op 100
+if eq m 3
+ret add base 1
+end
+if eq m 8
+ret add base 2
+end
+if eq m 17
+ret add base 3
+end
+ret 0
+end
+fn kextent rows ulong cols ulong stride ulong to ulong
+ret add mul sub rows 1 stride cols
+end
+fn kstrides to int
+op = kw 2
+m = kw 5
+if eq op 3
+if lt kw 8 kw 7
+ret 65
+end
+if lt kw 9 kw 6
+ret 65
+end
+if lt kw 10 kw 6
+ret 65
+end
+if ne kw 11 kextent m kw 7 kw 8
+ret 65
+end
+if ne kw 12 kextent kw 7 kw 6 kw 9
+ret 65
+end
+if ne kw 13 kextent m kw 6 kw 10
+ret 65
+end
+ret 0
+end
+if eq kw 8 0
+ret 65
+end
+if ne kw 11 kextent m 1 kw 8
+ret 65
+end
+if eq op 2
+if ne kw 9 0
+ret 65
+end
+if ne kw 12 0
+ret 65
+end
+if ne kw 10 1
+ret 65
+end
+if ne kw 13 1
+ret 65
+end
+ret 0
+end
+if eq kw 9 0
+ret 65
+end
+if eq kw 10 0
+ret 65
+end
+if ne kw 12 kextent m 1 kw 9
+ret 65
+end
+if ne kw 13 kextent m 1 kw 10
+ret 65
+end
+ret 0
+end
+fn kvalid n ulong to int
+note All variable reads follow size/count validation. Bounds precede arithmetic.
+if lt n 96
+ret 65
+end
+if gt n 4096
+ret 65
+end
+if ne kw 0 827086147
+ret 65
+end
+if ne kw 1 1
+ret 69
+end
+if gt kw 11 256
+ret 65
+end
+if gt kw 12 256
+ret 65
+end
+if eq kw 13 0
+ret 65
+end
+if gt kw 13 256
+ret 65
+end
+if ne n add 96 mul 4 add kw 11 kw 12
+ret 65
+end
+if ne kw 23 0
+ret 65
+end
+if eq kw 16 0
+ret 65
+end
+if ne kw 21 0
+ret 65
+end
+if ne kw 22 0
+ret 65
+end
+if lt kw 2 1
+ret 69
+end
+if gt kw 2 3
+ret 69
+end
+if ne kw 3 1
+ret 69
+end
+if ne kw 4 0
+ret 69
+end
+if ne kw 17 1
+ret 69
+end
+if ne kw 18 0
+ret 69
+end
+if ne kw 19 1
+ret 69
+end
+if ne kw 20 1
+ret 69
+end
+if eq kw 14 0
+ret 65
+end
+if gt kw 14 3
+ret 65
+end
+if ne kw 14 1
+ret 77
+end
+family = kshape
+if eq family 0
+ret 69
+end
+if ne kw 15 family
+ret 65
+end
+for i ulong 3
+if gt kw add i 8 32
+ret 65
+end
+end
+ret kstrides
+end
+fn ksum to ulong
+v = ulong 0
+for i ulong kw 5
+v = and add v kw add 24 mul i kw 8 4294967295
+end
+ret v
+end
+fn kdot row ulong col ulong to ulong
+v = ulong 0
+for i ulong kw 7
+a = kw add 24 add mul row kw 8 i
+b = kw add add 24 kw 11 add mul i kw 9 col
+v = and add v mul a b 4294967295
+end
+ret v
+end
+fn kexpect pos ulong to ulong
+op = kw 2
+if eq op 2
+ret ksum
+end
+stride = kw 10
+row = div pos stride
+col = rem pos stride
+if eq op 3
+if ge col kw 6
+ret 2779096485
+end
+ret kdot row col
+end
+if ne col 0
+ret 2779096485
+end
+a = kw add 24 mul row kw 8
+b = kw add add 24 kw 11 mul row kw 9
+ret and add a b 4294967295
+end
+fn keval n ulong c ulong to int
+status = kvalid n
+if ne status 0
+ret status
+end
+note Candidate result length is not trusted. No caller-supplied PASS or tolerance.
+if ne c mul 4 add kw 13 2
+ret 65
+end
+if ne kc 0 2779096485
+ret 1
+end
+if ne kc add kw 13 1 2779096485
+ret 1
+end
+for i ulong kw 13
+if ne kc add i 1 kexpect i
+ret 1
+end
+end
+ret 0
+end
+note SPDX-License-Identifier: AGPL-3.0-only
+note Public fixtures, never sealed evaluation. Expected literals independently checked with Wolfram.
+text okmsg "PASS "
+text badmsg "FAIL "
+global nums uchar 32
+global tally ulong 2
+global saved uchar 4096
+fn digit n ulong to void
+if ge n 10
+digit div n 10
+end
+put nums 0 uchar add 48 rem n 10
+w = write 1 nums 0 1
+end
+fn check yes bool to void
+put tally 0 add get tally 0 1
+if yes
+w = write 1 okmsg 0 len okmsg
+else
+w = write 1 badmsg 0 len badmsg
+put tally 1 add get tally 1 1
+end
+digit get tally 0
+put nums 0 10
+w = write 1 nums 0 1
+end
+fn tw p ulong v ulong to void
+for i ulong 4
+put kt add mul p 4 i uchar and shr v mul i 8 255
+end
+end
+fn cw p ulong v ulong to void
+for i ulong 4
+put ko add mul p 4 i uchar and shr v mul i 8 255
+end
+end
+fn header op ulong to void
+for i ulong 4096
+put kt i 0
+end
+for i ulong 258
+cw i 2779096485
+end
+tw 0 827086147
+tw 1 1
+tw 2 op
+tw 3 1
+tw 5 3
+tw 6 1
+tw 7 1
+tw 8 2
+tw 9 2
+tw 10 2
+tw 11 5
+tw 12 5
+tw 13 5
+tw 14 1
+tw 15 add mul op 100 1
+tw 16 1
+tw 17 1
+tw 19 1
+tw 20 1
+end
+fn vec to void
+header 1
+tw 24 4294967295
+tw 25 111
+tw 26 7
+tw 27 222
+tw 28 9
+tw 29 1
+tw 30 333
+tw 31 4
+tw 32 444
+tw 33 6
+cw 1 0
+cw 3 11
+cw 5 15
+end
+fn red to void
+header 2
+tw 9 0
+tw 10 1
+tw 12 0
+tw 13 1
+tw 24 4294967295
+tw 25 111
+tw 26 2
+tw 27 222
+tw 28 3
+cw 1 4
+end
+fn mat to void
+header 3
+tw 5 2
+tw 6 3
+tw 7 2
+tw 8 3
+tw 9 4
+tw 10 4
+tw 11 5
+tw 12 7
+tw 13 7
+tw 24 1
+tw 25 2
+tw 26 999
+tw 27 3
+tw 28 4
+tw 29 5
+tw 30 6
+tw 31 7
+tw 32 999
+tw 33 8
+tw 34 9
+tw 35 10
+cw 1 21
+cw 2 24
+cw 3 27
+cw 5 47
+cw 6 54
+cw 7 61
+end
+fn main to int
+vec
+note Independently test count arithmetic and no mutation on rejected manifest.
+tw 11 4294967295
+for i ulong 4096
+put saved i get kt i
+end
+if ne kvalid 136 65
+ret 1
+end
+for i ulong 4096
+if ne get saved i get kt i
+ret 2
+end
+end
+vec
+note Stride/count boundary rejection followed by recovery.
+tw 8 32
+tw 11 94
+if ne keval 136 28 65
+ret 3
+end
+vec
+if ne keval 136 28 0
+ret 4
+end
+note Matmul sparse output padding is checked at every physical word.
+mat
+cw 4 0
+if ne keval 144 36 1
+ret 5
+end
+mat
+if ne keval 144 36 0
+ret 6
+end
+ret 0
+end

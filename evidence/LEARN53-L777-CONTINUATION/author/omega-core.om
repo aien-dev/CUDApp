@@ -1,0 +1,448 @@
+note LEARN653 v1 consumer checks. No compiler, judge, signer or process supervisor.
+note Task slots are 32 ulongs; see docs/learning/benchmark-v1.md.
+global LT ulong 2048
+global LS ulong 24
+global LSeen ulong 64
+global LWon ulong 64
+global LPin ulong 16
+global LWant uchar 256
+global LGot uchar 256
+
+fn lequal a ulong b ulong n ulong to bool
+for k ulong n
+if ne get LT add a k get LT add b k
+ret false
+end
+end
+ret true
+end
+
+fn lnonzero a ulong to bool
+x = ulong 0
+for k ulong 4
+x = or x get LT add a k
+end
+ret ne x 0
+end
+
+fn lrecord a ulong to ulong
+split = get LT add a 1
+if or eq get LT a 0 or lt split 1 gt split 4
+ret 2
+end
+if or ne get LT add a 5 1 ne get LT add a 4 1
+ret 3
+end
+if eq get LT add a 3 0
+ret 4
+end
+if eq get LT add a 6 0
+ret 4
+end
+if eq get LT add a 7 0
+ret 4
+end
+note Only public train/dev records are admissible to this builder-side API.
+note Adaptive/final custody stays with the existing independent owner.
+if or gt split 2 ne get LT add a 2 1
+ret 5
+end
+for h ulong 5
+if eq lnonzero add a add 8 mul h 4 false
+ret 6
+end
+end
+if or eq get LT add a 28 0 gt get LT add a 28 256
+ret 7
+end
+if or eq get LT add a 29 0 gt get LT add a 29 256
+ret 7
+end
+if or eq get LT add a 30 0 gt get LT add a 30 1000000
+ret 7
+end
+if ne get LT add a 31 0
+ret 7
+end
+ret 0
+end
+
+fn lpair a ulong b ulong to ulong
+if eq get LT a get LT b
+ret 8
+end
+if lequal add a 8 add b 8 4
+ret 9
+end
+if lequal add a 12 add b 12 4
+ret 10
+end
+if ne get LT add a 1 get LT add b 1
+if eq get LT add a 3 get LT add b 3
+ret 15
+end
+if eq get LT add a 7 get LT add b 7
+ret 11
+end
+if lequal add a 16 add b 16 4
+ret 12
+end
+if lequal add a 20 add b 20 4
+ret 13
+end
+if lequal add a 24 add b 24 4
+ret 14
+end
+end
+ret 0
+end
+
+fn lmanifest n ulong to ulong
+if or eq n 0 gt n 64
+ret 1
+end
+for i ulong n
+a = mul i 32
+code = lrecord a
+if ne code 0
+ret code
+end
+for j ulong i
+b = mul j 32
+code = lpair a b
+if ne code 0
+ret code
+end
+end
+end
+ret 0
+end
+
+note Caller supplies independent expected bytes and actual executor observations.
+note Status 0=completed, 1=syntax,2=type,3=unsupported,4=timeout,5=resource,6=operational.
+note Result 0=correct,1..6 as above,7=wrong value,8=trap mismatch,9=empty output,10=malformed.
+fn lobserve status ulong wantcode ulong gotcode ulong wantn ulong gotn ulong to ulong
+if gt status 6
+ret 10
+end
+if ne status 0
+ret status
+end
+if or gt wantn 256 gt gotn 256
+ret 10
+end
+if ne wantcode gotcode
+ret 8
+end
+if ne wantcode 0
+note Only declared runtime traps 101..107; arbitrary exit failures never pass.
+if or lt wantcode 101 or gt wantcode 107 ne wantn 0
+ret 10
+end
+if ne gotn 0
+ret 8
+end
+ret 0
+end
+if eq wantn 0
+ret 10
+end
+if eq gotn 0
+ret 9
+end
+if ne wantn gotn
+ret 7
+end
+for i ulong wantn
+if ne get LWant i get LGot i
+ret 7
+end
+end
+ret 0
+end
+
+note Full 256-bit compiler and executable identities, expected then observed.
+note LPin[0..3] expected compiler, [4..7] observed, [8..11] expected ELF, [12..15] observed.
+fn lpins to bool
+ca = ulong 0
+ba = ulong 0
+for i ulong 4
+ca = or ca get LPin i
+ba = or ba get LPin add i 8
+if ne get LPin i get LPin add i 4
+ret false
+end
+if ne get LPin add i 8 get LPin add i 12
+ret false
+end
+end
+ret and ne ca 0 ne ba 0
+end
+
+note Each begin is one explicit fresh development run; no durable resume API exists.
+note LS: active,tasks,maxattempts,attempts,pass1,passbudget,invalid,closed,
+note generation_us,compile_us,judge_us,other_us,input_tokens,output_tokens,peak_bytes,
+note energy_uj,energy_unknown,budget_us,completed,abstained,reserved...
+fn lbegin n ulong maxtries ulong budget ulong to ulong
+if eq get LS 0 1
+ret 20
+end
+for i ulong 24
+put LS i 0
+end
+for i ulong 64
+put LSeen i 0
+put LWon i 0
+end
+code = lmanifest n
+if ne code 0
+put LS 6 code
+ret code
+end
+if or eq maxtries 0 or gt maxtries 64 or eq budget 0 gt budget 1000000000000
+put LS 6 21
+ret 21
+end
+put LS 0 1
+put LS 1 n
+put LS 2 maxtries
+put LS 17 budget
+ret 0
+end
+
+note Charge before classifying. Costs are exact integer caller measurements, never estimates.
+note Missing cost values use all-ones and invalidate the run, never become free.
+fn lcost slot ulong value ulong to ulong
+if or lt slot 8 gt slot 15
+put LS 6 22
+ret 22
+end
+if gt value 1000000000000
+put LS 6 23
+ret 23
+end
+if eq slot 14
+if gt value get LS slot
+put LS slot value
+end
+else
+if gt get LS slot sub ulong 1000000000000 value
+put LS 6 23
+ret 23
+end
+put LS slot add get LS slot value
+end
+ret 0
+end
+
+note Attempt outcomes come from lobserve or explicit abstention 11, never compiler acceptance.
+note Mandatory cost vector is supplied per attempt in LC; energy unknown is explicit.
+global LC ulong 9
+
+fn lattempt task ulong ordinal ulong outcome ulong to ulong
+if ne get LS 0 1
+ret 24
+end
+for k ulong 8
+r = lcost add k 8 get LC k
+end
+if eq get LC 8 0
+put LS 16 add get LS 16 1
+if ne get LC 7 0
+put LS 6 25
+end
+else
+if ne get LC 8 1
+put LS 6 25
+end
+end
+put LS 3 add get LS 3 1
+note At most 64 attempts across a public development run, including failed attempts.
+if gt get LS 3 64
+put LS 6 31
+ret 31
+end
+if eq lpins false
+put LS 6 26
+end
+note Invalid costs or identities can never add successful tasks.
+if ne get LS 6 0
+ret get LS 6
+end
+if or ge task get LS 1 gt outcome 11
+put LS 6 27
+ret 27
+end
+if or ne ordinal add get LSeen task 1 gt ordinal get LS 2
+put LS 6 28
+ret 28
+end
+put LSeen task ordinal
+if eq outcome 0
+if eq ordinal 1
+put LS 4 add get LS 4 1
+end
+if eq get LWon task 0
+put LWon task 1
+put LS 5 add get LS 5 1
+end
+end
+if eq outcome 11
+put LS 19 add get LS 19 1
+end
+elapsed = add get LS 8 get LS 9
+elapsed = add elapsed get LS 10
+elapsed = add elapsed get LS 11
+if gt elapsed get LS 17
+put LS 6 29
+end
+ret get LS 6
+end
+
+fn lfinish to ulong
+if ne get LS 0 1
+ret 24
+end
+put LS 0 0
+for i ulong get LS 1
+if eq get LSeen i 0
+if eq get LS 6 0
+put LS 6 30
+end
+end
+end
+if ne get LS 6 0
+ret get LS 6
+end
+put LS 18 1
+ret 0
+end
+
+note GEN-1 genjac rule reused: lowercase ASCII word-triple SET Jaccard strictly above 1/2.
+note Input contains two public prompts only; never load final or sealed text here.
+global LText uchar 512
+global LStart ulong 128
+global LLength ulong 128
+global LCount ulong 2
+
+fn llower c uchar to uchar
+if and ge c 65 le c 90
+ret add c 32
+end
+ret c
+end
+
+fn lword c uchar to bool
+d = llower c
+ret or and ge d 97 le d 122 and ge d 48 le d 57
+end
+
+fn ltokens side ulong size ulong to bool
+if or gt side 1 gt size 256
+ret false
+end
+base = mul side 256
+slots = mul side 64
+count = ulong 0
+pos = ulong 0
+while lt pos size
+if gt get LText add base pos 127
+ret false
+end
+if lword get LText add base pos
+start = pos
+scanning = true
+while and lt pos size scanning
+if lword get LText add base pos
+pos = add pos 1
+else
+scanning = false
+end
+end
+if ge count 64
+ret false
+end
+put LStart add slots count add base start
+put LLength add slots count sub pos start
+count = add count 1
+else
+pos = add pos 1
+end
+end
+put LCount side count
+ret true
+end
+
+fn lwordeq a ulong b ulong to bool
+n = get LLength a
+if ne n get LLength b
+ret false
+end
+for k ulong n
+if ne llower get LText add get LStart a k llower get LText add get LStart b k
+ret false
+end
+end
+ret true
+end
+
+fn ltriple a ulong b ulong to bool
+for k ulong 3
+if eq lwordeq add a k add b k false
+ret false
+end
+end
+ret true
+end
+
+fn lunique at ulong base ulong to bool
+j = base
+while lt j at
+if ltriple at j
+ret false
+end
+j = add j 1
+end
+ret true
+end
+
+note 0=no near match,1=above threshold,2=insufficient words,3=unsupported input.
+fn lnear an ulong bn ulong to ulong
+if eq ltokens 0 an false
+ret 3
+end
+if eq ltokens 1 bn false
+ret 3
+end
+a = get LCount 0
+b = get LCount 1
+if or lt a 3 lt b 3
+ret 2
+end
+ua = ulong 0
+ub = ulong 0
+overlap = ulong 0
+for i ulong sub a 2
+if lunique i 0
+ua = add ua 1
+hit = false
+for j ulong sub b 2
+if ltriple i add 64 j
+hit = true
+end
+end
+if hit
+overlap = add overlap 1
+end
+end
+end
+for j ulong sub b 2
+if lunique add 64 j 64
+ub = add ub 1
+end
+end
+if gt mul overlap 3 add ua ub
+ret 1
+end
+ret 0
+end

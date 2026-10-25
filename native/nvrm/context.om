@@ -1,0 +1,1104 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Native continuation of canonical nvrm/nvrm.c, source349913f1, NVIDIA ABI580.173.02.
+note One explicitly owned context, bounded buffers, channel, submission and completion.
+text nvctl "/dev/nvidiactl"
+text nvdev "/dev/nvidia0"
+text nvuvm "/dev/nvidia-uvm"
+global nvfd int 4
+global nvobj uint 16
+global nvhdr uchar 32
+global nvpar uchar 16384
+global nvcard uchar 4608
+global nvseq uint 1
+global nverr long 1
+global nvstage uint 1
+global nvid uint 1
+global nvinst uint 1
+global nvsm uint 1
+global nvcls uint 3
+global nvuuid uchar 16
+global nvreg uchar 2
+note Context phases:0 closed,1 driver resources live,2 descriptors closed with mapping cleanup pending.
+global nvstate uchar 1
+global nvmm uint 1
+global nvfault uchar 1
+global nvnext ulong 1
+global nvbar long 1
+global nvfifo long 1
+global nvnotify long 1
+global nvchva long 1
+note A mapping not yet published to its caller remains owned after failed cleanup.
+global nvunpub long 1
+global nvtoken uint 1
+global nvchreg uchar 1
+global nvsched uchar 1
+global nvput ulong 1
+global nvret ulong 1
+global nvretry uint 1
+global nvmobj uint 96
+global nvmmap long 96
+global nvmaddr ulong 96
+global nvmlen ulong 96
+global nvmflag uchar 96
+fn nhput off ulong v uint to void
+for i ulong 4
+put nvhdr add off i uchar and shr v mul i 8 255
+end
+end
+fn nhget off ulong to uint
+v = uint 0
+for i ulong 4
+v = or v shl uint get nvhdr add off i mul i 8
+end
+ret v
+end
+fn npput off ulong v uint to void
+for i ulong 4
+put nvpar add off i uchar and shr v mul i 8 255
+end
+end
+fn npget off ulong to uint
+v = uint 0
+for i ulong 4
+v = or v shl uint get nvpar add off i mul i 8
+end
+ret v
+end
+fn npp64 off ulong v ulong to void
+for i ulong 8
+put nvpar add off i uchar and shr v mul i 8 255
+end
+end
+fn npg64 off ulong to ulong
+v = ulong 0
+for i ulong 8
+v = or v shl ulong get nvpar add off i mul i 8
+end
+ret v
+end
+fn npuuid to void
+npzero
+for i ulong 16
+put nvpar i get nvuuid i
+end
+end
+fn ncget off ulong to uint
+v = uint 0
+for i ulong 4
+v = or v shl uint get nvcard add off i mul i 8
+end
+ret v
+end
+fn nhzero to void
+for i ulong len nvhdr
+put nvhdr i 0
+end
+end
+fn npzero to void
+for i ulong len nvpar
+put nvpar i 0
+end
+end
+fn nvos r long status uint to bool
+if ne r 0
+put nverr 0 r
+ret false
+end
+if ne status 0
+put nverr 0 long status
+ret false
+end
+ret true
+end
+fn nvalc parent uint cls uint n ulong to uint
+nhzero
+nhput 0 get nvobj 0
+nhput 4 parent
+if ne cls 65
+if eq get nvseq 0 4294967295
+put nverr 0 neg long 75
+ret 0
+end
+nhput 8 get nvseq 0
+put nvseq 0 add get nvseq 0 1
+end
+nhput 12 cls
+r = devcall get nvfd 0 uint 3223340587 nvhdr 0 32 nvpar 0 n
+if not nvos r nhget 28
+ret 0
+end
+ret nhget 8
+end
+fn nvctrl obj uint cmd uint n ulong to bool
+nhzero
+nhput 0 get nvobj 0
+nhput 4 obj
+nhput 8 cmd
+r = devcall get nvfd 0 uint 3223340586 nvhdr 0 32 nvpar 0 n
+ret nvos r nhget 28
+end
+fn nvfree parent uint obj uint to bool
+if eq obj 0
+ret true
+end
+nhzero
+nhput 0 get nvobj 0
+nhput 4 parent
+nhput 8 obj
+r = devctl get nvfd 0 uint 3222292009 nvhdr 0 16
+ret nvos r nhget 12
+end
+fn nvstop to bool
+if eq get nvstate 0 0
+ret true
+end
+if eq get nvstate 0 2
+ret nvmapfinish
+end
+ok = true
+if nvchstop
+if not nvmclose
+ok = false
+end
+else
+ok = false
+end
+if gt get nvbar 0 0
+r = mapdrop get nvbar 0
+if ne r 0
+put nverr 0 r
+ok = false
+else
+put nvbar 0 0
+end
+end
+if ne get nvobj 5 0
+if not nvfree get nvobj 2 get nvobj 5
+ok = false
+end
+put nvobj 5 0
+end
+if ne get nvreg 1 0
+npuuid
+r = uvmctl get nvfd 2 uint 26 nvpar 0 20
+if not nvos r npget 16
+ok = false
+end
+put nvreg 1 0
+end
+if ne get nvreg 0 0
+npuuid
+r = uvmctl get nvfd 2 uint 38 nvpar 0 20
+if not nvos r npget 16
+ok = false
+end
+put nvreg 0 0
+end
+if ne get nvobj 4 0
+if not nvfree get nvobj 1 get nvobj 4
+ok = false
+end
+put nvobj 4 0
+end
+if ne get nvobj 3 0
+if not nvfree get nvobj 1 get nvobj 3
+ok = false
+end
+put nvobj 3 0
+end
+if ne get nvobj 2 0
+if not nvfree get nvobj 1 get nvobj 2
+ok = false
+end
+put nvobj 2 0
+end
+if ne get nvobj 1 0
+if not nvfree get nvobj 0 get nvobj 1
+ok = false
+end
+put nvobj 1 0
+end
+if ne get nvobj 0 0
+if not nvfree get nvobj 0 get nvobj 0
+ok = false
+end
+put nvobj 0 0
+end
+for j ulong len nvfd
+i = sub 3 j
+if ge get nvfd i 0
+if ne fclose get nvfd i 0
+ok = false
+end
+put nvfd i neg int 1
+end
+end
+note Close is attempted once per descriptor. Never repeat driver calls after this phase.
+put nvstate 0 2
+put nvsched 0 0
+if not nvmapfinish
+ok = false
+end
+if not ok
+put nvfault 0 1
+end
+ret ok
+end
+note The driver descriptors are closed; only owned CPU mappings may be retried here.
+fn nvmapfinish to bool
+if ne get nvstate 0 2
+put nverr 0 neg long 16
+ret false
+end
+ok = true
+if gt get nvunpub 0 0
+r = mapdrop get nvunpub 0
+if ne r 0
+put nverr 0 r
+ok = false
+else
+put nvunpub 0 0
+end
+end
+if gt get nvbar 0 0
+r = mapdrop get nvbar 0
+if ne r 0
+put nverr 0 r
+ok = false
+else
+put nvbar 0 0
+end
+end
+if gt get nvchva 0 0
+r = mapdrop get nvchva 0
+if ne r 0
+put nverr 0 r
+ok = false
+else
+put nvchva 0 0
+end
+end
+if not nvmforce
+ok = false
+end
+if not ok
+put nvfault 0 1
+ret false
+end
+note Descriptor closure retired every driver object, including a refused channel teardown.
+for i ulong len nvobj
+put nvobj i 0
+end
+for i ulong len nvreg
+put nvreg i 0
+end
+put nvchreg 0 0
+put nvput 0 0
+put nvret 0 0
+put nvfifo 0 0
+put nvnotify 0 0
+put nvstate 0 0
+ret true
+end
+fn nvstart to bool
+if ne get nvfault 0 0
+put nverr 0 neg long 5
+ret false
+end
+if ne get nvstate 0 0
+put nverr 0 neg long 16
+ret false
+end
+put nvstate 0 1
+put nvnext 0 68719476736
+for i ulong len nvfd
+put nvfd i neg int 1
+end
+for i ulong len nvobj
+put nvobj i 0
+end
+put nvseq 0 3472883713
+put nverr 0 0
+put nvstage 0 1
+r = fopen nvctl 0 len nvctl 524290 0
+if lt r 0
+put nverr 0 r
+ret false
+end
+put nvfd 0 int r
+put nvstage 0 2
+npzero
+root = nvalc 0 65 0
+if eq root 0
+ret false
+end
+put nvobj 0 root
+put nvstage 0 3
+for i ulong len nvcard
+put nvcard i 0
+end
+r = devctl get nvfd 0 uint 3523233480 nvcard 0 4608
+if not nvos r 0
+ret false
+end
+found = uint 0
+for i ulong 64
+off = mul i 72
+if ne get nvcard off 0
+found = add found 1
+if ne ncget add off 56 0
+put nverr 0 neg long 19
+ret false
+end
+put nvid 0 ncget add off 16
+end
+end
+if ne found 1
+put nverr 0 neg long 19
+ret false
+end
+put nvstage 0 4
+r = fopen nvdev 0 len nvdev 524290 0
+if lt r 0
+put nverr 0 r
+ret false
+end
+put nvfd 1 int r
+npzero
+npput 0 uint get nvfd 0
+r = devctl get nvfd 1 uint 3221505737 nvpar 0 4
+if not nvos r 0
+ret false
+end
+put nvstage 0 5
+npzero
+npput 0 get nvid 0
+if not nvctrl root 517 32
+ret false
+end
+put nvinst 0 npget 8
+put nvstage 0 6
+npzero
+npput 0 get nvinst 0
+npput 4 root
+dev = nvalc root 128 56
+if eq dev 0
+ret false
+end
+put nvobj 1 dev
+put nvstage 0 7
+npzero
+subd = nvalc dev 8320 4
+if eq subd 0
+ret false
+end
+put nvobj 2 subd
+put nvstage 0 8
+npzero
+if not nvctrl dev 8389266 804
+ret false
+end
+n = npget 0
+if gt n 200
+put nverr 0 neg long 75
+ret false
+end
+for i ulong 3
+put nvcls i 0
+end
+for i ulong ulong n
+c = npget add 4 mul i 4
+if eq c 52928
+put nvcls 0 c
+end
+if eq c 51567
+put nvcls 1 c
+end
+if eq c 50017
+put nvcls 2 c
+end
+end
+for i ulong 3
+if eq get nvcls i 0
+put nverr 0 neg long 19
+ret false
+end
+end
+put nvstage 0 9
+npzero
+npput 0 1
+npput 4 12
+if not nvctrl subd 545264168 488
+ret false
+end
+put nvsm 0 npget 8
+note RM reports SM10.04 on GB10; CUDA target sm121 uses a different numbering contract.
+note Matches canonical evidence/m16-blackwell-native-path-requalification-receipt.json.
+if ne get nvsm 0 2564
+put nverr 0 neg long 19
+ret false
+end
+put nvstage 0 10
+ret true
+end
+
+note Low GPU command addresses are reserved without replacement before an owned bind.
+note BAR mappings may use Linux-selected addresses; GPU buffers stay below 40 bits.
+fn nvcpumap obj uint size ulong system bool flags uint to long
+if or ne get nvfault 0 0 ne get nvstate 0 1
+put nverr 0 neg long 5
+ret neg long 1
+end
+fd = neg long 1
+if system
+fd = fopen nvctl 0 len nvctl 524290 0
+else
+fd = fopen nvdev 0 len nvdev 524290 0
+end
+if lt fd 0
+put nverr 0 fd
+ret fd
+end
+if not system
+npzero
+npput 0 uint get nvfd 0
+r = devctl int fd uint 3221505737 nvpar 0 4
+if not nvos r 0
+r = fclose int fd
+ret neg long 1
+end
+end
+npzero
+npput 0 get nvobj 0
+npput 4 get nvobj 1
+npput 8 obj
+npp64 24 size
+npput 44 flags
+npput 48 uint fd
+r = devctl get nvfd 0 uint 3224913486 nvpar 0 56
+if not nvos r npget 40
+r = fclose int fd
+ret neg long 1
+end
+m = neg long 1
+if system
+if gt get nvnext 0 sub 1099511627776 size
+put nverr 0 neg long 75
+r = fclose int fd
+ret neg long 1
+end
+m = maphold get nvnext 0 size
+if gt m 0
+put nvnext 0 add get nvnext 0 size
+r = mapbind m int fd 0 3
+if ne r 0
+m = r
+end
+end
+else
+m = mapnew int fd 0 size 3 1
+end
+r = fclose int fd
+if ne r 0
+put nverr 0 r
+put nvfault 0 1
+if gt m 0
+r = mapdrop m
+if ne r 0
+put nvunpub 0 m
+end
+end
+ret neg long 1
+end
+if lt m 0
+put nverr 0 m
+end
+ret m
+end
+
+note Release flags change only after confirmed acceptance. Failed entries stay quarantined.
+fn nvmrel slot ulong to bool
+f = get nvmflag slot
+if ne and f 4 0
+npzero
+npp64 0 get nvmaddr slot
+npp64 8 get nvmlen slot
+r = uvmctl get nvfd 2 uint 34 nvpar 0 24
+if not nvos r npget 16
+put nvfault 0 1
+ret false
+end
+f = and f 251
+put nvmflag slot f
+end
+if ne and f 8 0
+npzero
+npput 0 get nvobj 0
+npput 4 get nvobj 1
+npput 8 get nvobj 3
+npput 12 get nvmobj slot
+npp64 24 get nvmaddr slot
+npp64 32 get nvmlen slot
+r = devctl get nvfd 0 uint 3224389208 nvpar 0 48
+if not nvos r npget 40
+put nvfault 0 1
+ret false
+end
+f = and f 247
+put nvmflag slot f
+end
+if ne and f 1 0
+if not nvfree get nvobj 1 get nvmobj slot
+put nvfault 0 1
+ret false
+end
+f = and f 254
+put nvmflag slot f
+end
+if ne and f 2 0
+r = mapdrop get nvmmap slot
+if not nvos r 0
+put nvfault 0 1
+ret false
+end
+end
+put nvmflag slot 0
+put nvmobj slot 0
+put nvmmap slot 0
+put nvmaddr slot 0
+put nvmlen slot 0
+ret true
+end
+fn nvmclose to bool
+ok = true
+for i ulong len nvmflag
+if ne get nvmflag i 0
+if not nvmrel i
+ok = false
+end
+end
+end
+ret ok
+end
+note Called only after the owning driver context is closed, including error teardown.
+fn nvmforce to bool
+if ne get nvstate 0 2
+put nverr 0 neg long 16
+ret false
+end
+ok = true
+for i ulong len nvmflag
+note Driver-owned flags and handles retired when the descriptors closed.
+put nvmflag i and get nvmflag i 2
+put nvmobj i 0
+if ne and get nvmflag i 2 0
+r = mapdrop get nvmmap i
+if ne r 0
+put nverr 0 r
+ok = false
+else
+put nvmflag i 0
+put nvmmap i 0
+put nvmaddr i 0
+put nvmlen i 0
+end
+else
+put nvmmap i 0
+put nvmaddr i 0
+put nvmlen i 0
+end
+end
+ret ok
+end
+fn nvdrop m long to bool
+if ne get nvput 0 get nvret 0
+put nverr 0 neg long 16
+ret false
+end
+if and ne get nvobj 8 0 or eq m get nvfifo 0 eq m get nvnotify 0
+put nverr 0 neg long 16
+ret false
+end
+for i ulong len nvmmap
+if and gt m 0 eq get nvmmap i m
+ret nvmrel i
+end
+end
+put nverr 0 neg long 22
+ret false
+end
+fn nvalloc want ulong cached bool to long
+if or eq get nvreg 1 0 ne get nvfault 0 0
+put nverr 0 neg long 5
+ret neg long 1
+end
+if or eq want 0 gt want 68719476736
+put nverr 0 neg long 22
+ret neg long 1
+end
+size = mul div add want 4095 4096 4096
+slot = ulong 96
+for i ulong 96
+if and eq slot 96 eq get nvmflag i 0
+slot = i
+end
+end
+if eq slot 96
+put nverr 0 neg long 24
+ret neg long 1
+end
+put nvstage 0 21
+npzero
+npput 0 get nvobj 0
+npput 8 49409
+npput 24 436207616
+attr = uint 9
+if cached
+attr = 5
+end
+npput 28 attr
+npput 32 6
+npp64 64 size
+npp64 72 4096
+npp64 88 sub size 1
+h = nvalc get nvobj 1 62 128
+if eq h 0
+put nvfault 0 1
+ret neg long 1
+end
+put nvmobj slot h
+put nvmlen slot size
+put nvmflag slot 1
+put nvstage 0 22
+m = nvcpumap h size true 0
+if le m 0
+put nvfault 0 1
+ret neg long 1
+end
+put nvmmap slot m
+put nvmaddr slot mapaddr m
+put nvmflag slot 3
+va = get nvmaddr slot
+if or ne and va 4095 0 gt va sub 562949869535232 size
+put nverr 0 neg long 75
+put nvfault 0 1
+ret neg long 1
+end
+put nvstage 0 23
+npzero
+npp64 0 va
+npp64 8 size
+r = uvmctl get nvfd 2 uint 73 nvpar 0 24
+if not nvos r npget 16
+put nvfault 0 1
+ret neg long 1
+end
+put nvmflag slot 7
+put nvstage 0 24
+npzero
+npput 0 get nvobj 0
+npput 4 get nvobj 1
+npput 8 get nvobj 3
+npput 12 h
+npp64 24 size
+npput 32 33040
+npp64 48 va
+r = devctl get nvfd 0 uint 3225437783 nvpar 0 64
+if not nvos r npget 56
+put nvfault 0 1
+ret neg long 1
+end
+put nvmflag slot 15
+if ne npg64 48 va
+put nverr 0 neg long 22
+put nvfault 0 1
+ret neg long 1
+end
+put nvstage 0 25
+npzero
+npp64 0 va
+npp64 8 size
+for i ulong 16
+put nvpar add i 24 get nvuuid i
+end
+npput 40 1
+npp64 9240 1
+npput 9248 uint get nvfd 0
+npput 9252 get nvobj 0
+npput 9256 h
+r = uvmctl get nvfd 2 uint 33 nvpar 0 9264
+if not nvos r npget 9260
+put nvfault 0 1
+ret neg long 1
+end
+npzero
+off = ulong 0
+while lt off size
+n = sub size off
+if gt n 16384
+n = ulong 16384
+end
+r = mapwrite m off nvpar 0 n
+off = add off n
+end
+put nvstage 0 26
+ret m
+end
+
+note Register this private GPU virtual address space with UVM, no buffers or kernels.
+fn nvfull to bool
+if not nvstart
+ret false
+end
+put nvstage 0 11
+for i ulong 2
+r = fopen nvuvm 0 len nvuvm 524290 0
+if lt r 0
+put nverr 0 r
+ret false
+end
+put nvfd add i 2 int r
+end
+npzero
+r = uvmctl get nvfd 2 uint 805306369 nvpar 0 16
+if not nvos r npget 8
+ret false
+end
+put nvstage 0 12
+npzero
+npput 0 uint get nvfd 2
+r = uvmctl get nvfd 3 uint 75 nvpar 0 8
+if ne r 0
+put nverr 0 r
+ret false
+end
+note Driver platforms may return NV_WARN_NOTHING_TO_DO. Retain the returned status.
+put nvmm 0 npget 4
+if and ne get nvmm 0 0 ne get nvmm 0 65542
+put nverr 0 long get nvmm 0
+ret false
+end
+put nvstage 0 13
+npzero
+npp64 8 562949953421311
+v = nvalc get nvobj 1 112 24
+if eq v 0
+ret false
+end
+put nvobj 3 v
+put nvstage 0 14
+npzero
+npput 4 72
+npp64 8 562949869535232
+npp64 40 4096
+v = nvalc get nvobj 1 37105 56
+if eq v 0
+ret false
+end
+put nvobj 4 v
+put nvstage 0 15
+npzero
+npput 4 2
+npput 8 16
+if not nvctrl get nvobj 2 545259850 268
+ret false
+end
+if ne npget 8 16
+put nverr 0 neg long 22
+ret false
+end
+for i ulong 16
+put nvuuid i get nvpar add i 12
+end
+npuuid
+npput 24 4294967295
+r = uvmctl get nvfd 2 uint 37 nvpar 0 40
+if not nvos r npget 36
+ret false
+end
+put nvreg 0 1
+put nvstage 0 16
+npuuid
+npput 16 uint get nvfd 0
+npput 20 get nvobj 0
+npput 24 get nvobj 4
+r = uvmctl get nvfd 2 uint 25 nvpar 0 32
+if not nvos r npget 28
+ret false
+end
+put nvreg 1 1
+put nvstage 0 17
+ret true
+end
+
+fn nvfind m long to ulong
+for i ulong len nvmmap
+if and gt m 0 eq get nvmmap i m
+ret i
+end
+end
+ret 96
+end
+note Reverse partial channel construction before releasing its buffers or address space.
+fn nvchstop to bool
+if ne get nvchreg 0 0
+npuuid
+npput 16 get nvobj 0
+npput 20 get nvobj 8
+r = uvmctl get nvfd 2 uint 28 nvpar 0 28
+if not nvos r npget 24
+put nvfault 0 1
+ret false
+end
+put nvchreg 0 0
+end
+for i ulong 4
+obj = sub 9 i
+parent = ulong 6
+if eq obj 9
+parent = ulong 8
+end
+if eq obj 6
+parent = ulong 1
+end
+if ne get nvobj obj 0
+if not nvfree get nvobj parent get nvobj obj
+put nvfault 0 1
+ret false
+end
+put nvobj obj 0
+end
+end
+if gt get nvchva 0 0
+r = mapdrop get nvchva 0
+if not nvos r 0
+put nvfault 0 1
+ret false
+end
+put nvchva 0 0
+end
+put nvsched 0 0
+put nvput 0 0
+put nvret 0 0
+put nvfifo 0 0
+put nvnotify 0 0
+ret true
+end
+
+note Empty queue creation and scheduling; this routine submits no command packets.
+fn nvchan to bool
+if or eq get nvreg 1 0 ne get nvfault 0 0
+put nverr 0 neg long 16
+ret false
+end
+if or ne get nvobj 6 0 ne get nvobj 5 0
+put nverr 0 neg long 16
+ret false
+end
+put nvstage 0 31
+npzero
+u = nvalc get nvobj 2 50017 0
+if eq u 0
+ret false
+end
+put nvobj 5 u
+m = nvcpumap u 65536 false 0
+if le m 0
+ret false
+end
+put nvbar 0 m
+put nvstage 0 32
+npzero
+npput 12 1
+g = nvalc get nvobj 1 41068 20
+if eq g 0
+ret false
+end
+put nvobj 6 g
+put nvstage 0 33
+npzero
+npput 0 get nvobj 4
+npput 4 1
+c = nvalc g 36967 12
+if eq c 0
+ret false
+end
+put nvobj 7 c
+m = nvalloc 65536 false
+if le m 0
+ret false
+end
+put nvfifo 0 m
+m = nvalloc 1048576 true
+if le m 0
+ret false
+end
+put nvnotify 0 m
+put nvstage 0 34
+npzero
+npput 0 get nvmobj nvfind get nvnotify 0
+npput 4 get nvmobj nvfind get nvfifo 0
+npp64 8 mapaddr get nvfifo 0
+npput 16 1024
+npput 24 c
+npput 32 get nvmobj nvfind get nvfifo 0
+npp64 64 8192
+f = nvalc g 51567 368
+if eq f 0
+ret false
+end
+put nvobj 8 f
+put nvstage 0 35
+npzero
+put nvretry 0 0
+k = nvalc f 52928 0
+while eq k 0
+if or ne get nverr 0 81 ge get nvretry 0 50
+ret false
+end
+put nvretry 0 add get nvretry 0 1
+r = sleepns long 100000000
+if ne r 0
+put nverr 0 r
+ret false
+end
+k = nvalc f 52928 0
+end
+put nvobj 9 k
+put nverr 0 0
+put nvstage 0 36
+npzero
+npput 0 4294967295
+if not nvctrl f 3278831880 4
+ret false
+end
+put nvtoken 0 npget 0
+put nvstage 0 37
+if gt get nvnext 0 1099444518912
+put nverr 0 neg long 75
+ret false
+end
+v = maphold get nvnext 0 67108864
+if le v 0
+put nverr 0 v
+ret false
+end
+put nvchva 0 v
+put nvnext 0 add get nvnext 0 67108864
+npuuid
+npput 16 uint get nvfd 0
+npput 20 get nvobj 0
+npput 24 f
+npp64 32 mapaddr v
+npp64 40 67108864
+r = uvmctl get nvfd 2 uint 27 nvpar 0 56
+if not nvos r npget 48
+ret false
+end
+put nvchreg 0 1
+put nvstage 0 38
+npzero
+put nvpar 0 1
+if not nvctrl g 2691432705 3
+ret false
+end
+put nvsched 0 1
+put nvstage 0 39
+ret true
+end
+
+note One outstanding packet. Completion must be observed before reuse or any buffer release.
+fn nvsend m long off ulong words uint to bool
+if or ne get nvfault 0 0 eq get nvsched 0 0
+put nverr 0 neg long 5
+ret false
+end
+if ne get nvput 0 get nvret 0
+put nverr 0 neg long 16
+ret false
+end
+s = nvfind m
+if eq s 96
+put nverr 0 neg long 22
+ret false
+end
+if or or eq words 0 gt words 2097151 ne and off 3 0
+put nverr 0 neg long 22
+ret false
+end
+size = get nvmlen s
+if gt off size
+put nverr 0 neg long 22
+ret false
+end
+if gt mul ulong words 4 sub size off
+put nverr 0 neg long 22
+ret false
+end
+va = add get nvmaddr s off
+if ge va 1099511627776
+put nverr 0 neg long 75
+ret false
+end
+p = get nvput 0
+if eq p 18446744073709551615
+put nverr 0 neg long 75
+ret false
+end
+entry = or or va shl ulong words 42 2199023255552
+ret nvpush p entry
+end
+fn nvpush p ulong entry ulong to bool
+r = mapset get nvfifo 0 mul rem p 1024 8 8 entry
+p = add p 1
+put nvput 0 p
+r = mapset get nvfifo 0 8332 4 rem p 1024
+r = mapset get nvbar 0 144 4 ulong get nvtoken 0
+ret true
+end
+
+fn nvwait m long off ulong value uint budget ulong to bool
+if or ne get nvfault 0 0 eq get nvsched 0 0
+put nverr 0 neg long 22
+ret false
+end
+if eq get nvput 0 get nvret 0
+put nverr 0 neg long 22
+ret false
+end
+s = nvfind m
+if or eq s 96 or eq budget 0 gt budget 30000000000
+put nverr 0 neg long 22
+ret false
+end
+size = get nvmlen s
+if or gt off sub size 4 ne and off 3 0
+put nverr 0 neg long 22
+ret false
+end
+start = monons
+if lt start 0
+put nverr 0 start
+put nvfault 0 1
+ret false
+end
+while true
+if eq mapget m off 4 ulong value
+put nvret 0 get nvput 0
+ret true
+end
+now = monons
+if or lt now start ge sub now start long budget
+put nverr 0 neg long 110
+put nvfault 0 1
+ret false
+end
+r = sleepns long 100000
+if ne r 0
+put nverr 0 r
+put nvfault 0 1
+ret false
+end
+end
+ret false
+end

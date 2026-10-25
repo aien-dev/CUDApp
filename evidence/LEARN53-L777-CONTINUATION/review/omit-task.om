@@ -1,0 +1,1401 @@
+note LEARN653 v1 consumer checks. No compiler, judge, signer or process supervisor.
+note Task slots are 32 ulongs; see docs/learning/benchmark-v1.md.
+global LT ulong 2048
+global LS ulong 24
+global LSeen ulong 64
+global LWon ulong 64
+global LPin ulong 16
+global LWant uchar 256
+global LGot uchar 256
+
+fn lequal a ulong b ulong n ulong to bool
+for k ulong n
+if ne get LT add a k get LT add b k
+ret false
+end
+end
+ret true
+end
+
+fn lnonzero a ulong to bool
+x = ulong 0
+for k ulong 4
+x = or x get LT add a k
+end
+ret ne x 0
+end
+
+fn lrecord a ulong to ulong
+split = get LT add a 1
+if or eq get LT a 0 or lt split 1 gt split 4
+ret 2
+end
+if or ne get LT add a 5 1 ne get LT add a 4 1
+ret 3
+end
+if eq get LT add a 3 0
+ret 4
+end
+if eq get LT add a 6 0
+ret 4
+end
+if eq get LT add a 7 0
+ret 4
+end
+note Only public train/dev records are admissible to this builder-side API.
+note Adaptive/final custody stays with the existing independent owner.
+if or gt split 2 ne get LT add a 2 1
+ret 5
+end
+for h ulong 5
+if eq lnonzero add a add 8 mul h 4 false
+ret 6
+end
+end
+if or eq get LT add a 28 0 gt get LT add a 28 256
+ret 7
+end
+if or eq get LT add a 29 0 gt get LT add a 29 256
+ret 7
+end
+if or eq get LT add a 30 0 gt get LT add a 30 1000000
+ret 7
+end
+if ne get LT add a 31 0
+ret 7
+end
+ret 0
+end
+
+fn lpair a ulong b ulong to ulong
+if eq get LT a get LT b
+ret 8
+end
+if lequal add a 8 add b 8 4
+ret 9
+end
+if lequal add a 12 add b 12 4
+ret 10
+end
+if ne get LT add a 1 get LT add b 1
+if eq get LT add a 3 get LT add b 3
+ret 15
+end
+if eq get LT add a 7 get LT add b 7
+ret 11
+end
+if lequal add a 16 add b 16 4
+ret 12
+end
+if lequal add a 20 add b 20 4
+ret 13
+end
+if lequal add a 24 add b 24 4
+ret 14
+end
+end
+ret 0
+end
+
+fn lmanifest n ulong to ulong
+if or eq n 0 gt n 64
+ret 1
+end
+for i ulong n
+a = mul i 32
+code = lrecord a
+if ne code 0
+ret code
+end
+for j ulong i
+b = mul j 32
+code = lpair a b
+if ne code 0
+ret code
+end
+end
+end
+ret 0
+end
+
+note Caller supplies independent expected bytes and actual executor observations.
+note Status 0=completed, 1=syntax,2=type,3=unsupported,4=timeout,5=resource,6=operational.
+note Result 0=correct,1..6 as above,7=wrong value,8=trap mismatch,9=empty output,10=malformed.
+fn lobserve status ulong wantcode ulong gotcode ulong wantn ulong gotn ulong to ulong
+if gt status 6
+ret 10
+end
+if ne status 0
+ret status
+end
+if or gt wantn 256 gt gotn 256
+ret 10
+end
+if ne wantcode gotcode
+ret 8
+end
+if ne wantcode 0
+note Only declared runtime traps 101..107; arbitrary exit failures never pass.
+if or lt wantcode 101 or gt wantcode 107 ne wantn 0
+ret 10
+end
+if ne gotn 0
+ret 8
+end
+ret 0
+end
+if eq wantn 0
+ret 10
+end
+if eq gotn 0
+ret 9
+end
+if ne wantn gotn
+ret 7
+end
+for i ulong wantn
+if ne get LWant i get LGot i
+ret 7
+end
+end
+ret 0
+end
+
+note Full 256-bit compiler and executable identities, expected then observed.
+note LPin[0..3] expected compiler, [4..7] observed, [8..11] expected ELF, [12..15] observed.
+fn lpins to bool
+ca = ulong 0
+ba = ulong 0
+for i ulong 4
+ca = or ca get LPin i
+ba = or ba get LPin add i 8
+if ne get LPin i get LPin add i 4
+ret false
+end
+if ne get LPin add i 8 get LPin add i 12
+ret false
+end
+end
+ret and ne ca 0 ne ba 0
+end
+
+note Each begin is one explicit fresh development run; no durable resume API exists.
+note LS: active,tasks,maxattempts,attempts,pass1,passbudget,invalid,closed,
+note generation_us,compile_us,judge_us,other_us,input_tokens,output_tokens,peak_bytes,
+note energy_uj,energy_unknown,budget_us,completed,abstained,reserved...
+fn lbegin n ulong maxtries ulong budget ulong to ulong
+if eq get LS 0 1
+ret 20
+end
+for i ulong 24
+put LS i 0
+end
+for i ulong 64
+put LSeen i 0
+put LWon i 0
+end
+code = lmanifest n
+if ne code 0
+put LS 6 code
+ret code
+end
+if or eq maxtries 0 or gt maxtries 64 or eq budget 0 gt budget 1000000000000
+put LS 6 21
+ret 21
+end
+put LS 0 1
+put LS 1 n
+put LS 2 maxtries
+put LS 17 budget
+ret 0
+end
+
+note Charge before classifying. Costs are exact integer caller measurements, never estimates.
+note Missing cost values use all-ones and invalidate the run, never become free.
+fn lcost slot ulong value ulong to ulong
+if or lt slot 8 gt slot 15
+put LS 6 22
+ret 22
+end
+if gt value 1000000000000
+put LS 6 23
+ret 23
+end
+if eq slot 14
+if gt value get LS slot
+put LS slot value
+end
+else
+if gt get LS slot sub ulong 1000000000000 value
+put LS 6 23
+ret 23
+end
+put LS slot add get LS slot value
+end
+ret 0
+end
+
+note Attempt outcomes come from lobserve or explicit abstention 11, never compiler acceptance.
+note Mandatory cost vector is supplied per attempt in LC; energy unknown is explicit.
+global LC ulong 9
+
+fn lattempt task ulong ordinal ulong outcome ulong to ulong
+if ne get LS 0 1
+ret 24
+end
+for k ulong 8
+r = lcost add k 8 get LC k
+end
+if eq get LC 8 0
+put LS 16 add get LS 16 1
+if ne get LC 7 0
+put LS 6 25
+end
+else
+if ne get LC 8 1
+put LS 6 25
+end
+end
+put LS 3 add get LS 3 1
+note At most 64 attempts across a public development run, including failed attempts.
+if gt get LS 3 64
+put LS 6 31
+ret 31
+end
+if eq lpins false
+put LS 6 26
+end
+note Invalid costs or identities can never add successful tasks.
+if ne get LS 6 0
+ret get LS 6
+end
+if or ge task get LS 1 gt outcome 11
+put LS 6 27
+ret 27
+end
+if or ne ordinal add get LSeen task 1 gt ordinal get LS 2
+put LS 6 28
+ret 28
+end
+put LSeen task ordinal
+if eq outcome 0
+if eq ordinal 1
+put LS 4 add get LS 4 1
+end
+if eq get LWon task 0
+put LWon task 1
+put LS 5 add get LS 5 1
+end
+end
+if eq outcome 11
+put LS 19 add get LS 19 1
+end
+elapsed = add get LS 8 get LS 9
+elapsed = add elapsed get LS 10
+elapsed = add elapsed get LS 11
+if gt elapsed get LS 17
+put LS 6 29
+end
+ret get LS 6
+end
+
+fn lfinish to ulong
+if ne get LS 0 1
+ret 24
+end
+put LS 0 0
+for i ulong get LS 1
+if eq get LSeen i 0
+if eq get LS 6 0
+put LS 6 30
+end
+end
+end
+if ne get LS 6 0
+ret get LS 6
+end
+put LS 18 1
+ret 0
+end
+
+note GEN-1 genjac rule reused: lowercase ASCII word-triple SET Jaccard strictly above 1/2.
+note Input contains two public prompts only; never load final or sealed text here.
+global LText uchar 512
+global LStart ulong 128
+global LLength ulong 128
+global LCount ulong 2
+
+fn llower c uchar to uchar
+if and ge c 65 le c 90
+ret add c 32
+end
+ret c
+end
+
+fn lword c uchar to bool
+d = llower c
+ret or and ge d 97 le d 122 and ge d 48 le d 57
+end
+
+fn ltokens side ulong size ulong to bool
+if or gt side 1 gt size 256
+ret false
+end
+base = mul side 256
+slots = mul side 64
+count = ulong 0
+pos = ulong 0
+while lt pos size
+if gt get LText add base pos 127
+ret false
+end
+if lword get LText add base pos
+start = pos
+scanning = true
+while and lt pos size scanning
+if lword get LText add base pos
+pos = add pos 1
+else
+scanning = false
+end
+end
+if ge count 64
+ret false
+end
+put LStart add slots count add base start
+put LLength add slots count sub pos start
+count = add count 1
+else
+pos = add pos 1
+end
+end
+put LCount side count
+ret true
+end
+
+fn lwordeq a ulong b ulong to bool
+n = get LLength a
+if ne n get LLength b
+ret false
+end
+for k ulong n
+if ne llower get LText add get LStart a k llower get LText add get LStart b k
+ret false
+end
+end
+ret true
+end
+
+fn ltriple a ulong b ulong to bool
+for k ulong 3
+if eq lwordeq add a k add b k false
+ret false
+end
+end
+ret true
+end
+
+fn lunique at ulong base ulong to bool
+j = base
+while lt j at
+if ltriple at j
+ret false
+end
+j = add j 1
+end
+ret true
+end
+
+note 0=no near match,1=above threshold,2=insufficient words,3=unsupported input.
+fn lnear an ulong bn ulong to ulong
+if eq ltokens 0 an false
+ret 3
+end
+if eq ltokens 1 bn false
+ret 3
+end
+a = get LCount 0
+b = get LCount 1
+if or lt a 3 lt b 3
+ret 2
+end
+ua = ulong 0
+ub = ulong 0
+overlap = ulong 0
+for i ulong sub a 2
+if lunique i 0
+ua = add ua 1
+hit = false
+for j ulong sub b 2
+if ltriple i add 64 j
+hit = true
+end
+end
+if hit
+overlap = add overlap 1
+end
+end
+end
+for j ulong sub b 2
+if lunique add 64 j 64
+ub = add ub 1
+end
+end
+if gt mul overlap 3 add ua ub
+ret 1
+end
+ret 0
+end
+note SPDX-License-Identifier: AGPL-3.0-only
+note CUL1 public domain adapter. See docs/learn53/CONTRACT.md.
+note Caller owns/pins kt; only ko contains candidate observations. No code execution.
+global kt uchar 4096
+global ko uchar 1032
+fn kw i ulong to ulong
+v = ulong 0
+for j ulong 4
+v = or v shl ulong get kt add mul i 4 j mul j 8
+end
+ret v
+end
+fn kc i ulong to ulong
+v = ulong 0
+for j ulong 4
+v = or v shl ulong get ko add mul i 4 j mul j 8
+end
+ret v
+end
+fn kshape to ulong
+op = kw 2
+m = kw 5
+n = kw 6
+k = kw 7
+if eq op 3
+if eq m 2
+if eq n 3
+if eq k 2
+ret 301
+end
+end
+end
+if eq m 3
+if eq n 2
+if eq k 3
+ret 302
+end
+end
+end
+ret 0
+end
+if ne n 1
+ret 0
+end
+if ne k 1
+ret 0
+end
+base = mul op 100
+if eq m 3
+ret add base 1
+end
+if eq m 8
+ret add base 2
+end
+if eq m 17
+ret add base 3
+end
+ret 0
+end
+fn kextent rows ulong cols ulong stride ulong to ulong
+ret add mul sub rows 1 stride cols
+end
+fn kstrides to int
+op = kw 2
+m = kw 5
+if eq op 3
+if lt kw 8 kw 7
+ret 65
+end
+if lt kw 9 kw 6
+ret 65
+end
+if lt kw 10 kw 6
+ret 65
+end
+if ne kw 11 kextent m kw 7 kw 8
+ret 65
+end
+if ne kw 12 kextent kw 7 kw 6 kw 9
+ret 65
+end
+if ne kw 13 kextent m kw 6 kw 10
+ret 65
+end
+ret 0
+end
+if eq kw 8 0
+ret 65
+end
+if ne kw 11 kextent m 1 kw 8
+ret 65
+end
+if eq op 2
+if ne kw 9 0
+ret 65
+end
+if ne kw 12 0
+ret 65
+end
+if ne kw 10 1
+ret 65
+end
+if ne kw 13 1
+ret 65
+end
+ret 0
+end
+if eq kw 9 0
+ret 65
+end
+if eq kw 10 0
+ret 65
+end
+if ne kw 12 kextent m 1 kw 9
+ret 65
+end
+if ne kw 13 kextent m 1 kw 10
+ret 65
+end
+ret 0
+end
+fn kvalid n ulong to int
+note All variable reads follow size/count validation. Bounds precede arithmetic.
+if lt n 96
+ret 65
+end
+if gt n 4096
+ret 65
+end
+if ne kw 0 827086147
+ret 65
+end
+if ne kw 1 1
+ret 69
+end
+if gt kw 11 256
+ret 65
+end
+if gt kw 12 256
+ret 65
+end
+if eq kw 13 0
+ret 65
+end
+if gt kw 13 256
+ret 65
+end
+if ne n add 96 mul 4 add kw 11 kw 12
+ret 65
+end
+if ne kw 23 0
+ret 65
+end
+if eq kw 16 0
+ret 65
+end
+if ne kw 21 0
+ret 65
+end
+if ne kw 22 0
+ret 65
+end
+if lt kw 2 1
+ret 69
+end
+if gt kw 2 3
+ret 69
+end
+if ne kw 3 1
+ret 69
+end
+if ne kw 4 0
+ret 69
+end
+if ne kw 17 1
+ret 69
+end
+if ne kw 18 0
+ret 69
+end
+if ne kw 19 1
+ret 69
+end
+if ne kw 20 1
+ret 69
+end
+if eq kw 14 0
+ret 65
+end
+if gt kw 14 3
+ret 65
+end
+if ne kw 14 1
+ret 77
+end
+family = kshape
+if eq family 0
+ret 69
+end
+if ne kw 15 family
+ret 65
+end
+for i ulong 3
+if gt kw add i 8 32
+ret 65
+end
+end
+ret kstrides
+end
+fn ksum to ulong
+v = ulong 0
+for i ulong kw 5
+v = and add v kw add 24 mul i kw 8 4294967295
+end
+ret v
+end
+fn kdot row ulong col ulong to ulong
+v = ulong 0
+for i ulong kw 7
+a = kw add 24 add mul row kw 8 i
+b = kw add add 24 kw 11 add mul i kw 9 col
+v = and add v mul a b 4294967295
+end
+ret v
+end
+fn kexpect pos ulong to ulong
+op = kw 2
+if eq op 2
+ret ksum
+end
+stride = kw 10
+row = div pos stride
+col = rem pos stride
+if eq op 3
+if ge col kw 6
+ret 2779096485
+end
+ret kdot row col
+end
+if ne col 0
+ret 2779096485
+end
+a = kw add 24 mul row kw 8
+b = kw add add 24 kw 11 mul row kw 9
+ret and add a b 4294967295
+end
+fn keval n ulong c ulong to int
+status = kvalid n
+if ne status 0
+ret status
+end
+note Candidate result length is not trusted. No caller-supplied PASS or tolerance.
+if ne c mul 4 add kw 13 2
+ret 65
+end
+if ne kc 0 2779096485
+ret 1
+end
+if ne kc add kw 13 1 2779096485
+ret 1
+end
+for i ulong kw 13
+if ne kc add i 1 kexpect i
+ret 1
+end
+end
+ret 0
+end
+note SPDX-License-Identifier: AGPL-3.0-only
+note Eight fixed public development tasks. Not a sealed pool or a process runner.
+fn kput p ulong v ulong to void
+for i ulong 4
+put kt add mul p 4 i uchar and shr v mul i 8 255
+end
+end
+fn kbase id ulong to void
+for i ulong 4096
+put kt i 0
+end
+kput 0 827086147
+kput 1 1
+kput 3 1
+kput 5 3
+kput 6 1
+kput 7 1
+kput 8 2
+kput 9 2
+kput 10 2
+kput 11 5
+kput 12 5
+kput 13 5
+kput 14 1
+kput 16 id
+kput 17 1
+kput 19 1
+kput 20 1
+end
+fn klinear id ulong to void
+if eq id 1
+kput 2 1
+kput 15 101
+kput 24 4294967295
+kput 25 111
+kput 26 7
+kput 27 222
+kput 28 9
+kput 29 1
+kput 30 333
+kput 31 4
+kput 32 444
+kput 33 6
+ret
+end
+if eq id 4
+kput 2 2
+kput 15 201
+kput 9 0
+kput 10 1
+kput 12 0
+kput 13 1
+kput 24 4294967295
+kput 25 111
+kput 26 2
+kput 27 222
+kput 28 3
+ret
+end
+n = ulong 8
+if or eq id 3 eq id 6
+n = 17
+end
+kput 5 n
+kput 8 1
+kput 10 1
+kput 11 n
+if le id 3
+kput 2 1
+kput 9 1
+kput 12 n
+kput 13 n
+kput 15 add 100 id
+a = ulong 7
+b = ulong 9
+if eq id 3
+a = 4294967295
+b = 3
+end
+for i ulong n
+kput add 24 i a
+kput add add 24 n i b
+end
+else
+kput 2 2
+kput 9 0
+kput 12 0
+kput 13 1
+kput 15 add 197 id
+for i ulong n
+kput add 24 i 4294967295
+end
+end
+end
+fn kmatrix id ulong to void
+kput 2 3
+if eq id 7
+kput 5 2
+kput 6 3
+kput 7 2
+kput 8 3
+kput 9 4
+kput 10 4
+kput 11 5
+kput 12 7
+kput 13 7
+kput 15 301
+kput 24 1
+kput 25 2
+kput 26 999
+kput 27 3
+kput 28 4
+kput 29 5
+kput 30 6
+kput 31 7
+kput 32 999
+kput 33 8
+kput 34 9
+kput 35 10
+else
+kput 5 3
+kput 6 2
+kput 7 3
+kput 8 3
+kput 9 2
+kput 10 2
+kput 11 9
+kput 12 6
+kput 13 6
+kput 15 302
+for i ulong 9
+kput add 24 i add i 1
+end
+for i ulong 6
+kput add 33 i add i 1
+end
+end
+end
+fn kload id ulong to ulong
+note Reject before modifying either caller buffer. Valid loads never touch ko.
+if or eq id 0 gt id 8
+ret 0
+end
+kbase id
+if le id 6
+klinear id
+else
+kmatrix id
+end
+ret add 96 mul 4 add kw 11 kw 12
+end
+note SPDX-License-Identifier: AGPL-3.0-only
+note Compose with exact omega653.lock core. No fork, runner, signer or cost collector.
+note LT/LPin/LC/status/exit are trusted executor inputs, not candidate claims.
+fn aword p ulong v ulong to void
+for i ulong 4
+put LWant add mul p 4 i uchar and shr v mul i 8 255
+end
+end
+fn aobserve id ulong status ulong code ulong n ulong to ulong
+tn = kload id
+if eq tn 0
+ret 10
+end
+if ne kvalid tn 0
+ret 10
+end
+for i ulong 256
+put LWant i 0
+end
+aword 0 2779096485
+for i ulong kw 13
+aword add i 1 kexpect i
+end
+aword add kw 13 1 2779096485
+want = mul 4 add kw 13 2
+ret lobserve status 0 code want n
+end
+fn afields to bool
+for i ulong 8
+a = mul i 32
+id = add i 1
+n = kload id
+if ne get LT a id
+ret false
+end
+if ne get LT add a 1 2
+ret false
+end
+if ne get LT add a 2 1
+ret false
+end
+if ne get LT add a 3 kw 2
+ret false
+end
+if ne get LT add a 4 1
+ret false
+end
+if ne get LT add a 5 1
+ret false
+end
+if ne get LT add a 6 53
+ret false
+end
+if ne get LT add a 7 1
+ret false
+end
+if ne get LT add a 28 n
+ret false
+end
+if ne get LT add a 29 mul 4 add kw 13 2
+ret false
+end
+if ne get LT add a 30 1000000
+ret false
+end
+if ne get LT add a 31 0
+ret false
+end
+end
+ret true
+end
+fn abegin budget ulong to ulong
+note Canonical active-run refusal preserves the existing run.
+if eq get LS 0 1
+ret 20
+end
+if eq afields false
+note Invalid count invokes canonical fresh-run invalidation, including stale scores.
+ret lbegin 0 1 budget
+end
+ret lbegin 7 1 budget
+end
+fn aattempt idx ulong ordinal ulong status ulong code ulong n ulong to ulong
+outcome = aobserve add idx 1 status code n
+ret lattempt idx ordinal outcome
+end
+note SPDX-License-Identifier: AGPL-3.0-only
+note Public fixtures, never sealed evaluation. Expected literals independently checked with Wolfram.
+text okmsg "PASS "
+text badmsg "FAIL "
+global nums uchar 32
+global tally ulong 2
+global saved uchar 4096
+fn digit n ulong to void
+if ge n 10
+digit div n 10
+end
+put nums 0 uchar add 48 rem n 10
+w = write 1 nums 0 1
+end
+fn check yes bool to void
+put tally 0 add get tally 0 1
+if yes
+w = write 1 okmsg 0 len okmsg
+else
+w = write 1 badmsg 0 len badmsg
+put tally 1 add get tally 1 1
+end
+digit get tally 0
+put nums 0 10
+w = write 1 nums 0 1
+end
+fn tw p ulong v ulong to void
+for i ulong 4
+put kt add mul p 4 i uchar and shr v mul i 8 255
+end
+end
+fn cw p ulong v ulong to void
+for i ulong 4
+put ko add mul p 4 i uchar and shr v mul i 8 255
+end
+end
+fn header op ulong to void
+for i ulong 4096
+put kt i 0
+end
+for i ulong 258
+cw i 2779096485
+end
+tw 0 827086147
+tw 1 1
+tw 2 op
+tw 3 1
+tw 5 3
+tw 6 1
+tw 7 1
+tw 8 2
+tw 9 2
+tw 10 2
+tw 11 5
+tw 12 5
+tw 13 5
+tw 14 1
+tw 15 add mul op 100 1
+tw 16 1
+tw 17 1
+tw 19 1
+tw 20 1
+end
+fn vec to void
+header 1
+tw 24 4294967295
+tw 25 111
+tw 26 7
+tw 27 222
+tw 28 9
+tw 29 1
+tw 30 333
+tw 31 4
+tw 32 444
+tw 33 6
+cw 1 0
+cw 3 11
+cw 5 15
+end
+fn red to void
+header 2
+tw 9 0
+tw 10 1
+tw 12 0
+tw 13 1
+tw 24 4294967295
+tw 25 111
+tw 26 2
+tw 27 222
+tw 28 3
+cw 1 4
+end
+fn mat to void
+header 3
+tw 5 2
+tw 6 3
+tw 7 2
+tw 8 3
+tw 9 4
+tw 10 4
+tw 11 5
+tw 12 7
+tw 13 7
+tw 24 1
+tw 25 2
+tw 26 999
+tw 27 3
+tw 28 4
+tw 29 5
+tw 30 6
+tw 31 7
+tw 32 999
+tw 33 8
+tw 34 9
+tw 35 10
+cw 1 21
+cw 2 24
+cw 3 27
+cw 5 47
+cw 6 54
+cw 7 61
+end
+note SPDX-License-Identifier: AGPL-3.0-only
+note Literal output oracle only. No kexpect/keval calls construct expected values.
+fn csize id ulong to ulong
+if eq id 1
+ret 136
+end
+if eq id 2
+ret 160
+end
+if eq id 3
+ret 232
+end
+if eq id 4
+ret 116
+end
+if eq id 5
+ret 128
+end
+if eq id 6
+ret 164
+end
+if eq id 7
+ret 144
+end
+if eq id 8
+ret 156
+end
+ret 0
+end
+fn coutn id ulong to ulong
+if eq id 1
+ret 28
+end
+if eq id 2
+ret 40
+end
+if eq id 3
+ret 76
+end
+if and ge id 4 le id 6
+ret 12
+end
+if eq id 7
+ret 36
+end
+if eq id 8
+ret 32
+end
+ret 0
+end
+fn cvalues id ulong to void
+for i ulong 258
+cw i 2779096485
+end
+if eq id 1
+cw 1 0
+cw 3 11
+cw 5 15
+end
+if eq id 2
+for i ulong 8
+cw add i 1 16
+end
+end
+if eq id 3
+for i ulong 17
+cw add i 1 2
+end
+end
+if eq id 4
+cw 1 4
+end
+if eq id 5
+cw 1 4294967288
+end
+if eq id 6
+cw 1 4294967279
+end
+if eq id 7
+cw 1 21
+cw 2 24
+cw 3 27
+cw 5 47
+cw 6 54
+cw 7 61
+end
+if eq id 8
+cw 1 22
+cw 2 28
+cw 3 49
+cw 4 64
+cw 5 76
+cw 6 100
+end
+end
+note SPDX-License-Identifier: AGPL-3.0-only
+note SYNTHETIC unit metadata, pins and costs, NEVER a real benchmark record.
+fn afix to void
+for i ulong 2048
+put LT i 0
+end
+for i ulong 24
+put LS i 0
+end
+for i ulong 8
+id = add i 1
+a = mul i 32
+n = kload id
+put LT a id
+put LT add a 1 2
+put LT add a 2 1
+put LT add a 3 kw 2
+put LT add a 4 1
+put LT add a 5 1
+put LT add a 6 53
+put LT add a 7 1
+for j ulong 20
+put LT add a add 8 j add add mul i 100 j 1
+end
+put LT add a 28 csize id
+put LT add a 29 coutn id
+put LT add a 30 1000000
+end
+for i ulong 4
+put LPin i add i 1
+put LPin add i 4 add i 1
+put LPin add i 8 add i 5
+put LPin add i 12 add i 5
+end
+for i ulong 9
+put LC i 0
+end
+put LC 0 10
+put LC 1 20
+put LC 2 30
+put LC 3 40
+put LC 4 50
+put LC 5 60
+put LC 6 4096
+end
+fn agood id ulong to void
+cvalues id
+for i ulong 256
+put LGot i get ko i
+end
+end
+fn aobs to void
+for i ulong 8
+id = add i 1
+agood id
+check eq aobserve id 0 0 coutn id 0
+put LGot sub coutn id 1 0
+check eq aobserve id 0 0 coutn id 7
+end
+agood 1
+check eq aobserve 0 0 0 28 10
+check eq aobserve 9 0 0 28 10
+check eq aobserve 18446744073709551615 0 0 28 10
+check eq aobserve 1 0 0 0 9
+check eq aobserve 1 0 0 27 7
+check eq aobserve 1 0 0 257 10
+check eq aobserve 1 0 0 18446744073709551615 10
+check eq aobserve 1 0 101 0 8
+check eq aobserve 1 7 0 28 10
+for i ulong 6
+check eq aobserve 1 add i 1 0 28 add i 1
+end
+note A task mutation is discarded; correct output for weakened task is wrong.
+n = kload 1
+tw 28 0
+tw 21 1
+tw 22 99
+tw 14 3
+check eq aobserve 1 0 0 28 0
+check eq kw 28 9
+check eq kw 21 0
+check eq kw 22 0
+check eq kw 14 1
+cw 5 6
+for i ulong 28
+put LGot i get ko i
+end
+check eq aobserve 1 0 0 28 7
+note Wrong logical output, skipped write, dense stride, PASS spoof, wrong task.
+for i ulong 4
+agood 1
+if eq i 0
+cw 3 12
+end
+if eq i 1
+cw 5 2779096485
+end
+if eq i 2
+cw 2 11
+cw 3 15
+cw 5 2779096485
+end
+if eq i 3
+cw 1 1397965136
+end
+for j ulong 28
+put LGot j get ko j
+end
+check eq aobserve 1 0 0 28 7
+end
+agood 1
+check eq aobserve 2 0 0 28 7
+end
+fn aall to void
+afix
+check eq abegin 1000 0
+check eq abegin 1000 20
+for i ulong 8
+id = add i 1
+agood id
+check eq aattempt i 1 0 0 coutn id 0
+end
+check eq lfinish 0
+check eq get LS 18 1
+check eq get LS 4 8
+check eq get LS 5 8
+check eq get LS 3 8
+check eq get LS 16 8
+check eq get LS 14 4096
+note A subsequent invalid begin clears old completed-valid state.
+put LT 1 3
+check eq abegin 1000 1
+check eq get LS 18 0
+end
+fn amissing to void
+afix
+check eq abegin 1000 0
+for i ulong 7
+id = add i 1
+agood id
+check eq aattempt i 1 0 0 coutn id 0
+end
+check eq lfinish 30
+check eq get LS 18 0
+afix
+check eq abegin 1000 0
+agood 1
+check eq aattempt 0 1 0 0 28 0
+check eq aattempt 0 1 0 0 28 28
+check eq lfinish 28
+check eq get LS 18 0
+afix
+check eq abegin 1000 0
+check eq aattempt 8 1 0 0 28 27
+check eq lfinish 27
+end
+fn abad to void
+afix
+check eq abegin 1000 0
+for i ulong 8
+id = add i 1
+agood id
+if eq id 8
+put LGot 4 0
+end
+check eq aattempt i 1 0 0 coutn id 0
+end
+check eq lfinish 0
+check eq get LS 18 1
+check eq get LS 4 7
+check eq get LS 5 7
+note A valid experiment can report failure, never silently drop that task.
+check eq get LS 1 8
+check eq get LS 3 8
+end
+fn apins to void
+for i ulong 8
+afix
+check eq abegin 1000 0
+p = add i 4
+if ge i 4
+p = add i 8
+end
+put LPin p 999
+agood 1
+check eq aattempt 0 1 0 0 28 26
+check eq get LS 4 0
+check eq lfinish 26
+end
+afix
+check eq abegin 1000 0
+put LC 0 18446744073709551615
+agood 1
+check eq aattempt 0 1 0 0 28 23
+check eq get LS 4 0
+check eq lfinish 23
+afix
+check eq abegin 1 0
+agood 1
+check eq aattempt 0 1 0 0 28 29
+check eq lfinish 29
+check eq get LS 18 0
+end
+fn ameta to void
+for i ulong 32
+if or lt i 8 ge i 28
+afix
+put LT i 999
+check eq abegin 1000 1
+check eq get LS 18 0
+end
+end
+afix
+for i ulong 4
+put LT add i 8 0
+end
+check eq abegin 1000 6
+check eq get LS 18 0
+end
+fn main to int
+aobs
+aall
+amissing
+abad
+apins
+ameta
+if ne get tally 1 0
+ret 1
+end
+ret 0
+end

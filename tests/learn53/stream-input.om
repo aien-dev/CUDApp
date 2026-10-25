@@ -1,0 +1,31 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Public fixture emitter, not candidate generation or a heldout task.
+fn main to int
+r = read 0 nums 0 1
+if ne r 1
+ret 64
+end
+mode = ulong get nums 0
+frame
+n = ulong 172
+if eq mode 1
+pw 148 9
+end
+if eq mode 2
+n = 171
+end
+if eq mode 3
+n = 173
+end
+if eq mode 4
+pw 0 4294967295
+end
+if eq mode 5
+pw 60 3
+end
+w = write 1 packet 0 n
+if ne w long n
+ret 74
+end
+ret 0
+end

@@ -1,0 +1,4 @@
+catalog compile=0
+omega compile=0
+catalog-export compile=0
+catalog-check compile=0

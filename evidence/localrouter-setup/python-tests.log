@@ -1,0 +1,14 @@
+test_candidate_preserves_omega_lock_without_router_shared_lock (test_setup.SetupTests.test_candidate_preserves_omega_lock_without_router_shared_lock) ... ok
+test_completion_rejects_other_model_and_tool_results (test_setup.SetupTests.test_completion_rejects_other_model_and_tool_results) ... ok
+test_http_probe_exercises_real_loopback_transport_but_never_claims_gpu (test_setup.SetupTests.test_http_probe_exercises_real_loopback_transport_but_never_claims_gpu) ... ok
+test_missing_server_or_tokenizer_is_a_setup_failure (test_setup.SetupTests.test_missing_server_or_tokenizer_is_a_setup_failure) ... ok
+test_refuses_mixed_workers_host_lock_and_remote_bind (test_setup.SetupTests.test_refuses_mixed_workers_host_lock_and_remote_bind) ... ok
+test_rejects_live_ports_bad_budgets_and_unsafe_model_ids (test_setup.SetupTests.test_rejects_live_ports_bad_budgets_and_unsafe_model_ids) ... ok
+test_sse_rejects_error_truncation_wrong_model_and_empty_output (test_setup.SetupTests.test_sse_rejects_error_truncation_wrong_model_and_empty_output) ... ok
+test_stub_explicitly_has_no_gpu_qualification (test_setup.SetupTests.test_stub_explicitly_has_no_gpu_qualification) ... ok
+test_valid_sse_and_usage_only_final_event (test_setup.SetupTests.test_valid_sse_and_usage_only_final_event) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.515s
+
+OK

@@ -1,0 +1,220 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Native diagnostic stream entrypoint. Binary records are observations, not executable code.
+note No model loading, network, timer, filesystem helper or external runtime is invoked.
+global packet uchar 65537
+global reply uchar 2048
+global nwords ulong 1
+fn word i ulong to ulong
+v = ulong 0
+for j ulong 8
+v = or v shl ulong get packet add mul i 8 j mul j 8
+end
+ret v
+end
+fn outword i ulong v ulong to void
+for j ulong 8
+put reply add mul i 8 j uchar and shr v mul j 8 255
+end
+end
+fn unpack to int
+note Common header: SCX1 magic, version1, operation1..3, reserved0; then identities/profile/rows/prior.
+if lt get nwords 0 182
+ret 65
+end
+if ne word 0 827867987
+ret 65
+end
+if ne word 1 1
+ret 69
+end
+if lt word 2 1
+ret 77
+end
+if gt word 2 3
+ret 77
+end
+if ne word 3 0
+ret 65
+end
+for i ulong 64
+put sid i word add i 4
+end
+for i ulong 6
+put sprofile i word add i 68
+end
+for i ulong 77
+put srows i word add i 74
+end
+for i ulong 31
+put sprior i word add i 151
+end
+ret sheader
+end
+fn replay1 to int
+if ne get nwords 0 190
+ret 65
+end
+status = sbegin 0
+if ne status 0
+ret status
+end
+put scontrol 0 word 182
+put scontrol 1 word 183
+status = sselect word 184 word 185 word 186 word 187 word 188 word 189
+if ne status 0
+ret status
+end
+for i ulong 5
+outword add i 5 get decision i
+end
+outword 4 5
+ret 0
+end
+fn replay2 to int
+if lt get nwords 0 183
+ret 65
+end
+count = word 182
+if gt count 224
+ret 65
+end
+if ne get nwords 0 add 183 mul count 16
+ret 65
+end
+status = cstart
+if ne status 0
+ret status
+end
+for r ulong count
+for i ulong 16
+put cobs i word add add 183 mul r 16 i
+end
+status = cadd
+if ne status 0
+ret status
+end
+end
+status = cseal
+if ne status 0
+ret status
+end
+for i ulong 77
+outword add i 5 get srows i
+end
+for i ulong 7
+outword add i 82 get ccount i
+end
+for i ulong 21
+outword add i 89 get crange i
+end
+outword 4 105
+ret 0
+end
+fn replay3 to int
+if lt get nwords 0 317
+ret 65
+end
+for i ulong 5
+put pconfig i word add i 182
+end
+count = word 188
+if gt count 128
+ret 65
+end
+if ne get nwords 0 add 317 mul count 56
+ret 65
+end
+for i ulong 128
+put parmids i word add i 189
+end
+status = pstart word 187
+if ne status 0
+ret status
+end
+for r ulong count
+for i ulong 56
+put pobs i word add add 317 mul r 56 i
+end
+status = padd
+if ne status 0
+ret status
+end
+end
+for a ulong 3
+status = preport a
+if ne status 0
+ret status
+end
+for i ulong 12
+outword add add 5 mul a 12 i get summary i
+end
+end
+outword 4 36
+ret 0
+end
+fn publish to int
+outword 0 827867987
+outword 1 1
+outword 2 word 2
+outword 3 get sprofile 4
+bytes = mul add wordout 5 8
+done = ulong 0
+for i ulong 2048
+if eq done bytes
+ret 0
+end
+w = write 1 reply done sub bytes done
+if le w 0
+ret 74
+end
+done = add done ulong w
+end
+ret 74
+end
+fn wordout to ulong
+v = ulong 0
+for j ulong 8
+v = or v shl ulong get reply add 32 j mul j 8
+end
+ret v
+end
+fn decode bytes ulong to int
+if ne rem bytes 8 0
+ret 65
+end
+put nwords 0 div bytes 8
+status = unpack
+if ne status 0
+ret status
+end
+if eq word 2 1
+status = replay1
+end
+if eq word 2 2
+status = replay2
+end
+if eq word 2 3
+status = replay3
+end
+if ne status 0
+ret status
+end
+ret publish
+end
+fn main to int
+n = ulong 0
+for i ulong 65538
+if gt n 65536
+ret 65
+end
+r = read 0 packet n sub 65537 n
+if lt r 0
+ret 74
+end
+if eq r 0
+ret decode n
+end
+n = add n ulong r
+end
+ret 65
+end

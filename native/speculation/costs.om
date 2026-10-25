@@ -1,0 +1,237 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Bounded observation collector over the existing native benchmark owner's measurements.
+note It does not measure time, prove provenance, launch a model or synthesize missing costs.
+global cobs ulong 16
+global craw ulong 3584
+global ccount ulong 7
+global csum ulong 49
+global crange ulong 21
+global cbind ulong 36
+global cshape ulong 21
+fn cstart to int
+if ne get sstate 0 0
+ret 75
+end
+v = sheader
+if ne v 0
+ret v
+end
+if ne get srows 0 1
+ret 77
+end
+for r ulong 7
+b = mul r 11
+if gt get srows b 1
+ret 65
+end
+if eq get srows b 1
+if ne get srows add b 1 slen r
+ret 65
+end
+if ne get srows add b 2 add slen r 1
+ret 65
+end
+end
+for i ulong 3
+put cshape add mul r 3 i get srows add b i
+end
+end
+for i ulong 32
+put cbind i get sid i
+end
+put cbind 32 get sprofile 1
+put cbind 33 get sprofile 4
+put cbind 34 get sprofile 2
+put cbind 35 get sprofile 3
+for i ulong 7
+put ccount i 0
+end
+for i ulong 49
+put csum i 0
+end
+for i ulong 21
+put crange i 0
+end
+ret 0
+end
+fn cbound to int
+if ne get cbind 34 get sprofile 2
+ret 69
+end
+if ne get cbind 35 get sprofile 3
+ret 69
+end
+for r ulong 7
+for i ulong 3
+if ne get cshape add mul r 3 i get srows add mul r 11 i
+ret 69
+end
+end
+end
+ret 0
+end
+fn cvalid to int
+status = cbound
+if ne status 0
+ret status
+end
+for i ulong 32
+if ne get cbind i get sid i
+ret 69
+end
+if ne get sid i get sid add i 32
+ret 69
+end
+end
+if ne get cbind 32 get sprofile 1
+ret 69
+end
+if ne get cobs 13 get cbind 32
+ret 69
+end
+if ne get cobs 14 get cbind 33
+ret 69
+end
+if ne get sprofile 4 get cbind 33
+ret 69
+end
+if ne get cobs 15 63
+ret 65
+end
+r = get cobs 0
+if ge r 7
+ret 65
+end
+if ne get srows mul r 11 1
+ret 77
+end
+if ne get cobs 1 get ccount r
+ret 65
+end
+if ge get ccount r 32
+ret 77
+end
+if ne get cobs 2 1
+ret 75
+end
+if ne get cobs 3 0
+ret 75
+end
+if ne get cobs 12 add slen r 1
+ret 65
+end
+if eq get cobs 5 0
+ret 65
+end
+if eq get cobs 11 0
+ret 65
+end
+if eq r 0
+if ne get cobs 4 0
+ret 65
+end
+end
+sum = ulong 0
+for i ulong 6
+v = get cobs add i 4
+if gt v 1000000000
+ret 65
+end
+sum = add sum v
+end
+if lt get cobs 10 sum
+ret 65
+end
+if gt get cobs 10 1000000000
+ret 65
+end
+ret 0
+end
+fn cadd to int
+status = cvalid
+if ne status 0
+ret status
+end
+r = get cobs 0
+n = get ccount r
+base = mul add mul r 32 n 16
+for i ulong 16
+put craw add base i get cobs i
+end
+sum = ulong 0
+for i ulong 6
+p = add mul r 7 i
+v = get cobs add i 4
+put csum p add get csum p v
+sum = add sum v
+end
+note Attribute uninstrumented round gaps to host overhead, preserving full wall cost.
+p = add mul r 7 3
+put csum p add get csum p sub get cobs 10 sum
+p = add mul r 7 6
+put csum p add get csum p get cobs 10
+base = mul r 3
+if eq n 0
+put crange base get cobs 10
+end
+if lt get cobs 10 get crange base
+put crange base get cobs 10
+end
+if gt get cobs 10 get crange add base 1
+put crange add base 1 get cobs 10
+end
+if gt get cobs 11 get crange add base 2
+put crange add base 2 get cobs 11
+end
+put ccount r add n 1
+ret 0
+end
+fn cseal to int
+note All enabled rows need at least five observations. No partial table publication.
+status = cbound
+if ne status 0
+ret status
+end
+if ne get sstate 0 0
+ret 75
+end
+for i ulong 32
+if ne get cbind i get sid i
+ret 69
+end
+if ne get sid i get sid add i 32
+ret 69
+end
+end
+if ne get cbind 32 get sprofile 1
+ret 69
+end
+if ne get cbind 33 get sprofile 4
+ret 69
+end
+for r ulong 7
+if eq get srows mul r 11 1
+if lt get ccount r 5
+ret 75
+end
+end
+end
+for r ulong 7
+if eq get srows mul r 11 1
+csealrow r
+end
+end
+put sstate 11 0
+ret 0
+end
+fn csealrow r ulong to void
+n = get ccount r
+b = mul r 11
+for i ulong 6
+note Ceiling each phase avoids inventing a faster zero-duration mean.
+v = div add get csum add mul r 7 i sub n 1 n
+put srows add add b 3 i v
+end
+put srows add b 9 get crange add mul r 3 2
+put srows add b 10 n
+end

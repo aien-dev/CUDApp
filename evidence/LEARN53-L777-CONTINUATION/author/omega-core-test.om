@@ -1,0 +1,325 @@
+note Handwritten component acceptance tests; public task oracle belongs to L776.
+global Checks ulong 1
+global Digits uchar 16
+text Good "BENCHMARK_CORE_PASS\n"
+text PhraseA "Add the two input numbers and return their sum"
+text PhraseB "ADD the TWO input numbers, and return their sum."
+text PhraseC "Find a maximum element in a sorted collection"
+text HalfA "a b c"
+text HalfB "a b c d"
+text Repeat "a a a a a a"
+
+fn check actual ulong expected ulong to void
+put Checks 0 add get Checks 0 1
+if ne actual expected
+exit int add get Checks 0 40
+end
+end
+
+fn fixture to void
+for i ulong 2048
+put LT i 0
+end
+for i ulong 4
+a = mul i 32
+put LT a add i 1
+put LT add a 1 add div i 2 1
+put LT add a 2 1
+put LT add a 3 add i 1
+put LT add a 4 1
+put LT add a 5 1
+put LT add a 6 776
+put LT add a 7 add i 1
+for j ulong 20
+put LT add a add j 8 add add mul i 100 j 1
+end
+put LT add a 28 16
+put LT add a 29 16
+put LT add a 30 1000
+end
+for i ulong 4
+put LPin i add i 1
+put LPin add i 4 add i 1
+put LPin add i 8 add i 5
+put LPin add i 12 add i 5
+end
+for i ulong 9
+put LC i 0
+end
+put LC 0 10
+put LC 1 20
+put LC 2 30
+put LC 3 40
+put LC 4 50
+put LC 5 60
+put LC 6 4096
+for i ulong 24
+put LS i 0
+end
+end
+
+fn manifesttests to void
+fixture
+check lmanifest 4 0
+check lmanifest 0 1
+check lmanifest 65 1
+put LT 0 0
+check lmanifest 4 2
+fixture
+put LT 5 2
+check lmanifest 4 3
+fixture
+put LT 4 0
+check lmanifest 4 3
+fixture
+put LT 6 0
+check lmanifest 4 4
+fixture
+put LT 1 4
+check lmanifest 4 5
+fixture
+put LT 1 3
+check lmanifest 4 5
+fixture
+put LT 2 2
+check lmanifest 4 5
+fixture
+for j ulong 4
+put LT add 8 j 0
+end
+check lmanifest 4 6
+fixture
+put LT 29 257
+check lmanifest 4 7
+fixture
+put LT 32 1
+check lmanifest 4 8
+fixture
+for j ulong 4
+put LT add 40 j get LT add 8 j
+end
+check lmanifest 4 9
+fixture
+for j ulong 4
+put LT add 44 j get LT add 12 j
+end
+check lmanifest 4 10
+fixture
+put LT 71 1
+check lmanifest 4 11
+fixture
+for j ulong 4
+put LT add 80 j get LT add 16 j
+end
+check lmanifest 4 12
+fixture
+for j ulong 4
+put LT add 84 j get LT add 20 j
+end
+check lmanifest 4 13
+fixture
+for j ulong 4
+put LT add 88 j get LT add 24 j
+end
+check lmanifest 4 14
+fixture
+put LT 67 1
+check lmanifest 4 15
+fixture
+put LT 31 1
+check lmanifest 4 7
+fixture
+put LT 28 0
+check lmanifest 4 7
+fixture
+put LT 30 1000001
+check lmanifest 4 7
+end
+
+fn observationtests to void
+for i ulong 256
+put LWant i uchar and i 255
+put LGot i uchar and i 255
+end
+check lobserve 0 0 0 8 8 0
+put LGot 7 99
+check lobserve 0 0 0 8 8 7
+check lobserve 0 0 0 8 0 9
+check lobserve 0 0 0 8 7 7
+check lobserve 0 0 0 0 0 10
+check lobserve 0 102 102 0 0 0
+check lobserve 0 102 103 0 0 8
+check lobserve 0 102 102 0 1 8
+check lobserve 0 9 9 0 0 10
+check lobserve 0 0 102 8 0 8
+check lobserve 0 0 0 257 257 10
+for i ulong 6
+check lobserve add i 1 0 0 8 8 add i 1
+end
+check lobserve 7 0 0 8 8 10
+end
+
+fn accountingtests to void
+fixture
+check lbegin 4 2 1000 0
+check lbegin 4 2 1000 20
+check lattempt 0 1 7 0
+check lattempt 0 2 0 0
+check lattempt 1 1 0 0
+check lattempt 2 1 4 0
+check lattempt 3 1 11 0
+check lfinish 0
+check get LS 3 5
+check get LS 4 1
+check get LS 5 2
+check get LS 8 50
+check get LS 9 100
+check get LS 10 150
+check get LS 11 200
+check get LS 12 250
+check get LS 13 300
+check get LS 14 4096
+check get LS 16 5
+check get LS 19 1
+check lattempt 0 3 0 24
+check lfinish 24
+fixture
+check lbegin 4 2 1000 0
+check lattempt 0 1 0 0
+check lfinish 30
+check get LS 18 0
+fixture
+check lbegin 4 2 1000 0
+check lattempt 0 2 0 28
+check get LS 8 10
+check lfinish 28
+fixture
+check lbegin 4 1 1000 0
+check lattempt 0 1 7 0
+check lattempt 0 2 0 28
+check get LS 5 0
+fixture
+check lbegin 4 2 99 0
+check lattempt 0 1 0 29
+check get LS 18 0
+fixture
+check lbegin 4 2 1000 0
+put LPin 7 999
+check lattempt 0 1 0 26
+check get LS 8 10
+check get LS 5 0
+fixture
+check lbegin 4 2 1000 0
+put LPin 15 999
+check lattempt 0 1 0 26
+fixture
+check lbegin 4 2 1000 0
+put LC 0 18446744073709551615
+check lattempt 0 1 0 23
+fixture
+check lbegin 4 2 1000 0
+put LC 7 1
+check lattempt 0 1 0 25
+fixture
+check lbegin 4 2 1000 0
+put LC 7 13
+put LC 8 1
+check lattempt 0 1 0 0
+check get LS 15 13
+check get LS 16 0
+fixture
+check lbegin 4 2 1000 0
+check lattempt 64 1 0 27
+check get LS 8 10
+fixture
+check lbegin 4 0 1000 21
+fixture
+check lbegin 4 65 1000 21
+fixture
+check lbegin 4 2 0 21
+fixture
+check lbegin 4 2 1000 0
+put LC 8 2
+check lattempt 0 1 0 25
+fixture
+check lbegin 4 2 1000 0
+put LS 8 1000000000000
+check lattempt 0 1 0 23
+check get LS 18 0
+fixture
+check lbegin 1 64 100000 0
+for i ulong 64
+check lattempt 0 add i 1 7 0
+end
+check lattempt 0 65 0 31
+check get LS 3 65
+check get LS 8 650
+check get LS 5 0
+check lfinish 31
+fixture
+check lbegin 1 1 1000 0
+put LC 6 8192
+check lattempt 0 1 0 0
+check get LS 14 8192
+check lfinish 0
+end
+
+fn neartests to void
+for i ulong len PhraseA
+put LText i get PhraseA i
+end
+for i ulong len PhraseB
+put LText add 256 i get PhraseB i
+end
+check lnear len PhraseA len PhraseB 1
+for i ulong len PhraseC
+put LText add 256 i get PhraseC i
+end
+check lnear len PhraseA len PhraseC 0
+check lnear 0 0 2
+check lnear 257 1 3
+put LText 0 255
+check lnear len PhraseA len PhraseC 3
+for i ulong len HalfA
+put LText i get HalfA i
+end
+for i ulong len HalfB
+put LText add 256 i get HalfB i
+end
+check lnear len HalfA len HalfB 0
+for i ulong len Repeat
+put LText i get Repeat i
+put LText add 256 i get Repeat i
+end
+check lnear len Repeat len Repeat 1
+for i ulong 128
+put LText mul i 2 97
+put LText add mul i 2 1 32
+end
+check lnear 256 5 3
+end
+
+fn countout to void
+n = get Checks 0
+put Digits 0 uchar add div n 100 48
+put Digits 1 uchar add rem div n 10 10 48
+put Digits 2 uchar add rem n 10 48
+put Digits 3 10
+w = write 1 Digits 0 4
+if ne w 4
+exit 36
+end
+end
+
+fn main to int
+manifesttests
+observationtests
+accountingtests
+neartests
+w = write 1 Good 0 len Good
+if ne w long len Good
+ret 35
+end
+countout
+ret 0
+end
