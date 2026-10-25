@@ -1,0 +1,1 @@
+{"schema_version":"1.0.0","name":"device-trace","purpose":"Handwritten Omega host-reference tests and independent golden bytes for the proposed device trace contract.","invariants":["All stamps are synthetic.","Only run AArch64 outputs after a successful compile with the verified pin.","Do not open a GPU or claim device qualification from these fixtures."]}

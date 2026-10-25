@@ -1,0 +1,1 @@
+{"schema_version":"1.0.0","name":"device-trace","purpose":"Proposed bounded trace wire contract and reproduction instructions for the host reference in native/blackwell/trace.om.","invariants":["Host and oracle evidence is not GPU qualification.","The existing qualified vector emitter and launcher remain unchanged.","Wire IDs require an external exact provenance manifest."]}
