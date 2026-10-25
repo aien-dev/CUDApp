@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* Host-only canonical-manifest admission tests. The synthetic instruction bytes
  * are never executed and make no device correctness claim. */
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,8 +13,11 @@
 static int checks, failures;
 #define CHECK(c, msg) do { checks++; if (!(c)) { failures++; fprintf(stderr, "FAIL: %s\n", msg); } } while (0)
 static void save(const char *path, const char *s, size_t n) {
-    FILE *f = fopen(path, "wb");
-    if (!f || fwrite(s, 1, n, f) != n || fclose(f)) exit(2);
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+    if (fd < 0) exit(2);
+    FILE *f = fdopen(fd, "wb");
+    if (!f) { close(fd); exit(2); }
+    if (fwrite(s, 1, n, f) != n || fclose(f)) exit(2);
 }
 /* Test mutations must fail as fixture errors, not dereference a missing field. */
 static char *field(char *m, const char *key) {
@@ -52,6 +57,14 @@ static void refuse(const char *prefix, const char *path, char *m, size_t n, cons
 int main(void) {
     char dir[] = "/tmp/cudapp-manifest-XXXXXX", prefix[256], path[280], id[65], err[256];
     if (!mkdtemp(dir)) return 2;
+    /* Even a permissive invoking umask must not create shared test files. */
+    snprintf(path, sizeof path, "%s/mode-check", dir);
+    mode_t mask = umask(0);
+    save(path, "test", 4);
+    umask(mask);
+    struct stat st;
+    CHECK(stat(path, &st) == 0 && (st.st_mode & 0777) == 0600, "fixture file mode is not private");
+    unlink(path);
     snprintf(prefix, sizeof prefix, "%s/fixture", dir);
     snprintf(path, sizeof path, "%s.manifest", prefix);
     uint8_t text[16] = {0}; uint32_t q0[96] = {0}, q1[96] = {0}, cb[2] = {0};
