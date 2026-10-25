@@ -30,51 +30,56 @@ _Static_assert(sizeof(sha256_ctx) == 104, "om/sha256/sha256.om reads sha256_ctx 
 enum { OMSHA_INIT = 0, OMSHA_ABSORB = 1, OMSHA_FINAL = 2, OMSHA_ONESHOT = 3 };
 #define OMSHA_PIECE 4096 /* the length of sha256.om's `b view uchar 4096` */
 
-static const uint8_t omsha_zero[OMSHA_PIECE];
+/* Lent as the unit's unused input views: as bytes (`b view uchar 4096`) and as aligned 8-byte cells
+ * (`b8 view ulong 512`, read only by the one-shot path). */
+static const uint64_t omsha_zero[OMSHA_PIECE / 8];
 
 /* An Omega trap or a refused argument here is a broken invariant (n <= OMSHA_PIECE, valid op, sizes fixed by
- * the types above), never a recoverable condition, so it aborts like a failed assert. */
-static void omsha_call(sha256_ctx *ctx, const uint8_t *block, size_t n, unsigned op, uint8_t *out)
+ * the types above), never a recoverable condition, so it aborts like a failed assert. The unit returns a
+ * digest packed into the first four scratch words, in byte order, which out receives. */
+static void omsha_call(sha256_ctx *ctx, const uint8_t *block, const uint64_t *block8, size_t n, unsigned op,
+                       uint8_t *out)
 {
     uint64_t unused, sched[64]; /* message-schedule scratch; the Omega unit writes it before reading */
-    if (omega_omsha(&unused, ctx, sizeof *ctx, block, OMSHA_PIECE, n, op, out, SHA256_DIGEST_SIZE, sched, 64) != 0)
+    if (omega_omsha(&unused, ctx, sizeof *ctx, block, OMSHA_PIECE, n, op, sched, 64, block8, OMSHA_PIECE / 8) != 0)
         abort();
+    if (out)
+        memcpy(out, sched, SHA256_DIGEST_SIZE);
 }
 
 void sha256_init(sha256_ctx *ctx)
 {
-    uint8_t out[SHA256_DIGEST_SIZE];
-    omsha_call(ctx, omsha_zero, 0, OMSHA_INIT, out);
+    omsha_call(ctx, (const uint8_t *)omsha_zero, omsha_zero, 0, OMSHA_INIT, NULL);
 }
 
 void sha256_update(sha256_ctx *ctx, const uint8_t *data, size_t len)
 {
-    uint8_t out[SHA256_DIGEST_SIZE];
     while (len >= OMSHA_PIECE) {
-        omsha_call(ctx, data, OMSHA_PIECE, OMSHA_ABSORB, out);
+        omsha_call(ctx, data, omsha_zero, OMSHA_PIECE, OMSHA_ABSORB, NULL);
         data += OMSHA_PIECE;
         len -= OMSHA_PIECE;
     }
     if (len > 0) {
         uint8_t tail[OMSHA_PIECE]; /* only tail[0..len) is read */
         memcpy(tail, data, len);
-        omsha_call(ctx, tail, len, OMSHA_ABSORB, out);
+        omsha_call(ctx, tail, omsha_zero, len, OMSHA_ABSORB, NULL);
     }
 }
 
 void sha256_final(sha256_ctx *ctx, uint8_t digest[SHA256_DIGEST_SIZE])
 {
-    omsha_call(ctx, omsha_zero, 0, OMSHA_FINAL, digest);
+    omsha_call(ctx, (const uint8_t *)omsha_zero, omsha_zero, 0, OMSHA_FINAL, digest);
 }
 
 void sha256_hash(const uint8_t *data, size_t len, uint8_t digest[SHA256_DIGEST_SIZE])
 {
     sha256_ctx ctx;
-    if (len < OMSHA_PIECE) { /* one call: init, absorb, final */
-        uint8_t piece[OMSHA_PIECE]; /* only piece[0..len) is read */
+    if (len < OMSHA_PIECE) { /* one call; the unit reads the copy 8 bytes at a time */
+        uint64_t piece[OMSHA_PIECE / 8];
+        memset((uint8_t *)piece + (len & ~(size_t)63), 0, 64); /* the block holding the tail */
         if (len > 0)
             memcpy(piece, data, len);
-        omsha_call(&ctx, piece, len, OMSHA_ONESHOT, digest);
+        omsha_call(&ctx, (const uint8_t *)piece, piece, len, OMSHA_ONESHOT, digest);
         return;
     }
     sha256_init(&ctx);
