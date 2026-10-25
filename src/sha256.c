@@ -27,7 +27,7 @@
 
 _Static_assert(sizeof(sha256_ctx) == 104, "om/sha256/sha256.om reads sha256_ctx as 104 bytes");
 
-enum { OMSHA_INIT = 0, OMSHA_ABSORB = 1, OMSHA_FINAL = 2 };
+enum { OMSHA_INIT = 0, OMSHA_ABSORB = 1, OMSHA_FINAL = 2, OMSHA_ONESHOT = 3 };
 #define OMSHA_PIECE 4096 /* the length of sha256.om's `b view uchar 4096` */
 
 static const uint8_t omsha_zero[OMSHA_PIECE];
@@ -70,6 +70,13 @@ void sha256_final(sha256_ctx *ctx, uint8_t digest[SHA256_DIGEST_SIZE])
 void sha256_hash(const uint8_t *data, size_t len, uint8_t digest[SHA256_DIGEST_SIZE])
 {
     sha256_ctx ctx;
+    if (len < OMSHA_PIECE) { /* one call: init, absorb, final */
+        uint8_t piece[OMSHA_PIECE]; /* only piece[0..len) is read */
+        if (len > 0)
+            memcpy(piece, data, len);
+        omsha_call(&ctx, piece, len, OMSHA_ONESHOT, digest);
+        return;
+    }
     sha256_init(&ctx);
     sha256_update(&ctx, data, len);
     sha256_final(&ctx, digest);
