@@ -1,0 +1,362 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* omega_cubin: sm_121 cubin container writer. See omega_cubin.h for the ABI
+ * facts and for what this file deliberately does not do. No device is opened,
+ * no address is produced, no launch is performed. */
+#include "omega_cubin.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define ELF_HDR 64u
+#define SH_HDR 64u
+#define PHDR_ENT 56u
+#define PHDR_COUNT 5u
+#define SYM_ENT 24u
+
+typedef struct {
+    const char *name;
+    uint32_t type;
+    uint64_t flags;
+    const uint8_t *data;
+    size_t size;
+    uint32_t link;
+    uint32_t info;
+    uint64_t align;
+    uint64_t entsize;
+} Sec;
+
+static void put16(uint8_t *p, uint16_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
+static void put32(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); p[2] = (uint8_t)(v >> 16); p[3] = (uint8_t)(v >> 24); }
+static void put64(uint8_t *p, uint64_t v) { put32(p, (uint32_t)v); put32(p + 4, (uint32_t)(v >> 32)); }
+static size_t align_up(size_t n, size_t a) { return a ? (n + a - 1) / a * a : n; }
+
+/* One Elf64_Phdr. The cubin loader reads the PT_LOAD ranges to find the text,
+ * constant and shared segments; without them cuModuleLoadData rejects the image
+ * (REVIEW C-22, confirmed on-device: error 200). */
+static void put_phdr(uint8_t *p, uint32_t type, uint32_t flags, uint64_t off,
+                     uint64_t filesz, uint64_t memsz) {
+    put32(p + 0, type);
+    put32(p + 4, flags);
+    put64(p + 8, off);
+    put64(p + 16, 0);   /* p_vaddr */
+    put64(p + 24, 0);   /* p_paddr */
+    put64(p + 32, filesz);
+    put64(p + 40, memsz);
+    put64(p + 48, 8);   /* p_align */
+}
+
+static int name_ok(const char *s) {
+    size_t n;
+    if (!s) return 0;
+    n = strlen(s);
+    if (n == 0 || n > OMEGA_CUBIN_MAX_NAME) return 0;
+    if (!((s[0] >= 'A' && s[0] <= 'Z') || (s[0] >= 'a' && s[0] <= 'z') || s[0] == '_')) return 0;
+    for (size_t i = 0; i < n; i++) {
+        char c = s[i];
+        if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')) return 0;
+    }
+    return 1;
+}
+
+const char *omega_cubin_rc_name(int rc) {
+    switch (rc) {
+    case OMEGA_CUBIN_OK: return "OK";
+    case OMEGA_CUBIN_E_ARG: return "ARG";
+    case OMEGA_CUBIN_E_TEXT: return "TEXT";
+    case OMEGA_CUBIN_E_PARAMS: return "PARAMS";
+    case OMEGA_CUBIN_E_CBANK: return "CBANK";
+    case OMEGA_CUBIN_E_GPR: return "GPR";
+    case OMEGA_CUBIN_E_SHARED: return "SHARED";
+    case OMEGA_CUBIN_E_MEM: return "MEM";
+    default: return "UNKNOWN";
+    }
+}
+
+void omega_cubin_free(uint8_t *p) { free(p); }
+
+/* Append one .nv.info attribute. Format 4 has a 4-byte payload, format 3 a
+ * 2-byte payload, format 2 no payload. These are the encodings of the
+ * reference container; attr is stored as (id << 8) | format. */
+static size_t put_attr4(uint8_t *p, uint16_t id, const void *data, size_t n) {
+    put16(p, (uint16_t)((id << 8) | 4));
+    put16(p + 2, (uint16_t)n);
+    memcpy(p + 4, data, n);
+    return 4 + n;
+}
+static size_t put_attr3(uint8_t *p, uint16_t id, uint16_t v) {
+    put16(p, (uint16_t)((id << 8) | 3));
+    put16(p + 2, v);
+    return 4;
+}
+static size_t put_attr2(uint8_t *p, uint16_t id) {
+    put16(p, (uint16_t)((id << 8) | 2));
+    put16(p + 2, 0);
+    return 4;
+}
+
+static size_t build_param_info(uint8_t *p, const OmegaCubinParam *params, size_t nparams, uint32_t cbank_size) {
+    size_t o = 0;
+    uint32_t end = OMEGA_CUBIN_PARAM_BASE;
+    (void)cbank_size;
+    for (size_t i = 0; i < nparams; i++) {
+        /* ptxas ABI: ordinal in bits 0..15, offset relative to the parameter
+         * base in bits 16..31. An absolute offset here makes every loader bind
+         * the wrong argument (REVIEW C-01). */
+        uint32_t w2 = (uint32_t)i | ((params[i].offset - OMEGA_CUBIN_PARAM_BASE) << 16);
+        uint32_t type = params[i].is_pointer ? 0x0021f500u : 0x0011f000u;
+        uint8_t d[12];
+        put32(d, 0);
+        put32(d + 4, w2);
+        put32(d + 8, type);
+        o += put_attr4(p + o, 0x17, d, sizeof d);
+        if (params[i].offset + params[i].size > end) end = params[i].offset + params[i].size;
+    }
+    /* ptxas uses the end of the last parameter, not the sum of sizes: gaps
+     * between parameters are part of the constant bank (REVIEW C-04). */
+    o += put_attr3(p + o, 0x19, (uint16_t)(end - OMEGA_CUBIN_PARAM_BASE));
+    {
+        uint8_t d[8];
+        put32(d, 3); /* symbol index of .nv.constant0.<fn> in this writer */
+        put32(d + 4, OMEGA_CUBIN_PARAM_BASE | ((end - OMEGA_CUBIN_PARAM_BASE) << 16));
+        o += put_attr4(p + o, 0x0a, d, sizeof d);
+    }
+    return o;
+}
+
+int omega_cubin_pack(const char *fn_name,
+                     const uint8_t *text, size_t text_len,
+                     const OmegaCubinParam *params, size_t nparams,
+                     uint32_t cbank_size, uint32_t gpr_count,
+                     uint32_t shared_reserved,
+                     uint8_t **out, size_t *out_len, char *err, size_t err_cap) {
+    if (err && err_cap) err[0] = 0;
+    if (!out || !out_len) return OMEGA_CUBIN_E_ARG;
+    *out = NULL;
+    *out_len = 0;
+    if (!fn_name || !text || !name_ok(fn_name)) {
+        if (err) snprintf(err, err_cap, "invalid function name or text");
+        return OMEGA_CUBIN_E_ARG;
+    }
+    if (text_len == 0 || text_len % 16u != 0 || text_len > (1u << 24)) {
+        if (err) snprintf(err, err_cap, "text length %zu is not a nonzero multiple of 16", text_len);
+        return OMEGA_CUBIN_E_TEXT;
+    }
+    if (nparams > OMEGA_CUBIN_MAX_PARAMS) {
+        if (err) snprintf(err, err_cap, "too many parameters: %zu", nparams);
+        return OMEGA_CUBIN_E_PARAMS;
+    }
+    if (gpr_count > 255u) {
+        if (err) snprintf(err, err_cap, "gpr count %u exceeds 255", gpr_count);
+        return OMEGA_CUBIN_E_GPR;
+    }
+    if (shared_reserved % 4u) {
+        if (err) snprintf(err, err_cap, "reserved shared bytes %u not a multiple of 4", shared_reserved);
+        return OMEGA_CUBIN_E_SHARED;
+    }
+    {
+        uint64_t end = OMEGA_CUBIN_PARAM_BASE;
+        for (size_t i = 0; i < nparams; i++) {
+            const OmegaCubinParam *q = &params[i];
+            if (q->offset < end) {
+                if (err) snprintf(err, err_cap, "parameter %zu offset 0x%x overlaps or is unsorted", i, q->offset);
+                return OMEGA_CUBIN_E_PARAMS;
+            }
+            if (q->size != 8u && q->size != 4u && q->size != 2u && q->size != 1u) {
+                if (err) snprintf(err, err_cap, "parameter %zu has unsupported size %u", i, q->size);
+                return OMEGA_CUBIN_E_PARAMS;
+            }
+            if (q->is_pointer && q->size != 8u) {
+                if (err) snprintf(err, err_cap, "parameter %zu is a %u-byte pointer", i, q->size);
+                return OMEGA_CUBIN_E_PARAMS;
+            }
+            if ((q->size == 8u && (q->offset & 7u)) || (q->size == 4u && (q->offset & 3u)) || (q->size == 2u && (q->offset & 1u))) {
+                if (err) snprintf(err, err_cap, "parameter %zu offset 0x%x is not naturally aligned", i, q->offset);
+                return OMEGA_CUBIN_E_PARAMS;
+            }
+            end = (uint64_t)q->offset + q->size;
+        }
+        if (end > cbank_size) {
+            if (err) snprintf(err, err_cap, "parameter area ends at 0x%llx beyond cbank size 0x%x",
+                              (unsigned long long)end, cbank_size);
+            return OMEGA_CUBIN_E_CBANK;
+        }
+        if (cbank_size > OMEGA_CUBIN_CBANK_MAX || cbank_size < OMEGA_CUBIN_PARAM_BASE) {
+            if (err) snprintf(err, err_cap, "cbank size 0x%x outside 0x%x..0x%x",
+                              cbank_size, OMEGA_CUBIN_PARAM_BASE, OMEGA_CUBIN_CBANK_MAX);
+            return OMEGA_CUBIN_E_CBANK;
+        }
+    }
+
+    /* Section payloads that depend on the descriptor. */
+    char text_name[OMEGA_CUBIN_MAX_NAME + 16], cbank_name[OMEGA_CUBIN_MAX_NAME + 24], info_name[OMEGA_CUBIN_MAX_NAME + 16];
+    snprintf(text_name, sizeof text_name, ".text.%s", fn_name);
+    snprintf(cbank_name, sizeof cbank_name, ".nv.constant0.%s", fn_name);
+    snprintf(info_name, sizeof info_name, ".nv.info.%s", fn_name);
+
+    uint8_t ginfo[36];
+    {
+        size_t o = 0;
+        uint8_t d[8];
+        put32(d, 2); put32(d + 4, gpr_count);    /* first function symbol, register count */
+        o += put_attr4(ginfo + o, 0x2f, d, 8);
+        put32(d, 2); put32(d + 4, 0);
+        o += put_attr4(ginfo + o, 0x11, d, 8);
+        o += put_attr4(ginfo + o, 0x12, d, 8);
+    }
+    uint8_t compat[36] = {
+        0x02,0x09,0x00,0x00, 0x02,0x02,0x02,0x00, 0x02,0x05,0x05,0x00,
+        0x03,0x07,0x01,0x01, 0x02,0x03,0x00,0x00, 0x02,0x06,0x01,0x00,
+        0x04,0x0b,0x08,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00
+    };
+    uint8_t note[32];
+    {
+        put32(note, 12); put32(note + 4, 8); put32(note + 8, 0x3e8);
+        memcpy(note + 12, "NVIDIA Corp\0", 12);
+        put16(note + 24, 2); put16(note + 26, OMEGA_CUBIN_SM_121);
+        put32(note + 28, 130);
+    }
+    uint8_t *info = malloc(4096), *text_copy = malloc(text_len), *cbank = calloc(1, cbank_size);
+    if (!info || !text_copy || !cbank) {
+        free(info); free(text_copy); free(cbank);
+        return OMEGA_CUBIN_E_MEM;
+    }
+    memcpy(text_copy, text, text_len);
+    size_t io = 0;
+    {
+        uint8_t d[4];
+        put32(d, 130);
+        io += put_attr4(info + io, 0x37, d, 4);
+    }
+    io += build_param_info(info + io, params, nparams, cbank_size);
+    io += put_attr3(info + io, 0x50, 0);
+    io += put_attr3(info + io, 0x1b, (uint16_t)gpr_count);
+    io += put_attr3(info + io, 0x5f, 0x0101);
+    io += put_attr2(info + io, 0x4a);
+    /* EIATTR_EXIT_INSTR_OFFSETS omitted: the writer does not decode SASS, and
+     * a fabricated first-instruction offset is worse than no entry (REVIEW C-06). */
+    io += put_attr4(info + io, 0x36, (uint8_t[4]){0,0,0,0}, 4);
+    size_t info_len = io;
+
+    /* Names. */
+    const char *snames[] = { ".shstrtab", ".strtab", ".symtab", text_name, cbank_name,
+                             ".nv.info", ".nv.compat", info_name, ".nv.shared.reserved.0", ".note.nv.cuinfo" };
+    uint8_t shstr[512], strtab[128];
+    size_t shstr_len = 1, strtab_len = 1;
+    uint32_t shname[10], strname = 0;
+    shstr[0] = 0; strtab[0] = 0;
+    for (int i = 0; i < 10; i++) {
+        size_t n = strlen(snames[i]);
+        shname[i] = (uint32_t)shstr_len;
+        memcpy(shstr + shstr_len, snames[i], n + 1);
+        shstr_len += n + 1;
+    }
+    strname = (uint32_t)strtab_len;
+    memcpy(strtab + strtab_len, fn_name, strlen(fn_name) + 1);
+    strtab_len += strlen(fn_name) + 1;
+
+    uint8_t symtab[4 * SYM_ENT];
+    memset(symtab, 0, sizeof symtab);
+    put32(symtab + 1 * SYM_ENT + 0, 0);          /* st_name */
+    symtab[1 * SYM_ENT + 4] = 0x03;              /* STT_SECTION, LOCAL */
+    put16(symtab + 1 * SYM_ENT + 6, 4);          /* .text section index */
+    put32(symtab + 2 * SYM_ENT + 0, strname);
+    symtab[2 * SYM_ENT + 4] = 0x12;              /* GLOBAL FUNC */
+    symtab[2 * SYM_ENT + 5] = 0x10;              /* STO_CUDA_ENTRY */
+    put16(symtab + 2 * SYM_ENT + 6, 4);
+    put64(symtab + 2 * SYM_ENT + 8, 0);
+    put64(symtab + 2 * SYM_ENT + 16, text_len);
+    put32(symtab + 3 * SYM_ENT + 0, 0);
+    symtab[3 * SYM_ENT + 4] = 0x03;
+    put16(symtab + 3 * SYM_ENT + 6, 5);          /* .nv.constant0 section index */
+
+    Sec secs[11];
+    memset(secs, 0, sizeof secs);
+    int s = 1;
+    secs[s++] = (Sec){ ".shstrtab", 3, 0, shstr, shstr_len, 0, 0, 1, 0 };
+    secs[s++] = (Sec){ ".strtab", 3, 0, strtab, strtab_len, 0, 0, 1, 0 };
+    secs[s++] = (Sec){ ".symtab", 2, 0, symtab, sizeof symtab, 2, 2, 8, SYM_ENT };
+    secs[s++] = (Sec){ text_name, 1, 0x6, text_copy, text_len, 3, 2, 128, 0 };
+    secs[s++] = (Sec){ cbank_name, 1, 0x42, cbank, cbank_size, 3, 4, 16, 0 };
+    secs[s++] = (Sec){ ".nv.info", 0x70000000u, 0, ginfo, sizeof ginfo, 3, 0, 4, 0 };
+    secs[s++] = (Sec){ ".nv.compat", 0x70000086u, 0, compat, sizeof compat, 0, 0, 4, 0 };
+    secs[s++] = (Sec){ info_name, 0x70000000u, 0x40, info, info_len, 3, 4, 4, 0 };
+    secs[s++] = (Sec){ ".nv.shared.reserved.0", 8, 0x3, NULL, shared_reserved, 0, 0, 1, 0 };
+    secs[s++] = (Sec){ ".note.nv.cuinfo", 7, 0x1000040u, note, sizeof note, 0, 2, 4, 0 };
+    size_t nsec = (size_t)s;
+
+    /* Layout: ELF header, section payloads (aligned), section header table. */
+    size_t off = ELF_HDR;
+    uint64_t sec_off[11];
+    memset(sec_off, 0, sizeof sec_off);
+    for (size_t i = 1; i < nsec; i++) {
+        off = align_up(off, (size_t)secs[i].align);
+        sec_off[i] = off;
+        off += secs[i].size;
+    }
+    off = align_up(off, 8);
+    size_t shoff = off;
+    size_t phoff = shoff + SH_HDR * nsec;
+    size_t total = phoff + PHDR_ENT * PHDR_COUNT;
+    uint8_t *buf = calloc(1, total);
+    if (!buf) {
+        free(info); free(text_copy); free(cbank);
+        return OMEGA_CUBIN_E_MEM;
+    }
+    /* Segment ranges: text (index 4), constant bank (5), shared reserved (9). */
+    uint64_t text_off = sec_off[4], text_sz = secs[4].size;
+    uint64_t const_off = sec_off[5], const_sz = secs[5].size;
+    uint64_t shared_off = sec_off[9], shared_sz = secs[9].size;
+    /* ELF header. */
+    memcpy(buf, "\177ELF", 4);
+    buf[4] = 2; buf[5] = 1; buf[6] = 1;
+    buf[7] = 0x41;                    /* ELFOSABI_NV */
+    buf[8] = OMEGA_CUBIN_ABI_VERSION; /* EI_ABIVERSION */
+    put16(buf + 16, 2);               /* ET_EXEC */
+    put16(buf + 18, 190);             /* EM_CUDA */
+    put32(buf + 20, 1);
+    put64(buf + 24, 0);               /* e_entry */
+    put64(buf + 32, phoff);           /* e_phoff */
+    put64(buf + 40, shoff);
+    put32(buf + 48, OMEGA_CUBIN_EFLAGS_SM121);
+    put16(buf + 52, ELF_HDR);
+    put16(buf + 54, PHDR_ENT);
+    put16(buf + 56, PHDR_COUNT);      /* e_phnum */
+    put16(buf + 58, SH_HDR);
+    put16(buf + 60, (uint16_t)nsec);
+    put16(buf + 62, 1);               /* .shstrtab */
+    for (size_t i = 1; i < nsec; i++) {
+        if (secs[i].type != 8 && secs[i].size) memcpy(buf + sec_off[i], secs[i].data, secs[i].size);
+    }
+    /* Null section header then each section header. */
+    for (size_t i = 1; i < nsec; i++) {
+        uint8_t *p = buf + shoff + i * SH_HDR;
+        put32(p + 0, shname[i - 1]);
+        put32(p + 4, secs[i].type);
+        put64(p + 8, secs[i].flags);
+        put64(p + 16, 0);
+        put64(p + 24, sec_off[i]);
+        put64(p + 32, secs[i].size);
+        put32(p + 40, secs[i].link);
+        put32(p + 44, secs[i].info);
+        put64(p + 48, secs[i].align);
+        put64(p + 56, secs[i].entsize);
+    }
+    /* Program header table (after the section header table, like the reference).
+     * 0: PHDR (the table itself), 1: LOAD R (the table), 2: LOAD R|E (text),
+     * 3: LOAD R|W (shared, zero file size), 4: LOAD R (constant bank). */
+    {
+        uint8_t *ph = buf + phoff;
+        put_phdr(ph + 0 * PHDR_ENT, 6, 4, phoff, PHDR_ENT * PHDR_COUNT, PHDR_ENT * PHDR_COUNT);
+        put_phdr(ph + 1 * PHDR_ENT, 1, 4, phoff, PHDR_ENT * PHDR_COUNT, PHDR_ENT * PHDR_COUNT);
+        put_phdr(ph + 2 * PHDR_ENT, 1, 5, text_off, text_sz, text_sz);
+        put_phdr(ph + 3 * PHDR_ENT, 1, 6, shared_off, 0, shared_sz);
+        put_phdr(ph + 4 * PHDR_ENT, 1, 4, const_off, const_sz, const_sz);
+    }
+    free(info);
+    free(text_copy);
+    free(cbank);
+    *out = buf;
+    *out_len = total;
+    return OMEGA_CUBIN_OK;
+}

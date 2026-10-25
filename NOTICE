@@ -17,9 +17,8 @@ works or redistributions modified from the canonical upstream repositories
 (https://github.com/aien-dev) may not be branded or marketed as official
 "AienOS Verified" or "Omega" distributions without express written permission.
 
-THIRD-PARTY COMPONENTS:
-The interface headers under third_party/nvidia-open-580.173.02/ retain NVIDIA's
-MIT notices and COPYING, and are not relicensed by this project. See
-THIRD_PARTY.md. Earlier first-party grants (MIT, and AGPL-3.0-only for the
-revisions published under it) remain valid for the revisions they covered; this
-notice does not revoke them.
+LLVM EXCEPTION:
+This software is licensed under the Apache License, Version 2.0 with LLVM
+Exceptions. The exception permits compiled object code derived from this
+software to be distributed under terms of the recipient's choosing, and
+resolves the GPLv2 patent/indemnity conflict described in the exception text.

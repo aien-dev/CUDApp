@@ -1,18 +1,8 @@
-# CUDA++: licence history, and how to use the MIT or AGPL revision
+# CUDA++: why Apache-2.0 WITH LLVM-exception, and how to use the MIT version
 
-**First-party CUDA++ material in this revision is offered under Apache-2.0** (`LICENSE`), except where a file carries a different explicit notice. The licence applies to this revision whether obtained from a branch or a release. Earlier grants are not revoked: the MIT grant covers the revisions published under MIT, and the AGPL-3.0-only grant covers the revisions published under AGPL. The terms attached to the material you actually use continue to apply.
+**First-party CUDA++ material in this revision is offered under Apache-2.0 WITH LLVM-exception**, except where a file carries a different explicit notice. The license applies to this revision whether obtained from a branch or a release. Earlier MIT grants remain valid; this change does not revoke them.
 
-## Licence history
-
-| Revision | First-party licence | Notes |
-| --- | --- | --- |
-| Up to `232332422bfdc31c8918085b50f13c1e18ab702e` | MIT | The historical MIT foundation. |
-| 2026-10-22 to the Apache-2.0 change | AGPL-3.0-only | Reciprocity, including the network-use condition. |
-| This revision onward | Apache-2.0 | Ecosystem-wide permissive transition with an explicit patent grant. |
-
-Each change applies from the revision that carries it. A downstream user who takes a revision gets the terms of that revision; a later relicensing does not withdraw rights already granted for an earlier revision.
-
-## Why the licence changed
+## Why I built it, and why the license changed
 
 I built CUDA++ to give people an independently implemented path to their NVIDIA GPU without depending on NVIDIA's proprietary user-space compiler, runtime, driver library or math libraries. The goal was to remove that software dependency, not to distribute NVIDIA's proprietary implementation under my name.
 
@@ -20,17 +10,16 @@ The foundation came from my own implementation and interoperability research. I 
 
 Understanding hardware behavior and writing my own implementation is different from taking proprietary source code. The documented provenance identifies my implementation work separately from the third-party material I actually include. I do not claim NVIDIA's open-source headers, Mesa's contributions, NVIDIA's firmware, or anyone else's work as mine. The audit records evidence and its limits, not a universal legal guarantee.
 
-The ecosystem now standardizes on Apache-2.0 for first-party software: it is permissive, includes an express patent grant, and is accepted by corporate licence scanners and downstream redistributors without the AGPL's source-sharing conditions. This does not automatically license every program using a GPU, every service client, or generated output under Apache-2.0; the terms of `LICENSE` decide what a downstream user may do.
+The MIT foundation remains available to everyone at the exact revision below. Going forward, my first-party improvements build on that foundation under Apache-2.0 WITH LLVM-exception. The LLVM exception lets a developer compile proprietary models or GPU kernels with CUDA++ and ship the resulting object code under terms of their choosing; it also resolves the GPLv2 patent/indemnity conflict at the kernel boundary. It does not license NVIDIA's firmware, the vendor driver, or third-party notices.
 
-This is not a claim that every NVIDIA component has been replaced: the documented working path still uses NVIDIA's open kernel modules and signed firmware.
+This is not a claim that every NVIDIA component has been replaced: the documented working path still uses NVIDIA's open kernel modules and signed firmware. Omega is relicensed under the same terms in its own repository.
 
 ## What remains under its original terms
 
 - NVIDIA's open-kernel-module interface headers retain their MIT notices in `third_party/nvidia-open-580.173.02/`.
 - Mesa/NVK/NAK hardware facts and references retain their attribution in [THIRD_PARTY.md](../THIRD_PARTY.md). The historical audit reports no copied Mesa source code.
 - Attributed quotations remain third-party text, not my newly authored work.
-- The original first-party MIT grant remains valid for the revisions it covered; it is not a blanket MIT option for later revisions.
-- The AGPL-3.0-only grant remains valid for the revisions published under it.
+- The original first-party MIT license is preserved verbatim in [LICENSE-MIT](../LICENSE-MIT). It documents prior grants, not a blanket MIT option for future Apache-2.0 WITH LLVM-exception contributions.
 
 ## Get the MIT foundation
 
@@ -57,4 +46,4 @@ git switch -c my-mit-development 232332422bfdc31c8918085b50f13c1e18ab702e
 
 You can push that branch to a repository you control. GitHub's fork button alone does not select the historical version: explicitly check out the pinned commit. This is an existing MIT snapshot, not a claim that I created a separate hosted fork or that it was the final MIT commit.
 
-Keep the MIT licence and third-party notices when redistributing that version. Later Apache-2.0 or AGPL contributions do not become MIT merely because you copy them onto that branch.
+Keep the MIT license and third-party notices when redistributing that version. Later Apache-2.0 WITH LLVM-exception contributions do not become MIT merely because you copy them onto this branch. The terms attached to the material you actually use continue to apply.

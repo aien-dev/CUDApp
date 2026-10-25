@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # CUDA++ build. Plain make + gcc; no CUDA toolkit, no NVIDIA user-space library.
 #
 #   make            libomega_gpu.a (= libcudapp.a): GPU toolchain + runtime + libraries + driver client
@@ -25,6 +25,7 @@ CFLAGS ?= -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc \
 
 # Every C file of the GPU part, the shared base (tools/extract/shared.txt) and the driver client.
 SRCS := $(sort $(wildcard src/omega_blackwell_*.c src/omega_gpu_*.c)) \
+	src/omega_cubin.c src/omega_native_artifact.c \
 	src/sha256.c src/omega_canonical.c src/omega_core.c src/omega_vector.c \
 	$(PHYSICS_DIR)/m16/m16_native.c $(PHYSICS_DIR)/nvrm/nvrm.c
 OBJS = $(patsubst %.c,$(OUT_DIR)/%.o,$(notdir $(SRCS)))
@@ -49,6 +50,22 @@ clean:
 # libomega_gpu.a = everything the tool links except its main; the Rust FFI crate
 # (cut 2) links it. test-gpu-matmul-api runs the host-only refusals; the chip
 # sweep is `./build/gpu_matmul_api_test --out receipt.json` through the heavy queue.
+.PHONY: artifact-export test-native-artifact
+# Offline handoff for one native realization (CUDApp #68 / #69). Opens no device.
+ARTIFACT_EXPORT = $(OUT_DIR)/artifact-export
+artifact-export: $(ARTIFACT_EXPORT)
+ARTIFACT_TEST = $(OUT_DIR)/gpu_artifact_export_test
+$(ARTIFACT_EXPORT): tools/artifact_export.c src/omega_native_artifact.c src/omega_cubin.c $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -o $@ tools/artifact_export.c src/omega_native_artifact.c src/omega_cubin.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+$(ARTIFACT_TEST): tests/gpu_artifact_export_test.c src/omega_native_artifact.c src/omega_cubin.c $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -o $@ tests/gpu_artifact_export_test.c src/omega_native_artifact.c src/omega_cubin.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+CUDA_INC ?= /usr/local/cuda/include
+CUDA_LIB ?= /usr/local/cuda/lib64
+$(OUT_DIR)/cubin_probe: tools/interop/cubin_probe.c $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -I$(CUDA_INC) -o $@ tools/interop/cubin_probe.c $(OUT_DIR)/libomega_gpu.a -L$(CUDA_LIB) -lcuda -lpthread -lm
+cubin-probe: $(OUT_DIR)/cubin_probe
+test-native-artifact: $(ARTIFACT_EXPORT) $(ARTIFACT_TEST)
+	./$(ARTIFACT_TEST) $(OUT_DIR)/artifact-test
 .PHONY: libomega_gpu test-gpu-matmul-api
 # The two gate-runner objects (omegatool's M17/M18/M19 and World gates) are NOT part of the
 # library: nothing in the library or in the Rust FFI crate calls them (checked with nm), and

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # R2 (omega-mv#595): "Hello GPU" from a fresh checkout.  `make hello-gpu` builds examples/hello_gpu and runs it.
 # Picked up by the `-include mk/*.mk` line at the top of the Makefile. The driver client is in this
 # repository (nvrm/, m16/), so nothing is fetched.

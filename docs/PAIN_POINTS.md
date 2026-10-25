@@ -194,7 +194,7 @@ Each row has a done-when anyone can run. A row is DONE only with a receipt on a 
 | D6 | A new chip works on day one or is refused with a sentence | `make doctor` names any unqualified NVIDIA GPU with what is missing and the porting steps; never a bare "no kernel image"; host test with an unknown PCI id | DONE (`evidence/dx/d2-doctor/fake-machines.txt`) |
 | D7 | Same inputs, same bits, at no cost | Two runs of the same job give the same output hash, on the simulator and on the chip | simulator half DONE; chip half open |
 | D8 | No per-process CUDA tax | The memory a CUDA++ process holds beyond its own buffers is measured and printed | PLANNED (needs a chip window) |
-| D9 | No licence that stops you | At 2026-10-22, MIT and reverse-engineering/port rights; current candidate is Apache-2.0 with the exact MIT snapshot preserved (`docs/LICENSING_TRANSITION.md`) | Historical receipt `evidence/dx/pain-points/licence.txt` |
+| D9 | No licence that stops you | At 2026-10-22, MIT and reverse-engineering/port rights; current candidate is Apache-2.0 WITH LLVM-exception with the exact MIT snapshot preserved (`docs/LICENSING_TRANSITION.md`) | Historical receipt `evidence/dx/pain-points/licence.txt` |
 | D10 | No compiling at run time | hello-gpu prints its kernel build time and the hash of its machine code, identical across runs; no cache directory | DONE for hello-gpu |
 | D11 | Open libraries with an easy default path | Any-shape GEMM, reductions, scans, sorts in source with host references | PLANNED (L386, Omega bar C3) |
 | D12 | Work per answer, against the machine's own ceiling | Every example prints bytes moved, operations and the floor time at the measured ceiling; with a chip window, the measured time next to it | simulator half DONE; chip half open |
@@ -222,7 +222,7 @@ The citation ledger (`evidence/dx/pain-points/ledger.json`) maps each [n] to its
 python3 sources.py --ledger evidence/dx/pain-points/ledger.json verify docs/PAIN_POINTS.md --evidence
 ```
 
-`sources.py` is the grounded-citations script used by AIEN's agents; the copy in `tools/dx/sources.py` carries this candidate's Apache-2.0 notice.
+`sources.py` is the grounded-citations script used by AIEN's agents; the copy in `tools/dx/sources.py` carries this candidate's Apache-2.0 WITH LLVM-exception notice.
 
 ## Sources
 

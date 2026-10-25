@@ -1,6 +1,6 @@
 # Third-party material in CUDA++
 
-The first-party material in the transition candidate is Apache-2.0 (`LICENSE`). This repository also contains and cites third-party material under separate terms. Those grants and notices remain in force; they are not replaced by the project license.
+The first-party material in the transition candidate is Apache-2.0 WITH LLVM-exception (`LICENSE`). This repository also contains and cites third-party material under separate terms. Those grants and notices remain in force; they are not replaced by the project license.
 
 ## 1. NVIDIA open GPU kernel module headers (copied, unchanged)
 

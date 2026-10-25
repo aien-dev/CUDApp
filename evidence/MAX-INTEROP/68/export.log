@@ -1,0 +1,8 @@
+artifact_id=8dcc18e06f2306a785dd413c73f7289e12df0df995066ccb8cd5ff985a709db6
+op=matmul
+contract_id=647116fc1ba1e1394982fc8ba181ce565293f160a6b56afc0f02b2128a675704
+cubin=evidence/MAX-INTEROP/68/matmul-16x16x8.cubin
+artifact_id=b7c2c772ca3401160fa18c73d7c653114db20f928aaa993f217657e81df95cb8
+op=gqa-causal-attention
+contract_id=003696e422bba7274877ba9e01a61076ea0f862f32760cbaa06c60f85a115359
+cubin=evidence/MAX-INTEROP/68/attention-hd128-gqa8.cubin

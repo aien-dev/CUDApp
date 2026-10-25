@@ -1,0 +1,9 @@
+== evidence/MAX-INTEROP/68/attention-hd128-gqa8.cubin
+nvdisasm: PASS
+cuobjdump: PASS
+artifact_id=48eac870570fd978aa011973bfc3407fedc6de2f1f1fbe1fb943cc96c9f95c22
+== evidence/MAX-INTEROP/68/matmul-16x16x8.cubin
+nvdisasm: PASS
+cuobjdump: PASS
+artifact_id=7c5ab77748c1cd29a50b9cb91efcce6d8200eb30646ce88142f31ba4d7d5544c
+ARTIFACT SMOKE PASS

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Host-only tests of the m16 wait primitive (from the physics repository Makefile). No GPU.
 M16_CFLAGS ?= -O2 -Wall -Wextra -Werror
 BUILD := build/m16_gpu_wait

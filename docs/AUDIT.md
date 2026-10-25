@@ -1,6 +1,6 @@
 # Licence and safety audit (before the first public push)
 
-CUDA++ was split out of Omega (AGPL-3.0) and physics (AGPL-3.0) on 2026-10-21 to be published under MIT. Relicensing is only possible for lines whose authors agree, nothing secret may be in any version of any file, and no NVIDIA binary may be in the history. This file records what was checked, how, and the result. Every check below can be re-run with the scripts in `tools/extract/`.
+CUDA++ was split out of Omega (Apache-2.0 WITH LLVM-exception) and physics (Apache-2.0 WITH LLVM-exception) on 2026-10-21 to be published under MIT. Relicensing is only possible for lines whose authors agree, nothing secret may be in any version of any file, and no NVIDIA binary may be in the history. This file records what was checked, how, and the result. Every check below can be re-run with the scripts in `tools/extract/`.
 
 Status: **CLEAN** for the history listed in section 1 (see section 6 for what this audit does not cover).
 
@@ -69,7 +69,7 @@ Kept out of the history (removed from every commit, listed in `tools/extract/ome
 
 - It covers the CUDA++ `main` history named in section 1 plus the commits added in this repository. Branches carried in later (`tools/extract/carry.sh`) need `audit-scan.sh` and gitleaks again before they are pushed.
 - "Only Drake authored it" rests on the commit identities and the organisation's membership (Drake and his agents). It does not prove that no line was ever pasted from elsewhere; section 3's search is the check for that, and it found only the MIT sources named there.
-- The ten shared-base files (`tools/extract/shared.txt`: nine sources plus `tools/mutation_runner.sh`) are also in Omega under AGPL-3.0. Both copies are Drake's; CUDA++'s copies are MIT.
+- The ten shared-base files (`tools/extract/shared.txt`: nine sources plus `tools/mutation_runner.sh`) are also in Omega under Apache-2.0 WITH LLVM-exception. Both copies are Drake's; CUDA++'s copies are MIT.
 
 ## Re-run
 

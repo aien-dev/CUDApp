@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # GPU code buffer sizing (src/omega_gpu_code_alloc.h): the 2 KB instruction prefetch tail after every
 # kernel (omega#323). Host only: no device, no physics headers. Three parts: the size rule, a NO_TAIL
 # mutant that must fail it, and a source scan that refuses the page-only code sizing idioms the six
