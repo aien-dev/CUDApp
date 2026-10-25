@@ -25,7 +25,7 @@
 # unless its row carries class "redundant" with a rationale.
 # Host only, no device, no GPU, no physics C sources (the driver is the fake).
 # The link set is the Makefile RX_COMPOSE_GPU_SRCS list plus the three core files the vector builder needs
-# (omega_core.c, omega_canonical.c, sha256.c), with the fake driver in place of physics m16_native.c and nvrm.c.
+# (omega_core.c, omega_canonical.c, omega_om_units.c), with the fake driver in place of physics m16_native.c and nvrm.c.
 # Shell only (no Python). The real sources carry no marker comments: the rows
 # find their text with exact-once matches (R:) or line ranges (sed), and the
 # runner reports "edit did not apply" if a row stops matching.
@@ -50,7 +50,7 @@ PHYS=$(cd "${PHYSICS_DIR:-../physics}" 2>/dev/null && pwd -P) || {
 }
 TP=$PHYS/third_party/nvidia-open-580.173.02
 INC="-I$PHYS/m16 -I$PHYS/nvrm -I$TP/src/common/sdk/nvidia/inc -I$TP/kernel-open/common/inc -I$TP/kernel-open/nvidia-uvm -I$TP/src/nvidia/arch/nvalloc/unix/include"
-SRCS="src/omega_blackwell_submit.c src/omega_blackwell_engine.c src/omega_gpu_engine.c src/omega_blackwell_matmul.c src/omega_blackwell_codegen.c src/omega_blackwell_encoder.c src/omega_blackwell_qmd.c src/omega_blackwell_realize.c src/omega_vector.c src/omega_validate.c src/omega_core.c src/omega_canonical.c src/sha256.c"
+SRCS="src/omega_blackwell_submit.c src/omega_blackwell_engine.c src/omega_gpu_engine.c src/omega_blackwell_matmul.c src/omega_blackwell_codegen.c src/omega_blackwell_encoder.c src/omega_blackwell_qmd.c src/omega_blackwell_realize.c src/omega_vector.c src/omega_validate.c src/omega_core.c src/omega_canonical.c src/omega_om_units.c"
 BUILD="gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -ffunction-sections -fdata-sections -Isrc -Itests $INC -o .gpu_engine_bt tests/test_omega_blackwell_engine.c tests/fake_m16_native.c $SRCS -Wl,--gc-sections -lm"
 
 OUT=${GPU_ENGINE_BMUT_OUT:-}

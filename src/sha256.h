@@ -14,24 +14,13 @@
  * limitations under the License.
  */
 
+/* The SHA-256 API (sha256_ctx, SHA256_DIGEST_SIZE, SHA256_BLOCK_SIZE, sha256_init/update/final/hash).
+ * Everything is generated: om/sha256/sha256-om2.om (OM-2) exports the four functions, bound through the
+ * omega-bridge native call ABI v2 as omega2_sha256_*; src/omega_api_decl.h declares sha256_ctx from the
+ * unit's `layout shactx` and the four sha256_* functions, which src/omega_om_units.c defines as calls of
+ * omega2_sha256_* (abort() on a nonzero status). Regenerate with om/units.sh. No hashing logic lives in C. */
+
 #ifndef OMEGA_SHA256_H
 #define OMEGA_SHA256_H
-
-#include <stddef.h>
-#include <stdint.h>
-
-#define SHA256_DIGEST_SIZE 32
-#define SHA256_BLOCK_SIZE 64
-
-typedef struct {
-    uint32_t state[8];
-    uint64_t count;
-    uint8_t buffer[SHA256_BLOCK_SIZE];
-} sha256_ctx;
-
-void sha256_init(sha256_ctx *ctx);
-void sha256_update(sha256_ctx *ctx, const uint8_t *data, size_t len);
-void sha256_final(sha256_ctx *ctx, uint8_t digest[SHA256_DIGEST_SIZE]);
-void sha256_hash(const uint8_t *data, size_t len, uint8_t digest[SHA256_DIGEST_SIZE]);
-
+#include "omega_api_decl.h"
 #endif /* OMEGA_SHA256_H */
