@@ -1,0 +1,236 @@
+{
+  "schema": "cudapp-device-trace-host-reference-v1",
+  "measured_at": "2026-10-25T23:32:06Z",
+  "source_commit": "0efa7fc018ecbf2a10d7ac2dbbfb153128436276",
+  "base_commit": "a520cd30e54c3b0ddd553ee3ccb3f5e673345cd6",
+  "source_sha256": {
+    "native/blackwell/trace.om": "bcc9414f5cb147bf8553cb3553680e054bd1efb58da4378be796b74844023637",
+    "tests/device-trace/.crumb": "de51832ed9b7d3ddd3c194183b31c72938d7c939127e65a826f9d094bdacc91f",
+    "tests/device-trace/contract-test.om": "d99a078097835089e078899caf86f5e6f707f106d7098c52f5d86babce16f08f",
+    "tests/device-trace/disabled-test.om": "2608a07b8a1c8a391576382e89e07a1bda408ae756f241dd050f766a653584cc",
+    "tests/device-trace/golden-test.om": "9243e5bb92704e526c1464f14c85cb785c0bf988f333ba5ddfdc243da739d75b",
+    "tests/device-trace/golden.hex": "cb3461ecba07527bdbfeb68a886604da4228f0e93c6d471b79c016faa57b4359",
+    "docs/device-trace/.crumb": "d8b6a32b421fdfed0c19104c625cee536c1aa217198d6286d0904ea805a416c3",
+    "docs/device-trace/CONTRACT.md": "320a847cb90c4620df488c8d3028e9beb76c57053322df966b21c7c7bf268232",
+    "docs/device-trace/PLAN.md": "b62c0300ad2568d7fb6fc35d80247c45045e8c7fc4211f0234a3e27f0fcb72ab",
+    "docs/device-trace/REPRODUCE.md": "4fd453c41982f23e4f1a074bb0615dafe6c683992c730420a92a3e2308db9734"
+  },
+  "remote_readback": "All 10 committed files read back and matched the measured local content exactly",
+  "platform": {
+    "os": "Linux",
+    "architecture": "x86_64"
+  },
+  "scope": "External oracle semantics and pinned compiler source executed under that oracle. No native AArch64 ELF or GPU execution.",
+  "oracle": {
+    "repository": "https://github.com/aien-dev/omega-mv",
+    "commit": "190130b71d0a59b93f01c515218a5509b149a145",
+    "path": "tools/omega_ref/omega_ref.c",
+    "source_sha256": "52e747096c1d978103432460a2978b21a604cc5d3e961bbe4b253fcc7636290e",
+    "binary_sha256": "81106113f7d031f709098cddb6f89f301a6f9d25ed0179d2e5ec36c75749c4f2",
+    "build_command": "cc -O2 -g -std=gnu11 -Wall -Wextra -Werror -o omega_ref omega_ref.c -lpthread",
+    "build_exit": 0,
+    "status": "Existing external test referee, outside delivered implementation"
+  },
+  "compiler": {
+    "repository": "https://github.com/aien-dev/omega-mv",
+    "commit": "55f9b0af47de70a3d06357985cf99ae3e45c016f",
+    "path": "seed/omc/omc.om",
+    "source_sha256": "2e35db7d6c2066fb4a20d19b8a9579c44caca9c9937b0594a89422010b673637",
+    "self_output_command": "./omega_ref run omc.om < omc.om > omc-from-ref.elf",
+    "self_output_exit": 0,
+    "self_output_sha256": "734f0a39319fbfa930bcc62cb30dbf06d47d78e126372b74f5baf478e6126b61",
+    "expected_compiler_sha256": "734f0a39319fbfa930bcc62cb30dbf06d47d78e126372b74f5baf478e6126b61",
+    "self_output_matches_expected": true,
+    "claim": "Pinned compiler source executed through external reference interpreter, not native compiler execution"
+  },
+  "semantic_oracle": [
+    {
+      "name": "contract",
+      "check_exit": 0,
+      "run_exit": 0,
+      "source_sha256": "99a509601b6a8c28613e7c30e4ad21e1b325a4784f6ffeda2976fa22441c2e37",
+      "stdout_sha256": "04de2116bdff2843b5aa87cc4e551b96a7d470f9c3244f8ec0bb03294441a71c"
+    },
+    {
+      "name": "golden",
+      "check_exit": 0,
+      "run_exit": 0,
+      "source_sha256": "64cf6f2d92d84950dd4dca59539a01e5eae2dede47ba1be096278cb435f0e07f",
+      "stdout_sha256": "88a3de3f88a0d59852704a97d2c9f859f87b57ee9efd0f2509aa95ace1adcab6"
+    },
+    {
+      "name": "disabled",
+      "check_exit": 0,
+      "run_exit": 0,
+      "source_sha256": "cf516ae2ed0c32acc4b06a9c94eb13674b7795390c9c6e7714909cc8ac473873",
+      "stdout_sha256": "39f3dfdfc529a75a8274a27900acf4e7382b7f280a211e0412c51609f44b62a1"
+    },
+    {
+      "name": "mutant-capacity",
+      "check_exit": 0,
+      "run_exit": 1,
+      "source_sha256": "fee221d58fb51acf46145bb29f89ad3dac7c76433521e2b568b25cd5b69b44c3",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "mutant-overflow",
+      "check_exit": 0,
+      "run_exit": 1,
+      "source_sha256": "4a77413b4e4ec5e6275cda5d8547320dc25d823cee7dee011304df8e13412dfc",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "mutant-selection",
+      "check_exit": 0,
+      "run_exit": 1,
+      "source_sha256": "c7a4155e7d5b676bad02bb0d28393ae7cb6dc256c325026662b5cb73fa574ca3",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "mutant-stale",
+      "check_exit": 0,
+      "run_exit": 1,
+      "source_sha256": "06e1418930d53f557b1270d2121660a2e9b2d038c87ba5d5165f0263f60817b6",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "mutant-saturation_flag",
+      "check_exit": 0,
+      "run_exit": 1,
+      "source_sha256": "0123c3603a036769c4cf8288df9cd2ad0e84faa550a275d5e3c34d423a79067e",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "mutant-sequence",
+      "check_exit": 0,
+      "run_exit": 1,
+      "source_sha256": "b3fc7b18f869ae173602d5994d811fb7738f66f4a69148d3dabd48a4e36bdb53",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "mutant-reserved",
+      "check_exit": 0,
+      "run_exit": 1,
+      "source_sha256": "7af24520c23f3318ac7bcec469fa205f7dc786fe077cb2338cb3642b35ba2490",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "mutant-unused",
+      "check_exit": 0,
+      "run_exit": 1,
+      "source_sha256": "8062a6c9329520b29f7773d64210645b428aa42357108f32accf9c4f5252dca3",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "mutant-failed_init",
+      "check_exit": 0,
+      "run_exit": 1,
+      "source_sha256": "84da9f601e6928cc3c6991e5fe59d1ab0f523945aa03d28748b18abbaa600896",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "mutant-loss_full",
+      "check_exit": 0,
+      "run_exit": 1,
+      "source_sha256": "f3990b4cbcd113ad8aedc640a9689e1e8d50870fd3732a94aa55e5d08b839ccb",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "mutant-flag_consistency",
+      "check_exit": 0,
+      "run_exit": 1,
+      "source_sha256": "1399d04d31bcabf5410b507eeef6bfbd2366f4a41e4f393c04dd77c6506a2348",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "mutant-record_provenance",
+      "check_exit": 0,
+      "run_exit": 1,
+      "source_sha256": "d8ef0c6a2e5a6b426d75e5dd809260fb80ad84edc0bcabbf5dd17362ed50a4be",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "interpreted_compilation": {
+    "contract": {
+      "command": "./omega_ref run omc.om < contract.om > contract.elf",
+      "exit": 0,
+      "stderr_bytes": 0,
+      "elf_sha256": "45126fa63a93eccfa9572b27462bd7da538e25fff9958d817c405010dc2335fd",
+      "elf_architecture": "AArch64",
+      "native_execution": "NOT_RUN"
+    },
+    "golden": {
+      "command": "./omega_ref run omc.om < golden.om > golden.elf",
+      "exit": 0,
+      "stderr_bytes": 0,
+      "elf_sha256": "dfabec3ebb1dd5a9576e788b543e4ad86dd8304d9767198a5f81edd6273eda8e",
+      "elf_architecture": "AArch64",
+      "native_execution": "NOT_RUN"
+    },
+    "disabled": {
+      "command": "./omega_ref run omc.om < disabled.om > disabled.elf",
+      "exit": 0,
+      "stderr_bytes": 0,
+      "elf_sha256": "e36b6223740bdd859c2e5d5443a562391481d9c07dfb6a13c5bfea73cbbbee1b",
+      "elf_architecture": "AArch64",
+      "native_execution": "NOT_RUN"
+    }
+  },
+  "golden_comparison": {
+    "result": "PASS",
+    "bytes": 192,
+    "sha256": "88a3de3f88a0d59852704a97d2c9f859f87b57ee9efd0f2509aa95ace1adcab6",
+    "independent_reference": "Wolfram little-endian field encoding, checked independently with struct.pack"
+  },
+  "disabled_existing_emitter": {
+    "result": "PASS under external oracle",
+    "bytes": 512,
+    "sha256": "39f3dfdfc529a75a8274a27900acf4e7382b7f280a211e0412c51609f44b62a1",
+    "expected_sha256": "39f3dfdfc529a75a8274a27900acf4e7382b7f280a211e0412c51609f44b62a1",
+    "limit": "No enabled trace emitter is implemented. Does not establish off/on device parity."
+  },
+  "negative_controls": {
+    "semantic_mutants": 12,
+    "all_interpreted_compiler_exits": 0,
+    "all_oracle_run_exits": 1,
+    "all_stderr": "DEVICE_TRACE_CONTRACT_FAIL\n",
+    "absent_implementation": {
+      "oracle_check_exit": 3,
+      "interpreted_compiler_exit": 3,
+      "diagnostic": "omc: line 12: error 3",
+      "timing": "Post-implementation absence control, not pre-implementation native red/green evidence"
+    }
+  },
+  "full_repository_suite": {
+    "command": "make test",
+    "exit": 2,
+    "result": "NOT_RUN",
+    "reason": "Connector-materialized partial snapshot: No rule to make target 'tests/gpu_matmul_api_test.c', needed by 'build/gpu_matmul_api_test'."
+  },
+  "initial_invalid_audit": {
+    "result": "INVALID_SETUP",
+    "detail": "External mutation harness initially matched capacity text twice. Narrowed to the unique gtinit guard. No product test or threshold changed."
+  },
+  "review": {
+    "kind": "Independent read-only source review",
+    "result": "No evident source-level bounds/selection/prefix-retention defect; no native or hardware qualification",
+    "addressed": [
+      "Clarified external manifest site/kind validation ownership",
+      "Added exact saturation transition and consistency/unused-slot/failed-init controls",
+      "Added pinned golden and disabled byte-comparison instructions"
+    ]
+  },
+  "not_run": [
+    "Native AArch64 compiler execution",
+    "Native AArch64 test ELF execution",
+    "Full CUDApp make test suite",
+    "Native seed/compiler qualification gates",
+    "Crumb tool validation (tool unavailable)",
+    "GPU producer implementation",
+    "GPU timer/store/control qualification",
+    "GPU output and canary parity",
+    "GPU overflow/mutation/repeated-run controls",
+    "Paired tracing off/on overhead measurements"
+  ],
+  "guides": "No existing Omega Harness language, compiler, bridge or gate behavior changed. This new wire format is documented locally and handed to Omega #778."
+}
