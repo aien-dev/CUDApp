@@ -66,6 +66,12 @@ $(OUT_DIR)/cubin_probe: tools/interop/cubin_probe.c $(OUT_DIR)/libomega_gpu.a
 cubin-probe: $(OUT_DIR)/cubin_probe
 test-native-artifact: $(ARTIFACT_EXPORT) $(ARTIFACT_TEST)
 	./$(ARTIFACT_TEST) $(OUT_DIR)/artifact-test
+# Pure artifact-format boundary: portable host test, no driver or device objects.
+.PHONY: test-native-artifact-manifest
+$(OUT_DIR)/native_artifact_manifest_test: tests/native_artifact_manifest_test.c src/omega_native_artifact.c src/omega_cubin.c src/omega_blackwell_realize.c src/sha256.c | $(OUT_DIR)
+	$(CC) $(CFLAGS) -ffunction-sections -fdata-sections -Wl,--gc-sections -o $@ $^
+test-native-artifact-manifest: $(OUT_DIR)/native_artifact_manifest_test
+	./$(OUT_DIR)/native_artifact_manifest_test
 .PHONY: libomega_gpu test-gpu-matmul-api
 # The two gate-runner objects (omegatool's M17/M18/M19 and World gates) are NOT part of the
 # library: nothing in the library or in the Rust FFI crate calls them (checked with nm), and
@@ -290,7 +296,7 @@ HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-a
 	test-gpu-engine-mutants test-gpu-engine-backend-compile test-gpu-engine-prod-build test-gpu-engine-sim \
 	test-gpu-engine-backend-mutants test-gpu-engine-gb10-compile test-gpu-serving-alloc test-gpu-engine-freestanding \
 	test-codegen-freestanding test-gpu-session-platform test-gpu-wait test-gpu-wait-mutants host-tests-m16 \
-	test-runtime-api test-runtime-portability test-doctor test-hello-sim
+	test-runtime-api test-runtime-portability test-doctor test-hello-sim test-native-artifact-manifest
 test: $(HOST_TESTS)
 	@echo "CUDA++ HOST TESTS PASS ($(words $(HOST_TESTS)) targets)"
 
