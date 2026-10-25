@@ -6,6 +6,7 @@
  * and rejection of tampered binaries, QMDs, manifests, architectures and
  * drivers. It never opens a device: device load/execution remains NOT_RUN and
  * is reported by the artifact's qualification field. */
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,7 +34,9 @@ static uint8_t *readf(const char *p, size_t *n) {
     b[sz] = 0; *n = (size_t)sz; fclose(f); return b;
 }
 static int writef(const char *p, const void *d, size_t n) {
-    FILE *f = fopen(p, "wb"); if (!f) return -1;
+    FILE *f = NULL; int fd = open(p, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    if (fd >= 0) f = fdopen(fd, "wb");
+    if (!f) return -1;
     if (n && fwrite(d, 1, n, f) != n) { fclose(f); return -1; }
     return fclose(f);
 }

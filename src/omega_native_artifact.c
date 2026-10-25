@@ -3,10 +3,12 @@
  * See the header. No device, no launch, no live address. */
 #include "omega_native_artifact.h"
 
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "sha256.h"
 #include "omega_blackwell_realize.h"
@@ -60,8 +62,18 @@ static int append(char **p, size_t *rem, const char *fmt, ...) {
     return 0;
 }
 
+/* Artifact files are opened with an explicit 0644, never left to the umask: a
+ * 0666 mode would make them world-writable (CodeQL cpp/world-writable-file-creation). */
+static FILE *open_write(const char *path) {
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    if (fd < 0) return NULL;
+    FILE *f = fdopen(fd, "wb");
+    if (!f) close(fd);
+    return f;
+}
+
 static int write_file(const char *path, const void *data, size_t n) {
-    FILE *f = fopen(path, "wb");
+    FILE *f = open_write(path);
     if (!f) return -1;
     if (n && fwrite(data, 1, n, f) != n) { fclose(f); return -1; }
     if (fclose(f) != 0) return -1;
@@ -243,7 +255,7 @@ int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_p
 
     snprintf(path, sizeof path, "%s.json", out_prefix);
     {
-        FILE *f = fopen(path, "wb");
+        FILE *f = open_write(path);
         if (!f) { rc = OMEGA_ARTIFACT_E_IO; goto done; }
         fprintf(f, "{\n  \"format\": \"%s\",\n", OMEGA_ARTIFACT_FORMAT);
         json_put(f, "artifact_id", id, 0);
@@ -285,7 +297,7 @@ int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_p
     {
         uint8_t md[32]; char mhex[65];
         sha256_hash(manifest, mlen, md); hex64(md, mhex);
-        FILE *f = fopen(path, "wb");
+        FILE *f = open_write(path);
         if (!f) { rc = OMEGA_ARTIFACT_E_IO; goto done; }
         /* Role names, never absolute or caller-chosen paths: the listing is
          * byte-identical for the same artifact exported under any prefix. */
@@ -298,7 +310,7 @@ int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_p
         fprintf(f, "%s  cbank_args\n", cb_hex);
         if (fclose(f) != 0) { rc = OMEGA_ARTIFACT_E_IO; goto done; }
     }
-    strcpy(out_id, id);
+    snprintf(out_id, OMEGA_ARTIFACT_ID_MAX, "%s", id);
 done:
     free(cub);
     free(manifest);
@@ -410,7 +422,7 @@ int omega_native_artifact_admit(const char *out_prefix, const char *current_driv
             if (err) snprintf(err, err_cap, "artifact id mismatch: manifest %s recomputed %s", id, want);
             rc = OMEGA_ARTIFACT_E_DIGEST; goto done;
         }
-        strcpy(out_id, id);
+        snprintf(out_id, OMEGA_ARTIFACT_ID_MAX, "%s", id);
     }
     /* Fields and their files. */
     {
