@@ -17,7 +17,7 @@
 /* SHA-256 is implemented in Omega: om/sha256/sha256.om, compiled by the seeded compiler and bound
  * through the omega-bridge native call ABI v1 (generated: src/omega_om_units.inc, regenerate with
  * om/sha256/gen.sh). This file only keeps the sha256_* entry points: the Omega unit takes at most
- * 64 bytes per call because ABI v1 arrays have a fixed length. No hashing logic lives here. */
+ * OMSHA_PIECE bytes per call because ABI v1 arrays have a fixed length. No hashing logic lives here. */
 
 #include "sha256.h"
 #include <stdlib.h>
@@ -28,15 +28,16 @@
 _Static_assert(sizeof(sha256_ctx) == 104, "om/sha256/sha256.om reads sha256_ctx as 104 bytes");
 
 enum { OMSHA_INIT = 0, OMSHA_ABSORB = 1, OMSHA_FINAL = 2 };
+#define OMSHA_PIECE 4096 /* the length of sha256.om's `b view uchar 4096` */
 
-static const uint8_t omsha_zero[SHA256_BLOCK_SIZE];
+static const uint8_t omsha_zero[OMSHA_PIECE];
 
-/* An Omega trap or a refused argument here is a broken invariant (n <= 64, valid op, sizes fixed by
+/* An Omega trap or a refused argument here is a broken invariant (n <= OMSHA_PIECE, valid op, sizes fixed by
  * the types above), never a recoverable condition, so it aborts like a failed assert. */
 static void omsha_call(sha256_ctx *ctx, const uint8_t *block, size_t n, unsigned op, uint8_t *out)
 {
     uint64_t unused;
-    if (omega_omsha(&unused, ctx, sizeof *ctx, block, SHA256_BLOCK_SIZE, n, op, out, SHA256_DIGEST_SIZE) != 0)
+    if (omega_omsha(&unused, ctx, sizeof *ctx, block, OMSHA_PIECE, n, op, out, SHA256_DIGEST_SIZE) != 0)
         abort();
 }
 
@@ -49,13 +50,13 @@ void sha256_init(sha256_ctx *ctx)
 void sha256_update(sha256_ctx *ctx, const uint8_t *data, size_t len)
 {
     uint8_t out[SHA256_DIGEST_SIZE];
-    while (len >= SHA256_BLOCK_SIZE) {
-        omsha_call(ctx, data, SHA256_BLOCK_SIZE, OMSHA_ABSORB, out);
-        data += SHA256_BLOCK_SIZE;
-        len -= SHA256_BLOCK_SIZE;
+    while (len >= OMSHA_PIECE) {
+        omsha_call(ctx, data, OMSHA_PIECE, OMSHA_ABSORB, out);
+        data += OMSHA_PIECE;
+        len -= OMSHA_PIECE;
     }
     if (len > 0) {
-        uint8_t tail[SHA256_BLOCK_SIZE] = {0};
+        uint8_t tail[OMSHA_PIECE]; /* only tail[0..len) is read */
         memcpy(tail, data, len);
         omsha_call(ctx, tail, len, OMSHA_ABSORB, out);
     }
