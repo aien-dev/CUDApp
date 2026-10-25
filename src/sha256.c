@@ -16,7 +16,7 @@
 
 /* SHA-256 is implemented in Omega: om/sha256/sha256.om, compiled by the seeded compiler and bound
  * through the omega-bridge native call ABI v1 (generated: src/omega_om_units.inc, regenerate with
- * om/sha256/gen.sh). This file only keeps the sha256_* entry points: the Omega unit takes at most
+ * om/units.sh). This file only keeps the sha256_* entry points: the Omega unit takes at most
  * OMSHA_PIECE bytes per call because ABI v1 arrays have a fixed length. No hashing logic lives here. */
 
 #include "sha256.h"
