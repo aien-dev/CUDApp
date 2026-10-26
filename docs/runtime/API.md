@@ -16,6 +16,13 @@ directly: find and open the GPU, get memory, copy data in and out, run a kernel,
 packaged job, and read errors. It covers what exists on the main branch today, on one machine type (GB10, the DGX Spark),
 through the Linux open-driver backend. Nothing here claims more than that.
 
+Compatibility preflight is **wrapper-only**: `make doctor` checks the kernel-module
+version and PCI target, and `make hello-gpu` runs it first. Direct binaries and
+library callers have no driver-version or PCI-ID admission guard at device open.
+Callers must not bypass the preflight or the operator's GPU authorization procedure.
+The M16 receipt imported here is a historical summary whose referenced raw logs
+are absent; it is not current-commit qualification (see README evidence limitation).
+
 How to read an entry:
 
 | Tier | Meaning |

@@ -84,7 +84,7 @@ static void check_module(void) {
         line("FAIL", "NVIDIA kernel module", "version %s is loaded; CUDA++ speaks the " CUDAPP_NVIDIA_OPEN_ABI " interface", ver);
         more("Why: CUDA++ builds its driver calls from the " CUDAPP_NVIDIA_OPEN_ABI " open-module headers\n"
              "(third_party/nvidia-open-" CUDAPP_NVIDIA_OPEN_ABI "). The layout of those calls can change between module versions,\n"
-             "and a wrong layout fails in strange ways, so CUDA++ refuses instead of guessing.\n"
+             "and a wrong layout fails in strange ways, so the doctor refuses instead of guessing.\n"
              "This is the only version CUDA++ asks you to match: no toolkit, no framework build, no extension build.\n"
              "Do this: install the " CUDAPP_NVIDIA_OPEN_ABI " open kernel module, or port the client to your version\n"
              "(CONTRIBUTING.md, \"Port a driver version\": copy the new headers, rebuild, run make test and make hello-gpu).");
@@ -138,7 +138,8 @@ static void check_gpu(int *unified) {
         char what[96];
         snprintf(what, sizeof what, "GPU %.63s", devs[i].bdf);
         if (r) {
-            line("ok", what, "%s (%s), qualified (receipt: %s)", r->name, r->sm, r->receipt);
+            line("ok", what, "%s (%s), supported target (historical summary: %s)", r->name, r->sm, r->receipt);
+            more("raw M16 evidence unavailable; not current-commit qualification");
             if (r->device == 0x2e12u) *unified = 1; /* GB10: one memory for CPU and GPU */
         } else {
             char text[2048];
@@ -185,6 +186,7 @@ int main(int argc, char **argv) {
     if (r) g_root = r;
     struct utsname u;
     printf("cudapp doctor: is this machine ready for CUDA++?\n");
+    printf("Diagnostic only: direct library use has no driver-version or PCI-ID admission guard.\n");
     if (uname(&u) == 0) line("info", "system", "%s %s %s", u.sysname, u.release, u.machine);
     check_module();
     check_nodes();

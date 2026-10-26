@@ -9,7 +9,7 @@ Sources: Omega `docs/OMEGA.md` sections 2 to 5 (branch `docs/what-omega-is`, 202
 | NVIDIA piece | What it does | CUDA++ replacement | Status | Receipt or where the work is |
 | --- | --- | --- | --- | --- |
 | `nvcc`, NVVM, PTX, `ptxas` | Compile kernels to machine code | sm_121 encoder + register allocator (`src/omega_blackwell_*`) | PASS | every kernel Omega runs is encoded by it (Omega `docs/OMEGA.md` s2) |
-| `libcuda` | User-space driver API | `nvrm/` + `m16/` driver client | PASS | `evidence/m16-blackwell-native-path-requalification-receipt.json` |
+| `libcuda` | User-space driver API | `nvrm/` + `m16/` driver client | PARTIAL | Implemented; imported M16 summary lacks its referenced raw logs. Current native qualification NOT_RUN; see README evidence limitation. |
 | `libcudart` | Runtime API: device, memory, launch, streams | session, command lists, job engine | PARTIAL | one device and one process; streams and events are bar C4 |
 | cuBLAS | Matrix multiply | matmul, tensor-core GEMM, FP8/BF16 libraries | PARTIAL | model shapes only; any-shape GEMM is bar C3 |
 | cuDNN, FlashAttention | Attention, network layers | decode and prefill attention | PARTIAL | model-shaped |
@@ -57,11 +57,11 @@ The research in `docs/PAIN_POINTS.md` ranks what developers hit with CUDA and it
 | Row | Beats CUDA by | Status |
 | --- | --- | --- |
 | D1 | Memory you can see, and a refusal before the machine hangs | DONE on the host; chip run open |
-| D2 | One command, one version: `make doctor`, then `make hello-gpu` | DONE |
+| D2 | One command, one version: `make doctor`, then `make hello-gpu` | DONE in doctor wrapper; no direct library admission guard |
 | D3 | Faults named at the launch that caused them | DONE on the simulator; chip half open |
 | D4 | The simulator first, from the same program: `hello_gpu --sim` | DONE |
 | D5 | Builds in seconds, ships small | DONE (2.0 s, 1.06 MB) |
-| D6 | A new chip works on day one or is refused with a sentence | DONE (the refusal) |
+| D6 | A new chip works on day one or is refused with a sentence | DONE in doctor wrapper only; table row is not current-commit qualification |
 | D7 | Same inputs, same bits, at no cost | simulator DONE; chip open |
 | D8 | No per-process CUDA tax | PLANNED (chip window) |
 | D9 | No licence that stops you | DONE (`evidence/dx/pain-points/licence.txt`) |

@@ -96,7 +96,7 @@ The CPU does five things, all of them plain memory writes except the last, which
 | --- | --- | --- | --- |
 | CUDA C++ language | How you write a kernel | The kernel builder (C calls). Omega's languages reaching the GPU is Omega bar C1, built on this toolchain | PARTIAL: C calls only |
 | nvcc, NVVM, PTX, ptxas | Compile the kernel to machine code | My own sm_121 encoder and register allocator | PASS: every kernel Omega runs is encoded by it |
-| libcuda (driver API) | Talk to the kernel driver | `nvrm` client, ioctls straight to the open kernel module | PASS (`evidence/m16-blackwell-native-path-requalification-receipt.json`) |
+| libcuda (driver API) | Talk to the kernel driver | `nvrm` client, ioctls straight to the open kernel module | PARTIAL: implemented; M16 historical summary is unauditable here (see below) |
 | libcudart (runtime API) | Device, memory, launch, streams | Session, command lists, job engine | PARTIAL: one device, one process; no streams or events yet; a timeout ends GPU use for the process |
 | cuBLAS | Matrix multiply | Matmul, tensor-core GEMM, FP8 and BF16 libraries | PARTIAL: shaped for the models AIEN runs; no any-shape GEMM yet |
 | cuDNN, FlashAttention | Attention and network layers | Decode and prefill attention | PARTIAL: model-shaped |
@@ -109,6 +109,15 @@ The CPU does five things, all of them plain memory writes except the last, which
 | GSP firmware | Runs inside the GPU | stays NVIDIA's (signature-checked by the chip) | not replaceable |
 
 PASS means a receipt exists on a named commit. Status words come from Omega's `docs/OMEGA.md`, section 2. `ROADMAP.md` lists every NVIDIA piece on the Spark with its receipt, and the bars CUDA++ must pass before it says "replaces CUDA".
+
+The imported `evidence/m16-blackwell-native-path-requalification-receipt.json`
+is an **unauditable historical summary**, not qualification of this checkout.
+It names implementation commit `a2c0d7fbc03f7ce91fcb6389312a0ee8630322cd`,
+but its `evidence/m16-requalification` raw logs and superseded receipt are absent
+from this repository. Its historical PASS and durability fields are preserved
+unchanged, not endorsed as current evidence. No immutable durable source for those
+missing logs has been established. Current native qualification is **NOT_RUN**;
+it needs retained raw logs from a new authorized GPU run, not a host-only check.
 
 ## Speed against the ceiling
 
@@ -157,9 +166,12 @@ Receipts: `evidence/dx/d1-memory/platform-test-spark.txt`, and `evidence/dx/d1-m
 
 **The pain.** "I don't know a right solution that works for all setups, happy to hear suggestions." (FlashAttention's maintainer, [flash-attention #246](https://github.com/Dao-AILab/flash-attention/issues/246))
 
-**How CUDA++ fixes it.** There is no toolkit, framework build or extension build to match: compiler, runtime and libraries are one repository at one commit, built with `make` and a C compiler. The one outside version is NVIDIA's kernel module, whose public headers CUDA++ is built against. `make doctor` checks it and everything else a first run needs. It reads `/proc`, `/sys` and `/dev` only and opens no device. Every problem gets a line saying what is wrong, why and the command that fixes it. A module of another version is refused, not guessed at. `make hello-gpu` runs the doctor first.
+**How CUDA++ fixes it.** There is no toolkit version to match: compiler, runtime and libraries are one repository at one commit, built with `make` and a C compiler. The one outside version is NVIDIA's kernel module, whose public headers CUDA++ is built against. `make doctor` checks it and everything else a first run needs. It reads `/proc`, `/sys` and `/dev` only and opens no device. Every problem gets a line saying what is wrong, why and the command that fixes it. **The doctor wrapper** refuses a module of another version; `make hello-gpu` runs that wrapper first. Direct execution of binaries and applications linking the library have **no driver-version or PCI-ID admission guard**. The diagnostic is not a sandbox or current-commit qualification; callers must perform the compatibility preflight themselves and have an authorized GPU window.
 
 **The command that shows it:**
+
+The following excerpts are historical doctor output; current output explicitly
+labels the M16 receipt as a historical summary with raw evidence unavailable.
 
 ```
 $ make doctor
@@ -234,7 +246,7 @@ Receipt: `evidence/dx/pain-points/d5-build-from-empty.txt`. **FIXED for what CUD
 
 **The pain.** "Very frustrating compared to most every other GPU release that has zero day support from cuda/nvcc/pytorch/tensorflow." ([r/LocalLLaMA, on the DGX Spark](https://www.reddit.com/r/LocalLLaMA/comments/1r569eb/psa_nvidia_dgx_spark_has_terrible_cuda_software))
 
-**How CUDA++ fixes it.** CUDA++ writes each chip's machine code itself, so it knows exactly which chips it has run on: a table of qualified chips, each with its receipt. Any other NVIDIA GPU is refused by name and PCI id, with what is missing and the steps to port it. CUDA++ never loads code built for a different chip and keeps no cache across chips.
+**How CUDA++ fixes it.** CUDA++ writes sm_121 machine code and has a supported-target table. `make doctor` refuses other NVIDIA GPUs by name and PCI id, with what is missing and the steps to port them. `make hello-gpu` runs the doctor first. This is a **wrapper-only compatibility check**, not a library admission guard: direct binaries and library callers can bypass it. A table row is not proof that the current checkout passed its gates; the M16 evidence limitation above applies.
 
 **The command that shows it** (`CUDAPP_DOCTOR_SHOW=1 sh tests/doctor/run.sh build/cudapp-doctor`, the fake machine with a GPU CUDA++ has not qualified):
 
@@ -248,7 +260,7 @@ Receipt: `evidence/dx/pain-points/d5-build-from-empty.txt`. **FIXED for what CUD
         or report it with the output of `make doctor` attached.
 ```
 
-Receipt: `evidence/dx/d2-doctor/fake-machines.txt`. **FIXED: the refusal.** Not fixed: CUDA++ runs on one chip, CUDA on every NVIDIA GPU of the last decade. Porting more is open to everyone (`CONTRIBUTING.md`).
+Receipt: `evidence/dx/d2-doctor/fake-machines.txt`. **FIXED in the doctor wrapper only: the refusal.** Direct library admission is not enforced. Not fixed: CUDA++ targets one chip; porting more is open to everyone (`CONTRIBUTING.md`).
 
 ### 6. Different answers from the same inputs (5,416 GitHub issues match nondeterministic cuda)
 
@@ -359,6 +371,17 @@ make doctor   # is this machine ready? one line per check, each problem with its
 ```
 
 `make test` opens no device. The chip gates (`./build/gpu_*_test --out receipt.json`) need a GB10; each test's comment in the `Makefile` says how it is run.
+
+`make test-gemm-selectors` is the focused host-only CLI regression for PFGEMM,
+QGEMM and FP8GEMM. Each validates `--shape` before host/simulator/chip work or
+receipt creation; unknown, empty and case-mismatched selectors exit 2 with INVALID,
+never PASS. PFGEMM/QGEMM accept `gateup`, `down`, `qkv`, `o`; omission runs all.
+FP8GEMM also accepts `d768` and `all` (the four standard shapes, not `d768`).
+No selected mode/cases/checks yields NOT_RUN rather than a zero-case PASS.
+Invalid FP8GEMM input leaves an existing `--out` file untouched. These refusal
+tests and doctor tests do not qualify GPU execution. Their before/after output
+is retained in `evidence/security-host-20261026/`; the full host suite and GPU
+gates were NOT_RUN for this repair.
 
 ## How it fits with Omega
 

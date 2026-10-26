@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
-/* omega_gpu_chip.c: the qualified-chip table and the refusal sentence (developer bar D6).
- * See omega_gpu_chip.h. Hosted: reads sysfs with stdio and dirent. */
+/* omega_gpu_chip.c: the supported-target table and doctor refusal sentence (developer bar D6).
+ * Diagnostic only, not runtime admission. See omega_gpu_chip.h. */
 #include "omega_gpu_chip.h"
 
 #include <dirent.h>
@@ -8,7 +8,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* One row per chip that has run hello_gpu and the gates on a named commit. Add a row only with a receipt. */
+/* Target identities are unchanged. The GB10 row points to an imported historical summary;
+ * its raw M16 logs are unavailable here, so it is not current-commit qualification.
+ * Add a row only with durable raw evidence and a receipt; see README evidence limitation. */
 static const OmegaGpuChipRow k_rows[] = {
     { OMEGA_GPU_PCI_VENDOR_NVIDIA, 0x2e12u, "NVIDIA GB10", "sm_121",
       "evidence/m16-blackwell-native-path-requalification-receipt.json" },
