@@ -296,8 +296,9 @@ Receipt: `evidence/dx/d3-faults/hello-sim-spark.txt`. **FIXED on the simulator.*
 **The command that shows it:**
 
 ```
-$ grep -m1 "^ *Version 3," LICENSE
-                       Version 3, 19 November 2007
+$ grep -m2 -e "^ *Version 2.0," -e "^---- LLVM Exceptions" LICENSE
+                           Version 2.0, January 2004
+---- LLVM Exceptions to the Apache 2.0 License ----
 ```
 
 The earlier MIT-era output is retained as a dated receipt at `evidence/dx/pain-points/licence.txt`; it describes the historical tree, not this candidate. The GPU's signed firmware stays NVIDIA's: the chip checks its signature.

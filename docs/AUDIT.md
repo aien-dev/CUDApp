@@ -62,8 +62,9 @@ Kept out of the history (removed from every commit, listed in `tools/extract/ome
 
 ## 5. NVIDIA binaries
 
-- Every blob in both histories was checked for binary content (any zero byte): **0 binary files** after the exclusions above.
-- No firmware, no `libcuda`, no cubin, fatbin or PTX, no `.so`, `.o` or `.a`.
+- Scope: the two extraction cuts audited above (624 + 151 blobs). Every blob in both histories was checked for binary content (any zero byte): **0 binary files** after the exclusions above.
+- In those cuts: no firmware, no `libcuda`, no cubin, fatbin or PTX, no `.so`, `.o` or `.a`.
+- Not covered by that scan: receipts added to `evidence/` after the cuts. At main `780a0af` they hold 40 files named `.bin`/`.cubin` (`find evidence -type f \( -name '*.cubin' -o -name '*.bin' -o -name '*.so' -o -name '*.o' -o -name '*.ko' \)`): 26 in `LEARN53-L777-CONTINUATION`, 10 in `MAX-INTEROP/68` (two cubins plus QMD, text and constant-bank bytes written by CUDA++'s own `artifact-export`), 3 in `speculation` (`synthetic-*.bin`) and 1 in `LEARN53-L777`. None is a `.so`, `.o` or `.ko`.
 - No listing produced by NVIDIA tools (`nvdisasm`, `cuobjdump`) and nothing copied from NVIDIA's documentation. Some host tests call NVIDIA's `nvdisasm` at run time when it is installed, to cross-check my encoder; nothing it prints is stored.
 - One CUDA C++ source remains in a receipt: `evidence/OWN30B-T3-TC-PEAK-BW-5faa0f70-20261013T2236Z/fa_ops.cu`, my own probe kernel, used once with NVIDIA's compiler to measure the tensor-core ceiling I compare against. It is my code, not NVIDIA's.
 

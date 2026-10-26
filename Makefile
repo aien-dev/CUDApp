@@ -59,12 +59,16 @@ $(ARTIFACT_EXPORT): tools/artifact_export.c src/omega_native_artifact.c src/omeg
 	$(CC) $(CFLAGS) -o $@ tools/artifact_export.c src/omega_native_artifact.c src/omega_cubin.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
 $(ARTIFACT_TEST): tests/gpu_artifact_export_test.c src/omega_native_artifact.c src/omega_cubin.c $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -o $@ tests/gpu_artifact_export_test.c src/omega_native_artifact.c src/omega_cubin.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+# cubin-probe is the only target that links NVIDIA's libcuda: an interop check that NVIDIA's own loader accepts
+# CUDA++'s cubin. It is not in `make test`; zero-cuda-gate (in HOST_TESTS) checks hello_gpu and the API test link no CUDA.
 CUDA_INC ?= /usr/local/cuda/include
 CUDA_LIB ?= /usr/local/cuda/lib64
 $(OUT_DIR)/cubin_probe: tools/interop/cubin_probe.c $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -I$(CUDA_INC) -o $@ tools/interop/cubin_probe.c $(OUT_DIR)/libomega_gpu.a -L$(CUDA_LIB) -lcuda -lpthread -lm
 cubin-probe: $(OUT_DIR)/cubin_probe
+# Artifacts are immutable (export refuses an existing file), so each run starts from an empty directory.
 test-native-artifact: $(ARTIFACT_EXPORT) $(ARTIFACT_TEST)
+	rm -rf $(OUT_DIR)/artifact-test
 	./$(ARTIFACT_TEST) $(OUT_DIR)/artifact-test
 # Pure artifact-format boundary: portable host test, no driver or device objects.
 .PHONY: test-native-artifact-manifest
@@ -300,9 +304,19 @@ HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-a
 	test-gpu-engine-mutants test-gpu-engine-backend-compile test-gpu-engine-prod-build test-gpu-engine-sim \
 	test-gpu-engine-backend-mutants test-gpu-engine-gb10-compile test-gpu-serving-alloc test-gpu-engine-freestanding \
 	test-codegen-freestanding test-gpu-session-platform test-gpu-wait test-gpu-wait-mutants host-tests-m16 \
-	test-runtime-api test-runtime-portability test-doctor test-hello-sim test-native-artifact-manifest test-gemm-selectors
+	test-runtime-api test-runtime-portability test-doctor test-hello-sim test-native-artifact-manifest test-gemm-selectors \
+	test-native-artifact zero-cuda-gate verify-vendored test-swap-cli
 test: $(HOST_TESTS)
 	@echo "CUDA++ HOST TESTS PASS ($(words $(HOST_TESTS)) targets)"
+
+# The vendored NVIDIA headers match THIRD_PARTY.md's SHA256SUMS; the self-test (flipped byte, extra file) must FAIL.
+.PHONY: verify-vendored test-swap-cli
+verify-vendored:
+	tools/verify-vendored.sh --self-test
+	tools/verify-vendored.sh
+# `cudapp swap` on a fake machine root: no root rights, no GPU, nothing outside a temp dir touched.
+test-swap-cli:
+	bash tests/swap/test_swap_cli.sh
 
 # Zero-CUDA gate (tools/zero-cuda-gate.sh): the built programs need no NVIDIA CUDA library and import
 # no CUDA symbol. The self-test is the negative control (a stub libcudart must FAIL).
