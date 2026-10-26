@@ -354,6 +354,36 @@ static int cubin_text_matches(const uint8_t *cub, size_t n, const char *fn,
     return 0;
 }
 
+/* Version 1 has one canonical ordered record per field. Validate the whole
+ * byte span before any string lookup: otherwise find_line can select policies
+ * after provenance_tool even though the identity hash stops at that boundary.
+ * Unknown/duplicate/reordered fields require a new format, not reinterpretation
+ * of an existing artifact id. provenance_tool is deliberately outside the id. */
+static int manifest_layout_ok(const uint8_t *buf, size_t n) {
+    static const char *const keys[] = {
+        "artifact_id=", "op=", "shape=", "bounds=", "contract=",
+        "contract_id=", "semantic_spec_id=", "isa=", "machine_profile=",
+        "kernel_format=", "kernel_function=", "text_sha256=", "text_size=",
+        "cubin_sha256=", "cubin_size=", "qmd0_sha256=", "qmd1_sha256=",
+        "qmd_template=", "cbank_offset=", "cbank_words=", "cbank_args=",
+        "cbank_args_sha256=", "grid=", "block=", "shared_bytes=", "gpr_count=",
+        "precision=", "accumulation=", "tolerance=", "min_driver=", "requires=",
+        "qualification=", "provenance_source_commit=", "provenance_tool="
+    };
+    const size_t header = sizeof(OMEGA_ARTIFACT_FORMAT "\n") - 1;
+    if (n < header || n >= MANIFEST_CAP || memchr(buf, 0, n) ||
+        memchr(buf, '\r', n) || memcmp(buf, OMEGA_ARTIFACT_FORMAT "\n", header)) return 0;
+    size_t off = header;
+    for (size_t i = 0; i < sizeof keys / sizeof keys[0]; i++) {
+        size_t k = strlen(keys[i]);
+        if (k > n - off || memcmp(buf + off, keys[i], k)) return 0;
+        const uint8_t *nl = memchr(buf + off + k, '\n', n - off - k);
+        if (!nl) return 0;
+        off = (size_t)(nl - buf) + 1;
+    }
+    return off == n;
+}
+
 static char *find_line(char *buf, const char *key) {
     size_t k = strlen(key);
     char *p = buf;
@@ -403,7 +433,7 @@ int omega_native_artifact_admit(const char *out_prefix, const char *current_driv
     snprintf(path, sizeof path, "%s.manifest", out_prefix);
     man = read_file(path, &mn);
     if (!man) { if (err) snprintf(err, err_cap, "cannot read %s", path); return OMEGA_ARTIFACT_E_IO; }
-    if (strncmp((char *)man, OMEGA_ARTIFACT_FORMAT "\n", strlen(OMEGA_ARTIFACT_FORMAT) + 1) != 0) {
+    if (!manifest_layout_ok(man, mn)) {
         rc = OMEGA_ARTIFACT_E_FORMAT; goto done;
     }
     {
