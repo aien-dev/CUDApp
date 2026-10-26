@@ -35,11 +35,24 @@ typedef struct {
     uint32_t grid_y;
     uint32_t gpr_count;
     /* Shared memory per CTA in bytes (clcec0qmd.h SHARED_MEMORY_SIZE_SHIFTED7, 128-byte units).
-     * 0 keeps the long-standing 1024. At most OMEGA_BW_QMD_MAX_SHARED_BYTES, well inside the
-     * TARGET_SM_CONFIG this QMD declares (word 36). */
+     * 0 keeps the long-standing 1024. At most OMEGA_BW_QMD_MAX_SHARED_BYTES. */
     uint32_t shared_bytes;
 } OmegaBlackwellQmdConfig;
-#define OMEGA_BW_QMD_MAX_SHARED_BYTES 16384u
+/* The field is NVCEC0_QMDV05_00_SHARED_MEMORY_SIZE_SHIFTED7 = MW(1162:1152) (clcec0qmd.h in
+ * NVIDIA's open-gpu-doc tree): 11 bits in units of 128 bytes, so it can name up to 2047 * 128 =
+ * 262016 bytes, and the GB10 SM allows up to 227 KiB of shared memory per CTA.
+ *
+ * This cap is not the field: it is the TARGET_SM_CONFIG_SHARED_MEM_SIZE word 36 already declares
+ * (value 9, encoded as size_kb / 4 + 1 by the rule in Mesa NVK's nak/qmd.rs
+ * gv100_smem_size_to_hw, i.e. 32 KiB), with MAX at 100 KiB. Launching more than the target asks
+ * the SM for a larger carveout than this QMD asks for, which is the case NVK answers by also
+ * raising MIN_ (one workgroup) and TARGET_ (max workgroups) with gv100_pick_smem_size_kb. Do that
+ * before raising this number (and keep the negative control in test-gpu-qmd-shared).
+ *
+ * It was 16384: the tensor-core FP8 grouped GEMM (omega_tc2_shared_bytes, 4096 * rt bytes) asks
+ * 32 KiB at the production shape rt 8, so omega_gpu_pf_gemm() could not launch at all and
+ * gpu_pfgemm_test --chip failed on every shape at "qmd build (shared_bytes)" (2026-10-25). */
+#define OMEGA_BW_QMD_MAX_SHARED_BYTES 32768u
 
 /* Build QMD 0: GRID_NULL null-barrier grid with dependence counter 2 */
 int omega_blackwell_build_qmd0(uint32_t *qmd0_words, uint64_t qmd0_va, uint64_t qmd1_va);

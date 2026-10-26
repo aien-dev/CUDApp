@@ -322,7 +322,7 @@ R2 (`examples/hello_gpu`, README "Run your first kernel").
 | `num_elements` | QMD config num_elements (kept per API for identical words) |
 | `args`, `n_args` | `n_args` words written at constant bank + 0x380; `n_args` at most `OMEGA_GPU_SESSION_MAX_ARGS` (32) |
 | `timeout_ms` | completion poll limit, applied to each of the launch's two markers in turn (so a launch can wait up to twice this); past it the completion is uncertain and **the process latches**. Must not be 0: 0 runs out at once and latches |
-| `shared_bytes` | shared memory per block; 0 = the default (1024) |
+| `shared_bytes` | shared memory per block, rounded up to 128 bytes; 0 = the default (1024). At most `OMEGA_BW_QMD_MAX_SHARED_BYTES` (32768: the SM-config target the QMD declares); one byte more is refused before any device work |
 | `spin_us` | spin-poll window before the platform's sleep-poll; 0 = the process-wide setting |
 
 #### `omega_gpu_session_launch`

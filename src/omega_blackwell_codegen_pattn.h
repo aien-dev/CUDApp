@@ -40,7 +40,7 @@
 #define OMEGA_PATTN_KEYS 32u               /* keys per main-loop block */
 #define OMEGA_PATTN_QKV_WORDS 5120u        /* f32 per token row of the fused q|k|v projection */
 #define OMEGA_PATTN_OUT_WORDS 4096u        /* f32 per token row of the output (32 heads x 128) */
-#define OMEGA_PATTN_SHARED_BYTES 16384u    /* the QMD cap (omega_blackwell_qmd.h) */
+#define OMEGA_PATTN_SHARED_BYTES 16384u    /* the QMD's declared SM-config target (omega_blackwell_qmd.h) */
 
 /* constant bank 0 at 0x380 */
 #define OMEGA_PATTN_ARG_QKV 0x380u         /* f32 [64][5120]: row t = chunk token t (position pos0 + t) */

@@ -144,7 +144,8 @@ int omega_fp8_gemv2_spec_ok(const OmegaFp8GemvSpec *s) {
 }
 
 /* k * 4 for the staged row, plus one 16-byte dummy slot only when the last staging round is partial (clamped threads store there):
- * k = 4096 at 16 warps is exact and lands on the QMD cap of 16384 bytes (chip: 16400 was refused, receipt OWN30B-FP8-GEMV-V2 r1). */
+ * k = 4096 at 16 warps is exact: 16384 bytes. (When the QMD cap was 16384, a 16400-byte variant was refused by the QMD builder,
+ * receipt OWN30B-FP8-GEMV-V2 r1; the cap is now 32768, the SM-config target the QMD declares.) */
 uint32_t omega_fp8_gemv2_shared_bytes(const OmegaFp8GemvSpec *spec) {
     if (!omega_fp8_gemv2_spec_ok(spec)) return 0u;
     return spec->k * 4u + (spec->k % (32u * spec->warps) ? 16u : 0u);
