@@ -31,8 +31,8 @@ Observed on the DGX Spark host (aarch64), 2026-10-26:
 
 ```
 compiler_sha256=189ada82e00bb440cb41351bd252cc68c54a1b1050051cc42a1df700081c3b54
-source_sha256=a1fbd00aa9292a729a5e3f6dd6b055d966f581595d8e42456a675de3e3ad168f
-candidate_sha256=a2f9982cddd0b2ea094b4a5f1a7fca962b59c07b10181453c0651e6a9cd40faa
+source_sha256=993b83945a854b3fa2eeba8f9fe4452f7468c7d0f6a349a11cc655dc7302bbf9
+candidate_sha256=794c329c1c5db695717f7ccec12e28bd0554f9417a0d58e03146c24641e7d8ff
 oracle_sha256=665ce3b50c419456c447dc8eabf300d79f20d38dfdbd6e5b3fd6b97308f0bf04
 MXFP4 native CPU exact matches=130560; refusals=6; sign mutant rejected
 NVIDIA/Intel/AMD GPU: NOT_RUN; model logits: NOT_RUN

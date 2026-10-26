@@ -33,7 +33,8 @@ ret or sign uint 2139095040
 end
 if le expo 0
 sig = or frac uint 8388608
-sig = shr sig uint sub long 1 expo
+d = sub long 1 expo
+sig = shr sig uint d
 ret or sign sig
 end
 ret or sign or shl uint expo 23 frac
