@@ -19,6 +19,8 @@ CUDA++ keeps growing until every NVIDIA part on the Spark is replaced, and then 
 
 CUDA++ is not affiliated with or endorsed by NVIDIA; CUDA is NVIDIA's trademark.
 
+**New to CUDA++?** Start with the [first-run and independent verification guide](docs/START_HERE.md). It separates host-only tests from real GB10 execution, documents the current support boundary, and explains how to interpret receipts. See [contributing](CONTRIBUTING.md), [security reporting](SECURITY.md), and [the readiness roadmap](ROADMAP.md) before relying on it in a deployment.
+
 **On this page:** [the stack](#the-stack) · [how I did it](#how-i-did-it) · [the machine code](#what-the-machine-code-looks-like) · [the driver, part by part](#the-driver-part-by-part) · [one launch, start to finish](#one-launch-start-to-finish) · [CUDA, piece by piece](#cuda-piece-by-piece) · [speed](#speed-against-the-ceiling) · [run your first kernel](#run-your-first-kernel)
 
 ## The stack
@@ -360,7 +362,7 @@ make doctor   # is this machine ready? one line per check, each problem with its
 
 ## How it fits with Omega
 
-[Omega](https://github.com/aien-dev/omega-mv) (Apache-2.0 WITH LLVM-exception) is AIEN's language for all computing: the languages Omegese and OSC, their checker and the CPU backends. CUDA++ is the part of the Omega runtime that drives the GPU. Omega uses CUDA++ at a pinned commit (`cudapp.lock` in Omega), the same way it pins its other parts. The code was split out of Omega on 2026-10-21 with its full history; `docs/AUDIT.md` records how, and what was checked before it was published.
+[Omega](https://github.com/aien-dev/omega-mv) owns AIEN's seeded `.om` language and its compiler/runtime work. CUDA++ is the GPU toolchain and runtime component it consumes. The currently shipped CUDApp implementation still contains first-party C; the planned, test-gated replacement with native `.om` is tracked in [#79](https://github.com/aien-dev/CUDApp/issues/79). Omega uses CUDA++ at a pinned commit (`cudapp.lock` in Omega), the same way it pins its other parts. The code was split out of Omega on 2026-10-21 with its full history; `docs/AUDIT.md` records how, and what was checked before it was published.
 
 ## Names
 
@@ -368,4 +370,4 @@ The C names still carry the `omega_` prefix they had inside Omega, so Omega's wo
 
 ## Licence
 
-Apache-2.0 WITH LLVM-exception for first-party material in this candidate (`LICENSE`). Historical MIT grant: `LICENSE-MIT`. Third-party terms and notices: `THIRD_PARTY.md`.
+First-party material at this revision is Apache-2.0 WITH LLVM-exception ([LICENSE](LICENSE)); third-party terms and notices are in [THIRD_PARTY.md](THIRD_PARTY.md). The earlier MIT grant is documented in [the licensing transition](docs/LICENSING_TRANSITION.md) and the [license at the pinned historical MIT commit](https://github.com/aien-dev/CUDApp/blob/232332422bfdc31c8918085b50f13c1e18ab702e/LICENSE).
