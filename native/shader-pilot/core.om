@@ -1,0 +1,61 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Offline specimen only. Reuses CUL1 and gbvec; never submits or executes GPU code.
+note Candidate buffers are separate from canonical kt/gbcode. Single-threaded scratch.
+global sptask uchar 232
+global spcode uchar 512
+fn spprofile id ulong n ulong to bool
+if and ne id 2 ne id 3
+ret false
+end
+if ne kvalid n 0
+ret false
+end
+note Fail closed if the upstream catalog changes to an unsupported profile.
+if or ne kw 2 1 ne kw 3 1
+ret false
+end
+if or or ne kw 8 1 ne kw 9 1 ne kw 10 1
+ret false
+end
+want = ulong 8
+if eq id 3
+want = 17
+end
+if ne kw 5 want
+ret false
+end
+ret true
+end
+fn spload id ulong to ulong
+note Reject unknown IDs before touching the previous specimen.
+if and ne id 2 ne id 3
+ret 0
+end
+n = kload id
+if not spprofile id n
+ret 0
+end
+gbvec
+ret n
+end
+fn spmatch id ulong tn ulong cn ulong to int
+note Exact content comparison, not an authenticated artifact/cache admission service.
+n = spload id
+if eq n 0
+ret 77
+end
+if or ne tn n ne cn 512
+ret 65
+end
+for i ulong n
+if ne get sptask i get kt i
+ret 1
+end
+end
+for i ulong 512
+if ne get spcode i get gbcode i
+ret 1
+end
+end
+ret 0
+end
