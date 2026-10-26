@@ -51,8 +51,10 @@ check() {
 make_machine "$T/gb10" "$OPEN" 0x2e12 $NODES
 check gb10-ready 0 "$T/gb10" \
 	'ok    NVIDIA kernel module: open module 580.173.02' \
-	'ok    GPU 000f:01:00.0: NVIDIA GB10 (sm_121), qualified' \
-	'evidence/m16-blackwell-native-path-requalification-receipt.json' \
+	'ok    GPU 000f:01:00.0: NVIDIA GB10 (sm_121), supported target' \
+	'historical summary: evidence/m16-blackwell-native-path-requalification-receipt.json' \
+	'raw M16 evidence unavailable; not current-commit qualification' \
+	'Diagnostic only: direct library use has no driver-version or PCI-ID admission guard.' \
 	'ok    device files: /dev/nvidiactl /dev/nvidia0 /dev/nvidia-uvm' \
 	'CUDA toolkit: not needed' \
 	'READY. Next: make hello-gpu'
@@ -68,7 +70,7 @@ check no-module 1 "$T/nomod" \
 make_machine "$T/oldmod" 'NVIDIA UNIX Open Kernel Module for aarch64  575.64.05  Release Build  (test)' 0x2e12 $NODES
 check module-version 1 "$T/oldmod" \
 	'FAIL  NVIDIA kernel module: version 575.64.05 is loaded; CUDA++ speaks the 580.173.02 interface' \
-	'refuses instead of guessing' \
+	'doctor refuses instead of guessing' \
 	'NOT READY'
 
 # 4. the proprietary (closed) module at the right version: allowed, with a warning

@@ -1,0 +1,306 @@
+Baseline: c73afb25cce8d22e039287a8ab2e4cd4c7aecf67; regression tests added before implementation changes.
+Command: nice -n 19 python3 tests/gemm_selectors.py build; sh tests/doctor/run.sh build/cudapp-doctor
+Host only; GPU NOT_RUN.
+
+FAIL pfgemm ['--chip'] shape='typo': rc=0 GPU_PFGEMM: PASS
+FAIL pfgemm ['--chip'] shape='': rc=0 GPU_PFGEMM: PASS
+FAIL pfgemm ['--chip'] shape='GATEUP': rc=0 GPU_PFGEMM: PASS
+FAIL pfgemm ['--host-only'] shape='typo': rc=0 spec k 2048 rt 8 ct 2 warps 16 aqn 1 epi 0 direct 0: built, 798 instructions, peak 120, declared 128 -> fits
+spec k 2048 rt 8 ct 2 warps 16 aqn 1 epi 1 direct 0: built, 994 instructions, peak 120, declared 128 -> fits
+spec k 768 rt 8 ct 2 warps 16 aqn 1 epi 0 direct 1: built, 795 instructions, peak 120, declared 128 -> fits
+spec k 4096 rt 8 ct 2 warps 16 aqn 1 epi 0 direct 0: built, 798 instructions, peak 120, declared 128 -> fits
+spec k 2048 rt 8 ct 2 warps 16 aqn 2 epi 0 direct 0: built, 798 instructions, peak 124, declared 128 -> fits
+spec k 2048 rt 8 ct 2 warps 16 aqn 2 epi 1 direct 0: built, 994 instructions, peak 124, declared 128 -> fits
+spec k 768 rt 8 ct 2 warps 16 aqn 2 epi 0 direct 1: built, 795 instructions, peak 124, declared 128 -> fits
+spec k 2048 rt 4 ct 2 warps 8 aqn 2 epi 0 direct 0: built, 550 instructions, peak 92, declared 96 -> fits
+SWIGLU layout + emulation vs double oracle on the original weights: worst relative error 0.00379 (bf16 output: < 1e-2 expected)
+SWIGLU reference vs chip-observed MUFU.RCP flush window: 6/6 match; control g -87 -> a73e (nonzero), g -89 -> 8000 (-0): ok
+GPU_PFGEMM: PASS
+FAIL pfgemm ['--host-only'] shape='': rc=0 spec k 2048 rt 8 ct 2 warps 16 aqn 1 epi 0 direct 0: built, 798 instructions, peak 120, declared 128 -> fits
+spec k 2048 rt 8 ct 2 warps 16 aqn 1 epi 1 direct 0: built, 994 instructions, peak 120, declared 128 -> fits
+spec k 768 rt 8 ct 2 warps 16 aqn 1 epi 0 direct 1: built, 795 instructions, peak 120, declared 128 -> fits
+spec k 4096 rt 8 ct 2 warps 16 aqn 1 epi 0 direct 0: built, 798 instructions, peak 120, declared 128 -> fits
+spec k 2048 rt 8 ct 2 warps 16 aqn 2 epi 0 direct 0: built, 798 instructions, peak 124, declared 128 -> fits
+spec k 2048 rt 8 ct 2 warps 16 aqn 2 epi 1 direct 0: built, 994 instructions, peak 124, declared 128 -> fits
+spec k 768 rt 8 ct 2 warps 16 aqn 2 epi 0 direct 1: built, 795 instructions, peak 124, declared 128 -> fits
+spec k 2048 rt 4 ct 2 warps 8 aqn 2 epi 0 direct 0: built, 550 instructions, peak 92, declared 96 -> fits
+SWIGLU layout + emulation vs double oracle on the original weights: worst relative error 0.00379 (bf16 output: < 1e-2 expected)
+SWIGLU reference vs chip-observed MUFU.RCP flush window: 6/6 match; control g -87 -> a73e (nonzero), g -89 -> 8000 (-0): ok
+GPU_PFGEMM: PASS
+FAIL pfgemm ['--host-only'] shape='GATEUP': rc=0 spec k 2048 rt 8 ct 2 warps 16 aqn 1 epi 0 direct 0: built, 798 instructions, peak 120, declared 128 -> fits
+spec k 2048 rt 8 ct 2 warps 16 aqn 1 epi 1 direct 0: built, 994 instructions, peak 120, declared 128 -> fits
+spec k 768 rt 8 ct 2 warps 16 aqn 1 epi 0 direct 1: built, 795 instructions, peak 120, declared 128 -> fits
+spec k 4096 rt 8 ct 2 warps 16 aqn 1 epi 0 direct 0: built, 798 instructions, peak 120, declared 128 -> fits
+spec k 2048 rt 8 ct 2 warps 16 aqn 2 epi 0 direct 0: built, 798 instructions, peak 124, declared 128 -> fits
+spec k 2048 rt 8 ct 2 warps 16 aqn 2 epi 1 direct 0: built, 994 instructions, peak 124, declared 128 -> fits
+spec k 768 rt 8 ct 2 warps 16 aqn 2 epi 0 direct 1: built, 795 instructions, peak 124, declared 128 -> fits
+spec k 2048 rt 4 ct 2 warps 8 aqn 2 epi 0 direct 0: built, 550 instructions, peak 92, declared 96 -> fits
+SWIGLU layout + emulation vs double oracle on the original weights: worst relative error 0.00379 (bf16 output: < 1e-2 expected)
+SWIGLU reference vs chip-observed MUFU.RCP flush window: 6/6 match; control g -87 -> a73e (nonzero), g -89 -> 8000 (-0): ok
+GPU_PFGEMM: PASS
+FAIL pfgemm ['--sim'] shape='typo': rc=0 sim case 0 (E 3 n 256 k 256 M 70 F32 rt 8 warps 16 aqn 1) order 0: ran, 0 differ
+sim case 0 (E 3 n 256 k 256 M 70 F32 rt 8 warps 16 aqn 1) order 1: ran, 0 differ
+sim case 0 mutant 1: caught
+sim case 0 mutant 2: caught
+sim case 0 mutant 3: caught
+sim case 0 mutant 4: caught
+sim case 1 (E 3 n 256 k 384 M 70 SWIGLU rt 8 warps 16 aqn 1) order 0: ran, 0 differ
+sim case 1 (E 3 n 256 k 384 M 70 SWIGLU rt 8 warps 16 aqn 1) order 1: ran, 0 differ
+sim case 1 mutant 1: caught
+sim case 1 mutant 2: caught
+sim case 1 mutant 3: caught
+sim case 1 mutant 4: caught
+sim case 2 (E 3 n 256 k 256 M 150 F32 direct rt 8 warps 16 aqn 1) order 0: ran, 0 differ
+sim case 2 (E 3 n 256 k 256 M 150 F32 direct rt 8 warps 16 aqn 1) order 1: ran, 0 differ
+sim case 3 (E 2 n 256 k 256 M 40 F32 rt 4 warps 8 aqn 2) order 0: ran, 0 differ
+sim case 3 (E 2 n 256 k 256 M 40 F32 rt 4 warps 8 aqn 2) order 1: ran, 0 differ
+sim case 4 (E 2 n 512 k 128 M 300 SWIGLU rt 8 warps 16 aqn 2) order 0: ran, 0 differ
+sim case 4 (E 2 n 512 k 128 M 300 SWIGLU rt 8 warps 16 aqn 2) order 1: ran, 0 differ
+sim case 5 (E 3 n 512 k 256 M 150 SWIGLU rt 4 warps 16 aqn 1) order 0: ran, 0 differ
+sim case 5 (E 3 n 512 k 256 M 150 SWIGLU rt 4 warps 16 aqn 1) order 1: ran, 0 differ
+sim case 6 (E 3 n 256 k 384 M 130 F32 direct rt 4 warps 16 aqn 1) order 0: ran, 0 differ
+sim case 6 (E 3 n 256 k 384 M 130 F32 direct rt 4 warps 16 aqn 1) order 1: ran, 0 differ
+GPU_PFGEMM: PASS
+FAIL pfgemm ['--sim'] shape='': rc=0 sim case 0 (E 3 n 256 k 256 M 70 F32 rt 8 warps 16 aqn 1) order 0: ran, 0 differ
+sim case 0 (E 3 n 256 k 256 M 70 F32 rt 8 warps 16 aqn 1) order 1: ran, 0 differ
+sim case 0 mutant 1: caught
+sim case 0 mutant 2: caught
+sim case 0 mutant 3: caught
+sim case 0 mutant 4: caught
+sim case 1 (E 3 n 256 k 384 M 70 SWIGLU rt 8 warps 16 aqn 1) order 0: ran, 0 differ
+sim case 1 (E 3 n 256 k 384 M 70 SWIGLU rt 8 warps 16 aqn 1) order 1: ran, 0 differ
+sim case 1 mutant 1: caught
+sim case 1 mutant 2: caught
+sim case 1 mutant 3: caught
+sim case 1 mutant 4: caught
+sim case 2 (E 3 n 256 k 256 M 150 F32 direct rt 8 warps 16 aqn 1) order 0: ran, 0 differ
+sim case 2 (E 3 n 256 k 256 M 150 F32 direct rt 8 warps 16 aqn 1) order 1: ran, 0 differ
+sim case 3 (E 2 n 256 k 256 M 40 F32 rt 4 warps 8 aqn 2) order 0: ran, 0 differ
+sim case 3 (E 2 n 256 k 256 M 40 F32 rt 4 warps 8 aqn 2) order 1: ran, 0 differ
+sim case 4 (E 2 n 512 k 128 M 300 SWIGLU rt 8 warps 16 aqn 2) order 0: ran, 0 differ
+sim case 4 (E 2 n 512 k 128 M 300 SWIGLU rt 8 warps 16 aqn 2) order 1: ran, 0 differ
+sim case 5 (E 3 n 512 k 256 M 150 SWIGLU rt 4 warps 16 aqn 1) order 0: ran, 0 differ
+sim case 5 (E 3 n 512 k 256 M 150 SWIGLU rt 4 warps 16 aqn 1) order 1: ran, 0 differ
+sim case 6 (E 3 n 256 k 384 M 130 F32 direct rt 4 warps 16 aqn 1) order 0: ran, 0 differ
+sim case 6 (E 3 n 256 k 384 M 130 F32 direct rt 4 warps 16 aqn 1) order 1: ran, 0 differ
+GPU_PFGEMM: PASS
+FAIL pfgemm ['--sim'] shape='GATEUP': rc=0 sim case 0 (E 3 n 256 k 256 M 70 F32 rt 8 warps 16 aqn 1) order 0: ran, 0 differ
+sim case 0 (E 3 n 256 k 256 M 70 F32 rt 8 warps 16 aqn 1) order 1: ran, 0 differ
+sim case 0 mutant 1: caught
+sim case 0 mutant 2: caught
+sim case 0 mutant 3: caught
+sim case 0 mutant 4: caught
+sim case 1 (E 3 n 256 k 384 M 70 SWIGLU rt 8 warps 16 aqn 1) order 0: ran, 0 differ
+sim case 1 (E 3 n 256 k 384 M 70 SWIGLU rt 8 warps 16 aqn 1) order 1: ran, 0 differ
+sim case 1 mutant 1: caught
+sim case 1 mutant 2: caught
+sim case 1 mutant 3: caught
+sim case 1 mutant 4: caught
+sim case 2 (E 3 n 256 k 256 M 150 F32 direct rt 8 warps 16 aqn 1) order 0: ran, 0 differ
+sim case 2 (E 3 n 256 k 256 M 150 F32 direct rt 8 warps 16 aqn 1) order 1: ran, 0 differ
+sim case 3 (E 2 n 256 k 256 M 40 F32 rt 4 warps 8 aqn 2) order 0: ran, 0 differ
+sim case 3 (E 2 n 256 k 256 M 40 F32 rt 4 warps 8 aqn 2) order 1: ran, 0 differ
+sim case 4 (E 2 n 512 k 128 M 300 SWIGLU rt 8 warps 16 aqn 2) order 0: ran, 0 differ
+sim case 4 (E 2 n 512 k 128 M 300 SWIGLU rt 8 warps 16 aqn 2) order 1: ran, 0 differ
+sim case 5 (E 3 n 512 k 256 M 150 SWIGLU rt 4 warps 16 aqn 1) order 0: ran, 0 differ
+sim case 5 (E 3 n 512 k 256 M 150 SWIGLU rt 4 warps 16 aqn 1) order 1: ran, 0 differ
+sim case 6 (E 3 n 256 k 384 M 130 F32 direct rt 4 warps 16 aqn 1) order 0: ran, 0 differ
+sim case 6 (E 3 n 256 k 384 M 130 F32 direct rt 4 warps 16 aqn 1) order 1: ran, 0 differ
+GPU_PFGEMM: PASS
+FAIL qgemm ['--chip'] shape='typo': rc=0 GPU_QGEMM: PASS
+FAIL qgemm ['--chip'] shape='': rc=0 GPU_QGEMM: PASS
+FAIL qgemm ['--chip'] shape='GATEUP': rc=0 GPU_QGEMM: PASS
+FAIL qgemm ['--host-only'] shape='typo': rc=0 quantiser reference: PASS (amax/scale in (224, 448], error within half an e4m3 ulp)
+qgemm emulation vs double oracle (plain): worst error 2.31e-07 of the sum of |terms| PASS
+qgemm emulation vs double oracle (swiglu_nat): worst error 2.19e-07 of the sum of |terms| PASS
+GPU_QGEMM: PASS
+FAIL qgemm ['--host-only'] shape='': rc=0 quantiser reference: PASS (amax/scale in (224, 448], error within half an e4m3 ulp)
+qgemm emulation vs double oracle (plain): worst error 2.31e-07 of the sum of |terms| PASS
+qgemm emulation vs double oracle (swiglu_nat): worst error 2.19e-07 of the sum of |terms| PASS
+GPU_QGEMM: PASS
+FAIL qgemm ['--host-only'] shape='GATEUP': rc=0 quantiser reference: PASS (amax/scale in (224, 448], error within half an e4m3 ulp)
+qgemm emulation vs double oracle (plain): worst error 2.31e-07 of the sum of |terms| PASS
+qgemm emulation vs double oracle (swiglu_nat): worst error 2.19e-07 of the sum of |terms| PASS
+GPU_QGEMM: PASS
+FAIL qgemm ['--sim'] shape='typo': rc=0 sim quantiser k 2048 f32: ran, 0 differ
+sim quantiser k 768 bf16: ran, 0 differ
+sim quantiser k 4096 f32: ran, 0 differ
+sim quantiser k 128 bf16: ran, 0 differ
+sim quantiser mutant 1: caught
+sim quantiser mutant 2: caught
+sim qgemm case 0 (n 256 k 384 M 300 swiglu indexed rt 4 warps 8) order 0: ran, 0 differ
+sim qgemm case 0 (n 256 k 384 M 300 swiglu indexed rt 4 warps 8) order 1: ran, 0 differ
+sim qgemm case 0 mutant 1: caught
+sim qgemm case 0 mutant 2: caught
+sim qgemm case 0 mutant 3: caught
+sim qgemm case 0 mutant 4: caught
+sim qgemm case 1 (n 256 k 256 M 200 f32 direct rt 4 warps 8) order 0: ran, 0 differ
+sim qgemm case 1 (n 256 k 256 M 200 f32 direct rt 4 warps 8) order 1: ran, 0 differ
+sim qgemm case 1 mutant 1: caught
+sim qgemm case 1 mutant 2: caught
+sim qgemm case 1 mutant 3: caught
+sim qgemm case 1 mutant 4: caught
+sim qgemm case 2 (n 256 k 128 M 150 f32 indexed rt 4 warps 8) order 0: ran, 0 differ
+sim qgemm case 2 (n 256 k 128 M 150 f32 indexed rt 4 warps 8) order 1: ran, 0 differ
+sim qgemm case 3 (n 512 k 1024 M 140 swiglu direct rt 4 warps 8) order 0: ran, 0 differ
+sim qgemm case 3 (n 512 k 1024 M 140 swiglu direct rt 4 warps 8) order 1: ran, 0 differ
+GPU_QGEMM: PASS
+FAIL qgemm ['--sim'] shape='': rc=0 sim quantiser k 2048 f32: ran, 0 differ
+sim quantiser k 768 bf16: ran, 0 differ
+sim quantiser k 4096 f32: ran, 0 differ
+sim quantiser k 128 bf16: ran, 0 differ
+sim quantiser mutant 1: caught
+sim quantiser mutant 2: caught
+sim qgemm case 0 (n 256 k 384 M 300 swiglu indexed rt 4 warps 8) order 0: ran, 0 differ
+sim qgemm case 0 (n 256 k 384 M 300 swiglu indexed rt 4 warps 8) order 1: ran, 0 differ
+sim qgemm case 0 mutant 1: caught
+sim qgemm case 0 mutant 2: caught
+sim qgemm case 0 mutant 3: caught
+sim qgemm case 0 mutant 4: caught
+sim qgemm case 1 (n 256 k 256 M 200 f32 direct rt 4 warps 8) order 0: ran, 0 differ
+sim qgemm case 1 (n 256 k 256 M 200 f32 direct rt 4 warps 8) order 1: ran, 0 differ
+sim qgemm case 1 mutant 1: caught
+sim qgemm case 1 mutant 2: caught
+sim qgemm case 1 mutant 3: caught
+sim qgemm case 1 mutant 4: caught
+sim qgemm case 2 (n 256 k 128 M 150 f32 indexed rt 4 warps 8) order 0: ran, 0 differ
+sim qgemm case 2 (n 256 k 128 M 150 f32 indexed rt 4 warps 8) order 1: ran, 0 differ
+sim qgemm case 3 (n 512 k 1024 M 140 swiglu direct rt 4 warps 8) order 0: ran, 0 differ
+sim qgemm case 3 (n 512 k 1024 M 140 swiglu direct rt 4 warps 8) order 1: ran, 0 differ
+GPU_QGEMM: PASS
+FAIL qgemm ['--sim'] shape='GATEUP': rc=0 sim quantiser k 2048 f32: ran, 0 differ
+sim quantiser k 768 bf16: ran, 0 differ
+sim quantiser k 4096 f32: ran, 0 differ
+sim quantiser k 128 bf16: ran, 0 differ
+sim quantiser mutant 1: caught
+sim quantiser mutant 2: caught
+sim qgemm case 0 (n 256 k 384 M 300 swiglu indexed rt 4 warps 8) order 0: ran, 0 differ
+sim qgemm case 0 (n 256 k 384 M 300 swiglu indexed rt 4 warps 8) order 1: ran, 0 differ
+sim qgemm case 0 mutant 1: caught
+sim qgemm case 0 mutant 2: caught
+sim qgemm case 0 mutant 3: caught
+sim qgemm case 0 mutant 4: caught
+sim qgemm case 1 (n 256 k 256 M 200 f32 direct rt 4 warps 8) order 0: ran, 0 differ
+sim qgemm case 1 (n 256 k 256 M 200 f32 direct rt 4 warps 8) order 1: ran, 0 differ
+sim qgemm case 1 mutant 1: caught
+sim qgemm case 1 mutant 2: caught
+sim qgemm case 1 mutant 3: caught
+sim qgemm case 1 mutant 4: caught
+sim qgemm case 2 (n 256 k 128 M 150 f32 indexed rt 4 warps 8) order 0: ran, 0 differ
+sim qgemm case 2 (n 256 k 128 M 150 f32 indexed rt 4 warps 8) order 1: ran, 0 differ
+sim qgemm case 3 (n 512 k 1024 M 140 swiglu direct rt 4 warps 8) order 0: ran, 0 differ
+sim qgemm case 3 (n 512 k 1024 M 140 swiglu direct rt 4 warps 8) order 1: ran, 0 differ
+GPU_QGEMM: PASS
+FAIL fp8gemm [] shape='typo': rc=0 gpu_fp8gemm_test: 0 checks, 0 failed: PASS
+FAIL fp8gemm [] shape='': rc=0 gpu_fp8gemm_test: 0 checks, 0 failed: PASS
+FAIL fp8gemm [] shape='GATEUP': rc=0 gpu_fp8gemm_test: 0 checks, 0 failed: PASS
+FAIL fp8gemm ['--host-only'] shape='typo': rc=0 host-only: emulation, permutation, budgets
+emulation vs oracle: worst relative error 2.00e-08 of the term scale
+codegen k 2048 lane 16 mt  8 warps 16: 797 instructions, 107 registers (declared 112, register file 57344 of 65536), shared 16384 B
+codegen k 4096 lane 16 mt  8 warps 16: 797 instructions, 107 registers (declared 112, register file 57344 of 65536), shared 16384 B
+codegen k 1024 lane 16 mt  8 warps 16: 788 instructions, 104 registers (declared 112, register file 57344 of 65536), shared 16384 B
+codegen k  768 lane  8 mt  8 warps 16: 683 instructions, 103 registers (declared 104, register file 53248 of 65536), shared 8192 B
+codegen k  768 lane  8 mt  8 warps  8: 731 instructions, 103 registers (declared 104, register file 26624 of 65536), shared 8192 B
+codegen k 2048 lane  8 mt  8 warps 16: 541 instructions, 103 registers (declared 104, register file 53248 of 65536), shared 8192 B
+codegen k 2048 lane 16 mt  4 warps 16: 509 instructions, 99 registers (declared 104, register file 53248 of 65536), shared 8192 B
+codegen k 2048 lane 16 mt  8 warps 32: 765 instructions, 107 registers (declared 112, register file 114688 of 65536) DOES NOT FIT, shared 16384 B
+codegen k 2048 lane 16 mt  8 warps  8: 861 instructions, 107 registers (declared 112, register file 28672 of 65536), shared 16384 B
+codegen k 2048 lane 16 mt  4 warps  8: 541 instructions, 99 registers (declared 104, register file 26624 of 65536), shared 8192 B
+codegen k 4096 lane 16 mt  4 warps  8: 541 instructions, 99 registers (declared 104, register file 26624 of 65536), shared 8192 B
+gpu_fp8gemm_test: 53 checks, 0 failed: PASS
+FAIL fp8gemm ['--host-only'] shape='': rc=0 host-only: emulation, permutation, budgets
+emulation vs oracle: worst relative error 2.00e-08 of the term scale
+codegen k 2048 lane 16 mt  8 warps 16: 797 instructions, 107 registers (declared 112, register file 57344 of 65536), shared 16384 B
+codegen k 4096 lane 16 mt  8 warps 16: 797 instructions, 107 registers (declared 112, register file 57344 of 65536), shared 16384 B
+codegen k 1024 lane 16 mt  8 warps 16: 788 instructions, 104 registers (declared 112, register file 57344 of 65536), shared 16384 B
+codegen k  768 lane  8 mt  8 warps 16: 683 instructions, 103 registers (declared 104, register file 53248 of 65536), shared 8192 B
+codegen k  768 lane  8 mt  8 warps  8: 731 instructions, 103 registers (declared 104, register file 26624 of 65536), shared 8192 B
+codegen k 2048 lane  8 mt  8 warps 16: 541 instructions, 103 registers (declared 104, register file 53248 of 65536), shared 8192 B
+codegen k 2048 lane 16 mt  4 warps 16: 509 instructions, 99 registers (declared 104, register file 53248 of 65536), shared 8192 B
+codegen k 2048 lane 16 mt  8 warps 32: 765 instructions, 107 registers (declared 112, register file 114688 of 65536) DOES NOT FIT, shared 16384 B
+codegen k 2048 lane 16 mt  8 warps  8: 861 instructions, 107 registers (declared 112, register file 28672 of 65536), shared 16384 B
+codegen k 2048 lane 16 mt  4 warps  8: 541 instructions, 99 registers (declared 104, register file 26624 of 65536), shared 8192 B
+codegen k 4096 lane 16 mt  4 warps  8: 541 instructions, 99 registers (declared 104, register file 26624 of 65536), shared 8192 B
+gpu_fp8gemm_test: 53 checks, 0 failed: PASS
+FAIL fp8gemm ['--host-only'] shape='GATEUP': rc=0 host-only: emulation, permutation, budgets
+emulation vs oracle: worst relative error 2.00e-08 of the term scale
+codegen k 2048 lane 16 mt  8 warps 16: 797 instructions, 107 registers (declared 112, register file 57344 of 65536), shared 16384 B
+codegen k 4096 lane 16 mt  8 warps 16: 797 instructions, 107 registers (declared 112, register file 57344 of 65536), shared 16384 B
+codegen k 1024 lane 16 mt  8 warps 16: 788 instructions, 104 registers (declared 112, register file 57344 of 65536), shared 16384 B
+codegen k  768 lane  8 mt  8 warps 16: 683 instructions, 103 registers (declared 104, register file 53248 of 65536), shared 8192 B
+codegen k  768 lane  8 mt  8 warps  8: 731 instructions, 103 registers (declared 104, register file 26624 of 65536), shared 8192 B
+codegen k 2048 lane  8 mt  8 warps 16: 541 instructions, 103 registers (declared 104, register file 53248 of 65536), shared 8192 B
+codegen k 2048 lane 16 mt  4 warps 16: 509 instructions, 99 registers (declared 104, register file 53248 of 65536), shared 8192 B
+codegen k 2048 lane 16 mt  8 warps 32: 765 instructions, 107 registers (declared 112, register file 114688 of 65536) DOES NOT FIT, shared 16384 B
+codegen k 2048 lane 16 mt  8 warps  8: 861 instructions, 107 registers (declared 112, register file 28672 of 65536), shared 16384 B
+codegen k 2048 lane 16 mt  4 warps  8: 541 instructions, 99 registers (declared 104, register file 26624 of 65536), shared 8192 B
+codegen k 4096 lane 16 mt  4 warps  8: 541 instructions, 99 registers (declared 104, register file 26624 of 65536), shared 8192 B
+gpu_fp8gemm_test: 53 checks, 0 failed: PASS
+FAIL fp8gemm ['--sim'] shape='typo': rc=0 sim k 2048 n 40 lane 16 mt 8 warps 16 grid 2: ok 0 of 600 outputs differ from the emulation (bit-identical)
+sim k 4096 n 20 lane 16 mt 8 warps 16 grid 1: ok 0 of 220 outputs differ from the emulation (bit-identical)
+sim k 1024 n 33 lane 16 mt 8 warps 16 grid 2: ok 0 of 99 outputs differ from the emulation (bit-identical)
+sim k 768 n 130 lane 8 mt 8 warps 16 grid 2: ok 0 of 2730 outputs differ from the emulation (bit-identical)
+sim k 768 n 24 lane 8 mt 8 warps 8 grid 1: ok 0 of 264 outputs differ from the emulation (bit-identical)
+sim k 2048 n 16 lane 16 mt 4 warps 16 grid 1: ok 0 of 160 outputs differ from the emulation (bit-identical)
+sim mutant 1: caught 600 of 600 outputs differ from the emulation
+sim mutant 2: caught 600 of 600 outputs differ from the emulation
+sim mutant 3: caught 600 of 600 outputs differ from the emulation
+sim: 3444454 warp issues in total
+gpu_fp8gemm_test: 9 checks, 0 failed: PASS
+FAIL fp8gemm ['--sim'] shape='': rc=0 sim k 2048 n 40 lane 16 mt 8 warps 16 grid 2: ok 0 of 600 outputs differ from the emulation (bit-identical)
+sim k 4096 n 20 lane 16 mt 8 warps 16 grid 1: ok 0 of 220 outputs differ from the emulation (bit-identical)
+sim k 1024 n 33 lane 16 mt 8 warps 16 grid 2: ok 0 of 99 outputs differ from the emulation (bit-identical)
+sim k 768 n 130 lane 8 mt 8 warps 16 grid 2: ok 0 of 2730 outputs differ from the emulation (bit-identical)
+sim k 768 n 24 lane 8 mt 8 warps 8 grid 1: ok 0 of 264 outputs differ from the emulation (bit-identical)
+sim k 2048 n 16 lane 16 mt 4 warps 16 grid 1: ok 0 of 160 outputs differ from the emulation (bit-identical)
+sim mutant 1: caught 600 of 600 outputs differ from the emulation
+sim mutant 2: caught 600 of 600 outputs differ from the emulation
+sim mutant 3: caught 600 of 600 outputs differ from the emulation
+sim: 3444454 warp issues in total
+gpu_fp8gemm_test: 9 checks, 0 failed: PASS
+FAIL fp8gemm ['--sim'] shape='GATEUP': rc=0 sim k 2048 n 40 lane 16 mt 8 warps 16 grid 2: ok 0 of 600 outputs differ from the emulation (bit-identical)
+sim k 4096 n 20 lane 16 mt 8 warps 16 grid 1: ok 0 of 220 outputs differ from the emulation (bit-identical)
+sim k 1024 n 33 lane 16 mt 8 warps 16 grid 2: ok 0 of 99 outputs differ from the emulation (bit-identical)
+sim k 768 n 130 lane 8 mt 8 warps 16 grid 2: ok 0 of 2730 outputs differ from the emulation (bit-identical)
+sim k 768 n 24 lane 8 mt 8 warps 8 grid 1: ok 0 of 264 outputs differ from the emulation (bit-identical)
+sim k 2048 n 16 lane 16 mt 4 warps 16 grid 1: ok 0 of 160 outputs differ from the emulation (bit-identical)
+sim mutant 1: caught 600 of 600 outputs differ from the emulation
+sim mutant 2: caught 600 of 600 outputs differ from the emulation
+sim mutant 3: caught 600 of 600 outputs differ from the emulation
+sim: 3444454 warp issues in total
+gpu_fp8gemm_test: 9 checks, 0 failed: PASS
+GEMM_SELECTOR_TEST: FAIL (27 failures; host only)
+  missing: ok    GPU 000f:01:00.0: NVIDIA GB10 (sm_121), supported target
+  missing: historical summary: evidence/m16-blackwell-native-path-requalification-receipt.json
+  missing: raw M16 evidence unavailable; not current-commit qualification
+  missing: Diagnostic only: direct library use has no driver-version or PCI-ID admission guard.
+FAIL gb10-ready
+  | cudapp doctor: is this machine ready for CUDA++?
+  |   info  system: Linux 7.0.0-1019-nvidia aarch64
+  |   ok    NVIDIA kernel module: open module 580.173.02 (CUDA++ speaks 580.173.02)
+  |   ok    device files: /dev/nvidiactl /dev/nvidia0 /dev/nvidia-uvm can be opened by this user
+  |   ok    GPU 000f:01:00.0: NVIDIA GB10 (sm_121), qualified (receipt: evidence/m16-blackwell-native-path-requalification-receipt.json)
+  |   ok    memory: 121.6 GiB shared by the CPU and the GPU, 40.1 GiB available now
+  |   info  CUDA toolkit: not needed and not used by CUDA++ (none installed)
+  |   info  compiler: this doctor was built by 13.3.0; CUDA++ needs only make and a C compiler
+  | READY. Next: make hello-gpu
+PASS no-module
+  missing: doctor refuses instead of guessing
+FAIL module-version
+  | cudapp doctor: is this machine ready for CUDA++?
+  |   info  system: Linux 7.0.0-1019-nvidia aarch64
+  |   FAIL  NVIDIA kernel module: version 575.64.05 is loaded; CUDA++ speaks the 580.173.02 interface
+  |         Why: CUDA++ builds its driver calls from the 580.173.02 open-module headers
+  |         (third_party/nvidia-open-580.173.02). The layout of those calls can change between module versions,
+  |         and a wrong layout fails in strange ways, so CUDA++ refuses instead of guessing.
+  |         This is the only version CUDA++ asks you to match: no toolkit, no framework build, no extension build.
+  |         Do this: install the 580.173.02 open kernel module, or port the client to your version
+  |         (CONTRIBUTING.md, "Port a driver version": copy the new headers, rebuild, run make test and make hello-gpu).
+  |   ok    device files: /dev/nvidiactl /dev/nvidia0 /dev/nvidia-uvm can be opened by this user
+  |   ok    GPU 000f:01:00.0: NVIDIA GB10 (sm_121), qualified (receipt: evidence/m16-blackwell-native-path-requalification-receipt.json)
+  |   ok    memory: 121.6 GiB shared by the CPU and the GPU, 40.1 GiB available now
+  |   info  CUDA toolkit: not needed and not used by CUDA++ (none installed)
+  |   info  compiler: this doctor was built by 13.3.0; CUDA++ needs only make and a C compiler
+  | NOT READY: 1 problem above. Fix the first FAIL line and run make doctor again.
+
+[Showing lines 1-300 of 312. Use :301 to continue]

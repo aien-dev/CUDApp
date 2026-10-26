@@ -664,7 +664,7 @@ STATUS_COL = {"PASS": GREEN, "PARTIAL": BLUE_SOFT, "BUILDING": VIOLET, "MISSING"
 def fig_status():
     rows = [  # piece, job, replacement, status, note
         ("nvcc · NVVM · PTX · ptxas", "compile kernels", "sm_121 encoder + register allocator", "PASS", "every kernel Omega runs"),
-        ("libcuda", "user-space driver", "nvrm + m16 driver client", "PASS", "m16 requalification receipt"),
+        ("libcuda", "user-space driver", "nvrm + m16 driver client", "PARTIAL", "M16 raw logs unavailable"),
         ("libcudart", "device, memory, launch", "session, command lists, job engine", "PARTIAL", "one device, one process"),
         ("cuBLAS", "matrix multiply", "matmul, tensor-core GEMM, FP8, BF16", "PARTIAL", "model shapes; any-shape GEMM is C3"),
         ("cuDNN · FlashAttention", "attention, layers", "decode and prefill attention", "PARTIAL", "model-shaped"),

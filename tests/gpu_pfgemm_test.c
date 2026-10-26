@@ -315,14 +315,22 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--check-rows") && i + 1 < argc) check = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--no-mutants")) mutants = 0;
         else if (!strcmp(argv[i], "--shape-knob") && i + 3 < argc) { uint32_t a = (uint32_t)atoi(argv[i + 1]), b = (uint32_t)atoi(argv[i + 2]), c = (uint32_t)atoi(argv[i + 3]); omega_gpu_pf_gemm_set_shape(a, b, c); i += 3; }
+        else { fprintf(stderr, "GPU_PFGEMM: INVALID argument %s\n", argv[i]); return 2; }
     }
-    int fail = 0;
-    if (host) fail += host_only();
-    if (sim) fail += sim_tests();
+    static const char *all[] = { "gateup", "down", "qkv", "o" };
+    int selected = 0;
+    for (int s = 0; s < 4; s++) if (!shape || !strcmp(shape, all[s])) selected++;
+    if (!selected) { fprintf(stderr, "GPU_PFGEMM: INVALID shape '%s'\n", shape); return 2; }
+    if (!host && !sim && !chip) { fprintf(stderr, "GPU_PFGEMM: NOT_RUN (no mode selected)\n"); return 2; }
+    int fail = 0, cases = 0;
+    if (host) { fail += host_only(); cases++; }
+    if (sim) { fail += sim_tests(); cases++; }
     if (chip) {
-        static const char *all[] = { "gateup", "down", "qkv", "o" };
-        for (int s = 0; s < 4; s++) if (!shape || !strcmp(shape, all[s])) fail += chip_shape(all[s], tokens, reps, check, mutants);
+        for (int s = 0; s < 4; s++) if (!shape || !strcmp(shape, all[s])) {
+            fail += chip_shape(all[s], tokens, reps, check, mutants); cases++;
+        }
     }
+    if (!cases) { fprintf(stderr, "GPU_PFGEMM: NOT_RUN (no cases executed)\n"); return 2; }
     printf("GPU_PFGEMM: %s\n", fail ? "FAIL" : "PASS");
     return fail ? 1 : 0;
 }

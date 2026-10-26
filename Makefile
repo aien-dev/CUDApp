@@ -257,6 +257,10 @@ $(GPU_QMMA_PROBE_TEST): tests/gpu_qmma_probe_test.c tests/bw_qmma_model.h src/om
 GPU_QGEMM_TEST = $(OUT_DIR)/gpu_qgemm_test
 $(GPU_QGEMM_TEST): tests/gpu_qgemm_test.c tests/bw_qmma_model.h tests/bw_warp_sim_tc.h src/omega_gpu_prefill.h src/omega_blackwell_codegen_qg.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -DWS_MAX_THREADS=1024 -Itests -o $@ tests/gpu_qgemm_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+.PHONY: test-gemm-selectors
+test-gemm-selectors: $(GPU_PFGEMM_TEST) $(GPU_QGEMM_TEST) $(GPU_FP8GEMM_TEST)
+	python3 tests/gemm_selectors.py $(OUT_DIR)
+
 GPU_PFHOST_TEST = $(OUT_DIR)/gpu_pfhost_test
 $(GPU_PFHOST_TEST): tests/gpu_pfhost_test.c tests/bw_warp_sim_tc.h src/omega_gpu_pfhost.h src/omega_blackwell_codegen_pfhost.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -DWS_MAX_THREADS=1024 -Itests -o $@ tests/gpu_pfhost_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
@@ -296,7 +300,7 @@ HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-a
 	test-gpu-engine-mutants test-gpu-engine-backend-compile test-gpu-engine-prod-build test-gpu-engine-sim \
 	test-gpu-engine-backend-mutants test-gpu-engine-gb10-compile test-gpu-serving-alloc test-gpu-engine-freestanding \
 	test-codegen-freestanding test-gpu-session-platform test-gpu-wait test-gpu-wait-mutants host-tests-m16 \
-	test-runtime-api test-runtime-portability test-doctor test-hello-sim test-native-artifact-manifest
+	test-runtime-api test-runtime-portability test-doctor test-hello-sim test-native-artifact-manifest test-gemm-selectors
 test: $(HOST_TESTS)
 	@echo "CUDA++ HOST TESTS PASS ($(words $(HOST_TESTS)) targets)"
 
