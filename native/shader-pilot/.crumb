@@ -1,0 +1,20 @@
+{
+  "extensions": {
+    "generated": {
+      "children": [],
+      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiled_at": "2026-10-26T02:48:47Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:9b8822e14d770436b38b29eab5edbab2dffa65c7b673c410c0af9603766adc12",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 2,
+      "generated_at_commit": "b5e0da48ee7b8a64ae0b51068769fa0659b2e33a",
+      "source_tree": "sha256:9d755a5bedc16e135651e516caea94e5ccce38394d8f112db2c78ce11223b885"
+    }
+  },
+  "layer": "development",
+  "name": "shader-pilot",
+  "purpose": "Bounded issue86 offline compute pilot, no device execution or qualification",
+  "schema_version": "1.0.0"
+}
