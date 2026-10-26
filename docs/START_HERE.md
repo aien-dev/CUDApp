@@ -30,7 +30,7 @@ make zero-cuda-gate
 build/hello_gpu --sim
 ```
 
-`make test` is the host-only suite. On a qualified build environment its success marker is `CUDA++ HOST TESTS PASS (33 targets)`. The suite contains intentional failure/mutation cases: judge the **exit code and final result**, not the presence of the words FAIL/ERROR in intermediate logs. It can take several minutes. `make zero-cuda-gate` inspects ELF metadata and runs its own negative control; it is **not** a proof that kernel drivers or firmware have disappeared.
+`make test` is the host-only suite. On a qualified build environment its final success marker is `CUDA++ HOST TESTS PASS`, followed by the target count computed from that revision's `HOST_TESTS` list. Record the exact commit, exit code and full marker in your receipt. The suite contains intentional failure/mutation cases: judge the **exit code and final result**, not the presence of the words FAIL/ERROR in intermediate logs. It can take several minutes. `make zero-cuda-gate` inspects ELF metadata and runs its own negative control; it is **not** a proof that kernel drivers or firmware have disappeared.
 
 If an x86-64 checkout fails on an architecture-specific instruction, record the full error and compare with [the existing reproducibility issue #15](https://github.com/aien-dev/CUDApp/issues/15). Do not suppress the memory-ordering instruction or call a partial host run a passing full suite.
 
