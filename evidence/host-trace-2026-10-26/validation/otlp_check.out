@@ -1,0 +1,5 @@
+opentelemetry-proto 1.27.0 protobuf 4.25.9
+launch.otlp.json parsed 30 spans; trace ids 1 ; roots 1 ; parent links to missing spans 0 ; end before start 0 ; status ERROR 5
+lossy.otlp.json parsed 4103 spans; trace ids 1 ; roots 1 ; parent links to missing spans 0 ; end before start 0 ; status ERROR 0
+negative control: non-numeric start time -> rejected: ParseError
+negative control: unknown field -> rejected: ParseError

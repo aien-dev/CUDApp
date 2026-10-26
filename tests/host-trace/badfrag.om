@@ -1,0 +1,132 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note badfrag GOOD.otr PREFIX: writes PREFIX.N.otr for N = 0..12, each the good OTR1 file with one
+note fault. omtrace v must reject mutant N with exit status listed in tests/host-trace/run-host-trace.sh.
+note Mutants: 0 magic, 1 version, 2 record size, 3 clock domain, 4 truncated by one byte,
+note 5 name count above 256, 6 record 0 kind 12, 7 record 0 flags 2, 8 record 0 ends before it starts,
+note 9 a space in the first name, 10 record 0 names id 9999, 11 header open-span count 1,
+note 12 record 2 (an instant) has a duration. Record 2 must be an instant in the input.
+global img uchar 262144
+global work uchar 262144
+global path uchar 4096
+global st ulong 4
+note st: 0 image bytes, 1 prefix bytes
+fn putle at ulong v ulong k ulong to void
+for i ulong k
+put work add at i uchar and shr v mul i 8 255
+end
+end
+fn rd at ulong k ulong to ulong
+v = ulong 0
+for i ulong k
+v = or v shl ulong get img add at i mul i 8
+end
+ret v
+end
+fn fresh to void
+for i ulong get st 0
+put work i get img i
+end
+end
+fn namepos to ulong
+ret add 64 mul rd 8 4 48
+end
+fn mutate m ulong to ulong
+note returns the mutant's length
+n = get st 0
+fresh
+if eq m 0
+put work 0 xor get img 0 1
+end
+if eq m 1
+putle 4 2 2
+end
+if eq m 2
+putle 6 40 2
+end
+if eq m 3
+putle 20 2 4
+end
+if eq m 4
+n = sub n 1
+end
+if eq m 5
+putle 44 300 4
+end
+if eq m 6
+putle 64 12 2
+end
+if eq m 7
+putle 66 2 2
+end
+if eq m 8
+putle 80 0 8
+end
+if eq m 9
+put work add namepos 6 32
+end
+if eq m 10
+putle 68 9999 4
+end
+if eq m 11
+putle 48 1 4
+end
+if eq m 12
+r = ulong 160
+putle add r 16 add rd add r 8 8 1 8
+end
+ret n
+end
+fn save m ulong n ulong to bool
+p = get st 1
+put path p 46
+d = p
+if ge m 10
+put path add p 1 49
+d = add p 1
+end
+put path add d 1 uchar add 48 rem m 10
+put path add d 2 46
+put path add d 3 111
+put path add d 4 116
+put path add d 5 114
+fd = fopen path 0 add d 6 577 384
+if lt fd 0
+ret false
+end
+w = write int fd work 0 n
+c = fclose int fd
+ret eq w long n
+end
+fn main to int
+if ne argcnt 3
+ret 2
+end
+k = argread 1 path 0 4095
+if le k 0
+ret 2
+end
+fd = fopen path 0 ulong k 0 0
+if lt fd 0
+ret 2
+end
+r = read int fd img 0 len img
+c = fclose int fd
+if lt r 64
+ret 2
+end
+put st 0 ulong r
+if ne rd 160 2 5
+ret 3
+end
+p = argread 2 path 0 4000
+if le p 0
+ret 2
+end
+put st 1 ulong p
+for m ulong 13
+if not save m mutate m
+ret 4
+end
+end
+ret 0
+end
