@@ -48,5 +48,7 @@ each file):
 - No NVIDIA firmware, no libcuda, no cubin or fatbin, no PTX. The GPU's signed GSP firmware is loaded
   by NVIDIA's kernel module from the system's own firmware folder; CUDA++ never ships it.
 - Some host tests print a listing through NVIDIA's `nvdisasm` when it happens to be installed, as a
-  cross-check. No listing made by NVIDIA tools is stored in this repository (one such file was kept out
-  of the history at extraction, see `docs/AUDIT.md`). My own disassembler is on the roadmap (C6).
+  cross-check. One such listing is stored as a test golden: `tests/device-trace/expected.sass` is
+  `nvdisasm` output for CUDA++'s own device-trace machine code (added in #84), not a listing of any
+  NVIDIA code. No other listing made by NVIDIA tools is stored (one was kept out of the history at
+  extraction, see `docs/AUDIT.md`). My own disassembler is on the roadmap (C6).
