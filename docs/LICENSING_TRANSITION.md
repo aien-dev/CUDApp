@@ -19,7 +19,7 @@ This is not a claim that every NVIDIA component has been replaced: the documente
 - NVIDIA's open-kernel-module interface headers retain their MIT notices in `third_party/nvidia-open-580.173.02/`.
 - Mesa/NVK/NAK hardware facts and references retain their attribution in [THIRD_PARTY.md](../THIRD_PARTY.md). The historical audit reports no copied Mesa source code.
 - Attributed quotations remain third-party text, not my newly authored work.
-- The original first-party MIT license is preserved verbatim in [LICENSE-MIT](../LICENSE-MIT). It documents prior grants, not a blanket MIT option for future Apache-2.0 WITH LLVM-exception contributions.
+- The original first-party MIT license can be read in [LICENSE at the pinned MIT revision](https://github.com/aien-dev/CUDApp/blob/232332422bfdc31c8918085b50f13c1e18ab702e/LICENSE). That prior grant remains effective for material covered by it; it is not a blanket MIT option for later Apache-2.0 WITH LLVM-exception contributions.
 
 ## Get the MIT foundation
 
