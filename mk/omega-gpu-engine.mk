@@ -241,7 +241,7 @@ test-gpu-platform-aien-mutants: build/test_omega_gpu_platform_aien
 	amut state-unchecked 's|info.state != AGPU_STATE_RM_READY|0|'; \
 	amut always-cached 's|cached ? 0u : AGPU_MEM_GPU_UNCACHED|0u|'; \
 	amut ring-never-full 's|>= OMEGA_GPU_AIEN_GP_ENTRIES - 1u|> 0xffffffffu - 1u|'; \
-	amut no-l2-prefix 's|r->l2_inval_pending = 1; /\* omega #457 \*/|;|'; \
+	amut no-l2-prefix 's|r->l2_inval_pending = 1; /\* omega #457 \*/|{ }|'; \
 	echo "test-gpu-platform-aien-mutants: $$killed of 6 mutants killed"
 
 GPU_SESSION_MUT_DIR = build/gpu_session_mut

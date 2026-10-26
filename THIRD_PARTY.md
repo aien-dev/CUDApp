@@ -39,6 +39,13 @@ each file):
     permission notice shall be included in all copies or substantial portions of the Software.
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 
+## 3. aien-gpu.ko interface header (first-party AIEN, separate licence, copied unchanged)
+
+`third_party/aien-gpu-abi1/aien_gpu_uapi.h` is the `/dev/aien-gpu` interface (compute ABI 1) of AIEN's own GB10
+kernel module, copied from aien-gpu commit `eab436b052d8cd92ec8d471bafe51e76c84b8b7b` (`kmod/aien_gpu_uapi.h`;
+sha256 in `third_party/aien-gpu-abi1/README.md`). It is `MIT OR GPL-2.0-only`, as its SPDX line says, so the
+module and user space can share it; the CUDA++ licence does not apply to it.
+
 ## Public-source quotations
 
 `docs/PAIN_POINTS.md` contains attributed quotations from the public sources listed there. They remain third-party text; the repository license does not relicense them.

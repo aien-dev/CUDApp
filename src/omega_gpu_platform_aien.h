@@ -12,8 +12,9 @@
  * is reported as 0 (the module owns the IOMMU mapping).
  *
  *   device_open  = open(/dev/aien-gpu) + AGPU_INFO; refused unless abi 1 and state AGPU_STATE_RM_READY
- *   dma_alloc    = reserve a CPU VA range (mmap PROT_NONE), AGPU_MEM_ALLOC at that VA (GPU VA == CPU VA),
- *                  mmap the object MAP_FIXED|MAP_SHARED over the reservation
+ *   dma_alloc    = reserve a CPU VA range in [64 GiB, 1 TiB) (mmap PROT_NONE, MAP_FIXED_NOREPLACE; a GPFIFO entry carries
+ *                  40 address bits), AGPU_MEM_ALLOC at that VA (GPU VA == CPU VA), mmap the object
+ *                  MAP_FIXED|MAP_SHARED over the reservation
  *   dma_free     = AGPU_MEM_FREE, munmap
  *   queue_open   = one GPU-uncached buffer holding the GPFIFO ring (1024 entries) and USERD right after it, one
  *                  error-notifier buffer, AGPU_CHAN_CREATE, mmap of the 64 KiB usermode (doorbell) page

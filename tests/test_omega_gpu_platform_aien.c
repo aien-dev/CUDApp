@@ -289,6 +289,7 @@ static void c_alloc(void) {
     OmegaGpuBufferHandle b; OmegaCpuView c; OmegaGpuVa v; OmegaGpuBusAddr bus = {1};
     EXPECT(p->dma_alloc(p->ctx, d, &dd, &b, &c, &v, &bus) == OMEGA_GPU_PLAT_OK);
     EXPECT((uint64_t)(uintptr_t)c.ptr == v.va && c.len == 8192 && (v.va & 0xffffu) == 0 && bus.iova == 0);
+    EXPECT(v.va >= (64ull << 30) && v.va + c.len <= (1ull << 40)); /* a GP entry carries 40 address bits */
     FakeObj *o = obj_at(v.va);
     EXPECT(o && o->mapped && o->size == 8192 && o->flags == AGPU_MEM_GPU_UNCACHED);
     EXPECT(!fk.bad_fixed_map);
@@ -424,8 +425,8 @@ static void c_session(void) {
     EXPECT(omega_gpu_session_alloc(10000, &m) == 0);
     EXPECT(m.cpu && (uint64_t)(uintptr_t)m.cpu == m.va && obj_at(m.va) && obj_at(m.va)->flags == AGPU_MEM_GPU_UNCACHED);
     omega_gpu_session_free(&m);
-    omega_gpu_session_close();
     omega_gpu_session_unlock();
+    omega_gpu_session_close(); /* takes the lock itself (docs/runtime/API.md) */
     uint32_t live = 0;
     for (uint32_t i = 0; i < fk.nobj; i++) live += fk.obj[i].live;
     EXPECT(live == 0 && fk.chan_live == 0 && fk.closes == fk.opens);
@@ -465,10 +466,12 @@ static const Case CASES[] = {
 int main(void) {
     int fails = 0;
     const unsigned n = sizeof CASES / sizeof CASES[0];
+    const char *only = getenv("AIEN_TEST_CASE");
     for (unsigned i = 0; i < n; i++) {
+        if (only && strcmp(only, CASES[i].name) != 0) continue;
         fflush(stdout);
         pid_t pid = fork();
-        if (pid == 0) { case_ok = 1; CASES[i].fn(); fflush(stdout); _exit(case_ok ? 0 : 1); }
+        if (pid == 0) { alarm(30); case_ok = 1; CASES[i].fn(); fflush(stdout); _exit(case_ok ? 0 : 1); }
         int st = 0;
         waitpid(pid, &st, 0);
         const int ok = WIFEXITED(st) && WEXITSTATUS(st) == 0;

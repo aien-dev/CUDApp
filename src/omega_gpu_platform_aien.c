@@ -22,9 +22,11 @@
 
 #define AIEN_BUFFERS (OMEGA_GPU_HANDLE_SLOTS - 2u) /* one slot each for the device and the queue */
 #define AIEN_PAGE 4096ull
-#define AIEN_VA_LIMIT (1ull << 48)
-#define AIEN_GSP_LO (4ull << 30)  /* [4 GiB, 4.5 GiB) belongs to GSP (aien_gpu_uapi.h, AGPU_MEM_ALLOC) */
-#define AIEN_GSP_HI (9ull << 29)
+/* Every buffer lives in [64 GiB, 1 TiB): a GPFIFO entry carries 40 address bits (GET 31:2, GET_HI 39:32;
+ * nvrm_gp_entry puts LEVEL at bit 41 and LENGTH at 42), and the kernel's own choice on arm64 is near 2^48. The
+ * window is below AGPU_MEM_ALLOC's 2^48 limit and above GSP's [4 GiB, 4.5 GiB). */
+#define AIEN_VA_BASE (64ull << 30)
+#define AIEN_VA_TOP (1ull << 40)
 #define AIEN_GP_MAX_WORDS 0x1fffffu /* LENGTH field, 21 bits */
 
 typedef struct {
@@ -46,6 +48,7 @@ typedef struct {
     int fd;
     OmegaGpuDeviceHandle dev; /* generation 0 = closed */
     OmegaGpuQueueHandle queue;
+    uint64_t va_next;        /* VA window cursor (mem_map) */
     uint32_t ring_index;     /* slot of the caller's BUF_QUEUE buffer (the pushbuffer) */
     AienMem fifo, notifier;  /* GPFIFO ring + USERD, error notifier */
     uint32_t channel, token;
@@ -152,19 +155,31 @@ static int mem_map(AienRef *r, uint64_t bytes, uint64_t align, uint32_t flags, A
     if (align < AIEN_PAGE) align = AIEN_PAGE;
     if (bytes == 0 || bytes > (1ull << 37)) { snprintf(r->err, sizeof r->err, "mem: %llu bytes", (unsigned long long)bytes); return -1; }
     const uint64_t size = (bytes + AIEN_PAGE - 1u) & ~(AIEN_PAGE - 1u);
-    const uint64_t span = size + align - AIEN_PAGE;
-    /* The kernel picks the range (a hint plus MAP_FIXED_NOREPLACE would only add a collision to handle). */
-    void *res = r->sys->map(NULL, (size_t)span, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
-    if (res == MAP_FAILED) { snprintf(r->err, sizeof r->err, "reserve %llu bytes of VA: %s", (unsigned long long)span, strerror(errno)); return -1; }
-    const uint64_t base = (uint64_t)(uintptr_t)res, va = (base + align - 1u) & ~(align - 1u);
-    if (va > base) (void)r->sys->unmap(res, (size_t)(va - base));
-    if (base + span > va + size) (void)r->sys->unmap((void *)(uintptr_t)(va + size), (size_t)(base + span - va - size));
-    if (va + size > AIEN_VA_LIMIT || (va < AIEN_GSP_HI && va + size > AIEN_GSP_LO)) {
-        (void)r->sys->unmap((void *)(uintptr_t)va, (size_t)size);
-        snprintf(r->err, sizeof r->err, "reserved VA 0x%llx+0x%llx is outside what AGPU_MEM_ALLOC accepts",
-                 (unsigned long long)va, (unsigned long long)size);
+    /* Reserve [va, va + size) in the window with MAP_FIXED_NOREPLACE, first fit from a moving cursor: a range taken by
+     * anything else in the process (EEXIST) is stepped over; the search wraps once. */
+    uint64_t va = 0;
+    const uint64_t start = (r->va_next < AIEN_VA_BASE || r->va_next >= AIEN_VA_TOP) ? AIEN_VA_BASE : r->va_next;
+    uint64_t at = (start + align - 1u) & ~(align - 1u);
+    for (int wrapped = 0;;) {
+        if (at + size > AIEN_VA_TOP) {
+            if (wrapped) break;
+            wrapped = 1; at = AIEN_VA_BASE;
+            continue;
+        }
+        if (wrapped && at >= start) break;
+        void *p = r->sys->map((void *)(uintptr_t)at, (size_t)size, PROT_NONE,
+                              MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE | MAP_FIXED_NOREPLACE, -1, 0);
+        if (p == (void *)(uintptr_t)at) { va = at; break; }
+        if (p != MAP_FAILED) (void)r->sys->unmap(p, (size_t)size); /* a kernel without NOREPLACE moved it */
+        else if (errno != EEXIST) break;
+        at = (at + size + align - 1u) & ~(align - 1u);
+    }
+    if (!va) {
+        snprintf(r->err, sizeof r->err, "no free %llu-byte range in VA window [0x%llx, 0x%llx): %s", (unsigned long long)size,
+                 (unsigned long long)AIEN_VA_BASE, (unsigned long long)AIEN_VA_TOP, strerror(errno));
         return -1;
     }
+    r->va_next = va + size;
     struct agpu_mem_alloc a;
     memset(&a, 0, sizeof a);
     a.size = size; a.va = va; a.flags = flags;

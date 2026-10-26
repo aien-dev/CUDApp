@@ -22,3 +22,9 @@ This software is licensed under the Apache License, Version 2.0 with LLVM
 Exceptions. The exception permits compiled object code derived from this
 software to be distributed under terms of the recipient's choosing, and
 resolves the GPLv2 patent/indemnity conflict described in the exception text.
+
+AIEN-GPU INTERFACE HEADER:
+third_party/aien-gpu-abi1/aien_gpu_uapi.h is the aien-gpu.ko user-space
+interface, copied unchanged from aien-gpu commit
+eab436b052d8cd92ec8d471bafe51e76c84b8b7b. It is licensed MIT OR GPL-2.0-only
+(its SPDX line), not under this repository's licence.
