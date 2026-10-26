@@ -66,6 +66,10 @@ Even the toolkit can change the answer. causal-conv1d records a "**numerical cor
 
 **CUDA++'s answer (row D2).** There is one version to match, and it is checked. CUDA++ uses no toolkit, no framework build and no extension build: the compiler, runtime and libraries are one repository at one commit, built by `make` with a C compiler. The only outside version is NVIDIA's kernel module, whose interface headers CUDA++ is built against (`third_party/nvidia-open-580.173.02/`). `make doctor` reads `/proc`, `/sys` and `/dev` (it opens no device) and prints one line per check; a wrong module version is refused with the reason and the fix, instead of failing later in a driver call. `make hello-gpu` runs the doctor first. Status: DONE (`evidence/dx/d2-doctor/`).
 
+This refusal is implemented in the doctor wrapper, not at the library device-open
+boundary. Direct binaries and library callers have no driver-version or PCI-ID
+admission guard; `make hello-gpu` is the guarded wrapper path.
+
 ### 2.3 Errors reported late, at the wrong call (rank 3)
 
 **What happens.** CUDA launches are asynchronous: "When you call a function that uses the GPU, the operations are enqueued to the particular device, but not necessarily executed until later."[46] So a bad memory access in one kernel is reported by some later, unrelated call: "an illegal memory access was encountered ... might be asynchronously reported at some other API call". vLLM's maintainers wrote: "In our experience the python stack traces for these types of exceptions are basically always incorrect and pretty worthless."[45] And: "Have you ever felt you are developing cuda kernels and your tests often run into illegal memory access (IMA for short) and you have no idea how to debug?"[45]
@@ -104,7 +108,7 @@ The workarounds can be worse than the error. In Triton's sm_121 issue: "Those \"
 
 **Why people stay.** The wait is weeks or months, and then it works. On the Spark forum: "It took several weeks of community effort here to get vllm working reasonably well, in both standalone and cluster configuration."[28] From the Spark Reddit thread: "Very frustrating compared to most every other GPU release that has zero day support from cuda/nvcc/pytorch/tensorflow."[88]
 
-**CUDA++'s answer (row D6).** CUDA++ writes each chip's machine code itself, so it knows exactly which chips it has run on: a table of qualified chips, each with its receipt. A chip in the table works. Any other NVIDIA GPU is refused by `make doctor`, by name and PCI id, with what is missing (a target row, an encoder check, the launch descriptor and class numbers, a qualification run) and what to do (the porting steps in `docs/runtime/PORTABILITY.md` section 5). Nothing loads code built for a different chip, and nothing is cached across chips. CUDA is better here today in one way: it runs on many chips; CUDA++ runs on one (section 4). Status: DONE for the refusal (`evidence/dx/d2-doctor/fake-machines.txt`).
+**CUDA++'s answer (row D6).** CUDA++ targets sm_121 and keeps a supported-target table. `make doctor` refuses other NVIDIA GPUs by name and PCI id, with what is missing and the porting steps in `docs/runtime/PORTABILITY.md` section 5. `make hello-gpu` invokes it first. Direct binaries and library callers have no PCI-ID admission guard, so this is wrapper-only refusal, not a guarantee against loading code on a different chip. A target row does not prove current qualification; the imported M16 summary's raw logs are absent (README evidence limitation). Status: DONE for the doctor refusal (`evidence/dx/d2-doctor/fake-machines.txt`); current native qualification NOT_RUN.
 
 ### 2.6 Different answers from the same inputs (rank 6)
 

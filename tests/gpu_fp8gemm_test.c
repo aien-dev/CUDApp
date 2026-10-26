@@ -329,6 +329,10 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--no-evict") == 0) g_evict = 0;
         else { printf("unknown argument %s\n", argv[i]); return 2; }
     }
+    Shape shapes[] = { { "gateup", 128, 1536, 2048, tokens, 8 }, { "down", 128, 2048, 768, tokens, 8 }, { "qkv", 1, 5120, 2048, tokens, 1 }, { "o", 1, 2048, 4096, tokens, 1 }, { "d768", 1, 2048, 768, tokens, 1 } };
+    unsigned selected = 0;
+    for (unsigned i = 0; i < 5; i++) if ((!strcmp(shape, "all") && i < 4) || !strcmp(shape, shapes[i].name)) selected++;
+    if (!selected) { fprintf(stderr, "gpu_fp8gemm_test: INVALID shape '%s'\n", shape); return 2; }
     if (host) host_only();
     if (sim) sim_battery();
     if (!host && !sim) {
@@ -336,11 +340,11 @@ int main(int argc, char **argv) {
         if (ctas) omega_gpu_fp8gemm_set_cta_budget(ctas);
         (void)omega_gpu_session_set_spin_us(spin);
         if (out_path) { g_out = fopen(out_path, "w"); if (g_out) fprintf(g_out, "{\"receipt\":\"OMEGA_GPU_FP8GEMM_V1\",\"reps\":%u,\"evict\":%d,\"tokens\":%u,\"spin_us\":%u,\"points\":[", reps ? reps : 1, g_evict, tokens, omega_gpu_session_spin_us()); }
-        Shape shapes[] = { { "gateup", 128, 1536, 2048, tokens, 8 }, { "down", 128, 2048, 768, tokens, 8 }, { "qkv", 1, 5120, 2048, tokens, 1 }, { "o", 1, 2048, 4096, tokens, 1 }, { "d768", 1, 2048, 768, tokens, 1 } };
         for (unsigned i = 0; i < 5; i++) if ((!strcmp(shape, "all") && i < 4) || !strcmp(shape, shapes[i].name)) run_shape(&shapes[i], reps ? reps : 1, 1000 + i);
-        if (g_out) { fprintf(g_out, "],\"checks\":%d,\"failed\":%d,\"verdict\":\"%s\"}\n", g_checks, g_failed, g_failed ? "FAIL" : "PASS"); fclose(g_out); }
+        if (g_out) { fprintf(g_out, "],\"checks\":%d,\"failed\":%d,\"verdict\":\"%s\"}\n", g_checks, g_failed, !g_checks ? "NOT_RUN" : g_failed ? "FAIL" : "PASS"); fclose(g_out); }
         omega_gpu_session_close();
     }
+    if (!g_checks) { fprintf(stderr, "gpu_fp8gemm_test: NOT_RUN (no checks executed)\n"); return 2; }
     printf("gpu_fp8gemm_test: %d checks, %d failed: %s\n", g_checks, g_failed, g_failed ? "FAIL" : "PASS");
     return g_failed ? 1 : 0;
 }
