@@ -1,10 +1,19 @@
 <p align="center">
-  <img src="docs/img/hero.svg" width="100%" alt="CUDA++: my own path from a program to an NVIDIA GPU. On the right, the 32 instructions of the first kernel CUDA++ ran, drawn bit by bit from src/omega_blackwell_encoder.c.">
+  <img src="docs/img/hero.svg" width="100%" alt="CUDA++ for the NVIDIA DGX Spark (GB10, sm_121): my own path from a program to the GPU. On the right, the 32 instructions of the first kernel CUDA++ ran, drawn bit by bit from src/omega_blackwell_encoder.c.">
 </p>
 
-# CUDA++
+# CUDA++ for the NVIDIA DGX Spark
 
-**CUDA++ is the GPU half of the Omega runtime. First-party CUDA++ material in this revision is licensed under Apache-2.0 WITH LLVM-exception.** You write a GPU program, CUDA++ turns it into the GPU's own machine code and runs it on an NVIDIA GPU, with no NVIDIA user-space software anywhere: no CUDA toolkit, no `nvcc`, no PTX, no `libcuda`, no cuBLAS.
+**CUDA++ for the NVIDIA DGX Spark (GB10, sm_121). It is the GPU half of the Omega runtime. First-party CUDA++ material in this revision is licensed under Apache-2.0 WITH LLVM-exception.** You write a GPU program, CUDA++ turns it into the GB10's own machine code and runs it on the Spark's GPU, with no NVIDIA user-space software anywhere: no CUDA toolkit, no `nvcc`, no PTX, no `libcuda`, no cuBLAS.
+
+> **Who this is for, and what hardware**
+>
+> | | |
+> |---|---|
+> | **Supported** | The NVIDIA DGX Spark. Its GB10 Grace Blackwell chip (GPU compute capability sm_121, PCI id `10de:2e12`) is the only GPU CUDA++ has machine code for. |
+> | **Other GB10 systems** | Not run. CUDA++ recognises the GPU by its PCI id, not by the system maker, so another GB10 system with the same kernel module is the same target to the code. Nobody has run CUDA++ on one. |
+> | **You need** | Linux on the Spark's ARM CPU (aarch64). NVIDIA's open kernel module, version 580.173.02: `make doctor` and `make hello-gpu` refuse another version, and `/dev/nvidiactl`, `/dev/nvidia0` and `/dev/nvidia-uvm` must exist. NVIDIA's signed GSP firmware, which that module loads into the GPU. `git`, `make` and a C compiler. No CUDA toolkit. |
+> | **Not supported** | Other NVIDIA GPUs: PLANNED, not supported. A target row for the RTX 5070 (sm_120) exists on branch `rig/gb20x`, built from public sources and never run on that chip ([portability](docs/runtime/PORTABILITY.md)). AMD and Intel GPUs: not CUDA++ targets. Unmodified CUDA applications: not supported; a CUDA++ program calls CUDA++'s C kernel builder, and CUDA++ does not compile CUDA C++ or PTX. |
 
 > **Licensing status:** This revision uses Apache-2.0 WITH LLVM-exception for first-party material. For the historical MIT version, use [`232332422bfdc31c8918085b50f13c1e18ab702e`](https://github.com/aien-dev/CUDApp/tree/232332422bfdc31c8918085b50f13c1e18ab702e). The old MIT grant and third-party notices are preserved. See [the transition and provenance audit](docs/LICENSING_TRANSITION.md).
 
