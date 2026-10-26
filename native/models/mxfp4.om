@@ -24,7 +24,8 @@ end
 expo = sub long scale 1
 frac = uint 0
 if ge mag 2
-expo = add expo long shr mag 1
+t = shr mag 1
+expo = add expo long t
 frac = shl and mag 1 22
 end
 if ge expo 255
