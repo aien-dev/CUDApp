@@ -1,1 +1,24 @@
-{"schema_version":"1.0.0","name":"device-trace","purpose":"Proposed bounded trace wire contract and reproduction instructions for the host reference in native/blackwell/trace.om.","invariants":["Host and oracle evidence is not GPU qualification.","The existing qualified vector emitter and launcher remain unchanged.","Wire IDs require an external exact provenance manifest."]}
+{
+  "extensions": {
+    "generated": {
+      "children": [],
+      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiled_at": "2026-10-26T14:55:27Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:005e6ccd61da5aa7c8b3797dfc572dc3ade749a8d8bb166089bb7edaca41883f",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 3,
+      "generated_at_commit": "418c1d44aba2422911c63a79592ab057a491a096",
+      "source_tree": "sha256:1e1fc133b008d83ee3456b38859015f5e0d2ade5d8f5dfbe0c6e7594256499f0"
+    }
+  },
+  "invariants": [
+    "Host and oracle evidence is not GPU qualification.",
+    "The existing qualified vector emitter and launcher remain unchanged.",
+    "Wire IDs require an external exact provenance manifest."
+  ],
+  "name": "device-trace",
+  "purpose": "Proposed bounded trace wire contract and reproduction instructions for the host reference in native/blackwell/trace.om.",
+  "schema_version": "1.0.0"
+}
