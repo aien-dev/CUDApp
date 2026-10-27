@@ -206,7 +206,7 @@ else
     LC_ALL=C sort -u "$SURF/fns.raw" > "$SURF/fns.txt"
     cat "$SURF/fns.txt" "$SURF/consts.txt" | LC_ALL=C sort -u > "$SURF/surface.txt"
     awk '{ sub(/#.*/, ""); if ($1 == "fn" || $1 == "const") print $1 " " $2 }' "$MANIFEST" | LC_ALL=C sort -u > "$SURF/manifest.txt"
-    awk '{ raw = $0; line = raw; sub(/#.*/, "", line); n = split(line, w, /[ \t]+/); if (line ~ /^[ \t]*$/) next
+    awk '{ raw = $0; line = raw; sub(/#.*/, "", line); n = split(line, w); if (n == 0) next
       if ((w[1] != "fn" && w[1] != "const") || n != 2) { print "FAIL: INTERNAL list line is not `fn NAME # reason` or `const NAME # reason`: " raw > "/dev/stderr"; next }
       if (raw !~ /#[ \t]*[^ \t]/) { print "FAIL: INTERNAL entry " w[1] " " w[2] " gives no reason" > "/dev/stderr"; next }
       print w[1] " " w[2] }' "$INTERNAL" 2> "$SURF/internal.err" | LC_ALL=C sort > "$SURF/internal.txt"
