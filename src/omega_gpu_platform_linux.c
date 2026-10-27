@@ -425,7 +425,6 @@ static int ref_queue_submit(void *ctx, OmegaGpuQueueHandle q, const uint32_t *wo
         ref_unlock(r);
         return rc;
     }
-    }
     /* omega #457: a host sync into a GPU-cached buffer is pending, so this submission starts with L2_INVAL_PREFIX.
      * No dirty line is dropped: every earlier submission ended with L2_FLUSH_DIRTY and the host waited for it.
      * DOCS SILENT on ordering between this MEM_OP and the launch that follows (no WFI is inserted); the chip gate
