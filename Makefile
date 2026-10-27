@@ -25,7 +25,7 @@ CFLAGS ?= -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc \
 -include mk/*.mk
 
 # sm_121 instruction encoder (CUDApp#79): om (default) = om/encoder/bw_enc_sm121.om through the generated binding
-# src/omega_om_units.c; c = the migration-pending C encoder, the differential oracle; diff = both on every call,
+# src/cudapp_om_units.c; c = the migration-pending C encoder, the differential oracle; diff = both on every call,
 # abort on any difference (mk/om-encoder.mk). Use a separate OUT_DIR per value.
 CUDAPP_ENCODER ?= om
 CUDAPP_ENCODER_DEFS_om :=
@@ -40,7 +40,7 @@ endif
 # binding of the seeded Omega units (om/units.sh).
 SRCS := $(sort $(wildcard src/omega_blackwell_*.c src/omega_gpu_*.c)) \
 	src/omega_cubin.c src/omega_native_artifact.c src/omega_sm121_disasm.c \
-	src/sha256.c src/omega_canonical.c src/omega_core.c src/omega_vector.c src/omega_om_units.c \
+	src/sha256.c src/omega_canonical.c src/omega_core.c src/omega_vector.c src/cudapp_om_units.c \
 	$(PHYSICS_DIR)/m16/m16_native.c $(PHYSICS_DIR)/nvrm/nvrm.c
 OBJS = $(patsubst %.c,$(OUT_DIR)/%.o,$(notdir $(SRCS)))
 DEPS = $(OBJS:.o=.d)
@@ -86,7 +86,7 @@ test-native-artifact: $(ARTIFACT_EXPORT) $(ARTIFACT_TEST)
 	./$(ARTIFACT_TEST) $(OUT_DIR)/artifact-test
 # Pure artifact-format boundary: portable host test, no driver or device objects.
 .PHONY: test-native-artifact-manifest
-$(OUT_DIR)/native_artifact_manifest_test: tests/native_artifact_manifest_test.c src/omega_native_artifact.c src/omega_cubin.c src/omega_blackwell_realize.c src/sha256.c src/omega_om_units.c | $(OUT_DIR)
+$(OUT_DIR)/native_artifact_manifest_test: tests/native_artifact_manifest_test.c src/omega_native_artifact.c src/omega_cubin.c src/omega_blackwell_realize.c src/sha256.c src/cudapp_om_units.c | $(OUT_DIR)
 	$(CC) $(CFLAGS) -ffunction-sections -fdata-sections -Wl,--gc-sections -o $@ $^ -lpthread
 test-native-artifact-manifest: $(OUT_DIR)/native_artifact_manifest_test
 	./$(OUT_DIR)/native_artifact_manifest_test
