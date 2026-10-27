@@ -17,6 +17,10 @@
  *   ./gpu_fp8_api_test --grouped-cold     CUT5: the decode graph's two expert launches (gate_up 8 of 128 x 1536 x 2048,
  *                                           down 8 of 128 x 2048 x 768) with L2 defeated by rotating 16 disjoint expert
  *                                           sets; parity on every timed launch; mutants 1..4; GB/s and fraction of 237.2
+ *   ./gpu_fp8_api_test --grid-ab "0:0,0:0,5:0,16:16" --reps R --seed S
+ *                                         A1: interleaved A/B of the grouped launch's CTAs per group : warps per CTA (0 = the
+ *                                           default) at the 35B expert shapes, o_proj as the must-not-move control; every
+ *                                           list bit-identical to arm 0; one GAB JSON line per GPU-stamped list
  *   knobs: --lane-bytes N --rows N --warps N --cta-budget N --reps N --spin-us N
  *   CUT5 variants: --coal 0|1 (A, coalesced output; default 1, AIEN_OMEGA_FP8_COAL=0 turns it off; --coal-default checks that) --wfirst 0|1 (B, weights before x); FP8_SIM_ALL_ORDERS=1 runs every
  *   simulated kernel in four warp orders (coal kernels always do)
@@ -981,6 +985,136 @@ static void cold_points(FILE *out, uint32_t reps, int *first) {
     }
 }
 
+/* --grid-ab "C:W,C:W,..." --reps R --seed S (A1 expert-grid, DecodeKernels 2026-10-27): the interleaved A/B of the grouped
+ * launch's CTAs per group (C, 0 = the default rule) and warps per CTA (W, 0 = the default 32) at the Qwen3.6-35B-A3B
+ * decode shapes: gate_up 9 of 144 x 1024 x 2048 (one x row), down 9 of 144 x 2048 x 512 (one x row per group); 144 =
+ * 16 disjoint sets of 9, so a set returns only after 15 others (gate_up 302 MB in between, L2 24 MiB). Negative control:
+ * o_proj 1 of 16 x 2048 x 4096 runs in every arm at the defaults (the arms touch grouped launches only) and must not move.
+ * One sample = one GPU-stamped list of LIST_N launches (PCAS, WFI barrier, the decode graph's); its value is the mean
+ * launch time (stamp[LIST_N] - stamp[0]) / LIST_N. Arm 0 is the reference: its first list is checked against the double
+ * oracle; every later list of every arm must equal it bit for bit (a mismatch voids the run). The schedule is a seeded
+ * shuffle of arms x shapes x reps. One JSON line per sample with CLOCK_REALTIME bounds for the 18091 in_flight tag. */
+typedef struct { uint32_t ctas, warps; } GridArm;
+static uint64_t real_ns(void) { struct timespec t; clock_gettime(CLOCK_REALTIME, &t); return (uint64_t)t.tv_sec * 1000000000ull + (uint64_t)t.tv_nsec; }
+static void grid_arm_apply(const GridArm *a, int grouped) {
+    omega_gpu_fp8_set_cta_budget(grouped ? a->ctas : 0u);
+    omega_gpu_fp8_set_shape(0u, 0u, grouped ? a->warps : 0u);
+}
+typedef struct { ChipPoint p; Weights W; OmegaGpuFp8Tensor *t; uint32_t perm[144]; float *x; OmegaGpuMem tab, xd, yd; float *ref; } GridShape;
+static int grid_list(GridShape *s, OmegaGpuCmdList *cl, uint64_t *mean_ns, uint64_t *med_ns, OmegaGpuFp8Info *info) {
+    const size_t ny = (size_t)s->p.groups * s->p.n;
+    float *y = s->yd.cpu; for (size_t i = 0; i < (size_t)LIST_N * ny; i++) y[i] = -999.0f;
+    if (omega_gpu_session_sync_to_gpu(&s->yd) != 0) return -1;
+    /* one untimed host call at this configuration: builds the kernel and reports its grid */
+    if (omega_gpu_fp8_gemv_grouped_f32(s->t, s->p.groups, s->perm, s->x, s->p.x_rows, y, info) != OMEGA_GPU_FP8_OK) return -1;
+    for (size_t i = 0; i < ny; i++) y[i] = -999.0f;
+    if (omega_gpu_session_sync_to_gpu(&s->yd) != 0) return -1;
+    omega_gpu_session_lock();
+    omega_gpu_cmdlist_reset(cl); int ok = 1;
+    for (uint32_t i = 0; i < LIST_N && ok; i++)
+        if (omega_gpu_fp8_gemv_grouped_record(cl, s->t, s->p.groups, s->tab.va + (uint64_t)(i % 16u) * s->p.groups * 16u, s->xd.va, s->p.x_rows, s->yd.va + (uint64_t)i * ny * 4u) != 0) ok = 0;
+    OmegaGpuCmdListOpts o; memset(&o, 0, sizeof o); o.mode = OMEGA_GPU_CMDLIST_PCAS; o.barrier = OMEGA_GPU_CMDLIST_BARRIER_WFI; o.stamps = 1;
+    OmegaGpuCmdListStats cs; memset(&cs, 0, sizeof cs);
+    uint64_t sts[LIST_N + 1]; int cnt = -1;
+    if (ok && omega_gpu_cmdlist_submit(cl, &o, &cs) != 0) ok = 0;
+    if (ok) cnt = omega_gpu_cmdlist_stamps(cl, sts, LIST_N + 1);
+    omega_gpu_session_unlock();
+    if (!ok || cnt != (int)LIST_N + 1 || cs.sems_done != LIST_N) { printf("grid list %s: %s (stamps %d sems_done %u)\n", s->p.name, omega_gpu_fp8_last_error(), cnt, cs.sems_done); return -1; }
+    if (omega_gpu_session_sync_to_cpu(&s->yd) != 0) return -1;
+    uint64_t el[LIST_N]; for (uint32_t i = 0; i < LIST_N; i++) el[i] = sts[i + 1] - sts[i];
+    qsort(el, LIST_N, sizeof *el, cmp_u64);
+    *mean_ns = (sts[LIST_N] - sts[0]) / LIST_N; *med_ns = el[LIST_N / 2];
+    return 0;
+}
+static int grid_ab(const char *arms_csv, uint32_t reps, uint32_t seed) {
+    GridArm arms[16]; uint32_t na = 0;
+    for (const char *q = arms_csv; *q && na < 16;) {
+        char *e; arms[na].ctas = (uint32_t)strtoul(q, &e, 10);
+        if (*e != ':') { printf("bad --grid-ab list (C:W,...)\n"); return 2; }
+        arms[na].warps = (uint32_t)strtoul(e + 1, &e, 10); na++; q = e;
+        if (*q == ',') q++; else if (*q) { printf("bad --grid-ab list (C:W,...)\n"); return 2; }
+    }
+    if (na < 2) { printf("--grid-ab needs at least two arms\n"); return 2; }
+    static GridShape S[3];
+    const ChipPoint pts[3] = {
+        { 144, 1024, 2048, 9, 1, "q36 gate_up 9 of 144", 1 },
+        { 144, 2048, 512, 9, 9, "q36 down 9 of 144", 1 },
+        { 16, 2048, 4096, 1, 1, "q36 o_proj 1 of 16 (neg)", 1 },
+    };
+    OmegaGpuCmdList *cl = NULL;
+    if (omega_gpu_cmdlist_create(LIST_N, &cl) != 0) { printf("cmdlist create: %s\n", omega_gpu_session_last_error()); return 1; }
+    int ok = 1;
+    for (uint32_t si = 0; si < 3 && ok; si++) {
+        GridShape *s = &S[si]; s->p = pts[si];
+        const uint32_t STR = s->p.experts / 16u;
+        weights_make(&s->W, s->p.experts, s->p.n, s->p.k, 9300 + si);
+        uint32_t st = 5150 + si;
+        for (uint32_t e = 0; e < s->p.experts; e++) s->perm[e] = e;
+        for (uint32_t e = s->p.experts - 1u; e > 0; e--) { uint32_t j = lcg(&st) % (e + 1); uint32_t t = s->perm[e]; s->perm[e] = s->perm[j]; s->perm[j] = t; }
+        s->x = malloc((size_t)s->p.x_rows * s->p.k * 4); for (size_t j = 0; j < (size_t)s->p.x_rows * s->p.k; j++) s->x[j] = frand(&st, -1.0f, 1.0f);
+        const size_t ny = (size_t)s->p.groups * s->p.n;
+        if (omega_gpu_fp8_tensor_upload(s->p.experts, s->p.n, s->p.k, s->W.w, s->W.s, &s->t) != OMEGA_GPU_FP8_OK) { printf("upload %s: %s\n", s->p.name, omega_gpu_fp8_last_error()); ok = 0; break; }
+        omega_gpu_session_lock();
+        int arc = omega_gpu_session_alloc((size_t)16u * s->p.groups * 16u, &s->tab) | omega_gpu_session_alloc((size_t)s->p.x_rows * s->p.k * 4u, &s->xd) | omega_gpu_session_alloc((size_t)LIST_N * ny * 4u, &s->yd);
+        omega_gpu_session_unlock();
+        if (arc) { printf("alloc %s: %s\n", s->p.name, omega_gpu_session_last_error()); ok = 0; break; }
+        uint64_t *tw = s->tab.cpu;
+        for (uint32_t r = 0; r < 16u && ok; r++) for (uint32_t g = 0; g < s->p.groups; g++)
+            if (omega_gpu_fp8_tensor_entry(s->t, s->perm[STR * r + g], &tw[2u * (r * s->p.groups + g)], &tw[2u * (r * s->p.groups + g) + 1u]) != 0) ok = 0;
+        for (uint32_t r = 0; r < s->p.x_rows; r++) omega_fp8_pack_x_f32(s->x + (size_t)r * s->p.k, s->p.k, (float *)s->xd.cpu + (size_t)r * s->p.k);
+        if (!ok || omega_gpu_session_sync_to_gpu(&s->tab) != 0 || omega_gpu_session_sync_to_gpu(&s->xd) != 0) { ok = 0; break; }
+        /* reference: arm 0's first list, every launch against the double oracle */
+        grid_arm_apply(&arms[0], s->p.groups > 1u);
+        uint64_t mn, md; OmegaGpuFp8Info info;
+        if (grid_list(s, cl, &mn, &md, &info) != 0) { ok = 0; break; }
+        size_t bad = 0; double worst = 0.0;
+        for (uint32_t i = 0; i < LIST_N; i++) { size_t b = 0; double w = parity(&s->W, s->p.groups, s->perm + STR * (i % 16u), s->x, s->p.x_rows, (float *)s->yd.cpu + (size_t)i * ny, &b); bad += b; if (w > worst) worst = w; }
+        CHECK(bad == 0, "grid-ab %s reference list (arm 0 %u:%u) vs the double oracle: %zu elements off, worst_rel %.3e", s->p.name, arms[0].ctas, arms[0].warps, bad, worst);
+        printf("grid-ab reference %-26s arm 0 grid %ux%u warps %u depth %u: %zu off the oracle, worst_rel %.3e\n", s->p.name, info.grid_x, info.grid_y, info.warps_per_cta, info.depth, bad, worst);
+        s->ref = malloc((size_t)LIST_N * ny * 4); memcpy(s->ref, s->yd.cpu, (size_t)LIST_N * ny * 4);
+        if (bad) ok = 0;
+    }
+    if (ok && g_evict) evict_host_caches(); /* uploads are served from the CPU caches until evicted (g_evict note) */
+    const uint32_t ns = na * 3u * reps; uint32_t *sched = malloc((size_t)ns * 4), sd = seed, wrong = 0, done = 0;
+    for (uint32_t i = 0; i < ns; i++) sched[i] = i % (na * 3u);
+    for (uint32_t i = ns - 1; i > 0; i--) { uint32_t j = lcg(&sd) % (i + 1), t = sched[i]; sched[i] = sched[j]; sched[j] = t; }
+    for (uint32_t i = 0; i < ns && ok; i++) {
+        const uint32_t a = sched[i] / 3u, si = sched[i] % 3u; GridShape *s = &S[si];
+        const size_t ny = (size_t)s->p.groups * s->p.n;
+        grid_arm_apply(&arms[a], s->p.groups > 1u);
+        uint64_t mn = 0, md = 0; OmegaGpuFp8Info info; memset(&info, 0, sizeof info);
+        const uint64_t t0 = real_ns();
+        const int rc = grid_list(s, cl, &mn, &md, &info);
+        const uint64_t t1 = real_ns();
+        const int exact = rc == 0 && memcmp(s->yd.cpu, s->ref, (size_t)LIST_N * ny * 4) == 0;
+        if (!exact) wrong++;
+        printf("GAB {\"i\":%u,\"arm\":%u,\"ctas\":%u,\"warps\":%u,\"shape\":%u,\"grid_x\":%u,\"grid_y\":%u,\"warps_per_cta\":%u,\"mean_ns\":%" PRIu64 ",\"med_ns\":%" PRIu64 ",\"t0_ns\":%" PRIu64 ",\"t1_ns\":%" PRIu64 ",\"exact\":%d}\n",
+               i, a, arms[a].ctas, arms[a].warps, si, info.grid_x, info.grid_y, info.warps_per_cta, mn, md, t0, t1, exact);
+        done++;
+        if (!exact) { printf("grid-ab sample %u (%s, arm %u %u:%u): %s\n", i, s->p.name, a, arms[a].ctas, arms[a].warps, rc ? omega_gpu_fp8_last_error() : "outputs differ from the arm-0 reference"); break; }
+    }
+    CHECK(ok && wrong == 0 && done == ns, "grid-ab: %u of %u samples ran, %u not bit-identical to arm 0 (a mismatch voids the run)", done, ns, wrong);
+    grid_arm_apply(&(GridArm){ 0u, 0u }, 0);
+    /* the bit check must be able to say no: mutant 1 (scale dropped) at arm 1 must differ from the reference */
+    if (ok) {
+        GridShape *s = &S[0]; uint64_t mn, md; OmegaGpuFp8Info info;
+        grid_arm_apply(&arms[1], 1); omega_gpu_fp8_test_set_mutant(1);
+        const int rc = grid_list(s, cl, &mn, &md, &info);
+        const int caught = rc != 0 || memcmp(s->yd.cpu, s->ref, (size_t)LIST_N * s->p.groups * s->p.n * 4) != 0;
+        CHECK(caught, "grid-ab mutant 1 at arm 1 must differ from the reference");
+        printf("grid-ab mutant 1 at arm 1 (%u:%u) %s: %s\n", arms[1].ctas, arms[1].warps, s->p.name, caught ? "caught (outputs differ)" : "NOT CAUGHT");
+        omega_gpu_fp8_test_set_mutant(0); grid_arm_apply(&(GridArm){ 0u, 0u }, 0);
+    }
+    for (uint32_t si = 0; si < 3; si++) {
+        GridShape *s = &S[si];
+        omega_gpu_session_lock(); omega_gpu_session_free(&s->tab); omega_gpu_session_free(&s->xd); omega_gpu_session_free(&s->yd); omega_gpu_session_unlock();
+        if (s->t) omega_gpu_fp8_tensor_free(s->t);
+        free(s->x); free(s->ref); if (s->W.w) weights_free(&s->W);
+    }
+    omega_gpu_cmdlist_free(cl); free(sched);
+    return g_failed ? 1 : 0;
+}
+
 static int chip_run(const char *out_path, uint32_t reps) {
     FILE *out = out_path ? fopen(out_path, "w") : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 1; }
@@ -1117,7 +1251,7 @@ static void rule_checks(void) {
 
 int main(int argc, char **argv) {
     rule_checks();
-    int host = 0, sim = 0; const char *out_path = NULL; uint32_t reps = 20, lb = 0, rows = 0, warps = 0, budget = 0, spin = 2000, depth = 0; int depth_set = 0;
+    int host = 0, sim = 0; const char *out_path = NULL, *grid_arms = NULL; uint32_t reps = 20, lb = 0, rows = 0, warps = 0, budget = 0, spin = 2000, depth = 0, seed = 1; int depth_set = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--host-only") == 0) host = 1;
         else if (strcmp(argv[i], "--sim") == 0) sim = 1;
@@ -1143,6 +1277,8 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--grouped-cold") == 0) g_cold = 1; /* CUT5: the two decode expert launches, 8 of 128, L2 defeated */
         else if (strcmp(argv[i], "--cold-single") == 0) g_cold = 2;  /* SPEED-1B: the two single projections qkv / o_proj, L2 defeated */
         else if (strcmp(argv[i], "--dump-stamps") == 0) g_dump_stamps = 1;
+        else if (strcmp(argv[i], "--grid-ab") == 0 && i + 1 < argc) grid_arms = argv[++i]; /* A1: interleaved grouped-grid A/B, "C:W,..." */
+        else if (strcmp(argv[i], "--seed") == 0 && i + 1 < argc) seed = (uint32_t)strtoul(argv[++i], NULL, 0);
         else { printf("unknown argument %s\n", argv[i]); return 2; }
     }
     if (host) host_only();
@@ -1152,7 +1288,7 @@ int main(int argc, char **argv) {
         if (budget) omega_gpu_fp8_set_cta_budget(budget);
         if (depth_set) { omega_gpu_fp8_set_depth(1, depth); g_depth_forced = 1; }
         (void)omega_gpu_session_set_spin_us(spin);
-        chip_run(out_path, reps ? reps : 1);
+        if (grid_arms) grid_ab(grid_arms, reps ? reps : 1, seed); else chip_run(out_path, reps ? reps : 1);
         omega_gpu_session_close();
     }
     printf("gpu_fp8_api_test: %d checks, %d failed: %s\n", g_checks, g_failed, g_failed ? "FAIL" : "PASS");
