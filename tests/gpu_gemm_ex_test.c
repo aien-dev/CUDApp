@@ -559,6 +559,34 @@ static void fp8_fill(uint8_t *w, float *s, uint16_t *s16, size_t nw, size_t ns, 
     }
 }
 
+/* Regression (DnnGpu, 2026-10-27, omega-dnn tests/test_gpu.py:472-489; GB10 receipt omega-dnn evidence/GPU-b28372d1/gemm.log):
+ * bf16 native 1 x 1 x 1808, a = [1, t x 1807] with t = 0x1.fcp-26, b = 1. Every 16-product group of t is truncated away
+ * against the accumulator 1, so the chip and the HMMA model both return exactly 0x1p+0 while ref = 1 + 1807 t. The error
+ * exceeds the old flat 2^-22-per-step bound and must stay inside the compounding bound of step_c(). */
+static void adv_k1808(const char *tier) {
+    enum { K = 1808 };
+    static uint16_t a[K], b[K];
+    const float t = 0x1.fcp-26f;
+    double ref = 0;
+    for (unsigned i = 0; i < K; i++) { a[i] = bf16_bits(i ? t : 1.0f); b[i] = bf16_bits(1.0f); ref += i ? (double)t : 1.0; }
+    float c = -1.0f;
+    OmegaGemmExInfo info;
+    OmegaGemmExArgs x;
+    memset(&x, 0, sizeof x);
+    x.op_a = OMEGA_GEMM_OP_N; x.op_b = OMEGA_GEMM_OP_N; x.m = 1; x.n = 1; x.k = K; x.batch = 1;
+    x.a_type = OMEGA_GEMM_DT_BF16; x.b_type = OMEGA_GEMM_DT_BF16; x.c_type = OMEGA_GEMM_DT_F32;
+    x.a = a; x.lda = K; x.b = b; x.ldb = 1; x.c = &c; x.ldc = 1; x.alpha = 1.0f; x.beta = 0.0f; x.info = &info;
+    const int rc = omega_gpu_gemm_ex(&x);
+    const uint64_t steps = (K + 15u) / 16u + 2u; /* + one 1808 part + one 16384 part */
+    const double err = fabs((double)c - ref), old_bound = ((double)steps + 4.0) * 0x1p-22 * ref;
+    const double bound = step_growth(steps + 4u, STEP_C_HMMA) * ref + 0x1p-24 * ref;
+    char w[300];
+    snprintf(w, sizeof w, "%s adversarial bf16 K=1808 (DnnGpu): rc %s, got %a (want 0x1p+0), err %.4g, old flat bound %.4g (must be exceeded), bound %.4g",
+             tier, omega_gpu_gemm_rc_name(rc), (double)c, err, old_bound, bound);
+    check(rc == 0 && c == 1.0f && err > old_bound && err <= bound, w);
+    printf("%s\n", w);
+}
+
 /* the raw entry omega_gpu_gemm_ex_fp8_block_rows on the installed core: refused-before shapes, row independence, mutant 5 */
 static void fp8_rows_tier(const char *tier) {
     static const Fp8Shape sh[] = {
@@ -758,6 +786,7 @@ static void host_tier(void) {
     printf("%s\n", w);
     ex_mutants("host");
     fp8_rows_tier("host");
+    adv_k1808("host");
 }
 
 static void sim_tier(void) {
@@ -823,6 +852,7 @@ static void chip_tier(int quick, uint32_t part, uint32_t parts) {
         for (int i = 0; i < ne; i++) run_case(&e[i], 0, NULL, NULL, NULL);
         ex_mutants("chip");
         fp8_rows_tier("chip");
+        adv_k1808("chip");
         fp8_api_chip();
         /* the kernel mutants on the chip */
         static const struct { unsigned t; int mu; Case c; } km[] = {
