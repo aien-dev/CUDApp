@@ -1,0 +1,6 @@
+# explore3 start 2026-10-27T05:15:26Z load 6.73 6.25 6.61 11/2035 3689580
+# health before: {"busy":false,"concurrency":8,"engine":"omega-qwen36-batch","in_flight":0,"model":"qwen3.6-35b-a3b-fp8","status":"ok","uptime_s":4698}
+# compute apps before: 79557, ./aien-serve-http;
+# exit 0 end 2026-10-27T05:17:28Z
+# health after: {"busy":false,"concurrency":8,"engine":"omega-qwen36-batch","in_flight":0,"model":"qwen3.6-35b-a3b-fp8","status":"ok","uptime_s":4819}
+# compute apps after: 79557, ./aien-serve-http;

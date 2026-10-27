@@ -1,0 +1,83 @@
+e0d544220f67b7306883491310848591f5f2407c920b997124eabb032729bd1b  /home/drakestapleton/handoffs/GemmTune/AB-PLAN.md
+4d0713f5a7c7cf3ff62b72855321f3a26704dff0668ba27483c6d8dc65741a48  /home/drakestapleton/handoffs/GemmTune/gemm_ab.c
+# arm A 20bd49015a27d96e895b0c02f4c0aa67fa493d2a dirty=0
+# arm B af9c854d00c1f3747d76fbe7dbb6d308834e9d37 dirty=1
+== round 14 order B A
+== arm B round 14 load 21.40 20.53 23.00 22/2154 2863792
+# spin_us 300000
+warm arm=B type=bf16 rc=OK gpr_main=120
+warm arm=B type=e4m3 rc=OK gpr_main=120
+sample arm=B round=14 seq=0 type=e4m3 lay=2 M=16 N=12288 K=2048 tag="gdn in_proj b16" rc=OK checked=4625 wrong=0 main_ns=180945 pack_ns=441603 call_ns=10656600 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=1 type=e4m3 lay=0 M=8192 N=64 K=8192 tag="ladder" rc=OK checked=4673 wrong=0 main_ns=395763 pack_ns=997255 call_ns=29827273 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=2 type=bf16 lay=0 M=3000 N=5000 K=700 tag="ladder" rc=OK checked=5253 wrong=0 main_ns=1826637 pack_ns=320946 call_ns=48607208 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=3 type=e4m3 lay=0 M=3000 N=5000 K=700 tag="ladder" rc=OK checked=5253 wrong=0 main_ns=1783516 pack_ns=165633 call_ns=30454174 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=4 type=bf16 lay=2 M=16 N=12288 K=2048 tag="gdn in_proj b16" rc=OK checked=4625 wrong=0 main_ns=254482 pack_ns=516387 call_ns=12043393 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=5 type=bf16 lay=2 M=2048 N=16384 K=2048 tag="lm_head slice" rc=OK checked=5121 wrong=0 main_ns=7494195 pack_ns=817701 call_ns=115925118 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=6 type=e4m3 lay=0 M=1024 N=1024 K=1024 tag="ladder" rc=OK checked=5121 wrong=0 main_ns=138048 pack_ns=83025 call_ns=3082276 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=7 type=e4m3 lay=2 M=2048 N=2048 K=4096 tag="out_proj p2048" rc=OK checked=5121 wrong=0 main_ns=804406 pack_ns=401170 call_ns=22307671 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=8 type=bf16 lay=2 M=1 N=8192 K=2048 tag="q+gate decode" rc=OK checked=8192 wrong=0 main_ns=99937 pack_ns=367075 call_ns=7881909 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=9 type=bf16 lay=0 M=8192 N=64 K=8192 tag="ladder" rc=OK checked=4673 wrong=0 main_ns=716917 pack_ns=1906413 call_ns=54089118 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=10 type=e4m3 lay=2 M=1 N=8192 K=2048 tag="q+gate decode" rc=OK checked=8192 wrong=0 main_ns=32929 pack_ns=219185 call_ns=4209388 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=11 type=e4m3 lay=2 M=512 N=2048 K=4096 tag="o_proj p512" rc=OK checked=5121 wrong=0 main_ns=255554 pack_ns=374819 call_ns=5184323 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=12 type=bf16 lay=2 M=2048 N=12288 K=2048 tag="gdn in_proj p2048" rc=OK checked=5121 wrong=0 main_ns=4126955 pack_ns=844550 call_ns=63316764 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=13 type=e4m3 lay=0 M=64 N=8192 K=8192 tag="ladder" rc=OK checked=4673 wrong=0 main_ns=405490 pack_ns=2068478 call_ns=17958538 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=14 type=e4m3 lay=2 M=2048 N=16384 K=2048 tag="lm_head slice" rc=OK checked=5121 wrong=0 main_ns=4175308 pack_ns=629636 call_ns=75186171 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=15 type=bf16 lay=2 M=512 N=2048 K=4096 tag="o_proj p512" rc=OK checked=5121 wrong=0 main_ns=391683 pack_ns=495236 call_ns=7651763 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=16 type=e4m3 lay=0 M=8192 N=8192 K=8192 tag="ladder" rc=OK checked=5121 wrong=0 main_ns=19698997 pack_ns=2614705 call_ns=206478818 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=17 type=bf16 lay=0 M=4096 N=4096 K=4096 tag="ladder" rc=OK checked=5121 wrong=0 main_ns=4698607 pack_ns=1243321 call_ns=51345978 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=18 type=e4m3 lay=0 M=1000 N=999 K=1001 tag="ladder" rc=OK checked=6096 wrong=0 main_ns=211345 pack_ns=242290 call_ns=3231557 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=19 type=e4m3 lay=2 M=64 N=2048 K=512 tag="expert down" rc=OK checked=131072 wrong=0 main_ns=25696 pack_ns=226945 call_ns=1268168 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=20 type=e4m3 lay=2 M=64 N=1024 K=2048 tag="expert gate+up" rc=OK checked=65536 wrong=0 main_ns=21297 pack_ns=239105 call_ns=1429545 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=21 type=e4m3 lay=0 M=2048 N=2048 K=2048 tag="ladder" rc=OK checked=5121 wrong=0 main_ns=581908 pack_ns=336034 call_ns=10819561 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=22 type=bf16 lay=0 M=8192 N=8192 K=8192 tag="ladder" rc=OK checked=5121 wrong=0 main_ns=46271512 pack_ns=4490878 call_ns=278237094 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=23 type=bf16 lay=0 M=1024 N=1024 K=1024 tag="ladder" rc=OK checked=5121 wrong=0 main_ns=187441 pack_ns=306594 call_ns=3963755 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=24 type=bf16 lay=2 M=512 N=8192 K=2048 tag="q+gate p512" rc=OK checked=5121 wrong=0 main_ns=849269 pack_ns=566340 call_ns=16751713 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=25 type=bf16 lay=0 M=1000 N=999 K=1001 tag="ladder" rc=OK checked=6096 wrong=0 main_ns=214674 pack_ns=299682 call_ns=3695704 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=26 type=e4m3 lay=0 M=4096 N=4096 K=4096 tag="ladder" rc=OK checked=5121 wrong=0 main_ns=2986308 pack_ns=826357 call_ns=41591145 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=27 type=e4m3 lay=2 M=512 N=8192 K=2048 tag="q+gate p512" rc=OK checked=5121 wrong=0 main_ns=670116 pack_ns=417443 call_ns=25302875 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=28 type=bf16 lay=0 M=2048 N=2048 K=2048 tag="ladder" rc=OK checked=5121 wrong=0 main_ns=756789 pack_ns=484163 call_ns=12662565 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=29 type=bf16 lay=0 M=64 N=8192 K=8192 tag="ladder" rc=OK checked=4673 wrong=0 main_ns=691061 pack_ns=2418592 call_ns=33941637 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=30 type=bf16 lay=2 M=64 N=1024 K=2048 tag="expert gate+up" rc=OK checked=65536 wrong=0 main_ns=30768 pack_ns=284114 call_ns=1923341 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=31 type=bf16 lay=2 M=2048 N=2048 K=4096 tag="out_proj p2048" rc=OK checked=5121 wrong=0 main_ns=1126936 pack_ns=520467 call_ns=17299188 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=32 type=e4m3 lay=2 M=2048 N=12288 K=2048 tag="gdn in_proj p2048" rc=OK checked=5121 wrong=0 main_ns=3259910 pack_ns=548563 call_ns=59111583 gpr_main=120 if_before=0 if_after=0
+sample arm=B round=14 seq=33 type=bf16 lay=2 M=64 N=2048 K=512 tag="expert down" rc=OK checked=131072 wrong=0 main_ns=24161 pack_ns=243617 call_ns=1465722 gpr_main=120 if_before=0 if_after=0
+pass arm=B round=14: PASS (0 wrong or failed of 34)
+== arm A round 14 load 21.92 20.74 23.01 24/2157 2891978
+# spin_us 300000
+warm arm=A type=bf16 rc=OK gpr_main=120
+warm arm=A type=e4m3 rc=OK gpr_main=120
+sample arm=A round=14 seq=0 type=e4m3 lay=2 M=16 N=12288 K=2048 tag="gdn in_proj b16" rc=OK checked=4625 wrong=0 main_ns=245986 pack_ns=500131 call_ns=12101346 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=1 type=e4m3 lay=0 M=8192 N=64 K=8192 tag="ladder" rc=OK checked=4673 wrong=0 main_ns=693877 pack_ns=1144760 call_ns=30164060 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=2 type=bf16 lay=0 M=3000 N=5000 K=700 tag="ladder" rc=OK checked=5253 wrong=0 main_ns=4112492 pack_ns=286706 call_ns=53709771 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=3 type=e4m3 lay=0 M=3000 N=5000 K=700 tag="ladder" rc=OK checked=5253 wrong=0 main_ns=2826515 pack_ns=152673 call_ns=32677692 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=4 type=bf16 lay=2 M=16 N=12288 K=2048 tag="gdn in_proj b16" rc=OK checked=4625 wrong=0 main_ns=453571 pack_ns=518260 call_ns=21468209 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=5 type=bf16 lay=2 M=2048 N=16384 K=2048 tag="lm_head slice" rc=OK checked=5121 wrong=0 main_ns=22387159 pack_ns=805573 call_ns=132705040 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=6 type=e4m3 lay=0 M=1024 N=1024 K=1024 tag="ladder" rc=OK checked=5121 wrong=0 main_ns=278210 pack_ns=70545 call_ns=3559432 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=7 type=e4m3 lay=2 M=2048 N=2048 K=4096 tag="out_proj p2048" rc=OK checked=5121 wrong=0 main_ns=3007044 pack_ns=230066 call_ns=17621159 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=8 type=bf16 lay=2 M=1 N=8192 K=2048 tag="q+gate decode" rc=OK checked=8192 wrong=0 main_ns=250674 pack_ns=349586 call_ns=13668204 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=9 type=bf16 lay=0 M=8192 N=64 K=8192 tag="ladder" rc=OK checked=4673 wrong=0 main_ns=1530506 pack_ns=1876413 call_ns=59532802 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=10 type=e4m3 lay=2 M=1 N=8192 K=2048 tag="q+gate decode" rc=OK checked=8192 wrong=0 main_ns=135905 pack_ns=241585 call_ns=7383858 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=11 type=e4m3 lay=2 M=512 N=2048 K=4096 tag="o_proj p512" rc=OK checked=5121 wrong=0 main_ns=859189 pack_ns=370803 call_ns=7566451 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=12 type=bf16 lay=2 M=2048 N=12288 K=2048 tag="gdn in_proj p2048" rc=OK checked=5121 wrong=0 main_ns=16128781 pack_ns=854918 call_ns=87717216 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=13 type=e4m3 lay=0 M=64 N=8192 K=8192 tag="ladder" rc=OK checked=4673 wrong=0 main_ns=773365 pack_ns=1549994 call_ns=31614581 gpr_main=120 if_before=0 if_after=1
+sample arm=A round=14 seq=14 type=e4m3 lay=2 M=2048 N=16384 K=2048 tag="lm_head slice" rc=OK checked=5121 wrong=0 main_ns=10898458 pack_ns=511507 call_ns=85632498 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=15 type=bf16 lay=2 M=512 N=2048 K=4096 tag="o_proj p512" rc=OK checked=5121 wrong=0 main_ns=1673884 pack_ns=260289 call_ns=12307283 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=16 type=e4m3 lay=0 M=8192 N=8192 K=8192 tag="ladder" rc=OK checked=5121 wrong=0 main_ns=101812479 pack_ns=2400576 call_ns=301721988 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=17 type=bf16 lay=0 M=4096 N=4096 K=4096 tag="ladder" rc=OK checked=5121 wrong=0 main_ns=24963128 pack_ns=1043255 call_ns=82472605 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=18 type=e4m3 lay=0 M=1000 N=999 K=1001 tag="ladder" rc=OK checked=6096 wrong=0 main_ns=324450 pack_ns=114289 call_ns=3582905 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=19 type=e4m3 lay=2 M=64 N=2048 K=512 tag="expert down" rc=OK checked=131072 wrong=0 main_ns=46656 pack_ns=52000 call_ns=1215976 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=20 type=e4m3 lay=2 M=64 N=1024 K=2048 tag="expert gate+up" rc=OK checked=65536 wrong=0 main_ns=86177 pack_ns=244930 call_ns=1739740 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=21 type=e4m3 lay=0 M=2048 N=2048 K=2048 tag="ladder" rc=OK checked=5121 wrong=0 main_ns=1647067 pack_ns=231250 call_ns=16870001 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=22 type=bf16 lay=0 M=8192 N=8192 K=8192 tag="ladder" rc=OK checked=5121 wrong=0 main_ns=220440719 pack_ns=4353278 call_ns=448367826 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=23 type=bf16 lay=0 M=1024 N=1024 K=1024 tag="ladder" rc=OK checked=5121 wrong=0 main_ns=421811 pack_ns=90417 call_ns=4490094 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=24 type=bf16 lay=2 M=512 N=8192 K=2048 tag="q+gate p512" rc=OK checked=5121 wrong=0 main_ns=2863796 pack_ns=373666 call_ns=24598390 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=25 type=bf16 lay=0 M=1000 N=999 K=1001 tag="ladder" rc=OK checked=6096 wrong=0 main_ns=449715 pack_ns=105521 call_ns=7679252 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=26 type=e4m3 lay=0 M=4096 N=4096 K=4096 tag="ladder" rc=OK checked=5121 wrong=0 main_ns=11078619 pack_ns=591108 call_ns=54112861 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=27 type=e4m3 lay=2 M=512 N=8192 K=2048 tag="q+gate p512" rc=OK checked=5121 wrong=0 main_ns=1542906 pack_ns=214450 call_ns=16100125 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=28 type=bf16 lay=0 M=2048 N=2048 K=2048 tag="ladder" rc=OK checked=5121 wrong=0 main_ns=2716482 pack_ns=284146 call_ns=17435558 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=29 type=bf16 lay=0 M=64 N=8192 K=8192 tag="ladder" rc=OK checked=4673 wrong=0 main_ns=1402634 pack_ns=2160606 call_ns=56176491 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=30 type=bf16 lay=2 M=64 N=1024 K=2048 tag="expert gate+up" rc=OK checked=65536 wrong=0 main_ns=105536 pack_ns=119793 call_ns=2524913 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=31 type=bf16 lay=2 M=2048 N=2048 K=4096 tag="out_proj p2048" rc=OK checked=5121 wrong=0 main_ns=5658614 pack_ns=649668 call_ns=26912902 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=32 type=e4m3 lay=2 M=2048 N=12288 K=2048 tag="gdn in_proj p2048" rc=OK checked=5121 wrong=0 main_ns=8171975 pack_ns=546467 call_ns=65910045 gpr_main=120 if_before=0 if_after=0
+sample arm=A round=14 seq=33 type=bf16 lay=2 M=64 N=2048 K=512 tag="expert down" rc=OK checked=131072 wrong=0 main_ns=73856 pack_ns=242834 call_ns=1767148 gpr_main=120 if_before=0 if_after=0
+pass arm=A round=14: PASS (0 wrong or failed of 34)
