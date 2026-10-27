@@ -1,0 +1,324 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Host-side event recorder for the unified trace (docs/trace/UNIFIED_TRACE.md). Handwritten
+note seeded Omega, program mode only (it reads monons and realns and writes a descriptor).
+note
+note The recorder is off until htinit. Every recording call checks the flag first and returns at
+note once while it is off; wrappers should test htlive themselves so that the off path is one load
+note and one branch. A unit that does not concatenate this file carries no trace code at all.
+note
+note Storage is fixed: HTCAP events, HTNCAP names, HTNBYT name bytes. Nothing is allocated. An event
+note past capacity is counted in dropped and not stored; a malformed call (unknown kind, kind used
+note in the wrong form, unknown name, bad slot, second end, end before begin) is counted in refused
+note and stores nothing. The dump writes the OTR1 wire layout of docs/trace/UNIFIED_TRACE.md.
+note Times are host CLOCK_MONOTONIC nanoseconds (clock domain 1). No device clock is read here.
+note Event arguments are counts, sizes, stages and status codes only: never addresses, payload
+note bytes or user data.
+const HTCAP ulong 4096
+const HTNCAP ulong 256
+const HTNBYT ulong 16384
+global htst ulong 16
+global htkind uint 4096
+global htname uint 4096
+global htfl uchar 4096
+global htt0 ulong 4096
+global htt1 ulong 4096
+global hta0 ulong 4096
+global hta1 ulong 4096
+global htrc long 4096
+global htnid uint 256
+global htnoff ulong 256
+global htnln ulong 256
+global htnb uchar 16384
+global htout uchar 262144
+note htst slots: 0 on, 1 events, 2 dropped, 3 refused, 4 mono0, 5 real0, 6 names, 7 open spans,
+note 8 name bytes used, 9 name being built (index + 1, 0 none), 10 pid.
+fn htlive to bool
+ret eq get htst 0 1
+end
+fn htrefuse to bool
+put htst 3 add get htst 3 1
+ret false
+end
+note Kinds 1..11. Span kinds: 1 compile.phase, 3 gpu.open, 4 kernel.launch, 6 mem.copy, 7 host.wait,
+note 9 user.span. Instant kinds: 2 diag, 5 mem.alloc, 8 trap, 10 user.mark, 11 mem.moved (bytes moved
+note inside an enclosing span and not timed on their own).
+fn htspan k uint to bool
+if or eq k 1 eq k 3
+ret true
+end
+if or eq k 4 eq k 6
+ret true
+end
+ret or eq k 7 eq k 9
+end
+fn htinst k uint to bool
+if or eq k 2 eq k 5
+ret true
+end
+if or eq k 8 eq k 10
+ret true
+end
+ret eq k 11
+end
+note htinit starts a new session: counters and events reset; registered names (slots 6, 8) stay.
+fn htinit to bool
+put htst 0 0
+for i ulong 6
+put htst i 0
+end
+put htst 7 0
+put htst 9 0
+put htst 4 ulong monons
+put htst 5 ulong realns
+put htst 10 ulong getpid
+put htst 0 1
+ret true
+end
+fn htstop to void
+put htst 0 0
+end
+note Name registration: htnbeg id, then htnbyte for each byte, then htnend. A name is 1..63 bytes of
+note A-Z a-z 0-9 . _ : / - and its id is unique and nonzero. Registration works while recording is
+note off too, so a program can name its sites once at start.
+fn htnok b uchar to bool
+if and ge b 48 le b 57
+ret true
+end
+if and ge b 65 le b 90
+ret true
+end
+if and ge b 97 le b 122
+ret true
+end
+if or eq b 46 eq b 95
+ret true
+end
+ret or or eq b 58 eq b 47 eq b 45
+end
+fn htnfind id uint to ulong
+n = get htst 6
+for i ulong n
+if eq get htnid i id
+ret add i 1
+end
+end
+ret 0
+end
+fn htnbeg id uint to bool
+if ne get htst 9 0
+put htst 9 0
+ret htrefuse
+end
+if or eq id 0 ne htnfind id 0
+ret htrefuse
+end
+n = get htst 6
+if ge n HTNCAP
+ret htrefuse
+end
+put htnid n id
+put htnoff n get htst 8
+put htnln n 0
+put htst 9 add n 1
+ret true
+end
+fn htnbyte b uchar to bool
+s = get htst 9
+if eq s 0
+ret htrefuse
+end
+i = sub s 1
+at = add get htnoff i get htnln i
+if or ge at HTNBYT ge get htnln i 64
+put htnln i 64
+ret false
+end
+put htnb at b
+put htnln i add get htnln i 1
+ret true
+end
+fn htnend to bool
+s = get htst 9
+put htst 9 0
+if eq s 0
+ret htrefuse
+end
+i = sub s 1
+n = get htnln i
+if or eq n 0 gt n 63
+ret htrefuse
+end
+o = get htnoff i
+for j ulong n
+if not htnok get htnb add o j
+ret htrefuse
+end
+end
+put htst 6 add i 1
+put htst 8 add o n
+ret true
+end
+note htbeg: open a span; the result is the slot + 1, or 0 when nothing was stored (off, dropped or
+note refused). htend with slot 0 is a no-op that returns false, so a caller need not branch.
+fn htslot k uint nm uint to ulong
+if not htlive
+ret 0
+end
+if eq htnfind nm 0
+b = htrefuse
+ret 0
+end
+n = get htst 1
+if ge n HTCAP
+put htst 2 add get htst 2 1
+ret 0
+end
+put htkind n k
+put htname n nm
+put htfl n 0
+put hta0 n 0
+put hta1 n 0
+put htrc n 0
+put htst 1 add n 1
+ret add n 1
+end
+fn htbeg k uint nm uint to uint
+if not htlive
+ret 0
+end
+if not htspan k
+b = htrefuse
+ret 0
+end
+s = htslot k nm
+if eq s 0
+ret 0
+end
+i = sub s 1
+put htt0 i ulong monons
+put htt1 i get htt0 i
+put htst 7 add get htst 7 1
+ret uint s
+end
+fn htend s uint a0 ulong a1 ulong rc long to bool
+if or eq s 0 not htlive
+ret false
+end
+if gt ulong s get htst 1
+ret htrefuse
+end
+i = sub ulong s 1
+if ne get htfl i 0
+ret htrefuse
+end
+t = ulong monons
+if lt t get htt0 i
+ret htrefuse
+end
+put htt1 i t
+put hta0 i a0
+put hta1 i a1
+put htrc i rc
+put htfl i 1
+put htst 7 sub get htst 7 1
+ret true
+end
+fn htmark k uint nm uint a0 ulong a1 ulong rc long to bool
+if not htlive
+ret false
+end
+if not htinst k
+ret htrefuse
+end
+s = htslot k nm
+if eq s 0
+ret false
+end
+i = sub s 1
+put htt0 i ulong monons
+put htt1 i get htt0 i
+put hta0 i a0
+put hta1 i a1
+put htrc i rc
+put htfl i 1
+ret true
+end
+note ---- OTR1 dump. Little-endian fields into htout, then one write loop.
+fn htw at ulong v ulong k ulong to void
+for i ulong k
+put htout add at i uchar and shr v mul i 8 255
+end
+end
+fn hthead to void
+put htout 0 79
+put htout 1 84
+put htout 2 82
+put htout 3 49
+htw 4 1 2
+htw 6 48 2
+htw 8 get htst 1 4
+htw 12 get htst 2 4
+htw 16 get htst 3 4
+htw 20 1 4
+htw 24 get htst 4 8
+htw 32 get htst 5 8
+htw 40 get htst 10 4
+htw 44 get htst 6 4
+htw 48 get htst 7 4
+htw 52 0 4
+htw 56 0 8
+end
+fn htrecw i ulong to void
+at = add 64 mul i 48
+htw at ulong get htkind i 2
+htw add at 2 ulong get htfl i 2
+htw add at 4 ulong get htname i 4
+htw add at 8 get htt0 i 8
+htw add at 16 get htt1 i 8
+htw add at 24 get hta0 i 8
+htw add at 32 get hta1 i 8
+htw add at 40 bitcast ulong get htrc i 8
+end
+fn htnamew at ulong i ulong to ulong
+htw at ulong get htnid i 4
+n = get htnln i
+htw add at 4 n 2
+o = get htnoff i
+for j ulong n
+put htout add add at 6 j get htnb add o j
+end
+ret add add at 6 n
+end
+note htbytes: the dump length. The image is complete only after htdump.
+fn htbytes to ulong
+n = get htst 1
+at = add 64 mul n 48
+for i ulong get htst 6
+at = add add at 6 get htnln i
+end
+ret at
+end
+fn htimage to ulong
+hthead
+n = get htst 1
+for i ulong n
+htrecw i
+end
+at = add 64 mul n 48
+for i ulong get htst 6
+at = htnamew at i
+end
+ret at
+end
+fn htdump fd int to long
+n = htimage
+done = ulong 0
+while lt done n bound 262144
+w = write fd htout done sub n done
+if le w 0
+ret -5
+end
+done = add done ulong w
+end
+ret long n
+end

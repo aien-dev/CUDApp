@@ -1,0 +1,8 @@
+compiler 2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f
+recorder: HOSTTRACE_RECORDER_PASS 68
+launch: HOSTTRACE_LAUNCH_PASS 45 OMTRACE_OK 30
+lossy: OMTRACE_OK 4103 with dropped 2, refused 1, open_spans 1 in both exports
+locate: trap and diagnostic located
+reject: 13 malformed fragments rejected with distinct reasons, missing file exit 6
+mutations: 4 of 4 compile and are detected
+HOST TRACE CHECKS PASS

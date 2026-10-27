@@ -1,0 +1,34 @@
+Loading trace: 0.00 MBLoading trace: 0.01 MB[405.016]     common_flags.cc:525 Trace loaded: 0.01 MB in 0.01s (0.4 MB/s)
+[405.017]            query.cc:191 Query execution time: 0 ms
+"name","category","ts","dur","track"
+"omtrace","user.span",0,9894512,"[NULL]"
+"device.timing.NOT_RUN","notice",0,0,"[NULL]"
+"source.read","compile.phase",1600,148002,"[NULL]"
+"compose","compile.phase",149890,136065,"[NULL]"
+"omc.compile","compile.phase",286371,4341891,"[NULL]"
+"diag.decode","compile.phase",4632454,8976,"[NULL]"
+"program.run","user.span",4641702,5215946,"[NULL]"
+"launch-test:main","user.span",5003481,4665654,"[NULL]"
+"launch.om:gbopen","gpu.open",5006009,24512,"[NULL]"
+"launch.om:gbmem","mem.alloc",5028601,0,"[NULL]"
+"launch.om:gbmem","mem.alloc",5028873,0,"[NULL]"
+"launch.om:gbmem","mem.alloc",5029097,0,"[NULL]"
+"launch.om:gbmem","mem.alloc",5029305,0,"[NULL]"
+"launch.om:gbmem","mem.alloc",5029497,0,"[NULL]"
+"launch.om:gbmem","mem.alloc",5029689,0,"[NULL]"
+"launch.om:gbmem","mem.alloc",5029913,0,"[NULL]"
+"launch.om:gbmem","mem.alloc",5030105,0,"[NULL]"
+"launch.om:gbcode","mem.moved",5030329,0,"[NULL]"
+"host.upload:a.b","mem.copy",5031001,404131,"[NULL]"
+"kernel:VECTOR_1D/vector.om:gbvec","kernel.launch",5435388,382787,"[NULL]"
+"launch.om:gbcmd","mem.moved",5817951,0,"[NULL]"
+"host.readback","mem.copy",5818415,153474,"[NULL]"
+"kernel:VECTOR_1D/vector.om:gbvec","kernel.launch",5972209,8000,"[NULL]"
+"launch.om:gbcmd","mem.moved",5980001,0,"[NULL]"
+"kernel:VECTOR_1D/vector.om:gbvec","kernel.launch",5980481,3670669,"[NULL]"
+"launch.om:gbcmd","mem.moved",9650430,0,"[NULL]"
+"kernel:VECTOR_1D/vector.om:gbvec","kernel.launch",9651758,15761,"[NULL]"
+"launch.om:gbcmd","mem.moved",9667295,0,"[NULL]"
+"kernel:VECTOR_1D/vector.om:gbvec","kernel.launch",9667887,192,"[NULL]"
+"kernel:VECTOR_1D/vector.om:gbvec","kernel.launch",9668399,176,"[NULL]"
+"fragment.read","compile.phase",9862528,31664,"[NULL]"

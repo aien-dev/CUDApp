@@ -1,0 +1,8 @@
+launch.trace.json VALID
+lossy.trace.json VALID
+negative control: span without dur -> INVALID (rejected)
+negative control: name with a space -> INVALID (rejected)
+negative control: unknown kind -> INVALID (rejected)
+negative control: negative ts -> INVALID (rejected)
+negative control: device timing claimed -> INVALID (rejected)
+negative control: unknown arg -> INVALID (rejected)

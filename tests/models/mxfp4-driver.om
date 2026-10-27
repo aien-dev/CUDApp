@@ -1,0 +1,36 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Binary stdin records are packed byte, lane, and scale (one byte each).
+note Binary stdout is little-endian IEEE binary32; EOF only at record boundary.
+global mxin uchar 3
+global mxout uchar 4
+fn main to int
+for row ulong 200000
+off = ulong 0
+while lt off 3 bound 3
+n = read 0 mxin off sub ulong 3 off
+if lt n 0
+ret 2
+end
+if eq n 0
+if eq off 0
+ret 0
+end
+ret 3
+end
+off = add off ulong n
+end
+v = mxfp4byte uint get mxin 0 uint get mxin 1 uint get mxin 2
+for j ulong 4
+put mxout j uchar and shr v mul j 8 255
+end
+off = 0
+while lt off 4 bound 4
+n = write 1 mxout off sub ulong 4 off
+if le n 0
+ret 4
+end
+off = add off ulong n
+end
+end
+ret 5
+end

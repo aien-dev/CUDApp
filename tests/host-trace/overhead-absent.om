@@ -1,0 +1,10 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Overhead arm "absent": launch.om called directly; the unit contains no recorder code.
+fn armopen n uint on bool to bool
+ret gbopen n
+end
+fn armreset on bool to void
+end
+fn armgo n uint to bool
+ret gblaunch n
+end
