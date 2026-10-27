@@ -11,3 +11,9 @@
 #
 # docs/runtime/portability_table.tsv, README.md, ROADMAP.md, docs/PAIN_POINTS.md, docs/img/replacement-map.svg and
 # tools/figures/make_figures.py changed after the run; none of them is built into the test binary.
+#
+# Rebuilt by `make test` (11:30Z) from the tree committed as 82f7985c675ff5f4b9859429973daa61d36887ac (`make -q` up to date):
+#   build/gpu_mathlibs_test  91b796c69c18abada6c02ed1be875f235d2b6a4ef311d3a2e6567c11545792de
+#   build/libomega_gpu.a     b27d5c3e1c1645a6315e01f455c5fae54c0f20479b17e9e3adee6c7b764ae397
+# Both equal binary_sha256 and libomega_gpu.a_sha256 in chip-provenance.txt: the committed head builds the
+# exact binary that produced chip-receipt.txt. No chip rerun was made for the comment change.
