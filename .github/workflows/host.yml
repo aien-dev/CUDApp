@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-# Host CI: builds libomega_gpu.a and runs every host test (no GPU) on an arm64 runner.
+# Host CI: builds libomega_gpu.a on an arm64 runner and uploads it with its sha256 identity. `make test` runs in
+# ci.yml (host-tests, judged by the final verdict line), so it is not repeated here.
 # Chip results never come from here; they come from the GB10 under its lock.
 name: host
 on:
@@ -10,9 +11,9 @@ on:
 permissions:
   contents: read
 jobs:
-  build-and-test:
+  library:
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 60
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -37,5 +38,3 @@ jobs:
           path: |
             build/libomega_gpu.a
             build/libomega_gpu.identity
-      - name: Host tests
-        run: make -j"$(nproc)" OUT_DIR=build test
