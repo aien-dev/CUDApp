@@ -277,18 +277,18 @@ Receipt: `evidence/dx/d2-doctor/fake-machines.txt`. **FIXED in the doctor wrappe
 
 **The pain.** "Completely reproducible results are not guaranteed across PyTorch releases, individual commits, or different platforms." ([PyTorch docs](https://docs.pytorch.org/docs/2.14/notes/randomness.html))
 
-**How CUDA++ fixes it.** CUDA++ adds in a fixed order (no atomics in its reductions, `evidence/E1-CLOSURE/`), so the same inputs give the same bits with no setting to turn on and no speed cost. Every hello-gpu run prints the hash of its output.
+**How CUDA++ fixes it.** CUDA++ adds in a fixed order (no atomics in its reductions, `evidence/E1-CLOSURE/`), so the same inputs give the same bits with no setting to turn on. Every hello-gpu run prints the hash of its output, and so do the chip paths of the bf16 matrix-vector, rmsnorm and decode-attention tests.
 
-**The command that shows it** (two runs):
+**The command that shows it** (10 separate processes on the GB10, nothing set, the caller holds the GPU lock; output from the receipt):
 
 ```
-$ build/hello_gpu --sim
-output sha256 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
-$ build/hello_gpu --sim
-output sha256 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+$ flock -w 900 /tmp/aien-gb10.lock tools/run_d7_same_bits_chip.sh gemv 10 /tmp/d7
+...                    (one line per run, then:)
+SAME gemv_f32_151936x2048 ed3805976ef5eb04a893ed9d3b9ad1cc8afa17e60a36b7d4dd9dd98e698f9e4b in 10 of 10 runs
+d7 same-bits: PASS (1 labels x 10 runs)
 ```
 
-Receipt: `evidence/dx/d3-faults/hello-sim-spark.txt`. **FIXED on the simulator.** Left: the same two-run check on the chip, for hello-gpu and a matrix-vector job (`docs/issues/D7-same-bits-chip.md`).
+Receipt: `evidence/d7-same-bits-chip/2026-10-27/SUMMARY.md` (chip) and `evidence/dx/d3-faults/hello-sim-spark.txt` (simulator). **FIXED on the GB10 for four jobs, 10 separate processes each, driver 580.173.02:** hello-gpu (vector add; the chip hash equals the simulator's), the bf16 matrix-vector 151936 x 2048 (warp-shuffle reduction), rmsnorm at three shapes (reduction across the block) and decode attention at eight context lengths up to 32768 (softmax reductions, combine across up to 128 splits). The checker goes red on a chip run with one element unwritten and on a one-bit hash change (`negative-control/`). Not shown: the other kernels (scan and sum-reduce build on main since #112 but are NOT_RUN in this check), other GPUs, other inputs (`docs/issues/D7-same-bits-chip.md`).
 
 ### 7. The per-process CUDA tax (3,478 GitHub issues match "CUDA context" memory overhead)
 

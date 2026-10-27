@@ -1,0 +1,13 @@
+# command: /home/drakestapleton/work/Determinism/CUDApp/build/hello_gpu
+# utc start: 2026-10-27T07:03:37.907062488Z
+hello_gpu: c = a + b over 1048576 floats on the GPU, built with Omega's own kernel builder
+kernel built in 26 us: 32 instructions, 12 registers, no compiler run, no cache
+machine code sha256 9e28bd9c46f80584d77238a752e99cecddbc8d622ffbe320885ed2f499e1f075
+kernel: 32 instructions, 12 registers
+checked 1048576 of 1048576 elements: 0 wrong, 0 never written
+work: 12582912 bytes moved (8388608 read, 4194304 written), 1048576 floating-point operations
+      at the GB10's measured 195.1 GB/s read ceiling this needs at least 64.5 us; the GPU took 942.7 us (7% of the ceiling)
+output sha256 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+PASS
+# exit: 0
+# utc end: 2026-10-27T07:03:37.997867018Z

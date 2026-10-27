@@ -22,6 +22,7 @@
 #include "omega_blackwell_codegen.h"
 #include "omega_gpu_session.h"
 #include "omega_sm121_disasm.h"
+#include "out_sha.h"
 #include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
@@ -211,6 +212,7 @@ static int chip(const char *out_path) {
         char name[64]; snprintf(name, sizeof name, "rmsnorm_%zux%zu", rows, dim);
         Case c = { .name = strdup(name), .n = n };
         c.rc = omega_gpu_rmsnorm_f32((uint32_t)rows, (uint32_t)dim, x, w, eps, got, &info);
+        if (c.rc == OMEGA_GPU_EW_OK) out_sha_buf(name, got, n * 4);
         c.bad = compare(got, want, n, 1e-5, 1e-6, &c.worst);
         c.pass = c.rc == OMEGA_GPU_EW_OK && c.bad == 0; c.chip_ns = info.elapsed_ns; c.calls = info.chip_calls; c.unwritten = info.unwritten_words;
         OmegaGpuEwInfo i2; int rc2 = omega_gpu_rmsnorm_f32((uint32_t)rows, (uint32_t)dim, x, w, eps, again, &i2);
