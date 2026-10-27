@@ -109,7 +109,7 @@ The CPU does five things, all of them plain memory writes except the last, which
 | nvcc, NVVM, PTX, ptxas | Compile the kernel to machine code | My own sm_121 encoder and register allocator | PASS: every GPU kernel this stack runs is encoded by it |
 | libcuda (driver API) | Talk to the kernel driver | `nvrm` client, ioctls straight to the open kernel module | PARTIAL: implemented; M16 historical summary is unauditable here (see below) |
 | libcudart (runtime API) | Device, memory, launch, streams | Session, command lists, job engine | PARTIAL: one device, one process; no streams or events yet; a timeout ends GPU use for the process |
-| cuBLAS | Matrix multiply | Matmul, tensor-core GEMM, FP8 and BF16 libraries | PARTIAL: shaped for the models AIEN runs; no any-shape GEMM yet |
+| cuBLAS | Matrix multiply | Matmul, tensor-core GEMM, FP8 and BF16 libraries, and the general `omega_gpu_gemm_ex` (any M, N, K, op N/T, leading dimensions, alpha/beta, strided batches, f32/bf16/f16/e4m3/e5m2 inputs, fp8 scales) | PARTIAL: the fast kernels are shaped for the models AIEN runs. `gemm_ex` takes any shape (901 chip checks, `evidence/GEMM-GENERAL-fba0384/`) but runs from host memory with the k sum on the host, so it is not a serving path; f32 is bf16x3, not IEEE fp32; no fp8 output (`docs/runtime/API.md` 9.8) |
 | cuDNN, FlashAttention | Attention and network layers | Decode and prefill attention | PARTIAL: model-shaped |
 | CUB, Thrust | Reductions, scans, sorts | Frozen-order reductions (`evidence/E1-CLOSURE/`) | PARTIAL: no general scan or sort |
 | cuFFT, cuRAND | FFT, random numbers | none yet | MISSING |
@@ -339,7 +339,7 @@ Receipt: `evidence/dx/d3-faults/hello-sim-spark.txt`. **FIXED for the kernels CU
 
 **How CUDA++ fixes it.** Every CUDA++ library is source in this repository, built by the same kernel builder you can call, with host references and a simulator.
 
-**NOT YET.** CUDA++'s matrix multiply and attention are shaped for the models AIEN runs. Any-shape GEMM, scans and sorts (Omega bar C3) and my own disassembler (bar C6) are ledger L386 (`docs/issues/D11-libraries.md`, `docs/issues/D13-disassembler.md`).
+**NOT YET.** CUDA++'s fast matrix multiply and attention kernels are shaped for the models AIEN runs. The general GEMM `omega_gpu_gemm_ex` takes any shape, but it works from host memory and sums k on the host (`docs/runtime/API.md` section 9.8): correct on the GB10, not a serving path. A device-resident any-shape GEMM, scans and sorts (Omega bar C3) and my own disassembler (bar C6) are ledger L386 (`docs/issues/D11-libraries.md`, `docs/issues/D13-disassembler.md`).
 
 ### 11. The incentive: compute sold from data centers
 

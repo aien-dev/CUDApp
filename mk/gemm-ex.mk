@@ -5,7 +5,7 @@
 # CUDAPP_MIGRATION_PENDING_GEMM_EX=1. The switch is ON by default because the file adds capability and changes no served
 # path: the only library callers are the fp8 GEMV and grouped GEMM fallbacks, taken only for shapes those kernels refuse.
 # With CUDAPP_MIGRATION_PENDING_GEMM_EX=0 the entry refuses every call (OMEGA_GPU_GEMM_UNSUPPORTED) and the fp8 calls
-# return their old refusal codes. .om successor: src/omega_gpu_gemm_ex.om (aien-dev/CUDApp issue "gemm_ex .om successor").
+# return their old refusal codes. .om successor: src/omega_gpu_gemm_ex.om (aien-dev/CUDApp#144).
 # Picked up by the `-include mk/*.mk` line of the Makefile, after CFLAGS and before HOST_TESTS.
 CUDAPP_MIGRATION_PENDING_GEMM_EX ?= 1
 CFLAGS += -DCUDAPP_MIGRATION_PENDING_GEMM_EX=$(CUDAPP_MIGRATION_PENDING_GEMM_EX)

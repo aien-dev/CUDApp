@@ -148,6 +148,8 @@ fn omega_gpu_fp8_test_set_mutant # TEST ONLY: mutant or fault-injection hook for
 fn omega_gpu_fp8_test_set_no_fold # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
 fn omega_gpu_fp8gemm_kernel_fits # takes or returns a kernel-generator type, which is backend (ADR 0043)
 fn omega_gpu_fp8gemm_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
+fn omega_gpu_gemm_ex_set_backend # TEST ONLY: installs a host model or the warp simulator as gemm_ex's core (tests/gpu_gemm_ex_test.c)
+fn omega_gpu_gemm_ex_test_set_mutant # TEST ONLY: mutant hook for the gemm_ex batteries
 fn omega_gpu_matmul_last_stages # serving-daemon internals; aien-sovereign-core does not bind it; candidate EXPERIMENTAL
 fn omega_gpu_matmul_reserve # serving-daemon internals; aien-sovereign-core does not bind it; candidate EXPERIMENTAL
 fn omega_gpu_matmul_seal # serving-daemon internals; aien-sovereign-core does not bind it; candidate EXPERIMENTAL
