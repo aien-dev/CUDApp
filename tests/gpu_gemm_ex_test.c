@@ -14,7 +14,8 @@
  *
  * The check of every output element (predeclared, printed by --list): the double reference
  *   ref = alpha s * sum_k a b f + beta c_old         (s: tensor scales, f: block scales)
- * and   |got - ref| <= |alpha s| ((S + 4) 2^-22 sum|a b f| + 2^-124 sum (|a| + |b|) |f| + k 2^-140 + F sum|a b f|)
+ * and   |got - ref| <= |alpha s| (((1 + c)^(S + 4) - 1) sum|a b f| + 2^-124 sum (|a| + |b|) |f| + k 2^-140 + F sum|a b f|)
+ * c the per-step constant of step_c(): HMMA (17 2^-25 + 2^-23)(1 + 2^-20), QMMA (33 2^-25 + 2^-23)(1 + 2^-20).
  *                      + 2^-50 |beta c_old| + u_c |ref| + t_c
  * with S the fp32 accumulation steps (ceil(k / 16), ceil(k / 32) for e4m3, 9 ceil(k / 16) for bf16x3, k for FFMA, plus the
  * number of k parts), F = 2^-7 for FAST_BF16 (both operands rounded to bf16) else 0, u_c / t_c = 2^-24 / 2^-149 (f32),
@@ -272,6 +273,17 @@ static uint64_t steps(const Case *cs) {
     if (cs->at == OMEGA_GEMM_DT_E4M3 && cs->bt == OMEGA_GEMM_DT_E4M3) return (k + 31u) / 32u + parts;
     return (k + 15u) / 16u + parts;
 }
+/* per fp32 accumulation step: a tensor-core group of g products plus the accumulator (g + 1 terms) is aligned and
+ * truncated to 2^(emax - 26) with the sum >= 2^(emax - 1): (g + 1) 2^-25 relative, then the round-toward-zero conversion,
+ * 2^-23; times (1 + 2^-20) for the double evaluation. HMMA g = 16, QMMA g = 32; FFMA (2^-24) is under the HMMA constant.
+ * The steps compound: (1 + c)^S - 1. (2026-10-27: the earlier flat 2^-22 per step was below the chip-exact model's worst
+ * case; adversarial K = 1808 input from DnnGpu, err 5.343e-5 vs 2.843e-5.) */
+#define STEP_C_HMMA ((17.0 * 0x1p-25 + 0x1p-23) * (1.0 + 0x1p-20))
+#define STEP_C_QMMA ((33.0 * 0x1p-25 + 0x1p-23) * (1.0 + 0x1p-20))
+static double step_growth(uint64_t s, double c) { return expm1((double)s * log1p(c)); }
+static double step_c(const Case *cs) {
+    return cs->at == OMEGA_GEMM_DT_E4M3 && cs->bt == OMEGA_GEMM_DT_E4M3 && cs->compute != OMEGA_GEMM_EX_F32_FFMA_REF ? STEP_C_QMMA : STEP_C_HMMA;
+}
 static int is_fast(const Case *cs) {
     return cs->compute == OMEGA_GEMM_EX_F32_FAST_BF16 &&
            (cs->at == OMEGA_GEMM_DT_F32 || cs->bt == OMEGA_GEMM_DT_F32 || (cs->at == OMEGA_GEMM_DT_BF16 && cs->bt == OMEGA_GEMM_DT_F16) ||
@@ -300,7 +312,7 @@ static void one_elem(const Run *r, uint32_t b, uint32_t i, uint32_t j, Verdict *
     const double uc = cs->ct == OMEGA_GEMM_DT_F32 ? 0x1p-24 : cs->ct == OMEGA_GEMM_DT_BF16 ? 0x1p-8 : 0x1p-11;
     const double tc = cs->ct == OMEGA_GEMM_DT_F32 ? 0x1p-149 : cs->ct == OMEGA_GEMM_DT_BF16 ? 0x1p-133 : 0x1p-24;
     const double maxc = cs->ct == OMEGA_GEMM_DT_F32 ? 3.4028234663852886e38 : cs->ct == OMEGA_GEMM_DT_BF16 ? 3.3895313892515355e38 : 65504.0;
-    double bound = (cs->alpha != 0.0f ? fabs(al) * (((double)steps(cs) + 4.0) * 0x1p-22 * sab + 0x1p-124 * sapb + cs->k * 0x1p-140 +
+    double bound = (cs->alpha != 0.0f ? fabs(al) * (step_growth(steps(cs) + 4u, step_c(cs)) * sab + 0x1p-124 * sapb + cs->k * 0x1p-140 +
                     (is_fast(cs) ? 0x1p-7 * sab : 0.0)) : 0.0) + 0x1p-50 * fabs((double)cs->beta * old) + uc * fabs(ref) + tc;
     int ok;
     if (isnan(ref)) ok = isnan(got);
@@ -504,7 +516,7 @@ static void ex_mutants(const char *tier) {
 
 /* Block-scaled fp8 weights (n x k e4m3, NaN codes excluded) with bf16-valued scales (exact in the dequant), x f32 or bf16.
  * Check of y[r][j] (predeclared): the double reference ref = sum_c x e4m3(w) s, and
- *   |got - ref| <= (9 ceil(k / 16) + 8) 2^-22 sum|x e4m3(w) s| + 2^-24 |ref| + k 2^-140
+ *   |got - ref| <= ((1 + c_HMMA)^(9 ceil(k / 16) + 8) - 1) sum|x e4m3(w) s| + 2^-24 |ref| + k 2^-140
  * (the bf16x3 bound of the header with the k parts folded into the + 8). */
 typedef struct { uint32_t n, k, block, m; } Fp8Shape;
 static uint8_t fp8_code(void) { uint8_t b; do b = (uint8_t)rnd(); while (omega_fp8_e4m3_is_nan(b)); return b; }
@@ -527,7 +539,7 @@ static uint64_t fp8_verify(const uint8_t *w, const float *s, double s_mul, uint3
                 ref += t; mag += fabs(t);
             }
             const double got = (double)y[(size_t)r * n + j];
-            const double bound = (9.0 * ((k + 15u) / 16u) + 8.0) * 0x1p-22 * mag + 0x1p-24 * fabs(ref) + k * 0x1p-140;
+            const double bound = step_growth(9u * ((k + 15u) / 16u) + 8u, STEP_C_HMMA) * mag + 0x1p-24 * fabs(ref) + k * 0x1p-140;
             const double err = fabs(got - ref);
             if (!(err <= bound)) bad++;
             if (mag > 0 && worst && err / (mag * 0x1p-24) > *worst) *worst = err / (mag * 0x1p-24);
