@@ -1,0 +1,4 @@
+SAME rmsnorm_4x2048 fec7ab6c2a6f67496ed95afce7ff8d0083cc0d28ca594087ff944058e4822667 in 10 of 10 runs
+SAME rmsnorm_1x256 2a194f5e2fb95fbe2f584cbc7655a4683d00132738ffe3da3c43e234882d2470 in 10 of 10 runs
+SAME rmsnorm_2x8192 257fcd904344990ba68a1e26d8e4ed227121d50a369f2c62f0aca32664435d88 in 10 of 10 runs
+d7 same-bits: PASS (3 labels x 10 runs)

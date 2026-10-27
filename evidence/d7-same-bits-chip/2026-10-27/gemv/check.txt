@@ -1,0 +1,2 @@
+SAME gemv_f32_151936x2048 ed3805976ef5eb04a893ed9d3b9ad1cc8afa17e60a36b7d4dd9dd98e698f9e4b in 10 of 10 runs
+d7 same-bits: PASS (1 labels x 10 runs)
