@@ -13,13 +13,14 @@
 #   - Omega's blob is not the one recorded in BASELINE (a new path counts: it has no baseline blob).
 # So the differences that existed at the cutover stay quiet, a GPU edit landed in Omega but not in CUDA++
 # is red, and porting it to CUDA++ (same blob) turns it green again.
-# Output: one "DRIFT path status omega_blob" line per drifting path, then "DRIFT-GATE: PASS|FAIL (...)".
+# Output: one "DRIFT path status omega_blob" line per drifting path, a "DIVERGENCE" summary of the whole map
+# (blob compare; `differs` split into license-header-only and code), then "DRIFT-GATE: PASS|FAIL (...)".
 # Exit 0 on PASS, 1 on drift, 2 on a broken setup.
 #
 # --self-test runs two negative controls that must both come out red, then the real check:
 #   1. baseline control: the baseline blob of one cutover-time `differs` path is replaced; the gate must name it.
-#   2. edit control: in a scratch clone of OMEGA_DIR a commit appends one line to a GPU source that is `same`
-#      in both repos; the gate run against that commit must name exactly that file.
+#   2. edit control: in a scratch clone of OMEGA_DIR a commit appends one line to a GPU source whose Omega blob
+#      is still the baseline one (preferring one `same` in both repos); the gate must name exactly that file.
 # A gate that stays green under either control is broken and the self-test exits 1.
 set -euo pipefail
 export LC_ALL=C
@@ -32,7 +33,23 @@ baseline=${3:-$here/drift-baseline.tsv}
 [[ -s $baseline ]] || { echo "DRIFT-GATE: NOT_RUN (baseline $baseline missing)"; exit 2; }
 
 scratch=$(mktemp -d); trap 'rm -rf "$scratch"' EXIT
+cudapp=$(git -C "$here" rev-parse --show-toplevel)
 
+# summary MAP OMEGA_DIR: one DIVERGENCE line. Shared = path present in both repos. A `differs` file is
+# header-only when every changed line is a licence-header line (the SPDX/Apache boilerplate).
+summary() {
+    local map=$1 dir=$2 hdr=0 code=0 op cp st ob cb
+    while IFS=$'\t' read -r op cp st ob cb; do
+        [[ $st == differs ]] || continue
+        if diff <(git -C "$dir" cat-file -p "$ob") <(git -C "$cudapp" cat-file -p "$cb") | grep '^[<>]' \
+            | grep -qviE 'SPDX|copyright|licen[cs]e|apache|LLVM|applicable law|AS IS|you may not use|obtain a copy|distributed under|WITHOUT WARRANTIES|limitations under|^[<>] *(//|#|/?\*|\*/)? *$'
+        then code=$((code + 1)); else hdr=$((hdr + 1)); fi
+    done < <(tail -n +2 "$map")
+    awk -F'\t' -v hdr="$hdr" -v code="$code" 'FNR > 1 { n[$3]++ }
+        END { sh = n["same"] + n["differs"]
+              printf "DIVERGENCE: %d shared, %d same, %d differ (%d licence-header only, %d code); %d cudapp-only, %d omega-only\n",
+                     sh, n["same"], n["differs"], hdr, code, n["cudapp-only"], n["omega-only"] }' "$map"
+}
 # check OMEGA_DIR OMEGA_REF BASELINE: prints DRIFT lines and the verdict; returns 0 PASS / 1 FAIL.
 check() {
     local dir=$1 ref=$2 base=$3 map=$scratch/map.$RANDOM
@@ -42,6 +59,7 @@ check() {
         $4 != "-" && ($3 == "differs" || $3 == "omega-only") && b[$1] != $4 {
             printf "DRIFT\t%s\t%s\t%s\n", $1, $3, $4 }' "$base" "$map" > "$map.drift"
     cat "$map.drift"
+    summary "$map" "$dir"
     local n rows
     n=$(wc -l < "$map.drift"); rows=$(($(wc -l < "$map") - 1))
     if [[ $n -eq 0 ]]; then
@@ -71,9 +89,11 @@ else
     else echo "control 1: BROKEN, gate stayed green with a tampered baseline for $victim"; echo "$out"; fail=1; fi
 fi
 
-# Control 2: a real Omega commit that edits one GPU source CUDA++ holds byte-identically.
-target=$(awk -F'\t' 'FNR>1 && $3=="same" && $1 ~ /^src\/omega_gpu_.*\.c$/ { print $1; exit }' "$scratch/now")
-if [[ -z $target ]]; then echo "control 2: NOT_RUN (no same src/omega_gpu_*.c path)"; fail=1
+# Control 2: a real Omega commit that edits one GPU source still at its cutover blob.
+target=$(awk -F'\t' 'NR==FNR { if ($1 !~ /^#/) b[$1]=$2; next }
+    FNR>1 && $1 ~ /^src\/omega_gpu_.*\.c$/ && b[$1]==$4 && ($3=="same" || $3=="differs") { if ($3=="same") { print $1; exit } else if (!d) d=$1 }
+    END { if (d) print d }' "$baseline" "$scratch/now" | head -1)
+if [[ -z $target ]]; then echo "control 2: NOT_RUN (no src/omega_gpu_*.c still at its baseline blob)"; fail=1
 else
     git clone -q --shared --no-checkout "$omega" "$scratch/om"
     git -C "$scratch/om" checkout -q --detach "$(git -C "$omega" rev-parse "$oref^{commit}")"
