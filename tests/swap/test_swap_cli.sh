@@ -157,5 +157,42 @@ check "one back undoes all" [ "$before" = "$(tree_hash "$R")" ]
 out=$(run swap sideways 2>&1); rc=$?
 check "unknown level exits 2" [ $rc -eq 2 ]
 
+# 11. escalation (audit C8): sudo without -E, the sources passed as explicit absolute arguments.
+#     Fake id (uid 1000) and fake sudo (records argv, runs nothing); no CUDAPP_ROOT, so this is the real-system path.
+S=$T/esc; mkdir -p "$S/bin" "$S/lib"; echo "lib" > "$S/lib/libcuda.so.1"
+printf '#!/bin/bash\necho 1000\n' > "$S/bin/id"
+printf '#!/bin/bash\nprintf "%%s\\n" "$@" > "%s/sudo.argv"\n' "$S" > "$S/bin/sudo"
+chmod +x "$S/bin"/*
+env -u CUDAPP_ROOT PATH="$S/bin:$PATH" CUDAPP_LIB="$S/lib/../lib/libcuda.so.1" bash "$TOOL" swap user --yes > /dev/null 2>&1
+check "escalation calls sudo" [ -s "$S/sudo.argv" ]
+check "escalation drops -E (no caller environment reaches root)" bash -c "! grep -qx -- '-E' '$S/sudo.argv'"
+check "escalation re-runs this script by absolute path" [ "$(sed -n 1p "$S/sudo.argv")" = "$(readlink -f "$TOOL")" ]
+check "escalation passes --lib as a resolved absolute path" grep -qx -- "$S/lib/libcuda.so.1" "$S/sudo.argv"
+check "escalation passes --kdir and --driver-src" bash -c "grep -qx -- --kdir '$S/sudo.argv' && grep -qx -- --driver-src '$S/sudo.argv'"
+# 12. as root on the real system (fake id prints 0): sources outside the allowed places are refused before any level runs
+printf '#!/bin/bash\necho 0\n' > "$S/bin/id"
+out=$(env -u CUDAPP_ROOT PATH="$S/bin:$PATH" bash "$TOOL" swap user --lib "$S/lib/libcuda.so.1" 2>&1); rc=$?
+check "root: --lib outside the repository refused (exit 3)" [ $rc -eq 3 ]
+check "root: refusal names the repository" grep -q "outside the CUDA++ repository" <<<"$out"
+REPO=$(cd "$(dirname "$(readlink -f "$TOOL")")/.." && pwd -P)
+out=$(env -u CUDAPP_ROOT PATH="$S/bin:$PATH" CUDAPP_LIB="$S/lib/libcuda.so.1" bash "$TOOL" swap all 2>&1); rc=$?
+check "root: CUDAPP_LIB outside the repository refused for 'all' (exit 3)" [ $rc -eq 3 ]
+out=$(env -u CUDAPP_ROOT PATH="$S/bin:$PATH" bash "$TOOL" swap kernel --kdir "$S" 2>&1); rc=$?
+check "root: --kdir outside /lib/modules and /usr/src refused (exit 3)" [ $rc -eq 3 ]
+check "root: refusal names /lib/modules" grep -q "not under /lib/modules" <<<"$out"
+# positive control: a regular file inside the repository passes the check (dry run, nothing changed)
+out=$(env -u CUDAPP_ROOT PATH="$S/bin:$PATH" bash "$TOOL" swap user --lib "$REPO/LICENSE" 2>&1); rc=$?
+check "root: --lib inside the repository accepted (dry run exits 0)" [ $rc -eq 0 ]
+check "root: accepted dry run changed nothing" grep -q "DRY RUN" <<<"$out"
+# 13. the installed library is pinned: a copy that differs from the planned sha256 is rolled back
+R=$T/r13; mkroot "$R"; before=$(tree_hash "$R")
+printf '#!/bin/bash\nfor a; do d=$a; done\necho tampered > "$d"\n' > "$R/fakebin/install"; chmod +x "$R/fakebin/install"
+out=$(run swap user --yes 2>&1); rc=$?
+check "differing installed library fails (exit 1)" [ $rc -eq 1 ]
+check "failure names the sha256 mismatch" grep -q "sha256 .* != .* planned" <<<"$out"
+check "differing installed library rolled back" [ "$before" = "$(tree_hash "$R")" ]
+rm "$R/fakebin/install"; out=$(run swap user --yes 2>&1)
+check "installed sha256 recorded next to the backup" bash -c "grep -q \"\$(sha256sum < '$R/build/libcuda.so.1' | cut -d' ' -f1)  /usr/lib/cudapp/libcuda.so.1\" '$R'/var/lib/cudapp-swap/backup-*-user/installed.sha256"
+
 echo "swap cli: $PASS passed, $FAIL failed"
 [ $FAIL -eq 0 ]

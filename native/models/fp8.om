@@ -1,0 +1,165 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note OCP OFP8 rev 1.0 (2023-12-01): E4M3 (bias 7) and E5M2 (bias 15) to and
+note from exact IEEE binary32 bits. Integer bit operations only, no device access.
+note Decode: E4M3 S.1111.111 is NaN, no infinities; E5M2 S.11111.00 is Inf,
+note S.11111.{01,10,11} NaN. A NaN decodes to quiet binary32 NaN with its sign.
+note Encode (spec 5.2.1): round to nearest even, then sat 1 clamps to max normal
+note (E4M3 126 = 448, E5M2 123 = 57344) and sat 0 gives E4M3 NaN 127 or E5M2
+note Inf 124. Infinity follows Table 3. Below half the minimum subnormal gives
+note signed zero. A NaN source keeps its sign: E4M3 127, E5M2 126.
+note Refusals trap 5: a code above 255, sat above 1, f32norm out of range.
+note Wolfram: (1+6/8) 2^(15-7) -> 448; (1+3/4) 2^(30-15) -> 57344;
+note 2^-9 -> 1/512 (E4M3 min subnormal); 2^-16 -> 1/65536 (E5M2 min subnormal).
+note Wolfram: FromDigits hex 7FC00000 7F800000 7FFFFF 800000 7FFFFFFF ->
+note 2143289344 2139095040 8388607 8388608 2147483647.
+fn f32norm n uint p long to uint
+if eq n 0
+trap 5
+end
+if gt n 16777215
+trap 5
+end
+b = long 0
+t = shr n 1
+while ne t 0 bound 24
+b = add b 1
+t = shr t 1
+end
+ex = add add b p 127
+if lt ex 1
+trap 5
+end
+if gt ex 254
+trap 5
+end
+sh = uint sub 23 b
+m = and shl n sh 8388607
+ret or shl uint ex 23 m
+end
+fn e4m3bits code uint to uint
+if gt code 255
+trap 5
+end
+s = shl and code 128 24
+ex = and shr code 3 15
+m = and code 7
+if eq ex 15
+if eq m 7
+ret or s 2143289344
+end
+end
+if eq ex 0
+if eq m 0
+ret s
+end
+ret or s f32norm m -9
+end
+ret or s or shl add ex 120 23 shl m 20
+end
+fn e5m2bits code uint to uint
+if gt code 255
+trap 5
+end
+s = shl and code 128 24
+ex = and shr code 2 31
+m = and code 3
+if eq ex 31
+if eq m 0
+ret or s 2139095040
+end
+ret or s 2143289344
+end
+if eq ex 0
+if eq m 0
+ret s
+end
+ret or s f32norm m -16
+end
+ret or s or shl add ex 112 23 shl m 21
+end
+note rnesh returns sig / 2^sh rounded to nearest, ties to even (1 <= sh <= 24).
+note This is the single rounding step of every encoder in this unit.
+fn rnesh sig uint sh uint to uint
+q = shr sig sh
+rm = and sig sub shl uint 1 sh 1
+hf = shl uint 1 sub sh 1
+if gt rm hf
+ret add q 1
+end
+if eq rm hf
+if eq and q 1 1
+ret add q 1
+end
+end
+ret q
+end
+note fp8mag rounds a finite binary32 magnitude a to mb mantissa bits with
+note minimum exponent emin, nearest even, and returns the unsigned code
+note (biased exponent << mb) + mantissa. A carry out of the mantissa moves into
+note the exponent field by the add. Callers compare against their max code.
+fn fp8mag a uint mb long emin long bias long to uint
+ef = shr a 23
+if eq ef 0
+ret 0
+end
+e = sub long ef 127
+if gt e 40
+ret 4095
+end
+ue = e
+if lt ue emin
+ue = emin
+end
+sh = sub add sub ue e 23 mb
+if gt sh 24
+ret 0
+end
+q = rnesh or and a 8388607 8388608 uint sh
+if lt e emin
+ret q
+end
+umb = uint mb
+ret add shl uint add e bias umb sub q shl uint 1 umb
+end
+fn e4m3enc bits uint sat uint to uint
+if gt sat 1
+trap 5
+end
+s = and shr bits 24 128
+a = and bits 2147483647
+if gt a 2139095040
+ret or s 127
+end
+c = uint 127
+if lt a 2139095040
+c = fp8mag a 3 -6 7
+end
+if gt c 126
+if eq sat 1
+ret or s 126
+end
+ret or s 127
+end
+ret or s c
+end
+fn e5m2enc bits uint sat uint to uint
+if gt sat 1
+trap 5
+end
+s = and shr bits 24 128
+a = and bits 2147483647
+if gt a 2139095040
+ret or s 126
+end
+c = uint 124
+if lt a 2139095040
+c = fp8mag a 2 -14 15
+end
+if gt c 123
+if eq sat 1
+ret or s 123
+end
+ret or s 124
+end
+ret or s c
+end

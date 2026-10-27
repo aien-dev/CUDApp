@@ -365,7 +365,7 @@ R2 (`examples/hello_gpu`, README "Run your first kernel").
 | `grid_x`, `grid_y` | grid size |
 | `num_elements` | QMD config num_elements (kept per API for identical words) |
 | `args`, `n_args` | `n_args` words written at constant bank + 0x380; `n_args` at most `OMEGA_GPU_SESSION_MAX_ARGS` (32) |
-| `timeout_ms` | completion poll limit, applied to each of the launch's two markers in turn (so a launch can wait up to twice this); past it the completion is uncertain and **the process latches**. Must not be 0: 0 runs out at once and latches |
+| `timeout_ms` | completion poll limit, applied to each of the launch's two markers in turn (so a launch can wait up to twice this); past it the completion is uncertain and **the process latches**. 0 is refused with "launch arguments" before anything is written or submitted |
 | `shared_bytes` | shared memory per block; 0 = the default (1024) |
 | `spin_us` | spin-poll window before the platform's sleep-poll; 0 = the process-wide setting |
 
