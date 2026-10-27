@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "test_out_file.h"
 
 static int g_checks, g_failed;
 #define CHECK(cond, ...) do { g_checks++; if (!(cond)) { g_failed++; printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -350,7 +351,7 @@ static int fill_history(OmegaGpuDecodeAttn256Cache *cache, const Case *c, const 
     return OMEGA_GPU_DATTN_OK;
 }
 static int chip_run(const char *out_path, uint32_t reps) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot write %s\n", out_path); return 1; }
     if (out) fprintf(out, "{\"receipt\":\"OMEGA_GPU_DECODE_ATTN256_V1\",\"reps\":%u,\"evict\":%d,\"max_pos\":%u,\"rotary_dim\":64,\"points\":[", reps, g_evict, g_maxp);
     const uint32_t MAXP = g_maxp;
@@ -438,7 +439,7 @@ static int chip_run(const char *out_path, uint32_t reps) {
 static int geometry_refusal(uint32_t qh, uint32_t kvh, uint32_t hd, const char *out_path) {
     if (qh == QH && kvh == KVH && hd == HD) return 0;
     printf("REFUSED: decode attention 256 at %u query / %u KV heads, head dim %u (built for %u / %u / %u)\n", qh, kvh, hd, QH, KVH, HD);
-    if (out_path) { FILE *f = fopen(out_path, "w"); if (f) { fprintf(f, "{\"test\":\"gpu_decode_attn256_test\",\"q_heads\":%u,\"kv_heads\":%u,\"head_dim\":%u,\"verdict\":\"REFUSED\"}\n", qh, kvh, hd); fclose(f); } }
+    if (out_path) { FILE *f = test_out_open(out_path); if (f) { fprintf(f, "{\"test\":\"gpu_decode_attn256_test\",\"q_heads\":%u,\"kv_heads\":%u,\"head_dim\":%u,\"verdict\":\"REFUSED\"}\n", qh, kvh, hd); fclose(f); } }
     return 3;
 }
 

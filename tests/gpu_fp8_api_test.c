@@ -42,6 +42,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include "test_out_file.h"
 
 #define TOL 1e-5
 static int g_checks, g_failed;
@@ -982,7 +983,7 @@ static void cold_points(FILE *out, uint32_t reps, int *first) {
 }
 
 static int chip_run(const char *out_path, uint32_t reps) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 1; }
     if (out) fprintf(out, "{\"test\":\"OMEGA_GPU_FP8_GEMV\",\"points\":[");
     static const ChipPoint pts[] = {

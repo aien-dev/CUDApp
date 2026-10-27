@@ -29,6 +29,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include "test_out_file.h"
 
 static int g_checks, g_failed;
 #define CHECK(cond, ...) do { g_checks++; if (!(cond)) { g_failed++; printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -162,7 +163,7 @@ static void record(Case c, FILE *out) {
 }
 
 static int chip(const char *out_path) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
     if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_ELEMENTWISE_V1\",\"tolerances\":{\"ex2_rel\":1e-6,\"xchg\":\"exact\",\"rmsnorm_rel\":1e-5,\"rmsnorm_abs\":1e-6,\"rope\":\"exact\",\"swiglu_rel\":1e-5,\"swiglu_abs\":1e-6},\"cases\":[");
     uint32_t seed = 0xfb1c0004u;
@@ -331,7 +332,7 @@ static int chip(const char *out_path) {
 static int cmp_d(const void *a, const void *b) { double x = *(const double *)a, y = *(const double *)b; return x < y ? -1 : x > y; }
 static double now_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec * 1e3 + t.tv_nsec / 1e6; }
 static int timing(const char *out_path) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
     if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_ELEMENTWISE_TIMING_V1\",\"gate_median_ms\":0.5,\"calls\":100,\"cases\":[");
     uint32_t seed = 0xfb1c004bu;

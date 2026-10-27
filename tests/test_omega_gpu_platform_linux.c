@@ -21,8 +21,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "test_out_file.h"
 
 /* The three driver symbols the session path needs that the fake (written for the vector engine) lacks. */
 static int g_open_fail;
@@ -249,7 +251,7 @@ static void c_cmdlist_near_cap_with_l2_inval_pending(void) {
  * before the driver is called, with a sentence that names the bytes asked, the bytes free and the setting.
  * CUDAPP_MEMINFO points the platform at a fake /proc/meminfo; CUDAPP_MEM_RESERVE_MIB sets the reserve (0 = off). */
 static void write_meminfo(const char *path, unsigned long long avail_kb) {
-    FILE *f = fopen(path, "w");
+    FILE *f = test_out_open(path);
     if (!f) { case_ok = 0; return; }
     fprintf(f, "MemTotal:       127535484 kB\nMemFree:          100000 kB\nMemAvailable:   %llu kB\n", avail_kb);
     fclose(f);
@@ -285,8 +287,6 @@ static void c_memory_reserve(void) {
     setenv("CUDAPP_MEM_RESERVE_MIB", "1", 1); /* and set: 1 MiB reserve, 2 MiB fits in 4097 MiB */
     EXPECT(p->dma_alloc(p->ctx, d, &big, &h, &cpu, &va, &bus) == OMEGA_GPU_PLAT_OK);
     unsetenv("CUDAPP_MEM_RESERVE_MIB");
-    setenv("CUDAPP_MEMINFO", "/nonexistent/meminfo", 1); /* cannot read memory: the check cannot know, so it allows */
-    EXPECT(p->dma_alloc(p->ctx, d, &big, &h, &cpu, &va, &bus) == OMEGA_GPU_PLAT_OK);
     EXPECT(p->device_close(p->ctx, d) == OMEGA_GPU_PLAT_OK);
     /* through the session, the same sentence reaches omega_gpu_session_last_error() */
     setenv("CUDAPP_MEMINFO", path, 1);
@@ -443,6 +443,61 @@ static void c_reserve_overflow(void) {
     unlink(path);
 }
 
+/* CodeQL cpp/path-injection #40: CUDAPP_MEMINFO is honoured only as an absolute path, with no ".." component, that opens
+ * without following a final symlink and without blocking to a regular file; any other value falls back to the real
+ * /proc/meminfo. The reserve is 2^30 MiB (1 PiB), which the real /proc/meminfo cannot cover, so a fallback shows as
+ * REFUSED_LIMIT, while the fake file claims 2^52 kB (4 EiB) free and shows as OK when honoured. The ".." and relative
+ * paths name the fake file itself, so they are refused for their form, not because they miss. alarm() turns an open that
+ * blocks (the FIFO, before O_NONBLOCK) into a failed case instead of a hung run. */
+static void c_meminfo_override_validated(void) {
+    fake_reset();
+    fk.alloc_max = 8u << 20;
+    alarm(10);
+    char dir[] = "/tmp/cudapp-meminfo-dir-XXXXXX";
+    if (!mkdtemp(dir)) { case_ok = 0; return; }
+    char fake[64], lnk[64], fifo[64], sub[64], missing[64], dotdot[128];
+    snprintf(fake, sizeof fake, "%s/meminfo", dir);
+    snprintf(lnk, sizeof lnk, "%s/link", dir);
+    snprintf(fifo, sizeof fifo, "%s/fifo", dir);
+    snprintf(sub, sizeof sub, "%s/sub", dir);
+    snprintf(missing, sizeof missing, "%s/missing", dir);
+    snprintf(dotdot, sizeof dotdot, "%s/../%s/meminfo", dir, strrchr(dir, '/') + 1);
+    write_meminfo(fake, 1ull << 52);
+    EXPECT(symlink(fake, lnk) == 0);
+    EXPECT(mkfifo(fifo, 0600) == 0);
+    EXPECT(mkdir(sub, 0700) == 0);
+    EXPECT(chdir(dir) == 0); /* "meminfo" below is the fake file, relative to here */
+    setenv("CUDAPP_MEM_RESERVE_MIB", "1073741824", 1); /* 2^30 MiB */
+    const OmegaGpuPlatform *p = omega_gpu_platform_linux(NULL);
+    OmegaGpuDeviceHandle d;
+    EXPECT(p->device_open(p->ctx, 0, &d) == OMEGA_GPU_PLAT_OK);
+    OmegaGpuBufferDesc small = {.kind = OMEGA_GPU_HANDLE_BUF_DATA, .rights = OMEGA_GPU_RIGHT_CPU_READ | OMEGA_GPU_RIGHT_GPU_WRITE,
+                                .gpu_cache = OMEGA_GPU_CACHE_GPU_UNCACHED, .bytes = 4096};
+    OmegaGpuBufferHandle h; OmegaCpuView cpu; OmegaGpuVa va; OmegaGpuBusAddr bus;
+    const struct { const char *path; int want; const char *what; } t[] = {
+        {fake, OMEGA_GPU_PLAT_OK, "absolute path to a regular file (honoured)"},
+        {lnk, OMEGA_GPU_PLAT_REFUSED_LIMIT, "symlink to that file"},
+        {dotdot, OMEGA_GPU_PLAT_REFUSED_LIMIT, "path through .. to that file"},
+        {"meminfo", OMEGA_GPU_PLAT_REFUSED_LIMIT, "relative path to that file"},
+        {fifo, OMEGA_GPU_PLAT_REFUSED_LIMIT, "FIFO"},
+        {sub, OMEGA_GPU_PLAT_REFUSED_LIMIT, "directory"},
+        {missing, OMEGA_GPU_PLAT_REFUSED_LIMIT, "missing file"},
+        {"", OMEGA_GPU_PLAT_REFUSED_LIMIT, "empty value"},
+    };
+    for (size_t i = 0; i < sizeof t / sizeof t[0]; i++) {
+        setenv("CUDAPP_MEMINFO", t[i].path, 1);
+        const int rc = p->dma_alloc(p->ctx, d, &small, &h, &cpu, &va, &bus);
+        EXPECT(rc == t[i].want);
+        printf("  CUDAPP_MEMINFO %s: %s\n", t[i].what,
+               rc == OMEGA_GPU_PLAT_OK ? "read" : rc == OMEGA_GPU_PLAT_REFUSED_LIMIT ? "ignored, /proc/meminfo read, refused" : "other");
+    }
+    unsetenv("CUDAPP_MEMINFO");
+    unsetenv("CUDAPP_MEM_RESERVE_MIB");
+    EXPECT(p->device_close(p->ctx, d) == OMEGA_GPU_PLAT_OK);
+    unlink(lnk); unlink(fifo); unlink(fake); rmdir(sub); rmdir(dir);
+    alarm(0);
+}
+
 typedef struct { const char *id; void (*fn)(void); } Case;
 static const Case CASES[] = {
     {"LINUX_REF_CAPS_NO_MMIO_NO_IRQ", c_caps},
@@ -459,6 +514,7 @@ static const Case CASES[] = {
     {"CMDLIST_TIMEOUT_LATCHES_WITHOUT_LAUNCH_BEHIND_IT", c_cmdlist_timeout_latches_without_launch},
     {"ZERO_TIMEOUT_REFUSED_BEFORE_SUBMIT", c_zero_timeout_refused},
     {"D1_RESERVE_AND_MEMINFO_OVERFLOW_SATURATE", c_reserve_overflow},
+    {"D1_MEMINFO_OVERRIDE_ABSOLUTE_REGULAR_NO_DOTDOT", c_meminfo_override_validated},
 };
 
 int main(void) {

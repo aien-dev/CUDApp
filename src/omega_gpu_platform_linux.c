@@ -22,11 +22,14 @@
 #include "m16_native.h"
 #include "nvrm.h"
 
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <time.h>
+#include <unistd.h>
 
 #define LINUX_REF_BUFFERS (OMEGA_GPU_HANDLE_SLOTS - 2u) /* one slot each for the device and the queue */
 
@@ -217,20 +220,46 @@ static const char *ref_diag_text(void *ctx) { return ((LinuxRef *)ctx)->diag; }
  * which the CPU and GPU share, and the machine has no swap by default. Running it out does not end in an error message:
  * the whole box can freeze until a power cycle. So an allocation that would leave less than a reserve free is refused
  * here, before a handle slot or the driver is touched, with a sentence. The reserve is CUDAPP_MEM_RESERVE_MIB (MiB,
- * default 4096; 0 turns the check off). CUDAPP_MEMINFO names another meminfo file (tests). When the file cannot be read
- * the check cannot know, and allows the allocation. */
+ * default 4096; 0 turns the check off). CUDAPP_MEMINFO names another meminfo file (tests); see meminfo_open for when it
+ * is honoured. When /proc/meminfo itself cannot be read the check cannot know, and allows the allocation. */
 #define CUDAPP_MEM_RESERVE_DEFAULT_MIB 4096ull
 static void human_bytes(char *out, size_t n, uint64_t b) {
     if (b < (1ull << 30)) snprintf(out, n, "%.1f MiB", (double)b / (double)(1ull << 20));
     else snprintf(out, n, "%.1f GiB", (double)b / (double)(1ull << 30));
+}
+/* CUDAPP_MEMINFO is a test hook, but this is the default session platform (omega_gpu_session.c install_default) of every
+ * hosted program linked with libomega_gpu.a, serving processes included, so a stale or wrong value must neither switch
+ * the D1 guard off nor hang the allocation, which runs under ref_lock: open() on a
+ * FIFO blocks, and a device file may act on open. The override is honoured only when it is an absolute path with no ".."
+ * component that opens, without following a final symlink and without blocking, to a regular file; under setuid or file
+ * capabilities it is not read at all (secure_getenv). Any other value falls back to the real /proc/meminfo, so a bad
+ * override costs the test hook, never the guard (CodeQL cpp/path-injection #40). */
+static int meminfo_override_ok(const char *p) {
+    if (!p || p[0] != '/') return 0;
+    for (const char *c = p; (c = strstr(c, "..")) != NULL; c += 2)
+        if (c[-1] == '/' && (c[2] == '\0' || c[2] == '/')) return 0;
+    return 1;
+}
+static FILE *meminfo_open_regular(const char *path) {
+    int fd = open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
+    if (fd < 0) return NULL;
+    struct stat st;
+    if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode)) { close(fd); return NULL; }
+    FILE *f = fdopen(fd, "r");
+    if (!f) close(fd);
+    return f;
+}
+static FILE *meminfo_open(void) {
+    const char *p = secure_getenv("CUDAPP_MEMINFO");
+    FILE *f = meminfo_override_ok(p) ? meminfo_open_regular(p) : NULL;
+    return f ? f : meminfo_open_regular("/proc/meminfo");
 }
 static int mem_reserve_check(LinuxRef *r, uint64_t bytes) {
     unsigned long long reserve_mib = CUDAPP_MEM_RESERVE_DEFAULT_MIB;
     const char *e = getenv("CUDAPP_MEM_RESERVE_MIB");
     if (e && *e) { char *end = NULL; unsigned long long v = strtoull(e, &end, 10); if (end && end != e && *end == 0) reserve_mib = v; }
     if (reserve_mib == 0) return OMEGA_GPU_PLAT_OK;
-    const char *path = getenv("CUDAPP_MEMINFO");
-    FILE *f = fopen(path && *path ? path : "/proc/meminfo", "r");
+    FILE *f = meminfo_open();
     if (!f) return OMEGA_GPU_PLAT_OK;
     unsigned long long avail_kb = 0; int have = 0; char line[256];
     while (!have && fgets(line, sizeof line, f)) have = sscanf(line, "MemAvailable: %llu kB", &avail_kb) == 1;
