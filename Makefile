@@ -3,7 +3,9 @@
 #
 #   make            libomega_gpu.a (= libcudapp.a): GPU toolchain + runtime + libraries + driver client
 #   make test       every host-only test (no GPU needed)
-#   make doctor     is this machine ready? one line per check, each FAIL with its fix (no GPU opened)
+#   make doctor     is this machine ready? one line per check, each FAIL with its fix (no GPU opened);
+#                   with OMC=/abs/pinned/omc it also lists every GPU target row (backend/targets.om)
+#   make test-multitarget OMC=...  portable-backend host gate: SPIR-V on CPU drivers, HSACO checks
 #   make hello-gpu  run the doctor, then build examples/hello_gpu and run it (on a GB10)
 #
 # The driver client (nvrm/, m16/) and the NVIDIA open headers (third_party/) are in

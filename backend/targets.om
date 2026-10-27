@@ -1,0 +1,1128 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note targets.om: the portable backend's target table and code-object loader checks (seeded Omega,
+note AArch64 host). docs/ARCHITECTURE.md "Portable backend" defines the formats; this file is the
+note first IMPLEMENTED piece of that split. It opens no device: it reads one file and prints.
+note
+note   targets doctor                     print every target row with its honest status
+note   targets load FORMAT FILE [ARG]     validate FILE as FORMAT; print LOAD ACCEPT or LOAD REFUSE
+note
+note Formats (ob_code_load tags): SM121_RAW, SPIRV_CL, SPIRV_VK, AMDGPU_HSACO accepted after checks;
+note MSL_SOURCE and AARCH64 (cpu-ref) have no backend yet (PLANNED, refused); CUBIN is reserved (#864 HOLD, refused).
+note ARG: for SPIRV_CL/SPIRV_VK an entry point name that must exist; for AMDGPU_HSACO the gfx target
+note (required), checked against e_flags and the NT_AMDGPU_METADATA note.
+note Checks:
+note   SPIR-V  magic 0x07230203, version 1.0..1.6, bound 1..4194303, schema 0, every instruction inside
+note           the file; SPIRV_VK: Shader, no Kernel, Logical GLSL450, a GLCompute entry;
+note           SPIRV_CL: Kernel and Addresses, no Shader, Physical64 OpenCL, a Kernel entry.
+note           Authority: registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html sections 2.3, 3.
+note   HSACO   ELF64 little-endian version 1, OSABI 64 (HSA), ABI version 2 (code object v4) or 3 (v5),
+note           ET_DYN, e_machine 224 (EM_AMDGPU), e_flags & 0xff == the target's mach, a PT_NOTE
+note           holding owner "AMDGPU" type 32 (NT_AMDGPU_METADATA) whose msgpack map has
+note           amdhsa.version [1, x], a non-empty amdhsa.kernels and amdhsa.target equal to
+note           "amdgcn-amd-amdhsa--" + ARG (no feature suffix). Authority for the numbers:
+note           llvm/BinaryFormat/ELF.h at LLVM 18.1.3 (EM_AMDGPU, ELFOSABI_AMDGPU_HSA,
+note           ELFABIVERSION_AMDGPU_HSA_V4/V5, EF_AMDGPU_MACH_AMDGCN_*, NT_AMDGPU_METADATA) and
+note           llvm.org/docs/AMDGPUUsage.html "Code Object Metadata"; msgpack.org spec for the walk.
+note   SM121_RAW  non-empty, a whole number of 16-byte instructions, not ELF and not SPIR-V.
+note Validation is offline: an AMD or SPIR-V ACCEPT here says the bytes are well formed for that
+note target, never that a GPU ran them (hardware NOT_RUN on every non-GB10 row).
+note Exit: 0 accept or doctor; 2 usage; 3 I/O or file over 1 MiB; 10 unknown format; 11 format has
+note no backend (PLANNED); 12 format reserved; 20 SPIR-V header; 21 SPIR-V instruction stream;
+note 22 SPIR-V capability or memory model wrong for the format; 23 entry point missing;
+note 30 ELF header; 31 OSABI or ABI version; 32 ELF type or machine; 33 e_flags mach is not the target;
+note 34 AMDGPU metadata note missing or malformed; 35 msgpack malformed; 36 metadata target, version
+note or kernels wrong; 37 unknown gfx target; 40 SM121_RAW shape. Traps exit 100 + code.
+om2
+
+text tuse "usage: targets doctor | targets load FORMAT FILE [ENTRY|GFX]\n"
+text tio "targets: cannot read FILE, or FILE is empty or over 1 MiB\n"
+text tdoc "doctor"
+text tload "load"
+text fsm "SM121_RAW"
+text fcl "SPIRV_CL"
+text fvk "SPIRV_VK"
+text fhs "AMDGPU_HSACO"
+text fms "MSL_SOURCE"
+text fa64 "AARCH64"
+text fcu "CUBIN"
+text tacc "LOAD ACCEPT "
+text tref "LOAD REFUSE "
+text tcode " code="
+text trsn " reason="
+text tnl "\n"
+text tsp " "
+text tdot "."
+text tver " version="
+text tbnd " bound="
+text twds " words="
+text tent " entry="
+text tmach " mach=0x"
+text tabi " abi="
+text tkern " kernels="
+text ttgt " target="
+text tnote " note=AMDGPU/NT_AMDGPU_METADATA"
+text tsz " bytes="
+text tinsn " insns="
+text tpfx "amdgcn-amd-amdhsa--"
+text kver "amdhsa.version"
+text kkern "amdhsa.kernels"
+text ktgt "amdhsa.target"
+text rnofmt "unknown format tag"
+text rplan "format has no backend yet (PLANNED)"
+text rresv "format reserved (CUBIN, #864 HOLD)"
+text rmagic "not a SPIR-V module (magic, version, bound or schema)"
+text rstrm "SPIR-V instruction runs past the end, has word count 0, or the module does not end with OpFunctionEnd"
+text rcapv "not Vulkan compute SPIR-V (needs Shader, no Kernel, Logical GLSL450)"
+text rcapc "not OpenCL kernel SPIR-V (needs Kernel+Addresses, no Shader, Physical64 OpenCL)"
+text rentry "no entry point of the right model (or with that name)"
+text relf "not an ELF64 little-endian version-1 file"
+text rabi "OSABI is not HSA (64) or ABI version is not code object v4/v5"
+text rmach "not an AMDGPU shared object (e_type 3, e_machine 224)"
+text rflag "e_flags mach does not match the requested gfx target"
+text rnote "no well-formed AMDGPU NT_AMDGPU_METADATA note in a PT_NOTE segment"
+text rmsg "metadata msgpack malformed"
+text rtgt "metadata amdhsa.target, amdhsa.version or amdhsa.kernels does not match"
+text rgfx "unknown gfx target (known: gfx900 gfx90a gfx942 gfx1030 gfx1100 gfx1151 gfx1200 gfx1201)"
+text rraw "SM121_RAW must be non-empty 16-byte instructions and not ELF or SPIR-V"
+text rarg "AMDGPU_HSACO needs the gfx target argument"
+text g900 "gfx900"
+text g90a "gfx90a"
+text g942 "gfx942"
+text g1030 "gfx1030"
+text g1100 "gfx1100"
+text g1151 "gfx1151"
+text g1200 "gfx1200"
+text g1201 "gfx1201"
+text hdr "TARGET id vendor arch format status hardware loader\n"
+text tt "TARGET "
+text sSUP "SUPPORTED"
+text sPLN "PLANNED"
+text sHOST "HOST-ONLY(not-a-GPU)"
+text hGB "chip-receipts(README)"
+text hNR "NOT_RUN"
+text hCPU "EXERCISED(host-CPU)"
+text lRAW "SM121_RAW"
+text lNONE "none"
+text lSPV "spirv-validate"
+text lHSA "hsaco-validate"
+text vNV "nvidia"
+text vAMD "amd"
+text vINT "intel"
+text vAPL "apple"
+text vQC "qualcomm"
+text vARM "arm"
+text vIMG "imagination"
+text vBCM "broadcom"
+text vVTX "vortex"
+text vCPU "cpu"
+text fSASS "SASS(encoder-per-arch)"
+text fMSL "MSL_SOURCE"
+text fSPCL "SPIRV_CL|SPIRV_VK"
+
+const MAXF ulong 1048576
+
+global gbuf uchar 1048576
+global garg uchar 64
+global gfmt uchar 32
+global gtgt uchar 96
+global gob uchar 512
+note gst: 0 file size, 1 output fill, 2 msgpack cursor, 3 msgpack end, 4 format length,
+note 5 kernels, 6 target ok, 7 version ok, 8 expected target length, 9 entry name length
+global gst ulong 12
+
+fn oflush to void
+n = write 1 gob 0 get gst 1
+put gst 1 0
+end
+
+fn oc b uchar to void
+if ge get gst 1 len gob
+oflush
+end
+f = get gst 1
+put gob f b
+put gst 1 add f 1
+end
+
+fn ot t view uchar * to void
+for i ulong len t
+oc get t i
+end
+end
+
+fn odec v ulong to void
+d = new uchar 20 0
+k = ulong 0
+x = v
+while true bound 21
+put d k uchar add rem x 10 48
+k = add k 1
+x = div x 10
+if eq x 0
+break
+end
+end
+for i ulong k
+oc get d sub sub k i 1
+end
+end
+
+fn ohx v ulong to void
+for i ulong 2
+s = sub 4 mul i 4
+d = and shr v s 15
+if lt d 10
+oc uchar add d 48
+else
+oc uchar add d 87
+end
+end
+end
+
+fn ofmt to void
+for i ulong get gst 4
+oc get gfmt i
+end
+end
+
+fn refuse code int msg view uchar * to void
+ot tref
+ofmt
+ot tcode
+odec ulong code
+ot trsn
+ot msg
+ot tnl
+oflush
+exit code
+end
+
+fn fail code int msg view uchar * to void
+oflush
+n = write 2 msg 0 len msg
+exit code
+end
+
+fn fmtis t view uchar * to bool
+if ne get gst 4 len t
+ret false
+end
+for k ulong len t
+if ne get gfmt k get t k
+ret false
+end
+end
+ret true
+end
+
+fn argis t view uchar * to bool
+if ne get gst 9 len t
+ret false
+end
+for k ulong len t
+if ne get garg k get t k
+ret false
+end
+end
+ret true
+end
+
+fn row id view uchar * vn view uchar * ar view uchar * to void
+note starts a row: id, vendor, arch (a view parameter takes two of the 6 parameter slots)
+ot tt
+ot id
+ot tsp
+ot vn
+ot tsp
+ot ar
+end
+
+fn rf fm view uchar * st view uchar * hw view uchar * to void
+note the middle of a row: format, status, hardware
+ot tsp
+ot fm
+ot tsp
+ot st
+ot tsp
+ot hw
+end
+
+fn rl ld view uchar * to void
+note ends a row: the loader column (a function has at most 6 parameters)
+ot tsp
+ot ld
+ot tnl
+end
+
+text i121 "nvidia-sm_121"
+text a121 "sm_121(GB10)"
+text i80 "nvidia-sm_80"
+text a80 "sm_80(A100)"
+text i86 "nvidia-sm_86"
+text a86 "sm_86(RTX30)"
+text i89 "nvidia-sm_89"
+text a89 "sm_89(RTX40/L40)"
+text i90 "nvidia-sm_90"
+text a90 "sm_90(H100/H200)"
+text i100 "nvidia-sm_100"
+text a100 "sm_100(B200)"
+text i120 "nvidia-sm_120"
+text a120 "sm_120(RTX50)"
+text ig9 "amd-gfx9"
+text ag9 "gfx900/gfx90a/gfx942(MI300)"
+text ig10 "amd-gfx10"
+text ag10 "gfx1030(RDNA2)"
+text ig11 "amd-gfx11"
+text ag11 "gfx1100(RDNA3)/gfx1151(Strix-Halo)"
+text ig12 "amd-gfx12"
+text ag12 "gfx1200/gfx1201(RDNA4)"
+text ixlp "intel-xe-lp"
+text axlp "Xe-LP(Gen12-iGPU)"
+text ixhp "intel-xe-hpg"
+text axhp "Xe-HPG(Arc-Alchemist)"
+text ixe2 "intel-xe2"
+text axe2 "Xe2(Lunar-Lake/Battlemage)"
+text iapl "apple-m"
+text aapl "Apple-GPU(M-series)"
+text iqc "qualcomm-adreno"
+text aqc "Adreno"
+text iarm "arm-mali"
+text aarm "Mali/Immortalis"
+text iimg "imagination-powervr"
+text aimg "PowerVR"
+text ibcm "broadcom-v3d"
+text abcm "V3D(Raspberry-Pi)"
+text ivtx "vortex"
+text avtx "Vortex(RISC-V-GPGPU)"
+text ipcl "cpu-pocl"
+text apcl "PoCL-7.2-CPU"
+text ilvp "cpu-lavapipe"
+text alvp "Mesa-lavapipe-CPU"
+text ssc "SPIRV_CL"
+text svk "SPIRV_VK"
+
+fn doctor to int
+ot hdr
+row i121 vNV a121
+rf lRAW sSUP hGB
+rl lRAW
+row i80 vNV a80
+rf fSASS sPLN hNR
+rl lNONE
+row i86 vNV a86
+rf fSASS sPLN hNR
+rl lNONE
+row i89 vNV a89
+rf fSASS sPLN hNR
+rl lNONE
+row i90 vNV a90
+rf fSASS sPLN hNR
+rl lNONE
+row i100 vNV a100
+rf fSASS sPLN hNR
+rl lNONE
+row i120 vNV a120
+rf fSASS sPLN hNR
+rl lNONE
+row ig9 vAMD ag9
+rf fhs sPLN hNR
+rl lHSA
+row ig10 vAMD ag10
+rf fhs sPLN hNR
+rl lHSA
+row ig11 vAMD ag11
+rf fhs sPLN hNR
+rl lHSA
+row ig12 vAMD ag12
+rf fhs sPLN hNR
+rl lHSA
+row ixlp vINT axlp
+rf fSPCL sPLN hNR
+rl lSPV
+row ixhp vINT axhp
+rf fSPCL sPLN hNR
+rl lSPV
+row ixe2 vINT axe2
+rf fSPCL sPLN hNR
+rl lSPV
+row iapl vAPL aapl
+rf fMSL sPLN hNR
+rl lNONE
+row iqc vQC aqc
+rf svk sPLN hNR
+rl lSPV
+row iarm vARM aarm
+rf svk sPLN hNR
+rl lSPV
+row iimg vIMG aimg
+rf svk sPLN hNR
+rl lSPV
+row ibcm vBCM abcm
+rf svk sPLN hNR
+rl lSPV
+row ivtx vVTX avtx
+rf ssc sPLN hNR
+rl lSPV
+row ipcl vCPU apcl
+rf ssc sHOST hCPU
+rl lSPV
+row ilvp vCPU alvp
+rf svk sHOST hCPU
+rl lSPV
+oflush
+ret 0
+end
+
+fn b8 o ulong to ulong
+ret ulong get gbuf o
+end
+
+fn le16 o ulong to ulong
+ret or b8 o shl b8 add o 1 8
+end
+
+fn le32 o ulong to ulong
+ret or le16 o shl le16 add o 2 16
+end
+
+fn le64 o ulong to ulong
+ret or le32 o shl le32 add o 4 32
+end
+
+fn be16 o ulong to ulong
+ret or shl b8 o 8 b8 add o 1
+end
+
+fn be32 o ulong to ulong
+ret or shl be16 o 16 be16 add o 2
+end
+
+fn rdfile ai ulong to void
+p = new uchar 4096 0
+n = argread ai p 0 4095
+if le n 0
+fail 2 tuse
+end
+fd = fopen p 0 ulong n 0 0
+if lt fd 0
+fail 3 tio
+end
+sz = fseek int fd 0 2
+if le sz 0
+fail 3 tio
+end
+if gt ulong sz MAXF
+fail 3 tio
+end
+r = pread int fd gbuf 0 ulong sz 0
+if ne r sz
+fail 3 tio
+end
+c = fclose int fd
+put gst 0 ulong sz
+end
+
+fn spvword i ulong to ulong
+ret le32 mul i 4
+end
+
+fn namehit w ulong nw ulong to bool
+note entry name of an OpEntryPoint starting at word w (nw words); compares with garg
+o = mul add w 3 4
+e = mul add w nw 4
+k = ulong 0
+while true bound 4096
+if ge add o k e
+ret false
+end
+c = get gbuf add o k
+if eq c 0
+ret eq k get gst 9
+end
+if ge k get gst 9
+ret false
+end
+if ne c get garg k
+ret false
+end
+k = add k 1
+end
+ret false
+end
+
+fn spvhdr to void
+sz = get gst 0
+if lt sz 20
+refuse 20 rmagic
+end
+if ne rem sz 4 0
+refuse 20 rmagic
+end
+if ne spvword 0 0x07230203
+refuse 20 rmagic
+end
+v = spvword 1
+if ne and v 0xff0000ff 0
+refuse 20 rmagic
+end
+if ne and shr v 16 255 1
+refuse 20 rmagic
+end
+if gt and shr v 8 255 6
+refuse 20 rmagic
+end
+bd = spvword 3
+if eq bd 0
+refuse 20 rmagic
+end
+if ge bd 4194304
+refuse 20 rmagic
+end
+if ne spvword 4 0
+refuse 20 rmagic
+end
+end
+
+fn spvop w ulong wc ulong seen ulong to ulong
+note one instruction at word w; returns seen with the bits it proves:
+note 1 Shader, 2 Kernel, 4 Addresses, 8 Logical GLSL450, 16 Physical64 OpenCL,
+note 32 GLCompute entry (named, if a name was given), 64 Kernel entry (named, if given)
+op = and spvword w 0xffff
+s = seen
+if eq op 17
+if lt wc 2
+refuse 21 rstrm
+end
+cp = spvword add w 1
+if eq cp 1
+s = or s 1
+end
+if eq cp 6
+s = or s 2
+end
+if eq cp 4
+s = or s 4
+end
+end
+if eq op 14
+if lt wc 3
+refuse 21 rstrm
+end
+am = spvword add w 1
+mm = spvword add w 2
+if eq am 0
+if eq mm 1
+s = or s 8
+end
+end
+if eq am 2
+if eq mm 2
+s = or s 16
+end
+end
+end
+if eq op 15
+if lt wc 4
+refuse 21 rstrm
+end
+em = spvword add w 1
+ok = true
+if gt get gst 9 0
+ok = namehit w wc
+end
+if ok
+if eq em 5
+s = or s 32
+end
+if eq em 6
+s = or s 64
+end
+end
+end
+ret s
+end
+
+fn spvwalk to ulong
+note walks every instruction; returns the seen bits, leaves the instruction count in gst 11
+nw = div get gst 0 4
+w = ulong 5
+ni = ulong 0
+seen = ulong 0
+lw = ulong 5
+while lt w nw bound 999999
+wc = shr spvword w 16
+if eq wc 0
+refuse 21 rstrm
+end
+if gt add w wc nw
+refuse 21 rstrm
+end
+seen = spvop w wc seen
+lw = w
+w = add w wc
+ni = add ni 1
+end
+if lt w nw
+refuse 21 rstrm
+end
+if ne and spvword lw 65535 56
+refuse 21 rstrm
+end
+put gst 11 ni
+ret seen
+end
+
+fn spirv vk bool to int
+spvhdr
+seen = spvwalk
+if vk
+if ne and seen 11 9
+refuse 22 rcapv
+end
+if eq and seen 32 0
+refuse 23 rentry
+end
+else
+if ne and seen 23 22
+refuse 22 rcapc
+end
+if eq and seen 64 0
+refuse 23 rentry
+end
+end
+v = spvword 1
+ot tacc
+ofmt
+ot tver
+odec and shr v 16 255
+ot tdot
+odec and shr v 8 255
+ot tbnd
+odec spvword 3
+ot twds
+odec div get gst 0 4
+ot tinsn
+odec get gst 11
+if gt get gst 9 0
+ot tent
+for i ulong get gst 9
+oc get garg i
+end
+end
+ot tnl
+oflush
+ret 0
+end
+
+fn gfxmach to ulong
+note EF_AMDGPU_MACH_AMDGCN_* from llvm/BinaryFormat/ELF.h, LLVM 18.1.3
+if argis g900
+ret 0x2c
+end
+if argis g90a
+ret 0x3f
+end
+if argis g942
+ret 0x4c
+end
+if argis g1030
+ret 0x36
+end
+if argis g1100
+ret 0x41
+end
+if argis g1151
+ret 0x4a
+end
+if argis g1200
+ret 0x48
+end
+if argis g1201
+ret 0x4e
+end
+ret 0
+end
+
+fn mpneed n ulong to void
+if gt add get gst 2 n get gst 3
+refuse 35 rmsg
+end
+end
+
+fn mpbyte to ulong
+mpneed 1
+p = get gst 2
+put gst 2 add p 1
+ret b8 p
+end
+
+fn mplen n ulong to ulong
+note read an n-byte big-endian length or value at the cursor (n = 1, 2 or 4)
+mpneed n
+p = get gst 2
+put gst 2 add p n
+if eq n 1
+ret b8 p
+end
+if eq n 2
+ret be16 p
+end
+ret be32 p
+end
+
+fn mpstr to ulong
+note string header at the cursor: returns the length; the cursor moves to the first byte
+b = mpbyte
+if eq and b 0xe0 0xa0
+ret and b 31
+end
+if eq b 0xd9
+ret mplen 1
+end
+if eq b 0xda
+ret mplen 2
+end
+if eq b 0xdb
+ret mplen 4
+end
+refuse 35 rmsg
+ret 0
+end
+
+fn mpskip to void
+note skip one complete value; pending counts values still to skip (bounded, no recursion)
+pend = ulong 1
+while gt pend 0 bound 999999
+pend = sub pend 1
+b = mpbyte
+sk = ulong 0
+if le b 0x7f
+sk = 0
+else
+if ge b 0xe0
+sk = 0
+else
+if eq and b 0xf0 0x80
+pend = add pend mul and b 15 2
+else
+if eq and b 0xf0 0x90
+pend = add pend and b 15
+else
+if eq and b 0xe0 0xa0
+sk = and b 31
+else
+sk = mpskipx b
+pend = add pend get gst 10
+end
+end
+end
+end
+end
+mpneed sk
+put gst 2 add get gst 2 sk
+if gt pend 1000000
+refuse 35 rmsg
+end
+end
+end
+
+fn mpskipx b ulong to ulong
+note non-fix forms: returns bytes to skip; sets gst 10 to extra pending values
+put gst 10 0
+if eq b 0xc0
+ret 0
+end
+if eq b 0xc2
+ret 0
+end
+if eq b 0xc3
+ret 0
+end
+if eq b 0xcc
+ret 1
+end
+if eq b 0xd0
+ret 1
+end
+if eq b 0xcd
+ret 2
+end
+if eq b 0xd1
+ret 2
+end
+if eq b 0xca
+ret 4
+end
+if eq b 0xce
+ret 4
+end
+if eq b 0xd2
+ret 4
+end
+if eq b 0xcb
+ret 8
+end
+if eq b 0xcf
+ret 8
+end
+if eq b 0xd3
+ret 8
+end
+if eq b 0xc4
+ret mplen 1
+end
+if eq b 0xd9
+ret mplen 1
+end
+if eq b 0xc5
+ret mplen 2
+end
+if eq b 0xda
+ret mplen 2
+end
+if eq b 0xc6
+ret mplen 4
+end
+if eq b 0xdb
+ret mplen 4
+end
+if eq b 0xdc
+put gst 10 mplen 2
+ret 0
+end
+if eq b 0xdd
+put gst 10 mplen 4
+ret 0
+end
+if eq b 0xde
+put gst 10 mul mplen 2 2
+ret 0
+end
+if eq b 0xdf
+put gst 10 mul mplen 4 2
+ret 0
+end
+refuse 35 rmsg
+ret 0
+end
+
+fn mpkey t view uchar * n ulong to bool
+note the string of length n at the cursor equals t (cursor not moved)
+if ne n len t
+ret false
+end
+p = get gst 2
+for k ulong n
+if ne get gbuf add p k get t k
+ret false
+end
+end
+ret true
+end
+
+fn mparr to ulong
+note array header at the cursor: returns the count
+b = mpbyte
+if eq and b 0xf0 0x90
+ret and b 15
+end
+if eq b 0xdc
+ret mplen 2
+end
+if eq b 0xdd
+ret mplen 4
+end
+refuse 36 rtgt
+ret 0
+end
+
+fn mpval kk ulong to void
+note value of the key kk (1 version, 2 kernels, 3 target) at the cursor
+st = get gst 2
+if eq kk 1
+c = mparr
+if ge c 1
+if eq mpbyte 1
+put gst 7 1
+end
+end
+end
+if eq kk 2
+put gst 5 mparr
+end
+if eq kk 3
+n = mpstr
+mpneed n
+if eq n get gst 8
+p = get gst 2
+ok = true
+for k ulong n
+if ne get gbuf add p k get gtgt k
+ok = false
+end
+end
+if ok
+put gst 6 1
+end
+end
+end
+put gst 2 st
+mpskip
+end
+
+fn metadata o ulong n ulong to void
+put gst 2 o
+put gst 3 add o n
+b = mpbyte
+c = ulong 0
+if eq and b 0xf0 0x80
+c = and b 15
+else
+if eq b 0xde
+c = mplen 2
+else
+refuse 35 rmsg
+end
+end
+for i ulong c
+kn = mpstr
+mpneed kn
+kk = ulong 0
+if mpkey kver kn
+kk = 1
+end
+if mpkey kkern kn
+kk = 2
+end
+if mpkey ktgt kn
+kk = 3
+end
+put gst 2 add get gst 2 kn
+mpval kk
+end
+end
+
+fn notes o ulong n ulong to bool
+note walk the notes of one PT_NOTE segment; true once the AMDGPU metadata note was parsed
+e = add o n
+p = o
+while lt p e bound 4096
+if gt add p 12 e
+refuse 34 rnote
+end
+nz = le32 p
+dz = le32 add p 4
+ty = le32 add p 8
+nm = add p 12
+ds = add nm and add nz 3 0xfffffffc
+nx = add ds and add dz 3 0xfffffffc
+if gt nx e
+refuse 34 rnote
+end
+if eq nz 7
+if eq ty 32
+if eq le32 nm 0x47444d41
+if eq le16 add nm 4 0x5550
+if eq b8 add nm 6 0
+metadata ds dz
+ret true
+end
+end
+end
+end
+end
+p = nx
+end
+ret false
+end
+
+fn hsaco to int
+sz = get gst 0
+if eq get gst 9 0
+fail 2 rarg
+end
+mach = gfxmach
+if eq mach 0
+refuse 37 rgfx
+end
+if lt sz 64
+refuse 30 relf
+end
+if ne le32 0 0x464c457f
+refuse 30 relf
+end
+if ne b8 4 2
+refuse 30 relf
+end
+if ne b8 5 1
+refuse 30 relf
+end
+if ne b8 6 1
+refuse 30 relf
+end
+if ne b8 7 64
+refuse 31 rabi
+end
+abi = b8 8
+if lt abi 2
+refuse 31 rabi
+end
+if gt abi 3
+refuse 31 rabi
+end
+if ne le16 16 3
+refuse 32 rmach
+end
+if ne le16 18 224
+refuse 32 rmach
+end
+fl = le32 48
+if ne and fl 0xff mach
+refuse 33 rflag
+end
+po = le64 32
+pe = le16 54
+pn = le16 56
+if ne pe 56
+refuse 30 relf
+end
+if gt add po mul pn 56 sz
+refuse 30 relf
+end
+done = false
+for i ulong pn
+h = add po mul i 56
+if eq le32 h 4
+off = le64 add h 8
+fs = le64 add h 32
+if gt add off fs sz
+refuse 34 rnote
+end
+if not done
+done = notes off fs
+end
+end
+end
+if not done
+refuse 34 rnote
+end
+if eq get gst 7 0
+refuse 36 rtgt
+end
+if eq get gst 5 0
+refuse 36 rtgt
+end
+if eq get gst 6 0
+refuse 36 rtgt
+end
+ot tacc
+ofmt
+ot ttgt
+ot tpfx
+for i ulong get gst 9
+oc get garg i
+end
+ot tmach
+ohx and fl 0xff
+ot tabi
+odec abi
+ot tkern
+odec get gst 5
+ot tnote
+ot tsz
+odec sz
+ot tnl
+oflush
+ret 0
+end
+
+fn rawsm to int
+sz = get gst 0
+if ne rem sz 16 0
+refuse 40 rraw
+end
+if eq le32 0 0x464c457f
+refuse 40 rraw
+end
+if eq le32 0 0x07230203
+refuse 40 rraw
+end
+ot tacc
+ofmt
+ot tsz
+odec sz
+ot tnl
+oflush
+ret 0
+end
+
+fn main to int
+ac = argcnt
+if lt ac 2
+fail 2 tuse
+end
+n = argread 1 gfmt 0 len gfmt
+put gst 4 ulong n
+if fmtis tdoc
+if ne ac 2
+fail 2 tuse
+end
+ret doctor
+end
+if not fmtis tload
+fail 2 tuse
+end
+if lt ac 4
+fail 2 tuse
+end
+if gt ac 5
+fail 2 tuse
+end
+n = argread 2 gfmt 0 len gfmt
+if le n 0
+fail 2 tuse
+end
+put gst 4 ulong n
+put gst 9 0
+if eq ac 5
+m = argread 4 garg 0 len garg
+if le m 0
+fail 2 tuse
+end
+put gst 9 ulong m
+end
+for i ulong len tpfx
+put gtgt i get tpfx i
+end
+for i ulong get gst 9
+put gtgt add len tpfx i get garg i
+end
+put gst 8 add len tpfx get gst 9
+if fmtis fms
+refuse 11 rplan
+end
+if fmtis fa64
+refuse 11 rplan
+end
+if fmtis fcu
+refuse 12 rresv
+end
+if fmtis fsm
+rdfile 3
+ret rawsm
+end
+if fmtis fcl
+rdfile 3
+ret spirv false
+end
+if fmtis fvk
+rdfile 3
+ret spirv true
+end
+if fmtis fhs
+rdfile 3
+ret hsaco
+end
+refuse 10 rnofmt
+ret 10
+end
