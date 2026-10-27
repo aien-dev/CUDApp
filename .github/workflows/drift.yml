@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# Drift gate: CUDA++ is the source of truth for the GPU stack. Fails when omega-mv main changed a GPU file
+# after the cutover (tools/extract/drift-baseline.tsv) and CUDA++ does not hold the same bytes.
+# The self-test first proves the gate goes red on a tampered baseline and on a real Omega edit.
+name: drift
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  drift:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Clone omega-mv main
+        run: git clone -q --depth 1 --branch main https://github.com/aien-dev/omega-mv "$RUNNER_TEMP/omega"
+      - name: Negative controls and real check
+        run: tools/extract/drift.sh --self-test "$RUNNER_TEMP/omega" HEAD
