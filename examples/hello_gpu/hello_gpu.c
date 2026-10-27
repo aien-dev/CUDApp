@@ -24,7 +24,10 @@
  * `--bug=short` is the negative control for the check itself, on the GPU or with --sim: the last launch is
  * given one element too FEW, so c[1048575] is never written. That writes nothing outside a buffer, so it is
  * safe on the chip; the check must report "1 never written", print FAIL and exit 1. `make hello-gpu-control`
- * runs it on the GPU and passes only when it goes red that way.
+ * builds a separate binary, build/hello_gpu_control, with it and passes only when it goes red that way.
+ * MIGRATION-PENDING C (GpuStack PLAN, Language rule): it exists only when CUDAPP_MIGRATION_PENDING_HELLO_CONTROL
+ * is defined to 1, which is OFF by default (build/hello_gpu never has it). Its .om successor is the native .om
+ * hello of aien-dev/CUDApp#79 (OM-GPU-RETIRE), which replaces this whole C program.
  *
  * Both paths print the work the job takes (bytes moved, floating-point operations) and the least time
  * those bytes need at this GB10's measured read ceiling (D12), the time the kernel took to build and the
@@ -34,6 +37,9 @@
  * Hardware: NVIDIA GB10 (DGX Spark, sm_121), Linux, the open NVIDIA kernel driver loaded.
  * Built by `make hello-gpu` (see README, "Run your first kernel").
  */
+#ifndef CUDAPP_MIGRATION_PENDING_HELLO_CONTROL
+#define CUDAPP_MIGRATION_PENDING_HELLO_CONTROL 0 /* migration-pending switch, OFF by default (see above) */
+#endif
 #include "omega_blackwell_codegen.h"
 #include "omega_blackwell_qmd.h"
 #include "omega_gpu_session.h"
@@ -196,7 +202,9 @@ static int run_sim(const BlackwellIRProgram *prog, int bug) {
         uint64_t off = (uint64_t)base * sizeof(float);
         uint32_t n = N_TOTAL - base < CHUNK ? N_TOTAL - base : CHUNK;
         if (bug == 1 && base + CHUNK >= N_TOTAL) n += 1; /* --bug=past-end: the last launch is told one element too many */
+#if CUDAPP_MIGRATION_PENDING_HELLO_CONTROL
         if (bug == 2 && base + CHUNK >= N_TOTAL) n -= 1; /* --bug=short: the last launch is told one element too few */
+#endif
         uint64_t pa = base_of[0] + off, pb = base_of[1] + off, pc = base_of[2] + off;
         memset(s.cbank, 0, sizeof s.cbank);
         s.cbank[0x380 / 4] = (uint32_t)pa; s.cbank[0x384 / 4] = (uint32_t)(pa >> 32);
@@ -250,8 +258,12 @@ int main(int argc, char **argv) {
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--sim")) sim = 1;
         else if (!strcmp(argv[i], "--bug=past-end")) bug = 1;
+#if CUDAPP_MIGRATION_PENDING_HELLO_CONTROL
         else if (!strcmp(argv[i], "--bug=short")) bug = 2;
         else { printf("usage: hello_gpu [--sim] [--bug=short] | hello_gpu --sim --bug=past-end\n"); return 2; }
+#else
+        else { printf("usage: hello_gpu [--sim [--bug=past-end]]\n"); return 2; }
+#endif
     }
     if (bug == 1 && !sim) { printf("--bug=past-end is only for --sim: on the GPU it would write past a buffer\n"); return 2; }
     int rc = 1;
@@ -304,7 +316,9 @@ int main(int argc, char **argv) {
     for (uint32_t base = 0; base < N_TOTAL; base += CHUNK) {
         uint64_t off = (uint64_t)base * sizeof(float);
         uint32_t n = N_TOTAL - base < CHUNK ? N_TOTAL - base : CHUNK;
+#if CUDAPP_MIGRATION_PENDING_HELLO_CONTROL
         if (bug == 2 && base + CHUNK >= N_TOTAL) n -= 1; /* --bug=short: c[N_TOTAL - 1] is never written */
+#endif
         uint32_t args[OMEGA_BW_CBANK_MATMUL_ARGS_WORDS] = { (uint32_t)(a.va + off), (uint32_t)((a.va + off) >> 32),
             (uint32_t)(b.va + off), (uint32_t)((b.va + off) >> 32), (uint32_t)(c.va + off), (uint32_t)((c.va + off) >> 32), n };
         OmegaGpuLaunch L = { .code_va = code.va, .gpr_count = declared < 64 ? 64 : declared, .threads_x = THREADS, .threads_y = 1,
