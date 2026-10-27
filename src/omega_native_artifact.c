@@ -63,13 +63,23 @@ static int append(char **p, size_t *rem, const char *fmt, ...) {
 }
 
 /* Artifact files are opened with an explicit 0644, never left to the umask: a
- * 0666 mode would make them world-writable (CodeQL cpp/world-writable-file-creation). */
+ * 0666 mode would make them world-writable (CodeQL cpp/world-writable-file-creation).
+ * An artifact is immutable once written: O_EXCL refuses to clobber an existing
+ * file and O_NOFOLLOW refuses a symlink planted at the target (audit F8). */
 static FILE *open_write(const char *path) {
-    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    int fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0644);
     if (fd < 0) return NULL;
     FILE *f = fdopen(fd, "wb");
     if (!f) close(fd);
     return f;
+}
+
+/* <prefix><suffix> into out, or -1 when it does not fit. An unchecked
+ * snprintf truncated every suffix away at a 1023-byte prefix and all eight
+ * writes landed on one path (audit F8). */
+static int join_path(char *out, size_t cap, const char *prefix, const char *suffix) {
+    int n = snprintf(out, cap, "%s%s", prefix, suffix);
+    return (n < 0 || (size_t)n >= cap) ? -1 : 0;
 }
 
 static int write_file(const char *path, const void *data, size_t n) {
@@ -112,8 +122,100 @@ static int qmd_template_ok(const uint32_t q0[OMEGA_ARTIFACT_QMD_WORDS],
     return 1;
 }
 
+/* The launch fields of QMD 1 must say what the manifest says (audit F3): a QMD
+ * that launches 2^31 CTAs or 511 registers under a manifest declaring 1x1 is
+ * refused. Field positions are those omega_blackwell_build_qmd1 writes:
+ * word 34 CTA x|y, word 35 CTA z (7:0) and REGISTER_COUNT (16:8, at least 16),
+ * word 36 SHARED_MEMORY_SIZE_SHIFTED7 (10:0; 0 bytes means the default 1024),
+ * words 39-41 grid x, y, z (z is always 1 in format 1). */
+static int qmd_launch_ok(const uint32_t q1[OMEGA_ARTIFACT_QMD_WORDS], uint32_t gx, uint32_t gy,
+                         uint32_t bx, uint32_t by, uint32_t bz, uint32_t shared, uint32_t gpr) {
+    uint32_t want_gpr = gpr < 16u ? 16u : gpr;
+    uint32_t want_smem7 = shared ? (shared + 127u) / 128u : 8u;
+    if (gx == 0 || gy == 0 || bx == 0 || by == 0 || bz == 0) return 0;
+    if (bx > 0xffffu || by > 0xffffu || bz > 0xffu || want_gpr > 0x1ffu || want_smem7 > 0x7ffu) return 0;
+    if (q1[34] != (bx | (by << 16))) return 0;
+    if ((q1[35] & 0xffu) != bz || ((q1[35] >> 8) & 0x1ffu) != want_gpr) return 0;
+    if ((q1[36] & 0x7ffu) != want_smem7) return 0;
+    return q1[39] == gx && q1[40] == gy && q1[41] == 1u;
+}
+
+/* Strict "A.B.C", decimal components of 1-9 digits, nothing else (audit F5:
+ * sscanf with an unchecked count admitted "garbage" and "x999.0.0"). */
+static int parse_semver(const char *s, unsigned v[3]) {
+    if (!s) return -1;
+    for (int i = 0; i < 3; i++) {
+        unsigned x = 0;
+        int d = 0;
+        while (*s >= '0' && *s <= '9') {
+            if (++d > 9) return -1;
+            x = x * 10u + (unsigned)(*s++ - '0');
+        }
+        if (d == 0) return -1;
+        v[i] = x;
+        if (i < 2 && *s++ != '.') return -1;
+    }
+    return *s == 0 ? 0 : -1;
+}
+
+/* Strict unsigned decimal, 1-9 digits, no sign, space or suffix (audit F5b). */
+static int parse_u32(const char *s, uint32_t *out) {
+    uint32_t x = 0;
+    int d = 0;
+    if (!s) return -1;
+    while (*s >= '0' && *s <= '9') {
+        if (++d > 9) return -1;
+        x = x * 10u + (uint32_t)(*s++ - '0');
+    }
+    if (d == 0 || *s != 0) return -1;
+    *out = x;
+    return 0;
+}
+
+/* "a,b,c" of strict decimals, exactly n of them. */
+static int parse_u32_list(const char *s, uint32_t *out, int n) {
+    char tmp[64];
+    size_t len = strlen(s);
+    if (len >= sizeof tmp) return -1;
+    memcpy(tmp, s, len + 1);
+    char *p = tmp;
+    for (int i = 0; i < n; i++) {
+        char *c = strchr(p, ',');
+        if (i < n - 1) { if (!c) return -1; *c = 0; }
+        else if (c) return -1;
+        if (parse_u32(p, &out[i])) return -1;
+        if (c) p = c + 1;
+    }
+    return 0;
+}
+
+/* A manifest value is one line of printable text: a newline would forge a new
+ * record and a quote or control byte would forge JSON (audit F7). */
+static int field_text_ok(const char *s) {
+    for (; *s; s++) {
+        unsigned char c = (unsigned char)*s;
+        if (c < 0x20 || c == 0x7f) return 0;
+    }
+    return 1;
+}
+
+static void json_str(FILE *f, const char *s) {
+    fputc('"', f);
+    for (; *s; s++) {
+        unsigned char c = (unsigned char)*s;
+        if (c == '"' || c == '\\') { fputc('\\', f); fputc(c, f); }
+        else if (c < 0x20 || c == 0x7f) fprintf(f, "\\u%04x", c);
+        else fputc(c, f);
+    }
+    fputc('"', f);
+}
+
 static void json_put(FILE *f, const char *key, const char *val, int last) {
-    fprintf(f, "  \"%s\": \"%s\"%s\n", key, val, last ? "" : ",");
+    fputs("  ", f);
+    json_str(f, key);
+    fputs(": ", f);
+    json_str(f, val);
+    fputs(last ? "\n" : ",\n", f);
 }
 
 int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_prefix,
@@ -124,7 +226,12 @@ int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_p
     size_t cub_len = 0, mlen;
     char machine_hex[65];
     SemanticId machine;
-    char path[1024];
+    /* Every output path is built and checked before the first byte is
+     * written, so a prefix that does not fit refuses with nothing on disk. */
+    static const char *const suffix[8] = { ".text.bin", ".cubin", ".qmd0.bin", ".qmd1.bin",
+                                           ".cbank_args.bin", ".json", ".manifest", ".sha256" };
+    enum { P_TEXT, P_CUBIN, P_QMD0, P_QMD1, P_CBANK, P_JSON, P_MANIFEST, P_SHA };
+    char path[8][1024];
     int rc = OMEGA_ARTIFACT_OK;
 
     if (err && err_cap) err[0] = 0;
@@ -137,6 +244,29 @@ int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_p
         if (err) snprintf(err, err_cap, "missing required artifact field");
         return OMEGA_ARTIFACT_E_ARG;
     }
+    {
+        const char *texts[] = { a->op, a->shape, a->bounds, a->contract_name, a->kernel_function, a->min_driver,
+                                a->requires, a->precision, a->accumulation, a->tolerance, a->source_commit,
+                                a->tool_version, a->qualification };
+        for (size_t i = 0; i < sizeof texts / sizeof texts[0]; i++)
+            if (!field_text_ok(texts[i])) {
+                if (err) snprintf(err, err_cap, "artifact text fields must be one line without control bytes");
+                return OMEGA_ARTIFACT_E_ARG;
+            }
+    }
+    {
+        unsigned v[3];
+        if (parse_semver(a->min_driver, v)) {
+            if (err) snprintf(err, err_cap, "min_driver '%s' is not a strict A.B.C version", a->min_driver);
+            return OMEGA_ARTIFACT_E_ARG;
+        }
+    }
+    for (int i = 0; i < 8; i++)
+        if (join_path(path[i], sizeof path[i], out_prefix, suffix[i])) {
+            if (err) snprintf(err, err_cap, "output prefix too long: '%s%s' does not fit %zu bytes",
+                              "<prefix>", suffix[i], sizeof path[i]);
+            return OMEGA_ARTIFACT_E_ARG;
+        }
     if (!is_hex64(a->contract_id_hex) || !is_hex64(a->semantic_spec_id_hex)) {
         if (err) snprintf(err, err_cap, "contract_id and semantic_spec_id must be 64 lowercase hex");
         return OMEGA_ARTIFACT_E_CONTRACT;
@@ -148,6 +278,11 @@ int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_p
     if (!qmd_template_ok(a->qmd0, a->qmd1)) {
         if (err) snprintf(err, err_cap, "QMD contains a live device address; export a zero-VA template");
         return OMEGA_ARTIFACT_E_RELOC;
+    }
+    if (!qmd_launch_ok(a->qmd1, a->grid_x, a->grid_y, a->block_x, a->block_y, a->block_z, a->shared_bytes,
+                       a->gpr_count)) {
+        if (err) snprintf(err, err_cap, "QMD launch fields (grid/block/registers/shared) disagree with the descriptor");
+        return OMEGA_ARTIFACT_E_CONTRACT;
     }
     if (omega_blackwell_get_machine_id(&machine) != 0) {
         if (err) snprintf(err, err_cap, "machine profile unavailable");
@@ -168,7 +303,8 @@ int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_p
         if (err && err[0] == 0) snprintf(err, err_cap, "cubin pack refused: %s", omega_cubin_rc_name(rc));
         return (rc == OMEGA_CUBIN_E_MEM) ? OMEGA_ARTIFACT_E_MEM : OMEGA_ARTIFACT_E_UNSUPPORTED;
     }
-    if (a->cbank_offset != OMEGA_CUBIN_PARAM_BASE || a->cbank_words == 0 || a->cbank_words > 256) {
+    if (a->cbank_offset != OMEGA_CUBIN_PARAM_BASE || a->cbank_words == 0 ||
+        a->cbank_words > OMEGA_ARTIFACT_MAX_CBANK_WORDS) {
         free(cub);
         if (err) snprintf(err, err_cap, "cbank offset/words outside the supported layout");
         return OMEGA_ARTIFACT_E_UNSUPPORTED;
@@ -242,20 +378,14 @@ int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_p
     }
 
     /* Files. Every write is checked; the manifest is written last. */
-    snprintf(path, sizeof path, "%s.text.bin", out_prefix);
-    if (write_file(path, a->text, a->text_len)) { rc = OMEGA_ARTIFACT_E_IO; goto done; }
-    snprintf(path, sizeof path, "%s.cubin", out_prefix);
-    if (write_file(path, cub, cub_len)) { rc = OMEGA_ARTIFACT_E_IO; goto done; }
-    snprintf(path, sizeof path, "%s.qmd0.bin", out_prefix);
-    if (write_file(path, a->qmd0, OMEGA_ARTIFACT_QMD_WORDS * 4u)) { rc = OMEGA_ARTIFACT_E_IO; goto done; }
-    snprintf(path, sizeof path, "%s.qmd1.bin", out_prefix);
-    if (write_file(path, a->qmd1, OMEGA_ARTIFACT_QMD_WORDS * 4u)) { rc = OMEGA_ARTIFACT_E_IO; goto done; }
-    snprintf(path, sizeof path, "%s.cbank_args.bin", out_prefix);
-    if (write_file(path, a->cbank_args, a->cbank_words * 4u)) { rc = OMEGA_ARTIFACT_E_IO; goto done; }
+    if (write_file(path[P_TEXT], a->text, a->text_len)) { rc = OMEGA_ARTIFACT_E_IO; goto done; }
+    if (write_file(path[P_CUBIN], cub, cub_len)) { rc = OMEGA_ARTIFACT_E_IO; goto done; }
+    if (write_file(path[P_QMD0], a->qmd0, OMEGA_ARTIFACT_QMD_WORDS * 4u)) { rc = OMEGA_ARTIFACT_E_IO; goto done; }
+    if (write_file(path[P_QMD1], a->qmd1, OMEGA_ARTIFACT_QMD_WORDS * 4u)) { rc = OMEGA_ARTIFACT_E_IO; goto done; }
+    if (write_file(path[P_CBANK], a->cbank_args, a->cbank_words * 4u)) { rc = OMEGA_ARTIFACT_E_IO; goto done; }
 
-    snprintf(path, sizeof path, "%s.json", out_prefix);
     {
-        FILE *f = open_write(path);
+        FILE *f = open_write(path[P_JSON]);
         if (!f) { rc = OMEGA_ARTIFACT_E_IO; goto done; }
         fprintf(f, "{\n  \"format\": \"%s\",\n", OMEGA_ARTIFACT_FORMAT);
         json_put(f, "artifact_id", id, 0);
@@ -291,13 +421,11 @@ int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_p
         fprintf(f, "}\n");
         if (fclose(f) != 0) { rc = OMEGA_ARTIFACT_E_IO; goto done; }
     }
-    snprintf(path, sizeof path, "%s.manifest", out_prefix);
-    if (write_file(path, manifest, mlen)) { rc = OMEGA_ARTIFACT_E_IO; goto done; }
-    snprintf(path, sizeof path, "%s.sha256", out_prefix);
+    if (write_file(path[P_MANIFEST], manifest, mlen)) { rc = OMEGA_ARTIFACT_E_IO; goto done; }
     {
         uint8_t md[32]; char mhex[65];
         sha256_hash(manifest, mlen, md); hex64(md, mhex);
-        FILE *f = open_write(path);
+        FILE *f = open_write(path[P_SHA]);
         if (!f) { rc = OMEGA_ARTIFACT_E_IO; goto done; }
         /* Role names, never absolute or caller-chosen paths: the listing is
          * byte-identical for the same artifact exported under any prefix. */
@@ -410,10 +538,11 @@ static int copy_value(const char *line, char *out, size_t cap) {
     return 0;
 }
 
+/* Both versions strict A.B.C; returns 1 when have >= need, 0 when older,
+ * -1 when either does not parse (refused, never read as 0.0.0). */
 static int semver_ge(const char *have, const char *need) {
-    int h[3] = {0,0,0}, n[3] = {0,0,0};
-    sscanf(have, "%d.%d.%d", &h[0], &h[1], &h[2]);
-    sscanf(need, "%d.%d.%d", &n[0], &n[1], &n[2]);
+    unsigned h[3], n[3];
+    if (parse_semver(have, h) || parse_semver(need, n)) return -1;
     for (int i = 0; i < 3; i++) {
         if (h[i] != n[i]) return h[i] > n[i];
     }
@@ -422,7 +551,10 @@ static int semver_ge(const char *have, const char *need) {
 
 int omega_native_artifact_admit(const char *out_prefix, const char *current_driver,
                                 char out_id[OMEGA_ARTIFACT_ID_MAX], char *err, size_t err_cap) {
-    char path[1024], id[65];
+    enum { A_MANIFEST, A_TEXT, A_CUBIN, A_QMD0, A_QMD1, A_CBANK, A_N };
+    static const char *const suffix[A_N] = { ".manifest", ".text.bin", ".cubin", ".qmd0.bin", ".qmd1.bin",
+                                             ".cbank_args.bin" };
+    char path[A_N][1024], id[65];
     size_t mn = 0;
     uint8_t *man;
     char *ident, *end, *p;
@@ -430,9 +562,13 @@ int omega_native_artifact_admit(const char *out_prefix, const char *current_driv
     if (err && err_cap) err[0] = 0;
     if (out_id) out_id[0] = 0;
     if (!out_prefix) return OMEGA_ARTIFACT_E_ARG;
-    snprintf(path, sizeof path, "%s.manifest", out_prefix);
-    man = read_file(path, &mn);
-    if (!man) { if (err) snprintf(err, err_cap, "cannot read %s", path); return OMEGA_ARTIFACT_E_IO; }
+    for (int i = 0; i < A_N; i++)
+        if (join_path(path[i], sizeof path[i], out_prefix, suffix[i])) {
+            if (err) snprintf(err, err_cap, "artifact prefix too long for '%s'", suffix[i]);
+            return OMEGA_ARTIFACT_E_ARG;
+        }
+    man = read_file(path[A_MANIFEST], &mn);
+    if (!man) { if (err) snprintf(err, err_cap, "cannot read %s", path[A_MANIFEST]); return OMEGA_ARTIFACT_E_IO; }
     if (!manifest_layout_ok(man, mn)) {
         rc = OMEGA_ARTIFACT_E_FORMAT; goto done;
     }
@@ -452,25 +588,24 @@ int omega_native_artifact_admit(const char *out_prefix, const char *current_driv
             if (err) snprintf(err, err_cap, "artifact id mismatch: manifest %s recomputed %s", id, want);
             rc = OMEGA_ARTIFACT_E_DIGEST; goto done;
         }
-        snprintf(out_id, OMEGA_ARTIFACT_ID_MAX, "%s", id);
     }
     /* Fields and their files. */
     {
-        struct { const char *key; const char *suffix; size_t fixed; } checks[] = {
-            { "text_sha256=", ".text.bin", 0 },
-            { "cubin_sha256=", ".cubin", 0 },
-            { "qmd0_sha256=", ".qmd0.bin", OMEGA_ARTIFACT_QMD_WORDS * 4u },
-            { "qmd1_sha256=", ".qmd1.bin", OMEGA_ARTIFACT_QMD_WORDS * 4u },
-            { "cbank_args_sha256=", ".cbank_args.bin", 0 },
+        struct { const char *key; int file; size_t fixed; } checks[] = {
+            { "text_sha256=", A_TEXT, 0 },
+            { "cubin_sha256=", A_CUBIN, 0 },
+            { "qmd0_sha256=", A_QMD0, OMEGA_ARTIFACT_QMD_WORDS * 4u },
+            { "qmd1_sha256=", A_QMD1, OMEGA_ARTIFACT_QMD_WORDS * 4u },
+            { "cbank_args_sha256=", A_CBANK, 0 },
         };
         for (size_t i = 0; i < sizeof checks / sizeof checks[0]; i++) {
-            char v[65], fn[1100];
+            char v[65];
+            const char *fn = path[checks[i].file];
             uint8_t *b, d[32];
             char got[65];
             size_t n;
             p = find_line(ident, checks[i].key);
             if (!p || copy_value(p, v, sizeof v) || !is_hex64(v)) { rc = OMEGA_ARTIFACT_E_FORMAT; goto done; }
-            snprintf(fn, sizeof fn, "%s%s", out_prefix, checks[i].suffix);
             b = read_file(fn, &n);
             if (!b) { if (err) snprintf(err, err_cap, "cannot read %s", fn); rc = OMEGA_ARTIFACT_E_IO; goto done; }
             if (checks[i].fixed && n != checks[i].fixed) { free(b); rc = OMEGA_ARTIFACT_E_DIGEST; goto done; }
@@ -482,38 +617,55 @@ int omega_native_artifact_admit(const char *out_prefix, const char *current_driv
         }
     }
     {
-        char fn[1100], v[64];
+        char v[64];
         uint8_t *t = NULL, *c = NULL, *q = NULL;
         size_t tn = 0, cn = 0, qn = 0;
         int ok = 0;
         p = find_line(ident, "kernel_function=");
         if (!p || copy_value(p, v, sizeof v) || v[0] == 0) { rc = OMEGA_ARTIFACT_E_FORMAT; goto done; }
-        snprintf(fn, sizeof fn, "%s.text.bin", out_prefix); t = read_file(fn, &tn);
-        snprintf(fn, sizeof fn, "%s.cubin", out_prefix); c = read_file(fn, &cn);
+        t = read_file(path[A_TEXT], &tn);
+        c = read_file(path[A_CUBIN], &cn);
         if (!t || !c) { rc = OMEGA_ARTIFACT_E_IO; goto cross_done; }
         ok = cubin_text_matches(c, cn, v, t, tn);
         if (!ok) { if (err) snprintf(err, err_cap, "cubin text does not match text.bin"); rc = OMEGA_ARTIFACT_E_DIGEST; goto cross_done; }
-        snprintf(fn, sizeof fn, "%s.qmd1.bin", out_prefix); q = read_file(fn, &qn);
-        if (!q || qn != OMEGA_ARTIFACT_QMD_WORDS * 4u) { rc = OMEGA_ARTIFACT_E_FORMAT; goto cross_done; }
         {
             uint32_t a[OMEGA_ARTIFACT_QMD_WORDS], b[OMEGA_ARTIFACT_QMD_WORDS];
-            snprintf(fn, sizeof fn, "%s.qmd0.bin", out_prefix); free(q); q = read_file(fn, &qn);
-            if (!q || qn != OMEGA_ARTIFACT_QMD_WORDS * 4u) { rc = OMEGA_ARTIFACT_E_FORMAT; goto cross_done; }
+            uint32_t grid[3], block[3], shared, gpr;
+            q = read_file(path[A_QMD0], &qn);
+            if (!q || qn != sizeof a) { rc = OMEGA_ARTIFACT_E_FORMAT; goto cross_done; }
             memcpy(a, q, sizeof a);
-            snprintf(fn, sizeof fn, "%s.qmd1.bin", out_prefix); free(q); q = read_file(fn, &qn);
+            free(q); q = read_file(path[A_QMD1], &qn);
             if (!q || qn != sizeof b) { rc = OMEGA_ARTIFACT_E_FORMAT; goto cross_done; }
             memcpy(b, q, sizeof b);
             if (!qmd_template_ok(a, b)) { if (err) snprintf(err, err_cap, "QMD contains a live address"); rc = OMEGA_ARTIFACT_E_RELOC; goto cross_done; }
+            /* The digests bind the QMD bytes; this binds what they launch to the
+             * manifest's declared launch (audit F3). */
+            if (!(p = find_line(ident, "grid=")) || copy_value(p, v, sizeof v) || parse_u32_list(v, grid, 3) ||
+                !(p = find_line(ident, "block=")) || copy_value(p, v, sizeof v) || parse_u32_list(v, block, 3) ||
+                !(p = find_line(ident, "shared_bytes=")) || copy_value(p, v, sizeof v) || parse_u32(v, &shared) ||
+                !(p = find_line(ident, "gpr_count=")) || copy_value(p, v, sizeof v) || parse_u32(v, &gpr) ||
+                grid[2] != 1u) {
+                rc = OMEGA_ARTIFACT_E_FORMAT; goto cross_done;
+            }
+            if (!qmd_launch_ok(b, grid[0], grid[1], block[0], block[1], block[2], shared, gpr)) {
+                if (err) snprintf(err, err_cap, "QMD launch fields disagree with the manifest grid/block/shared/gpr");
+                rc = OMEGA_ARTIFACT_E_CONTRACT; goto cross_done;
+            }
         }
         p = find_line(ident, "cbank_words=");
         if (!p || copy_value(p, v, sizeof v)) { rc = OMEGA_ARTIFACT_E_FORMAT; goto cross_done; }
         {
-            unsigned long w = strtoul(v, NULL, 10);
-            snprintf(fn, sizeof fn, "%s.cbank_args.bin", out_prefix); free(q); q = read_file(fn, &qn);
-            if (!q || w == 0 || w > 256 || qn != w * 4u) { rc = OMEGA_ARTIFACT_E_FORMAT; goto cross_done; }
+            uint32_t w;
+            free(q); q = read_file(path[A_CBANK], &qn);
+            if (!q || parse_u32(v, &w) || w == 0 || w > OMEGA_ARTIFACT_MAX_CBANK_WORDS || qn != (size_t)w * 4u) {
+                if (err) snprintf(err, err_cap, "cbank_words '%s' is not a decimal in 1..%u matching cbank_args.bin",
+                                  v, OMEGA_ARTIFACT_MAX_CBANK_WORDS);
+                rc = OMEGA_ARTIFACT_E_FORMAT; goto cross_done;
+            }
         }
 cross_done:
         free(t); free(c); free(q);
+        if (rc) goto done;
     }
     {
         char v[128];
@@ -530,12 +682,27 @@ cross_done:
         p = find_line(ident, "contract_id=");
         if (!p || copy_value(p, v, sizeof v) || !is_hex64(v)) { rc = OMEGA_ARTIFACT_E_CONTRACT; goto done; }
         p = find_line(ident, "min_driver=");
-        if (!p || copy_value(p, v, sizeof v)) { rc = OMEGA_ARTIFACT_E_FORMAT; goto done; }
-        if (current_driver && !semver_ge(current_driver, v)) {
-            if (err) snprintf(err, err_cap, "driver %s is older than required %s", current_driver, v);
-            rc = OMEGA_ARTIFACT_E_DRIVER; goto done;
+        {
+            unsigned need[3];
+            if (!p || copy_value(p, v, sizeof v) || parse_semver(v, need)) {
+                if (err) snprintf(err, err_cap, "manifest min_driver is not a strict A.B.C version");
+                rc = OMEGA_ARTIFACT_E_FORMAT; goto done;
+            }
+        }
+        if (current_driver) {
+            int ge = semver_ge(current_driver, v);
+            if (ge < 0) {
+                if (err) snprintf(err, err_cap, "current driver '%s' is not a strict A.B.C version", current_driver);
+                rc = OMEGA_ARTIFACT_E_ARG; goto done;
+            }
+            if (!ge) {
+                if (err) snprintf(err, err_cap, "driver %s is older than required %s", current_driver, v);
+                rc = OMEGA_ARTIFACT_E_DRIVER; goto done;
+            }
         }
     }
+    /* The id is reported only for an artifact that passed every check. */
+    if (out_id) snprintf(out_id, OMEGA_ARTIFACT_ID_MAX, "%s", id);
 done:
     free(man);
     return rc;
