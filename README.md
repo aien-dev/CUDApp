@@ -1,10 +1,19 @@
 <p align="center">
-  <img src="docs/img/hero.svg" width="100%" alt="CUDA++: my own path from a program to an NVIDIA GPU. On the right, the 32 instructions of the first kernel CUDA++ ran, drawn bit by bit from src/omega_blackwell_encoder.c.">
+  <img src="docs/img/hero.svg" width="100%" alt="CUDA++ for the NVIDIA DGX Spark (GB10, sm_121): my own path from a program to the GPU. On the right, the 32 instructions of the first kernel CUDA++ ran, drawn bit by bit from src/omega_blackwell_encoder.c.">
 </p>
 
-# CUDA++
+# CUDA++ for the NVIDIA DGX Spark
 
-**CUDA++ is the GPU half of the Omega runtime. First-party CUDA++ material in this revision is licensed under Apache-2.0 WITH LLVM-exception.** You write a GPU program, CUDA++ turns it into the GPU's own machine code and runs it on an NVIDIA GPU, with no NVIDIA user-space software anywhere: no CUDA toolkit, no `nvcc`, no PTX, no `libcuda`, no cuBLAS.
+**CUDA++ for the NVIDIA DGX Spark (GB10, sm_121). It is the GPU half of the Omega runtime. First-party CUDA++ material in this revision is licensed under Apache-2.0 WITH LLVM-exception.** You write a GPU program, CUDA++ turns it into the GB10's own machine code and runs it on the Spark's GPU with no CUDA user-space software at build or run time: no CUDA toolkit, no `nvcc`, no PTX, no `libcuda`, no cuBLAS. NVIDIA's compiler and disassembler were used offline as references while the encoding was worked out ([how I did it](#how-i-did-it)).
+
+> **Who this is for, and what hardware**
+>
+> | | |
+> |---|---|
+> | **Supported** | The NVIDIA DGX Spark. Its GB10 Grace Blackwell chip (GPU compute capability sm_121, PCI id `10de:2e12`) is the only GPU CUDA++ has machine code for. |
+> | **Other GB10 systems** | Not run. CUDA++ recognises the GPU by its PCI id, not by the system maker, so another GB10 system with the same kernel module is the same target to the code. Nobody has run CUDA++ on one. |
+> | **You need** | Linux on the Spark's ARM CPU (aarch64). NVIDIA's open kernel module, version 580.173.02: `make doctor` and `make hello-gpu` refuse another version, and `/dev/nvidiactl`, `/dev/nvidia0` and `/dev/nvidia-uvm` must exist. NVIDIA's signed GSP firmware, which that module loads into the GPU. `git`, `make` and a C compiler. No CUDA toolkit. |
+> | **Not supported** | Other NVIDIA GPUs: PLANNED, not supported. A target row for the RTX 5070 (sm_120) exists on Omega's branch `rig/gb20x` (aien-dev/omega-mv, `src/omega_bw_target.h`), built from public sources and never run on that chip ([portability](docs/runtime/PORTABILITY.md)). AMD and Intel GPUs: not CUDA++ targets. Unmodified CUDA applications: not supported; a CUDA++ program calls CUDA++'s C kernel builder, and CUDA++ does not compile CUDA C++ or PTX. |
 
 > **Licensing status:** This revision uses Apache-2.0 WITH LLVM-exception for first-party material. For the historical MIT version, use [`232332422bfdc31c8918085b50f13c1e18ab702e`](https://github.com/aien-dev/CUDApp/tree/232332422bfdc31c8918085b50f13c1e18ab702e). The old MIT grant and third-party notices are preserved. See [the transition and provenance audit](docs/LICENSING_TRANSITION.md).
 
@@ -383,9 +392,17 @@ tests and doctor tests do not qualify GPU execution. Their before/after output
 is retained in `evidence/security-host-20261026/`; the full host suite and GPU
 gates were NOT_RUN for this repair.
 
-## How it fits with Omega
+## How it fits with Omega and Omega Bridge
 
-[Omega](https://github.com/aien-dev/omega-mv) owns AIEN's seeded `.om` language and its compiler/runtime work. CUDA++ is the GPU toolchain and runtime component it consumes. The currently shipped CUDApp implementation still contains first-party C; the planned, test-gated replacement with native `.om` is tracked in [#79](https://github.com/aien-dev/CUDApp/issues/79). Omega uses CUDA++ at a pinned commit (`cudapp.lock` in Omega), the same way it pins its other parts. The code was split out of Omega on 2026-10-21 with its full history; `docs/AUDIT.md` records how, and what was checked before it was published.
+Ownership rule ([ARCH-0042](https://github.com/aien-dev/aien-architecture-mv/pull/342), PROPOSED): Omega owns computation, CUDA++ owns GPU execution, Omega Bridge owns compatibility.
+
+- **CUDA++ (this repository)** owns GPU execution: the sm_121 encoder and GPU code generators, the cubin writer and artifact exporter, artifact admission, the disassembler, the driver client (`nvrm/`), submission, sessions and the GPU runtime.
+- **[Omega](https://github.com/aien-dev/omega-mv)** owns AIEN's seeded `.om` language, its compiler and the compiler pin, semantics, and the declared contract of what a kernel computes. The existing Omegese → IR → sm_121 lowering, its checker and host words stay in omega-mv. CUDA++ is the GPU execution component Omega consumes.
+- **[Omega Bridge](https://github.com/aien-dev/omega-bridge)** owns compatibility: C and Python emitted from a checked Omega subset, native bindings for foreign callers, framework attachments (PyTorch, llama.cpp/GGML; planned) and GPU artifact negotiation (`gpu_adapter.om`). Bridge runs no kernels itself: its GPU adapter only accepts or refuses an attachment request and opens no device. Execution goes through this repository.
+
+The currently shipped CUDApp implementation still contains first-party C; the planned, test-gated replacement with native `.om` is tracked in [#79](https://github.com/aien-dev/CUDApp/issues/79). The code was split out of Omega on 2026-10-21 with its full history; `docs/AUDIT.md` records how, and what was checked before it was published.
+
+Not yet true: Omega does not consume CUDA++ at a pin today. Omega main has no `cudapp.lock`; it still builds its own diverged copy of the GPU code ([#106](https://github.com/aien-dev/CUDApp/issues/106)) and takes the driver client from physics-mv ([#107](https://github.com/aien-dev/CUDApp/issues/107)). The disassembler is in Omega ([#10](https://github.com/aien-dev/CUDApp/issues/10)) and a second, `.om` cubin writer is proposed there ([#108](https://github.com/aien-dev/CUDApp/issues/108)). The `.om` work here takes its compiler through Omega Bridge's bootstrap rather than an Omega pin ([omega-mv#870](https://github.com/aien-dev/omega-mv/issues/870)).
 
 ## Names
 

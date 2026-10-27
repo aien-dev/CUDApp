@@ -13,7 +13,7 @@ Shared rules: read https://www.aienos.com/agents/RULES.md first. This file adds 
 - `tests/`: host tests and the chip tests (`tests/gpu_*_test.c`). `mk/*.mk`: build fragments included by the `Makefile`.
 - `evidence/`: dated receipts. They record what ran on a named commit; never edit or regenerate an existing receipt. New receipts go in a new folder.
 - `build/` is generated (`make`, `OUT_DIR`) and ignored by git.
-- Omega builds the same sources at a pinned commit (`cudapp.lock` in Omega, with `PHYSICS_DIR` pointing at a CUDA++ checkout). Changes to public headers or the runtime API affect Omega.
+- Omega is meant to build these sources at a pinned commit (`cudapp.lock` in Omega). That pin does not exist yet: Omega main still builds its own diverged copy and takes `nvrm` from physics-mv (#106, #107). Changes to public headers or the runtime API will affect Omega once it does. Ownership rule: ARCH-0042, PROPOSED in aien-architecture-mv#342 (Omega owns computation, CUDA++ owns GPU execution, Omega Bridge owns compatibility).
 
 ## Installation
 
@@ -48,7 +48,7 @@ python3 tools/figures/make_figures.py --check   # README figures match the code
 - Judge `make test` by its exit code and its last line, `CUDA++ HOST TESTS PASS (<count> targets)`, where `<count>` is computed from the current `HOST_TESTS` manifest in `Makefile`. The log contains many `FAIL` and `ERROR` lines by design (mutation tests and negative controls that must fail). Do not grep the log for them.
 - `make test` already runs the host-only `test-gpu-*` targets listed in `HOST_TESTS` in the `Makefile`. Run those through `make test`, not by hand.
 - `make zero-cuda-gate` reads ELF metadata only (`tools/zero-cuda-gate.sh`).
-- `python3 tools/figures/make_figures.py --check` fails on the current `main` (`stale figures ...: stack.svg`). Mention that in your pull request rather than counting it as your failure; regenerate figures only when you change the data they are drawn from.
+- `python3 tools/figures/make_figures.py --check` must print `figures current: <n>`. Regenerate figures only when you change the data they are drawn from, and commit the regenerated SVGs with that change.
 
 GPU commands (need a GB10; do not run from an agent session unless the maintainer has given you a GPU window on the DGX Spark):
 
