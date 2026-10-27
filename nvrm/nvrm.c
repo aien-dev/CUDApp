@@ -290,6 +290,31 @@ static void recycle_va_slot(uint64_t base) {
     atomic_flag_clear_explicit(&g_va_slots_lock, memory_order_release);
 }
 
+/* Bytes of whole 4 GiB slot units covering `used` bytes of a slot, at least one unit. */
+static int va_slot_units(uint64_t used, uint64_t *out) {
+    if (used == 0) used = 1;
+    if (__builtin_add_overflow(used, 0xffffffffull, out)) return -1;
+    *out &= ~0xffffffffull;
+    return 0;
+}
+
+/* CudaAuditFable RtMem F5: the bump allocator may only hand out VA inside this client's slot. The slot is the 4 GiB
+ * units from va_slot_base up to the units va_next already covers; a request past them grows the slot only while it
+ * is the newest one (the shared counter still points at its end), and the counter moves past the growth, so a later
+ * acquire_va_slot starts above it. Otherwise the next slot belongs to another Nvrm and the request is refused.
+ * Growing (not a hard 4 GiB cap) keeps single allocations above 4 GiB, which the 30B/35B weights need. */
+static int va_slot_cover(Nvrm *rm, uint64_t end) {
+    const uint64_t base = rm->va_slot_base;
+    if (!base) return 1; /* no slot (nvrm_open not run): nothing shared to protect */
+    if (end < base || rm->va_next < base) return 0;
+    uint64_t owned, want, owned_end, want_end;
+    if (va_slot_units(rm->va_next - base, &owned) || va_slot_units(end - base, &want)) return 0;
+    if (want <= owned) return 1;
+    if (__builtin_add_overflow(base, owned, &owned_end) || __builtin_add_overflow(base, want, &want_end)) return 0;
+    return atomic_compare_exchange_strong_explicit(&g_va_counter, &owned_end, want_end,
+                                                   memory_order_relaxed, memory_order_relaxed) ? 1 : 0;
+}
+
 int nvrm_open(Nvrm *rm) {
     memset(rm, 0, sizeof *rm);
     rm->next_handle = 0xcf000001u;
@@ -488,10 +513,12 @@ static uint64_t va_take(Nvrm *rm, uint64_t size, uint64_t align) {
         return aligned;
     }
 
-    uint64_t rounded;
+    uint64_t rounded, end;
     if (__builtin_add_overflow(rm->va_next, align - 1, &rounded)) return 0;
     uint64_t va = rounded & ~(align - 1);
-    if (__builtin_add_overflow(va, size, &rm->va_next)) return 0;
+    if (__builtin_add_overflow(va, size, &end)) return 0;
+    if (!va_slot_cover(rm, end)) return 0;
+    rm->va_next = end;
     return va;
 }
 
@@ -561,7 +588,7 @@ static int alloc_with_cacheability(Nvrm *rm, uint64_t size, NvrmMem *out, uint32
     size = (size + 0xfff) & ~0xfffull;
     if (rm->live_count >= NVRM_MAX_LIVE) return fail(rm, "live allocation table full (%d)", NVRM_MAX_LIVE);
     uint64_t va = va_take(rm, size, 0x1000);
-    if (!va) return fail(rm, "GPU VA exhausted or overflowed");
+    if (!va) return fail(rm, "GPU VA exhausted: this client's VA slot is full (the next slot belongs to another client) or the VA overflowed");
     /* Reserve the CPU range first so the fixed mapping can never clobber anything. */
     void *res = mmap((void *)va, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
     if (res != (void *)va) {
@@ -806,7 +833,9 @@ failed:
 }
 
 /* GP entry per clc96f.h: ENTRY0 GET 31:2 (VA low, dword aligned), ENTRY1 GET_HI 7:0,
- * LEVEL 9:9 = MAIN, LENGTH 30:10 in dwords, SYNC 31:31 = PROCEED. */
+ * LEVEL 9:9, LENGTH 30:10 in dwords, SYNC 31:31 = PROCEED. Bit 41 is ENTRY1 bit 9 set, which
+ * clc96f.h names LEVEL_SUBROUTINE (MAIN is 0). The M16 chip receipts ran with this bit set, so it
+ * stays until a GPU window qualifies LEVEL_MAIN. */
 uint64_t nvrm_gp_entry(uint64_t va, uint32_t nwords) {
     return (va & ~3ull) | ((uint64_t)(nwords & 0x1fffff) << 42) | (1ull << 41);
 }
@@ -895,10 +924,15 @@ int nvrm_close(Nvrm *rm) {
     rm->device = 0;
     if (rm->root && rm_free(rm, rm->root, rm->root)) rm->faulted = 1;
     rm->root = 0;
+    /* F12: clear each descriptor after closing it, so a second nvrm_close cannot close a number reused since */
     if (rm->fd_dev > 0) close(rm->fd_dev);
+    rm->fd_dev = 0;
     if (rm->fd_uvm2 > 0) close(rm->fd_uvm2);
+    rm->fd_uvm2 = 0;
     if (rm->fd_uvm > 0) close(rm->fd_uvm);
+    rm->fd_uvm = 0;
     if (rm->fd_ctl > 0) close(rm->fd_ctl);
+    rm->fd_ctl = 0;
     if (!rm->faulted && rm->live_count == 0 && !rm->channel_registered &&
         rm->va_slot_base && rm->va_next >= rm->va_slot_base &&
         rm->va_next - rm->va_slot_base <= 0x100000000ull)

@@ -1,0 +1,536 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note fwimage.om: read-only parser for the NVIDIA GSP firmware container (gsp_ga10x.bin, ELF64 RISC-V).
+note Format and driver behaviour: native/gsp/README.md. This file reads one firmware file and writes
+note only stdout and stderr. It never opens a device, never maps memory and never writes a file.
+note
+note Build: this unit is OM-2 and calls sha256_init/update/final from omega-mv om/tls/sha2.om.
+note The compiled unit is this file followed by sha2.om, fed to the pinned seeded omc:
+note   cat fwimage.om omega-mv/om/tls/sha2.om | omc > fwimage
+note Usage: fwimage FILE [gb20y|gb10y]
+note
+note Report (stdout, only after every check passed; numbers lowercase hex with 0x, no padding):
+note   SECTION <name> off=<hex> size=<hex>      every section header except index 0, in table order
+note   FWVERSION <text>                         .fwversion bytes before its terminating zero byte
+note   SHA256 <name> <64 hex>                   .fwimage and every .fwsignature_* section, table order
+note   SELECT family=<f> image_off=<hex> image_size=<hex> sig_section=.fwsignature_<f> sig_sha256=<hex>
+note                                            only with a family argument
+note
+note Exit codes (a refusal writes one line "FWIMAGE REFUSE <reason>" to stderr and nothing to stdout):
+note    0 report written
+note    2 usage: wrong argument count or unreadable path argument
+note    3 I/O: open, seek, short read or stdout write failed
+note   10 not ELF: the first four bytes are not 7f 45 4c 46
+note   11 not an ELF64 little-endian RISC-V (e_machine 243) version-1 file
+note   12 truncated: file shorter than the 64-byte ELF header, or section header table past end of file
+note   13 malformed header: e_ehsize or e_shentsize not 64, e_shnum 0, e_shstrndx 0 or not below
+note      e_shnum, or the name table section is not SHT_STRTAB or is empty
+note   14 out of bounds: a section's offset + size passes end of file (overflow-checked), a name offset
+note      lies outside the name table, or the name table does not end with a zero byte
+note   15 missing .fwimage
+note   16 missing .fwversion
+note   17 unknown family argument (only gb20y and gb10y are accepted)
+note   18 duplicate section names
+note   19 capacity: more than 1024 sections or a name table above 65536 bytes
+note   20 the selected .fwsignature_<family> section is absent
+note   21 .fwimage or a .fwsignature_* section is SHT_NOBITS or empty
+note   22 .fwversion malformed: size 0 or above 63, last byte not zero, or a byte before it not 32..126
+note Runtime traps exit 100 + trap code (Omegese 9.1); none is expected on any input.
+om2
+
+text tpre ".fwsignature_"
+text timg ".fwimage"
+text tver ".fwversion"
+text tf20 "gb20y"
+text tf10 "gb10y"
+text tsec "SECTION "
+text toff " off="
+text tsize " size="
+text tfv "FWVERSION "
+text tsha "SHA256 "
+text tsel "SELECT family="
+text timo " image_off="
+text tims " image_size="
+text tsgs " sig_section="
+text tsgh " sig_sha256="
+text tsp " "
+text tnl "\n"
+text trf "FWIMAGE REFUSE "
+text tuse "usage: fwimage FILE [gb20y|gb10y]"
+text tio "I/O error"
+text tnelf "not an ELF file"
+text tkind "not ELF64 little-endian RISC-V version 1"
+text ttrunc "truncated header or section header table"
+text tshdr "malformed ELF header or name table section"
+text tbnd "section out of bounds"
+text tname "section name out of bounds"
+text tnoimg "missing .fwimage"
+text tnover "missing .fwversion"
+text tfam "unknown family"
+text tdup "duplicate section names"
+text tcap "capacity exceeded"
+text tnosig "missing selected signature section"
+text tempty "image or signature section has no file bytes"
+text tbadv "malformed .fwversion"
+
+global gap uchar 4096
+global gfam uchar 16
+global ghdr uchar 64
+global gsh uchar 65536
+global gss uchar 65536
+global gfv uchar 64
+global gob uchar 4096
+global gdg uchar 32
+global gfd int 1
+note gst: 0 file size, 1 e_shnum, 2 e_shstrndx, 3 output fill, 4 family length (0 none),
+note 5 name table size, 6 .fwimage index, 7 .fwversion index, 8 selected signature index, 9 e_shoff
+global gst ulong 16
+
+fn refuse code int msg view uchar * to void
+n = write 2 trf 0 len trf
+n = write 2 msg 0 len msg
+n = write 2 tnl 0 len tnl
+exit code
+end
+
+fn oflush to void
+n = get gst 3
+if gt n 0
+w = write 1 gob 0 n
+if ne w long n
+refuse 3 tio
+end
+put gst 3 0
+end
+end
+
+fn oc b uchar to void
+if ge get gst 3 len gob
+oflush
+end
+put gob get gst 3 b
+put gst 3 add get gst 3 1
+end
+
+fn ot t view uchar * to void
+for i ulong len t
+oc get t i
+end
+end
+
+fn ohd n ulong to uchar
+if lt n 10
+ret uchar add n 48
+end
+ret uchar add n 87
+end
+
+fn ohx v ulong to void
+oc 48
+oc 120
+on = ulong 0
+for i ulong 16
+nb = and shr v sub 60 mul i 4 15
+if or ne nb 0 or ne on 0 eq i 15
+oc ohd nb
+on = 1
+end
+end
+end
+
+fn odg to void
+for i ulong 32
+b = ulong get gdg i
+oc ohd shr b 4
+oc ohd and b 15
+end
+end
+
+fn hle o ulong w ulong to ulong
+v = ulong 0
+for i ulong w
+v = or v shl ulong get ghdr add o i mul i 8
+end
+ret v
+end
+
+fn sle o ulong w ulong to ulong
+v = ulong 0
+for i ulong w
+v = or v shl ulong get gsh add o i mul i 8
+end
+ret v
+end
+
+fn secnm i ulong to ulong
+ret sle mul i 64 4
+end
+
+fn sectyp i ulong to ulong
+ret sle add mul i 64 4 4
+end
+
+fn secoff i ulong to ulong
+ret sle add mul i 64 24 8
+end
+
+fn secsz i ulong to ulong
+ret sle add mul i 64 32 8
+end
+
+note Name of section i, which ldnames proved ends with a zero byte inside the name table.
+fn oname i ulong to void
+o = secnm i
+for k ulong get gst 5
+c = get gss add o k
+if eq c 0
+ret
+end
+oc c
+end
+end
+
+note Section i's name starts with t and has a zero byte after t inside the table.
+fn nmpre i ulong t view uchar * to bool
+o = secnm i
+if gt len t sub sub get gst 5 o 1
+ret false
+end
+for k ulong len t
+if ne get gss add o k get t k
+ret false
+end
+end
+ret true
+end
+
+fn nmis i ulong t view uchar * to bool
+if not nmpre i t
+ret false
+end
+ret eq get gss add secnm i len t 0
+end
+
+note Section i is .fwsignature_<family argument>.
+fn nmsel i ulong to bool
+if not nmpre i tpre
+ret false
+end
+o = add secnm i len tpre
+fl = get gst 4
+if gt fl sub sub get gst 5 o 1
+ret false
+end
+for k ulong fl
+if ne get gss add o k get gfam k
+ret false
+end
+end
+ret eq get gss add o fl 0
+end
+
+fn streq a ulong b ulong to bool
+for k ulong get gst 5
+x = get gss add a k
+if ne x get gss add b k
+ret false
+end
+if eq x 0
+ret true
+end
+end
+ret false
+end
+
+fn fameq t view uchar * to bool
+if ne get gst 4 len t
+ret false
+end
+for k ulong len t
+if ne get gfam k get t k
+ret false
+end
+end
+ret true
+end
+
+fn find t view uchar * to ulong
+for i ulong sub get gst 1 1
+if nmis add i 1 t
+ret add i 1
+end
+end
+ret 0
+end
+
+fn chkhdr to void
+fs = get gst 0
+if lt fs 64
+refuse 12 ttrunc
+end
+r = pread get gfd 0 ghdr 0 64 0
+if ne r 64
+refuse 3 tio
+end
+if ne hle 0 4 0x464c457f
+refuse 10 tnelf
+end
+if ne hle 4 3 0x010102
+refuse 11 tkind
+end
+if or ne hle 18 2 243 ne hle 20 4 1
+refuse 11 tkind
+end
+if or ne hle 52 2 64 ne hle 58 2 64
+refuse 13 tshdr
+end
+nsec = hle 60 2
+idx = hle 62 2
+if eq nsec 0
+refuse 13 tshdr
+end
+if gt nsec 1024
+refuse 19 tcap
+end
+if or eq idx 0 ge idx nsec
+refuse 13 tshdr
+end
+off = hle 40 8
+tl = mul nsec 64
+if or gt off fs gt tl sub fs off
+refuse 12 ttrunc
+end
+put gst 1 nsec
+put gst 2 idx
+put gst 9 off
+end
+
+fn ldsh to void
+tl = mul get gst 1 64
+r = pread get gfd 0 gsh 0 tl long get gst 9
+if ne r long tl
+refuse 3 tio
+end
+fs = get gst 0
+for i ulong get gst 1
+if ne sectyp i 8
+o = secoff i
+z = secsz i
+if or gt o fs gt z sub fs o
+refuse 14 tbnd
+end
+end
+end
+end
+
+fn ldnames to void
+k = get gst 2
+if ne sectyp k 3
+refuse 13 tshdr
+end
+z = secsz k
+if eq z 0
+refuse 13 tshdr
+end
+if gt z len gss
+refuse 19 tcap
+end
+r = pread get gfd 0 gss 0 z long secoff k
+if ne r long z
+refuse 3 tio
+end
+put gst 5 z
+if ne get gss sub z 1 0
+refuse 14 tname
+end
+for i ulong get gst 1
+if ge secnm i z
+refuse 14 tname
+end
+end
+end
+
+fn chkdup to void
+n = get gst 1
+for i ulong n
+for j ulong sub n add i 1
+a = secnm i
+b = secnm add add i 1 j
+if ne get gss a 0
+if streq a b
+refuse 18 tdup
+end
+end
+end
+end
+end
+
+fn hashable i ulong to void
+if or eq sectyp i 8 eq secsz i 0
+refuse 21 tempty
+end
+end
+
+fn findreq to void
+img = find timg
+if eq img 0
+refuse 15 tnoimg
+end
+hashable img
+ver = find tver
+if eq ver 0
+refuse 16 tnover
+end
+for i ulong get gst 1
+if nmpre i tpre
+hashable i
+end
+end
+z = secsz ver
+if or or eq z 0 gt z 63 eq sectyp ver 8
+refuse 22 tbadv
+end
+r = pread get gfd 0 gfv 0 z long secoff ver
+if ne r long z
+refuse 3 tio
+end
+if ne get gfv sub z 1 0
+refuse 22 tbadv
+end
+for i ulong sub z 1
+c = get gfv i
+if or lt c 32 gt c 126
+refuse 22 tbadv
+end
+end
+put gst 6 img
+put gst 7 ver
+if gt get gst 4 0
+sel = ulong 0
+for i ulong get gst 1
+if nmsel i
+sel = i
+end
+end
+if eq sel 0
+refuse 20 tnosig
+end
+hashable sel
+put gst 8 sel
+end
+end
+
+note SHA-256 of section i's file bytes into dg, read in 1 MiB slices (om/tls/sha2.om, FIPS 180-4).
+fn hashsec i ulong to void
+buf = new uchar 1048576 0
+c = new ulong 40 0
+d = new uchar 32 0
+sha256_init c
+pos = secoff i
+left = secsz i
+fd = get gfd 0
+while gt left 0 bound 999999
+k = left
+if gt k len buf
+k = len buf
+end
+r = pread fd buf 0 k long pos
+if le r 0
+refuse 3 tio
+end
+sha256_update c part buf 0 ulong r
+pos = add pos ulong r
+left = sub left ulong r
+end
+sha256_final c d
+for j ulong 32
+put gdg j get d j
+end
+end
+
+fn report to void
+n = get gst 1
+for i ulong sub n 1
+s = add i 1
+ot tsec
+oname s
+ot toff
+ohx secoff s
+ot tsize
+ohx secsz s
+ot tnl
+end
+ot tfv
+for i ulong sub secsz get gst 7 1
+oc get gfv i
+end
+ot tnl
+img = get gst 6
+for i ulong sub n 1
+s = add i 1
+if or eq s img nmpre s tpre
+hashsec s
+ot tsha
+oname s
+ot tsp
+odg
+ot tnl
+end
+end
+if gt get gst 4 0
+sel = get gst 8
+hashsec sel
+ot tsel
+for i ulong get gst 4
+oc get gfam i
+end
+ot timo
+ohx secoff img
+ot tims
+ohx secsz img
+ot tsgs
+oname sel
+ot tsgh
+odg
+ot tnl
+end
+oflush
+end
+
+fn main to int
+ac = argcnt
+if or lt ac 2 gt ac 3
+refuse 2 tuse
+end
+n = argread 1 gap 0 len gap
+if le n 0
+refuse 2 tuse
+end
+fd = fopen gap 0 ulong n 0 0
+if lt fd 0
+refuse 3 tio
+end
+put gfd 0 int fd
+sz = fseek int fd 0 2
+if lt sz 0
+refuse 3 tio
+end
+put gst 0 ulong sz
+if eq ac 3
+f = argread 2 gfam 0 len gfam
+if le f 0
+refuse 17 tfam
+end
+put gst 4 ulong f
+if not or fameq tf20 fameq tf10
+refuse 17 tfam
+end
+end
+chkhdr
+ldsh
+ldnames
+chkdup
+findreq
+report
+r = fclose int fd
+ret 0
+end

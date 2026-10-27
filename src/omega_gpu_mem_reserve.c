@@ -25,7 +25,9 @@ int omega_gpu_mem_reserve_check(uint64_t bytes, char *diag, size_t diag_len) {
     while (!have && fgets(line, sizeof line, f)) have = sscanf(line, "MemAvailable: %llu kB", &avail_kb) == 1;
     fclose(f);
     if (!have) return OMEGA_GPU_PLAT_OK;
-    const uint64_t avail = (uint64_t)avail_kb * 1024ull, reserve = (uint64_t)reserve_mib << 20;
+    /* Saturate rather than wrap: 2^44 MiB shifted by 20 is 2^64, and 2^54 kB times 1024 is 2^64 (RtMem F9). */
+    const uint64_t avail = avail_kb > UINT64_MAX / 1024ull ? UINT64_MAX : (uint64_t)avail_kb * 1024ull;
+    const uint64_t reserve = reserve_mib > (UINT64_MAX >> 20) ? UINT64_MAX : (uint64_t)reserve_mib << 20;
     if (bytes <= avail && avail - bytes >= reserve) return OMEGA_GPU_PLAT_OK;
     char want[32], free_[32], keep[32];
     human_bytes(want, sizeof want, bytes); human_bytes(free_, sizeof free_, avail); human_bytes(keep, sizeof keep, reserve);

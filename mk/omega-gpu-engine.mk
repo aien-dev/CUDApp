@@ -64,8 +64,16 @@ build/test_omega_blackwell_engine: tests/test_omega_blackwell_engine.c tests/fak
 	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -ffunction-sections -fdata-sections \
 		-Isrc -Itests $(GPU_ENGINE_PHYS_INC) -o $@ tests/test_omega_blackwell_engine.c tests/fake_m16_native.c \
 		$(GPU_ENGINE_SIM_SRCS) -Wl,--gc-sections -lm
-test-gpu-engine-sim: build/test_omega_blackwell_engine
+# The matmul wrappers' dimension and code-size refusals (they also need the fixed-deadline wait).
+build/test_omega_blackwell_matmul_bounds: tests/test_omega_blackwell_matmul_bounds.c tests/fake_m16_native.c \
+	tests/fake_m16_native.h $(GPU_ENGINE_SIM_SRCS) src/omega_gpu_wait.c src/omega_blackwell_submit.h
+	@mkdir -p build
+	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -ffunction-sections -fdata-sections \
+		-Isrc -Itests $(GPU_ENGINE_PHYS_INC) -o $@ tests/test_omega_blackwell_matmul_bounds.c tests/fake_m16_native.c \
+		$(GPU_ENGINE_SIM_SRCS) src/omega_gpu_wait.c -Wl,--gc-sections -lm
+test-gpu-engine-sim: build/test_omega_blackwell_engine build/test_omega_blackwell_matmul_bounds
 	./build/test_omega_blackwell_engine
+	./build/test_omega_blackwell_matmul_bounds
 
 # One mutant per backend and vector-wrapper protection; the sim test must fail each one.
 test-gpu-engine-backend-mutants:
@@ -206,9 +214,15 @@ build/test_omega_gpu_platform_linux: tests/test_omega_gpu_platform_linux.c tests
 	@mkdir -p build
 	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -Isrc -Itests $(GPU_ENGINE_PHYS_INC) \
 		-o $@ tests/test_omega_gpu_platform_linux.c tests/fake_m16_native.c $(GPU_LINUX_REF_SRCS) $(GPU_LINUX_REF_CMDLIST_SRCS) -lm
-test-gpu-session-platform: build/test_omega_gpu_session_platform build/test_omega_gpu_platform_linux test-gpu-session-mutants
+# The driver client's VA slots and close path on the host (no device opened, nvrm_open never called).
+build/test_nvrm_va_slots: tests/test_nvrm_va_slots.c $(PHYSICS_DIR)/nvrm/nvrm.c $(PHYSICS_DIR)/nvrm/nvrm.h
+	@mkdir -p build
+	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE $(GPU_ENGINE_PHYS_INC) -o $@ tests/test_nvrm_va_slots.c
+test-gpu-session-platform: build/test_omega_gpu_session_platform build/test_omega_gpu_platform_linux build/test_nvrm_va_slots \
+		test-gpu-session-mutants
 	./build/test_omega_gpu_session_platform
 	./build/test_omega_gpu_platform_linux
+	./build/test_nvrm_va_slots
 
 # The aien-gpu platform (src/omega_gpu_platform_aien.c, second implementation of the contract over aien-gpu.ko) on a
 # simulated /dev/aien-gpu (tests/test_omega_gpu_platform_aien.c): no device opened. It links the Linux reference,

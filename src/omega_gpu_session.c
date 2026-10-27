@@ -447,8 +447,9 @@ int omega_gpu_session_launch(const OmegaGpuLaunch *L, uint64_t *elapsed_ns, uint
     if (!g_open || LOAD(g_blocked) || !p) {
         omega_gpu_session_set_error(LOAD(g_blocked) ? "process latched" : "launch without open device"); return -1;
     }
+    /* timeout_ms 0 is refused (CudaAuditFable F15): it would submit and then latch the process after one poll. */
     if (!L || !L->args || L->n_args == 0 || L->n_args > OMEGA_GPU_SESSION_MAX_ARGS || L->threads_x == 0 || L->grid_x == 0 || L->grid_y == 0 ||
-        L->spin_us > OMEGA_GPU_SESSION_MAX_SPIN_US) {
+        L->spin_us > OMEGA_GPU_SESSION_MAX_SPIN_US || L->timeout_ms == 0) {
         omega_gpu_session_set_error("launch arguments"); return -1;
     }
     if (take_cancel()) { omega_gpu_session_set_error("launch cancelled before submit"); return OMEGA_GPU_SESSION_CANCELLED; }
@@ -529,6 +530,12 @@ int omega_gpu_session_launch(const OmegaGpuLaunch *L, uint64_t *elapsed_ns, uint
     const uint32_t spin_us = L->spin_us ? L->spin_us : omega_gpu_session_spin_us();
     uint64_t t0 = p->time_now_ns(p->ctx);
     rc = p->queue_submit(p->ctx, g_s.queue, pb, (uint32_t)n);
+    if (rc == OMEGA_GPU_PLAT_REFUSED_BUSY) {
+        /* an earlier submission is unretired, so its completion is uncertain (a command list that timed out queues
+         * this launch on purpose): nothing new was written to the ring, latch like a marker timeout */
+        latch("submit refused: an earlier submission is still in flight (latched)");
+        return -1;
+    }
     if (rc != OMEGA_GPU_PLAT_OK) {
         fail_plat("submit_methods", rc); /* contract: a refused submit rang no doorbell, nothing is in flight */
         return -1;
