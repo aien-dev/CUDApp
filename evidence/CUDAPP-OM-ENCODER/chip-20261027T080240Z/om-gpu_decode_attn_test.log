@@ -1,0 +1,14 @@
+cache alloc (1 layer, 32768 positions): rc=OK 253.5 ms ()
+chip context 1                rc=OK        bad=0 worst=0.000 rows=ok (1 one-ulp k flips) grid=1x4 per_split=256 depth=4 kv_bytes=2048 fill=0.0ms chip_med=1700.8us (0.0 GB/s) call_med=1703.2us reps=20
+chip context 7                rc=OK        bad=0 worst=0.000 rows=ok (0 one-ulp k flips) grid=1x4 per_split=256 depth=4 kv_bytes=14336 fill=0.0ms chip_med=1928.4us (0.0 GB/s) call_med=1930.6us reps=20
+chip context 256              rc=OK        bad=0 worst=0.000 rows=ok (0 one-ulp k flips) grid=1x4 per_split=256 depth=4 kv_bytes=524288 fill=0.0ms chip_med=1724.7us (0.3 GB/s) call_med=1727.1us reps=20
+chip context 301 sharp q      rc=OK        bad=0 worst=0.000 rows=ok (0 one-ulp k flips) grid=2x4 per_split=256 depth=4 kv_bytes=616448 fill=0.0ms chip_med=2314.1us (0.3 GB/s) call_med=2316.2us reps=20
+chip context 301 sharp q      mutant 1: caught (rc=OK bad=3630 worst=25.864)
+chip context 301 sharp q      mutant 2: caught (rc=OK bad=3773 worst=40.263)
+chip context 301 sharp q      mutant 3: caught (rc=OK bad=820 worst=6.838)
+chip context 301 sharp q      mutant 4: caught (rc=OK bad=2010 worst=18.655)
+chip context 1024             rc=OK        bad=0 worst=0.000 rows=ok (0 one-ulp k flips) grid=4x4 per_split=256 depth=4 kv_bytes=2097152 fill=0.0ms chip_med=2407.1us (0.9 GB/s) call_med=2409.7us reps=20
+chip context 4096             rc=OK        bad=0 worst=0.000 rows=ok (0 one-ulp k flips) grid=16x4 per_split=256 depth=4 kv_bytes=8388608 fill=1.0ms chip_med=1487.8us (5.6 GB/s) call_med=1489.8us reps=20
+chip context 8192             rc=OK        bad=0 worst=0.000 rows=ok (0 one-ulp k flips) grid=32x4 per_split=256 depth=4 kv_bytes=16777216 fill=2.2ms chip_med=2479.9us (6.8 GB/s) call_med=2487.8us reps=20
+chip context 32768            rc=OK        bad=0 worst=0.000 rows=ok (0 one-ulp k flips) grid=128x4 per_split=256 depth=4 kv_bytes=67108864 fill=3.1ms chip_med=5160.4us (13.0 GB/s) call_med=5164.4us reps=20
+gpu_decode_attn_test: 29 checks, 0 failed: PASS

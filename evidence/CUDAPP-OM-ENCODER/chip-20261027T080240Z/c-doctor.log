@@ -1,0 +1,11 @@
+cudapp doctor: is this machine ready for CUDA++?
+Diagnostic only: direct library use has no driver-version or PCI-ID admission guard.
+  info  system: Linux 7.0.0-1019-nvidia aarch64
+  ok    NVIDIA kernel module: open module 580.173.02 (CUDA++ speaks 580.173.02)
+  ok    device files: /dev/nvidiactl /dev/nvidia0 /dev/nvidia-uvm can be opened by this user
+  ok    GPU 000f:01:00.0: NVIDIA GB10 (sm_121), supported target (historical summary: evidence/m16-blackwell-native-path-requalification-receipt.json)
+        raw M16 evidence unavailable; not current-commit qualification
+  ok    memory: 121.7 GiB shared by the CPU and the GPU, 61.7 GiB available now
+  info  CUDA toolkit: not needed and not used by CUDA++ (one is installed at /usr/local/cuda/bin/nvcc; that is fine)
+  info  compiler: this doctor was built by 13.3.0; CUDA++ needs only make and a C compiler
+READY. Next: make hello-gpu

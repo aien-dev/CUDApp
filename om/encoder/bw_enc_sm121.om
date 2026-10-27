@@ -5,7 +5,7 @@ note It replaces encode_single_insn and omega_bw_encode_program of src/omega_bla
 note which stays compiled only behind CUDAPP_MIGRATION_PENDING_C_ENCODER as the differential oracle
 note (and in the freestanding build, which has no native binding yet).
 note
-note Input (src/omega_bw_enc_om.c packs it; 8 ulong per instruction, at most 1024 instructions):
+note Input (bw_om_encode in src/omega_blackwell_codegen.c packs it; 8 ulong per instruction, at most 1024 instructions):
 note   0 op (the BlackwellIROpcode number)   1 dst_vreg   2 src1_vreg   3 src2_vreg   4 src3_vreg
 note   5 ureg   (the five vreg fields are C int, passed as 64-bit two's complement: negative = none)
 note   6 imm or control shl 32
