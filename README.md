@@ -110,7 +110,7 @@ The CPU does five things, all of them plain memory writes except the last, which
 | libcuda (driver API) | Talk to the kernel driver | `nvrm` client, ioctls straight to the open kernel module | PARTIAL: implemented; M16 historical summary is unauditable here (see below) |
 | libcudart (runtime API) | Device, memory, launch, streams | Session, command lists, job engine | PARTIAL: one device, one process; no streams or events yet; a timeout ends GPU use for the process |
 | cuBLAS | Matrix multiply | Matmul, tensor-core GEMM, FP8 and BF16 libraries | PARTIAL: shaped for the models AIEN runs; no any-shape GEMM yet |
-| cuDNN, FlashAttention | Attention and network layers | Decode and prefill attention | PARTIAL: model-shaped |
+| cuDNN, FlashAttention | Attention and network layers | Decode and prefill attention | PARTIAL: the fused fast paths are model-shaped; since runtime API 0.6.0 a general fallback (`omega_gpu_attention_general`, EXPERIMENTAL) takes head_dim 1..256, any MHA/GQA/MQA ratio, causal or not, sliding windows and any length, chip-exercised on GB10 (`evidence/ATTN-GENERAL-20261027-4d51f91f/`). It is a scalar f32 kernel without tensor cores, and has no ALiBi, softcap or dropout |
 | CUB, Thrust | Reductions, scans, sorts | Frozen-order reductions (`evidence/E1-CLOSURE/`) | PARTIAL: no general scan or sort |
 | cuFFT, cuRAND | FFT, random numbers | none yet | MISSING |
 | cuobjdump, nvdisasm | Read machine code back | My own sm_121 disassembler | BUILDING: on Omega branch `c6/disasm` (19eebe0e) it agrees with `nvdisasm` on 331 kernels; not in CUDA++ yet. Some host tests here still call `nvdisasm` as a cross-check when it is installed |
@@ -339,7 +339,7 @@ Receipt: `evidence/dx/d3-faults/hello-sim-spark.txt`. **FIXED for the kernels CU
 
 **How CUDA++ fixes it.** Every CUDA++ library is source in this repository, built by the same kernel builder you can call, with host references and a simulator.
 
-**NOT YET.** CUDA++'s matrix multiply and attention are shaped for the models AIEN runs. Any-shape GEMM, scans and sorts (Omega bar C3) and my own disassembler (bar C6) are ledger L386 (`docs/issues/D11-libraries.md`, `docs/issues/D13-disassembler.md`).
+**NOT YET.** CUDA++'s matrix multiply is shaped for the models Aien runs. Attention has a general fallback since runtime API 0.6.0 (head_dim 1..256, any GQA ratio, causal and non-causal, sliding window, any length), but it is a scalar f32 kernel; its fast fused paths are still model-shaped. Any-shape GEMM, scans and sorts (Omega bar C3) and my own disassembler (bar C6) are ledger L386 (`docs/issues/D11-libraries.md`, `docs/issues/D13-disassembler.md`).
 
 ### 11. The incentive: compute sold from data centers
 
