@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# Bar C3: build the GEMM and scan tests on an arm64 runner, run their host and warp-simulator tiers, and keep the
+# binaries so the chip tier can run on the GB10 (under flock /tmp/aien-gb10.lock) from the exact CI build.
+name: c3
+on:
+  push:
+    branches: ['c3/**']
+  pull_request:
+    paths: ['src/**', 'tests/**', 'mk/**', 'Makefile', '.github/workflows/c3.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sim:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: build
+        run: make -j4 build/gpu_scan_test build/gpu_gemm_test build/gpu_tc_peak_test build/gpu_qmma_probe_test
+      - name: simulator tiers
+        run: |
+          set -o pipefail
+          make test-gpu-scan 2>&1 | tee c3-scan-sim.log
+          make test-gpu-gemm 2>&1 | tee c3-gemm-sim.log
+          tail -1 c3-scan-sim.log | grep -q '^C3 scan sim: PASS'
+          tail -1 c3-gemm-sim.log | grep -q '^C3 gemm sim: PASS'
+      - name: argument refusals
+        run: |
+          ! ./build/gpu_gemm_test --part 4/4
+          ! ./build/gpu_gemm_test --ceiling 0,1
+          ! ./build/gpu_scan_test --max-log2 29
+      - name: binaries
+        run: |
+          echo "${GITHUB_SHA}" > c3-build-sha.txt
+          sha256sum build/gpu_scan_test build/gpu_gemm_test build/gpu_tc_peak_test build/gpu_qmma_probe_test | tee c3-bin.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: c3-arm64
+          path: |
+            build/gpu_scan_test
+            build/gpu_gemm_test
+            build/gpu_tc_peak_test
+            build/gpu_qmma_probe_test
+            c3-*.log
+            c3-bin.sha256
+            c3-build-sha.txt

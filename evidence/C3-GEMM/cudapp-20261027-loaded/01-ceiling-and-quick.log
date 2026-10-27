@@ -1,0 +1,126 @@
+# 2026-10-27T01:45:56Z host spark-b87b head b2ed663+worktree;  20:45:56 up 6 days,  2:26, 18 users,  load average: 16.62, 15.72, 15.90
+# cmd: sh -c ./build/gpu_tc_peak_test; echo "## tc_peak exit $?"; ./build/gpu_qmma_probe_test; echo "## qmma_probe exit $?"; ./build/gpu_gemm_test --quick; echo "## gemm quick exit $?"
+sim chains 8: ran, peak 48 registers, 93 instructions, 0 wrong
+sim chains 16: ran, peak 80 registers, 165 instructions, 0 wrong
+peak stall 8 chains 16 threads 128 ctas 192 (declared 88): median 1832.9 us, 112.48 TFLOPS, 0 wrong values
+peak stall 4 chains 16 threads 128 ctas 192 (declared 88): median 1868.2 us, 110.35 TFLOPS, 0 wrong values
+peak stall 2 chains 16 threads 128 ctas 192 (declared 88): median 1963.2 us, 105.01 TFLOPS, 0 wrong values
+peak stall 2 chains 8 threads 128 ctas 192 (declared 56): median 1008.2 us, 102.25 TFLOPS, 0 wrong values
+peak stall 2 chains 16 threads 256 ctas 192 (declared 88): median 3581.5 us, 115.12 TFLOPS, 0 wrong values
+peak stall 2 chains 16 threads 128 ctas 384 (declared 88): median 3489.4 us, 118.16 TFLOPS, 0 wrong values
+peak stall 2 chains 16 threads 512 ctas 96 (declared 88): median 4222.1 us, 97.66 TFLOPS, 0 wrong values
+peak stall 4 chains 8 threads 256 ctas 384 (declared 56): median 3513.6 us, 117.35 TFLOPS, 0 wrong values
+peak stall 1 chains 16 threads 256 ctas 384 (declared 88): median 6835.5 us, 120.64 TFLOPS, 0 wrong values
+bw distinct bytes per CTA, 1024 KB per CTA, 384 CTAs: median 1942.0 us, 207.3 GB/s delivered (384 MB distinct), 0 wrong
+bw SAME bytes for every CTA, 1024 KB per CTA, 384 CTAs: median 1459.1 us, 276.0 GB/s delivered (1 MB distinct), 0 wrong
+bw distinct bytes per CTA, 256 KB per CTA, 384 CTAs: median 514.4 us, 195.7 GB/s delivered (96 MB distinct), 0 wrong
+bw SAME bytes for every CTA, 256 KB per CTA, 384 CTAs: median 411.5 us, 244.6 GB/s delivered (0 MB distinct), 0 wrong
+GPU_TC_PEAK: PASS
+## tc_peak exit 0
+QMMA patch self-test: PASS (QMMA.16832.F32.E4M3.E4M3 and F2FP.SATFINITE.E4M3.F32.PACK_AB_MERGE_C match the oracle bits, HMMA untouched)
+host-only checks: PASS (0 failures)
+chip probe mutant 0 nops 8: declared 64, 230178 ns
+chip probe mutant 1 nops 8: declared 64, 109345 ns
+chip probe mutant 0 nops 2: declared 64, 101617 ns
+plausibility: 0 poison, 0 of 262144 outputs farther than 1e-2 of the term magnitude from the exact sum
+layout check (class exact, every sum representable): 0 of 37376 differ from the exact sum (layout confirmed)
+wait check: 2-NOP run vs 8-NOP run: 0 of 262144 words differ
+negative control (C dropped): 188372 of 188372 outputs with significant C differ (caught)
+model group 32 keep 25 RZ nominal 2 csep 0: 249845 of 262144 (misses: narrow 0 wide 8962 mixed+cancel 0 bigC 3337 subnormal 0 medium 0 exact 0)
+model group 32 keep 25 RZ nominal 2 csep 1: 252404 of 262144 (misses: narrow 0 wide 8917 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 26 RZ nominal 0 csep 0: 258552 of 262144 (misses: narrow 0 wide 3592 mixed+cancel 0 bigC 0 subnormal 0 medium 0 exact 0)
+model group 32 keep 26 RZ nominal 0 csep 1: 257479 of 262144 (misses: narrow 0 wide 3842 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 26 RZ nominal 1 csep 0: 253182 of 262144 (misses: narrow 0 wide 8962 mixed+cancel 0 bigC 0 subnormal 0 medium 0 exact 0)
+model group 32 keep 26 RZ nominal 1 csep 1: 252404 of 262144 (misses: narrow 0 wide 8917 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 26 RZ nominal 2 csep 0: 262144 of 262144 (misses: narrow 0 wide 0 mixed+cancel 0 bigC 0 subnormal 0 medium 0 exact 0)
+model group 32 keep 26 RZ nominal 2 csep 1: 260898 of 262144 (misses: narrow 0 wide 423 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 27 RZ nominal 0 csep 0: 258688 of 262144 (misses: narrow 0 wide 2709 mixed+cancel 0 bigC 747 subnormal 0 medium 0 exact 0)
+model group 32 keep 27 RZ nominal 0 csep 1: 258438 of 262144 (misses: narrow 0 wide 2883 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 27 RZ nominal 1 csep 0: 261397 of 262144 (misses: narrow 0 wide 0 mixed+cancel 0 bigC 747 subnormal 0 medium 0 exact 0)
+model group 32 keep 27 RZ nominal 1 csep 1: 260898 of 262144 (misses: narrow 0 wide 423 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 27 RZ nominal 2 csep 0: 256919 of 262144 (misses: narrow 0 wide 4478 mixed+cancel 0 bigC 747 subnormal 0 medium 0 exact 0)
+model group 32 keep 27 RZ nominal 2 csep 1: 256786 of 262144 (misses: narrow 0 wide 4535 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 28 RZ nominal 0 csep 0: 256075 of 262144 (misses: narrow 0 wide 5246 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 28 RZ nominal 0 csep 1: 256048 of 262144 (misses: narrow 0 wide 5273 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 28 RZ nominal 1 csep 0: 256843 of 262144 (misses: narrow 0 wide 4478 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 28 RZ nominal 1 csep 1: 256786 of 262144 (misses: narrow 0 wide 4535 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 28 RZ nominal 2 csep 0: 255570 of 262144 (misses: narrow 0 wide 5751 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 28 RZ nominal 2 csep 1: 255559 of 262144 (misses: narrow 0 wide 5762 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 29 RZ nominal 0 csep 0: 255323 of 262144 (misses: narrow 0 wide 5998 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 29 RZ nominal 0 csep 1: 255318 of 262144 (misses: narrow 0 wide 6003 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 29 RZ nominal 1 csep 0: 255570 of 262144 (misses: narrow 0 wide 5751 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 29 RZ nominal 1 csep 1: 255559 of 262144 (misses: narrow 0 wide 5762 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 29 RZ nominal 2 csep 0: 255144 of 262144 (misses: narrow 0 wide 6177 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 29 RZ nominal 2 csep 1: 255143 of 262144 (misses: narrow 0 wide 6178 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 30 RZ nominal 0 csep 0: 255060 of 262144 (misses: narrow 0 wide 6261 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 30 RZ nominal 0 csep 1: 255060 of 262144 (misses: narrow 0 wide 6261 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 30 RZ nominal 1 csep 0: 255144 of 262144 (misses: narrow 0 wide 6177 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 30 RZ nominal 1 csep 1: 255143 of 262144 (misses: narrow 0 wide 6178 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 30 RZ nominal 2 csep 0: 255001 of 262144 (misses: narrow 0 wide 6320 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 30 RZ nominal 2 csep 1: 255001 of 262144 (misses: narrow 0 wide 6320 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 31 RZ nominal 0 csep 0: 254982 of 262144 (misses: narrow 0 wide 6339 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 31 RZ nominal 0 csep 1: 254982 of 262144 (misses: narrow 0 wide 6339 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 31 RZ nominal 1 csep 0: 255001 of 262144 (misses: narrow 0 wide 6320 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 31 RZ nominal 1 csep 1: 255001 of 262144 (misses: narrow 0 wide 6320 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 31 RZ nominal 2 csep 0: 254969 of 262144 (misses: narrow 0 wide 6352 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 31 RZ nominal 2 csep 1: 254969 of 262144 (misses: narrow 0 wide 6352 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 32 RZ nominal 0 csep 0: 254962 of 262144 (misses: narrow 0 wide 6359 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 32 RZ nominal 0 csep 1: 254962 of 262144 (misses: narrow 0 wide 6359 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 32 RZ nominal 1 csep 0: 254969 of 262144 (misses: narrow 0 wide 6352 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 32 RZ nominal 1 csep 1: 254969 of 262144 (misses: narrow 0 wide 6352 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 32 RZ nominal 2 csep 0: 254957 of 262144 (misses: narrow 0 wide 6364 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 32 RZ nominal 2 csep 1: 254957 of 262144 (misses: narrow 0 wide 6364 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+QMMA_PROBE: model=group 32 keep 26 RZ nominal 2 csep 0 exact 262144/262144
+QMMA peak stall 8 chains 16 threads 128 ctas 192 (declared 88): median 1846.8 us, 223.26 TFLOPS, 0 wrong values
+QMMA peak stall 4 chains 16 threads 128 ctas 192 (declared 88): median 2155.3 us, 191.30 TFLOPS, 0 wrong values
+QMMA peak stall 2 chains 16 threads 128 ctas 192 (declared 88): median 2130.8 us, 193.50 TFLOPS, 0 wrong values
+QMMA peak stall 1 chains 16 threads 128 ctas 192 (declared 88): median 1945.9 us, 211.89 TFLOPS, 0 wrong values
+QMMA peak stall 2 chains 8 threads 128 ctas 192 (declared 56): median 1010.6 us, 203.99 TFLOPS, 0 wrong values
+QMMA peak stall 2 chains 4 threads 128 ctas 192 (declared 40): median 514.8 us, 200.24 TFLOPS, 0 wrong values
+QMMA peak stall 2 chains 16 threads 256 ctas 192 (declared 88): median 3625.8 us, 227.43 TFLOPS, 0 wrong values
+QMMA peak stall 2 chains 16 threads 256 ctas 384 (declared 88): median 6928.1 us, 238.05 TFLOPS, 0 wrong values
+QMMA peak stall 1 chains 16 threads 512 ctas 96 (declared 88): median 4239.6 us, 194.51 TFLOPS, 0 wrong values
+QMMA peak stall 4 chains 8 threads 256 ctas 384 (declared 56): median 3549.8 us, 232.30 TFLOPS, 0 wrong values
+cvt probe: 1048576 pairs; Ra->high byte matches 1048576, Ra->low byte matches 30295; upper 16 bits nonzero 0; ties 524288 of 524288 exact
+CVT_PROBE: e4m3(Ra) << 8 | e4m3(Rb), RNE satfinite, exact on every pair
+GPU_QMMA_PROBE: PASS
+## qmma_probe exit 0
+ok: bf16 1x1x1 A row B row: OK, 1 checked, 0 wrong; kernel 0.057 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: bf16 7x13x29 A row B row: OK, 91 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: bf16 128x64x64 A row B row: OK, 8192 checked, 0 wrong; kernel 0.103 ms 0.01 TFLOPS = 0.0001 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: bf16 1x1024x1 A col B row: OK, 1024 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: bf16 16x8x16 A col B row: OK, 128 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: bf16 255x257x511 A col B row: OK, 65535 checked, 0 wrong; kernel 0.103 ms 0.65 TFLOPS = 0.0056 of ceiling, with packs 0.21 TFLOPS = 0.0019
+ok: bf16 1024x1x1 A row B col: OK, 1024 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: bf16 33x65x127 A row B col: OK, 2145 checked, 0 wrong; kernel 0.103 ms 0.01 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: bf16 1000x999x1001 A row B col: OK, 6096 checked, 0 wrong; kernel 0.514 ms 3.89 TFLOPS = 0.0337 of ceiling, with packs 2.76 TFLOPS = 0.0239
+ok: bf16 1x1x1024 A col B col: OK, 1 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: bf16 100x100x100 A col B col: OK, 10000 checked, 0 wrong; kernel 0.103 ms 0.02 TFLOPS = 0.0002 of ceiling, with packs 0.01 TFLOPS = 0.0001
+ok: bf16 1x1024x1024 A col B col: OK, 1024 checked, 0 wrong; kernel 0.104 ms 0.02 TFLOPS = 0.0002 of ceiling, with packs 0.01 TFLOPS = 0.0001
+ok: e4m3 1x1x1 A row B row: OK, 1 checked, 0 wrong; kernel 0.104 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 7x13x29 A row B row: OK, 91 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 128x64x64 A row B row: OK, 8192 checked, 0 wrong; kernel 0.103 ms 0.01 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 1x1024x1 A col B row: OK, 1024 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 16x8x16 A col B row: OK, 128 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 255x257x511 A col B row: OK, 65535 checked, 0 wrong; kernel 0.103 ms 0.65 TFLOPS = 0.0027 of ceiling, with packs 0.24 TFLOPS = 0.0010
+ok: e4m3 1024x1x1 A row B col: OK, 1024 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 33x65x127 A row B col: OK, 2145 checked, 0 wrong; kernel 0.103 ms 0.01 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 1000x999x1001 A row B col: OK, 6096 checked, 0 wrong; kernel 0.409 ms 4.89 TFLOPS = 0.0206 of ceiling, with packs 3.23 TFLOPS = 0.0136
+ok: e4m3 1x1x1024 A col B col: OK, 1 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 100x100x100 A col B col: OK, 10000 checked, 0 wrong; kernel 0.103 ms 0.02 TFLOPS = 0.0001 of ceiling, with packs 0.01 TFLOPS = 0.0000
+ok: e4m3 1x1024x1024 A col B col: OK, 1024 checked, 0 wrong; kernel 0.103 ms 0.02 TFLOPS = 0.0001 of ceiling, with packs 0.01 TFLOPS = 0.0000
+24 shapes (part 0/1), both types, all four layouts: PASS
+chip red check: bf16 mutant 1 is caught (OK, 4095 wrong)
+chip red check: bf16 mutant 2 is caught (OK, 4095 wrong)
+chip red check: bf16 mutant 3 is caught (OK, 4095 wrong)
+chip red check: e4m3 mutant 1 is caught (OK, 4095 wrong)
+chip red check: e4m3 mutant 2 is caught (OK, 4095 wrong)
+chip red check: e4m3 mutant 3 is caught (OK, 4095 wrong)
+ok: bf16 65x63x100 A col B col: OK, 4095 checked, 0 wrong; kernel 0.103 ms 0.01 TFLOPS = 0.0001 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 65x63x100 A col B col: OK, 4095 checked, 0 wrong; kernel 0.103 ms 0.01 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+after the device closed and opened again:
+ok: bf16 70x33x129 A row B row: OK, 2310 checked, 0 wrong; kernel 0.104 ms 0.01 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 70x33x129 A row B row: OK, 2310 checked, 0 wrong; kernel 0.104 ms 0.01 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+C3 gemm chip: PASS (34 checks)
+## gemm quick exit 0
+# exit 0 at 2026-10-27T01:48:49Z; compute apps: []
