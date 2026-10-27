@@ -1,0 +1,88 @@
+# 2026-10-27T02:47:34Z host spark-b87b head 7a43c9e (clean tree: 0 modified);  21:47:34 up 6 days,  3:28, 19 users,  load average: 3.38, 4.25, 5.85
+# cmd: ./build/gpu_tc_peak_test; ./build/gpu_qmma_probe_test
+sim chains 8: ran, peak 48 registers, 93 instructions, 0 wrong
+sim chains 16: ran, peak 80 registers, 165 instructions, 0 wrong
+peak stall 8 chains 16 threads 128 ctas 192 (declared 88): median 1835.6 us, 112.31 TFLOPS, 0 wrong values
+peak stall 4 chains 16 threads 128 ctas 192 (declared 88): median 1833.3 us, 112.45 TFLOPS, 0 wrong values
+peak stall 2 chains 16 threads 128 ctas 192 (declared 88): median 1828.0 us, 112.78 TFLOPS, 0 wrong values
+peak stall 2 chains 8 threads 128 ctas 192 (declared 56): median 975.4 us, 105.68 TFLOPS, 0 wrong values
+peak stall 2 chains 16 threads 256 ctas 192 (declared 88): median 3569.2 us, 115.52 TFLOPS, 0 wrong values
+peak stall 2 chains 16 threads 128 ctas 384 (declared 88): median 3498.7 us, 117.85 TFLOPS, 0 wrong values
+peak stall 2 chains 16 threads 512 ctas 96 (declared 88): median 4107.1 us, 100.39 TFLOPS, 0 wrong values
+peak stall 4 chains 8 threads 256 ctas 384 (declared 56): median 3499.4 us, 117.83 TFLOPS, 0 wrong values
+peak stall 1 chains 16 threads 256 ctas 384 (declared 88): median 6839.2 us, 120.58 TFLOPS, 0 wrong values
+bw distinct bytes per CTA, 1024 KB per CTA, 384 CTAs: median 1635.3 us, 246.2 GB/s delivered (384 MB distinct), 0 wrong
+bw SAME bytes for every CTA, 1024 KB per CTA, 384 CTAs: median 1378.0 us, 292.2 GB/s delivered (1 MB distinct), 0 wrong
+bw distinct bytes per CTA, 256 KB per CTA, 384 CTAs: median 410.6 us, 245.1 GB/s delivered (96 MB distinct), 0 wrong
+bw SAME bytes for every CTA, 256 KB per CTA, 384 CTAs: median 411.4 us, 244.7 GB/s delivered (0 MB distinct), 0 wrong
+GPU_TC_PEAK: PASS
+## tc_peak exit 0
+QMMA patch self-test: PASS (QMMA.16832.F32.E4M3.E4M3 and F2FP.SATFINITE.E4M3.F32.PACK_AB_MERGE_C match the oracle bits, HMMA untouched)
+host-only checks: PASS (0 failures)
+chip probe mutant 0 nops 8: declared 64, 222898 ns
+chip probe mutant 1 nops 8: declared 64, 106065 ns
+chip probe mutant 0 nops 2: declared 64, 105249 ns
+plausibility: 0 poison, 0 of 262144 outputs farther than 1e-2 of the term magnitude from the exact sum
+layout check (class exact, every sum representable): 0 of 37376 differ from the exact sum (layout confirmed)
+wait check: 2-NOP run vs 8-NOP run: 0 of 262144 words differ
+negative control (C dropped): 188372 of 188372 outputs with significant C differ (caught)
+model group 32 keep 25 RZ nominal 2 csep 0: 249845 of 262144 (misses: narrow 0 wide 8962 mixed+cancel 0 bigC 3337 subnormal 0 medium 0 exact 0)
+model group 32 keep 25 RZ nominal 2 csep 1: 252404 of 262144 (misses: narrow 0 wide 8917 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 26 RZ nominal 0 csep 0: 258552 of 262144 (misses: narrow 0 wide 3592 mixed+cancel 0 bigC 0 subnormal 0 medium 0 exact 0)
+model group 32 keep 26 RZ nominal 0 csep 1: 257479 of 262144 (misses: narrow 0 wide 3842 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 26 RZ nominal 1 csep 0: 253182 of 262144 (misses: narrow 0 wide 8962 mixed+cancel 0 bigC 0 subnormal 0 medium 0 exact 0)
+model group 32 keep 26 RZ nominal 1 csep 1: 252404 of 262144 (misses: narrow 0 wide 8917 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 26 RZ nominal 2 csep 0: 262144 of 262144 (misses: narrow 0 wide 0 mixed+cancel 0 bigC 0 subnormal 0 medium 0 exact 0)
+model group 32 keep 26 RZ nominal 2 csep 1: 260898 of 262144 (misses: narrow 0 wide 423 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 27 RZ nominal 0 csep 0: 258688 of 262144 (misses: narrow 0 wide 2709 mixed+cancel 0 bigC 747 subnormal 0 medium 0 exact 0)
+model group 32 keep 27 RZ nominal 0 csep 1: 258438 of 262144 (misses: narrow 0 wide 2883 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 27 RZ nominal 1 csep 0: 261397 of 262144 (misses: narrow 0 wide 0 mixed+cancel 0 bigC 747 subnormal 0 medium 0 exact 0)
+model group 32 keep 27 RZ nominal 1 csep 1: 260898 of 262144 (misses: narrow 0 wide 423 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 27 RZ nominal 2 csep 0: 256919 of 262144 (misses: narrow 0 wide 4478 mixed+cancel 0 bigC 747 subnormal 0 medium 0 exact 0)
+model group 32 keep 27 RZ nominal 2 csep 1: 256786 of 262144 (misses: narrow 0 wide 4535 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 28 RZ nominal 0 csep 0: 256075 of 262144 (misses: narrow 0 wide 5246 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 28 RZ nominal 0 csep 1: 256048 of 262144 (misses: narrow 0 wide 5273 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 28 RZ nominal 1 csep 0: 256843 of 262144 (misses: narrow 0 wide 4478 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 28 RZ nominal 1 csep 1: 256786 of 262144 (misses: narrow 0 wide 4535 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 28 RZ nominal 2 csep 0: 255570 of 262144 (misses: narrow 0 wide 5751 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 28 RZ nominal 2 csep 1: 255559 of 262144 (misses: narrow 0 wide 5762 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 29 RZ nominal 0 csep 0: 255323 of 262144 (misses: narrow 0 wide 5998 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 29 RZ nominal 0 csep 1: 255318 of 262144 (misses: narrow 0 wide 6003 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 29 RZ nominal 1 csep 0: 255570 of 262144 (misses: narrow 0 wide 5751 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 29 RZ nominal 1 csep 1: 255559 of 262144 (misses: narrow 0 wide 5762 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 29 RZ nominal 2 csep 0: 255144 of 262144 (misses: narrow 0 wide 6177 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 29 RZ nominal 2 csep 1: 255143 of 262144 (misses: narrow 0 wide 6178 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 30 RZ nominal 0 csep 0: 255060 of 262144 (misses: narrow 0 wide 6261 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 30 RZ nominal 0 csep 1: 255060 of 262144 (misses: narrow 0 wide 6261 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 30 RZ nominal 1 csep 0: 255144 of 262144 (misses: narrow 0 wide 6177 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 30 RZ nominal 1 csep 1: 255143 of 262144 (misses: narrow 0 wide 6178 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 30 RZ nominal 2 csep 0: 255001 of 262144 (misses: narrow 0 wide 6320 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 30 RZ nominal 2 csep 1: 255001 of 262144 (misses: narrow 0 wide 6320 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 31 RZ nominal 0 csep 0: 254982 of 262144 (misses: narrow 0 wide 6339 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 31 RZ nominal 0 csep 1: 254982 of 262144 (misses: narrow 0 wide 6339 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 31 RZ nominal 1 csep 0: 255001 of 262144 (misses: narrow 0 wide 6320 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 31 RZ nominal 1 csep 1: 255001 of 262144 (misses: narrow 0 wide 6320 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 31 RZ nominal 2 csep 0: 254969 of 262144 (misses: narrow 0 wide 6352 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 31 RZ nominal 2 csep 1: 254969 of 262144 (misses: narrow 0 wide 6352 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 32 RZ nominal 0 csep 0: 254962 of 262144 (misses: narrow 0 wide 6359 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 32 RZ nominal 0 csep 1: 254962 of 262144 (misses: narrow 0 wide 6359 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 32 RZ nominal 1 csep 0: 254969 of 262144 (misses: narrow 0 wide 6352 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 32 RZ nominal 1 csep 1: 254969 of 262144 (misses: narrow 0 wide 6352 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 32 RZ nominal 2 csep 0: 254957 of 262144 (misses: narrow 0 wide 6364 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+model group 32 keep 32 RZ nominal 2 csep 1: 254957 of 262144 (misses: narrow 0 wide 6364 mixed+cancel 0 bigC 823 subnormal 0 medium 0 exact 0)
+QMMA_PROBE: model=group 32 keep 26 RZ nominal 2 csep 0 exact 262144/262144
+QMMA peak stall 8 chains 16 threads 128 ctas 192 (declared 88): median 2098.0 us, 196.53 TFLOPS, 0 wrong values
+QMMA peak stall 4 chains 16 threads 128 ctas 192 (declared 88): median 1891.5 us, 217.98 TFLOPS, 0 wrong values
+QMMA peak stall 2 chains 16 threads 128 ctas 192 (declared 88): median 2131.0 us, 193.49 TFLOPS, 0 wrong values
+QMMA peak stall 1 chains 16 threads 128 ctas 192 (declared 88): median 2133.3 us, 193.28 TFLOPS, 0 wrong values
+QMMA peak stall 2 chains 8 threads 128 ctas 192 (declared 56): median 1019.2 us, 202.27 TFLOPS, 0 wrong values
+QMMA peak stall 2 chains 4 threads 128 ctas 192 (declared 40): median 513.0 us, 200.94 TFLOPS, 0 wrong values
+QMMA peak stall 2 chains 16 threads 256 ctas 192 (declared 88): median 3648.1 us, 226.05 TFLOPS, 0 wrong values
+QMMA peak stall 2 chains 16 threads 256 ctas 384 (declared 88): median 6910.8 us, 238.65 TFLOPS, 0 wrong values
+QMMA peak stall 1 chains 16 threads 512 ctas 96 (declared 88): median 4265.5 us, 193.33 TFLOPS, 0 wrong values
+QMMA peak stall 4 chains 8 threads 256 ctas 384 (declared 56): median 3574.8 us, 230.68 TFLOPS, 0 wrong values
+cvt probe: 1048576 pairs; Ra->high byte matches 1048576, Ra->low byte matches 30295; upper 16 bits nonzero 0; ties 524288 of 524288 exact
+CVT_PROBE: e4m3(Ra) << 8 | e4m3(Rb), RNE satfinite, exact on every pair
+GPU_QMMA_PROBE: PASS
+## qmma_probe exit 0
+# end 2026-10-27T02:52:11Z; compute apps: 
