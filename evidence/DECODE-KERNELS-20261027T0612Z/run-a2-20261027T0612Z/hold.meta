@@ -1,0 +1,3 @@
+head 439e777a67dabd4d48428706d7418d70a3809df2 dirty=0
+cwd /home/drakestapleton/work/DecodeKernels/wt-router
+cmd /home/drakestapleton/handoffs/DecodeKernels/abrun.sh /home/drakestapleton/handoffs/DecodeKernels/run-a2-20261027T0612Z ./build/gpu_router_test_q36 --ab 1,1,48,96 --reps 300 --seed 2710

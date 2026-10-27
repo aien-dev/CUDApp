@@ -1,0 +1,64 @@
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -Itests -o build/gpu_router_test tests/gpu_router_test.c build/libomega_gpu.a -lpthread -lm
+./build/gpu_router_test --host-only
+codegen warps  8 depth 1: 567 instructions, 44 registers (declared 48, register file 12288 of 65536)
+codegen warps  8 depth 2: 567 instructions, 44 registers (declared 48, register file 12288 of 65536)
+codegen warps  8 depth 4: 567 instructions, 46 registers (declared 48, register file 12288 of 65536)
+codegen warps  8 depth 8: 567 instructions, 60 registers (declared 64, register file 16384 of 65536)
+codegen warps 16 depth 1: 543 instructions, 40 registers (declared 48, register file 24576 of 65536)
+codegen warps 16 depth 2: 543 instructions, 40 registers (declared 48, register file 24576 of 65536)
+codegen warps 16 depth 4: 543 instructions, 46 registers (declared 48, register file 24576 of 65536)
+codegen warps 16 depth 8: 543 instructions, 60 registers (declared 64, register file 32768 of 65536)
+codegen warps 32 depth 1: 547 instructions, 40 registers (declared 48, register file 49152 of 65536)
+codegen warps 32 depth 2: 547 instructions, 40 registers (declared 48, register file 49152 of 65536)
+codegen warps 32 depth 4: 547 instructions, 46 registers (declared 48, register file 49152 of 65536)
+codegen warps 32 depth 8: 547 instructions, 60 registers (declared 64, register file 65536 of 65536)
+codegen ROWS warps  8 depth 1: 575 instructions, 44 registers (declared 48)
+codegen ROWS warps  8 depth 2: 575 instructions, 44 registers (declared 48)
+codegen ROWS warps  8 depth 4: 575 instructions, 46 registers (declared 48)
+codegen ROWS warps  8 depth 8: 575 instructions, 60 registers (declared 64)
+codegen ROWS warps 16 depth 1: 551 instructions, 40 registers (declared 48)
+codegen ROWS warps 16 depth 2: 551 instructions, 40 registers (declared 48)
+codegen ROWS warps 16 depth 4: 551 instructions, 46 registers (declared 48)
+codegen ROWS warps 16 depth 8: 551 instructions, 60 registers (declared 64)
+codegen ROWS warps 32 depth 1: 555 instructions, 40 registers (declared 48)
+codegen ROWS warps 32 depth 2: 555 instructions, 40 registers (declared 48)
+codegen ROWS warps 32 depth 4: 555 instructions, 46 registers (declared 48)
+codegen ROWS warps 32 depth 8: 555 instructions, 60 registers (declared 64)
+codegen SPLIT warps  8 depth 1: 615 instructions, 44 registers (declared 48)
+codegen SPLIT warps  8 depth 2: 615 instructions, 44 registers (declared 48)
+codegen SPLIT warps  8 depth 4: 615 instructions, 46 registers (declared 48)
+codegen SPLIT warps  8 depth 8: 615 instructions, 60 registers (declared 64)
+codegen SPLIT warps 16 depth 1: 591 instructions, 40 registers (declared 48)
+codegen SPLIT warps 16 depth 2: 591 instructions, 40 registers (declared 48)
+codegen SPLIT warps 16 depth 4: 591 instructions, 46 registers (declared 48)
+codegen SPLIT warps 16 depth 8: 591 instructions, 60 registers (declared 64)
+codegen SPLIT warps 32 depth 1: 595 instructions, 40 registers (declared 48)
+codegen SPLIT warps 32 depth 2: 595 instructions, 40 registers (declared 48)
+codegen SPLIT warps 32 depth 4: 595 instructions, 46 registers (declared 48)
+codegen SPLIT warps 32 depth 8: 595 instructions, 60 registers (declared 64)
+gpu_router_test: 117 checks, 0 failed: PASS
+./build/gpu_router_test --sim
+sim depth 8 norm: ok ids equal, w max abs 4.14e-08, x' max abs 1.67e-07 (of 2.05), tables ok, margin 1.40e-01
+sim depth 8 norm seed 12: ok ids equal, w max abs 2.88e-08, x' max abs 1.67e-07 (of 2.03), tables ok, margin 7.86e-02
+sim depth 8 no-norm: ok ids equal, w max abs 2.89e-08, x' max abs 1.33e-07 (of 2.05), tables ok, margin 2.17e-02
+sim depth 4 norm: ok ids equal, w max abs 5.29e-08, x' max abs 3.03e-07 (of 2.04), tables ok, margin 5.94e-02
+sim depth 1 norm: ok ids equal, w max abs 5.22e-08, x' max abs 2.82e-07 (of 2.00), tables ok, margin 4.43e-02
+sim depth 2 norm out_scale 2^64: ok ids equal, w max abs 5.07e-08, x' max abs 1.37e-07 (of 2.08), tables ok, margin 1.20e-01
+sim mutant 1: caught (bad mask 5) ids DIFFER, w max abs 0.00e+00, x' max abs 3.45e-01 (of 2.07), tables ok, margin 1.39e-01
+sim mutant 2: caught (bad mask 1) ids DIFFER, w max abs 0.00e+00, x' max abs 1.81e-07 (of 2.07), tables ok, margin 1.39e-01
+sim mutant 3: caught (bad mask 8) ids equal, w max abs 2.02e-08, x' max abs 1.81e-07 (of 2.07), tables WRONG, margin 1.39e-01
+sim mutant 4: caught (bad mask 2) ids equal, w max abs 6.91e-01, x' max abs 1.81e-07 (of 2.07), tables ok, margin 1.39e-01
+sim rows 2 depth 8: ok 2 rows: 0 differ from the plain kernel, oracle mask 0 (last: ids equal, w max abs 4.46e-08, x' max abs 1.43e-07 (of 2.02), tables ok, margin 9.45e-02)
+sim rows 3 depth 4: ok 3 rows: 0 differ from the plain kernel, oracle mask 0 (last: ids equal, w max abs 3.97e-08, x' max abs 2.18e-07 (of 2.04), tables ok, margin 1.18e-01)
+sim rows 8 depth 8: ok 8 rows: 0 differ from the plain kernel, oracle mask 0 (last: ids equal, w max abs 4.06e-08, x' max abs 1.44e-07 (of 2.02), tables ok, margin 7.51e-02)
+sim rows 2 depth 1: ok 2 rows: 0 differ from the plain kernel, oracle mask 0 (last: ids equal, w max abs 3.77e-08, x' max abs 3.18e-07 (of 2.04), tables ok, margin 1.49e-01)
+sim rows mutant 6: caught (bad mask 21) 2 rows: 1 differ from the plain kernel, oracle mask 5 (last: ids DIFFER, w max abs 0.00e+00, x' max abs 3.69e+00 (of 2.06), tables ok, margin 1.93e-01)
+sim split 2 depth 8: ok 2 CTAs: bit-identical to the plain kernel; oracle ids equal, w max abs 3.23e-08, x' max abs 1.90e-07 (of 2.00), tables ok, margin 1.12e-02
+sim split 3 depth 8: ok 3 CTAs: bit-identical to the plain kernel; oracle ids equal, w max abs 4.16e-08, x' max abs 2.37e-07 (of 2.06), tables ok, margin 2.70e-02
+sim split 48 depth 4: ok 48 CTAs: bit-identical to the plain kernel; oracle ids equal, w max abs 4.09e-08, x' max abs 1.90e-07 (of 2.05), tables ok, margin 1.58e-01
+sim split 96 depth 8: ok 96 CTAs: bit-identical to the plain kernel; oracle ids equal, w max abs 4.85e-08, x' max abs 1.68e-07 (of 2.04), tables ok, margin 1.35e-02
+sim split 5 depth 1: ok 5 CTAs: bit-identical to the plain kernel; oracle ids equal, w max abs 4.87e-08, x' max abs 1.30e-07 (of 2.03), tables ok, margin 9.84e-03
+sim split 2 mutant 7: caught (bad mask 17) 2 CTAs: DIFFERS from the plain kernel; oracle ids DIFFER, w max abs 0.00e+00, x' max abs 2.01e-07 (of 2.06), tables ok, margin 2.57e-03
+sim split 48 mutant 7: caught (bad mask 17) 48 CTAs: DIFFERS from the plain kernel; oracle ids DIFFER, w max abs 0.00e+00, x' max abs 2.01e-07 (of 2.06), tables ok, margin 2.57e-03
+sim: 2554810 warp issues in total
+gpu_router_test: 22 checks, 0 failed: PASS
