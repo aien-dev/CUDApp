@@ -349,7 +349,7 @@ Replacing a developer's CUDA libraries and NVIDIA's kernel module with CUDA++ is
 
 ## Run your first kernel
 
-You need: a DGX Spark (GB10) running Linux with NVIDIA's open kernel module loaded (version 580.173.02 was used here; `/dev/nvidia0` and `/dev/nvidia-uvm` must exist), plus `git`, `make` and `gcc`. Nothing from the CUDA toolkit is needed or used.
+You need: a DGX Spark (GB10) running Linux with NVIDIA's open kernel module loaded (version 580.173.02 was used here; `/dev/nvidia0` and `/dev/nvidia-uvm` must exist and be readable and writable by your user), plus `git`, `make`, `gcc` and `bash`; the zero-CUDA gate also uses `readelf` and `nm` from binutils, which comes with `gcc`. Nothing from the CUDA toolkit is needed or used, no environment variable needs to be set, and nothing is fetched besides this repository.
 
 From an empty folder:
 
@@ -357,9 +357,15 @@ From an empty folder:
 git clone https://github.com/aien-dev/CUDApp
 cd CUDApp
 make hello-gpu
+make hello-gpu-control
+make zero-cuda-gate
 ```
 
-`make hello-gpu` first runs `make doctor`, which checks the machine and names any problem with its fix, then builds the library and `examples/hello_gpu` and runs it. `build/hello_gpu --sim` runs the same kernel on the host simulator with no GPU. The program builds a vector-add kernel, adds two arrays of one million numbers on the GPU and checks every answer on the CPU. It prints `PASS` and exits 0 when all answers are right, exits 1 when any is wrong, and exits 2 when it cannot use the GPU. `examples/hello_gpu/hello_gpu.c` explains each of its five steps.
+`make hello-gpu` builds the library and `examples/hello_gpu`, runs `make doctor` (which checks the machine and names any problem with its fix), then runs the program. It builds a vector-add kernel, adds two arrays of one million numbers on the GPU and checks every answer on the CPU. It prints `PASS` and exits 0 when all answers are right, exits 1 when any is wrong, and exits 2 when it cannot use the GPU. `build/hello_gpu --sim` runs the same kernel on the host simulator with no GPU. `examples/hello_gpu/hello_gpu.c` explains each of its five steps.
+
+`make hello-gpu-control` checks the check: it runs the same program with `--bug=short`, which gives the last launch one element too few (nothing is written outside a buffer), and passes only when the program catches that one missing answer, prints `FAIL` and exits 1. `make zero-cuda-gate` reads the built programs' ELF dynamic section and imports and fails on any CUDA library or CUDA symbol; it first runs its own negative control, a stub `libcudart` that must fail. It is a check on the binaries, not proof that NVIDIA's kernel modules or firmware are gone.
+
+On a shared machine, hold the GPU lock your operator uses around these commands (on the AIEN Spark: `flock -w 900 /tmp/aien-gb10.lock make hello-gpu`). A run of exactly these commands by a brand-new Linux user with an empty environment is recorded in `evidence/C2-CLEAN-USER/`.
 
 ## Build and test without a GPU
 

@@ -53,5 +53,14 @@ set -- $lo_hi
 if [ -n "$addr" ] && [ $# -eq 2 ] && [ $(( addr )) -eq $(( $2 )) ] && [ $(( $2 - $1 )) -eq 4194304 ]; then pass=$((pass+1)); echo "PASS fault-address-is-end-of-a"
 else fail=$((fail+1)); echo "FAIL fault-address-is-end-of-a (addr=$addr range=$lo_hi)"; fi
 
+# --bug=short (the check's own negative control, also used on the GPU by `make hello-gpu-control`): the last
+# launch is told one element too few, so exactly one answer is never written and the check must go red.
+short=$("$H" --sim --bug=short 2>&1); rcs=$?
+exitis short-exit "$rcs" 1
+want short-report "$short" 'checked 1048576 of 1048576 elements: 1 wrong, 1 never written' 'first mismatch: c[1048575]' 'FAIL'
+printf '%s\n' "$short" | grep -qx PASS && { fail=$((fail+1)); echo "FAIL short run printed PASS"; }
+usage=$("$H" --bug=past-end 2>&1); rcu=$?
+exitis past-end-refused-on-gpu "$rcu" 2
+
 echo "hello --sim tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

@@ -3,13 +3,14 @@
 # fresh-checkout-hello.sh <branch> [log-file]
 # Proves the README's "Run your first kernel" works from nothing: clones <branch> from GitHub into an
 # empty temporary folder, takes the commands from that section of the README (the first bash block), runs
-# only those, and records the output with the commit it ran. Exit code is that of the last README command
-# (the hello program: 0 PASS, 1 FAIL, 2 GPU not usable). This is a correctness check, not a timing run.
-# It uses the GPU, so run it under the shared lock:  quiet-measure flock /tmp/aien-gb10.lock <this script> <branch> <log>
+# only those, and records the output with the commit it ran. Exit code is that of the first README command
+# that fails (0 when all pass). This is a correctness check, not a timing run. It runs as the current user
+# with the current environment; tools/runtime/clean-user-hello.sh is the stricter run as a brand-new user.
+# It uses the GPU, so run it under the shared lock:  flock -w 900 /tmp/aien-gb10.lock <this script> <branch> <log>
 set -uo pipefail
 branch=${1:?usage: fresh-checkout-hello.sh <branch> [log-file]}
 log=${2:-/dev/stdout}
-url=${CUDAPP_URL:-https://github.com/aien-dev/CUDAplusplus}
+url=${CUDAPP_URL:-https://github.com/aien-dev/CUDApp}
 work=$(mktemp -d "${TMPDIR:-/tmp}/cudapp-fresh.XXXXXX")
 cleanup() { rm -rf "$work"; }
 trap cleanup EXIT
@@ -24,7 +25,7 @@ trap cleanup EXIT
 	rm -rf "$work/src.readme"
 	# run them in a clean folder; the clone line is pointed at the branch under test
 	mkdir "$work/run" && cd "$work/run" || exit 3
-	cmds=$(echo "$cmds" | sed -E "s#^git clone #git clone --branch $branch #; s#https://github.com/aien-dev/CUDAplusplus#$url#")
+	cmds=$(echo "$cmds" | sed -E "s#^git clone #git clone --branch $branch #; s#https://github.com/aien-dev/CUDApp([^A-Za-z0-9_.-]|\$)#$url\\1#")
 	rc=0
 	while IFS= read -r line; do
 		[ -n "$line" ] || continue
