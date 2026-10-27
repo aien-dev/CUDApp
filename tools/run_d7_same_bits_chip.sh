@@ -35,7 +35,7 @@ SWITCHES=$(env | grep -E '^(CUBLAS_|CUDA_|CUDNN_|NVIDIA_TF32|TORCH_|PYTORCH_|OME
     echo "job: $JOB"
     echo "command: ${CMD[*]}"
     echo "git HEAD: $(git -C "$ROOT" rev-parse HEAD)"
-    echo "git status: $(git -C "$ROOT" status --porcelain | wc -l) changed files"
+    echo "git status (outside evidence/): $(git -C "$ROOT" status --porcelain -- . ':!evidence' | wc -l) changed files"
     echo "binary sha256: $(sha256sum "${CMD[0]}" | cut -d' ' -f1)"
     echo "driver: $(nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>&1)"
     echo "kernel: $(uname -r)"
@@ -49,7 +49,7 @@ for i in $(seq -w 1 "$RUNS"); do
     "${CMD[@]}" >> "$L" 2>&1; rc=$?
     { echo "# exit: $rc"; echo "# utc end: $(date -u +%Y-%m-%dT%H:%M:%S.%NZ)"; } >> "$L"
     [ "$rc" -eq 0 ] || fails=$((fails + 1))
-    echo "run $i exit $rc: $(grep ' output sha256 ' "$L" | tr '\n' ';')"
+    echo "run $i exit $rc: $(grep -E '(^| )output sha256 [0-9a-f]{64}$' "$L" | tr '\n' ';')"
 done
 "$ROOT/tools/d7_same_bits_check.sh" "$D"/run-*.log > "$D/check.txt"; crc=$?
 cat "$D/check.txt"
