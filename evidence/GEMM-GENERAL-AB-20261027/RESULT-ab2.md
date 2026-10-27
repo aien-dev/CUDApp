@@ -40,5 +40,5 @@ Cells over 1.10: e4m3 64x1024x2048 (r 1.237); bf16 64x1024x2048 (r 1.169); e4m3 
 | e4m3 512x2048x4096 | 18 | 6.950 | 7.394 | 1.064 | 1.046 | 6.701-7.507 | 7.051-16.979 | NO CHANGE | 0.0011 |
 | e4m3 2048x12288x2048 | 20 | 64.621 | 65.969 | 1.021 | 1.022 | 62.879-68.432 | 64.673-81.482 | NO CHANGE | 0.0038 |
 
-The remaining overhead is largest in relative terms at the small cells (about 0.1-0.35 ms per call: the host inf/NaN scan
-of A and B and the call's own buffers). Recorded in API.md section 9.8.
+The remaining overhead is largest in relative terms at the small cells (about 0.1-0.35 ms per call; not yet attributed.
+Recorded in API.md section 9.8.
