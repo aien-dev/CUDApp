@@ -1,0 +1,24 @@
+{
+  "extensions": {
+    "generated": {
+      "children": [],
+      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiled_at": "2026-10-26T03:49:52Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:3d64c34d2f05c6335bcae79fa9e07c12e69f1b2ca78047eb8675fe48f926bdf3",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 5,
+      "generated_at_commit": "0c186fc77114a5f5968345014f036ff54ce465b5",
+      "source_tree": "sha256:fa6fe9805c058939c9b9801d3ae9586a40de86e90b5c483e7cdb08ecf6346cf4"
+    }
+  },
+  "invariants": [
+    "A collected or schema-valid record is not physical proof or release acceptance.",
+    "The template contains no run evidence; every measurement remains NOT_RUN.",
+    "Device work requires existing owner admission and does not change the resident service or driver."
+  ],
+  "name": "independent-verification",
+  "purpose": "Proposed independent GPU replication protocol and collection manifest for CUDApp issue 91.",
+  "schema_version": "1.0.0"
+}
