@@ -86,6 +86,10 @@ static void lds128(Em *e, int d128, int addr, uint32_t imm, int first) { Blackwe
 static void lds32(Em *e, Op d, int addr, int first) { BlackwellIRInsn i = I0(BW_IR_LDS32); i.dst_vreg = d.v; i.dst_subreg = (uint8_t)d.s; i.src1_vreg = addr; emit(e, i, first ? K_VAR : K_VAR_MORE); }
 static void sts32(Em *e, int addr, Op val) { BlackwellIRInsn i = I0(BW_IR_STS32); i.src1_vreg = addr; i.src2_vreg = val.v; i.src2_subreg = (uint8_t)val.s; emit(e, i, K_STORE); }
 static void bar_sync(Em *e) { emit(e, I0(BW_IR_BAR_SYNC), K_SYNC); }
+/* SPLIT form: the cross-CTA count and merge (the pattern of omega_blackwell_codegen_attn256.c) */
+static void ldg32(Em *e, BlackwellIROpcode op, int d, int addr64, int udesc, int first) { BlackwellIRInsn i = I0(op); i.dst_vreg = d; i.src1_vreg = addr64; i.ureg = udesc; emit(e, i, first ? K_VAR : K_VAR_MORE); }
+static void atom_add(Em *e, int d, int addr64, int val, int udesc) { BlackwellIRInsn i = I0(BW_IR_ATOMG_ADD_STRONG_SYS); i.dst_vreg = d; i.src1_vreg = addr64; i.src2_vreg = val; i.ureg = udesc; emit(e, i, K_VAR); }
+static void membar(Em *e) { emit(e, I0(BW_IR_MEMBAR_ALL_SYS), K_FIXED); }
 static void fop(Em *e, BlackwellIROpcode op, Op d, Op a, Op b, Op c) {
     BlackwellIRInsn i = I0(op); i.dst_vreg = d.v; i.dst_subreg = (uint8_t)d.s; i.src1_vreg = a.v; i.src1_subreg = (uint8_t)a.s;
     i.src2_vreg = b.v; i.src2_subreg = (uint8_t)b.s; i.src3_vreg = c.v; i.src3_subreg = (uint8_t)c.s; emit(e, i, K_FIXED);
@@ -171,10 +175,13 @@ int omega_blackwell_codegen_router_prog(const OmegaRouterSpec *spec, BlackwellIR
     const int MUT = spec->mutant;
     OmegaRouterSmem L;
     const uint32_t XST = spec->xstride, LBST = spec->lbstride; /* ROWS form when set */
-    if ((W != 8 && W != 16 && W != 32) || (D != 1 && D != 2 && D != 4 && D != 8) || MUT < 0 || MUT > 6 || omega_router_smem(spec, &L)) return -1;
+    const uint32_t NC = spec->ctas > 1u ? spec->ctas : 1u; /* SPLIT form when NC > 1 */
+    if ((W != 8 && W != 16 && W != 32) || (D != 1 && D != 2 && D != 4 && D != 8) || MUT < 0 || MUT > 7 || omega_router_smem(spec, &L)) return -1;
     if ((XST != 0) != (LBST != 0) || (XST && (XST < OMEGA_ROUTER_HIDDEN * 4u || (XST & 15u) || (LBST & 15u))) || (MUT == 6 && !XST)) return -1;
+    if (NC > OMEGA_ROUTER_MAX_CTAS || (NC > 1u && XST) || (MUT == 7 && NC < 2u)) return -1;
     const uint32_t EX = spec->experts ? spec->experts : OMEGA_ROUTER_EXPERTS, SHX = spec->shared, EPL = EX / 32u; /* logits per lane */
     if (MUT == 5 && !SHX) return -1;
+    const uint32_t T = 32u * W, NROWS = EX + SHX;
     const uint32_t E = 64u / W; /* x values per thread: 8, 4 or 2 */
     omega_bw_ir_init(prog);
     Em em; memset(&em, 0, sizeof em); em.p = prog; Em *e = &em;
@@ -246,21 +253,51 @@ int omega_blackwell_codegen_router_prog(const OmegaRouterSpec *spec, BlackwellIR
             if (MUT != 1) fmul(e, xe[i], xe[i], we[i]);
             imadi(e, R(a0), R(one), OMEGA_ROUTER_SM_XN + i * 4u, toff);
             sts32(e, a0, xe[i]);
-            fmul(e, R(ts), xe[i], R(oscale));
-            if (i) imadw(e, xo, one, 4u, xo);
-            stg(e, BW_IR_STG_E, xo, R(ts), udesc);
+            if (NC == 1u) {
+                fmul(e, R(ts), xe[i], R(oscale));
+                if (i) imadw(e, xo, one, 4u, xo);
+                stg(e, BW_IR_STG_E, xo, R(ts), udesc);
+            }
+        }
+        if (NC > 1u) { /* SPLIT: every CTA holds the same xn bits; CTA 0 alone stores x' (fresh vregs: see the publish block) */
+            int cta = V(e);
+            s2r(e, cta, BW_SR_CTAID_X);
+            isetp_ge_u32(e, cta, one);
+            Region rg = region_skip_if_p0(e);
+            for (unsigned i = 0; i < E; i++) {
+                fmul(e, R(ts), xe[i], R(oscale));
+                if (i) imadw(e, xo, one, 4u, xo);
+                stg(e, BW_IR_STG_E, xo, R(ts), udesc);
+            }
+            region_end(e, rg);
+        }
+        if (MUT == 7) { /* the merge is skipped: rows this CTA does not compute read -1e30 */
+            int q1 = V(e), q2 = V(e);
+            movi(e, q2, NROWS);
+            for (uint32_t p = 0; p * T < NROWS; p++) {
+                imadi(e, R(q1), R(one), p * T, tid);
+                isetp_ge_u32(e, q1, q2);
+                Region rg = region_skip_if_p0(e);
+                imadi(e, R(a0), R(q1), 4u, NOREG); imadi(e, R(a0), R(one), L.logit, a0);
+                sts32(e, a0, R(cneg));
+                region_end(e, rg);
+            }
         }
     }
     bar_sync(e);
 
-    /* ---- phase 2: logits, warp w -> experts w, w + W, ... ---- */
-    int c128 = V(e), ex = V(e), lane16 = V(e), lane32 = V(e), gl = V64(e), rowa = V64(e), la = V(e);
+    /* ---- phase 2: logits, warp w -> experts w, w + W, ... (SPLIT: CTA c's warp w -> c + N w, c + N (w + W), ...) ---- */
+    int c128 = V(e), ex = V(e), lane16 = V(e), lane32 = V(e), gl = V64(e), rowa = V64(e), la = V(e), psc = NC > 1u ? V64(e) : -1;
     int acc[4], lo = V(e), hi = V(e), xs0 = V128(e), xs1 = V128(e), ld[8];
     for (unsigned i = 0; i < 4; i++) acc[i] = V(e);
     for (uint32_t d = 0; d < D; d++) ld[d] = V128(e);
     if (e->err) return -1;
     movi(e, c128, EX + SHX);                      /* rows: the experts, then the shared gate */
-    mov(e, R(ex), R(warp));
+    if (NC > 1u) {
+        int cta = V(e);
+        s2r(e, cta, BW_SR_CTAID_X);
+        imadi(e, R(ex), R(warp), NC, cta);
+    } else mov(e, R(ex), R(warp));
     imadi(e, R(lane16), R(lane), 16u, NOREG);
     imadi(e, R(lane32), R(lane), 32u, NOREG);
     imadw(e, gl, lane16, 1u, pgate);
@@ -288,12 +325,69 @@ int omega_blackwell_codegen_router_prog(const OmegaRouterSpec *spec, BlackwellIR
     fadd(e, R(acc[0]), R(acc[0]), R(acc[1])); fadd(e, R(acc[2]), R(acc[2]), R(acc[3])); fadd(e, R(acc[0]), R(acc[0]), R(acc[2]));
     warp_sum(e, acc[0], ts);
     imadi(e, R(la), R(ex), 4u, NOREG); imadi(e, R(la), R(one), L.logit, la);
-    lane0_sts(e, lane, one, la, R(acc[0]));
-    imadi(e, R(ex), R(one), W, ex);
+    if (NC == 1u) lane0_sts(e, lane, one, la, R(acc[0]));
+    else { /* lane 0: the logit to shared memory and to the scratch buffer */
+        isetp_ge_u32(e, lane, one);
+        Region rg = region_skip_if_p0(e);
+        int sa = V64(e); /* fresh and reloaded per row: one interval per vreg, so reusing rowa or keeping the pointer
+                          * live across the loop pushed 32 warps depth 8 past 64 registers */
+        if (e->err) return -1;
+        sts32(e, la, R(acc[0]));
+        ldc64(e, sa, OMEGA_ROUTER_ARG_SCRATCH);
+        imadw(e, sa, one, OMEGA_ROUTER_SCRATCH_LOGITS, sa);
+        imadw(e, sa, ex, 4u, sa);
+        stg(e, BW_IR_STG_E, sa, R(acc[0]), udesc);
+        region_end(e, rg);
+    }
+    imadi(e, R(ex), R(one), W * NC, ex);
     bra(e, L_e);
     loop_end(e);
     patch_bra(e, bra_edone, here(e));
     bar_sync(e);
+    if (NC > 1u) { /* publish, count; the last CTA to arrive merges every logit and goes on. Fresh vregs only: the
+                    * allocator keeps one interval per vreg, so reusing a phase-1/2 temporary here would hold it live
+                    * across the logit loop (at 32 warps depth 8 that crossed the 64-register budget) */
+        int pa = V64(e), pb = V(e), pv = V(e), pi = V(e), pn = V(e), pl = V(e), ptid = V(e);
+        if (e->err) return -1;
+        membar(e);
+        bar_sync(e);
+        s2r(e, ptid, BW_SR_TID_X);
+        movi(e, pb, L.bc);
+        isetp_ge_u32(e, ptid, one);
+        {
+            Region rg = region_skip_if_p0(e);
+            ldc64(e, pa, OMEGA_ROUTER_ARG_SCRATCH);
+            atom_add(e, pv, pa, one, udesc);
+            sts32(e, pb, R(pv));
+            region_end(e, rg);
+        }
+        bar_sync(e);
+        lds32(e, R(pv), pb, 1);
+        movi(e, pn, NC - 1u);
+        isetp_ge_u32(e, pv, pn);
+        const int bra_last = bra_if_p0_fwd(e);
+        exit_k(e);
+        patch_bra(e, bra_last, here(e));
+        if (MUT != 7) {
+            ldc64(e, psc, OMEGA_ROUTER_ARG_SCRATCH); imadw(e, psc, one, OMEGA_ROUTER_SCRATCH_LOGITS, psc);
+            movi(e, pn, NROWS);
+            for (uint32_t p = 0; p * T < NROWS; p++) {
+                imadi(e, R(pi), R(one), p * T, ptid);
+                isetp_ge_u32(e, pi, pn);
+                Region rg = region_skip_if_p0(e);
+                imadw(e, pa, pi, 4u, psc);
+                ldg32(e, BW_IR_LDG_STRONG_SYS, pv, pa, udesc, 1);
+                imadi(e, R(pl), R(pi), 4u, NOREG); imadi(e, R(pl), R(one), L.logit, pl);
+                sts32(e, pl, R(pv));
+                region_end(e, rg);
+            }
+        }
+        /* thread 0 resets the counter for the next launch (every CTA has added) */
+        movi(e, pv, 0u);
+        isetp_ge_u32(e, ptid, one);
+        { Region rg = region_skip_if_p0(e); ldc64(e, pa, OMEGA_ROUTER_ARG_SCRATCH); stg(e, BW_IR_STG_STRONG_SYS, pa, R(pv), udesc); region_end(e, rg); }
+        bar_sync(e);
+    }
 
     /* ---- phase 3: top-8 (every warp, uniform barriers) ---- */
     int vq = V128(e), vq2 = EPL > 4u ? V128(e) : -1, lane4 = V(e), ej[8], fj[8], lm = V(e), mr = V(e), lc = V(e), cj = V(e), ne = V(e), ci = V(e), cm = V(e);

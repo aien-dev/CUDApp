@@ -34,6 +34,15 @@
  *
  * Only ops the attention and FP8 kernels already run on the chip are used (no FSETP / FSEL; the simulator does
  * not model them either). The host simulator (tests/bw_warp_sim_k.h) runs the 8-warp kernel.
+ *
+ * SPLIT form (spec.ctas = N >= 2; decode research row A2, 2026-10-27: the single CTA streams the gate at ~25 GB/s):
+ * grid N x 1. Phase 1 runs in every CTA (identical xn bits; only CTA 0 stores x'). Phase 2: CTA c's warp w computes
+ * rows c + N w, c + N (w + W), ... exactly as the plain kernel computes each row (one warp, same lane order), so
+ * every logit is bit-identical; lane 0 stores it to shared memory and to the scratch buffer (ARG_SCRATCH: u32
+ * counter at +0, f32 logits[experts + shared] at +16, zeroed once at allocation). Then MEMBAR.SYS, a CTA barrier,
+ * thread 0 ATOMG.ADD the counter; every CTA but the last to arrive exits; the last loads all logits back
+ * (LDG.STRONG.SYS) into shared memory, resets the counter to 0 for the next launch and runs phase 3 and the
+ * epilogue unchanged. The outputs equal the plain kernel's bit for bit (tests/gpu_router_test.c --sim).
  */
 #include "omega_blackwell_codegen.h"
 #include <stdint.h>
@@ -60,7 +69,10 @@
 #define OMEGA_ROUTER_ARG_EPS 0x3d0u     /* f32 rms eps */
 #define OMEGA_ROUTER_ARG_OUT_SCALE 0x3d4u /* f32 */
 #define OMEGA_ROUTER_ARG_NORM_TOPK 0x3d8u /* u32 0 or 1 (config.json norm_topk_prob) */
-#define OMEGA_ROUTER_ARGS_WORDS 23u
+#define OMEGA_ROUTER_ARG_SCRATCH 0x3e0u  /* u64 SPLIT form: {u32 counter, pad[3], f32 logits[experts + shared]} */
+#define OMEGA_ROUTER_ARGS_WORDS 26u
+#define OMEGA_ROUTER_SCRATCH_LOGITS 16u   /* byte offset of the logits in the scratch buffer */
+#define OMEGA_ROUTER_MAX_CTAS 256u
 
 /* shared memory map (bytes) */
 #define OMEGA_ROUTER_SM_XN 0u           /* xn[2048] f32: 8192 */
@@ -77,8 +89,10 @@ typedef struct {
     int mutant;      /* TEST ONLY. 0 none; 1 RMSNorm without the weight; 2 the mask after each argmax round removes
                       * expert id ^ 1 (the winner can be picked again); 3 the directory entries copied are those of
                       * id ^ 1; 4 the weights are not normalised (den = 1); 5 (shared only) the shared expert's
-                      * weight is 1 instead of sigmoid(gate); 6 (ROWS form only) every CTA reads row 0's x (rows 1.. wrong).
-                      * Mutant 6 must be caught by the rows parity test. */
+                      * weight is 1 instead of sigmoid(gate); 6 (ROWS form only) every CTA reads row 0's x (rows 1.. wrong);
+                      * 7 (SPLIT form only) the merge is skipped: the last CTA keeps only the logits it computed (the
+                      * others read -1e30), the negative control of the split.
+                      * Mutant 6 must be caught by the rows parity test, mutant 7 by the split parity test. */
     uint32_t experts; /* routed experts: 0 or 128 (the 30B), 256 (Qwen3.6-35B-A3B) */
     uint32_t shared;  /* 0, or 1: the weight has one more row (the shared expert gate, row `experts`) that never
                        * enters the top-8 or the softmax; slot 8 of ids / weights / both tables is the shared expert:
@@ -88,6 +102,7 @@ typedef struct {
                         * (>= 8192, a multiple of 16); CTA cy reads X + cy * xstride. */
     uint32_t lbstride; /* ROWS form: bytes between consecutive output buffers (a multiple of 16): CTA cy writes
                         * XOUT, IDS, WTS, TAB_GU and TAB_DN at + cy * lbstride. Both or neither of the strides are set. */
+    uint32_t ctas;     /* 0 or 1: one CTA. 2..OMEGA_ROUTER_MAX_CTAS: the SPLIT form (grid_x = ctas; not with the ROWS form) */
 } OmegaRouterSpec;
 
 /* Shared memory map of a spec (bytes); the OMEGA_ROUTER_SM_* constants are the 128 / no-shared case. */

@@ -53,7 +53,7 @@ enum {
 typedef struct OmegaGpuRouter OmegaGpuRouter;
 
 typedef struct {
-    uint32_t layer, warps, depth, threads;
+    uint32_t layer, warps, depth, threads, ctas; /* ctas: grid_x of the launch (1 = the plain kernel) */
     uint64_t weight_bytes;      /* bf16 router bytes the launch streams: 128 * 2048 * 2 */
     uint64_t elapsed_ns;        /* marker-to-marker chip time */
     uint64_t call_ns;           /* whole call */
@@ -104,6 +104,10 @@ const char *omega_gpu_router_rc_name(int rc);
 
 /* ---- measurement knobs (tests) ---- */
 void omega_gpu_router_set_shape(uint32_t warps, uint32_t depth); /* 0 = default; clears the kernel cache */
+/* 0 or 1 = the plain kernel (default); 2..OMEGA_ROUTER_MAX_CTAS = the SPLIT form (OmegaRouterSpec.ctas) for one-row
+ * calls; the ROWS form stays one CTA per row. Clears the kernel cache. A router's split launches share its scratch
+ * counter, so two of them must never run concurrently on different queues. */
+void omega_gpu_router_set_ctas(uint32_t ctas);
 void omega_gpu_router_test_set_mutant(int mutant);              /* TEST ONLY: OmegaRouterSpec.mutant */
 
 #endif

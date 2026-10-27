@@ -6,7 +6,9 @@
  *   (default)     the chip: parity against the double oracle on random hidden states (two layers, norm_topk on and
  *                 off), second call bit-identical, mutants 1-4 caught, the end-to-end: the grouped FP8 gate+up GEMV
  *                 reading the router-written group table and x' row equals the host-table call bit for bit, chip
- *                 medians (--reps N, --warps W, --depth D, --no-evict, --spin-us, --out receipt.json)
+ *                 medians (--reps N, --warps W, --depth D, --no-evict, --spin-us, --out receipt.json); --ctas N runs
+ *                 all of it in the SPLIT form (N CTAs, A2) and adds mutant 7; --ab "1,1,48,96" --reps R --seed S is
+ *                 the interleaved grid A/B (one JSON line per sample, every sample bit-identical to grid 1)
  * Verdict line last: "gpu_router_test: N checks, F failed: PASS|FAIL".
  */
 #include "omega_gpu_router_api.h"
@@ -129,7 +131,7 @@ static void host_only(void) {
     for (unsigned i = 0; i < 3; i++) for (unsigned j = 0; j < 4; j++) for (int m = 0; m <= MUT_MAX; m++) {
         OmegaRouterSpec s = { .warps = ws[i], .depth = ds[j], .mutant = m SPEC_SHAPE }; uint32_t n = 0, g = 0;
         int rc = omega_router_prog_stats(&s, &n, &g);
-        uint32_t decl = ((g + 1 + 7) / 8) * 8;
+        uint32_t decl = omega_bw_gpr_declared(g); /* the launcher's rule: peak + 2 rounded up to 8 */
         CHECK(rc == 0 && n <= 1024 && 32u * ws[i] * decl <= 65536u, "codegen warps %u depth %u mutant %d: rc %d insns %u gprs %u declared %u", ws[i], ds[j], m, rc, n, g, decl);
         if (m == 0 && rc == 0) printf("codegen warps %2u depth %u: %u instructions, %u registers (declared %u, register file %u of 65536)\n", ws[i], ds[j], n, g, decl, 32u * ws[i] * decl);
     }
@@ -142,7 +144,7 @@ static void host_only(void) {
     for (unsigned i = 0; i < 3; i++) for (unsigned j = 0; j < 4; j++) {
         OmegaRouterSpec s = { .warps = ws[i], .depth = ds[j], .xstride = 8192, .lbstride = 16896 SPEC_SHAPE }; uint32_t n = 0, g = 0;
         int rc = omega_router_prog_stats(&s, &n, &g);
-        uint32_t decl = ((g + 1 + 7) / 8) * 8;
+        uint32_t decl = omega_bw_gpr_declared(g);
         CHECK(rc == 0 && n <= 1024 && 32u * ws[i] * decl <= 65536u, "codegen ROWS warps %u depth %u: rc %d insns %u gprs %u declared %u", ws[i], ds[j], rc, n, g, decl);
         if (rc == 0) printf("codegen ROWS warps %2u depth %u: %u instructions, %u registers (declared %u)\n", ws[i], ds[j], n, g, decl);
     }
@@ -151,6 +153,24 @@ static void host_only(void) {
     { OmegaRouterSpec s = { .warps = 8, .depth = 8, .xstride = 4096, .lbstride = 16896 SPEC_SHAPE }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "xstride below one row refused"); }
     { OmegaRouterSpec s = { .warps = 8, .depth = 8, .xstride = 8192, .lbstride = 16900 SPEC_SHAPE }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "unaligned lbstride refused"); }
     { OmegaRouterSpec s = { .warps = 8, .depth = 8, .mutant = 6 SPEC_SHAPE }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "mutant 6 without the ROWS form refused"); }
+    /* SPLIT form (A2, router-grid): fits at every production shape; refused with the ROWS form, past 256 CTAs, and mutant 7 needs it */
+    for (unsigned i = 0; i < 3; i++) for (unsigned j = 0; j < 4; j++) for (int m = 0; m <= 7; m += 7) {
+        OmegaRouterSpec s = { .warps = ws[i], .depth = ds[j], .mutant = m, .ctas = 96 SPEC_SHAPE }; uint32_t n = 0, g = 0;
+        int rc = omega_router_prog_stats(&s, &n, &g);
+        uint32_t decl = omega_bw_gpr_declared(g);
+        CHECK(rc == 0 && n <= 1024 && 32u * ws[i] * decl <= 65536u, "codegen SPLIT warps %u depth %u mutant %d: rc %d insns %u gprs %u declared %u", ws[i], ds[j], m, rc, n, g, decl);
+        if (rc == 0 && m == 0) printf("codegen SPLIT warps %2u depth %u: %u instructions, %u registers (declared %u)\n", ws[i], ds[j], n, g, decl);
+    }
+    { OmegaRouterSpec s = { .warps = 8, .depth = 8, .ctas = 2, .xstride = 8192, .lbstride = 16896 SPEC_SHAPE }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "SPLIT with the ROWS form refused"); }
+    { OmegaRouterSpec s = { .warps = 8, .depth = 8, .ctas = OMEGA_ROUTER_MAX_CTAS + 1u SPEC_SHAPE }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "SPLIT ctas %u refused", OMEGA_ROUTER_MAX_CTAS + 1u); }
+    { OmegaRouterSpec s = { .warps = 8, .depth = 8, .mutant = 7 SPEC_SHAPE }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "mutant 7 without the SPLIT form refused"); }
+    { OmegaRouterSpec s = { .warps = 8, .depth = 8, .mutant = 8, .ctas = 2 SPEC_SHAPE }; CHECK(omega_router_prog_stats(&s, NULL, NULL) != 0, "mutant 8 refused"); }
+    { /* ctas 0 and 1 are the plain kernel byte for byte */
+        static BlackwellIRProgram p0, p1;
+        OmegaRouterSpec s0 = { .warps = 32, .depth = 4 SPEC_SHAPE }, s1 = s0; s1.ctas = 1;
+        int r0 = omega_blackwell_codegen_router_prog(&s0, &p0), r1 = omega_blackwell_codegen_router_prog(&s1, &p1);
+        CHECK(r0 == 0 && r1 == 0 && memcmp(&p0, &p1, sizeof p0) == 0, "ctas 1 emits the plain kernel byte for byte");
+    }
     CHECK(OMEGA_ROUTER_ARGS_WORDS <= OMEGA_GPU_SESSION_MAX_ARGS, "argument words fit the constant bank window");
 }
 
@@ -296,6 +316,62 @@ static int sim_rows_point(uint32_t depth, int mutant, uint32_t rows, uint32_t se
     free(blk); free(xs); free(gate); free(o); free(copy); case_free(&c[0]); free(c);
     return err;
 }
+/* SPLIT form (A2): `ctas` CTAs share the logit rows (CTA c's warp w takes rows c + N w, c + N (w + W), ...), publish
+ * them to a scratch buffer and count arrivals; the last CTA merges every logit and runs the top-8. The outputs must be
+ * bit-identical to the plain kernel on the same case (each row is still one warp's sum in the same lane order), both
+ * fragment orders must agree, the counter must be 0 afterwards. Mutant 7 (merge skipped) must be caught. */
+static int sim_split_point(uint32_t depth, int mutant, uint32_t ctas, uint32_t seed, char *msg, size_t n, int *bad) {
+    static BlackwellIRProgram prog, plain;
+    OmegaRouterSpec spec = { .warps = 8, .depth = depth, .mutant = mutant, .ctas = ctas SPEC_SHAPE };
+    OmegaRouterSpec pspec = { .warps = 8, .depth = depth SPEC_SHAPE };
+    OmegaRouterSmem sm;
+    *bad = 0;
+    if (omega_blackwell_codegen_router_prog(&spec, &prog) != 0 || omega_blackwell_codegen_router_prog(&pspec, &plain) != 0 || omega_router_smem(&spec, &sm) != 0) { snprintf(msg, n, "codegen refused"); return -1; }
+    Case c; case_make(&c, seed, 1.0f, 1);
+    uint8_t *blk = aligned_alloc(16, B_BYTES); memset(blk, 0, B_BYTES);
+    const size_t SCR = (OMEGA_ROUTER_SCRATCH_LOGITS + NR * 4u + 15u) & ~(size_t)15u;
+    uint8_t *scr = aligned_alloc(16, SCR); memset(scr, 0, SCR);
+    uint16_t *gate = aligned_alloc(16, (size_t)NR * H * 2); memcpy(gate, c.gate, (size_t)NR * H * 2);
+    memcpy(blk + B_X, c.x, sizeof c.x); memcpy(blk + B_NORM, c.nw, sizeof c.nw);
+    uint64_t dgu[NR * 2], ddn[NR * 2]; fake_dirs(dgu, ddn);
+    memcpy(blk + B_DGU, dgu, sizeof dgu); memcpy(blk + B_DDN, ddn, sizeof ddn);
+    const uint64_t A[10] = { (uintptr_t)(blk + B_X), (uintptr_t)gate, (uintptr_t)(blk + B_NORM), (uintptr_t)(blk + B_XOUT), (uintptr_t)(blk + B_IDS),
+                             (uintptr_t)(blk + B_WTS), (uintptr_t)(blk + B_DGU), (uintptr_t)(blk + B_DDN), (uintptr_t)(blk + B_TGU), (uintptr_t)(blk + B_TDN) };
+    Out ref, o, copy; int err = 0, differ = 0;
+    { WsSim s; sim_args(&s, &plain, &sm, 0, A, 1, 1.0f);
+      s.nranges = 2;
+      s.ranges[0].lo = (uintptr_t)blk; s.ranges[0].hi = (uintptr_t)blk + B_BYTES;
+      s.ranges[1].lo = (uintptr_t)gate; s.ranges[1].hi = (uintptr_t)gate + (size_t)NR * H * 2;
+      poison_block(blk);
+      err = ws_run(&s, 1, 1);
+      if (err) snprintf(msg, n, "plain: %s (pc %d)", s.msg, s.err_pc);
+      else if (block_out(blk, &ref)) { err = -1; snprintf(msg, n, "plain: output words never written"); } }
+    for (int order = 0; order < 2 && !err; order++) {
+        WsSim s; sim_args(&s, &prog, &sm, order, A, 1, 1.0f);
+        s.cbank[OMEGA_ROUTER_ARG_SCRATCH / 4] = (uint32_t)(uintptr_t)scr; s.cbank[OMEGA_ROUTER_ARG_SCRATCH / 4 + 1] = (uint32_t)((uint64_t)(uintptr_t)scr >> 32);
+        s.nranges = 3;
+        s.ranges[0].lo = (uintptr_t)blk; s.ranges[0].hi = (uintptr_t)blk + B_BYTES;
+        s.ranges[1].lo = (uintptr_t)gate; s.ranges[1].hi = (uintptr_t)gate + (size_t)NR * H * 2;
+        s.ranges[2].lo = (uintptr_t)scr; s.ranges[2].hi = (uintptr_t)scr + SCR;
+        poison_block(blk);
+        err = ws_run(&s, ctas, 1);
+        if (err) { snprintf(msg, n, "split %u order %d: %s (pc %d)", ctas, order, s.msg, s.err_pc); break; }
+        g_sim_issues += s.warp_issues;
+        uint32_t cnt; memcpy(&cnt, scr, 4);
+        if (cnt != 0) { err = -1; snprintf(msg, n, "split %u order %d: the arrival counter is %u after the launch", ctas, order, cnt); break; }
+        if (block_out(blk, &o)) { err = -1; snprintf(msg, n, "split %u order %d: output words never written", ctas, order); break; }
+        if (memcmp(&o, &ref, sizeof o) != 0) differ = 1;
+        if (order == 0) copy = o;
+        else if (memcmp(&copy, &o, sizeof o) != 0) { err = -1; snprintf(msg, n, "the fragment order changed the result"); }
+    }
+    if (!err) {
+        char sub[200] = ""; int mc = 0;
+        *bad = compare(&c, &o, 1.0f, dgu, ddn, sub, sizeof sub, &mc) | (differ ? 16 : 0);
+        snprintf(msg, n, "%u CTAs: %s the plain kernel; oracle %s", ctas, differ ? "DIFFERS from" : "bit-identical to", sub);
+    }
+    free(blk); free(scr); free(gate); case_free(&c);
+    return err;
+}
 static void sim_battery(void) {
     struct { uint32_t depth; int norm_topk; float oscale; uint32_t seed; const char *name; } pts[] = {
         { 8, 1, 1.0f, 11, "depth 8 norm" }, { 8, 1, 1.0f, 12, "depth 8 norm seed 12" }, { 8, 0, 1.0f, 13, "depth 8 no-norm" },
@@ -332,11 +408,27 @@ static void sim_battery(void) {
         CHECK(!err && bad != 0, "sim rows mutant 6 must be caught: %s", msg);
         printf("sim rows mutant 6: %s (bad mask %d) %s\n", err ? "ERROR" : bad ? "caught" : "NOT CAUGHT", bad, msg);
     }
+    { /* SPLIT form (A2): N CTAs bit-identical to the plain kernel; mutant 7 (merge skipped) caught */
+        struct { uint32_t depth, ctas, seed; } sp[] = { { 8, 2, 41 }, { 8, 3, 42 }, { 4, 48, 43 }, { 8, 96, 44 }, { 1, 5, 45 } };
+        for (size_t i = 0; i < sizeof sp / sizeof sp[0]; i++) {
+            char msg[300]; int bad = 0;
+            int err = sim_split_point(sp[i].depth, 0, sp[i].ctas, sp[i].seed, msg, sizeof msg, &bad);
+            CHECK(!err && bad == 0, "sim split %u depth %u: %s", sp[i].ctas, sp[i].depth, msg);
+            printf("sim split %u depth %u: %s %s\n", sp[i].ctas, sp[i].depth, err ? "ERROR" : bad ? "MISMATCH" : "ok", msg);
+        }
+        for (uint32_t nc = 2; nc <= 48; nc += 46) {
+            char msg[300]; int bad = 0;
+            int err = sim_split_point(8, 7, nc, 46, msg, sizeof msg, &bad);
+            CHECK(!err && bad != 0, "sim split %u mutant 7 must be caught: %s", nc, msg);
+            printf("sim split %u mutant 7: %s (bad mask %d) %s\n", nc, err ? "ERROR" : bad ? "caught" : "NOT CAUGHT", bad, msg);
+        }
+    }
     printf("sim: %" PRIu64 " warp issues in total\n", g_sim_issues);
 }
 
 /* ------------------------------------------------------------- chip */
 static int g_evict = 1;
+static uint32_t g_ctas; /* --ctas N: the SPLIT form for every one-row call (0/1 = the plain kernel) */
 static void evict_host_caches(void) {
     static uint8_t *buf; const size_t sz = 512u << 20; static uint8_t pass;
     if (!buf) buf = malloc(sz);
@@ -390,7 +482,8 @@ static int chip_run(const char *out_path, uint32_t reps) {
     CHECK(parity_fail == 0, "chip parity: %d of 36 cases mismatch", parity_fail);
     printf("chip parity: %d of 36 mismatches, %d margin cases (recorded, oracle margin below %.0e)\n", parity_fail, margin_cases, MARGIN_FLOOR);
     /* mutants on a fixed case, layer 0 */
-    for (int m = 1; m <= MUT_MAX; m++) {
+    for (int m = 1; m <= (g_ctas > 1u ? 7 : MUT_MAX); m++) {
+        if (m > MUT_MAX && m < 7) continue; /* mutant 6 is the ROWS form's; mutant 7 the SPLIT form's */
         omega_gpu_router_test_set_mutant(m);
         Out o; char msg[300]; int bad = -1, mc = 0;
         rc = chip_call(r, 0, &fixed, 1, 1.0f, &o, NULL);
@@ -483,8 +576,65 @@ static int chip_run(const char *out_path, uint32_t reps) {
     return g_failed ? 1 : 0;
 }
 
+/* --ab "1,1,48,96" --reps R --seed S (diagnostic measurement driver, A2 router-grid): one layer at the production shape;
+ * every arm (grid_x; a repeated value is an A/A arm) runs R samples in one seeded shuffled order. Each sample's
+ * ids, weights, x' and tables must equal the grid-1 reference bit for bit (a mismatch voids the run); one JSON line per
+ * sample with CLOCK_REALTIME bounds so the driver can tag it with the live server's in_flight. Then, per split arm,
+ * mutant 7 (merge skipped) must change the ids or weights. */
+static uint64_t real_ns(void) { struct timespec t; clock_gettime(CLOCK_REALTIME, &t); return (uint64_t)t.tv_sec * 1000000000ull + (uint64_t)t.tv_nsec; }
+static int ab_run(const char *arms_csv, uint32_t reps, uint32_t seed) {
+    uint32_t arms[16], na = 0;
+    for (const char *p = arms_csv; *p && na < 16;) { arms[na++] = (uint32_t)strtoul(p, (char **)&p, 10); if (*p == ',') p++; else if (*p) { printf("bad --ab list\n"); return 2; } }
+    OmegaGpuRouter *r = NULL;
+    int rc = omega_gpu_router_alloc_shape(1, NE, SHX, &r);
+    CHECK(rc == OMEGA_GPU_ROUTER_OK, "ab router alloc: %s", rc ? omega_gpu_router_last_error() : "");
+    if (rc) return 1;
+    uint64_t dgu[NR * 2], ddn[NR * 2]; fake_dirs(dgu, ddn);
+    Case c; case_make(&c, 1000, 1.0f, 1);
+    CHECK(omega_gpu_router_set_directory(r, 0, dgu, ddn) == OMEGA_GPU_ROUTER_OK && omega_gpu_router_set_layer(r, 0, c.gate, c.nw) == OMEGA_GPU_ROUTER_OK, "ab set layer 0");
+    Out ref, o; OmegaGpuRouterInfo info; char msg[300]; int mc = 0;
+    omega_gpu_router_set_ctas(1);
+    rc = chip_call(r, 0, &c, 1, 1.0f, &ref, &info);
+    int bad = rc ? -1 : compare(&c, &ref, 1.0f, dgu, ddn, msg, sizeof msg, &mc);
+    CHECK(bad == 0, "ab reference (grid 1) vs the oracle: %s", rc ? omega_gpu_router_last_error() : msg);
+    printf("ab reference grid 1: %s\n", rc ? omega_gpu_router_last_error() : msg);
+    uint32_t *sched = malloc((size_t)na * reps * 4), ns = na * reps, s = seed, wrong = 0, done = 0;
+    for (uint32_t i = 0; i < ns; i++) sched[i] = i % na;
+    for (uint32_t i = ns - 1; i > 0; i--) { uint32_t j = lcg(&s) % (i + 1), t = sched[i]; sched[i] = sched[j]; sched[j] = t; }
+    uint32_t cur = 0xffffffffu;
+    for (uint32_t i = 0; i < ns && bad == 0; i++) {
+        const uint32_t a = sched[i];
+        if (arms[a] != cur) { omega_gpu_router_set_ctas(arms[a]); cur = arms[a]; if (chip_call(r, 0, &c, 1, 1.0f, &o, NULL) != 0) { wrong++; break; } } /* warm the new kernel, untimed */
+        if (g_evict) evict_host_caches();
+        const uint64_t t0 = real_ns();
+        rc = chip_call(r, 0, &c, 1, 1.0f, &o, &info);
+        const uint64_t t1 = real_ns();
+        const int exact = rc == 0 && memcmp(&o, &ref, sizeof o) == 0;
+        if (!exact) wrong++;
+        printf("AB {\"i\":%u,\"arm\":%u,\"ctas\":%u,\"grid_x\":%u,\"chip_ns\":%" PRIu64 ",\"call_ns\":%" PRIu64 ",\"t0_ns\":%" PRIu64 ",\"t1_ns\":%" PRIu64 ",\"exact\":%d}\n",
+               i, a, arms[a], info.ctas, info.elapsed_ns, info.call_ns, t0, t1, exact);
+        done++;
+        if (!exact) { printf("ab sample %u (ctas %u): %s\n", i, arms[a], rc ? omega_gpu_router_last_error() : "outputs differ from the grid-1 reference"); break; }
+    }
+    CHECK(wrong == 0 && done == ns, "ab: %u of %u samples ran, %u not bit-identical to grid 1 (a mismatch voids the run)", done, ns, wrong);
+    for (uint32_t a = 0; a < na; a++) {
+        if (arms[a] < 2u) continue;
+        int dup = 0; for (uint32_t b = 0; b < a; b++) dup |= arms[b] == arms[a];
+        if (dup) continue;
+        omega_gpu_router_set_ctas(arms[a]); omega_gpu_router_test_set_mutant(7);
+        rc = chip_call(r, 0, &c, 1, 1.0f, &o, NULL);
+        const int caught = rc != 0 || memcmp(o.ids, ref.ids, sizeof o.ids) != 0 || memcmp(o.w, ref.w, sizeof o.w) != 0;
+        CHECK(caught, "ab ctas %u mutant 7 (merge skipped) must change the ids or weights", arms[a]);
+        printf("ab ctas %u mutant 7: %s (%s)\n", arms[a], caught ? "caught" : "NOT CAUGHT", rc ? omega_gpu_router_last_error() : memcmp(o.ids, ref.ids, sizeof o.ids) ? "ids differ" : "weights differ");
+        omega_gpu_router_test_set_mutant(0);
+    }
+    omega_gpu_router_set_ctas(0);
+    free(sched); case_free(&c); omega_gpu_router_free(r);
+    return g_failed ? 1 : 0;
+}
+
 int main(int argc, char **argv) {
-    int host = 0, sim = 0; const char *out_path = NULL; uint32_t reps = 0, warps = 0, depth = 0, spin = 2000;
+    int host = 0, sim = 0; const char *out_path = NULL, *ab = NULL; uint32_t reps = 0, warps = 0, depth = 0, spin = 2000, seed = 1;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--host-only") == 0) host = 1;
         else if (strcmp(argv[i], "--sim") == 0) sim = 1;
@@ -494,6 +644,9 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--depth") == 0 && i + 1 < argc) depth = (uint32_t)atoi(argv[++i]);
         else if (strcmp(argv[i], "--spin-us") == 0 && i + 1 < argc) spin = (uint32_t)atoi(argv[++i]);
         else if (strcmp(argv[i], "--no-evict") == 0) g_evict = 0;
+        else if (strcmp(argv[i], "--ctas") == 0 && i + 1 < argc) g_ctas = (uint32_t)atoi(argv[++i]);
+        else if (strcmp(argv[i], "--ab") == 0 && i + 1 < argc) ab = argv[++i];
+        else if (strcmp(argv[i], "--seed") == 0 && i + 1 < argc) seed = (uint32_t)strtoul(argv[++i], NULL, 0);
         else { printf("unknown argument %s\n", argv[i]); return 2; }
     }
     if (host) host_only();
@@ -501,7 +654,8 @@ int main(int argc, char **argv) {
     if (!host && !sim) {
         if (warps || depth) omega_gpu_router_set_shape(warps, depth);
         (void)omega_gpu_session_set_spin_us(spin);
-        chip_run(out_path, reps ? reps : 1);
+        if (ab) ab_run(ab, reps ? reps : 5, seed);
+        else { if (g_ctas) omega_gpu_router_set_ctas(g_ctas); chip_run(out_path, reps ? reps : 1); }
         omega_gpu_session_close();
     }
     printf("gpu_router_test: %d checks, %d failed: %s\n", g_checks, g_failed, g_failed ? "FAIL" : "PASS");
