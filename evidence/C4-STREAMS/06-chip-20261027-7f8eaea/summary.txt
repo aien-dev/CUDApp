@@ -1,0 +1,15 @@
+bin f8b736da0d81f655316e54c7837026f1495185795784952f31caf3d376a4b2c7  build/gpu_streams_test
+driver 580.173.02
+start 2026-10-27T07:28:22Z
+run 1 exit 0 C4 streams chip: PASS (8 checks)
+run 2 exit 0 C4 streams chip: PASS (8 checks)
+run 3 exit 0 C4 streams chip: PASS (8 checks)
+run 4 exit 0 C4 streams chip: PASS (8 checks)
+run 5 exit 0 C4 streams chip: PASS (8 checks)
+run 6 exit 0 C4 streams chip: PASS (8 checks)
+run 7 exit 0 C4 streams chip: PASS (8 checks)
+run 8 exit 0 C4 streams chip: PASS (8 checks)
+run 9 exit 0 C4 streams chip: PASS (8 checks)
+run 10 exit 0 C4 streams chip: PASS (8 checks)
+end 2026-10-27T07:28:45Z
+runs passing: 10 of 10
