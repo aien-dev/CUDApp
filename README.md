@@ -50,7 +50,7 @@ I built it alone on one DGX Spark in under four weeks, directing AI coding agent
 
 <p align="center"><img src="docs/img/reverse-engineering.svg" width="100%" alt="The method in eight steps. Learn: my own probe kernel, nvcc once offline, read the bytes back, change one detail. Prove: field hypothesis, my encoder writes it, the GB10 runs it, golden words in the tests. A wrong answer goes back to the hypothesis."></p>
 
-No NVIDIA binary or listing is in this repository. The whole method, step by step with the files and receipts: [docs/HOW_I_DID_IT.md](docs/HOW_I_DID_IT.md).
+No NVIDIA binary is in this repository. One listing printed by NVIDIA's `nvdisasm` is stored as a test pin: the decode of CUDA++'s own trace-emitter words (`PROVENANCE.md` section 6). The whole method, step by step with the files and receipts: [docs/HOW_I_DID_IT.md](docs/HOW_I_DID_IT.md).
 
 ### What the machine code looks like
 

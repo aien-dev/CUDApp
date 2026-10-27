@@ -65,7 +65,7 @@ make hello-gpu                              # runs make doctor, then examples/he
 - Write the test first and watch it fail for the expected reason; include a negative control. A library change also needs a host reference, a simulator run where the simulator covers it, a mutation test and a chip receipt.
 - A failing test means the work is wrong. Never skip, loosen or rerun a test until it passes once.
 - Every instruction encoding has golden words in the tests and a chip run behind it. Do not change an encoder field without both.
-- No NVIDIA binary, cubin, PTX, firmware or listing printed by NVIDIA's tools goes in this repository (`docs/AUDIT.md`). If you used NVIDIA's compiler or disassembler on your own small kernels to learn an encoding, say so in a code comment.
+- No NVIDIA binary, cubin, PTX, firmware or listing printed by NVIDIA's tools goes in this repository (`docs/AUDIT.md`). The one exception is a regression pin of our own words, recorded in `PROVENANCE.md` section 6; the rules for allowed sources are in `PROVENANCE.md`. If you used NVIDIA's compiler or disassembler on your own small kernels to learn an encoding, say so in a code comment.
 - The runtime API is versioned. `docs/runtime/omega_runtime_api.manifest` is checked against the C headers it names and against `docs/runtime/API.md` by `make test` (`test-runtime-api`, with negative controls). Change a public header, the manifest and `API.md` together.
 - Status words in `README.md` and `ROADMAP.md` are PASS (receipt on a named commit), PARTIAL, MISSING, BUILDING. Do not upgrade a status without the receipt.
 - New source files carry `SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception`. Keep third-party notices (`THIRD_PARTY.md`, `NOTICE`).
