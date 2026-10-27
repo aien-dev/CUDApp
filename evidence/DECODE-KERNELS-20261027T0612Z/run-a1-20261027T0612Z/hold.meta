@@ -1,0 +1,3 @@
+head eaa1bf96d62da524b6e6d64f0232cbbc90e43ac7 dirty=0
+cwd /home/drakestapleton/work/DecodeKernels/fresh
+cmd /home/drakestapleton/handoffs/DecodeKernels/abrun.sh /home/drakestapleton/handoffs/DecodeKernels/run-a1-20261027T0612Z ./build/gpu_fp8_api_test --grid-ab 0:0,0:0,4:0,5:0,8:0,11:0,16:0,11:24,16:16 --reps 40 --seed 2711
