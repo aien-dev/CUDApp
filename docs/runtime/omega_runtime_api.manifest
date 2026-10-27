@@ -9,8 +9,10 @@
 #     `usize`/size_t fields are written `u64` (LP64), as it does.
 # Checked by tools/runtime_api_check.sh (make test-runtime-api): every `fn` against its header with the exact types,
 # every size, offset and constant against a compiled probe, the version macros against src/omega_runtime_api.h.
-# After a deliberate header change: edit the line here, run `tools/runtime_api_check.sh --bless` to refresh numbers, review the diff.
-abi omega_runtime 0.1
+# After a deliberate header change: edit the line here, run `tools/runtime_api_check.sh --bless` to refresh numbers, review the diff,
+# and bump the version (MAJOR/MINOR/PATCH, rule in API.md section 2; tools/runtime_api_semver.sh checks the bump against the base).
+# Names a manifest header declares that are NOT API go in omega_runtime_api.internal, each with a reason (the check fails otherwise).
+abi omega_runtime 0.3.0
 header src/omega_runtime_api.h
 header src/omega_gpu_platform.h
 header src/omega_gpu_session.h
@@ -21,9 +23,23 @@ header src/omega_gpu_matmul_api.h
 header src/omega_gpu_serving.h
 header src/omega_gpu_elementwise_api.h
 header src/omega_gpu_attention_api.h
+header src/omega_gpu_fp8_api.h
+header src/omega_gpu_fp8gemm_api.h
+header src/omega_gpu_bf16_gemv_api.h
+header src/omega_gpu_decode_attn_api.h
+header src/omega_gpu_router_api.h
+header src/omega_gpu_tern_api.h
+header src/omega_gpu_tcgemm_api.h
+header src/omega_gpu_prefill_attn_api.h
+header src/omega_gpu_moe_api.h
+header src/omega_gpu_decode_graph.h
+header src/omega_gpu_prefill.h
+header src/omega_gpu_pfhost.h
 # ---- version ----
 const OMEGA_RUNTIME_API_VERSION_MAJOR 0
-const OMEGA_RUNTIME_API_VERSION_MINOR 1
+const OMEGA_RUNTIME_API_VERSION_MINOR 3
+const OMEGA_RUNTIME_API_VERSION_PATCH 0
+const OMEGA_RUNTIME_API_VERSION 3
 # ---- platform contract (src/omega_gpu_platform.h, ABI 1.2) ----
 struct OmegaGpuDeviceHandle 8 4 # STABLE
 field OmegaGpuDeviceHandle index 0 4 u32 1
@@ -545,3 +561,412 @@ const OMEGA_GPU_BUF_INPUT_A 2
 const OMEGA_GPU_BUF_INPUT_B 3
 const OMEGA_GPU_BUF_OUTPUT 4
 const OMEGA_GPU_BUF_ROLE_COUNT 5
+# ---- decode path (ADR 0043 task P2.2): kernel APIs the serving decode/prefill path calls, all EXPERIMENTAL ----
+# Not carried over from aien-sovereign-core (its copy has none of these). Listed so a change to them is seen by this check;
+# test-only setters (*_test_*), *_locked launch helpers, entries that take a kernel-generator spec type and the host
+# reference/packing helpers in the same headers stay INTERNAL (docs/runtime/API.md section 10).
+# Field offsets and sizes below were filled by tools/runtime_api_check.sh --bless and reviewed.
+struct OmegaGpuBf16Info 136 8 # EXPERIMENTAL
+field OmegaGpuBf16Info n 0 4 u32 1
+field OmegaGpuBf16Info k 4 4 u32 1
+field OmegaGpuBf16Info rows_per_warp 8 4 u32 1
+field OmegaGpuBf16Info warps_per_cta 12 4 u32 1
+field OmegaGpuBf16Info depth 16 4 u32 1
+field OmegaGpuBf16Info grid_x 20 4 u32 1
+field OmegaGpuBf16Info steps 24 4 u32 1
+field OmegaGpuBf16Info weight_bytes 32 8 u64 1
+field OmegaGpuBf16Info elapsed_ns 40 8 u64 1
+field OmegaGpuBf16Info call_ns 48 8 u64 1
+field OmegaGpuBf16Info completion_marker 56 4 u32 1
+field OmegaGpuBf16Info kernel_cache_hit 60 1 bool 1
+field OmegaGpuBf16Info target_chip 61 64 c_char 64
+field OmegaGpuBf16Info sm_architecture 128 4 u32 1
+struct OmegaGpuDecodeAttnInfo 64 8 # EXPERIMENTAL
+field OmegaGpuDecodeAttnInfo layer 0 4 u32 1
+field OmegaGpuDecodeAttnInfo pos 4 4 u32 1
+field OmegaGpuDecodeAttnInfo splits 8 4 u32 1
+field OmegaGpuDecodeAttnInfo per_split 12 4 u32 1
+field OmegaGpuDecodeAttnInfo depth 16 4 u32 1
+field OmegaGpuDecodeAttnInfo grid_x 20 4 u32 1
+field OmegaGpuDecodeAttnInfo grid_y 24 4 u32 1
+field OmegaGpuDecodeAttnInfo threads 28 4 u32 1
+field OmegaGpuDecodeAttnInfo kv_bytes 32 8 u64 1
+field OmegaGpuDecodeAttnInfo elapsed_ns 40 8 u64 1
+field OmegaGpuDecodeAttnInfo call_ns 48 8 u64 1
+field OmegaGpuDecodeAttnInfo completion_marker 56 4 u32 1
+field OmegaGpuDecodeAttnInfo kernel_cache_hit 60 4 i32 1
+struct OmegaGpuDecodeAttnCacheView 48 8 # EXPERIMENTAL
+field OmegaGpuDecodeAttnCacheView layers 0 4 u32 1
+field OmegaGpuDecodeAttnCacheView max_pos 4 4 u32 1
+field OmegaGpuDecodeAttnCacheView k_va 8 8 u64 1
+field OmegaGpuDecodeAttnCacheView v_va 16 8 u64 1
+field OmegaGpuDecodeAttnCacheView rope_va 24 8 u64 1
+field OmegaGpuDecodeAttnCacheView q_norm_va 32 8 u64 1
+field OmegaGpuDecodeAttnCacheView k_norm_va 40 8 u64 1
+struct OmegaGpuDecodeGraphConfig 40 8 # EXPERIMENTAL
+field OmegaGpuDecodeGraphConfig layers 0 4 u32 1
+field OmegaGpuDecodeGraphConfig vocab 4 4 u32 1
+field OmegaGpuDecodeGraphConfig eps 8 4 f32 1
+field OmegaGpuDecodeGraphConfig norm_topk 12 4 i32 1
+field OmegaGpuDecodeGraphConfig router 16 8 ptr 1
+field OmegaGpuDecodeGraphConfig attn 24 8 ptr 1
+field OmegaGpuDecodeGraphConfig lm_head 32 8 ptr 1
+struct OmegaGpuDecodeGraphStats 40 8 # EXPERIMENTAL
+field OmegaGpuDecodeGraphStats launches 0 4 u32 1
+field OmegaGpuDecodeGraphStats submits 4 4 u32 1
+field OmegaGpuDecodeGraphStats chip_ns 8 8 u64 1
+field OmegaGpuDecodeGraphStats record_ns 16 8 u64 1
+field OmegaGpuDecodeGraphStats total_ns 24 8 u64 1
+field OmegaGpuDecodeGraphStats sems_done 32 4 u32 1
+struct OmegaGpuDecodeGraphVas 88 8 # EXPERIMENTAL
+field OmegaGpuDecodeGraphVas x 0 8 u64 1
+field OmegaGpuDecodeGraphVas xq 8 8 u64 1
+field OmegaGpuDecodeGraphVas qkv 16 8 u64 1
+field OmegaGpuDecodeGraphVas attn 24 8 u64 1
+field OmegaGpuDecodeGraphVas o 32 8 u64 1
+field OmegaGpuDecodeGraphVas gu 40 8 u64 1
+field OmegaGpuDecodeGraphVas act 48 8 u64 1
+field OmegaGpuDecodeGraphVas dn 56 8 u64 1
+field OmegaGpuDecodeGraphVas hidden 64 8 u64 1
+field OmegaGpuDecodeGraphVas logits 72 8 u64 1
+field OmegaGpuDecodeGraphVas token 80 8 u64 1
+struct OmegaGpuFp8Info 160 8 # EXPERIMENTAL
+field OmegaGpuFp8Info experts 0 4 u32 1
+field OmegaGpuFp8Info n 4 4 u32 1
+field OmegaGpuFp8Info k 8 4 u32 1
+field OmegaGpuFp8Info groups 12 4 u32 1
+field OmegaGpuFp8Info lane_bytes 16 4 u32 1
+field OmegaGpuFp8Info rows_per_warp 20 4 u32 1
+field OmegaGpuFp8Info warps_per_cta 24 4 u32 1
+field OmegaGpuFp8Info depth 28 4 u32 1
+field OmegaGpuFp8Info grid_x 32 4 u32 1
+field OmegaGpuFp8Info grid_y 36 4 u32 1
+field OmegaGpuFp8Info steps 40 4 u32 1
+field OmegaGpuFp8Info weight_bytes 48 8 u64 1
+field OmegaGpuFp8Info scale_bytes 56 8 u64 1
+field OmegaGpuFp8Info elapsed_ns 64 8 u64 1
+field OmegaGpuFp8Info call_ns 72 8 u64 1
+field OmegaGpuFp8Info completion_marker 80 4 u32 1
+field OmegaGpuFp8Info kernel_cache_hit 84 1 bool 1
+field OmegaGpuFp8Info target_chip 85 64 c_char 64
+field OmegaGpuFp8Info sm_architecture 152 4 u32 1
+struct OmegaGpuFp8GemmInfo 80 8 # EXPERIMENTAL
+field OmegaGpuFp8GemmInfo rows 0 4 u32 1
+field OmegaGpuFp8GemmInfo segments 4 4 u32 1
+field OmegaGpuFp8GemmInfo n 8 4 u32 1
+field OmegaGpuFp8GemmInfo k 12 4 u32 1
+field OmegaGpuFp8GemmInfo mt 16 4 u32 1
+field OmegaGpuFp8GemmInfo warps_per_cta 20 4 u32 1
+field OmegaGpuFp8GemmInfo lane_bytes 24 4 u32 1
+field OmegaGpuFp8GemmInfo grid_x 28 4 u32 1
+field OmegaGpuFp8GemmInfo grid_y 32 4 u32 1
+field OmegaGpuFp8GemmInfo passes_max 36 4 u32 1
+field OmegaGpuFp8GemmInfo weight_bytes 40 8 u64 1
+field OmegaGpuFp8GemmInfo streamed_bytes 48 8 u64 1
+field OmegaGpuFp8GemmInfo elapsed_ns 56 8 u64 1
+field OmegaGpuFp8GemmInfo call_ns 64 8 u64 1
+field OmegaGpuFp8GemmInfo completion_marker 72 4 u32 1
+field OmegaGpuFp8GemmInfo kernel_cache_hit 76 1 bool 1
+struct OmegaPfWeights 96 8 # EXPERIMENTAL
+field OmegaPfWeights w 0 40 struct:OmegaGpuMem 1
+field OmegaPfWeights r 40 40 struct:OmegaGpuMem 1
+field OmegaPfWeights experts 80 4 u32 1
+field OmegaPfWeights n 84 4 u32 1
+field OmegaPfWeights k 88 4 u32 1
+field OmegaPfWeights layout 92 4 u32 1
+struct OmegaGpuPrefillAttnInfo 64 8 # EXPERIMENTAL
+field OmegaGpuPrefillAttnInfo layer 0 4 u32 1
+field OmegaGpuPrefillAttnInfo pos0 4 4 u32 1
+field OmegaGpuPrefillAttnInfo m 8 4 u32 1
+field OmegaGpuPrefillAttnInfo chunks 12 4 u32 1
+field OmegaGpuPrefillAttnInfo grid_x 16 4 u32 1
+field OmegaGpuPrefillAttnInfo grid_y 20 4 u32 1
+field OmegaGpuPrefillAttnInfo threads 24 4 u32 1
+field OmegaGpuPrefillAttnInfo splits 28 4 u32 1
+field OmegaGpuPrefillAttnInfo per_split 32 4 u32 1
+field OmegaGpuPrefillAttnInfo elapsed_ns 40 8 u64 1
+field OmegaGpuPrefillAttnInfo call_ns 48 8 u64 1
+field OmegaGpuPrefillAttnInfo kernel_cache_hit 56 4 i32 1
+struct OmegaGpuPrefillAttnMirrorView 32 8 # EXPERIMENTAL
+field OmegaGpuPrefillAttnMirrorView k_va 0 8 u64 1
+field OmegaGpuPrefillAttnMirrorView v_va 8 8 u64 1
+field OmegaGpuPrefillAttnMirrorView kv_stride 16 4 u32 1
+field OmegaGpuPrefillAttnMirrorView max_pos 20 4 u32 1
+field OmegaGpuPrefillAttnMirrorView valid 24 4 u32 1
+struct OmegaGpuRouterInfo 48 8 # EXPERIMENTAL
+field OmegaGpuRouterInfo layer 0 4 u32 1
+field OmegaGpuRouterInfo warps 4 4 u32 1
+field OmegaGpuRouterInfo depth 8 4 u32 1
+field OmegaGpuRouterInfo threads 12 4 u32 1
+field OmegaGpuRouterInfo weight_bytes 16 8 u64 1
+field OmegaGpuRouterInfo elapsed_ns 24 8 u64 1
+field OmegaGpuRouterInfo call_ns 32 8 u64 1
+field OmegaGpuRouterInfo completion_marker 40 4 u32 1
+field OmegaGpuRouterInfo kernel_cache_hit 44 4 i32 1
+struct OmegaGpuRouterDevOut 40 8 # EXPERIMENTAL
+field OmegaGpuRouterDevOut xout_va 0 8 u64 1
+field OmegaGpuRouterDevOut ids_va 8 8 u64 1
+field OmegaGpuRouterDevOut wts_va 16 8 u64 1
+field OmegaGpuRouterDevOut tab_gu_va 24 8 u64 1
+field OmegaGpuRouterDevOut tab_dn_va 32 8 u64 1
+struct OmegaGpuTcGemmInfo 96 8 # EXPERIMENTAL
+field OmegaGpuTcGemmInfo rows 0 4 u32 1
+field OmegaGpuTcGemmInfo segments 4 4 u32 1
+field OmegaGpuTcGemmInfo tiles 8 4 u32 1
+field OmegaGpuTcGemmInfo n 12 4 u32 1
+field OmegaGpuTcGemmInfo k 16 4 u32 1
+field OmegaGpuTcGemmInfo rt 20 4 u32 1
+field OmegaGpuTcGemmInfo ct 24 4 u32 1
+field OmegaGpuTcGemmInfo warps 28 4 u32 1
+field OmegaGpuTcGemmInfo grid_x 32 4 u32 1
+field OmegaGpuTcGemmInfo grid_y 36 4 u32 1
+field OmegaGpuTcGemmInfo gpr_declared 40 4 u32 1
+field OmegaGpuTcGemmInfo weight_bytes 48 8 u64 1
+field OmegaGpuTcGemmInfo streamed_bytes 56 8 u64 1
+field OmegaGpuTcGemmInfo act_bytes 64 8 u64 1
+field OmegaGpuTcGemmInfo elapsed_ns 72 8 u64 1
+field OmegaGpuTcGemmInfo call_ns 80 8 u64 1
+field OmegaGpuTcGemmInfo completion_marker 88 4 u32 1
+field OmegaGpuTcGemmInfo kernel_cache_hit 92 1 bool 1
+struct OmegaGpuTernSegments 36 4 # EXPERIMENTAL
+field OmegaGpuTernSegments count 0 4 u32 1
+field OmegaGpuTernSegments end 4 16 u32 4
+field OmegaGpuTernSegments scale 20 16 f32 4
+struct OmegaGpuTernInfo 152 8 # EXPERIMENTAL
+field OmegaGpuTernInfo n 0 4 u32 1
+field OmegaGpuTernInfo k 4 4 u32 1
+field OmegaGpuTernInfo n_padded 8 4 u32 1
+field OmegaGpuTernInfo layout 12 4 u32 1
+field OmegaGpuTernInfo rows_per_half 16 4 u32 1
+field OmegaGpuTernInfo warps_per_cta 20 4 u32 1
+field OmegaGpuTernInfo depth 24 4 u32 1
+field OmegaGpuTernInfo grid_x 28 4 u32 1
+field OmegaGpuTernInfo chunks 32 4 u32 1
+field OmegaGpuTernInfo epi 36 4 u32 1
+field OmegaGpuTernInfo weight_bytes 40 8 u64 1
+field OmegaGpuTernInfo elapsed_ns 48 8 u64 1
+field OmegaGpuTernInfo call_ns 56 8 u64 1
+field OmegaGpuTernInfo completion_marker 64 4 u32 1
+field OmegaGpuTernInfo kernel_cache_hit 68 1 bool 1
+field OmegaGpuTernInfo weights_cached 69 1 bool 1
+field OmegaGpuTernInfo seg_bounds 72 12 u32 3
+field OmegaGpuTernInfo target_chip 84 64 c_char 64
+field OmegaGpuTernInfo sm_architecture 148 4 u32 1
+fn omega_gpu_fp8_tensor_upload fn(u32, u32, u32, *const u8, *const u16, *mut *mut OmegaGpuFp8Tensor) -> i32 # EXPERIMENTAL
+fn omega_gpu_fp8_tensor_free fn(*mut OmegaGpuFp8Tensor) -> () # EXPERIMENTAL
+fn omega_gpu_fp8_tensor_shape fn(*const OmegaGpuFp8Tensor, *mut u32, *mut u32, *mut u32) -> () # EXPERIMENTAL
+fn omega_gpu_fp8_gemv_f32 fn(*const OmegaGpuFp8Tensor, u32, *const f32, *mut f32, *mut OmegaGpuFp8Info) -> i32 # EXPERIMENTAL
+fn omega_gpu_fp8_gemv_bf16 fn(*const OmegaGpuFp8Tensor, u32, *const u16, *mut f32, *mut OmegaGpuFp8Info) -> i32 # EXPERIMENTAL
+fn omega_gpu_fp8_gemv_grouped_f32 fn(*const OmegaGpuFp8Tensor, u32, *const u32, *const f32, u32, *mut f32, *mut OmegaGpuFp8Info) -> i32 # EXPERIMENTAL
+fn omega_gpu_fp8_gemv_grouped_dev fn(*const OmegaGpuFp8Tensor, u32, u64, u64, *mut f32, *mut OmegaGpuFp8Info) -> i32 # EXPERIMENTAL
+fn omega_gpu_fp8_gemv_grouped_record fn(*mut OmegaGpuCmdList, *const OmegaGpuFp8Tensor, u32, u64, u64, u32, u64) -> i32 # EXPERIMENTAL
+fn omega_gpu_fp8_tensor_entry fn(*const OmegaGpuFp8Tensor, u32, *mut u64, *mut u64) -> i32 # EXPERIMENTAL
+fn omega_gpu_fp8_prepare fn(u32) -> i32 # EXPERIMENTAL
+fn omega_gpu_fp8_seal fn(i32) -> () # EXPERIMENTAL
+fn omega_gpu_fp8_rc_name fn(i32) -> *const c_char # EXPERIMENTAL
+fn omega_gpu_fp8_last_error fn() -> *const c_char # EXPERIMENTAL
+fn omega_gpu_fp8_cache_clear fn() -> () # EXPERIMENTAL
+fn omega_gpu_fp8_set_shape fn(u32, u32, u32) -> () # EXPERIMENTAL
+fn omega_gpu_fp8_set_depth fn(i32, u32) -> () # EXPERIMENTAL
+fn omega_gpu_fp8_set_cta_budget fn(u32) -> () # EXPERIMENTAL
+fn omega_gpu_fp8_set_weight_cache fn(i32) -> () # EXPERIMENTAL
+fn omega_gpu_fp8_set_variant fn(i32) -> () # EXPERIMENTAL
+fn omega_gpu_fp8_variant fn() -> i32 # EXPERIMENTAL
+fn omega_gpu_fp8_weight_cache fn() -> i32 # EXPERIMENTAL
+fn omega_gpu_fp8_set_gpr_pad fn(u32) -> () # EXPERIMENTAL
+fn omega_gpu_fp8_shape_for fn(u32, u32, *mut u32, *mut u32, *mut u32) -> () # EXPERIMENTAL
+fn omega_gpu_fp8gemm_f32 fn(*const OmegaGpuFp8Tensor, u32, *const u32, *const u32, *const f32, u32, *mut f32, *mut OmegaGpuFp8GemmInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_fp8gemm_bf16 fn(*const OmegaGpuFp8Tensor, u32, *const u32, *const u32, *const u16, u32, *mut f32, *mut OmegaGpuFp8GemmInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_fp8gemm_prepare fn(u32) -> i32 # EXPERIMENTAL
+fn omega_gpu_fp8gemm_rc_name fn(i32) -> *const c_char # EXPERIMENTAL
+fn omega_gpu_fp8gemm_last_error fn() -> *const c_char # EXPERIMENTAL
+fn omega_gpu_fp8gemm_cache_clear fn() -> () # EXPERIMENTAL
+fn omega_gpu_fp8gemm_shape_for fn(u32, *mut u32, *mut u32, *mut u32) -> () # EXPERIMENTAL
+fn omega_gpu_fp8gemm_set_shape fn(u32, u32) -> () # EXPERIMENTAL
+fn omega_gpu_fp8gemm_set_cta_budget fn(u32) -> () # EXPERIMENTAL
+fn omega_gpu_bf16_tensor_upload fn(u32, u32, *const u16, *mut *mut OmegaGpuBf16Tensor) -> i32 # EXPERIMENTAL
+fn omega_gpu_bf16_tensor_free fn(*mut OmegaGpuBf16Tensor) -> () # EXPERIMENTAL
+fn omega_gpu_bf16_tensor_shape fn(*const OmegaGpuBf16Tensor, *mut u32, *mut u32) -> () # EXPERIMENTAL
+fn omega_gpu_bf16_gemv_f32 fn(*const OmegaGpuBf16Tensor, *const f32, *mut f32, *mut OmegaGpuBf16Info) -> i32 # EXPERIMENTAL
+fn omega_gpu_bf16_gemv_bf16 fn(*const OmegaGpuBf16Tensor, *const u16, *mut f32, *mut OmegaGpuBf16Info) -> i32 # EXPERIMENTAL
+fn omega_gpu_bf16_gemv_record fn(*mut OmegaGpuCmdList, *const OmegaGpuBf16Tensor, u64, u64) -> i32 # EXPERIMENTAL
+fn omega_gpu_bf16_prepare fn(u32) -> i32 # EXPERIMENTAL
+fn omega_gpu_bf16_rc_name fn(i32) -> *const c_char # EXPERIMENTAL
+fn omega_gpu_bf16_last_error fn() -> *const c_char # EXPERIMENTAL
+fn omega_gpu_bf16_cache_clear fn() -> () # EXPERIMENTAL
+fn omega_gpu_bf16_shape_for fn(u32, *mut u32, *mut u32, *mut u32, *mut u32) -> () # EXPERIMENTAL
+fn omega_gpu_bf16_set_shape fn(u32, u32, u32) -> () # EXPERIMENTAL
+fn omega_gpu_bf16_set_cta_budget fn(u32) -> () # EXPERIMENTAL
+fn omega_gpu_decode_attn_cache_alloc fn(u32, u32, f64, *mut *mut OmegaGpuDecodeAttnCache) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_attn_cache_free fn(*mut OmegaGpuDecodeAttnCache) -> () # EXPERIMENTAL
+fn omega_gpu_decode_attn_set_norms fn(*mut OmegaGpuDecodeAttnCache, u32, *const f32, *const f32) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_attn fn(*mut OmegaGpuDecodeAttnCache, u32, u32, *const f32, f32, f32, *mut f32, *mut OmegaGpuDecodeAttnInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_attn_record fn(*mut OmegaGpuCmdList, *mut OmegaGpuDecodeAttnCache, u32, u32, u64, f32, f32, u64) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_attn_counters_check fn(*mut OmegaGpuDecodeAttnCache) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_attn_cache_write fn(*mut OmegaGpuDecodeAttnCache, u32, u32, u32, u32, *const u16, *const u16) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_attn_cache_read fn(*mut OmegaGpuDecodeAttnCache, u32, u32, u32, *mut u16, *mut u16) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_attn_cache_view fn(*const OmegaGpuDecodeAttnCache, u32, *mut OmegaGpuDecodeAttnCacheView) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_attn_last_error fn() -> *const c_char # EXPERIMENTAL
+fn omega_gpu_decode_attn_rc_name fn(i32) -> *const c_char # EXPERIMENTAL
+fn omega_gpu_decode_attn_set_depth fn(u32) -> () # EXPERIMENTAL
+fn omega_gpu_decode_attn_set_per_split fn(u32) -> () # EXPERIMENTAL
+fn omega_gpu_router_alloc fn(u32, *mut *mut OmegaGpuRouter) -> i32 # EXPERIMENTAL
+fn omega_gpu_router_free fn(*mut OmegaGpuRouter) -> () # EXPERIMENTAL
+fn omega_gpu_router_set_layer fn(*mut OmegaGpuRouter, u32, *const u16, *const f32) -> i32 # EXPERIMENTAL
+fn omega_gpu_router_set_directory fn(*mut OmegaGpuRouter, u32, *const u64, *const u64) -> i32 # EXPERIMENTAL
+fn omega_gpu_router_set_directory_fp8 fn(*mut OmegaGpuRouter, u32, *const OmegaGpuFp8Tensor, *const OmegaGpuFp8Tensor) -> i32 # EXPERIMENTAL
+fn omega_gpu_router fn(*mut OmegaGpuRouter, u32, *const f32, f32, i32, f32, *mut u32, *mut f32, *mut OmegaGpuRouterInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_router_device_outputs fn(*const OmegaGpuRouter, *mut u64, *mut u64, *mut u64) -> () # EXPERIMENTAL
+fn omega_gpu_router_record fn(*mut OmegaGpuCmdList, *mut OmegaGpuRouter, u32, u64, f32, i32, f32, *mut OmegaGpuRouterDevOut) -> i32 # EXPERIMENTAL
+fn omega_gpu_router_read_back fn(*mut OmegaGpuRouter, *mut f32, *mut u64, *mut u64) -> i32 # EXPERIMENTAL
+fn omega_gpu_router_last_error fn() -> *const c_char # EXPERIMENTAL
+fn omega_gpu_router_rc_name fn(i32) -> *const c_char # EXPERIMENTAL
+fn omega_gpu_router_set_shape fn(u32, u32) -> () # EXPERIMENTAL
+fn omega_gpu_tern_tensor_upload fn(u32, u32, *const i8, *const OmegaGpuTernSegments, *mut *mut OmegaGpuTernTensor) -> i32 # EXPERIMENTAL
+fn omega_gpu_tern_tensor_free fn(*mut OmegaGpuTernTensor) -> () # EXPERIMENTAL
+fn omega_gpu_tern_tensor_shape fn(*const OmegaGpuTernTensor, *mut u32, *mut u32) -> () # EXPERIMENTAL
+fn omega_gpu_tern_tensor_bytes fn(*const OmegaGpuTernTensor) -> u64 # EXPERIMENTAL
+fn omega_gpu_tern_gemv_i32 fn(*const OmegaGpuTernTensor, *const i8, *mut i32, *mut OmegaGpuTernInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_tern_gemv_f32 fn(*const OmegaGpuTernTensor, *const i8, f32, *mut f32, *mut OmegaGpuTernInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_tern_gemv_record fn(*mut OmegaGpuCmdList, *const OmegaGpuTernTensor, u64, u64, u64) -> i32 # EXPERIMENTAL
+fn omega_gpu_tern_rc_name fn(i32) -> *const c_char # EXPERIMENTAL
+fn omega_gpu_tern_last_error fn() -> *const c_char # EXPERIMENTAL
+fn omega_gpu_tern_cache_clear fn() -> () # EXPERIMENTAL
+fn omega_gpu_tern_pack fn(u32, u32, *const i8, u32, u32, *mut u32, u32) -> i32 # EXPERIMENTAL
+fn omega_gpu_tern_padded_rows fn(u32) -> u32 # EXPERIMENTAL
+fn omega_gpu_tern_segment_bounds fn(u32, *const OmegaGpuTernSegments, i32, *mut u32) -> i32 # EXPERIMENTAL
+fn omega_gpu_tern_shape_for fn(u32, u32, u32, *mut u32, *mut u32, *mut u32, *mut u32) -> () # EXPERIMENTAL
+fn omega_gpu_tern_set_layout fn(u32, u32) -> () # EXPERIMENTAL
+fn omega_gpu_tern_set_shape fn(u32, u32, u32) -> () # EXPERIMENTAL
+fn omega_gpu_tern_set_cta_budget fn(u32) -> () # EXPERIMENTAL
+fn omega_gpu_tern_set_weight_cache fn(i32) -> () # EXPERIMENTAL
+fn omega_gpu_tcgemm_f32 fn(*const OmegaGpuFp8Tensor, u32, *const u32, *const u32, *const f32, u32, *mut f32, *mut OmegaGpuTcGemmInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_tcgemm_prepare fn(u32) -> i32 # EXPERIMENTAL
+fn omega_gpu_tcgemm_rc_name fn(i32) -> *const c_char # EXPERIMENTAL
+fn omega_gpu_tcgemm_last_error fn() -> *const c_char # EXPERIMENTAL
+fn omega_gpu_tcgemm_cache_clear fn() -> () # EXPERIMENTAL
+fn omega_gpu_tcgemm_set_shape fn(u32, u32, u32) -> () # EXPERIMENTAL
+fn omega_gpu_prefill_attn fn(*mut OmegaGpuDecodeAttnCache, u32, u32, u32, *const f32, f32, f32, *mut f32, *mut OmegaGpuPrefillAttnInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_prefill_attn_release fn() -> () # EXPERIMENTAL
+fn omega_gpu_prefill_attn_dev fn(*mut OmegaGpuDecodeAttnCache, u32, u32, u32, u64, f32, f32, u64, *mut OmegaGpuPrefillAttnInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_prefill_attn_set_warps fn(u32) -> () # EXPERIMENTAL
+fn omega_gpu_prefill_attn_set_fused fn(i32) -> () # EXPERIMENTAL
+fn omega_gpu_prefill_attn_set_kv_mirror fn(i32) -> () # EXPERIMENTAL
+fn omega_gpu_prefill_attn_kv_mirror_view fn(*const OmegaGpuDecodeAttnCache, u32, *mut OmegaGpuPrefillAttnMirrorView) -> i32 # EXPERIMENTAL
+fn omega_gpu_prefill_attn_kv_mirror_invalidate fn(*const OmegaGpuDecodeAttnCache, u32, u32) -> () # EXPERIMENTAL
+fn omega_gpu_prefill_attn_kv_mirror_forget fn(*const OmegaGpuDecodeAttnCache) -> () # EXPERIMENTAL
+fn omega_gpu_prefill_attn_kv_mirror_available fn() -> i32 # EXPERIMENTAL
+fn omega_gpu_moe_tensor_upload_bf16 fn(u32, u32, *const u16, *mut *mut OmegaGpuMoeTensor) -> i32 # EXPERIMENTAL
+fn omega_gpu_moe_tensor_upload_f32 fn(u32, u32, *const f32, *mut *mut OmegaGpuMoeTensor) -> i32 # EXPERIMENTAL
+fn omega_gpu_moe_tensor_free fn(*mut OmegaGpuMoeTensor) -> () # EXPERIMENTAL
+fn omega_gpu_moe_tensor_shape fn(*const OmegaGpuMoeTensor, *mut u32, *mut u32) -> () # EXPERIMENTAL
+fn omega_gpu_matmul_resident_window_f32 fn(u32, *const f32, *const OmegaGpuMoeTensor, u32, u32, *mut f32, *mut OmegaGpuMatmulInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_matmul_resident_window_bf16 fn(u32, *const u16, *const OmegaGpuMoeTensor, u32, u32, *mut f32, *mut OmegaGpuMatmulInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_matmul_resident_windows_f32 fn(u32, *const f32, *const OmegaGpuMoeTensor, u32, *const u32, u32, *mut f32, *mut OmegaGpuMatmulInfo) -> i32 # EXPERIMENTAL
+fn omega_gpu_moe_reserve fn(u32, u32, u32, u32) -> i32 # EXPERIMENTAL
+fn omega_gpu_moe_prepare fn(u32, u32, u32) -> i32 # EXPERIMENTAL
+fn omega_gpu_moe_seal fn(i32) -> () # EXPERIMENTAL
+fn omega_gpu_moe_unreserve fn() -> () # EXPERIMENTAL
+fn omega_gpu_moe_cache_clear fn() -> () # EXPERIMENTAL
+fn omega_gpu_moe_set_cta_budget fn(u32) -> () # EXPERIMENTAL
+fn omega_gpu_moe_cta_budget fn() -> u32 # EXPERIMENTAL
+fn omega_gpu_moe_window_byte_offset fn(u32, u32) -> u64 # EXPERIMENTAL
+fn omega_gpu_decode_graph_create fn(*const OmegaGpuDecodeGraphConfig, *mut *mut OmegaGpuDecodeGraph) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_graph_free fn(*mut OmegaGpuDecodeGraph) -> () # EXPERIMENTAL
+fn omega_gpu_decode_graph_set_layer fn(*mut OmegaGpuDecodeGraph, u32, *const OmegaGpuFp8Tensor, *const OmegaGpuFp8Tensor, *const OmegaGpuFp8Tensor, *const OmegaGpuFp8Tensor, *const f32) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_graph_set_final_norm fn(*mut OmegaGpuDecodeGraph, *const f32) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_graph_token fn(*mut OmegaGpuDecodeGraph, *const f32, u32, *mut u32, *mut OmegaGpuDecodeGraphStats) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_graph_begin_token fn(*mut OmegaGpuDecodeGraph, *const f32) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_graph_record_layer fn(*mut OmegaGpuDecodeGraph, u32, u32) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_graph_record_final fn(*mut OmegaGpuDecodeGraph) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_graph_end_token fn(*mut OmegaGpuDecodeGraph, *mut u32, *mut OmegaGpuDecodeGraphStats) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_graph_record_res fn(*mut OmegaGpuDecodeGraph, u32, u64, u64, u64, u64, u64, f32, f32) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_graph_record_swiglu fn(*mut OmegaGpuDecodeGraph, u64, u64, f32) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_graph_list fn(*mut OmegaGpuDecodeGraph) -> *mut OmegaGpuCmdList # EXPERIMENTAL
+fn omega_gpu_decode_graph_vas fn(*const OmegaGpuDecodeGraph, *mut OmegaGpuDecodeGraphVas) -> () # EXPERIMENTAL
+fn omega_gpu_decode_graph_read fn(*mut OmegaGpuDecodeGraph, *mut f32, *mut f32, *mut f32) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_graph_set_stamps fn(*mut OmegaGpuDecodeGraph, i32) -> () # EXPERIMENTAL
+fn omega_gpu_decode_graph_set_barrier fn(i32) -> () # EXPERIMENTAL
+fn omega_gpu_decode_graph_barrier fn() -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_graph_stamps fn(*const OmegaGpuDecodeGraph, *mut u64, *mut u8, u32) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_graph_kind_name fn(u8) -> *const c_char # EXPERIMENTAL
+fn omega_gpu_decode_graph_set_flush_each fn(*mut OmegaGpuDecodeGraph, i32) -> () # EXPERIMENTAL
+fn omega_gpu_decode_graph_set_prefetch fn(i32) -> () # EXPERIMENTAL
+fn omega_gpu_decode_graph_prefetch fn() -> i32 # EXPERIMENTAL
+fn omega_gpu_pf_rc_name fn(i32) -> *const c_char # EXPERIMENTAL
+fn omega_gpu_pf_alloc_dev fn(usize, *mut OmegaGpuMem) -> i32 # EXPERIMENTAL
+fn omega_gpu_pf_alloc_host fn(usize, *mut OmegaGpuMem) -> i32 # EXPERIMENTAL
+fn omega_gpu_pf_free fn(*mut OmegaGpuMem) -> () # EXPERIMENTAL
+fn omega_gpu_pf_upload fn(*const OmegaGpuMem, usize, *const c_void, usize) -> i32 # EXPERIMENTAL
+fn omega_gpu_pf_download fn(*const OmegaGpuMem, usize, *mut c_void, usize) -> i32 # EXPERIMENTAL
+fn omega_gpu_pf_copy_va fn(u64, u64, usize) -> i32 # EXPERIMENTAL
+fn omega_gpu_pf_stats fn(*mut u64, *mut u64) -> () # EXPERIMENTAL
+fn omega_gpu_pf_stats_reset fn() -> () # EXPERIMENTAL
+fn omega_gpu_pf_weights_upload fn(u32, u32, u32, *const u8, *const u16, u32, *mut OmegaPfWeights) -> i32 # EXPERIMENTAL
+fn omega_gpu_pf_weights_free fn(*mut OmegaPfWeights) -> () # EXPERIMENTAL
+fn omega_gpu_pf_weights_host_form fn(u32, u32, u32, *const u8, *const u16, u32, *mut u8, *mut f32) -> i32 # EXPERIMENTAL
+fn omega_gpu_pf_gemm_bm fn() -> u32 # EXPERIMENTAL
+fn omega_gpu_pf_gemm_tiles fn(*const OmegaPfWeights, *const u32, *mut c_void, u32) -> u32 # EXPERIMENTAL
+fn omega_gpu_pf_gemm fn(*const OmegaPfWeights, u64, u32, u64, u64, u64, *mut u64) -> i32 # EXPERIMENTAL
+fn omega_gpu_pf_gemm_set_shape fn(u32, u32, u32) -> () # EXPERIMENTAL
+fn omega_gpu_pf_quant fn(u32, u32, u32, u64, u64, u64, *mut u64) -> i32 # EXPERIMENTAL
+fn omega_gpu_pf_qgemm_bm fn() -> u32 # EXPERIMENTAL
+fn omega_gpu_pf_qgemm_tiles fn(*const OmegaGpuFp8Tensor, *const u32, *mut c_void, u32) -> u32 # EXPERIMENTAL
+fn omega_gpu_pf_qgemm_tiles_va fn(u32, *const u64, *const u64, *const u32, *mut c_void, u32) -> u32 # EXPERIMENTAL
+fn omega_gpu_pf_qgemm fn(u32, u32, u32, u64, u32, u64, u64, u64, u64, *mut u64) -> i32 # EXPERIMENTAL
+fn omega_gpu_pf_qgemm_set_shape fn(u32, u32, u32) -> () # EXPERIMENTAL
+fn omega_gpu_pf_router_rows fn() -> u32 # EXPERIMENTAL
+fn omega_gpu_pf_router_packed_bytes fn(u32, u32) -> usize # EXPERIMENTAL
+fn omega_gpu_pf_router_pack fn(u32, u32, *const f32, *mut f32) -> () # EXPERIMENTAL
+fn omega_gpu_pf_router_logits fn(u32, u32, u32, u64, u64, u64, *mut u64) -> i32 # EXPERIMENTAL
+fn omega_gpu_pf_moe_combine fn(u32, u32, u32, u64, u64, u64, u64, *mut u64) -> i32 # EXPERIMENTAL
+fn omega_gpu_pf_router_set_rows fn(u32) -> () # EXPERIMENTAL
+# Result codes of the decode-path calls above (added in 0.3.0). EXPERIMENTAL like the calls that return them; the other
+# constants these headers define are in the INTERNAL list.
+const OMEGA_GPU_BF16_BAD_ARGS -1 # EXPERIMENTAL
+const OMEGA_GPU_BF16_CHIP_FAIL -4 # EXPERIMENTAL
+const OMEGA_GPU_BF16_CODEGEN_FAIL -3 # EXPERIMENTAL
+const OMEGA_GPU_BF16_NAN_WEIGHT -5 # EXPERIMENTAL
+const OMEGA_GPU_BF16_OK 0 # EXPERIMENTAL
+const OMEGA_GPU_BF16_TOO_LARGE -2 # EXPERIMENTAL
+const OMEGA_GPU_DATTN_BAD_ARGS -1 # EXPERIMENTAL
+const OMEGA_GPU_DATTN_CHIP_FAIL -4 # EXPERIMENTAL
+const OMEGA_GPU_DATTN_CODEGEN_FAIL -3 # EXPERIMENTAL
+const OMEGA_GPU_DATTN_OK 0 # EXPERIMENTAL
+const OMEGA_GPU_DATTN_TOO_LARGE -2 # EXPERIMENTAL
+const OMEGA_GPU_DGRAPH_BAD_ARGS -1 # EXPERIMENTAL
+const OMEGA_GPU_DGRAPH_CHIP_FAIL -4 # EXPERIMENTAL
+const OMEGA_GPU_DGRAPH_CODEGEN_FAIL -3 # EXPERIMENTAL
+const OMEGA_GPU_DGRAPH_OK 0 # EXPERIMENTAL
+const OMEGA_GPU_FP8GEMM_BAD_ARGS -1 # EXPERIMENTAL
+const OMEGA_GPU_FP8GEMM_CHIP_FAIL -4 # EXPERIMENTAL
+const OMEGA_GPU_FP8GEMM_CODEGEN_FAIL -3 # EXPERIMENTAL
+const OMEGA_GPU_FP8GEMM_OK 0 # EXPERIMENTAL
+const OMEGA_GPU_FP8GEMM_TOO_LARGE -2 # EXPERIMENTAL
+const OMEGA_GPU_FP8_BAD_ARGS -1 # EXPERIMENTAL
+const OMEGA_GPU_FP8_CHIP_FAIL -4 # EXPERIMENTAL
+const OMEGA_GPU_FP8_CODEGEN_FAIL -3 # EXPERIMENTAL
+const OMEGA_GPU_FP8_NAN_WEIGHT -5 # EXPERIMENTAL
+const OMEGA_GPU_FP8_OK 0 # EXPERIMENTAL
+const OMEGA_GPU_FP8_TOO_LARGE -2 # EXPERIMENTAL
+const OMEGA_GPU_PF_BAD_ARGS -1 # EXPERIMENTAL
+const OMEGA_GPU_PF_CHIP_FAIL -4 # EXPERIMENTAL
+const OMEGA_GPU_PF_CODEGEN_FAIL -3 # EXPERIMENTAL
+const OMEGA_GPU_PF_OK 0 # EXPERIMENTAL
+const OMEGA_GPU_PF_TOO_LARGE -2 # EXPERIMENTAL
+const OMEGA_GPU_ROUTER_BAD_ARGS -1 # EXPERIMENTAL
+const OMEGA_GPU_ROUTER_CHIP_FAIL -4 # EXPERIMENTAL
+const OMEGA_GPU_ROUTER_CODEGEN_FAIL -3 # EXPERIMENTAL
+const OMEGA_GPU_ROUTER_OK 0 # EXPERIMENTAL
+const OMEGA_GPU_ROUTER_TOO_LARGE -2 # EXPERIMENTAL
+const OMEGA_GPU_TCGEMM_BAD_ARGS -1 # EXPERIMENTAL
+const OMEGA_GPU_TCGEMM_CHIP_FAIL -4 # EXPERIMENTAL
+const OMEGA_GPU_TCGEMM_CODEGEN_FAIL -3 # EXPERIMENTAL
+const OMEGA_GPU_TCGEMM_OK 0 # EXPERIMENTAL
+const OMEGA_GPU_TCGEMM_TOO_LARGE -2 # EXPERIMENTAL
+const OMEGA_GPU_TERN_BAD_ARGS -1 # EXPERIMENTAL
+const OMEGA_GPU_TERN_BAD_TRIT -5 # EXPERIMENTAL
+const OMEGA_GPU_TERN_CHIP_FAIL -4 # EXPERIMENTAL
+const OMEGA_GPU_TERN_CODEGEN_FAIL -3 # EXPERIMENTAL
+const OMEGA_GPU_TERN_OK 0 # EXPERIMENTAL
+const OMEGA_GPU_TERN_TOO_LARGE -2 # EXPERIMENTAL

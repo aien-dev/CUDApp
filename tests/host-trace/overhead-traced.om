@@ -1,0 +1,18 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Overhead arms "off" and "on": the recorder is composed; it runs only when on is true. Each
+note sample starts a fresh recording session (outside the timed loop) so capacity is never reached.
+fn armopen n uint on bool to bool
+ok = htlname
+if on
+ok = and ok htinit
+end
+ret and ok htopen n
+end
+fn armreset on bool to void
+if on
+b = htinit
+end
+end
+fn armgo n uint to bool
+ret htlaunch n
+end

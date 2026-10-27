@@ -1,0 +1,169 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Host checks for native/trace/htrec.om. Synthetic events only; no device is opened.
+note Prints one line per failed check and HOSTTRACE_RECORDER_PASS <checks> or _FAIL <failures>.
+global tally ulong 2
+global digits uchar 32
+global back uchar 262144
+text passmsg "HOSTTRACE_RECORDER_PASS "
+text failmsg "HOSTTRACE_RECORDER_FAIL "
+text nlaunch "kernel.launch:VECTOR_1D"
+text nspace "bad name"
+text nlong "a123456789a123456789a123456789a123456789a123456789a123456789abcd"
+fn number n ulong to void
+if ge n 10
+number div n 10
+end
+put digits 0 uchar add 48 rem n 10
+w = write 1 digits 0 1
+end
+fn ck yes bool to void
+put tally 0 add get tally 0 1
+if not yes
+put tally 1 add get tally 1 1
+number get tally 0
+put digits 0 10
+w = write 1 digits 0 1
+end
+end
+fn regl id uint to bool
+if not htnbeg id
+ret false
+end
+for i ulong len nlaunch
+b = htnbyte get nlaunch i
+end
+ret htnend
+end
+fn regsp id uint to bool
+if not htnbeg id
+ret false
+end
+for i ulong len nspace
+b = htnbyte get nspace i
+end
+ret htnend
+end
+fn reglong id uint to bool
+if not htnbeg id
+ret false
+end
+for i ulong len nlong
+b = htnbyte get nlong i
+end
+ret htnend
+end
+fn rd at ulong k ulong to ulong
+v = ulong 0
+for i ulong k
+v = or v shl ulong get back add at i mul i 8
+end
+ret v
+end
+fn offchecks to void
+ck not htlive
+ck eq htbeg 4 1 0
+ck not htmark 2 1 0 0 0
+ck eq get htst 1 0
+ck eq get htst 3 0
+end
+fn namechecks to void
+ck regl 1
+ck not regl 1
+ck not regl 0
+ck not regsp 2
+ck not reglong 3
+ck not htnbyte 65
+ck htnbeg 4
+ck not htnend
+ck eq get htst 6 1
+ck eq get htst 3 6
+ck htnbeg 5
+ck not htnbeg 6
+ck eq get htst 3 7
+end
+fn spanchecks to void
+ck htinit
+ck htlive
+s = htbeg 4 1
+ck eq s 1
+ck eq get htst 7 1
+ck htend s 1024 43 0
+ck eq get htst 7 0
+ck not htend s 1 1 1
+ck not htend 99 1 1 1
+ck eq htbeg 2 1 0
+ck not htmark 4 1 0 0 0
+ck eq htbeg 0 1 0
+ck eq htbeg 12 1 0
+ck eq htbeg 4 77 0
+ck not htmark 8 77 3 0 0
+ck eq get htst 3 8
+ck htmark 8 1 3 12 -22
+ck eq get htst 1 2
+ck eq get htkind 1 8
+ck eq get hta0 1 3
+ck eq get htrc 1 -22
+end
+fn dumpchecks to void
+fd = memfd nlaunch 0 len nlaunch 1
+ck ge fd 0
+r = htdump int fd
+ck eq ulong r htbytes
+ck eq r 189
+p = fseek int fd 0 0
+k = read int fd back 0 len back
+ck eq k r
+ck eq rd 0 4 827479119
+ck eq rd 4 2 1
+ck eq rd 6 2 48
+ck eq rd 8 4 2
+ck eq rd 16 4 8
+ck eq rd 20 4 1
+ck eq rd 44 4 1
+ck eq rd 64 2 4
+ck eq rd 66 2 1
+ck eq rd 68 4 1
+ck ge rd 80 8 rd 72 8
+ck eq rd 88 8 1024
+ck eq rd 96 8 43
+ck eq rd 112 2 8
+ck eq rd 152 8 18446744073709551594
+ck eq rd 160 4 1
+ck eq rd 164 2 len nlaunch
+ck eq rd 166 1 107
+c = fclose int fd
+end
+fn capchecks to void
+n = get htst 1
+for i ulong sub HTCAP n
+b = htmark 10 1 i 0 0
+end
+ck eq get htst 1 HTCAP
+ck eq get htst 2 0
+ck not htmark 10 1 0 0 0
+ck eq htbeg 9 1 0
+ck eq get htst 2 2
+htstop
+ck not htlive
+ck eq htbeg 9 1 0
+ck eq get htst 2 2
+end
+fn main to int
+offchecks
+namechecks
+spanchecks
+dumpchecks
+capchecks
+if ne get tally 1 0
+w = write 1 failmsg 0 len failmsg
+number get tally 1
+put digits 0 10
+w = write 1 digits 0 1
+ret 1
+end
+w = write 1 passmsg 0 len passmsg
+number get tally 0
+put digits 0 10
+w = write 1 digits 0 1
+ret 0
+end

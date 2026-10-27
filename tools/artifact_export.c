@@ -5,7 +5,10 @@
  *   artifact-export attention --q-heads HQ --kv-heads HKV --contract-id HEX --out PREFIX --commit HEX
  *
  * Opens no device. Emits a cubin, zero-VA QMD templates, cbank bytes, a
- * canonical manifest and a JSON mirror. Exit: 0 ok, 2 usage, 3 refusal, 4 I/O. */
+ * canonical manifest and a JSON mirror. An artifact is immutable: export
+ * refuses (I/O) when any PREFIX.* output already exists or is a symlink, and
+ * refuses a PREFIX too long for every output path.
+ * Exit: 0 ok, 2 usage, 3 refusal, 4 I/O. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

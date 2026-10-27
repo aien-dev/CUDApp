@@ -168,6 +168,12 @@ int omega_blackwell_execute_matmul(const OmegaMatMulSpec *spec,
     if (!spec || !kernel || !h_a || !h_b || !h_c_out) return -1;
     if (!kernel->code || kernel->code_size == 0) return -1;
     if (spec->m == 0 || spec->k == 0 || spec->n == 0) return -1;
+    /* CudaAuditFable F3: past the envelope (omega_blackwell_matmul_spec_init's own limits) the size_t products below
+     * wrap (m = k = 2^31: m * k * 4 is 2^64), a 4 KiB buffer is allocated and then written as the whole matrix.
+     * At the limits the largest product, k * n * 4, is 2^34 bytes. */
+    if (spec->m > OMEGA_BW_MATMUL_MAX_M || spec->k > OMEGA_BW_MATMUL_MAX_K || spec->n > OMEGA_BW_MATMUL_MAX_N) return -1;
+    const size_t code_bytes = omega_gpu_code_alloc_bytes(kernel->code_size); /* code + 2 KB prefetch tail, page rounded */
+    if (code_bytes == 0) return -1; /* refused before the device is opened, so nothing is left open */
 
     if (exec_info) {
         memset(exec_info, 0, sizeof(*exec_info));
@@ -199,8 +205,7 @@ int omega_blackwell_execute_matmul(const OmegaMatMulSpec *spec,
     if (b_bytes < 0x1000) b_bytes = 0x1000;
     size_t c_bytes = ((size_t)spec->m * spec->n * sizeof(uint32_t) + 0xFFFULL) & ~0xFFFULL;
     if (c_bytes < 0x1000) c_bytes = 0x1000;
-    size_t code_bytes = omega_gpu_code_alloc_bytes(kernel->code_size); /* code + 2 KB prefetch tail, page rounded */
-    if (code_bytes == 0) return -1;
+    /* code_bytes was sized and checked before the device was opened */
 
     NvrmMem code_mem, cbank_mem, a_mem, b_mem, c_mem, marker_mem, qmd_mem;
     if (nvrm_alloc_gpu_uncached(&ctx.rm, code_bytes, &code_mem) != 0) { m16_native_close(&ctx); return -1; }
@@ -418,6 +423,11 @@ int omega_blackwell_execute_matmul_tensor(const OmegaMatMulSpec *spec,
     if (!spec || !kernel || !h_a || !h_b || !h_c_out) return -1;
     if (!kernel->code || kernel->code_size == 0) return -1;
     if (spec->m == 0 || spec->k == 0 || spec->n == 0) return -1;
+    /* CudaAuditFable F3: dimensions past the envelope and overflowing code sizes are refused before the open, as in
+     * omega_blackwell_execute_matmul. */
+    if (spec->m > OMEGA_BW_MATMUL_MAX_M || spec->k > OMEGA_BW_MATMUL_MAX_K || spec->n > OMEGA_BW_MATMUL_MAX_N) return -1;
+    const size_t code_bytes = omega_gpu_code_alloc_bytes(kernel->code_size); /* code + 2 KB prefetch tail, page rounded */
+    if (code_bytes == 0) return -1;
     if (spec->precision != OMEGA_MATMUL_PRECISION_FP16 && spec->precision != OMEGA_MATMUL_PRECISION_BF16) return -1;
 
     if (exec_info) {
@@ -451,8 +461,7 @@ int omega_blackwell_execute_matmul_tensor(const OmegaMatMulSpec *spec,
     if (b_bytes < 0x1000) b_bytes = 0x1000;
     size_t c_bytes = ((c_elems * 4) + 0xFFFULL) & ~0xFFFULL;
     if (c_bytes < 0x1000) c_bytes = 0x1000;
-    size_t code_bytes = omega_gpu_code_alloc_bytes(kernel->code_size); /* code + 2 KB prefetch tail, page rounded */
-    if (code_bytes == 0) return -1;
+    /* code_bytes was sized and checked before the device was opened */
 
     NvrmMem code_mem, cbank_mem, a_mem, b_mem, c_mem, marker_mem, qmd_mem;
     if (nvrm_alloc_gpu_uncached(&ctx.rm, code_bytes, &code_mem) != 0) { m16_native_close(&ctx); return -1; }

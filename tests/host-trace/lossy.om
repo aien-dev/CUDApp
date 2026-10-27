@@ -1,0 +1,37 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Fixture for run-host-trace.sh: a recording with known losses, so the exports must report
+note dropped 2, refused 1, open_spans 1. Compose after native/trace/htrec.om; run as PROGRAM FRAG.
+global path uchar 4096
+fn main to int
+if not htinit
+ret 1
+end
+ok = htnbeg 1
+ok = and ok htnbyte 120
+ok = and ok htnend
+if not ok
+ret 1
+end
+note one span never ended
+s = htbeg 9 1
+note one malformed call: kind 99 does not exist
+b = htmark 99 1 0 0 0
+note 4095 slots remain; 4097 marks drop two
+for i ulong 4097
+b = htmark 10 1 i 0 0
+end
+n = argread 1 path 0 4095
+if eq n 0
+ret 1
+end
+fd = fopen path 0 ulong n 577 384
+if lt fd 0
+ret 1
+end
+r = htdump int fd
+c = fclose int fd
+if le r 0
+ret 1
+end
+ret 0
+end

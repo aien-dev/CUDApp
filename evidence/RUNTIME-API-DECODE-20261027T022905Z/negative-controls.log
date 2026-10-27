@@ -1,0 +1,15 @@
+# Negative controls for the decode-path manifest entries (ADR 0043 P2.2). Each case breaks ONE thing in a scratch copy
+# of src/ docs/ tools/ and runs tools/runtime_api_check.sh with API.md; every case must exit non-zero with a FAIL naming it.
+
+## header_signature: in a scratch copy, src/omega_gpu_decode_graph.h: replaced '\nvoid omega_gpu_decode_graph_free(OmegaGpuDecodeGraph *g);' with '\nvoid omega_gpu_decode_graph_free(const OmegaGpuDecodeGraph *g);'
+exit=1
+FAIL: header disagrees with manifest: fn omega_gpu_decode_graph_free fn(*mut OmegaGpuDecodeGraph) -> ()
+RESULT: FAIL (runtime API check, compile stage)
+## field_offset: in a scratch copy, docs/runtime/omega_runtime_api.manifest: replaced 'field OmegaGpuDecodeGraphConfig vocab 4 4 u32 1' with 'field OmegaGpuDecodeGraphConfig vocab 8 4 u32 1'
+exit=1
+FAIL: manifest says `field OmegaGpuDecodeGraphConfig vocab 8 4` but the header gives `field OmegaGpuDecodeGraphConfig vocab 4 4`
+RESULT: FAIL (runtime API check)
+## apimd_mention: in a scratch copy, docs/runtime/API.md: replaced '`omega_gpu_decode_graph_set_final_norm`, ' with ''
+exit=1
+FAIL: EXPERIMENTAL entry omega_gpu_decode_graph_set_final_norm is not mentioned in docs/runtime/API.md
+RESULT: FAIL (runtime API check)
