@@ -184,3 +184,15 @@ fn omega_gpu_tensor_update_bf16 # serving-daemon internals; aien-sovereign-core 
 fn omega_gpu_tensor_update_f32 # serving-daemon internals; aien-sovereign-core does not bind it; candidate EXPERIMENTAL
 fn omega_gpu_tern_kernel_fits # takes or returns a kernel-generator type, which is backend (ADR 0043)
 fn omega_gpu_tern_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
+fn omega_gpu_attention_codegen_general # kernel builder used by the library and its tests; output format is not promised
+fn omega_gpu_attention_general_mutant_name # TEST ONLY: test hook (mutant, simulator, split or counter) for the library's own batteries
+fn omega_gpu_attention_test_set_general_mutant # TEST ONLY: test hook (mutant, simulator, split or counter) for the library's own batteries
+fn omega_gpu_attention_test_force_general # TEST ONLY: test hook (mutant, simulator, split or counter) for the library's own batteries
+fn omega_gpu_attention_test_threads # TEST ONLY: test hook (mutant, simulator, split or counter) for the library's own batteries
+const OMEGA_GPU_ATTN_GMUT_NONE # TEST ONLY: general attention mutant ids for the sweep
+const OMEGA_GPU_ATTN_GMUT_GQA_MAP # TEST ONLY: general attention mutant ids for the sweep
+const OMEGA_GPU_ATTN_GMUT_TAIL_CHUNK # TEST ONLY: general attention mutant ids for the sweep
+const OMEGA_GPU_ATTN_GMUT_TAIL_DIMS # TEST ONLY: general attention mutant ids for the sweep
+const OMEGA_GPU_ATTN_GMUT_CAUSAL # TEST ONLY: general attention mutant ids for the sweep
+const OMEGA_GPU_ATTN_GMUT_SCALE # TEST ONLY: general attention mutant ids for the sweep
+const OMEGA_GPU_ATTN_GMUT_COUNT # TEST ONLY: general attention mutant ids for the sweep

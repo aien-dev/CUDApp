@@ -1,0 +1,7 @@
+general sweep: 318 of 318 configs pass
+general mutant GQA_MAP: caught at config 4
+general mutant TAIL_CHUNK: caught at config 4
+general mutant TAIL_DIMS: caught at config 2
+general mutant CAUSAL: caught at config 0
+general mutant SCALE: caught at config 2
+PASS: 348 checks, 0 failed

@@ -1,6 +1,6 @@
 # Omega Runtime API v0
 
-Omega Runtime API version: 0.5.0
+Omega Runtime API version: 0.6.0
 
 Status: first written version, 2026-10-19 (slice R1, omega-mv#594, tracking #593). Source of truth is the C headers in
 `src/`. This file describes them; `docs/runtime/omega_runtime_api.manifest` lists them; `make test-runtime-api` checks the
@@ -36,8 +36,15 @@ signature against the headers on every run.
 
 ## 2. Version and compatibility rule
 
-The version is MAJOR.MINOR.PATCH (semantic versioning), currently **0.5.0**. It is a property of the list of entries and
+The version is MAJOR.MINOR.PATCH (semantic versioning), currently **0.6.0**. It is a property of the list of entries and
 their behaviour, not of the library build. Changes so far:
+- 0.6.0 (AttnGeneral): adds EXPERIMENTAL `omega_gpu_attention_general`, `OmegaGpuAttnGeneralDesc`,
+  `OMEGA_GPU_ATTN_GENERAL_MAX_HEAD_DIM` (256), `OMEGA_GPU_ATTN_GENERAL_MAX_Q_HEADS` (1024) and `OMEGA_GPU_ATTN_WINDOW_NONE`:
+  one attention kernel for every head_dim 1..256, any query-head count with any kv-head count dividing it (MHA, GQA,
+  MQA), causal, non-causal and sliding-window masks, strided f32 or bf16 KV, any kv_len. The existing attention entries
+  keep their tuned kernels for the shapes they took and now run the general kernel for the shapes they refused
+  (head_dim other than 64 / 128, non-power-of-two GQA, more than 64 query heads, contexts past 4096); the paged
+  entries do the same without the context split. Five test hooks and the general mutant ids go on the INTERNAL list.
 - 0.5.0: adds EXPERIMENTAL `omega_gpu_cmdlist_submit_pair`, `omega_gpu_cmdlist_wait_for`,
   `OmegaGpuCmdListOpts.first_barrier_none`, `omega_gpu_session_extra_queue` (streams, C4) and `omega_gpu_session_recover`,
   `omega_gpu_session_recoveries` (recovery after a latch, C5), carried from omega-mv e5b32567 by CUDApp#121; two
@@ -484,7 +491,7 @@ paragraph is out of date (whether it is chip-qualified on main is UNVERIFIED her
 The entries carried over from aien-sovereign-core's manifest: `src/omega_gpu_matmul_api.h`, `omega_gpu_elementwise_api.h`,
 `omega_gpu_attention_api.h`, `omega_gpu_serving.h` (the functions and structs after the `libraries` comment in the
 manifest). Reason: shapes and formats follow one model (Qwen3-30B); there is no general any-shape GEMM yet
-(`docs/runtime/ROADMAP.md` 1.3, branch `runtime/roadmap`). They are the surface sovereign-core's Rust binding uses today. They are not described entry by entry in v0;
+(`docs/runtime/ROADMAP.md` 1.3, branch `runtime/roadmap`). Attention is the exception since 0.6.0: `omega_gpu_attention_general` (declared after the carried block) takes every head_dim 1..256 and any MHA / GQA / MQA head split, and the carried attention entries fall back to it for the shapes their tuned kernels refuse. They are the surface sovereign-core's Rust binding uses today. They are not described entry by entry in v0;
 their headers are the description. One value differs from sovereign-core's pinned copy: `OMEGA_GPU_MATMUL_MAX_CTAS` is 1024 in
 the header (changed by omega #473, commit 98cecadc), 64 in their manifest. Omega's manifest is canonical; R12 brings theirs level.
 
@@ -500,6 +507,7 @@ Types are the manifest's Rust spelling (`*const`, `*mut`, `u32`, ...); the heade
 | `OmegaGpuEwInfo` | struct, 120 bytes (fields in the manifest) |
 | `OmegaGpuAttnInfo` | struct, 176 bytes (fields in the manifest) |
 | `OmegaGpuKvLayout` | struct, 64 bytes (fields in the manifest) |
+| `OmegaGpuAttnGeneralDesc` | struct, 64 bytes (fields in the manifest) |
 | `omega_gpu_matmul_bf16` | `fn(u32, u32, u32, *const u16, *const u16, *mut f32, *mut OmegaGpuMatmulInfo) -> i32` |
 | `omega_gpu_matmul_f32` | `fn(u32, u32, u32, *const f32, *const f32, *mut f32, *mut OmegaGpuMatmulInfo) -> i32` |
 | `omega_gpu_matmul_rc_name` | `fn(i32) -> *const c_char` |
@@ -531,6 +539,7 @@ Types are the manifest's Rust spelling (`*const`, `*mut`, `u32`, ...); the heade
 | `omega_gpu_paged_attention_batch_bf16` | `fn(*const f32, *const c_void, *const OmegaGpuKvLayout, *const i32, *const i32, u32, u32, u32, u32, u32, u32, *mut f32, *mut OmegaGpuAttnInfo) -> i32` |
 | `omega_gpu_attention_rc_name` | `fn(i32) -> *const c_char` |
 | `omega_gpu_attention_last_error` | `fn() -> *const c_char` |
+| `omega_gpu_attention_general` | `fn(*const OmegaGpuAttnGeneralDesc, *const f32, *const c_void, *const c_void, *mut f32, *mut OmegaGpuAttnInfo) -> i32` |
 
 ### 9.7 Decode path (ADR 0043 task P2.2)
 
@@ -560,7 +569,7 @@ values, poison patterns) are in the INTERNAL list.
 ## 10. INTERNAL (not part of the API)
 
 Not in the manifest; may change or vanish without notice. The complete list of such names in the manifest headers, each
-with its reason, is `docs/runtime/omega_runtime_api.internal` (180 names in 0.5.0: test hooks, kernel builders, encoder
+with its reason, is `docs/runtime/omega_runtime_api.internal` (192 names in 0.6.0: test hooks, kernel builders, encoder
 probes, serving-daemon internals and launch limits; the 25 serving internals and launch limits are marked "candidate
 EXPERIMENTAL", the ones a caller is most likely to want promoted). `make test-runtime-api` fails on a name in a manifest header that is in neither file. Notable ones:
 - `omega_gpu_session_set_error` (library code names its failure stage through it).
