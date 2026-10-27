@@ -118,6 +118,16 @@ $(GPU_RECONV_TEST): tests/gpu_reconv_test.c tests/bw_warp_sim.h src/omega_gpu_el
 test-gpu-reconv: $(GPU_RECONV_TEST)
 	./$(GPU_RECONV_TEST) --host-only
 
+# Encoding provenance (docs/PROVENANCE-ENCODINGS.md): chip experiments that pin sm_121 bits without NVIDIA
+# tools. Host-only checks the public-spec goldens and the scaffold; chip cases run one per process
+# (--case NAME [--nc]) under flock /tmp/aien-gb10.lock.
+.PHONY: test-gpu-provenance-enc
+GPU_PROVENANCE_ENC_TEST = $(OUT_DIR)/gpu_provenance_enc_test
+$(GPU_PROVENANCE_ENC_TEST): tests/gpu_provenance_enc_test.c src/omega_blackwell_encoder.h src/omega_gpu_elementwise_api.h $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -ffp-contract=off -o $@ tests/gpu_provenance_enc_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+test-gpu-provenance-enc: $(GPU_PROVENANCE_ENC_TEST)
+	./$(GPU_PROVENANCE_ENC_TEST) --host-only
+
 # FB-1 cut 5: native gqa_attention (f32 KV) and paged_attention (bf16 KV, + batch).
 # head_dim 128 (Qwen3-4B): the same battery with --hd 128 through both host simulators; GB10 parity PASS 126/0
 # at 7dd92dc (evidence/FB1-CUT5-HD128-7dd92dc).

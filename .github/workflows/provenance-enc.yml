@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# Encoding provenance (docs/PROVENANCE-ENCODINGS.md): build the chip-experiment test on an arm64 runner, run its
+# host tier, and keep the binary so the chip cases run on the GB10 (under flock /tmp/aien-gb10.lock) from the
+# exact CI build. No NVIDIA toolkit is installed or used.
+name: provenance-enc
+on:
+  push:
+    branches: ['provenance/**']
+  pull_request:
+    paths: ['src/**', 'tests/gpu_provenance_enc_test.c', 'Makefile', '.github/workflows/provenance-enc.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  host:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: build
+        run: make -j4 build/gpu_provenance_enc_test
+      - name: host tier
+        run: |
+          set -o pipefail
+          ./build/gpu_provenance_enc_test --host-only 2>&1 | tee provenance-enc-host.log
+          tail -1 provenance-enc-host.log | grep -q '^host-only: PASS'
+          ./build/gpu_provenance_enc_test --list | tee provenance-enc-cases.txt
+      - name: binary
+        run: |
+          echo "${GITHUB_SHA}" > provenance-enc-build-sha.txt
+          sha256sum build/gpu_provenance_enc_test | tee provenance-enc-bin.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: provenance-enc-arm64
+          path: |
+            build/gpu_provenance_enc_test
+            provenance-enc-*.log
+            provenance-enc-*.txt
+            provenance-enc-bin.sha256
