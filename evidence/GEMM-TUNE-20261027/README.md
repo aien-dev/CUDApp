@@ -24,7 +24,8 @@ is staged, so the 16 KB QMD shared-memory cap does not bind this kernel.
 | `make test-gpu-gemm` (simulator) | `C3 gemm sim: PASS (239 checks)` | `00-prep.log` |
 | `build/gpu_gemm_test --host-only` | `C3 gemm host: PASS (209 checks)` (incl. band 3 / band 64 refused) | RESUME / rerun: one command |
 | chip `build/gpu_gemm_test --ceiling 120.58,238.65`, beside the live 35B | `C3 gemm chip: PASS (218 checks)`, 208 shapes x both types x 4 layouts, 6/6 chip red checks caught (bf16 and e4m3 mutants 1-3, 4095 wrong each) | `01-gate/run.log`, `01-gate/hold.log` |
-| ceilings, same hold | best `gpu_tc_peak_test` 119.66 TFLOP/s (bf16), best `gpu_qmma_probe_test` 239.05 TFLOP/s (e4m3) | `01-gate/run.log` |
+| chip gate again after `git merge origin/main` (#113, #119), head eba7c0f, library rebuilt with `make -B` | `C3 gemm chip: PASS (218 checks)`, 6/6 chip red checks caught, tc_peak and qmma_probe exit 0 | `05-gate-merged-eba7c0f/` |
+| ceilings, 01-gate hold | best `gpu_tc_peak_test` 119.66 TFLOP/s (bf16), best `gpu_qmma_probe_test` 239.05 TFLOP/s (e4m3) | `01-gate/run.log` |
 | control: `AIEN_OMEGA_GEMM_PACK_CACHED=0` | chip PASS 218; 4096^3 MAIN 18.77 ms bf16 / 9.80 ms e4m3 against 4.77 / 2.96 ms cached (the switch reproduces the #112 baseline) | `02-control-uncached/` |
 
 Every hold: `flock -w 900 /tmp/aien-gb10.lock`, `timeout 840`; `hold.log` has 18091 health and compute apps before and after
