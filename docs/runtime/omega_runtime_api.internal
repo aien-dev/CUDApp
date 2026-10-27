@@ -101,6 +101,7 @@ fn omega_dattn_bf16_rne # host reference or packing helper in a decode-path head
 fn omega_dattn_rope_row # host reference or packing helper in a decode-path header (not an omega_gpu_ entry)
 fn omega_fp8_e4m3_is_nan # host reference or packing helper in a decode-path header (not an omega_gpu_ entry)
 fn omega_fp8_e4m3_kernel_bits # host reference or packing helper in a decode-path header (not an omega_gpu_ entry)
+fn omega_gpu_fp8_general_rows # internal: the general fallback of the fp8 GEMV and grouped GEMM (gemm_ex fp8 block rows), called by omega_gpu_fp8gemm_api.c
 fn omega_fp8_e4m3_ref # host reference or packing helper in a decode-path header (not an omega_gpu_ entry)
 fn omega_fp8_gemv_oracle # host reference or packing helper in a decode-path header (not an omega_gpu_ entry)
 fn omega_fp8_pack_scales # host reference or packing helper in a decode-path header (not an omega_gpu_ entry)
