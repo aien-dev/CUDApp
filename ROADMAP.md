@@ -1,14 +1,14 @@
-# CUDA++ roadmap: every NVIDIA piece on the Spark, and what replaces it
+# CUDA++ roadmap: every NVIDIA piece on the Spark, and what does its job
 
-The goal is a DGX Spark with no NVIDIA software running on it except the GPU's own signed firmware, and a GPU stack that does things CUDA does not. Each row names its receipt; a row without a receipt is not done. Status words: PASS (receipt on a named commit), PARTIAL, MISSING, BUILDING (work exists on a branch, no receipt yet).
+The goal is a DGX Spark where CUDA++ does the jobs of NVIDIA's user-space software, on top of NVIDIA's open kernel module and the GPU's own signed firmware, and a GPU stack that does things CUDA does not. GB10 support in the kernel goes to the upstream Linux drivers Nova and nouveau, not into a third driver. Each row names its receipt; a row without a receipt is not done. Status words: PASS (receipt on a named commit), PARTIAL, MISSING, BUILDING (work exists on a branch, no receipt yet), stays (NVIDIA's part remains in the path).
 
-Sources: Omega `docs/OMEGA.md` sections 2 to 5 (branch `docs/what-omega-is`, 2026-10-21) and the own-driver work L332 (aienos/Aienux branch `feat/own-gpu-driver`).
+Sources: Omega `docs/OMEGA.md` sections 2 to 5 (branch `docs/what-omega-is`, 2026-10-21). The own-driver work L332 (aienux branch `feat/own-gpu-driver`, aienux#441) is a research harness, not a product.
 
 ## 1. NVIDIA software on the Spark today
 
 | NVIDIA piece | What it does | CUDA++ replacement | Status | Receipt or where the work is |
 | --- | --- | --- | --- | --- |
-| `nvcc`, NVVM, PTX, `ptxas` | Compile kernels to machine code | sm_121 encoder + register allocator (`src/omega_blackwell_*`) | PASS | every kernel Omega runs is encoded by it (Omega `docs/OMEGA.md` s2) |
+| `nvcc`, NVVM, PTX, `ptxas` | Compile kernels to machine code | sm_121 encoder + register allocator (`src/omega_blackwell_*`) | PASS | every GPU kernel this stack runs is encoded by it (Omega `docs/OMEGA.md` s2) |
 | `libcuda` | User-space driver API | `nvrm/` + `m16/` driver client | PARTIAL | Implemented; imported M16 summary lacks its referenced raw logs. Current native qualification NOT_RUN; see README evidence limitation. |
 | `libcudart` | Runtime API: device, memory, launch, streams | session, command lists, job engine | PARTIAL | one device and one process; streams and events are bar C4 |
 | cuBLAS | Matrix multiply | matmul, tensor-core GEMM, FP8/BF16 libraries | PARTIAL | model shapes only; any-shape GEMM is bar C3 |
@@ -18,11 +18,11 @@ Sources: Omega `docs/OMEGA.md` sections 2 to 5 (branch `docs/what-omega-is`, 202
 | `cuobjdump`, `nvdisasm` | Read machine code back | my own sm_121 disassembler | BUILDING | bar C6: on Omega branch `c6/disasm` (19eebe0e, `evidence/C6-DISASM/` there) it agrees with `nvdisasm` on 331 kernels; not carried into CUDA++ yet, and some host tests here still call `nvdisasm` |
 | Nsight | Profiling | ceiling probes | PARTIAL | `evidence/OWN30B-T3-TC-PEAK-BW-5faa0f70-20261013T2236Z/` (115.14 TFLOPS tensor-core peak, 195.1 GB/s reads), `evidence/OWN30B-LAUNCH-COST-20261014T0120Z/` |
 | CUDA samples and docs | First kernel, API reference | `examples/hello_gpu`, `docs/runtime/API.md` | PARTIAL | bar C2: hello-GPU from an empty folder on the GB10 + the zero-CUDA gate |
-| `nvidia.ko` | Kernel driver: GPU boot, memory, channels | AIEN's own GB10 driver (L332) | BUILDING | simulator gates PASS on `feat/own-gpu-driver` cd5eef7a (receipt `evidence/own-gpu-driver/rung1/gates-20261021T2158Z.txt` there); first chip window (window 0) prepared, not run |
-| `nvidia-uvm.ko` | Unified memory, page tables, faults | same driver: GPU page tables, allocator, channels (L193 cut D, L332) | BUILDING | host simulator, 225 checks PASS (aienos `feat/gb10-gpu-mmu-sim` bcc56506) |
-| `nvidia-modeset.ko`, `nvidia-drm.ko` | Display | not needed for compute; dropped when my driver takes the GPU | MISSING | |
+| `nvidia.ko` | Kernel driver: GPU boot, memory, channels | none: NVIDIA's open kernel module stays; GB10 support goes upstream to Nova and nouveau | stays | research harness only: L332 simulator gates PASS on aienux `feat/own-gpu-driver` cd5eef7a (receipt `evidence/own-gpu-driver/rung1/gates-20261021T2158Z.txt` there); no chip run |
+| `nvidia-uvm.ko` | Unified memory, page tables, faults | none: stays NVIDIA's open kernel module | stays | research harness only: host simulator, 225 checks PASS (aienux `feat/gb10-gpu-mmu-sim` bcc56506) |
+| `nvidia-modeset.ko`, `nvidia-drm.ko` | Display | not needed for compute | not used by CUDA++ | |
 | `nvidia-smi`, NVML | Status, clocks, power | not started | MISSING | |
-| GSP firmware (`gsp_*.bin`) | Runs inside the GPU | stays NVIDIA's: the chip checks its signature | not replaceable | my driver loads NVIDIA's signed file from the system's firmware folder; CUDA++ never ships it |
+| GSP firmware (`gsp_*.bin`) | Runs inside the GPU | stays NVIDIA's: the chip checks its signature | not replaceable | the kernel module loads NVIDIA's signed file from the system's firmware folder; CUDA++ never ships it |
 
 ## 2. Bars before I say "replaces CUDA"
 
@@ -44,17 +44,16 @@ Things a CUDA stack does not do, because it does not own the whole path. Omega `
 | One submission per generated word | CUDA launches go through the runtime and driver per kernel or per graph; I write the command list myself | PARTIAL: command lists exist (`src/omega_gpu_cmdlist.*`); extra launch in a list costs 24 to 31 us today with wait-for-idle (`evidence/OWN30B-LAUNCH-COST-20261014T0120Z/`) |
 | Resident whole-model kernel | needs control of scheduling and memory below the CUDA API | MISSING (AIEN L272) |
 | Zero-copy shared memory | the GB10's CPU and GPU share one memory; CUDA still stages through its own allocators | PARTIAL: weights shared between processes through the driver client (physics `feat/shared-mem` 82467f19, 1 GiB import in 171 ms; not yet in CUDA++ main) |
-| My own driver's launch path | CUDA's is fixed by NVIDIA | BUILDING (L332) |
 
 ## 4. Speed
 
-Speed is reported against the physical ceiling of this machine, not only against yesterday. The table and the ceilings are in Omega `docs/OMEGA.md` section 5; the head-to-head measurement against llama.cpp and vLLM on this Spark is bar P0 (AIEN L394, running).
+Speed is reported against the physical ceiling of this machine, not only against yesterday. The table and the ceilings are in Omega `docs/OMEGA.md` section 5; the head-to-head measurement against llama.cpp and vLLM on this Spark, same model and prompts, end to end, is bar P0 (AIEN L394; in progress, not finished, not published). Until it is published, no speed comparison with CUDA, llama.cpp, vLLM or TensorRT is claimed. Chip-only time per token and end-to-end time through the server are reported separately and never set beside each other or beside other projects' published end-to-end figures.
 
-## 5. The developer bar: better to use than CUDA
+## 5. The developer bar: goals for being easier to use than CUDA
 
-The research in `docs/PAIN_POINTS.md` ranks what developers hit with CUDA and its libraries, and why they stay. Each pain point becomes a row with a done-when anyone can run. The full table, with every row's mechanism and the counts behind its rank, is `docs/PAIN_POINTS.md` section 3; open rows have issue drafts in `docs/issues/`.
+The research in `docs/PAIN_POINTS.md` ranks what developers hit with CUDA and its libraries, and why they stay. Each pain point becomes a row with a done-when anyone can run. The full table, with every row's mechanism and the counts behind its rank, is `docs/PAIN_POINTS.md` section 3; open rows have issue drafts in `docs/issues/`. The rows are developer-experience goals, not measured comparisons with CUDA, and none of them is a speed claim.
 
-| Row | Beats CUDA by | Status |
+| Row | Aims to improve on CUDA by | Status |
 | --- | --- | --- |
 | D1 | Memory you can see, and a refusal before the machine hangs | DONE on the host; chip run open |
 | D2 | One command, one version: `make doctor`, then `make hello-gpu` | DONE in doctor wrapper; no direct library admission guard |
