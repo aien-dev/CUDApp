@@ -40,8 +40,9 @@ an Omega extension proposal filed, behind a `migration-pending` build switch.
 ```
 
 E1, E2 and E3 are the Omega extension proposals named in ADR 0043: E1 a KFD `devctl` allowlist, E2
-checked shared-library calls and Mach-O output, E3 IR v7 (subgroup width, shared budget and accuracy
-class as target parameters; address spaces, atomics, f16/bf16/fp8, one tiled MMA op).
+checked shared-library calls and Mach-O output, E3 IR v7 (subgroup width, shared budget, nesting cap and
+accuracy class as target parameters; address spaces, atomics, f16/bf16/fp8, one tiled MMA op), filed as
+aien-dev/omega-mv#883.
 
 ## 2. Where today's files sit
 
@@ -54,7 +55,7 @@ generators; **DRV** driver client; **MIXED** has to be split logically. Line num
 | ENC | `omega_blackwell_codegen.{c,h}` core (BlackwellIR, regalloc, encode), `omega_blackwell_encoder`, `omega_blackwell_qmd`, `omega_bw_em.h`, `omega_bw_em_q.h`, `omega_bw_reconv.h`, `omega_gpu_code_alloc.h`, `omega_cubin`, `omega_blackwell_realize`, `omega_blackwell_matmul` |
 | KER | `omega_blackwell_codegen_{attn,bf16,dec,gemm,moe,moe2,pattn,pf,pfhost,qg,qmma,router,tc,tc2,tern}`, the matmul generators inside `omega_blackwell_codegen.c`, `omega_gpu_fp8_pack.c`, `omega_gpu_pfgemm.c` |
 | DRV | `nvrm/` (`nvrm.c` 908 lines, RM client against the 580.173.02 headers), `m16/`, `omega_gpu_platform_linux.c`, `omega_blackwell_engine.c`, `omega_blackwell_submit.c` |
-| MIXED | `omega_gpu_session.c` (QMD and pushbuffer construction in `omega_gpu_session_launch` :445; includes qmd/submit :18-19), `omega_gpu_cmdlist.c` (`emit_tail` :199, `emit_stamp` :219, `emit_inline_qmd` :226, PCAS encode :261), `omega_native_artifact.c` (packaging is TOP, QMD template bytes are ENC), every `omega_gpu_*_api.c` (tensor lifetime is TOP; inline emitters in `attention_api.c` :69-143 and `elementwise_api.c` :61-145 are KER) |
+| MIXED | `omega_gpu_session.c` (QMD and pushbuffer construction in `omega_gpu_session_launch` :445; includes qmd/submit :18-19), `omega_gpu_cmdlist.c` (`emit_tail` :199, `emit_stamp` :219, `emit_inline_qmd` :226, PCAS method words :308-309), `omega_native_artifact.c` (packaging is TOP, QMD template bytes are ENC), every `omega_gpu_*_api.c` (tensor lifetime is TOP; inline emitters in `attention_api.c` :69-143 and `elementwise_api.c` :61-145 are KER) |
 | Already `.om` | `native/nvrm/context.om`, `native/blackwell/{trace-emit,trace,vector,launch}.om` |
 
 Three structural defects the split removes (in the `.om` stack; the C stack is frozen, not reworked):
@@ -93,7 +94,7 @@ Code-object formats accepted by `ob_code_load`: `SM121_RAW`, `AMDGPU_HSACO`, `SP
 |---|---|---|
 | Launches per token | 436 (9 per layer × 48 + 4) | same graph |
 | Submissions / doorbells | 1 / 1 (PCAS mode, cmdlist.c:325-333) | 1 / 1 via `ob_graph_launch` |
-| CPU writes per token | 1 KB constants + 1 KB QMD per launch, ≈872 KB [INFERENCE] | patch list only; QMDs pre-encoded at `ob_graph_end` |
+| CPU writes per token | 1 KB constants + 1 KB QMD per launch, ≈872 KiB [INFERENCE] | patch list only; QMDs pre-encoded at `ob_graph_end` |
 | Weights | copied: `omega_gpu_fp8_api.c:269-275` `memcpy` + sync | mmapped file mapped by `ob_mem_import_host` |
 
 Every row in the Target column is PROPOSED and needs a paired A/B receipt before it is described as
@@ -102,9 +103,11 @@ faster.
 ## 5. Public API consequences
 
 - `docs/runtime/omega_runtime_api.manifest` (ABI `omega_runtime 0.1`, 91 functions, 21 STABLE) stays
-  as is until a cutover. Moving STABLE `omega_gpu_launch` to a code object is a MAJOR bump.
+  as is until a cutover. Moving STABLE `omega_gpu_session_launch` / `OmegaGpuLaunch` to a code object
+  is a MAJOR bump.
 - The decode-path APIs are not in the manifest today: fp8, fp8gemm, bf16_gemv, decode_attn, router,
-  tern, tcgemm, prefill*, moe, decode_graph. They enter it as EXPERIMENTAL before any of them changes.
+  tern, tcgemm, prefill*, moe, decode_graph. They enter it as EXPERIMENTAL before any of them changes
+  (CUDApp#124).
 - `aien-serve-http` is not in CUDApp (aien-dev/aien-sovereign-core-mv `crates/aien-serve-http`, pin
   `754c07b1`); it consumes this library through that repo's FFI crate [INFERENCE].
 

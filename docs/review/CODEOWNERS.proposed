@@ -21,6 +21,13 @@
 /src/omega_bw_*                     @drakestapleton @aien-dev/gpu-core-reviewers
 /src/omega_cubin.*                  @drakestapleton @aien-dev/gpu-core-reviewers
 /src/omega_gpu_code_alloc.h         @drakestapleton @aien-dev/gpu-core-reviewers
+/src/omega_blackwell_codegen_*     @drakestapleton @aien-dev/gpu-core-reviewers
+/src/omega_blackwell_matmul.*       @drakestapleton @aien-dev/gpu-core-reviewers
+/src/omega_blackwell_realize.*      @drakestapleton @aien-dev/gpu-core-reviewers
+/src/omega_native_artifact.*        @drakestapleton @aien-dev/gpu-core-reviewers
+# Inline machine-code emitters inside library files (ARCHITECTURE.md section 2, MIXED row).
+/src/omega_gpu_attention_api.c     @drakestapleton @aien-dev/gpu-core-reviewers
+/src/omega_gpu_elementwise_api.c   @drakestapleton @aien-dev/gpu-core-reviewers
 
 # Core path 2: driver client and submission.
 /nvrm/                              @drakestapleton @aien-dev/gpu-core-reviewers
