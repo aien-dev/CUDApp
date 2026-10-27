@@ -1,0 +1,3114 @@
+# omega c6/disasm b6a96d10 (worktree diff sha e3b0c44298fc1c14), 2026-10-22T01:59:49Z
+# command: env DISASM=/tmp/c6/build/sm121dis_red tools/ldst_nvdisasm_check.sh
+disassembler: sm121dis: Omega's own sm_121 disassembler (src/omega_sm121_disasm.c)
+[FAIL] k000: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k000.lst	2026-10-21 20:59:50.943439622 -0500
++++ /tmp/tmp.njDQd0vVEk/k000.got	2026-10-21 20:59:50.963898757 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x1, R2 ;
+-00d0 LDG.E.U8 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x1, R6 ;
+[FAIL] k001: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k001.lst	2026-10-21 20:59:50.943497222 -0500
++++ /tmp/tmp.njDQd0vVEk/k001.got	2026-10-21 20:59:50.973898851 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.U8 R12, desc[UR4][R2.64+0x1] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k002: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k002.lst	2026-10-21 20:59:50.943533431 -0500
++++ /tmp/tmp.njDQd0vVEk/k002.got	2026-10-21 20:59:50.980898916 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x3, R2 ;
+-00d0 LDG.E.U8 R12, desc[UR4][R2.64+-0x1] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x3, R6 ;
+[FAIL] k003: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k003.lst	2026-10-21 20:59:50.943569783 -0500
++++ /tmp/tmp.njDQd0vVEk/k003.got	2026-10-21 20:59:50.988898991 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x5, R2 ;
+-00d0 LDG.E.U8 R12, desc[UR4][R2.64+0x2] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x5, R6 ;
+[FAIL] k004: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k004.lst	2026-10-21 20:59:50.943623815 -0500
++++ /tmp/tmp.njDQd0vVEk/k004.got	2026-10-21 20:59:50.999899094 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x1, R2 ;
+-00d0 LDG.E.U8 R12, desc[UR4][R2.64+-0x3] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x1, R6 ;
+[FAIL] k005: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k005.lst	2026-10-21 20:59:50.943661064 -0500
++++ /tmp/tmp.njDQd0vVEk/k005.got	2026-10-21 20:59:51.018899272 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.U8 R12, desc[UR4][R2.64+0x5] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k006: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k006.lst	2026-10-21 20:59:50.943692984 -0500
++++ /tmp/tmp.njDQd0vVEk/k006.got	2026-10-21 20:59:51.028899365 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x1, R2 ;
+-00d0 LDG.E.U8 R12, desc[UR4][R2.64+0x1] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k007: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k007.lst	2026-10-21 20:59:50.943746713 -0500
++++ /tmp/tmp.njDQd0vVEk/k007.got	2026-10-21 20:59:51.044899515 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.U8 R12, desc[UR4][R2.64+-0x1] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x6, R6 ;
+[FAIL] k008: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k008.lst	2026-10-21 20:59:50.943787049 -0500
++++ /tmp/tmp.njDQd0vVEk/k008.got	2026-10-21 20:59:51.060899664 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x3, R2 ;
+-00d0 LDG.E.U8 R12, desc[UR4][R2.64+0x2] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xa, R6 ;
+[FAIL] k009: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k009.lst	2026-10-21 20:59:50.943830425 -0500
++++ /tmp/tmp.njDQd0vVEk/k009.got	2026-10-21 20:59:51.070050150 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x5, R2 ;
+-00d0 LDG.E.U8 R12, desc[UR4][R2.64+-0x3] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k010: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k010.lst	2026-10-21 20:59:50.943866730 -0500
++++ /tmp/tmp.njDQd0vVEk/k010.got	2026-10-21 20:59:51.076899814 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x1, R2 ;
+-00d0 LDG.E.U8 R12, desc[UR4][R2.64+0x5] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k011: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k011.lst	2026-10-21 20:59:50.943913834 -0500
++++ /tmp/tmp.njDQd0vVEk/k011.got	2026-10-21 20:59:51.092899964 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.U8 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x6, R6 ;
+[FAIL] k012: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k012.lst	2026-10-21 20:59:50.944014827 -0500
++++ /tmp/tmp.njDQd0vVEk/k012.got	2026-10-21 20:59:51.105900085 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x1, R2 ;
+-00d0 LDG.E.U8 R12, desc[UR4][R2.64+-0x1] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xc, R6 ;
+[FAIL] k013: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k013.lst	2026-10-21 20:59:50.944048251 -0500
++++ /tmp/tmp.njDQd0vVEk/k013.got	2026-10-21 20:59:51.134900356 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.U8 R12, desc[UR4][R2.64+0x2] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x14, R6 ;
+[FAIL] k014: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k014.lst	2026-10-21 20:59:50.944088844 -0500
++++ /tmp/tmp.njDQd0vVEk/k014.got	2026-10-21 20:59:51.151801059 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x3, R2 ;
+-00d0 LDG.E.U8 R12, desc[UR4][R2.64+-0x3] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k015: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k015.lst	2026-10-21 20:59:50.944122044 -0500
++++ /tmp/tmp.njDQd0vVEk/k015.got	2026-10-21 20:59:51.156900562 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x5, R2 ;
+-00d0 LDG.E.U8 R12, desc[UR4][R2.64+0x5] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x8, R6 ;
+[FAIL] k016: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k016.lst	2026-10-21 20:59:50.944171613 -0500
++++ /tmp/tmp.njDQd0vVEk/k016.got	2026-10-21 20:59:51.163147549 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x1, R2 ;
+-00d0 LDG.E.U8 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xc, R6 ;
+[FAIL] k017: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k017.lst	2026-10-21 20:59:50.944211533 -0500
++++ /tmp/tmp.njDQd0vVEk/k017.got	2026-10-21 20:59:51.167900665 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.U8 R12, desc[UR4][R2.64+0x1] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x14, R6 ;
+[FAIL] k018: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k018.lst	2026-10-21 20:59:50.944246717 -0500
++++ /tmp/tmp.njDQd0vVEk/k018.got	2026-10-21 20:59:51.172900712 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.S8 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x1, R6 ;
+[FAIL] k019: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k019.lst	2026-10-21 20:59:50.944302942 -0500
++++ /tmp/tmp.njDQd0vVEk/k019.got	2026-10-21 20:59:51.177900759 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x3, R2 ;
+-00d0 LDG.E.S8 R12, desc[UR4][R2.64+0x1] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k020: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k020.lst	2026-10-21 20:59:50.944339470 -0500
++++ /tmp/tmp.njDQd0vVEk/k020.got	2026-10-21 20:59:51.190079977 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x5, R2 ;
+-00d0 LDG.E.S8 R12, desc[UR4][R2.64+-0x1] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x3, R6 ;
+[FAIL] k021: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k021.lst	2026-10-21 20:59:50.944371326 -0500
++++ /tmp/tmp.njDQd0vVEk/k021.got	2026-10-21 20:59:51.207901039 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x1, R2 ;
+-00d0 LDG.E.S8 R12, desc[UR4][R2.64+0x2] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x5, R6 ;
+[FAIL] k022: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k022.lst	2026-10-21 20:59:50.944412735 -0500
++++ /tmp/tmp.njDQd0vVEk/k022.got	2026-10-21 20:59:51.225901208 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.S8 R12, desc[UR4][R2.64+-0x3] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x1, R6 ;
+[FAIL] k023: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k023.lst	2026-10-21 20:59:50.944446543 -0500
++++ /tmp/tmp.njDQd0vVEk/k023.got	2026-10-21 20:59:51.241965630 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x3, R2 ;
+-00d0 LDG.E.S8 R12, desc[UR4][R2.64+0x5] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k024: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k024.lst	2026-10-21 20:59:50.944479407 -0500
++++ /tmp/tmp.njDQd0vVEk/k024.got	2026-10-21 20:59:51.255901488 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.S8 R12, desc[UR4][R2.64+0x1] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k025: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k025.lst	2026-10-21 20:59:50.944522864 -0500
++++ /tmp/tmp.njDQd0vVEk/k025.got	2026-10-21 20:59:51.269901619 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x3, R2 ;
+-00d0 LDG.E.S8 R12, desc[UR4][R2.64+-0x1] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x6, R6 ;
+[FAIL] k026: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k026.lst	2026-10-21 20:59:50.944559904 -0500
++++ /tmp/tmp.njDQd0vVEk/k026.got	2026-10-21 20:59:51.287901788 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x5, R2 ;
+-00d0 LDG.E.S8 R12, desc[UR4][R2.64+0x2] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xa, R6 ;
+[FAIL] k027: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k027.lst	2026-10-21 20:59:50.944602657 -0500
++++ /tmp/tmp.njDQd0vVEk/k027.got	2026-10-21 20:59:51.304969339 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x1, R2 ;
+-00d0 LDG.E.S8 R12, desc[UR4][R2.64+-0x3] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k028: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k028.lst	2026-10-21 20:59:50.944639249 -0500
++++ /tmp/tmp.njDQd0vVEk/k028.got	2026-10-21 20:59:51.319902087 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.S8 R12, desc[UR4][R2.64+0x5] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k029: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k029.lst	2026-10-21 20:59:50.944677329 -0500
++++ /tmp/tmp.njDQd0vVEk/k029.got	2026-10-21 20:59:51.332902208 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x3, R2 ;
+-00d0 LDG.E.S8 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x6, R6 ;
+[FAIL] k030: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k030.lst	2026-10-21 20:59:50.944727378 -0500
++++ /tmp/tmp.njDQd0vVEk/k030.got	2026-10-21 20:59:51.345966507 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.S8 R12, desc[UR4][R2.64+-0x1] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xc, R6 ;
+[FAIL] k031: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k031.lst	2026-10-21 20:59:50.944769698 -0500
++++ /tmp/tmp.njDQd0vVEk/k031.got	2026-10-21 20:59:51.358902452 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x3, R2 ;
+-00d0 LDG.E.S8 R12, desc[UR4][R2.64+0x2] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x14, R6 ;
+[FAIL] k032: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k032.lst	2026-10-21 20:59:50.944819347 -0500
++++ /tmp/tmp.njDQd0vVEk/k032.got	2026-10-21 20:59:51.378902639 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x5, R2 ;
+-00d0 LDG.E.S8 R12, desc[UR4][R2.64+-0x3] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k033: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k033.lst	2026-10-21 20:59:50.944861251 -0500
++++ /tmp/tmp.njDQd0vVEk/k033.got	2026-10-21 20:59:51.391969241 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x1, R2 ;
+-00d0 LDG.E.S8 R12, desc[UR4][R2.64+0x5] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x8, R6 ;
+[FAIL] k034: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k034.lst	2026-10-21 20:59:50.944898867 -0500
++++ /tmp/tmp.njDQd0vVEk/k034.got	2026-10-21 20:59:51.410902938 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.S8 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xc, R6 ;
+[FAIL] k035: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k035.lst	2026-10-21 20:59:50.944959108 -0500
++++ /tmp/tmp.njDQd0vVEk/k035.got	2026-10-21 20:59:51.424903069 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x3, R2 ;
+-00d0 LDG.E.S8 R12, desc[UR4][R2.64+0x1] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x14, R6 ;
+[FAIL] k036: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k036.lst	2026-10-21 20:59:50.945003092 -0500
++++ /tmp/tmp.njDQd0vVEk/k036.got	2026-10-21 20:59:51.444903256 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x6, R2 ;
+-00d0 LDG.E.U16 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x1, R6 ;
+[FAIL] k037: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k037.lst	2026-10-21 20:59:50.945050837 -0500
++++ /tmp/tmp.njDQd0vVEk/k037.got	2026-10-21 20:59:51.451903322 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0xa, R2 ;
+-00d0 LDG.E.U16 R12, desc[UR4][R2.64+0x2] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k038: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k038.lst	2026-10-21 20:59:50.945087829 -0500
++++ /tmp/tmp.njDQd0vVEk/k038.got	2026-10-21 20:59:51.461903415 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.U16 R12, desc[UR4][R2.64+-0x2] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x3, R6 ;
+[FAIL] k039: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k039.lst	2026-10-21 20:59:50.945128182 -0500
++++ /tmp/tmp.njDQd0vVEk/k039.got	2026-10-21 20:59:51.474903537 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x4, R2 ;
+-00d0 LDG.E.U16 R12, desc[UR4][R2.64+0x4] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x5, R6 ;
+[FAIL] k040: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k040.lst	2026-10-21 20:59:50.945190326 -0500
++++ /tmp/tmp.njDQd0vVEk/k040.got	2026-10-21 20:59:51.491903696 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x6, R2 ;
+-00d0 LDG.E.U16 R12, desc[UR4][R2.64+-0x6] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x1, R6 ;
+[FAIL] k041: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k041.lst	2026-10-21 20:59:50.945231062 -0500
++++ /tmp/tmp.njDQd0vVEk/k041.got	2026-10-21 20:59:51.508903855 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0xa, R2 ;
+-00d0 LDG.E.U16 R12, desc[UR4][R2.64+0xa] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k042: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k042.lst	2026-10-21 20:59:50.945282119 -0500
++++ /tmp/tmp.njDQd0vVEk/k042.got	2026-10-21 20:59:51.522975298 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x6, R2 ;
+-00d0 LDG.E.U16 R12, desc[UR4][R2.64+0x2] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k043: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k043.lst	2026-10-21 20:59:50.945321687 -0500
++++ /tmp/tmp.njDQd0vVEk/k043.got	2026-10-21 20:59:51.540904154 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0xa, R2 ;
+-00d0 LDG.E.U16 R12, desc[UR4][R2.64+-0x2] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x6, R6 ;
+[FAIL] k044: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k044.lst	2026-10-21 20:59:50.945370616 -0500
++++ /tmp/tmp.njDQd0vVEk/k044.got	2026-10-21 20:59:51.556904304 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.U16 R12, desc[UR4][R2.64+0x4] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xa, R6 ;
+[FAIL] k045: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k045.lst	2026-10-21 20:59:50.945420888 -0500
++++ /tmp/tmp.njDQd0vVEk/k045.got	2026-10-21 20:59:51.568904416 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x4, R2 ;
+-00d0 LDG.E.U16 R12, desc[UR4][R2.64+-0x6] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k046: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k046.lst	2026-10-21 20:59:50.945459929 -0500
++++ /tmp/tmp.njDQd0vVEk/k046.got	2026-10-21 20:59:51.577904500 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x6, R2 ;
+-00d0 LDG.E.U16 R12, desc[UR4][R2.64+0xa] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k047: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k047.lst	2026-10-21 20:59:50.945501673 -0500
++++ /tmp/tmp.njDQd0vVEk/k047.got	2026-10-21 20:59:51.585904575 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0xa, R2 ;
+-00d0 LDG.E.U16 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x6, R6 ;
+[FAIL] k048: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k048.lst	2026-10-21 20:59:50.945538265 -0500
++++ /tmp/tmp.njDQd0vVEk/k048.got	2026-10-21 20:59:51.592904640 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x6, R2 ;
+-00d0 LDG.E.U16 R12, desc[UR4][R2.64+-0x2] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xc, R6 ;
+[FAIL] k049: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k049.lst	2026-10-21 20:59:50.945576810 -0500
++++ /tmp/tmp.njDQd0vVEk/k049.got	2026-10-21 20:59:51.607093221 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0xa, R2 ;
+-00d0 LDG.E.U16 R12, desc[UR4][R2.64+0x4] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x14, R6 ;
+[FAIL] k050: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k050.lst	2026-10-21 20:59:50.945617146 -0500
++++ /tmp/tmp.njDQd0vVEk/k050.got	2026-10-21 20:59:51.617904874 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.U16 R12, desc[UR4][R2.64+-0x6] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k051: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k051.lst	2026-10-21 20:59:50.945654858 -0500
++++ /tmp/tmp.njDQd0vVEk/k051.got	2026-10-21 20:59:51.630904996 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x4, R2 ;
+-00d0 LDG.E.U16 R12, desc[UR4][R2.64+0xa] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x8, R6 ;
+[FAIL] k052: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k052.lst	2026-10-21 20:59:50.945699627 -0500
++++ /tmp/tmp.njDQd0vVEk/k052.got	2026-10-21 20:59:51.647905155 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x6, R2 ;
+-00d0 LDG.E.U16 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xc, R6 ;
+[FAIL] k053: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k053.lst	2026-10-21 20:59:50.945736043 -0500
++++ /tmp/tmp.njDQd0vVEk/k053.got	2026-10-21 20:59:51.660905276 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0xa, R2 ;
+-00d0 LDG.E.U16 R12, desc[UR4][R2.64+0x2] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x14, R6 ;
+[FAIL] k054: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k054.lst	2026-10-21 20:59:50.945773388 -0500
++++ /tmp/tmp.njDQd0vVEk/k054.got	2026-10-21 20:59:51.677905435 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0xa, R2 ;
+-00d0 LDG.E.S16 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x1, R6 ;
+[FAIL] k055: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k055.lst	2026-10-21 20:59:50.945816572 -0500
++++ /tmp/tmp.njDQd0vVEk/k055.got	2026-10-21 20:59:51.693905585 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.S16 R12, desc[UR4][R2.64+0x2] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k056: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k056.lst	2026-10-21 20:59:50.945859836 -0500
++++ /tmp/tmp.njDQd0vVEk/k056.got	2026-10-21 20:59:51.705905697 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x4, R2 ;
+-00d0 LDG.E.S16 R12, desc[UR4][R2.64+-0x2] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x3, R6 ;
+[FAIL] k057: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k057.lst	2026-10-21 20:59:50.945899805 -0500
++++ /tmp/tmp.njDQd0vVEk/k057.got	2026-10-21 20:59:51.721905847 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x6, R2 ;
+-00d0 LDG.E.S16 R12, desc[UR4][R2.64+0x4] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x5, R6 ;
+[FAIL] k058: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k058.lst	2026-10-21 20:59:50.945935805 -0500
++++ /tmp/tmp.njDQd0vVEk/k058.got	2026-10-21 20:59:51.728905912 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0xa, R2 ;
+-00d0 LDG.E.S16 R12, desc[UR4][R2.64+-0x6] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x1, R6 ;
+[FAIL] k059: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k059.lst	2026-10-21 20:59:50.945972077 -0500
++++ /tmp/tmp.njDQd0vVEk/k059.got	2026-10-21 20:59:51.736905987 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.S16 R12, desc[UR4][R2.64+0xa] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k060: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k060.lst	2026-10-21 20:59:50.946020174 -0500
++++ /tmp/tmp.njDQd0vVEk/k060.got	2026-10-21 20:59:51.747906090 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0xa, R2 ;
+-00d0 LDG.E.S16 R12, desc[UR4][R2.64+0x2] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k061: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k061.lst	2026-10-21 20:59:50.946067358 -0500
++++ /tmp/tmp.njDQd0vVEk/k061.got	2026-10-21 20:59:51.759970059 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.S16 R12, desc[UR4][R2.64+-0x2] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x6, R6 ;
+[FAIL] k062: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k062.lst	2026-10-21 20:59:50.946108799 -0500
++++ /tmp/tmp.njDQd0vVEk/k062.got	2026-10-21 20:59:51.775906352 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x4, R2 ;
+-00d0 LDG.E.S16 R12, desc[UR4][R2.64+0x4] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xa, R6 ;
+[FAIL] k063: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k063.lst	2026-10-21 20:59:50.946160319 -0500
++++ /tmp/tmp.njDQd0vVEk/k063.got	2026-10-21 20:59:51.792906511 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x6, R2 ;
+-00d0 LDG.E.S16 R12, desc[UR4][R2.64+-0x6] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k064: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k064.lst	2026-10-21 20:59:50.946198015 -0500
++++ /tmp/tmp.njDQd0vVEk/k064.got	2026-10-21 20:59:51.809906670 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0xa, R2 ;
+-00d0 LDG.E.S16 R12, desc[UR4][R2.64+0xa] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k065: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k065.lst	2026-10-21 20:59:50.946244320 -0500
++++ /tmp/tmp.njDQd0vVEk/k065.got	2026-10-21 20:59:51.834906904 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.S16 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x6, R6 ;
+[FAIL] k066: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k066.lst	2026-10-21 20:59:50.946287168 -0500
++++ /tmp/tmp.njDQd0vVEk/k066.got	2026-10-21 20:59:51.848005138 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0xa, R2 ;
+-00d0 LDG.E.S16 R12, desc[UR4][R2.64+-0x2] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xc, R6 ;
+[FAIL] k067: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k067.lst	2026-10-21 20:59:50.946329393 -0500
++++ /tmp/tmp.njDQd0vVEk/k067.got	2026-10-21 20:59:51.860072547 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.S16 R12, desc[UR4][R2.64+0x4] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x14, R6 ;
+[FAIL] k068: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k068.lst	2026-10-21 20:59:50.946368513 -0500
++++ /tmp/tmp.njDQd0vVEk/k068.got	2026-10-21 20:59:51.867907213 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x4, R2 ;
+-00d0 LDG.E.S16 R12, desc[UR4][R2.64+-0x6] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k069: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k069.lst	2026-10-21 20:59:50.946412401 -0500
++++ /tmp/tmp.njDQd0vVEk/k069.got	2026-10-21 20:59:51.878907315 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x6, R2 ;
+-00d0 LDG.E.S16 R12, desc[UR4][R2.64+0xa] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x8, R6 ;
+[FAIL] k070: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k070.lst	2026-10-21 20:59:50.946454226 -0500
++++ /tmp/tmp.njDQd0vVEk/k070.got	2026-10-21 20:59:51.886907390 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0xa, R2 ;
+-00d0 LDG.E.S16 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xc, R6 ;
+[FAIL] k071: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k071.lst	2026-10-21 20:59:50.946503298 -0500
++++ /tmp/tmp.njDQd0vVEk/k071.got	2026-10-21 20:59:51.901907531 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.S16 R12, desc[UR4][R2.64+0x2] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x14, R6 ;
+[FAIL] k072: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k072.lst	2026-10-21 20:59:50.946547731 -0500
++++ /tmp/tmp.njDQd0vVEk/k072.got	2026-10-21 20:59:51.910907615 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x4, R2 ;
+-00d0 LDG.E R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x1, R6 ;
+[FAIL] k073: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k073.lst	2026-10-21 20:59:50.946583139 -0500
++++ /tmp/tmp.njDQd0vVEk/k073.got	2026-10-21 20:59:51.932907820 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x8, R2 ;
+-00d0 LDG.E R12, desc[UR4][R2.64+0x4] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k074: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k074.lst	2026-10-21 20:59:50.946627027 -0500
++++ /tmp/tmp.njDQd0vVEk/k074.got	2026-10-21 20:59:51.947907961 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0xc, R2 ;
+-00d0 LDG.E R12, desc[UR4][R2.64+-0x4] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x3, R6 ;
+[FAIL] k075: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k075.lst	2026-10-21 20:59:50.946678324 -0500
++++ /tmp/tmp.njDQd0vVEk/k075.got	2026-10-21 20:59:51.961908092 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x14, R2 ;
+-00d0 LDG.E R12, desc[UR4][R2.64+0x8] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x5, R6 ;
+[FAIL] k076: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k076.lst	2026-10-21 20:59:50.946720724 -0500
++++ /tmp/tmp.njDQd0vVEk/k076.got	2026-10-21 20:59:51.972908195 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x4, R2 ;
+-00d0 LDG.E R12, desc[UR4][R2.64+-0xc] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x1, R6 ;
+[FAIL] k077: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k077.lst	2026-10-21 20:59:50.946760453 -0500
++++ /tmp/tmp.njDQd0vVEk/k077.got	2026-10-21 20:59:51.986908326 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x8, R2 ;
+-00d0 LDG.E R12, desc[UR4][R2.64+0x14] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k078: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k078.lst	2026-10-21 20:59:50.946826101 -0500
++++ /tmp/tmp.njDQd0vVEk/k078.got	2026-10-21 20:59:51.999908447 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x4, R2 ;
+-00d0 LDG.E R12, desc[UR4][R2.64+0x4] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k079: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k079.lst	2026-10-21 20:59:50.946868358 -0500
++++ /tmp/tmp.njDQd0vVEk/k079.got	2026-10-21 20:59:52.020908644 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x8, R2 ;
+-00d0 LDG.E R12, desc[UR4][R2.64+-0x4] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x6, R6 ;
+[FAIL] k080: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k080.lst	2026-10-21 20:59:50.946905510 -0500
++++ /tmp/tmp.njDQd0vVEk/k080.got	2026-10-21 20:59:52.032908756 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0xc, R2 ;
+-00d0 LDG.E R12, desc[UR4][R2.64+0x8] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xa, R6 ;
+[FAIL] k081: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k081.lst	2026-10-21 20:59:50.947618301 -0500
++++ /tmp/tmp.njDQd0vVEk/k081.got	2026-10-21 20:59:52.039908821 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x14, R2 ;
+-00d0 LDG.E R12, desc[UR4][R2.64+-0xc] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k082: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k082.lst	2026-10-21 20:59:50.947700862 -0500
++++ /tmp/tmp.njDQd0vVEk/k082.got	2026-10-21 20:59:52.046908887 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x4, R2 ;
+-00d0 LDG.E R12, desc[UR4][R2.64+0x14] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k083: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k083.lst	2026-10-21 20:59:50.947745166 -0500
++++ /tmp/tmp.njDQd0vVEk/k083.got	2026-10-21 20:59:52.058908999 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x8, R2 ;
+-00d0 LDG.E R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x6, R6 ;
+[FAIL] k084: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k084.lst	2026-10-21 20:59:50.947786894 -0500
++++ /tmp/tmp.njDQd0vVEk/k084.got	2026-10-21 20:59:52.066909074 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x4, R2 ;
+-00d0 LDG.E R12, desc[UR4][R2.64+-0x4] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xc, R6 ;
+[FAIL] k085: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k085.lst	2026-10-21 20:59:50.948026625 -0500
++++ /tmp/tmp.njDQd0vVEk/k085.got	2026-10-21 20:59:52.077909177 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x8, R2 ;
+-00d0 LDG.E R12, desc[UR4][R2.64+0x8] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x14, R6 ;
+[FAIL] k086: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k086.lst	2026-10-21 20:59:50.948077729 -0500
++++ /tmp/tmp.njDQd0vVEk/k086.got	2026-10-21 20:59:52.091143477 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0xc, R2 ;
+-00d0 LDG.E R12, desc[UR4][R2.64+-0xc] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k087: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k087.lst	2026-10-21 20:59:50.948137026 -0500
++++ /tmp/tmp.njDQd0vVEk/k087.got	2026-10-21 20:59:52.101909401 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x14, R2 ;
+-00d0 LDG.E R12, desc[UR4][R2.64+0x14] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x8, R6 ;
+[FAIL] k088: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k088.lst	2026-10-21 20:59:50.948193314 -0500
++++ /tmp/tmp.njDQd0vVEk/k088.got	2026-10-21 20:59:52.113909514 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x4, R2 ;
+-00d0 LDG.E R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xc, R6 ;
+[FAIL] k089: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k089.lst	2026-10-21 20:59:50.948236179 -0500
++++ /tmp/tmp.njDQd0vVEk/k089.got	2026-10-21 20:59:52.126909635 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x8, R2 ;
+-00d0 LDG.E R12, desc[UR4][R2.64+0x4] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x14, R6 ;
+[FAIL] k090: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k090.lst	2026-10-21 20:59:50.948281091 -0500
++++ /tmp/tmp.njDQd0vVEk/k090.got	2026-10-21 20:59:52.134909710 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x10, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x1, R6 ;
+[FAIL] k091: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k091.lst	2026-10-21 20:59:50.948320867 -0500
++++ /tmp/tmp.njDQd0vVEk/k091.got	2026-10-21 20:59:52.151940861 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x18, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64+0x8] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k092: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k092.lst	2026-10-21 20:59:50.948361732 -0500
++++ /tmp/tmp.njDQd0vVEk/k092.got	2026-10-21 20:59:52.175910093 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x28, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64+-0x8] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x3, R6 ;
+[FAIL] k093: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k093.lst	2026-10-21 20:59:50.948413700 -0500
++++ /tmp/tmp.njDQd0vVEk/k093.got	2026-10-21 20:59:52.191910243 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x8, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64+0x10] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x5, R6 ;
+[FAIL] k094: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k094.lst	2026-10-21 20:59:50.948458885 -0500
++++ /tmp/tmp.njDQd0vVEk/k094.got	2026-10-21 20:59:52.216910477 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x10, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64+-0x18] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x1, R6 ;
+[FAIL] k095: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k095.lst	2026-10-21 20:59:50.948518405 -0500
++++ /tmp/tmp.njDQd0vVEk/k095.got	2026-10-21 20:59:52.231910617 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x18, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64+0x28] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k096: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k096.lst	2026-10-21 20:59:50.948566230 -0500
++++ /tmp/tmp.njDQd0vVEk/k096.got	2026-10-21 20:59:52.244910739 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x10, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64+0x8] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k097: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k097.lst	2026-10-21 20:59:50.948615862 -0500
++++ /tmp/tmp.njDQd0vVEk/k097.got	2026-10-21 20:59:52.261910898 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x18, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64+-0x8] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x6, R6 ;
+[FAIL] k098: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k098.lst	2026-10-21 20:59:50.948655334 -0500
++++ /tmp/tmp.njDQd0vVEk/k098.got	2026-10-21 20:59:52.271910991 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x28, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64+0x10] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xa, R6 ;
+[FAIL] k099: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k099.lst	2026-10-21 20:59:50.948702615 -0500
++++ /tmp/tmp.njDQd0vVEk/k099.got	2026-10-21 20:59:52.280911076 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x8, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64+-0x18] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k100: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k100.lst	2026-10-21 20:59:50.948748055 -0500
++++ /tmp/tmp.njDQd0vVEk/k100.got	2026-10-21 20:59:52.290911169 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x10, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64+0x28] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k101: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k101.lst	2026-10-21 20:59:50.948795480 -0500
++++ /tmp/tmp.njDQd0vVEk/k101.got	2026-10-21 20:59:52.305911309 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x18, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x6, R6 ;
+[FAIL] k102: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k102.lst	2026-10-21 20:59:50.948846792 -0500
++++ /tmp/tmp.njDQd0vVEk/k102.got	2026-10-21 20:59:52.318911431 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x10, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64+-0x8] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xc, R6 ;
+[FAIL] k103: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k103.lst	2026-10-21 20:59:50.948887513 -0500
++++ /tmp/tmp.njDQd0vVEk/k103.got	2026-10-21 20:59:52.329911534 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x18, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64+0x10] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x14, R6 ;
+[FAIL] k104: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k104.lst	2026-10-21 20:59:50.948931577 -0500
++++ /tmp/tmp.njDQd0vVEk/k104.got	2026-10-21 20:59:52.342911655 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x28, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64+-0x18] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k105: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k105.lst	2026-10-21 20:59:50.948980585 -0500
++++ /tmp/tmp.njDQd0vVEk/k105.got	2026-10-21 20:59:52.357911796 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x8, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64+0x28] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x8, R6 ;
+[FAIL] k106: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k106.lst	2026-10-21 20:59:50.949023450 -0500
++++ /tmp/tmp.njDQd0vVEk/k106.got	2026-10-21 20:59:52.366911880 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x10, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xc, R6 ;
+[FAIL] k107: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k107.lst	2026-10-21 20:59:50.949064394 -0500
++++ /tmp/tmp.njDQd0vVEk/k107.got	2026-10-21 20:59:52.373911945 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x18, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64+0x8] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x14, R6 ;
+[FAIL] k108: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k108.lst	2026-10-21 20:59:50.949105787 -0500
++++ /tmp/tmp.njDQd0vVEk/k108.got	2026-10-21 20:59:52.383912039 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x10, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64+0x10] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x28, R6 ;
+[FAIL] k109: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k109.lst	2026-10-21 20:59:50.949150283 -0500
++++ /tmp/tmp.njDQd0vVEk/k109.got	2026-10-21 20:59:52.398912179 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x18, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64+-0x18] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x8, R6 ;
+[FAIL] k110: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k110.lst	2026-10-21 20:59:50.949205660 -0500
++++ /tmp/tmp.njDQd0vVEk/k110.got	2026-10-21 20:59:52.418912366 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x28, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64+0x28] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x10, R6 ;
+[FAIL] k111: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k111.lst	2026-10-21 20:59:50.949255324 -0500
++++ /tmp/tmp.njDQd0vVEk/k111.got	2026-10-21 20:59:52.427912450 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x8, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x18, R6 ;
+[FAIL] k112: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k112.lst	2026-10-21 20:59:50.949302668 -0500
++++ /tmp/tmp.njDQd0vVEk/k112.got	2026-10-21 20:59:52.437912544 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x10, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64+0x8] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x28, R6 ;
+[FAIL] k113: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k113.lst	2026-10-21 20:59:50.949344413 -0500
++++ /tmp/tmp.njDQd0vVEk/k113.got	2026-10-21 20:59:52.448912647 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x18, R2 ;
+-00d0 LDG.E.64 R12, desc[UR4][R2.64+-0x8] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x8, R6 ;
+[FAIL] k114: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k114.lst	2026-10-21 20:59:50.949397805 -0500
++++ /tmp/tmp.njDQd0vVEk/k114.got	2026-10-21 20:59:52.460912759 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x30, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x1, R6 ;
+[FAIL] k115: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k115.lst	2026-10-21 20:59:50.949444478 -0500
++++ /tmp/tmp.njDQd0vVEk/k115.got	2026-10-21 20:59:52.476912909 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x50, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+0x10] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k116: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k116.lst	2026-10-21 20:59:50.949492078 -0500
++++ /tmp/tmp.njDQd0vVEk/k116.got	2026-10-21 20:59:52.486073730 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x10, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+-0x10] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x3, R6 ;
+[FAIL] k117: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k117.lst	2026-10-21 20:59:50.949541775 -0500
++++ /tmp/tmp.njDQd0vVEk/k117.got	2026-10-21 20:59:52.496913096 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x20, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+0x20] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x5, R6 ;
+[FAIL] k118: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k118.lst	2026-10-21 20:59:50.949587119 -0500
++++ /tmp/tmp.njDQd0vVEk/k118.got	2026-10-21 20:59:52.512913245 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x30, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+-0x30] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x1, R6 ;
+[FAIL] k119: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k119.lst	2026-10-21 20:59:50.949629344 -0500
++++ /tmp/tmp.njDQd0vVEk/k119.got	2026-10-21 20:59:52.524913358 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x50, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+0x50] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k120: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k120.lst	2026-10-21 20:59:50.949673008 -0500
++++ /tmp/tmp.njDQd0vVEk/k120.got	2026-10-21 20:59:52.535913461 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x30, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+0x10] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k121: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k121.lst	2026-10-21 20:59:50.949718688 -0500
++++ /tmp/tmp.njDQd0vVEk/k121.got	2026-10-21 20:59:52.550026265 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x50, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+-0x10] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x6, R6 ;
+[FAIL] k122: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k122.lst	2026-10-21 20:59:50.949761985 -0500
++++ /tmp/tmp.njDQd0vVEk/k122.got	2026-10-21 20:59:52.560913694 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x10, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+0x20] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xa, R6 ;
+[FAIL] k123: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k123.lst	2026-10-21 20:59:50.949809441 -0500
++++ /tmp/tmp.njDQd0vVEk/k123.got	2026-10-21 20:59:52.571913797 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x20, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+-0x30] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x2, R6 ;
+[FAIL] k124: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k124.lst	2026-10-21 20:59:50.949851922 -0500
++++ /tmp/tmp.njDQd0vVEk/k124.got	2026-10-21 20:59:52.579913872 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x30, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+0x50] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k125: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k125.lst	2026-10-21 20:59:50.949898658 -0500
++++ /tmp/tmp.njDQd0vVEk/k125.got	2026-10-21 20:59:52.592913994 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x50, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x6, R6 ;
+[FAIL] k126: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k126.lst	2026-10-21 20:59:50.950004963 -0500
++++ /tmp/tmp.njDQd0vVEk/k126.got	2026-10-21 20:59:52.609914153 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x30, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+-0x10] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xc, R6 ;
+[FAIL] k127: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k127.lst	2026-10-21 20:59:50.950043491 -0500
++++ /tmp/tmp.njDQd0vVEk/k127.got	2026-10-21 20:59:52.620072280 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x50, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+0x20] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x14, R6 ;
+[FAIL] k128: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k128.lst	2026-10-21 20:59:50.950085284 -0500
++++ /tmp/tmp.njDQd0vVEk/k128.got	2026-10-21 20:59:52.630914349 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x10, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+-0x30] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k129: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k129.lst	2026-10-21 20:59:50.950130980 -0500
++++ /tmp/tmp.njDQd0vVEk/k129.got	2026-10-21 20:59:52.642914461 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x20, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+0x50] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x8, R6 ;
+[FAIL] k130: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k130.lst	2026-10-21 20:59:50.950172261 -0500
++++ /tmp/tmp.njDQd0vVEk/k130.got	2026-10-21 20:59:52.654120166 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x30, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0xc, R6 ;
+[FAIL] k131: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k131.lst	2026-10-21 20:59:50.950209525 -0500
++++ /tmp/tmp.njDQd0vVEk/k131.got	2026-10-21 20:59:52.667914695 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x50, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+0x10] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x14, R6 ;
+[FAIL] k132: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k132.lst	2026-10-21 20:59:50.950256117 -0500
++++ /tmp/tmp.njDQd0vVEk/k132.got	2026-10-21 20:59:52.678914798 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x30, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+0x20] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x28, R6 ;
+[FAIL] k133: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k133.lst	2026-10-21 20:59:50.950292870 -0500
++++ /tmp/tmp.njDQd0vVEk/k133.got	2026-10-21 20:59:52.688914892 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x50, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+-0x30] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x8, R6 ;
+[FAIL] k134: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k134.lst	2026-10-21 20:59:50.950334806 -0500
++++ /tmp/tmp.njDQd0vVEk/k134.got	2026-10-21 20:59:52.701915013 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x10, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+0x50] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x10, R6 ;
+[FAIL] k135: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k135.lst	2026-10-21 20:59:50.950373495 -0500
++++ /tmp/tmp.njDQd0vVEk/k135.got	2026-10-21 20:59:52.717915163 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x20, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x18, R6 ;
+[FAIL] k136: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k136.lst	2026-10-21 20:59:50.950413351 -0500
++++ /tmp/tmp.njDQd0vVEk/k136.got	2026-10-21 20:59:52.732915303 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x30, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+0x10] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x28, R6 ;
+[FAIL] k137: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k137.lst	2026-10-21 20:59:50.950450199 -0500
++++ /tmp/tmp.njDQd0vVEk/k137.got	2026-10-21 20:59:52.752915490 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x50, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+-0x10] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x8, R6 ;
+[FAIL] k138: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k138.lst	2026-10-21 20:59:50.950485240 -0500
++++ /tmp/tmp.njDQd0vVEk/k138.got	2026-10-21 20:59:52.760915565 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x30, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+-0x30] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x10, R6 ;
+[FAIL] k139: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k139.lst	2026-10-21 20:59:50.950520184 -0500
++++ /tmp/tmp.njDQd0vVEk/k139.got	2026-10-21 20:59:52.769915649 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x50, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+0x50] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x20, R6 ;
+[FAIL] k140: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k140.lst	2026-10-21 20:59:50.950553624 -0500
++++ /tmp/tmp.njDQd0vVEk/k140.got	2026-10-21 20:59:52.782915771 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x10, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x30, R6 ;
+[FAIL] k141: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k141.lst	2026-10-21 20:59:50.950641897 -0500
++++ /tmp/tmp.njDQd0vVEk/k141.got	2026-10-21 20:59:52.791915855 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x20, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+0x10] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x50, R6 ;
+[FAIL] k142: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k142.lst	2026-10-21 20:59:50.950690393 -0500
++++ /tmp/tmp.njDQd0vVEk/k142.got	2026-10-21 20:59:52.802915958 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x30, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+-0x10] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x10, R6 ;
+[FAIL] k143: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k143.lst	2026-10-21 20:59:50.950738570 -0500
++++ /tmp/tmp.njDQd0vVEk/k143.got	2026-10-21 20:59:52.814916070 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x50, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+0x20] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x20, R6 ;
+[FAIL] k144: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k144.lst	2026-10-21 20:59:50.950787178 -0500
++++ /tmp/tmp.njDQd0vVEk/k144.got	2026-10-21 20:59:52.825916173 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x4, R2 ;
+-00d0 LDG.E R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k145: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k145.lst	2026-10-21 20:59:50.950833163 -0500
++++ /tmp/tmp.njDQd0vVEk/k145.got	2026-10-21 20:59:52.836916276 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x1000, R2 ;
+-00d0 LDG.E.128 R12, desc[UR4][R2.64+0x10] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x40, R6 ;
+[FAIL] k146: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k146.lst	2026-10-21 20:59:50.950879595 -0500
++++ /tmp/tmp.njDQd0vVEk/k146.got	2026-10-21 20:59:52.846916369 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x1, R2 ;
+-00d0 LDG.E.S8 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] k147: disassembler text differs from the encoder's listing
+--- /tmp/tmp.njDQd0vVEk/k147.lst	2026-10-21 20:59:50.950935148 -0500
++++ /tmp/tmp.njDQd0vVEk/k147.got	2026-10-21 20:59:52.874916631 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.S16 R12, desc[UR4][R2.64+-0x2] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] ldst: 0 of 148 kernels decode, every word, to the encoder's text
+VERDICT FAIL
+exit=1

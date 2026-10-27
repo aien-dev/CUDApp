@@ -19,6 +19,8 @@ This is not a claim that every NVIDIA component has been replaced: the documente
 - NVIDIA's open-kernel-module interface headers retain their MIT notices in `third_party/nvidia-open-580.173.02/`.
 - Mesa/NVK/NAK hardware facts and references retain their attribution in [THIRD_PARTY.md](../THIRD_PARTY.md). The historical audit reports no copied Mesa source code.
 - Attributed quotations remain third-party text, not my newly authored work.
+- 34 first-party files outside `evidence/` still carry `SPDX-License-Identifier: AGPL-3.0-only` and are not covered by the Apache-2.0 WITH LLVM-exception grant until their headers change: `tests/speculation` 10, `tests/learn53` 9, `native/speculation` 5, `native/learn53` 5, `native/blackwell` 3, `tests/device-trace` 1, `native/nvrm` 1 (all added by aien-spark on 2026-10-24 and 2026-10-25). List them with `grep -rl 'SPDX-License-Identifier: AGPL' --exclude-dir=evidence --exclude-dir=.git .`. Relicensing them is the author's decision; until then their AGPL-3.0-only terms apply.
+- Receipts under `evidence/` keep the terms they were recorded with and are not edited. `evidence/LEARN53-L777-CONTINUATION/{author,review}/omega-core.om` carry no licence header.
 - The original first-party MIT license can be read in [LICENSE at the pinned MIT revision](https://github.com/aien-dev/CUDApp/blob/232332422bfdc31c8918085b50f13c1e18ab702e/LICENSE). That prior grant remains effective for material covered by it; it is not a blanket MIT option for later Apache-2.0 WITH LLVM-exception contributions.
 
 ## Get the MIT foundation

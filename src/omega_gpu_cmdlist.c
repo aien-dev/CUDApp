@@ -213,8 +213,10 @@ static int wait_word(const OmegaGpuPlatform *p, const OmegaGpuMem *marker, uint6
     }
 }
 
-/* Uncertain completion: latch this module, then queue a 1 ms session launch behind the stuck list. If the channel is
- * still busy it times out and the session latches the whole process (parks every buffer, refuses every API). */
+/* Uncertain completion: latch this module, then hand the session a 1 ms launch. The stuck list is unretired, so the
+ * platform refuses that submission REFUSED_BUSY before it writes the ring or rings a doorbell (caps.max_inflight 1,
+ * CudaAuditFable Q6), and the session latches the whole process (parks every buffer, refuses every API). The launch
+ * only writes session-owned cbank, QMD and marker bytes 0..0x1f, none of which the list uses. */
 static void force_latch(OmegaGpuCmdList *cl, const char *why) {
     __atomic_store_n(&g_latched, omega_gpu_session_recoveries() + 1u, __ATOMIC_RELEASE);
     uint32_t arg = 0;
@@ -374,7 +376,9 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
         (void)p->sync_cpu_to_gpu(p->ctx, marker->handle, MARKER_OFF, 0x20);
         const uint64_t t0 = p->time_now_ns(p->ctx);
         host += t0 - tb;
-        if (p->queue_submit(p->ctx, s->queue, pb, (uint32_t)n) != OMEGA_GPU_PLAT_OK) {
+        const int qrc = p->queue_submit(p->ctx, s->queue, pb, (uint32_t)n);
+        if (qrc == OMEGA_GPU_PLAT_REFUSED_BUSY) { force_latch(cl, "cmdlist: an earlier submission is still in flight (latched)"); return -1; }
+        if (qrc != OMEGA_GPU_PLAT_OK) {
             omega_gpu_session_set_error("cmdlist submit: queue_submit refused"); return -1; /* refused: nothing in flight */
         }
         int w = wait_word(p, marker, 0, OMEGA_BW_MARKER_COMPLETION_PAYLOAD, timeout, spin);

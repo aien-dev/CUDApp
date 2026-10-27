@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# Runtime API gate (Bar C2, docs/runtime/API.md section 2): the manifest against the headers, the public-surface check,
+# the version-bump check against the base branch, and every negative control of both. Host only: no GPU, no CUDA toolkit.
+name: runtime-api
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  runtime-api:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Toolchain record
+        run: gcc --version | head -n 1 && make --version | head -n 1 && perl -v | sed -n 2p
+      - name: Manifest, surface and negative controls
+        run: make test-runtime-api
+      - name: Version bump against the base
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = 0000000000000000000000000000000000000000 ] || ! git cat-file -e "$BASE_SHA^{commit}"; then
+            echo "FAIL: no base commit to compare with ($BASE_SHA)"; exit 1
+          fi
+          if ! git cat-file -e "$BASE_SHA:docs/runtime/omega_runtime_api.manifest" 2>/dev/null; then
+            echo "base $BASE_SHA has no manifest: nothing to compare (NOT_RUN)"; exit 0
+          fi
+          make test-runtime-api-semver RUNTIME_API_BASE="$BASE_SHA"

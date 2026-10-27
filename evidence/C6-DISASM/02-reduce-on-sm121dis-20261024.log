@@ -1,0 +1,6 @@
+# omega c6/disasm c8d7d5294 (L386 train tip: over c5/isolation 934c1521, c3/gemm, c3/reduce-scan, main 0d72560a), 2026-10-24T23:38Z
+# command: make PHYSICS_DIR=~/workspace/l386-physics-pr test-numeric-reduce-nvdisasm
+max: 12 words decode to the recorded text
+min: 12 words decode to the recorded text
+E1 Reduce nvdisasm: PASS (sm121dis: Omega's own sm_121 disassembler (src/omega_sm121_disasm.c))
+# exit 0

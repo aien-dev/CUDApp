@@ -1,0 +1,15 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note HOST STAND-IN device step for tests/host-trace/fakenv.om; compose after launch.om. It computes
+note the VECTOR_1D result on the CPU (c = a + b mod 2^32 over gbargs 6 elements) and writes the two
+note completion marks and the queue value that gblaunch checks. Not a GPU observation.
+fn fkdev mark uint to void
+n = ulong get gbargs 6
+for i ulong n
+a = mapget get gbmem 5 mul i 4 4
+b = mapget get gbmem 6 mul i 4 4
+r = mapset get gbmem 7 mul i 4 4 and add a b 4294967295
+end
+r = mapset get gbmem 3 0 4 ulong mark
+r = mapset get gbmem 2 8192 4 6
+r = mapset get gbmem 3 16 4 1179010630
+end

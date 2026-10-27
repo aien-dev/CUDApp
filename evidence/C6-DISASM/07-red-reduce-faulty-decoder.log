@@ -1,0 +1,31 @@
+# omega c6/disasm b6a96d10 (worktree diff sha e3b0c44298fc1c14), 2026-10-22T01:59:52Z
+# command: make PHYSICS_DIR=/home/drakestapleton/workspace/physics-l386 REDUCE_NVDISASM=/tmp/c6/build/sm121dis_red test-numeric-reduce-nvdisasm
+--- /tmp/tmp.ydYmXvn4t8/max.lst	2026-10-21 20:59:53.585835969 -0500
++++ /tmp/tmp.ydYmXvn4t8/max.got	2026-10-21 20:59:53.590923328 -0500
+@@ -1,12 +1,12 @@
+-0000 SHFL.DOWN PT, R9, R2, 0x10, 0x1f ;
+-0010 FMNMX R2, R2, R9, !PT ;
+-0020 SHFL.DOWN PT, R9, R2, 0x8, 0x1f ;
+-0030 FMNMX R2, R2, R9, !PT ;
+-0040 SHFL.DOWN PT, R9, R2, 0x4, 0x1f ;
+-0050 FMNMX R2, R2, R9, !PT ;
+-0060 SHFL.DOWN PT, R9, R2, 0x2, 0x1f ;
+-0070 FMNMX R2, R2, R9, !PT ;
+-0080 SHFL.DOWN PT, R9, R2, 0x1, 0x1f ;
+-0090 FMNMX R9, R2, R9, !PT ;
+-00a0 STG.E desc[UR4][R6.64], R9 ;
++0000 SHFL.DOWN PT, R9, R3, 0x10, 0x1f ;
++0010 FMNMX R2, R3, R9, !PT ;
++0020 SHFL.DOWN PT, R9, R3, 0x8, 0x1f ;
++0030 FMNMX R2, R3, R9, !PT ;
++0040 SHFL.DOWN PT, R9, R3, 0x4, 0x1f ;
++0050 FMNMX R2, R3, R9, !PT ;
++0060 SHFL.DOWN PT, R9, R3, 0x2, 0x1f ;
++0070 FMNMX R2, R3, R9, !PT ;
++0080 SHFL.DOWN PT, R9, R3, 0x1, 0x1f ;
++0090 FMNMX R9, R3, R9, !PT ;
++00a0 STG.E desc[UR4][R7.64], R9 ;
+ 00b0 EXIT ;
+E1 Reduce nvdisasm: FAIL (max)
+make: *** [Makefile:323: test-numeric-reduce-nvdisasm] Error 1
+exit=2

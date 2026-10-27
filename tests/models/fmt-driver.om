@@ -1,0 +1,83 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Binary stdin records of 6 bytes: op, aux, then a little-endian uint v.
+note op 0 e4m3bits v, 1 e5m2bits v, 2 e4m3enc v aux, 3 e5m2enc v aux,
+note 4 nvfp4bits v aux, 5 nvfp4enc v aux, 6 nvfp4scale v.
+note Binary stdout is one little-endian uint per record. Records are read in
+note chunks of 1024; EOF inside a record exits 3, an unknown op exits 6.
+global fin uchar 6144
+global fout uchar 4096
+fn fmtop op uint aux uint v uint to uint
+if eq op 0
+ret e4m3bits v
+end
+if eq op 1
+ret e5m2bits v
+end
+if eq op 2
+ret e4m3enc v aux
+end
+if eq op 3
+ret e5m2enc v aux
+end
+if eq op 4
+ret nvfp4bits v aux
+end
+if eq op 5
+ret nvfp4enc v aux
+end
+if eq op 6
+ret nvfp4scale v
+end
+exit 6
+end
+fn dorec r ulong to void
+p = mul r 6
+v = uint get fin add p 2
+v = or v shl uint get fin add p 3 8
+v = or v shl uint get fin add p 4 16
+v = or v shl uint get fin add p 5 24
+w = fmtop uint get fin p uint get fin add p 1 v
+o = mul r 4
+for j ulong 4
+sh = uint mul j 8
+put fout add o j uchar and shr w sh 255
+end
+end
+fn main to int
+for blk ulong 1000000
+off = ulong 0
+while lt off 6144 bound 7000
+n = read 0 fin off sub ulong 6144 off
+if lt n 0
+ret 2
+end
+if eq n 0
+break
+end
+off = add off ulong n
+end
+if eq off 0
+ret 0
+end
+if ne rem off 6 0
+ret 3
+end
+cnt = div off 6
+for r ulong cnt
+dorec r
+end
+tot = mul cnt 4
+o = ulong 0
+while lt o tot bound 5000
+m = write 1 fout o sub tot o
+if le m 0
+ret 4
+end
+o = add o ulong m
+end
+if lt off 6144
+ret 0
+end
+end
+ret 5
+end

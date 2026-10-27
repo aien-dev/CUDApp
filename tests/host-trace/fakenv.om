@@ -1,0 +1,55 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note HOST STAND-IN for native/nvrm/context.om, for host trace tests only. It defines the names
+note launch.om uses (nvfull nvchan nvalloc nvsend nvwait nverr nvfault nvstage) without opening any
+note device: buffers are anonymous private mappings (mapnew -1 0 bytes 3 34). nvsend calls fkdev
+note (tests/host-trace/fakedev.om, composed after launch.om because it reads launch.om globals). Nothing here is a GPU observation;
+note timings recorded around it are host timings of this stand-in.
+note fkmode: 0 normal, 1 nvsend fails, 2 completion never arrives (nvwait times out),
+note 3 a wrong completion mark (gblaunch sets nvfault).
+global nverr long 1
+global nvfault uchar 1
+global nvstage uint 1
+global fkmode uint 1
+global fksz ulong 8
+global fkn ulong 1
+fn nvfull to bool
+ret true
+end
+fn nvchan to bool
+ret true
+end
+fn nvalloc want ulong cached bool to long
+m = mapnew -1 0 want 3 34
+n = get fkn 0
+if lt n 8
+put fksz n want
+end
+put fkn 0 add n 1
+ret m
+end
+fn nvsend m long off ulong words uint to bool
+if eq get fkmode 0 1
+put nverr 0 -5
+ret false
+end
+if eq get fkmode 0 2
+ret true
+end
+mark = uint 1145324612
+if eq get fkmode 0 3
+mark = uint 1
+end
+fkdev mark
+ret true
+end
+note nvwait polls the mark with a 20 microsecond host sleep between reads, at most 50 reads.
+fn nvwait m long off ulong value uint budget ulong to bool
+for i ulong 50
+if eq mapget m off 4 ulong value
+ret true
+end
+s = sleepns 20000
+end
+put nverr 0 -110
+ret false
+end

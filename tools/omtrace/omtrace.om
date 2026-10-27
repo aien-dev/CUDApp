@@ -1,0 +1,1307 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note omtrace: compile-phase and run tracing around omc, merged with a program's OTR1 events, written
+note as Chrome trace JSON (Perfetto, chrome://tracing) and OTLP JSON. Handwritten seeded Omega; compose
+note after native/trace/htrec.om (omtrace records its own phases with that recorder).
+note
+note   omtrace v FRAG                          validate an OTR1 file; exit 0 or 20+reason
+note   omtrace c|r|f OMC PREFIX FRAG|- UNIT... c compile only, r compile and run, f also run the
+note                                           program as PROGRAM FRAG and merge the OTR1 it writes
+note Writes PREFIX.unit.om (the composed unit), PREFIX.bin, PREFIX.omc.err, PREFIX.trace.json and
+note PREFIX.otlp.json. Exit 0 traced, 2 usage, 3 compile failed (trace still written), 4 output too
+note large, 5 cannot write, 6 fragment unreadable, 20..31 fragment rejected (reason on stderr).
+note A traced program's exit status 100+N means it hit trap N.
+note No device is opened and no device clock is read; the trace says so in its own metadata.
+note P holds every literal output piece, separated by ^ (byte 94), indexed by the consts below.
+text P "{\"displayTimeUnit\":\"ns\",\"otherData\":{\"schema\":\"aien.unified-trace/1\",\"clock\":\"host CLOCK_MONOTONIC; ts and dur are microseconds from the first event\",\"device_timing\":\"NOT_RUN\"^{\"name\":\"^\",\"cat\":\"^\",\"ph\":\"X\",\"ts\":^,\"dur\":^,\"pid\":^,\"tid\":1,\"args\":{^}}^\",\"ph\":\"i\",\"s\":\"p\",\"ts\":^]}\n^{\"name\":\"process_name\",\"ph\":\"M\",\"pid\":^,\"tid\":0,\"args\":{\"name\":\"^\"}}^,^\"^\":^omtrace (host compile and run)^program (host runtime events)^device (NOT_RUN: no device clock recorded)^{\"resourceSpans\":[{\"resource\":{\"attributes\":[{\"key\":\"service.name\",\"value\":{\"stringValue\":\"omtrace\"}},{\"key\":\"aien.trace.schema\",\"value\":{\"stringValue\":\"aien.unified-trace/1\"}},{\"key\":\"aien.device_timing\",\"value\":{\"stringValue\":\"NOT_RUN\"}}^{\"traceId\":\"^\",\"spanId\":\"^\",\"parentSpanId\":\"^\",\"name\":\"^\",\"kind\":1,\"startTimeUnixNano\":\"^\",\"endTimeUnixNano\":\"^\",\"attributes\":[^{\"key\":\"^\",\"value\":{\"stringValue\":\"^\",\"value\":{\"intValue\":\"^\"}}^]^,\"status\":{\"code\":2,\"message\":\"nonzero status\"}^}^]}]}]}\n^aien.kind^aien.source^.^aien.^code.file.path^code.line.number^code.column.number^{\"name\":\"device.timing.NOT_RUN\",\"cat\":\"notice\",\"ph\":\"i\",\"s\":\"p\",\"ts\":0,\"pid\":0,\"tid\":1,\"args\":{}}^bytes^count^status^file^line^col^error^bytes_allocated^code_bytes^elements^stage^stage_name^slot^direction^a0^a1^code^trap_name^candidates^compile.phase^diag^gpu.open^kernel.launch^mem.alloc^mem.copy^host.wait^trap^user.span^user.mark^mem.moved^refused^build.upload^submit^host.wait^complete.check^overflow^divzero^range^loopbound^code5^stack^shift^code8^requires^ensures^code11^code12^code13^code14^omtrace^source.read^compose^omc.compile^diag.decode^program.run^omc.error^fragment.read^.unit.om^.bin^.omc.err^.trace.json^.otlp.json^OMTRACE_OK ^OMTRACE_REJECT ^OMTRACE_FRAGMENT_OK ^\n^usage: omtrace v FRAG | omtrace c|r|f OMC PREFIX FRAG|- UNIT...\n^OMTRACE_COMPILE_FAILED ^magic^version^recsize^clock^size^count^kind^form^time^name^nameref^opencount^0123456789abcdef^program^omc: line ^omc-diag 1 ^,\"dropped\":^,\"refused\":^,\"open_spans\":^},\"traceEvents\":[^]},\"scopeSpans\":[{\"scope\":{\"name\":\"aien.unified-trace\",\"version\":\"1\"},\"spans\":[^dropped^open_spans"
+const PJHEAD ulong 0
+const PJNAME ulong 1
+const PJCAT ulong 2
+const PJX ulong 3
+const PJDUR ulong 4
+const PJPID ulong 5
+const PJTID ulong 6
+const PJCLOSE2 ulong 7
+const PJI ulong 8
+const PJTAIL ulong 9
+const PJMETA ulong 10
+const PJMETA2 ulong 11
+const PJMETA3 ulong 12
+const PCOMMA ulong 13
+const PQUOTE ulong 14
+const PQCOLON ulong 15
+const PSRC0 ulong 16
+const PSRC1 ulong 17
+const PSRC2 ulong 18
+const POHEAD ulong 19
+const POTRACE ulong 20
+const POSPAN ulong 21
+const POPARENT ulong 22
+const PONAME ulong 23
+const POSTART ulong 24
+const POEND ulong 25
+const POATTR ulong 26
+const POKEY ulong 27
+const POSTR ulong 28
+const POINT ulong 29
+const POVEND ulong 30
+const PCLOSEB ulong 31
+const POERR ulong 32
+const PCLOSEC ulong 33
+const POTAIL ulong 34
+const PAKIND ulong 35
+const PASRC ulong 36
+const PDOT ulong 37
+const PAPRE ulong 38
+const PFILE ulong 39
+const PLINE ulong 40
+const PCOL ulong 41
+const PDEVMARK ulong 42
+const PLABEL ulong 43
+const PKIND ulong 62
+const PSTAGE ulong 73
+const PTRAP ulong 78
+const POWN ulong 92
+const PSUFFIX ulong 100
+const MOK ulong 105
+const MREJ ulong 106
+const MFOK ulong 107
+const MNL ulong 108
+const MUSAGE ulong 109
+const MCOMPF ulong 110
+const PREASON ulong 111
+const PHEX ulong 123
+const LBYTES ulong 43
+const LCOUNT ulong 44
+const LSTATUS ulong 45
+const LFILE ulong 46
+const LLINE ulong 47
+const LCOL ulong 48
+const LERROR ulong 49
+const LBYTESAL ulong 50
+const LCODEBYT ulong 51
+const LELEMENT ulong 52
+const LSTAGE ulong 53
+const LSTAGENA ulong 54
+const LSLOT ulong 55
+const LDIRECTI ulong 56
+const LA0 ulong 57
+const LA1 ulong 58
+const LCODE ulong 59
+const LTRAPNAM ulong 60
+const LCANDIDA ulong 61
+const PSRCP ulong 124
+const PEOMC ulong 125
+const PEDIAG ulong 126
+const PCDROP ulong 127
+const PCREFU ulong 128
+const PCOPEN ulong 129
+const PJBODY ulong 130
+const POBODY ulong 131
+const PLDROP ulong 132
+const PLOPEN ulong 133
+note the label "refused" is shared with launch stage 0 (PSTAGE)
+global poff ulong 256
+global plen ulong 256
+global out uchar 4194304
+global outn ulong 1
+global src uchar 4194304
+global srcn ulong 1
+global ubeg ulong 64
+global upath uchar 262144
+global upl ulong 64
+global ucnt ulong 1
+global abuf uchar 4096
+global pfx uchar 4096
+global pbuf uchar 4096
+global omcp uchar 4096
+global frp uchar 4096
+global pk uchar 4096
+global status uchar 4
+global ebuf uchar 65536
+global fr uchar 262144
+global ek uint 8192
+global es uchar 8192
+global et0 ulong 8192
+global et1 ulong 8192
+global ea0 ulong 8192
+global ea1 ulong 8192
+global erc long 8192
+global eno ulong 8192
+global enl ulong 8192
+global epar ulong 8192
+global npool uchar 131072
+global po ulong 512
+global fnid uint 256
+global fnoff ulong 256
+global fnln ulong 256
+global cand ulong 16
+global om ulong 32
+note om slots: 0 events, 1 pool bytes, 2 prefix len, 3 omc path len, 4 fragment path len (0 none),
+note 5 mode byte, 6 base time, 7 candidates, 8 fragment bytes, 9 fragment names,
+note 11..13 source 1 mono0 real0 pid, 14 path len in pbuf, 15 packet len, 16 stderr bytes,
+note 20 output overflow (a JSON file would be cut short, so nothing is written); others unused.
+fn pinit to void
+k = ulong 0
+put poff 0 0
+for i ulong len P
+if eq get P i 94
+put plen k sub i get poff k
+k = add k 1
+put poff k add i 1
+end
+end
+put plen k sub len P get poff k
+end
+fn putb b uchar to void
+n = get outn 0
+if lt n len out
+put out n b
+put outn 0 add n 1
+else
+put om 20 1
+end
+end
+fn jp k ulong to void
+o = get poff k
+for i ulong get plen k
+putb get P add o i
+end
+end
+fn jnum v ulong to void
+if ge v 10
+jnum div v 10
+end
+putb uchar add 48 rem v 10
+end
+fn jsnum v long to void
+if lt v 0
+putb 45
+m = bitcast ulong v
+jnum add xor m 18446744073709551615 1
+ret
+end
+jnum ulong v
+end
+fn jhex16 v ulong to void
+for i ulong 16
+d = and shr v mul sub 15 i 4 15
+putb get P add get poff PHEX d
+end
+end
+note jus: nanoseconds as microseconds with three decimals, from integers only
+fn jus v ulong to void
+jnum div v 1000
+putb 46
+f = rem v 1000
+putb uchar add 48 div f 100
+putb uchar add 48 rem div f 10 10
+putb uchar add 48 rem f 10
+end
+note jesc: a JSON string body from bytes; quote and backslash escaped, other bytes below 32 and all
+note bytes from 127 up as \u00XX, so the output is ASCII whatever the input encoding.
+fn jescb b uchar to void
+if or eq b 34 eq b 92
+putb 92
+putb b
+ret
+end
+if or lt b 32 ge b 127
+putb 92
+putb 117
+putb 48
+putb 48
+putb get P add get poff PHEX ulong shr b 4
+putb get P add get poff PHEX ulong and b 15
+ret
+end
+putb b
+end
+fn jpool o ulong n ulong to void
+for i ulong n
+jescb get npool add o i
+end
+end
+fn jupath u ulong to void
+o = mul u 4096
+for i ulong get upl u
+jescb get upath add o i
+end
+end
+fn msg k ulong to void
+o = get poff k
+for i ulong get plen k
+put abuf i get P add o i
+end
+w = write 2 abuf 0 get plen k
+end
+fn msgnum v ulong to void
+n = ulong 0
+x = v
+while true bound 24
+put pbuf n uchar add 48 rem x 10
+n = add n 1
+x = div x 10
+if eq x 0
+break
+end
+end
+for i ulong n
+put abuf i get pbuf sub sub n i 1
+end
+w = write 2 abuf 0 n
+end
+fn reject r ulong to void
+msg MREJ
+msg add PREASON r
+msg MNL
+exit int add 20 r
+end
+note ---- names for omtrace's own events: ids 1..8 are POWN pieces, 20+c trap c, 40 device mark
+fn regpiece id uint k ulong to bool
+ok = htnbeg id
+o = get poff k
+for i ulong get plen k
+ok = and ok htnbyte get P add o i
+end
+ret and ok htnend
+end
+fn regall to bool
+ok = true
+for i ulong 8
+ok = and ok regpiece uint add i 1 add POWN i
+end
+for c ulong 14
+ok = and ok regpiece uint add c 21 add PTRAP c
+end
+ret ok
+end
+note ---- paths: pbuf = prefix + suffix piece
+fn mkpath k ulong to ulong
+n = get om 2
+for i ulong n
+put pbuf i get pfx i
+end
+o = get poff k
+for i ulong get plen k
+put pbuf add n i get P add o i
+end
+m = add n get plen k
+put om 14 m
+ret m
+end
+fn readall fd int dst ulong cap ulong to ulong
+note dst 0 src (appending at srcn), 1 ebuf, 2 fr
+n = ulong 0
+base = get srcn 0
+room = sub len src base
+while true bound 100000
+r = long 0
+if eq dst 0
+at = add base n
+r = read fd src at sub room n
+end
+if eq dst 1
+r = read fd ebuf n sub len ebuf n
+end
+if eq dst 2
+r = read fd fr n sub len fr n
+end
+if le r 0
+break
+end
+n = add n ulong r
+if ge n cap
+break
+end
+end
+ret n
+end
+fn writeall fd int n ulong to bool
+done = ulong 0
+while lt done n bound 100000
+w = write fd out done sub n done
+if le w 0
+ret false
+end
+done = add done ulong w
+end
+ret true
+end
+note ---- packed argument list for execprog
+fn pkreset to void
+put pk 0 0
+put pk 1 0
+put om 15 2
+end
+fn pkadd from ulong n ulong to void
+note from 0 pbuf, 1 omcp, 2 frp
+p = get om 15
+put pk p uchar and n 255
+put pk add p 1 uchar shr n 8
+for i ulong n
+b = uchar 0
+if eq from 0
+b = get pbuf i
+end
+if eq from 1
+b = get omcp i
+end
+if eq from 2
+b = get frp i
+end
+put pk add add p 2 i b
+end
+put om 15 add add p 2 n
+c = add ulong get pk 0 1
+put pk 0 uchar c
+end
+fn ecode to ulong
+ret ulong get status 1
+end
+fn esig to ulong
+ret ulong and get status 0 127
+end
+fn redirect k ulong target int flags int mode int to bool
+n = mkpath k
+fd = fopen pbuf 0 n flags mode
+if lt fd 0
+ret false
+end
+r = dupfd int fd target 0
+ret eq r long target
+end
+fn runomc to ulong
+pkreset
+pkadd 1 get om 3
+pid = fork
+if eq pid 0
+if not redirect add PSUFFIX 0 0 0 0
+exit 126
+end
+if not redirect add PSUFFIX 1 1 577 448
+exit 126
+end
+if not redirect add PSUFFIX 2 2 577 384
+exit 126
+end
+r = execprog pk 0 get om 15
+exit 127
+end
+if lt pid 0
+ret 255
+end
+r = waitpid int pid status 0 4 0
+ret ecode
+end
+fn runprog to ulong
+pkreset
+n = mkpath add PSUFFIX 1
+pkadd 0 n
+if ne get om 4 0
+pkadd 2 get om 4
+end
+pid = fork
+if eq pid 0
+r = execprog pk 0 get om 15
+exit 127
+end
+if lt pid 0
+ret 255
+end
+r = waitpid int pid status 0 4 0
+ret ecode
+end
+
+note ---- source.read + compose: units appended to src, each ending in a newline
+fn lines from ulong to ulong
+c = ulong 0
+for i ulong sub get srcn 0 from
+if eq get src add from i 10
+c = add c 1
+end
+end
+ret c
+end
+fn addunit a ulong to bool
+u = get ucnt 0
+if ge u 64
+ret false
+end
+n = argread a abuf 0 4095
+if le n 0
+ret false
+end
+o = mul u 4096
+for i ulong ulong n
+put upath add o i get abuf i
+end
+put upl u ulong n
+put ubeg u add lines 0 1
+fd = fopen abuf 0 ulong n 0 0
+if lt fd 0
+ret false
+end
+start = get srcn 0
+k = readall int fd 0 sub len src start
+c = fclose int fd
+put srcn 0 add start k
+if and gt k 0 lt get srcn 0 len src
+if ne get src sub get srcn 0 1 10
+put src get srcn 0 10
+put srcn 0 add get srcn 0 1
+end
+end
+put ucnt 0 add u 1
+ret true
+end
+fn writeunit to bool
+n = mkpath add PSUFFIX 0
+fd = fopen pbuf 0 n 577 384
+if lt fd 0
+ret false
+end
+done = ulong 0
+while lt done get srcn 0 bound 100000
+w = write int fd src done sub get srcn 0 done
+if le w 0
+c = fclose int fd
+ret false
+end
+done = add done ulong w
+end
+c = fclose int fd
+ret true
+end
+note unitof: the unit holding composed line L (1-based); lineof: L within that unit
+fn unitof l ulong to ulong
+u = ulong 0
+for i ulong get ucnt 0
+if le get ubeg i l
+u = i
+end
+end
+ret u
+end
+fn lineof l ulong to ulong
+ret add sub l get ubeg unitof l 1
+end
+note ---- diag.decode: omc: line N: error E, omc-diag col=, omc-site records
+fn numat at ulong n ulong to ulong
+v = ulong 0
+i = at
+while lt i n bound 64
+b = get ebuf i
+if or lt b 48 gt b 57
+break
+end
+v = add mul v 10 ulong sub b 48
+i = add i 1
+end
+ret v
+end
+fn hasat at ulong n ulong k ulong to bool
+o = get poff k
+m = get plen k
+if gt add at m n
+ret false
+end
+for i ulong m
+if ne get ebuf add at i get P add o i
+ret false
+end
+end
+ret true
+end
+fn findkey at ulong e ulong c0 uchar c1 uchar to ulong
+note position after "c0c1=" within ebuf[at, e), or 0
+i = at
+while lt add i 2 e bound 65536
+if and eq get ebuf i c0 eq get ebuf add i 1 c1
+if eq get ebuf add i 2 61
+ret add i 3
+end
+end
+i = add i 1
+end
+ret 0
+end
+fn diagline at ulong e ulong to ulong
+note returns 1 when a record was recorded
+if hasat at e PEOMC
+l = numat add at 10 e
+p = sub e 1
+while gt p at bound 64
+if eq get ebuf p 32
+break
+end
+p = sub p 1
+end
+ec = numat add p 1 e
+b = htmark 2 7 l 0 long ec
+ret 1
+end
+if hasat at e PEDIAG
+p = findkey at e 111 108
+if gt p 0
+n = get htst 1
+if gt n 0
+put hta1 sub n 1 numat p e
+end
+end
+ret 0
+end
+ret 0
+end
+fn decode to ulong
+n = get om 16
+c = ulong 0
+at = ulong 0
+for i ulong n
+if eq get ebuf i 10
+c = add c diagline at i
+at = add i 1
+end
+end
+ret c
+end
+note ---- trap candidates: composed lines whose text is "trap N" with N the observed code
+fn trapline at ulong e ulong code ulong to bool
+if lt sub e at 6
+ret false
+end
+if or ne get src at 116 ne get src add at 1 114
+ret false
+end
+if or ne get src add at 2 97 ne get src add at 3 112
+ret false
+end
+if ne get src add at 4 32
+ret false
+end
+v = ulong 0
+for i ulong sub e add at 5
+b = get src add add at 5 i
+if or lt b 48 gt b 57
+ret false
+end
+v = add mul v 10 ulong sub b 48
+if gt v 99
+ret false
+end
+end
+ret eq v code
+end
+fn scantrap code ulong to void
+at = ulong 0
+l = ulong 1
+n = get srcn 0
+for i ulong n
+if eq get src i 10
+if and trapline at i code lt get om 7 16
+put cand get om 7 l
+put om 7 add get om 7 1
+end
+at = add i 1
+l = add l 1
+end
+end
+end
+
+note ---- OTR1 fragment: read, validate (any failure rejects the whole fragment), index names
+fn frd at ulong k ulong to ulong
+v = ulong 0
+for i ulong k
+v = or v shl ulong get fr add at i mul i 8
+end
+ret v
+end
+fn fnfind id uint to ulong
+for i ulong get om 9
+if eq get fnid i id
+ret add i 1
+end
+end
+ret 0
+end
+fn vnames at ulong nn ulong n ulong to ulong
+note returns the end offset of the name table; rejects on any fault
+p = at
+for j ulong nn
+if gt add p 6 n
+reject 4
+end
+id = uint frd p 4
+l = frd add p 4 2
+if or or eq id 0 eq l 0 gt l 63
+reject 9
+end
+if gt add add p 6 l n
+reject 4
+end
+for i ulong l
+if not htnok get fr add add p 6 i
+reject 9
+end
+end
+if ne fnfind id 0
+reject 9
+end
+put fnid j id
+put fnoff j add p 6
+put fnln j l
+put om 9 add j 1
+p = add add p 6 l
+end
+ret p
+end
+fn vrec i ulong to bool
+at = add 64 mul i 48
+k = uint frd at 2
+fl = frd add at 2 2
+if or eq k 0 gt k 11
+reject 6
+end
+if gt fl 1
+reject 7
+end
+if and eq fl 0 not htspan k
+reject 7
+end
+t0 = frd add at 8 8
+t1 = frd add at 16 8
+if lt t1 t0
+reject 8
+end
+if and eq fl 0 ne t1 t0
+reject 8
+end
+if and htinst k ne t1 t0
+reject 7
+end
+if eq fnfind uint frd add at 4 4 0
+reject 10
+end
+ret eq fl 0
+end
+fn vfrag n ulong to ulong
+if lt n 64
+reject 4
+end
+if ne frd 0 4 827479119
+reject 0
+end
+if ne frd 4 2 1
+reject 1
+end
+if ne frd 6 2 48
+reject 2
+end
+if ne frd 20 4 1
+reject 3
+end
+c = frd 8 4
+nn = frd 44 4
+if or gt c 4096 gt nn 256
+reject 5
+end
+if gt add 64 mul c 48 n
+reject 4
+end
+put om 9 0
+e = vnames add 64 mul c 48 nn n
+if ne e n
+reject 4
+end
+open = ulong 0
+for i ulong c
+if vrec i
+open = add open 1
+end
+end
+if ne open frd 48 4
+reject 11
+end
+put om 11 frd 24 8
+put om 12 frd 32 8
+put om 13 frd 40 4
+ret c
+end
+fn loadfrag to ulong
+fd = fopen frp 0 get om 4 0 0
+if lt fd 0
+msg MUSAGE
+exit 6
+end
+n = readall int fd 2 len fr
+c = fclose int fd
+put om 8 n
+ret vfrag n
+end
+note ---- combined event table: source 0 omtrace (htrec arrays), source 1 the fragment
+fn poolput from ulong o ulong n ulong to ulong
+note from 0 htnb, 1 fr; returns pool offset
+p = get om 1
+for i ulong n
+b = uchar 0
+if eq from 0
+b = get htnb add o i
+else
+b = get fr add o i
+end
+put npool add p i b
+end
+put om 1 add p n
+ret p
+end
+note pooled: each name is copied into npool once (at most 2 x 256 names of 63 bytes), not per event.
+note po holds pool offset + 1 per name index, source 0 at 0..255 and source 1 at 256..511.
+fn pooled s ulong j ulong o ulong n ulong to ulong
+x = add mul s 256 j
+if eq get po x 0
+put po x add poolput s o n 1
+end
+ret sub get po x 1
+end
+fn addev s uchar k uint t0 ulong t1 ulong to ulong
+e = get om 0
+put ek e k
+put es e s
+put et0 e t0
+put et1 e t1
+put om 0 add e 1
+ret e
+end
+fn takeown to void
+for i ulong get htst 1
+e = addev 0 get htkind i get htt0 i get htt1 i
+put ea0 e get hta0 i
+put ea1 e get hta1 i
+put erc e get htrc i
+j = sub htnfind get htname i 1
+put enl e get htnln j
+put eno e pooled 0 j get htnoff j get htnln j
+end
+end
+fn takefrag c ulong to void
+for i ulong c
+at = add 64 mul i 48
+e = addev 1 uint frd at 2 frd add at 8 8 frd add at 16 8
+put ea0 e frd add at 24 8
+put ea1 e frd add at 32 8
+put erc e bitcast long frd add at 40 8
+j = sub fnfind uint frd add at 4 4 1
+put enl e get fnln j
+put eno e pooled 1 j get fnoff j get fnln j
+end
+end
+fn basetime to void
+b = get et0 0
+for i ulong get om 0
+if lt get et0 i b
+b = get et0 i
+end
+end
+put om 6 b
+end
+note parent: the shortest span (any source) that contains the event and starts no later; 0 none, else index+1
+fn within i ulong j ulong to bool
+if or eq i j not htspan get ek j
+ret false
+end
+a0 = get et0 i
+a1 = get et1 i
+b0 = get et0 j
+b1 = get et1 j
+if or gt b0 a0 lt b1 a1
+ret false
+end
+if and eq b0 a0 eq b1 a1
+ret lt j i
+end
+ret true
+end
+fn parents to void
+n = get om 0
+for i ulong n
+best = ulong 0
+bd = ulong 18446744073709551615
+for j ulong n
+if within i j
+d = sub get et1 j get et0 j
+if lt d bd
+bd = d
+best = add j 1
+end
+end
+end
+put epar i best
+end
+end
+
+note ---- labels of a0 and a1 per kind (docs/trace/UNIFIED_TRACE.md, table "Event kinds")
+fn lab0 k uint to ulong
+if or or eq k 1 eq k 5 or eq k 6 eq k 11
+ret LBYTES
+end
+if eq k 2
+ret LLINE
+end
+if eq k 3
+ret LBYTESAL
+end
+if eq k 4
+ret LELEMENT
+end
+if eq k 8
+ret LCODE
+end
+ret LA0
+end
+fn lab1 k uint to ulong
+if or eq k 1 eq k 8
+ret LCOUNT
+end
+if eq k 2
+ret LCOL
+end
+if eq k 3
+ret LCODEBYT
+end
+if eq k 4
+ret LSTAGE
+end
+if eq k 5
+ret LSLOT
+end
+if or eq k 6 eq k 11
+ret LDIRECTI
+end
+ret LA1
+end
+note own diag events hold the composed line in a0; exports show the unit's file and line
+fn owndiag i ulong to bool
+ret and eq get es i 0 eq get ek i 2
+end
+fn val0 i ulong to ulong
+if owndiag i
+ret lineof get ea0 i
+end
+ret get ea0 i
+end
+fn stagep v ulong to ulong
+if eq v 0
+ret PSTAGE
+end
+if and ge v 40 le v 43
+ret add PSTAGE sub v 39
+end
+ret 0
+end
+fn trapp v ulong to ulong
+if and ge v 1 le v 14
+ret add PTRAP sub v 1
+end
+ret 0
+end
+fn pidof s uchar to ulong
+if eq s 0
+ret get htst 10
+end
+ret get om 13
+end
+fn jkey k ulong to void
+jp PCOMMA
+jp PQUOTE
+jp k
+jp PQCOLON
+end
+fn jpstr k ulong to void
+jp PQUOTE
+jp k
+jp PQUOTE
+end
+fn jcands to void
+jp PQUOTE
+for c ulong get om 7
+if gt c 0
+putb 32
+end
+l = get cand c
+jupath unitof l
+putb 58
+jnum lineof l
+end
+jp PQUOTE
+end
+fn cargs i ulong to void
+k = get ek i
+jp PQUOTE
+jp LSTATUS
+jp PQCOLON
+jsnum get erc i
+jkey lab0 k
+jnum val0 i
+jkey lab1 k
+jnum get ea1 i
+if owndiag i
+jkey LFILE
+jp PQUOTE
+jupath unitof get ea0 i
+jp PQUOTE
+end
+if eq k 4
+p = stagep get ea1 i
+if ne p 0
+jkey LSTAGENA
+jpstr p
+end
+end
+if eq k 8
+p = trapp get ea0 i
+if ne p 0
+jkey LTRAPNAM
+jpstr p
+end
+if eq get es i 0
+jkey LCANDIDA
+jcands
+end
+end
+end
+fn cev i ulong to void
+k = get ek i
+b = get om 6
+jp PJNAME
+jpool get eno i get enl i
+jp PJCAT
+jp add PKIND sub ulong k 1
+if htspan k
+jp PJX
+jus sub get et0 i b
+jp PJDUR
+jus sub get et1 i get et0 i
+else
+jp PJI
+jus sub get et0 i b
+end
+jp PJPID
+jnum pidof get es i
+jp PJTID
+cargs i
+jp PJCLOSE2
+end
+fn cmeta pid ulong k ulong to void
+jp PJMETA
+jnum pid
+jp PJMETA2
+jp k
+jp PJMETA3
+jp PCOMMA
+end
+note lost: what the trace does not show. k 0 events dropped past capacity, 1 malformed calls
+note refused (omtrace's own recorder plus the program's), 2 spans the program left open.
+fn lost k ulong to ulong
+f = gt get om 8 0
+if eq k 2
+if f
+ret frd 48 4
+end
+ret 0
+end
+v = get htst add k 2
+if f
+v = add v frd add mul k 4 12 4
+end
+ret v
+end
+fn chrome to void
+put outn 0 0
+jp PJHEAD
+jp PCDROP
+jnum lost 0
+jp PCREFU
+jnum lost 1
+jp PCOPEN
+jnum lost 2
+jp PJBODY
+cmeta get htst 10 PSRC0
+if ne get om 13 0
+cmeta get om 13 PSRC1
+end
+cmeta 0 PSRC2
+jp PDEVMARK
+for i ulong get om 0
+jp PCOMMA
+cev i
+end
+jp PJTAIL
+end
+note ---- OTLP JSON (one resourceSpans, one scopeSpans, one span per event)
+fn ounix i ulong t ulong to ulong
+m = get htst 4
+r = get htst 5
+if eq get es i 1
+m = get om 11
+r = get om 12
+end
+if ge t m
+ret add r sub t m
+end
+ret sub r sub m t
+end
+fn akey k ulong pre bool to void
+jp POKEY
+if pre
+jp PAPRE
+end
+jp k
+end
+fn aint k ulong v long to void
+jp PCOMMA
+akey k true
+jp POINT
+jsnum v
+jp POVEND
+end
+fn oattrs i ulong to void
+k = get ek i
+akey PAKIND false
+jp POSTR
+jp add PKIND sub ulong k 1
+jp POVEND
+jp PCOMMA
+akey PASRC false
+jp POSTR
+if eq get es i 0
+jp POWN
+else
+jp PSRCP
+end
+jp POVEND
+aint LSTATUS get erc i
+aint lab0 k bitcast long val0 i
+aint lab1 k bitcast long get ea1 i
+if owndiag i
+jp PCOMMA
+akey PFILE false
+jp POSTR
+jupath unitof get ea0 i
+jp POVEND
+jp PCOMMA
+akey PLINE false
+jp POINT
+jnum val0 i
+jp POVEND
+jp PCOMMA
+akey PCOL false
+jp POINT
+jnum get ea1 i
+jp POVEND
+end
+end
+fn oev i ulong to void
+jp POTRACE
+jhex16 get htst 5
+jhex16 get htst 10
+jp POSPAN
+jhex16 add i 1
+p = get epar i
+if ne p 0
+jp POPARENT
+jhex16 p
+end
+jp PONAME
+jpool get eno i get enl i
+jp POSTART
+jnum ounix i get et0 i
+jp POEND
+jnum ounix i get et1 i
+jp POATTR
+oattrs i
+jp PCLOSEB
+if ne get erc i 0
+jp POERR
+end
+jp PCLOSEC
+end
+fn otlp to void
+put outn 0 0
+jp POHEAD
+aint PLDROP bitcast long lost 0
+aint PSTAGE bitcast long lost 1
+aint PLOPEN bitcast long lost 2
+jp POBODY
+for i ulong get om 0
+if gt i 0
+jp PCOMMA
+end
+oev i
+end
+jp POTAIL
+end
+fn emit k ulong to bool
+if ne get om 20 0
+ret false
+end
+n = mkpath k
+fd = fopen pbuf 0 n 577 384
+if lt fd 0
+ret false
+end
+ok = writeall int fd get outn 0
+c = fclose int fd
+ret ok
+end
+
+note ---- main
+fn argto a ulong dst ulong to ulong
+n = argread a abuf 0 4095
+if le n 0
+msg MUSAGE
+exit 2
+end
+for i ulong ulong n
+if eq dst 0
+put pfx i get abuf i
+end
+if eq dst 1
+put omcp i get abuf i
+end
+if eq dst 2
+put frp i get abuf i
+end
+end
+ret ulong n
+end
+fn fsize k ulong to ulong
+n = mkpath k
+fd = fopen pbuf 0 n 0 0
+if lt fd 0
+ret 0
+end
+r = fseek int fd 0 2
+c = fclose int fd
+if lt r 0
+ret 0
+end
+ret ulong r
+end
+fn readerr to ulong
+n = mkpath add PSUFFIX 2
+fd = fopen pbuf 0 n 0 0
+if lt fd 0
+ret 0
+end
+k = readall int fd 1 len ebuf
+c = fclose int fd
+put om 16 k
+ret k
+end
+fn compile to ulong
+s = htbeg 1 2
+for a ulong sub ulong argcnt 5
+if not addunit add a 5
+msg MUSAGE
+exit 2
+end
+end
+b = htend s get srcn 0 get ucnt 0 0
+s = htbeg 1 3
+if not writeunit
+exit 5
+end
+b = htend s get srcn 0 lines 0 0
+s = htbeg 1 4
+ec = runomc
+b = htend s fsize add PSUFFIX 1 ec long ec
+s = htbeg 1 5
+n = readerr
+d = decode
+b = htend s n d 0
+ret ec
+end
+fn runphase to void
+s = htbeg 9 6
+x = runprog
+b = htend s x esig long x
+if and gt x 100 le x 114
+c = sub x 100
+scantrap c
+b = htmark 8 uint add c 20 c get om 7 long x
+end
+end
+fn fragphase to ulong
+s = htbeg 1 8
+c = loadfrag
+b = htend s get om 8 c 0
+ret c
+end
+fn main to int
+pinit
+if lt argcnt 3
+msg MUSAGE
+ret 2
+end
+n = argread 1 abuf 0 4095
+if ne n 1
+msg MUSAGE
+ret 2
+end
+mode = get abuf 0
+put om 5 ulong mode
+if eq mode 118
+put om 4 argto 2 2
+c = loadfrag
+msg MFOK
+msgnum c
+msg MNL
+ret 0
+end
+if or lt argcnt 6 and and ne mode 99 ne mode 114 ne mode 102
+msg MUSAGE
+ret 2
+end
+put om 3 argto 2 1
+put om 2 argto 3 0
+f = argto 4 2
+if and eq f 1 eq get frp 0 45
+f = ulong 0
+end
+put om 4 f
+ok = regall
+ok = and ok htinit
+root = htbeg 9 1
+ec = compile
+fc = ulong 0
+if and eq ec 0 ne mode 99
+runphase
+if and eq mode 102 ne get om 4 0
+fc = fragphase
+end
+end
+b = htend root get ucnt 0 ec long ec
+htstop
+takeown
+takefrag fc
+basetime
+parents
+chrome
+ok = and ok emit add PSUFFIX 3
+otlp
+ok = and ok emit add PSUFFIX 4
+if not ok
+msgnum get om 20
+msg MNL
+ret 4
+end
+if ne ec 0
+msg MCOMPF
+msgnum ec
+msg MNL
+ret 3
+end
+msg MOK
+msgnum get om 0
+msg MNL
+ret 0
+end

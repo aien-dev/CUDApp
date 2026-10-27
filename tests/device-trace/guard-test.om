@@ -1,0 +1,56 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Compose after trace-emit.om. Noncanonical enable/check values cannot bypass refusal.
+note Refusal preserves every output byte and its old length, not only a chosen prefix.
+
+fn gprepare to void
+for i ulong 8192
+put gbout i 165
+end
+put gboutlen 0 7
+put gbinlen 0 0
+end
+
+fn gunchanged to bool
+if ne get gboutlen 0 7
+ret false
+end
+for i ulong 8192
+if ne get gbout i 165
+ret false
+end
+end
+ret true
+end
+
+fn main to int
+vals = new ulong 4 0
+put vals 1 1
+put vals 2 2
+put vals 3 18446744073709551615
+for i ulong 4
+for j ulong 4
+gprepare
+on = get vals i
+checks = get vals j
+put gtchecks 0 checks
+ok = gtewrap on 2
+if and ne on 0 ne checks 1
+if ok
+ret 1
+end
+if ne get gterr 0 4
+ret 2
+end
+same = gunchanged
+if not same
+ret 3
+end
+else
+if not ok
+ret 4
+end
+end
+end
+end
+ret 0
+end

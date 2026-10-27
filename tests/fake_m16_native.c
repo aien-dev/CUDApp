@@ -458,23 +458,31 @@ int m16_native_close(M16NativeContext *ctx)
     return rc;
 }
 
-/* L136: the simulated driver has one channel. Extra channels (AIEN_OMEGA_GPU_CHANNELS > 1) are refused here, so the
- * platform's device_open refuses with stage "nvrm_channel_n"; the multi-channel path is proven on the chip only. */
+/* L136: the simulated driver has one channel unless the test sets fk.extra_channels. Otherwise extra channels
+ * (AIEN_OMEGA_GPU_CHANNELS > 1) are refused here, so the platform's device_open refuses with stage "nvrm_channel_n".
+ * With fk.extra_channels the fake only counts extra-channel submits and retires (it parses no method stream there);
+ * the multi-channel GPU behaviour is proven on the chip only. */
 int nvrm_channel_n(Nvrm *rm, uint32_t extra)
 {
     (void)rm; (void)extra;
-    return -1;
+    fk.channel_calls++;
+    if (!fk.extra_channels || fk.channel_fail) return -1;
+    fk.channel_up = 1;
+    return 0;
 }
 
 int nvrm_chan_submit(Nvrm *rm, uint32_t ch, const NvrmMem *pb, uint32_t off_bytes, uint32_t nwords)
 {
-    (void)rm; (void)ch; (void)pb; (void)off_bytes; (void)nwords;
-    return -1;
+    (void)rm; (void)pb; (void)off_bytes; (void)nwords;
+    if (!fk.extra_channels || ch == 0u || fk.submit_fail) return -1;
+    fk.chan_submit_calls++;
+    return 0;
 }
 
 void nvrm_chan_retire(Nvrm *rm, uint32_t ch, uint32_t upto)
 {
     (void)rm; (void)ch; (void)upto;
+    fk.chan_retire_calls++;
 }
 
 uint32_t nvrm_chan_put(const Nvrm *rm, uint32_t ch)
