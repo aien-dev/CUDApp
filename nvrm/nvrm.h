@@ -65,6 +65,25 @@ typedef struct {
     uint8_t quarantined;
 } NvrmLiveAlloc;
 
+/* An extra command queue (GPFIFO channel) in the same channel group (TSG) and
+ * sub-context (FERMI_CONTEXT_SHARE_A) as channel 0, created by nvrm_channel_n
+ * before the group is scheduled: same VA space, so every buffer is visible to
+ * both, and work on different channels is not ordered against each other
+ * (CUDA guide, CUDA_DEVICE_MAX_CONNECTIONS: tasks on one work queue get a
+ * false dependency; separate queues remove it). */
+#define NVRM_MAX_EXTRA_CHANNELS 3
+typedef struct {
+    uint32_t gpfifo, compute_obj;
+    uint32_t ctxshare;              /* Owned asynchronous subcontext, distinct from channel 0. */
+    NvrmMem  fifo;                  /* GPFIFO ring, then USERD at userd_off */
+    NvrmMem  notifier;              /* channel error notifier */
+    uint32_t entries, userd_off;
+    uint32_t token;                 /* work submit token */
+    uint32_t put, retired;
+    uint64_t channel_va, channel_va_size;
+    uint8_t  registered;
+} NvrmChan;
+
 typedef struct {
     int fd_ctl, fd_dev, fd_uvm, fd_uvm2;
     uint32_t root, device, subdevice, virtmem, usermode, vaspace;
@@ -106,6 +125,8 @@ typedef struct {
     uint32_t      channel_no_memory_retry_ms; /* delay between those retries; 0 selects NVRM_CHANNEL_NO_MEMORY_RETRY_MS */
     uint64_t      rm_alloc_accepted;
     uint64_t      rm_free_accepted;
+    NvrmChan      extra[NVRM_MAX_EXTRA_CHANNELS]; /* channels 1.. (nvrm_channel_n) */
+    uint32_t      n_extra;
     char     err[256];
 } Nvrm;
 
@@ -119,7 +140,18 @@ int  nvrm_alloc(Nvrm *rm, uint64_t size, NvrmMem *out);
  * Zeroes *m on success. */
 int  nvrm_free(Nvrm *rm, NvrmMem *m);
 int  nvrm_channel(Nvrm *rm);
+/* nvrm_channel plus `extra` (0..NVRM_MAX_EXTRA_CHANNELS) more GPFIFO channels in
+ * the same group and address space, each with its own asynchronous subcontext,
+ * all registered with UVM before the one GPFIFO_SCHEDULE (the
+ * RM refuses to schedule a group holding an unschedulable channel,
+ * kernel_channel_group_api.c:1095-1107). extra = 0 is nvrm_channel exactly. */
+int  nvrm_channel_n(Nvrm *rm, uint32_t extra);
 int  nvrm_channel_destroy(Nvrm *rm);
+/* Channel ch (1..n_extra) of nvrm_channel_n: enqueue + doorbell, retire, entries
+ * submitted so far. Same contract as nvrm_submit / nvrm_retire on channel 0. */
+int  nvrm_chan_submit(Nvrm *rm, uint32_t ch, const NvrmMem *pb, uint32_t off_bytes, uint32_t nwords);
+void nvrm_chan_retire(Nvrm *rm, uint32_t ch, uint32_t upto);
+uint32_t nvrm_chan_put(const Nvrm *rm, uint32_t ch);
 /* Write a GP entry and advance USERD GPPut; does NOT ring the doorbell. */
 int  nvrm_enqueue(Nvrm *rm, const NvrmMem *pb, uint32_t off_bytes, uint32_t nwords);
 /* Mark entries [.., upto) complete; the caller must have observed their completion. */
