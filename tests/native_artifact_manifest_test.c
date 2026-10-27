@@ -186,6 +186,11 @@ int main(void) {
     CHECK(admit_rc(pfx, "garbage", id) == OMEGA_ARTIFACT_E_ARG, "unparsable current driver admitted");
     CHECK(admit_rc(pfx, "580.173.01", id) == OMEGA_ARTIFACT_E_DRIVER && id[0] == 0, "older driver admitted or id reported");
     CHECK(admit_rc(pfx, "580.173.02", id) == 0 && id[0] != 0, "admission fixture refused after driver checks");
+    {   /* out_id may be NULL (the entry check allows it): a passing admit must not write through it. */
+        char nerr[256];
+        CHECK(omega_native_artifact_admit(pfx, "580.173.02", NULL, nerr, sizeof nerr) == 0,
+              "admit with a NULL out_id refused a valid artifact");
+    }
     /* F5b: cbank_words with a trailing suffix was read by strtoul and admitted. */
     strcpy(m, original); set_field(m, "cbank_words=", "2abc"); save(path, m, strlen(m));
     CHECK(admit_rc(pfx, "580.173.02", id) == OMEGA_ARTIFACT_E_FORMAT, "cbank_words '2abc' admitted");

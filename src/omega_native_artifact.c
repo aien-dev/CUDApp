@@ -702,7 +702,7 @@ cross_done:
         }
     }
     /* The id is reported only for an artifact that passed every check. */
-    snprintf(out_id, OMEGA_ARTIFACT_ID_MAX, "%s", id);
+    if (out_id) snprintf(out_id, OMEGA_ARTIFACT_ID_MAX, "%s", id);
 done:
     free(man);
     return rc;
