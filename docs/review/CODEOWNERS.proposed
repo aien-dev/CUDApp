@@ -2,8 +2,8 @@
 # .github/, the repository root or docs/, so this file under docs/review/ has no effect.
 # Activation is Drake's decision: copy it to .github/CODEOWNERS after the human reviewers
 # he chooses accept, and replace each placeholder team with their GitHub logins.
-# Until then every path keeps PLAN.md's agent rule (non-author approval, fresh-clone gates,
-# --match-head-commit). See docs/REVIEWING.md.
+# Until then every path keeps the agent rule in docs/REVIEWING.md section 1 (non-author
+# approval, fresh-clone gates, --match-head-commit).
 #
 # Placeholders (not real GitHub teams yet):
 #   @aien-dev/gpu-core-reviewers   experienced GPU/compiler engineers (at least two)

@@ -5,8 +5,7 @@ takes effect only when Drake activates `docs/review/CODEOWNERS.proposed` and the
 
 ## 1. Every pull request
 
-1. **Draft first.** Open as a draft. Every commit carries a `Signed-off-by:` line for the identity that
-   made it (`git commit -s`); no signature is added for someone who did not make the commit.
+1. **Draft first.** Open as a draft. No `Signed-off-by:` line is required (Drake declined DCO sign-off).
 2. **Evidence on the exact head.** Fill in `.github/PULL_REQUEST_TEMPLATE.md`. Each gate is PASS, FAIL or
    NOT RUN with a reason. A gate that was not run is not a pass.
 3. **Fresh-clone re-run.** Before review is requested, the gates are re-run from a fresh clone at the
@@ -31,7 +30,10 @@ a human reviewer** in the owning group, in addition to section 1. The groups are
 
 - **Encoding provenance.** Every new or changed instruction field, QMD field or method value cites
   either a Mesa NAK source line (MIT, `THIRD_PARTY.md` §2) or a chip test in this repo that measures it.
-  NVIDIA compiler output (nvcc, ptxas, cubins) is never a source. `nvdisasm` may be used only as a
+  NVIDIA compiler output (nvcc, ptxas, cubins) is not a source for fields changed after activation. The
+  existing encoder was built with nvcc and cuobjdump as offline oracles and follows nvcc where it and NAK
+  disagree (`docs/HOW_I_DID_IT.md`, steps 1-2); those fields keep that record until each gets a NAK
+  citation or a chip test. `nvdisasm` may be used only as a
   read-only checker of words we produced.
 - **No HOLD material.** Nothing derived from omega-mv #864 (`cubin.om`) while it is on HOLD.
 - **Negative control.** A deliberately broken kernel or input is refused or detected by the change's own

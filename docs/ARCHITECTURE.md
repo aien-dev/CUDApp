@@ -12,7 +12,7 @@ the session, command list and kernel APIs hide the driver but not the GPU). PORT
 (present on omega-mv main `e5b32567`), not in this repo.
 
 **Gate.** Work under this design starts after P0 publishes a same-box head-to-head and bars C2–C5 are
-QUALIFIED on the GB10 (`~/handoffs/GpuStack/PLAN.md`, phases P2–P4).
+QUALIFIED on the GB10 (GPU-stack plan, phases P2–P4).
 
 **Language.** Existing C stays where it is and is not reworked. New host-runtime code, every new
 backend and the backend ABI are written in Omega (`.om`). Any new C needs a missing-feature reason with
@@ -113,7 +113,7 @@ faster.
 
 ## 6. Provenance rules for any backend
 
-- Encodings come from Mesa NAK (MIT) plus chip tests (`THIRD_PARTY.md` §2). `docs/HOW_I_DID_IT.md:35-39`
+- Encodings come from Mesa NAK (MIT) plus chip tests (`THIRD_PARTY.md` §2). `docs/HOW_I_DID_IT.md` line 36
   records a preference for nvcc output where it and NAK disagree; every encoder field gets a NAK
   citation or a chip test before the GB10 encoder is declared the backend.
 - Nothing derived from omega-mv #864 (`cubin.om`) enters a backend while #864 is on HOLD.
