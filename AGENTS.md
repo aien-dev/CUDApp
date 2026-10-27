@@ -13,7 +13,7 @@ Shared rules: read https://www.aienos.com/agents/RULES.md first. This file adds 
 - `tests/`: host tests and the chip tests (`tests/gpu_*_test.c`). `mk/*.mk`: build fragments included by the `Makefile`.
 - `evidence/`: dated receipts. They record what ran on a named commit; never edit or regenerate an existing receipt. New receipts go in a new folder.
 - `build/` is generated (`make`, `OUT_DIR`) and ignored by git.
-- Omega builds the same sources at a pinned commit (`cudapp.lock` in Omega, with `PHYSICS_DIR` pointing at a CUDA++ checkout). Changes to public headers or the runtime API affect Omega.
+- Omega is meant to build these sources at a pinned commit (`cudapp.lock` in Omega). That pin does not exist yet: Omega main still builds its own diverged copy and takes `nvrm` from physics-mv (#106, #107). Changes to public headers or the runtime API will affect Omega once it does. Ownership rule: ARCH-0042, PROPOSED in aien-architecture-mv#342 (Omega owns computation, CUDA++ owns GPU execution, Omega Bridge owns compatibility).
 
 ## Installation
 
@@ -45,10 +45,10 @@ build/hello_gpu --sim         # the first kernel on the host warp simulator
 python3 tools/figures/make_figures.py --check   # README figures match the code
 ```
 
-- Judge `make test` by its exit code and its last line, `CUDA++ HOST TESTS PASS (33 targets)`. The log contains many `FAIL` and `ERROR` lines by design (mutation tests and negative controls that must fail). Do not grep the log for them.
+- Judge `make test` by its exit code and its last line, `CUDA++ HOST TESTS PASS (<count> targets)`, where `<count>` is computed from the current `HOST_TESTS` manifest in `Makefile`. The log contains many `FAIL` and `ERROR` lines by design (mutation tests and negative controls that must fail). Do not grep the log for them.
 - `make test` already runs the host-only `test-gpu-*` targets listed in `HOST_TESTS` in the `Makefile`. Run those through `make test`, not by hand.
 - `make zero-cuda-gate` reads ELF metadata only (`tools/zero-cuda-gate.sh`).
-- `python3 tools/figures/make_figures.py --check` fails on the current `main` (`stale figures ...: stack.svg`). Mention that in your pull request rather than counting it as your failure; regenerate figures only when you change the data they are drawn from.
+- `python3 tools/figures/make_figures.py --check` must print `figures current: <n>`. Regenerate figures only when you change the data they are drawn from, and commit the regenerated SVGs with that change.
 
 GPU commands (need a GB10; do not run from an agent session unless the maintainer has given you a GPU window on the DGX Spark):
 
@@ -65,7 +65,7 @@ make hello-gpu                              # runs make doctor, then examples/he
 - Write the test first and watch it fail for the expected reason; include a negative control. A library change also needs a host reference, a simulator run where the simulator covers it, a mutation test and a chip receipt.
 - A failing test means the work is wrong. Never skip, loosen or rerun a test until it passes once.
 - Every instruction encoding has golden words in the tests and a chip run behind it. Do not change an encoder field without both.
-- No NVIDIA binary, cubin, PTX, firmware or listing printed by NVIDIA's tools goes in this repository (`docs/AUDIT.md`). If you used NVIDIA's compiler or disassembler on your own small kernels to learn an encoding, say so in a code comment.
+- No NVIDIA binary, cubin, PTX, firmware or listing printed by NVIDIA's tools goes in this repository (`docs/AUDIT.md`). The one exception is a regression pin of our own words, recorded in `PROVENANCE.md` section 6; the rules for allowed sources are in `PROVENANCE.md`. If you used NVIDIA's compiler or disassembler on your own small kernels to learn an encoding, say so in a code comment.
 - The runtime API is versioned. `docs/runtime/omega_runtime_api.manifest` is checked against the C headers it names and against `docs/runtime/API.md` by `make test` (`test-runtime-api`, with negative controls). Change a public header, the manifest and `API.md` together.
 - Status words in `README.md` and `ROADMAP.md` are PASS (receipt on a named commit), PARTIAL, MISSING, BUILDING. Do not upgrade a status without the receipt.
 - New source files carry `SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception`. Keep third-party notices (`THIRD_PARTY.md`, `NOTICE`).
@@ -86,4 +86,4 @@ make hello-gpu                              # runs make doctor, then examples/he
 - `ROADMAP.md`: every NVIDIA piece on the Spark, its replacement and receipt.
 - `docs/DRIVER.md`, `docs/HOW_I_DID_IT.md`, `docs/runtime/API.md`, `docs/runtime/PORTABILITY.md`.
 - `docs/AUDIT.md`, `docs/LICENSING_TRANSITION.md`, `THIRD_PARTY.md`: provenance and licences.
-- Aienux, the AIEN kernel, where AIEN's own GB10 driver (L332, replacing `nvidia.ko` and `nvidia-uvm.ko`) is being built: https://github.com/aien-dev/aienux
+- Aienux, the Aien kernel, which holds Aien's GB10 driver research harness (L332, aienux#441; not a product, NVIDIA's open kernel module stays and GB10 support goes upstream to Nova and nouveau): https://github.com/aien-dev/aienux

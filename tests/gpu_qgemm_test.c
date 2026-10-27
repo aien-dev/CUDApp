@@ -424,16 +424,24 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--rt") && i + 1 < argc) rt = (uint32_t)atoi(argv[++i]);
         else if (!strcmp(argv[i], "--warps") && i + 1 < argc) warps = (uint32_t)atoi(argv[++i]);
         else if (!strcmp(argv[i], "--wait") && i + 1 < argc) { wait = (uint32_t)atoi(argv[++i]); waitset = 1; }
+        else { fprintf(stderr, "GPU_QGEMM: INVALID argument %s\n", argv[i]); return 2; }
     }
-    int fail = 0;
-    if (host) { fail += pq_host(); fail += qg_host(); }
-    if (sim) { fail += pq_sim(); fail += qg_sim(); }
+    static const char *shapes[] = { "gateup", "down", "qkv", "o" };
+    int selected = 0;
+    for (int s = 0; s < 4; s++) if (!only || !strcmp(only, shapes[s])) selected++;
+    if (!selected) { fprintf(stderr, "GPU_QGEMM: INVALID shape '%s'\n", only); return 2; }
+    if (!host && !sim && !chip) { fprintf(stderr, "GPU_QGEMM: NOT_RUN (no mode selected)\n"); return 2; }
+    int fail = 0, cases = 0;
+    if (host) { fail += pq_host(); fail += qg_host(); cases++; }
+    if (sim) { fail += pq_sim(); fail += qg_sim(); cases++; }
     if (chip) {
         if (rt || warps || waitset) omega_gpu_pf_qgemm_set_shape(rt ? rt : 4, warps ? warps : 8, waitset ? wait : 45);
-        if (!only) fail += pq_chip(tokens, reps);
-        static const char *shapes[] = { "gateup", "down", "qkv", "o" };
-        for (int s = 0; s < 4; s++) if (!only || !strcmp(only, shapes[s])) fail += qg_chip_shape(shapes[s], tokens, reps, rows, !only || s < 2);
+        if (!only) { fail += pq_chip(tokens, reps); cases++; }
+        for (int s = 0; s < 4; s++) if (!only || !strcmp(only, shapes[s])) {
+            fail += qg_chip_shape(shapes[s], tokens, reps, rows, !only || s < 2); cases++;
+        }
     }
+    if (!cases) { fprintf(stderr, "GPU_QGEMM: NOT_RUN (no cases executed)\n"); return 2; }
     printf("GPU_QGEMM: %s\n", fail ? "FAIL" : "PASS");
     return fail ? 1 : 0;
 }

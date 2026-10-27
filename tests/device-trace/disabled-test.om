@@ -1,0 +1,12 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Compose with vector.om only. Emit the unmodified default program for exact-byte comparison.
+fn main to int
+gbvec
+if ne get gblen 0 512
+ret 1
+end
+if ne write 1 gbcode 0 get gblen 0 512
+ret 2
+end
+ret 0
+end

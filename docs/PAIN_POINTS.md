@@ -66,6 +66,10 @@ Even the toolkit can change the answer. causal-conv1d records a "**numerical cor
 
 **CUDA++'s answer (row D2).** There is one version to match, and it is checked. CUDA++ uses no toolkit, no framework build and no extension build: the compiler, runtime and libraries are one repository at one commit, built by `make` with a C compiler. The only outside version is NVIDIA's kernel module, whose interface headers CUDA++ is built against (`third_party/nvidia-open-580.173.02/`). `make doctor` reads `/proc`, `/sys` and `/dev` (it opens no device) and prints one line per check; a wrong module version is refused with the reason and the fix, instead of failing later in a driver call. `make hello-gpu` runs the doctor first. Status: DONE (`evidence/dx/d2-doctor/`).
 
+This refusal is implemented in the doctor wrapper, not at the library device-open
+boundary. Direct binaries and library callers have no driver-version or PCI-ID
+admission guard; `make hello-gpu` is the guarded wrapper path.
+
 ### 2.3 Errors reported late, at the wrong call (rank 3)
 
 **What happens.** CUDA launches are asynchronous: "When you call a function that uses the GPU, the operations are enqueued to the particular device, but not necessarily executed until later."[46] So a bad memory access in one kernel is reported by some later, unrelated call: "an illegal memory access was encountered ... might be asynchronously reported at some other API call". vLLM's maintainers wrote: "In our experience the python stack traces for these types of exceptions are basically always incorrect and pretty worthless."[45] And: "Have you ever felt you are developing cuda kernels and your tests often run into illegal memory access (IMA for short) and you have no idea how to debug?"[45]
@@ -104,7 +108,7 @@ The workarounds can be worse than the error. In Triton's sm_121 issue: "Those \"
 
 **Why people stay.** The wait is weeks or months, and then it works. On the Spark forum: "It took several weeks of community effort here to get vllm working reasonably well, in both standalone and cluster configuration."[28] From the Spark Reddit thread: "Very frustrating compared to most every other GPU release that has zero day support from cuda/nvcc/pytorch/tensorflow."[88]
 
-**CUDA++'s answer (row D6).** CUDA++ writes each chip's machine code itself, so it knows exactly which chips it has run on: a table of qualified chips, each with its receipt. A chip in the table works. Any other NVIDIA GPU is refused by `make doctor`, by name and PCI id, with what is missing (a target row, an encoder check, the launch descriptor and class numbers, a qualification run) and what to do (the porting steps in `docs/runtime/PORTABILITY.md` section 5). Nothing loads code built for a different chip, and nothing is cached across chips. CUDA is better here today in one way: it runs on many chips; CUDA++ runs on one (section 4). Status: DONE for the refusal (`evidence/dx/d2-doctor/fake-machines.txt`).
+**CUDA++'s answer (row D6).** CUDA++ targets sm_121 and keeps a supported-target table. `make doctor` refuses other NVIDIA GPUs by name and PCI id, with what is missing and the porting steps in `docs/runtime/PORTABILITY.md` section 5. `make hello-gpu` invokes it first. Direct binaries and library callers have no PCI-ID admission guard, so this is wrapper-only refusal, not a guarantee against loading code on a different chip. A target row does not prove current qualification; the imported M16 summary's raw logs are absent (README evidence limitation). Status: DONE for the doctor refusal (`evidence/dx/d2-doctor/fake-machines.txt`); current native qualification NOT_RUN.
 
 ### 2.6 Different answers from the same inputs (rank 6)
 
@@ -124,7 +128,7 @@ The workarounds can be worse than the error. In Triton's sm_121 issue: "Those \"
 
 **Why people stay.** It is a fixed cost per process, small next to a large model on a large GPU.
 
-**CUDA++'s answer (row D8).** A CUDA++ process maps no CUDA library at all: on 2026-10-21 AIEN's live 35B server had only the C library, the maths library, `libgcc_s` and the loader mapped (Omega `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`). The row is done when the memory a CUDA++ process holds beyond its own buffers is measured and printed. Status: PLANNED (needs a chip window; section 3, D8).
+**CUDA++'s answer (row D8).** A CUDA++ process maps no CUDA library at all: on 2026-10-21 Aien's live Qwen3.6-35B-A3B server (mixture-of-experts, about 3B parameters active per token) had only the C library, the maths library, `libgcc_s` and the loader mapped (Omega `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`). The row is done when the memory a CUDA++ process holds beyond its own buffers is measured and printed. Status: PLANNED (needs a chip window; section 3, D8).
 
 ### 2.8 Lock-in by licence (rank 8)
 
@@ -164,13 +168,13 @@ Three reasons come up again and again.
 2. **New work lands on CUDA first.** "On CUDA just runs of course with sliding window attention, ALiBi, and PagedAttention. ROCm fork? Nope."[74] "One of the biggest complaints we hear from the industry is \"we tried to port to X and we could never complete it\"."[79] And from a developer whose company tried: "i literally worked at a company where we dropped HIP support, and just went all in on nvidia."[95]
 3. **The bar for an alternative is that it just works.** "you have to be able to pip install something and just have it work, reasonably fast, without crashing, and also it has to not interfere with 100 other weird poorly maintained ML library dependencies."[75] And people paid for the hardware: "To me it seems like you're paying more than twice the price mostly for CUDA compatibility."[44]
 
-So CUDA++ does not ask anyone to change hardware. It runs on the NVIDIA GPU people already own, and it has to beat CUDA on that GPU, row by row.
+So CUDA++ does not ask anyone to change hardware. It runs on the NVIDIA GPU people already own, and its goal is to be easier to use than CUDA on that GPU, row by row. The rows are developer-experience goals; no speed comparison with CUDA is claimed.
 
 ### 2.12 The DGX Spark
 
 The Spark is a small machine sold as a way into NVIDIA's data-center stack. A Reddit user: "You design and validate them locally on the spark, running the exact same software, then push to the data center full of Nvidia GPU racks."[90] Its owners hit rows 1, 2, 5 and 9 at once. One report sums it up: "The published Docker images do not carry sm_121a kernels, a missing environment variable silently breaks the NVFP4 MoE, and a deep-context request with speculative decoding will hard hang the entire machine."[1] "Without it the NVFP4 MoE CUTLASS kernels are not built for GB10 and you get CUDA error: no kernel image is available for execution on the device ."[1] On NVIDIA's forum: "How many times have you tried to run something that doesn’t recognize SM121 and fails?"[28] "As of today, FP4 is not properly utilized in current VLLM builds on our hardware, so you lose a lot of performance picking NVFP4 quants compared to AWQ 4-bit on"[29] (that thread has 16,907 views). An owner of two Sparks: "It was not marketed like an experimental dev kit where buyers should expect to spend months switching backends, testing builds, setting flags, and relying on community or hardcore fan fixes just to make a core feature work properly."[97] Simon Willison: "I eventually managed to get a PyTorch 2.7 wheel for CUDA on ARM, but failed to do so for 2.8."[41] One honest counterpoint from PyTorch's maintainer: "Every PyTorch build with CUDA 12.8 and sm_120 support already supports sm_121 (DGXSpark) as these architectures are binary compatible."[38] The Spark's memory bandwidth is also a hard physical limit no software fixes: "the unified memory is LPDDR5x, offering up to 273 GB/s , shared across both CPU and GPU."[42]
 
-CUDA++ runs on the Spark today: AIEN serves a 35-billion-parameter model on it with no CUDA library loaded (README).
+CUDA++ runs on the Spark today: on 2026-10-21 Aien served Qwen3.6-35B-A3B (a mixture-of-experts model with about 3B parameters active per token) on this GPU stack with no CUDA library loaded (README).
 
 ### 2.13 The incentive, and less computation
 
@@ -182,9 +186,9 @@ People notice. "Nvidia uses VRAM amount for market segmentation. They can't make
 
 ## 3. The developer bar: D1 to D14
 
-Each row has a done-when anyone can run. A row is DONE only with a receipt on a named commit. PLANNED rows name the ledger item that owns them. The aim is to beat CUDA, not to copy it.
+Each row has a done-when anyone can run. A row is DONE only with a receipt on a named commit. PLANNED rows name the ledger item that owns them. The rows are goals for improving on CUDA's developer experience, not copies of CUDA; they are not measured comparisons with CUDA, and none of them claims a speed advantage (section 4, "Speed across the board").
 
-| Row | Beats CUDA by | Done when | Status |
+| Row | Aims to improve on CUDA by | Done when | Status |
 | --- | --- | --- | --- |
 | D1 | Memory you can see, and a refusal before the machine hangs | An allocation that would leave less than the reserve free on a unified-memory GPU is refused with a sentence naming the bytes asked, the bytes free and what to do; a host test drives it with a fake `/proc/meminfo`; the chip run shows the live budget | DONE on the host (`evidence/dx/d1-memory/`); chip run open |
 | D2 | One command, one version | From an empty folder with only git, make and gcc: `make doctor` prints READY or names each problem with its fix; `make hello-gpu` runs the doctor first; a wrong kernel-module version is refused with a sentence; host test of 9 fake machines | DONE (`evidence/dx/d2-doctor/`) |
@@ -201,7 +205,7 @@ Each row has a done-when anyone can run. A row is DONE only with a receipt on a 
 | D13 | Our own disassembler, plain text a person can read | Disassembler agrees with nvdisasm on every library kernel; nothing calls nvdisasm | PLANNED (L386, Omega bar C6) |
 | D14 | Recover from a fault without restarting | A kernel that faults or never ends is stopped and the same process keeps working | PLANNED (L386, Omega bar C5) |
 
-The swap story, replacing a developer's CUDA libraries and NVIDIA's kernel module with CUDA++'s, is ledger item L401. NVIDIA's kernel driver itself is being replaced by AIEN's own (L332, `ROADMAP.md`).
+The swap story, replacing a developer's CUDA libraries with CUDA++'s, is ledger item L401. NVIDIA's open kernel module stays; GB10 support goes upstream to Nova and nouveau, and Aien's own driver branch (L332, `ROADMAP.md`) is a research harness only.
 
 ## 4. Where CUDA is better today
 

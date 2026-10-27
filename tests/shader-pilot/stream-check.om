@@ -1,0 +1,48 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Test-only canonical stream checker. Exactly ID, selector, payload until EOF.
+global spbuf uchar 515
+fn main to int
+pos = ulong 0
+done = false
+while not done bound 516
+r = read 0 spbuf pos sub 515 pos
+if lt r 0
+ret 74
+end
+if eq r 0
+done = true
+else
+pos = add pos ulong r
+if eq pos 515
+ret 65
+end
+end
+end
+if lt pos 2
+ret 65
+end
+mode = get spbuf 1
+if and ne mode 1 ne mode 2
+ret 77
+end
+n = spload ulong get spbuf 0
+if eq n 0
+ret 77
+end
+if eq mode 2
+n = 512
+end
+if ne pos add n 2
+ret 65
+end
+for i ulong n
+want = get kt i
+if eq mode 2
+want = get gbcode i
+end
+if ne get spbuf add i 2 want
+ret 1
+end
+end
+ret 0
+end

@@ -1,0 +1,62 @@
+{
+  "schema": "cudapp.device-trace.emitter-receipt.v1",
+  "issue": "https://github.com/aien-dev/CUDApp/issues/82",
+  "consumer": "https://github.com/aien-dev/omega-mv/issues/778",
+  "contract": "docs/device-trace/CONTRACT.md v1 (PR #83, proposed; implemented as written, no field changed)",
+  "run": "2026-10-26 host checks, no GPU",
+  "scope": {
+    "in": ["native/blackwell/trace-emit.om", "tests/device-trace/emitter-test.om", "tests/device-trace/expected.sass", "tests/device-trace/run-emitter-checks.sh"],
+    "out": ["native/blackwell/trace.om (dot, PR #83)", "docs/device-trace/* (dot, PR #83)", "Omega #778 reader", "vector.om/launch.om/context.om", "any C kernel", "NVTXD/NVTOOLSEXT/PTX/libcuda paths"]
+  },
+  "source": {
+    "native/blackwell/trace-emit.om": "d00dfe161a0a048c4ad1817b39b93dcc252e743a4430578c911706566a1c129b",
+    "tests/device-trace/emitter-test.om": "e63128049279b9aa0c65a15d25b396b47b5d2f7578174eed09c4509dc5cd8c12",
+    "tests/device-trace/expected.sass": "d9fb8b005044531fd8b2184e53fc531d2075457aa0ac5bcf47e522221ad7d4d9",
+    "tests/device-trace/run-emitter-checks.sh": "593bbcbf0230a39f1ae201987202bde52f6cbf551d2cde9c351e70a8bfb00fad",
+    "repo_base": "aien-dev/CUDApp a520cd30e54c3b0ddd553ee3ccb3f5e673345cd6"
+  },
+  "compiler": {
+    "path": "seed/out/omc (omega feat/allen-imac-competition c3fb79697)",
+    "sha256": "c99eda2465036c0637a444689a65dd7fc736e4fa8a8b4cf3456b0ce1b57f8996"
+  },
+  "oracle": {
+    "tool": "nvdisasm 13.0 (outside the delivered closure; host-only)",
+    "target": "SM121 raw instruction stream",
+    "binary_sha256_prefix": "bc40070d596fa49b"
+  },
+  "commands": [
+    "OMEGA_COMPILER=<seed>/seed/out/omc sh tests/device-trace/run-emitter-checks.sh --update",
+    "OMEGA_COMPILER=<seed>/seed/out/omc sh tests/device-trace/run-emitter-checks.sh"
+  ],
+  "results": {
+    "host_checks": {"checks": 25, "failures": 0, "exit": 0},
+    "emitted": {"instructions": 40, "bytes": 640, "meaning": "two 20-instruction mark blocks, empty kernel between"},
+    "decode": {"verdict": "MATCH", "golden": "tests/device-trace/expected.sass"},
+    "disabled_identity": "PASS (byte-for-byte copy of the input words, no prologue, no stores)",
+    "refusals": {"capacity_below_two": 1, "capacity_above_64": 2, "input_not_whole_instructions": 3, "enabled_without_checks": 4}
+  },
+  "instruction_slice": [
+    "ISETP.GE.AND P0, PT, R0, 0x1, PT -- select thread 0 only",
+    "@P0 BRA past the block -- non-selected lanes never reach the stores; no barrier used for ordering",
+    "LDCU.64 UR4, c[0x0][0x358] -- global memory descriptor",
+    "S2R R2, SR_GLOBALTIMERLO -- device clock, low 32 bits",
+    "LDC.64 base/gen/kernel from c[0x0][0x400/0x410/0x418]",
+    "IMAD.SHL record address base + 0x40 (site 1) / 0x80 (site 2); IMAD.MOV high half copy",
+    "8 x STG.E dwords: site, kind, sequence, raw stamp, generation (2), kernel (2)"
+  ],
+  "limitations": [
+    "Record fields cta/warp/lane/payload stay zero and generation/kernel come from the constant bank; the host must zero the extent and initialise the header before launch, then finalise status after completion.",
+    "Runtime overflow is not exercised: exactly two fixed records are emitted, so a capacity below two is refused at emission (code 1) instead of dropping at runtime. Dynamic sequence counting, saturating dropped counters and partial status need the next slice.",
+    "Record offsets are added to the low 32 bits of the trace base with no carry propagation: the host buffer must not cross a 4 GiB boundary at any record offset.",
+    "Clock units, resolution, cross-SM comparability and CPU correlation are UNKNOWN. GLOBALTIMER low 32 bits is a reference, not a qualified 64-bit clock; wrap is 2^32 ticks and any interval at or beyond 2^31 ticks is ambiguous and must be refused by the consumer.",
+    "The enabled path is gated: gtewrap refuses with code 4 unless the host sets gtchecks, so no launch can use it before the chip checks exist.",
+    "No barrier, fence or wait was added. Marker order is issue order, not completion order; markers around a region do not prove the region completed between them.",
+    "One selected lane of one CTA is not representative of other lanes, warps or CTAs."
+  ],
+  "not_run": {
+    "GB10_execution": "NOT_RUN - no hardware window requested or granted",
+    "qmd_and_launch_wiring": "NOT_RUN",
+    "paired_off_on_overhead": "NOT_RUN",
+    "chip_overflow_and_repeatability": "NOT_RUN"
+  }
+}

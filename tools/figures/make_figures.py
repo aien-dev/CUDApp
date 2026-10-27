@@ -168,14 +168,14 @@ def short_mn(mn):
 
 # ---- figure 1: hero ------------------------------------------------------------------
 def fig_hero(words):
-    s = Svg(1280, 680, "CUDA++: my own path from a program to an NVIDIA GPU",
-            "Title, three measured facts, and the 32 instructions of the first kernel CUDA++ ran, drawn bit by bit "
-            "from src/omega_blackwell_encoder.c.")
+    s = Svg(1280, 680, "CUDA++ for the NVIDIA DGX Spark (GB10, sm_121): my own path from a program to the GPU",
+            "Title, the supported hardware (the GB10 in the NVIDIA DGX Spark), three measured facts, and the 32 "
+            "instructions of the first kernel CUDA++ ran, drawn bit by bit from src/omega_blackwell_encoder.c.")
     s.frame()
     s.rect(0.5, 0.5, s.w - 1, s.h - 1, fill="url(#glow2)", rx=22)
-    s.kicker(64, 92, "aien-dev / CUDApp  ·  MIT  ·  NVIDIA GB10 (sm_121)")
+    s.kicker(64, 92, "NVIDIA DGX Spark  ·  GB10  ·  sm_121")
     s.text(58, 196, "CUDA++", size=104, weight=800, ls=-3)
-    s.lines(64, 250, ["My own path from a program to an NVIDIA GPU:",
+    s.lines(64, 250, ["For the NVIDIA DGX Spark (GB10, sm_121): my own",
                       "machine code, runtime, libraries and driver client.",
                       "No CUDA toolkit, no nvcc, no PTX, no libcuda."], size=22, fill=INK2, gap=32)
     facts = [("0", GREEN, "CUDA libraries loaded in the live", "35B model server (2026-10-21)"),
@@ -239,12 +239,12 @@ def fig_stack():
         ("closed", ("libcuda", "driver API, closed"),
          ("Driver client: nvrm + m16", "nvrm/nvrm.c, m16/: ioctls from the open headers")),
         ("open", ("nvidia.ko · nvidia-uvm.ko", "NVIDIA's open kernel module"),
-         ("nvidia.ko · nvidia-uvm.ko, for now", "AIEN's own GB10 driver is being built (L332)")),
+         ("nvidia.ko · nvidia-uvm.ko", "stays; GB10 support goes upstream to Nova, nouveau")),
         ("fw", ("GSP firmware", "runs inside the GPU, signed by NVIDIA"),
          ("GSP firmware", "stays NVIDIA's: the chip checks its signature")),
         ("hw", ("NVIDIA GB10 GPU", "DGX Spark, sm_121"), ("NVIDIA GB10 GPU", "DGX Spark, sm_121")),
     ]
-    marks = {"closed": ("replaced", GREEN), "open": ("next", VIOLET), "fw": ("stays", AMBER)}
+    marks = {"closed": ("replaced", GREEN), "open": ("stays", VIOLET), "fw": ("stays", AMBER)}
     y, rh, gap = 172, 72, 14
     for i, (kind, left, right) in enumerate(rows):
         if i == 5:
@@ -280,7 +280,7 @@ def fig_stack():
         y += rh + gap
     ly = y + 16
     for lab, col, x in (("closed, replaced by CUDA++", INK3, 48), ("first-party, Apache-2.0+LLVM", GREEN, 300),
-                        ("NVIDIA open source, replaced next", BLUE, 440), ("NVIDIA signed firmware, stays", AMBER, 740)):
+                        ("NVIDIA open source, stays", BLUE, 440), ("NVIDIA signed firmware, stays", AMBER, 740)):
         s.rect(x, ly - 11, 14, 14, stroke=col, fill="#0b1a17" if col == GREEN else CARD, rx=3, sw=1.5)
         s.text(x + 22, ly + 1, lab, size=14, fill=INK2)
     return s
@@ -564,8 +564,8 @@ def fig_driver():
     card(s, 48, by, 1104, 70, accent=INK3, fill=CARD2, dash="6 5")
     s.text(68, by + 30, "Below this line: NVIDIA's open kernel module (nvidia.ko, nvidia-uvm.ko) and the GSP "
                         "firmware inside the GPU.", size=15, fill=INK)
-    s.text(68, by + 53, "AIEN's own GB10 driver (L332) is being built to replace the two modules; the signed firmware "
-                        "stays NVIDIA's.", size=14, fill=INK2)
+    s.text(68, by + 53, "Both stay: GB10 support goes upstream to Nova and nouveau (L332 is a research harness); "
+                        "the signed firmware stays NVIDIA's.", size=14, fill=INK2)
     return s
 
 
@@ -663,8 +663,8 @@ STATUS_COL = {"PASS": GREEN, "PARTIAL": BLUE_SOFT, "BUILDING": VIOLET, "MISSING"
 
 def fig_status():
     rows = [  # piece, job, replacement, status, note
-        ("nvcc · NVVM · PTX · ptxas", "compile kernels", "sm_121 encoder + register allocator", "PASS", "every kernel Omega runs"),
-        ("libcuda", "user-space driver", "nvrm + m16 driver client", "PASS", "m16 requalification receipt"),
+        ("nvcc · NVVM · PTX · ptxas", "compile kernels", "sm_121 encoder + register allocator", "PASS", "every kernel this stack runs"),
+        ("libcuda", "user-space driver", "nvrm + m16 driver client", "PARTIAL", "M16 raw logs unavailable"),
         ("libcudart", "device, memory, launch", "session, command lists, job engine", "PARTIAL", "one device, one process"),
         ("cuBLAS", "matrix multiply", "matmul, tensor-core GEMM, FP8, BF16", "PARTIAL", "model shapes; any-shape GEMM is C3"),
         ("cuDNN · FlashAttention", "attention, layers", "decode and prefill attention", "PARTIAL", "model-shaped"),
@@ -672,8 +672,8 @@ def fig_status():
         ("cuobjdump · nvdisasm", "read machine code back", "my own sm_121 disassembler", "BUILDING", "Omega branch c6/disasm: 331 kernels agree"),
         ("Nsight", "measure", "ceiling probes", "PARTIAL", "115.14 TFLOPS, 195.1 GB/s"),
         ("cuFFT · cuRAND", "FFT, random numbers", "none yet", "MISSING", ""),
-        ("nvidia.ko", "kernel driver", "AIEN's own GB10 driver (L332)", "BUILDING", "simulator gates pass"),
-        ("nvidia-uvm.ko", "page tables, faults", "same driver", "BUILDING", "host simulator, 225 checks"),
+        ("nvidia.ko", "kernel driver", "stays: NVIDIA's open kernel module", "STAYS", "GB10 support goes upstream: Nova, nouveau"),
+        ("nvidia-uvm.ko", "page tables, faults", "stays: NVIDIA's open kernel module", "STAYS", "L332 is a research harness only"),
         ("nvidia-smi · NVML", "status, clocks, power", "not started", "MISSING", ""),
         ("GSP firmware", "runs inside the GPU", "stays NVIDIA's: signature-checked", "STAYS", "never shipped by CUDA++"),
     ]

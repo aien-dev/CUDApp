@@ -1,0 +1,157 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Host checks for the device-side trace emitter (CUDApp #82 first slice).
+note Run: cat native/blackwell/trace-emit.om tests/device-trace/emitter-test.om | seed/out/omc > t; ./t
+note Prints one line per check: "id 0" pass, "id 1" fail. Exit status is the failure count.
+note The instruction words themselves are decoded independently by nvdisasm 13.0 in
+note tests/device-trace/run-emitter-checks.sh against hand-written expectations; this file checks the
+note emitter's own invariants so a regression shows up without the external tool.
+
+global Fails ulong 1
+global Checks ulong 1
+global Ob uchar 256
+global Obn ulong 1
+
+fn obc c uchar to void
+put Ob get Obn 0 c
+put Obn 0 add get Obn 0 1
+end
+
+fn obn v ulong to void
+d = new uchar 20 0
+n = ulong 0
+x = v
+put d n uchar add rem x 10 48
+n = add n 1
+x = div x 10
+while gt x 0
+put d n uchar add rem x 10 48
+n = add n 1
+x = div x 10
+end
+while gt n 0
+n = sub n 1
+obc get d n
+end
+end
+
+fn chk ok bool id ulong to void
+put Checks 0 add get Checks 0 1
+put Obn 0 0
+obn id
+obc 32
+if ok
+obc 48
+else
+put Fails 0 add get Fails 0 1
+obc 49
+end
+obc 10
+r = write 1 Ob 0 get Obn 0
+end
+
+fn wrd i ulong to ulong
+note 32-bit little-endian word at instruction index i of the emitted stream.
+b = mul i 16
+a = shl ulong get gbout b 0
+a = or a shl ulong get gbout add b 1 8
+a = or a shl ulong get gbout add b 2 16
+a = or a shl ulong get gbout add b 3 24
+ret a
+end
+
+fn fill n ulong to void
+for i ulong n
+put gbin i uchar add 160 rem i 251
+end
+put gbinlen 0 n
+end
+
+fn same to bool
+if ne get gboutlen 0 get gbinlen 0
+ret false
+end
+for i ulong get gbinlen 0
+if ne get gbout i get gbin i
+ret false
+end
+end
+ret true
+end
+
+fn main to int
+put gtchecks 0 1
+fill 64
+ok = gtewrap 0 4
+chk ok 1
+sm = same
+chk sm 2
+v = get gboutlen 0
+chk eq v 64 3
+
+ok = gtewrap 1 4
+chk ok 4
+v = get gboutlen 0
+chk eq v 704 5
+note Disabled output is exactly the input; enabled output is prologue + input + epilogue.
+w = wrd 0
+chk ne w 0 6
+note The caller's kernel bytes ride verbatim in the middle of the enabled stream.
+bb = get gbout 320
+chk eq bb 160 7
+bb = get gbout 383
+chk eq bb 223 8
+note Emitting twice with the same inputs gives the same bytes.
+ok = gtewrap 1 4
+v = get gboutlen 0
+chk eq v 704 9
+w = wrd 0
+chk eq w 30732 10
+
+note Enabled without the instruction checks passed must refuse and emit nothing.
+put gtchecks 0 0
+put gboutlen 0 7
+ok = gtewrap 1 4
+chk not ok 11
+v = get gterr 0
+chk eq v 4 12
+v = get gboutlen 0
+chk eq v 7 13
+note Disabled still works with the checks unset and stays byte identical.
+ok = gtewrap 0 4
+chk ok 14
+sm = same
+chk sm 15
+
+note Bounds and refusals.
+ok = gtewrap 1 0
+chk not ok 16
+v = get gterr 0
+chk eq v 1 17
+ok = gtewrap 1 1
+chk not ok 18
+v = get gterr 0
+chk eq v 1 19
+ok = gtewrap 1 65
+chk not ok 20
+v = get gterr 0
+chk eq v 2 21
+fill 5
+ok = gtewrap 1 4
+chk not ok 22
+v = get gterr 0
+chk eq v 3 23
+note A refusal must not leave partial output.
+v = get gboutlen 0
+chk ne v 704 24
+
+note Negative control: mutate one byte of the enabled stream and the length check still holds
+note but the byte comparison against the input must fail for the affected region.
+fill 64
+put gtchecks 0 1
+ok = gtewrap 1 4
+bb = get gbout 320
+put gbout 320 uchar add bb 1
+bb = get gbout 320
+chk ne bb 160 25
+ret int get Fails 0
+end

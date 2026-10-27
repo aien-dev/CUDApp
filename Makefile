@@ -7,8 +7,9 @@
 #   make hello-gpu  run the doctor, then build examples/hello_gpu and run it (on a GB10)
 #
 # The driver client (nvrm/, m16/) and the NVIDIA open headers (third_party/) are in
-# this repository, so PHYSICS_DIR is "." here. Omega builds the same sources with
-# PHYSICS_DIR pointing at its pinned CUDA++ checkout (cudapp.lock).
+# this repository, so PHYSICS_DIR is "." here. Omega is meant to build the same sources
+# with PHYSICS_DIR pointing at a pinned CUDA++ checkout (cudapp.lock); that pin does not
+# exist yet and Omega main still takes nvrm/m16 from physics-mv (#106, #107).
 CC ?= gcc
 .DEFAULT_GOAL := all
 PHYSICS_DIR ?= .
@@ -66,6 +67,12 @@ $(OUT_DIR)/cubin_probe: tools/interop/cubin_probe.c $(OUT_DIR)/libomega_gpu.a
 cubin-probe: $(OUT_DIR)/cubin_probe
 test-native-artifact: $(ARTIFACT_EXPORT) $(ARTIFACT_TEST)
 	./$(ARTIFACT_TEST) $(OUT_DIR)/artifact-test
+# Pure artifact-format boundary: portable host test, no driver or device objects.
+.PHONY: test-native-artifact-manifest
+$(OUT_DIR)/native_artifact_manifest_test: tests/native_artifact_manifest_test.c src/omega_native_artifact.c src/omega_cubin.c src/omega_blackwell_realize.c src/sha256.c | $(OUT_DIR)
+	$(CC) $(CFLAGS) -ffunction-sections -fdata-sections -Wl,--gc-sections -o $@ $^
+test-native-artifact-manifest: $(OUT_DIR)/native_artifact_manifest_test
+	./$(OUT_DIR)/native_artifact_manifest_test
 .PHONY: libomega_gpu test-gpu-matmul-api
 # The two gate-runner objects (omegatool's M17/M18/M19 and World gates) are NOT part of the
 # library: nothing in the library or in the Rust FFI crate calls them (checked with nm), and
@@ -251,6 +258,10 @@ $(GPU_QMMA_PROBE_TEST): tests/gpu_qmma_probe_test.c tests/bw_qmma_model.h src/om
 GPU_QGEMM_TEST = $(OUT_DIR)/gpu_qgemm_test
 $(GPU_QGEMM_TEST): tests/gpu_qgemm_test.c tests/bw_qmma_model.h tests/bw_warp_sim_tc.h src/omega_gpu_prefill.h src/omega_blackwell_codegen_qg.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -DWS_MAX_THREADS=1024 -Itests -o $@ tests/gpu_qgemm_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+.PHONY: test-gemm-selectors
+test-gemm-selectors: $(GPU_PFGEMM_TEST) $(GPU_QGEMM_TEST) $(GPU_FP8GEMM_TEST)
+	python3 tests/gemm_selectors.py $(OUT_DIR)
+
 GPU_PFHOST_TEST = $(OUT_DIR)/gpu_pfhost_test
 $(GPU_PFHOST_TEST): tests/gpu_pfhost_test.c tests/bw_warp_sim_tc.h src/omega_gpu_pfhost.h src/omega_blackwell_codegen_pfhost.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -DWS_MAX_THREADS=1024 -Itests -o $@ tests/gpu_pfhost_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
@@ -290,7 +301,7 @@ HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-a
 	test-gpu-engine-mutants test-gpu-engine-backend-compile test-gpu-engine-prod-build test-gpu-engine-sim \
 	test-gpu-engine-backend-mutants test-gpu-engine-gb10-compile test-gpu-serving-alloc test-gpu-engine-freestanding \
 	test-codegen-freestanding test-gpu-session-platform test-gpu-wait test-gpu-wait-mutants host-tests-m16 \
-	test-runtime-api test-runtime-portability test-doctor test-hello-sim
+	test-runtime-api test-runtime-portability test-doctor test-hello-sim test-native-artifact-manifest test-gemm-selectors
 test: $(HOST_TESTS)
 	@echo "CUDA++ HOST TESTS PASS ($(words $(HOST_TESTS)) targets)"
 

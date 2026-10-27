@@ -1,0 +1,209 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Device-side trace emitter for CUDApp #82, first slice. Handwritten seeded Omega.
+note It emits the instruction words for one selected producer (thread 0 of the launched CTA)
+note that records two bounded mark records around one synchronous region, and returns the
+note input words unchanged when tracing is disabled. Enabled input is a prepared linear body
+note fragment, not a complete kernel: the caller must initialise and preserve R0 = TID.X,
+note launch exactly one CTA, and allow both markers to fall through. Branches, calls, returns
+note and early exits are unsupported. EXIT instructions are explicitly refused, but the
+note scanner is not a general control-flow verifier. Markers clobber P0, R2, R4:R13 and UR4:UR5;
+note the caller must account for those live-register effects at both insertion points.
+note
+note Wire layout is PR #83 docs/device-trace/CONTRACT.md v1: 64-byte header, 64-byte records,
+note kinds 1 mark / 2 begin / 3 end, clock domain 1 = raw device GLOBALTIMER low 32 bits with
+note units UNKNOWN. The host owns header initialisation (magic, version, extent, capacity,
+note generation, kernel, manifest, status) and finalises it after completion; this emitter
+note writes records only. No 64-bit clock claim, no nanosecond claim.
+note
+note Register numbers are physical and fixed by this emitter: R0 tid, R2 stamp, R4:R5 trace
+note base, R6 scratch, R8:R9 record address, R10:R11 generation, R12:R13 kernel; the global
+note memory descriptor is loaded into UR4. Encodings are ported from the repository's own
+note encoder, src/omega_blackwell_codegen.c encode_single_insn (S2R 0x7919, ISETP.GE 0x780c,
+note BRA 0x947, LDC64 0xff007b82, LDCU64 0xff0077ac, MOV imm 0x7802, IMAD.WIDE 0x7825,
+note STG.E 0x7986), and each emitted stream is decoded by nvdisasm 13.0 as an outside oracle.
+note
+note Record offsets use full-width base addition via the existing IMAD.WIDE.U32 form.
+note The host must supply a valid nonwrapping allocated extent. The enabled path is refused
+note unless gtchecks is exactly 1. This flag is a precondition, not evidence that arbitrary
+note input words, launch geometry, memory visibility or hardware execution have been checked.
+
+const TRBAS ulong 1024
+const TRGEN ulong 1040
+const TRKRN ulong 1048
+const TRDSK ulong 856
+const HDRSZ ulong 64
+const RECSZ ulong 64
+const MAXCAP ulong 64
+const MAXEXT ulong 4160
+const SITE1 ulong 1
+const SITE2 ulong 2
+const KINDMK ulong 1
+const R_S2R ulong 31001
+const R_ISET ulong 30732
+const R_LDC ulong 4278221698
+const R_LDCU ulong 4278220716
+const R_MOVI ulong 30722
+const R_IMADW ulong 30757
+const R_STG ulong 31110
+const SR_TID ulong 33
+const SR_CLK ulong 82
+const R_BRA ulong 2375
+
+global gbin uchar 4096
+global gbinlen ulong 1
+global gbout uchar 8192
+global gboutlen ulong 1
+global gterr ulong 1
+global gtcap ulong 1
+global gten ulong 1
+global gtchecks ulong 1
+
+fn gtword v uint to void
+for j ulong 4
+put gbout get gboutlen 0 uchar and shr v mul j 8 255
+put gboutlen 0 add get gboutlen 0 1
+end
+end
+
+fn gtquad a uint b uint c uint d uint to void
+gtword a
+gtword b
+gtword c
+gtword d
+end
+
+fn gts2r dst ulong sr ulong to void
+gtquad uint or R_S2R shl dst 16 uint 0 uint shl sr 8 uint 926208
+end
+
+fn gtsel to void
+note ISETP.GE P0, R0, 1: predicate true when tid >= 1, so only tid 0 records.
+gtquad uint R_ISET uint 1 uint 66085488 uint 2087424
+end
+
+fn gtmov dst ulong imm ulong to void
+gtquad uint or R_MOVI shl dst 16 uint imm uint 3840 uint 1040896
+end
+
+fn gtstg bse ulong val ulong off ulong to void
+gtquad uint or R_STG shl bse 24 uint or val shl and off 65535 8 uint 202381572 uint 1040896
+end
+
+fn gtldc dst ulong off ulong to void
+note LDC.64 Rd:Rd+1, c[0x0][off]
+gtquad uint or R_LDC shl dst 16 uint and shl off 6 16776960 uint 2560 uint 926208
+end
+
+fn gtldu dst ulong off ulong to void
+note LDCU.64 URd:URd+1, c[0x0][off] -- the global memory descriptor.
+gtquad uint or R_LDCU shl dst 16 uint and shl off 5 16776960 uint 134220288 uint 945664
+end
+
+fn gtaddr off ulong to void
+note MOV R6, off; IMAD.WIDE.U32 R8:R9, R6, 1, R4:R5 computes base + offset with carry.
+note Existing encoding: src/omega_blackwell_codegen.c BW_IR_IMAD_WIDE; vector.om address pairs.
+gtmov 6 off
+gtquad uint or or R_IMADW shl ulong 8 16 shl ulong 6 24 uint 1 uint 126746628 uint 2083840
+end
+
+fn gtbrak to void
+note BRA @P0 over the fixed 20-instruction mark block: delta 19, rel 18, predicate field 0.
+gtquad uint or R_BRA shl ulong 18 18 uint 0 uint 58720256 uint 1042944
+end
+
+fn gtmark site ulong seq ulong to void
+note One bounded mark record at 64*site (sites 1 and 2). Field offsets are contract v1.
+gtsel
+gtbrak
+gtldu 4 TRDSK
+gts2r 2 SR_CLK
+gtldc 4 TRBAS
+gtldc 10 TRGEN
+gtldc 12 TRKRN
+gtaddr mul site 64
+gtmov 6 site
+gtstg 8 6 0
+gtmov 6 KINDMK
+gtstg 8 6 4
+gtmov 6 seq
+gtstg 8 6 8
+gtstg 8 2 12
+gtstg 8 10 16
+gtstg 8 11 20
+gtstg 8 12 24
+gtstg 8 13 28
+end
+
+fn gtinit cap ulong to bool
+note Bound the extent before any word is emitted. Refusal codes: 1 capacity below two records,
+note 2 extent above the contract maximum, 3 the input is not a whole number of instructions.
+put gterr 0 0
+if gt cap MAXCAP
+put gterr 0 2
+ret false
+end
+if lt cap 2
+put gterr 0 1
+ret false
+end
+if ne rem get gbinlen 0 16 0
+put gterr 0 3
+ret false
+end
+put gtcap 0 cap
+ret true
+end
+
+fn gtwrap on ulong to void
+note Disabled: the output is the input byte for byte; no prologue, no store, no allocation.
+note Enabled: mark(site 1), the caller's prepared body fragment, mark(site 2).
+put gboutlen 0 0
+if eq on 0
+for i ulong get gbinlen 0
+put gbout i get gbin i
+end
+put gboutlen 0 get gbinlen 0
+ret
+end
+gtmark SITE1 0
+for i ulong get gbinlen 0
+put gbout get gboutlen 0 uchar get gbin i
+put gboutlen 0 add get gboutlen 0 1
+end
+gtmark SITE2 1
+end
+
+fn gtbody to bool
+note Reject complete-kernel EXIT regardless of its predicate field (bits 12..15).
+note This recognises the repository's EXIT encoding, not every control-flow instruction.
+for i ulong div get gbinlen 0 16
+p = mul i 16
+lo = ulong get gbin p
+hi = ulong and get gbin add p 1 15
+op = or lo shl hi 8
+if eq op 2381
+put gterr 0 5
+ret false
+end
+end
+ret true
+end
+
+fn gtewrap on ulong cap ulong to bool
+note Checked entry point: refuse before emitting anything, then wrap.
+if not gtinit cap
+ret false
+end
+if and ne on 0 ne get gtchecks 0 1
+note Enabled needs the instruction and control-flow checks to have passed.
+put gterr 0 4
+ret false
+end
+if ne on 0
+if not gtbody
+ret false
+end
+end
+gtwrap on
+ret true
+end

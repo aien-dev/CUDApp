@@ -1,0 +1,50 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Offline stdout exporter: exactly [CUL1 catalog ID, selector], then EOF.
+note Selector1 emits the task; selector2 emits the unchanged vector code.
+global spin uchar 3
+fn main to int
+pos = ulong 0
+done = false
+while not done bound 4
+r = read 0 spin pos sub 3 pos
+if lt r 0
+ret 74
+end
+if eq r 0
+done = true
+else
+pos = add pos ulong r
+if eq pos 3
+ret 65
+end
+end
+end
+if ne pos 2
+ret 65
+end
+mode = get spin 1
+if and ne mode 1 ne mode 2
+ret 77
+end
+n = spload ulong get spin 0
+if eq n 0
+ret 77
+end
+if eq mode 2
+n = 512
+end
+pos = 0
+while lt pos n bound 513
+w = long 0
+if eq mode 1
+w = write 1 kt pos sub n pos
+else
+w = write 1 gbcode pos sub n pos
+end
+if le w 0
+ret 74
+end
+pos = add pos ulong w
+end
+ret 0
+end

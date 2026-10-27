@@ -1,0 +1,24 @@
+{
+  "extensions": {
+    "generated": {
+      "children": [],
+      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiled_at": "2026-10-27T04:08:34Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:1bba3fb571a195355e1a3958c9e025fb16f14ec330b7e218cc4f7dc5b5aadbff",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 10,
+      "generated_at_commit": "75e23ae20425ca6539960bb62f2bf3fcc8d676a8",
+      "source_tree": "sha256:1641f2b1757798a14705225dd58ff5c2af3cab7f28b30e14dd781af24def3fe0"
+    }
+  },
+  "invariants": [
+    "All stamps are synthetic.",
+    "Only run AArch64 outputs after a successful compile with the verified pin.",
+    "Do not open a GPU or claim device qualification from these fixtures."
+  ],
+  "name": "device-trace",
+  "purpose": "Handwritten Omega host-reference tests and independent golden bytes for the proposed device trace contract.",
+  "schema_version": "1.0.0"
+}

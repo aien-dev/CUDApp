@@ -1,0 +1,175 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Host-only semantic regression, not a GPU emulator or hardware receipt.
+note Compose after trace-emit.om. Decode the two address instructions independently of
+note the emitter helpers/golden, then model each STG effective address in a guarded extent.
+note Restoring the original base-low multiplication must fail, even if a golden is updated.
+
+global Aregs ulong 256
+global Amem uchar 256
+
+fn aword byteoff ulong to ulong
+v = ulong 0
+for j ulong 4
+v = or v shl ulong get gbout add byteoff j mul j 8
+end
+ret v
+end
+
+fn ainsn pos ulong to bool
+w = aword pos
+op = and w 65535
+dst = and shr w 16 255
+src = shr w 24
+imm = aword add pos 4
+rc = and aword add pos 8 255
+if eq op 30722
+put Aregs dst imm
+ret true
+end
+if eq op 30756
+v = add mul get Aregs src imm get Aregs rc
+put Aregs dst and v 4294967295
+ret true
+end
+if eq op 30757
+base = get Aregs rc
+if ne rc 255
+base = or base shl get Aregs add rc 1 32
+end
+v = add mul get Aregs src imm base
+put Aregs dst and v 4294967295
+put Aregs add dst 1 shr v 32
+ret true
+end
+ret false
+end
+
+fn astore p ulong base ulong to bool
+w = aword p
+breg = shr w 24
+off = aword add p 4
+note STG.E has a signed 24-bit byte offset. This marker uses only nonnegative offsets.
+off = and shr off 8 16777215
+if ge off 8388608
+ret false
+end
+dst = get Aregs breg
+dst = or dst shl get Aregs add breg 1 32
+dst = add dst off
+if lt dst base
+ret false
+end
+rel = sub dst base
+if gt rel 188
+ret false
+end
+for j ulong 4
+put Amem add add rel j 32 90
+end
+ret true
+end
+
+fn amark start ulong base ulong want ulong to bool
+for i ulong 256
+put Aregs i 0
+end
+put Aregs 4 and base 4294967295
+put Aregs 5 shr base 32
+ok = ainsn add start 112
+if not ok
+ret false
+end
+ok = ainsn add start 128
+if not ok
+ret false
+end
+addr = or get Aregs 8 shl get Aregs 9 32
+if ne addr want
+ret false
+end
+stores = ulong 0
+for i ulong 20
+p = add start mul i 16
+w = aword p
+if eq and w 65535 31110
+ok = astore p base
+if not ok
+ret false
+end
+stores = add stores 1
+end
+end
+ret eq stores 8
+end
+
+fn aextent base ulong first ulong second ulong to bool
+for i ulong 256
+put Amem i 165
+end
+ok = amark 0 base first
+if not ok
+ret false
+end
+ok = amark 320 base second
+if not ok
+ret false
+end
+note The header, unused record bytes, and both 32-byte canaries remain untouched.
+for i ulong 256
+touched = or and ge i 96 lt i 128 and ge i 160 lt i 192
+want = uchar 165
+if touched
+want = uchar 90
+end
+if ne get Amem i want
+ret false
+end
+end
+ret true
+end
+
+fn main to int
+put gbinlen 0 0
+put gtchecks 0 1
+ok = gtewrap 1 2
+if not ok
+ret 1
+end
+if ne get gboutlen 0 640
+ret 2
+end
+ok = aextent 4294971392 4294971456 4294971520
+if not ok
+ret 3
+end
+note Low-half carry must not wrap the pointer into an unrelated allocation.
+ok = aextent 8589934528 8589934592 8589934656
+if not ok
+ret 4
+end
+ok = aextent 4096 4160 4224
+if not ok
+ret 5
+end
+note Predicate-insensitive branch opcode, @P0, rel18: index1 +1 +18 =20.
+for i ulong 2
+p = add mul i 320 16
+w = aword p
+if ne and w 4095 2375
+ret 6
+end
+if ne and shr w 12 15 0
+ret 7
+end
+if ne shr w 18 18
+ret 8
+end
+if ne aword add p 4 0
+ret 9
+end
+if ne aword add p 8 58720256
+ret 10
+end
+end
+ret 0
+end

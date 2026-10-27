@@ -1,0 +1,138 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Tests bind the pilot boundary, not GPU execution or source authentication.
+global sptally ulong 2
+text spok "SHADER_PILOT_CORE_PASS\n"
+text spbad "SHADER_PILOT_CORE_FAIL\n"
+fn sptest yes bool to void
+put sptally 0 add get sptally 0 1
+if not yes
+put sptally 1 add get sptally 1 1
+end
+end
+fn spcopy id ulong to ulong
+n = kload id
+for i ulong n
+put sptask i get kt i
+end
+gbvec
+for i ulong 512
+put spcode i get gbcode i
+end
+ret n
+end
+fn spow p ulong v ulong to void
+for j ulong 4
+put ko add mul p 4 j uchar and shr v mul j 8 255
+end
+end
+fn spobs n ulong value ulong to void
+note Independent expected literals: Wolfram Mod[7+9,2^32]=16 and Mod[2^32-1+3,2^32]=2.
+for i ulong add n 2
+v = value
+if or eq i 0 eq i add n 1
+v = 2779096485
+end
+spow i v
+end
+end
+fn spcase id ulong tn ulong n ulong value ulong on ulong to void
+sptest eq spload id tn
+sptest eq get gblen 0 512
+sptest eq kw 5 n
+sptest eq kw 2 1
+spobs n value
+sptest eq keval tn on 0
+note Wrong result/skipped write must fail the existing independent evaluator.
+put ko 4 xor get ko 4 1
+sptest eq keval tn on 1
+spobs n value
+put ko sub on 1 0
+sptest eq keval tn on 1
+t = spcopy id
+sptest eq t tn
+sptest eq spmatch id tn 512 0
+note Every candidate byte matters. Omitted scan bytes make these tests fail.
+for i ulong tn
+v = get sptask i
+put sptask i xor v 1
+sptest eq spmatch id tn 512 1
+sptest eq get sptask i xor v 1
+put sptask i v
+end
+for i ulong 512
+v = get spcode i
+put spcode i xor v 1
+sptest eq spmatch id tn 512 1
+sptest eq get spcode i xor v 1
+put spcode i v
+end
+sptest eq spmatch id tn 512 0
+sptest eq spmatch id sub tn 1 512 65
+sptest eq spmatch id add tn 1 512 65
+sptest eq spmatch id tn 511 65
+sptest eq spmatch id tn 513 65
+sptest eq spmatch id 18446744073709551615 512 65
+sptest eq spmatch id tn 18446744073709551615 65
+note Stale or poisoned trusted scratch cannot redefine the expected bytes.
+put kt 0 0
+put gbcode 0 0
+put gblen 0 0
+sptest eq spmatch id tn 512 0
+end
+fn spprofs to void
+n = kload 2
+sptest spprofile 2 n
+note This remains valid CUL1 add8 but stride2 is not supported by gbvec.
+kput 8 2
+kput 9 2
+kput 10 2
+kput 11 15
+kput 12 15
+kput 13 15
+sptest eq kvalid 216 0
+sptest not spprofile 2 216
+n = kload 3
+sptest not spprofile 2 n
+sptest spprofile 3 n
+note A valid CUL1 operation is not necessarily a supported vector operation.
+n = kload 5
+sptest eq kvalid n 0
+sptest not spprofile 2 n
+n = kload 1
+sptest not spprofile 1 n
+n = kload 2
+kput 3 2
+sptest not spprofile 2 n
+end
+fn main to int
+spprofs
+spcase 2 160 8 16 40
+spcase 3 232 17 2 76
+note Same emitted code does not make task2 an acceptable task3 receipt.
+t = spcopy 2
+sptest eq spmatch 3 t 512 65
+sptest eq spmatch 3 232 512 1
+note Unsupported catalog IDs and modes do not mutate a previous specimen.
+n = spload 3
+a = get kt 0
+b = get gbcode 0
+for id ulong 10
+if and ne id 2 ne id 3
+sptest eq spload id 0
+sptest eq spmatch id 232 512 77
+sptest eq get kt 0 a
+sptest eq get gbcode 0 b
+sptest eq get gblen 0 512
+end
+end
+sptest eq spload 18446744073709551615 0
+sptest eq spmatch 18446744073709551615 232 512 77
+if ne get sptally 1 0
+r = write 2 spbad 0 len spbad
+ret 1
+end
+if ne write 1 spok 0 len spok long len spok
+ret 74
+end
+ret 0
+end

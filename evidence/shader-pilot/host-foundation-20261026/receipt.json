@@ -1,0 +1,454 @@
+{
+  "schema": "cudapp.shader-pilot.host-foundation.v1",
+  "date_utc": "2026-10-26",
+  "status": "HOST_REFERENCE_EXERCISED; NATIVE_AND_GPU_NOT_RUN",
+  "repository": "https://github.com/aien-dev/CUDApp",
+  "base_commit": "b5e0da48ee7b8a64ae0b51068769fa0659b2e33a",
+  "source_commit": "5d95e4b00a95770a6f73f299ec33827d78b49802",
+  "platform": "Linux 6.18.55 x86_64",
+  "implementation": "Seeded Omega offline exporter and byte matcher; unchanged CUL1 tasks and fixed vector emitter. No runtime or cache changes.",
+  "source_sha256": {
+    "native/learn53/task.om": "5cb929e58af85d82d83a449c8d50d6be94e6377d2f7b9e888258148e746f605a",
+    "native/learn53/catalog.om": "4cfcb3d0b73f8f0a1b764005a7a0cebe188e46830dedc085d5b91fedbc075a95",
+    "native/blackwell/vector.om": "011816cae457368289d21e98016db5206ec54b9a0e33944c80fb7cebaa9e7831",
+    "native/blackwell/launch.om": "580fe48ab61d496c5cae1567dcb9b1b895c52f5eba9e2138767bd79c3779cf0b",
+    "native/shader-pilot/core.om": "25c1f7606526fdfea6f1181794f409fa1a44c7d6dcf56f8989cc9dafb25acccc",
+    "native/shader-pilot/export.om": "8cc560ad325769171ec52c75fbdeb02647482346cf958dbd200644048b08d3fb",
+    "tests/shader-pilot/core-test.om": "3a05bda7e7ae94935f59d820c9608101d0a8664af43f88cbb307efbae470f24c",
+    "tests/shader-pilot/stream-check.om": "3594a2d76fb7afee7d4919797c6d65b9e5f76c48fc571098bbe878391f76e6cd"
+  },
+  "compiler": {
+    "repository": "https://github.com/aien-dev/omega-mv",
+    "revision": "7505b3a3e3cf5ee46933e3a89a021b4289037983",
+    "path": "seed/omc/omc.om",
+    "source_sha256": "c792b401193d8477d38965d6ddb0fd0cb8fd5ac24fcb92fae9af52037a765f1c",
+    "independently_recorded_seeded_binary_sha256": "499236398aabc652e2dae27fe4bdc4c5db3d3726314356e0dbef23e3345803ec",
+    "referee_self_output_sha256": "499236398aabc652e2dae27fe4bdc4c5db3d3726314356e0dbef23e3345803ec",
+    "self_compile_exit": 0,
+    "self_stderr_bytes": 0,
+    "mode": "stdin program mode; no additional compiler options",
+    "execution": "Compiler source executed by external referee. AArch64 output not executed."
+  },
+  "external_referee": {
+    "repository": "https://github.com/aien-dev/omega-mv",
+    "revision": "190130b71d0a59b93f01c515218a5509b149a145",
+    "source_path": "tools/omega_ref/omega_ref.c",
+    "source_sha256": "52e747096c1d978103432460a2978b21a604cc5d3e961bbe4b253fcc7636290e",
+    "binary_sha256": "5923db3cfc6edaafb610b0eed4031b5cd349cafb0b4ccfca1c4852cbb4a35250",
+    "compiler": "cc (Debian 14.2.0-19) 14.2.0",
+    "flags": "-O2 -g -std=gnu11 -Wall -Wextra -Werror -lpthread",
+    "role": "Unchanged frozen external development referee, not product code or native qualification. Original new .om executes without projection. Debug build identity may vary with build paths."
+  },
+  "units": [
+    {
+      "unit": "core",
+      "source_sha256": "82bba4bcdf0c6327b43020316a8bed09e83ee12d849dfa8057d01134dd1514a3",
+      "reference_check_exit": 0,
+      "compile_exit": 0,
+      "elf_sha256": "35d7d67bb4b6a35a7832e08081ef7c722a3c5462c880160dc133388fef8e9299",
+      "elf_bytes": 24224,
+      "run_exit": 0,
+      "stdout": "SHADER_PILOT_CORE_PASS\n"
+    },
+    {
+      "unit": "export",
+      "source_sha256": "07080da1d53e03f9d52699503393858123209ad6c1142b46f791dfad5efd68d7",
+      "reference_check_exit": 0,
+      "compile_exit": 0,
+      "elf_sha256": "2211c87833e185f4f9a7636ec709c02b258dc11512efe7d9204f167fb83b8a2c",
+      "elf_bytes": 16776
+    },
+    {
+      "unit": "stream-check",
+      "source_sha256": "ed246230321b7db1dbee2e78ad119e1b281213a3019fa176fa6bb33083bb1fc3",
+      "reference_check_exit": 0,
+      "compile_exit": 0,
+      "elf_sha256": "707ba3059e91e93e53efb520e0668a7d579a82fd07b6dc2cbdc0e3fddb185fa8",
+      "elf_bytes": 16580
+    }
+  ],
+  "immutable_source_replay": [
+    {
+      "unit": "core",
+      "compile_exit": 0,
+      "byte_identical": true,
+      "sha256": "35d7d67bb4b6a35a7832e08081ef7c722a3c5462c880160dc133388fef8e9299"
+    },
+    {
+      "unit": "export",
+      "compile_exit": 0,
+      "byte_identical": true,
+      "sha256": "2211c87833e185f4f9a7636ec709c02b258dc11512efe7d9204f167fb83b8a2c"
+    },
+    {
+      "unit": "stream-check",
+      "compile_exit": 0,
+      "byte_identical": true,
+      "sha256": "707ba3059e91e93e53efb520e0668a7d579a82fd07b6dc2cbdc0e3fddb185fa8"
+    }
+  ],
+  "exports": [
+    {
+      "catalog_id": 2,
+      "selector": 1,
+      "bytes": 160,
+      "sha256": "7088309528d45479db25178a48bd09a628ea805ecf086c49b95a242d19845ef4",
+      "repeat_byte_identical": true
+    },
+    {
+      "catalog_id": 2,
+      "selector": 2,
+      "bytes": 512,
+      "sha256": "39f3dfdfc529a75a8274a27900acf4e7382b7f280a211e0412c51609f44b62a1",
+      "repeat_byte_identical": true
+    },
+    {
+      "catalog_id": 3,
+      "selector": 1,
+      "bytes": 232,
+      "sha256": "d1777193f2c1329ca3bc50ed79a2d43cc19ada2b90c047d3cb2fe34d9834f074",
+      "repeat_byte_identical": true
+    },
+    {
+      "catalog_id": 3,
+      "selector": 2,
+      "bytes": 512,
+      "sha256": "39f3dfdfc529a75a8274a27900acf4e7382b7f280a211e0412c51609f44b62a1",
+      "repeat_byte_identical": true
+    }
+  ],
+  "original_vector_digest_basis": "Matches unchanged base emitter and prior disabled-emission hash39f3dfdfc529a75a8274a27900acf4e7382b7f280a211e0412c51609f44b62a1; not independent machine-instruction validation.",
+  "red_evidence": [
+    {
+      "case": "core with explicit unimplemented return0/return77 stubs",
+      "reference_check_exit": 0,
+      "run_exit": 1,
+      "stderr": "SHADER_PILOT_CORE_FAIL\n"
+    },
+    {
+      "case": "profile stub returning true",
+      "reference_check_exit": 0,
+      "run_exit": 1,
+      "stderr": "SHADER_PILOT_CORE_FAIL\n"
+    },
+    {
+      "case": "export stub returns77 without payload",
+      "request_hex": "0201",
+      "run_exit": 77,
+      "stream_checker_exit": 65
+    },
+    {
+      "case": "final complete core test with all-unimplemented stubs",
+      "reference_check_exit": 0,
+      "compile_exit": 0,
+      "run_exit": 1,
+      "stderr": "SHADER_PILOT_CORE_FAIL\n",
+      "source_sha256": "b090232f82dede76cc7800758eaa876e5282dd9f79dc0213ad44f3faeb6fd2b3",
+      "elf_sha256": "89ddaa32f2d9aa1360667ed96de005ec5eb1a54332ccebfe2f216463fa1f893f"
+    }
+  ],
+  "initial_failures": [
+    {
+      "stage": "initial core compile",
+      "exit": 12,
+      "message": "Nested test fixture store exhausted compiler registers at composed line551. Moved the identical store into spow helper, preserving assertions; final source compiles."
+    },
+    {
+      "stage": "timing orchestration",
+      "result": "GNU /usr/bin/time absent. No timing result claimed from failed attempt; switched explicitly to Bash time with no RSS field."
+    }
+  ],
+  "stream_cases": 537,
+  "stream_results": "streams.tsv",
+  "stream_matrix": "Four valid selections plus identical repeats; each valid payload truncated/extended/first-byte-corrupt/last-byte-corrupt; empty/one/extra/many-byte export requests; every unsigned-byte ID except2/3; every unsigned-byte selector except1/2; stale task2 requested as task3.",
+  "io_controls": [
+    {
+      "case": "stdin closed",
+      "exit": 74,
+      "stdout_bytes": 0,
+      "stderr_bytes": 0
+    },
+    {
+      "case": "stdout /dev/full",
+      "exit": 74,
+      "stderr_bytes": 0
+    }
+  ],
+  "compiled_negative_controls": [
+    {
+      "unit": "mutant-skip-task-scan",
+      "source_sha256": "3e2148d71d43291dfba60e8d408d6d60ae7d44407d6c7cdb66b5eb486505c30a",
+      "reference_check_exit": 0,
+      "compile_exit": 0,
+      "elf_sha256": "b1ca1603f7bc405f2f37e50f9718451d7d2d5fbe941a84e8eb72d0b92431c166",
+      "elf_bytes": 24192,
+      "run_exit": 1,
+      "stderr": "SHADER_PILOT_CORE_FAIL\n",
+      "replace_exactly_once": {
+        "path": "native/shader-pilot/core.om",
+        "old": "for i ulong n\nif ne get sptask",
+        "new": "for i ulong 0\nif ne get sptask"
+      }
+    },
+    {
+      "unit": "mutant-skip-last-code-byte",
+      "source_sha256": "217e65b36db87bf3e08ca8e66d3f93b9dba8df4f154a3f0b0a242bcca2bfe232",
+      "reference_check_exit": 0,
+      "compile_exit": 0,
+      "elf_sha256": "77628d7a2ca5e7ba7bf27dac6c59621d58993dc3327af5246a13f6d6595d8b65",
+      "elf_bytes": 24224,
+      "run_exit": 1,
+      "stderr": "SHADER_PILOT_CORE_FAIL\n",
+      "replace_exactly_once": {
+        "path": "native/shader-pilot/core.om",
+        "old": "for i ulong 512\nif ne get spcode",
+        "new": "for i ulong 511\nif ne get spcode"
+      }
+    },
+    {
+      "unit": "mutant-accept-short-task",
+      "source_sha256": "c2f8ad6b5cf2893cf754bad200fd78834332cb240dfe3761970aaa87173a2db2",
+      "reference_check_exit": 0,
+      "compile_exit": 0,
+      "elf_sha256": "636a46997127532cc2f501812979d1f1cc6b93190bc19cc95ac0800bc4e46974",
+      "elf_bytes": 24224,
+      "run_exit": 1,
+      "stderr": "SHADER_PILOT_CORE_FAIL\n",
+      "replace_exactly_once": {
+        "path": "native/shader-pilot/core.om",
+        "old": "if or ne tn n ne cn 512",
+        "new": "if or gt tn n ne cn 512"
+      }
+    },
+    {
+      "unit": "mutant-accept-short-code",
+      "source_sha256": "92bb2695e77df1522d20b720faad446f428a0f25ce3d5251a5a3a45c5440c363",
+      "reference_check_exit": 0,
+      "compile_exit": 0,
+      "elf_sha256": "7524d81d855833e80cef2a5988944c7cdc9e60b24f63829f7423aa93a18d82d8",
+      "elf_bytes": 24224,
+      "run_exit": 1,
+      "stderr": "SHADER_PILOT_CORE_FAIL\n",
+      "replace_exactly_once": {
+        "path": "native/shader-pilot/core.om",
+        "old": "if or ne tn n ne cn 512",
+        "new": "if or ne tn n gt cn 512"
+      }
+    },
+    {
+      "unit": "mutant-stale-catalog",
+      "source_sha256": "bbaeedf7f2807c25a213345cd3df55b602842cfc575c41fa65334d1bd001103e",
+      "reference_check_exit": 0,
+      "compile_exit": 0,
+      "elf_sha256": "fcdfbf277158c8903507ce6dc985d906b72eec60b762ae6150db9b783f5e58e3",
+      "elf_bytes": 24224,
+      "run_exit": 1,
+      "stderr": "SHADER_PILOT_CORE_FAIL\n",
+      "replace_exactly_once": {
+        "path": "native/shader-pilot/core.om",
+        "old": "n = spload id\nif eq n 0",
+        "new": "n = spload 2\nif eq n 0"
+      }
+    },
+    {
+      "unit": "mutant-accept-strided",
+      "source_sha256": "b4661fcd057529a9c6638801c661949217aa1148c08ba428f319a3987fcfda98",
+      "reference_check_exit": 0,
+      "compile_exit": 0,
+      "elf_sha256": "5b5593b13ff6c17b6f52b31a3655c4ff61d24a54bc9814b2e934b0cbc52f46fb",
+      "elf_bytes": 23968,
+      "run_exit": 1,
+      "stderr": "SHADER_PILOT_CORE_FAIL\n",
+      "replace_exactly_once": {
+        "path": "native/shader-pilot/core.om",
+        "old": "if or or ne kw 8 1 ne kw 9 1 ne kw 10 1\nret false\nend\n",
+        "new": ""
+      }
+    },
+    {
+      "unit": "mutant-accept-wrong-shape",
+      "source_sha256": "6ee84ee3fab8bf717e05397703ebcc3c230d6de9ea1d0c8cf977ed862a929d3b",
+      "reference_check_exit": 0,
+      "compile_exit": 0,
+      "elf_sha256": "3c6ac853afec6a23edc3f168bee0fc14e7ef8a13c9580c515f94cfb4154fb35f",
+      "elf_bytes": 24148,
+      "run_exit": 1,
+      "stderr": "SHADER_PILOT_CORE_FAIL\n",
+      "replace_exactly_once": {
+        "path": "native/shader-pilot/core.om",
+        "old": "if ne kw 5 want\nret false\nend\n",
+        "new": ""
+      }
+    },
+    {
+      "unit": "mutant-omit-canonical-reload",
+      "source_sha256": "dc1ff221159ad68cd9f73e80849a1c86f7d35a179f9092432e84a005ecaa68e4",
+      "reference_check_exit": 0,
+      "compile_exit": 0,
+      "elf_sha256": "cfab5f5241286fcfb1aa7771fd2d8eece9f7193ba23bb7e3f01e7f32468b81b4",
+      "elf_bytes": 24308,
+      "run_exit": 1,
+      "stderr": "SHADER_PILOT_CORE_FAIL\n",
+      "replace_exactly_once": {
+        "path": "native/shader-pilot/core.om",
+        "old": "n = kload id\nif not spprofile",
+        "new": "n = add 96 mul 4 add kw 11 kw 12\nif not spprofile"
+      }
+    },
+    {
+      "unit": "mutant-accept-extra-request",
+      "source_sha256": "90a3257b5b48bf02a87ebad442e76bd7c0a2749446b5638919ab16bdeabc8810",
+      "reference_check_exit": 0,
+      "compile_exit": 0,
+      "elf_sha256": "ac83b60c60a535a68661852538e89c7ec897e6861b6a4a50c84e9ec2d13181cc",
+      "elf_bytes": 16772,
+      "run_exit": 0,
+      "detected": "unexpected success on invalid frame",
+      "stdout_sha256": "7088309528d45479db25178a48bd09a628ea805ecf086c49b95a242d19845ef4",
+      "replacements": [
+        {
+          "old": "if eq pos 3\nret 65\nend",
+          "new": "if eq pos 3\ndone = true\nend"
+        },
+        {
+          "old": "if ne pos 2",
+          "new": "if lt pos 2"
+        }
+      ]
+    },
+    {
+      "unit": "mutant-swap-payload-mode",
+      "source_sha256": "b50634d065d8adb32d834a88ef2bcc2dd9eaf584a52066995ba8796c49dfff1a",
+      "reference_check_exit": 0,
+      "compile_exit": 0,
+      "elf_sha256": "03ca28188d29b07a2d0b74464499579f720a2e0e7c5ce973b6ea358c9da4bbe1",
+      "elf_bytes": 16776,
+      "run_exit": 0,
+      "detected": "wrong task bytes",
+      "stdout_sha256": "d74a77580457aa59b9a18e8233b8858c938bb919330486b2c97602c0782d49b0",
+      "replace_exactly_once": {
+        "path": "native/shader-pilot/export.om",
+        "old": "if eq mode 1\nw = write",
+        "new": "if eq mode 2\nw = write"
+      }
+    }
+  ],
+  "existing_regressions": [
+    {
+      "unit": "native/learn53/task.om + tests/learn53/fixtures.om + tests/learn53/unit.om",
+      "reference_check_exit": 0,
+      "run_exit": 0,
+      "stdout": "existing-core.stdout",
+      "checks_observed": 77
+    },
+    {
+      "unit": "native/learn53/task.om + native/learn53/catalog.om + tests/learn53/fixtures.om + tests/learn53/catalog-fixtures.om + tests/learn53/catalog-unit.om",
+      "reference_check_exit": 0,
+      "run_exit": 0,
+      "stdout": "existing-catalog.stdout",
+      "checks_observed": 83
+    }
+  ],
+  "raw_compile_process_measurements": [
+    {
+      "sample": 0,
+      "phase": "first-timed-sample-after-validation",
+      "raw_wall_user_system_seconds": "0.043,0.035,0.008",
+      "exit": 0,
+      "elf_sha256": "2211c87833e185f4f9a7636ec709c02b258dc11512efe7d9204f167fb83b8a2c"
+    },
+    {
+      "sample": 1,
+      "phase": "repeated-fresh-process",
+      "raw_wall_user_system_seconds": "0.043,0.038,0.004",
+      "exit": 0,
+      "elf_sha256": "2211c87833e185f4f9a7636ec709c02b258dc11512efe7d9204f167fb83b8a2c"
+    },
+    {
+      "sample": 2,
+      "phase": "repeated-fresh-process",
+      "raw_wall_user_system_seconds": "0.043,0.034,0.008",
+      "exit": 0,
+      "elf_sha256": "2211c87833e185f4f9a7636ec709c02b258dc11512efe7d9204f167fb83b8a2c"
+    },
+    {
+      "sample": 3,
+      "phase": "repeated-fresh-process",
+      "raw_wall_user_system_seconds": "0.040,0.034,0.005",
+      "exit": 0,
+      "elf_sha256": "2211c87833e185f4f9a7636ec709c02b258dc11512efe7d9204f167fb83b8a2c"
+    },
+    {
+      "sample": 4,
+      "phase": "repeated-fresh-process",
+      "raw_wall_user_system_seconds": "0.039,0.032,0.004",
+      "exit": 0,
+      "elf_sha256": "2211c87833e185f4f9a7636ec709c02b258dc11512efe7d9204f167fb83b8a2c"
+    },
+    {
+      "sample": 5,
+      "phase": "repeated-fresh-process",
+      "raw_wall_user_system_seconds": "0.046,0.044,0.000",
+      "exit": 0,
+      "elf_sha256": "2211c87833e185f4f9a7636ec709c02b258dc11512efe7d9204f167fb83b8a2c"
+    }
+  ],
+  "timer": "GNU Bash 5.2.37 time keyword, TIMEFORMAT=%R,%U,%S; wall,user,system seconds. Peak RSS NOT_RUN.",
+  "measurement_scope": "MEASURED external-referee process startup + source parsing + compiler interpretation + ELF output. First timed sample is after prior validation compiles. Filesystem cache, CPU load/governor and scheduling uncontrolled. No proven cold cache, warm hit, native compile latency or performance comparison.",
+  "whole_repository_checks": [
+    {
+      "command": "make test",
+      "when": "before and after code",
+      "exit": 2,
+      "result": "Existing AArch64 ds assembly rejected on x86_64 at src/omega_blackwell_engine.c:393,558. Full host suite did not run."
+    },
+    {
+      "command": "python3 tools/figures/make_figures.py --check",
+      "exit": 1,
+      "result": "Pre-existing stale stack.svg, documented in AGENTS.md; no figure regenerated."
+    },
+    {
+      "command": "crumb verify .",
+      "exit": 1,
+      "result": "Only existing docs/device-trace and tests/device-trace stale. New pilot crumbs current; unrelated crumbs unchanged."
+    },
+    {
+      "command": "git diff --cached --check",
+      "exit": 0
+    },
+    {
+      "command": "make zero-cuda-gate",
+      "exit": 2,
+      "result": "Blocked building the same existing AArch64 engine on x86; dependency gate did not run."
+    }
+  ],
+  "not_run": [
+    "Native AArch64 compiler and exported-host-program execution",
+    "Independent emitted-instruction/launch decoding for this pilot",
+    "GPU execution, bounds-exit behavior, memory effects or performance",
+    "Actual cache hit/miss, persistent compatibility key, authenticated artifact admission",
+    "Artifact loading, pipeline creation, first use, background preparation or frame-time measurement",
+    "Real community graphics reproducer, second target, integration, deployment"
+  ],
+  "independent_review": {
+    "source_commit": "5d95e4b00a95770a6f73f299ec33827d78b49802",
+    "findings": "No blocking or nonblocking correctness finding in bounded component; not native/GPU/publication approval.",
+    "main_records": 2937,
+    "additional_records": 6,
+    "compiled_mutants": 6,
+    "report": "REVIEW.md",
+    "raw_records": "review-results.tsv",
+    "extra_records": "review-extra-results.json",
+    "original_report_sha256": "ff334c7793f822843cc568d76680bcbafc02c9757e2d82e190f407802eda1e07",
+    "published_report_sha256": "1e05485df37f677deed230d6a577bb21bc0447686a41d46d4f3f82b7a95e0165",
+    "sanitization": "Only local scratch path substitutions and explanatory text in commands introduction. No result or limitation removed.",
+    "author_crosscheck": "Author compared all three reviewer ELF hashes to immutable replay, checked original report/raw records, and reran extra.py (I/O and valid CUL1 stride drift controls), exit0. No source edits after review."
+  },
+  "ownership_recheck": {
+    "at_utc": "2026-10-26T02:57Z",
+    "main_head": "b5e0da48ee7b8a64ae0b51068769fa0659b2e33a",
+    "issue86_comments": "Only our bounded claim6406954433. No assignee.",
+    "dependency_issues": "22/54/58/79 no comments or assignees;53 retains its four existing aien-spark comments, newest6375184787. Existing owners unchanged.",
+    "shader_pr_search": "No overlapping shader PR returned; remote target branch absent."
+  }
+}

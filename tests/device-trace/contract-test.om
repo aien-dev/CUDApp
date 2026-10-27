@@ -1,0 +1,154 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Native host tests for the bounded trace codec. Synthetic stamps, not GPU evidence.
+text gtpass "DEVICE_TRACE_CONTRACT_PASS\n"
+text gtfail "DEVICE_TRACE_CONTRACT_FAIL\n"
+fn gtcheck yes bool to void
+if not yes
+w = write 2 gtfail 0 len gtfail
+exit int 1
+end
+end
+fn gtfixture cap uint to void
+gtcheck gtinit 7 11 13 cap 3 1
+end
+fn gtbad32 off ulong value uint to void
+old = gtget32 off
+gtput32 off value
+gtcheck not gtvalidate 192 7 11 13
+gtput32 off old
+gtcheck gtvalidate 192 7 11 13
+end
+fn main to int
+note Rejected configuration must leave the reference producer inactive.
+gtcheck not gtinit 0 11 13 2 3 1
+gtcheck eq gtappend 7 17 1 224 100 0 neg long 1
+gtcheck not gtinit 7 0 13 2 3 1
+gtcheck not gtinit 7 11 0 2 3 1
+gtcheck not gtinit 7 11 13 65 3 1
+gtcheck not gtinit 7 11 13 2 16384 1
+gtcheck not gtinit 7 11 13 2 3 2
+note Zero capacity still records a selected producer's diagnostic loss.
+gtfixture 0
+gtcheck eq gtextent 64
+gtcheck eq gtappend 7 17 1 224 100 0 long 2
+gtcheck eq gtget32 16 0
+gtcheck eq gtget32 20 1
+gtcheck gtvalidate 64 7 11 13
+gtfixture 2
+gtcheck eq gtextent 192
+gtcheck eq gtappend 7 17 1 add mul uint 2 64 32 100 0 long 1
+gtcheck eq gtappend 7 17 1 mul uint 3 64 100 0 long 1
+gtcheck eq gtappend 7 17 1 add mul uint 3 64 33 100 0 long 1
+gtcheck eq gtappend 8 17 1 224 100 0 neg long 2
+gtcheck eq gtappend 7 0 1 224 100 0 neg long 3
+gtcheck eq gtappend 7 17 0 224 100 0 neg long 3
+gtcheck eq gtappend 7 17 4 224 100 0 neg long 3
+gtcheck eq gtappend 7 17 1 1048576 100 0 neg long 3
+gtcheck eq gtappend 7 17 1 4294967295 100 0 neg long 3
+gtcheck eq gtget32 16 0
+gtcheck eq gtget32 20 0
+note Begin/end use exact site identity, sequence and raw low32 values.
+gtcheck eq gtappend 7 17 2 224 4294967295 19 long 0
+gtcheck eq gtappend 7 17 3 224 0 23 long 0
+gtcheck eq gtget32 64 17
+gtcheck eq gtget32 68 2
+gtcheck eq gtget32 72 0
+gtcheck eq gtget32 76 4294967295
+gtcheck eq gtget64 80 7
+gtcheck eq gtget64 88 11
+gtcheck eq gtget32 96 3
+gtcheck eq gtget32 100 1
+gtcheck eq gtget32 104 0
+gtcheck eq gtget32 108 19
+gtcheck eq gtget32 128 17
+gtcheck eq gtget32 132 3
+gtcheck eq gtget32 136 1
+gtcheck eq gtget32 140 0
+gtcheck eq gtget32 172 23
+gtcheck gtvalidate 192 7 11 13
+note Overflow is a dropped suffix, never an overwrite of the retained prefix.
+gtcheck eq gtappend 7 29 1 224 200 0 long 2
+gtcheck eq gtget32 16 2
+gtcheck eq gtget32 20 1
+gtcheck eq gtget32 64 17
+put gtstate 7 4294967294
+gtcheck eq gtappend 7 29 1 224 200 0 long 2
+gtcheck eq gtget32 20 4294967295
+gtcheck eq gtget32 60 0
+gtcheck eq gtappend 7 29 1 224 200 0 long 2
+gtcheck eq gtget32 20 4294967295
+gtcheck eq gtget32 60 1
+note Completion state is explicit and forbids further producer writes.
+gtcheck gtfinish 2
+gtcheck eq gtget32 24 2
+gtcheck eq gtappend 7 17 1 224 100 0 neg long 1
+gtcheck not gtfinish 1
+gtcheck gtvalidate 192 7 11 13
+note Wrong identity, exact extent, version, sequence, reserved and lane are rejected.
+gtbad32 0 0
+gtbad32 8 191
+gtbad32 12 65
+gtbad32 16 3
+gtbad32 24 4
+gtbad32 28 2
+gtbad32 48 16384
+gtbad32 52 2
+gtbad32 60 2
+gtbad32 64 0
+gtbad32 68 4
+gtbad32 80 8
+gtbad32 88 12
+gtbad32 96 2
+gtbad32 100 0
+gtcheck not gtvalidate 191 7 11 13
+gtcheck not gtvalidate 193 7 11 13
+gtcheck not gtvalidate 18446744073709551615 7 11 13
+gtcheck not gtvalidate 192 8 11 13
+gtcheck not gtvalidate 192 7 12 13
+gtcheck not gtvalidate 192 7 11 14
+put gtbytes 4 2
+gtcheck not gtvalidate 192 7 11 13
+put gtbytes 4 1
+put gtbytes 72 1
+gtcheck not gtvalidate 192 7 11 13
+put gtbytes 72 0
+put gtbytes 112 1
+gtcheck not gtvalidate 192 7 11 13
+put gtbytes 112 0
+put gtbytes 104 1
+gtcheck not gtvalidate 192 7 11 13
+put gtbytes 104 0
+gtcheck gtvalidate 192 7 11 13
+note All64 slots, final byte, and unused slots remain within the fixed allocation.
+gtfixture 64
+for i uint 64
+gtcheck eq gtappend 7 add i 1 1 224 i 0 long 0
+end
+gtcheck eq gtextent 4160
+gtcheck gtvalidate 4160 7 11 13
+gtcheck eq gtappend 7 1 1 224 65 0 long 2
+gtcheck gtfinish 1
+gtcheck gtvalidate 4160 7 11 13
+gtfixture 2
+gtcheck eq gtappend 7 17 3 224 9 0 long 0
+gtcheck gtfinish 3
+note Unmatched end is structurally valid but remains an incomplete range for #778.
+gtcheck gtvalidate 192 7 11 13
+gtcheck not gtfinish 4
+gtbad32 20 1
+gtbad32 60 1
+put gtbytes 128 1
+gtcheck not gtvalidate 192 7 11 13
+put gtbytes 128 0
+gtcheck gtvalidate 192 7 11 13
+gtfixture 2
+gtcheck not gtinit 7 11 13 65 3 1
+gtcheck eq gtappend 7 17 1 224 100 0 neg long 1
+gtcheck gtinit 18446744073709551615 18446744073709551615 4294967295 1 16383 1
+gtcheck eq gtappend 18446744073709551615 4294967295 1 1048544 4294967295 4294967295 long 0
+gtcheck gtvalidate 128 18446744073709551615 18446744073709551615 4294967295
+if ne write 1 gtpass 0 len gtpass long len gtpass
+ret 2
+end
+ret 0
+end

@@ -1,0 +1,20 @@
+{
+  "extensions": {
+    "generated": {
+      "children": [],
+      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiled_at": "2026-10-26T02:59:00Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:33a47dc5061b8cd1d9134c98266d452d646762b3412142b6b2007219dacf8ee2",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 1,
+      "generated_at_commit": "5d95e4b00a95770a6f73f299ec33827d78b49802",
+      "source_tree": "sha256:eeab0bfcc17faf334048ae1c06315926949d5be736ba4360debec32d923e0b1b"
+    }
+  },
+  "layer": "development",
+  "name": "plans",
+  "purpose": "Bounded issue86 offline compute pilot, no device execution or qualification",
+  "schema_version": "1.0.0"
+}
