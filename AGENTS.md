@@ -13,7 +13,7 @@ Shared rules: read https://www.aienos.com/agents/RULES.md first. This file adds 
 - `tests/`: host tests and the chip tests (`tests/gpu_*_test.c`). `mk/*.mk`: build fragments included by the `Makefile`.
 - `evidence/`: dated receipts. They record what ran on a named commit; never edit or regenerate an existing receipt. New receipts go in a new folder.
 - `build/` is generated (`make`, `OUT_DIR`) and ignored by git.
-- Omega is meant to build these sources at a pinned commit (`cudapp.lock` in Omega). That pin does not exist yet: Omega main still builds its own diverged copy and takes `nvrm` from physics-mv (#106, #107). Changes to public headers or the runtime API will affect Omega once it does. Ownership rule: ARCH-0042 (Omega owns computation, CUDA++ owns GPU execution, Omega Bridge owns compatibility).
+- Omega is meant to build these sources at a pinned commit (`cudapp.lock` in Omega). That pin does not exist yet: Omega main still builds its own diverged copy and takes `nvrm` from physics-mv (#106, #107). Changes to public headers or the runtime API will affect Omega once it does. Ownership rule: ARCH-0042, PROPOSED in aien-architecture-mv#342 (Omega owns computation, CUDA++ owns GPU execution, Omega Bridge owns compatibility).
 
 ## Installation
 

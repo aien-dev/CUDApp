@@ -388,8 +388,8 @@ gates were NOT_RUN for this repair.
 Ownership rule ([ARCH-0042](https://github.com/aien-dev/aien-architecture-mv/pull/342), PROPOSED): Omega owns computation, CUDA++ owns GPU execution, Omega Bridge owns compatibility.
 
 - **CUDA++ (this repository)** owns GPU execution: the sm_121 encoder and GPU code generators, the cubin writer and artifact exporter, artifact admission, the disassembler, the driver client (`nvrm/`), submission, sessions and the GPU runtime.
-- **[Omega](https://github.com/aien-dev/omega-mv)** owns AIEN's seeded `.om` language, its compiler and the compiler pin, semantics, and the declared contract of what a kernel computes. CUDA++ is the GPU execution component Omega consumes.
-- **[Omega Bridge](https://github.com/aien-dev/omega-bridge)** owns compatibility: C and Python emitted from a checked Omega subset, native bindings for foreign callers, framework attachments (PyTorch, llama.cpp/GGML) and GPU artifact negotiation (`gpu_adapter.om`). It runs kernels only through this repository.
+- **[Omega](https://github.com/aien-dev/omega-mv)** owns AIEN's seeded `.om` language, its compiler and the compiler pin, semantics, and the declared contract of what a kernel computes. The existing Omegese → IR → sm_121 lowering, its checker and host words stay in omega-mv. CUDA++ is the GPU execution component Omega consumes.
+- **[Omega Bridge](https://github.com/aien-dev/omega-bridge)** owns compatibility: C and Python emitted from a checked Omega subset, native bindings for foreign callers, framework attachments (PyTorch, llama.cpp/GGML; planned) and GPU artifact negotiation (`gpu_adapter.om`). Bridge runs no kernels itself: its GPU adapter only accepts or refuses an attachment request and opens no device. Execution goes through this repository.
 
 The currently shipped CUDApp implementation still contains first-party C; the planned, test-gated replacement with native `.om` is tracked in [#79](https://github.com/aien-dev/CUDApp/issues/79). The code was split out of Omega on 2026-10-21 with its full history; `docs/AUDIT.md` records how, and what was checked before it was published.
 
