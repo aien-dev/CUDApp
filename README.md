@@ -1,14 +1,23 @@
 <p align="center">
-  <img src="docs/img/hero.svg" width="100%" alt="CUDA++: my own path from a program to an NVIDIA GPU. On the right, the 32 instructions of the first kernel CUDA++ ran, drawn bit by bit from src/omega_blackwell_encoder.c.">
+  <img src="docs/img/hero.svg" width="100%" alt="CUDA++ for the NVIDIA DGX Spark (GB10, sm_121): my own path from a program to the GPU. On the right, the 32 instructions of the first kernel CUDA++ ran, drawn bit by bit from src/omega_blackwell_encoder.c.">
 </p>
 
-# CUDA++
+# CUDA++ for the NVIDIA DGX Spark
 
-**CUDA++ is the GPU half of the Omega runtime. First-party CUDA++ material in this revision is licensed under Apache-2.0 WITH LLVM-exception.** You write a GPU program, CUDA++ turns it into the GPU's own machine code and runs it on an NVIDIA GPU, with no NVIDIA user-space software anywhere: no CUDA toolkit, no `nvcc`, no PTX, no `libcuda`, no cuBLAS.
+**CUDA++ for the NVIDIA DGX Spark (GB10, sm_121). It is the GPU half of the Omega runtime. First-party CUDA++ material in this revision is licensed under Apache-2.0 WITH LLVM-exception.** You write a GPU program, CUDA++ turns it into the GB10's own machine code and runs it on the Spark's GPU with no CUDA user-space software at build or run time: no CUDA toolkit, no `nvcc`, no PTX, no `libcuda`, no cuBLAS. NVIDIA's compiler and disassembler were used offline as references while the encoding was worked out ([how I did it](#how-i-did-it)).
+
+> **Who this is for, and what hardware**
+>
+> | | |
+> |---|---|
+> | **Supported** | The NVIDIA DGX Spark. Its GB10 Grace Blackwell chip (GPU compute capability sm_121, PCI id `10de:2e12`) is the only GPU CUDA++ has machine code for. |
+> | **Other GB10 systems** | Not run. CUDA++ recognises the GPU by its PCI id, not by the system maker, so another GB10 system with the same kernel module is the same target to the code. Nobody has run CUDA++ on one. |
+> | **You need** | Linux on the Spark's ARM CPU (aarch64). NVIDIA's open kernel module, version 580.173.02: `make doctor` and `make hello-gpu` refuse another version, and `/dev/nvidiactl`, `/dev/nvidia0` and `/dev/nvidia-uvm` must exist. NVIDIA's signed GSP firmware, which that module loads into the GPU. `git`, `make` and a C compiler. No CUDA toolkit. |
+> | **Not supported** | Other NVIDIA GPUs: PLANNED, not supported. A target row for the RTX 5070 (sm_120) exists on Omega's branch `rig/gb20x` (aien-dev/omega-mv, `src/omega_bw_target.h`), built from public sources and never run on that chip ([portability](docs/runtime/PORTABILITY.md)). AMD and Intel GPUs: not CUDA++ targets. Unmodified CUDA applications: not supported; a CUDA++ program calls CUDA++'s C kernel builder, and CUDA++ does not compile CUDA C++ or PTX. |
 
 > **Licensing status:** This revision uses Apache-2.0 WITH LLVM-exception for first-party material. For the historical MIT version, use [`232332422bfdc31c8918085b50f13c1e18ab702e`](https://github.com/aien-dev/CUDApp/tree/232332422bfdc31c8918085b50f13c1e18ab702e). The old MIT grant and third-party notices are preserved. See [the transition and provenance audit](docs/LICENSING_TRANSITION.md).
 
-It runs on the NVIDIA GB10 (the DGX Spark, compute capability sm_121) today. The 35-billion-parameter model AIEN serves on the Spark runs on this code: on 2026-10-21 the live server had only the C library, the maths library, `libgcc_s` and the loader mapped, and zero CUDA libraries (receipt in Omega: `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`).
+It runs on the NVIDIA GB10 (the DGX Spark, compute capability sm_121) today. On 2026-10-21 the model Aien serves on the Spark, Qwen3.6-35B-A3B (a mixture-of-experts model with about 3B parameters active per token), was served by the C GPU stack this repository was extracted from (the live build used the Omega repository's copy of these sources). The live server had only the C library, the maths library, `libgcc_s` and the loader mapped, and zero CUDA libraries (receipt in Omega: `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`). That stack is C, not code written in the Omega language: Omega kernels reaching the GPU is Omega bar C1, still BUILDING.
 
 CUDA++ keeps growing until every NVIDIA part on the Spark is replaced, and then does things CUDA does not:
 
@@ -41,7 +50,7 @@ I built it alone on one DGX Spark in under four weeks, directing AI coding agent
 
 <p align="center"><img src="docs/img/reverse-engineering.svg" width="100%" alt="The method in eight steps. Learn: my own probe kernel, nvcc once offline, read the bytes back, change one detail. Prove: field hypothesis, my encoder writes it, the GB10 runs it, golden words in the tests. A wrong answer goes back to the hypothesis."></p>
 
-No NVIDIA binary or listing is in this repository. The whole method, step by step with the files and receipts: [docs/HOW_I_DID_IT.md](docs/HOW_I_DID_IT.md).
+No NVIDIA binary is in this repository. One listing printed by NVIDIA's `nvdisasm` is stored as a test pin: the decode of CUDA++'s own trace-emitter words (`PROVENANCE.md` section 6). The whole method, step by step with the files and receipts: [docs/HOW_I_DID_IT.md](docs/HOW_I_DID_IT.md).
 
 ### What the machine code looks like
 
@@ -95,7 +104,7 @@ The CPU does five things, all of them plain memory writes except the last, which
 | CUDA piece | Its job | CUDA++ replacement | Status |
 | --- | --- | --- | --- |
 | CUDA C++ language | How you write a kernel | The kernel builder (C calls). Omega's languages reaching the GPU is Omega bar C1, built on this toolchain | PARTIAL: C calls only |
-| nvcc, NVVM, PTX, ptxas | Compile the kernel to machine code | My own sm_121 encoder and register allocator | PASS: every kernel Omega runs is encoded by it |
+| nvcc, NVVM, PTX, ptxas | Compile the kernel to machine code | My own sm_121 encoder and register allocator | PASS: every GPU kernel this stack runs is encoded by it |
 | libcuda (driver API) | Talk to the kernel driver | `nvrm` client, ioctls straight to the open kernel module | PARTIAL: implemented; M16 historical summary is unauditable here (see below) |
 | libcudart (runtime API) | Device, memory, launch, streams | Session, command lists, job engine | PARTIAL: one device, one process; no streams or events yet; a timeout ends GPU use for the process |
 | cuBLAS | Matrix multiply | Matmul, tensor-core GEMM, FP8 and BF16 libraries | PARTIAL: shaped for the models AIEN runs; no any-shape GEMM yet |
@@ -123,7 +132,7 @@ it needs retained raw logs from a new authorized GPU run, not a host-only check.
 
 <p align="center"><img src="docs/img/ceilings.svg" width="100%" alt="Roofline of the GB10 from my own probes: 115.14 TFLOPS tensor-core peak and 195.1 GB/s memory reads, meeting at 590 operations per byte."></p>
 
-Every speed number is held against what this machine can physically do, measured by my own probe kernels. Generating a word of text reads each active weight once and does about one operation per byte, far left of the ridge, so its speed is set by memory, not by the tensor cores. The head-to-head measurement against llama.cpp and vLLM on this Spark is Omega bar P0 (AIEN L394); its predeclared protocol, raw logs and results live in [aien-dev/gpu-head-to-head](https://github.com/aien-dev/gpu-head-to-head), which pins this repository by commit.
+Every speed number is held against what this machine can physically do, measured by my own probe kernels. Generating a word of text reads each active weight once and does about one operation per byte, far left of the ridge, so its speed is set by memory, not by the tensor cores. The head-to-head measurement against llama.cpp and vLLM on this Spark is Omega bar P0 (AIEN L394) and has not been published. Until it is, this repository claims no speed comparison with CUDA, llama.cpp, vLLM or TensorRT. Its predeclared protocol is in [aien-dev/gpu-head-to-head](https://github.com/aien-dev/gpu-head-to-head), which pins this repository by commit; the raw logs and results will be published there. Chip-only times (GPU time per token) and end-to-end times (through the HTTP server, prompt included) are different measurements and are always labelled separately; figures other projects publish are theirs, not re-measured here.
 
 ## What is in here
 
@@ -283,7 +292,7 @@ Receipt: `evidence/dx/d3-faults/hello-sim-spark.txt`. **FIXED on the simulator.*
 
 **The pain.** "The CUDA tax, which is 4.6 GB approximately per each model on a DGX spark." ([r/LocalLLaMA](https://www.reddit.com/r/LocalLLaMA/comments/1sqera2/vllm_woes_in_spark))
 
-**How CUDA++ fixes it.** A CUDA++ process loads no CUDA library: AIEN's live 35B server on 2026-10-21 had only the C library, the maths library, `libgcc_s` and the loader mapped (Omega `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`).
+**How CUDA++ fixes it.** A CUDA++ process loads no CUDA library: Aien's live Qwen3.6-35B-A3B server (mixture-of-experts, about 3B parameters active per token) on 2026-10-21 had only the C library, the maths library, `libgcc_s` and the loader mapped (Omega `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`).
 
 **NOT YET MEASURED.** The memory a CUDA++ process holds beyond its own buffers still needs a number from a chip run (`docs/issues/D8-process-tax.md`).
 
@@ -383,9 +392,17 @@ tests and doctor tests do not qualify GPU execution. Their before/after output
 is retained in `evidence/security-host-20261026/`; the full host suite and GPU
 gates were NOT_RUN for this repair.
 
-## How it fits with Omega
+## How it fits with Omega and Omega Bridge
 
-[Omega](https://github.com/aien-dev/omega-mv) owns AIEN's seeded `.om` language and its compiler/runtime work. CUDA++ is the GPU toolchain and runtime component it consumes. The currently shipped CUDApp implementation still contains first-party C; the planned, test-gated replacement with native `.om` is tracked in [#79](https://github.com/aien-dev/CUDApp/issues/79). Omega uses CUDA++ at a pinned commit (`cudapp.lock` in Omega), the same way it pins its other parts. The code was split out of Omega on 2026-10-21 with its full history; `docs/AUDIT.md` records how, and what was checked before it was published.
+Ownership rule ([ARCH-0042](https://github.com/aien-dev/aien-architecture-mv/pull/342), PROPOSED): Omega owns computation, CUDA++ owns GPU execution, Omega Bridge owns compatibility.
+
+- **CUDA++ (this repository)** owns GPU execution: the sm_121 encoder and GPU code generators, the cubin writer and artifact exporter, artifact admission, the disassembler, the driver client (`nvrm/`), submission, sessions and the GPU runtime.
+- **[Omega](https://github.com/aien-dev/omega-mv)** owns AIEN's seeded `.om` language, its compiler and the compiler pin, semantics, and the declared contract of what a kernel computes. The existing Omegese → IR → sm_121 lowering, its checker and host words stay in omega-mv. CUDA++ is the GPU execution component Omega consumes.
+- **[Omega Bridge](https://github.com/aien-dev/omega-bridge)** owns compatibility: C and Python emitted from a checked Omega subset, native bindings for foreign callers, framework attachments (PyTorch, llama.cpp/GGML; planned) and GPU artifact negotiation (`gpu_adapter.om`). Bridge runs no kernels itself: its GPU adapter only accepts or refuses an attachment request and opens no device. Execution goes through this repository.
+
+The currently shipped CUDApp implementation still contains first-party C; the planned, test-gated replacement with native `.om` is tracked in [#79](https://github.com/aien-dev/CUDApp/issues/79). The code was split out of Omega on 2026-10-21 with its full history; `docs/AUDIT.md` records how, and what was checked before it was published.
+
+Not yet true: Omega does not consume CUDA++ at a pin today. Omega main has no `cudapp.lock`; it still builds its own diverged copy of the GPU code ([#106](https://github.com/aien-dev/CUDApp/issues/106)) and takes the driver client from physics-mv ([#107](https://github.com/aien-dev/CUDApp/issues/107)). The disassembler is in Omega ([#10](https://github.com/aien-dev/CUDApp/issues/10)) and a second, `.om` cubin writer is proposed there ([#108](https://github.com/aien-dev/CUDApp/issues/108)). The `.om` work here takes its compiler through Omega Bridge's bootstrap rather than an Omega pin ([omega-mv#870](https://github.com/aien-dev/omega-mv/issues/870)).
 
 ## Names
 
