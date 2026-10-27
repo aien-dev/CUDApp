@@ -582,6 +582,11 @@ It is EXPERIMENTAL for four reasons, each one a stated limit rather than a defec
   applies alpha, beta and the scales on the host in double. There is no device-resident form and no
   record-into-command-list form, so it is not a serving path: the tuned per-model kernels of sections 9.5 and 9.7 stay
   the fast path for the shapes they take.
+  Measured cost at the nine served 35B shapes, bf16 and e4m3 (GB10, predeclared A/B against `omega_gpu_gemm_ld`,
+  `evidence/GEMM-GENERAL-AB-20261027/`): after the 0d2b14a host-overhead fix the median ratio is 0.94-1.24
+  (ab-2), over the plan's 1.10 limit in five small cells: e4m3 64x1024x2048 1.24, e4m3 64x2048x512 1.20, bf16
+  64x1024x2048 1.17, e4m3 16x12288x2048 1.10, e4m3 1x8192x2048 1.10 (about 0.1-0.35 ms per call, mostly the inf/NaN
+  scan). Before the fix it was 2.17-3.25 (ab-1).
 - **f32 is not IEEE fp32.** f32 inputs run as bf16x3 (three bf16 planes, nine plane products); accuracy is stated
   against a double reference in `tests/gpu_gemm_ex_test.c`, and parts of a value below 2^-133 are dropped.
   `OMEGA_GEMM_EX_F32_FFMA_REF` is the slow per-k FFMA comparator, not a fast path.
