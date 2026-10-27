@@ -1,0 +1,73 @@
+# 2026-10-27T01:49:23Z host spark-b87b head b2ed663+worktree;  20:49:23 up 6 days,  2:29, 18 users,  load average: 23.84, 18.39, 16.82
+# cmd: ./build/gpu_gemm_test --part 0/4 --ceiling 120.64,238.05
+ceiling: bf16 120.64 TFLOPS, e4m3 238.05 TFLOPS
+ok: bf16 1x1x1 A row B row: OK, 1 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: bf16 7x13x29 A row B row: OK, 91 checked, 0 wrong; kernel 0.102 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: bf16 128x64x64 A row B row: OK, 8192 checked, 0 wrong; kernel 0.103 ms 0.01 TFLOPS = 0.0001 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: bf16 4096x1x4096 A row B row: OK, 4096 checked, 0 wrong; kernel 0.306 ms 0.11 TFLOPS = 0.0009 of ceiling, with packs 0.04 TFLOPS = 0.0003
+ok: bf16 1024x1024x1024 A row B row: OK, 5121 checked, 0 wrong; kernel 0.511 ms 4.21 TFLOPS = 0.0349 of ceiling, with packs 2.97 TFLOPS = 0.0246
+ok: bf16 8192x8192x64 A row B row: OK, 5121 checked, 0 wrong; kernel 6.874 ms 1.25 TFLOPS = 0.0104 of ceiling, with packs 1.21 TFLOPS = 0.0100
+ok: bf16 8191x8191x8191 A row B row: OK, 5191 checked, 0 wrong; kernel 235.556 ms 4.67 TFLOPS = 0.0387 of ceiling, with packs 4.57 TFLOPS = 0.0379
+ok: bf16 1x1x1 A col B row: OK, 1 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: bf16 7x13x29 A col B row: OK, 91 checked, 0 wrong; kernel 0.106 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: bf16 128x64x64 A col B row: OK, 8192 checked, 0 wrong; kernel 0.103 ms 0.01 TFLOPS = 0.0001 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: bf16 4096x1x4096 A col B row: OK, 4096 checked, 0 wrong; kernel 0.410 ms 0.08 TFLOPS = 0.0007 of ceiling, with packs 0.03 TFLOPS = 0.0003
+ok: bf16 1024x1024x1024 A col B row: OK, 5121 checked, 0 wrong; kernel 0.410 ms 5.24 TFLOPS = 0.0434 of ceiling, with packs 3.42 TFLOPS = 0.0284
+ok: bf16 8192x8192x64 A col B row: OK, 5121 checked, 0 wrong; kernel 6.744 ms 1.27 TFLOPS = 0.0106 of ceiling, with packs 1.23 TFLOPS = 0.0102
+ok: bf16 8191x8191x8191 A col B row: OK, 5191 checked, 0 wrong; kernel 233.514 ms 4.71 TFLOPS = 0.0390 of ceiling, with packs 4.60 TFLOPS = 0.0381
+ok: bf16 1x1x1 A row B col: OK, 1 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: bf16 7x13x29 A row B col: OK, 91 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: bf16 128x64x64 A row B col: OK, 8192 checked, 0 wrong; kernel 0.103 ms 0.01 TFLOPS = 0.0001 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: bf16 4096x1x4096 A row B col: OK, 4096 checked, 0 wrong; kernel 0.408 ms 0.08 TFLOPS = 0.0007 of ceiling, with packs 0.03 TFLOPS = 0.0003
+ok: bf16 1024x1024x1024 A row B col: OK, 5121 checked, 0 wrong; kernel 0.407 ms 5.27 TFLOPS = 0.0437 of ceiling, with packs 3.47 TFLOPS = 0.0288
+ok: bf16 8192x8192x64 A row B col: OK, 5121 checked, 0 wrong; kernel 6.937 ms 1.24 TFLOPS = 0.0103 of ceiling, with packs 1.20 TFLOPS = 0.0100
+ok: bf16 8191x8191x8191 A row B col: OK, 5191 checked, 0 wrong; kernel 231.739 ms 4.74 TFLOPS = 0.0393 of ceiling, with packs 4.66 TFLOPS = 0.0386
+ok: bf16 1x1x1 A col B col: OK, 1 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: bf16 7x13x29 A col B col: OK, 91 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: bf16 128x64x64 A col B col: OK, 8192 checked, 0 wrong; kernel 0.103 ms 0.01 TFLOPS = 0.0001 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: bf16 4096x1x4096 A col B col: OK, 4096 checked, 0 wrong; kernel 0.306 ms 0.11 TFLOPS = 0.0009 of ceiling, with packs 0.04 TFLOPS = 0.0003
+ok: bf16 1024x1024x1024 A col B col: OK, 5121 checked, 0 wrong; kernel 0.511 ms 4.21 TFLOPS = 0.0349 of ceiling, with packs 2.97 TFLOPS = 0.0246
+ok: bf16 8192x8192x64 A col B col: OK, 5121 checked, 0 wrong; kernel 6.893 ms 1.25 TFLOPS = 0.0103 of ceiling, with packs 1.21 TFLOPS = 0.0100
+ok: bf16 8191x8191x8191 A col B col: OK, 5191 checked, 0 wrong; kernel 234.237 ms 4.69 TFLOPS = 0.0389 of ceiling, with packs 4.60 TFLOPS = 0.0381
+ok: e4m3 1x1x1 A row B row: OK, 1 checked, 0 wrong; kernel 0.106 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 7x13x29 A row B row: OK, 91 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 128x64x64 A row B row: OK, 8192 checked, 0 wrong; kernel 0.103 ms 0.01 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 4096x1x4096 A row B row: OK, 4096 checked, 0 wrong; kernel 0.204 ms 0.16 TFLOPS = 0.0007 of ceiling, with packs 0.05 TFLOPS = 0.0002
+ok: e4m3 1024x1024x1024 A row B row: OK, 5121 checked, 0 wrong; kernel 0.307 ms 7.00 TFLOPS = 0.0294 of ceiling, with packs 4.12 TFLOPS = 0.0173
+ok: e4m3 8192x8192x64 A row B row: OK, 5121 checked, 0 wrong; kernel 7.096 ms 1.21 TFLOPS = 0.0051 of ceiling, with packs 1.17 TFLOPS = 0.0049
+ok: e4m3 8191x8191x8191 A row B row: OK, 5191 checked, 0 wrong; kernel 113.987 ms 9.64 TFLOPS = 0.0405 of ceiling, with packs 9.37 TFLOPS = 0.0394
+ok: e4m3 1x1x1 A col B row: OK, 1 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 7x13x29 A col B row: OK, 91 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 128x64x64 A col B row: OK, 8192 checked, 0 wrong; kernel 0.103 ms 0.01 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 4096x1x4096 A col B row: OK, 4096 checked, 0 wrong; kernel 0.204 ms 0.16 TFLOPS = 0.0007 of ceiling, with packs 0.05 TFLOPS = 0.0002
+ok: e4m3 1024x1024x1024 A col B row: OK, 5121 checked, 0 wrong; kernel 0.307 ms 6.99 TFLOPS = 0.0294 of ceiling, with packs 4.12 TFLOPS = 0.0173
+ok: e4m3 8192x8192x64 A col B row: OK, 5121 checked, 0 wrong; kernel 6.930 ms 1.24 TFLOPS = 0.0052 of ceiling, with packs 1.20 TFLOPS = 0.0051
+ok: e4m3 8191x8191x8191 A col B row: OK, 5191 checked, 0 wrong; kernel 115.422 ms 9.52 TFLOPS = 0.0400 of ceiling, with packs 9.23 TFLOPS = 0.0388
+ok: e4m3 1x1x1 A row B col: OK, 1 checked, 0 wrong; kernel 0.104 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 7x13x29 A row B col: OK, 91 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 128x64x64 A row B col: OK, 8192 checked, 0 wrong; kernel 0.103 ms 0.01 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 4096x1x4096 A row B col: OK, 4096 checked, 0 wrong; kernel 0.204 ms 0.16 TFLOPS = 0.0007 of ceiling, with packs 0.05 TFLOPS = 0.0002
+ok: e4m3 1024x1024x1024 A row B col: OK, 5121 checked, 0 wrong; kernel 0.307 ms 7.00 TFLOPS = 0.0294 of ceiling, with packs 4.15 TFLOPS = 0.0174
+ok: e4m3 8192x8192x64 A row B col: OK, 5121 checked, 0 wrong; kernel 6.936 ms 1.24 TFLOPS = 0.0052 of ceiling, with packs 1.20 TFLOPS = 0.0050
+ok: e4m3 8191x8191x8191 A row B col: OK, 5191 checked, 0 wrong; kernel 111.598 ms 9.85 TFLOPS = 0.0414 of ceiling, with packs 9.66 TFLOPS = 0.0406
+ok: e4m3 1x1x1 A col B col: OK, 1 checked, 0 wrong; kernel 0.104 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 7x13x29 A col B col: OK, 91 checked, 0 wrong; kernel 0.103 ms 0.00 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 128x64x64 A col B col: OK, 8192 checked, 0 wrong; kernel 0.103 ms 0.01 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 4096x1x4096 A col B col: OK, 4096 checked, 0 wrong; kernel 0.205 ms 0.16 TFLOPS = 0.0007 of ceiling, with packs 0.05 TFLOPS = 0.0002
+ok: e4m3 1024x1024x1024 A col B col: OK, 5121 checked, 0 wrong; kernel 0.307 ms 7.00 TFLOPS = 0.0294 of ceiling, with packs 4.15 TFLOPS = 0.0174
+ok: e4m3 8192x8192x64 A col B col: OK, 5121 checked, 0 wrong; kernel 6.990 ms 1.23 TFLOPS = 0.0052 of ceiling, with packs 1.19 TFLOPS = 0.0050
+ok: e4m3 8191x8191x8191 A col B col: OK, 5191 checked, 0 wrong; kernel 111.125 ms 9.89 TFLOPS = 0.0415 of ceiling, with packs 9.66 TFLOPS = 0.0406
+56 shapes (part 0/4), both types, all four layouts: PASS
+chip red check: bf16 mutant 1 is caught (OK, 4095 wrong)
+chip red check: bf16 mutant 2 is caught (OK, 4095 wrong)
+chip red check: bf16 mutant 3 is caught (OK, 4095 wrong)
+chip red check: e4m3 mutant 1 is caught (OK, 4095 wrong)
+chip red check: e4m3 mutant 2 is caught (OK, 4095 wrong)
+chip red check: e4m3 mutant 3 is caught (OK, 4095 wrong)
+ok: bf16 65x63x100 A col B col: OK, 4095 checked, 0 wrong; kernel 0.103 ms 0.01 TFLOPS = 0.0001 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 65x63x100 A col B col: OK, 4095 checked, 0 wrong; kernel 0.103 ms 0.01 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+after the device closed and opened again:
+ok: bf16 70x33x129 A row B row: OK, 2310 checked, 0 wrong; kernel 0.115 ms 0.01 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+ok: e4m3 70x33x129 A row B row: OK, 2310 checked, 0 wrong; kernel 0.115 ms 0.01 TFLOPS = 0.0000 of ceiling, with packs 0.00 TFLOPS = 0.0000
+C3 gemm chip: PASS (66 checks)
+# exit 0 at 2026-10-27T01:49:44Z; compute apps: []

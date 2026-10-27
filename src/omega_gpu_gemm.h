@@ -59,13 +59,15 @@ typedef enum { OMEGA_GEMM_K_PACK_A = 0, OMEGA_GEMM_K_PACK_B, OMEGA_GEMM_K_MAIN, 
  * stall: issue cycles after each tensor-core op (1 .. 15).
  * mutant (red checks): 1 MAIN drops the second step of every k pair, 2 the packs let element 0 in past the edges (instead of zero),
  * 3 MAIN stores each column pair swapped. */
-typedef struct { OmegaGpuGemmType type; uint32_t rt, ct, wm, wn, stall; int mutant; } OmegaGemmCfg;
+/* band: MAIN visits its tiles in column bands of `band` CTA tiles (power of two up to 32; 0 or 1: plain row-major grid).
+ * Consecutive CTAs then share one band of packed B while the rows of A stream past it, so the band stays in L2. */
+typedef struct { OmegaGpuGemmType type; uint32_t rt, ct, wm, wn, stall; int mutant; uint32_t band; } OmegaGemmCfg;
 void omega_gpu_gemm_default_cfg(OmegaGpuGemmType type, OmegaGemmCfg *cfg);
 int omega_gpu_gemm_cfg_ok(const OmegaGemmCfg *cfg);
 
 /* Argument words (constant bank 0x380). Packs: src u64, dst u64, rows, kdim, row stride, k stride (elements), KS2.
- * MAIN: packed A u64, packed B u64, C u64, M, N, KS2. */
-#define OMEGA_GPU_GEMM_ARGS_WORDS 9u
+ * MAIN: packed A u64, packed B u64, C u64, M, N, KS2, tile columns (Np / (8 ct wn); the banded grid's bound). */
+#define OMEGA_GPU_GEMM_ARGS_WORDS 10u
 int omega_gpu_gemm_codegen(const OmegaGemmCfg *cfg, OmegaGemmKind kind, BlackwellIRProgram *prog);
 
 typedef struct {
