@@ -1,0 +1,467 @@
+note tools/c5/c5_matrix.om -- bar C5 multi-process matrix on one GPU, orchestrated in seeded Omega (no C).
+note Usage: c5_matrix ISO PY CASE
+note   ISO  the gpu_isolation_test binary (CUDA++ tests/gpu_isolation_test.c, built unchanged)
+note   PY   a Python with PyTorch; it runs the CUDA tenant (NVIDIA's stack, a verification oracle, not CUDA++ code)
+note   CASE c  ISO --values-only (our two processes) beside a running CUDA process; all three must be right
+note        p  the same while the CUDA process holds 16 GiB of device memory it wrote and checks at the end
+note        k  ISO's chip tier is killed (SIGKILL, whole process group) 500 ms into its never-ending launch beside
+note           a CUDA process; the group must be gone, a fresh ISO --values-only must pass, the CUDA process stays right
+note        r  red control: the CUDA process checks against a wrong expectation; the orchestrator must see exit 1
+note Children run with an empty environment and their stdout and stderr on a pipe that this program echoes.
+note Exit 0 PASS, 1 FAIL, 2 usage or NOT_RUN.
+text tenant "import os,sys,time,torch\ns=float(sys.argv[1]);h=int(sys.argv[2]);w=int(sys.argv[3])\nd=torch.device('cuda');k=None\nif h:k=torch.ones(h*268435456,device=d)\nx=torch.arange(1<<20,dtype=torch.float32,device=d);c=torch.arange(1<<20,dtype=torch.float32)\nn=0;b=0;print('[cuda] READY pid=%d hold_gib=%d expect_offset=%d'%(os.getpid(),h,w),flush=True);t=time.time()\nwhile time.time()-t<s:\n y=x*2+n%7;b+=int((y.cpu()!=c*2+n%7+w).sum());n+=1\nif k is not None:b+=int((k!=1).sum())\nprint('[cuda] pid=%d launches=%d wrong=%d secs=%.1f'%(os.getpid(),n,b,time.time()-t),flush=True)\nsys.exit(0 if b==0 else 1)\n"
+text dashc "-c"
+text vonly "--values-only"
+text mready "[cuda] READY"
+text mhang "a command list made before the hang"
+text usage "usage: c5_matrix ISO PY CASE (CASE c, p, k or r)\n"
+text sstart "[matrix] start pid "
+text sexit " exit status "
+text ssig " killed by signal "
+text snl "\n"
+text sready "[matrix] CUDA process ready after ms "
+text shang "[matrix] hang launch seen; killing process group "
+text sgone "[matrix] process group gone after ms "
+text sstill "[matrix] process group still alive\n"
+text salive "[matrix] CUDA process alive when ours finished: "
+text snomark "[matrix] marker not seen (timeout or EOF)\n"
+text vpass "C5 matrix: PASS case "
+text vfail "C5 matrix: FAIL case "
+text vnotrun "C5 matrix: NOT_RUN case "
+global pk uchar 4096
+global iso uchar 1024
+global py uchar 1024
+global cs uchar 8
+global gl long 16
+global ob uchar 4096
+global st uchar 4
+global fds uchar 8
+global nb uchar 24
+global mk uchar 64
+
+note gl: 0 packet offset, 1 packet count, 2 ISO length, 3 PY length, 4 pipe read fd of the last spawn,
+note 5 marker length, 6 marker matched count, 7 last child pid seen, 8 last exit code or 128+signal
+
+fn putnum v long to void
+x = v
+if lt x 0
+x = neg x
+put nb 0 45
+k = write 1 nb 0 1
+end
+n = ulong 0
+for i ulong 20
+put nb sub 23 i uchar add 48 rem x 10
+x = div x 10
+n = add n 1
+if eq x 0
+break
+end
+end
+k = write 1 nb sub 24 n n
+end
+
+fn putbool v bool to void
+if v
+putnum 1
+else
+putnum 0
+end
+end
+
+fn pkreset to void
+put gl 0 2
+put gl 1 0
+end
+
+fn pkfinish to void
+c = get gl 1
+put pk 0 uchar and c 255
+put pk 1 uchar shr c 8
+end
+
+fn pkhead n ulong to ulong
+o = ulong get gl 0
+put pk o uchar and n 255
+put pk add o 1 uchar shr n 8
+put gl 1 add get gl 1 1
+ret add o 2
+end
+
+fn pkiso to void
+n = ulong get gl 2
+o = pkhead n
+for i ulong n
+put pk add o i get iso i
+end
+put gl 0 long add o n
+end
+
+fn pkpy to void
+n = ulong get gl 3
+o = pkhead n
+for i ulong n
+put pk add o i get py i
+end
+put gl 0 long add o n
+end
+
+fn pkvonly to void
+o = pkhead len vonly
+for i ulong len vonly
+put pk add o i get vonly i
+end
+put gl 0 long add o len vonly
+end
+
+fn pkdashc to void
+o = pkhead len dashc
+for i ulong len dashc
+put pk add o i get dashc i
+end
+put gl 0 long add o len dashc
+end
+
+fn pktenant to void
+o = pkhead len tenant
+for i ulong len tenant
+put pk add o i get tenant i
+end
+put gl 0 long add o len tenant
+end
+
+note one decimal argument
+fn pknum v long to void
+x = v
+n = ulong 0
+for i ulong 20
+put nb sub 23 i uchar add 48 rem x 10
+x = div x 10
+n = add n 1
+if eq x 0
+break
+end
+end
+o = pkhead n
+for i ulong n
+put pk add o i get nb add sub 24 n i
+end
+put gl 0 long add o n
+end
+
+fn fdword off ulong to int
+x = ulong 0
+for i ulong 4
+v = ulong get fds add off i
+x = or x shl v mul i 8
+end
+ret int x
+end
+
+note fork + exec the packet in pk with stdout and stderr on a fresh pipe, in its own process group.
+note Returns the pid (gl 7) and leaves the read end in gl 4.
+fn spawn to long
+r = pipefds fds 0 len fds 524288
+if ne r 0
+ret neg long 1
+end
+rd = fdword 0
+wr = fdword 4
+pid = fork
+if lt pid 0
+ret neg long 2
+end
+if eq pid 0
+q = setpgid 0 0
+q = dupfd wr 1 0
+q = dupfd wr 2 0
+q = execprog pk 0 ulong get gl 0
+exit 99
+end
+r = fclose wr
+put gl 4 long rd
+put gl 7 pid
+k = write 1 sstart 0 len sstart
+putnum pid
+k = write 1 snl 0 len snl
+ret pid
+end
+
+note scan ob[0..n) for the marker in mk, carrying the matched count in gl 6; true once it is complete
+fn scan n ulong to bool
+for i ulong n
+b = get ob i
+m = ulong get gl 6
+if eq b get mk m
+put gl 6 long add m 1
+else
+if eq b get mk 0
+put gl 6 1
+else
+put gl 6 0
+end
+end
+if eq get gl 6 get gl 5
+ret true
+end
+end
+ret false
+end
+
+note echo the child's output until the marker in mk is seen (1), EOF (0) or the deadline passes (-1)
+fn pump fd int deadline long usemark bool to long
+put gl 6 0
+for z ulong 100000
+now = monons
+if ge now deadline
+ret neg long 1
+end
+r = waitio fd 1 sub deadline now
+if lt r 0
+ret neg long 1
+end
+if eq r 0
+ret neg long 1
+end
+n = read fd ob 0 len ob
+if le n 0
+ret 0
+end
+k = write 1 ob 0 ulong n
+if usemark
+if scan ulong n
+ret 1
+end
+end
+end
+ret neg long 1
+end
+
+note reap a pid; gl 8 = exit code, or 128 + signal
+fn reap pid long to long
+r = waitpid int pid st 0 len st 0
+if ne r pid
+put gl 8 255
+ret neg long 1
+end
+s = long get st 0
+if eq and s 127 0
+put gl 8 long get st 1
+k = write 1 sexit 0 len sexit
+putnum get gl 8
+k = write 1 snl 0 len snl
+else
+put gl 8 add 128 and s 127
+k = write 1 ssig 0 len ssig
+putnum and s 127
+k = write 1 snl 0 len snl
+end
+ret get gl 8
+end
+
+fn markready to void
+for i ulong len mready
+put mk i get mready i
+end
+put gl 5 long len mready
+end
+
+fn markhang to void
+for i ulong len mhang
+put mk i get mhang i
+end
+put gl 5 long len mhang
+end
+
+note start the CUDA tenant: seconds, hold GiB, wrong offset; wait for READY. Returns pid, or negative.
+fn cuda secs long hold long wrong long to long
+pkreset
+pkpy
+pkdashc
+pktenant
+pknum secs
+pknum hold
+pknum wrong
+pkfinish
+t0 = monons
+pid = spawn
+if lt pid 0
+ret pid
+end
+markready
+r = pump int get gl 4 add t0 180000000000 true
+if ne r 1
+k = write 1 snomark 0 len snomark
+ret neg long 3
+end
+k = write 1 sready 0 len sready
+putnum div sub monons t0 1000000
+k = write 1 snl 0 len snl
+ret pid
+end
+
+note drain a pipe to EOF (bounded by a deadline) and close it
+fn drain fd int secs long to void
+r = pump fd add monons mul secs 1000000000 false
+q = fclose fd
+end
+
+note ISO --values-only to completion; returns its exit code (gl 8)
+fn ours to long
+pkreset
+pkiso
+pkvonly
+pkfinish
+pid = spawn
+if lt pid 0
+ret 255
+end
+drain int get gl 4 120
+ret reap pid
+end
+
+fn verdict ok bool to int
+if ok
+k = write 1 vpass 0 len vpass
+else
+k = write 1 vfail 0 len vfail
+end
+k = write 1 cs 0 1
+k = write 1 snl 0 len snl
+if ok
+ret 0
+end
+ret 1
+end
+
+fn sharecase hold long to int
+tp = cuda 40 hold 0
+if lt tp 0
+k = write 1 vnotrun 0 len vnotrun
+k = write 1 cs 0 1
+k = write 1 snl 0 len snl
+ret 2
+end
+tfd = int get gl 4
+ro = ours
+alive = eq waitpid int tp st 0 len st 1 0
+k = write 1 salive 0 len salive
+putbool alive
+k = write 1 snl 0 len snl
+drain tfd 120
+rt = reap tp
+ret verdict and and eq ro 0 eq rt 0 alive
+end
+
+fn killcase to int
+tp = cuda 60 0 0
+if lt tp 0
+k = write 1 vnotrun 0 len vnotrun
+k = write 1 cs 0 1
+k = write 1 snl 0 len snl
+ret 2
+end
+tfd = int get gl 4
+pkreset
+pkiso
+pkfinish
+vp = spawn
+if lt vp 0
+ret 2
+end
+vfd = int get gl 4
+markhang
+r = pump vfd add monons 120000000000 true
+if ne r 1
+k = write 1 snomark 0 len snomark
+q = killpid int neg vp 9
+rv = reap vp
+drain tfd 120
+rt = reap tp
+ret verdict false
+end
+q = sleepns 500000000
+k = write 1 shang 0 len shang
+putnum vp
+k = write 1 snl 0 len snl
+t0 = monons
+q = killpid int neg vp 9
+ok = eq reap vp 137
+gone = false
+for i ulong 200
+if eq killpid int neg vp 0 neg long 3
+gone = true
+break
+end
+q = sleepns 10000000
+end
+if gone
+k = write 1 sgone 0 len sgone
+putnum div sub monons t0 1000000
+k = write 1 snl 0 len snl
+else
+k = write 1 sstill 0 len sstill
+end
+ok = and ok gone
+drain vfd 5
+ok = and ok eq ours 0
+alive = eq waitpid int tp st 0 len st 1 0
+k = write 1 salive 0 len salive
+putbool alive
+k = write 1 snl 0 len snl
+ok = and ok alive
+drain tfd 120
+ok = and ok eq reap tp 0
+ret verdict ok
+end
+
+fn redcase to int
+tp = cuda 3 0 1
+if lt tp 0
+k = write 1 vnotrun 0 len vnotrun
+k = write 1 cs 0 1
+k = write 1 snl 0 len snl
+ret 2
+end
+drain int get gl 4 60
+rt = reap tp
+note the control is red when the tenant's own check catches the wrong expectation: exit 1
+ret verdict eq rt 1
+end
+
+fn main to int
+if ne argcnt 4
+k = write 1 usage 0 len usage
+ret 2
+end
+n = argread 1 iso 0 len iso
+if le n 0
+ret 2
+end
+put gl 2 n
+n = argread 2 py 0 len py
+if le n 0
+ret 2
+end
+put gl 3 n
+n = argread 3 cs 0 len cs
+if ne n 1
+k = write 1 usage 0 len usage
+ret 2
+end
+c = get cs 0
+if eq c 99
+ret sharecase 0
+end
+if eq c 112
+ret sharecase 16
+end
+if eq c 107
+ret killcase
+end
+if eq c 114
+ret redcase
+end
+k = write 1 usage 0 len usage
+ret 2
+end
