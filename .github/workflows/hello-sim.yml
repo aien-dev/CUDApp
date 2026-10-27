@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# hello-GPU host checks (Bar C2): builds build/hello_gpu and the migration-pending control binary and runs
+# tests/dx/hello_sim_test.sh in the host simulator. No GPU: the chip run is evidence/C2-CLEAN-USER/.
+name: hello-sim
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  hello-sim:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Toolchain record
+        run: gcc --version | head -n 1 && make --version | head -n 1
+      - name: hello --sim tests
+        run: make test-hello-sim
