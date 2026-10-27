@@ -1,0 +1,8 @@
+loadavg 4.29 4.62 5.61 4/3505 1532322
+cmd build/gpu_isolation_test_mutant --values-only
+[1532326] FAIL: process 2: 18816 work launches over 3000 ms, own inputs: 77070336 wrong values, 0 failed launches, slowest 1.266 ms
+[1532325] FAIL: process 1: 18998 work launches over 3000 ms, own inputs: 77815808 wrong values, 0 failed launches, slowest 0.479 ms
+[1532324] FAIL: C5 two processes on one GPU: both right (ready R R, exits 1, 1), running side by side for 3000 ms
+C5 recovery: NOT_RUN (values-only; hang needs a separate reservation)
+C5 isolation values: FAIL (1 of 1)
+exit 1

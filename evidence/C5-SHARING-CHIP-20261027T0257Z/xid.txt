@@ -1,0 +1,3 @@
+2026-10-26T21:57:11,899594-05:00 NVRM: nvAssertOkFailedNoLog: Assertion failed: Call timed out [NV_ERR_TIMEOUT] (0x00000065) returned from pRmApi->Control(pRmApi, RES_GET_CLIENT_HANDLE(pKernelChannel), RES_GET_HANDLE(pKernelChannel), NVA06F_CTRL_CMD_STOP_CHANNEL, &stopChannelParams, sizeof(stopChannelParams)) @ nv_gpu_ops.c:10961
+2026-10-26T21:57:19,716028-05:00 NVRM: Xid (PCI:000f:01:00): 109, pid=1605991, name=gpu_isolation_t, channel 0x00000002, errorString CTX SWITCH TIMEOUT, Info 0x2c001
+2026-10-26T21:58:50,780130-05:00 NVRM: Xid (PCI:000f:01:00): 109, pid=1623062, name=gpu_isolation_t, channel 0x0000000a, errorString CTX SWITCH TIMEOUT, Info 0x1c002
