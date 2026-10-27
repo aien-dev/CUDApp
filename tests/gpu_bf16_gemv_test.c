@@ -12,6 +12,7 @@
 #include "omega_gpu_bf16_gemv_api.h"
 #include "omega_gpu_session.h"
 #include "bw_warp_sim_k.h"
+#include "out_sha.h"
 #include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
@@ -318,6 +319,8 @@ static int chip_run(const char *out_path, uint32_t reps, uint32_t N, uint32_t K)
     rc = omega_gpu_bf16_gemv_f32(t, x, y, &info);
     CHECK(rc == 0, "gemv: %s %s", omega_gpu_bf16_rc_name(rc), rc ? omega_gpu_bf16_last_error() : "");
     if (rc == 0) {
+        char lab[64]; snprintf(lab, sizeof lab, "gemv_f32_%ux%u", N, K);
+        out_sha_buf(lab, y, (size_t)N * 4);
         size_t first; size_t bad = compare_emu(w, x, N, K, y, &first);
         CHECK(bad == 0, "chip vs host emulation: %zu of %u rows differ (first %zd)", bad, N, (ssize_t)first);
         double worst = 0, wy = 0; size_t arg_o = 0, arg_c = 0; double bo = -1e300; float bc = -1e30f;

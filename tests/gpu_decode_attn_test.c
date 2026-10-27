@@ -18,6 +18,7 @@
 #include "omega_gpu_session.h"
 #include "omega_gpu_hostmath.h"
 #include "bw_warp_sim_k.h"
+#include "out_sha.h"
 #include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
@@ -344,6 +345,8 @@ static int chip_run(const char *out_path, uint32_t reps) {
         if (rc == OMEGA_GPU_DATTN_OK) rc = omega_gpu_decode_attn(cache, 0, c.pos, c.qkv, EPS, 1.0f, y, &info);
         size_t bad = 0; double worst = 1e9; uint16_t kn[512], vn[512], kchip[512], vchip[512]; char rows[120] = "n/a";
         if (rc == OMEGA_GPU_DATTN_OK) {
+            char lab[32]; snprintf(lab, sizeof lab, "dattn_pos%u", c.pos);
+            out_sha_buf(lab, y, 4096 * 4);
             bad = parity(&c, y, 1.0f, &worst, kn, vn);
             for (unsigned g = 0; g < 4; g++) if (omega_gpu_decode_attn_cache_read(cache, 0, g, c.pos, kchip + g * 128, vchip + g * 128) != OMEGA_GPU_DATTN_OK) bad += 1000;
             if (!rows_ok(kchip, vchip, kn, vn, rows, sizeof rows)) bad += 1000;
