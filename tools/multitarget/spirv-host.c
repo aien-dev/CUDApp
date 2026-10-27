@@ -31,6 +31,7 @@
 #include <vulkan/vulkan.h>
 
 #include <dirent.h>
+#include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -305,7 +306,10 @@ int main(int argc, char **argv)
     if (rc) return rc;
     rc = isolation();
     if (rc) return rc;
-    FILE *f = fopen(j.out, "wb");
+    /* 0600, not fopen's 0666 & ~umask (CodeQL cpp/world-writable-file-creation) */
+    int fd = open(j.out, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    FILE *f = fd >= 0 ? fdopen(fd, "wb") : NULL;
+    if (!f && fd >= 0) close(fd);
     if (!f || fwrite(o, 1, j.bytes[j.nin], f) != j.bytes[j.nin] || fclose(f) != 0) return die(4, "cannot write output");
     return 0;
 }
