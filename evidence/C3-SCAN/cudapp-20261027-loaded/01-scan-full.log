@@ -1,0 +1,43 @@
+# 2026-10-27T01:51:30Z host spark-b87b head b2ed663+worktree;  20:51:30 up 6 days,  2:31, 18 users,  load average: 26.06, 21.10, 18.02
+# cmd: ./build/gpu_scan_test
+every n from 1 to 2048 (sum, max, min, prefix): PASS
+ok: chip sum n = 1048576 inputs 2: OK, got 7fffffff want 7fc0105f, 4 launches, kernels 0.518 ms
+ok: chip max n = 1048576 inputs 2: OK, got 7f800000 want 7f800000, 4 launches, kernels 0.599 ms
+ok: chip min n = 1048576 inputs 2: OK, got ff800000 want ff800000, 4 launches, kernels 0.518 ms
+ok: chip prefix n = 1048576 inputs 2: OK, 0 wrong (first at 0), 7 launches, kernels 0.927 ms
+ok: chip sum n = 2097152 inputs 2: OK, got 7fffffff want 7fc01b96, 5 launches, kernels 0.930 ms
+ok: chip max n = 2097152 inputs 2: OK, got 7f800000 want 7f800000, 5 launches, kernels 0.823 ms
+ok: chip min n = 2097152 inputs 2: OK, got ff800000 want ff800000, 5 launches, kernels 0.791 ms
+ok: chip prefix n = 2097152 inputs 2: OK, 0 wrong (first at 0), 9 launches, kernels 1.233 ms
+ok: chip sum n = 4194304 inputs 2: OK, got 7fffffff want 7fc03205, 5 launches, kernels 1.157 ms
+ok: chip max n = 4194304 inputs 2: OK, got 7f800000 want 7f800000, 5 launches, kernels 0.993 ms
+ok: chip min n = 4194304 inputs 2: OK, got ff800000 want ff800000, 5 launches, kernels 1.028 ms
+ok: chip prefix n = 4194304 inputs 2: OK, 0 wrong (first at 0), 9 launches, kernels 1.646 ms
+ok: chip sum n = 8388608 inputs 2: OK, got 7fffffff want 7fc05ee2, 5 launches, kernels 1.423 ms
+ok: chip max n = 8388608 inputs 2: OK, got 7f800000 want 7f800000, 5 launches, kernels 1.438 ms
+ok: chip min n = 8388608 inputs 2: OK, got ff800000 want ff800000, 5 launches, kernels 1.400 ms
+ok: chip prefix n = 8388608 inputs 2: OK, 0 wrong (first at 0), 9 launches, kernels 2.413 ms
+ok: chip sum n = 16777216 inputs 2: OK, got 7fffffff want 7fc0b89e, 5 launches, kernels 2.243 ms
+ok: chip max n = 16777216 inputs 2: OK, got 7f800000 want 7f800000, 5 launches, kernels 2.119 ms
+ok: chip min n = 16777216 inputs 2: OK, got ff800000 want ff800000, 5 launches, kernels 2.249 ms
+ok: chip prefix n = 16777216 inputs 2: OK, 0 wrong (first at 0), 9 launches, kernels 3.809 ms
+ok: chip sum n = 33554432 inputs 2: OK, got 7fffffff want 7fc06c14, 5 launches, kernels 3.697 ms
+ok: chip max n = 33554432 inputs 2: OK, got 7f800000 want 7f800000, 5 launches, kernels 4.190 ms
+ok: chip min n = 33554432 inputs 2: OK, got ff800000 want ff800000, 5 launches, kernels 3.532 ms
+ok: chip prefix n = 33554432 inputs 2: OK, 0 wrong (first at 0), 9 launches, kernels 6.377 ms
+ok: chip sum n = 67108864 inputs 2: OK, got 7fffffff want 7fc0d301, 6 launches, kernels 7.751 ms
+ok: chip max n = 67108864 inputs 2: OK, got 7f800000 want 7f800000, 6 launches, kernels 7.765 ms
+ok: chip min n = 67108864 inputs 2: OK, got ff800000 want ff800000, 6 launches, kernels 7.854 ms
+ok: chip prefix n = 67108864 inputs 2: OK, 0 wrong (first at 0), 11 launches, kernels 11.874 ms
+ok: chip sum n = 134217728 inputs 2: OK, got 7fffffff want 7fc0a0da, 6 launches, kernels 16.121 ms
+ok: chip max n = 134217728 inputs 2: OK, got 7f800000 want 7f800000, 6 launches, kernels 16.409 ms
+ok: chip min n = 134217728 inputs 2: OK, got ff800000 want ff800000, 6 launches, kernels 16.220 ms
+ok: chip prefix n = 134217728 inputs 2: OK, 0 wrong (first at 0), 11 launches, kernels 23.328 ms
+ok: chip sum n = 268435456 inputs 2: OK, got 7fffffff want 7fc03c8d, 6 launches, kernels 34.395 ms
+ok: chip max n = 268435456 inputs 2: OK, got 7f800000 want 7f800000, 6 launches, kernels 34.083 ms
+ok: chip min n = 268435456 inputs 2: OK, got ff800000 want ff800000, 6 launches, kernels 34.363 ms
+ok: chip prefix n = 268435456 inputs 2: OK, 0 wrong (first at 0), 11 launches, kernels 47.333 ms
+2^k - 1, 2^k, 2^k + 1 up to 2^28: PASS
+64 random lengths: PASS
+C3 scan chip: PASS (8665 checks)
+# exit 0 at 2026-10-27T01:52:05Z; compute apps: []

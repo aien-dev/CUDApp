@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# C5 sharing: build on a GitHub arm64 runner (the Spark builds here while its load is high): the imported isolation test,
+# its chip-values mutant, and tools/c5/c5_matrix.om with the pinned seeded omc. Runs the host/simulator tier and the
+# orchestrator selftest with stand-in processes, and uploads the chip binaries with their sha256 for tools/c5/chip.sh.
+# No GPU here: host and simulator only.
+name: c5-sharing
+on:
+  pull_request:
+    paths: ['src/omega_gpu_session.*', 'src/omega_gpu_platform_linux.*', 'src/omega_gpu_cmdlist.*', 'tests/gpu_isolation_test.c', 'Makefile', 'mk/**', 'tools/c5/**', '.github/workflows/c5-sharing.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - run: sh tools/c5/build.sh
+      - run: ./build/gpu_isolation_test --host-only
+      - run: sh tools/c5/selftest.sh
+      - run: sha256sum build/gpu_isolation_test build/gpu_isolation_test_mutant build/c5_matrix | tee build/c5.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: c5-sharing-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            build/gpu_isolation_test
+            build/gpu_isolation_test_mutant
+            build/c5_matrix
+            build/c5.sha256
