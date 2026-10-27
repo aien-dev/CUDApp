@@ -117,6 +117,8 @@ src/omega_gpu_gdn_api.c	CHIP_SPECIFIC	Keeps Gated DeltaNet parameters and states
 src/omega_gpu_gdn_api.h	CHIP_SPECIFIC	Gated DeltaNet decode API; includes omega_blackwell_codegen_gdn.h.	NO_HOSTED_INCLUDE
 src/omega_gpu_gemm.c	CHIP_SPECIFIC	Builds and launches tensor-core GEMM kernels of any shape for the GB10 from Omega's IR emitters.	HOSTED_LIBC
 src/omega_gpu_gemm.h	CHIP_SPECIFIC	GEMM API; includes omega_blackwell_codegen.h.	NO_HOSTED_INCLUDE
+src/omega_gpu_gemm_ex.c	CHIP_SPECIFIC	General GEMM entry (op N/T, leading dimensions, alpha/beta, strided batch, bf16/f16/f32 via bf16x3/fp8 with scales) over the GB10 tensor-core GEMM; migration-pending C (CUDAPP_MIGRATION_PENDING_GEMM_EX).	NO_HOSTED_INCLUDE
+src/omega_gpu_gemm_ex.h	CHIP_SPECIFIC	General GEMM API; includes omega_gpu_gemm.h.	NO_HOSTED_INCLUDE
 src/omega_gpu_prefill_attn256_api.c	CHIP_SPECIFIC	Launches the two head_dim 256 prefill attention kernels from the Blackwell generator through a command list.	NO_HOSTED_INCLUDE
 src/omega_gpu_prefill_attn256_api.h	CHIP_SPECIFIC	Head_dim 256 prefill attention API; includes omega_blackwell_codegen_pattn256.h.	NO_HOSTED_INCLUDE
 src/omega_gpu_q36_graph.c	CHIP_SPECIFIC	Chains a whole Qwen3.6-35B-A3B decode token into one command list from Blackwell kernels.	HOSTED_LIBC

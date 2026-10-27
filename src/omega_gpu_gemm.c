@@ -11,17 +11,19 @@
 #define TIMEOUT_MS 60000ull
 #define FRAG 512u          /* bytes of one warp fragment: 32 lanes x 16 */
 
-static uint32_t esz(OmegaGpuGemmType t) { return t == OMEGA_GPU_GEMM_BF16 ? 2u : 1u; }
-static uint32_t kstep(OmegaGpuGemmType t) { return t == OMEGA_GPU_GEMM_BF16 ? 16u : 32u; }
+static uint32_t esz(OmegaGpuGemmType t) { return t == OMEGA_GPU_GEMM_E4M3 ? 1u : t == OMEGA_GPU_GEMM_F32_FFMA ? 4u : 2u; }
+static uint32_t kstep(OmegaGpuGemmType t) { return t == OMEGA_GPU_GEMM_E4M3 ? 32u : 16u; }
 static int pow124(uint32_t v) { return v == 1u || v == 2u || v == 4u; }
+static int type_ok(unsigned t) { return t <= OMEGA_GPU_GEMM_F32_FFMA; }
+#define FFMA_THREADS 128u
 
 void omega_gpu_gemm_default_cfg(OmegaGpuGemmType type, OmegaGemmCfg *cfg) {
     memset(cfg, 0, sizeof *cfg);
-    cfg->type = type; cfg->rt = 2; cfg->ct = 4; cfg->wm = 2; cfg->wn = 2; cfg->stall = type == OMEGA_GPU_GEMM_BF16 ? 4u : 2u;
+    cfg->type = type; cfg->rt = 2; cfg->ct = 4; cfg->wm = 2; cfg->wn = 2; cfg->stall = type == OMEGA_GPU_GEMM_E4M3 ? 2u : 4u;
 }
 
 int omega_gpu_gemm_cfg_ok(const OmegaGemmCfg *c) {
-    return c && (c->type == OMEGA_GPU_GEMM_BF16 || c->type == OMEGA_GPU_GEMM_E4M3) && pow124(c->rt) && pow124(c->ct) &&
+    return c && type_ok(c->type) && pow124(c->rt) && pow124(c->ct) &&
            pow124(c->wm) && pow124(c->wn) && c->stall >= 1u && c->stall <= 15u && c->mutant >= 0 && c->mutant <= 3 &&
            4u * (4u * c->rt + 2u * c->ct + c->rt * c->ct) <= 100u; /* registers: two operand sets + accumulators, R2..R127 in all */
 }
@@ -36,11 +38,11 @@ static void isub(Em *e, int d, int a, int b) { imadi(e, d, b, 0, 0xffffffffu, a)
 /* d = 1 when a < b (both below 2^31), else 0 */
 static void lt_bit(Em *e, int d, int a, int b) { isub(e, d, a, b); shr(e, d, d, 0, 31); }
 static void and_r(Em *e, int d, int a, int b) { lop3(e, d, a, b, NOREG, 0xc0u); }
-/* tensor-core op d = a * b[bsub..bsub+1] + c */
-static void mma(Em *e, int fp8, int d, int a, int b, unsigned bsub, int c, uint32_t stall) {
-    BlackwellIRInsn i = I0(BW_IR_HMMA_BF16);
+/* tensor-core op d = a * b[bsub..bsub+1] + c: HMMA.16816.F32.BF16, HMMA.16816.F32 (fp16 operands) or QMMA.16832 (patched) */
+static void mma(Em *e, OmegaGpuGemmType t, int d, int a, int b, unsigned bsub, int c, uint32_t stall) {
+    BlackwellIRInsn i = I0(t == OMEGA_GPU_GEMM_F16 ? BW_IR_HMMA_F16 : BW_IR_HMMA_BF16);
     i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; i.src2_subreg = (uint8_t)bsub; i.src3_vreg = c;
-    if (fp8) i.imm = OMEGA_QMMA_MARK;
+    if (t == OMEGA_GPU_GEMM_E4M3) i.imm = OMEGA_QMMA_MARK;
     i.control = CW(stall, SB_NONE, SB_NONE, e->pending); e->pending = 0;
     if (omega_bw_ir_append(e->p, &i) < 0) e->err = -1;
 }
@@ -114,7 +116,7 @@ static int gen_pack(Em *e, const OmegaGemmCfg *c, int isb) {
 
 /* ------------------------------------------------------------------ MAIN */
 static int gen_main(Em *e, const OmegaGemmCfg *c) {
-    const int fp8 = c->type == OMEGA_GPU_GEMM_E4M3;
+    const OmegaGpuGemmType ty = c->type;
     const uint32_t RT = c->rt, CT = c->ct, FA = 2u * RT, FB = CT;
     int udesc = UV64(e), pa = V64(e), pb = V64(e), pc = V64(e), M = V(e), N = V(e), ks2 = V(e);
     int tid = V(e), cx = V(e), cy = V(e), warp = V(e), lane = V(e), g = V(e), t = V(e), one = V(e), zr = V(e);
@@ -146,7 +148,7 @@ static int gen_main(Em *e, const OmegaGemmCfg *c) {
         for (uint32_t u = 0; u < 2; u++) { \
             if (c->mutant == 1 && u == 1) break; \
             for (uint32_t i = 0; i < RT; i++) for (uint32_t j = 0; j < CT; j++) \
-                mma(e, fp8, acc[i * CT + j], as[s][u * RT + i], bs[s][j], 2u * u, acc[i * CT + j], c->stall); } } while (0)
+                mma(e, ty, acc[i * CT + j], as[s][u * RT + i], bs[s][j], 2u * u, acc[i * CT + j], c->stall); } } while (0)
 
     ISSUE(0, 3u);
     const int top = here(e);
@@ -194,11 +196,57 @@ static int gen_main(Em *e, const OmegaGemmCfg *c) {
     return e->err;
 }
 
+/* ------------------------------------------------------------------ F32_FFMA (the reference path, GemmGeneral)
+ * CTA (cx, row m = cy), FFMA_THREADS threads; thread tid owns C[m][n], n = cx FFMA_THREADS + tid, and runs
+ * acc = +0; for k = 0 .. K-1: acc = fma(A[m][k], B[k][n], acc) with one FFMA (IEEE round-to-nearest, fused) per k.
+ * A is dense M x K, B dense K x N, both f32 row-major. Lanes past N read column 0 and do not store.
+ * mutant 1 (the red check): FADD instead of FFMA, the product never formed. */
+static int gen_ffma(Em *e, const OmegaGemmCfg *c) {
+    int udesc = UV64(e), pa = V64(e), pb = V64(e), pc = V64(e), M = V(e), N = V(e), K = V(e);
+    int tid = V(e), cx = V(e), cy = V(e), one = V(e), zr = V(e), n = V(e), vn = V(e), nc = V(e), tmp = V(e);
+    int acc = V(e), av = V(e), bv = V(e), cnt = V(e), ca = V64(e);
+    if (e->err) return -1;
+    ldcu64(e, udesc, 0x358);
+    ldc64(e, pa, 0x380); ldc64(e, pb, 0x388); ldc64(e, pc, 0x390);
+    ldc32(e, M, 0x398); ldc32(e, N, 0x39c); ldc32(e, K, 0x3a0);
+    s2r(e, tid, BW_SR_TID_X); s2r(e, cx, BW_SR_CTAID_X); s2r(e, cy, BW_SR_CTAID_Y);
+    movi(e, one, 1); movrz(e, zr);
+    imadi(e, n, cx, 0, FFMA_THREADS, tid);
+    lt_bit(e, vn, n, N);
+    imadr(e, nc, n, vn, NOREG);                               /* past N: column 0, always readable */
+    imadr(e, tmp, cy, K, NOREG); imadw(e, pa, tmp, 4u, pa);   /* row m of A */
+    imadw(e, pb, nc, 4u, pb);                                 /* column n of B */
+    movrz(e, acc);
+    imadi(e, cnt, K, 0, 1u, NOREG);
+    const int top = here(e);
+    loop_begin(e);
+    ldg32(e, av, pa, udesc, 1);
+    ldg32(e, bv, pb, udesc, 0);
+    if (c->mutant == 1) fadd(e, acc, av, acc);
+    else ffma(e, acc, av, bv, 0, acc);
+    imadw(e, pa, one, 4u, pa);
+    imadw(e, pb, N, 4u, pb);
+    imadi(e, cnt, one, 0, 0xffffffffu, cnt);
+    isetp_ge_u32(e, cnt, one);
+    bra_if_p0(e, top);
+    loop_end(e);
+    isetp_ge_u32(e, zr, vn);                                  /* P0: outside N, skip the store */
+    Region rg = skip_if_p0(e);
+    imadr(e, tmp, cy, N, n); imadw(e, ca, tmp, 4u, pc);
+    stg(e, ca, 0, acc, udesc);
+    region_end(e, rg);
+    (void)M;
+    tail(e);
+    return e->err;
+}
+
 int omega_gpu_gemm_codegen(const OmegaGemmCfg *cfg, OmegaGemmKind kind, BlackwellIRProgram *prog) {
     if (!omega_gpu_gemm_cfg_ok(cfg) || !prog || (unsigned)kind >= OMEGA_GEMM_K_COUNT) return -1;
+    if (cfg->type == OMEGA_GPU_GEMM_F32_FFMA && kind != OMEGA_GEMM_K_MAIN) return -1; /* no packs */
     omega_bw_ir_init(prog);
     Em em; memset(&em, 0, sizeof em); em.p = prog;
-    int rc = kind == OMEGA_GEMM_K_MAIN ? gen_main(&em, cfg) : gen_pack(&em, cfg, kind == OMEGA_GEMM_K_PACK_B);
+    int rc = cfg->type == OMEGA_GPU_GEMM_F32_FFMA ? gen_ffma(&em, cfg)
+           : kind == OMEGA_GEMM_K_MAIN ? gen_main(&em, cfg) : gen_pack(&em, cfg, kind == OMEGA_GEMM_K_PACK_B);
     if (rc != 0 || em.err || em.depth != 0) return -1;
     return omega_bw_regalloc_solve(prog);
 }
@@ -222,27 +270,60 @@ int omega_gpu_gemm_plan(const OmegaGemmCfg *c, uint32_t M, uint32_t N, uint32_t 
     p->grid[OMEGA_GEMM_K_MAIN][0] = p->Np / (gb * c->wn); p->grid[OMEGA_GEMM_K_MAIN][1] = p->Mp / (ga * c->wm);
     p->threads[OMEGA_GEMM_K_PACK_A] = p->threads[OMEGA_GEMM_K_PACK_B] = 128u;
     p->threads[OMEGA_GEMM_K_MAIN] = 32u * c->wm * c->wn;
+    if (c->type == OMEGA_GPU_GEMM_F32_FFMA) { /* no packs: one thread per C element */
+        p->ap_bytes = p->bp_bytes = 0;
+        memset(p->grid, 0, sizeof p->grid); memset(p->threads, 0, sizeof p->threads);
+        p->grid[OMEGA_GEMM_K_MAIN][0] = (N + FFMA_THREADS - 1u) / FFMA_THREADS; p->grid[OMEGA_GEMM_K_MAIN][1] = M;
+        p->threads[OMEGA_GEMM_K_MAIN] = FFMA_THREADS;
+    }
     return OMEGA_GPU_GEMM_OK;
 }
 
 static void put64(uint32_t *a, unsigned w, uint64_t v) { a[w] = (uint32_t)v; a[w + 1] = (uint32_t)(v >> 32); }
 
-int omega_gpu_gemm_drive(const OmegaGemmCfg *c, unsigned layout, uint32_t M, uint32_t N, uint32_t K, uint64_t a_va,
-                         uint64_t b_va, uint64_t ap_va, uint64_t bp_va, uint64_t c_va, OmegaGemmLaunchFn launch, void *ctx) {
+/* elements one operand spans: rows of the stored layout times its leading dimension (0: dense) */
+static int ld_span(int col, uint32_t rows_m, uint32_t K, uint64_t ld, uint64_t *span, uint64_t *eff) {
+    const uint64_t outer = col ? K : rows_m, inner = col ? rows_m : K; /* stored rows, stored row length */
+    if (ld == 0) ld = inner;
+    if (ld < inner || ld > 0xffffffffull) return -1;
+    *eff = ld; *span = (outer - 1u) * ld + inner;
+    return *span > 0xffffffffull ? -1 : 0; /* the packs index elements with 32-bit arithmetic */
+}
+
+int omega_gpu_gemm_span(unsigned layout, uint32_t M, uint32_t N, uint32_t K, uint64_t lda, uint64_t ldb, uint64_t *a_elems, uint64_t *b_elems) {
+    uint64_t ea, eb, sa, sb;
+    if ((layout & ~3u) || !M || !N || !K || ld_span(layout & OMEGA_GPU_GEMM_A_COL, M, K, lda, &sa, &ea) != 0 ||
+        ld_span((layout & OMEGA_GPU_GEMM_B_COL) == 0, N, K, ldb, &sb, &eb) != 0) return OMEGA_GPU_GEMM_BAD_ARGS;
+    if (a_elems) *a_elems = sa;
+    if (b_elems) *b_elems = sb;
+    return OMEGA_GPU_GEMM_OK;
+}
+
+int omega_gpu_gemm_drive_ld(const OmegaGemmCfg *c, unsigned layout, uint32_t M, uint32_t N, uint32_t K, uint64_t a_va, uint64_t lda,
+                            uint64_t b_va, uint64_t ldb, uint64_t ap_va, uint64_t bp_va, uint64_t c_va, OmegaGemmLaunchFn launch, void *ctx) {
     if (!launch || (layout & ~3u)) return OMEGA_GPU_GEMM_BAD_ARGS;
     OmegaGemmPlan p;
     int rc = omega_gpu_gemm_plan(c, M, N, K, &p);
     if (rc != OMEGA_GPU_GEMM_OK) return rc;
+    uint64_t ea, eb, sp;
+    if (ld_span(layout & OMEGA_GPU_GEMM_A_COL, M, K, lda, &sp, &ea) != 0 ||
+        ld_span((layout & OMEGA_GPU_GEMM_B_COL) == 0, N, K, ldb, &sp, &eb) != 0) return OMEGA_GPU_GEMM_BAD_ARGS;
     uint32_t a[OMEGA_GPU_GEMM_ARGS_WORDS];
-    /* A element (m, k): row-major m K + k, column-major k M + m */
+    if (c->type == OMEGA_GPU_GEMM_F32_FFMA) { /* dense row-major A and B only */
+        if (layout || ea != K || eb != N) return OMEGA_GPU_GEMM_BAD_ARGS;
+        memset(a, 0, sizeof a);
+        put64(a, 0, a_va); put64(a, 2, b_va); put64(a, 4, c_va); a[6] = M; a[7] = N; a[8] = K;
+        return launch(ctx, OMEGA_GEMM_K_MAIN, a, p.grid[2][0], p.grid[2][1], p.threads[2]) != 0 ? OMEGA_GPU_GEMM_CHIP_FAIL : OMEGA_GPU_GEMM_OK;
+    }
+    /* A element (m, k): row-major m lda + k, column-major k lda + m */
     memset(a, 0, sizeof a);
     put64(a, 0, a_va); put64(a, 2, ap_va); a[4] = M; a[5] = K;
-    a[6] = layout & OMEGA_GPU_GEMM_A_COL ? 1u : K; a[7] = layout & OMEGA_GPU_GEMM_A_COL ? M : 1u; a[8] = p.KS2;
+    a[6] = layout & OMEGA_GPU_GEMM_A_COL ? 1u : (uint32_t)ea; a[7] = layout & OMEGA_GPU_GEMM_A_COL ? (uint32_t)ea : 1u; a[8] = p.KS2;
     if (launch(ctx, OMEGA_GEMM_K_PACK_A, a, p.grid[0][0], p.grid[0][1], p.threads[0]) != 0) return OMEGA_GPU_GEMM_CHIP_FAIL;
-    /* B element (k, n) as packed row n: row-major k N + n, column-major n K + k */
+    /* B element (k, n) as packed row n: row-major k ldb + n, column-major n ldb + k */
     memset(a, 0, sizeof a);
     put64(a, 0, b_va); put64(a, 2, bp_va); a[4] = N; a[5] = K;
-    a[6] = layout & OMEGA_GPU_GEMM_B_COL ? K : 1u; a[7] = layout & OMEGA_GPU_GEMM_B_COL ? 1u : N; a[8] = p.KS2;
+    a[6] = layout & OMEGA_GPU_GEMM_B_COL ? (uint32_t)eb : 1u; a[7] = layout & OMEGA_GPU_GEMM_B_COL ? 1u : (uint32_t)eb; a[8] = p.KS2;
     if (launch(ctx, OMEGA_GEMM_K_PACK_B, a, p.grid[1][0], p.grid[1][1], p.threads[1]) != 0) return OMEGA_GPU_GEMM_CHIP_FAIL;
     memset(a, 0, sizeof a);
     put64(a, 0, ap_va); put64(a, 2, bp_va); put64(a, 4, c_va); a[6] = M; a[7] = N; a[8] = p.KS2;
@@ -250,20 +331,26 @@ int omega_gpu_gemm_drive(const OmegaGemmCfg *c, unsigned layout, uint32_t M, uin
     return OMEGA_GPU_GEMM_OK;
 }
 
+int omega_gpu_gemm_drive(const OmegaGemmCfg *c, unsigned layout, uint32_t M, uint32_t N, uint32_t K, uint64_t a_va,
+                         uint64_t b_va, uint64_t ap_va, uint64_t bp_va, uint64_t c_va, OmegaGemmLaunchFn launch, void *ctx) {
+    return omega_gpu_gemm_drive_ld(c, layout, M, N, K, a_va, 0, b_va, 0, ap_va, bp_va, c_va, launch, ctx);
+}
+
 /* ------------------------------------------------------------------ the chip */
 
+#define NTYPES 4u
 static struct {
-    int set[2];
-    OmegaGemmCfg cfg[2];
-    OmegaGpuMem code[2][OMEGA_GEMM_K_COUNT];
-    uint32_t gpr[2][OMEGA_GEMM_K_COUNT];
+    int set[NTYPES];
+    OmegaGemmCfg cfg[NTYPES];
+    OmegaGpuMem code[NTYPES][OMEGA_GEMM_K_COUNT];
+    uint32_t gpr[NTYPES][OMEGA_GEMM_K_COUNT];
     int hooked;
 } g;
 
 /* lock held; the session calls it right before it closes the device (also in omega_gpu_session_recover): the kernels go
  * with the device, the next call builds them again on the new one */
 static void on_session_close(void) {
-    for (unsigned t = 0; t < 2; t++)
+    for (unsigned t = 0; t < NTYPES; t++)
         for (unsigned k = 0; k < OMEGA_GEMM_K_COUNT; k++) if (g.code[t][k].cpu) omega_gpu_session_free(&g.code[t][k]);
     memset(g.code, 0, sizeof g.code);
 }
@@ -274,7 +361,7 @@ static const OmegaGemmCfg *cfg_of(OmegaGpuGemmType t) {
 }
 
 int omega_gpu_gemm_test_set_cfg(OmegaGpuGemmType type, const OmegaGemmCfg *cfg) {
-    if ((unsigned)type > OMEGA_GPU_GEMM_E4M3 || (cfg && (!omega_gpu_gemm_cfg_ok(cfg) || cfg->type != type))) return OMEGA_GPU_GEMM_BAD_ARGS;
+    if (!type_ok((unsigned)type) || (cfg && (!omega_gpu_gemm_cfg_ok(cfg) || cfg->type != type))) return OMEGA_GPU_GEMM_BAD_ARGS;
     omega_gpu_session_lock();
     for (unsigned k = 0; k < OMEGA_GEMM_K_COUNT; k++) if (g.code[type][k].cpu) omega_gpu_session_free(&g.code[type][k]);
     memset(g.code[type], 0, sizeof g.code[type]);
@@ -291,6 +378,7 @@ const char *omega_gpu_gemm_rc_name(int rc) {
     case OMEGA_GPU_GEMM_TOO_LARGE: return "TOO_LARGE";
     case OMEGA_GPU_GEMM_CODEGEN_FAIL: return "CODEGEN_FAIL";
     case OMEGA_GPU_GEMM_CHIP_FAIL: return "CHIP_FAIL";
+    case OMEGA_GPU_GEMM_UNSUPPORTED: return "UNSUPPORTED";
     default: return "?";
     }
 }
@@ -341,28 +429,31 @@ static int chip_launch(void *ctx, OmegaGemmKind k, const uint32_t args[OMEGA_GPU
 
 static uint64_t up16(uint64_t v) { return (v + 255u) & ~(uint64_t)255u; }
 
-int omega_gpu_gemm(OmegaGpuGemmType type, unsigned layout, uint32_t M, uint32_t N, uint32_t K, const void *A, const void *B,
-                   float *C, OmegaGpuGemmInfo *info) {
+int omega_gpu_gemm_ld(OmegaGpuGemmType type, unsigned layout, uint32_t M, uint32_t N, uint32_t K, const void *A, uint64_t lda,
+                      const void *B, uint64_t ldb, float *C, OmegaGpuGemmInfo *info) {
     uint64_t t0 = omega_gpu_session_now_ns();
     if (info) memset(info, 0, sizeof *info);
-    if ((unsigned)type > OMEGA_GPU_GEMM_E4M3 || (layout & ~3u) || !A || !B || !C) return OMEGA_GPU_GEMM_BAD_ARGS;
+    if (!type_ok((unsigned)type) || (layout & ~3u) || !A || !B || !C) return OMEGA_GPU_GEMM_BAD_ARGS;
     omega_gpu_session_lock();
     const OmegaGemmCfg *cfg = cfg_of(type);
     OmegaGemmPlan p;
+    uint64_t sa = 0, sb = 0;
     int rc = omega_gpu_gemm_plan(cfg, M, N, K, &p);
+    if (rc == OMEGA_GPU_GEMM_OK) rc = omega_gpu_gemm_span(layout, M, N, K, lda, ldb, &sa, &sb);
     if (rc != OMEGA_GPU_GEMM_OK) { omega_gpu_session_unlock(); return rc; }
+    sa *= esz(type); sb *= esz(type); /* bytes the operands span with their leading dimensions */
     /* one buffer: A | B | packed A | packed B | C (each 256-byte aligned; A and B carry 16 bytes of readable slack) */
-    const uint64_t oa = 0, ob = up16(p.a_bytes + 16u), oap = ob + up16(p.b_bytes + 16u), obp = oap + up16(p.ap_bytes),
+    const uint64_t oa = 0, ob = up16(sa + 16u), oap = ob + up16(sb + 16u), obp = oap + up16(p.ap_bytes),
                    oc = obp + up16(p.bp_bytes), total = oc + (uint64_t)M * N * 4u;
     OmegaGpuMem m;
     if (!omega_gpu_session_open() || omega_gpu_session_alloc(total, &m) != 0) { omega_gpu_session_unlock(); return OMEGA_GPU_GEMM_CHIP_FAIL; }
     uint8_t *base = m.cpu;
-    memcpy(base + oa, A, p.a_bytes); memcpy(base + ob, B, p.b_bytes);
+    memcpy(base + oa, A, sa); memcpy(base + ob, B, sb);
     uint32_t *cw = (uint32_t *)(base + oc);
     for (uint64_t i = 0; i < (uint64_t)M * N; i++) cw[i] = POISON;
     ChipCtx cc = { type, 0, 0 };
     if (omega_gpu_session_sync_to_gpu(&m) != 0) rc = OMEGA_GPU_GEMM_CHIP_FAIL;
-    else rc = omega_gpu_gemm_drive(cfg, layout, M, N, K, m.va + oa, m.va + ob, m.va + oap, m.va + obp, m.va + oc, chip_launch, &cc);
+    else rc = omega_gpu_gemm_drive_ld(cfg, layout, M, N, K, m.va + oa, lda, m.va + ob, ldb, m.va + oap, m.va + obp, m.va + oc, chip_launch, &cc);
     if (rc == OMEGA_GPU_GEMM_OK && omega_gpu_session_sync_to_cpu(&m) != 0) rc = OMEGA_GPU_GEMM_CHIP_FAIL;
     if (rc == OMEGA_GPU_GEMM_OK) {
         uint64_t unwritten = 0;
@@ -378,4 +469,9 @@ int omega_gpu_gemm(OmegaGpuGemmType type, unsigned layout, uint32_t M, uint32_t 
     omega_gpu_session_unlock();
     if (info) info->call_ns = omega_gpu_session_now_ns() - t0;
     return rc;
+}
+
+int omega_gpu_gemm(OmegaGpuGemmType type, unsigned layout, uint32_t M, uint32_t N, uint32_t K, const void *A, const void *B,
+                   float *C, OmegaGpuGemmInfo *info) {
+    return omega_gpu_gemm_ld(type, layout, M, N, K, A, 0, B, 0, C, info);
 }

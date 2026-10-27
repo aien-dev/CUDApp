@@ -99,7 +99,7 @@ static void host_only(void) {
     check(omega_gpu_gemm(OMEGA_GPU_GEMM_BF16, 0, 1, 1, 0, a, b, c, NULL) == OMEGA_GPU_GEMM_BAD_ARGS, "K = 0 refused");
     check(omega_gpu_gemm(OMEGA_GPU_GEMM_BF16, 0, OMEGA_GPU_GEMM_MAX_DIM + 1, 1, 1, a, b, c, NULL) == OMEGA_GPU_GEMM_TOO_LARGE, "M past the maximum refused");
     check(omega_gpu_gemm(OMEGA_GPU_GEMM_BF16, 4, 1, 1, 1, a, b, c, NULL) == OMEGA_GPU_GEMM_BAD_ARGS, "unknown layout bits refused");
-    check(omega_gpu_gemm((OmegaGpuGemmType)2, 0, 1, 1, 1, a, b, c, NULL) == OMEGA_GPU_GEMM_BAD_ARGS, "unknown type refused");
+    check(omega_gpu_gemm((OmegaGpuGemmType)4, 0, 1, 1, 1, a, b, c, NULL) == OMEGA_GPU_GEMM_BAD_ARGS, "unknown type refused");
     check(omega_gpu_gemm(OMEGA_GPU_GEMM_E4M3, 0, 1, 1, 1, NULL, b, c, NULL) == OMEGA_GPU_GEMM_BAD_ARGS, "NULL A refused");
     OmegaGemmCfg bad; omega_gpu_gemm_default_cfg(OMEGA_GPU_GEMM_BF16, &bad); bad.rt = 3;
     check(!omega_gpu_gemm_cfg_ok(&bad), "a tile of 3 row tiles refused");
