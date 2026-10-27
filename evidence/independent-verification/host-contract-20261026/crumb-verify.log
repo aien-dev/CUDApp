@@ -1,0 +1,3 @@
+STALE      docs/device-trace
+STALE      tests/device-trace
+crumb verify: FAIL: 2 of 21 crumbs stale; run: crumb compile

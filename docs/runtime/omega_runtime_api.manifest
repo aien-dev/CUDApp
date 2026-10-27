@@ -9,8 +9,10 @@
 #     `usize`/size_t fields are written `u64` (LP64), as it does.
 # Checked by tools/runtime_api_check.sh (make test-runtime-api): every `fn` against its header with the exact types,
 # every size, offset and constant against a compiled probe, the version macros against src/omega_runtime_api.h.
-# After a deliberate header change: edit the line here, run `tools/runtime_api_check.sh --bless` to refresh numbers, review the diff.
-abi omega_runtime 0.1
+# After a deliberate header change: edit the line here, run `tools/runtime_api_check.sh --bless` to refresh numbers, review the diff,
+# and bump the version (MAJOR/MINOR/PATCH, rule in API.md section 2; tools/runtime_api_semver.sh checks the bump against the base).
+# Names a manifest header declares that are NOT API go in omega_runtime_api.internal, each with a reason (the check fails otherwise).
+abi omega_runtime 0.3.0
 header src/omega_runtime_api.h
 header src/omega_gpu_platform.h
 header src/omega_gpu_session.h
@@ -35,7 +37,9 @@ header src/omega_gpu_prefill.h
 header src/omega_gpu_pfhost.h
 # ---- version ----
 const OMEGA_RUNTIME_API_VERSION_MAJOR 0
-const OMEGA_RUNTIME_API_VERSION_MINOR 1
+const OMEGA_RUNTIME_API_VERSION_MINOR 3
+const OMEGA_RUNTIME_API_VERSION_PATCH 0
+const OMEGA_RUNTIME_API_VERSION 3
 # ---- platform contract (src/omega_gpu_platform.h, ABI 1.2) ----
 struct OmegaGpuDeviceHandle 8 4 # STABLE
 field OmegaGpuDeviceHandle index 0 4 u32 1
@@ -917,3 +921,52 @@ fn omega_gpu_pf_router_pack fn(u32, u32, *const f32, *mut f32) -> () # EXPERIMEN
 fn omega_gpu_pf_router_logits fn(u32, u32, u32, u64, u64, u64, *mut u64) -> i32 # EXPERIMENTAL
 fn omega_gpu_pf_moe_combine fn(u32, u32, u32, u64, u64, u64, u64, *mut u64) -> i32 # EXPERIMENTAL
 fn omega_gpu_pf_router_set_rows fn(u32) -> () # EXPERIMENTAL
+# Result codes of the decode-path calls above (added in 0.3.0). EXPERIMENTAL like the calls that return them; the other
+# constants these headers define are in the INTERNAL list.
+const OMEGA_GPU_BF16_BAD_ARGS -1 # EXPERIMENTAL
+const OMEGA_GPU_BF16_CHIP_FAIL -4 # EXPERIMENTAL
+const OMEGA_GPU_BF16_CODEGEN_FAIL -3 # EXPERIMENTAL
+const OMEGA_GPU_BF16_NAN_WEIGHT -5 # EXPERIMENTAL
+const OMEGA_GPU_BF16_OK 0 # EXPERIMENTAL
+const OMEGA_GPU_BF16_TOO_LARGE -2 # EXPERIMENTAL
+const OMEGA_GPU_DATTN_BAD_ARGS -1 # EXPERIMENTAL
+const OMEGA_GPU_DATTN_CHIP_FAIL -4 # EXPERIMENTAL
+const OMEGA_GPU_DATTN_CODEGEN_FAIL -3 # EXPERIMENTAL
+const OMEGA_GPU_DATTN_OK 0 # EXPERIMENTAL
+const OMEGA_GPU_DATTN_TOO_LARGE -2 # EXPERIMENTAL
+const OMEGA_GPU_DGRAPH_BAD_ARGS -1 # EXPERIMENTAL
+const OMEGA_GPU_DGRAPH_CHIP_FAIL -4 # EXPERIMENTAL
+const OMEGA_GPU_DGRAPH_CODEGEN_FAIL -3 # EXPERIMENTAL
+const OMEGA_GPU_DGRAPH_OK 0 # EXPERIMENTAL
+const OMEGA_GPU_FP8GEMM_BAD_ARGS -1 # EXPERIMENTAL
+const OMEGA_GPU_FP8GEMM_CHIP_FAIL -4 # EXPERIMENTAL
+const OMEGA_GPU_FP8GEMM_CODEGEN_FAIL -3 # EXPERIMENTAL
+const OMEGA_GPU_FP8GEMM_OK 0 # EXPERIMENTAL
+const OMEGA_GPU_FP8GEMM_TOO_LARGE -2 # EXPERIMENTAL
+const OMEGA_GPU_FP8_BAD_ARGS -1 # EXPERIMENTAL
+const OMEGA_GPU_FP8_CHIP_FAIL -4 # EXPERIMENTAL
+const OMEGA_GPU_FP8_CODEGEN_FAIL -3 # EXPERIMENTAL
+const OMEGA_GPU_FP8_NAN_WEIGHT -5 # EXPERIMENTAL
+const OMEGA_GPU_FP8_OK 0 # EXPERIMENTAL
+const OMEGA_GPU_FP8_TOO_LARGE -2 # EXPERIMENTAL
+const OMEGA_GPU_PF_BAD_ARGS -1 # EXPERIMENTAL
+const OMEGA_GPU_PF_CHIP_FAIL -4 # EXPERIMENTAL
+const OMEGA_GPU_PF_CODEGEN_FAIL -3 # EXPERIMENTAL
+const OMEGA_GPU_PF_OK 0 # EXPERIMENTAL
+const OMEGA_GPU_PF_TOO_LARGE -2 # EXPERIMENTAL
+const OMEGA_GPU_ROUTER_BAD_ARGS -1 # EXPERIMENTAL
+const OMEGA_GPU_ROUTER_CHIP_FAIL -4 # EXPERIMENTAL
+const OMEGA_GPU_ROUTER_CODEGEN_FAIL -3 # EXPERIMENTAL
+const OMEGA_GPU_ROUTER_OK 0 # EXPERIMENTAL
+const OMEGA_GPU_ROUTER_TOO_LARGE -2 # EXPERIMENTAL
+const OMEGA_GPU_TCGEMM_BAD_ARGS -1 # EXPERIMENTAL
+const OMEGA_GPU_TCGEMM_CHIP_FAIL -4 # EXPERIMENTAL
+const OMEGA_GPU_TCGEMM_CODEGEN_FAIL -3 # EXPERIMENTAL
+const OMEGA_GPU_TCGEMM_OK 0 # EXPERIMENTAL
+const OMEGA_GPU_TCGEMM_TOO_LARGE -2 # EXPERIMENTAL
+const OMEGA_GPU_TERN_BAD_ARGS -1 # EXPERIMENTAL
+const OMEGA_GPU_TERN_BAD_TRIT -5 # EXPERIMENTAL
+const OMEGA_GPU_TERN_CHIP_FAIL -4 # EXPERIMENTAL
+const OMEGA_GPU_TERN_CODEGEN_FAIL -3 # EXPERIMENTAL
+const OMEGA_GPU_TERN_OK 0 # EXPERIMENTAL
+const OMEGA_GPU_TERN_TOO_LARGE -2 # EXPERIMENTAL
