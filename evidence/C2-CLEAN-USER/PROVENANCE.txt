@@ -18,3 +18,11 @@ run3-branch.log.strace.gz  the full trace of run3's README block (strace -f, as 
 
 Commits after c5466a5 on this branch add only these evidence files and CI; they do not change the README commands.
 Logs reference the scratch path /home/drakestapleton/handoffs/C2Api/ where they were first written.
+
+run4-branch.log  2026-10-27T04:09:44Z  c2/clean-user-hello 88774bb89a7c (the PR head at review; train review, TrainC2)
+  Same script, same README block, beside the live 35B on 127.0.0.1:18091 (it was off for run1-3):
+  hello-gpu PASS (1048576 of 1048576 right; machine code sha256 6248b8ed...87d1, output sha256 72d0c1b2...b6a6,
+  both equal to run3); hello-gpu-control RED as it must (1 never written, exit 1); zero-cuda-gate self-test PASS,
+  then PASS on both programs; TRACE PASS + red control caught; user c2stranger040944 removed. Run under
+  `nice -n 19 taskset -c 10-14`, loadavg 5.80. run4-health.txt: 18091 /health before and after (status ok both)
+  and the compute apps after (only pid 79557, the 35B).
