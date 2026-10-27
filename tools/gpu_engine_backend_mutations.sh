@@ -11,7 +11,7 @@
 # unless its row carries class "redundant" with a rationale.
 # Host only, no device, no GPU, no physics C sources (the driver is the fake).
 # The link set is the Makefile RX_COMPOSE_GPU_SRCS list plus the three core files the vector builder needs
-# (omega_core.c, omega_canonical.c, sha256.c), with the fake driver in place of physics m16_native.c and nvrm.c.
+# (omega_core.c, omega_canonical.c, omega_om_units.c), with the fake driver in place of physics m16_native.c and nvrm.c.
 # Shell only (no Python). The real sources carry no marker comments: the rows
 # find their text with exact-once matches (R:) or line ranges (sed), and the
 # runner reports "edit did not apply" if a row stops matching.

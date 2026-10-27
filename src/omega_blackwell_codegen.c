@@ -8,8 +8,10 @@
  * (omega_blackwell_kernel_encode_into: the caller supplies the code buffer and its capacity); the allocating
  * generators, their diagnostics and the printing variation self-test exist only in the hosted build. */
 #ifndef OMEGA_GPU_NO_POSIX
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #define BW_DIAG(...) fprintf(stderr, __VA_ARGS__)
 #else
 #define BW_DIAG(...) ((void)0)
@@ -1004,6 +1006,31 @@ int omega_blackwell_verify_codegen_fixtures_fb1cut4(void) {
     return 0;
 }
 
+/* Kernel capture (C6 of docs/OMEGA.md, tools/sm121dis): with OMEGA_KERNEL_DUMP_DIR set, every encoded kernel is written
+ * there as <first 16 hex of its SHA-256>.bin, once per distinct body, so the disassembler can be checked against nvdisasm on
+ * every kernel the library builds. Unset (the normal case) it does nothing; the freestanding build has no files. */
+void omega_kernel_dump(const uint8_t *code, size_t len) {
+#ifndef OMEGA_GPU_NO_POSIX
+    const char *dir = getenv("OMEGA_KERNEL_DUMP_DIR");
+    if (!dir || !dir[0] || !code || !len) return;
+    uint8_t d[SHA256_DIGEST_SIZE]; sha256_hash(code, len, d);
+    char path[4096];
+    int n = snprintf(path, sizeof path, "%s/%02x%02x%02x%02x%02x%02x%02x%02x.bin",
+                     dir, (unsigned)d[0], (unsigned)d[1], (unsigned)d[2], (unsigned)d[3],
+                     (unsigned)d[4], (unsigned)d[5], (unsigned)d[6], (unsigned)d[7]);
+    if (n < 0 || (size_t)n >= sizeof path) return;
+    /* Private, exclusive creation: an existing body or symlink is left alone. */
+    int fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+    if (fd < 0) return;
+    FILE *f = fdopen(fd, "wb");
+    if (!f) { close(fd); return; }
+    if (fwrite(code, 1, len, f) != len) BW_DIAG("omega_kernel_dump: short write %s\n", path);
+    if (fclose(f) != 0) BW_DIAG("omega_kernel_dump: close failed %s\n", path);
+#else
+    (void)code; (void)len;
+#endif
+}
+
 int omega_bw_encode_program(const BlackwellIRProgram *prog, uint8_t *code_buf, size_t max_len, size_t *out_len) {
     if (!prog || !code_buf || !out_len) return -1;
 
@@ -1051,6 +1078,7 @@ int omega_bw_encode_program(const BlackwellIRProgram *prog, uint8_t *code_buf, s
         p += 16;
     }
 
+    omega_kernel_dump(code_buf, req_bytes);
     *out_len = req_bytes;
     return 0;
 }
