@@ -130,6 +130,9 @@ test-gpu-reconv: $(GPU_RECONV_TEST)
 # whole parity battery through the host IR simulator (--sim, no chip); the chip
 # gate is `./build/gpu_attention_test --out receipt.json` through the heavy queue
 # (tools/run_gpu_attention_chip.sh). -ffp-contract=off keeps the oracle free of FMA.
+# General kernel (0.6.0): --general --sim runs the predeclared 318-config sweep (head_dim 1..256, MHA/GQA/MQA,
+# causal/windows, strides, paged) and the general mutants on the host simulator; the chip run is
+# `./build/gpu_attention_test --general --out g.json` under /tmp/aien-gb10.lock.
 .PHONY: test-gpu-attention
 GPU_ATTN_TEST = $(OUT_DIR)/gpu_attention_test
 $(GPU_ATTN_TEST): tests/gpu_attention_test.c tests/bw_warp_sim.h src/omega_gpu_attention_api.h $(OUT_DIR)/libomega_gpu.a
@@ -141,6 +144,7 @@ test-gpu-attention: $(GPU_ATTN_TEST)
 	./$(GPU_ATTN_TEST) --hd 128 --host-only
 	./$(GPU_ATTN_TEST) --hd 128 --sim
 	./$(GPU_ATTN_TEST) --hd 128 --divergent --sim
+	./$(GPU_ATTN_TEST) --general --sim --out $(OUT_DIR)/gpu_attention_general_sim.json
 
 # FB-1 cut 4b: fresh-process device-open probe (flake investigation, tools/probe_gpu_open.sh)
 $(OUT_DIR)/gpu_session_probe: tests/gpu_session_probe.c src/omega_gpu_session.h $(OUT_DIR)/libomega_gpu.a
