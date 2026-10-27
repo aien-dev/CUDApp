@@ -145,14 +145,15 @@ uint32_t omega_gpu_fp8_depth_for(const OmegaFp8GemvSpec *spec, uint32_t n, uint3
 /* Register-file check for a spec (chip-found rule: 32 * warps * declared registers <= 65536, declared = peak + 1 rounded
  * up to 8). OK, TOO_LARGE (last_error names the counts) or CODEGEN_FAIL. The automatic depth choice and every build apply it. */
 int omega_gpu_fp8_kernel_fits(const OmegaFp8GemvSpec *spec, uint32_t *declared);
-/* CTAs per group per launch (0 restores the automatic choice: MAX_CTAS single, GROUPED_CTAS grouped). */
+/* CTAs per group per launch (0 restores the automatic choice: MAX_CTAS single, grouped_ctas_auto(groups) grouped). */
 void omega_gpu_fp8_set_cta_budget(uint32_t ctas);
 /* Grouped-launch CTA rule (L310, 2026-10-24). rule(groups, forced, wave): forced in 1..MAX_CTAS wins; else wave != 0 gives
  * min(GROUPED_CTAS, SM_COUNT / groups) (at least 1), the count that keeps groups x CTAs inside one wave of the 48 SMs;
  * else the compiled GROUPED_CTAS. auto(groups) applies the rule with the env read once at the first call:
- * AIEN_OMEGA_FP8_GROUPED_CTAS=n (exact, experiments) and AIEN_OMEGA_FP8_GROUPED_WAVE=1 (wave rule). Default: neither set,
- * the compiled 6 (measured on 8 groups = one wave). The 35B launches 9 groups: 54 CTAs = two waves, the wave rule gives 5
- * (measured: gate_up + down 6.962 -> 5.874 ms per 1-row step, investigations/2026-10-24-l310-grouped-ctas). Servers log auto(). */
+ * AIEN_OMEGA_FP8_GROUPED_CTAS=n (exact, experiments) and AIEN_OMEGA_FP8_GROUPED_WAVE=0 (the compiled 6 for every group
+ * count). Default: the wave rule (A1, 2026-10-27): 8 groups keep 6; the 35B's 9 groups get 5 instead of 54 CTAs in two
+ * waves (chip A/B, bit-identical outputs: gate_up + down median 164.698 -> 138.776 us per layer,
+ * evidence/DECODE-KERNELS-20261027T0612Z; earlier L310 6.962 -> 5.874 ms per step). Servers log auto(). */
 uint32_t omega_gpu_fp8_grouped_ctas_rule(uint32_t groups, uint32_t forced, int wave);
 uint32_t omega_gpu_fp8_grouped_ctas_auto(uint32_t groups);
 /* 1: tensors uploaded from now on live in GPU-cached memory (read-only weights; omega_gpu_mem_cached.h). Default 0:
