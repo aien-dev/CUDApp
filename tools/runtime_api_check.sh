@@ -13,9 +13,13 @@
 #   - every `fn` line becomes a compile-time type-equality check on the function itself, so a removed function, a changed argument
 #     type or a changed return type is a compile error (-Werror=incompatible-pointer-types);
 #   - every `struct`/`field`/`const` line becomes a printf of sizeof/alignof/offsetof/value, compared with the manifest;
-#   - the version macros OMEGA_RUNTIME_API_VERSION_MAJOR/MINOR must exist (#error otherwise) and equal the manifest.
+#   - the version macros OMEGA_RUNTIME_API_VERSION_MAJOR/MINOR/PATCH must exist (#error otherwise) and equal the manifest;
+#   - surface: every function, object-like macro and enumerator declared in a manifest header must be a manifest `fn`/`const`
+#     or be listed, with a reason, in the INTERNAL list next to the manifest (MANIFEST with .manifest -> .internal); an
+#     INTERNAL entry the headers no longer declare, or one the manifest also lists, fails too. Needs gcc (-aux-info).
 # It does not link the library and does not touch the GPU. A field added inside struct padding is not seen
 # (the struct size would not change); sovereign-core's Rust checker, which reads field names, covers that later (R12).
+# Whether a manifest change came with the right version bump is tools/runtime_api_semver.sh (against the base branch).
 # --bless prints the manifest to stdout with struct/field/const numbers taken from the headers (review the diff).
 # Exit 0 = PASS, 1 = FAIL (each mismatch printed as "FAIL: ..."), 2 = usage.
 set -u
@@ -87,11 +91,13 @@ END {
   print "#include \"" root "/src/omega_runtime_api.h\""
   print "#ifndef OMEGA_RUNTIME_API_VERSION_MAJOR\n#error \"version macro missing: OMEGA_RUNTIME_API_VERSION_MAJOR\"\n#endif"
   print "#ifndef OMEGA_RUNTIME_API_VERSION_MINOR\n#error \"version macro missing: OMEGA_RUNTIME_API_VERSION_MINOR\"\n#endif"
+  print "#ifndef OMEGA_RUNTIME_API_VERSION_PATCH\n#error \"version macro missing: OMEGA_RUNTIME_API_VERSION_PATCH\"\n#endif"
   printf "%s", inc
   printf "%s", fptd
   printf "%s", decl
   print "int main(void) {\n  printf(\"const OMEGA_RUNTIME_API_VERSION_MAJOR %lld\\n\", (long long)(OMEGA_RUNTIME_API_VERSION_MAJOR));"
   print "  printf(\"const OMEGA_RUNTIME_API_VERSION_MINOR %lld\\n\", (long long)(OMEGA_RUNTIME_API_VERSION_MINOR));"
+  print "  printf(\"const OMEGA_RUNTIME_API_VERSION_PATCH %lld\\n\", (long long)(OMEGA_RUNTIME_API_VERSION_PATCH));"
   printf "%s", body
   print "  return 0;\n}"
   exit bad
@@ -142,11 +148,14 @@ awk '{ raw = $0; line = raw; sub(/#.*/, "", line); n = split(line, w, /[ \t]+/)
 if [ -s "$WORK/sanity.txt" ]; then cat "$WORK/sanity.txt"; fail=1; fi
 vmaj=$(awk '$1 == "const" && $2 == "OMEGA_RUNTIME_API_VERSION_MAJOR" { print $3 }' "$MANIFEST")
 vmin=$(awk '$1 == "const" && $2 == "OMEGA_RUNTIME_API_VERSION_MINOR" { print $3 }' "$MANIFEST")
-[ -n "$vmaj" ] && [ -n "$vmin" ] || say_fail "manifest does not list OMEGA_RUNTIME_API_VERSION_MAJOR and _MINOR"
+vpat=$(awk '$1 == "const" && $2 == "OMEGA_RUNTIME_API_VERSION_PATCH" { print $3 }' "$MANIFEST")
+[ -n "$vmaj" ] && [ -n "$vmin" ] && [ -n "$vpat" ] || say_fail "manifest does not list OMEGA_RUNTIME_API_VERSION_MAJOR, _MINOR and _PATCH"
+abiv=$(awk '$1 == "abi" { print $3 }' "$MANIFEST")
+[ "$abiv" = "$vmaj.$vmin.$vpat" ] || say_fail "manifest abi line says ${abiv:-(none)} but the version consts say $vmaj.$vmin.$vpat"
 
 # API.md: states the version, has a section for every STABLE entry and mentions every EXPERIMENTAL one
 if [ -n "$APIMD" ]; then
-  grep -q "^Omega Runtime API version: $vmaj\.$vmin\$" "$APIMD" || say_fail "$APIMD must contain the line \"Omega Runtime API version: $vmaj.$vmin\""
+  grep -q "^Omega Runtime API version: $vmaj\.$vmin\.$vpat\$" "$APIMD" || say_fail "$APIMD must contain the line \"Omega Runtime API version: $vmaj.$vmin.$vpat\""
   awk '{ raw = $0; line = raw; sub(/#.*/, "", line); split(line, w, /[ \t]+/)
     if ((w[1] == "fn" || w[1] == "struct") && match(raw, /#[ \t]*(STABLE|EXPERIMENTAL)/)) { t = substr(raw, RSTART); print w[2], (t ~ /STABLE/ && t !~ /EXPERIMENTAL/) ? "STABLE" : "EXPERIMENTAL" } }' "$MANIFEST" |
   while read -r name tier; do
@@ -161,6 +170,57 @@ if [ -n "$APIMD" ]; then
   if [ -s "$WORK/sigs.txt" ]; then cat "$WORK/sigs.txt"; fail=1; fi
 fi
 
+# ---- 5. surface: nothing in the manifest headers is public by accident ---------------------------------------
+INTERNAL=${MANIFEST%.manifest}.internal
+SURF=$WORK/surface
+mkdir -p "$SURF"
+if [ ! -f "$INTERNAL" ]; then say_fail "INTERNAL list $INTERNAL is missing"
+else
+  : > "$SURF/tu.c"
+  for h in $(awk '$1 == "header" { print $2 }' "$MANIFEST"); do echo "$ROOT/$h"; done > "$SURF/headers.txt"
+  { echo "#include <stddef.h>"; echo "#include <stdint.h>"; echo "#include <stdbool.h>"
+    while IFS= read -r h; do echo "#include \"$h\""; done < "$SURF/headers.txt"; } > "$SURF/tu.c"
+  if ! $CC -std=gnu11 -D_GNU_SOURCE -I"$ROOT/src" -aux-info "$SURF/aux.txt" -c -o "$SURF/tu.o" "$SURF/tu.c" 2> "$SURF/aux.err" \
+     || [ ! -s "$SURF/aux.txt" ]; then
+    say_fail "surface: $CC could not list the header declarations (-aux-info needs gcc):"; head -3 "$SURF/aux.err" | sed 's/^/      /'
+  elif ! $CC -std=gnu11 -D_GNU_SOURCE -I"$ROOT/src" -E -dD "$SURF/tu.c" > "$SURF/pp.txt" 2> "$SURF/pp.err"; then
+    say_fail "surface: preprocessing the headers failed"
+  else
+    # functions: aux-info lines from a manifest header; the name is the first identifier followed by " ("
+    perl -ne 'BEGIN { open(H, "<", shift) or die; while (<H>) { chomp; $h{$_} = 1 } }
+      next unless m{^/\* (\S+):\d+:\S+ \*/ (.*)$}; next unless $h{$1}; print "fn $1\n" if $2 =~ /(\w+) \(/' \
+      "$SURF/headers.txt" "$SURF/aux.txt" > "$SURF/fns.raw"
+    # object-like macros with a value, and enumerators, from preprocessed text that came from a manifest header
+    perl -e 'open(H, "<", $ARGV[0]) or die; while (<H>) { chomp; $h{$_} = 1 } close H;
+      open(P, "<", $ARGV[1]) or die; my ($cur, $text) = ("", "");
+      while (<P>) {
+        if (/^# \d+ "([^"]+)"/) { $cur = $1; next }
+        next unless $h{$cur};
+        if (/^#define (\w+)(\(?)(.*)$/) { my ($n, $p, $v) = ($1, $2, $3); print "const $n\n" if $p eq "" && $v =~ /\S/; next }
+        next if /^#/;
+        $text .= $_;
+      }
+      while ($text =~ /\benum\b\s*\w*\s*\{([^}]*)\}/g) { for my $e (split /,/, $1) { print "const $1\n" if $e =~ /^\s*([A-Za-z_]\w*)/ } }' \
+      "$SURF/headers.txt" "$SURF/pp.txt" > "$SURF/consts.raw"
+    LC_ALL=C sort -u "$SURF/consts.raw" > "$SURF/consts.txt"
+    LC_ALL=C sort -u "$SURF/fns.raw" > "$SURF/fns.txt"
+    cat "$SURF/fns.txt" "$SURF/consts.txt" | LC_ALL=C sort -u > "$SURF/surface.txt"
+    awk '{ sub(/#.*/, ""); if ($1 == "fn" || $1 == "const") print $1 " " $2 }' "$MANIFEST" | LC_ALL=C sort -u > "$SURF/manifest.txt"
+    awk '{ raw = $0; line = raw; sub(/#.*/, "", line); n = split(line, w, /[ \t]+/); if (line ~ /^[ \t]*$/) next
+      if ((w[1] != "fn" && w[1] != "const") || n != 2) { print "FAIL: INTERNAL list line is not `fn NAME # reason` or `const NAME # reason`: " raw > "/dev/stderr"; next }
+      if (raw !~ /#[ \t]*[^ \t]/) { print "FAIL: INTERNAL entry " w[1] " " w[2] " gives no reason" > "/dev/stderr"; next }
+      print w[1] " " w[2] }' "$INTERNAL" 2> "$SURF/internal.err" | LC_ALL=C sort > "$SURF/internal.txt"
+    if [ -s "$SURF/internal.err" ]; then cat "$SURF/internal.err"; fail=1; fi
+    LC_ALL=C uniq -d "$SURF/internal.txt" | sed 's/^/FAIL: INTERNAL entry listed twice: /' > "$SURF/out.txt"
+    LC_ALL=C sort -u "$SURF/manifest.txt" "$SURF/internal.txt" > "$SURF/declared.txt"
+    LC_ALL=C comm -23 "$SURF/surface.txt" "$SURF/declared.txt" | sed 's/^/FAIL: undeclared public entry (in a manifest header, not in the manifest or the INTERNAL list): /' >> "$SURF/out.txt"
+    LC_ALL=C sort -u "$SURF/internal.txt" | LC_ALL=C comm -23 - "$SURF/surface.txt" | sed 's/^/FAIL: stale INTERNAL entry (no manifest header declares it): /' >> "$SURF/out.txt"
+    LC_ALL=C sort -u "$SURF/internal.txt" | LC_ALL=C comm -12 - "$SURF/manifest.txt" | sed 's/^/FAIL: entry is both in the manifest and INTERNAL: /' >> "$SURF/out.txt"
+    if [ -s "$SURF/out.txt" ]; then cat "$SURF/out.txt"; fail=1; fi
+    nsurf=$(wc -l < "$SURF/surface.txt"); nint=$(wc -l < "$SURF/internal.txt")
+  fi
+fi
+
 nfn=$(grep -c '^fn ' "$MANIFEST"); nst=$(grep -c '^struct ' "$MANIFEST"); nfl=$(grep -c '^field ' "$MANIFEST"); nco=$(grep -c '^const ' "$MANIFEST")
-if [ $fail = 0 ]; then echo "RESULT: PASS (runtime API $vmaj.$vmin: $nfn functions, $nst structs, $nfl fields, $nco constants match the headers)"; exit 0; fi
+if [ $fail = 0 ]; then echo "RESULT: PASS (runtime API $vmaj.$vmin.$vpat: $nfn functions, $nst structs, $nfl fields, $nco constants match the headers; surface $nsurf names, $nint INTERNAL)"; exit 0; fi
 echo "RESULT: FAIL (runtime API check)"; exit 1
