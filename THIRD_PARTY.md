@@ -7,7 +7,8 @@ The first-party material in the transition candidate is Apache-2.0 WITH LLVM-exc
 `third_party/nvidia-open-580.173.02/` holds 67 header files from NVIDIA's open-gpu-kernel-modules,
 release 580.173.02 (the driver version on the GB10 this was built on). They describe the ioctl
 interface of the open kernel module, the object classes and the control calls. `SHA256SUMS` in that
-folder lists every file. Each file keeps its own NVIDIA copyright and MIT notice (60 carry
+folder lists every file; `make verify-vendored` (part of `make test`) checks every hash and refuses
+any unlisted file. Each file keeps its own NVIDIA copyright and MIT notice (60 carry
 `SPDX-License-Identifier: MIT`; 7 older ones carry the MIT permission text without the SPDX line).
 `third_party/nvidia-open-580.173.02/COPYING` is NVIDIA's licence file: the files are MIT, and only
 when linked together into a Linux kernel module is the result dual MIT/GPLv2. CUDA++ builds no kernel

@@ -23,6 +23,9 @@
 #define OMEGA_ARTIFACT_FORMAT "omega-native-artifact/1"
 #define OMEGA_ARTIFACT_ID_MAX 65u
 #define OMEGA_ARTIFACT_QMD_WORDS 96u
+/* Kernel-argument words a constant-bank template may carry: the launch path
+ * accepts at most OMEGA_GPU_SESSION_MAX_ARGS (32) arguments. */
+#define OMEGA_ARTIFACT_MAX_CBANK_WORDS 32u
 
 enum {
     OMEGA_ARTIFACT_OK = 0,
@@ -69,12 +72,20 @@ typedef struct {
 const char *omega_native_artifact_rc_name(int rc);
 
 /* Export <prefix>.{text.bin,cubin,qmd0.bin,qmd1.bin,cbank_args.bin,manifest,json,sha256}.
- * out_id receives the 64-hex artifact id. Refuses unsupported descriptors. */
+ * out_id receives the 64-hex artifact id. Refuses unsupported descriptors.
+ * Artifacts are immutable: every output is created O_EXCL|O_NOFOLLOW, so an existing file or a
+ * symlink at any output path is E_IO. A prefix too long for any of the eight paths is E_ARG
+ * before anything is written. min_driver must be strict A.B.C, text fields single-line (E_ARG);
+ * QMD1 launch words must equal grid/block/shared_bytes/gpr_count (E_CONTRACT); at most
+ * OMEGA_ARTIFACT_MAX_CBANK_WORDS constant-bank words. */
 int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_prefix,
                                  char out_id[OMEGA_ARTIFACT_ID_MAX], char *err, size_t err_cap);
 
-/* Recompute and check an exported artifact's identity and every file digest.
- * current_driver may be NULL to skip the minimum-driver check. */
+/* Recompute and check an exported artifact's identity and every file digest, then the
+ * manifest's own claims: strict min_driver (E_FORMAT), cbank_words 1..OMEGA_ARTIFACT_MAX_CBANK_WORDS
+ * (E_FORMAT), QMD1 launch words equal to the manifest's grid/block/shared/gpr (E_CONTRACT).
+ * current_driver may be NULL to skip the minimum-driver check; an unparsable one is E_ARG,
+ * an older one E_DRIVER. out_id is written only when every check passes, empty otherwise. */
 int omega_native_artifact_admit(const char *out_prefix, const char *current_driver,
                                 char out_id[OMEGA_ARTIFACT_ID_MAX], char *err, size_t err_cap);
 

@@ -16,11 +16,21 @@
 # hold-back file and our module. It never reboots unless --reboot is given.
 #
 # Exit codes: 0 done (or dry run printed), 1 failed (back: a hash did not match), 2 usage, 3 refused by a check.
-# docs/SWAP.md has the details and the receipts.
+# tests/swap/test_swap_cli.sh runs every level against a fake machine root.
+#
+# Sources: --lib PATH (CUDA++ libcuda.so.1), --driver-src PATH (aien_gpu source), --kdir PATH (kernel build dir).
+# CUDAPP_LIB, CUDAPP_DRIVER_SRC and CUDAPP_KDIR give the defaults for an unprivileged run. Escalation runs
+# `sudo "$0" swap ...` WITHOUT -E and passes the resolved paths as these options, so a sudoers rule naming
+# this script cannot be steered by the caller's environment. Running as root on the real system, the library
+# must be a regular file inside this repository and the kernel build dir must live under /lib/modules or /usr/src.
+# The aien_gpu source is built as root by design (a kernel module is root-equivalent): point it at a tree
+# only root or you can write.
 set -u
 ROOT=${CUDAPP_ROOT:-}
 STATE=$ROOT/var/lib/cudapp-swap
-SELF_DIR=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
+SELF=$(readlink -f "$0")
+SELF_DIR=$(cd "$(dirname "$SELF")" && pwd)
+REPO_DIR=$(cd "$SELF_DIR/.." && pwd -P)
 LIB_SRC=${CUDAPP_LIB:-$SELF_DIR/../build/swap/libcuda.so.1}
 DRIVER_SRC=${CUDAPP_DRIVER_SRC:-$HOME/workspace/aienos-own-gpu-driver/native/linux/aien-gpu}
 KVER=$(uname -r)
@@ -135,7 +145,8 @@ user_level() {
     echo "== user level: CUDA++ libcuda.so.1 replaces NVIDIA's for every program the loader starts"
     [ -f "$LIB_SRC" ] || refuse "CUDA++ libcuda.so.1 not built at $LIB_SRC (run: make libcuda)"
     user_swapped && { echo "already swapped ($LDCONF present); nothing to do"; return 0; }
-    plan "install $LIB_SRC as $OUR_LIBDIR/libcuda.so.1 (sha256 $(sha "$LIB_SRC" | cut -c1-16))"
+    local want; want=$(sha "$LIB_SRC")
+    plan "install $LIB_SRC as $OUR_LIBDIR/libcuda.so.1 (sha256 $(cut -c1-16 <<<"$want"))"
     plan "write $LDCONF -> $OUR_LIBDIR, so the loader searches it before $(loader_choice | xargs -r dirname)"
     plan "run ldconfig (rewrites $LDCACHE; the old one is kept in the backup)"
     echo "  NVIDIA's libcuda files stay installed and unchanged; 'cudapp swap back' restores the old search order."
@@ -143,6 +154,12 @@ user_level() {
     backup_begin user
     backup_file "$OUR_LIBDIR/libcuda.so.1"; backup_file "$LDCONF"; backup_file "$LDCACHE"
     mkdir -p "$ROOT$OUR_LIBDIR" && install -m 0755 "$LIB_SRC" "$ROOT$OUR_LIBDIR/libcuda.so.1" || die "install failed"
+    local got; got=$(sha "$ROOT$OUR_LIBDIR/libcuda.so.1")
+    if [ "$got" != "$want" ]; then
+        restore_one "$BK"; mv "$BK" "$BK.undone"
+        die "installed libcuda.so.1 sha256 $got != $want planned from $LIB_SRC (source changed during install); restored"
+    fi
+    printf '%s  %s\n' "$want" "$OUR_LIBDIR/libcuda.so.1" > "$BK/installed.sha256"
     echo "$OUR_LIBDIR" > "$ROOT$LDCONF"
     ldconfig ${ROOT:+-r "$ROOT"} || die "ldconfig failed"
     backup_done
@@ -231,9 +248,44 @@ fi
 [ "$cmd" = swap ] || usage
 [ $# -ge 1 ] || usage
 level=$1; shift
-for a in "$@"; do case $a in --yes) YES=1;; --reboot) REBOOT=1;; --holders-ok) HOLDERS_OK=1;; *) usage;; esac; done
+while [ $# -gt 0 ]; do
+    case $1 in
+        --yes) YES=1;; --reboot) REBOOT=1;; --holders-ok) HOLDERS_OK=1;;
+        --in-spark-window) SPARK_WINDOW=1;;
+        --lib|--driver-src|--kdir)
+            [ $# -ge 2 ] && [ -n "$2" ] || usage
+            case $1 in --lib) LIB_SRC=$2;; --driver-src) DRIVER_SRC=$2;; --kdir) KDIR=$2;; esac
+            shift;;
+        *) usage;;
+    esac
+    shift
+done
 case $level in status|user|kernel|all|back) ;; *) usage;; esac
-if [ $YES -eq 1 ] && [ -z "$ROOT" ] && [ "$(id -u)" -ne 0 ]; then exec sudo -E "$0" swap "$level" "$@"; fi
+if [ $YES -eq 1 ] && [ -z "$ROOT" ] && [ "$(id -u)" -ne 0 ]; then
+    # No -E: root gets a clean environment; the three sources travel as explicit, resolved arguments.
+    set -- --yes
+    [ $REBOOT -eq 1 ] && set -- "$@" --reboot
+    [ $HOLDERS_OK -eq 1 ] && set -- "$@" --holders-ok
+    [ -n "${SPARK_WINDOW:-}" ] && set -- "$@" --in-spark-window
+    exec sudo "$SELF" swap "$level" "$@" --lib "$(readlink -m "$LIB_SRC")" \
+        --driver-src "$(readlink -m "$DRIVER_SRC")" --kdir "$(readlink -m "$KDIR")"
+fi
+# As root on the real system, refuse sources outside the places a root install may read from.
+if [ -z "$ROOT" ] && [ "$(id -u)" -eq 0 ]; then
+    case $level in
+        user|all)
+            lib=$(readlink -e "$LIB_SRC") || refuse "--lib $LIB_SRC does not exist"
+            case $lib in "$REPO_DIR"/*) ;; *) refuse "--lib $lib is outside the CUDA++ repository $REPO_DIR";; esac
+            [ -f "$lib" ] || refuse "--lib $lib is not a regular file"
+            LIB_SRC=$lib ;;
+    esac
+    case $level in
+        kernel|all)
+            kd=$(readlink -e "$KDIR") || refuse "--kdir $KDIR does not exist"
+            case $kd in /lib/modules/*|/usr/lib/modules/*|/usr/src/*) ;; *) refuse "--kdir $kd is not under /lib/modules or /usr/src";; esac
+            KDIR=$kd ;;
+    esac
+fi
 case $level in
     status) status ;;
     user)   user_level ;;

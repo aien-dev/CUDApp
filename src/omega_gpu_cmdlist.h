@@ -31,9 +31,9 @@
  *          offset 0 on every submit).
  *
  * Threading: the caller holds omega_gpu_session_lock() around add / submit (one channel, as for every API).
- * Uncertain completion: a marker timeout latches this module and then forces the session latch (a 1 ms session
- * launch queued behind the stuck list times out and latches the process), so no API keeps launching on a channel
- * that may still be busy.
+ * Uncertain completion: a marker timeout latches this module and then forces the session latch (the platform refuses
+ * a 1 ms session launch REFUSED_BUSY while the stuck list is unretired, before any ring write, and the session latches
+ * the process), so no API keeps launching on a channel that may still be busy.
  */
 #include "omega_gpu_session.h"
 #include <stdint.h>

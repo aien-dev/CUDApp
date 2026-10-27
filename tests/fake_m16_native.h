@@ -84,6 +84,7 @@ typedef struct {
     int channel_fail;
     int submit_fail;
     int close_fail;
+    int extra_channels;   /* L136: nvrm_channel_n / nvrm_chan_submit succeed (default: refused, one channel) */
     uint64_t alloc_max;   /* largest nvrm_alloc the fake grants, 0 = the default 1 MiB */
     int alloc_fail_nth;   /* 1-based nvrm_alloc call that misbehaves, 0 = none */
     int alloc_mode;       /* FK_ALLOC_* for that call */
@@ -104,6 +105,8 @@ typedef struct {
     int free_calls;       /* real frees only (a zeroed NvrmMem is not counted) */
     int close_calls;
     int submit_calls;
+    int chan_submit_calls; /* nvrm_chan_submit on an extra channel (extra_channels set) */
+    int chan_retire_calls;
     int wait_calls;
     int double_free;      /* frees of a handle that was not live */
     int live;             /* live backend allocations right now (not the channel's own 4 KiB buffer) */

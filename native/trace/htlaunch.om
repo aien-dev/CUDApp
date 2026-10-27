@@ -1,0 +1,92 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Traced entry points for native/blackwell/launch.om. Compose after context.om (or a host
+note stand-in), vector.om, launch.om and native/trace/htrec.om. launch.om itself is not changed, so a
+note unit that does not include this file and htrec.om is byte-identical to before.
+note
+note htopen and htlaunch behave exactly like gbopen and gblaunch and return the same result. While
+note recording is off they make one flag test and call through. While it is on they record:
+note   gpu.open span        launch.om:gbopen     a0 bytes allocated, a1 code bytes uploaded, status nverr
+note   mem.alloc instants   launch.om:gbmem      a0 bytes, a1 buffer slot 0..7, status the handle sign
+note   kernel.launch span   VECTOR_1D            a0 elements n, a1 last stage reached, status nverr
+note   mem.moved instant    launch.om:gbcmd      a0 command bytes written to buffer 0, a1 direction 1
+note The launch span covers command build, upload, submission, the host wait for the completion
+note mark and the readback checks; launch.om has no hook between them, so the span records the last
+note stage reached (nvstage 40 build/upload, 41 submit, 42 host wait, 43 completion checks).
+note Name ids 101..106 are reserved for this file.
+text htlnames "launch.om:gbopen|kernel:VECTOR_1D/vector.om:gbvec|launch.om:gbmem|launch.om:gbcmd|launch.om:gbcode|host.readback"
+fn htlname to bool
+id = uint 101
+ok = htnbeg id
+for i ulong len htlnames
+b = get htlnames i
+if eq b 124
+ok = and ok htnend
+id = add id 1
+ok = and ok htnbeg id
+else
+ok = and ok htnbyte b
+end
+end
+ret and ok htnend
+end
+note htgbsz: the size launch.om gbopen requests for buffer i (launch.om lines 240-246). The host test
+note checks it against the sizes the stand-in nvalloc actually received.
+fn htgbsz i ulong n uint to ulong
+if ge i 5
+ret mul ulong n 4
+end
+if or eq i 0 eq i 2
+ret 65536
+end
+ret 4096
+end
+fn htopen n uint to bool
+if not htlive
+ret gbopen n
+end
+s = htbeg 3 101
+ok = gbopen n
+total = ulong 0
+for i ulong 8
+m = get gbmem i
+if and ok gt m 0
+sz = htgbsz i n
+total = add total sz
+b = htmark 5 103 sz i 0
+end
+end
+code = ulong 0
+rc = long 0
+if ok
+code = get gblen 0
+b = htmark 11 105 code 1 0
+else
+rc = get nverr 0
+end
+b = htend s total code rc
+ret ok
+end
+fn htlaunch n uint to bool
+if not htlive
+ret gblaunch n
+end
+note gblaunch writes nvstage 40 before any work; it is cleared here only to see whether that
+note happened, and restored when gblaunch refused its arguments first, so state matches gblaunch.
+prev = get nvstage 0
+put nvstage 0 0
+s = htbeg 4 102
+ok = gblaunch n
+st = ulong get nvstage 0
+if eq st 0
+put nvstage 0 prev
+end
+if ge st 41
+b = htmark 11 104 get gbused 0 1 0
+end
+rc = long 0
+if not ok
+rc = get nverr 0
+end
+b = htend s ulong n st rc
+ret ok
+end
