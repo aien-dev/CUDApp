@@ -1,0 +1,401 @@
+# omega c6/disasm b6a96d10 (worktree diff sha e3b0c44298fc1c14), 2026-10-22T01:54:38Z
+# command: quiet-build make PHYSICS_DIR=/home/drakestapleton/workspace/physics-l386 OUT_DIR=/tmp/c6/build test-sm121dis
+cc -std=gnu11 -Wall -Wextra -Werror -O2 -Isrc -o /tmp/c6/build/sm121dis tools/sm121dis/sm121dis.c src/omega_sm121_disasm.c
+cc -std=gnu11 -Wall -Wextra -Werror -O2 -DSM121DIS_MUTANT=1 -Isrc -o /tmp/c6/build/sm121dis_red tools/sm121dis/sm121dis.c src/omega_sm121_disasm.c
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_sm121_disasm.c -o /tmp/c6/build/omega_sm121_disasm.o
+ar rcs /tmp/c6/build/libomega_gpu.a /tmp/c6/build/sha256.o /tmp/c6/build/omega_canonical.o /tmp/c6/build/omega_validate.o /tmp/c6/build/omega_core.o /tmp/c6/build/omega_codec.o /tmp/c6/build/aarch64_encoder.o /tmp/c6/build/aarch64_decoder.o /tmp/c6/build/omega_realize.o /tmp/c6/build/omega_exec.o /tmp/c6/build/omega_self_host.o /tmp/c6/build/omega_verify.o /tmp/c6/build/omega_program.o /tmp/c6/build/omega_synthesis.o /tmp/c6/build/omega_library.o /tmp/c6/build/omega_discovery.o /tmp/c6/build/omega_machine.o /tmp/c6/build/omega_realize_synth.o /tmp/c6/build/omega_matvec.o /tmp/c6/build/omega_accelerator.o /tmp/c6/build/omega_accelerator_world.o /tmp/c6/build/omega_vector.o /tmp/c6/build/omega_blackwell_encoder.o /tmp/c6/build/omega_blackwell_qmd.o /tmp/c6/build/omega_blackwell_realize.o /tmp/c6/build/omega_blackwell_submit.o /tmp/c6/build/omega_blackwell_engine.o /tmp/c6/build/omega_gpu_engine.o /tmp/c6/build/omega_blackwell_matmul.o /tmp/c6/build/omega_blackwell_codegen.o /tmp/c6/build/omega_gpu_session.o /tmp/c6/build/omega_gpu_platform.o /tmp/c6/build/omega_gpu_platform_linux.o /tmp/c6/build/omega_gpu_fmt.o /tmp/c6/build/omega_gpu_matmul_api.o /tmp/c6/build/omega_gpu_elementwise_api.o /tmp/c6/build/omega_gpu_attention_api.o /tmp/c6/build/omega_gpu_serving.o /tmp/c6/build/omega_gpu_wait.o /tmp/c6/build/omega_evidence.o /tmp/c6/build/m16_native.o /tmp/c6/build/nvrm.o /tmp/c6/build/omega_gpu_moe_api.o /tmp/c6/build/omega_blackwell_codegen_moe.o /tmp/c6/build/omega_gpu_fp8_pack.o /tmp/c6/build/omega_gpu_fp8_api.o /tmp/c6/build/omega_blackwell_codegen_moe2.o /tmp/c6/build/omega_blackwell_codegen_attn.o /tmp/c6/build/omega_gpu_decode_attn_api.o /tmp/c6/build/omega_gpu_hostmath.o /tmp/c6/build/omega_blackwell_codegen_router.o /tmp/c6/build/omega_gpu_router_api.o /tmp/c6/build/omega_gpu_cmdlist.o /tmp/c6/build/omega_blackwell_codegen_dec.o /tmp/c6/build/omega_gpu_mem_cached.o /tmp/c6/build/omega_gpu_decode_graph.o /tmp/c6/build/omega_sm121_disasm.o /tmp/c6/build/omega_blackwell_codegen_bf16.o /tmp/c6/build/omega_gpu_bf16_gemv_api.o /tmp/c6/build/omega_blackwell_codegen_gemm.o /tmp/c6/build/omega_gpu_fp8gemm_api.o /tmp/c6/build/omega_blackwell_codegen_tc.o /tmp/c6/build/omega_gpu_tcgemm_api.o /tmp/c6/build/omega_blackwell_codegen_pattn.o /tmp/c6/build/omega_gpu_prefill_attn_api.o /tmp/c6/build/omega_blackwell_codegen_pf.o /tmp/c6/build/omega_gpu_prefill.o /tmp/c6/build/omega_blackwell_codegen_tc2.o /tmp/c6/build/omega_gpu_pfgemm.o /tmp/c6/build/omega_blackwell_codegen_qmma.o /tmp/c6/build/omega_blackwell_codegen_qg.o /tmp/c6/build/omega_blackwell_codegen_pfhost.o /tmp/c6/build/omega_gpu_pfhost.o /tmp/c6/build/omega_blackwell_codegen_tern.o /tmp/c6/build/omega_gpu_tern_api.o /tmp/c6/build/omega_program_ir.o /tmp/c6/build/omega_vc_bridge.o /tmp/c6/build/omega_resolve.o /tmp/c6/build/omega_receipt.o /tmp/c6/build/omega_blake3.o /tmp/c6/build/omega_vcstore.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -o /tmp/c6/build/gpu_matmul_api_test tests/gpu_matmul_api_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -o /tmp/c6/build/gpu_elementwise_test tests/gpu_elementwise_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -Itests -o /tmp/c6/build/gpu_reconv_test tests/gpu_reconv_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -Itests -o /tmp/c6/build/gpu_attention_test tests/gpu_attention_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -o /tmp/c6/build/gpu_moe_window_test tests/gpu_moe_window_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -Itests -o /tmp/c6/build/gpu_fp8_api_test tests/gpu_fp8_api_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -Itests -o /tmp/c6/build/gpu_decode_attn_test tests/gpu_decode_attn_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -Itests -o /tmp/c6/build/gpu_router_test tests/gpu_router_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -Itests -o /tmp/c6/build/gpu_bf16_gemv_test tests/gpu_bf16_gemv_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -march=armv8.6-a+dotprod+i8mm+sve -Itests -o /tmp/c6/build/gpu_tern_test tests/gpu_tern_test.c src/algebra/realize_common.c src/algebra/realize_binary.c src/algebra/realize_bitplane.c src/algebra/realize_sparse.c src/algebra/realize_rns.c src/algebra/realize_dense.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -DWS_MAX_THREADS=512 -Itests -o /tmp/c6/build/gpu_fp8gemm_test tests/gpu_fp8gemm_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -Itests -o /tmp/c6/build/gpu_tc_probe_test tests/gpu_tc_probe_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -DWS_MAX_THREADS=512 -Itests -o /tmp/c6/build/gpu_tc_peak_test tests/gpu_tc_peak_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -DWS_MAX_THREADS=512 -Itests -o /tmp/c6/build/gpu_pf_mem_test tests/gpu_pf_mem_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -Itests -o /tmp/c6/build/gpu_qmma_probe_test tests/gpu_qmma_probe_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -Itests -o /tmp/c6/build/gpu_cmdlist_test tests/gpu_cmdlist_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -o /tmp/c6/build/gpu_decode_graph_test tests/gpu_decode_graph_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -DWS_MAX_THREADS=512 -Itests -o /tmp/c6/build/gpu_tcgemm_test tests/gpu_tcgemm_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -DWS_MAX_THREADS=256 -Itests -o /tmp/c6/build/gpu_prefill_attn_test tests/gpu_prefill_attn_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -DWS_MAX_THREADS=512 -Itests -o /tmp/c6/build/gpu_pfgemm_test tests/gpu_pfgemm_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -DWS_MAX_THREADS=1024 -Itests -o /tmp/c6/build/gpu_qgemm_test tests/gpu_qgemm_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -ffp-contract=off -DWS_MAX_THREADS=1024 -Itests -o /tmp/c6/build/gpu_pfhost_test tests/gpu_pfhost_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -o /tmp/c6/build/gpu_gpr_boundary_test tests/gpu_gpr_boundary_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+rm -rf /tmp/c6/build/sm121dis-kernels && sh tools/sm121dis/corpus.sh /tmp/c6/build /tmp/c6/build/sm121dis-kernels
+/tmp/c6/build/gpu_matmul_api_test --host-only: exit 0, 53 kernels so far
+/tmp/c6/build/gpu_elementwise_test --host-only: exit 0, 63 kernels so far
+/tmp/c6/build/gpu_reconv_test --host-only: exit 0, 86 kernels so far
+/tmp/c6/build/gpu_attention_test --host-only: exit 0, 110 kernels so far
+/tmp/c6/build/gpu_moe_window_test --host-only: exit 0, 110 kernels so far
+/tmp/c6/build/gpu_fp8_api_test --host-only: exit 0, 114 kernels so far
+/tmp/c6/build/gpu_decode_attn_test --host-only: exit 0, 114 kernels so far
+/tmp/c6/build/gpu_router_test --host-only: exit 0, 114 kernels so far
+/tmp/c6/build/gpu_bf16_gemv_test --host-only: exit 0, 114 kernels so far
+/tmp/c6/build/gpu_tern_test --host-only: exit 0, 114 kernels so far
+/tmp/c6/build/gpu_fp8gemm_test --host-only: exit 0, 114 kernels so far
+/tmp/c6/build/gpu_tc_probe_test --host-only: exit 0, 114 kernels so far
+/tmp/c6/build/gpu_tc_peak_test --host-only: exit 0, 114 kernels so far
+/tmp/c6/build/gpu_pf_mem_test --host-only: exit 0, 114 kernels so far
+/tmp/c6/build/gpu_qmma_probe_test --host-only: exit 0, 116 kernels so far
+/tmp/c6/build/gpu_cmdlist_test --host-only: exit 0, 116 kernels so far
+/tmp/c6/build/gpu_decode_graph_test --host-only: exit 0, 116 kernels so far
+/tmp/c6/build/gpu_attention_test --hd 128 --host-only: exit 1, 128 kernels so far
+/tmp/c6/build/gpu_tcgemm_test --host-only: exit 0, 130 kernels so far
+/tmp/c6/build/gpu_tcgemm_test --sim: exit 0, 130 kernels so far
+/tmp/c6/build/gpu_prefill_attn_test --host-only: exit 0, 172 kernels so far
+/tmp/c6/build/gpu_prefill_attn_test --sim: exit 0, 172 kernels so far
+/tmp/c6/build/gpu_pfgemm_test --host-only: exit 0, 172 kernels so far
+/tmp/c6/build/gpu_pfgemm_test --sim: exit 0, 172 kernels so far
+/tmp/c6/build/gpu_qgemm_test --host-only: exit 0, 172 kernels so far
+/tmp/c6/build/gpu_qgemm_test --sim: exit 0, 172 kernels so far
+/tmp/c6/build/gpu_pfhost_test --host-only: exit 0, 172 kernels so far
+/tmp/c6/build/gpu_pfhost_test --sim: exit 0, 172 kernels so far
+/tmp/c6/build/gpu_cmdlist_test --host-only: exit 0, 172 kernels so far
+/tmp/c6/build/gpu_cmdlist_test --sim: exit 0, 172 kernels so far
+/tmp/c6/build/gpu_gpr_boundary_test: exit 0, 172 kernels so far
+build/test_omega_divsqrt_gb10_cpu --dump /tmp/c6/build/sm121dis-kernels/numeric: exit 0, 173 kernels so far
+build/test_omega_ldst_gb10_cpu --dump /tmp/c6/build/sm121dis-kernels/numeric: exit 0, 173 kernels so far
+corpus: 331 kernels in /tmp/c6/build/sm121dis-kernels
+sh tools/sm121dis/check.sh /tmp/c6/build/sm121dis /tmp/c6/build/sm121dis-kernels /tmp/c6/build/sm121dis-work
+oracle: release 13.0, V13.0.85
+[PASS] 003134be24d4042f: 80 words
+[PASS] 00ab8c0563fe7dd1: 184 words
+[PASS] 0166a31f74b9d75f: 128 words
+[PASS] 01b6edddda38f891: 72 words
+[PASS] 03e029ac69774b9f: 72 words
+[PASS] 040255e13deee836: 224 words
+[PASS] 05086e9139bae531: 192 words
+[PASS] 0675cdb98d176181: 72 words
+[PASS] 070d829ddf8d7561: 88 words
+[PASS] 0723b0739d0f4caf: 624 words
+[PASS] 075feda1149ebe8f: 624 words
+[PASS] 0796d8bb451f1b2e: 72 words
+[PASS] 09274e6e0a3f90a3: 752 words
+[PASS] 092ac422ee8b6b28: 48 words
+[PASS] 0a0231842ac86c54: 72 words
+[PASS] 0a61c9f1c52fab0e: 72 words
+[PASS] 0afd2c335a46a06f: 56 words
+[PASS] 0b392ac277b4b6b9: 192 words
+[PASS] 0b78320e4fc3cbfd: 624 words
+[PASS] 0bf5bff13889c556: 512 words
+[PASS] 0c2c583da93da3fb: 56 words
+[PASS] 0f317e0e3bf61b3e: 168 words
+[PASS] 0f3f74284966f59c: 184 words
+[PASS] 1269ff0807ea5a65: 72 words
+[PASS] 14654907604eb54b: 40 words
+[PASS] 148b279d1f6c01f0: 840 words
+[PASS] 180cb2890eeecac4: 216 words
+[PASS] 1916f790c0d70279: 912 words
+[PASS] 1ab5f61815999863: 72 words
+[PASS] 1c252d2df9417ad6: 920 words
+[PASS] 1c8868c5267660e9: 208 words
+[PASS] 1f7a30932580c346: 184 words
+[PASS] 22b0817480fb9c06: 56 words
+[PASS] 2309771849649424: 208 words
+[PASS] 238fc586aad3bf25: 32 words
+[PASS] 2a1fc2738a754269: 456 words
+[PASS] 2af2f45df935262c: 72 words
+[PASS] 2b57d5d96269a829: 512 words
+[PASS] 329eb0433f9fe756: 64 words
+[PASS] 359c5fc37631c204: 208 words
+[PASS] 37a7f4bdec50464f: 736 words
+[PASS] 38c17d79c26e3c9b: 40 words
+[PASS] 3901a529ddace557: 704 words
+[PASS] 3a17e8add2022b2e: 208 words
+[PASS] 3a66f6982b5f2f63: 40 words
+[PASS] 3bc79d4a54fd0d82: 216 words
+[PASS] 3c6c1b9785621469: 72 words
+[PASS] 3d39a34f3878396b: 112 words
+[PASS] 3d96936a5880dbe5: 800 words
+[PASS] 3ec70ae580eb1dda: 56 words
+[PASS] 40e950b30214f350: 72 words
+[PASS] 4357d1b9343cb602: 872 words
+[PASS] 43d280bb67f4f86a: 72 words
+[PASS] 4449e43c627821d3: 40 words
+[PASS] 44605dfc84fe4e3a: 72 words
+[PASS] 44d27fae78ea21ee: 216 words
+[PASS] 46a2b82ebcb55237: 184 words
+[PASS] 4cb8d11dc137fe97: 480 words
+[PASS] 4d5d65d6e32e2a6e: 32 words
+[PASS] 4fd4d8f9b930cbef: 32 words
+[PASS] 50b7708d363e725b: 168 words
+[PASS] 50ea0186c4352602: 504 words
+[PASS] 51c6ff99ae62a674: 856 words
+[PASS] 5302cea4b66ac31f: 888 words
+[PASS] 532b55d0058995bb: 712 words
+[PASS] 53fcb4c3c7b280bb: 56 words
+[PASS] 5421095ea37a0c94: 32 words
+[PASS] 58aeba3d8e6970c3: 904 words
+[PASS] 5b158f02cc14f8c7: 32 words
+[PASS] 611cbd4fc2f556a9: 712 words
+[PASS] 6566dce1602409cf: 40 words
+[PASS] 65d89fbe3f779a76: 168 words
+[PASS] 66d1e2ed7a3ceb9a: 112 words
+[PASS] 675625eb9a0931b5: 192 words
+[PASS] 683f6a471c6cb46f: 48 words
+[PASS] 68810571d02ee2a3: 624 words
+[PASS] 696a5b12799b4869: 192 words
+[PASS] 6c04d09909a236be: 48 words
+[PASS] 6c4aaa22d7e72751: 32 words
+[PASS] 6c4b61dd7c6e3821: 72 words
+[PASS] 6d91a2543cf32e37: 72 words
+[PASS] 6f96d1312cf5e2d4: 72 words
+[PASS] 703dfb93281de0f6: 888 words
+[PASS] 70a3c66f91c434e6: 112 words
+[PASS] 74b53ca328c9ed32: 88 words
+[PASS] 7a6fa49d650c91aa: 72 words
+[PASS] 7ca7d53247f4a27c: 208 words
+[PASS] 7e537150dd31f94d: 168 words
+[PASS] 7f570b1989698629: 512 words
+[PASS] 80ae705ea1c9d6b2: 208 words
+[PASS] 8211c22b21558aca: 784 words
+[PASS] 822e7fa3c5c18bfa: 72 words
+[PASS] 823124ae67a139f9: 32 words
+[PASS] 83eca9872e32c173: 216 words
+[PASS] 84296b7303aa0341: 32 words
+[PASS] 899c917428da45c3: 504 words
+[PASS] 8f997651b59bc8eb: 512 words
+[PASS] 8fd282f4584b9512: 32 words
+[PASS] 8ff335f4b6d2ad51: 624 words
+[PASS] 9026fb3912f7d681: 72 words
+[PASS] 93b0ae705ff2671c: 88 words
+[PASS] 953ce8f6dcedcfb5: 848 words
+[PASS] 956e20d57f875606: 728 words
+[PASS] 95aa47327e8cd56f: 72 words
+[PASS] 970db9533c836eca: 184 words
+[PASS] 97890779eab08c81: 40 words
+[PASS] 99179ec7a69e9987: 128 words
+[PASS] 9a90d2ecb762c744: 72 words
+[PASS] 9c5ad6a3aec5a2de: 616 words
+[PASS] 9ee9ee8653de5d02: 856 words
+[PASS] a661cba549ba8bd1: 48 words
+[PASS] a7120202c46968f3: 736 words
+[PASS] a731b2bd167acef8: 752 words
+[PASS] aa2e71300a473abe: 72 words
+[PASS] aa70ec72d6327f6b: 800 words
+[PASS] abb1b024cdf477af: 176 words
+[PASS] ad0e17a9d92abd99: 56 words
+[PASS] ad14a9c538b8d1b9: 88 words
+[PASS] af714031dc417c22: 72 words
+[PASS] af9bf924eecc0bd4: 72 words
+[PASS] b0081a181add263d: 216 words
+[PASS] b1ca47243d5ab24b: 40 words
+[PASS] b27f883e08263980: 776 words
+[PASS] b4e3acb923aea99a: 72 words
+[PASS] b6a25d8739185bbd: 184 words
+[PASS] b6af468e224fe471: 128 words
+[PASS] b778dc5ae9c3d358: 72 words
+[PASS] b8843d8615e24e05: 72 words
+[PASS] b8a1c4470e3828a3: 664 words
+[PASS] b8fdd5a91e1ec4d9: 32 words
+[PASS] b9468a55ba06e0fb: 920 words
+[PASS] bac2bcf6382f30a8: 208 words
+[PASS] bc0ccfea454ce470: 48 words
+[PASS] be5aa2e4673a9f31: 72 words
+[PASS] c045fa6d0a757e42: 72 words
+[PASS] c54c1652e38838d2: 704 words
+[PASS] cbcb53f08d37c052: 832 words
+[PASS] cd9cfbab2e6ff8c1: 856 words
+[PASS] cdbcb9dedb91c1f6: 88 words
+[PASS] ce2912ef123e3b44: 872 words
+[PASS] d066ef273a57c300: 512 words
+[PASS] d137f039f55e4c6e: 72 words
+[PASS] d1b72ec0de84b094: 208 words
+[PASS] d3687aca9100d2da: 904 words
+[PASS] d3c212fb6dd9d6f1: 776 words
+[PASS] d4db1618662aa48b: 624 words
+[PASS] d554fa5746fe20b1: 784 words
+[PASS] d738e01b18ee0ceb: 848 words
+[PASS] d74d1274dc65a555: 232 words
+[PASS] d81678712d70b3f0: 224 words
+[PASS] d819fcc65676ff36: 128 words
+[PASS] d9ad9c4b7cbe0f1b: 176 words
+[PASS] d9d3180ed00aa71b: 32 words
+[PASS] da8c64451b222c14: 912 words
+[PASS] dc3525596d00d5f8: 88 words
+[PASS] dca37bf932216398: 32 words
+[PASS] e1c55da7de04f655: 664 words
+[PASS] e46f066800c4f93a: 512 words
+[PASS] e51e3f82d92092e3: 840 words
+[PASS] e5f2a6b1ccc46616: 72 words
+[PASS] e8f3b705937e66ec: 88 words
+[PASS] f58b4d2ded9ffb34: 72 words
+[PASS] f888f2b57f436e74: 168 words
+[PASS] f989e654f62d3927: 72 words
+[PASS] f9ebbb0b64acc6f8: 856 words
+[PASS] fa05eb9dd9fdd1d0: 616 words
+[PASS] fcef14086ae0c920: 56 words
+[PASS] fd737eb7a152928a: 224 words
+[PASS] fe3d5eeafea8dfe2: 72 words
+[PASS] fe6f3da9e188abb9: 728 words
+[PASS] ff08f272777bc4fd: 72 words
+[PASS] ffc76a034ae32524: 224 words
+[PASS] num_cos: 120 words
+[PASS] num_div: 264 words
+[PASS] num_erf: 360 words
+[PASS] num_exp2: 72 words
+[PASS] num_gelu: 424 words
+[PASS] num_k000: 24 words
+[PASS] num_k001: 24 words
+[PASS] num_k002: 24 words
+[PASS] num_k003: 24 words
+[PASS] num_k004: 24 words
+[PASS] num_k005: 24 words
+[PASS] num_k006: 24 words
+[PASS] num_k007: 24 words
+[PASS] num_k008: 24 words
+[PASS] num_k009: 24 words
+[PASS] num_k010: 24 words
+[PASS] num_k011: 24 words
+[PASS] num_k012: 24 words
+[PASS] num_k013: 24 words
+[PASS] num_k014: 24 words
+[PASS] num_k015: 24 words
+[PASS] num_k016: 24 words
+[PASS] num_k017: 24 words
+[PASS] num_k018: 24 words
+[PASS] num_k019: 24 words
+[PASS] num_k020: 24 words
+[PASS] num_k021: 24 words
+[PASS] num_k022: 24 words
+[PASS] num_k023: 24 words
+[PASS] num_k024: 24 words
+[PASS] num_k025: 24 words
+[PASS] num_k026: 24 words
+[PASS] num_k027: 24 words
+[PASS] num_k028: 24 words
+[PASS] num_k029: 24 words
+[PASS] num_k030: 24 words
+[PASS] num_k031: 24 words
+[PASS] num_k032: 24 words
+[PASS] num_k033: 24 words
+[PASS] num_k034: 24 words
+[PASS] num_k035: 24 words
+[PASS] num_k036: 24 words
+[PASS] num_k037: 24 words
+[PASS] num_k038: 24 words
+[PASS] num_k039: 24 words
+[PASS] num_k040: 24 words
+[PASS] num_k041: 24 words
+[PASS] num_k042: 24 words
+[PASS] num_k043: 24 words
+[PASS] num_k044: 24 words
+[PASS] num_k045: 24 words
+[PASS] num_k046: 24 words
+[PASS] num_k047: 24 words
+[PASS] num_k048: 24 words
+[PASS] num_k049: 24 words
+[PASS] num_k050: 24 words
+[PASS] num_k051: 24 words
+[PASS] num_k052: 24 words
+[PASS] num_k053: 24 words
+[PASS] num_k054: 24 words
+[PASS] num_k055: 24 words
+[PASS] num_k056: 24 words
+[PASS] num_k057: 24 words
+[PASS] num_k058: 24 words
+[PASS] num_k059: 24 words
+[PASS] num_k060: 24 words
+[PASS] num_k061: 24 words
+[PASS] num_k062: 24 words
+[PASS] num_k063: 24 words
+[PASS] num_k064: 24 words
+[PASS] num_k065: 24 words
+[PASS] num_k066: 24 words
+[PASS] num_k067: 24 words
+[PASS] num_k068: 24 words
+[PASS] num_k069: 24 words
+[PASS] num_k070: 24 words
+[PASS] num_k071: 24 words
+[PASS] num_k072: 24 words
+[PASS] num_k073: 24 words
+[PASS] num_k074: 24 words
+[PASS] num_k075: 24 words
+[PASS] num_k076: 24 words
+[PASS] num_k077: 24 words
+[PASS] num_k078: 24 words
+[PASS] num_k079: 24 words
+[PASS] num_k080: 24 words
+[PASS] num_k081: 24 words
+[PASS] num_k082: 24 words
+[PASS] num_k083: 24 words
+[PASS] num_k084: 24 words
+[PASS] num_k085: 24 words
+[PASS] num_k086: 24 words
+[PASS] num_k087: 24 words
+[PASS] num_k088: 24 words
+[PASS] num_k089: 24 words
+[PASS] num_k090: 24 words
+[PASS] num_k091: 24 words
+[PASS] num_k092: 24 words
+[PASS] num_k093: 24 words
+[PASS] num_k094: 24 words
+[PASS] num_k095: 24 words
+[PASS] num_k096: 24 words
+[PASS] num_k097: 24 words
+[PASS] num_k098: 24 words
+[PASS] num_k099: 24 words
+[PASS] num_k100: 24 words
+[PASS] num_k101: 24 words
+[PASS] num_k102: 24 words
+[PASS] num_k103: 24 words
+[PASS] num_k104: 24 words
+[PASS] num_k105: 24 words
+[PASS] num_k106: 24 words
+[PASS] num_k107: 24 words
+[PASS] num_k108: 24 words
+[PASS] num_k109: 24 words
+[PASS] num_k110: 24 words
+[PASS] num_k111: 24 words
+[PASS] num_k112: 24 words
+[PASS] num_k113: 24 words
+[PASS] num_k114: 24 words
+[PASS] num_k115: 24 words
+[PASS] num_k116: 24 words
+[PASS] num_k117: 24 words
+[PASS] num_k118: 24 words
+[PASS] num_k119: 24 words
+[PASS] num_k120: 24 words
+[PASS] num_k121: 24 words
+[PASS] num_k122: 24 words
+[PASS] num_k123: 24 words
+[PASS] num_k124: 24 words
+[PASS] num_k125: 24 words
+[PASS] num_k126: 24 words
+[PASS] num_k127: 24 words
+[PASS] num_k128: 24 words
+[PASS] num_k129: 24 words
+[PASS] num_k130: 24 words
+[PASS] num_k131: 24 words
+[PASS] num_k132: 24 words
+[PASS] num_k133: 24 words
+[PASS] num_k134: 24 words
+[PASS] num_k135: 24 words
+[PASS] num_k136: 24 words
+[PASS] num_k137: 24 words
+[PASS] num_k138: 24 words
+[PASS] num_k139: 24 words
+[PASS] num_k140: 24 words
+[PASS] num_k141: 24 words
+[PASS] num_k142: 24 words
+[PASS] num_k143: 24 words
+[PASS] num_k144: 24 words
+[PASS] num_k145: 24 words
+[PASS] num_k146: 24 words
+[PASS] num_k147: 24 words
+[PASS] num_log2: 576 words
+[PASS] num_rsqrt: 344 words
+[PASS] num_sigmoid: 344 words
+[PASS] num_sin: 120 words
+[PASS] num_sqrt: 336 words
+[PASS] num_tanh: 352 words
+kernels: 331, words: 59152, failed kernels: 0
+VERDICT PASS
+red check: the faulty decoder FAILS the comparison, as it must (331 kernels)
+exit=0

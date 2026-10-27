@@ -7,8 +7,9 @@
 #   make hello-gpu  run the doctor, then build examples/hello_gpu and run it (on a GB10)
 #
 # The driver client (nvrm/, m16/) and the NVIDIA open headers (third_party/) are in
-# this repository, so PHYSICS_DIR is "." here. Omega builds the same sources with
-# PHYSICS_DIR pointing at its pinned CUDA++ checkout (cudapp.lock).
+# this repository, so PHYSICS_DIR is "." here. Omega is meant to build the same sources
+# with PHYSICS_DIR pointing at a pinned CUDA++ checkout (cudapp.lock); that pin does not
+# exist yet and Omega main still takes nvrm/m16 from physics-mv (#106, #107).
 CC ?= gcc
 .DEFAULT_GOAL := all
 PHYSICS_DIR ?= .
@@ -25,7 +26,7 @@ CFLAGS ?= -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc \
 
 # Every C file of the GPU part, the shared base (tools/extract/shared.txt) and the driver client.
 SRCS := $(sort $(wildcard src/omega_blackwell_*.c src/omega_gpu_*.c)) \
-	src/omega_cubin.c src/omega_native_artifact.c \
+	src/omega_cubin.c src/omega_native_artifact.c src/omega_sm121_disasm.c \
 	src/sha256.c src/omega_canonical.c src/omega_core.c src/omega_vector.c \
 	$(PHYSICS_DIR)/m16/m16_native.c $(PHYSICS_DIR)/nvrm/nvrm.c
 OBJS = $(patsubst %.c,$(OUT_DIR)/%.o,$(notdir $(SRCS)))
@@ -59,12 +60,16 @@ $(ARTIFACT_EXPORT): tools/artifact_export.c src/omega_native_artifact.c src/omeg
 	$(CC) $(CFLAGS) -o $@ tools/artifact_export.c src/omega_native_artifact.c src/omega_cubin.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
 $(ARTIFACT_TEST): tests/gpu_artifact_export_test.c src/omega_native_artifact.c src/omega_cubin.c $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -o $@ tests/gpu_artifact_export_test.c src/omega_native_artifact.c src/omega_cubin.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+# cubin-probe is the only target that links NVIDIA's libcuda: an interop check that NVIDIA's own loader accepts
+# CUDA++'s cubin. It is not in `make test`; zero-cuda-gate (in HOST_TESTS) checks hello_gpu and the API test link no CUDA.
 CUDA_INC ?= /usr/local/cuda/include
 CUDA_LIB ?= /usr/local/cuda/lib64
 $(OUT_DIR)/cubin_probe: tools/interop/cubin_probe.c $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -I$(CUDA_INC) -o $@ tools/interop/cubin_probe.c $(OUT_DIR)/libomega_gpu.a -L$(CUDA_LIB) -lcuda -lpthread -lm
 cubin-probe: $(OUT_DIR)/cubin_probe
+# Artifacts are immutable (export refuses an existing file), so each run starts from an empty directory.
 test-native-artifact: $(ARTIFACT_EXPORT) $(ARTIFACT_TEST)
+	rm -rf $(OUT_DIR)/artifact-test
 	./$(ARTIFACT_TEST) $(OUT_DIR)/artifact-test
 # Pure artifact-format boundary: portable host test, no driver or device objects.
 .PHONY: test-native-artifact-manifest
@@ -274,26 +279,6 @@ test-gpu-cmdlist: $(GPU_CMDLIST_TEST)
 	./$(GPU_CMDLIST_TEST) --host-only
 	./$(GPU_CMDLIST_TEST) --sim
 
-# C4 streams (docs/OMEGA.md row C4): two queues of the same half-chip work side by side, an event (cmdlist wait_for)
-# between them, both with red checks. test-gpu-streams is host + warp simulator; the chip tier is "$(GPU_STREAMS_TEST)"
-# with no flag, under the GB10 lock (timings need an exclusive window).
-.PHONY: test-gpu-streams
-GPU_STREAMS_TEST = $(OUT_DIR)/gpu_streams_test
-$(GPU_STREAMS_TEST): tests/gpu_streams_test.c tests/bw_warp_sim.h src/omega_gpu_cmdlist.h src/omega_bw_em.h $(OUT_DIR)/libomega_gpu.a
-	$(CC) $(CFLAGS) -ffp-contract=off -Itests -o $@ tests/gpu_streams_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
-test-gpu-streams: $(GPU_STREAMS_TEST)
-	./$(GPU_STREAMS_TEST) --sim
-
-# C5 isolation (docs/OMEGA.md row C5): a never-ending kernel times out, omega_gpu_session_recover, a correct launch in the
-# same process; two processes on one GPU; a hang beside a working process. test-gpu-isolation is host + simulator;
-# the chip tier is "$(GPU_ISOLATION_TEST)" with no flag, under the GB10 lock.
-.PHONY: test-gpu-isolation
-GPU_ISOLATION_TEST = $(OUT_DIR)/gpu_isolation_test
-$(GPU_ISOLATION_TEST): tests/gpu_isolation_test.c tests/bw_warp_sim.h src/omega_gpu_session.h src/omega_bw_em.h $(OUT_DIR)/libomega_gpu.a
-	$(CC) $(CFLAGS) -ffp-contract=off -Itests -o $@ tests/gpu_isolation_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
-test-gpu-isolation: $(GPU_ISOLATION_TEST)
-	./$(GPU_ISOLATION_TEST) --host-only
-
 # OWN-30B W-L2a (2026-10-13): one decode token as one command list (omega_gpu_decode_graph). test-gpu-decode-graph is
 # host-only; the chip gate is tools/run_gpu_decode_graph_chip.sh under the GB10 lock.
 .PHONY: test-gpu-decode-graph
@@ -320,9 +305,19 @@ HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-a
 	test-gpu-engine-mutants test-gpu-engine-backend-compile test-gpu-engine-prod-build test-gpu-engine-sim \
 	test-gpu-engine-backend-mutants test-gpu-engine-gb10-compile test-gpu-serving-alloc test-gpu-engine-freestanding \
 	test-codegen-freestanding test-gpu-session-platform test-gpu-wait test-gpu-wait-mutants host-tests-m16 \
-	test-runtime-api test-runtime-portability test-doctor test-hello-sim test-native-artifact-manifest test-gemm-selectors
+	test-runtime-api test-runtime-portability test-doctor test-hello-sim test-native-artifact-manifest test-gemm-selectors \
+	test-native-artifact zero-cuda-gate verify-vendored test-swap-cli $(CARRIED_HOST_TESTS)
 test: $(HOST_TESTS)
 	@echo "CUDA++ HOST TESTS PASS ($(words $(HOST_TESTS)) targets)"
+
+# The vendored NVIDIA headers match THIRD_PARTY.md's SHA256SUMS; the self-test (flipped byte, extra file) must FAIL.
+.PHONY: verify-vendored test-swap-cli
+verify-vendored:
+	tools/verify-vendored.sh --self-test
+	tools/verify-vendored.sh
+# `cudapp swap` on a fake machine root: no root rights, no GPU, nothing outside a temp dir touched.
+test-swap-cli:
+	bash tests/swap/test_swap_cli.sh
 
 # Zero-CUDA gate (tools/zero-cuda-gate.sh): the built programs need no NVIDIA CUDA library and import
 # no CUDA symbol. The self-test is the negative control (a stub libcudart must FAIL).

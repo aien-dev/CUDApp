@@ -1,0 +1,32 @@
+# omega c6/disasm c8d7d5294 (L386 train tip: over c5/isolation 934c1521, c3/gemm, c3/reduce-scan, main 0d72560a), 2026-10-24T23:36Z
+# command: build/gpu_fp8_api_test --host-only
+grouped CTA rule: 10/10 ok (8 groups -> 6, 9 groups -> 5)
+coal default 1: gate_up 8 x 1536 x 2048 warps 32 rows 1 depth 0 -> spec.coal 1, STG 1, BAR.SYNC 1
+coal default 1: down 8 x 2048 x 768 warps 32 rows 1 depth 0 -> spec.coal 1, STG 1, BAR.SYNC 1
+coal default 1: o_proj 2048 x 4096 warps 8 rows 1 depth 0 -> spec.coal 1, STG 1, BAR.SYNC 1
+deep default 1: qkv 5120x2048 depth 4 (coal 1, shared 8272), o_proj 2048x4096 depth 0, gate_up 8x1536x2048 depth 0
+deep default: 4800 qkv spec_for calls 0.068 ms
+conversion: 254/256 exact, 2 NaN codes refused, 14 codes travel as f32 subnormals (2^-129 .. 7 * 2^-129): the chip must not flush them
+codegen: 244 kernels built, largest 884 IR instructions, peak 88 GPRs
+sm121dis k2048_lb16_r8: rc=0 insns=832 undecodable=0 missing=0 (/tmp/omega_fp8_k2048_lb16_r8_1223907.sass.5XTdWO)
+sm121dis k2048_lb16_r1_deep4: rc=0 insns=456 undecodable=0 missing=0 (/tmp/omega_fp8_k2048_lb16_r1_deep4_1223907.sass.d1k0TR)
+sm121dis k768_lb8_r2: rc=0 insns=168 undecodable=0 missing=0 (/tmp/omega_fp8_k768_lb8_r2_1223907.sass.oSvfRJ)
+v2 codegen k=768 lb=8 rows=1: 250 insns, peak 52 GPRs, declared 56
+v2 codegen k=768 lb=8 rows=2: 401 insns, peak 66 GPRs, declared 72
+v2 codegen k=768 lb=8 rows=4: 703 insns, peak 94 GPRs, declared 96
+v2 codegen k=2048 lb=16 rows=1: 473 insns, peak 74 GPRs, declared 80
+v2 codegen k=2048 lb=16 rows=2: 838 insns, peak 108 GPRs, declared 112
+v2 codegen k=4096 lb=16 rows=1: 877 insns, peak 114 GPRs, declared 120
+v2 codegen: 24 kernels built, largest 877 IR instructions, peak 114 GPRs
+v2 k=768 rows=1 warps=16: declared 56 registers, 28672 per SM at one CTA
+v2 k=2048 rows=1 warps=16: declared 80 registers, 40960 per SM at one CTA
+v2 k=4096 rows=1 warps=16: declared 120 registers, 61440 per SM at one CTA
+sm121dis v2_k2048_lb16_r1_w16: rc=0 insns=480 undecodable=0 missing=0 (/tmp/omega_fp8_v2_k2048_lb16_r1_w16_1223907.sass.eKlljR)
+sched1 codegen: 244 kernels built, 0 stall-distance violations
+sched1 gate_up k2048 lb16 w32: 153 insns (sched0 153), peak 57 GPRs (sched0 51), declared 64; stall cycles in program order 414 (sched0 875); shortened-stall control caught
+sched1 down k768 lb8 w32: 111 insns (sched0 111), peak 47 GPRs (sched0 41), declared 56; stall cycles in program order 358 (sched0 627); shortened-stall control caught
+A/B codegen: 1888 kernels built (coal, wfirst, both x sched 0/1 x mutants), 0 stall-distance violations
+A/B gate_up k2048 lb16 w32: insns 153 / A 183 / B 153 / A+B 183; declared regs A 64 B 56 A+B 64; load batches 3 / 3 / 2 / 2
+A/B down k768 lb8 w32: insns 111 / A 141 / B 111 / A+B 141; declared regs A 56 B 48 A+B 56; load batches 3 / 3 / 2 / 2
+gpu_fp8_api_test: 4997 checks, 0 failed: PASS
+# exit 0

@@ -1,0 +1,33 @@
+# Expected fwimage.om report for gsp_ga10x.bin 580.173.02, sha256 32cb7cf3e77f97e92f6e92135939ccb3ba382748144569c0dfccf3338d43d963.
+# Generated with readelf -SW (GNU binutils 2.42), dd (coreutils 9.4) and sha256sum only, never from fwimage output.
+# Lines without '#': the no-family report; the SELECT lines are appended by the family runs.
+SECTION .fwimage off=0x40 size=0x477f000
+SECTION .note.gnu.build-id off=0x477f040 size=0x24
+SECTION .fwversion off=0x477f064 size=0xb
+SECTION .fwsignature_gb20y off=0x477f06f size=0x1000
+SECTION .fwsignature_cc_gb20x off=0x478006f size=0x1000
+SECTION .fwsignature_gb20x off=0x478106f size=0x1000
+SECTION .fwsignature_cc_gb10x off=0x478206f size=0x1000
+SECTION .fwsignature_gb10y off=0x478306f size=0x1000
+SECTION .fwsignature_gb10x off=0x478406f size=0x1000
+SECTION .fwsignature_cc_gh100 off=0x478506f size=0x1000
+SECTION .fwsignature_gh100 off=0x478606f size=0x1000
+SECTION .fwsignature_ad10x off=0x478706f size=0x1000
+SECTION .fwsignature_ga10x off=0x478806f size=0x1000
+SECTION .symtab off=0x4789070 size=0x60
+SECTION .strtab off=0x47890d0 size=0x1d2
+SECTION .shstrtab off=0x47892a2 size=0x109
+FWVERSION 580.173.02
+SHA256 .fwimage 931add19204a5f0240442272f58fb2bc5db6cec4dd6f6341c1d888754146aa07
+SHA256 .fwsignature_gb20y 6d38023b5b15a9e0d093be9dd443ebafb2aba3e0a3f1f260c387afc903a1f9a1
+SHA256 .fwsignature_cc_gb20x 665312ca1249e6ef064928c96b0faa5c0bf9d3a0b87796f1f57bc50542ac671b
+SHA256 .fwsignature_gb20x ff30e31c3119cafa411eb8bd10954065c261b43a6cad738a49ce1c883fb57c5c
+SHA256 .fwsignature_cc_gb10x 50c6a81a82fb4b352fc9758b1f1e17e16dda42cbe4670b207b7fea96faafcee8
+SHA256 .fwsignature_gb10y 08541c3a909f8fd21c3eaf55fbe6c6c30ff2b7729e885417f3fcb06a4d108f2d
+SHA256 .fwsignature_gb10x 6c649a4921e8901e8835622e6a4d796c9c87cd61abc3db01af033557cc02fbcf
+SHA256 .fwsignature_cc_gh100 e26c4a974c53b75dd4bc2c8d42cac19631c504a4638f58c285e66d0d4a43ac49
+SHA256 .fwsignature_gh100 e2c9a2f455320ed786f25df30c4e41c029889998dd2cb609d76f77aa6974a4c5
+SHA256 .fwsignature_ad10x f1f2a5b315ec4dfe127b59282fa7384899cfca8f376054302544e2ef25c20395
+SHA256 .fwsignature_ga10x 00d9045fc17d0f7a887f7c2fa4104f3f404afd0a006de52342b1be63855485af
+SELECT family=gb20y image_off=0x40 image_size=0x477f000 sig_section=.fwsignature_gb20y sig_sha256=6d38023b5b15a9e0d093be9dd443ebafb2aba3e0a3f1f260c387afc903a1f9a1
+SELECT family=gb10y image_off=0x40 image_size=0x477f000 sig_section=.fwsignature_gb10y sig_sha256=08541c3a909f8fd21c3eaf55fbe6c6c30ff2b7729e885417f3fcb06a4d108f2d

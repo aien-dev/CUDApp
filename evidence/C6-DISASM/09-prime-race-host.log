@@ -1,0 +1,44 @@
+# omega c6/disasm b6a96d10 (worktree diff sha e3b0c44298fc1c14), 2026-10-22T01:59:57Z
+# command: quiet-build make PHYSICS_DIR=/home/drakestapleton/workspace/physics-l386 OUT_DIR=/tmp/c6/build prime-race-gb10-host-test
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/physics-l386/m16 -I/home/drakestapleton/workspace/physics-l386/nvrm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/physics-l386/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -Ibench/prime_race -Itests -o bench/prime_race/build/gb10_sieve_host_test bench/prime_race/tests/gb10_sieve_host_test.c /tmp/c6/build/libomega_gpu.a -lpthread -lm
+./bench/prime_race/build/gb10_sieve_host_test
+kernel: 71 IR insns, 72 encoded words, 29 GPRs, sha256 813279aa5a034f0a902f055d7a81ad19da002d499e2e01dcfa4ad765cb4fac43
+sm121dis (global table): 72 words, 0 undecodable, 6 branch targets checked (/tmp/pr_gb10_sieve_1300353.sass)
+fixed RAW: 0 hazards; negative controls ALU=4: 1, predicate=13: 1
+scoreboard: 0 hazards; negative control (one wait dropped) found 6
+simulator: 155 limits, 0 differ, 932159769 IR steps
+budget sweep: 16 cases (budgets 1, 2, 128, 256), 0 differ
+staged kernel: 85 IR insns, 29 GPRs, sha256 8ff80476574a13272c81df93c0bd60f2b000cdab9811f60183c86c2965cb3b50
+sm121dis (staged): 88 words, 0 undecodable, 8 branch targets checked (/tmp/pr_gb10_sieve_1300353.sass)
+fixed RAW: 0 hazards; negative controls ALU=4: 1, predicate=13: 1
+staged simulator: 167 cases, 0 differ, races seen 0
+negative control, barrier removed: rc -1 err 6 (6 = race)
+negative control, shared memory one entry short: rc -1 err 5 (5 = out of bounds)
+warp-sim model C5 (global) 1e6: warp_issues=2254892 lane_util=0.996 splits=163 max_frags=11
+warp-sim model C5 (staged) 1e6: warp_issues=2836282 lane_util=0.798 splits=283 max_frags=11 bar_split_arrivals=246
+div1 kernel: 67 IR insns, 26 GPRs, 1 regions, sha256 be5aa2e4673a9f31acca298ed0f64c286a8663e9cb444bf17b132c07ed92010b
+sm121dis (div1): 72 words, 0 undecodable, 6 branch targets checked (/tmp/pr_gb10_sieve_1300353.sass)
+warp-sim model div1 1e6: warp_issues=2010666 lane_util=0.829 splits=57764 max_frags=12 peak_bars=1 bar_split_arrivals=0
+div1 warp simulator: 322 cases (both orders), 0 differ
+div1 mutant 2: warp simulator says BSSY_REARM
+div1 mutant 3: warp simulator says JOIN_MISMATCH
+shared_div1 kernel: 83 IR insns, 26 GPRs, 2 regions, sha256 ad14a9c538b8d1b9e3c07af78a0a855c0c98a7fb5147e3253ab8889f9e1a24b9
+warp-sim model shared_div1 1e6: warp_issues=2031453 lane_util=0.831 splits=57887 max_frags=12 peak_bars=1 bar_split_arrivals=0
+shared_div1 warp simulator: 322 cases (both orders), 0 differ
+shared_div1 mutant 2: warp simulator says BSSY_REARM
+shared_div1 mutant 3: warp simulator says JOIN_MISMATCH
+div2 kernel: 69 IR insns, 26 GPRs, 2 regions, sha256 822e7fa3c5c18bfa1e0d5af968f3e03606299fd7af447c223c041d9a7d2684c1
+sm121dis (div2): 72 words, 0 undecodable, 6 branch targets checked (/tmp/pr_gb10_sieve_1300353.sass)
+warp-sim model div2 1e6: warp_issues=2009525 lane_util=0.830 splits=57764 max_frags=12 peak_bars=2 bar_split_arrivals=0
+div2 warp simulator: 322 cases (both orders), 0 differ
+div2 mutant 2: warp simulator says BSSY_REARM
+div2 mutant 3: warp simulator says JOIN_MISMATCH
+shared_div2 kernel: 85 IR insns, 26 GPRs, 3 regions, sha256 070d829ddf8d75613af5f85d6c6b7ded5019f026d669bc07d877452349f5634b
+warp-sim model shared_div2 1e6: warp_issues=2030312 lane_util=0.832 splits=57887 max_frags=12 peak_bars=2 bar_split_arrivals=0
+shared_div2 warp simulator: 322 cases (both orders), 0 differ
+shared_div2 mutant 2: warp simulator says BSSY_REARM
+shared_div2 mutant 3: warp simulator says JOIN_MISMATCH
+magic model limit 1000000: 1838283 word/prime pairs, 0 needed the correction, 0 wrong
+checks=172 failed=0
+VERDICT PASS
+exit=0

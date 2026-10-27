@@ -1,0 +1,14 @@
+# omega c6/disasm c8d7d5294 (L386 train tip: over c5/isolation 934c1521, c3/gemm, c3/reduce-scan, main 0d72560a), 2026-10-24T23:46Z
+# command: PHYSICS_DIR=~/workspace/l386-physics-pr sh tools/sm121dis/zero_nvdisasm.sh build
+static: PASS, no file outside the oracle harness names the CUDA toolkit or looks up nvdisasm
+attention_hd64: exit 0, execve naming nvdisasm: 0  ok
+attention_hd128: exit 0, execve naming nvdisasm: 0  ok
+elementwise: exit 0, execve naming nvdisasm: 0  ok
+fp8: exit 0, execve naming nvdisasm: 0  ok
+reconv: exit 0, execve naming nvdisasm: 0  ok
+divsqrt: exit 0, execve naming nvdisasm: 0  ok
+ldst: exit 0, execve naming nvdisasm: 0  ok
+reduce: exit 0, execve naming nvdisasm: 0  ok
+decoy: never called
+ZERO-NVDISASM: PASS (8 commands under strace, decoy calls 0, no execve of nvdisasm, static clean)
+# exit 0

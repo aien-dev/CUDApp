@@ -1,0 +1,52 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note Overhead driver for the host trace recorder. Compose after one arm file:
+note   overhead-absent.om  calls gbopen/gblaunch directly (no recorder in the unit)
+note   overhead-traced.om  calls htopen/htlaunch; argument "on" starts the recorder, "off" never does
+note Each sample times OHLAUNCH back-to-back launches of OHN elements on the host stand-in
+note (tests/host-trace/fakenv.om, fakedev.om) and prints the elapsed host CLOCK_MONOTONIC ns, one
+note line per sample. No device is opened. Exit 1 if any launch fails.
+const OHSAMP ulong 30
+const OHLAUNCH ulong 1000
+const OHN uint 64
+global ohline uchar 32
+fn ohprint v ulong to void
+n = ulong 0
+x = v
+while true bound 24
+put ohline n uchar add 48 rem x 10
+n = add n 1
+x = div x 10
+if eq x 0
+break
+end
+end
+for i ulong div n 2
+a = get ohline i
+put ohline i get ohline sub sub n i 1
+put ohline sub sub n i 1 a
+end
+put ohline n 10
+w = write 1 ohline 0 add n 1
+end
+fn main to int
+on = false
+if eq argcnt 2
+k = argread 1 ohline 0 8
+on = and eq k 2 eq get ohline 1 110
+end
+if not armopen OHN on
+ret 1
+end
+for s ulong OHSAMP
+armreset on
+t0 = ulong monons
+for i ulong OHLAUNCH
+if not armgo OHN
+ret 1
+end
+end
+t1 = ulong monons
+ohprint sub t1 t0
+end
+ret 0
+end

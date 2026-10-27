@@ -211,16 +211,19 @@ static void c_l2_inval_prefix_once(void) {
 /* Fable review of omega #459: a stamped standalone list of >= 1167 launches filled one submission to 16381 words; with
  * the 5-word prefix pending that is 16386 > 16384 ring words, refused BAD_LENGTH on every retry. The command list must
  * budget the prefix the platform publishes (caps.submit_prefix_words). */
+/* 2048 launches (about 14 ring words each) fill the 16384-word ring so the list splits into exactly 2 submissions.
+ * OMEGA_GPU_CMDLIST_MAX_LAUNCHES is 4096 since L312, which would split into 4, so the count is pinned here. */
+#define NEAR_CAP_LAUNCHES 2048u
 static void c_cmdlist_near_cap_with_l2_inval_pending(void) {
     fake_reset();
     fk.kernel_mode = FK_KERNEL_SKIP;
     fk.alloc_max = 4u << 20; /* the 2048-launch bank and QMD buffers are 2 MiB each */
     OmegaGpuCmdList *cl = NULL;
-    EXPECT(omega_gpu_cmdlist_create(OMEGA_GPU_CMDLIST_MAX_LAUNCHES, &cl) == 0);
+    EXPECT(omega_gpu_cmdlist_create(NEAR_CAP_LAUNCHES, &cl) == 0);
     if (!cl) { printf("  %s\n", omega_gpu_session_last_error()); return; }
     omega_gpu_session_lock();
     OmegaGpuLaunch L = launch_desc(1000);
-    for (uint32_t i = 0; i < OMEGA_GPU_CMDLIST_MAX_LAUNCHES; i++) EXPECT(omega_gpu_cmdlist_add(cl, &L) == (int)i);
+    for (uint32_t i = 0; i < NEAR_CAP_LAUNCHES; i++) EXPECT(omega_gpu_cmdlist_add(cl, &L) == (int)i);
     const OmegaGpuPlatform *p = omega_gpu_session_platform();
     OmegaGpuMem cached;
     EXPECT(omega_gpu_session_alloc_cached(4096, &cached) == 0);
@@ -231,7 +234,7 @@ static void c_cmdlist_near_cap_with_l2_inval_pending(void) {
     const int rc = omega_gpu_cmdlist_submit(cl, &o, &st);
     if (rc != 0) printf("  cmdlist submit: %s (platform: %s)\n", omega_gpu_session_last_error(), p->diag_text(p->ctx));
     EXPECT(rc == 0);
-    EXPECT(st.sems_done == OMEGA_GPU_CMDLIST_MAX_LAUNCHES && st.first_missing == -1);
+    EXPECT(st.sems_done == NEAR_CAP_LAUNCHES && st.first_missing == -1);
     EXPECT(st.submits == 2 && fk.submit_calls - submits0 == 2);
     EXPECT(count_l2_inval() == 1); /* the first submission only */
     for (int i = 0; i < fk.nev; i++)
@@ -298,6 +301,148 @@ static void c_memory_reserve(void) {
     unlink(path);
 }
 
+/* Audit Q6 (CudaAuditFable REPORT.md): caps.max_inflight is 1, so the reference refuses a second submission while
+ * the first is unretired, before the ring is overwritten or the doorbell rung; queue_retire then releases it. */
+static void c_submit_refused_while_unretired(void) {
+    fake_reset();
+    fk.kernel_mode = FK_KERNEL_SKIP;
+    OmegaGpuPlatformCaps caps;
+    const OmegaGpuPlatform *p = omega_gpu_platform_linux(&caps);
+    EXPECT(caps.max_inflight == 1u);
+    omega_gpu_session_lock();
+    OmegaGpuSession *s = omega_gpu_session_open();
+    EXPECT(s != NULL);
+    if (!s) { omega_gpu_session_unlock(); return; }
+    static const uint32_t NOP[2] = { 0, 0 };
+    const int submits0 = fk.submit_calls, retires0 = g_retires;
+    EXPECT(p->queue_submit(p->ctx, s->queue, NOP, 2) == OMEGA_GPU_PLAT_OK);
+    EXPECT(p->queue_submit(p->ctx, s->queue, NOP, 2) == OMEGA_GPU_PLAT_REFUSED_BUSY); /* first one not retired */
+    EXPECT(fk.submit_calls - submits0 == 1); /* the refusal reached no driver call: no copy, no doorbell */
+    EXPECT(strstr(p->diag_text(p->ctx), "queue_submit") != NULL);
+    EXPECT(p->queue_retire(p->ctx, s->queue) == OMEGA_GPU_PLAT_OK);
+    EXPECT(g_retires - retires0 == 1);
+    EXPECT(p->queue_retire(p->ctx, s->queue) == OMEGA_GPU_PLAT_OK); /* nothing in flight: no driver retire */
+    EXPECT(g_retires - retires0 == 1);
+    EXPECT(p->queue_submit(p->ctx, s->queue, NOP, 2) == OMEGA_GPU_PLAT_OK);
+    EXPECT(fk.submit_calls - submits0 == 2);
+    EXPECT(p->queue_retire(p->ctx, s->queue) == OMEGA_GPU_PLAT_OK);
+    OmegaGpuLaunch L = launch_desc(1000); /* the session's own launch path still runs submit, wait, retire */
+    EXPECT(omega_gpu_session_launch(&L, NULL, NULL) == 0);
+    EXPECT(omega_gpu_session_launch(&L, NULL, NULL) == 0);
+    omega_gpu_session_unlock();
+}
+
+/* Audit Q6 on an L136 extra queue: its ring is also rewritten from offset 0, and caps.max_inflight is per queue, so
+ * a second submission on the extra queue while the first is unretired is refused REFUSED_BUSY before any copy or
+ * doorbell; the two queues' in-flight counts are independent; queue_retire on the extra queue releases it. */
+static void c_extra_queue_submit_refused_while_unretired(void) {
+    fake_reset();
+    fk.kernel_mode = FK_KERNEL_SKIP;
+    fk.extra_channels = 1;
+    setenv("AIEN_OMEGA_GPU_CHANNELS", "2", 1);
+    OmegaGpuPlatformCaps caps;
+    const OmegaGpuPlatform *p = omega_gpu_platform_linux(&caps);
+    omega_gpu_session_lock();
+    OmegaGpuSession *s = omega_gpu_session_open();
+    EXPECT(s != NULL);
+    OmegaGpuQueueHandle q1;
+    const int xq = s ? omega_gpu_session_extra_queue(1, &q1) : -1;
+    EXPECT(xq == 0);
+    if (!s || xq != 0) { printf("  session: %s\n", omega_gpu_session_last_error()); omega_gpu_session_unlock(); return; }
+    static const uint32_t NOP[2] = { 0, 0 };
+    const int submits0 = fk.submit_calls;
+    EXPECT(p->queue_submit(p->ctx, q1, NOP, 2) == OMEGA_GPU_PLAT_OK);
+    EXPECT(fk.chan_submit_calls == 1);
+    EXPECT(p->queue_submit(p->ctx, q1, NOP, 2) == OMEGA_GPU_PLAT_REFUSED_BUSY); /* first one not retired */
+    EXPECT(fk.chan_submit_calls == 1); /* the refusal reached no driver call: no copy, no doorbell */
+    EXPECT(strstr(p->diag_text(p->ctx), "queue_submit") != NULL);
+    EXPECT(p->queue_submit(p->ctx, s->queue, NOP, 2) == OMEGA_GPU_PLAT_OK); /* queue 0 is independent */
+    EXPECT(p->queue_submit(p->ctx, s->queue, NOP, 2) == OMEGA_GPU_PLAT_REFUSED_BUSY);
+    EXPECT(fk.submit_calls - submits0 == 1);
+    EXPECT(p->queue_retire(p->ctx, s->queue) == OMEGA_GPU_PLAT_OK);
+    EXPECT(p->queue_submit(p->ctx, q1, NOP, 2) == OMEGA_GPU_PLAT_REFUSED_BUSY); /* retiring queue 0 does not free q1 */
+    EXPECT(p->queue_retire(p->ctx, q1) == OMEGA_GPU_PLAT_OK);
+    EXPECT(fk.chan_retire_calls == 1);
+    EXPECT(p->queue_retire(p->ctx, q1) == OMEGA_GPU_PLAT_OK); /* nothing in flight: no driver retire */
+    EXPECT(fk.chan_retire_calls == 1);
+    EXPECT(p->queue_submit(p->ctx, q1, NOP, 2) == OMEGA_GPU_PLAT_OK);
+    EXPECT(fk.chan_submit_calls == 2);
+    EXPECT(p->queue_retire(p->ctx, q1) == OMEGA_GPU_PLAT_OK);
+    omega_gpu_session_unlock();
+}
+
+/* Audit Q6 / top-10 item 4: a command list whose completion is uncertain must latch the process without queueing
+ * anything behind the stuck list. Before the fix force_latch launched a 1 ms nop, which copied its methods over the
+ * ring the stuck list may still be reading and rang a second doorbell. */
+static void c_cmdlist_timeout_latches_without_launch(void) {
+    fake_reset();
+    fk.kernel_mode = FK_KERNEL_SKIP;
+    OmegaGpuCmdList *cl = NULL;
+    EXPECT(omega_gpu_cmdlist_create(4, &cl) == 0);
+    if (!cl) { printf("  %s\n", omega_gpu_session_last_error()); return; }
+    omega_gpu_session_lock();
+    OmegaGpuLaunch L = launch_desc(1000);
+    EXPECT(omega_gpu_cmdlist_add(cl, &L) == 0);
+    fk.marker_mode = FK_SYNC_NEVER;
+    const int submits0 = fk.submit_calls, retires0 = g_retires;
+    OmegaGpuCmdListOpts o = { .mode = OMEGA_GPU_CMDLIST_PCAS, .barrier = OMEGA_GPU_CMDLIST_BARRIER_WFI, .timeout_ms = 5 };
+    OmegaGpuCmdListStats st;
+    EXPECT(omega_gpu_cmdlist_submit(cl, &o, &st) == -1);
+    printf("  submits %d, error: %s\n", fk.submit_calls - submits0, omega_gpu_session_last_error());
+    EXPECT(fk.submit_calls - submits0 == 1); /* the stuck list only: nothing queued behind it */
+    EXPECT(g_retires == retires0);
+    EXPECT(omega_gpu_cmdlist_is_latched());
+    EXPECT(omega_gpu_session_is_blocked());
+    EXPECT(omega_gpu_session_launch(&L, NULL, NULL) == -1); /* every later launch is refused */
+    EXPECT(fk.submit_calls - submits0 == 1);
+    omega_gpu_session_unlock();
+}
+
+/* Audit F15: timeout_ms 0 made the session submit and then latch after a single poll. It is refused as an argument,
+ * before anything is submitted, and the session stays usable. */
+static void c_zero_timeout_refused(void) {
+    fake_reset();
+    fk.kernel_mode = FK_KERNEL_SKIP;
+    omega_gpu_session_lock();
+    EXPECT(omega_gpu_session_open() != NULL);
+    const int submits0 = fk.submit_calls;
+    OmegaGpuLaunch L = launch_desc(0);
+    EXPECT(omega_gpu_session_launch(&L, NULL, NULL) == -1);
+    EXPECT(fk.submit_calls == submits0);
+    EXPECT(!omega_gpu_session_is_blocked());
+    EXPECT(strcmp(omega_gpu_session_last_error(), "launch arguments") == 0);
+    L = launch_desc(1000);
+    EXPECT(omega_gpu_session_launch(&L, NULL, NULL) == 0);
+    omega_gpu_session_unlock();
+}
+
+/* Audit F9: CUDAPP_MEM_RESERVE_MIB = 2^44 shifted left by 20 is 2^64, which wrapped to a 0 reserve and allowed
+ * everything; a MemAvailable past 2^54 kB wrapped the same way and refused everything. Both saturate. */
+static void c_reserve_overflow(void) {
+    fake_reset();
+    fk.alloc_max = 8u << 20;
+    char path[] = "/tmp/cudapp-meminfo-XXXXXX";
+    int fd = mkstemp(path); if (fd >= 0) close(fd);
+    write_meminfo(path, 4097ull * 1024ull);
+    setenv("CUDAPP_MEMINFO", path, 1);
+    setenv("CUDAPP_MEM_RESERVE_MIB", "17592186044416", 1); /* 2^44 MiB */
+    const OmegaGpuPlatform *p = omega_gpu_platform_linux(NULL);
+    OmegaGpuDeviceHandle d;
+    EXPECT(p->device_open(p->ctx, 0, &d) == OMEGA_GPU_PLAT_OK);
+    OmegaGpuBufferDesc small = {.kind = OMEGA_GPU_HANDLE_BUF_DATA, .rights = OMEGA_GPU_RIGHT_CPU_READ | OMEGA_GPU_RIGHT_GPU_WRITE,
+                                .gpu_cache = OMEGA_GPU_CACHE_GPU_UNCACHED, .bytes = 4096};
+    OmegaGpuBufferHandle h; OmegaCpuView cpu; OmegaGpuVa va; OmegaGpuBusAddr bus;
+    const int allocs0 = fk.alloc_calls;
+    EXPECT(p->dma_alloc(p->ctx, d, &small, &h, &cpu, &va, &bus) == OMEGA_GPU_PLAT_REFUSED_LIMIT);
+    EXPECT(fk.alloc_calls == allocs0);
+    printf("  refusal: %s\n", p->diag_text(p->ctx));
+    unsetenv("CUDAPP_MEM_RESERVE_MIB");
+    write_meminfo(path, 18014398509481984ull); /* 2^54 kB: 2^64 bytes, past uint64 */
+    EXPECT(p->dma_alloc(p->ctx, d, &small, &h, &cpu, &va, &bus) == OMEGA_GPU_PLAT_OK);
+    EXPECT(p->device_close(p->ctx, d) == OMEGA_GPU_PLAT_OK);
+    unlink(path);
+}
+
 typedef struct { const char *id; void (*fn)(void); } Case;
 static const Case CASES[] = {
     {"LINUX_REF_CAPS_NO_MMIO_NO_IRQ", c_caps},
@@ -309,6 +454,11 @@ static const Case CASES[] = {
     {"L2_INVAL_PREFIX_ONCE_AFTER_CACHED_HOST_WRITE", c_l2_inval_prefix_once},
     {"CMDLIST_NEAR_CAP_SUBMITS_WITH_L2_INVAL_PENDING", c_cmdlist_near_cap_with_l2_inval_pending},
     {"D1_MEMORY_RESERVE_REFUSES_BEFORE_THE_DRIVER", c_memory_reserve},
+    {"QUEUE_SUBMIT_REFUSED_WHILE_UNRETIRED", c_submit_refused_while_unretired},
+    {"EXTRA_QUEUE_SUBMIT_REFUSED_WHILE_UNRETIRED", c_extra_queue_submit_refused_while_unretired},
+    {"CMDLIST_TIMEOUT_LATCHES_WITHOUT_LAUNCH_BEHIND_IT", c_cmdlist_timeout_latches_without_launch},
+    {"ZERO_TIMEOUT_REFUSED_BEFORE_SUBMIT", c_zero_timeout_refused},
+    {"D1_RESERVE_AND_MEMINFO_OVERFLOW_SATURATE", c_reserve_overflow},
 };
 
 int main(void) {

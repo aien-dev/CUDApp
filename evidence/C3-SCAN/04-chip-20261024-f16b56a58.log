@@ -1,0 +1,52 @@
+Sat Oct 24 11:26:17 PM UTC 2026
+f16b56a58383e6d635b9bda97be0be207c67f2e3
+physics pin 6d7cf0d4d8eb2cda7b512100ff6058e25dbb3ddf (PHYSICS_DIR=/home/drakestapleton/workspace/l386-physics)
+3400c91e5d91d1a17369a96c2b4642609518ae955beb579404ff20d6ebb2a9a0  build/gpu_scan_test
+CAMERA /dev/nvidia0 holders before: ,873959,2935091,3489680
+CAMERA 18091: {"object":"list","data":[{"id":"qwen3.6-35b-a3b-fp8","object":"model","created":
+WINDOW: 20261024T232617Z-b940cf
+COMMAND: spark-window run ./build/gpu_scan_test
+every n from 1 to 2048 (sum, max, min, prefix): PASS
+ok: chip sum n = 1048576 inputs 2: OK, got 7fffffff want 7fc0105f, 4 launches, kernels 0.516 ms
+ok: chip max n = 1048576 inputs 2: OK, got 7f800000 want 7f800000, 4 launches, kernels 0.497 ms
+ok: chip min n = 1048576 inputs 2: OK, got ff800000 want ff800000, 4 launches, kernels 0.513 ms
+ok: chip prefix n = 1048576 inputs 2: OK, 0 wrong (first at 0), 7 launches, kernels 1.019 ms
+ok: chip sum n = 2097152 inputs 2: OK, got 7fffffff want 7fc01b96, 5 launches, kernels 0.826 ms
+ok: chip max n = 2097152 inputs 2: OK, got 7f800000 want 7f800000, 5 launches, kernels 0.723 ms
+ok: chip min n = 2097152 inputs 2: OK, got ff800000 want ff800000, 5 launches, kernels 0.826 ms
+ok: chip prefix n = 2097152 inputs 2: OK, 0 wrong (first at 0), 9 launches, kernels 1.229 ms
+ok: chip sum n = 4194304 inputs 2: OK, got 7fffffff want 7fc03205, 5 launches, kernels 1.034 ms
+ok: chip max n = 4194304 inputs 2: OK, got 7f800000 want 7f800000, 5 launches, kernels 0.996 ms
+ok: chip min n = 4194304 inputs 2: OK, got ff800000 want ff800000, 5 launches, kernels 1.029 ms
+ok: chip prefix n = 4194304 inputs 2: OK, 0 wrong (first at 0), 9 launches, kernels 1.610 ms
+ok: chip sum n = 8388608 inputs 2: OK, got 7fffffff want 7fc05ee2, 5 launches, kernels 1.439 ms
+ok: chip max n = 8388608 inputs 2: OK, got 7f800000 want 7f800000, 5 launches, kernels 1.442 ms
+ok: chip min n = 8388608 inputs 2: OK, got ff800000 want ff800000, 5 launches, kernels 1.439 ms
+ok: chip prefix n = 8388608 inputs 2: OK, 0 wrong (first at 0), 9 launches, kernels 2.358 ms
+ok: chip sum n = 16777216 inputs 2: OK, got 7fffffff want 7fc0b89e, 5 launches, kernels 2.252 ms
+ok: chip max n = 16777216 inputs 2: OK, got 7f800000 want 7f800000, 5 launches, kernels 2.152 ms
+ok: chip min n = 16777216 inputs 2: OK, got ff800000 want ff800000, 5 launches, kernels 2.252 ms
+ok: chip prefix n = 16777216 inputs 2: OK, 0 wrong (first at 0), 9 launches, kernels 3.480 ms
+ok: chip sum n = 33554432 inputs 2: OK, got 7fffffff want 7fc06c14, 5 launches, kernels 3.579 ms
+ok: chip max n = 33554432 inputs 2: OK, got 7f800000 want 7f800000, 5 launches, kernels 3.475 ms
+ok: chip min n = 33554432 inputs 2: OK, got ff800000 want ff800000, 5 launches, kernels 3.688 ms
+ok: chip prefix n = 33554432 inputs 2: OK, 0 wrong (first at 0), 9 launches, kernels 5.833 ms
+ok: chip sum n = 67108864 inputs 2: OK, got 7fffffff want 7fc0d301, 6 launches, kernels 6.533 ms
+ok: chip max n = 67108864 inputs 2: OK, got 7f800000 want 7f800000, 6 launches, kernels 6.504 ms
+ok: chip min n = 67108864 inputs 2: OK, got ff800000 want ff800000, 6 launches, kernels 6.442 ms
+ok: chip prefix n = 67108864 inputs 2: OK, 0 wrong (first at 0), 11 launches, kernels 10.330 ms
+ok: chip sum n = 134217728 inputs 2: OK, got 7fffffff want 7fc0a0da, 6 launches, kernels 12.133 ms
+ok: chip max n = 134217728 inputs 2: OK, got 7f800000 want 7f800000, 6 launches, kernels 12.534 ms
+ok: chip min n = 134217728 inputs 2: OK, got ff800000 want ff800000, 6 launches, kernels 12.128 ms
+ok: chip prefix n = 134217728 inputs 2: OK, 0 wrong (first at 0), 11 launches, kernels 19.979 ms
+ok: chip sum n = 268435456 inputs 2: OK, got 7fffffff want 7fc03c8d, 6 launches, kernels 23.837 ms
+ok: chip max n = 268435456 inputs 2: OK, got 7f800000 want 7f800000, 6 launches, kernels 24.345 ms
+ok: chip min n = 268435456 inputs 2: OK, got ff800000 want ff800000, 6 launches, kernels 24.327 ms
+ok: chip prefix n = 268435456 inputs 2: OK, 0 wrong (first at 0), 11 launches, kernels 38.488 ms
+2^k - 1, 2^k, 2^k + 1 up to 2^28: PASS
+64 random lengths: PASS
+C3 scan chip: PASS (8665 checks)
+EXIT_CODE=0
+  close.json
+  open.json
+Sat Oct 24 11:26:56 PM UTC 2026
