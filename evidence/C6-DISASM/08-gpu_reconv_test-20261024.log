@@ -1,0 +1,23 @@
+# omega c6/disasm c8d7d5294 (L386 train tip: over c5/isolation 934c1521, c3/gemm, c3/reduce-scan, main 0d72560a), 2026-10-24T23:36Z
+# command: build/gpu_reconv_test --host-only
+codegen rc_diamond: 37 insns, 14 gprs, 1 regions
+codegen rc_loopbreak: 41 insns, 14 gprs, 1 regions
+codegen rc_nested: 49 insns, 15 gprs, 2 regions
+codegen rc_exit_bar: 40 insns, 18 gprs, 1 regions
+codegen rc_depth16: 107 insns, 14 gprs, 16 regions
+sm121dis diamond: rc=0 insns=40 undecodable=0 missing=0 (/tmp/omega_rc_diamond_1224112.sass.vb8aKe)
+sm121dis depth16: rc=0 insns=112 undecodable=0 missing=0 (/tmp/omega_rc_depth16_1224112.sass.c5w1wY)
+sm121dis sieve_div2: rc=0 insns=72 undecodable=0 missing=0 (/tmp/omega_rc_sieve_div2_1224112.sass.TUXgFe)
+sm121dis forms: rc=0 insns=4 undecodable=0 missing=0 (/tmp/omega_rc_forms_1224112.sass.qPR68w)
+model rc_diamond n=4096: warp_issues=4736 lane_util=0.878 splits=128 max_frags=2 peak_bars=1
+model rc_diamond n=4096: warp_issues=4736 lane_util=0.878 splits=128 max_frags=2 peak_bars=1
+model rc_loopbreak n=4096: warp_issues=115685 lane_util=0.193 splits=2889 max_frags=28 peak_bars=1
+model rc_loopbreak n=4096: warp_issues=116847 lane_util=0.195 splits=2876 max_frags=2 peak_bars=1
+model rc_nested n=4096: warp_issues=92819 lane_util=0.150 splits=1739 max_frags=20 peak_bars=2
+model rc_nested n=4096: warp_issues=91594 lane_util=0.148 splits=1694 max_frags=2 peak_bars=2
+model rc_exit_bar n=4096: warp_issues=5120 lane_util=0.963 splits=128 max_frags=2 peak_bars=1
+model rc_exit_bar n=4096: warp_issues=5120 lane_util=0.962 splits=128 max_frags=2 peak_bars=1
+model rc_depth16 n=4096: warp_issues=13696 lane_util=0.640 splits=128 max_frags=2 peak_bars=16
+model rc_depth16 n=4096: warp_issues=13696 lane_util=0.637 splits=128 max_frags=2 peak_bars=16
+PASS: 119 checks, 0 failed
+# exit 0

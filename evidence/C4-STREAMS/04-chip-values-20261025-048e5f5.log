@@ -1,0 +1,22 @@
+# C4 streams on the pinned driver, 2026-10-25T00:35Z
+# omega c5/isolation 02db88d33 (physics.lock = 048e5f5e88, the merged extra-channel subcontext fix), PHYSICS_DIR=~/workspace/l386-physics-pr checked out at that commit, pin check ENFORCED (no PHYSICS_LOCK_CHECK=0).
+# Binary: build/pinned-check/gpu_streams_test, built by make from this tree.
+# command: ./build/pinned-check/gpu_streams_test   (under /tmp/aien-gb10.lock)
+ok: the second queue opens (AIEN_OMEGA_GPU_CHANNELS = 2)
+calibration: 2^16 turns took 1.691 ms; using 2325554 turns
+overlap (default barrier): solo A 53.774 ms, solo B 53.811 ms, pair 53.771 ms (medians of 5, values right): pair / (A + B) = 0.500
+overlap (first_barrier_none): solo A 53.762 ms, solo B 53.793 ms, pair 53.768 ms (medians of 5, values right): pair / (A + B) = 0.500
+serial control: solo 53.793 ms, both in one list on one queue 107.534 ms: ratio 1.000
+ok: C4 overlap: two queues of the same work finish in under 0.75 of the solo sum (default 0.500, first_barrier_none 0.500)
+ok: red check: the same two spins in order on one queue do NOT pass the 0.75 bar (ratio 1.000)
+ok: event refusals: a list with a wait is refused alone, and cannot wait on a second list
+  event (wait, default barrier): X 0 wrong, Y 0 wrong of 3072, pair 53.858 ms
+ok: C4 event: B's copy waited for A's spin on the other queue; every Y right (0 wrong)
+  event (NO wait, default barrier): X 0 wrong, Y 3072 wrong of 3072, pair 53.869 ms
+ok: negative control: without the wait B ran early and Y is wrong (default barrier 3072 wrong, first_barrier_none 3072 wrong)
+ok: event refusals: a list with a wait is refused alone, and cannot wait on a second list
+  event (wait, first_barrier_none): X 0 wrong, Y 0 wrong of 3072, pair 53.864 ms
+ok: C4 event with first_barrier_none: every Y right (0 wrong)
+C4 streams chip: PASS (8 checks)
+
+# exit 0

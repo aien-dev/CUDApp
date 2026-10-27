@@ -1,0 +1,44 @@
+# omega c6/disasm c8d7d5294 (L386 train tip: over c5/isolation 934c1521, c3/gemm, c3/reduce-scan, main 0d72560a), 2026-10-24T23:43Z
+# command: make PHYSICS_DIR=~/workspace/l386-physics-pr prime-race-gb10-host-test
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I/home/drakestapleton/workspace/l386-physics-pr/m16 -I/home/drakestapleton/workspace/l386-physics-pr/nvrm -I/home/drakestapleton/workspace/l386-physics-pr/third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I/home/drakestapleton/workspace/l386-physics-pr/third_party/nvidia-open-580.173.02/kernel-open/common/inc -I/home/drakestapleton/workspace/l386-physics-pr/third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I/home/drakestapleton/workspace/l386-physics-pr/third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -Ibench/prime_race -Itests -o bench/prime_race/build/gb10_sieve_host_test bench/prime_race/tests/gb10_sieve_host_test.c build/libomega_gpu.a -lpthread -lm
+./bench/prime_race/build/gb10_sieve_host_test
+kernel: 71 IR insns, 72 encoded words, 29 GPRs, sha256 5fff3f7872a5098a77679898a6c0ab01070ca6c1f8113397acdbe903f2f06c39
+sm121dis (global table): 72 words, 0 undecodable, 6 branch targets checked (/tmp/pr_gb10_sieve_1505284.sass.diXsPR)
+fixed RAW: 0 hazards; negative controls ALU=4: 1, predicate=13: 1
+scoreboard: 0 hazards; negative control (one wait dropped) found 6
+simulator: 155 limits, 0 differ, 932159769 IR steps
+budget sweep: 16 cases (budgets 1, 2, 128, 256), 0 differ
+staged kernel: 85 IR insns, 29 GPRs, sha256 7e6b6facfddf93d37bf0a73f222b8719e374750e4dc92a57b3b362cdd226c622
+sm121dis (staged): 88 words, 0 undecodable, 8 branch targets checked (/tmp/pr_gb10_sieve_1505284.sass.BqJyqj)
+fixed RAW: 0 hazards; negative controls ALU=4: 1, predicate=13: 1
+staged simulator: 167 cases, 0 differ, races seen 0
+negative control, barrier removed: rc -1 err 6 (6 = race)
+negative control, shared memory one entry short: rc -1 err 5 (5 = out of bounds)
+warp-sim model C5 (global) 1e6: warp_issues=2254892 lane_util=0.996 splits=163 max_frags=11
+warp-sim model C5 (staged) 1e6: warp_issues=2836282 lane_util=0.798 splits=283 max_frags=11 bar_split_arrivals=246
+div1 kernel: 67 IR insns, 26 GPRs, 1 regions, sha256 e096269dc9ec4b9207ebb3ed030ffdd348214d2426b7eac0675a29e002bf8131
+sm121dis (div1): 72 words, 0 undecodable, 6 branch targets checked (/tmp/pr_gb10_sieve_1505284.sass.F5aNtC)
+warp-sim model div1 1e6: warp_issues=2010666 lane_util=0.829 splits=57764 max_frags=12 peak_bars=1 bar_split_arrivals=0
+div1 warp simulator: 322 cases (both orders), 0 differ
+div1 mutant 2: warp simulator says BSSY_REARM
+div1 mutant 3: warp simulator says JOIN_MISMATCH
+shared_div1 kernel: 83 IR insns, 26 GPRs, 2 regions, sha256 e0b6875f06943750110d3d83bd86e73c803c4fe599100af965117854ca06df20
+warp-sim model shared_div1 1e6: warp_issues=2031453 lane_util=0.831 splits=57887 max_frags=12 peak_bars=1 bar_split_arrivals=0
+shared_div1 warp simulator: 322 cases (both orders), 0 differ
+shared_div1 mutant 2: warp simulator says BSSY_REARM
+shared_div1 mutant 3: warp simulator says JOIN_MISMATCH
+div2 kernel: 69 IR insns, 26 GPRs, 2 regions, sha256 fbd1c66e3ff8bdbdc9575cdc1b4d51986c050a79a2e3103ab3677468351512c6
+sm121dis (div2): 72 words, 0 undecodable, 6 branch targets checked (/tmp/pr_gb10_sieve_1505284.sass.8MczoF)
+warp-sim model div2 1e6: warp_issues=2009525 lane_util=0.830 splits=57764 max_frags=12 peak_bars=2 bar_split_arrivals=0
+div2 warp simulator: 322 cases (both orders), 0 differ
+div2 mutant 2: warp simulator says BSSY_REARM
+div2 mutant 3: warp simulator says JOIN_MISMATCH
+shared_div2 kernel: 85 IR insns, 26 GPRs, 3 regions, sha256 abb30b5505f7d4e26571e3e40092bcf35b6f868a5ccfe1316d323f32ae7d7a06
+warp-sim model shared_div2 1e6: warp_issues=2030312 lane_util=0.832 splits=57887 max_frags=12 peak_bars=2 bar_split_arrivals=0
+shared_div2 warp simulator: 322 cases (both orders), 0 differ
+shared_div2 mutant 2: warp simulator says BSSY_REARM
+shared_div2 mutant 3: warp simulator says JOIN_MISMATCH
+magic model limit 1000000: 1838283 word/prime pairs, 0 needed the correction, 0 wrong
+checks=180 failed=0
+VERDICT PASS
+# exit 0

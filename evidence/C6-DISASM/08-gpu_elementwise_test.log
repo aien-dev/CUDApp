@@ -1,0 +1,14 @@
+# omega c6/disasm b6a96d10 (worktree diff sha e3b0c44298fc1c14), 2026-10-22T01:59:53Z
+# command: /tmp/c6/build/gpu_elementwise_test --host-only
+codegen ex2: 32 insns, 10 gprs, 6 ugprs
+sm121dis ex2: rc=0 insns=32 undecodable=0 missing=0 (/tmp/omega_ew_ex2_1296164.sass)
+codegen xchg: 32 insns, 12 gprs, 6 ugprs
+sm121dis xchg: rc=0 insns=32 undecodable=0 missing=0 (/tmp/omega_ew_xchg_1296164.sass)
+codegen rmsnorm: 80 insns, 25 gprs, 6 ugprs
+sm121dis rmsnorm: rc=0 insns=80 undecodable=0 missing=0 (/tmp/omega_ew_rmsnorm_1296164.sass)
+codegen rope: 32 insns, 17 gprs, 6 ugprs
+sm121dis rope: rc=0 insns=32 undecodable=0 missing=0 (/tmp/omega_ew_rope_1296164.sass)
+codegen swiglu: 32 insns, 12 gprs, 6 ugprs
+sm121dis swiglu: rc=0 insns=32 undecodable=0 missing=0 (/tmp/omega_ew_swiglu_1296164.sass)
+PASS: 24 checks, 0 failed
+exit=0

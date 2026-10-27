@@ -1,0 +1,7 @@
+$ build/gpu_isolation_test --dump-hang /tmp/c5hang.bin && build/sm121dis /tmp/c5hang.bin   (omega c6/disasm 19eebe0e tool)
+        /*0000*/ MOV R2, 0x0 ;
+        /*0010*/ MOV R3, 0x1 ;
+        /*0020*/ IADD3 R2, PT, PT, R2, R3, RZ ;
+        /*0030*/ BRA 0x20 ;
+        /*0040*/ EXIT ;
+        /*0050*/ BRA 0x50;

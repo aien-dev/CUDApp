@@ -1,0 +1,13 @@
+$ build/test_omega_gpu_platform_linux   (simulated driver, 2026-10-24T23:28Z, train tip over main 0d72560a)
+PASS LINUX_REF_CAPS_NO_MMIO_NO_IRQ
+PASS HOSTED_DEFAULT_IS_LINUX_REFERENCE
+PASS SAME_DRIVER_CALLS_AND_ORDER_AS_BEFORE
+PASS REFERENCE_REFUSALS_CACHED_POLLED_RING_STALE
+PASS OPEN_FAILURE_KEEPS_DRIVER_TEXT
+PASS MARKER_NEVER_LATCHES_AND_PARKS
+PASS L2_INVAL_PREFIX_ONCE_AFTER_CACHED_HOST_WRITE
+  DEBUG submits=4 fake_submit_calls=4 max_launches=4096 l2_invals=1
+  expect failed at line 251: st.submits == 2 && fk.submit_calls - submits0 == 2
+FAIL CMDLIST_NEAR_CAP_SUBMITS_WITH_L2_INVAL_PENDING
+test_omega_gpu_platform_linux (reference only, simulated driver): 7 passed, 1 failed
+EXIT_CODE=1

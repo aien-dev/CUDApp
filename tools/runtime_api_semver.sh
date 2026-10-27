@@ -13,6 +13,8 @@
 #   MINOR  anything else that adds, changes or removes an entry (EXPERIMENTAL changes, additions, promotions,
 #          OMEGA_GPU_PLATFORM_ABI_MINOR).
 #   none   no entry changed; the version may stay or go up (PATCH for a fix, MINOR for a documented behaviour addition).
+# Major version zero (semver 2.0.0 item 4, API.md section 2): while the BASE major is 0, a MAJOR-class change needs only
+# a MINOR bump (0.5 -> 0.6); from 1.0 on it needs MAJOR. A MAJOR-class change with no bump fails either way.
 # The version (OMEGA_RUNTIME_API_VERSION_MAJOR/_MINOR/_PATCH consts; PATCH 0 when the base has none) must never go down and
 # must carry at least the needed bump. Exit 0 = PASS, 1 = FAIL (an undeclared or too-small change), 2 = usage.
 set -u
@@ -58,7 +60,8 @@ END {
   }
   from = M[1] "." m[1] "." p[1]; to = M[2] "." m[2] "." p[2]
   cmp = (M[2] != M[1]) ? M[2] - M[1] : (m[2] != m[1]) ? m[2] - m[1] : p[2] - p[1]
-  want = major ? "MAJOR" : minor ? "MINOR" : "none"
+  zero = (major && M[1] == 0); if (zero) { major = 0; minor = 1 }
+  want = major ? "MAJOR" : zero ? "MINOR (MAJOR-class under major version zero)" : minor ? "MINOR" : "none"
   if (cmp < 0) { print "FAIL: version goes down: " from " -> " to; exit 1 }
   if (major && M[2] <= M[1]) { print "FAIL: undeclared change: the manifest change needs a MAJOR bump, version " from " -> " to; exit 1 }
   if (minor && !major && M[2] == M[1] && m[2] <= m[1]) { print "FAIL: undeclared change: the manifest change needs at least a MINOR bump, version " from " -> " to; exit 1 }
