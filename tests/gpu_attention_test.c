@@ -40,6 +40,7 @@
 #include "omega_blackwell_codegen.h"
 #include "omega_sm121_disasm.h" /* C6 (L386): Omega's own disassembler replaces nvdisasm here */
 #include "bw_warp_sim.h" /* omega #308: SIMT warp simulator for --divergent */
+#include <fcntl.h>
 #include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
@@ -1383,8 +1384,10 @@ static void general_refusals(void) {
 }
 
 static int general_sweep(const char *out_path) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
-    if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
+    /* 0600, not fopen's 0666 & ~umask (CodeQL cpp/world-writable-file-creation) */
+    int out_fd = out_path ? open(out_path, O_WRONLY | O_CREAT | O_TRUNC, 0600) : -1;
+    FILE *out = out_fd >= 0 ? fdopen(out_fd, "w") : NULL;
+    if (out_path && !out) { if (out_fd >= 0) close(out_fd); printf("cannot open %s\n", out_path); return 2; }
     general_refusals();
     const size_t nhd = sizeof k_gen_hds / sizeof k_gen_hds[0];
     GCfg *cfg = malloc((nhd * GEN_PER_HD + 16) * sizeof *cfg); size_t n = 0;
