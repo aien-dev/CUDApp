@@ -3,7 +3,18 @@
  * the call map, the evidence level (IMPLEMENTED, hardware NOT_RUN) and how it is selected. The contract, caps and
  * refusals are those of src/omega_gpu_platform_linux.c; the submission path is nvrm_enqueue + nvrm_ring
  * (nvrm/nvrm.c) written against memory and a doorbell page this platform got from aien-gpu.ko instead of RM.
+ *
+ * MIGRATION-PENDING C (GpuStack PLAN, Language rule). Reason: the hosted session calls a back end through the
+ * OmegaGpuPlatform C function table, and seeded Omega cannot yet supply one: omega-bridge v0 refuses host words beyond
+ * read/write/exit (open, ioctl, mmap), text constants, ordered stores to mapped memory and a C function-table export
+ * (extension proposal aien-dev/omega-bridge#29). Successor: native/aiengpu/context.om, tracked in aien-dev/CUDApp#128.
+ * The code below exists only when CUDAPP_MIGRATION_PENDING_AIEN_GPU=1; it is OFF in libomega_gpu.a and every other
+ * build, and ON only for tests/test_omega_gpu_platform_aien.c and its mutants (mk/omega-gpu-engine.mk).
  */
+#ifndef CUDAPP_MIGRATION_PENDING_AIEN_GPU
+#define CUDAPP_MIGRATION_PENDING_AIEN_GPU 0 /* migration-pending switch, OFF by default (see above) */
+#endif
+#if CUDAPP_MIGRATION_PENDING_AIEN_GPU
 #include "omega_gpu_platform_aien.h"
 
 #include "omega_gpu_mem_reserve.h"
@@ -597,3 +608,4 @@ const OmegaGpuPlatform *omega_gpu_platform_aien(OmegaGpuPlatformCaps *caps) {
     if (caps) *caps = g_caps;
     return &g_platform;
 }
+#endif /* CUDAPP_MIGRATION_PENDING_AIEN_GPU */

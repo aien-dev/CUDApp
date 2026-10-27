@@ -217,7 +217,10 @@ test-gpu-session-platform: build/test_omega_gpu_session_platform build/test_omeg
 GPU_AIEN_INC = -I$(PHYSICS_DIR)/third_party/aien-gpu-abi1
 GPU_AIEN_SRCS = src/omega_gpu_platform_aien.c src/omega_gpu_platform.c src/omega_gpu_mem_reserve.c src/omega_gpu_session.c \
 	src/omega_gpu_platform_linux.c src/omega_gpu_fmt.c src/omega_blackwell_qmd.c $(PHYSICS_DIR)/m16/m16_native.c $(PHYSICS_DIR)/nvrm/nvrm.c
-GPU_AIEN_CFLAGS = -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -Isrc $(GPU_ENGINE_PHYS_INC) $(GPU_AIEN_INC)
+# MIGRATION-PENDING C: the platform's code exists only with CUDAPP_MIGRATION_PENDING_AIEN_GPU=1, set here for the test and
+# its mutants and OFF in libomega_gpu.a and every other build (successor: native/aiengpu/context.om, CUDApp#128).
+GPU_AIEN_CFLAGS = -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -DCUDAPP_MIGRATION_PENDING_AIEN_GPU=1 \
+	-Isrc $(GPU_ENGINE_PHYS_INC) $(GPU_AIEN_INC)
 build/test_omega_gpu_platform_aien: tests/test_omega_gpu_platform_aien.c $(GPU_AIEN_SRCS) src/omega_gpu_platform_aien.h \
 		src/omega_gpu_mem_reserve.h third_party/aien-gpu-abi1/aien_gpu_uapi.h
 	@mkdir -p build

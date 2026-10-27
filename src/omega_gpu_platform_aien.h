@@ -28,6 +28,10 @@
  * Selection: a program installs it with omega_gpu_session_set_platform(omega_gpu_platform_aien(&caps), &caps)
  * before the first session open. The hosted session still installs the Linux reference by default.
  * CUDAPP_AIEN_GPU_DEV names another device node (default /dev/aien-gpu).
+ *
+ * Migration-pending C: the definition exists only when built with CUDAPP_MIGRATION_PENDING_AIEN_GPU=1 (OFF in
+ * libomega_gpu.a; ON for the host test and its mutants). Successor native/aiengpu/context.om, aien-dev/CUDApp#128,
+ * blocked on the bridge extension aien-dev/omega-bridge#29.
  */
 #ifndef OMEGA_GPU_PLATFORM_AIEN_H
 #define OMEGA_GPU_PLATFORM_AIEN_H
