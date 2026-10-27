@@ -139,7 +139,9 @@ make hello-gpu
   `docs/LICENSE_PROVENANCE.md`, `docs/LICENSING_TRANSITION.md`.
 - AGENTS.md: no NVIDIA binary, cubin, PTX, firmware or NVIDIA tool listing goes in the repository.
 - Omega builds the same sources at a pinned commit (`cudapp.lock` in omega-mv).
-- No network access at build or test time is documented. No GitHub Actions workflow files.
+- No network access at build or test time is documented. At the described revision the repository
+  had no GitHub Actions workflow files; the audit-readiness change adds `.github/workflows/ci.yml`
+  (item 10 above), whose only network use is fetching the pinned actions on the runner.
 
 ## Evidence
 

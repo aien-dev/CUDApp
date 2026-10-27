@@ -21,7 +21,16 @@ jobs:
       - name: Toolchain record
         run: gcc --version | head -n 1 && make --version | head -n 1
       - name: Host-only tests
-        run: make test > "$RUNNER_TEMP/make-test.log" 2>&1; rc=$?; tail -n 20 "$RUNNER_TEMP/make-test.log"; exit $rc
+        # The runner's bash uses -e -o pipefail, so make's status is captured with `||`.
+        run: |
+          rc=0; make test > "$RUNNER_TEMP/make-test.log" 2>&1 || rc=$?
+          tail -n 20 "$RUNNER_TEMP/make-test.log"
+          [ "$rc" -eq 0 ] || exit "$rc"
+          last=$(tail -n 1 "$RUNNER_TEMP/make-test.log")
+          case $last in
+            "CUDA++ HOST TESTS PASS ("*" targets)") ;;
+            *) echo "make test exited 0 without the final CUDA++ HOST TESTS PASS line"; exit 1 ;;
+          esac
   sbom:
     runs-on: ubuntu-latest
     timeout-minutes: 10
