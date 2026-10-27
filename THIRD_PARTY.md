@@ -39,6 +39,18 @@ each file):
     permission notice shall be included in all copies or substantial portions of the Software.
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 
+## 3. Other open sm_12x work
+
+These projects map the same instruction set or the same driver interface in the open. Apart from the
+Mesa facts and latency values in section 2, no code or data from them is in CUDA++; they're listed so
+readers can find and compare them. Cross-checking CUDA++ against them is PROPOSED.
+
+    Mesa NAK SM120 encoder        gitlab.freedesktop.org/mesa/mesa (src/nouveau/compiler)   MIT
+    cubit                         github.com/kacper-daftcode/cubit                          MIT
+    blackwell-isa                 github.com/kacper-daftcode/blackwell-isa                  MIT
+    nvidia-sass-document          github.com/cicuvc/nvidia-sass-document                    no licence shown
+    tinygrad NV backend           github.com/tinygrad/tinygrad (tinygrad/runtime/ops_nv.py) MIT
+
 ## Public-source quotations
 
 `docs/PAIN_POINTS.md` contains attributed quotations from the public sources listed there. They remain third-party text; the repository license does not relicense them.

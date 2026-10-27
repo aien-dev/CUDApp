@@ -205,7 +205,7 @@ Each row has a done-when anyone can run. A row is DONE only with a receipt on a 
 | D13 | Our own disassembler, plain text a person can read | Disassembler agrees with nvdisasm on every library kernel; nothing calls nvdisasm | PLANNED (L386, Omega bar C6) |
 | D14 | Recover from a fault without restarting | A kernel that faults or never ends is stopped and the same process keeps working | PLANNED (L386, Omega bar C5) |
 
-The swap story, replacing a developer's CUDA libraries and NVIDIA's kernel module with CUDA++'s, is ledger item L401. NVIDIA's kernel driver itself is being replaced by AIEN's own (L332, `ROADMAP.md`).
+The swap story, replacing a developer's CUDA libraries with CUDA++'s, is ledger item L401. NVIDIA's open kernel module stays; GB10 support goes upstream to Nova and nouveau, and Aien's own driver branch (L332, `ROADMAP.md`) is a research harness only.
 
 ## 4. Where CUDA is better today
 

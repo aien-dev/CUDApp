@@ -4,7 +4,7 @@
 
 # CUDA++ for the NVIDIA DGX Spark
 
-**CUDA++ for the NVIDIA DGX Spark (GB10, sm_121). It is the GPU half of the Omega runtime. First-party CUDA++ material in this revision is licensed under Apache-2.0 WITH LLVM-exception.** You write a GPU program, CUDA++ turns it into the GB10's own machine code and runs it on the Spark's GPU with no CUDA user-space software at build or run time: no CUDA toolkit, no `nvcc`, no PTX, no `libcuda`, no cuBLAS. NVIDIA's compiler and disassembler were used offline as references while the encoding was worked out ([how I did it](#how-i-did-it)).
+**CUDA++ for the NVIDIA DGX Spark (GB10, sm_121). It is the GPU half of the Omega runtime. First-party CUDA++ material in this revision is licensed under Apache-2.0 WITH LLVM-exception.** You write a GPU program, CUDA++ turns it into the GB10's own machine code and runs it on the Spark's GPU with no CUDA user-space software at build or run time: no CUDA toolkit, no `nvcc`, no PTX, no `libcuda`, no cuBLAS. NVIDIA's compiler and disassembler were used offline as references while the encoding was worked out ([how I did it](#how-i-did-it)). NVIDIA's open kernel module (580.173.02) and the GPU's signed GSP firmware are still in the path. It's a research-stage toolchain and runtime, not a drop-in replacement for all of CUDA.
 
 > **Who this is for, and what hardware**
 >
@@ -19,11 +19,11 @@
 
 It runs on the NVIDIA GB10 (the DGX Spark, compute capability sm_121) today. On 2026-10-21 the model Aien serves on the Spark, Qwen3.6-35B-A3B (a mixture-of-experts model with about 3B parameters active per token), was served by the C GPU stack this repository was extracted from (the live build used the Omega repository's copy of these sources). The live server had only the C library, the maths library, `libgcc_s` and the loader mapped, and zero CUDA libraries (receipt in Omega: `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`). That stack is C, not code written in the Omega language: Omega kernels reaching the GPU is Omega bar C1, still BUILDING.
 
-CUDA++ keeps growing until every NVIDIA part on the Spark is replaced, and then does things CUDA does not:
+CUDA++ keeps growing to cover the jobs of NVIDIA's user-space software on the Spark, and then do things CUDA does not:
 
-- my own GPU driver replaces NVIDIA's kernel modules `nvidia.ko` and `nvidia-uvm.ko` (AIEN work item L332);
+- NVIDIA's open kernel modules `nvidia.ko` and `nvidia-uvm.ko` stay. GB10 support belongs in the upstream Linux drivers Nova and nouveau, not in a third driver; Aien's own driver branch (L332, aienux#441) is a research harness, not a product;
 - my own disassembler replaces `nvdisasm`;
-- only the GSP firmware stays NVIDIA's, for a physical reason: the GPU checks its signature and boots nothing else;
+- the GSP firmware stays NVIDIA's too, for a physical reason: the GPU checks its signature and boots nothing else;
 - beyond CUDA: owning the whole path from program to chip, so one submission per generated word, whole-model kernels that stay resident on the GPU, and zero-copy use of the memory the CPU and GPU share.
 
 CUDA++ is not affiliated with or endorsed by NVIDIA; CUDA is NVIDIA's trademark.
@@ -34,9 +34,9 @@ CUDA++ is not affiliated with or endorsed by NVIDIA; CUDA is NVIDIA's trademark.
 
 ## The stack
 
-<p align="center"><img src="docs/img/stack.svg" width="100%" alt="CUDA and CUDA++ layer by layer. The compiler, maths libraries, runtime and driver library of CUDA are closed and are replaced by CUDA++ code. NVIDIA's open kernel module is still used for now; the signed GSP firmware stays."></p>
+<p align="center"><img src="docs/img/stack.svg" width="100%" alt="CUDA and CUDA++ layer by layer. The compiler, maths libraries, runtime and driver library of CUDA are closed and CUDA++ has its own code for their jobs. NVIDIA's open kernel module stays; the signed GSP firmware stays."></p>
 
-Between a CUDA program and the GPU sit four closed NVIDIA layers: the compiler, the maths libraries, the runtime and the driver library. CUDA++ replaces all four with its own code. Under them are NVIDIA's kernel module, whose source NVIDIA publishes, and the firmware inside the GPU. CUDA++ talks to the kernel module directly; AIEN's own driver for the GB10 is being built to replace it.
+Between a CUDA program and the GPU sit four closed NVIDIA layers: the compiler, the maths libraries, the runtime and the driver library. CUDA++ does their jobs with its own code, at research stage. Under them are NVIDIA's kernel module, whose source NVIDIA publishes, and the firmware inside the GPU. CUDA++ talks to the kernel module directly, and it stays; GB10 support goes upstream to Nova and nouveau.
 
 ## How I did it
 
@@ -47,6 +47,8 @@ I built it alone on one DGX Spark in under four weeks, directing AI coding agent
 1. **No libcuda.** I wrote my own client for the open kernel module's ioctls, from its MIT headers: client, device, address space, memory, command ring, compute object, doorbell, completion. [The driver, part by part](#the-driver-part-by-part) shows every piece.
 2. **No nvcc, no PTX.** The GPU's machine code is undocumented, so I reverse engineered it: compiled small probe kernels of my own once with NVIDIA's compiler, read the machine code back with NVIDIA's disassembler, compared kernels that differ in one detail to find which bits mean what, cross-checked against Mesa's open NVIDIA compiler, and believed nothing until the chip ran it and gave the right answer. Arithmetic the documents do not pin down (the tensor cores) was measured on the chip until a model matched every output bit.
 3. **My own encoder, runtime and libraries** on top: 59 instruction kinds, a register allocator, launch descriptors, command lists, matrix multiply, attention.
+
+I'm not the only one mapping this instruction set in the open, and I credit the others: Mesa's NAK compiler has an SM120 encoder tested against `nvdisasm`; [cubit](https://github.com/kacper-daftcode/cubit) is an MIT assembler and disassembler for SM120 and SM121a; [blackwell-isa](https://github.com/kacper-daftcode/blackwell-isa) publishes an sm121a encoding table; [nvidia-sass-document](https://github.com/cicuvc/nvidia-sass-document) documents SASS encodings; tinygrad's NV backend talks to the same open kernel module interface. Cross-checking CUDA++ against them is PROPOSED.
 
 <p align="center"><img src="docs/img/reverse-engineering.svg" width="100%" alt="The method in eight steps. Learn: my own probe kernel, nvcc once offline, read the bytes back, change one detail. Prove: field hypothesis, my encoder writes it, the GB10 runs it, golden words in the tests. A wrong answer goes back to the hypothesis."></p>
 
@@ -89,7 +91,7 @@ What the headers do not say, I learned on the chip and wrote down as rules, each
 - **Blackwell's control page reports no read pointer.** The client counts completed ring entries itself and never overruns entries that have not been seen to finish.
 - **Creating the compute object needs one free, physically contiguous 2 MiB block** for its context buffer. On a busy host it is briefly missing, so that one allocation is retried, bounded (omega#523).
 
-Under the client: NVIDIA's open kernel module (`nvidia.ko`, `nvidia-uvm.ko`) and the GSP firmware inside the GPU. AIEN's own GB10 driver (L332) is being built to replace the two modules; the firmware stays NVIDIA's because the chip checks its signature. Every object and call in order, with line references: [docs/DRIVER.md](docs/DRIVER.md).
+Under the client: NVIDIA's open kernel module (`nvidia.ko`, `nvidia-uvm.ko`) and the GSP firmware inside the GPU. Both stay: GB10 support goes upstream to Nova and nouveau, Aien's own driver branch (L332) is a research harness only, and the firmware is NVIDIA's because the chip checks its signature. Every object and call in order, with line references: [docs/DRIVER.md](docs/DRIVER.md).
 
 ## One launch, start to finish
 
@@ -114,7 +116,7 @@ The CPU does five things, all of them plain memory writes except the last, which
 | cuobjdump, nvdisasm | Read machine code back | My own sm_121 disassembler | BUILDING: on Omega branch `c6/disasm` (19eebe0e) it agrees with `nvdisasm` on 331 kernels; not in CUDA++ yet. Some host tests here still call `nvdisasm` as a cross-check when it is installed |
 | Nsight | Measure | Ceiling probes: 115.14 TFLOPS tensor-core peak, 195.1 GB/s reads (`evidence/OWN30B-T3-TC-PEAK-BW-5faa0f70-20261013T2236Z/`) | PARTIAL: probes, no single tool |
 | CUDA samples, docs | Your first kernel | `examples/hello_gpu`, `docs/runtime/` | PARTIAL: one example |
-| `nvidia.ko`, `nvidia-uvm.ko` | Kernel driver | AIEN's own GB10 driver (L332), being built | BUILDING |
+| `nvidia.ko`, `nvidia-uvm.ko` | Kernel driver | stays NVIDIA's open kernel module; GB10 support goes upstream to Nova and nouveau (L332 is a research harness) | stays |
 | GSP firmware | Runs inside the GPU | stays NVIDIA's (signature-checked by the chip) | not replaceable |
 
 PASS means a receipt exists on a named commit. Status words come from Omega's `docs/OMEGA.md`, section 2. `ROADMAP.md` lists every NVIDIA piece on the Spark with its receipt, and the bars CUDA++ must pass before it says "replaces CUDA".
@@ -397,7 +399,7 @@ gates were NOT_RUN for this repair.
 Ownership rule ([ARCH-0042](https://github.com/aien-dev/aien-architecture-mv/pull/342), PROPOSED): Omega owns computation, CUDA++ owns GPU execution, Omega Bridge owns compatibility.
 
 - **CUDA++ (this repository)** owns GPU execution: the sm_121 encoder and GPU code generators, the cubin writer and artifact exporter, artifact admission, the disassembler, the driver client (`nvrm/`), submission, sessions and the GPU runtime.
-- **[Omega](https://github.com/aien-dev/omega-mv)** owns AIEN's seeded `.om` language, its compiler and the compiler pin, semantics, and the declared contract of what a kernel computes. The existing Omegese → IR → sm_121 lowering, its checker and host words stay in omega-mv. CUDA++ is the GPU execution component Omega consumes.
+- **[Omega](https://github.com/aien-dev/omega-mv)** owns Aien's seeded `.om` language, its compiler and the compiler pin, semantics, and the declared contract of what a kernel computes. The existing Omegese → IR → sm_121 lowering, its checker and host words stay in omega-mv. CUDA++ is the GPU execution component Omega consumes.
 - **[Omega Bridge](https://github.com/aien-dev/omega-bridge)** owns compatibility: C and Python emitted from a checked Omega subset, native bindings for foreign callers, framework attachments (PyTorch, llama.cpp/GGML; planned) and GPU artifact negotiation (`gpu_adapter.om`). Bridge runs no kernels itself: its GPU adapter only accepts or refuses an attachment request and opens no device. Execution goes through this repository.
 
 The currently shipped CUDApp implementation still contains first-party C; the planned, test-gated replacement with native `.om` is tracked in [#79](https://github.com/aien-dev/CUDApp/issues/79). The code was split out of Omega on 2026-10-21 with its full history; `docs/AUDIT.md` records how, and what was checked before it was published.
