@@ -319,7 +319,8 @@ static void chip_tier(unsigned max_log2) {
     before = g_failed;
     for (unsigned k = 11; k <= max_log2 && k <= 28; k++) {
         size_t p = (size_t)1 << k;
-        chip_one(p - 1, 1, 0);
+        chip_one(p - 1, 1, k >= 20);
+        chip_one(p, 1, k >= 20); /* finite inputs at exactly 2^k: every result word compared bit for bit, no NaN latitude */
         chip_one(p, 2, k >= 20);
         if (p + 1 <= cap) chip_one(p + 1, 1, 0);
     }
@@ -347,8 +348,9 @@ static void chip_tier(unsigned max_log2) {
             omega_gpu_prefix_sum_reference(g_x, n, g_ref);
             caught = omega_gpu_prefix_sum(g_x, n, g_y, NULL) != 0 || diff(g_y, g_ref, n, &first) != 0;
         }
-        snprintf(w, sizeof w, "chip red check: mutant %d is caught", mut);
+        snprintf(w, sizeof w, "chip red check: scan mutant %d is caught", mut);
         check(caught, w);
+        if (caught) printf("%s\n", w);
     }
     omega_gpu_scan_test_set_mutant(0);
     fill(g_x, 1000, 1, 4242);
