@@ -20,7 +20,8 @@
 # --self-test runs two negative controls that must both come out red, then the real check:
 #   1. baseline control: the baseline blob of one cutover-time `differs` path is replaced; the gate must name it.
 #   2. edit control: in a scratch clone of OMEGA_DIR a commit appends one line to a GPU source whose Omega blob
-#      is still the baseline one (preferring one `same` in both repos); the gate must name exactly that file.
+#      is still the baseline one (preferring one `same` in both repos); the gate must name that file (other DRIFT
+#      lines, from real drift at OMEGA_REF, may appear too; the real check below fails on those).
 # A gate that stays green under either control is broken and the self-test exits 1.
 set -euo pipefail
 export LC_ALL=C
