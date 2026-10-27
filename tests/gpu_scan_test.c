@@ -319,7 +319,8 @@ static void chip_tier(unsigned max_log2) {
     before = g_failed;
     for (unsigned k = 11; k <= max_log2 && k <= 28; k++) {
         size_t p = (size_t)1 << k;
-        chip_one(p - 1, 1, 0);
+        chip_one(p - 1, 1, k >= 20);
+        chip_one(p, 1, k >= 20); /* finite inputs at exactly 2^k: every result word compared bit for bit, no NaN latitude */
         chip_one(p, 2, k >= 20);
         if (p + 1 <= cap) chip_one(p + 1, 1, 0);
     }
