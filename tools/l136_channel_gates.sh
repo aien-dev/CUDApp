@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # L136 correctness gates on the chip (GB10 lock only). $1 = evidence dir (absolute).
 E=$1; N=$HOME/workspace/omega-gpu-channels/build; B=$HOME/workspace/omega-gpu-channels-base/build
 cd $HOME/workspace/omega-gpu-channels || exit 1

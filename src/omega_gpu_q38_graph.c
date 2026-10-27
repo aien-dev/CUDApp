@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * omega_gpu_q38_graph.c: one Qwen3.8-27B decode token as one command list (see the header). Records the FP8 / bf16 GEMV,
  * GDN and hd256 attention APIs' *_record launches and the omega_blackwell_codegen_dec glue kernels at width 5120 into an

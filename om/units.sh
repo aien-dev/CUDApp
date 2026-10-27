@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Regenerate the C binding of every Omega unit linked into the hosted CUDA++ build (UNITS below), or
 # with --check confirm the committed files are exactly what the pinned tools produce (exit 1 on any
 # difference, 3 NOT_RUN without the tools). Same pattern and pins as aien-dev/omega-mv om/units.sh.

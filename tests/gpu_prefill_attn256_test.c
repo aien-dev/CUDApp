@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * gpu_prefill_attn256_test: the head_dim 256 causal prefill attention for Qwen3.8-27B (omega-mv#545,
  * omega_gpu_prefill_attn256_api.h), on the decode attention's cache (omega_gpu_decode_attn256_api.h).

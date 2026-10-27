@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * bw_encode_control_test: every opcode the encoder accepts must carry the control word the emitter scheduled
  * (BlackwellIRInsn.control: stall, yield, write / read scoreboards, wait mask) into the instruction's top word

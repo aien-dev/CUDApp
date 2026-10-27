@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * gpu_decode_attn256_test: the one-launch decode attention for Qwen3.8-27B (omega-mv#544, omega_gpu_decode_attn256_api.h).
  *   --host-only   host pieces: RoPE rows (partial: pairs >= rotary_dim/2 are identity), the permutation (bijection, and

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * omega_blackwell_codegen_gdn.c: the one-launch Gated DeltaNet decode step (see the header). Emitter rules follow
  * omega_blackwell_codegen_router.c (control words, read barrier on every load) and the held-scoreboard prefetch of
