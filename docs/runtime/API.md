@@ -1,6 +1,6 @@
 # Omega Runtime API v0
 
-Omega Runtime API version: 0.4.0
+Omega Runtime API version: 0.5.0
 
 Status: first written version, 2026-10-19 (slice R1, omega-mv#594, tracking #593). Source of truth is the C headers in
 `src/`. This file describes them; `docs/runtime/omega_runtime_api.manifest` lists them; `make test-runtime-api` checks the
@@ -36,8 +36,13 @@ signature against the headers on every run.
 
 ## 2. Version and compatibility rule
 
-The version is MAJOR.MINOR.PATCH (semantic versioning), currently **0.4.0**. It is a property of the list of entries and
+The version is MAJOR.MINOR.PATCH (semantic versioning), currently **0.5.0**. It is a property of the list of entries and
 their behaviour, not of the library build. Changes so far:
+- 0.5.0: adds EXPERIMENTAL `omega_gpu_cmdlist_submit_pair`, `omega_gpu_cmdlist_wait_for`,
+  `OmegaGpuCmdListOpts.first_barrier_none`, `omega_gpu_session_extra_queue` (streams, C4) and `omega_gpu_session_recover`,
+  `omega_gpu_session_recoveries` (recovery after a latch, C5), carried from omega-mv e5b32567 by CUDApp#121; two
+  module-to-session hooks go on the INTERNAL list (section 10). Also adds EXPERIMENTAL `omega_gpu_fp8_grouped_ctas_rule`
+  and `omega_gpu_fp8_grouped_ctas_auto` (section 9.7) and INTERNAL `OMEGA_GPU_SM_COUNT`.
 - 0.4.0: `OMEGA_GPU_HANDLE_SLOTS` 1024 -> 4096 and `OMEGA_GPU_CMDLIST_MAX_LAUNCHES` 2048 -> 4096 (STABLE constants), and
   so `OmegaGpuHandleTable` (EXPERIMENTAL) grows to 69648 bytes: the values the live server (omega-mv 6de999da, carried by
   CUDApp#120) was built with. A MAJOR-class change, taken as MINOR under the major-version-zero rule below. Also adds the
@@ -47,11 +52,11 @@ their behaviour, not of the library build. Changes so far:
 - 0.2.0: adds `OMEGA_RUNTIME_API_VERSION_PATCH`, lists `OMEGA_RUNTIME_API_VERSION` in the manifest and the INTERNAL list
   (section 10); no entry changed.
 
-**A PATCH bump (0.4.0 to 0.4.1) is for:**
+**A PATCH bump (0.5.0 to 0.5.1) is for:**
 - a fix that changes no manifest entry: a STABLE function that did not do what this file says now does (the fix makes it
   match), or a correction to this file's prose.
 
-**A MINOR bump (0.4 to 0.5) is allowed to:**
+**A MINOR bump (0.5 to 0.6) is allowed to:**
 - add a function, a constant, an enum value at the end of an existing enum, or a new struct;
 - add an EXPERIMENTAL entry, change or remove an EXPERIMENTAL entry, or move an entry from EXPERIMENTAL to STABLE;
 - add a new failure name for the same call to report (callers must treat an unknown failure code or stage text as a failure).
@@ -66,7 +71,7 @@ their behaviour, not of the library build. Changes so far:
 - raise the platform contract's major number (section 9.2).
 
 **Major version zero** (semantic versioning 2.0.0, item 4: "anything MAY change at any time"): while MAJOR is 0, a change
-from the MAJOR list above needs a MINOR bump (0.4 to 0.5) plus its line in the change list above and in the manifest;
+from the MAJOR list above needs a MINOR bump (0.5 to 0.6) plus its line in the change list above and in the manifest;
 MAJOR is reserved for the first break after 1.0. It still never goes unbumped: a STABLE change with no bump fails the
 check. STABLE in 0.x means "written down and checked", not "frozen". The first 1.0 will be cut only when section 8 (what
 v0 does not have) has been looked at again.
@@ -119,11 +124,12 @@ Loading a kernel is `omega_gpu_session_alloc_code` (section 5) plus a CPU copy o
 names `code.va`. The project's own kernels come from its encoder (`src/omega_blackwell_*`, INTERNAL), and
 `examples/hello_gpu` shows the whole path. A loader that reads a packaged module is section 8 work.
 
-**Streams and events.** Not in 0.4.0. Today the ordering primitive is the command list above: launches in one list run in
-order behind barriers, and `omega_gpu_session_launch` returns only when the chip has finished. The first stream and event
-entries (`omega_gpu_cmdlist_submit_pair`, `omega_gpu_cmdlist_wait_for`, `OmegaGpuCmdListOpts.first_barrier_none`,
-`omega_gpu_session_extra_queue`, behind `AIEN_OMEGA_GPU_CHANNELS=2`) are pending in CUDApp#113 as EXPERIMENTAL; they enter
-the manifest with a MINOR bump when it lands, and their `.om` successor is tracked in CUDApp#115.
+**Streams and events.** EXPERIMENTAL since 0.5.0, and only on command lists: `omega_gpu_session_extra_queue` opens a
+second queue (behind `AIEN_OMEGA_GPU_CHANNELS=2`), `omega_gpu_cmdlist_submit_pair` submits two lists on two queues before
+waiting for either, `omega_gpu_cmdlist_wait_for` makes one list wait for a launch of the other, and
+`OmegaGpuCmdListOpts.first_barrier_none` drops the leading barrier. There is no stream or event object, and
+`omega_gpu_session_launch` still returns only when the chip has finished. Chip qualification is CUDApp#113; the `.om`
+successor is tracked in CUDApp#115.
 
 **Job engine.** `omega_gpu_execute` runs one already-built job (today only a 1-D vector job: two inputs, one output) through
 named states and returns success or exactly one named failure. EXPERIMENTAL.
@@ -359,7 +365,7 @@ R2 (`examples/hello_gpu`, README "Run your first kernel").
 | `grid_x`, `grid_y` | grid size |
 | `num_elements` | QMD config num_elements (kept per API for identical words) |
 | `args`, `n_args` | `n_args` words written at constant bank + 0x380; `n_args` at most `OMEGA_GPU_SESSION_MAX_ARGS` (32) |
-| `timeout_ms` | completion poll limit, applied to each of the launch's two markers in turn (so a launch can wait up to twice this); past it the completion is uncertain and **the process latches**. Must not be 0: 0 runs out at once and latches |
+| `timeout_ms` | completion poll limit, applied to each of the launch's two markers in turn (so a launch can wait up to twice this); past it the completion is uncertain and **the process latches**. 0 is refused with "launch arguments" before anything is written or submitted |
 | `shared_bytes` | shared memory per block; 0 = the default (1024) |
 | `spin_us` | spin-poll window before the platform's sleep-poll; 0 = the process-wide setting |
 
@@ -407,9 +413,10 @@ int omega_gpu_session_is_parked(OmegaGpuBufferHandle h);
 
 Each line is a gap named in `docs/runtime/ROADMAP.md` section 1 (on branch `runtime/roadmap`, not yet merged); none of it is in the manifest.
 - A device query (name, SM count, memory): there is no API call for it.
-- More than one device or channel in a process; sharing the GPU between processes (a second channel failed under load: omega-mv#523).
-- Recovery after a latch (omega-mv#518): a single timeout ends GPU use for the whole process.
-- Async copy, streams, events, host callbacks (CUDApp#113 is adding two-queue submission and cross-queue waits on command lists, EXPERIMENTAL; not in 0.4.0).
+- More than one device in a process (a second channel in the same group is `omega_gpu_session_extra_queue`, EXPERIMENTAL); sharing the GPU between processes (a second channel failed under load: omega-mv#523).
+- Recovery after a latch beyond `omega_gpu_session_recover` (EXPERIMENTAL since 0.5.0: throw the device away and open a
+  new one in the same process; a driver teardown fault still ends GPU use for the process).
+- Async copy, stream and event objects, host callbacks (0.5.0 has only two-queue submission and cross-queue waits on command lists, EXPERIMENTAL).
 - Cached read-write buffers; unified memory.
 - Launches with more than the 32 argument words, or an asynchronous single launch.
 - A second real backend (WSL2 `/dev/dxg` is on branch `rig/gb20x`; native AIENOS is planned), so the platform contract has only been exercised by one.
@@ -427,6 +434,8 @@ checked there. The reason is why each is not STABLE yet.
 | `omega_gpu_session_alloc_cached` | GPU-cached memory is correct only for write-once, never-polled, GPU-read-only weights; the API cannot enforce that (the caller must). |
 | `omega_gpu_session_scratch_reserve`, `omega_gpu_session_scratch_unreserve` | Serving-daemon feature (no driver call after warm-up); one user. |
 | `omega_gpu_session_cancel` | A cancel after submit cannot stop the chip: it latches the process. Semantics may tighten when recovery (#518) lands. |
+| `omega_gpu_session_extra_queue` | A second GPFIFO channel in the same group, only with `AIEN_OMEGA_GPU_CHANNELS` > 1 at open; one backend, chip qualification in CUDApp#113. |
+| `omega_gpu_session_recover`, `omega_gpu_session_recoveries` | Recovery after a latch (omega-mv#518, C5): closes and reopens the device in-process; every old handle and list goes stale. Chip qualification in CUDApp#119. |
 | `omega_gpu_session_set_platform`, `omega_gpu_session_platform`, `omega_gpu_session_submit_prefix_words`, `omega_gpu_session_completion_mode`, `omega_gpu_session_now_ns` | Tied to the platform contract, which has one real backend. |
 | `omega_gpu_host_alloc`, `omega_gpu_host_calloc`, `omega_gpu_host_free` | CPU-only memory from the platform HOST_MEM service; the freestanding build needs them, hosted code can use malloc. |
 | `OmegaGpuSession` | The session's own launch buffers; a caller needs none of its fields. |
@@ -448,8 +457,9 @@ GPU-uncached; polling a word is never claimed as interrupt support; a missing se
 
 Types: `OmegaGpuCmdListOpts`, `OmegaGpuCmdListStats`, the opaque `OmegaGpuCmdList`. Functions: `omega_gpu_cmdlist_create`
 (takes the lock itself), `omega_gpu_cmdlist_free`, `omega_gpu_cmdlist_reset`, `omega_gpu_cmdlist_count`,
-`omega_gpu_cmdlist_add`, `omega_gpu_cmdlist_mark_independent`, `omega_gpu_cmdlist_submit`, `omega_gpu_cmdlist_is_latched`,
-`omega_gpu_cmdlist_stamps`, `omega_gpu_cmdlist_barrier_name`. Up to `OMEGA_GPU_CMDLIST_MAX_LAUNCHES` (4096) launches per list.
+`omega_gpu_cmdlist_add`, `omega_gpu_cmdlist_mark_independent`, `omega_gpu_cmdlist_submit`, `omega_gpu_cmdlist_submit_pair`,
+`omega_gpu_cmdlist_wait_for`, `omega_gpu_cmdlist_is_latched`, `omega_gpu_cmdlist_stamps`, `omega_gpu_cmdlist_barrier_name`.
+Up to `OMEGA_GPU_CMDLIST_MAX_LAUNCHES` (4096) launches per list.
 
 Reason: omega-mv#580 is building pipelined and dependency-ordered execution on this module, so the options, statistics
 and barrier modes will grow. The measured extra cost of each launch in a list is about 30 us with a wait-for-idle barrier
@@ -534,7 +544,7 @@ values, poison patterns) are in the INTERNAL list.
 
 | Header | Entries | Reason it is EXPERIMENTAL |
 | --- | --- | --- |
-| `src/omega_gpu_fp8_api.h` | `OmegaGpuFp8Info`, `omega_gpu_fp8_tensor_upload`, `omega_gpu_fp8_tensor_free`, `omega_gpu_fp8_tensor_shape`, `omega_gpu_fp8_gemv_f32`, `omega_gpu_fp8_gemv_bf16`, `omega_gpu_fp8_gemv_grouped_f32`, `omega_gpu_fp8_gemv_grouped_dev`, `omega_gpu_fp8_gemv_grouped_record`, `omega_gpu_fp8_tensor_entry`, `omega_gpu_fp8_prepare`, `omega_gpu_fp8_seal`, `omega_gpu_fp8_rc_name`, `omega_gpu_fp8_last_error`, `omega_gpu_fp8_cache_clear`, `omega_gpu_fp8_set_shape`, `omega_gpu_fp8_set_depth`, `omega_gpu_fp8_set_cta_budget`, `omega_gpu_fp8_set_weight_cache`, `omega_gpu_fp8_set_variant`, `omega_gpu_fp8_variant`, `omega_gpu_fp8_weight_cache`, `omega_gpu_fp8_set_gpr_pad`, `omega_gpu_fp8_shape_for`, `omega_gpu_fp8_set_bigk`, `omega_gpu_fp8_bigk`, `omega_gpu_fp8_set_coal`, `omega_gpu_fp8_coal`, `omega_gpu_fp8_set_deep`, `omega_gpu_fp8_deep`, `omega_gpu_fp8_set_sched`, `omega_gpu_fp8_sched`, `omega_gpu_fp8_set_wfirst`, `omega_gpu_fp8_wfirst`, `omega_gpu_fp8_quantize_bf16`, `omega_gpu_fp8_e4m3_rne` | FP8 e4m3 block-scaled GEMV for the OWN-30B lane (Qwen3-30B-A3B): decode GEMV and grouped experts; depth and weight-cache knobs are tuned on one chip. |
+| `src/omega_gpu_fp8_api.h` | `OmegaGpuFp8Info`, `omega_gpu_fp8_tensor_upload`, `omega_gpu_fp8_tensor_free`, `omega_gpu_fp8_tensor_shape`, `omega_gpu_fp8_gemv_f32`, `omega_gpu_fp8_gemv_bf16`, `omega_gpu_fp8_gemv_grouped_f32`, `omega_gpu_fp8_gemv_grouped_dev`, `omega_gpu_fp8_gemv_grouped_record`, `omega_gpu_fp8_tensor_entry`, `omega_gpu_fp8_prepare`, `omega_gpu_fp8_seal`, `omega_gpu_fp8_rc_name`, `omega_gpu_fp8_last_error`, `omega_gpu_fp8_cache_clear`, `omega_gpu_fp8_set_shape`, `omega_gpu_fp8_set_depth`, `omega_gpu_fp8_set_cta_budget`, `omega_gpu_fp8_set_weight_cache`, `omega_gpu_fp8_set_variant`, `omega_gpu_fp8_variant`, `omega_gpu_fp8_weight_cache`, `omega_gpu_fp8_set_gpr_pad`, `omega_gpu_fp8_shape_for`, `omega_gpu_fp8_set_bigk`, `omega_gpu_fp8_bigk`, `omega_gpu_fp8_set_coal`, `omega_gpu_fp8_coal`, `omega_gpu_fp8_set_deep`, `omega_gpu_fp8_deep`, `omega_gpu_fp8_set_sched`, `omega_gpu_fp8_sched`, `omega_gpu_fp8_set_wfirst`, `omega_gpu_fp8_wfirst`, `omega_gpu_fp8_quantize_bf16`, `omega_gpu_fp8_e4m3_rne`, `omega_gpu_fp8_grouped_ctas_rule`, `omega_gpu_fp8_grouped_ctas_auto` | FP8 e4m3 block-scaled GEMV for the OWN-30B lane (Qwen3-30B-A3B): decode GEMV and grouped experts; depth and weight-cache knobs are tuned on one chip. |
 | `src/omega_gpu_fp8gemm_api.h` | `OmegaGpuFp8GemmInfo`, `omega_gpu_fp8gemm_f32`, `omega_gpu_fp8gemm_bf16`, `omega_gpu_fp8gemm_prepare`, `omega_gpu_fp8gemm_rc_name`, `omega_gpu_fp8gemm_last_error`, `omega_gpu_fp8gemm_cache_clear`, `omega_gpu_fp8gemm_shape_for`, `omega_gpu_fp8gemm_set_shape`, `omega_gpu_fp8gemm_set_cta_budget`, `omega_gpu_fp8gemm_prepare_shape`, `omega_gpu_fp8gemm_cta_budget_for`, `omega_gpu_fp8gemm_record` | FP8 e4m3 grouped GEMM for OWN-30B prefill; one model's shapes. |
 | `src/omega_gpu_bf16_gemv_api.h` | `OmegaGpuBf16Info`, `omega_gpu_bf16_tensor_upload`, `omega_gpu_bf16_tensor_free`, `omega_gpu_bf16_tensor_shape`, `omega_gpu_bf16_gemv_f32`, `omega_gpu_bf16_gemv_bf16`, `omega_gpu_bf16_gemv_record`, `omega_gpu_bf16_prepare`, `omega_gpu_bf16_rc_name`, `omega_gpu_bf16_last_error`, `omega_gpu_bf16_cache_clear`, `omega_gpu_bf16_shape_for`, `omega_gpu_bf16_set_shape`, `omega_gpu_bf16_set_cta_budget`, `omega_gpu_bf16_gemv_mask_record`, `omega_gpu_bf16_gemv_rows_record`, `omega_gpu_bf16_gemv_xbatch_record`, `omega_gpu_bf16_prepare_mask`, `omega_gpu_bf16_prepare_xbatch` | bf16 streaming GEMV for the OWN-30B lm_head (vocab 151936 x hidden 2048); one shape. |
 | `src/omega_gpu_decode_attn_api.h` | `OmegaGpuDecodeAttnInfo`, `OmegaGpuDecodeAttnCacheView`, `omega_gpu_decode_attn_cache_alloc`, `omega_gpu_decode_attn_cache_free`, `omega_gpu_decode_attn_set_norms`, `omega_gpu_decode_attn`, `omega_gpu_decode_attn_record`, `omega_gpu_decode_attn_counters_check`, `omega_gpu_decode_attn_cache_write`, `omega_gpu_decode_attn_cache_read`, `omega_gpu_decode_attn_cache_view`, `omega_gpu_decode_attn_last_error`, `omega_gpu_decode_attn_rc_name`, `omega_gpu_decode_attn_set_depth`, `omega_gpu_decode_attn_set_per_split` | One-launch decode attention for Qwen3-30B-A3B with its own KV cache; the cache view hands out device addresses. |
@@ -550,7 +560,7 @@ values, poison patterns) are in the INTERNAL list.
 ## 10. INTERNAL (not part of the API)
 
 Not in the manifest; may change or vanish without notice. The complete list of such names in the manifest headers, each
-with its reason, is `docs/runtime/omega_runtime_api.internal` (177 names in 0.4.0: test hooks, kernel builders, encoder
+with its reason, is `docs/runtime/omega_runtime_api.internal` (180 names in 0.5.0: test hooks, kernel builders, encoder
 probes, serving-daemon internals and launch limits; the 25 serving internals and launch limits are marked "candidate
 EXPERIMENTAL", the ones a caller is most likely to want promoted). `make test-runtime-api` fails on a name in a manifest header that is in neither file. Notable ones:
 - `omega_gpu_session_set_error` (library code names its failure stage through it).

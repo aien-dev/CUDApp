@@ -1,0 +1,91 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Binary stdin cases: 8 header bytes (fmt, m, n, 0, k low, k high, 0, 0),
+note then A 4096 bytes, A scales 256, B 4096 bytes, B scales 256.
+note Binary stdout per case: C as m n little-endian binary64, row-major.
+note Clean EOF before a header exits 0; EOF inside a case exits 3.
+fn rdhdr h edit uchar 8 to long
+off = ulong 0
+while lt off 8 bound 9
+n = read 0 h off sub ulong 8 off
+if lt n 0
+ret -2
+end
+if eq n 0
+ret long off
+end
+off = add off ulong n
+end
+ret 8
+end
+fn rd4k x edit uchar 4096 to long
+off = ulong 0
+while lt off 4096 bound 4097
+n = read 0 x off sub ulong 4096 off
+if le n 0
+ret -3
+end
+off = add off ulong n
+end
+ret 0
+end
+fn rd256 x edit uchar 256 to long
+off = ulong 0
+while lt off 256 bound 257
+n = read 0 x off sub ulong 256 off
+if le n 0
+ret -3
+end
+off = add off ulong n
+end
+ret 0
+end
+fn wrc c view f64 256 mn ulong to long
+o = new uchar 2048 0
+for i ulong mn
+w = bitcast ulong get c i
+for j ulong 8
+sh = mul j 8
+put o add mul i 8 j uchar and shr w sh 255
+end
+end
+tot = mul mn 8
+off = ulong 0
+while lt off tot bound 2049
+n = write 1 o off sub tot off
+if le n 0
+ret -4
+end
+off = add off ulong n
+end
+ret 0
+end
+fn main to int
+h = new uchar 8 0
+a = new uchar 4096 0
+sa = new uchar 256 0
+b = new uchar 4096 0
+sb = new uchar 256 0
+c = new f64 256 0.0f64
+d = new ulong 4 0
+for cs ulong 1000000
+r = rdhdr edit h
+if eq r 0
+ret 0
+end
+if ne r 8
+ret 3
+end
+if ne add add rd4k edit a rd256 edit sa add rd4k edit b rd256 edit sb 0
+ret 3
+end
+put d 0 ulong get h 0
+put d 1 ulong get h 1
+put d 2 ulong get h 2
+put d 3 or ulong get h 4 shl ulong get h 5 8
+mxmm view a view sa view b view sb edit c view d
+if ne wrc view c mul get d 1 get d 2 0
+ret 4
+end
+end
+ret 5
+end
