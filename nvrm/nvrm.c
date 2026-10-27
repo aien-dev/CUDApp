@@ -806,7 +806,9 @@ failed:
 }
 
 /* GP entry per clc96f.h: ENTRY0 GET 31:2 (VA low, dword aligned), ENTRY1 GET_HI 7:0,
- * LEVEL 9:9 = MAIN, LENGTH 30:10 in dwords, SYNC 31:31 = PROCEED. */
+ * LEVEL 9:9, LENGTH 30:10 in dwords, SYNC 31:31 = PROCEED. Bit 41 is ENTRY1 bit 9 set, which
+ * clc96f.h names LEVEL_SUBROUTINE (MAIN is 0). The M16 chip receipts ran with this bit set, so it
+ * stays until a GPU window qualifies LEVEL_MAIN. */
 uint64_t nvrm_gp_entry(uint64_t va, uint32_t nwords) {
     return (va & ~3ull) | ((uint64_t)(nwords & 0x1fffff) << 42) | (1ull << 41);
 }
