@@ -168,14 +168,14 @@ def short_mn(mn):
 
 # ---- figure 1: hero ------------------------------------------------------------------
 def fig_hero(words):
-    s = Svg(1280, 680, "CUDA++: my own path from a program to an NVIDIA GPU",
-            "Title, three measured facts, and the 32 instructions of the first kernel CUDA++ ran, drawn bit by bit "
-            "from src/omega_blackwell_encoder.c.")
+    s = Svg(1280, 680, "CUDA++ for the NVIDIA DGX Spark (GB10, sm_121): my own path from a program to the GPU",
+            "Title, the supported hardware (the GB10 in the NVIDIA DGX Spark), three measured facts, and the 32 "
+            "instructions of the first kernel CUDA++ ran, drawn bit by bit from src/omega_blackwell_encoder.c.")
     s.frame()
     s.rect(0.5, 0.5, s.w - 1, s.h - 1, fill="url(#glow2)", rx=22)
-    s.kicker(64, 92, "aien-dev / CUDApp  ·  MIT  ·  NVIDIA GB10 (sm_121)")
+    s.kicker(64, 92, "NVIDIA DGX Spark  ·  GB10  ·  sm_121")
     s.text(58, 196, "CUDA++", size=104, weight=800, ls=-3)
-    s.lines(64, 250, ["My own path from a program to an NVIDIA GPU:",
+    s.lines(64, 250, ["For the NVIDIA DGX Spark (GB10, sm_121): my own",
                       "machine code, runtime, libraries and driver client.",
                       "No CUDA toolkit, no nvcc, no PTX, no libcuda."], size=22, fill=INK2, gap=32)
     facts = [("0", GREEN, "CUDA libraries loaded in the live", "35B model server (2026-10-21)"),
