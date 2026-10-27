@@ -81,6 +81,8 @@ fn omega_gpu_matmul_test_set_mutant # TEST ONLY: test hook (mutant, simulator, s
 fn omega_gpu_matmul_test_set_unroll # TEST ONLY: test hook (mutant, simulator, split or counter) for the library's own batteries
 fn omega_gpu_matmul_unreserve # serving-daemon internals; aien-sovereign-core does not bind it; candidate EXPERIMENTAL
 fn omega_gpu_reconv_probe_u32 # encoder probe kernel (MUFU.EX2, STS/BAR.SYNC/LDS, reconvergence) for chip checks
+fn omega_gpu_session_latch_uncertain # library code (a command list on an extra queue that timed out) latches the process through it
+fn omega_gpu_session_note_module_latch # the command-list module tells the session it latched itself, so omega_gpu_session_recover accepts it
 fn omega_gpu_session_on_close # lets a library drop its resident kernels before the session closes (up to 8 hooks)
 fn omega_gpu_session_set_error # library code names its failure stage through it
 fn omega_gpu_shared_xchg_u32 # encoder probe kernel (MUFU.EX2, STS/BAR.SYNC/LDS, reconvergence) for chip checks
