@@ -239,12 +239,12 @@ def fig_stack():
         ("closed", ("libcuda", "driver API, closed"),
          ("Driver client: nvrm + m16", "nvrm/nvrm.c, m16/: ioctls from the open headers")),
         ("open", ("nvidia.ko · nvidia-uvm.ko", "NVIDIA's open kernel module"),
-         ("nvidia.ko · nvidia-uvm.ko, for now", "AIEN's own GB10 driver is being built (L332)")),
+         ("nvidia.ko · nvidia-uvm.ko", "stays; GB10 support goes upstream to Nova, nouveau")),
         ("fw", ("GSP firmware", "runs inside the GPU, signed by NVIDIA"),
          ("GSP firmware", "stays NVIDIA's: the chip checks its signature")),
         ("hw", ("NVIDIA GB10 GPU", "DGX Spark, sm_121"), ("NVIDIA GB10 GPU", "DGX Spark, sm_121")),
     ]
-    marks = {"closed": ("replaced", GREEN), "open": ("next", VIOLET), "fw": ("stays", AMBER)}
+    marks = {"closed": ("replaced", GREEN), "open": ("stays", VIOLET), "fw": ("stays", AMBER)}
     y, rh, gap = 172, 72, 14
     for i, (kind, left, right) in enumerate(rows):
         if i == 5:
@@ -280,7 +280,7 @@ def fig_stack():
         y += rh + gap
     ly = y + 16
     for lab, col, x in (("closed, replaced by CUDA++", INK3, 48), ("first-party, Apache-2.0+LLVM", GREEN, 300),
-                        ("NVIDIA open source, replaced next", BLUE, 440), ("NVIDIA signed firmware, stays", AMBER, 740)):
+                        ("NVIDIA open source, stays", BLUE, 440), ("NVIDIA signed firmware, stays", AMBER, 740)):
         s.rect(x, ly - 11, 14, 14, stroke=col, fill="#0b1a17" if col == GREEN else CARD, rx=3, sw=1.5)
         s.text(x + 22, ly + 1, lab, size=14, fill=INK2)
     return s
@@ -564,8 +564,8 @@ def fig_driver():
     card(s, 48, by, 1104, 70, accent=INK3, fill=CARD2, dash="6 5")
     s.text(68, by + 30, "Below this line: NVIDIA's open kernel module (nvidia.ko, nvidia-uvm.ko) and the GSP "
                         "firmware inside the GPU.", size=15, fill=INK)
-    s.text(68, by + 53, "AIEN's own GB10 driver (L332) is being built to replace the two modules; the signed firmware "
-                        "stays NVIDIA's.", size=14, fill=INK2)
+    s.text(68, by + 53, "Both stay: GB10 support goes upstream to Nova and nouveau (L332 is a research harness); "
+                        "the signed firmware stays NVIDIA's.", size=14, fill=INK2)
     return s
 
 
@@ -672,8 +672,8 @@ def fig_status():
         ("cuobjdump · nvdisasm", "read machine code back", "my own sm_121 disassembler", "BUILDING", "Omega branch c6/disasm: 331 kernels agree"),
         ("Nsight", "measure", "ceiling probes", "PARTIAL", "115.14 TFLOPS, 195.1 GB/s"),
         ("cuFFT · cuRAND", "FFT, random numbers", "none yet", "MISSING", ""),
-        ("nvidia.ko", "kernel driver", "AIEN's own GB10 driver (L332)", "BUILDING", "simulator gates pass"),
-        ("nvidia-uvm.ko", "page tables, faults", "same driver", "BUILDING", "host simulator, 225 checks"),
+        ("nvidia.ko", "kernel driver", "stays: NVIDIA's open kernel module", "STAYS", "GB10 support goes upstream: Nova, nouveau"),
+        ("nvidia-uvm.ko", "page tables, faults", "stays: NVIDIA's open kernel module", "STAYS", "L332 is a research harness only"),
         ("nvidia-smi · NVML", "status, clocks, power", "not started", "MISSING", ""),
         ("GSP firmware", "runs inside the GPU", "stays NVIDIA's: signature-checked", "STAYS", "never shipped by CUDA++"),
     ]

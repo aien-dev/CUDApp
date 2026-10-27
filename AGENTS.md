@@ -86,4 +86,4 @@ make hello-gpu                              # runs make doctor, then examples/he
 - `ROADMAP.md`: every NVIDIA piece on the Spark, its replacement and receipt.
 - `docs/DRIVER.md`, `docs/HOW_I_DID_IT.md`, `docs/runtime/API.md`, `docs/runtime/PORTABILITY.md`.
 - `docs/AUDIT.md`, `docs/LICENSING_TRANSITION.md`, `THIRD_PARTY.md`: provenance and licences.
-- Aienux, the AIEN kernel, where AIEN's own GB10 driver (L332, replacing `nvidia.ko` and `nvidia-uvm.ko`) is being built: https://github.com/aien-dev/aienux
+- Aienux, the AIEN kernel, which holds AIEN's GB10 driver research harness (L332, aienux#441; not a product, NVIDIA's open kernel module stays and GB10 support goes upstream to Nova and nouveau): https://github.com/aien-dev/aienux

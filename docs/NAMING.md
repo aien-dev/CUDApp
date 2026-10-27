@@ -40,6 +40,6 @@ host test green and the 35B golden tokens unchanged:
 | `src/omega_blackwell_*`, `omega_blackwell_*` / `bw_*` | `src/cudapp_sm121_*`, `cudapp_sm121_*` |
 | `OMEGA_GPU_*`, `OMEGA_BW_*` macros | `CUDAPP_*`, `CUDAPP_SM121_*` |
 | `libomega_gpu.a` | `libcudapp.a` only |
-| `nvrm_*`, `m16_*` (driver client) | unchanged until L332's own driver replaces the client |
+| `nvrm_*`, `m16_*` (driver client) | unchanged |
 
 Omega keeps compatibility headers with the old names for one release, then drops them.
