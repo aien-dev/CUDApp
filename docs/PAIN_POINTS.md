@@ -128,7 +128,7 @@ The workarounds can be worse than the error. In Triton's sm_121 issue: "Those \"
 
 **Why people stay.** It is a fixed cost per process, small next to a large model on a large GPU.
 
-**CUDA++'s answer (row D8).** A CUDA++ process maps no CUDA library at all: on 2026-10-21 AIEN's live Qwen3.6-35B-A3B server (mixture-of-experts, about 3B parameters active per token) had only the C library, the maths library, `libgcc_s` and the loader mapped (Omega `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`). The row is done when the memory a CUDA++ process holds beyond its own buffers is measured and printed. Status: PLANNED (needs a chip window; section 3, D8).
+**CUDA++'s answer (row D8).** A CUDA++ process maps no CUDA library at all: on 2026-10-21 Aien's live Qwen3.6-35B-A3B server (mixture-of-experts, about 3B parameters active per token) had only the C library, the maths library, `libgcc_s` and the loader mapped (Omega `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`). The row is done when the memory a CUDA++ process holds beyond its own buffers is measured and printed. Status: PLANNED (needs a chip window; section 3, D8).
 
 ### 2.8 Lock-in by licence (rank 8)
 
@@ -174,7 +174,7 @@ So CUDA++ does not ask anyone to change hardware. It runs on the NVIDIA GPU peop
 
 The Spark is a small machine sold as a way into NVIDIA's data-center stack. A Reddit user: "You design and validate them locally on the spark, running the exact same software, then push to the data center full of Nvidia GPU racks."[90] Its owners hit rows 1, 2, 5 and 9 at once. One report sums it up: "The published Docker images do not carry sm_121a kernels, a missing environment variable silently breaks the NVFP4 MoE, and a deep-context request with speculative decoding will hard hang the entire machine."[1] "Without it the NVFP4 MoE CUTLASS kernels are not built for GB10 and you get CUDA error: no kernel image is available for execution on the device ."[1] On NVIDIA's forum: "How many times have you tried to run something that doesn’t recognize SM121 and fails?"[28] "As of today, FP4 is not properly utilized in current VLLM builds on our hardware, so you lose a lot of performance picking NVFP4 quants compared to AWQ 4-bit on"[29] (that thread has 16,907 views). An owner of two Sparks: "It was not marketed like an experimental dev kit where buyers should expect to spend months switching backends, testing builds, setting flags, and relying on community or hardcore fan fixes just to make a core feature work properly."[97] Simon Willison: "I eventually managed to get a PyTorch 2.7 wheel for CUDA on ARM, but failed to do so for 2.8."[41] One honest counterpoint from PyTorch's maintainer: "Every PyTorch build with CUDA 12.8 and sm_120 support already supports sm_121 (DGXSpark) as these architectures are binary compatible."[38] The Spark's memory bandwidth is also a hard physical limit no software fixes: "the unified memory is LPDDR5x, offering up to 273 GB/s , shared across both CPU and GPU."[42]
 
-CUDA++ runs on the Spark today: on 2026-10-21 AIEN served Qwen3.6-35B-A3B (a mixture-of-experts model with about 3B parameters active per token) on this GPU stack with no CUDA library loaded (README).
+CUDA++ runs on the Spark today: on 2026-10-21 Aien served Qwen3.6-35B-A3B (a mixture-of-experts model with about 3B parameters active per token) on this GPU stack with no CUDA library loaded (README).
 
 ### 2.13 The incentive, and less computation
 

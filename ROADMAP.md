@@ -48,7 +48,7 @@ Things a CUDA stack does not do, because it does not own the whole path. Omega `
 
 ## 4. Speed
 
-Speed is reported against the physical ceiling of this machine, not only against yesterday. The table and the ceilings are in Omega `docs/OMEGA.md` section 5; the head-to-head measurement against llama.cpp and vLLM on this Spark, same model and prompts, end to end, is bar P0 (AIEN L394, running, not yet published). Until it is published, no speed comparison with CUDA, llama.cpp, vLLM or TensorRT is claimed. Chip-only time per token and end-to-end time through the server are reported separately and never set beside each other or beside other projects' published end-to-end figures.
+Speed is reported against the physical ceiling of this machine, not only against yesterday. The table and the ceilings are in Omega `docs/OMEGA.md` section 5; the head-to-head measurement against llama.cpp and vLLM on this Spark, same model and prompts, end to end, is bar P0 (AIEN L394; in progress, not finished, not published). Until it is published, no speed comparison with CUDA, llama.cpp, vLLM or TensorRT is claimed. Chip-only time per token and end-to-end time through the server are reported separately and never set beside each other or beside other projects' published end-to-end figures.
 
 ## 5. The developer bar: goals for being easier to use than CUDA
 

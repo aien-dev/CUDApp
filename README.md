@@ -17,7 +17,7 @@
 
 > **Licensing status:** This revision uses Apache-2.0 WITH LLVM-exception for first-party material. For the historical MIT version, use [`232332422bfdc31c8918085b50f13c1e18ab702e`](https://github.com/aien-dev/CUDApp/tree/232332422bfdc31c8918085b50f13c1e18ab702e). The old MIT grant and third-party notices are preserved. See [the transition and provenance audit](docs/LICENSING_TRANSITION.md).
 
-It runs on the NVIDIA GB10 (the DGX Spark, compute capability sm_121) today. On 2026-10-21 the model AIEN serves on the Spark, Qwen3.6-35B-A3B (a mixture-of-experts model with about 3B parameters active per token), was served by the C GPU stack this repository was extracted from (the live build used the Omega repository's copy of these sources). The live server had only the C library, the maths library, `libgcc_s` and the loader mapped, and zero CUDA libraries (receipt in Omega: `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`). That stack is C, not code written in the Omega language: Omega kernels reaching the GPU is Omega bar C1, still BUILDING.
+It runs on the NVIDIA GB10 (the DGX Spark, compute capability sm_121) today. On 2026-10-21 the model Aien serves on the Spark, Qwen3.6-35B-A3B (a mixture-of-experts model with about 3B parameters active per token), was served by the C GPU stack this repository was extracted from (the live build used the Omega repository's copy of these sources). The live server had only the C library, the maths library, `libgcc_s` and the loader mapped, and zero CUDA libraries (receipt in Omega: `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`). That stack is C, not code written in the Omega language: Omega kernels reaching the GPU is Omega bar C1, still BUILDING.
 
 CUDA++ keeps growing until every NVIDIA part on the Spark is replaced, and then does things CUDA does not:
 
@@ -292,7 +292,7 @@ Receipt: `evidence/dx/d3-faults/hello-sim-spark.txt`. **FIXED on the simulator.*
 
 **The pain.** "The CUDA tax, which is 4.6 GB approximately per each model on a DGX spark." ([r/LocalLLaMA](https://www.reddit.com/r/LocalLLaMA/comments/1sqera2/vllm_woes_in_spark))
 
-**How CUDA++ fixes it.** A CUDA++ process loads no CUDA library: AIEN's live Qwen3.6-35B-A3B server (mixture-of-experts, about 3B parameters active per token) on 2026-10-21 had only the C library, the maths library, `libgcc_s` and the loader mapped (Omega `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`).
+**How CUDA++ fixes it.** A CUDA++ process loads no CUDA library: Aien's live Qwen3.6-35B-A3B server (mixture-of-experts, about 3B parameters active per token) on 2026-10-21 had only the C library, the maths library, `libgcc_s` and the loader mapped (Omega `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`).
 
 **NOT YET MEASURED.** The memory a CUDA++ process holds beyond its own buffers still needs a number from a chip run (`docs/issues/D8-process-tax.md`).
 
