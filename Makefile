@@ -184,6 +184,7 @@ GPU_FP8_TEST = $(OUT_DIR)/gpu_fp8_api_test
 $(GPU_FP8_TEST): tests/gpu_fp8_api_test.c tests/bw_warp_sim.h src/omega_gpu_fp8_api.h src/omega_blackwell_codegen_moe.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -Itests -o $@ tests/gpu_fp8_api_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
 test-gpu-fp8: $(GPU_FP8_TEST)
+	sh tests/grid_ab_exit_test.sh ./$(GPU_FP8_TEST)
 	./$(GPU_FP8_TEST) --host-only
 	./$(GPU_FP8_TEST) --sim
 
