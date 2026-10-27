@@ -48,7 +48,7 @@ python3 tools/figures/make_figures.py --check   # README figures match the code
 - Judge `make test` by its exit code and its last line, `CUDA++ HOST TESTS PASS (<count> targets)`, where `<count>` is computed from the current `HOST_TESTS` manifest in `Makefile`. The log contains many `FAIL` and `ERROR` lines by design (mutation tests and negative controls that must fail). Do not grep the log for them.
 - `make test` already runs the host-only `test-gpu-*` targets listed in `HOST_TESTS` in the `Makefile`. Run those through `make test`, not by hand.
 - `make zero-cuda-gate` reads ELF metadata only (`tools/zero-cuda-gate.sh`).
-- `python3 tools/figures/make_figures.py --check` fails on the current `main` (`stale figures ...: stack.svg`). Mention that in your pull request rather than counting it as your failure; regenerate figures only when you change the data they are drawn from.
+- `python3 tools/figures/make_figures.py --check` must print `figures current: <n>`. Regenerate figures only when you change the data they are drawn from, and commit the regenerated SVGs with that change.
 
 GPU commands (need a GB10; do not run from an agent session unless the maintainer has given you a GPU window on the DGX Spark):
 
