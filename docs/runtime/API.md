@@ -1,13 +1,13 @@
 # Omega Runtime API v0
 
-Omega Runtime API version: 0.1
+Omega Runtime API version: 0.3.0
 
 Status: first written version, 2026-10-19 (slice R1, omega-mv#594, tracking #593). Source of truth is the C headers in
 `src/`. This file describes them; `docs/runtime/omega_runtime_api.manifest` lists them; `make test-runtime-api` checks the
 list against the headers (a host check, no GPU). Review state: reviewed by Opus 5.5 against the headers and the code on 2026-10-22 (L386); its findings are fixed
 in this version. The check proves the list and every quoted C signature match the headers; prose is checked by review.
 
-The version number lives in one header, `src/omega_runtime_api.h` (`OMEGA_RUNTIME_API_VERSION_MAJOR`, `_MINOR`).
+The version number lives in one header, `src/omega_runtime_api.h` (`OMEGA_RUNTIME_API_VERSION_MAJOR`, `_MINOR`, `_PATCH`).
 
 ## 1. What this is
 
@@ -29,20 +29,25 @@ How to read an entry:
 | --- | --- |
 | **STABLE** | Used by other code in the project, covered by chip results, and kept compatible under the rule in section 2. Has its own `####` section below. |
 | **EXPERIMENTAL** | Works and is listed, but may change in any minor version, because the design is still moving or only one use of it exists. Listed in tables with the reason. |
-| **INTERNAL** | Exists in a header for the project's own libraries or tests. Not part of the API; not in the manifest; may change or disappear any time. Listed in section 9 so nobody builds on it by accident. |
+| **INTERNAL** | Exists in a header for the project's own libraries or tests. Not part of the API; not in the manifest; may change or disappear any time. Every such name in a manifest header is listed, with a reason, in `docs/runtime/omega_runtime_api.internal` (section 10), so nobody builds on it by accident. |
 
 Every C signature in this file is copied from the header it names. `tools/runtime_api_check.sh` re-checks every quoted
 signature against the headers on every run.
 
 ## 2. Version and compatibility rule
 
-The version is MAJOR.MINOR, currently **0.1**. It is a property of the list of entries and their behaviour, not of the
-library build.
+The version is MAJOR.MINOR.PATCH (semantic versioning), currently **0.3.0**. It is a property of the list of entries and
+their behaviour, not of the library build. 0.3.0 adds the EXPERIMENTAL decode-path entries of section 9.7 and their result
+codes (a MINOR change); no STABLE entry changed. 0.2.0 differed from 0.1 only in adding `OMEGA_RUNTIME_API_VERSION_PATCH`, listing
+`OMEGA_RUNTIME_API_VERSION` in the manifest and the INTERNAL list (section 10); no entry changed.
 
-**A MINOR bump (0.1 to 0.2) is allowed to:**
+**A PATCH bump (0.3.0 to 0.3.1) is for:**
+- a fix that changes no manifest entry: a STABLE function that did not do what this file says now does (the fix makes it
+  match), or a correction to this file's prose.
+
+**A MINOR bump (0.3 to 0.4) is allowed to:**
 - add a function, a constant, an enum value at the end of an existing enum, or a new struct;
 - add an EXPERIMENTAL entry, change or remove an EXPERIMENTAL entry, or move an entry from EXPERIMENTAL to STABLE;
-- fix a STABLE function that did not do what this file says (the fix makes it match);
 - add a new failure name for the same call to report (callers must treat an unknown failure code or stage text as a failure).
 
 **It needs a MAJOR bump (0.x to 1.0, then 1.x to 2.0) to:**
@@ -59,10 +64,17 @@ MAJOR 0 means "the first written version", not "anything goes": the rule above a
 MAJOR bump, as above), and the first 1.0 will be cut only when
 section 8 (what v0 does not have) has been looked at again.
 
-How it is enforced: a header change that moves any listed entry fails `make test-runtime-api` until the manifest line is
-edited on purpose (`tools/runtime_api_check.sh --bless` refreshes the numbers; the diff is reviewed). A reviewer then decides
-MINOR or MAJOR using the rule above and edits the version macros and the `Omega Runtime API version:` line in this file;
-the check fails if the three disagree. The check cannot tell whether the bump was the right size. That is a review duty.
+How it is enforced (all host checks, no GPU; CI job `runtime-api`, `.github/workflows/runtime-api.yml`):
+- `make test-runtime-api` (`tools/runtime_api_check.sh`): a header change that moves any listed entry fails until the
+  manifest line is edited on purpose (`tools/runtime_api_check.sh --bless` refreshes the numbers; the diff is reviewed). A
+  function, macro or enumerator added to a manifest header fails until it is listed in the manifest or in the INTERNAL list
+  with a reason. The version macros, the manifest's `abi` line and consts, and the `Omega Runtime API version:` line in this
+  file must agree.
+- `make test-runtime-api-semver` (`tools/runtime_api_semver.sh`, base `origin/main` by default; CI uses the pull request's
+  base): compares the manifest with the base's entry by entry and fails when the change needs a bigger bump than it has,
+  or when the version goes down. Constants count as STABLE unless their manifest line carries `# EXPERIMENTAL`.
+- What stays a review duty: a change of documented behaviour with no entry change (the script cannot see prose), and the
+  limits listed in section 11.
 
 The platform contract has its own number (`OMEGA_GPU_PLATFORM_ABI_MAJOR` 1, `OMEGA_GPU_PLATFORM_ABI_MINOR` 2, set in
 `src/omega_gpu_platform.h`). A platform minor bump needs at least a runtime MINOR bump; a platform major bump needs a runtime MAJOR bump.
@@ -93,6 +105,17 @@ is synchronous). The wait is by polling a completion word, never by an interrupt
 default each launch is preceded by a barrier so dependent launches cannot overlap; a launch can be marked independent.
 EXPERIMENTAL: streams, events and dependency-ordered execution are being built on top of it (omega-mv#580), so its options
 and statistics will grow.
+
+**Module load.** There is no module or fat-binary loader in v0, and no PTX or JIT: the program brings the machine code.
+Loading a kernel is `omega_gpu_session_alloc_code` (section 5) plus a CPU copy of the code into `code.cpu`; the launch then
+names `code.va`. The project's own kernels come from its encoder (`src/omega_blackwell_*`, INTERNAL), and
+`examples/hello_gpu` shows the whole path. A loader that reads a packaged module is section 8 work.
+
+**Streams and events.** Not in 0.3.0. Today the ordering primitive is the command list above: launches in one list run in
+order behind barriers, and `omega_gpu_session_launch` returns only when the chip has finished. The first stream and event
+entries (`omega_gpu_cmdlist_submit_pair`, `omega_gpu_cmdlist_wait_for`, `OmegaGpuCmdListOpts.first_barrier_none`,
+`omega_gpu_session_extra_queue`, behind `AIEN_OMEGA_GPU_CHANNELS=2`) are pending in CUDApp#113 as EXPERIMENTAL; they enter
+the manifest with a MINOR bump when it lands, and their `.om` successor is tracked in CUDApp#115.
 
 **Job engine.** `omega_gpu_execute` runs one already-built job (today only a 1-D vector job: two inputs, one output) through
 named states and returns success or exactly one named failure. EXPERIMENTAL.
@@ -378,7 +401,7 @@ Each line is a gap named in `docs/runtime/ROADMAP.md` section 1 (on branch `runt
 - A device query (name, SM count, memory): there is no API call for it.
 - More than one device or channel in a process; sharing the GPU between processes (a second channel failed under load: omega-mv#523).
 - Recovery after a latch (omega-mv#518): a single timeout ends GPU use for the whole process.
-- Async copy, streams, events, host callbacks (omega-mv#580 is building ordering on command lists).
+- Async copy, streams, events, host callbacks (CUDApp#113 is adding two-queue submission and cross-queue waits on command lists, EXPERIMENTAL; not in 0.3.0).
 - Cached read-write buffers; unified memory.
 - Launches with more than the 32 argument words, or an asynchronous single launch.
 - A second real backend (WSL2 `/dev/dxg` is on branch `rig/gb20x`; native AIENOS is planned), so the platform contract has only been exercised by one.
@@ -491,21 +514,62 @@ Types are the manifest's Rust spelling (`*const`, `*mut`, `u32`, ...); the heade
 | `omega_gpu_attention_rc_name` | `fn(i32) -> *const c_char` |
 | `omega_gpu_attention_last_error` | `fn() -> *const c_char` |
 
+### 9.7 Decode path (ADR 0043 task P2.2)
+
+The kernel APIs the serving decode and prefill paths call, listed so the check sees any change to them. All are
+EXPERIMENTAL for the same three reasons: each serves one model (Qwen3-30B-A3B, the OWN-30B lane), each is proven on one
+chip (sm_121), and each is tied to its kernel generator in `src/omega_blackwell_codegen_*.h`, which ADR 0043 moves behind
+a backend. Signatures and struct layouts are in the manifest. They were added in 0.3.0, a MINOR bump (section 2).
+Their result codes (`*_OK`, `*_BAD_ARGS`, `*_TOO_LARGE`, `*_CODEGEN_FAIL`, `*_CHIP_FAIL`, `*_NAN_WEIGHT`, `*_BAD_TRIT`) are
+EXPERIMENTAL constants in the manifest; the other constants these headers define (shape limits, kernel slot ids, mode
+values, poison patterns) are in the INTERNAL list.
+
+| Header | Entries | Reason it is EXPERIMENTAL |
+| --- | --- | --- |
+| `src/omega_gpu_fp8_api.h` | `OmegaGpuFp8Info`, `omega_gpu_fp8_tensor_upload`, `omega_gpu_fp8_tensor_free`, `omega_gpu_fp8_tensor_shape`, `omega_gpu_fp8_gemv_f32`, `omega_gpu_fp8_gemv_bf16`, `omega_gpu_fp8_gemv_grouped_f32`, `omega_gpu_fp8_gemv_grouped_dev`, `omega_gpu_fp8_gemv_grouped_record`, `omega_gpu_fp8_tensor_entry`, `omega_gpu_fp8_prepare`, `omega_gpu_fp8_seal`, `omega_gpu_fp8_rc_name`, `omega_gpu_fp8_last_error`, `omega_gpu_fp8_cache_clear`, `omega_gpu_fp8_set_shape`, `omega_gpu_fp8_set_depth`, `omega_gpu_fp8_set_cta_budget`, `omega_gpu_fp8_set_weight_cache`, `omega_gpu_fp8_set_variant`, `omega_gpu_fp8_variant`, `omega_gpu_fp8_weight_cache`, `omega_gpu_fp8_set_gpr_pad`, `omega_gpu_fp8_shape_for` | FP8 e4m3 block-scaled GEMV for the OWN-30B lane (Qwen3-30B-A3B): decode GEMV and grouped experts; depth and weight-cache knobs are tuned on one chip. |
+| `src/omega_gpu_fp8gemm_api.h` | `OmegaGpuFp8GemmInfo`, `omega_gpu_fp8gemm_f32`, `omega_gpu_fp8gemm_bf16`, `omega_gpu_fp8gemm_prepare`, `omega_gpu_fp8gemm_rc_name`, `omega_gpu_fp8gemm_last_error`, `omega_gpu_fp8gemm_cache_clear`, `omega_gpu_fp8gemm_shape_for`, `omega_gpu_fp8gemm_set_shape`, `omega_gpu_fp8gemm_set_cta_budget` | FP8 e4m3 grouped GEMM for OWN-30B prefill; one model's shapes. |
+| `src/omega_gpu_bf16_gemv_api.h` | `OmegaGpuBf16Info`, `omega_gpu_bf16_tensor_upload`, `omega_gpu_bf16_tensor_free`, `omega_gpu_bf16_tensor_shape`, `omega_gpu_bf16_gemv_f32`, `omega_gpu_bf16_gemv_bf16`, `omega_gpu_bf16_gemv_record`, `omega_gpu_bf16_prepare`, `omega_gpu_bf16_rc_name`, `omega_gpu_bf16_last_error`, `omega_gpu_bf16_cache_clear`, `omega_gpu_bf16_shape_for`, `omega_gpu_bf16_set_shape`, `omega_gpu_bf16_set_cta_budget` | bf16 streaming GEMV for the OWN-30B lm_head (vocab 151936 x hidden 2048); one shape. |
+| `src/omega_gpu_decode_attn_api.h` | `OmegaGpuDecodeAttnInfo`, `OmegaGpuDecodeAttnCacheView`, `omega_gpu_decode_attn_cache_alloc`, `omega_gpu_decode_attn_cache_free`, `omega_gpu_decode_attn_set_norms`, `omega_gpu_decode_attn`, `omega_gpu_decode_attn_record`, `omega_gpu_decode_attn_counters_check`, `omega_gpu_decode_attn_cache_write`, `omega_gpu_decode_attn_cache_read`, `omega_gpu_decode_attn_cache_view`, `omega_gpu_decode_attn_last_error`, `omega_gpu_decode_attn_rc_name`, `omega_gpu_decode_attn_set_depth`, `omega_gpu_decode_attn_set_per_split` | One-launch decode attention for Qwen3-30B-A3B with its own KV cache; the cache view hands out device addresses. |
+| `src/omega_gpu_router_api.h` | `OmegaGpuRouterInfo`, `OmegaGpuRouterDevOut`, `omega_gpu_router_alloc`, `omega_gpu_router_free`, `omega_gpu_router_set_layer`, `omega_gpu_router_set_directory`, `omega_gpu_router_set_directory_fp8`, `omega_gpu_router`, `omega_gpu_router_device_outputs`, `omega_gpu_router_record`, `omega_gpu_router_read_back`, `omega_gpu_router_last_error`, `omega_gpu_router_rc_name`, `omega_gpu_router_set_shape` | One-launch MoE router for Qwen3-30B-A3B; the device-output path writes device addresses. |
+| `src/omega_gpu_tern_api.h` | `OmegaGpuTernSegments`, `OmegaGpuTernInfo`, `omega_gpu_tern_tensor_upload`, `omega_gpu_tern_tensor_free`, `omega_gpu_tern_tensor_shape`, `omega_gpu_tern_tensor_bytes`, `omega_gpu_tern_gemv_i32`, `omega_gpu_tern_gemv_f32`, `omega_gpu_tern_gemv_record`, `omega_gpu_tern_rc_name`, `omega_gpu_tern_last_error`, `omega_gpu_tern_cache_clear`, `omega_gpu_tern_pack`, `omega_gpu_tern_padded_rows`, `omega_gpu_tern_segment_bounds`, `omega_gpu_tern_shape_for`, `omega_gpu_tern_set_layout`, `omega_gpu_tern_set_shape`, `omega_gpu_tern_set_cta_budget`, `omega_gpu_tern_set_weight_cache` | Ternary engine stage T0 (W2A8 ternary GEMV); the packing layout is still being designed. |
+| `src/omega_gpu_tcgemm_api.h` | `OmegaGpuTcGemmInfo`, `omega_gpu_tcgemm_f32`, `omega_gpu_tcgemm_prepare`, `omega_gpu_tcgemm_rc_name`, `omega_gpu_tcgemm_last_error`, `omega_gpu_tcgemm_cache_clear`, `omega_gpu_tcgemm_set_shape` | OWN-30B T3 cut 1: FP8 grouped GEMM on the tensor cores; one model's shapes. |
+| `src/omega_gpu_prefill_attn_api.h` | `OmegaGpuPrefillAttnInfo`, `OmegaGpuPrefillAttnMirrorView`, `omega_gpu_prefill_attn`, `omega_gpu_prefill_attn_release`, `omega_gpu_prefill_attn_dev`, `omega_gpu_prefill_attn_set_warps`, `omega_gpu_prefill_attn_set_fused`, `omega_gpu_prefill_attn_set_kv_mirror`, `omega_gpu_prefill_attn_kv_mirror_view`, `omega_gpu_prefill_attn_kv_mirror_invalidate`, `omega_gpu_prefill_attn_kv_mirror_forget`, `omega_gpu_prefill_attn_kv_mirror_available` | Causal prefill attention for Qwen3-30B-A3B, with an optional KV mirror; one model. |
+| `src/omega_gpu_moe_api.h` | `omega_gpu_moe_tensor_upload_bf16`, `omega_gpu_moe_tensor_upload_f32`, `omega_gpu_moe_tensor_free`, `omega_gpu_moe_tensor_shape`, `omega_gpu_matmul_resident_window_f32`, `omega_gpu_matmul_resident_window_bf16`, `omega_gpu_matmul_resident_windows_f32`, `omega_gpu_moe_reserve`, `omega_gpu_moe_prepare`, `omega_gpu_moe_seal`, `omega_gpu_moe_unreserve`, `omega_gpu_moe_cache_clear`, `omega_gpu_moe_set_cta_budget`, `omega_gpu_moe_cta_budget`, `omega_gpu_moe_window_byte_offset` | Column windows over a resident bf16 expert tensor (OWN-30B); tied to the serving pool. |
+| `src/omega_gpu_decode_graph.h` | `OmegaGpuDecodeGraphConfig`, `OmegaGpuDecodeGraphStats`, `OmegaGpuDecodeGraphVas`, `omega_gpu_decode_graph_create`, `omega_gpu_decode_graph_free`, `omega_gpu_decode_graph_set_layer`, `omega_gpu_decode_graph_set_final_norm`, `omega_gpu_decode_graph_token`, `omega_gpu_decode_graph_begin_token`, `omega_gpu_decode_graph_record_layer`, `omega_gpu_decode_graph_record_final`, `omega_gpu_decode_graph_end_token`, `omega_gpu_decode_graph_record_res`, `omega_gpu_decode_graph_record_swiglu`, `omega_gpu_decode_graph_list`, `omega_gpu_decode_graph_vas`, `omega_gpu_decode_graph_read`, `omega_gpu_decode_graph_set_stamps`, `omega_gpu_decode_graph_set_barrier`, `omega_gpu_decode_graph_barrier`, `omega_gpu_decode_graph_stamps`, `omega_gpu_decode_graph_kind_name`, `omega_gpu_decode_graph_set_flush_each`, `omega_gpu_decode_graph_set_prefetch`, `omega_gpu_decode_graph_prefetch` | One Qwen3-30B-A3B decode token as one command list; scheduling, barrier and prefetch modes are still measured. |
+| `src/omega_gpu_prefill.h` | `OmegaPfWeights`, `omega_gpu_pf_rc_name`, `omega_gpu_pf_alloc_dev`, `omega_gpu_pf_alloc_host`, `omega_gpu_pf_free`, `omega_gpu_pf_upload`, `omega_gpu_pf_download`, `omega_gpu_pf_copy_va`, `omega_gpu_pf_stats`, `omega_gpu_pf_stats_reset`, `omega_gpu_pf_weights_upload`, `omega_gpu_pf_weights_free`, `omega_gpu_pf_weights_host_form`, `omega_gpu_pf_gemm_bm`, `omega_gpu_pf_gemm_tiles`, `omega_gpu_pf_gemm`, `omega_gpu_pf_gemm_set_shape`, `omega_gpu_pf_quant`, `omega_gpu_pf_qgemm_bm`, `omega_gpu_pf_qgemm_tiles`, `omega_gpu_pf_qgemm_tiles_va`, `omega_gpu_pf_qgemm`, `omega_gpu_pf_qgemm_set_shape` | Device-resident one-pass prefill for OWN-30B; arguments carry raw device addresses. |
+| `src/omega_gpu_pfhost.h` | `omega_gpu_pf_router_rows`, `omega_gpu_pf_router_packed_bytes`, `omega_gpu_pf_router_pack`, `omega_gpu_pf_router_logits`, `omega_gpu_pf_moe_combine`, `omega_gpu_pf_router_set_rows` | Whole-prompt prefill router logits and MoE combine for OWN-30B; arguments carry raw device addresses. |
+
 ## 10. INTERNAL (not part of the API)
 
-Not in the manifest; may change or vanish without notice.
+Not in the manifest; may change or vanish without notice. The complete list of such names in the manifest headers, each
+with its reason, is `docs/runtime/omega_runtime_api.internal` (171 names in 0.3.0: test hooks, kernel builders, encoder
+probes, serving-daemon internals and launch limits; the 25 serving internals and launch limits are marked "candidate
+EXPERIMENTAL", the ones a caller is most likely to want promoted). `make test-runtime-api` fails on a name in a manifest header that is in neither file. Notable ones:
 - `omega_gpu_session_set_error` (library code names its failure stage through it).
 - `omega_gpu_session_on_close` (lets a library drop its resident kernels before the session closes; up to 8 hooks).
 - `omega_gpu_engine_test_reset_block`, `omega_gpu_engine_test_force_block`, `omega_gpu_engine_test_set_clock`: TEST ONLY. A blocked process must stay blocked because the GPU may still be running.
-- Everything else under `src/omega_gpu_*` and `src/omega_blackwell_*` not named above (kernel builder, encoder, per-model APIs, launch helpers).
+- Take or return a kernel-generator type, which is backend (ADR 0043): `omega_gpu_fp8_depth_for`, `omega_gpu_fp8_kernel_fits`, `omega_gpu_fp8gemm_kernel_fits`, `omega_gpu_bf16_kernel_fits`, `omega_gpu_tern_kernel_fits`, `omega_gpu_tcgemm_spec_for`, `omega_gpu_prefill_attn_encode`.
+- TEST ONLY (mutant and fault-injection setters in the decode-path headers): `omega_gpu_fp8_test_set_mutant`, `omega_gpu_fp8_test_set_no_fold`, `omega_gpu_fp8gemm_test_set_mutant`, `omega_gpu_bf16_test_set_mutant`, `omega_gpu_decode_attn_test_set_mutant`, `omega_gpu_router_test_set_mutant`, `omega_gpu_tern_test_set_mutant`, `omega_gpu_tcgemm_test_set_mutant`, `omega_gpu_prefill_attn_test_set_mutant`, `omega_gpu_prefill_attn_test_set_mirror_per_call`, `omega_gpu_prefill_attn_test_launch_ns`, `omega_gpu_moe_test_set_mutant`, `omega_gpu_moe_test_set_window_skew`, `omega_gpu_moe_test_a_row0_hits`, `omega_gpu_decode_graph_test_set_mutant`, `omega_gpu_decode_graph_test_set_barrier_none`, `omega_gpu_decode_graph_test_set_prefetch_red`, `omega_gpu_pf_gemm_test_set_mutant`, `omega_gpu_pf_quant_test_set_mutant`, `omega_gpu_pf_qgemm_test_set_mutant`, `omega_gpu_pf_router_test_set_mutant`, `omega_gpu_pf_combine_test_set_mutant`.
+- Host reference and packing helpers in the decode-path headers (not `omega_gpu_` entries): `omega_fp8_e4m3_ref`, `omega_fp8_e4m3_kernel_bits`, `omega_fp8_e4m3_is_nan`, `omega_fp8_pack_scan_nan`, `omega_fp8_pack_scales`, `omega_fp8_pack_x_f32`, `omega_fp8_pack_x_bf16`, `omega_fp8_gemv_oracle`, `omega_fp8gemm_permute_x`, `omega_dattn_bf16_rne`, `omega_dattn_bf16_f32`, `omega_dattn_rope_row`.
+- Launch helpers whose caller already holds the session lock: `omega_gpu_pf_kernel_locked`, `omega_gpu_pf_launch_locked`, `omega_gpu_pf_open_locked`.
+- Everything under `src/omega_gpu_*` and `src/omega_blackwell_*` in headers the manifest does not name (kernel builder, encoder, per-model APIs, launch helpers).
 
 ## 11. Checking this file
 
-`make test-runtime-api` runs `tools/runtime_api_check.sh` on the real headers and then `tools/runtime_api_negative.sh`, which breaks a
-copy of the headers (or this file) in nine ways and requires the check to fail each time: a removed function, a missing version macro, a
-changed function signature, a changed struct, a changed constant, a version line in this file that disagrees with the macro, a quoted signature in this file that no header has, a quoted
-signature that only appears inside a longer one (`int32_t` inside `uint32_t`), and a STABLE entry with no section here. It needs no GPU and no physics checkout. It checks: every manifest function against its header
-with exact types; sizes, offsets and constants against a compiled probe; the version macros against the manifest and this file;
-that every STABLE entry has a `####` section here and every EXPERIMENTAL one is named here; and that every C signature quoted
-in this file appears verbatim in a header. It does not check that the prose is true. A struct field added inside padding is not seen, nor a field that changes type but keeps its size, nor a constant
-value quoted in prose.
+`make test-runtime-api` runs `tools/runtime_api_check.sh` on the real headers and then `tools/runtime_api_negative.sh`. The
+negative script breaks a copy of the headers (or this file) in fourteen ways and requires the check to fail each time: a
+removed function, a missing MAJOR and a missing PATCH version macro, a changed function signature, a changed struct, a
+changed constant, a version line in this file that disagrees with the macro, a quoted signature in this file that no header
+has, a quoted signature that only appears inside a longer one (`int32_t` inside `uint32_t`), a STABLE entry with no section
+here, an added undeclared function, an added undeclared macro, an added undeclared enumerator, and a stale INTERNAL entry.
+It then breaks a copy of the manifest four ways against the real one and requires `tools/runtime_api_semver.sh` to fail
+each time (a removed STABLE function with only a MINOR bump, a changed STABLE signature with no bump, an added function
+with no bump, a version that goes down) and to pass one correct change (an added function with a MINOR bump).
+`make test-runtime-api-semver` compares the real manifest with the base branch's. None of it needs a GPU or a physics
+checkout. It checks: every manifest function against its header with exact types; sizes, offsets and constants against a
+compiled probe; the version macros against the manifest and this file; every public name in the manifest headers against
+the manifest and the INTERNAL list; that every STABLE entry has a `####` section here and every EXPERIMENTAL one is named
+here; that every C signature quoted in this file appears verbatim in a header; and the size of the version bump. It does
+not check that the prose is true. A struct field added inside padding is not seen, nor a field that changes type but keeps
+its size, nor a constant value quoted in prose, nor a new type (struct or typedef) that no function uses yet, nor a
+function-like macro.

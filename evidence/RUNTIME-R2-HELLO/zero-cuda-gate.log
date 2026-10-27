@@ -1,0 +1,9 @@
+$ scripts/zero-cuda-gate.sh build/hello_gpu   (gate from aien-sovereign-core main 14126c62; binary from runtime/r2-hello 52019ea6, 2026-10-22T00:58:34Z)
+ZERO_CUDA PASS build/hello_gpu needs=[libc.so.6 ld-linux-aarch64.so.1]
+exit 0
+
+$ scripts/zero-cuda-gate.sh --self-test   (negative control: a stub that must FAIL; rerun detached)
+ZERO_CUDA FAIL /tmp/tmp.Dk2zEKpvwP/probe.so needs: libcudart.so.13
+ZERO_CUDA FAIL /tmp/tmp.Dk2zEKpvwP/probe.so imports: cudaMalloc
+ZERO_CUDA SELF-TEST PASS (CUDA probe rejected, clean library accepted)
+exit 0

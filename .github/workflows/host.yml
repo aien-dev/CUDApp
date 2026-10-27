@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# Host CI: builds libomega_gpu.a on an arm64 runner and uploads it with its sha256 identity. `make test` runs in
+# ci.yml (host-tests, judged by the final verdict line), so it is not repeated here.
+# Chip results never come from here; they come from the GB10 under its lock.
+name: host
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  library:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Toolchain
+        run: |
+          cc --version | head -1
+          make --version | head -1
+      - name: Build libomega_gpu.a
+        run: make -j"$(nproc)" OUT_DIR=build build/libomega_gpu.a
+      - name: Archive identity
+        run: |
+          {
+            echo "cudapp $(git rev-parse HEAD)"
+            echo "sha256 $(sha256sum build/libomega_gpu.a | cut -d' ' -f1)"
+            echo "cc $(cc --version | head -1)"
+            echo "members $(ar t build/libomega_gpu.a | wc -l)"
+          } | tee build/libomega_gpu.identity
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: libomega_gpu-${{ github.sha }}
+          path: |
+            build/libomega_gpu.a
+            build/libomega_gpu.identity
