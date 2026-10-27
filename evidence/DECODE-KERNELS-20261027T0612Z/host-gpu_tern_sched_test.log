@@ -1,0 +1,15 @@
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -o build/gpu_tern_sched_test tests/gpu_tern_sched_test.c build/libomega_gpu.a -lpthread -lm
+build/gpu_tern_sched_test
+gpu_tern_sched_test: I2FP consumer rule (OMEGA_TERN_I2FP_LAT 19)
+  f32 specs 45: built 45, I2FP on a scoreboard its reader waits on 45, mutant 4 refused 45
+  1. every production f32 spec builds                                      ok
+  1. its I2FP writes a scoreboard and the next instruction waits on it     ok
+  2. negative control: mutant 4 (I2FP fixed stall 6) refused for every spec ok
+  2. mutant 4 without an I2FP (i32 epilogue) still builds                  ok
+  3. I2FP -> FMUL at stall 6, no scoreboard: violation                     ok
+  3. I2FP -> FMUL at 18 cycles, no scoreboard: violation                   ok
+  3. I2FP -> FMUL at 19 cycles, no scoreboard: pass                        ok
+  3. I2FP on scoreboard 0, FMUL waits on it at stall 4: pass               ok
+  3. I2FP on scoreboard 0, FMUL waits on another: violation                ok
+  3. FMUL producer -> FMUL at stall 6: pass (not an I2FP)                  ok
+gpu_tern_sched_test: PASS
