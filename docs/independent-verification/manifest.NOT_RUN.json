@@ -1,0 +1,142 @@
+{
+  "schema": "cudapp-independent-gpu-collection-v1",
+  "record_kind": "template",
+  "claim_status": "NOT_EVALUATED",
+  "operator": {
+    "identity": null,
+    "relationship_to_author": null,
+    "independence_review": "NOT_REVIEWED",
+    "review_artifact": null
+  },
+  "identities": {
+    "candidate_repository": null,
+    "candidate_commit": null,
+    "dirty_patch_sha256": null,
+    "compiler_repository": null,
+    "compiler_commit": null,
+    "compiler_binary_sha256": null,
+    "unit_sha256": null,
+    "executable_sha256": null,
+    "kernel_sha256": null,
+    "launch_sha256": null,
+    "oracle_source_sha256": null,
+    "input_sha256": null,
+    "expected_output_sha256": null
+  },
+  "checks": {
+    "source_provenance": {
+      "status": "NOT_RUN",
+      "observation": "No observation collected. This is a template, not a receipt.",
+      "evidence": [],
+      "commands": []
+    },
+    "exact_source_build": {
+      "status": "NOT_RUN",
+      "observation": "No observation collected. This is a template, not a receipt.",
+      "evidence": [],
+      "commands": []
+    },
+    "host_suite": {
+      "status": "NOT_RUN",
+      "observation": "No observation collected. This is a template, not a receipt.",
+      "evidence": [],
+      "commands": []
+    },
+    "challenge_custody": {
+      "status": "NOT_RUN",
+      "observation": "No observation collected. This is a template, not a receipt.",
+      "evidence": [],
+      "commands": []
+    },
+    "cpu_oracle": {
+      "status": "NOT_RUN",
+      "observation": "No observation collected. This is a template, not a receipt.",
+      "evidence": [],
+      "commands": []
+    },
+    "device_identity": {
+      "status": "NOT_RUN",
+      "observation": "No observation collected. This is a template, not a receipt.",
+      "evidence": [],
+      "commands": []
+    },
+    "admission": {
+      "status": "NOT_RUN",
+      "observation": "No observation collected. This is a template, not a receipt.",
+      "evidence": [],
+      "commands": []
+    },
+    "correct_kernel": {
+      "status": "NOT_RUN",
+      "observation": "No observation collected. This is a template, not a receipt.",
+      "evidence": [],
+      "commands": []
+    },
+    "guard_canaries": {
+      "status": "NOT_RUN",
+      "observation": "No observation collected. This is a template, not a receipt.",
+      "evidence": [],
+      "commands": []
+    },
+    "wrong_kernel": {
+      "status": "NOT_RUN",
+      "observation": "No observation collected. This is a template, not a receipt.",
+      "evidence": [],
+      "commands": []
+    },
+    "restored_kernel": {
+      "status": "NOT_RUN",
+      "observation": "No observation collected. This is a template, not a receipt.",
+      "evidence": [],
+      "commands": []
+    },
+    "no_submission": {
+      "status": "NOT_RUN",
+      "observation": "No observation collected. This is a template, not a receipt.",
+      "evidence": [],
+      "commands": []
+    },
+    "static_dependencies": {
+      "status": "NOT_RUN",
+      "observation": "No observation collected. This is a template, not a receipt.",
+      "evidence": [],
+      "commands": []
+    },
+    "dynamic_execution": {
+      "status": "NOT_RUN",
+      "observation": "No observation collected. This is a template, not a receipt.",
+      "evidence": [],
+      "commands": []
+    },
+    "public_sanitization": {
+      "status": "NOT_RUN",
+      "observation": "No observation collected. This is a template, not a receipt.",
+      "evidence": [],
+      "commands": []
+    },
+    "independent_report": {
+      "status": "NOT_RUN",
+      "observation": "No observation collected. This is a template, not a receipt.",
+      "evidence": [],
+      "commands": []
+    },
+    "second_machine": {
+      "status": "NOT_RUN",
+      "observation": "No observation collected. This is a template, not a receipt.",
+      "evidence": [],
+      "commands": []
+    },
+    "toolkit_absent_environment": {
+      "status": "NOT_RUN",
+      "observation": "No observation collected. This is a template, not a receipt.",
+      "evidence": [],
+      "commands": []
+    }
+  },
+  "artifacts": [],
+  "commands": [],
+  "limitations": [
+    "No independent hardware run, raw trace, source build or operator evidence is supplied by this template.",
+    "Schema validation is not authenticity, independence, semantic acceptance or physical proof."
+  ]
+}
