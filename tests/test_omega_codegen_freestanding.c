@@ -172,7 +172,10 @@ static void buffer_contract(void) {
               "%s: exact-size encode differs (rc %d)", f->name, rc);
     }
 }
+#endif
 
+/* Golden words (nvcc/nvdisasm oracles, independent of either encoder). The hosted build runs them with --golden
+ * through the .om encoder (om/encoder/bw_enc_sm121.om); the freestanding build through the C encoder. */
 static void golden_fixtures(void) {
     CHECK(omega_blackwell_verify_codegen_fixtures() == 0, "golden words (rc %d)", omega_blackwell_verify_codegen_fixtures());
     CHECK(omega_blackwell_verify_codegen_fixtures_fb1cut4() == 0, "fb1cut4 golden words");
@@ -182,6 +185,7 @@ static void golden_fixtures(void) {
     CHECK(omega_blackwell_test_regalloc_bounds() == 0, "regalloc bounds");
 }
 
+#ifdef OMEGA_GPU_NO_POSIX
 /* The freestanding omega_fp32_to_bf16 (integer rounding) against the hosted __bf16 cast, every input. */
 static void bf16_sweep(void) {
     uint64_t bad = 0;
@@ -209,7 +213,12 @@ int main(int argc, char **argv) {
     printf("%s: freestanding codegen contract (%zu fixtures, %d failing checks)\n", fails ? "FAIL" : "PASS", (size_t)NFX, fails);
     return fails ? 1 : 0;
 #else
-    fprintf(stderr, "hosted build: only --dump\n");
+    if (argc > 1 && strcmp(argv[1], "--golden") == 0) {
+        golden_fixtures();
+        printf("%s: hosted golden-word fixtures through the .om encoder (%d failing checks)\n", fails ? "FAIL" : "PASS", fails);
+        return fails ? 1 : 0;
+    }
+    fprintf(stderr, "hosted build: only --dump or --golden\n");
     return 2;
 #endif
 }

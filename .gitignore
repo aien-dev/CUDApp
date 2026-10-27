@@ -1,2 +1,4 @@
 # build outputs (make OUT_DIR, default build/)
 build/
+build-enc-c/
+build-enc-diff/

@@ -31,6 +31,23 @@ jobs:
             "CUDA++ HOST TESTS PASS ("*" targets)") ;;
             *) echo "make test exited 0 without the final CUDA++ HOST TESTS PASS line"; exit 1 ;;
           esac
+  om-units:
+    # The committed Omega bindings (src/cudapp_om_units.c) regenerate byte for byte from the pinned omc and
+    # omega-bridge, and every mutant .om unit goes red. omega-mv e5b32567 carries the pinned seed/out/omc.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Pinned Omega tools
+        run: |
+          git clone -q https://github.com/aien-dev/omega-mv "$RUNNER_TEMP/omega-mv"
+          git -C "$RUNNER_TEMP/omega-mv" checkout -q e5b32567a7aff3ce594e3254a622a846a6cd190b
+          git clone -q https://github.com/aien-dev/omega-bridge "$RUNNER_TEMP/omega-bridge"
+          git -C "$RUNNER_TEMP/omega-bridge" checkout -q "$(grep -v '^#' om/omega-bridge.lock)"
+      - name: Bindings regenerate and mutants go red
+        run: make test-om-units test-om-encoder-mutants test-om-cubin-mutants OMEGA_MV="$RUNNER_TEMP/omega-mv" OMEGA_BRIDGE_DIR="$RUNNER_TEMP/omega-bridge"
   sbom:
     runs-on: ubuntu-latest
     timeout-minutes: 10
