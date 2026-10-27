@@ -220,25 +220,29 @@ static const char *ref_diag_text(void *ctx) { return ((LinuxRef *)ctx)->diag; }
  * which the CPU and GPU share, and the machine has no swap by default. Running it out does not end in an error message:
  * the whole box can freeze until a power cycle. So an allocation that would leave less than a reserve free is refused
  * here, before a handle slot or the driver is touched, with a sentence. The reserve is CUDAPP_MEM_RESERVE_MIB (MiB,
- * default 4096; 0 turns the check off). CUDAPP_MEMINFO names another meminfo file (tests); see meminfo_open for when it
- * is honoured. When /proc/meminfo itself cannot be read the check cannot know, and allows the allocation. */
+ * default 4096; 0 turns the check off). Tests point the check at a fake meminfo file with
+ * omega_gpu_platform_linux_test_set_meminfo. When /proc/meminfo itself cannot be read the check cannot know, and allows
+ * the allocation. */
 #define CUDAPP_MEM_RESERVE_DEFAULT_MIB 4096ull
 static void human_bytes(char *out, size_t n, uint64_t b) {
     if (b < (1ull << 30)) snprintf(out, n, "%.1f MiB", (double)b / (double)(1ull << 20));
     else snprintf(out, n, "%.1f GiB", (double)b / (double)(1ull << 30));
 }
-/* CUDAPP_MEMINFO is a test hook, but this is the default session platform (omega_gpu_session.c install_default) of every
- * hosted program linked with libomega_gpu.a, serving processes included, so a stale or wrong value must neither switch
- * the D1 guard off nor hang the allocation, which runs under ref_lock: open() on a
- * FIFO blocks, and a device file may act on open. The override is honoured only when it is an absolute path with no ".."
- * component that opens, without following a final symlink and without blocking, to a regular file; under setuid or file
- * capabilities it is not read at all (secure_getenv). Any other value falls back to the real /proc/meminfo, so a bad
- * override costs the test hook, never the guard (CodeQL cpp/path-injection #40). */
-static int meminfo_override_ok(const char *p) {
-    if (!p || p[0] != '/') return 0;
-    for (const char *c = p; (c = strstr(c, "..")) != NULL; c += 2)
-        if (c[-1] == '/' && (c[2] == '\0' || c[2] == '/')) return 0;
-    return 1;
+/* The meminfo file is chosen by code, never by the environment: this is the default session platform
+ * (omega_gpu_session.c install_default) of every hosted program linked with libomega_gpu.a, serving processes included,
+ * so a stale variable left in an environment must not be able to switch the D1 guard off (CodeQL cpp/path-injection
+ * #40 was the former CUDAPP_MEMINFO variable). Every open is O_NOFOLLOW|O_NONBLOCK and must reach a regular file, since
+ * the check runs under ref_lock: open() on a FIFO blocks, and a device file may act on open. A test file that cannot be
+ * used that way falls back to the real /proc/meminfo. */
+static char g_meminfo_test_path[4096]; /* guarded by g_ref.mu; "" = /proc/meminfo */
+int omega_gpu_platform_linux_test_set_meminfo(const char *path) {
+    size_t n = path ? strlen(path) : 0;
+    if (n >= sizeof g_meminfo_test_path) return -1;
+    pthread_mutex_lock(&g_ref.mu);
+    memcpy(g_meminfo_test_path, n ? path : "", n);
+    g_meminfo_test_path[n] = '\0';
+    pthread_mutex_unlock(&g_ref.mu);
+    return 0;
 }
 static FILE *meminfo_open_regular(const char *path) {
     int fd = open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
@@ -249,9 +253,8 @@ static FILE *meminfo_open_regular(const char *path) {
     if (!f) close(fd);
     return f;
 }
-static FILE *meminfo_open(void) {
-    const char *p = secure_getenv("CUDAPP_MEMINFO");
-    FILE *f = meminfo_override_ok(p) ? meminfo_open_regular(p) : NULL;
+static FILE *meminfo_open(void) { /* caller holds g_ref.mu */
+    FILE *f = g_meminfo_test_path[0] ? meminfo_open_regular(g_meminfo_test_path) : NULL;
     return f ? f : meminfo_open_regular("/proc/meminfo");
 }
 static int mem_reserve_check(LinuxRef *r, uint64_t bytes) {

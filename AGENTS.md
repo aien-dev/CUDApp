@@ -28,7 +28,7 @@ Needs Linux, `git`, `make` and `gcc` (the `Makefile` uses `CC ?= gcc` and builds
 ## Configuration
 
 - Build variables: `CC` (default `gcc`), `OUT_DIR` (default `build`), `PHYSICS_DIR` (default `.`; Omega overrides it).
-- `CUDAPP_MEM_RESERVE_MIB`: memory the runtime keeps free before any allocation reaches the driver (default 4096; `0` turns the check off). `CUDAPP_MEMINFO` replaces `/proc/meminfo` for tests.
+- `CUDAPP_MEM_RESERVE_MIB`: memory the runtime keeps free before any allocation reaches the driver (default 4096; `0` turns the check off). Tests point the check at a fake `/proc/meminfo` with `omega_gpu_platform_linux_test_set_meminfo` (no environment variable chooses that file).
 - `CUDAPP_DOCTOR_ROOT` points `make doctor` at a fake machine root; `CUDAPP_DOCTOR_SHOW=1 sh tests/doctor/run.sh build/cudapp-doctor` prints the doctor's output on the nine fake machines.
 - `AIEN_OMEGA_DGRAPH_BARRIER` and `AIEN_OMEGA_DGRAPH_PREFETCH` tune the decode graph (`src/omega_gpu_decode_graph.c`).
 
