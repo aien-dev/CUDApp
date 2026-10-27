@@ -1246,7 +1246,11 @@ static void rule_checks(void) {
         uint32_t got = omega_gpu_fp8_grouped_ctas_rule(c[i].groups, c[i].forced, c[i].wave);
         if (got != (uint32_t)c[i].want) { fprintf(stderr, "grouped CTA rule: groups %u forced %u wave %d: got %u want %d\n", c[i].groups, c[i].forced, c[i].wave, got, c[i].want); exit(1); }
     }
-    printf("grouped CTA rule: %zu/%zu ok (8 groups -> 6, 9 groups -> 5)\n", sizeof c / sizeof c[0], sizeof c / sizeof c[0]);
+    /* A1 (2026-10-27): the wave rule is the default; AIEN_OMEGA_FP8_GROUPED_WAVE=0 restores the compiled 6 (read once) */
+    const char *we = getenv("AIEN_OMEGA_FP8_GROUPED_WAVE"), *ce = getenv("AIEN_OMEGA_FP8_GROUPED_CTAS");
+    const uint32_t want9 = (ce && *ce) ? 0u : (we && we[0] == '0' && !we[1]) ? 6u : 5u, got9 = omega_gpu_fp8_grouped_ctas_auto(9), got8 = omega_gpu_fp8_grouped_ctas_auto(8);
+    if (want9 && (got9 != want9 || got8 != 6u)) { fprintf(stderr, "grouped CTA default: auto(9) %u want %u, auto(8) %u want 6\n", got9, want9, got8); exit(1); }
+    printf("grouped CTA rule: %zu/%zu ok (8 groups -> 6, 9 groups -> 5); default auto(8) %u auto(9) %u\n", sizeof c / sizeof c[0], sizeof c / sizeof c[0], got8, got9);
 }
 
 int main(int argc, char **argv) {

@@ -371,8 +371,10 @@ void omega_gpu_fp8_tensor_free(OmegaGpuFp8Tensor *t) {
  * 5 per group (45 = one wave) measured gate_up + down 6.962 -> 5.874 ms per 1-row step
  * (~/workspace/investigations/2026-10-24-l310-grouped-ctas). Env, read once like the other switches:
  *   AIEN_OMEGA_FP8_GROUPED_CTAS=1..256  exact CTAs per group (experiments; wins over the wave rule);
- *   AIEN_OMEGA_FP8_GROUPED_WAVE=1       wave rule: min(GROUPED_CTAS, SM_COUNT / groups), at least 1.
- * Neither set: the compiled GROUPED_CTAS, unchanged until the merge train has judged the wave arm. */
+ *   AIEN_OMEGA_FP8_GROUPED_WAVE=0       the compiled GROUPED_CTAS for every group count (the pre-A1 default).
+ * Neither set: the wave rule, min(GROUPED_CTAS, SM_COUNT / groups), at least 1: 8 groups keep 6, the 35B's 9 groups get
+ * 5 (A1, DecodeKernels 2026-10-27: gate_up + down median 164.698 -> 138.776 us per layer, bit-identical outputs,
+ * evidence/DECODE-KERNELS-20261027T0612Z). */
 uint32_t omega_gpu_fp8_grouped_ctas_rule(uint32_t groups, uint32_t forced, int wave) {
     if (forced >= 1u && forced <= OMEGA_GPU_FP8_MAX_CTAS) return forced;
     if (!wave || groups == 0u) return OMEGA_GPU_FP8_GROUPED_CTAS;
@@ -388,7 +390,7 @@ static uint32_t env_u32(const char *name) { /* 0 when unset, empty or not a plai
 }
 uint32_t omega_gpu_fp8_grouped_ctas_auto(uint32_t groups) {
     static uint32_t forced; static int wave, set;
-    if (!set) { forced = env_u32("AIEN_OMEGA_FP8_GROUPED_CTAS"); const char *w = getenv("AIEN_OMEGA_FP8_GROUPED_WAVE"); wave = w && w[0] == '1' && !w[1]; set = 1; }
+    if (!set) { forced = env_u32("AIEN_OMEGA_FP8_GROUPED_CTAS"); const char *w = getenv("AIEN_OMEGA_FP8_GROUPED_WAVE"); wave = !(w && w[0] == '0' && !w[1]); set = 1; }
     return omega_gpu_fp8_grouped_ctas_rule(groups, forced, wave);
 }
 
