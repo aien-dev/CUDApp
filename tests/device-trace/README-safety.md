@@ -24,7 +24,7 @@ and instruction-alignment checks. Disabled capacity zero is still refused.
   address inside a guarded capture extent. It checks ordinary and low-half-carry
   cases, untouched header/reserved bytes/canaries, signed 24-bit store offsets,
   and the branch predicate and complete relative displacement. It does not use
-  `expected.sass` or the emitter's address helpers as its oracle. This limited
+  the nvdisasm decode or the emitter's address helpers as its oracle. This limited
   arithmetic model does not validate GPU instruction scheduling or scoreboards.
 - `guard-test.om` exercises enable/check values 0, 1, 2 and maximum unsigned
   64-bit value. Refusal must preserve every output byte and its prior length.
@@ -60,19 +60,19 @@ checks. The three new tests are silent on success and return a named assertion
 status in their source on failure. These tests are not yet integrated into
 `make test` or the historical disassembler runner.
 
-## Historical golden is not current
+## Disassembler check (replaces the historical golden)
 
-`expected.sass` and `evidence/device-trace/emitter-host-20261026/receipt.json`
-describe the original PR84 head `60d6c57fc6821accce0027d65dd239355beeb543`.
-They contain the erroneous multiply-based address formation. They are not
-passing evidence for this repair, and the old `run-emitter-checks.sh` golden
-comparison does not pass for the repaired output.
-
-The repair was decoded separately with an external host-only disassembler.
-The tool, output listing, and generated GPU words are not added to the repository.
-`AGENTS.md` forbids NVIDIA-tool listings in the repository, whereas the inherited
-runner offers to overwrite one. This conflict remains for the owner to resolve;
-do not bypass the comparison or regenerate the listing here to claim a pass.
+The historical `expected.sass` described the original PR84 head
+`60d6c57fc6821accce0027d65dd239355beeb543`, including the erroneous
+multiply-based address formation, and was itself an NVIDIA-tool listing, which
+`AGENTS.md` forbids in the repository. It is removed. `run-emitter-checks.sh`
+now keeps the nvdisasm listing in its temporary directory and checks it against
+hand-written expectations: the opcode counts of the two 20-instruction marker
+blocks and the address-formation lines (`MOV R6, 0x40` / `0x80`, then
+`IMAD.WIDE.U32 R8, R6, 0x1, R4`). The emitter on main before this repair fails
+that check (`IMAD.SHL R8, R4, 0x40, RZ` at offset 0x70). The historical receipt
+`evidence/device-trace/emitter-host-20261026/receipt.json` stays unchanged as
+a record of what ran on PR84's head.
 
 ## Remaining limits
 
