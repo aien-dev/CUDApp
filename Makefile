@@ -25,7 +25,7 @@ CFLAGS ?= -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc \
 
 # Every C file of the GPU part, the shared base (tools/extract/shared.txt) and the driver client.
 SRCS := $(sort $(wildcard src/omega_blackwell_*.c src/omega_gpu_*.c)) \
-	src/omega_cubin.c src/omega_native_artifact.c \
+	src/omega_cubin.c src/omega_native_artifact.c src/omega_sm121_disasm.c \
 	src/sha256.c src/omega_canonical.c src/omega_core.c src/omega_vector.c \
 	$(PHYSICS_DIR)/m16/m16_native.c $(PHYSICS_DIR)/nvrm/nvrm.c
 OBJS = $(patsubst %.c,$(OUT_DIR)/%.o,$(notdir $(SRCS)))

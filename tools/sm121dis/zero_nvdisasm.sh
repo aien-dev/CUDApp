@@ -12,7 +12,8 @@
 #
 # Usage: PHYSICS_DIR=<pinned physics checkout> sh tools/sm121dis/zero_nvdisasm.sh [build-dir]
 #        after: make PHYSICS_DIR=... build/sm121dis build/gpu_attention_test build/gpu_elementwise_test \
-#                    build/gpu_fp8_api_test build/gpu_reconv_test build/test_omega_reduce_cpu
+#                    build/gpu_fp8_api_test build/gpu_reconv_test
+#        (CUDA++: the numeric provenance checks, divsqrt/ldst/reduce, stay in omega-mv with the numeric encoder.)
 # Last line: "ZERO-NVDISASM: PASS (...)" or "ZERO-NVDISASM: FAIL (...)". Exit 0 only on PASS.
 set -u
 OUT=${1:-build}
@@ -55,9 +56,6 @@ run attention_hd128 "$OUT/gpu_attention_test" --hd 128 --host-only
 run elementwise     "$OUT/gpu_elementwise_test" --host-only
 run fp8             "$OUT/gpu_fp8_api_test" --host-only
 run reconv          "$OUT/gpu_reconv_test" --host-only
-run divsqrt         sh tools/divsqrt_nvdisasm_check.sh
-run ldst            sh tools/ldst_nvdisasm_check.sh
-run reduce          make ${PHYSICS_DIR:+PHYSICS_DIR=$PHYSICS_DIR} test-numeric-reduce-nvdisasm
 if [ "${2:-}" = "--red" ]; then
     # Red check of the gate itself: two planted shell-outs, one by name (the decoy must catch it) and one by the
     # toolkit's absolute path (strace must catch it). The gate must then say FAIL; a gate that stays green here is broken.
