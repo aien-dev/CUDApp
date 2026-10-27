@@ -9,8 +9,10 @@
 #     `usize`/size_t fields are written `u64` (LP64), as it does.
 # Checked by tools/runtime_api_check.sh (make test-runtime-api): every `fn` against its header with the exact types,
 # every size, offset and constant against a compiled probe, the version macros against src/omega_runtime_api.h.
-# After a deliberate header change: edit the line here, run `tools/runtime_api_check.sh --bless` to refresh numbers, review the diff.
-abi omega_runtime 0.1
+# After a deliberate header change: edit the line here, run `tools/runtime_api_check.sh --bless` to refresh numbers, review the diff,
+# and bump the version (MAJOR/MINOR/PATCH, rule in API.md section 2; tools/runtime_api_semver.sh checks the bump against the base).
+# Names a manifest header declares that are NOT API go in omega_runtime_api.internal, each with a reason (the check fails otherwise).
+abi omega_runtime 0.2.0
 header src/omega_runtime_api.h
 header src/omega_gpu_platform.h
 header src/omega_gpu_session.h
@@ -23,7 +25,9 @@ header src/omega_gpu_elementwise_api.h
 header src/omega_gpu_attention_api.h
 # ---- version ----
 const OMEGA_RUNTIME_API_VERSION_MAJOR 0
-const OMEGA_RUNTIME_API_VERSION_MINOR 1
+const OMEGA_RUNTIME_API_VERSION_MINOR 2
+const OMEGA_RUNTIME_API_VERSION_PATCH 0
+const OMEGA_RUNTIME_API_VERSION 2
 # ---- platform contract (src/omega_gpu_platform.h, ABI 1.2) ----
 struct OmegaGpuDeviceHandle 8 4 # STABLE
 field OmegaGpuDeviceHandle index 0 4 u32 1

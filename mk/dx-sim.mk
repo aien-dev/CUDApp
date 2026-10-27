@@ -3,5 +3,5 @@
 # on the host warp simulator; tests/dx/hello_sim_test.sh checks the answers, the fault report, the work
 # line and that two runs give the same bits. Host only: --sim never opens a device.
 .PHONY: test-hello-sim
-test-hello-sim: $(OUT_DIR)/hello_gpu
-	sh tests/dx/hello_sim_test.sh $(OUT_DIR)/hello_gpu
+test-hello-sim: $(OUT_DIR)/hello_gpu $(OUT_DIR)/hello_gpu_control
+	sh tests/dx/hello_sim_test.sh $(OUT_DIR)/hello_gpu $(OUT_DIR)/hello_gpu_control

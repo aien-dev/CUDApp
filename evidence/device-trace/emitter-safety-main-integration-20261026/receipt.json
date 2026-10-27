@@ -1,0 +1,296 @@
+{
+  "schema": "cudapp.device-trace.emitter-main-integration-receipt.v1",
+  "run_date_utc": "2026-10-26",
+  "platform": "Linux x86_64",
+  "scope": "Carry already reviewed PR85 repair onto current main without changing its implementation, tests, or historical receipts.",
+  "why_needed": {
+    "pr84": "Merged to main at728838ccf4939c868443eeaf0490e4e26f381006",
+    "pr85": "Merged only to feat/device-trace-emitter at68e1634ef21d81261606ff62b0197336771e9eb9",
+    "main_before_integration": "c73afb25cce8d22e039287a8ab2e4cd4c7aecf67",
+    "main_trace_blob": "a5d1ef194078ef344bc68484b335396d3f9fea89",
+    "repaired_trace_blob": "ae1a51ba468d4d096dd1f35d18c16dd398acefd2"
+  },
+  "provenance": {
+    "reviewed_pr": "https://github.com/aien-dev/CUDApp/pull/85",
+    "reviewed_commit": "687307103f5108fd8f73fe9e6feeb5b53255dcaf",
+    "local_integration_source_commit": "c2077eeaf3ffd221018edcd911a1434dc32537e6",
+    "base_commit": "c73afb25cce8d22e039287a8ab2e4cd4c7aecf67",
+    "method": "git cherry-pick 687307103f5108fd8f73fe9e6feeb5b53255dcaf",
+    "source_tree": "0cf94414a8b20a7944e4ea29f5555b1a01808769",
+    "exact_carried_blob_identity": [
+      {
+        "path": "evidence/device-trace/emitter-safety-host-20261026/REPRODUCE.md",
+        "reviewed_pr85_blob": "f64b36433268bcaf1f5c6b3b5a64bac397ce96eb",
+        "integration_blob": "f64b36433268bcaf1f5c6b3b5a64bac397ce96eb"
+      },
+      {
+        "path": "evidence/device-trace/emitter-safety-host-20261026/receipt.json",
+        "reviewed_pr85_blob": "87ff9cc678f9e51590b00702cf3a104cb3419abc",
+        "integration_blob": "87ff9cc678f9e51590b00702cf3a104cb3419abc"
+      },
+      {
+        "path": "native/blackwell/trace-emit.om",
+        "reviewed_pr85_blob": "ae1a51ba468d4d096dd1f35d18c16dd398acefd2",
+        "integration_blob": "ae1a51ba468d4d096dd1f35d18c16dd398acefd2"
+      },
+      {
+        "path": "tests/device-trace/README-safety.md",
+        "reviewed_pr85_blob": "51ee470c54f65e75b0cd1bfcfb1702abb410da52",
+        "integration_blob": "51ee470c54f65e75b0cd1bfcfb1702abb410da52"
+      },
+      {
+        "path": "tests/device-trace/address-test.om",
+        "reviewed_pr85_blob": "82cd433dcb80cd7852584a47035c591139c1a4df",
+        "integration_blob": "82cd433dcb80cd7852584a47035c591139c1a4df"
+      },
+      {
+        "path": "tests/device-trace/body-test.om",
+        "reviewed_pr85_blob": "3116b3f7f5954afdc5e5eae79deebbfeade14e69",
+        "integration_blob": "3116b3f7f5954afdc5e5eae79deebbfeade14e69"
+      },
+      {
+        "path": "tests/device-trace/guard-test.om",
+        "reviewed_pr85_blob": "f51b9dbff7c6d9a20a694715075d2814577304f2",
+        "integration_blob": "f51b9dbff7c6d9a20a694715075d2814577304f2"
+      }
+    ]
+  },
+  "preserved": "All current-main paths outside the seven carried PR85 files are unchanged, including PR80 artifact admission, PR83 trace contract, PR87 review documentation, PR92 shader pilot, and vector/launch/context code. This additional receipt is new; historical receipts remain byte-identical.",
+  "oracle_and_projection": "Use the exact frozen external oracle, compiler source, and explicit literal-constant projection documented in ../emitter-safety-host-20261026/REPRODUCE.md. Those pins were rehashed and matched. Semantic runs are projected host-reference execution, not unmodified-source native execution. The compiler source accepts original and projected units and produces identical unexecuted AArch64 ELFs.",
+  "commands": [
+    "omega_ref check <unit.projected.om>",
+    "omega_ref run <unit.projected.om>",
+    "omega_ref run <omc.om> < <unit.om> > <unit.elf>",
+    "omega_ref run <omc.om> < <unit.projected.om> > <projected.elf>",
+    "cmp <unit.elf> <projected.elf>",
+    "make test",
+    "git diff --check c73afb25cce8d22e039287a8ab2e4cd4c7aecf67..c2077eeaf3ffd221018edcd911a1434dc32537e6"
+  ],
+  "integration_semantic_results": [
+    {
+      "stage": "integration",
+      "test": "emitter",
+      "source_sha256": "be6b9e79c90d7099431153690b46ef8e300a55f29f01e4ecf1ad7d2daf68507f",
+      "projection_sha256": "0afc1de7a9209fc5bf81856745ca89787604255df5591fc25e87ea2feee1c334",
+      "check_exit": 0,
+      "run_exit": 0
+    },
+    {
+      "stage": "integration",
+      "test": "address",
+      "source_sha256": "5951907eea227b908bc3f53193293f708f1a116b2838279d50ead37e810b2118",
+      "projection_sha256": "13515cef845c65ae896258f42fc3c999bb79a39bdc1e77b14e4d4f934319f3b2",
+      "check_exit": 0,
+      "run_exit": 0
+    },
+    {
+      "stage": "integration",
+      "test": "guard",
+      "source_sha256": "1137c36c1241f65b588beb4d163fecaf83f9a3c0368f727cbca08b095e1098b3",
+      "projection_sha256": "f471673a130f4a3bc0faf2ac3620d70da4e24bfaf5d5d4dbe40a6d7937a2eb70",
+      "check_exit": 0,
+      "run_exit": 0
+    },
+    {
+      "stage": "integration",
+      "test": "body",
+      "source_sha256": "2bdae5f2e4a441397b3ebdfa7fd22789b6c97d59b67dc60b57f6bd635722c9af",
+      "projection_sha256": "2452e3783763e663f892d2800ee236469f2ae11320764de7979a868e14a7e2ce",
+      "check_exit": 0,
+      "run_exit": 0
+    }
+  ],
+  "integration_compiler_results": [
+    {
+      "stage": "integration",
+      "test": "emitter",
+      "original": {
+        "compile_exit": 0,
+        "stderr": "",
+        "elf_sha256": "dc5773073ff4dbcd4895df0db0557470461af802526d1e5e5f4147e093d1304b"
+      },
+      ".projected": {
+        "compile_exit": 0,
+        "stderr": "",
+        "elf_sha256": "dc5773073ff4dbcd4895df0db0557470461af802526d1e5e5f4147e093d1304b"
+      },
+      "identical_elves": true
+    },
+    {
+      "stage": "integration",
+      "test": "address",
+      "original": {
+        "compile_exit": 0,
+        "stderr": "",
+        "elf_sha256": "dac4ab5784c85a4cd92862183e837687cd0b2a6e6164dcb0476b6b06fa9f4d38"
+      },
+      ".projected": {
+        "compile_exit": 0,
+        "stderr": "",
+        "elf_sha256": "dac4ab5784c85a4cd92862183e837687cd0b2a6e6164dcb0476b6b06fa9f4d38"
+      },
+      "identical_elves": true
+    },
+    {
+      "stage": "integration",
+      "test": "guard",
+      "original": {
+        "compile_exit": 0,
+        "stderr": "",
+        "elf_sha256": "68423524f52c03da9916749b4d78c24995983dbb818ddc56bd0a7c1c23a588d9"
+      },
+      ".projected": {
+        "compile_exit": 0,
+        "stderr": "",
+        "elf_sha256": "68423524f52c03da9916749b4d78c24995983dbb818ddc56bd0a7c1c23a588d9"
+      },
+      "identical_elves": true
+    },
+    {
+      "stage": "integration",
+      "test": "body",
+      "original": {
+        "compile_exit": 0,
+        "stderr": "",
+        "elf_sha256": "a793ed62dc31e333682167bb0f2020062d84900479e0d9d883b7eaa8de499fe9"
+      },
+      ".projected": {
+        "compile_exit": 0,
+        "stderr": "",
+        "elf_sha256": "a793ed62dc31e333682167bb0f2020062d84900479e0d9d883b7eaa8de499fe9"
+      },
+      "identical_elves": true
+    }
+  ],
+  "current_main_negative_results": [
+    {
+      "test": "address",
+      "run_exit": 3,
+      "compile_exit": 0,
+      "stderr": ""
+    },
+    {
+      "test": "guard",
+      "run_exit": 1,
+      "compile_exit": 0,
+      "stderr": ""
+    },
+    {
+      "test": "body",
+      "run_exit": 1,
+      "compile_exit": 0,
+      "stderr": ""
+    }
+  ],
+  "mutation_results": [
+    {
+      "name": "body_only_canonical_enable",
+      "test": "body",
+      "check_exit": 0,
+      "run_exit": 1,
+      "compile_exit": 0,
+      "source_sha256": "25a86704992c4e86c5ca891fd4f68eed05fcfdd97dd2889bb5870647791b5b10"
+    },
+    {
+      "name": "store_high_offset",
+      "test": "address",
+      "check_exit": 0,
+      "run_exit": 3,
+      "compile_exit": 0,
+      "source_sha256": "f6721d018c1e54c03d09b3f103b22aa1dbc5334b24d4f5899ae78dd4fcdb0e7f"
+    },
+    {
+      "name": "store_negative_offset",
+      "test": "address",
+      "check_exit": 0,
+      "run_exit": 3,
+      "compile_exit": 0,
+      "source_sha256": "e0e15ef09b57ce2120ef0ef05afdc966a58ed90ec3c184d0e56c1d05e9d7d239"
+    },
+    {
+      "name": "original_pointer",
+      "test": "address",
+      "check_exit": 0,
+      "run_exit": 3,
+      "compile_exit": 0,
+      "source_sha256": "4dd903ee8b3c90878d2d7f755515871cf13fef3f7dda370238fe4293f677f228"
+    },
+    {
+      "name": "original_flag",
+      "test": "guard",
+      "check_exit": 0,
+      "run_exit": 1,
+      "compile_exit": 0,
+      "source_sha256": "dd9506f9f8d57fec62b85bc368d9a216361761cd4bd923255d178b2a4f40c658"
+    },
+    {
+      "name": "checks_nonzero",
+      "test": "guard",
+      "check_exit": 0,
+      "run_exit": 1,
+      "compile_exit": 0,
+      "source_sha256": "bdd6f3f505d4fe65717fe087ab5b66a346bc1601c05ae13d8ce5267a39df6164"
+    },
+    {
+      "name": "skip_body_refusal",
+      "test": "body",
+      "check_exit": 0,
+      "run_exit": 1,
+      "compile_exit": 0,
+      "source_sha256": "fe8847689136224eb62e9077b198ad4d26e9e1d0de1aed7251c953efe779d464"
+    },
+    {
+      "name": "predicate_sensitive_exit",
+      "test": "body",
+      "check_exit": 0,
+      "run_exit": 5,
+      "compile_exit": 0,
+      "source_sha256": "ab87b48e3a80edf1c66fed0b3ffc93dee1cdbd1939c1bd90f15cbdb97cb71667"
+    },
+    {
+      "name": "branch_high_word",
+      "test": "address",
+      "check_exit": 0,
+      "run_exit": 9,
+      "compile_exit": 0,
+      "source_sha256": "a692e48a7fe47e16310fa2b3a259c9913e018772f5c2710114c52612be31e607"
+    },
+    {
+      "name": "branch_upper_bits",
+      "test": "address",
+      "check_exit": 0,
+      "run_exit": 10,
+      "compile_exit": 0,
+      "source_sha256": "2ecc7daabe2f750614b346656ca262da6333bd618f283a8f4f492350b0470519"
+    }
+  ],
+  "independent_review": {
+    "scope": "Integration from current main, exact seven-blob carry, unrelated paths preserved, fresh git-show-based current-main versus integrated semantic units.",
+    "observed": "Current-main emitter test exits0 while address/guard/body fail3/1/1; integrated four units exit0. All reference checks accept with empty stderr. No native or GPU output executed.",
+    "review_kind": "Host-reference and source integration review, not hardware qualification."
+  },
+  "whole_repository": {
+    "command": "make test",
+    "exit": 2,
+    "stage": "FAIL building build/omega_blackwell_engine.o before the host suite can run",
+    "diagnostic": "Existing AArch64 ds instructions at src/omega_blackwell_engine.c:393 and:558 are rejected by the x86 assembler; Makefile:39.",
+    "log_sha256": "362d392f74b45d11cc5d5726963be8bfbf2bfc0cf6e266f27a36bbe87a54dd05",
+    "full_suite": "NOT_RUN after failed build, not a pass."
+  },
+  "unchanged_limitations": [
+    "Historical expected.sass remains stale and the old disassembler runner comparison does not pass for the repair. It was not regenerated because repository policy forbids committing NVIDIA-tool listings.",
+    "New semantic tests remain standalone, not integrated into the existing runner or make test.",
+    "Enabled input remains a prepared linear body fragment with initialized/preserved R0=TID.X, one CTA, known register clobbers, and fallthrough preconditions. EXIT refusal is not a general CFG verifier.",
+    "Runtime overflow/drop accounting, partial capture, capacity0/1 capture, and begin/end ranges remain unimplemented; disabled capacity0 is still refused."
+  ],
+  "not_run": [
+    "Native AArch64 test execution or seed birth",
+    "GB10 execution, scheduling, timer/store qualification",
+    "QMD/launch wiring",
+    "Paired off/on output equivalence and overhead",
+    "Clock qualification and chip repeatability",
+    "Fresh disassembler run for this integration: carried emitter source is byte-identical to the previously decoded PR85 source; prior decode receipt remains historical, not relabeled as a new run."
+  ],
+  "ci": "Pending publication to a main-target draft PR; any remote check result must name the eventual published head separately. No prior PR85 CI success is claimed.",
+  "effects": "No GPU, main-branch write, merge, deployment, trust/admission/protection change, credential change, NVIDIA binary, or disassembler listing."
+}

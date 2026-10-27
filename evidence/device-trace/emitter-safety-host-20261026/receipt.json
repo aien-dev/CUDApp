@@ -1,0 +1,354 @@
+{
+  "schema": "cudapp.device-trace.emitter-safety-receipt.v1",
+  "date_utc": "2026-10-26",
+  "status": "LOCAL_HOST_ONLY_REPAIR; NOT_READY_FOR_GPU; HISTORICAL_GOLDEN_STALE",
+  "repository": "https://github.com/aien-dev/CUDApp",
+  "base_commit": "60d6c57fc6821accce0027d65dd239355beeb543",
+  "source_commit": "617c4905108c3895fce917c4b5e89403ef1d7325",
+  "platform": "Linux x86_64",
+  "source_sha256": {
+    "native/blackwell/trace-emit.om": "032925efb802f4ff6222245eb5bd6b1ba7ce4264f24ee04ece468717322789d9",
+    "tests/device-trace/address-test.om": "f58627bb65bd8255de76746dd1734f68d5773b6378b7a59d5a630a31afd0473d",
+    "tests/device-trace/guard-test.om": "2748a40d54dc8dfa1e2cd2717f04f626806aae1d3e5ce3668c78486fe6e1b582",
+    "tests/device-trace/body-test.om": "8dd759f8b77388f74dbb0f8a729251f47a4e5b6f65371ffc721ac2c607d88f79",
+    "tests/device-trace/README-safety.md": "3e83078722cabe8f0c22b05502de5e87926a5e96273425d0af6cda0b5428bb8a"
+  },
+  "implementation": [
+    "Replace multiply-base-low plus high-copy with existing MOV offset plus IMAD.WIDE.U32 base-pair add. Marker instruction count and branch displacement unchanged.",
+    "Require gtchecks exactly 1 for every nonzero enable value.",
+    "Reject input EXIT instructions independent of predicate before output mutation. Enabled input remains a prepared single-CTA linear fragment with explicit register and fallthrough preconditions, not a general complete-kernel wrapper."
+  ],
+  "oracle": {
+    "role": "Existing frozen external test referee, not product code, native execution, or part of the seed chain.",
+    "repository": "https://github.com/aien-dev/omega-mv",
+    "commit": "190130b71d0a59b93f01c515218a5509b149a145",
+    "source_path": "tools/omega_ref/omega_ref.c",
+    "source_sha256": "52e747096c1d978103432460a2978b21a604cc5d3e961bbe4b253fcc7636290e",
+    "binary_sha256": "81106113f7d031f709098cddb6f89f301a6f9d25ed0179d2e5ec36c75749c4f2",
+    "const_limitation": "Unmodified PR84 source is refused with error16 at first const declaration. Semantic runs use an explicitly recorded test-only literal-constant projection; they are NOT runs of the unmodified source.",
+    "projection": "Remove const NAME ulong VALUE declarations and replace NAME tokens in non-note lines by ulong VALUE. No other statement is changed. For each final unit the real Omega compiler, itself executed by the referee, accepts both original and projected sources with empty stderr and produces byte-identical AArch64 ELFs. These ELFs are never executed."
+  },
+  "compiler": {
+    "repository": "https://github.com/aien-dev/omega-mv",
+    "source_revision": "7505b3a3e3cf5ee46933e3a89a021b4289037983",
+    "source_path": "seed/omc/omc.om",
+    "source_sha256": "c792b401193d8477d38965d6ddb0fd0cb8fd5ac24fcb92fae9af52037a765f1c",
+    "independently_expected_seeded_binary_sha256": "499236398aabc652e2dae27fe4bdc4c5db3d3726314356e0dbef23e3345803ec",
+    "referee_self_output_sha256": "499236398aabc652e2dae27fe4bdc4c5db3d3726314356e0dbef23e3345803ec",
+    "check_exit": 0,
+    "self_compile_exit": 0,
+    "self_compile_stderr_bytes": 0,
+    "identity_note": "This compiler pin differs from PR84 historical receipt c99eda...; no claim to have rerun that compiler binary."
+  },
+  "red_final_tests_against_base": [
+    {
+      "test": "address",
+      "run_exit": 3,
+      "compile_exit": 0,
+      "stderr": ""
+    },
+    {
+      "test": "guard",
+      "run_exit": 1,
+      "compile_exit": 0,
+      "stderr": ""
+    },
+    {
+      "test": "body",
+      "run_exit": 1,
+      "compile_exit": 0,
+      "stderr": ""
+    }
+  ],
+  "final_semantic_tests": [
+    {
+      "stage": "final",
+      "test": "emitter",
+      "source_sha256": "be6b9e79c90d7099431153690b46ef8e300a55f29f01e4ecf1ad7d2daf68507f",
+      "projection_sha256": "0afc1de7a9209fc5bf81856745ca89787604255df5591fc25e87ea2feee1c334",
+      "check_exit": 0,
+      "run_exit": 0
+    },
+    {
+      "stage": "final",
+      "test": "address",
+      "source_sha256": "5951907eea227b908bc3f53193293f708f1a116b2838279d50ead37e810b2118",
+      "projection_sha256": "13515cef845c65ae896258f42fc3c999bb79a39bdc1e77b14e4d4f934319f3b2",
+      "check_exit": 0,
+      "run_exit": 0
+    },
+    {
+      "stage": "final",
+      "test": "guard",
+      "source_sha256": "1137c36c1241f65b588beb4d163fecaf83f9a3c0368f727cbca08b095e1098b3",
+      "projection_sha256": "f471673a130f4a3bc0faf2ac3620d70da4e24bfaf5d5d4dbe40a6d7937a2eb70",
+      "check_exit": 0,
+      "run_exit": 0
+    },
+    {
+      "stage": "final",
+      "test": "body",
+      "source_sha256": "2bdae5f2e4a441397b3ebdfa7fd22789b6c97d59b67dc60b57f6bd635722c9af",
+      "projection_sha256": "2452e3783763e663f892d2800ee236469f2ae11320764de7979a868e14a7e2ce",
+      "check_exit": 0,
+      "run_exit": 0
+    }
+  ],
+  "final_original_and_projected_compiles": [
+    {
+      "stage": "final",
+      "test": "emitter",
+      "original": {
+        "compile_exit": 0,
+        "stderr": "",
+        "elf_sha256": "dc5773073ff4dbcd4895df0db0557470461af802526d1e5e5f4147e093d1304b"
+      },
+      ".projected": {
+        "compile_exit": 0,
+        "stderr": "",
+        "elf_sha256": "dc5773073ff4dbcd4895df0db0557470461af802526d1e5e5f4147e093d1304b"
+      },
+      "identical_elves": true
+    },
+    {
+      "stage": "final",
+      "test": "address",
+      "original": {
+        "compile_exit": 0,
+        "stderr": "",
+        "elf_sha256": "dac4ab5784c85a4cd92862183e837687cd0b2a6e6164dcb0476b6b06fa9f4d38"
+      },
+      ".projected": {
+        "compile_exit": 0,
+        "stderr": "",
+        "elf_sha256": "dac4ab5784c85a4cd92862183e837687cd0b2a6e6164dcb0476b6b06fa9f4d38"
+      },
+      "identical_elves": true
+    },
+    {
+      "stage": "final",
+      "test": "guard",
+      "original": {
+        "compile_exit": 0,
+        "stderr": "",
+        "elf_sha256": "68423524f52c03da9916749b4d78c24995983dbb818ddc56bd0a7c1c23a588d9"
+      },
+      ".projected": {
+        "compile_exit": 0,
+        "stderr": "",
+        "elf_sha256": "68423524f52c03da9916749b4d78c24995983dbb818ddc56bd0a7c1c23a588d9"
+      },
+      "identical_elves": true
+    },
+    {
+      "stage": "final",
+      "test": "body",
+      "original": {
+        "compile_exit": 0,
+        "stderr": "",
+        "elf_sha256": "a793ed62dc31e333682167bb0f2020062d84900479e0d9d883b7eaa8de499fe9"
+      },
+      ".projected": {
+        "compile_exit": 0,
+        "stderr": "",
+        "elf_sha256": "a793ed62dc31e333682167bb0f2020062d84900479e0d9d883b7eaa8de499fe9"
+      },
+      "identical_elves": true
+    }
+  ],
+  "mutations": [
+    {
+      "name": "body_only_canonical_enable",
+      "test": "body",
+      "check_exit": 0,
+      "run_exit": 1,
+      "compile_exit": 0,
+      "source_sha256": "25a86704992c4e86c5ca891fd4f68eed05fcfdd97dd2889bb5870647791b5b10"
+    },
+    {
+      "name": "store_high_offset",
+      "test": "address",
+      "check_exit": 0,
+      "run_exit": 3,
+      "compile_exit": 0,
+      "source_sha256": "f6721d018c1e54c03d09b3f103b22aa1dbc5334b24d4f5899ae78dd4fcdb0e7f"
+    },
+    {
+      "name": "store_negative_offset",
+      "test": "address",
+      "check_exit": 0,
+      "run_exit": 3,
+      "compile_exit": 0,
+      "source_sha256": "e0e15ef09b57ce2120ef0ef05afdc966a58ed90ec3c184d0e56c1d05e9d7d239"
+    },
+    {
+      "name": "original_pointer",
+      "test": "address",
+      "check_exit": 0,
+      "run_exit": 3,
+      "compile_exit": 0,
+      "source_sha256": "4dd903ee8b3c90878d2d7f755515871cf13fef3f7dda370238fe4293f677f228"
+    },
+    {
+      "name": "original_flag",
+      "test": "guard",
+      "check_exit": 0,
+      "run_exit": 1,
+      "compile_exit": 0,
+      "source_sha256": "dd9506f9f8d57fec62b85bc368d9a216361761cd4bd923255d178b2a4f40c658"
+    },
+    {
+      "name": "checks_nonzero",
+      "test": "guard",
+      "check_exit": 0,
+      "run_exit": 1,
+      "compile_exit": 0,
+      "source_sha256": "bdd6f3f505d4fe65717fe087ab5b66a346bc1601c05ae13d8ce5267a39df6164"
+    },
+    {
+      "name": "skip_body_refusal",
+      "test": "body",
+      "check_exit": 0,
+      "run_exit": 1,
+      "compile_exit": 0,
+      "source_sha256": "fe8847689136224eb62e9077b198ad4d26e9e1d0de1aed7251c953efe779d464"
+    },
+    {
+      "name": "predicate_sensitive_exit",
+      "test": "body",
+      "check_exit": 0,
+      "run_exit": 5,
+      "compile_exit": 0,
+      "source_sha256": "ab87b48e3a80edf1c66fed0b3ffc93dee1cdbd1939c1bd90f15cbdb97cb71667"
+    },
+    {
+      "name": "branch_high_word",
+      "test": "address",
+      "check_exit": 0,
+      "run_exit": 9,
+      "compile_exit": 0,
+      "source_sha256": "a692e48a7fe47e16310fa2b3a259c9913e018772f5c2710114c52612be31e607"
+    },
+    {
+      "name": "branch_upper_bits",
+      "test": "address",
+      "check_exit": 0,
+      "run_exit": 10,
+      "compile_exit": 0,
+      "source_sha256": "2ecc7daabe2f750614b346656ca262da6333bd618f283a8f4f492350b0470519"
+    }
+  ],
+  "corrected_test_gaps": [
+    "The first address model masked only16 offset bits; a high-offset mutant survived with exit0. Independent review identified signed24-bit STG offsets. Final test decodes all24 bits and refuses negative offsets; both high and sign-bit mutants now fail3.",
+    "The first body test used only enable1; an on==1-only body-scan mutant survived with exit0. Final test exercises enable1,2,and maximum ulong for gbvec and all16 EXIT predicate fields; mutant now fails1.",
+    "Initial long expressions exceeded compiler register budget (error12); split test helpers and opcode extraction, then all final original and projected units compile with exit0 and empty stderr."
+  ],
+  "external_decode": {
+    "tool": "NVIDIA nvdisasm13.0.39, host-only outside delivered closure",
+    "official_manifest_url": "https://developer.download.nvidia.com/compute/cuda/redist/redistrib_13.0.0.json",
+    "archive_sha256": "1862b4a54ae2b6c58b2b662de964308a2b01489ca7d19a83d5db46af36d1908c",
+    "binary_sha256": "cfc2fa33538928f78c1c75fd5e25e275d71cd5746fee57d41c98b207d35cc008",
+    "command": "nvdisasm --binary SM121 words.bin",
+    "exit": 0,
+    "words_bytes": 640,
+    "instruction_count": 40,
+    "words_sha256": "539ac68e0150e91e3e7da425b0ec7dd8cc8bbe782a6c7e39372bad79568133dc",
+    "decode_sha256": "21e4fb6864c78ca612fb3f0d4ee50fda7dae2def40044cbffa38e24ffe323140",
+    "semantics": "Two address pairs decode as MOV R6 with offsets64/128 followed by IMAD.WIDE.U32 R8,R6,1,R4. Branches still land after their respective20-instruction blocks.",
+    "comparison_to_historical_golden_exit": 1,
+    "historical_golden_status": "STALE: expected.sass applies only to original base. Four address instruction lines differ. The original runner cannot pass its golden comparison for the repair.",
+    "publication_boundary": "No NVIDIA binary, generated GPU binary, or disassembler listing is added. AGENTS.md forbids NVIDIA-tool listings; inherited runner update mode conflicts with that rule. Owner resolution required; no comparison was bypassed."
+  },
+  "whole_repository": {
+    "command": "make test",
+    "baseline_exit": 2,
+    "source_commit_exit": 2,
+    "failure": "Build stops at Makefile:39 build/omega_blackwell_engine.o. x86 assembler rejects AArch64 ds instructions at src/omega_blackwell_engine.c:558 and:393.",
+    "host_test_suite": "NOT_RUN because build fails; not a green suite.",
+    "final_log_sha256": "99f4bbeaf88b4000be8d7fcee3dd6fb172ec3c72da2d6f0e341d240acc7a48f9"
+  },
+  "independent_review": {
+    "result": "No remaining defect found within stated local repair scope. Reviewer independently reran four semantic units and all ten mutants.",
+    "limits": "Review is not hardware or native execution evidence."
+  },
+  "wolfram_modeled_queries": [
+    {
+      "query": "Table[{s,4294971392+64 s,4294967296+Mod[4096*64 s,2^32]},{s,1,2}]",
+      "result": [
+        [
+          1,
+          4294971456,
+          4295229440
+        ],
+        [
+          2,
+          4294971520,
+          4295491584
+        ]
+      ],
+      "units": "byte addresses; modeled, not hardware"
+    },
+    {
+      "query": "Table[{b,b+64,b+128},{b,{4294971392,8589934528,4096}}]",
+      "result": [
+        [
+          4294971392,
+          4294971456,
+          4294971520
+        ],
+        [
+          8589934528,
+          8589934592,
+          8589934656
+        ],
+        [
+          4096,
+          4160,
+          4224
+        ]
+      ],
+      "units": "byte addresses; modeled, not hardware"
+    },
+    {
+      "query": "{2^24-1,2^23,BitShiftLeft[1,24],BitShiftLeft[1,31],FromDigits[\"04087824\",16],FromDigits[\"05097824\",16]}",
+      "result": [
+        16777215,
+        8388608,
+        16777216,
+        2147483648,
+        67663908,
+        84506660
+      ],
+      "units": "encoding constants; modeled"
+    },
+    {
+      "query": "And@@Table[Mod[BitOr[16^^94d,BitShiftLeft[p,12]],4096]==2381,{p,0,15}]",
+      "result": true,
+      "units": "predicate-insensitive EXIT identity; modeled"
+    }
+  ],
+  "not_run": [
+    "Native AArch64 test execution",
+    "Native seed birth/full native suite",
+    "GB10 timer/store execution and instruction scheduling qualification",
+    "QMD/launch wiring",
+    "Paired off/on output equivalence and overhead",
+    "Chip overflow/drop accounting and repeatability",
+    "Clock qualification"
+  ],
+  "remaining_scope": [
+    "R0 TID.X initialisation/preservation and single-CTA launch remain caller preconditions, not verified launch integration.",
+    "Only EXIT is scanned; unsupported branch/call/return paths are not CFG-verified.",
+    "Runtime overflow, drops, partial capture, capacity0/1 capture and begin/end ranges remain unimplemented.",
+    "New semantic tests are documented standalone, not wired into existing runner or make test.",
+    "Disabled capacity0 remains refused by existing gtinit behavior."
+  ],
+  "unchanged": [
+    "Existing launch/vector/context code",
+    "Existing qualification/admission gates",
+    "Historical receipts and golden",
+    "main and remote branches",
+    "Credentials and trust configuration"
+  ],
+  "guides": "Local README-safety.md documents this API boundary and tests. No Omega language/compiler/Bridge/general-harness guide changed because those interfaces and pins were not changed."
+}
