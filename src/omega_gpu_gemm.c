@@ -3,6 +3,7 @@
 #include "omega_bw_em.h"
 #include "omega_bw_em_q.h"
 #include "omega_gpu_session.h"
+#include "omega_gpu_mem_cached.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -14,16 +15,26 @@
 static uint32_t esz(OmegaGpuGemmType t) { return t == OMEGA_GPU_GEMM_BF16 ? 2u : 1u; }
 static uint32_t kstep(OmegaGpuGemmType t) { return t == OMEGA_GPU_GEMM_BF16 ? 16u : 32u; }
 static int pow124(uint32_t v) { return v == 1u || v == 2u || v == 4u; }
+static int band_ok(uint32_t b) { return b <= 32u && (b & (b - 1u)) == 0u; }
 
 void omega_gpu_gemm_default_cfg(OmegaGpuGemmType type, OmegaGemmCfg *cfg) {
     memset(cfg, 0, sizeof *cfg);
-    cfg->type = type; cfg->rt = 2; cfg->ct = 4; cfg->wm = 2; cfg->wn = 2; cfg->stall = type == OMEGA_GPU_GEMM_BF16 ? 4u : 2u;
+    /* rt 2 ct 4, 2 x 4 warps, column bands of 8 CTA tiles: the fastest of the GemmTune exploration sweeps on GB10
+     * (evidence/GEMM-TUNE-*); stall 4 bf16, 2 e4m3 as before */
+    cfg->type = type; cfg->rt = 2; cfg->ct = 4; cfg->wm = 2; cfg->wn = 4; cfg->band = 8;
+    cfg->stall = type == OMEGA_GPU_GEMM_BF16 ? 4u : 2u;
 }
+
+/* registers of MAIN for operands and accumulators: two operand sets (4 rt + 2 ct quads) and rt ct accumulator quads; at most
+ * 160 (rt 4 ct 4). Up to MAIN_REGS_DEFAULT they fit R2..R127 (BW_PHYS_GPR_MAX) beside the ~25 address and loop registers;
+ * above it MAIN opts into BW_PHYS_GPR_HW_LIMIT (R2..R245). */
+static uint32_t main_regs(const OmegaGemmCfg *c) { return 4u * (4u * c->rt + 2u * c->ct + c->rt * c->ct); }
+#define MAIN_REGS_DEFAULT 100u
 
 int omega_gpu_gemm_cfg_ok(const OmegaGemmCfg *c) {
     return c && (c->type == OMEGA_GPU_GEMM_BF16 || c->type == OMEGA_GPU_GEMM_E4M3) && pow124(c->rt) && pow124(c->ct) &&
            pow124(c->wm) && pow124(c->wn) && c->stall >= 1u && c->stall <= 15u && c->mutant >= 0 && c->mutant <= 3 &&
-           4u * (4u * c->rt + 2u * c->ct + c->rt * c->ct) <= 100u; /* registers: two operand sets + accumulators, R2..R127 in all */
+           band_ok(c->band);
 }
 
 /* ------------------------------------------------------------------ IR helpers */
@@ -128,6 +139,19 @@ static int gen_main(Em *e, const OmegaGemmCfg *c) {
     ldc32(e, M, 0x398); ldc32(e, N, 0x39c); ldc32(e, ks2, 0x3a0);
     s2r(e, tid, BW_SR_TID_X); s2r(e, cx, BW_SR_CTAID_X); s2r(e, cy, BW_SR_CTAID_Y);
     movi(e, one, 1); movrz(e, zr);
+    if (c->band > 1u) {
+        /* banded grid: ctaid.x = tile row * band + column within the band, ctaid.y = band; tile column = band * band index
+         * + column within the band. The last band may stick out past the tile columns: those CTAs leave at once. */
+        int gx = V(e);
+        if (e->err) return -1;
+        ldc32(e, gx, 0x3a4);
+        andi(e, tmp, cx, 0, c->band - 1u);
+        imadi(e, rgb, cy, 0, c->band, tmp);
+        shr(e, cy, cx, 0, (uint32_t)log2u(c->band));
+        isetp_ge_u32(e, rgb, gx);
+        { BlackwellIRInsn x = I0(BW_IR_EXIT); x.predicate_p0 = true; emit(e, x, K_EXIT); }
+        imadi(e, cx, rgb, 0, 1u, NOREG);
+    }
     shr(e, warp, tid, 0, 5); andi(e, lane, tid, 0, 31u);
     /* warp (wm, wn) = (warp / WN, warp % WN); row groups rga = cy WM + wm, rgb = cx WN + wn */
     shr(e, tmp, warp, 0, (uint32_t)log2u(c->wn)); imadi(e, rga, cy, 0, c->wm, tmp);
@@ -197,6 +221,7 @@ static int gen_main(Em *e, const OmegaGemmCfg *c) {
 int omega_gpu_gemm_codegen(const OmegaGemmCfg *cfg, OmegaGemmKind kind, BlackwellIRProgram *prog) {
     if (!omega_gpu_gemm_cfg_ok(cfg) || !prog || (unsigned)kind >= OMEGA_GEMM_K_COUNT) return -1;
     omega_bw_ir_init(prog);
+    if (kind == OMEGA_GEMM_K_MAIN && main_regs(cfg) > MAIN_REGS_DEFAULT && omega_bw_ir_set_gpr_limit(prog, BW_PHYS_GPR_HW_LIMIT) != 0) return -1;
     Em em; memset(&em, 0, sizeof em); em.p = prog;
     int rc = kind == OMEGA_GEMM_K_MAIN ? gen_main(&em, cfg) : gen_pack(&em, cfg, kind == OMEGA_GEMM_K_PACK_B);
     if (rc != 0 || em.err || em.depth != 0) return -1;
@@ -219,7 +244,9 @@ int omega_gpu_gemm_plan(const OmegaGemmCfg *c, uint32_t M, uint32_t N, uint32_t 
     p->bp_bytes = (uint64_t)(p->Np / gb) * p->KS2 * FB * FRAG + 2u * FB * FRAG;
     p->grid[OMEGA_GEMM_K_PACK_A][0] = p->KS2; p->grid[OMEGA_GEMM_K_PACK_A][1] = p->Mp / ga;
     p->grid[OMEGA_GEMM_K_PACK_B][0] = p->KS2; p->grid[OMEGA_GEMM_K_PACK_B][1] = p->Np / gb;
-    p->grid[OMEGA_GEMM_K_MAIN][0] = p->Np / (gb * c->wn); p->grid[OMEGA_GEMM_K_MAIN][1] = p->Mp / (ga * c->wm);
+    const uint32_t gx = p->Np / (gb * c->wn), gy = p->Mp / (ga * c->wm);
+    p->grid[OMEGA_GEMM_K_MAIN][0] = gx; p->grid[OMEGA_GEMM_K_MAIN][1] = gy;
+    if (c->band > 1u) { p->grid[OMEGA_GEMM_K_MAIN][0] = c->band * gy; p->grid[OMEGA_GEMM_K_MAIN][1] = (gx + c->band - 1u) / c->band; }
     p->threads[OMEGA_GEMM_K_PACK_A] = p->threads[OMEGA_GEMM_K_PACK_B] = 128u;
     p->threads[OMEGA_GEMM_K_MAIN] = 32u * c->wm * c->wn;
     return OMEGA_GPU_GEMM_OK;
@@ -246,6 +273,7 @@ int omega_gpu_gemm_drive(const OmegaGemmCfg *c, unsigned layout, uint32_t M, uin
     if (launch(ctx, OMEGA_GEMM_K_PACK_B, a, p.grid[1][0], p.grid[1][1], p.threads[1]) != 0) return OMEGA_GPU_GEMM_CHIP_FAIL;
     memset(a, 0, sizeof a);
     put64(a, 0, ap_va); put64(a, 2, bp_va); put64(a, 4, c_va); a[6] = M; a[7] = N; a[8] = p.KS2;
+    a[9] = p.Np / (8u * c->ct * c->wn);
     if (launch(ctx, OMEGA_GEMM_K_MAIN, a, p.grid[2][0], p.grid[2][1], p.threads[2]) != 0) return OMEGA_GPU_GEMM_CHIP_FAIL;
     return OMEGA_GPU_GEMM_OK;
 }
@@ -257,15 +285,50 @@ static struct {
     OmegaGemmCfg cfg[2];
     OmegaGpuMem code[2][OMEGA_GEMM_K_COUNT];
     uint32_t gpr[2][OMEGA_GEMM_K_COUNT];
+    OmegaGpuMem pk;  /* packed A | packed B, kept between calls and grown on demand */
+    int pk_cached;   /* pk is GPU-cached (default; env AIEN_OMEGA_GEMM_PACK_CACHED=0 allocates it GPU-uncached) */
     int hooked;
 } g;
 
-/* lock held; the session calls it right before it closes the device (also in omega_gpu_session_recover): the kernels go
- * with the device, the next call builds them again on the new one */
+/* lock held; the session calls it right before it closes the device (also in omega_gpu_session_recover): the kernels and
+ * the packed scratch go with the device, the next call builds them again on the new one */
 static void on_session_close(void) {
     for (unsigned t = 0; t < 2; t++)
         for (unsigned k = 0; k < OMEGA_GEMM_K_COUNT; k++) if (g.code[t][k].cpu) omega_gpu_session_free(&g.code[t][k]);
     memset(g.code, 0, sizeof g.code);
+    if (g.pk.cpu) omega_gpu_session_free(&g.pk);
+    memset(&g.pk, 0, sizeof g.pk);
+}
+
+/* lock held: without the hook a kernel or the scratch would outlive its device */
+static int hook_locked(void) {
+    if (!g.hooked) {
+        if (omega_gpu_session_on_close(on_session_close) != 0) return -1;
+        g.hooked = 1;
+    }
+    return 0;
+}
+
+/* lock held, device open. The packed operands are DEVICE-PRIVATE: PACK_A / PACK_B write them, MAIN reads them, the CPU never
+ * touches them, so they may be GPU-cached (src/omega_gpu_platform_linux.c ref_dma_alloc: no CPU_READ, no HOST_POLLED; same
+ * pattern as the decode graph's dbuf, src/omega_gpu_q36_graph.c). Every packed word MAIN uses is written by a PACK launch of
+ * the same call before MAIN runs, so a line a previous call left in L2 is overwritten, never read. MAIN reads every packed
+ * fragment once per CTA row or column it serves, so in L2 the reuse across CTAs no longer goes back to DRAM (GemmTune). When
+ * the scratch grows, the old one is synced to the GPU before it is freed: that queues the L2 invalidate prefix
+ * (omega #457) on the next submission, so no clean line of the freed pages survives into whatever reuses them. */
+static int packed_locked(uint64_t bytes, OmegaGpuMem *out) {
+    if (hook_locked() != 0) return -1;
+    if (g.pk.cpu && g.pk.size >= bytes) { *out = g.pk; return 0; }
+    if (g.pk.cpu) {
+        if (g.pk_cached) (void)omega_gpu_session_sync_to_gpu(&g.pk);
+        omega_gpu_session_free(&g.pk);
+        memset(&g.pk, 0, sizeof g.pk);
+    }
+    const char *v = getenv("AIEN_OMEGA_GEMM_PACK_CACHED");
+    g.pk_cached = !(v && v[0] == '0' && v[1] == 0);
+    if ((g.pk_cached ? omega_gpu_session_alloc_cached(bytes, &g.pk) : omega_gpu_session_alloc(bytes, &g.pk)) != 0) { memset(&g.pk, 0, sizeof g.pk); return -1; }
+    *out = g.pk;
+    return 0;
 }
 
 static const OmegaGemmCfg *cfg_of(OmegaGpuGemmType t) {
@@ -298,10 +361,7 @@ const char *omega_gpu_gemm_rc_name(int rc) {
 /* lock held */
 static int kernel_locked(OmegaGpuGemmType t, OmegaGemmKind k) {
     if (g.code[t][k].cpu) return OMEGA_GPU_GEMM_OK;
-    if (!g.hooked) { /* without the hook a kernel would outlive its device */
-        if (omega_gpu_session_on_close(on_session_close) != 0) return OMEGA_GPU_GEMM_CHIP_FAIL;
-        g.hooked = 1;
-    }
+    if (hook_locked() != 0) return OMEGA_GPU_GEMM_CHIP_FAIL;
     BlackwellIRProgram *prog = omega_gpu_host_calloc(1, sizeof *prog);
     if (!prog) return OMEGA_GPU_GEMM_CODEGEN_FAIL;
     int rc = OMEGA_GPU_GEMM_OK;
@@ -351,18 +411,20 @@ int omega_gpu_gemm(OmegaGpuGemmType type, unsigned layout, uint32_t M, uint32_t 
     OmegaGemmPlan p;
     int rc = omega_gpu_gemm_plan(cfg, M, N, K, &p);
     if (rc != OMEGA_GPU_GEMM_OK) { omega_gpu_session_unlock(); return rc; }
-    /* one buffer: A | B | packed A | packed B | C (each 256-byte aligned; A and B carry 16 bytes of readable slack) */
-    const uint64_t oa = 0, ob = up16(p.a_bytes + 16u), oap = ob + up16(p.b_bytes + 16u), obp = oap + up16(p.ap_bytes),
-                   oc = obp + up16(p.bp_bytes), total = oc + (uint64_t)M * N * 4u;
-    OmegaGpuMem m;
+    /* GPU-uncached buffer, CPU-visible: A | B | C (each 256-byte aligned; A and B carry 16 bytes of readable slack).
+     * The packed operands live in the scratch (packed_locked): packed A | packed B. */
+    const uint64_t oa = 0, ob = up16(p.a_bytes + 16u), oc = ob + up16(p.b_bytes + 16u), total = oc + (uint64_t)M * N * 4u;
+    const uint64_t obp = up16(p.ap_bytes), pk_total = obp + p.bp_bytes;
+    OmegaGpuMem m, pk;
     if (!omega_gpu_session_open() || omega_gpu_session_alloc(total, &m) != 0) { omega_gpu_session_unlock(); return OMEGA_GPU_GEMM_CHIP_FAIL; }
+    if (packed_locked(pk_total, &pk) != 0) { omega_gpu_session_free(&m); omega_gpu_session_unlock(); return OMEGA_GPU_GEMM_CHIP_FAIL; }
     uint8_t *base = m.cpu;
     memcpy(base + oa, A, p.a_bytes); memcpy(base + ob, B, p.b_bytes);
     uint32_t *cw = (uint32_t *)(base + oc);
     for (uint64_t i = 0; i < (uint64_t)M * N; i++) cw[i] = POISON;
     ChipCtx cc = { type, 0, 0 };
     if (omega_gpu_session_sync_to_gpu(&m) != 0) rc = OMEGA_GPU_GEMM_CHIP_FAIL;
-    else rc = omega_gpu_gemm_drive(cfg, layout, M, N, K, m.va + oa, m.va + ob, m.va + oap, m.va + obp, m.va + oc, chip_launch, &cc);
+    else rc = omega_gpu_gemm_drive(cfg, layout, M, N, K, m.va + oa, m.va + ob, pk.va, pk.va + obp, m.va + oc, chip_launch, &cc);
     if (rc == OMEGA_GPU_GEMM_OK && omega_gpu_session_sync_to_cpu(&m) != 0) rc = OMEGA_GPU_GEMM_CHIP_FAIL;
     if (rc == OMEGA_GPU_GEMM_OK) {
         uint64_t unwritten = 0;
