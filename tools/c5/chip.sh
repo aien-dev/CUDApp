@@ -36,7 +36,8 @@ S="$OUT/summary.txt"
 exec 9>"$LOCK"
 flock -w 900 9 || { echo "NOT_RUN: GB10 lock busy for 900 s" >&2; exit 2; }
 echo "start $(date -u +%Y-%m-%dT%H:%M:%SZ) loadavg $(cat /proc/loadavg)" >> "$S"
-base=$(sudo -n dmesg 2>/dev/null | wc -l)
+# the kernel ring buffer is full and rotates, so a line-count baseline loses lines: filter by timestamp instead
+since=$(date +%Y-%m-%dT%H:%M:%S,%6N)
 fails=0
 step() { # name want_rc command...
     name=$1; want=$2; shift 2
@@ -63,7 +64,7 @@ else
     echo "FAIL 02-mutant did not fail on wrong values" >> "$S"; fails=$((fails + 1))
 fi
 step 08-health   0 "$B/gpu_isolation_test" --values-only
-sudo -n dmesg -T 2>/dev/null | tail -n +"$((base + 1))" > "$OUT/dmesg.txt"
+sudo -n dmesg --time-format iso 2>/dev/null | awk -v s="$since" '$1 >= s' > "$OUT/dmesg.txt"
 grep -E 'Xid|NVRM|watchdog|GPU has fallen|nvidia' "$OUT/dmesg.txt" > "$OUT/xid.txt" || true
 nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv > "$OUT/compute-apps-after.txt" 2>&1 || true
 flock -u 9

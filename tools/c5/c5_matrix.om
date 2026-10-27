@@ -5,7 +5,8 @@ note   PY   a Python with PyTorch; it runs the CUDA tenant (NVIDIA's stack, a ve
 note   CASE c  ISO --values-only (our two processes) beside a running CUDA process; all three must be right
 note        p  the same while the CUDA process holds 16 GiB of device memory it wrote and checks at the end
 note        k  ISO's chip tier is killed (SIGKILL, whole process group) 500 ms into its never-ending launch beside
-note           a CUDA process; the group must be gone, a fresh ISO --values-only must pass, the CUDA process stays right
+note           a CUDA process; the group must be gone within 20 s (the driver frees the hung channel on exit, which
+note           took 2.3-4.6 s on the GB10 with Xid 109), a fresh ISO --values-only must pass, the CUDA process stays right
 note        r  red control: the CUDA process checks against a wrong expectation; the orchestrator must see exit 1
 note Children run with an empty environment and their stdout and stderr on a pipe that this program echoes.
 note Exit 0 PASS, 1 FAIL, 2 usage or NOT_RUN.
@@ -388,7 +389,7 @@ t0 = monons
 q = killpid int neg vp 9
 ok = eq reap vp 137
 gone = false
-for i ulong 200
+for i ulong 2000
 if eq killpid int neg vp 0 neg long 3
 gone = true
 break
