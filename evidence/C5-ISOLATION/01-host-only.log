@@ -1,0 +1,6 @@
+[749500] ok: codegen + encode: work kernel (512 bytes)
+[749500] ok: codegen + encode: work kernel mutant 1 (512 bytes)
+[749500] ok: codegen + encode: never-ending kernel (512 bytes)
+[749500] ok: simulator: work kernel exact on all 4096 elements
+[749500] ok: simulator red check: work mutant caught (4096 wrong)
+C5 isolation host: PASS (5 checks)
