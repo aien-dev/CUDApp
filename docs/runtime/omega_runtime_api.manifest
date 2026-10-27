@@ -9,8 +9,10 @@
 #     `usize`/size_t fields are written `u64` (LP64), as it does.
 # Checked by tools/runtime_api_check.sh (make test-runtime-api): every `fn` against its header with the exact types,
 # every size, offset and constant against a compiled probe, the version macros against src/omega_runtime_api.h.
-# After a deliberate header change: edit the line here, run `tools/runtime_api_check.sh --bless` to refresh numbers, review the diff.
-abi omega_runtime 0.1
+# After a deliberate header change: edit the line here, run `tools/runtime_api_check.sh --bless` to refresh numbers, review the diff,
+# and bump the version (MAJOR/MINOR/PATCH, rule in API.md section 2; tools/runtime_api_semver.sh checks the bump against the base).
+# Names a manifest header declares that are NOT API go in omega_runtime_api.internal, each with a reason (the check fails otherwise).
+abi omega_runtime 0.4.0
 header src/omega_runtime_api.h
 header src/omega_gpu_platform.h
 header src/omega_gpu_session.h
@@ -23,7 +25,9 @@ header src/omega_gpu_elementwise_api.h
 header src/omega_gpu_attention_api.h
 # ---- version ----
 const OMEGA_RUNTIME_API_VERSION_MAJOR 0
-const OMEGA_RUNTIME_API_VERSION_MINOR 1
+const OMEGA_RUNTIME_API_VERSION_MINOR 4
+const OMEGA_RUNTIME_API_VERSION_PATCH 0
+const OMEGA_RUNTIME_API_VERSION 4
 # ---- platform contract (src/omega_gpu_platform.h, ABI 1.2) ----
 struct OmegaGpuDeviceHandle 8 4 # STABLE
 field OmegaGpuDeviceHandle index 0 4 u32 1
@@ -82,13 +86,13 @@ field OmegaGpuPlatform queue_retire 152 8 ptr 1
 field OmegaGpuPlatform time_now_ns 160 8 ptr 1
 field OmegaGpuPlatform host_alloc 168 8 ptr 1
 field OmegaGpuPlatform host_free 176 8 ptr 1
-struct OmegaGpuHandleTable 17424 8 # EXPERIMENTAL
-field OmegaGpuHandleTable generation 0 4096 u32 1024
-field OmegaGpuHandleTable kind 4096 4096 u32 1024
-field OmegaGpuHandleTable bytes 8192 8192 u64 1024
-field OmegaGpuHandleTable live 16384 1024 u8 1024
-field OmegaGpuHandleTable nlive 17408 4 u32 1
-field OmegaGpuHandleTable total_bytes 17416 8 u64 1
+struct OmegaGpuHandleTable 69648 8 # EXPERIMENTAL
+field OmegaGpuHandleTable generation 0 16384 u32 4096
+field OmegaGpuHandleTable kind 16384 16384 u32 4096
+field OmegaGpuHandleTable bytes 32768 32768 u64 4096
+field OmegaGpuHandleTable live 65536 4096 u8 4096
+field OmegaGpuHandleTable nlive 69632 4 u32 1
+field OmegaGpuHandleTable total_bytes 69640 8 u64 1
 fn omega_gpu_platform_refusal_name fn(i32) -> *const c_char # EXPERIMENTAL
 fn omega_gpu_platform_negotiate fn(*const OmegaGpuPlatformCaps, *const OmegaGpuPlatformCaps) -> i32 # EXPERIMENTAL
 fn omega_gpu_platform_check fn(*const OmegaGpuPlatform, *const OmegaGpuPlatformCaps) -> i32 # EXPERIMENTAL
@@ -163,6 +167,9 @@ fn omega_gpu_session_platform fn() -> *const OmegaGpuPlatform # EXPERIMENTAL
 fn omega_gpu_session_submit_prefix_words fn() -> u32 # EXPERIMENTAL
 fn omega_gpu_session_completion_mode fn() -> OmegaGpuCompletionMode # EXPERIMENTAL
 fn omega_gpu_session_now_ns fn() -> u64 # EXPERIMENTAL
+fn omega_gpu_session_extra_queue fn(u32, *mut OmegaGpuQueueHandle) -> i32 # EXPERIMENTAL
+fn omega_gpu_session_recover fn() -> i32 # EXPERIMENTAL
+fn omega_gpu_session_recoveries fn() -> u32 # EXPERIMENTAL
 fn omega_gpu_host_alloc fn(usize) -> *mut c_void # EXPERIMENTAL
 fn omega_gpu_host_calloc fn(usize, usize) -> *mut c_void # EXPERIMENTAL
 fn omega_gpu_host_free fn(*mut c_void) -> () # EXPERIMENTAL
@@ -174,6 +181,7 @@ field OmegaGpuCmdListOpts timeout_ms 8 8 u64 1
 field OmegaGpuCmdListOpts spin_us 16 4 u32 1
 field OmegaGpuCmdListOpts stamps 20 4 i32 1
 field OmegaGpuCmdListOpts skip_launch 24 4 i32 1
+field OmegaGpuCmdListOpts first_barrier_none 28 4 i32 1
 struct OmegaGpuCmdListStats 40 8 # EXPERIMENTAL
 field OmegaGpuCmdListStats launches 0 4 u32 1
 field OmegaGpuCmdListStats submits 4 4 u32 1
@@ -190,6 +198,8 @@ fn omega_gpu_cmdlist_count fn(*const OmegaGpuCmdList) -> u32 # EXPERIMENTAL
 fn omega_gpu_cmdlist_mark_independent fn(*mut OmegaGpuCmdList) -> i32 # EXPERIMENTAL
 fn omega_gpu_cmdlist_add fn(*mut OmegaGpuCmdList, *const OmegaGpuLaunch) -> i32 # EXPERIMENTAL
 fn omega_gpu_cmdlist_submit fn(*mut OmegaGpuCmdList, *const OmegaGpuCmdListOpts, *mut OmegaGpuCmdListStats) -> i32 # EXPERIMENTAL
+fn omega_gpu_cmdlist_submit_pair fn(*mut OmegaGpuCmdList, *mut OmegaGpuCmdList, *const OmegaGpuCmdListOpts, *mut OmegaGpuCmdListStats, *mut OmegaGpuCmdListStats) -> i32 # EXPERIMENTAL
+fn omega_gpu_cmdlist_wait_for fn(*mut OmegaGpuCmdList, *const OmegaGpuCmdList, u32) -> i32 # EXPERIMENTAL
 fn omega_gpu_cmdlist_is_latched fn() -> i32 # EXPERIMENTAL
 fn omega_gpu_cmdlist_stamps fn(*const OmegaGpuCmdList, *mut u64, u32) -> i32 # EXPERIMENTAL
 # ---- job engine (src/omega_gpu_engine.h) ----
@@ -414,7 +424,7 @@ fn omega_gpu_attention_last_error fn() -> *const c_char # EXPERIMENTAL
 const OMEGA_GPU_PLATFORM_ABI_MAJOR 1
 const OMEGA_GPU_PLATFORM_ABI_MINOR 2
 const OMEGA_GPU_POLL_TIMED_OUT 100
-const OMEGA_GPU_HANDLE_SLOTS 1024
+const OMEGA_GPU_HANDLE_SLOTS 4096
 const OMEGA_GPU_HANDLE_DEVICE 1
 const OMEGA_GPU_HANDLE_BUF_DATA 2
 const OMEGA_GPU_HANDLE_BUF_CODE 3
@@ -468,7 +478,7 @@ const OMEGA_GPU_SESSION_SCRATCH_RESERVED -2
 const OMEGA_GPU_SESSION_CANCELLED -3
 const OMEGA_GPU_SESSION_PARK_MAX 512
 const OMEGA_GPU_COMPLETION_POLLING 1
-const OMEGA_GPU_CMDLIST_MAX_LAUNCHES 2048
+const OMEGA_GPU_CMDLIST_MAX_LAUNCHES 4096
 const OMEGA_GPU_CMDLIST_BANK_BYTES 1024
 const OMEGA_GPU_CMDLIST_QMD_BYTES 1024
 const OMEGA_GPU_CMDLIST_PCAS 0

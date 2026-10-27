@@ -1,0 +1,2 @@
+SCHEMA_CHECKS_PASS: schema, empty template, synthetic report shape; refused missing control, template cannot claim collected, no physical PASS enum, unknown top-level field, template cannot claim operator, collected without evidence, missing check observation, malformed digest, absolute path, parent path, negative bytes, sanitized without raw commitment
+No artifact existence, digest recomputation, independence or hardware execution checked.

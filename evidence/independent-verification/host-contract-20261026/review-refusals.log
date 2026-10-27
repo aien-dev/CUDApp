@@ -1,0 +1,1 @@
+REVIEW_REFUSALS_PASS: newline hashes, commits, IDs, paths and non-UTC/malformed timestamps rejected; UTC shape accepted; calendar validity not checked.

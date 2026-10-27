@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Host test for developer bar rows D3, D4, D7, D10 and D12 (docs/PAIN_POINTS.md), on hello_gpu --sim.
-#   usage: tests/dx/hello_sim_test.sh build/hello_gpu
+#   usage: tests/dx/hello_sim_test.sh build/hello_gpu [build/hello_gpu_control]
 # No GPU: --sim runs the same kernel program on the host warp simulator (tests/bw_warp_sim.h).
 #   D4  --sim checks all 1048576 answers bit for bit and passes
 #   D3  --sim --bug=past-end (the host passes n+1 on the last launch, a classic off-by-one) fails
@@ -11,7 +11,8 @@
 #   D10 two runs print the same machine-code hash, and the build time is printed
 #   D12 the work line gives the exact bytes moved and the floor time at the measured ceiling
 set -u
-H=${1:?usage: hello_sim_test.sh path/to/hello_gpu}
+H=${1:?usage: hello_sim_test.sh path/to/hello_gpu [path/to/hello_gpu_control]}
+HC=${2:-}
 pass=0; fail=0
 want() { # name, text, pattern...
 	n=$1; t=$2; shift 2; ok=1
@@ -52,6 +53,21 @@ addr=$(printf '%s\n' "$bad" | sed -n 's/^ *address: \(0x[0-9a-f]*\).*/\1/p')
 set -- $lo_hi
 if [ -n "$addr" ] && [ $# -eq 2 ] && [ $(( addr )) -eq $(( $2 )) ] && [ $(( $2 - $1 )) -eq 4194304 ]; then pass=$((pass+1)); echo "PASS fault-address-is-end-of-a"
 else fail=$((fail+1)); echo "FAIL fault-address-is-end-of-a (addr=$addr range=$lo_hi)"; fi
+
+# --bug=short (the check's own negative control, also used on the GPU by `make hello-gpu-control`): the last
+# launch is told one element too few, so exactly one answer is never written and the check must go red. It is
+# migration-pending C that exists only in hello_gpu_control (switch CUDAPP_MIGRATION_PENDING_HELLO_CONTROL=1);
+# the default hello_gpu must not know the flag.
+"$H" --sim --bug=short > /dev/null 2>&1; rco=$?
+exitis short-absent-from-default-build "$rco" 2
+if [ -n "$HC" ]; then
+	short=$("$HC" --sim --bug=short 2>&1); rcs=$?
+	exitis short-exit "$rcs" 1
+	want short-report "$short" 'checked 1048576 of 1048576 elements: 1 wrong, 1 never written' 'first mismatch: c[1048575]' 'FAIL'
+	printf '%s\n' "$short" | grep -qx PASS && { fail=$((fail+1)); echo "FAIL short run printed PASS"; }
+fi
+"$H" --bug=past-end > /dev/null 2>&1; rcu=$?
+exitis past-end-refused-on-gpu "$rcu" 2
 
 echo "hello --sim tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

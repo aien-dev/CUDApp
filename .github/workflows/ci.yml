@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# CI for CUDA++: the host-only test set (`make test`, no GPU opened, no CUDA toolkit) on a
+# GitHub-hosted arm64 runner, judged by the exit code and the final
+# `CUDA++ HOST TESTS PASS (<n> targets)` line as AGENTS.md prescribes. Chip tests need a GB10
+# and stay NOT_RUN here. A second job writes an SPDX SBOM of the tree for auditors.
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  host-tests:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Toolchain record
+        run: gcc --version | head -n 1 && make --version | head -n 1
+      - name: Host-only tests
+        # The runner's bash uses -e -o pipefail, so make's status is captured with `||`.
+        run: |
+          rc=0; make test > "$RUNNER_TEMP/make-test.log" 2>&1 || rc=$?
+          tail -n 20 "$RUNNER_TEMP/make-test.log"
+          [ "$rc" -eq 0 ] || exit "$rc"
+          last=$(tail -n 1 "$RUNNER_TEMP/make-test.log")
+          case $last in
+            "CUDA++ HOST TESTS PASS ("*" targets)") ;;
+            *) echo "make test exited 0 without the final CUDA++ HOST TESTS PASS line"; exit 1 ;;
+          esac
+  sbom:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          path: .
+          format: spdx-json
+          artifact-name: sbom-${{ github.sha }}.spdx.json
