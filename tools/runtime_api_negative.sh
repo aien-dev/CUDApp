@@ -55,13 +55,15 @@ control added-undeclared-enumerator "undeclared public entry (in a manifest head
 control stale-internal-entry "stale INTERNAL entry (no manifest header declares it): fn omega_gpu_session_set_error" \
   omega_gpu_session.h '/^void omega_gpu_session_set_error(const char \*stage);/d'
 
-# semver NAME WANT(FAIL|PASS) EXPECTED_TEXT SED_EXPR -- a manifest copy edited by SED_EXPR, checked against the real manifest
+# semver NAME WANT(FAIL|PASS) EXPECTED_TEXT SED_EXPR [BASE_EXPR] -- a manifest copy edited by SED_EXPR, checked against the
+# real manifest (or against a copy edited by BASE_EXPR, e.g. to stand in for a base already past 1.0)
 semver() {
-  name=$1; want=$2; expect=$3; expr=$4
+  name=$1; want=$2; expect=$3; expr=$4; bexpr=${5:-}
   d=$WORK/neg-semver-$name; rm -rf "$d"; mkdir -p "$d"
   sed -e "$expr" "$MANIFEST" > "$d/head.manifest" || { echo "NEGATIVE CONTROL semver-$name: BROKEN (fixture edit failed)"; bad=1; return; }
-  if cmp -s "$MANIFEST" "$d/head.manifest"; then echo "NEGATIVE CONTROL semver-$name: BROKEN (the edit changed nothing)"; bad=1; return; fi
-  out=$("$HERE/runtime_api_semver.sh" "$MANIFEST" "$d/head.manifest" 2>&1); rc=$?
+  if [ -n "$bexpr" ]; then sed -e "$bexpr" "$MANIFEST" > "$d/base.manifest"; else cp "$MANIFEST" "$d/base.manifest"; fi
+  if cmp -s "$d/base.manifest" "$d/head.manifest"; then echo "NEGATIVE CONTROL semver-$name: BROKEN (the edit changed nothing)"; bad=1; return; fi
+  out=$("$HERE/runtime_api_semver.sh" "$d/base.manifest" "$d/head.manifest" 2>&1); rc=$?
   if [ "$want" = FAIL ]; then
     if [ $rc -eq 1 ] && printf '%s\n' "$out" | grep -qF "$expect"; then echo "NEGATIVE CONTROL semver-$name: FAILED as it must ($expect)"
     else echo "NEGATIVE CONTROL semver-$name: NOT CAUGHT (rc=$rc, wanted \"$expect\")"; printf '%s\n' "$out" | head -5; bad=1; fi
@@ -71,8 +73,13 @@ semver() {
   fi
 }
 minor_up='s/^\(const OMEGA_RUNTIME_API_VERSION_MINOR \)\([0-9]*\)$/\1999/'
-semver removed-stable-minor-only FAIL "needs a MAJOR bump" "/^fn omega_gpu_session_alloc_code /d; $minor_up"
-semver changed-stable-unbumped FAIL "needs a MAJOR bump" 's/^\(fn omega_gpu_session_free \)fn(\*mut OmegaGpuMem)/\1fn(*const OmegaGpuMem)/'
+major_one='s/^const OMEGA_RUNTIME_API_VERSION_MAJOR [0-9]*$/const OMEGA_RUNTIME_API_VERSION_MAJOR 1/'
+# major version zero (API.md section 2, semver 2.0.0 item 4): a STABLE removal passes with a MINOR bump while the base is 0.x,
+# fails with no bump, and fails with a MINOR-only bump once the base is 1.x
+semver removed-stable-minor-under-zero PASS "the entry changes need MINOR (MAJOR-class under major version zero)" "/^fn omega_gpu_session_alloc_code /d; $minor_up"
+semver removed-stable-unbumped-under-zero FAIL "needs at least a MINOR bump" "/^fn omega_gpu_session_alloc_code /d"
+semver removed-stable-minor-only-at-one FAIL "needs a MAJOR bump" "/^fn omega_gpu_session_alloc_code /d; $major_one; $minor_up" "$major_one"
+semver changed-stable-unbumped FAIL "needs at least a MINOR bump" 's/^\(fn omega_gpu_session_free \)fn(\*mut OmegaGpuMem)/\1fn(*const OmegaGpuMem)/'
 semver added-unbumped FAIL "needs at least a MINOR bump" '$a\
 fn omega_gpu_session_sneaky fn() -> i32 # EXPERIMENTAL'
 semver version-down FAIL "version goes down" 's/^const OMEGA_RUNTIME_API_VERSION_MINOR [0-9]*$/const OMEGA_RUNTIME_API_VERSION_MINOR 0/; s/^const OMEGA_RUNTIME_API_VERSION_MAJOR [0-9]*$/const OMEGA_RUNTIME_API_VERSION_MAJOR 0/'

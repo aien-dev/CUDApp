@@ -1,6 +1,6 @@
 # Omega Runtime API v0
 
-Omega Runtime API version: 0.2.0
+Omega Runtime API version: 0.3.0
 
 Status: first written version, 2026-10-19 (slice R1, omega-mv#594, tracking #593). Source of truth is the C headers in
 `src/`. This file describes them; `docs/runtime/omega_runtime_api.manifest` lists them; `make test-runtime-api` checks the
@@ -36,20 +36,24 @@ signature against the headers on every run.
 
 ## 2. Version and compatibility rule
 
-The version is MAJOR.MINOR.PATCH (semantic versioning), currently **0.2.0**. It is a property of the list of entries and
-their behaviour, not of the library build. 0.2.0 differs from 0.1 only in adding `OMEGA_RUNTIME_API_VERSION_PATCH`, listing
-`OMEGA_RUNTIME_API_VERSION` in the manifest and the INTERNAL list (section 10); no entry changed.
+The version is MAJOR.MINOR.PATCH (semantic versioning), currently **0.3.0**. It is a property of the list of entries and
+their behaviour, not of the library build. Changes so far:
+- 0.3.0: `OMEGA_GPU_HANDLE_SLOTS` 1024 -> 4096 and `OMEGA_GPU_CMDLIST_MAX_LAUNCHES` 2048 -> 4096 (STABLE constants), and
+  so `OmegaGpuHandleTable` (EXPERIMENTAL) grows to 69648 bytes: the values the live server (omega-mv 6de999da, carried by
+  CUDApp#120) was built with. A MAJOR-class change, taken as MINOR under the major-version-zero rule below.
+- 0.2.0: adds `OMEGA_RUNTIME_API_VERSION_PATCH`, lists `OMEGA_RUNTIME_API_VERSION` in the manifest and the INTERNAL list
+  (section 10); no entry changed.
 
-**A PATCH bump (0.2.0 to 0.2.1) is for:**
+**A PATCH bump (0.3.0 to 0.3.1) is for:**
 - a fix that changes no manifest entry: a STABLE function that did not do what this file says now does (the fix makes it
   match), or a correction to this file's prose.
 
-**A MINOR bump (0.2 to 0.3) is allowed to:**
+**A MINOR bump (0.3 to 0.4) is allowed to:**
 - add a function, a constant, an enum value at the end of an existing enum, or a new struct;
 - add an EXPERIMENTAL entry, change or remove an EXPERIMENTAL entry, or move an entry from EXPERIMENTAL to STABLE;
 - add a new failure name for the same call to report (callers must treat an unknown failure code or stage text as a failure).
 
-**It needs a MAJOR bump (0.x to 1.0, then 1.x to 2.0) to:**
+**From 1.0 on it needs a MAJOR bump (1.x to 2.0) to:**
 - remove or rename a STABLE function, struct, field or constant;
 - change a STABLE function's argument or return types, a STABLE struct's size, field order or field offsets, or the value
   of a STABLE constant or enum value;
@@ -58,10 +62,11 @@ their behaviour, not of the library build. 0.2.0 differs from 0.1 only in adding
 - move a STABLE entry down to EXPERIMENTAL or INTERNAL;
 - raise the platform contract's major number (section 9.2).
 
-MAJOR 0 means "the first written version", not "anything goes": the rule above already binds STABLE entries in 0.x. What
-0 adds is a warning: the project may promote entries to STABLE freely until 1.0 (moving a STABLE entry down still needs a
-MAJOR bump, as above), and the first 1.0 will be cut only when
-section 8 (what v0 does not have) has been looked at again.
+**Major version zero** (semantic versioning 2.0.0, item 4: "anything MAY change at any time"): while MAJOR is 0, a change
+from the MAJOR list above needs a MINOR bump (0.3 to 0.4) plus its line in the change list above and in the manifest;
+MAJOR is reserved for the first break after 1.0. It still never goes unbumped: a STABLE change with no bump fails the
+check. STABLE in 0.x means "written down and checked", not "frozen". The first 1.0 will be cut only when section 8 (what
+v0 does not have) has been looked at again.
 
 How it is enforced (all host checks, no GPU; CI job `runtime-api`, `.github/workflows/runtime-api.yml`):
 - `make test-runtime-api` (`tools/runtime_api_check.sh`): a header change that moves any listed entry fails until the
@@ -71,7 +76,8 @@ How it is enforced (all host checks, no GPU; CI job `runtime-api`, `.github/work
   file must agree.
 - `make test-runtime-api-semver` (`tools/runtime_api_semver.sh`, base `origin/main` by default; CI uses the pull request's
   base): compares the manifest with the base's entry by entry and fails when the change needs a bigger bump than it has,
-  or when the version goes down. Constants count as STABLE unless their manifest line carries `# EXPERIMENTAL`.
+  or when the version goes down. Constants count as STABLE unless their manifest line carries `# EXPERIMENTAL`. While the
+  base's MAJOR is 0, a MAJOR-class change passes with a MINOR bump (the rule above); once the base is 1.x it needs MAJOR.
 - What stays a review duty: a change of documented behaviour with no entry change (the script cannot see prose), and the
   limits listed in section 11.
 
@@ -110,7 +116,7 @@ Loading a kernel is `omega_gpu_session_alloc_code` (section 5) plus a CPU copy o
 names `code.va`. The project's own kernels come from its encoder (`src/omega_blackwell_*`, INTERNAL), and
 `examples/hello_gpu` shows the whole path. A loader that reads a packaged module is section 8 work.
 
-**Streams and events.** Not in 0.2.0. Today the ordering primitive is the command list above: launches in one list run in
+**Streams and events.** Not in 0.3.0. Today the ordering primitive is the command list above: launches in one list run in
 order behind barriers, and `omega_gpu_session_launch` returns only when the chip has finished. The first stream and event
 entries (`omega_gpu_cmdlist_submit_pair`, `omega_gpu_cmdlist_wait_for`, `OmegaGpuCmdListOpts.first_barrier_none`,
 `omega_gpu_session_extra_queue`, behind `AIEN_OMEGA_GPU_CHANNELS=2`) are pending in CUDApp#113 as EXPERIMENTAL; they enter
@@ -400,7 +406,7 @@ Each line is a gap named in `docs/runtime/ROADMAP.md` section 1 (on branch `runt
 - A device query (name, SM count, memory): there is no API call for it.
 - More than one device or channel in a process; sharing the GPU between processes (a second channel failed under load: omega-mv#523).
 - Recovery after a latch (omega-mv#518): a single timeout ends GPU use for the whole process.
-- Async copy, streams, events, host callbacks (CUDApp#113 is adding two-queue submission and cross-queue waits on command lists, EXPERIMENTAL; not in 0.2.0).
+- Async copy, streams, events, host callbacks (CUDApp#113 is adding two-queue submission and cross-queue waits on command lists, EXPERIMENTAL; not in 0.3.0).
 - Cached read-write buffers; unified memory.
 - Launches with more than the 32 argument words, or an asynchronous single launch.
 - A second real backend (WSL2 `/dev/dxg` is on branch `rig/gb20x`; native AIENOS is planned), so the platform contract has only been exercised by one.
@@ -440,7 +446,7 @@ GPU-uncached; polling a word is never claimed as interrupt support; a missing se
 Types: `OmegaGpuCmdListOpts`, `OmegaGpuCmdListStats`, the opaque `OmegaGpuCmdList`. Functions: `omega_gpu_cmdlist_create`
 (takes the lock itself), `omega_gpu_cmdlist_free`, `omega_gpu_cmdlist_reset`, `omega_gpu_cmdlist_count`,
 `omega_gpu_cmdlist_add`, `omega_gpu_cmdlist_mark_independent`, `omega_gpu_cmdlist_submit`, `omega_gpu_cmdlist_is_latched`,
-`omega_gpu_cmdlist_stamps`, `omega_gpu_cmdlist_barrier_name`. Up to `OMEGA_GPU_CMDLIST_MAX_LAUNCHES` (2048) launches per list.
+`omega_gpu_cmdlist_stamps`, `omega_gpu_cmdlist_barrier_name`. Up to `OMEGA_GPU_CMDLIST_MAX_LAUNCHES` (4096) launches per list.
 
 Reason: omega-mv#580 is building pipelined and dependency-ordered execution on this module, so the options, statistics
 and barrier modes will grow. The measured extra cost of each launch in a list is about 30 us with a wait-for-idle barrier
@@ -516,7 +522,7 @@ Types are the manifest's Rust spelling (`*const`, `*mut`, `u32`, ...); the heade
 ## 10. INTERNAL (not part of the API)
 
 Not in the manifest; may change or vanish without notice. The complete list of such names in the manifest headers, each
-with its reason, is `docs/runtime/omega_runtime_api.internal` (82 names in 0.2.0: test hooks, kernel builders, encoder
+with its reason, is `docs/runtime/omega_runtime_api.internal` (82 names in 0.3.0: test hooks, kernel builders, encoder
 probes, serving-daemon internals and launch limits; the 25 serving internals and launch limits are marked "candidate
 EXPERIMENTAL", the ones a caller is most likely to want promoted). `make test-runtime-api` fails on a name in a manifest header that is in neither file. Notable ones:
 - `omega_gpu_session_set_error` (library code names its failure stage through it).
@@ -532,9 +538,10 @@ removed function, a missing MAJOR and a missing PATCH version macro, a changed f
 changed constant, a version line in this file that disagrees with the macro, a quoted signature in this file that no header
 has, a quoted signature that only appears inside a longer one (`int32_t` inside `uint32_t`), a STABLE entry with no section
 here, an added undeclared function, an added undeclared macro, an added undeclared enumerator, and a stale INTERNAL entry.
-It then breaks a copy of the manifest four ways against the real one and requires `tools/runtime_api_semver.sh` to fail
-each time (a removed STABLE function with only a MINOR bump, a changed STABLE signature with no bump, an added function
-with no bump, a version that goes down) and to pass one correct change (an added function with a MINOR bump).
+It then breaks a copy of the manifest five ways and requires `tools/runtime_api_semver.sh` to fail each time (a removed
+STABLE function with no bump on a 0.x base, a removed STABLE function with only a MINOR bump on a base already at 1.x, a
+changed STABLE signature with no bump, an added function with no bump, a version that goes down) and to pass two correct
+changes (a removed STABLE function with a MINOR bump on a 0.x base; an added function with a MINOR bump).
 `make test-runtime-api-semver` compares the real manifest with the base branch's. None of it needs a GPU or a physics
 checkout. It checks: every manifest function against its header with exact types; sizes, offsets and constants against a
 compiled probe; the version macros against the manifest and this file; every public name in the manifest headers against
