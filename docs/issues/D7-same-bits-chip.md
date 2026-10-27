@@ -27,7 +27,7 @@ The check went beyond the bar: 10 runs per job instead of two, each a separate p
 On the unmodified runs it printed PASS.
 
 **What is left (not claimed).**
-- **Scan and sum-reduce** (`tests/gpu_scan_test.c`): NOT_RUN. They do not build on main until #112 lands. The runner is ready for them: add a job line once #112 is merged.
+- **Scan and sum-reduce** (`tests/gpu_scan_test.c`): NOT_RUN. They did not build on main when the receipt was taken (0490d98); #112 has since merged and they build on main (`mk/c3.mk`). Add a job line to the runner and take a chip receipt.
 - **Other kernels.** No other kernels were hashed, including the fp8 grouped GEMM, prefill attention, GDN, MoE and the tensor-core GEMMs. Each one needs a single `out_sha_buf` line in its test (`tests/out_sha.h`) and a job in the runner.
 - **Other GPUs and drivers.** Only one GB10 with one driver was checked.
 - **Other inputs and other load.** Each job used one fixed input set. The runs did not test deliberately contended launches.
