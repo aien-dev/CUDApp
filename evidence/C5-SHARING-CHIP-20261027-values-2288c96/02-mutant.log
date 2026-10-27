@@ -1,0 +1,6 @@
+[1562295] FAIL: process 1: 18208 work launches over 3000 ms, own inputs: 74579968 wrong values, 0 failed launches, slowest 0.793 ms
+[1562296] FAIL: process 2: 18089 work launches over 3000 ms, own inputs: 74092544 wrong values, 0 failed launches, slowest 0.644 ms
+[1562288] FAIL: C5 two processes on one GPU: both right (ready R R, exits 1, 1), running side by side for 3000 ms
+C5 recovery: NOT_RUN (values-only; hang needs a separate reservation)
+C5 isolation values: FAIL (1 of 1)
+exit 1

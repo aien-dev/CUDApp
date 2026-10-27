@@ -1,0 +1,6 @@
+# head 7f8eaea (tracked files modified: 0); runner tools/c4_streams_chip.sh evidence/C4-STREAMS/06-chip-20261027-7f8eaea 10; operator TrainCarry2
+# 18091 health before: {"busy":false,"concurrency":8,"engine":"omega-qwen36-batch","in_flight":0,"model":"qwen3.6-35b-a3b-fp8","status":"ok","uptime_s":12674}
+# compute apps before: 79557, ./aien-serve-http;
+# runner exit 0
+# 18091 health after: {"busy":false,"concurrency":8,"engine":"omega-qwen36-batch","in_flight":0,"model":"qwen3.6-35b-a3b-fp8","status":"ok","uptime_s":12697}
+# compute apps after: 79557, ./aien-serve-http;

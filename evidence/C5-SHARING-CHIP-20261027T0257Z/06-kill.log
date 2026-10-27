@@ -1,0 +1,24 @@
+loadavg 12.46 8.54 7.09 3/3330 1622344
+cmd build/c5_matrix /home/drakestapleton/workspace/c5s-cudapp/build/gpu_isolation_test /home/drakestapleton/.venv/bin/python k
+[matrix] start pid 1622349
+[cuda] READY pid=1622349 hold_gib=0 expect_offset=0
+[matrix] CUDA process ready after ms 879
+[matrix] start pid 1623061
+[1623062] ok: hang part: a work launch before the hang is right (0 wrong, 0.309 ms)
+[1623062] ok: hang part: never-ending kernel uploaded
+[1623062] ok: hang part: a command list made before the hang
+[matrix] hang launch seen; killing process group 1623061
+ killed by signal 9
+[matrix] process group gone after ms 3852
+[matrix] start pid 1625917
+[1625918] ok: process 1: 17246 work launches over 3000 ms, own inputs: 0 wrong values, 0 failed launches, slowest 2.090 ms
+[1625920] ok: process 2: 17306 work launches over 3000 ms, own inputs: 0 wrong values, 0 failed launches, slowest 3.110 ms
+[1625917] ok: C5 two processes on one GPU: both right (ready R R, exits 0, 0), running side by side for 3000 ms
+C5 recovery: NOT_RUN (values-only; hang needs a separate reservation)
+C5 isolation values: PASS (1 checks)
+ exit status 0
+[matrix] CUDA process alive when ours finished: 1
+[cuda] pid=1622349 launches=25941 wrong=0 secs=60.0
+ exit status 0
+C5 matrix: PASS case k
+exit 0

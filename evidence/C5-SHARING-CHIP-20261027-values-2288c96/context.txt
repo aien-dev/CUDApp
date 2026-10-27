@@ -1,0 +1,10 @@
+# head 2288c96 (tracked files modified: 0); operator TrainCarry2; 2026-10-27T07:50:14Z; loadavg 21.77 26.30 27.11 16/2077 1548649
+d657420993f96e6172fef37b0ab9b9c21ea695f11a21c3424f4cab6a99c538d3  build/gpu_isolation_test
+e9a7d19314ff44ce28dd083829139ca877a479a5f0731a7dc54b9410c4c17433  build/gpu_isolation_test_mutant
+# driver 580.173.02
+# 18091 health before: {"busy":false,"concurrency":8,"engine":"omega-qwen36-batch","in_flight":0,"model":"qwen3.6-35b-a3b-fp8","status":"ok","uptime_s":13986}
+# compute apps before: 79557, ./aien-serve-http;
+# 18091 health after: {"busy":false,"concurrency":8,"engine":"omega-qwen36-batch","in_flight":0,"model":"qwen3.6-35b-a3b-fp8","status":"ok","uptime_s":13992}
+# compute apps after: 79557, ./aien-serve-http;
+# end 2026-10-27T07:50:21Z; values exit 0 (want 0), mutant exit 1 (want 1)
+# scope: steps 01-values and 02-mutant of tools/c5/chip.sh only, rerun at the merged-with-main head (library changed under it: #121 per-queue Q6). Hang, CUDA tenant, pressure and kill/recovery were NOT re-run beside the live 35B (Drake, 2026-10-27); their receipts stay ../C5-SHARING-CHIP-20261027T0257Z (ed8bbd1). Mutant red because of wrong values (74579968 and 74092544 wrong, 02-mutant.log).
