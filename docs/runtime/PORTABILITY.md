@@ -17,7 +17,7 @@ Porting Omega means answering two questions that are easy to mix up:
 2. **Operating system and driver.** Does this file need Linux, the NVIDIA open driver, or a C library?
 
 The table `docs/runtime/portability_table.tsv` answers both, one row per `src/omega_gpu_*`, `src/omega_blackwell_*` and
-`src/omega_bw_*` file (100 rows; the M17/M18 gate suite `omega_blackwell_gates.{c,h}` stays in Omega, which runs it against this library):
+`src/omega_bw_*` file (123 rows; the M17/M18 gate suite `omega_blackwell_gates.{c,h}` stays in Omega, which runs it against this library):
 
 | Column | Values | Meaning |
 |---|---|---|
@@ -27,7 +27,8 @@ The table `docs/runtime/portability_table.tsv` answers both, one row per `src/om
 
 Totals at base commit a8ffd2b9: 87 files are `CHIP_SPECIFIC` and 15 are `PORTABLE`. By `os_binding`: 13 `FREESTANDING_PROVEN`,
 77 `NO_HOSTED_INCLUDE`, 9 `HOSTED_LIBC`, 3 `LINUX_DRIVER`. The small `PORTABLE` count is the honest result: almost everything
-in `src/omega_gpu_*` launches a Blackwell kernel. Command to recount: section 7.
+in `src/omega_gpu_*` launches a Blackwell kernel. CUDApp#125 adds 21 `CHIP_SPECIFIC` rows for the files the omega-mv
+carries (#120, #121) brought (15 `NO_HOSTED_INCLUDE`, 6 `HOSTED_LIBC`). Command to recount: section 7.
 
 `make test-runtime-portability` (host only, no compiler, no GPU) checks the table against the tree: every file has a row,
 every row names a real file, a `PORTABLE` row's file includes no Linux or NVRM header and no Blackwell header, and the

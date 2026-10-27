@@ -1,0 +1,10 @@
+ok: codegen + encode: spin kernel (512 bytes, 12 registers)
+ok: codegen + encode: spin kernel mutant 1 (512 bytes, 12 registers)
+ok: codegen + encode: copy kernel (512 bytes, 12 registers)
+ok: codegen + encode: copy kernel mutant 1 (512 bytes, 12 registers)
+ok: wait_for refuses missing lists
+ok: simulator order 0: spin + copy exact on all 3072 elements (0, 0 wrong)
+ok: simulator order 1: spin + copy exact on all 3072 elements (0, 0 wrong)
+ok: simulator red check order 0: mutant 1 caught (3072, 3072 wrong)
+ok: simulator red check order 1: mutant 1 caught (3072, 3072 wrong)
+C4 streams sim: PASS (9 checks)

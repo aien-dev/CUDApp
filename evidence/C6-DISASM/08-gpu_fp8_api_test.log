@@ -1,0 +1,20 @@
+# omega c6/disasm b6a96d10 (worktree diff sha e3b0c44298fc1c14), 2026-10-22T01:59:53Z
+# command: /tmp/c6/build/gpu_fp8_api_test --host-only
+conversion: 254/256 exact, 2 NaN codes refused, 14 codes travel as f32 subnormals (2^-129 .. 7 * 2^-129): the chip must not flush them
+codegen: 180 kernels built, largest 884 IR instructions, peak 88 GPRs
+sm121dis k2048_lb16_r8: rc=0 insns=832 undecodable=0 missing=0 (/tmp/omega_fp8_k2048_lb16_r8_1296201.sass)
+sm121dis k2048_lb16_r1_deep4: rc=0 insns=456 undecodable=0 missing=0 (/tmp/omega_fp8_k2048_lb16_r1_deep4_1296201.sass)
+sm121dis k768_lb8_r2: rc=0 insns=168 undecodable=0 missing=0 (/tmp/omega_fp8_k768_lb8_r2_1296201.sass)
+v2 codegen k=768 lb=8 rows=1: 250 insns, peak 52 GPRs, declared 56
+v2 codegen k=768 lb=8 rows=2: 401 insns, peak 66 GPRs, declared 72
+v2 codegen k=768 lb=8 rows=4: 703 insns, peak 94 GPRs, declared 96
+v2 codegen k=2048 lb=16 rows=1: 473 insns, peak 74 GPRs, declared 80
+v2 codegen k=2048 lb=16 rows=2: 838 insns, peak 108 GPRs, declared 112
+v2 codegen k=4096 lb=16 rows=1: 877 insns, peak 114 GPRs, declared 120
+v2 codegen: 24 kernels built, largest 877 IR instructions, peak 114 GPRs
+v2 k=768 rows=1 warps=16: declared 56 registers, 28672 per SM at one CTA
+v2 k=2048 rows=1 warps=16: declared 80 registers, 40960 per SM at one CTA
+v2 k=4096 rows=1 warps=16: declared 120 registers, 61440 per SM at one CTA
+sm121dis v2_k2048_lb16_r1_w16: rc=0 insns=480 undecodable=0 missing=0 (/tmp/omega_fp8_v2_k2048_lb16_r1_w16_1296201.sass)
+gpu_fp8_api_test: 1482 checks, 0 failed: PASS
+exit=0

@@ -346,7 +346,41 @@ static int gate_channel_no_memory_bounded(void) {
     return ok && closed ? 0 : -1;
 }
 
-int main(void) {
+/* The extra channel owns a subcontext as well as a FIFO. Rebuild each supported
+ * configuration on one open client and check teardown returns all tracked buffers. */
+static void gate_extra_channel_contexts(void) {
+    for (uint32_t n = 0; n <= NVRM_MAX_EXTRA_CHANNELS; n++) {
+        Nvrm rm;
+        int opened = nvrm_open(&rm) == 0;
+        int ok = opened;
+        uint32_t baseline = opened ? rm.live_count : 0;
+        for (int round = 0; ok && round < 3; round++) {
+            ok = nvrm_channel_n(&rm, n) == 0 && rm.n_extra == n;
+            for (uint32_t i = 0; ok && i < n; i++) {
+                ok = rm.extra[i].ctxshare != 0 && rm.extra[i].ctxshare != rm.ctxshare;
+                for (uint32_t j = 0; ok && j < i; j++)
+                    ok = rm.extra[i].ctxshare != rm.extra[j].ctxshare;
+            }
+            if (nvrm_channel_destroy(&rm) != 0) ok = 0;
+            ok = ok && rm.n_extra == 0 && rm.ctxshare == 0 && rm.live_count == baseline;
+            for (uint32_t i = 0; ok && i < n; i++)
+                ok = rm.extra[i].ctxshare == 0 && rm.extra[i].gpfifo == 0;
+        }
+        if (opened && nvrm_close(&rm) != 0) ok = 0;
+        char name[80];
+        snprintf(name, sizeof name, "EXTRA_CHANNEL_CONTEXTS_%u_REOPEN_AND_RELEASE", n);
+        if (!ok) fprintf(stderr, "extra channels %u: %s\n", n, rm.err);
+        gate_result(name, ok);
+    }
+}
+
+int main(int argc, char **argv) {
+    if (argc == 2 && strcmp(argv[1], "--channels-only") == 0) {
+        gate_extra_channel_contexts();
+        printf("TOTAL: %d PASSED: %d FAILED: %d\n", g_total, g_passed, g_failed);
+        return g_failed ? 1 : 0;
+    }
+    if (argc != 1) { fprintf(stderr, "usage: %s [--channels-only]\n", argv[0]); return 2; }
     printf("=== M19R NVRM LIFECYCLE GATES ===\n");
 
     gate_result("M16_WAIT_GE_SERIAL", gate_wait_ge_serial() == 0);
@@ -385,6 +419,7 @@ int main(void) {
     gate_result("CORRUPT_TABLE_REFUSED", gate_corrupt_table_refusal() == 0);
     gate_result("CHANNEL_NO_MEMORY_RETRIED", gate_channel_no_memory_retried() == 0);
     gate_result("CHANNEL_NO_MEMORY_BOUNDED", gate_channel_no_memory_bounded() == 0);
+    gate_extra_channel_contexts();
     printf("TOTAL: %d PASSED: %d FAILED: %d\n", g_total, g_passed, g_failed);
     return (g_failed == 0) ? 0 : 1;
 }

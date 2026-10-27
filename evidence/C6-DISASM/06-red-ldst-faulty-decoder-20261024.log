@@ -1,0 +1,35 @@
+# omega c6/disasm c8d7d5294 (L386 train tip: over c5/isolation 934c1521, c3/gemm, c3/reduce-scan, main 0d72560a), 2026-10-24T23:38Z
+# command: env DISASM=build/sm121dis_red sh tools/ldst_nvdisasm_check.sh
+disassembler: sm121dis: Omega's own sm_121 disassembler (src/omega_sm121_disasm.c)
+[FAIL] k000: disassembler text differs from the encoder's listing
+--- /tmp/tmp.tfOG6VTEcF/k000.lst	2026-10-24 18:37:46.686329261 -0500
++++ /tmp/tmp.tfOG6VTEcF/k000.got	2026-10-24 18:37:46.698580736 -0500
+@@ -3,20 +3,20 @@
+ 0020 LDCU UR4, c[0x0][0x360] ;
+ 0030 S2R R0, SR_TID.X ;
+ 0040 LDCU UR5, c[0x0][0x398] ;
+-0050 IMAD R9, R9, UR4, R0 ;
+-0060 ISETP.GE.U32.AND P0, PT, R9, UR5, PT ;
++0050 IMAD R9, R8, UR4, R0 ;
++0060 ISETP.GE.U32.AND P0, PT, R8, UR5, PT ;
+ 0070 @P0 EXIT ;
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x1, R2 ;
+-00d0 LDG.E.U8 R12, desc[UR4][R2.64] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+# ... 3080 lines of per-word differences left out of this receipt (the full output is reproducible with the command above) ...
+ 0080 LDC.64 R2, c[0x0][0x380] ;
+ 0090 LDCU.64 UR4, c[0x0][0x358] ;
+ 00a0 LDC.64 R4, c[0x0][0x388] ;
+ 00b0 LDC.64 R6, c[0x0][0x390] ;
+-00c0 IMAD.WIDE.U32 R2, R9, 0x2, R2 ;
+-00d0 LDG.E.S16 R12, desc[UR4][R2.64+-0x2] ;
+-00e0 IMAD.WIDE.U32 R4, R9, 0x4, R4 ;
+-00f0 LDG.E R5, desc[UR4][R4.64] ;
+-0100 IMAD.WIDE.U32 R6, R9, 0x4, R6 ;
+[FAIL] ldst: 0 of 148 kernels decode, every word, to the encoder's text
+VERDICT FAIL
+# exit 1

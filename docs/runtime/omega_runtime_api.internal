@@ -93,6 +93,7 @@ const OMEGA_GPU_ROUTER_DEPTH # decode-path header constant (shape limit, kernel 
 const OMEGA_GPU_ROUTER_MAX_LAYERS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
 const OMEGA_GPU_ROUTER_MAX_ROWS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
 const OMEGA_GPU_ROUTER_WARPS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_SM_COUNT # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
 const OMEGA_GPU_TERN_POISON_F32_BITS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
 const OMEGA_GPU_TERN_POISON_I32 # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
 fn omega_dattn_bf16_f32 # host reference or packing helper in a decode-path header (not an omega_gpu_ entry)
@@ -172,6 +173,8 @@ fn omega_gpu_prefill_attn_test_set_mirror_per_call # TEST ONLY: mutant or fault-
 fn omega_gpu_prefill_attn_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
 fn omega_gpu_reconv_probe_u32 # encoder probe kernel (MUFU.EX2, STS/BAR.SYNC/LDS, reconvergence) for chip checks
 fn omega_gpu_router_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
+fn omega_gpu_session_latch_uncertain # library code (a command list on an extra queue that timed out) latches the process through it
+fn omega_gpu_session_note_module_latch # the command-list module tells the session it latched itself, so omega_gpu_session_recover accepts it
 fn omega_gpu_session_on_close # lets a library drop its resident kernels before the session closes (up to 8 hooks)
 fn omega_gpu_session_set_error # library code names its failure stage through it
 fn omega_gpu_shared_xchg_u32 # encoder probe kernel (MUFU.EX2, STS/BAR.SYNC/LDS, reconvergence) for chip checks

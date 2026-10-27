@@ -719,9 +719,90 @@ int nvrm_free(Nvrm *rm, NvrmMem *m) {
     return 0;
 }
 
-int nvrm_channel(Nvrm *rm) {
-    if (!rm || rm->faulted || rm->chgroup || rm->channel_registered)
+/* One more GPFIFO channel in rm->chgroup on its own asynchronous subcontext: the same steps as channel 0 below (ring + USERD
+ * GPU-uncached, notifier, GPFIFO, compute object, work-submit token, UVM_REGISTER_CHANNEL). */
+static int chan_extra(Nvrm *rm, NvrmChan *c) {
+    /* NVIDIA nvos.h:3195-3243, FERMI_CONTEXT_SHARE_A represents a subcontext.
+     * Reusing channel 0's context share serialized the C4 event control on GB10;
+     * a separate ASYNC allocation lets the independent queue run before its peer.
+     * n_extra is counted before this call, so partial construction is unwound too. */
+    NV_CTXSHARE_ALLOCATION_PARAMETERS cs;
+    memset(&cs, 0, sizeof cs);
+    cs.hVASpace = rm->vaspace;
+    cs.flags = NV_CTXSHARE_ALLOCATION_FLAGS_SUBCONTEXT_ASYNC;
+    if (rm_alloc(rm, rm->chgroup, FERMI_CONTEXT_SHARE_A, &cs, sizeof cs, &c->ctxshare)) return -1;
+    c->entries = 1024;
+    if (nvrm_alloc_gpu_uncached(rm, 0x10000, &c->fifo)) return -1;
+    if (nvrm_alloc(rm, 0x100000, &c->notifier)) return -1;
+    NV_CHANNEL_ALLOC_PARAMS gp;
+    memset(&gp, 0, sizeof gp);
+    gp.gpFifoOffset = c->fifo.va;
+    gp.gpFifoEntries = c->entries;
+    gp.hObjectError = c->notifier.handle;
+    gp.hObjectBuffer = c->fifo.handle;
+    gp.hUserdMemory[0] = c->fifo.handle;
+    c->userd_off = c->entries * 8;
+    gp.userdOffset[0] = c->userd_off;
+    gp.engineType = 0;
+    gp.hContextShare = c->ctxshare;
+    if (rm_alloc(rm, rm->chgroup, rm->gpfifo_class, &gp, sizeof gp, &c->gpfifo)) return -1;
+    if (rm_alloc(rm, c->gpfifo, rm->compute_class, NULL, 0, &c->compute_obj)) return -1;
+    NVC36F_CTRL_CMD_GPFIFO_GET_WORK_SUBMIT_TOKEN_PARAMS tk = { .workSubmitToken = 0xffffffffu };
+    if (rm_control(rm, c->gpfifo, NVC36F_CTRL_CMD_GPFIFO_GET_WORK_SUBMIT_TOKEN, &tk, sizeof tk)) return -1;
+    c->token = tk.workSubmitToken;
+    UVM_REGISTER_CHANNEL_PARAMS rc;
+    memset(&rc, 0, sizeof rc);
+    memcpy(rc.gpuUuid.uuid, rm->gpu_uuid, 16);
+    rc.rmCtrlFd = rm->fd_ctl;
+    rc.hClient = rm->root;
+    rc.hChannel = c->gpfifo;
+    rc.base = va_take(rm, 0x4000000, 0x1000);
+    if (!rc.base) { rm->faulted = 1; return fail(rm, "channel VA exhausted (extra channel)"); }
+    rc.length = 0x4000000;
+    c->channel_va = rc.base;
+    c->channel_va_size = rc.length;
+    if (uvm(rm, rm->fd_uvm, UVM_REGISTER_CHANNEL, &rc, &rc.rmStatus)) {
+        rm->faulted = 1;
+        return -1;
+    }
+    c->registered = 1;
+    c->put = c->retired = 0;
+    return 0;
+}
+
+static int chan_extra_destroy(Nvrm *rm, NvrmChan *c) {
+    if (c->registered) {
+        UVM_UNREGISTER_CHANNEL_PARAMS p;
+        memset(&p, 0, sizeof p);
+        memcpy(p.gpuUuid.uuid, rm->gpu_uuid, sizeof rm->gpu_uuid);
+        p.hClient = rm->root;
+        p.hChannel = c->gpfifo;
+        if (uvm(rm, rm->fd_uvm, UVM_UNREGISTER_CHANNEL, &p, &p.rmStatus)) return -1;
+        c->registered = 0;
+    }
+    if (c->compute_obj && rm_free(rm, c->gpfifo, c->compute_obj)) return -1;
+    c->compute_obj = 0;
+    if (c->gpfifo && rm_free(rm, rm->chgroup, c->gpfifo)) return -1;
+    c->gpfifo = 0;
+    if (c->ctxshare && rm_free(rm, rm->chgroup, c->ctxshare)) return -1;
+    c->ctxshare = 0;
+    if (c->fifo.handle && nvrm_free(rm, &c->fifo)) return -1;
+    if (c->notifier.handle && nvrm_free(rm, &c->notifier)) return -1;
+    if (c->channel_va_size) {
+        if (va_release(rm, c->channel_va, c->channel_va_size) != 0) return -1;
+        c->channel_va = 0;
+        c->channel_va_size = 0;
+    }
+    c->put = c->retired = 0;
+    return 0;
+}
+
+int nvrm_channel(Nvrm *rm) { return nvrm_channel_n(rm, 0); }
+
+int nvrm_channel_n(Nvrm *rm, uint32_t extra) {
+    if (!rm || rm->faulted || rm->chgroup || rm->channel_registered || rm->n_extra)
         return rm ? fail(rm, "channel construction requires clean state") : -1;
+    if (extra > NVRM_MAX_EXTRA_CHANNELS) return fail(rm, "extra channels %u > %d", extra, NVRM_MAX_EXTRA_CHANNELS);
     NV_CHANNEL_GROUP_ALLOCATION_PARAMETERS cg;
     memset(&cg, 0, sizeof cg);
     cg.engineType = NV2080_ENGINE_TYPE_GRAPHICS;
@@ -789,6 +870,11 @@ int nvrm_channel(Nvrm *rm) {
     }
     rm->channel_registered = 1;
 
+    for (uint32_t i = 0; i < extra; i++) {
+        rm->n_extra = i + 1; /* counted first: destroy undoes a half-built channel */
+        if (chan_extra(rm, &rm->extra[i])) return -1;
+    }
+
     NVA06C_CTRL_GPFIFO_SCHEDULE_PARAMS sch = { .bEnable = 1 };
     if (rm_control(rm, rm->chgroup, NVA06C_CTRL_CMD_GPFIFO_SCHEDULE, &sch, sizeof sch)) return -1;
     rm->put = 0;
@@ -798,6 +884,10 @@ int nvrm_channel(Nvrm *rm) {
 
 int nvrm_channel_destroy(Nvrm *rm) {
     if (!rm) return -1;
+    while (rm->n_extra) {
+        if (chan_extra_destroy(rm, &rm->extra[rm->n_extra - 1])) { rm->faulted = 1; return -1; }
+        rm->n_extra--;
+    }
     if (rm->channel_registered) {
         UVM_UNREGISTER_CHANNEL_PARAMS p;
         memset(&p, 0, sizeof p);
@@ -874,6 +964,37 @@ int nvrm_submit(Nvrm *rm, const NvrmMem *pb, uint32_t off, uint32_t nwords) {
     if (nvrm_enqueue(rm, pb, off, nwords)) return -1;
     nvrm_ring(rm);
     return 0;
+}
+
+/* nvrm_enqueue + nvrm_ring for an extra channel: the same GP entry, barriers and USERD GPPut, its own ring and token. */
+int nvrm_chan_submit(Nvrm *rm, uint32_t ch, const NvrmMem *pb, uint32_t off, uint32_t nwords) {
+    if (!rm || !pb || rm->faulted || ch == 0 || ch > rm->n_extra) return rm ? fail(rm, "extra channel %u not ready", ch) : -1;
+    NvrmChan *c = &rm->extra[ch - 1];
+    if (!c->gpfifo || !c->fifo.cpu || c->entries < 2) return fail(rm, "extra channel %u not ready", ch);
+    if ((off & 3u) || nwords == 0 || nwords > 0x1fffff || (uint64_t)off + (uint64_t)nwords * 4u > pb->size)
+        return fail(rm, "bad pushbuffer span");
+    if (pb->va > UINT64_MAX - off) return fail(rm, "pushbuffer VA overflow");
+    if (c->put - c->retired >= c->entries - 1) return fail(rm, "GPFIFO full (channel %u): %u entries unretired", ch, c->put - c->retired);
+    volatile uint64_t *ring = (volatile uint64_t *)c->fifo.cpu;
+    ring[c->put % c->entries] = nvrm_gp_entry(pb->va + off, nwords);
+    c->put++;
+    __asm__ volatile("dsb sy" ::: "memory");
+    *(volatile uint32_t *)((uint8_t *)c->fifo.cpu + c->userd_off + offsetof(Nvc96fControl, GPPut)) = c->put % c->entries;
+    __asm__ volatile("dsb sy" ::: "memory");
+    *rm->doorbell = c->token; /* NVC361_NOTIFY_CHANNEL_PENDING: one doorbell page, the token names the channel */
+    return 0;
+}
+
+void nvrm_chan_retire(Nvrm *rm, uint32_t ch, uint32_t upto) {
+    if (!rm || ch == 0 || ch > rm->n_extra) return;
+    NvrmChan *c = &rm->extra[ch - 1];
+    if (upto - c->retired <= c->put - c->retired) c->retired = upto;
+}
+
+uint32_t nvrm_chan_put(const Nvrm *rm, uint32_t ch) {
+    if (!rm) return 0;
+    if (ch == 0) return rm->put;
+    return ch <= rm->n_extra ? rm->extra[ch - 1].put : 0;
 }
 
 int nvrm_close(Nvrm *rm) {

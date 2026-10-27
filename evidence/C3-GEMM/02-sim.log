@@ -1,0 +1,51 @@
+the bf16 model is a multiply (A row B row): worst error 3.81e-07 of the magnitude sum
+the bf16 model is a multiply (A col B row): worst error 5.42e-07 of the magnitude sum
+the bf16 model is a multiply (A row B col): worst error 5.77e-07 of the magnitude sum
+the bf16 model is a multiply (A col B col): worst error 4.26e-07 of the magnitude sum
+the e4m3 model is a multiply (A row B row): worst error 3.16e-07 of the magnitude sum
+the e4m3 model is a multiply (A col B row): worst error 3.17e-07 of the magnitude sum
+the e4m3 model is a multiply (A row B col): worst error 2.44e-07 of the magnitude sum
+the e4m3 model is a multiply (A col B col): worst error 2.58e-07 of the magnitude sum
+bf16 rt 2 ct 4 wm 2 wn 2 kernel 0 mutant 0: codegen 0, encode 0, qmma patches 0, 28 gprs
+bf16 rt 2 ct 4 wm 2 wn 2 kernel 1 mutant 0: codegen 0, encode 0, qmma patches 0, 28 gprs
+bf16 rt 2 ct 4 wm 2 wn 2 kernel 2 mutant 0: codegen 0, encode 0, qmma patches 0, 116 gprs
+bf16 rt 1 ct 1 wm 1 wn 1 kernel 0 mutant 0: codegen 0, encode 0, qmma patches 0, 28 gprs
+bf16 rt 1 ct 1 wm 1 wn 1 kernel 1 mutant 0: codegen 0, encode 0, qmma patches 0, 20 gprs
+bf16 rt 1 ct 1 wm 1 wn 1 kernel 2 mutant 0: codegen 0, encode 0, qmma patches 0, 48 gprs
+bf16 rt 4 ct 1 wm 2 wn 2 kernel 0 mutant 0: codegen 0, encode 0, qmma patches 0, 28 gprs
+bf16 rt 4 ct 1 wm 2 wn 2 kernel 1 mutant 0: codegen 0, encode 0, qmma patches 0, 20 gprs
+bf16 rt 4 ct 1 wm 2 wn 2 kernel 2 mutant 0: codegen 0, encode 0, qmma patches 0, 108 gprs
+bf16 rt 1 ct 4 wm 4 wn 1 kernel 0 mutant 0: codegen 0, encode 0, qmma patches 0, 28 gprs
+bf16 rt 1 ct 4 wm 4 wn 1 kernel 1 mutant 0: codegen 0, encode 0, qmma patches 0, 28 gprs
+bf16 rt 1 ct 4 wm 4 wn 1 kernel 2 mutant 0: codegen 0, encode 0, qmma patches 0, 84 gprs
+bf16 rt 2 ct 2 wm 1 wn 4 kernel 0 mutant 0: codegen 0, encode 0, qmma patches 0, 28 gprs
+bf16 rt 2 ct 2 wm 1 wn 4 kernel 1 mutant 0: codegen 0, encode 0, qmma patches 0, 28 gprs
+bf16 rt 2 ct 2 wm 1 wn 4 kernel 2 mutant 0: codegen 0, encode 0, qmma patches 0, 84 gprs
+e4m3 rt 2 ct 4 wm 2 wn 2 kernel 0 mutant 0: codegen 0, encode 0, qmma patches 0, 40 gprs
+e4m3 rt 2 ct 4 wm 2 wn 2 kernel 1 mutant 0: codegen 0, encode 0, qmma patches 0, 40 gprs
+e4m3 rt 2 ct 4 wm 2 wn 2 kernel 2 mutant 0: codegen 0, encode 0, qmma patches 32, 116 gprs
+e4m3 rt 1 ct 1 wm 1 wn 1 kernel 0 mutant 0: codegen 0, encode 0, qmma patches 0, 40 gprs
+e4m3 rt 1 ct 1 wm 1 wn 1 kernel 1 mutant 0: codegen 0, encode 0, qmma patches 0, 28 gprs
+e4m3 rt 1 ct 1 wm 1 wn 1 kernel 2 mutant 0: codegen 0, encode 0, qmma patches 4, 48 gprs
+e4m3 rt 4 ct 1 wm 2 wn 2 kernel 0 mutant 0: codegen 0, encode 0, qmma patches 0, 40 gprs
+e4m3 rt 4 ct 1 wm 2 wn 2 kernel 1 mutant 0: codegen 0, encode 0, qmma patches 0, 28 gprs
+e4m3 rt 4 ct 1 wm 2 wn 2 kernel 2 mutant 0: codegen 0, encode 0, qmma patches 16, 108 gprs
+e4m3 rt 1 ct 4 wm 4 wn 1 kernel 0 mutant 0: codegen 0, encode 0, qmma patches 0, 40 gprs
+e4m3 rt 1 ct 4 wm 4 wn 1 kernel 1 mutant 0: codegen 0, encode 0, qmma patches 0, 40 gprs
+e4m3 rt 1 ct 4 wm 4 wn 1 kernel 2 mutant 0: codegen 0, encode 0, qmma patches 16, 84 gprs
+e4m3 rt 2 ct 2 wm 1 wn 4 kernel 0 mutant 0: codegen 0, encode 0, qmma patches 0, 40 gprs
+e4m3 rt 2 ct 2 wm 1 wn 4 kernel 1 mutant 0: codegen 0, encode 0, qmma patches 0, 40 gprs
+e4m3 rt 2 ct 2 wm 1 wn 4 kernel 2 mutant 0: codegen 0, encode 0, qmma patches 16, 84 gprs
+simulator bf16 rt 2 ct 4 wm 2 wn 2: 40 multiplies, 0 wrong
+simulator bf16 rt 1 ct 1 wm 1 wn 1: 10 multiplies, 0 wrong
+simulator bf16 rt 4 ct 1 wm 1 wn 4: 10 multiplies, 0 wrong
+simulator e4m3 rt 2 ct 4 wm 2 wn 2: 40 multiplies, 0 wrong
+simulator e4m3 rt 1 ct 1 wm 1 wn 1: 10 multiplies, 0 wrong
+simulator e4m3 rt 4 ct 1 wm 1 wn 4: 10 multiplies, 0 wrong
+simulator red check: bf16 mutant 1 is caught (4095 wrong)
+simulator red check: bf16 mutant 2 is caught (4095 wrong)
+simulator red check: bf16 mutant 3 is caught (4095 wrong)
+simulator red check: e4m3 mutant 1 is caught (4095 wrong)
+simulator red check: e4m3 mutant 2 is caught (4095 wrong)
+simulator red check: e4m3 mutant 3 is caught (4095 wrong)
+C3 gemm sim: PASS (154 checks)
