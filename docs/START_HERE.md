@@ -34,7 +34,7 @@ build/hello_gpu --sim
 
 If an x86-64 checkout fails on an architecture-specific instruction, record the full error and compare with [the existing reproducibility issue #15](https://github.com/aien-dev/CUDApp/issues/15). Do not suppress the memory-ordering instruction or call a partial host run a passing full suite.
 
-Optional: `python3 tools/figures/make_figures.py --check` verifies that README diagrams match the generator. A previously observed `stack.svg` mismatch is documented in [AGENTS.md](../AGENTS.md); check it again on your exact commit rather than assuming it is resolved.
+Optional: `python3 tools/figures/make_figures.py --check` verifies that README diagrams match the generator. Check it on your exact commit.
 
 ## 3. Diagnose a native GPU machine
 

@@ -39,14 +39,30 @@ each file):
     permission notice shall be included in all copies or substantial portions of the Software.
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 
+## 3. Other open sm_12x work
+
+These projects map the same instruction set or the same driver interface in the open. Apart from the
+Mesa facts and latency values in section 2, no code or data from them is in CUDA++; they're listed so
+readers can find and compare them. Cross-checking CUDA++ against them is PROPOSED.
+
+    Mesa NAK SM120 encoder        gitlab.freedesktop.org/mesa/mesa (src/nouveau/compiler)   MIT
+    cubit                         github.com/kacper-daftcode/cubit                          MIT
+    blackwell-isa                 github.com/kacper-daftcode/blackwell-isa                  MIT
+    nvidia-sass-document          github.com/cicuvc/nvidia-sass-document                    no licence shown
+    tinygrad NV backend           github.com/tinygrad/tinygrad (tinygrad/runtime/ops_nv.py) MIT
+
 ## Public-source quotations
 
 `docs/PAIN_POINTS.md` contains attributed quotations from the public sources listed there. They remain third-party text; the repository license does not relicense them.
 
 ## Not in CUDA++
 
-- No NVIDIA firmware, no libcuda, no cubin or fatbin, no PTX. The GPU's signed GSP firmware is loaded
-  by NVIDIA's kernel module from the system's own firmware folder; CUDA++ never ships it.
+- No NVIDIA firmware, no libcuda, no NVIDIA cubin or fatbin, no PTX. The two cubins under
+  `evidence/MAX-INTEROP/68/` were written by CUDA++'s own cubin writer. The GPU's signed GSP firmware is
+  loaded by NVIDIA's kernel module from the system's own firmware folder; CUDA++ never ships it.
 - Some host tests print a listing through NVIDIA's `nvdisasm` when it happens to be installed, as a
-  cross-check. No listing made by NVIDIA tools is stored in this repository (one such file was kept out
-  of the history at extraction, see `docs/AUDIT.md`). My own disassembler is on the roadmap (C6).
+  cross-check. No listing made by NVIDIA tools is stored in this repository: #84 stored one
+  (`tests/device-trace/expected.sass`, an `nvdisasm 13.0` decode of the trace emitter's own words) and
+  #93 removed it; the runner now checks hand-written expectations. An earlier file was kept out of the
+  history at extraction, see `docs/AUDIT.md`. `PROVENANCE.md` lists which sources and tools may be used
+  and records stored tool output. My own disassembler is on the roadmap (C6).
