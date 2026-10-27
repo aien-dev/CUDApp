@@ -1,0 +1,84 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Compose after vector.om and trace-emit.om. Complete kernels are not body fragments.
+note Refusing EXIT must ignore its predicate: even an apparently inactive exit is unsupported.
+
+fn bsentinel to void
+for i ulong 8192
+put gbout i 165
+end
+put gboutlen 0 7
+end
+
+fn brefused on ulong to bool
+ok = gtewrap on 2
+if ok
+ret false
+end
+if ne get gterr 0 5
+ret false
+end
+if ne get gboutlen 0 7
+ret false
+end
+for i ulong 8192
+if ne get gbout i 165
+ret false
+end
+end
+ret true
+end
+
+fn ballflags to bool
+for i ulong 3
+on = add i 1
+if eq i 2
+on = ulong 18446744073709551615
+end
+bsentinel
+ok = brefused on
+if not ok
+ret false
+end
+end
+ret true
+end
+
+fn main to int
+put gtchecks 0 1
+gbvec
+for i ulong get gblen 0
+put gbin i get gbcode i
+end
+put gbinlen 0 get gblen 0
+ok = ballflags
+if not ok
+ret 1
+end
+note Disabled wrapping of an actual whole kernel remains byte-identical.
+ok = gtewrap 0 2
+if not ok
+ret 2
+end
+if ne get gboutlen 0 get gbinlen 0
+ret 3
+end
+for i ulong get gbinlen 0
+if ne get gbout i get gbin i
+ret 4
+end
+end
+note Every predicate field, including PT, P0 and inverted predicates.
+put gbinlen 0 16
+for p ulong 16
+for i ulong 16
+put gbin i 0
+end
+put gbin 0 77
+put gbin 1 uchar or 9 shl p 4
+ok = ballflags
+if not ok
+ret 5
+end
+end
+ret 0
+end

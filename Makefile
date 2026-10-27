@@ -7,8 +7,9 @@
 #   make hello-gpu  run the doctor, then build examples/hello_gpu and run it (on a GB10)
 #
 # The driver client (nvrm/, m16/) and the NVIDIA open headers (third_party/) are in
-# this repository, so PHYSICS_DIR is "." here. Omega builds the same sources with
-# PHYSICS_DIR pointing at its pinned CUDA++ checkout (cudapp.lock).
+# this repository, so PHYSICS_DIR is "." here. Omega is meant to build the same sources
+# with PHYSICS_DIR pointing at a pinned CUDA++ checkout (cudapp.lock); that pin does not
+# exist yet and Omega main still takes nvrm/m16 from physics-mv (#106, #107).
 CC ?= gcc
 .DEFAULT_GOAL := all
 PHYSICS_DIR ?= .
