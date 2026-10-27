@@ -21,6 +21,32 @@ const OMEGA_GPU_ATTN_MUTANT_Q_ROW # TEST ONLY: attention mutant ids for the batt
 const OMEGA_GPU_ATTN_MUTANT_SLOT # TEST ONLY: attention mutant ids for the battery
 const OMEGA_GPU_ATTN_ROWS_MAX_CTAS # launch or shape limit the library enforces inside the call (one model's shapes); not promised; candidate EXPERIMENTAL
 const OMEGA_GPU_ATTN_SPLIT_MAX_CTAS # launch or shape limit the library enforces inside the call (one model's shapes); not promised; candidate EXPERIMENTAL
+const OMEGA_GPU_DATTN_DEPTH # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DATTN_KV_HEADS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DATTN_MAX_LAYERS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DATTN_MAX_POS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DATTN_PER_SPLIT # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DATTN_QKV_WORDS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DATTN_Q_HEADS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DGRAPH_ATTN # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DGRAPH_HIDDEN # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DGRAPH_INTER # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DGRAPH_K_ADD # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DGRAPH_K_ARGMAX # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DGRAPH_K_ATTN # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DGRAPH_K_COMBINE # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DGRAPH_K_COUNT # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DGRAPH_K_DOWN # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DGRAPH_K_GATE_UP # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DGRAPH_K_LM_HEAD # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DGRAPH_K_NORM # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DGRAPH_K_O # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DGRAPH_K_QKV # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DGRAPH_K_ROUTER # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DGRAPH_K_SWIGLU # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DGRAPH_MAX_LAYERS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DGRAPH_QKV # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_DGRAPH_TOPK # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
 const OMEGA_GPU_EW_EX2 # op id of an encoder probe or codegen refusal test
 const OMEGA_GPU_EW_MAX_CTAS # launch or shape limit the library enforces inside the call (one model's shapes); not promised; candidate EXPERIMENTAL
 const OMEGA_GPU_EW_MAX_DIM # launch or shape limit the library enforces inside the call (one model's shapes); not promised; candidate EXPERIMENTAL
@@ -47,6 +73,40 @@ const OMEGA_GPU_EW_ROPE # op id for the elementwise codegen; the API is the omeg
 const OMEGA_GPU_EW_SWIGLU # op id for the elementwise codegen; the API is the omega_gpu_*_f32 calls
 const OMEGA_GPU_EW_THREADS # launch or shape limit the library enforces inside the call (one model's shapes); not promised; candidate EXPERIMENTAL
 const OMEGA_GPU_EW_XCHG # op id of an encoder probe or codegen refusal test
+const OMEGA_GPU_FP8GEMM_MAX_ROWS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_FP8GEMM_MAX_SEGMENTS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_FP8_BIGK_CTAS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_FP8_DEEP_MAX_SHARED_BYTES # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_FP8_GROUPED_CTAS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_FP8_MAX_CTAS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_FP8_MAX_GROUPS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_FP8_V2_GROUPED_CTAS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_FP8_V2_WARPS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_MOE_MAX_WINDOWS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_PATTN_HOST_PASS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_PATTN_MAX_MIRRORS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_PATTN_WARPS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_PF_PLAIN # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_PF_SWIGLU # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_PF_SWIGLU_NAT # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_ROUTER_DEPTH # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_ROUTER_MAX_LAYERS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_ROUTER_MAX_ROWS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_ROUTER_WARPS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_TERN_POISON_F32_BITS # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+const OMEGA_GPU_TERN_POISON_I32 # decode-path header constant (shape limit, kernel slot id, mode value or poison pattern) of one model's kernels; not promised
+fn omega_dattn_bf16_f32 # host reference or packing helper in a decode-path header (not an omega_gpu_ entry)
+fn omega_dattn_bf16_rne # host reference or packing helper in a decode-path header (not an omega_gpu_ entry)
+fn omega_dattn_rope_row # host reference or packing helper in a decode-path header (not an omega_gpu_ entry)
+fn omega_fp8_e4m3_is_nan # host reference or packing helper in a decode-path header (not an omega_gpu_ entry)
+fn omega_fp8_e4m3_kernel_bits # host reference or packing helper in a decode-path header (not an omega_gpu_ entry)
+fn omega_fp8_e4m3_ref # host reference or packing helper in a decode-path header (not an omega_gpu_ entry)
+fn omega_fp8_gemv_oracle # host reference or packing helper in a decode-path header (not an omega_gpu_ entry)
+fn omega_fp8_pack_scales # host reference or packing helper in a decode-path header (not an omega_gpu_ entry)
+fn omega_fp8_pack_scan_nan # host reference or packing helper in a decode-path header (not an omega_gpu_ entry)
+fn omega_fp8_pack_x_bf16 # host reference or packing helper in a decode-path header (not an omega_gpu_ entry)
+fn omega_fp8_pack_x_f32 # host reference or packing helper in a decode-path header (not an omega_gpu_ entry)
+fn omega_fp8gemm_permute_x # host reference or packing helper in a decode-path header (not an omega_gpu_ entry)
 fn omega_gpu_attention_cache_clear # serving-daemon internals; aien-sovereign-core does not bind it; candidate EXPERIMENTAL
 fn omega_gpu_attention_codegen # kernel builder used by the library and its tests; output format is not promised
 fn omega_gpu_attention_codegen_hd # kernel builder used by the library and its tests; output format is not promised
@@ -62,6 +122,13 @@ fn omega_gpu_attention_test_set_simulator # TEST ONLY: test hook (mutant, simula
 fn omega_gpu_attention_test_set_split # TEST ONLY: test hook (mutant, simulator, split or counter) for the library's own batteries
 fn omega_gpu_attention_test_shared_bytes # TEST ONLY: test hook (mutant, simulator, split or counter) for the library's own batteries
 fn omega_gpu_attention_unreserve # serving-daemon internals; aien-sovereign-core does not bind it; candidate EXPERIMENTAL
+fn omega_gpu_bf16_kernel_fits # takes or returns a kernel-generator type, which is backend (ADR 0043)
+fn omega_gpu_bf16_test_set_mask_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
+fn omega_gpu_bf16_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
+fn omega_gpu_decode_attn_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
+fn omega_gpu_decode_graph_test_set_barrier_none # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
+fn omega_gpu_decode_graph_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
+fn omega_gpu_decode_graph_test_set_prefetch_red # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
 fn omega_gpu_elementwise_cache_clear # serving-daemon internals; aien-sovereign-core does not bind it; candidate EXPERIMENTAL
 fn omega_gpu_elementwise_codegen # kernel builder used by the library and its tests; output format is not promised
 fn omega_gpu_elementwise_codegen_ir # kernel builder used by the library and its tests; output format is not promised
@@ -72,6 +139,13 @@ fn omega_gpu_engine_test_force_block # TEST ONLY: a blocked process must stay bl
 fn omega_gpu_engine_test_reset_block # TEST ONLY: a blocked process must stay blocked because the GPU may still be running
 fn omega_gpu_engine_test_set_clock # TEST ONLY: a blocked process must stay blocked because the GPU may still be running
 fn omega_gpu_ex2_f32 # encoder probe kernel (MUFU.EX2, STS/BAR.SYNC/LDS, reconvergence) for chip checks
+fn omega_gpu_fp8_depth_for # takes or returns a kernel-generator type, which is backend (ADR 0043)
+fn omega_gpu_fp8_kernel_fits # takes or returns a kernel-generator type, which is backend (ADR 0043)
+fn omega_gpu_fp8_spec_for # takes or returns a kernel-generator type, which is backend (ADR 0043)
+fn omega_gpu_fp8_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
+fn omega_gpu_fp8_test_set_no_fold # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
+fn omega_gpu_fp8gemm_kernel_fits # takes or returns a kernel-generator type, which is backend (ADR 0043)
+fn omega_gpu_fp8gemm_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
 fn omega_gpu_matmul_last_stages # serving-daemon internals; aien-sovereign-core does not bind it; candidate EXPERIMENTAL
 fn omega_gpu_matmul_reserve # serving-daemon internals; aien-sovereign-core does not bind it; candidate EXPERIMENTAL
 fn omega_gpu_matmul_seal # serving-daemon internals; aien-sovereign-core does not bind it; candidate EXPERIMENTAL
@@ -80,9 +154,30 @@ fn omega_gpu_matmul_test_a_row0_hits # TEST ONLY: test hook (mutant, simulator, 
 fn omega_gpu_matmul_test_set_mutant # TEST ONLY: test hook (mutant, simulator, split or counter) for the library's own batteries
 fn omega_gpu_matmul_test_set_unroll # TEST ONLY: test hook (mutant, simulator, split or counter) for the library's own batteries
 fn omega_gpu_matmul_unreserve # serving-daemon internals; aien-sovereign-core does not bind it; candidate EXPERIMENTAL
+fn omega_gpu_moe_test_a_row0_hits # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
+fn omega_gpu_moe_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
+fn omega_gpu_moe_test_set_window_skew # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
+fn omega_gpu_pf_combine_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
+fn omega_gpu_pf_gemm_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
+fn omega_gpu_pf_kernel_locked # launch helper whose caller already holds the session lock
+fn omega_gpu_pf_launch_locked # launch helper whose caller already holds the session lock
+fn omega_gpu_pf_open_locked # launch helper whose caller already holds the session lock
+fn omega_gpu_pf_qgemm_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
+fn omega_gpu_pf_quant_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
+fn omega_gpu_pf_record_locked # launch helper whose caller already holds the session lock
+fn omega_gpu_pf_router_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
+fn omega_gpu_prefill_attn_encode # takes or returns a kernel-generator type, which is backend (ADR 0043)
+fn omega_gpu_prefill_attn_test_launch_ns # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
+fn omega_gpu_prefill_attn_test_set_mirror_per_call # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
+fn omega_gpu_prefill_attn_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
 fn omega_gpu_reconv_probe_u32 # encoder probe kernel (MUFU.EX2, STS/BAR.SYNC/LDS, reconvergence) for chip checks
+fn omega_gpu_router_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
 fn omega_gpu_session_on_close # lets a library drop its resident kernels before the session closes (up to 8 hooks)
 fn omega_gpu_session_set_error # library code names its failure stage through it
 fn omega_gpu_shared_xchg_u32 # encoder probe kernel (MUFU.EX2, STS/BAR.SYNC/LDS, reconvergence) for chip checks
+fn omega_gpu_tcgemm_spec_for # takes or returns a kernel-generator type, which is backend (ADR 0043)
+fn omega_gpu_tcgemm_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
 fn omega_gpu_tensor_update_bf16 # serving-daemon internals; aien-sovereign-core does not bind it; candidate EXPERIMENTAL
 fn omega_gpu_tensor_update_f32 # serving-daemon internals; aien-sovereign-core does not bind it; candidate EXPERIMENTAL
+fn omega_gpu_tern_kernel_fits # takes or returns a kernel-generator type, which is backend (ADR 0043)
+fn omega_gpu_tern_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries

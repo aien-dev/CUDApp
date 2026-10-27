@@ -14,7 +14,7 @@
 #          OMEGA_GPU_PLATFORM_ABI_MINOR).
 #   none   no entry changed; the version may stay or go up (PATCH for a fix, MINOR for a documented behaviour addition).
 # Major version zero (semver 2.0.0 item 4, API.md section 2): while the BASE major is 0, a MAJOR-class change needs only
-# a MINOR bump (0.2 -> 0.3); from 1.0 on it needs MAJOR. A MAJOR-class change with no bump fails either way.
+# a MINOR bump (0.4 -> 0.5); from 1.0 on it needs MAJOR. A MAJOR-class change with no bump fails either way.
 # The version (OMEGA_RUNTIME_API_VERSION_MAJOR/_MINOR/_PATCH consts; PATCH 0 when the base has none) must never go down and
 # must carry at least the needed bump. Exit 0 = PASS, 1 = FAIL (an undeclared or too-small change), 2 = usage.
 set -u
