@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/aien-dev/CUDApp/docs/trace/unified-trace.chrome.schema.json",
+  "title": "aien.unified-trace/1, Chrome trace JSON export (written by tools/omtrace/omtrace.om)",
+  "type": "object",
+  "required": ["displayTimeUnit", "otherData", "traceEvents"],
+  "additionalProperties": false,
+  "properties": {
+    "displayTimeUnit": { "const": "ns" },
+    "otherData": {
+      "type": "object",
+      "required": ["schema", "clock", "device_timing", "dropped", "refused", "open_spans"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": { "const": "aien.unified-trace/1" },
+        "clock": { "type": "string" },
+        "device_timing": { "const": "NOT_RUN" },
+        "dropped": { "type": "integer", "minimum": 0 },
+        "refused": { "type": "integer", "minimum": 0 },
+        "open_spans": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "traceEvents": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/meta" },
+          { "$ref": "#/$defs/span" },
+          { "$ref": "#/$defs/instant" }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "name": { "type": "string", "pattern": "^[A-Za-z0-9._:/-]{1,63}$" },
+    "kind": {
+      "enum": ["compile.phase", "diag", "gpu.open", "kernel.launch", "mem.alloc", "mem.copy",
+               "host.wait", "trap", "user.span", "user.mark", "mem.moved", "notice"]
+    },
+    "time": { "type": "number", "minimum": 0 },
+    "int": { "type": "integer" },
+    "args": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": { "$ref": "#/$defs/int" },
+        "bytes": { "$ref": "#/$defs/int" },
+        "count": { "$ref": "#/$defs/int" },
+        "file": { "type": "string" },
+        "line": { "$ref": "#/$defs/int" },
+        "col": { "$ref": "#/$defs/int" },
+        "bytes_allocated": { "$ref": "#/$defs/int" },
+        "code_bytes": { "$ref": "#/$defs/int" },
+        "elements": { "$ref": "#/$defs/int" },
+        "stage": { "$ref": "#/$defs/int" },
+        "stage_name": { "enum": ["refused", "build.upload", "submit", "host.wait", "complete.check"] },
+        "slot": { "$ref": "#/$defs/int" },
+        "direction": { "enum": [0, 1, 2] },
+        "a0": { "$ref": "#/$defs/int" },
+        "a1": { "$ref": "#/$defs/int" },
+        "code": { "$ref": "#/$defs/int" },
+        "trap_name": { "type": "string" },
+        "candidates": { "type": "string" }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "required": ["name", "ph", "pid", "tid", "args"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "const": "process_name" },
+        "ph": { "const": "M" },
+        "pid": { "$ref": "#/$defs/int" },
+        "tid": { "const": 0 },
+        "args": {
+          "type": "object",
+          "required": ["name"],
+          "additionalProperties": false,
+          "properties": { "name": { "type": "string" } }
+        }
+      }
+    },
+    "span": {
+      "type": "object",
+      "required": ["name", "cat", "ph", "ts", "dur", "pid", "tid", "args"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "$ref": "#/$defs/name" },
+        "cat": { "$ref": "#/$defs/kind" },
+        "ph": { "const": "X" },
+        "ts": { "$ref": "#/$defs/time" },
+        "dur": { "$ref": "#/$defs/time" },
+        "pid": { "$ref": "#/$defs/int" },
+        "tid": { "const": 1 },
+        "args": { "$ref": "#/$defs/args" }
+      }
+    },
+    "instant": {
+      "type": "object",
+      "required": ["name", "cat", "ph", "s", "ts", "pid", "tid", "args"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "$ref": "#/$defs/name" },
+        "cat": { "$ref": "#/$defs/kind" },
+        "ph": { "const": "i" },
+        "s": { "const": "p" },
+        "ts": { "$ref": "#/$defs/time" },
+        "pid": { "$ref": "#/$defs/int" },
+        "tid": { "const": 1 },
+        "args": { "$ref": "#/$defs/args" }
+      }
+    }
+  }
+}
