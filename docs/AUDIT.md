@@ -1,5 +1,7 @@
 # Licence and safety audit (before the first public push)
 
+> Historical record of the 2026-10-21 extraction, when CUDA++ was published under MIT. First-party material is now Apache-2.0 WITH LLVM-exception ([LICENSING_TRANSITION.md](LICENSING_TRANSITION.md), [LICENSE_PROVENANCE.md](LICENSE_PROVENANCE.md)); only NVIDIA's open-kernel-module headers in `third_party/` remain MIT. The only later edits (2026-10-26) are this note and the redaction of one personal e-mail address and one home path.
+
 CUDA++ was split out of Omega (Apache-2.0 WITH LLVM-exception) and physics (Apache-2.0 WITH LLVM-exception) on 2026-10-21 to be published under MIT. Relicensing is only possible for lines whose authors agree, nothing secret may be in any version of any file, and no NVIDIA binary may be in the history. This file records what was checked, how, and the result. Every check below can be re-run with the scripts in `tools/extract/`.
 
 Status: **CLEAN** for the history listed in section 1 (see section 6 for what this audit does not cover).
@@ -24,7 +26,7 @@ Every author, committer and co-author line on CUDA++ `main` (`git log main --for
 | --- | --- | --- |
 | Drake Stapleton <drake@aienos.com>, <aien@aienos.com> | author | 112 |
 | aien-dev <drake@aienos.com> | Drake's GitHub organisation account (bots and merges) | 57 |
-| aien-spark <aien.atlas@proton.me> | Drake's earlier organisation account | 6 |
+| aien-spark <personal address, redacted 2026-10-26> | Drake's earlier organisation account | 6 |
 | GitHub <noreply@github.com> | committer of merged pull requests | 65 |
 | Claude (Fable 5.1, Opus 5.5, Sonnet 5.5), GPT-6 Astra / Codex, Grok 4.7, Gemini 3.8 | AI co-authors working for Drake | trailers only |
 
@@ -50,7 +52,7 @@ Scanned: **every blob reachable from any ref** (deleted files and old versions i
 | Second scanner | gitleaks 8.30.1 (linux arm64 release, sha256 e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080 matched its published checksum), `gitleaks git --log-opts=--all` on clones of both cuts | no leaks found |
 | Whole published history (`git clone --mirror` of this repository, every ref) | both scanners above | first run 2026-10-22 00:10Z: 10 hits (own) and 3 (gitleaks), all the fake keys `audit-selftest.sh` plants on purpose, written as plain strings in that script. Fixed: the script now builds them at run time from pieces, and the old versions were rewritten out of every commit (`git filter-branch --index-filter`, main only, from commit e1cc4f4 on; the Omega and physics cut commits are untouched, so `carry.sh` still matches). Re-run after the fix: see the line below |
 | Same, after the fix | both scanners | own: 1018 blobs, 0 binaries, 0 secret hits; gitleaks: 162 commits, no leaks found (2026-10-22 01:34Z, GitHub mirror: main 72ec187 and docs/how-we-did-it 62ea5a2). Private-data hits are the same kinds as in the row below (plus `t@example.invalid`, the self-test identity, and `git@github.com` in clone commands) |
-| IP addresses, host names, e-mail addresses, home paths | `rules-private.txt`, reviewed by hand | e-mail: only commit identities (drake@aienos.com, noreply addresses). IP-like: `9.7.3.13` / `9.7.3.21` are PTX ISA manual section numbers, `12.34.56.78` is an example in an NVIDIA header. Home paths: build folder names in receipt logs (`/home/drakestapleton/workspace/...`), no private content; kept |
+| IP addresses, host names, e-mail addresses, home paths | `rules-private.txt`, reviewed by hand | e-mail: only commit identities (drake@aienos.com, noreply addresses). IP-like: `9.7.3.13` / `9.7.3.21` are PTX ISA manual section numbers, `12.34.56.78` is an example in an NVIDIA header. Home paths: build folder names in receipt logs (`~/workspace/...`), no private content; kept |
 
 Kept out of the history (removed from every commit, listed in `tools/extract/omega-exclude.txt` and `physics-exclude.txt`):
 

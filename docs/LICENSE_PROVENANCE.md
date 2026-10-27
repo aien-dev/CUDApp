@@ -1,6 +1,6 @@
 # CUDA++ license and provenance audit
 
-**Result: eligible first-party transition candidate, with bounded audit scope.** This record covers the exact candidate base `b0d9c533636c7bc93539e83a3668aa3651713e74`, the authorized licensing changes, and the complete reachable history. The earlier `docs/AUDIT.md` is preserved unchanged as the historical extraction audit. This is evidence for the candidate, not a legal opinion or a universal statement about every line.
+**Result: eligible first-party transition candidate, with bounded audit scope.** This record covers the exact candidate base `b0d9c533636c7bc93539e83a3668aa3651713e74`, the authorized licensing changes, and the complete reachable history. The earlier `docs/AUDIT.md` is preserved as the historical extraction audit; its only later edits (2026-10-26) are a header note on the current licence and the redaction of one personal e-mail address and one home path. This is evidence for the candidate, not a legal opinion or a universal statement about every line.
 
 ## Commit and identity evidence
 
@@ -11,7 +11,7 @@ The transition candidate at `d478c56856dacedc2b93c1d08ec70ef8c270e436` contains 
 | Drake Stapleton `<drake@aienos.com>` | 118 | Drake Stapleton |
 | Drake Stapleton `<aien@aienos.com>` | 8 | Drake Stapleton |
 | `aien-dev <drake@aienos.com>` | 57 | Drake's organization account, as recorded in the historical audit |
-| `aien-spark <aien.atlas@proton.me>` | 6 | Drake's earlier organization account, as recorded in the historical audit |
+| `aien-spark <personal address, redacted 2026-10-26>` | 6 | Drake's earlier organization account, as recorded in the historical audit |
 
 Committer identities were Drake Stapleton `<drake@aienos.com>` (107), Drake Stapleton `<aien@aienos.com>` (12), and GitHub `<noreply@github.com>` (70). GitHub's identity appears as the committer on merged commits; it is not an additional source author.
 

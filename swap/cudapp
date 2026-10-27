@@ -38,6 +38,13 @@ NV_MODULES="nvidia nvidia_uvm nvidia_modeset nvidia_drm"
 YES=0; REBOOT=0; HOLDERS_OK=0
 die()    { echo "cudapp: $*" >&2; exit 1; }
 refuse() { echo "REFUSED: $*" >&2; exit 3; }
+# A machine that schedules GPU work through spark-window (the invoking user has the tool) reboots only inside a window.
+window_host() {
+    command -v spark-window >/dev/null 2>&1 && return 0
+    [ -n "${SUDO_USER:-}" ] || return 1
+    local h; h=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+    [ -n "$h" ] && [ -x "$h/.local/bin/spark-window" ]
+}
 usage()  { sed -n '3,9p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 sha()    { if [ -e "$1" ] || [ -L "$1" ]; then sha256sum < "$1" | cut -d' ' -f1; else echo -; fi; }
 
@@ -187,7 +194,7 @@ kernel_level() {
     backup_done
     echo "kernel level STAGED: reboot to switch. To return: cudapp swap back --yes, then reboot."
     if [ $REBOOT -eq 1 ]; then
-        [ "$(hostname 2>/dev/null)" = spark-b87b ] && [ -z "${SPARK_WINDOW:-}" ] && refuse "on the Spark the reboot runs only inside a scheduled spark-window"
+        window_host && [ -z "${SPARK_WINDOW:-}" ] && refuse "on the Spark the reboot runs only inside a scheduled spark-window"
         echo "rebooting (--reboot)"; reboot
     fi
 }
