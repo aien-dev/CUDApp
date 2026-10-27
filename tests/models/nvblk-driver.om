@@ -1,0 +1,52 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Binary stdin records: 16 little-endian binary32 bit patterns (64 bytes).
+note Binary stdout per record: UE4M3 scale byte, then 8 packed NVFP4 bytes.
+note Clean EOF before a record exits 0; EOF inside a record exits 3.
+fn rd64 x edit uchar 64 to long
+off = ulong 0
+while lt off 64 bound 65
+n = read 0 x off sub ulong 64 off
+if lt n 0
+ret -2
+end
+if eq n 0
+ret long off
+end
+off = add off ulong n
+end
+ret 64
+end
+fn tobits r view uchar 64 x edit uint 16 to void
+for i ulong 16
+p = mul i 4
+v = uint get r p
+v = or v shl uint get r add p 1 8
+v = or v shl uint get r add p 2 16
+v = or v shl uint get r add p 3 24
+put x i v
+end
+end
+fn main to int
+r = new uchar 64 0
+x = new uint 16 0
+q = new uchar 8 0
+o = new uchar 9 0
+for cs ulong 10000000
+n = rd64 edit r
+if eq n 0
+ret 0
+end
+if ne n 64
+ret 3
+end
+tobits view r edit x
+put o 0 uchar nvfp4nib view x edit q
+for j ulong 8
+put o add j 1 get q j
+end
+if ne write 1 o 0 9 9
+ret 4
+end
+end
+ret 5
+end
