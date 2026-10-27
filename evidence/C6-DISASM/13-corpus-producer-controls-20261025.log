@@ -1,0 +1,18 @@
+# corpus producer controls, 2026-10-25 (L386 resume, continuing Codex L386)
+# tools/sm121dis/corpus.sh must refuse a corpus whose producer is missing or fails.
+# BEFORE (origin/c6/disasm 1a5307c4a): 31 missing programs, corpus still reported success:
+build/codex-resume/missing-bin/gpu_matmul_api_test --host-only: exit 127, 0 kernels so far
+build/codex-resume/missing-bin/gpu_elementwise_test --host-only: exit 127, 0 kernels so far
+build/codex-resume/missing-bin/gpu_reconv_test --host-only: exit 127, 0 kernels so far
+build/codex-resume/missing-bin/gpu_attention_test --host-only: exit 127, 0 kernels so far
+build/test_omega_ldst_gb10_cpu --dump /home/drakestapleton/workspace/l386-c6/build/codex-resume/missing-corpus/numeric: exit 0, 1 kernels so far
+corpus: 159 kernels in /home/drakestapleton/workspace/l386-c6/build/codex-resume/missing-corpus
+
+# AFTER (this commit): the same missing program stops the corpus with a verdict and the producer's own words:
+build/codex-resume/missing-bin/gpu_matmul_api_test --host-only: exit 127, 159 kernels so far
+tools/sm121dis/corpus.sh: 13: build/codex-resume/missing-bin/gpu_matmul_api_test: not found
+VERDICT FAIL: corpus producer failed: build/codex-resume/missing-bin/gpu_matmul_api_test --host-only
+
+# Permanent control (runs in make test-sm121dis):
+PASS: missing and failing corpus producers are refused
+exit 0

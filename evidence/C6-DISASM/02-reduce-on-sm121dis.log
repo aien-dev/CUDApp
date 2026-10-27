@@ -1,0 +1,7 @@
+# omega c6/disasm b6a96d10 (worktree diff sha e3b0c44298fc1c14), 2026-10-22T01:59:42Z
+# command: quiet-build make PHYSICS_DIR=/home/drakestapleton/workspace/physics-l386 test-numeric-reduce-nvdisasm
+cc -std=gnu11 -Wall -Wextra -Werror -O2 -Isrc -o build/sm121dis tools/sm121dis/sm121dis.c src/omega_sm121_disasm.c
+max: 12 words decode to the recorded text
+min: 12 words decode to the recorded text
+E1 Reduce nvdisasm: PASS (sm121dis: Omega's own sm_121 disassembler (src/omega_sm121_disasm.c))
+exit=0

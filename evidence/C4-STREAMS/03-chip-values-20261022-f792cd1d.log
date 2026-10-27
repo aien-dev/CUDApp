@@ -1,0 +1,18 @@
+Thu Oct 22 07:06:34 UTC 2026
+f792cd1d35b0e9c191647518c3be651a8d86dc21
+b97749a9dc249d734a268279e0b84185b4bba28a0b22f44136fbb3b13b27007b  build/gpu_streams_test
+COMMAND: spark-window run timeout 180 stdbuf -oL -eL build/gpu_streams_test --values-only
+ok: the second queue opens (AIEN_OMEGA_GPU_CHANNELS = 2)
+calibration: 2^16 turns took 7.702 ms; using 510541 turns
+C4 overlap: NOT_RUN (values-only; timing needs an exclusive window)
+ok: event refusals: a list with a wait is refused alone, and cannot wait on a second list
+  event (wait, default barrier): X 0 wrong, Y 0 wrong of 3072, pair 56.227 ms
+ok: C4 event: B's copy waited for A's spin on the other queue; every Y right (0 wrong)
+  event (NO wait, default barrier): X 0 wrong, Y 0 wrong of 3072, pair 17.456 ms
+  event (NO wait, first_barrier_none): X 0 wrong, Y 0 wrong of 3072, pair 13.879 ms
+FAIL: negative control: without the wait B ran early and Y is wrong (default barrier 0 wrong, first_barrier_none 0 wrong)
+ok: event refusals: a list with a wait is refused alone, and cannot wait on a second list
+  event (wait, first_barrier_none): X 0 wrong, Y 0 wrong of 3072, pair 17.496 ms
+ok: C4 event with first_barrier_none: every Y right (0 wrong)
+C4 streams values: FAIL (1 of 6)
+EXIT_CODE=1
