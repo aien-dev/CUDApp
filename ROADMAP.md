@@ -14,7 +14,7 @@ Sources: Omega `docs/OMEGA.md` sections 2 to 5 (branch `docs/what-omega-is`, 202
 | cuBLAS | Matrix multiply | matmul, tensor-core GEMM, FP8/BF16 libraries | PARTIAL | model shapes only; any-shape GEMM is bar C3 |
 | cuDNN, FlashAttention | Attention, network layers | decode and prefill attention | PARTIAL | model-shaped |
 | CUB, Thrust | Reductions, scans, sorts | frozen-order reductions | PARTIAL | `evidence/E1-CLOSURE/`; general scan and sort are bar C3 |
-| cuFFT, cuRAND | FFT, random numbers | none yet | MISSING | |
+| cuFFT, cuRAND | FFT, random numbers | xoshiro256** generator (64-bit, uniform and normal f32) and batched complex f32 FFT, kernels built by the seeded unit `om/mathlibs/mathlibs_ir.om` (`src/omega_gpu_mathlibs_api.h`) | PARTIAL | `evidence/MATHLIBS-RNG-FFT-2026-10-27/chip-receipt.txt`: one GB10 run, 268 checks, streams bit-exact with aien-math; one generator, power-of-two complex-to-complex FFT from 4 to 2048 points only (no real, 2-D or 3-D transforms) |
 | `cuobjdump`, `nvdisasm` | Read machine code back | my own sm_121 disassembler | BUILDING | bar C6: on Omega branch `c6/disasm` (19eebe0e, `evidence/C6-DISASM/` there) it agrees with `nvdisasm` on 331 kernels; not carried into CUDA++ yet, and some host tests here still call `nvdisasm` |
 | Nsight | Profiling | ceiling probes | PARTIAL | `evidence/OWN30B-T3-TC-PEAK-BW-5faa0f70-20261013T2236Z/` (115.14 TFLOPS tensor-core peak, 195.1 GB/s reads), `evidence/OWN30B-LAUNCH-COST-20261014T0120Z/` |
 | CUDA samples and docs | First kernel, API reference | `examples/hello_gpu`, `docs/runtime/API.md` | PARTIAL | bar C2: hello-GPU from an empty folder on the GB10 + the zero-CUDA gate |

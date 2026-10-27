@@ -1,0 +1,1035 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note mathlibs_ir.om: CUDA++ math-library kernels for the GB10 (sm_121), emitted as BlackwellIR records.
+note kind 0: xoshiro256** random numbers (variant 0 raw 64-bit, 1 uniform f32, 2 normal f32).
+note kind 1: batched complex f32 Stockham FFT, n = 2^a (4..2048), radix 4 plus one radix-2 stage when a is odd.
+note kind 2: the FFT twiddle table w^m, m < n, as f32 pairs (re bits | im bits << 32), computed in f64.
+note The algorithms are the public-domain xoshiro256** and SplitMix64 (Blackman and Vigna) and the
+note Stockham FFT; the stream matches aien-math src/stats/random.om bit for bit (fixture in tests/).
+note Record (8 ulong): op, dst, src1, src2, src3 (vreg or 2^64-1 for none), ureg, imm | control << 32,
+note uniform | p0 << 1 | not << 2 | dsub << 16 | s1sub << 24 | s2sub << 32 | s3sub << 40.
+note The records replay through src/omega_gpu_om_ir.c (C register allocator, migration-pending) and
+note encode through om/encoder/bw_enc_sm121.om. Control words follow the elementwise emitter
+note (src/omega_gpu_elementwise_api.c: emit kinds, ld_group, tail, schedule_fixed_pairs).
+note Meta: 0 records, 1 vregs, 2 uvregs, 3 pending wait mask, 4 error, 5 closed loops, 6 open loops,
+note 8..11 open loop starts, 16 + 2L / 17 + 2L closed loop L start / end, 64 + v vreg kind, 320 + u uvreg kind.
+note An operand reference is vreg | subreg << 10; NONE (65535) is an absent operand.
+
+const NONE ulong 65535
+const ALL ulong 18446744073709551615
+const LO32 ulong 4294967295
+const M1 ulong 4294967295
+const YIELD ulong 8192
+const RAWC ulong 927744
+const NOPC ulong 1032192
+const KFIX ulong 0
+const KPRED ulong 1
+const KVAR ulong 2
+const KUVAR ulong 3
+const KSTORE ulong 4
+const KSYNC ulong 5
+const KEXIT ulong 6
+const KBRA ulong 7
+const KRAW ulong 8
+const MOVRZ ulong 1
+const MOVI ulong 2
+const S2R ulong 3
+const LDC ulong 4
+const LDC64 ulong 5
+const LDCU64 ulong 7
+const IMAD ulong 8
+const IMADW ulong 9
+const STG ulong 12
+const IADD3 ulong 14
+const SHFR ulong 17
+const LAND ulong 18
+const ISGEU ulong 28
+const LXOR ulong 29
+const FADD ulong 30
+const FSUB ulong 31
+const FMUL ulong 32
+const FFMA ulong 33
+const I2FP ulong 38
+const MRSQ ulong 41
+const EXIT ulong 45
+const BRA ulong 46
+const BAR ulong 48
+const LDS ulong 49
+const STS ulong 50
+const LUT ulong 51
+const SHFL ulong 52
+const IMADHI ulong 53
+const LDG64 ulong 56
+const MLG2 ulong 59
+const C1 ulong 13787848793156543929
+const C2 ulong 10723151780598845931
+const K24 f32 5.9604644775390625e-8
+const K46 f32 1.4210854715202004e-14
+const NLN2 f32 -0.6931471805599453
+const RT2 f32 1.4142135623730951
+const F25 f32 2.5
+const F3 f32 3.0
+const F5 f32 5.0
+const GC0 f32 1.50140941
+const GC1 f32 0.246640727
+const GC2 f32 -0.00417768164
+const GC3 f32 -0.00125372503
+const GC4 f32 0.00021858087
+const GC5 f32 -0.00000439150654
+const GC6 f32 -0.0000035233877
+const GC7 f32 0.000000343273939
+const GC8 f32 0.0000000281022636
+const GCM f32 1.5
+const GT0 f32 2.83297682
+const GT1 f32 1.00167406
+const GT2 f32 0.00943887047
+const GT3 f32 -0.0076224613
+const GT4 f32 0.00573950773
+const GT5 f32 -0.00367342844
+const GT6 f32 0.00134934322
+const GT7 f32 0.000100950558
+const GT8 f32 -0.000200214257
+const HPI f64 1.5707963267948966
+
+note ---- record building
+
+fn fb x f32 to ulong
+ret ulong bitcast uint x
+end
+
+fn cw st ulong wb ulong rb ulong wt ulong to ulong
+ret or or shl st 9 shl wb 14 or shl rb 17 shl wt 20
+end
+
+fn fld r ulong to ulong
+if eq r NONE
+ret ALL
+end
+ret and r 1023
+end
+
+fn rsub r ulong to ulong
+if eq r NONE
+ret 0
+end
+ret shr r 10
+end
+
+fn r4 d ulong a ulong b ulong c ulong to ulong
+ret or or d shl a 16 or shl b 32 shl c 48
+end
+
+fn okk op ulong k ulong fl ulong ur ulong to ulong
+ret or or op shl k 8 or shl fl 16 shl ur 40
+end
+
+fn sb v ulong s ulong to ulong
+ret or v shl s 10
+end
+
+fn p2 lo ulong hi ulong to ulong
+ret or lo shl hi 16
+end
+
+const PW1 ulong 4294967296
+const PW2 ulong 8589934592
+const PW4 ulong 17179869184
+
+note control word of one record kind: returns control | next pending wait mask << 32
+fn kc k ulong fl ulong pend ulong imm ulong to ulong
+if eq k KPRED
+ret cw 14 7 7 pend
+end
+if eq k KVAR
+ret or or cw 4 0 7 pend YIELD PW1
+end
+if eq k KUVAR
+ret or or cw 4 2 7 pend YIELD PW4
+end
+if eq k KSTORE
+ret or or cw 4 7 1 pend YIELD PW2
+end
+if or eq k KEXIT eq k KBRA
+if ne and fl 2 0
+ret or cw 5 7 7 pend shl pend 32
+end
+ret cw 5 7 7 pend
+end
+if eq k KRAW
+ret or shr imm 32 shl pend 32
+end
+ret cw 6 7 7 pend
+end
+
+note operand fields 1..4 and their subregisters (record word 7 bits 16..47)
+fn wops ins edit ulong 8192 b ulong rg ulong to void
+d = and rg 65535
+s1 = and shr rg 16 65535
+s2 = and shr rg 32 65535
+s3 = shr rg 48
+put ins add b 1 fld d
+put ins add b 2 fld s1
+put ins add b 3 fld s2
+put ins add b 4 fld s3
+f1 = or shl rsub d 16 shl rsub s1 24
+f2 = or shl rsub s2 32 shl rsub s3 40
+put ins add b 7 or f1 f2
+end
+
+note record words 5..7: ureg, imm | control << 32, flags (x = control | pending << 32)
+fn wtail ins edit ulong 8192 b ulong ok ulong imm ulong x ulong to void
+ur = and shr ok 40 65535
+uv = ALL
+if ne ur NONE
+uv = ur
+end
+put ins add b 5 uv
+c = and x LO32
+put ins add b 6 or and imm LO32 shl c 32
+w7 = get ins add b 7
+put ins add b 7 or w7 and shr ok 16 7
+end
+
+note one record: ok = op | kind << 8 | flags << 16 | ureg << 40; rg = r4 operands; imm low 32 bits
+note (a raw record carries its control word in imm bits 32..63)
+fn emit ins edit ulong 8192 m edit ulong 512 ok ulong rg ulong imm ulong to void
+n = get m 0
+if ge n 1024
+put m 4 1
+ret
+end
+k = and shr ok 8 255
+if gt k KRAW
+put m 4 2
+ret
+end
+x = kc k and shr ok 16 255 get m 3 imm
+b = mul n 8
+put ins b and ok 255
+wops ins b rg
+wtail ins b ok imm x
+put m 0 add n 1
+put m 3 shr x 32
+end
+
+fn nv m edit ulong 512 kind ulong to ulong
+v = get m 1
+if ge v 256
+put m 4 3
+ret 0
+end
+put m add 64 v kind
+put m 1 add v 1
+ret v
+end
+
+fn nu m edit ulong 512 kind ulong to ulong
+u = get m 2
+if ge u 32
+put m 4 3
+ret 0
+end
+put m add 320 u kind
+put m 2 add u 1
+ret u
+end
+
+note ---- instruction helpers
+
+fn ef ins edit ulong 8192 m edit ulong 512 op ulong rg ulong imm ulong to void
+emit ins m okk op KFIX 0 NONE rg imm
+end
+
+note d = op a b (fixed latency), a fresh scalar
+fn fo ins edit ulong 8192 m edit ulong 512 op ulong a ulong b ulong to ulong
+d = nv m 1
+ef ins m op r4 d a b NONE 0
+ret d
+end
+
+note d = a * imm + c (low 32 bits), a fresh scalar
+fn imi ins edit ulong 8192 m edit ulong 512 a ulong imm ulong c ulong to ulong
+d = nv m 1
+ef ins m IMAD r4 d a NONE c imm
+ret d
+end
+
+note d:d+1 = a * imm + c:c+1 (unsigned wide), a fresh pair
+fn imw ins edit ulong 8192 m edit ulong 512 a ulong imm ulong c ulong to ulong
+d = nv m 2
+ef ins m IMADW r4 d a NONE c imm
+ret d
+end
+
+fn sh ins edit ulong 8192 m edit ulong 512 a ulong s ulong to ulong
+d = nv m 1
+ef ins m SHFR r4 d a NONE NONE s
+ret d
+end
+
+fn mov ins edit ulong 8192 m edit ulong 512 imm ulong to ulong
+d = nv m 1
+ef ins m MOVI r4 d NONE NONE NONE imm
+ret d
+end
+
+fn ffm ins edit ulong 8192 m edit ulong 512 a ulong b ulong c ulong to ulong
+d = nv m 1
+ef ins m FFMA r4 d a b c 0
+ret d
+end
+
+note d = LOP3(a, b, c, lut) with a = 0xF0, b = 0xCC, c = 0xAA
+fn lut ins edit ulong 8192 m edit ulong 512 a ulong b ulong c ulong f ulong to ulong
+d = nv m 1
+ef ins m LUT r4 d a b c f
+ret d
+end
+
+note a variable-latency load into a fresh register of kind kd (1 scalar, 2 pair)
+fn vl ins edit ulong 8192 m edit ulong 512 op ulong kd ulong a ulong imm ulong to ulong
+d = nv m kd
+emit ins m okk op KVAR 0 NONE r4 d a NONE NONE imm
+ret d
+end
+
+fn gl ins edit ulong 8192 m edit ulong 512 a ulong imm ulong u ulong to ulong
+d = nv m 2
+emit ins m okk LDG64 KVAR 0 u r4 d a NONE NONE imm
+ret d
+end
+
+fn stg ins edit ulong 8192 m edit ulong 512 a ulong v ulong imm ulong u ulong to void
+emit ins m okk STG KSTORE 0 u r4 NONE a v NONE imm
+end
+
+fn sts ins edit ulong 8192 m edit ulong 512 a ulong v ulong to void
+emit ins m okk STS KSTORE 0 NONE r4 NONE a v NONE 0
+end
+
+fn bar ins edit ulong 8192 m edit ulong 512 to void
+emit ins m okk BAR KSYNC 0 NONE r4 NONE NONE NONE NONE 0
+end
+
+note P0 = a >= b (unsigned)
+fn isge ins edit ulong 8192 m edit ulong 512 a ulong b ulong to void
+emit ins m okk ISGEU KPRED 0 NONE r4 NONE a b NONE 0
+end
+
+fn exitp ins edit ulong 8192 m edit ulong 512 to void
+emit ins m okk EXIT KEXIT 2 NONE r4 NONE NONE NONE NONE 0
+end
+
+fn tail ins edit ulong 8192 m edit ulong 512 to void
+emit ins m okk EXIT KEXIT 0 NONE r4 NONE NONE NONE NONE 0
+emit ins m okk BRA KRAW 0 NONE r4 NONE NONE NONE NONE shl NOPC 32
+end
+
+note ---- loops and branches (the replay applies the loop live-range fixup at each closing BRA)
+
+fn lbeg m edit ulong 512 to void
+d = get m 6
+if ge d 4
+put m 4 4
+ret
+end
+put m add 8 d get m 0
+put m 6 add d 1
+end
+
+fn lend m edit ulong 512 to void
+d = get m 6
+nl = get m 5
+if or eq d 0 ge nl 24
+put m 4 5
+ret
+end
+d1 = sub d 1
+put m add 16 mul nl 2 get m add 8 d1
+put m add 17 mul nl 2 sub get m 0 1
+put m 5 add nl 1
+put m 6 d1
+end
+
+note @P0 BRA forward; returns the record index for patch
+fn bfwd ins edit ulong 8192 m edit ulong 512 to ulong
+at = get m 0
+emit ins m okk BRA KBRA 2 NONE r4 NONE NONE NONE NONE 1
+ret at
+end
+
+fn patch ins edit ulong 8192 m edit ulong 512 at ulong to void
+b = add mul at 8 6
+x = get ins b
+put ins b or and x 18446744069414584320 sub get m 0 at
+end
+
+note @!P0 BRA back to the innermost open loop start
+fn bback ins edit ulong 8192 m edit ulong 512 to void
+d = get m 6
+if eq d 0
+put m 4 6
+ret
+end
+tgt = get m add 7 d
+emit ins m okk BRA KBRA 6 NONE r4 NONE NONE NONE NONE and sub tgt get m 0 LO32
+end
+
+note ---- fixed-latency pair scheduling (schedule_fixed_pairs in the elementwise emitter)
+
+fn cls op ulong to ulong
+if or or eq op MOVRZ eq op MOVI or eq op IADD3 eq op LXOR
+ret 1
+end
+if or or eq op LUT eq op SHFR eq op SHFL
+ret 1
+end
+if or or eq op IMAD eq op IMADHI or eq op FADD eq op FSUB
+ret 2
+end
+if or eq op FMUL eq op FFMA
+ret 2
+end
+ret 0
+end
+
+note tighten record i's stall from 6 to 5 when record i + 1 is a fixed op of the same class
+fn tpair ins edit ulong 8192 i ulong to void
+a = get ins mul i 8
+ca = cls a
+if or eq ca 0 ne ca cls get ins mul add i 1 8
+ret
+end
+if eq a IADD3
+ret
+end
+if ne and get ins add mul i 8 7 2 0
+ret
+end
+if ne and get ins add mul add i 1 8 7 2 0
+ret
+end
+b = add mul i 8 6
+x = get ins b
+ct = shr x 32
+if ne and shr ct 9 15 6
+ret
+end
+put ins b or and x LO32 shl sub ct 512 32
+end
+
+fn sched ins edit ulong 8192 m edit ulong 512 to void
+n = get m 0
+for i ulong n
+if lt add i 1 n
+tpair ins i
+end
+end
+end
+
+note ---- xoshiro256** on 64-bit values held as two 32-bit registers (p2 lo hi)
+
+note x ^ (x >> s), 0 < s < 32, into fresh registers
+fn xs ins edit ulong 8192 m edit ulong 512 x ulong s ulong to ulong
+lo = and x 65535
+hi = shr x 16
+t = sh ins m lo s
+u = imi ins m hi shl 1 sub 32 s t
+nl = fo ins m LXOR lo u
+v = sh ins m hi s
+nh = fo ins m LXOR hi v
+ret p2 nl nh
+end
+
+note x * c mod 2^64
+fn mulc ins edit ulong 8192 m edit ulong 512 x ulong c ulong to ulong
+lo = and x 65535
+hi = shr x 16
+cl = and c LO32
+ch = shr c 32
+w = imw ins m lo cl NONE
+h = imi ins m hi cl sb w 1
+nh = h
+if ne ch 0
+nh = imi ins m lo ch h
+end
+ret p2 sb w 0 nh
+end
+
+note rotl(x, s), 0 < s < 32, into fresh registers
+fn rotl ins edit ulong 8192 m edit ulong 512 x ulong s ulong to ulong
+lo = and x 65535
+hi = shr x 16
+a = sh ins m hi sub 32 s
+b = sh ins m lo sub 32 s
+nl = imi ins m lo shl 1 s a
+nh = imi ins m hi shl 1 s b
+ret p2 nl nh
+end
+
+note SplitMix64 finaliser
+fn mix ins edit ulong 8192 m edit ulong 512 x ulong to ulong
+a = xs ins m x 30
+b = mulc ins m a C1
+c = xs ins m b 27
+d = mulc ins m c C2
+ret xs ins m d 31
+end
+
+note d ^= a in place
+fn x64 ins edit ulong 8192 m edit ulong 512 d ulong a ulong to void
+dl = and d 65535
+dh = shr d 16
+ef ins m LXOR r4 dl dl and a 65535 NONE 0
+ef ins m LXOR r4 dh dh shr a 16 NONE 0
+end
+
+note x = rotl(x, 45) in place: lo' = hi << 13 | lo >> 19, hi' = lo << 13 | hi >> 19
+fn rot45 ins edit ulong 8192 m edit ulong 512 x ulong to void
+lo = and x 65535
+hi = shr x 16
+a = sh ins m lo 19
+b = sh ins m hi 19
+nl = imi ins m hi 8192 a
+ef ins m IMAD r4 hi lo NONE b 8192
+ef ins m IMAD r4 lo nl NONE NONE 1
+end
+
+note one xoshiro256** state advance, in place
+fn step ins edit ulong 8192 m edit ulong 512 st view ulong 4 to void
+s0 = get st 0
+s1 = get st 1
+s2 = get st 2
+s3 = get st 3
+l1 = and s1 65535
+h1 = shr s1 16
+tl = imi ins m l1 131072 NONE
+th = imi ins m h1 131072 sh ins m l1 15
+x64 ins m s2 s0
+x64 ins m s3 s1
+x64 ins m s1 s2
+x64 ins m s0 s3
+x64 ins m s2 p2 tl th
+rot45 ins m s3
+end
+
+note ---- inverse normal: Giles' single-precision erfinv on w = -ln(1 - x^2)
+
+fn hcen ins edit ulong 8192 m edit ulong 512 t ulong mut ulong to ulong
+p = mov ins m fb GC8
+p = ffm ins m p t mov ins m fb GC7
+p = ffm ins m p t mov ins m fb GC6
+p = ffm ins m p t mov ins m fb GC5
+p = ffm ins m p t mov ins m fb GC4
+p = ffm ins m p t mov ins m fb GC3
+p = ffm ins m p t mov ins m fb GC2
+p = ffm ins m p t mov ins m fb GC1
+c0 = fb GC0
+if eq mut 2
+c0 = fb GCM
+end
+ret ffm ins m p t mov ins m c0
+end
+
+fn htail ins edit ulong 8192 m edit ulong 512 t ulong to ulong
+p = mov ins m fb GT8
+p = ffm ins m p t mov ins m fb GT7
+p = ffm ins m p t mov ins m fb GT6
+p = ffm ins m p t mov ins m fb GT5
+p = ffm ins m p t mov ins m fb GT4
+p = ffm ins m p t mov ins m fb GT3
+p = ffm ins m p t mov ins m fb GT2
+p = ffm ins m p t mov ins m fb GT1
+ret ffm ins m p t mov ins m fb GT0
+end
+
+note w = -ln(1 - x^2) and xi = 2A - 2^24 for A = top 23 bits * 2 + 1 (x = xi / 2^24, 1 - x^2 = A (2^24 - A) / 2^46);
+note returns p2 w xi
+fn vnw ins edit ulong 8192 m edit ulong 512 hi ulong to ulong
+one = mov ins m 1
+a = sh ins m hi 8
+a = lut ins m a one NONE 252
+b = mov ins m 16777216
+b = imi ins m a M1 b
+xi = mov ins m 4278190080
+xi = imi ins m a 2 xi
+a = fo ins m I2FP a NONE
+b = fo ins m I2FP b NONE
+q = fo ins m FMUL a b
+q = fo ins m FMUL q mov ins m fb K46
+q = vl ins m MLG2 1 q 0
+q = fo ins m FMUL q mov ins m fb NLN2
+ret p2 q xi
+end
+
+note z = sqrt(2) erfinv(x): central branch for w < 5 (t = w - 2.5), tail branch (t = sqrt(w) - 3) otherwise
+fn vnorm ins edit ulong 8192 m edit ulong 512 hi ulong mut ulong to ulong
+wx = vnw ins m hi
+w = and wx 65535
+t = fo ins m FSUB w mov ins m fb F25
+pc = hcen ins m t mut
+t = vl ins m MRSQ 1 w 0
+t = fo ins m FMUL w t
+t = fo ins m FSUB t mov ins m fb F3
+pt = htail ins m t
+t = fo ins m FSUB w mov ins m fb F5
+t = sh ins m t 31
+t = imi ins m t M1 NONE
+pc = lut ins m t pc pt 202
+t = fo ins m I2FP shr wx 16 NONE
+t = fo ins m FMUL t mov ins m fb K24
+t = fo ins m FMUL pc t
+ret fo ins m FMUL t mov ins m fb RT2
+end
+
+note ---- the RNG kernel. Arguments (constant bank): 0x380 out, 0x388 + 8 i base_i = seed + stream0 + (i + 1) G
+note (i < 4), 0x3a8 skip, 0x3ac per-stream count, 0x3b0 stream count. Thread g writes out[j * ns + g].
+note R: 0 ureg desc, 1 out, 2 skip, 3 count, 4 streams, 5 g, 6 one, 7 zero, 8 element index, 9..12 base_i
+
+fn rpro ins edit ulong 8192 m edit ulong 512 R edit ulong 16 to void
+u = nu m 2
+put R 0 u
+emit ins m okk LDCU64 KUVAR 1 NONE r4 u NONE NONE NONE 856
+put R 1 vl ins m LDC64 2 NONE 896
+for i ulong 4
+put R add 9 i vl ins m LDC64 2 NONE add 904 mul i 8
+end
+put R 2 vl ins m LDC 1 NONE 936
+put R 3 vl ins m LDC 1 NONE 940
+put R 4 vl ins m LDC 1 NONE 944
+t = vl ins m S2R 1 NONE 33
+c = vl ins m S2R 1 NONE 37
+g = imi ins m c 128 t
+put R 5 g
+isge ins m g get R 4
+exitp ins m
+put R 6 mov ins m 1
+z = nv m 1
+ef ins m MOVRZ r4 z NONE NONE NONE 0
+put R 7 z
+end
+
+note state word i = SplitMix64(base_i + g): stream g seeds aien-math's SplitMix64 with seed + stream0 + g, and the host
+note puts seed + stream0 + (i + 1) G in base_i; IMAD.WIDE g * 1 adds g (see omega_gpu_mathlibs_api.c)
+fn rinit ins edit ulong 8192 m edit ulong 512 R view ulong 16 st edit ulong 4 to void
+for i ulong 4
+x = imw ins m get R 5 1 get R add 9 i
+put st i mix ins m p2 sb x 0 sb x 1
+end
+end
+
+note advance every stream by the skip count
+fn rskip ins edit ulong 8192 m edit ulong 512 R view ulong 16 st view ulong 4 to void
+off = get R 2
+isge ins m get R 7 off
+at = bfwd ins m
+lbeg m
+step ins m st
+ef ins m IMAD r4 off get R 6 NONE off M1
+isge ins m get R 7 off
+bback ins m
+lend m
+patch ins m at
+end
+
+note one output: raw 64-bit, uniform f32 top 24 bits / 2^24, or normal f32
+fn rstore ins edit ulong 8192 m edit ulong 512 R view ulong 16 r ulong var ulong mut ulong to void
+hi = shr r 16
+if eq var 0
+ad = imw ins m get R 8 8 get R 1
+stg ins m ad and r 65535 0 get R 0
+stg ins m ad hi 4 get R 0
+ret
+end
+z = ulong 0
+if eq var 1
+z = sh ins m hi 8
+z = fo ins m I2FP z NONE
+z = fo ins m FMUL z mov ins m fb K24
+else
+z = vnorm ins m hi mut
+end
+ad = imw ins m get R 8 4 get R 1
+stg ins m ad z 0 get R 0
+end
+
+fn rout ins edit ulong 8192 m edit ulong 512 R edit ulong 16 st view ulong 4 var ulong mut ulong to void
+e = imi ins m get R 5 1 NONE
+put R 8 e
+rot = ulong 7
+if eq mut 1
+rot = 8
+end
+lbeg m
+r = mulc ins m get st 1 5
+r = rotl ins m r rot
+r = mulc ins m r 9
+rstore ins m R r var mut
+step ins m st
+ef ins m IMAD r4 e get R 4 NONE e 1
+c = get R 3
+ef ins m IMAD r4 c get R 6 NONE c M1
+isge ins m get R 7 c
+bback ins m
+lend m
+end
+
+fn rngk ins edit ulong 8192 m edit ulong 512 var ulong mut ulong to void
+R = new ulong 16 0
+st = new ulong 4 0
+rpro ins m edit R
+rinit ins m view R edit st
+rskip ins m view R view st
+rout ins m edit R view st var mut
+tail ins m
+end
+
+note ---- the FFT kernel: one CTA of n / 4 threads per transform; data interleaved (re, im) f32 pairs.
+note Arguments: 0x380 in, 0x388 out, 0x390 twiddles. Shared memory: re plane at 0, im plane at 4n.
+note A: 0..7 Y (stage outputs, re/im of elements 0..3), 8..15 T (DFT4 temporaries), 16..23 shared read
+note addresses, 24..31 V (stage inputs), 32..34 twiddle pairs, 40 ureg desc, 41 in, 42 out, 43 twiddles,
+note 44 tid, 45 one, 46 g = cta n + tid, 47 store address, 48 n, 50 stages, 51 odd, 52 forward, 53 p,
+note 54 twiddled stage seen, 55 mutant, 56 i = tid mod p.
+
+fn pk d ulong a ulong b ulong to ulong
+ret or d or shl a 8 shl b 16
+end
+
+note A[d] = op A[a] A[b] for x = pk d a b
+fn fop ins edit ulong 8192 m edit ulong 512 A view ulong 64 op ulong x ulong to void
+d = get A and x 255
+a = get A and shr x 8 255
+ef ins m op r4 d a get A shr x 16 NONE 0
+end
+
+fn fset ins edit ulong 8192 m edit ulong 512 A edit ulong 64 lg ulong dir ulong mut ulong to void
+n = shl 1 lg
+put A 48 n
+put A 51 and lg 1
+put A 50 add and lg 1 shr lg 1
+f = ulong 1
+if eq dir 1
+f = 0
+end
+if eq mut 1
+f = sub 1 f
+end
+put A 52 f
+put A 53 1
+put A 55 mut
+for j ulong 16
+put A j nv m 1
+end
+for j ulong 3
+put A add 32 j nv m 2
+end
+u = nu m 2
+put A 40 u
+emit ins m okk LDCU64 KUVAR 1 NONE r4 u NONE NONE NONE 856
+put A 41 vl ins m LDC64 2 NONE 896
+put A 42 vl ins m LDC64 2 NONE 904
+put A 43 vl ins m LDC64 2 NONE 912
+t = vl ins m S2R 1 NONE 33
+put A 44 t
+c = vl ins m S2R 1 NONE 37
+put A 45 mov ins m 1
+put A 46 imi ins m c n t
+put A 47 nv m 1
+if gt get A 50 1
+fra ins m A
+end
+end
+
+note shared read addresses: re of element j at 4t + j n, im + 4n
+fn fra ins edit ulong 8192 m edit ulong 512 A edit ulong 64 to void
+n = get A 48
+one = get A 45
+c = imi ins m get A 44 4 NONE
+for j ulong 4
+o = mul j n
+put A add 16 mul j 2 imi ins m one o c
+put A add 17 mul j 2 imi ins m one add o mul n 4 c
+end
+end
+
+note V = this stage's inputs: global loads at stage 0, else the shared reads as one group
+note (the first load waits, the rest ride its scoreboard, like the elementwise ld_group)
+fn fload ins edit ulong 8192 m edit ulong 512 A edit ulong 64 s ulong to void
+if eq s 0
+n = get A 48
+ga = imw ins m get A 46 8 get A 41
+for j ulong 4
+w = gl ins m ga mul j mul n 2 get A 40
+put A add 24 mul j 2 sb w 0
+put A add 25 mul j 2 sb w 1
+end
+ret
+end
+emit ins m okk LDS KVAR 0 NONE r4 get A 0 get A 16 NONE NONE 0
+for j ulong 7
+k = add j 1
+emit ins m okk LDS KRAW 0 NONE r4 get A k get A add 16 k NONE NONE shl RAWC 32
+end
+for j ulong 8
+put A add 24 j get A j
+end
+end
+
+note element j of V times twiddle pair w, in place
+fn cmul ins edit ulong 8192 m edit ulong 512 A view ulong 64 j ulong w ulong to void
+a = get A add 24 mul j 2
+b = get A add 25 mul j 2
+t1 = fo ins m FMUL a sb w 0
+t2 = fo ins m FMUL b sb w 1
+t3 = fo ins m FMUL b sb w 0
+ef ins m FFMA r4 b a sb w 1 t3 0
+ef ins m FSUB r4 a t1 t2 NONE 0
+end
+
+note i = tid mod p and the twiddles w^(j i n / (4p)), j = 1..3 (mutant 2 skips them on the first p > 1 stage)
+fn ftw ins edit ulong 8192 m edit ulong 512 A edit ulong 64 to void
+p = get A 53
+if eq p 1
+ret
+end
+i = nv m 1
+put A 56 i
+ef ins m LAND r4 i get A 44 NONE NONE sub p 1
+dotw = or ne get A 55 2 ne get A 54 0
+put A 54 1
+if dotw
+tws = div get A 48 mul p 4
+for j ulong 3
+ta = imw ins m i mul mul add j 1 tws 8 get A 43
+t = get A add 32 j
+emit ins m okk LDG64 KVAR 0 get A 40 r4 t ta NONE NONE 0
+cmul ins m A add j 1 t
+end
+end
+end
+
+note Y = DFT4(V) through T; forward multiplies u1 - u3 by -i
+fn dft4 ins edit ulong 8192 m edit ulong 512 A view ulong 64 to void
+fop ins m A FADD pk 8 24 28
+fop ins m A FADD pk 9 25 29
+fop ins m A FSUB pk 10 24 28
+fop ins m A FSUB pk 11 25 29
+fop ins m A FADD pk 12 26 30
+fop ins m A FADD pk 13 27 31
+fop ins m A FSUB pk 14 26 30
+fop ins m A FSUB pk 15 27 31
+fop ins m A FADD pk 0 8 12
+fop ins m A FADD pk 1 9 13
+fop ins m A FSUB pk 4 8 12
+fop ins m A FSUB pk 5 9 13
+k1 = ulong 2
+k3 = ulong 6
+if eq get A 52 0
+k1 = 6
+k3 = 2
+end
+fop ins m A FADD pk k1 10 15
+fop ins m A FSUB pk add k1 1 11 14
+fop ins m A FSUB pk k3 10 15
+fop ins m A FADD pk add k3 1 11 14
+end
+
+note radix 2 on (u0, u2) and (u1, u3): Y = (u0 + u2, u0 - u2, u1 + u3, u1 - u3) to shared 2t, 2t + 1,
+note 2t + n/2, 2t + n/2 + 1
+fn fr2 ins edit ulong 8192 m edit ulong 512 A edit ulong 64 to void
+fop ins m A FADD pk 0 24 28
+fop ins m A FADD pk 1 25 29
+fop ins m A FSUB pk 2 24 28
+fop ins m A FSUB pk 3 25 29
+fop ins m A FADD pk 4 26 30
+fop ins m A FADD pk 5 27 31
+fop ins m A FSUB pk 6 26 30
+fop ins m A FSUB pk 7 27 31
+n = get A 48
+wb = imi ins m get A 44 8 NONE
+sa = get A 47
+for j ulong 4
+o = add mul shr j 1 mul n 2 mul and j 1 4
+for pl ulong 2
+ef ins m IMAD r4 sa get A 45 NONE wb add o mul pl mul n 4
+sts ins m sa get A add mul j 2 pl
+end
+end
+bar ins m
+put A 53 2
+end
+
+note Y to shared at 4k + i + j p (k = t - i): byte 16t - 12i + 4jp, im plane + 4n
+fn fsst ins edit ulong 8192 m edit ulong 512 A edit ulong 64 to void
+n = get A 48
+p = get A 53
+wb = imi ins m get A 44 16 NONE
+if gt p 1
+wb = imi ins m get A 56 4294967284 wb
+end
+sa = get A 47
+for j ulong 4
+for pl ulong 2
+o = add mul mul j p 4 mul pl mul n 4
+ef ins m IMAD r4 sa get A 45 NONE wb o
+sts ins m sa get A add mul j 2 pl
+end
+end
+bar ins m
+put A 53 mul p 4
+end
+
+note the last stage (p = n/4, so i = t): Y element j to out[g + j n/4]
+fn fgst ins edit ulong 8192 m edit ulong 512 A view ulong 64 to void
+n = get A 48
+go = imw ins m get A 46 8 get A 42
+for j ulong 4
+o = mul j mul n 2
+stg ins m go get A mul j 2 o get A 40
+stg ins m go get A add mul j 2 1 add o 4 get A 40
+end
+end
+
+fn fstage ins edit ulong 8192 m edit ulong 512 A edit ulong 64 s ulong to void
+fload ins m A s
+if and eq s 0 eq get A 51 1
+fr2 ins m A
+ret
+end
+ftw ins m A
+dft4 ins m A
+if eq s sub get A 50 1
+fgst ins m A
+ret
+end
+if gt s 0
+bar ins m
+end
+fsst ins m A
+end
+
+fn fftk ins edit ulong 8192 m edit ulong 512 lg ulong dir ulong mut ulong to void
+A = new ulong 64 0
+fset ins m edit A lg dir mut
+nst = get A 50
+for s ulong nst
+fstage ins m edit A s
+end
+tail ins m
+end
+
+note ---- twiddles: w^m = exp(-+2 pi i m / n), m < n, by quadrant folding and f64 Taylor series on [0, pi/4]
+
+fn sinp x f64 to f64
+x2 = mul x x
+t = x
+s = x
+for k ulong 12
+a = f64 add mul k 2 2
+t = div mul t neg x2 mul a add a 1.0f64
+s = add s t
+end
+ret s
+end
+
+fn cosp x f64 to f64
+x2 = mul x x
+t = 1.0f64
+s = 1.0f64
+for k ulong 12
+a = f64 add mul k 2 1
+t = div mul t neg x2 mul a add a 1.0f64
+s = add s t
+end
+ret s
+end
+
+note (c, s) = (cos, sin) of the folded angle rotated into quadrant q; forward conjugates; f32 bits packed
+fn tq q ulong c f64 s f64 dir ulong to ulong
+re = c
+im = s
+if eq q 1
+re = neg s
+im = c
+end
+if eq q 2
+re = neg c
+im = neg s
+end
+if eq q 3
+re = s
+im = neg c
+end
+fr = f32 re
+fi = f32 im
+if eq dir 0
+fi = neg fi
+end
+ret or ulong bitcast uint fr shl ulong bitcast uint fi 32
+end
+
+note w^k = exp(+-2 pi i k / n): 4k = q n + r; angle (pi/2) r / n, folded to (pi/2) (n - r) / n with cos and
+note sin swapped when r > n/2, so the series only sees [0, pi/4]
+fn tw1 k ulong lg ulong dir ulong to ulong
+n = shl 1 lg
+q = shr mul k 4 lg
+r = sub mul k 4 mul q n
+sw = gt r shr n 1
+if sw
+r = sub n r
+end
+ph = mul HPI div f64 r f64 n
+c = cosp ph
+s = sinp ph
+if sw
+t = c
+c = s
+s = t
+end
+ret tq q c s dir
+end
+
+fn twid ins edit ulong 8192 lg ulong dir ulong to void
+n = shl 1 lg
+for k ulong n
+put ins k tw1 k lg dir
+end
+end
+
+note ---- entry. kind 0 RNG (a variant 0..2, b 0, c mutant 0..2); kind 1 FFT (a log2 n 2..11, b direction
+note 0 forward / 1 inverse, c mutant 0..2); kind 2 twiddles (a log2 n, b direction, c 0).
+note Returns 0 built, 1 refused arguments, 2 emitter error (meta 4 holds the code).
+fn mathlibs_ir kind ulong a ulong b ulong c ulong ins edit ulong 8192 meta edit ulong 512 to ulong
+for i ulong 512
+put meta i 0
+end
+if eq kind 2
+if or or lt a 2 gt a 11 or gt b 1 ne c 0
+ret 1
+end
+twid ins a b
+ret 0
+end
+if eq kind 0
+if or or gt a 2 ne b 0 gt c 2
+ret 1
+end
+rngk ins meta a c
+end
+if eq kind 1
+if or or lt a 2 gt a 11 or gt b 1 gt c 2
+ret 1
+end
+fftk ins meta a b c
+end
+if gt kind 2
+ret 1
+end
+if ne get meta 4 0
+ret 2
+end
+if ne get meta 6 0
+ret 2
+end
+sched ins meta
+ret 0
+end

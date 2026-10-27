@@ -1,0 +1,14 @@
+# chip-receipt.txt / chip-stdout.txt provenance (GB10, 2026-10-27T09:03:26Z .. 09:03:44Z, hold 18 s, /tmp/aien-gb10.lock, live 35B health ok before and after)
+# binary: cc (Makefile CFLAGS) -ffp-contract=off -Itests tests/gpu_mathlibs_test.c build/libomega_gpu.a, run: gpu_mathlibs_test --out chip-receipt.txt
+binary_sha256 91b796c69c18abada6c02ed1be875f235d2b6a4ef311d3a2e6567c11545792de
+libomega_gpu.a_sha256 b27d5c3e1c1645a6315e01f455c5fae54c0f20479b17e9e3adee6c7b764ae397
+1b1c409adacf47823a7ba84faf27e1d3a2e9488f2d36890e727a2536efbe0ecc  tests/gpu_mathlibs_test.c
+46a281b7f40dd633d6361f37fabef168bbc6a628775b65e9accac5d918a1c8e0  tests/bw_warp_sim.h
+56dd2f3ce37564ebff662873b3c73d366eb8bec2d967768bbcb5d1b0528f5907  src/omega_gpu_mathlibs_api.c
+9cc8946071e405038f9a30bf019a5104398bf8219dcf7dffeca06da49818fb2c  src/omega_gpu_mathlibs_api.h
+1faefba8be4950d51ff4399e8ec04bf60c2e5102bf467535536a3db0b46b6477  src/omega_om_units.c
+d75601d9af975eb5bb5c8b92e2c36a65444fa15467ef5883e32b4e879bf151c0  src/omega_om_units.ident
+4860b190fca587ce7897d1136df25da28fc32e64e0be95dc1a0c93243fe4205b  om/mathlibs/mathlibs_ir.om
+3c6464176c548e09d0fd601de139c5a1f69161407c79bc7e7fc02d86a89877ae  src/omega_blackwell_codegen.c
+b05a2d5d11d438909c1ea3268f4642249873a89b36941ed68972a1e83d1592a6  tests/fixtures/mathlibs_rng_aienmath.txt
+base ee5d3ae (CUDApp#143); nvidia driver 580.173.02

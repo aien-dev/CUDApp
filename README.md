@@ -112,7 +112,7 @@ The CPU does five things, all of them plain memory writes except the last, which
 | cuBLAS | Matrix multiply | Matmul, tensor-core GEMM, FP8 and BF16 libraries | PARTIAL: shaped for the models AIEN runs; no any-shape GEMM yet |
 | cuDNN, FlashAttention | Attention and network layers | Decode and prefill attention | PARTIAL: model-shaped |
 | CUB, Thrust | Reductions, scans, sorts | Frozen-order reductions (`evidence/E1-CLOSURE/`) | PARTIAL: no general scan or sort |
-| cuFFT, cuRAND | FFT, random numbers | none yet | MISSING |
+| cuFFT, cuRAND | FFT, random numbers | xoshiro256** random numbers and a batched complex FFT, kernels built by the seeded Omega unit `om/mathlibs/mathlibs_ir.om` | PARTIAL: one GB10 run (`evidence/MATHLIBS-RNG-FFT-2026-10-27/`); one generator; power-of-two complex FFT, 4 to 2048 points |
 | cuobjdump, nvdisasm | Read machine code back | My own sm_121 disassembler | BUILDING: on Omega branch `c6/disasm` (19eebe0e) it agrees with `nvdisasm` on 331 kernels; not in CUDA++ yet. Some host tests here still call `nvdisasm` as a cross-check when it is installed |
 | Nsight | Measure | Ceiling probes: 115.14 TFLOPS tensor-core peak, 195.1 GB/s reads (`evidence/OWN30B-T3-TC-PEAK-BW-5faa0f70-20261013T2236Z/`) | PARTIAL: probes, no single tool |
 | CUDA samples, docs | Your first kernel | `examples/hello_gpu`, `docs/runtime/` | PARTIAL: one example |

@@ -19,6 +19,8 @@ extern "C" {
 uint32_t omega_bw_enc_sm121(uint64_t *result, const void *o_ins, uint64_t o_ins_len, const void *o_phys, uint64_t o_phys_len, uint64_t o_n, uint64_t o_pad, void *o_code, uint64_t o_code_len);
 /* fn cubin_elf m view ulong 104 nm view uchar 64 tx view uchar 16777216 o edit ulong 16777216 to ulong */
 uint32_t omega_cubin_elf(uint64_t *result, const void *o_m, uint64_t o_m_len, const void *o_nm, uint64_t o_nm_len, const void *o_tx, uint64_t o_tx_len, void *o_o, uint64_t o_o_len);
+/* fn mathlibs_ir kind ulong a ulong b ulong c ulong ins edit ulong 8192 meta edit ulong 512 to ulong */
+uint32_t omega_mathlibs_ir(uint64_t *result, uint64_t o_kind, uint64_t o_a, uint64_t o_b, uint64_t o_c, void *o_ins, uint64_t o_ins_len, void *o_meta, uint64_t o_meta_len);
 #ifdef __cplusplus
 }
 #endif

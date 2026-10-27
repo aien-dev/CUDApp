@@ -212,7 +212,7 @@ The swap story, replacing a developer's CUDA libraries with CUDA++'s, is ledger 
 Said as plainly as the wins:
 
 - **Chips.** CUDA runs on every NVIDIA GPU of the last decade. CUDA++ runs on one, the GB10. Row D6 makes the refusal honest; it does not add chips. Porting is the community's job as much as ours (`CONTRIBUTING.md`).
-- **Libraries.** cuBLAS, cuDNN, NCCL, cuFFT, cuRAND, CUTLASS and the whole ecosystem above them. CUDA++ has matrix multiply and attention shaped for the models AIEN runs, and no FFT, random numbers or multi-GPU (`ROADMAP.md`).
+- **Libraries.** cuBLAS, cuDNN, NCCL, cuFFT, cuRAND, CUTLASS and the whole ecosystem above them. CUDA++ has matrix multiply and attention shaped for the models AIEN runs, one random-number generator, a power-of-two complex FFT up to 2048 points, and no multi-GPU (`ROADMAP.md`).
 - **Languages and frameworks.** PyTorch, JAX, Triton and every framework speak CUDA. CUDA++ today is a C kernel builder; Omega's languages reaching the GPU is Omega bar C1 (L386).
 - **Asynchronous work.** CUDA's streams overlap independent work. CUDA++'s launches are synchronous by default and its command lists are the way to batch; streams and events are Omega bar C4.
 - **Tools.** Nsight, cuda-gdb and compute-sanitizer are mature. CUDA++ has a simulator and receipts, and no profiler GUI.

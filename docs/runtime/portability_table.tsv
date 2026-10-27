@@ -80,12 +80,16 @@ src/omega_gpu_fp8gemm_api.h	CHIP_SPECIFIC	FP8 GEMM API; includes omega_blackwell
 src/omega_gpu_fp8_pack.c	CHIP_SPECIFIC	Packs FP8 weights into the layout the sm_121 GEMV kernels read; host side.	HOSTED_LIBC
 src/omega_gpu_hostmath.c	PORTABLE	libm-free double-precision log, exp and pow for host-side tables; plain arithmetic, no chip or OS call.	NO_HOSTED_INCLUDE
 src/omega_gpu_hostmath.h	PORTABLE	Interface of the libm-free host math; no includes.	NO_HOSTED_INCLUDE
+src/omega_gpu_mathlibs_api.c	CHIP_SPECIFIC	Builds the GB10 RNG (xoshiro256**) and batched FFT kernels from om/mathlibs/mathlibs_ir.om, fills their constant banks and launches them through the session; still hosted (stdlib, time), outside the freestanding closure; migration-pending C.	HOSTED_LIBC
+src/omega_gpu_mathlibs_api.h	PORTABLE	Public RNG and FFT entry points: plain integer, float and pointer types; includes only stddef.h and stdint.h.	NO_HOSTED_INCLUDE
 src/omega_gpu_matmul_api.c	CHIP_SPECIFIC	Builds Blackwell matmul kernels, fills the QMD and launches; reports target_chip GB10. In the freestanding closure.	FREESTANDING_PROVEN
 src/omega_gpu_matmul_api.h	PORTABLE	Public matmul entry point: bf16 in, f32 out, plain integer and pointer types; includes only stdbool.h, stddef.h and stdint.h.	NO_HOSTED_INCLUDE
 src/omega_gpu_mem_cached.c	CHIP_SPECIFIC	Allocates GPU-cached weight buffers; relies on the GB10 rule that a write-once buffer the CPU never reads cannot hold a stale L2 line.	NO_HOSTED_INCLUDE
 src/omega_gpu_mem_cached.h	CHIP_SPECIFIC	Documents the GPU-cached read-only weight invariant (nvos.h GPU_CACHEABLE: not coherent with CPU mappings).	NO_HOSTED_INCLUDE
 src/omega_gpu_moe_api.c	CHIP_SPECIFIC	Launches MoE matmul kernels from the Blackwell generators and the QMD builder.	NO_HOSTED_INCLUDE
 src/omega_gpu_moe_api.h	PORTABLE	MoE API surface over omega_gpu_matmul_api.h; no chip type in the header.	NO_HOSTED_INCLUDE
+src/omega_gpu_om_ir.c	CHIP_SPECIFIC	Replays the BlackwellIR records a seeded Omega unit emits into a BlackwellIRProgram, allocates registers and encodes through the .om sm_121 encoder; migration-pending C.	NO_HOSTED_INCLUDE
+src/omega_gpu_om_ir.h	CHIP_SPECIFIC	Record and meta layout of the .om IR replay; includes omega_blackwell_codegen.h.	NO_HOSTED_INCLUDE
 src/omega_gpu_pfgemm.c	CHIP_SPECIFIC	Prefill GEMM driver over the Blackwell tensor-core generators.	HOSTED_LIBC
 src/omega_gpu_pfhost.c	CHIP_SPECIFIC	Prefill router and combine launcher over the Blackwell pfhost generators.	NO_HOSTED_INCLUDE
 src/omega_gpu_pfhost.h	CHIP_SPECIFIC	Prefill router and combine API; documents bit-exact sm_121 kernel semantics.	NO_HOSTED_INCLUDE

@@ -34,8 +34,11 @@
  * nobody wrote shows up in the oracle comparison.
  *
  * Per-lane ALU semantics are those of the two earlier simulators (tests/gpu_attention_test.c,
- * bench/prime_race/tests/gb10_sieve_host_test.c). EX2 and RCP are exact here; the chip's
- * are approximate. LDCU64 (memory descriptor) is not modelled. */
+ * bench/prime_race/tests/gb10_sieve_host_test.c). EX2, RCP, RSQ and LG2 are exact here; the chip's
+ * are approximate. I2FP.F32.S32 rounds to nearest even, as the host conversion does. STG.E adds its
+ * signed 24-bit byte offset (encoder w[1] bits 8..31, nvdisasm "[Ra.64+imm]"). A CTA of threads that
+ * is not a multiple of 32 ends in a partial warp whose missing lanes are never present (they do not
+ * count as live for SHFL or BSYNC). LDCU64 (memory descriptor) is not modelled. */
 #ifndef BW_WARP_SIM_H
 #define BW_WARP_SIM_H
 
@@ -47,8 +50,10 @@
 #include <string.h>
 
 #define WS_WARP 32
+#ifndef WS_MAX_THREADS
 #define WS_MAX_THREADS 256
-#define WS_MAX_WARPS (WS_MAX_THREADS / WS_WARP)
+#endif
+#define WS_MAX_WARPS ((WS_MAX_THREADS + WS_WARP - 1) / WS_WARP)
 #define WS_MAX_FRAGS 64
 #define WS_NBAR BW_RECONV_MAX_BAR
 #define WS_MAX_RANGES 8
@@ -74,13 +79,14 @@ typedef struct {
     int nfrag;
     WsBar bar[WS_NBAR];
     uint32_t exited;
+    uint32_t present; /* lanes that exist: all 32, or fewer in the last warp of a partial CTA */
 } WsWarp;
 typedef struct { uintptr_t lo, hi; } WsRange;
 
 typedef struct {
     const BlackwellIRProgram *p;
     uint32_t cbank[256];      /* constant bank 0 words (byte offset / 4) */
-    uint32_t threads;         /* per CTA, a multiple of 32, <= WS_MAX_THREADS */
+    uint32_t threads;         /* per CTA, 1..WS_MAX_THREADS (a partial last warp when not a multiple of 32) */
     uint8_t *smem;            /* per-CTA shared memory buffer (poisoned at CTA start) */
     uint32_t smem_bytes;
     WsRange ranges[WS_MAX_RANGES]; int nranges; /* when > 0, every global access must fall in one */
@@ -162,7 +168,7 @@ static void ws_lane_exec(WsSim *s, WsLane *l, const BlackwellIRInsn *in, int pc,
     case BW_IR_ISETP_GE_U32: l->p0 = a >= b; break;
     case BW_IR_LDG_E: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; uint32_t x; memcpy(&x, (const void *)(uintptr_t)ad, 4); ws_wrs(l, in->dst_vreg, in->dst_subreg, x, p); s->gld_bytes += 4; break; }
     case BW_IR_LDG_E_U16: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 2, pc)) return; uint16_t x; memcpy(&x, (const void *)(uintptr_t)ad, 2); ws_wrs(l, in->dst_vreg, in->dst_subreg, x, p); s->gld_bytes += 2; break; }
-    case BW_IR_STG_E: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; memcpy((void *)(uintptr_t)ad, &b, 4); s->gst_bytes += 4; break; }
+    case BW_IR_STG_E: { uint64_t ad = ws_rd64(l, in->src1_vreg, p) + (uint64_t)(int64_t)(int32_t)in->imm; if (!ws_mem_ok(s, ad, 4, pc)) return; memcpy((void *)(uintptr_t)ad, &b, 4); s->gst_bytes += 4; break; }
     case BW_IR_LDG_E_64: case BW_IR_LDG_E_128: { unsigned n = in->op == BW_IR_LDG_E_64 ? 8u : 16u; uint64_t ad = ws_rd64(l, in->src1_vreg, p) + (uint64_t)(int64_t)(int32_t)in->imm; if (!ws_mem_ok(s, ad, n, pc)) return; if (ad & (n - 1)) { ws_fail(s, WS_E_MEM, pc, "wide global load not naturally aligned"); return; } uint32_t x[4]; memcpy(x, (const void *)(uintptr_t)ad, n); s->gld_bytes += n; for (unsigned i = 0; i < n / 4; i++) ws_wrs(l, in->dst_vreg, i, x[i], p); break; }
     case BW_IR_LDS128: { uint32_t ad = a + in->imm; if (ad & 15u) { ws_fail(s, WS_E_SMEM, pc, "LDS.128 address not 16-byte aligned"); return; } for (unsigned i = 0; i < 4; i++) { uint32_t *m = ws_smem(s, ad + 4u * i, pc); if (!m) return; ws_wrs(l, in->dst_vreg, i, *m, p); } break; }
     case BW_IR_LDS32: { uint32_t *m = ws_smem(s, a, pc); if (!m) return; ws_wrs(l, in->dst_vreg, in->dst_subreg, *m, p); break; }
@@ -171,11 +177,13 @@ static void ws_lane_exec(WsSim *s, WsLane *l, const BlackwellIRInsn *in, int pc,
     case BW_IR_FSUB: s->fp_ops++; ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_u2f(a) - ws_u2f(b)), p); break;
     case BW_IR_FMUL: s->fp_ops++; ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_u2f(a) * ws_u2f(b)), p); break;
     case BW_IR_FFMA: s->fp_ops += 2; ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fmaf(ws_u2f(a), ws_u2f(b), ws_u2f(c))), p); break;
+    case BW_IR_I2FP: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u((float)(int32_t)a), p); break;
     case BW_IR_FMNMX_MAX: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fmaxf(ws_u2f(a), ws_u2f(b))), p); break;
     case BW_IR_FMNMX_MIN: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fminf(ws_u2f(a), ws_u2f(b))), p); break;
     case BW_IR_MUFU_EX2: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(exp2f(ws_u2f(a))), p); break;
     case BW_IR_MUFU_RCP: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(1.0f / ws_u2f(a)), p); break;
     case BW_IR_MUFU_RSQ: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(1.0f / sqrtf(ws_u2f(a))), p); break;
+    case BW_IR_MUFU_LG2: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(log2f(ws_u2f(a))), p); break;
     default: ws_fail(s, WS_E_OP, pc, "opcode not modelled"); return;
     }
 }
@@ -202,7 +210,7 @@ static int ws_add_frag(WsSim *s, WsWarp *w, int pc, uint32_t mask) {
  * Returns 1 when parked at BAR.SYNC, 0 when finished, -1 on error. */
 static int ws_run_warp(WsSim *s, WsWarp *w, uint32_t warp, uint32_t cx, uint32_t cy, int trace) {
     const BlackwellIRProgram *p = s->p;
-    const uint32_t live_all = 0xffffffffu;
+    const uint32_t live_all = w->present;
     for (uint64_t guard = 0;; guard++) {
         if (s->err) return -1;
         if (guard > 2000000000ull) { ws_fail(s, WS_E_STEPS, -1, "step budget"); return -1; }
@@ -300,13 +308,14 @@ static int ws_run_warp(WsSim *s, WsWarp *w, uint32_t warp, uint32_t cx, uint32_t
 /* Runs every CTA of the grid. Returns s->err (0 = clean). */
 static int ws_run(WsSim *s, uint32_t grid_x, uint32_t grid_y) {
     s->err = 0; s->msg[0] = 0; s->warp_issues = s->lane_issues = s->splits = s->bar_split_arrivals = 0; s->max_frags = 0; s->peak_bars = 0;
-    if (!s->p || s->threads == 0 || s->threads % WS_WARP || s->threads > WS_MAX_THREADS) { ws_fail(s, WS_E_OP, -1, "bad simulator configuration"); return s->err; }
+    if (!s->p || s->threads == 0 || s->threads > WS_MAX_THREADS) { ws_fail(s, WS_E_OP, -1, "bad simulator configuration"); return s->err; }
     static WsWarp warps[WS_MAX_WARPS];
-    uint32_t nw = s->threads / WS_WARP;
+    uint32_t nw = (s->threads + WS_WARP - 1) / WS_WARP;
+    uint32_t tail = s->threads % WS_WARP ? (1u << (s->threads % WS_WARP)) - 1u : 0xffffffffu;
     for (uint32_t cy = 0; cy < grid_y && !s->err; cy++) for (uint32_t cx = 0; cx < grid_x && !s->err; cx++) {
         memset(warps, 0, sizeof(WsWarp) * nw);
         if (s->smem && s->smem_bytes) for (uint32_t i = 0; i + 4 <= s->smem_bytes; i += 4) { uint32_t poison = 0xfeedfaceu; memcpy(s->smem + i, &poison, 4); }
-        for (uint32_t w = 0; w < nw; w++) { warps[w].nfrag = 1; warps[w].frag[0].pc = 0; warps[w].frag[0].mask = 0xffffffffu; warps[w].frag[0].parked = 0; }
+        for (uint32_t w = 0; w < nw; w++) { warps[w].present = w + 1 == nw ? tail : 0xffffffffu; warps[w].nfrag = 1; warps[w].frag[0].pc = 0; warps[w].frag[0].mask = warps[w].present; warps[w].frag[0].parked = 0; }
         int trace = s->trace && cx == 0 && cy == 0;
         /* Barrier phases: every warp runs until all of its fragments are parked at BAR.SYNC or it
          * has finished (exited lanes do not hold the barrier up: INFERRED, see WS_E_BAR_SPLIT).

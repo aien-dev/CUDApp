@@ -125,6 +125,17 @@ $(GPU_EW_TEST): tests/gpu_elementwise_test.c src/omega_gpu_elementwise_api.h $(O
 test-gpu-elementwise: $(GPU_EW_TEST)
 	./$(GPU_EW_TEST) --host-only
 
+# Audit rows 29/30: GB10 xoshiro256** (aien-math stream) and batched f32 complex FFT, kernels from
+# om/mathlibs/mathlibs_ir.om. test-gpu-mathlibs is host-only (fixture, refusals, codegen, listing, normal sweep)
+# plus the warp simulator (bit-exact streams, FFT within the Wolfram tolerance, mutants); the chip gate is
+# `./build/gpu_mathlibs_test --out receipt.txt` under the GB10 lock.
+.PHONY: test-gpu-mathlibs
+GPU_MATHLIBS_TEST = $(OUT_DIR)/gpu_mathlibs_test
+$(GPU_MATHLIBS_TEST): tests/gpu_mathlibs_test.c tests/bw_warp_sim.h src/omega_gpu_mathlibs_api.h src/omega_gpu_om_ir.h $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -ffp-contract=off -Itests -o $@ tests/gpu_mathlibs_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+test-gpu-mathlibs: $(GPU_MATHLIBS_TEST)
+	./$(GPU_MATHLIBS_TEST) --sim
+
 # omega #308: structured warp reconvergence (BSSY/BSYNC regions). test-gpu-reconv is
 # host-only (encoder goldens, region bookkeeping, refusals, nvdisasm listing, every probe
 # kernel through the SIMT warp simulator tests/bw_warp_sim.h against the oracle, mutation
@@ -312,7 +323,7 @@ $(GPU_L2_REUSE_TEST): tests/gpu_l2_reuse_test.c src/omega_gpu_fp8_api.h src/omeg
 	$(CC) $(CFLAGS) -ffp-contract=off -o $@ tests/gpu_l2_reuse_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
 
 # Every host-only check: no GPU, no device opened. The chip gates are listed in README.md.
-HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-attention test-gpu-moe-window \
+HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-mathlibs test-gpu-reconv test-gpu-attention test-gpu-moe-window \
 	test-gpu-fp8 test-gpu-decode-attn test-gpu-router test-gpu-bf16-gemv test-gpu-fp8gemm test-gpu-gpr-boundary \
 	test-gpu-cmdlist test-gpu-decode-graph test-gpu-code-alloc test-gpu-engine-compile test-gpu-engine \
 	test-gpu-engine-mutants test-gpu-engine-backend-compile test-gpu-engine-prod-build test-gpu-engine-sim \

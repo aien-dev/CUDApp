@@ -671,7 +671,7 @@ def fig_status():
         ("CUB · Thrust", "reductions, scans, sorts", "frozen-order reductions", "PARTIAL", "E1-CLOSURE; scans and sorts are C3"),
         ("cuobjdump · nvdisasm", "read machine code back", "my own sm_121 disassembler", "BUILDING", "Omega branch c6/disasm: 331 kernels agree"),
         ("Nsight", "measure", "ceiling probes", "PARTIAL", "115.14 TFLOPS, 195.1 GB/s"),
-        ("cuFFT · cuRAND", "FFT, random numbers", "none yet", "MISSING", ""),
+        ("cuFFT · cuRAND", "FFT, random numbers", "xoshiro256** RNG, batched FFT", "PARTIAL", "one GB10 run; power-of-two complex FFT"),
         ("nvidia.ko", "kernel driver", "stays: NVIDIA's open kernel module", "STAYS", "GB10 support goes upstream: Nova, nouveau"),
         ("nvidia-uvm.ko", "page tables, faults", "stays: NVIDIA's open kernel module", "STAYS", "L332 is a research harness only"),
         ("nvidia-smi · NVML", "status, clocks, power", "not started", "MISSING", ""),

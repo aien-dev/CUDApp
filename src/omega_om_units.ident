@@ -1,2 +1,3 @@
 omega-ident 1 unit=bw_enc_sm121 abi=1 profile=OM-1 src=12369bf1e383e79a4926e7758aaf5f3f778f2945c91327ce0aa570babffc05e6 omc=2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f path=om/encoder/bw_enc_sm121.om
 omega-ident 1 unit=cubin_elf abi=1 profile=OM-1 src=1a8afe658da10819ab9259a1356bccbefb429561bdf01c5be4affe11847983d6 omc=2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f path=om/cubin/cubin_elf.om
+omega-ident 1 unit=mathlibs_ir abi=1 profile=OM-1 src=4860b190fca587ce7897d1136df25da28fc32e64e0be95dc1a0c93243fe4205b omc=2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f path=om/mathlibs/mathlibs_ir.om
