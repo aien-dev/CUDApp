@@ -24,7 +24,8 @@
  *     count (0x2f04); .nv.compat and .note.nv.cuinfo are required by the
  *     offline tools.
  * Nothing here is copied from an NVIDIA binary; these are ABI facts checked
- * against a public tool's output on this host.
+ * against the output of NVIDIA's ptxas (a proprietary SDK tool, used on this
+ * host as an oracle only; see PROVENANCE.md).
  *
  * Limits, deliberate and recorded:
  *   - e_phoff/e_phnum are 0: this is a section-based container. The ptxas
