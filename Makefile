@@ -213,6 +213,14 @@ test-gpu-bf16-gemv: $(GPU_BF16_TEST)
 
 # The ternary GEMV host test (tests/gpu_tern_test.c) stays in Omega: its reference is Omega's ternary
 # algebra oracle (src/algebra), which is not part of CUDA++. The library itself (omega_gpu_tern_api) is here.
+# Sass#4 (2026-10-27): the generator's I2FP consumer rule (scoreboard or >= 19 cycles), host only, with its negative
+# control (mutant 4, the pre-fix stall 6, must be refused). No reference oracle needed, so it lives here.
+.PHONY: test-gpu-tern-sched
+GPU_TERN_SCHED_TEST = $(OUT_DIR)/gpu_tern_sched_test
+$(GPU_TERN_SCHED_TEST): tests/gpu_tern_sched_test.c src/omega_blackwell_codegen_tern.h $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -o $@ tests/gpu_tern_sched_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+test-gpu-tern-sched: $(GPU_TERN_SCHED_TEST)
+	$(GPU_TERN_SCHED_TEST)
 
 
 # OWN-30B (2026-10-13): report-only lm_head study, fp8 vs bf16 argmax agreement on the real checkpoint (chip, GB10 lock).
@@ -306,7 +314,7 @@ $(GPU_L2_REUSE_TEST): tests/gpu_l2_reuse_test.c src/omega_gpu_fp8_api.h src/omeg
 
 # Every host-only check: no GPU, no device opened. The chip gates are listed in README.md.
 HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-attention test-gpu-moe-window \
-	test-gpu-fp8 test-gpu-decode-attn test-gpu-router test-gpu-bf16-gemv test-gpu-fp8gemm test-gpu-gpr-boundary \
+	test-gpu-fp8 test-gpu-decode-attn test-gpu-router test-gpu-bf16-gemv test-gpu-fp8gemm test-gpu-tern-sched test-gpu-gpr-boundary \
 	test-gpu-cmdlist test-gpu-decode-graph test-gpu-code-alloc test-gpu-engine-compile test-gpu-engine \
 	test-gpu-engine-mutants test-gpu-engine-backend-compile test-gpu-engine-prod-build test-gpu-engine-sim \
 	test-gpu-engine-backend-mutants test-gpu-engine-gb10-compile test-gpu-serving-alloc test-gpu-engine-freestanding \
