@@ -61,7 +61,8 @@ readers can find and compare them. Cross-checking CUDA++ against them is PROPOSE
   `evidence/MAX-INTEROP/68/` were written by CUDA++'s own cubin writer. The GPU's signed GSP firmware is
   loaded by NVIDIA's kernel module from the system's own firmware folder; CUDA++ never ships it.
 - Some host tests print a listing through NVIDIA's `nvdisasm` when it happens to be installed, as a
-  cross-check. One listing made by an NVIDIA tool is stored: `tests/device-trace/expected.sass`, the
-  `nvdisasm 13.0` decode of the trace emitter's own words (added in #84). An earlier file was kept out
-  of the history at extraction, see `docs/AUDIT.md`. `PROVENANCE.md` lists which sources and tools may
-  be used and records stored tool output. My own disassembler is on the roadmap (C6).
+  cross-check. No listing made by NVIDIA tools is stored in this repository: #84 stored one
+  (`tests/device-trace/expected.sass`, an `nvdisasm 13.0` decode of the trace emitter's own words) and
+  #93 removed it; the runner now checks hand-written expectations. An earlier file was kept out of the
+  history at extraction, see `docs/AUDIT.md`. `PROVENANCE.md` lists which sources and tools may be used
+  and records stored tool output. My own disassembler is on the roadmap (C6).

@@ -65,7 +65,7 @@ Kept out of the history (removed from every commit, listed in `tools/extract/ome
 - Every blob in both histories was checked for binary content (any zero byte): **0 binary files** after the exclusions above.
 - No firmware, no `libcuda`, no cubin, fatbin or PTX, no `.so`, `.o` or `.a`.
 - No listing produced by NVIDIA tools (`nvdisasm`, `cuobjdump`) and nothing copied from NVIDIA's documentation. Some host tests call NVIDIA's `nvdisasm` at run time when it is installed, to cross-check my encoder; nothing it prints is stored.
-- Later change (recorded 2026-10-27, after this audit): #84 added `tests/device-trace/expected.sass`, an `nvdisasm` decode of CUDA++'s own trace-emitter words, and `evidence/MAX-INTEROP/68/` holds two cubins written by CUDA++'s own cubin writer. `PROVENANCE.md` section 6 lists stored NVIDIA-tool output.
+- Later change (recorded 2026-10-27, after this audit): #84 added `tests/device-trace/expected.sass`, an `nvdisasm` decode of CUDA++'s own trace-emitter words, and #93 removed it again the same day (the runner now checks hand-written expectations). `evidence/MAX-INTEROP/68/` holds two cubins written by CUDA++'s own cubin writer. `PROVENANCE.md` section 6 records stored NVIDIA-tool output.
 - One CUDA C++ source remains in a receipt: `evidence/OWN30B-T3-TC-PEAK-BW-5faa0f70-20261013T2236Z/fa_ops.cu`, my own probe kernel, used once with NVIDIA's compiler to measure the tensor-core ceiling I compare against. It is my code, not NVIDIA's.
 
 ## 6. Limits of this audit
