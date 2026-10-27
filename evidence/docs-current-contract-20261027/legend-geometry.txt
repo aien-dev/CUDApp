@@ -1,0 +1,41 @@
+MEASURED with Inkscape 1.4 --query-all. Units: SVG px.
+Column order: x, y, width, height.
+Font fallback on this host: fc-match Inter -> OpenAI Sans Regular.
+
+Before, generator 7375e608e7edcf494916e00b676072c3cf4e9b49f35f762f0b34ad46a4897564:
+closed label:       70.434,896.626,178.388,13.426
+first-party label: 322.168,896.752,179.396,13.3
+open swatch:       439.25,894.25,15.5,15.5
+open label:        463.064,896.794,164.976,13.258
+firmware swatch:   739.25,894.25,15.5,15.5
+firmware label:    763.064,896.752,186.228,13.3
+
+After, source 8b022055ad01bc148ff4f8fa6c7443995e5b5510:
+closed label:       70.434,896.626,178.388,13.426
+first-party label: 322.168,896.752,179.396,13.3
+open swatch:       559.25,894.25,15.5,15.5
+open label:        583.064,896.794,164.976,13.258
+firmware swatch:   839.25,894.25,15.5,15.5
+firmware label:    863.064,896.752,186.228,13.3
+
+MODELED arithmetic, WolframLanguageEvaluator, derived from those measured bounds:
+Before query:
+N[{299250,439250,739250}/1000 - ({70434,322168,463064}+{178388,179396,164976})/1000]
+Result (SVG px): {50.428, -62.314, 111.21}
+
+After query:
+x = {70434,322168,583064,863064}/1000;
+w = {178388,179396,164976,186228}/1000;
+nextSwatch = {299250,559250,839250}/1000;
+{N[nextSwatch - Take[x+w,3]], N[Last[x+w]],
+ And@@Thread[nextSwatch>Take[x+w,3]], Last[x+w]<1152}
+Result: {{50.428,57.686,91.21},1049.292,True,True}
+The gaps and final right edge are in SVG px. The final edge is inside the existing
+content edge at 1152 SVG px. This is layout evidence, not GPU evidence.
+
+Before/after render command (run on each version):
+inkscape docs/img/stack.svg --export-area=0:870:1200:930 --export-filename=stack.png
+Both crops were inspected by the author and independent reviewer.
+The actual renderer emits environment font/profile warnings on this host, but
+returns zero and produces the images and bounds. The regression uses an isolated
+writable profile and cache. No font or package was installed.
