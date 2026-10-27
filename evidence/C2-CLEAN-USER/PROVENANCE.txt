@@ -1,0 +1,20 @@
+Bar C2 part 2: hello-GPU from a clean machine (a brand-new Linux user, clone + README commands only).
+Evidence level: EXERCISED on one GB10 (DGX Spark, driver 580.173.02, GPU 000f:01:00.0). Not QUALIFIED: one machine,
+one run per commit, host load high (see loadavg in each log header). The live 35B model was off.
+
+Produced by: CUDAPP_BOARD=/home/drakestapleton/handoffs/BOARD.md tools/runtime/clean-user-hello.sh BRANCH LOG
+(operator drakestapleton, passwordless sudo). The script prints every privileged command with a leading "+":
+useradd -m, the strace of the README block, pkill -u and userdel -r of the temporary user.
+
+run1-main.log    2026-10-27T01:43:07Z  main 780a0af1f08c  README block exit 0. Before this branch: no negative control.
+run2-branch.log  2026-10-27T01:47:28Z  c2/clean-user-hello 6dc98bff37a5  exit 0, control RED, trace PASS + red control.
+run3-branch.log  2026-10-27T01:51:01Z  c2/clean-user-hello c5466a5e3a78  exit 0 (the receipt for this PR's commands):
+  hello-gpu PASS (1048576 of 1048576 right; machine code sha256 6248b8ed...87d1, output sha256 72d0c1b2...b6a6);
+  hello-gpu-control FAIL as it must (c[1048575] never written, exit 1);
+  zero-cuda-gate self-test PASS, then PASS on build/hello_gpu and build/gpu_matmul_api_test;
+  strace of the whole README block: 41216 calls, 271 programs, no CUDA file opened or executed;
+  trace red control (nvcc --version as the same user) caught; user c2stranger015101 removed.
+run3-branch.log.strace.gz  the full trace of run3's README block (strace -f, as root, following the stranger).
+
+Commits after c5466a5 on this branch add only these evidence files and CI; they do not change the README commands.
+Logs reference the scratch path /home/drakestapleton/handoffs/C2Api/ where they were first written.
