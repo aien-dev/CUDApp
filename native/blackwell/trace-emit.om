@@ -2,7 +2,12 @@ note SPDX-License-Identifier: AGPL-3.0-only
 note Device-side trace emitter for CUDApp #82, first slice. Handwritten seeded Omega.
 note It emits the instruction words for one selected producer (thread 0 of the launched CTA)
 note that records two bounded mark records around one synchronous region, and returns the
-note input kernel words unchanged when tracing is disabled.
+note input words unchanged when tracing is disabled. Enabled input is a prepared linear body
+note fragment, not a complete kernel: the caller must initialise and preserve R0 = TID.X,
+note launch exactly one CTA, and allow both markers to fall through. Branches, calls, returns
+note and early exits are unsupported. EXIT instructions are explicitly refused, but the
+note scanner is not a general control-flow verifier. Markers clobber P0, R2, R4:R13 and UR4:UR5;
+note the caller must account for those live-register effects at both insertion points.
 note
 note Wire layout is PR #83 docs/device-trace/CONTRACT.md v1: 64-byte header, 64-byte records,
 note kinds 1 mark / 2 begin / 3 end, clock domain 1 = raw device GLOBALTIMER low 32 bits with
@@ -14,13 +19,13 @@ note Register numbers are physical and fixed by this emitter: R0 tid, R2 stamp, 
 note base, R6 scratch, R8:R9 record address, R10:R11 generation, R12:R13 kernel; the global
 note memory descriptor is loaded into UR4. Encodings are ported from the repository's own
 note encoder, src/omega_blackwell_codegen.c encode_single_insn (S2R 0x7919, ISETP.GE 0x780c,
-note BRA 0x947, LDC64 0xff007b82, LDCU64 0xff0077ac, MOV imm 0x7802, IMAD imm 0x7824,
+note BRA 0x947, LDC64 0xff007b82, LDCU64 0xff0077ac, MOV imm 0x7802, IMAD.WIDE 0x7825,
 note STG.E 0x7986), and each emitted stream is decoded by nvdisasm 13.0 as an outside oracle.
 note
-note Declared constraints of this slice: offsets are added to the low 32 bits of the trace base
-note with no carry propagation, so the host buffer must not cross a 4 GiB boundary at any record
-note offset; the enabled path is refused unless the host has run the instruction checks and set
-note gtchecks to 1.
+note Record offsets use full-width base addition via the existing IMAD.WIDE.U32 form.
+note The host must supply a valid nonwrapping allocated extent. The enabled path is refused
+note unless gtchecks is exactly 1. This flag is a precondition, not evidence that arbitrary
+note input words, launch geometry, memory visibility or hardware execution have been checked.
 
 const TRBAS ulong 1024
 const TRGEN ulong 1040
@@ -38,7 +43,7 @@ const R_ISET ulong 30732
 const R_LDC ulong 4278221698
 const R_LDCU ulong 4278220716
 const R_MOVI ulong 30722
-const R_IMAD ulong 30756
+const R_IMADW ulong 30757
 const R_STG ulong 31110
 const SR_TID ulong 33
 const SR_CLK ulong 82
@@ -94,13 +99,11 @@ note LDCU.64 URd:URd+1, c[0x0][off] -- the global memory descriptor.
 gtquad uint or R_LDCU shl dst 16 uint and shl off 5 16776960 uint 134220288 uint 945664
 end
 
-fn gtadd dst ulong src ulong imm ulong to void
-note IMAD Rd, Ra, imm, RZ -- multiply by imm and add RZ.
-gtquad uint or or R_IMAD shl dst 16 shl src 24 uint imm uint 126747391 uint 2083328
-end
-
-fn gtcop dst ulong src ulong to void
-gtadd dst src 1
+fn gtaddr off ulong to void
+note MOV R6, off; IMAD.WIDE.U32 R8:R9, R6, 1, R4:R5 computes base + offset with carry.
+note Existing encoding: src/omega_blackwell_codegen.c BW_IR_IMAD_WIDE; vector.om address pairs.
+gtmov 6 off
+gtquad uint or or R_IMADW shl ulong 8 16 shl ulong 6 24 uint 1 uint 126746628 uint 2083840
 end
 
 fn gtbrak to void
@@ -109,7 +112,7 @@ gtquad uint or R_BRA shl ulong 18 18 uint 0 uint 58720256 uint 1042944
 end
 
 fn gtmark site ulong seq ulong to void
-note One bounded mark record at 64 + 64*site. Field offsets are contract v1.
+note One bounded mark record at 64*site (sites 1 and 2). Field offsets are contract v1.
 gtsel
 gtbrak
 gtldu 4 TRDSK
@@ -117,8 +120,7 @@ gts2r 2 SR_CLK
 gtldc 4 TRBAS
 gtldc 10 TRGEN
 gtldc 12 TRKRN
-gtadd 8 4 mul site 64
-gtcop 9 5
+gtaddr mul site 64
 gtmov 6 site
 gtstg 8 6 0
 gtmov 6 KINDMK
@@ -154,7 +156,7 @@ end
 
 fn gtwrap on ulong to void
 note Disabled: the output is the input byte for byte; no prologue, no store, no allocation.
-note Enabled: mark(site 1), the caller's kernel words verbatim, mark(site 2).
+note Enabled: mark(site 1), the caller's prepared body fragment, mark(site 2).
 put gboutlen 0 0
 if eq on 0
 for i ulong get gbinlen 0
@@ -171,15 +173,36 @@ end
 gtmark SITE2 1
 end
 
+fn gtbody to bool
+note Reject complete-kernel EXIT regardless of its predicate field (bits 12..15).
+note This recognises the repository's EXIT encoding, not every control-flow instruction.
+for i ulong div get gbinlen 0 16
+p = mul i 16
+lo = ulong get gbin p
+hi = ulong and get gbin add p 1 15
+op = or lo shl hi 8
+if eq op 2381
+put gterr 0 5
+ret false
+end
+end
+ret true
+end
+
 fn gtewrap on ulong cap ulong to bool
 note Checked entry point: refuse before emitting anything, then wrap.
 if not gtinit cap
 ret false
 end
-if and eq on 1 eq get gtchecks 0 0
+if and ne on 0 ne get gtchecks 0 1
 note Enabled needs the instruction and control-flow checks to have passed.
 put gterr 0 4
 ret false
+end
+if ne on 0
+if not gtbody
+ret false
+end
 end
 gtwrap on
 ret true

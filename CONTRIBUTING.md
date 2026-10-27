@@ -58,7 +58,7 @@ CUDA++'s libraries (matrix multiply, attention, elementwise, mixture-of-experts 
 
 The current first-party license is Apache-2.0 WITH LLVM-exception. You may read, disassemble, reverse engineer and translate CUDA++ output, including its machine code, and port CUDA++ to any hardware, subject to the applicable license and retained third-party notices. This is deliberate: CUDA's license restricts reverse engineering its output to target other hardware (`docs/PAIN_POINTS.md`, section 2.8); CUDA++ does not impose that restriction on its own output.
 
-Do not send us NVIDIA's code or binaries. CUDA++ stores no NVIDIA binary, cubin, PTX or firmware, and no listing printed by NVIDIA's tools (`docs/AUDIT.md`). If you used NVIDIA's compiler or disassembler on your own small kernels to learn an encoding, say so in the code comment, as the existing code does (`docs/HOW_I_DID_IT.md`, step 2).
+Do not send us NVIDIA's code or binaries. CUDA++ stores no NVIDIA binary, cubin, PTX or firmware. The only listing printed by an NVIDIA tool is a test pin of our own words, recorded in `PROVENANCE.md` section 6 (`docs/AUDIT.md`). If you used NVIDIA's compiler or disassembler on your own small kernels to learn an encoding, say so in the code comment, as the existing code does (`docs/HOW_I_DID_IT.md`, step 2).
 
 ## How a change gets in
 
@@ -66,7 +66,7 @@ Do not send us NVIDIA's code or binaries. CUDA++ stores no NVIDIA binary, cubin,
 2. Write the test first and watch it fail for the reason you expect. Then make it pass. Include a negative control: a case that must fail, and does.
 3. Run `make test` (the whole host suite, not only your test). Every failure in that run goes in your description by name, including ones you did not cause.
 4. Put receipts under `evidence/<your-topic>/` with the commit they ran on.
-5. Open the pull request. Say what it beats CUDA at, or where CUDA is still better.
+5. Open the pull request. Say what it improves and where CUDA is still better. Do not claim it is faster than CUDA, llama.cpp, vLLM or TensorRT unless the pull request carries a same-machine, end-to-end measurement of both, with receipts; label chip-only times as chip-only.
 
 ## Writing
 
