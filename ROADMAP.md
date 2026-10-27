@@ -8,7 +8,7 @@ Sources: Omega `docs/OMEGA.md` sections 2 to 5 (branch `docs/what-omega-is`, 202
 
 | NVIDIA piece | What it does | CUDA++ replacement | Status | Receipt or where the work is |
 | --- | --- | --- | --- | --- |
-| `nvcc`, NVVM, PTX, `ptxas` | Compile kernels to machine code | sm_121 encoder + register allocator (`src/omega_blackwell_*`) | PASS | every kernel Omega runs is encoded by it (Omega `docs/OMEGA.md` s2) |
+| `nvcc`, NVVM, PTX, `ptxas` | Compile kernels to machine code | sm_121 encoder + register allocator (`src/omega_blackwell_*`) | PASS | every GPU kernel this stack runs is encoded by it (Omega `docs/OMEGA.md` s2) |
 | `libcuda` | User-space driver API | `nvrm/` + `m16/` driver client | PARTIAL | Implemented; imported M16 summary lacks its referenced raw logs. Current native qualification NOT_RUN; see README evidence limitation. |
 | `libcudart` | Runtime API: device, memory, launch, streams | session, command lists, job engine | PARTIAL | one device and one process; streams and events are bar C4 |
 | cuBLAS | Matrix multiply | matmul, tensor-core GEMM, FP8/BF16 libraries | PARTIAL | model shapes only; any-shape GEMM is bar C3 |
@@ -48,13 +48,13 @@ Things a CUDA stack does not do, because it does not own the whole path. Omega `
 
 ## 4. Speed
 
-Speed is reported against the physical ceiling of this machine, not only against yesterday. The table and the ceilings are in Omega `docs/OMEGA.md` section 5; the head-to-head measurement against llama.cpp and vLLM on this Spark is bar P0 (AIEN L394, running).
+Speed is reported against the physical ceiling of this machine, not only against yesterday. The table and the ceilings are in Omega `docs/OMEGA.md` section 5; the head-to-head measurement against llama.cpp and vLLM on this Spark, same model and prompts, end to end, is bar P0 (AIEN L394; in progress, not finished, not published). Until it is published, no speed comparison with CUDA, llama.cpp, vLLM or TensorRT is claimed. Chip-only time per token and end-to-end time through the server are reported separately and never set beside each other or beside other projects' published end-to-end figures.
 
-## 5. The developer bar: better to use than CUDA
+## 5. The developer bar: goals for being easier to use than CUDA
 
-The research in `docs/PAIN_POINTS.md` ranks what developers hit with CUDA and its libraries, and why they stay. Each pain point becomes a row with a done-when anyone can run. The full table, with every row's mechanism and the counts behind its rank, is `docs/PAIN_POINTS.md` section 3; open rows have issue drafts in `docs/issues/`.
+The research in `docs/PAIN_POINTS.md` ranks what developers hit with CUDA and its libraries, and why they stay. Each pain point becomes a row with a done-when anyone can run. The full table, with every row's mechanism and the counts behind its rank, is `docs/PAIN_POINTS.md` section 3; open rows have issue drafts in `docs/issues/`. The rows are developer-experience goals, not measured comparisons with CUDA, and none of them is a speed claim.
 
-| Row | Beats CUDA by | Status |
+| Row | Aims to improve on CUDA by | Status |
 | --- | --- | --- |
 | D1 | Memory you can see, and a refusal before the machine hangs | DONE on the host; chip run open |
 | D2 | One command, one version: `make doctor`, then `make hello-gpu` | DONE in doctor wrapper; no direct library admission guard |

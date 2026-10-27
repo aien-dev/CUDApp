@@ -51,7 +51,7 @@ From there it is ordinary engineering with one rule: nothing counts until the ch
 - 2026-09-26: vector add qualified on the GB10; the first tensor-core matrix multiply code (M18).
 - 2026-10-02: numerics closed on the chip (reductions, nine transcendental functions over all 2^32 inputs, 148 load and store kernels; `evidence/E1-CLOSURE/`).
 - 2026-10-13: tensor-core peak measured at 115.14 TFLOPS and memory reads at 195.1 GB/s by my own probes (`evidence/OWN30B-T3-TC-PEAK-BW-5faa0f70-20261013T2236Z/`).
-- 2026-10-21: a 35B mixture-of-experts model served on this code, its words identical to an exact host reference, with zero CUDA libraries in the process.
+- 2026-10-21: Qwen3.6-35B-A3B (a mixture-of-experts model, about 3B parameters active per token) served on this code with zero CUDA libraries in the process. Against an exact host reference, three of four prompts matched 32 of 32 token ids and the fourth matched 31 of 32, its one difference inside a near-tie band written before the run; the HTTP check matched 24 of 24.
 
 ## What I did not do
 
