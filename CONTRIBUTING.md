@@ -66,7 +66,7 @@ Do not send us NVIDIA's code or binaries. CUDA++ stores no NVIDIA binary, cubin,
 2. Write the test first and watch it fail for the reason you expect. Then make it pass. Include a negative control: a case that must fail, and does.
 3. Run `make test` (the whole host suite, not only your test). Every failure in that run goes in your description by name, including ones you did not cause.
 4. Put receipts under `evidence/<your-topic>/` with the commit they ran on.
-5. Open the pull request. Say what it beats CUDA at, or where CUDA is still better.
+5. Open the pull request. Say what it improves and where CUDA is still better. Do not claim it is faster than CUDA, llama.cpp, vLLM or TensorRT unless the pull request carries a same-machine, end-to-end measurement of both, with receipts; label chip-only times as chip-only.
 
 ## Writing
 
