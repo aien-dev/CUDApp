@@ -10,11 +10,13 @@
  * C must not overlap A or B (BAD_ARGS). beta == 0: C is written without being read. alpha == 0: A and B are not read.
  *
  * Types: A and B each f32, bf16, f16, e4m3 or e5m2; C f32, bf16 or f16 (round to nearest even; fp8 output: UNSUPPORTED).
- * How the product runs (all accumulation is fp32 on the tensor cores, k parts summed on the host in double, epilogue
- * alpha * s * acc + beta * C in double, then one rounding to the C type):
+ * How the product runs (all accumulation is fp32 on the tensor cores; more than one k part: the parts summed on the host in
+ * double; epilogue alpha * s * acc + beta * C in double, then one rounding to the C type):
  *   bf16 x bf16, f16 x f16, e4m3 x e4m3   native: HMMA.16816.F32.BF16, HMMA.16816.F32, QMMA.16832.F32.E4M3. With a single k
- *                                         part, alpha 1, beta 0, no scales and C f32 the result is bit for bit the C3
- *                                         kernel's (tests/bw_hmma_model.h, bw_qmma_model.h).
+ *                                         part, alpha s == 1, beta 0, no block scales and C f32 the result is bit for bit
+ *                                         the C3 kernel's (tests/bw_hmma_model.h, bw_qmma_model.h). When also ldc == n,
+ *                                         n <= OMEGA_GPU_GEMM_MAX_DIM and no input is non-finite, the C3 kernel writes C
+ *                                         itself, in parts of at most OMEGA_GPU_GEMM_MAX_DIM rows (no host tile).
  *   pairs within {bf16, e4m3, e5m2}       both widened exactly to bf16, HMMA.BF16
  *   pairs within {f16, e4m3, e5m2}        both widened exactly to f16, HMMA (f16)
  *   anything with f32, and bf16 x f16     fp32-input GEMM via bf16x3: each value split exactly (truncation) into three bf16

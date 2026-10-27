@@ -319,8 +319,10 @@ static void one_elem(const Run *r, uint32_t b, uint32_t i, uint32_t j, Verdict *
     else if (isinf(ref)) ok = got == ref;
     else if (isinf(got)) ok = fabs(ref) + bound >= maxc && (got > 0) == (ref > 0);
     else ok = !isnan(got) && fabs(got - ref) <= bound;
-    if (ok && isfinite(ref) && isfinite(got) && sab > 0 && cs->alpha != 0.0f) {
-        double rel = fabs(got - ref) / (fabs(al) * sab * 0x1p-24);
+    /* the summary figure: the share of the element's own bound used (|got - ref| / bound). Dividing by |alpha s| sum|a b f|
+     * alone (before 2026-10-27) blew up wherever beta C, |ref| or the tiny-value terms carry the bound. */
+    if (ok && isfinite(ref) && isfinite(got) && bound > 0) {
+        double rel = fabs(got - ref) / bound;
         if (rel > v->max_rel) v->max_rel = rel;
     }
     v->checked++;
@@ -376,7 +378,7 @@ static uint64_t run_case(const Case *cs, int quiet, unsigned *route_out, double 
     Verdict v; memset(&v, 0, sizeof v);
     if (rc == 0) v = verify(&r);
     snprintf(w, sizeof w, "%s: %s route %s core calls %" PRIu64 " host-fixed %" PRIu64 ", %" PRIu64 " checked, %" PRIu64 " wrong, %" PRIu64
-             " untouched changed, max err %.2f x 2^-24 sum|ab|%s%s%s%s",
+             " untouched changed, max |err| / bound %.4f%s%s%s%s",
              nm, omega_gpu_gemm_rc_name(rc), RTN[info.route < 6 ? info.route : 0], info.core_calls, info.host_fixed, v.checked, v.bad,
              v.untouched_bad, v.max_rel, v.bad ? "; first " : "", v.bad ? v.first : "", rc ? ": " : "", rc ? omega_gpu_session_last_error() : "");
     if (!quiet) { check(rc == 0 && v.bad == 0 && v.untouched_bad == 0, w); if (rc == 0 && !v.bad && !v.untouched_bad) printf("ok: %s\n", w); }
@@ -855,7 +857,7 @@ static void chip_tier(int quick, uint32_t part, uint32_t parts) {
     }
     snprintf(w, sizeof w, "sweep part %u/%u: %u cases (%u also bit for bit against the model core): %s", part, parts, ran, exact, g_failed == before ? "PASS" : "FAIL");
     printf("%s\n", w);
-    for (int r = 1; r < 6; r++) printf("route %s: largest |got - ref| = %.2f x 2^-24 |alpha s| sum|a b f|\n", RTN[r], worst[r]);
+    for (int r = 1; r < 6; r++) printf("route %s: largest |got - ref| / bound = %.4f (passing elements)\n", RTN[r], worst[r]);
     omega_gpu_session_close();
 }
 

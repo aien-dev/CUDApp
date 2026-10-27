@@ -111,13 +111,56 @@ static uint64_t a_at(const Call *c, uint64_t i, uint64_t kk) { return c->x.op_a 
 static uint64_t b_at(const Call *c, uint64_t kk, uint64_t j) { return c->x.op_b ? j * c->x.ldb + kk : kk * c->x.ldb + j; }
 static float aval(const Call *c, uint64_t i, uint64_t kk) { return ldf(c->x.a_type, c->A, a_at(c, i, kk)); }
 static float bval(const Call *c, uint64_t kk, uint64_t j) { return ldf(c->x.b_type, c->B, b_at(c, kk, j)); }
-static int bad_a(const Call *c, uint64_t i, uint64_t kk) {
-    if (c->x.a_type == OMEGA_GEMM_DT_E4M3) return (c->A[a_at(c, i, kk)] & 0x7fu) == 0x7fu;
-    return !fin(aval(c, i, kk));
+/* a stored element is non-finite (inf, NaN; e4m3: NaN only) when its exponent field has every bit set */
+static int elem_bad(unsigned t, const uint8_t *p, uint64_t i) {
+    switch (t) {
+    case OMEGA_GEMM_DT_F32: { uint32_t u; memcpy(&u, p + i * 4u, 4); return (u & 0x7f800000u) == 0x7f800000u; }
+    case OMEGA_GEMM_DT_BF16: return (((const uint16_t *)p)[i] & 0x7f80u) == 0x7f80u;
+    case OMEGA_GEMM_DT_F16: return (((const uint16_t *)p)[i] & 0x7c00u) == 0x7c00u;
+    case OMEGA_GEMM_DT_E4M3: return (p[i] & 0x7fu) == 0x7fu;
+    default: return (p[i] & 0x7cu) == 0x7cu; /* e5m2 */
+    }
 }
-static int bad_b(const Call *c, uint64_t kk, uint64_t j) {
-    if (c->x.b_type == OMEGA_GEMM_DT_E4M3) return (c->B[b_at(c, kk, j)] & 0x7fu) == 0x7fu;
-    return !fin(bval(c, kk, j));
+/* 1 when any of n contiguous elements is non-finite. Per 64-bit word: every lane of y = (w & mask) ^ mask has its top bit
+ * clear and is 0 exactly for a non-finite element, so y - 1 per lane sets a lane's top bit only when that lane or a lower
+ * lane is 0 (a borrow); the OR of all words has a top bit set exactly when some element is non-finite. 64 bytes per step in
+ * four 128-bit accumulators (GCC vector extension: NEON on arm64, SSE2 on x86-64). */
+typedef uint64_t ScanV __attribute__((vector_size(16)));
+static int run_bad(unsigned t, const uint8_t *p, uint64_t n) {
+    const uint64_t es = esize(t), bytes = n * es;
+    const uint64_t mask = t == OMEGA_GEMM_DT_F32 ? 0x7f8000007f800000ull : t == OMEGA_GEMM_DT_BF16 ? 0x7f807f807f807f80ull
+                        : t == OMEGA_GEMM_DT_F16 ? 0x7c007c007c007c00ull : t == OMEGA_GEMM_DT_E4M3 ? 0x7f7f7f7f7f7f7f7full
+                                                                                   : 0x7c7c7c7c7c7c7c7cull;
+    const uint64_t lo = es == 4u ? 0x0000000100000001ull : es == 2u ? 0x0001000100010001ull : 0x0101010101010101ull;
+    const uint64_t hi = lo << (8u * es - 1u);
+    const ScanV vm = { mask, mask }, vl = { lo, lo };
+    ScanV a0 = { 0, 0 }, a1 = a0, a2 = a0, a3 = a0;
+    uint64_t i = 0, acc = 0;
+    for (; i + 64u <= bytes; i += 64u) {
+        ScanV w0, w1, w2, w3;
+        memcpy(&w0, p + i, 16); memcpy(&w1, p + i + 16u, 16); memcpy(&w2, p + i + 32u, 16); memcpy(&w3, p + i + 48u, 16);
+        a0 |= ((w0 & vm) ^ vm) - vl; a1 |= ((w1 & vm) ^ vm) - vl; a2 |= ((w2 & vm) ^ vm) - vl; a3 |= ((w3 & vm) ^ vm) - vl;
+    }
+    a0 |= a1 | a2 | a3;
+    acc = a0[0] | a0[1];
+    for (; i + 8u <= bytes; i += 8u) { uint64_t w; memcpy(&w, p + i, 8); acc |= ((w & mask) ^ mask) - lo; }
+    if (acc & hi) return 1;
+    for (i /= es; i < n; i++) if (elem_bad(t, p, i)) return 1;
+    return 0;
+}
+/* one stored operand (rows stored rows of cols elements, leading dimension ld): flag[r] for every stored row r holding a
+ * non-finite element (per_row), else flag[j] for every stored column j holding one; 1 when there is any */
+static int scan_bad(unsigned t, const uint8_t *p, uint64_t rows, uint64_t cols, uint64_t ld, int per_row, uint8_t *flag) {
+    const uint64_t es = esize(t);
+    int any = 0;
+    for (uint64_t r = 0; r < rows; r++) {
+        const uint8_t *q = p + r * ld * es;
+        if (!run_bad(t, q, cols)) continue;
+        any = 1;
+        if (per_row) flag[r] = 1;
+        else for (uint64_t j = 0; j < cols; j++) if (elem_bad(t, q, j)) flag[j] = 1;
+    }
+    return any;
 }
 static double block_factor(const Call *c, uint64_t i, uint64_t kb, uint64_t j) {
     if (c->x.scale != OMEGA_GEMM_SCALE_BLOCK) return 1.0;
@@ -198,8 +241,9 @@ static int validate(Call *c, const OmegaGemmExArgs *in) {
     return OMEGA_GPU_GEMM_OK;
 }
 
-/* the operand buffers of one k part: A' rows of op(A), B' columns of op(B) (B' row-major k x n for FFMA) */
-typedef struct { uint8_t *a, *b; float *p; double *acc; uint8_t *rowbad, *colbad; } Bufs;
+/* the operand buffers of one k part: A' rows of op(A), B' columns of op(B) (B' row-major k x n for FFMA), allocated on the
+ * first part that packs (na, nb elements of the core type); P the dense core output of a tile, acc the k-part sum */
+typedef struct { uint8_t *a, *b; uint64_t na, nb; float *p; double *acc; uint8_t *rowbad, *colbad; } Bufs;
 
 static uint32_t core_esize(OmegaGpuGemmType t) { return t == OMEGA_GPU_GEMM_E4M3 ? 1u : t == OMEGA_GPU_GEMM_F32_FFMA ? 4u : 2u; }
 static uint32_t round16(uint32_t v) { return (v + 15u) & ~15u; }
@@ -214,17 +258,21 @@ static void put_core(OmegaGpuGemmType t, uint8_t *dst, uint64_t i, float f) {
 
 /* one k part [k0, k0 + kc) of the tile [m0, m0 + mc) x [n0, n0 + nc) into P (dense mc x nc) */
 static int run_part(Call *c, Bufs *bf, int any_bad, uint64_t m0, uint32_t mc, uint64_t n0, uint32_t nc, uint64_t k0, uint32_t kc,
-                    uint64_t *calls) {
+                    float *P, uint64_t *calls) {
     const OmegaGemmExArgs *x = &c->x;
     const OmegaGpuGemmType t = c->core;
     const unsigned layout = (x->op_a ? OMEGA_GPU_GEMM_A_COL : 0u) | (x->op_b ? OMEGA_GPU_GEMM_B_COL : 0u);
-    int rc;
     (*calls)++;
     if (c->route == OMEGA_GEMM_ROUTE_NATIVE && !any_bad && omega_gpu_gemm_span(layout, mc, nc, kc, x->lda, x->ldb, NULL, NULL) == 0) {
         const uint64_t es = esize(x->a_type);
         const uint8_t *pa = c->A + (x->op_a ? k0 * x->lda + m0 : m0 * x->lda + k0) * es;
         const uint8_t *pb = c->B + (x->op_b ? n0 * x->ldb + k0 : k0 * x->ldb + n0) * es;
-        return g_core(g_core_ctx, t, layout, mc, nc, kc, pa, x->lda, pb, x->ldb, bf->p);
+        return g_core(g_core_ctx, t, layout, mc, nc, kc, pa, x->lda, pb, x->ldb, P);
+    }
+    if (!bf->a) {
+        bf->a = omega_gpu_host_calloc(bf->na, core_esize(t));
+        bf->b = omega_gpu_host_calloc(bf->nb, core_esize(t));
+        if (!bf->a || !bf->b) return OMEGA_GPU_GEMM_CHIP_FAIL;
     }
     if (c->route == OMEGA_GEMM_ROUTE_BF16X3) {
         const uint32_t kp = round16(kc), K = 9u * kp;
@@ -245,7 +293,7 @@ static int run_part(Call *c, Bufs *bf, int any_bad, uint64_t m0, uint32_t mc, ui
                 for (unsigned q = 0; q < 9u; q++) col[q * kp + kk] = p[TB[q]];
             }
         }
-        return g_core(g_core_ctx, OMEGA_GPU_GEMM_BF16, OMEGA_GPU_GEMM_B_COL, mc, nc, K, A2, 0, B2, 0, bf->p);
+        return g_core(g_core_ctx, OMEGA_GPU_GEMM_BF16, OMEGA_GPU_GEMM_B_COL, mc, nc, K, A2, 0, B2, 0, P);
     }
     if (c->route == OMEGA_GEMM_ROUTE_FAST_BF16) {
         uint16_t *A2 = (uint16_t *)bf->a, *B2 = (uint16_t *)bf->b;
@@ -253,14 +301,14 @@ static int run_part(Call *c, Bufs *bf, int any_bad, uint64_t m0, uint32_t mc, ui
             for (uint32_t kk = 0; kk < kc; kk++) { float f = aval(c, m0 + i, k0 + kk); A2[(uint64_t)i * kc + kk] = fin(f) ? f2bf_rne(f) : 0; }
         for (uint32_t j = 0; j < nc; j++)
             for (uint32_t kk = 0; kk < kc; kk++) { float f = bval(c, k0 + kk, n0 + j); B2[(uint64_t)j * kc + kk] = fin(f) ? f2bf_rne(f) : 0; }
-        return g_core(g_core_ctx, OMEGA_GPU_GEMM_BF16, OMEGA_GPU_GEMM_B_COL, mc, nc, kc, A2, 0, B2, 0, bf->p);
+        return g_core(g_core_ctx, OMEGA_GPU_GEMM_BF16, OMEGA_GPU_GEMM_B_COL, mc, nc, kc, A2, 0, B2, 0, P);
     }
     if (c->route == OMEGA_GEMM_ROUTE_FFMA) {
         for (uint32_t i = 0; i < mc; i++)
             for (uint32_t kk = 0; kk < kc; kk++) put_core(t, bf->a, (uint64_t)i * kc + kk, aval(c, m0 + i, k0 + kk));
         for (uint32_t kk = 0; kk < kc; kk++)
             for (uint32_t j = 0; j < nc; j++) put_core(t, bf->b, (uint64_t)kk * nc + j, bval(c, k0 + kk, n0 + j));
-        return g_core(g_core_ctx, t, 0u, mc, nc, kc, bf->a, 0, bf->b, 0, bf->p);
+        return g_core(g_core_ctx, t, 0u, mc, nc, kc, bf->a, 0, bf->b, 0, P);
     }
     /* WIDEN, or NATIVE with non-finite inputs or a span past 2^32: dense copies in the core type, non-finite as 0 */
     if (t == OMEGA_GPU_GEMM_E4M3) {
@@ -274,8 +322,7 @@ static int run_part(Call *c, Bufs *bf, int any_bad, uint64_t m0, uint32_t mc, ui
         for (uint32_t j = 0; j < nc; j++)
             for (uint32_t kk = 0; kk < kc; kk++) put_core(t, bf->b, (uint64_t)j * kc + kk, bval(c, k0 + kk, n0 + j));
     }
-    rc = g_core(g_core_ctx, t, OMEGA_GPU_GEMM_B_COL, mc, nc, kc, bf->a, 0, bf->b, 0, bf->p);
-    return rc;
+    return g_core(g_core_ctx, t, OMEGA_GPU_GEMM_B_COL, mc, nc, kc, bf->a, 0, bf->b, 0, P);
 }
 
 static double host_dot(const Call *c, uint64_t i, uint64_t j) {
@@ -304,20 +351,26 @@ int omega_gpu_gemm_ex(const OmegaGemmExArgs *args) {
     const int compute = x->alpha != 0.0f;
     const double beta = g_mutant == 4 ? 0.0 : (double)x->beta;
     const uint64_t tm = x->m < TILE ? x->m : TILE, tn = x->n < TILE ? x->n : TILE;
+    /* one k part and no block scales: the k-part sum is 0 + P, so the epilogue reads P and no sum is kept */
+    const int one_part = x->k <= c.kmax && x->scale != OMEGA_GEMM_SCALE_BLOCK;
+    /* direct: native, C f32 in dense rows no wider than one C3 call, beta 0, operands C3 addresses in place. A batch with
+     * no non-finite input and alpha s == 1 then has the C3 output as its result (the bit-for-bit case of the header), so
+     * C3 writes C itself, in parts of at most OMEGA_GPU_GEMM_MAX_DIM rows of n, with no host tile, sum or epilogue */
+    const uint64_t dm = x->m < OMEGA_GPU_GEMM_MAX_DIM ? x->m : OMEGA_GPU_GEMM_MAX_DIM;
+    const unsigned layout = (x->op_a ? OMEGA_GPU_GEMM_A_COL : 0u) | (x->op_b ? OMEGA_GPU_GEMM_B_COL : 0u);
+    const int direct_shape = compute && one_part && c.route == OMEGA_GEMM_ROUTE_NATIVE && beta == 0.0 &&
+                             x->c_type == OMEGA_GEMM_DT_F32 && x->ldc == x->n && x->n <= OMEGA_GPU_GEMM_MAX_DIM &&
+                             omega_gpu_gemm_span(layout, (uint32_t)dm, (uint32_t)x->n, (uint32_t)x->k, x->lda, x->ldb, NULL, NULL) == 0;
     Bufs bf;
     memset(&bf, 0, sizeof bf);
     if (compute) {
         info.route = c.route; info.core_type = c.core;
         const uint64_t kc = x->k < c.kmax ? x->k : c.kmax;
         const uint64_t kcore = c.route == OMEGA_GEMM_ROUTE_BF16X3 ? 9u * round16((uint32_t)kc) : kc;
-        const uint64_t es = core_esize(c.core);
-        bf.a = omega_gpu_host_calloc(tm * kcore + 16u, es);
-        bf.b = omega_gpu_host_calloc(tn * kcore + 16u, es);
-        bf.p = omega_gpu_host_calloc(tm * tn, sizeof(float));
-        bf.acc = omega_gpu_host_calloc(tm * tn, sizeof(double));
+        bf.na = tm * kcore + 16u; bf.nb = tn * kcore + 16u;
         bf.rowbad = omega_gpu_host_calloc(x->m, 1);
         bf.colbad = omega_gpu_host_calloc(x->n, 1);
-        if (!bf.a || !bf.b || !bf.p || !bf.acc || !bf.rowbad || !bf.colbad) { rc = OMEGA_GPU_GEMM_CHIP_FAIL; goto out; }
+        if (!bf.rowbad || !bf.colbad) { rc = OMEGA_GPU_GEMM_CHIP_FAIL; goto out; }
     }
     for (uint64_t b = 0; b < x->batch; b++) {
         uint8_t *C = (uint8_t *)x->c + b * x->stride_c * esize(x->c_type);
@@ -329,13 +382,31 @@ int omega_gpu_gemm_ex(const OmegaGemmExArgs *args) {
             if (x->scale != OMEGA_GEMM_SCALE_NONE) { c.sa = x->scale_a + b * x->scale_stride_a; c.sb = x->scale_b + b * x->scale_stride_b; }
             if (x->scale == OMEGA_GEMM_SCALE_TENSOR) alpha *= (double)c.sa[0] * (double)c.sb[0];
             memset(bf.rowbad, 0, x->m); memset(bf.colbad, 0, x->n);
-            for (uint64_t i = 0; i < x->m; i++) for (uint64_t kk = 0; kk < x->k; kk++) if (bad_a(&c, i, kk)) { bf.rowbad[i] = 1; any_bad = 1; break; }
-            for (uint64_t j = 0; j < x->n; j++) for (uint64_t kk = 0; kk < x->k; kk++) if (bad_b(&c, kk, j)) { bf.colbad[j] = 1; any_bad = 1; break; }
+            const int bad_a = scan_bad(x->a_type, c.A, x->op_a ? x->k : x->m, x->op_a ? x->m : x->k, x->lda, !x->op_a, bf.rowbad);
+            const int bad_b = scan_bad(x->b_type, c.B, x->op_b ? x->n : x->k, x->op_b ? x->k : x->n, x->ldb, x->op_b, bf.colbad);
+            any_bad = bad_a | bad_b;
+            const uint64_t ku = g_mutant == 1 ? x->k - 1u : x->k; /* the one part's k (mutant 1 drops the last k) */
+            if (direct_shape && !any_bad && alpha == 1.0) {
+                for (uint64_t m0 = 0; m0 < x->m; m0 += dm) {
+                    const uint32_t mc = (uint32_t)(x->m - m0 < dm ? x->m - m0 : dm);
+                    float *out = (float *)C + m0 * x->ldc;
+                    if (!ku) { memset(out, 0, (uint64_t)mc * x->n * sizeof(float)); continue; }
+                    rc = run_part(&c, &bf, 0, m0, mc, 0, (uint32_t)x->n, 0, (uint32_t)ku, out, &info.core_calls);
+                    if (rc != OMEGA_GPU_GEMM_OK) goto out;
+                }
+                continue;
+            }
+            if (!bf.p && !(bf.p = omega_gpu_host_calloc(tm * tn, sizeof(float)))) { rc = OMEGA_GPU_GEMM_CHIP_FAIL; goto out; }
+            if (!one_part && !bf.acc && !(bf.acc = omega_gpu_host_calloc(tm * tn, sizeof(double)))) { rc = OMEGA_GPU_GEMM_CHIP_FAIL; goto out; }
         }
         for (uint64_t m0 = 0; m0 < x->m; m0 += TILE)
             for (uint64_t n0 = 0; n0 < x->n; n0 += TILE) {
                 const uint32_t mc = (uint32_t)(x->m - m0 < TILE ? x->m - m0 : TILE), nc = (uint32_t)(x->n - n0 < TILE ? x->n - n0 : TILE);
-                if (compute) {
+                if (compute && one_part) {
+                    const uint64_t ku = g_mutant == 1 ? x->k - 1u : x->k;
+                    if (!ku) memset(bf.p, 0, (uint64_t)mc * nc * sizeof(float));
+                    else if ((rc = run_part(&c, &bf, any_bad, m0, mc, n0, nc, 0, (uint32_t)ku, bf.p, &info.core_calls)) != OMEGA_GPU_GEMM_OK) goto out;
+                } else if (compute) {
                     memset(bf.acc, 0, (uint64_t)mc * nc * sizeof(double));
                     for (uint64_t k0 = 0; k0 < x->k;) {
                         uint64_t kc = x->k - k0 < c.kmax ? x->k - k0 : c.kmax;
@@ -343,7 +414,7 @@ int omega_gpu_gemm_ex(const OmegaGemmExArgs *args) {
                         uint64_t ku = kc;
                         if (g_mutant == 1 && k0 + kc == x->k) ku = kc - 1u;
                         if (ku) {
-                            rc = run_part(&c, &bf, any_bad, m0, mc, n0, nc, k0, (uint32_t)ku, &info.core_calls);
+                            rc = run_part(&c, &bf, any_bad, m0, mc, n0, nc, k0, (uint32_t)ku, bf.p, &info.core_calls);
                             if (rc != OMEGA_GPU_GEMM_OK) goto out;
                             uint64_t kb = x->scale == OMEGA_GEMM_SCALE_BLOCK ? k0 / x->block_k : 0;
                             if (g_mutant == 3 && x->scale == OMEGA_GEMM_SCALE_BLOCK) kb = (kb + 1u) % c.sa_c;
@@ -359,7 +430,7 @@ int omega_gpu_gemm_ex(const OmegaGemmExArgs *args) {
                         const uint64_t ci = (m0 + i) * x->ldc + n0 + j;
                         double v = 0.0;
                         if (compute) {
-                            double a = bf.acc[(uint64_t)i * nc + j];
+                            double a = one_part ? 0.0 + (double)bf.p[(uint64_t)i * nc + j] : bf.acc[(uint64_t)i * nc + j];
                             if (any_bad && (bf.rowbad[m0 + i] || bf.colbad[n0 + j])) { a = host_dot(&c, m0 + i, n0 + j); info.host_fixed++; }
                             v = alpha * a;
                         }

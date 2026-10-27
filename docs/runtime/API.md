@@ -574,11 +574,14 @@ bf16x3, how inf and NaN propagate, how block scales cut k). Result codes are the
 `src/omega_gpu_gemm.h`, which is not a manifest header.
 
 It is EXPERIMENTAL for four reasons, each one a stated limit rather than a defect:
-- **Host memory, host orchestration.** A, B and C are host pointers. Each call cuts C into host tiles of at most
-  4096 x 4096 and k into parts of at most 16384 (1808 on the bf16x3 route), runs every part as one call of the C3 kernels
-  (`omega_gpu_gemm_ld`, which copies its operands to the GPU), and sums the parts and applies alpha, beta and the scales
-  on the host in double. There is no device-resident form and no record-into-command-list form, so it is not a serving
-  path: the tuned per-model kernels of sections 9.5 and 9.7 stay the fast path for the shapes they take.
+- **Host memory, host orchestration.** A, B and C are host pointers, and every call with alpha != 0 scans A and B on the
+  host for inf and NaN (one read of each). The common case, the native route with one k part, alpha s 1, beta 0, C f32
+  with ldc n, n <= 16384 and finite inputs, is one call of the C3 kernels (`omega_gpu_gemm_ld`, which copies its operands
+  to the GPU) per 16384 rows of C, writing C in place. Every other call cuts C into host tiles of at most 4096 x 4096 and
+  k into parts of at most 16384 (1808 on the bf16x3 route), runs every part as one C3 call, and sums the parts and
+  applies alpha, beta and the scales on the host in double. There is no device-resident form and no
+  record-into-command-list form, so it is not a serving path: the tuned per-model kernels of sections 9.5 and 9.7 stay
+  the fast path for the shapes they take.
 - **f32 is not IEEE fp32.** f32 inputs run as bf16x3 (three bf16 planes, nine plane products); accuracy is stated
   against a double reference in `tests/gpu_gemm_ex_test.c`, and parts of a value below 2^-133 are dropped.
   `OMEGA_GEMM_EX_F32_FFMA_REF` is the slow per-k FFMA comparator, not a fast path.
