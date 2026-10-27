@@ -15,8 +15,8 @@
  * The check of every output element (predeclared, printed by --list): the double reference
  *   ref = alpha s * sum_k a b f + beta c_old         (s: tensor scales, f: block scales)
  * and   |got - ref| <= |alpha s| (((1 + c)^(S + 4) - 1) sum|a b f| + 2^-124 sum (|a| + |b|) |f| + k 2^-140 + F sum|a b f|)
- * c the per-step constant of step_c(): HMMA (17 2^-25 + 2^-23)(1 + 2^-20), QMMA (33 2^-25 + 2^-23)(1 + 2^-20).
  *                      + 2^-50 |beta c_old| + u_c |ref| + t_c
+ * c the per-step constant of step_c(): HMMA (17 2^-25 + 2^-23)(1 + 2^-20), QMMA (33 2^-25 + 2^-23)(1 + 2^-20);
  * with S the fp32 accumulation steps (ceil(k / 16), ceil(k / 32) for e4m3, 9 ceil(k / 16) for bf16x3, k for FFMA, plus the
  * number of k parts), F = 2^-7 for FAST_BF16 (both operands rounded to bf16) else 0, u_c / t_c = 2^-24 / 2^-149 (f32),
  * 2^-8 / 2^-133 (bf16), 2^-11 / 2^-24 (f16). A non-finite ref must come back as the same class (NaN, or inf of the same
