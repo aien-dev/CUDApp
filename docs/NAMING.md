@@ -1,7 +1,7 @@
 # Naming plan
 
 **Project name in text:** CUDA++. **Repository slug:** `aien-dev/CUDApp` (GitHub slugs cannot hold `+`).
-**Prefix where a code name is needed:** `cudapp` (library `libcudapp.a`, lock file `cudapp.lock` in Omega).
+**Prefix where a code name is needed:** `cudapp` (library `libcudapp.a`, lock file `cudapp.lock` in Omega; planned, not created yet, see #106).
 
 ## First cut (2026-10-21): no C renames
 
