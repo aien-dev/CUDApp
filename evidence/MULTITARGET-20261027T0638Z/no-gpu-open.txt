@@ -1,0 +1,3 @@
+# openat() calls naming nvidia, from strace -f -e trace=openat
+## hello_gpu --sim (fresh build at 0ec44766):
+(none)
