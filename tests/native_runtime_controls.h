@@ -120,9 +120,10 @@ static void nr_fixture(OmegaGpuNativeArtifact *a, uint8_t weights[65536], uint8_
 static void c_native_compose_capacity(void) {
     uint64_t cfg[16]={3,1536,16,8,16};
     uint64_t ins[8192]={0}, metadata[2048]={0}, phys[288]={0}, actual[8];
-    uint64_t status=UINT64_MAX;
+    uint64_t status;
     for(unsigned pass=0;pass<2;++pass) {
         memset(actual,0xff,sizeof actual);
+        status=UINT64_MAX;
         EXPECT(omega_native_compose(&status,cfg,16,ins,8192,metadata,2048,
             phys,288,actual,8)==OMEGA_OK);
         EXPECT(status==2);
@@ -131,6 +132,7 @@ static void c_native_compose_capacity(void) {
     /* The capacity refusal must not poison the next valid native call. */
     memset(cfg,0,sizeof cfg);
     cfg[0]=1; cfg[1]=256; cfg[2]=8; cfg[3]=1; cfg[4]=8;
+    status=UINT64_MAX;
     EXPECT(omega_native_compose(&status,cfg,16,ins,8192,metadata,2048,
         phys,288,actual,8)==OMEGA_OK && status==0);
     EXPECT(actual[0]>0 && actual[0]<=1024);
