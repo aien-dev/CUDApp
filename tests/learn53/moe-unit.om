@@ -1,0 +1,283 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note HOST_ONLY synthetic controls; this does not execute a GPU/evaluator/candidate.
+text mf_ok "MOE-CLOSURE HOST_ONLY PASS\n"
+fn mf_zero h view uchar 32 to bool
+for i ulong 32
+if ne get h i 0
+ret false
+end
+end
+ret true
+end
+fn mf_copy a view uchar 16384 b edit uchar 16384 to void
+for i ulong 16384
+put b i get a i
+end
+end
+fn mf_mutant a view uchar 16384 b edit uchar 16384 h edit uchar 32 pos ulong to bool
+mf_copy a edit b
+put b pos xor get b pos 1
+s = mc_bind a b 11264 edit h
+if eq s 0
+ret false
+end
+ret mf_zero h
+end
+fn mf_scalars a view uchar 16384 b edit uchar 16384 h edit uchar 32 to bool
+note Every scalar, semantic/order field, address, extent, stride, generation and length.
+for i ulong 128
+if not mf_mutant a edit b edit h mul i 8
+ret false
+end
+end
+ret true
+end
+fn mf_digests a view uchar 16384 b edit uchar 16384 h edit uchar 32 to bool
+note All64 roles: GU/DN pairing, code/launch/manifest/ABI/QMD/quant, source/context.
+for i ulong 64
+if not mf_mutant a edit b edit h add 1024 mul i 32
+ret false
+end
+end
+ret true
+end
+fn mf_table a view uchar 16384 b edit uchar 16384 h edit uchar 32 to bool
+note All table cells, including unused rows, plus capacity tail canonicality.
+for i ulong 1024
+if not mf_mutant a edit b edit h add 3072 mul i 8
+ret false
+end
+end
+ret mf_mutant a edit b edit h 16383
+end
+fn mf_contexts a view uchar 16384 to bool
+q = new ulong 64 0
+row = new ulong 64 0
+mf_context a edit q edit row
+if ne mc_context a q row 0 0
+ret false
+end
+for i ulong 24
+v = get q add 14 i
+put q add 14 i xor v 1
+if ne mc_context a q row 0 5
+ret false
+end
+put q add 14 i v
+v = get row add 33 i
+put row add 33 i xor v 1
+if ne mc_context a q row 0 5
+ret false
+end
+put row add 33 i v
+end
+for i ulong 4
+v = get q add i 3
+put q add i 3 xor v 1
+if ne mc_context a q row 0 5
+ret false
+end
+put q add i 3 v
+end
+note A DN row cannot consume the GU half, even with matching joint subject.
+if ne mc_context a q row 1 5
+ret false
+end
+for i ulong 8
+v = mc_limb a add 53 div i 4 rem i 4
+put q add 30 i v
+put row add 49 i v
+end
+for i ulong 4
+put row add 21 i mc_limb a 30 i
+put row add 25 i mc_limb a 32 i
+put row add 57 i mc_limb a 31 i
+end
+if ne mc_context a q row 1 0
+ret false
+end
+note Distinct paired artifacts cannot be interchanged after the role is fixed.
+put row 21 mc_limb a 22 0
+if ne mc_context a q row 1 5
+ret false
+end
+ret true
+end
+fn mf_custody a view uchar 16384 h view uchar 32 to bool
+ctx = new ulong 32 0
+got = new ulong 32 0
+mf_cust a h edit ctx
+for i ulong 32
+put got i get ctx i
+end
+if ne mc_custody a h ctx got 0
+ret false
+end
+for i ulong 32
+v = get got i
+put got i xor v 1
+if ne mc_custody a h ctx got 5
+ret false
+end
+put got i v
+end
+note Even mutually matching synthetic inputs cannot request device evidence class.
+put ctx 1 2
+put got 1 2
+if ne mc_custody a h ctx got 5
+ret false
+end
+ret true
+end
+fn mf_pack a view uchar 16384 b edit uchar 16384 to bool
+s = new ulong 128 0
+h = new uchar 2048 0
+w = new ulong 1024 0
+for i ulong 128
+put s i mc_word a i
+end
+for i ulong 2048
+put h i get a add 1024 i
+end
+for i ulong 1024
+put w i mc_word a add 384 i
+end
+if ne mc_pack s h w edit b 0
+ret false
+end
+for i ulong 16384
+if ne get a i get b i
+ret false
+end
+end
+put s 13 8
+if ne mc_pack s h w edit b 2
+ret false
+end
+for i ulong 16384
+if ne get b i 0
+ret false
+end
+end
+ret true
+end
+fn mf_boundroot a view uchar 16384 to bool
+b = new uchar 16384 0
+q = new ulong 64 0
+row = new ulong 64 0
+h = new uchar 32 0
+mf_copy a edit b
+mf_context a edit q edit row
+if ne mc_bindctx a b q row 0 edit h 0
+ret false
+end
+if mf_zero h
+ret false
+end
+put row 21 xor get row 21 1
+if ne mc_bindctx a b q row 0 edit h 5
+ret false
+end
+ret mf_zero h
+end
+fn mf_payload a view uchar 16384 to bool
+c = new uchar 4096 0
+code = new uchar 16384 0
+l = new uchar 256 0
+if ne mc_blob a c code 16 l 2 1
+ret false
+end
+compose_put edit c 19 3
+note Correct role cannot bypass the existing canonical family3 admission refusal.
+if ne mc_blob a c code 16 l 0 6
+ret false
+end
+if ne mc_blob a c code 16 l 1 6
+ret false
+end
+ret true
+end
+fn main to int
+a = new uchar 16384 0
+b = new uchar 16384 0
+h = new uchar 32 0
+mf_fill edit a
+if ne mc_valid a 11264 0
+ret 10
+end
+if not mf_boundroot a
+ret 23
+end
+if not mf_payload a
+ret 24
+end
+mf_copy a edit b
+if ne mc_bind a b 11264 edit h 0
+ret 11
+end
+if mf_zero h
+ret 12
+end
+if not mf_custody a h
+ret 13
+end
+if not mf_contexts a
+ret 14
+end
+if not mf_scalars a edit b edit h
+ret 15
+end
+if not mf_digests a edit b edit h
+ret 16
+end
+if not mf_table a edit b edit h
+ret 17
+end
+if not mf_pack a edit b
+ret 18
+end
+note Equally malformed expected+observed must refuse, not compare equal and succeed.
+mc_put edit a 13 8
+mf_copy a edit b
+if ne mc_bind a b 11264 edit h 2
+ret 19
+end
+if not mf_zero h
+ret 20
+end
+mf_fill edit a
+mf_copy a edit b
+if ne mc_bind a b 11263 edit h 1
+ret 21
+end
+if not mf_zero h
+ret 22
+end
+mf_fifteen edit a
+if ne mc_valid a 11264 0
+ret 25
+end
+if not mf_boundroot a
+ret 26
+end
+if not mf_table a edit b edit h
+ret 27
+end
+note Explicit ordered table reorder, duplicate and global-map base shift controls.
+mf_copy a edit b
+mc_put edit b 384 14
+mc_put edit b 392 0
+if ne mc_bind a b 11264 edit h 2
+ret 28
+end
+mf_copy a edit b
+mc_put edit b 112 2
+if ne mc_bind a b 11264 edit h 2
+ret 29
+end
+wrote = write 1 mf_ok 0 len mf_ok
+if ne wrote long len mf_ok
+ret 74
+end
+ret 0
+end
