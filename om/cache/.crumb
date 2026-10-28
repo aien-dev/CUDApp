@@ -1,0 +1,20 @@
+{
+  "extensions": {
+    "generated": {
+      "children": [],
+      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiled_at": "2026-10-28T12:01:35Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:fa49c1c9e712998e3490d29b2402128ae58a131d89c18b0af07ca50e317c86e3",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 8,
+      "generated_at_commit": "f0909113243674eeda1cf7539710ac425978e2f1",
+      "source_tree": "sha256:2e6b0771bc8a42113e36fe9319e577f44aa1ef05d878ebc1a3f45d1898a6e571"
+    }
+  },
+  "layer": "realization",
+  "name": "kernel-cache",
+  "purpose": "Canonical artifact validation and bounded existing-session residency policy",
+  "schema_version": "1.0.0"
+}
