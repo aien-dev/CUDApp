@@ -37,7 +37,7 @@ static int frame_load(const char *path,int staged) {
         i->is_uniform=q[7]&1;i->predicate_p0=(q[7]>>1)&1;i->predicate_not=(q[7]>>2)&1;
         i->bar_reg=(uint8_t)(q[7]>>8);i->dst_subreg=(uint8_t)(q[7]>>16);i->src1_subreg=(uint8_t)(q[7]>>24);i->src2_subreg=(uint8_t)(q[7]>>32);i->src3_subreg=(uint8_t)(q[7]>>40);
     }
-    /* Code is independently compared/disassembled by run.py, never interpreted here. */
+    /* Code is independently compared/disassembled by the native Omega conductor, never interpreted here. */
     { size_t bytes=0;while(fgetc(f)!=EOF) bytes++;
       if(ferror(f)||bytes<native_program.count*16||bytes>16384) goto done; }
     ok=1;
