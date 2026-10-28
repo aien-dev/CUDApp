@@ -1,0 +1,77 @@
+OMEGA_OMC="<pinned-omega>/seed/out/omc" OMEGA_BRIDGE="<pinned-bridge>" sh om/units.sh --check
+generating native unit bw_enc_sm121
+generating native unit cubin_elf
+generating native unit repack
+generating native unit quant_wire
+generating native unit compose
+generating native unit encode
+generating native unit cache_runtime
+generating native unit lease
+generating native unit slotrev
+generating native unit command
+generating native unit validate
+generating native unit digest
+generating native unit code_digest
+generating native unit templates
+generating native unit graph
+generating native unit context_lookup
+generating native unit binding
+generating native unit moe_plan
+generating native unit moe_group
+generating native unit moe_ids32
+generating native unit moe_maps32
+generating native unit moe_segs32
+generating native unit moe_windows
+generating native unit moe_admission
+generating native unit closure_pack
+generating native unit closure_bind
+generating native unit closure_blob
+generating native unit closure_cover
+generating native unit closure_intent
+generating native unit closure_seal
+generating native unit closure_code
+generating native unit closure_launch
+generating native unit closure_dir
+generating native unit closure_alloc
+generating native unit closure_series
+generating native unit revision
+generating native unit epoch
+PASS src/{cudapp_om_units.c,cudapp_freest_units.c,cudapp_native.h,cudapp_om_units.ident} regenerate byte for byte
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -pthread -Isrc -o build-c697-final/om-encoder/codegen_om tests/test_omega_codegen_freestanding.c src/omega_blackwell_codegen.c src/omega_blackwell_matmul.c src/sha256.c src/cudapp_om_units.c
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -pthread -Isrc -DCUDAPP_MIGRATION_PENDING_ENCODER_DIFF -o build-c697-final/om-encoder/codegen_diff tests/test_omega_codegen_freestanding.c \
+	src/omega_blackwell_codegen.c src/omega_blackwell_matmul.c src/sha256.c src/cudapp_om_units.c
+gcc -std=gnu11 -O2 -Wall -Wextra -Werror -pthread -Isrc -DCUDAPP_MIGRATION_PENDING_ENCODER_DIFF -DCUDAPP_ENCODER_DIFF_SELFTEST -o build-c697-final/om-encoder/codegen_diff_red \
+	tests/test_omega_codegen_freestanding.c src/omega_blackwell_codegen.c src/omega_blackwell_matmul.c src/sha256.c src/cudapp_om_units.c
+build-c697-final/om-encoder/codegen_om --golden
+PASS: hosted golden-word fixtures through the .om encoder (0 failing checks)
+rm -f build-c697-final/om-encoder/diff.log
+CUDAPP_ENCODER_DIFF_LOG=build-c697-final/om-encoder/diff.log build-c697-final/om-encoder/codegen_diff --golden
+PASS: hosted golden-word fixtures through the .om encoder (0 failing checks)
+CUDAPP_ENCODER_DIFF_LOG=build-c697-final/om-encoder/diff.log build-c697-final/om-encoder/codegen_diff --dump > build-c697-final/om-encoder/dump_diff.txt
+encoder diff: .om and C byte-identical on 68 golden instructions and 14 fixture programs
+red check: one flipped bit aborts the encoder diff, as it must
+sh tools/test_bw_spec_encoder.sh
+[spec-encoder] 1. Compiling and running standalone specification assertions...
+[spec-encoder] PASS: native unit test compiled (51948 bytes) and passed all internal assertions (exit 0)
+[spec-encoder] 2. Building temporary reference runner for bw_enc_sm121.om...
+[spec-encoder] 3. Parsing authoritative specification from bw_spec_sm121.om...
+[spec-encoder] Parsed 63 instruction forms from single specification.
+[spec-encoder] 4. Running verification (a): byte-identity on boundary corpus against bw_enc_sm121.om...
+[spec-encoder] PASS: (a) spec-driven encoder matches bw_enc_sm121.om on all 461 boundary cases byte-for-byte!
+[spec-encoder] 5. Running verification (b): decode(encode(x)) == x round trip...
+[spec-encoder] PASS: (b) decode(encode(x)) == x passed on all 461 corpus instructions!
+[spec-encoder] 6. Running verification (c): nvdisasm disassembler oracle cross-check...
+[spec-encoder]   oracle verified: op 0 -> /*0000*/                   NOP;
+[spec-encoder]   oracle verified: op 8 -> /*0000*/                   IMAD R0, R1, R2, R3 ;
+[spec-encoder]   oracle verified: op 30 -> /*0000*/                   FADD R4, R5, R6 ;
+[spec-encoder]   oracle verified: op 11 -> /*0000*/                   LDG.E R10, desc[UR5][R12.64] ;
+[spec-encoder]   oracle verified: op 46 -> /*0000*/                   BRA 0x100 ;
+[spec-encoder] PASS: (c) nvdisasm oracle matches mnemonic and instruction layout on sample instructions!
+[spec-encoder] 7. Running verification (d): negative controls...
+[spec-encoder] PASS: mutant spec with shifted field offset fails byte identity (mutant=0x57202 vs ref=0x57201)
+[spec-encoder] PASS: out-of-range register 256 refused with declared error E_RANGE (code 2)
+[spec-encoder] PASS: invalid word pattern refused with declared error E_NOMAT (code 3)
+[spec-encoder] PASS: corrupted expected byte fails byte-identity comparison (exit 1)
+[spec-encoder] PASS: audit raw ranges, absent RZ parity, cold decode, active-operand mutant, read error and truncated records
+FAIL: native bridge source pin mismatch
+make: *** [mk/om-encoder.mk:65: test-om-spec-encoder] Error 1

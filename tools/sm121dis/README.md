@@ -63,3 +63,18 @@ generated binding and NVIDIA oracle identities. The existing producer corpus
 does not exercise op21; the new single-op fixture does. The generated encoder
 and host library bytes change as expected, but no deployed artifact is rebuilt
 or loaded. Corpus equality is not cache-behavior or device qualification.
+
+The final canonical replay uses baseline
+`c6977b4906229fe83f41103b7eff65b64a0986d6` and corrected implementation
+`3c163287d27b6e5a5f5b90c15b61ac83d8f26e2d`. Its complete inventories,
+commands, logs, source identities and review are under
+`evidence/CUDAPP-SM121-MMIO/c697-final-host/`.
+All 773 existing SASS kernels and all four captured cubins remain byte-identical.
+Both artifact captures pass all 47 checks. Exact-op and wrong-EF controls,
+canonical-baseline refusal, binding regeneration, golden encoder parity and
+specification checks pass with the canonical bridge pin
+`0c4cb9ff980af278890b231b994eaede4dc7621c`.
+The original `corpus-impact.json` remains immutable historical evidence, not
+the canonical replay. The complete host suite and device execution are not
+claimed by this targeted replay. The review is a source review, not independent
+hardware qualification.
