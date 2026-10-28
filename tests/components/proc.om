@@ -1,0 +1,633 @@
+om2
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Concatenate into the conductor's om2 program; this unit has no main.
+note Host forms checked with omega lookup at omega-mv e5b32567.
+note Compiler SHA256 2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f.
+note Tool paths are configured by Main; each mutable count is a ulong 1 pool.
+global HOm uchar 1024
+global HOn ulong 1
+global HEnc uchar 1024
+global HEn ulong 1
+global HDis uchar 1024
+global HDn ulong 1
+global HCc uchar 1024
+global HCn ulong 1
+global HSha uchar 1024
+global HSn ulong 1
+global HArg uchar 4096
+global HLen ulong 1
+global HCnt ulong 1
+global HSrc uchar 1048576
+global HUsed ulong 1
+text HPFail "component conductor refused\n"
+text HPComp "build/components/compile.om"
+
+text HPExec "component exec refusal:"
+text HPExp " expected="
+text HPSt0 " wait[0]="
+text HPSt1 " wait[1]="
+text HPSt2 " wait[2]="
+text HPSt3 " wait[3]="
+text HPPipe " exec-pipe="
+text HPByte " exec-byte="
+text HPArg " argv0="
+text HPNew "\n"
+text HPMinus "-"
+
+fn hp_require ok bool to void
+if not ok
+note Diagnostics must not contaminate the JSON receipt on stdout.
+r = write 2 HPFail 0 len HPFail
+exit 90
+end
+end
+
+fn hp_path a view uchar * n ulong to void
+hp_require and gt n 0 le n len a
+hp_require le n 4095
+for i ulong n
+hp_require ne get a i 0
+end
+end
+
+fn hp_start a view uchar * n ulong to void
+hp_path a n
+put HLen 0 2
+put HCnt 0 0
+put HArg 0 0
+put HArg 1 0
+hp_arg a n
+end
+
+fn hp_arg a view uchar * n ulong to void
+hp_require le n len a
+hp_require le n 4092
+hp_require lt get HCnt 0 64
+p = get HLen 0
+hp_require and ge p 2 le p 4096
+hp_require le add n 2 sub 4096 p
+for i ulong n
+hp_require ne get a i 0
+end
+put HArg p uchar and n 255
+put HArg add p 1 uchar shr n 8
+for i ulong n
+put HArg add add p 2 i get a i
+end
+put HLen 0 add add p 2 n
+c = add get HCnt 0 1
+put HCnt 0 c
+put HArg 0 uchar and c 255
+put HArg 1 uchar shr c 8
+end
+
+note Main can select tools without borrowing a global pool as a function argument.
+fn hp_tool which ulong to void
+p = new uchar 1024 0
+n = ulong 0
+hp_require le which 3
+if eq which 0
+n = get HOn 0
+hp_require le n 1024
+for i ulong n
+put p i get HOm i
+end
+end
+if eq which 1
+n = get HCn 0
+hp_require le n 1024
+for i ulong n
+put p i get HCc i
+end
+end
+if eq which 2
+n = get HDn 0
+hp_require le n 1024
+for i ulong n
+put p i get HDis i
+end
+end
+if eq which 3
+n = get HSn 0
+hp_require le n 1024
+for i ulong n
+put p i get HSha i
+end
+end
+hp_start p n
+end
+
+note Retry budgets are finite; exhausting one refuses instead of reporting success.
+fn hp_get fd int b edit uchar * off ulong n ulong to long
+for tries ulong 64
+r = read fd b off n
+if ne r -4
+ret r
+end
+end
+hp_require false
+ret -4
+end
+
+fn hp_put fd int b view uchar * off ulong n ulong to long
+for tries ulong 64
+r = write fd b off n
+if ne r -4
+ret r
+end
+end
+hp_require false
+ret -4
+end
+
+fn hp_open p view uchar * n ulong flags int mode int to int
+hp_path p n
+for tries ulong 64
+r = fopen p 0 n flags mode
+if ne r -4
+hp_require ge r 0
+ret int r
+end
+end
+hp_require false
+ret -1
+end
+
+note On Linux close releases the descriptor even when it reports EINTR; never retry it.
+fn hp_close fd int to void
+r = fclose fd
+hp_require eq r 0
+end
+
+note Fill one chunk; independent short-read boundaries cannot create false mismatches.
+fn hp_fill fd int b edit uchar * off ulong n ulong to ulong
+hp_require le n 4096
+hp_require le off len b
+hp_require le n sub len b off
+used = ulong 0
+while lt used n bound 4096
+r = hp_get fd b add off used sub n used
+hp_require ge r 0
+if eq r 0
+ret used
+end
+hp_require le ulong r sub n used
+used = add used ulong r
+end
+ret used
+end
+
+fn hp_wpart fd int b view uchar * off ulong n ulong to void
+hp_require le n 4096
+hp_require le off len b
+hp_require le n sub len b off
+used = ulong 0
+while lt used n bound 4096
+r = hp_put fd b add off used sub n used
+hp_require gt r 0
+hp_require le ulong r sub n used
+used = add used ulong r
+end
+end
+
+fn hp_write path view uchar * n ulong b view uchar * used ulong to void
+hp_require le used len b
+fd = hp_open path n or int 577 524288 420
+off = ulong 0
+note Each outer pass completes up to 4096 bytes, even under one-byte short writes.
+while lt off used bound 999999
+step = sub used off
+if gt step 4096
+step = 4096
+end
+hp_wpart fd b off step
+off = add off step
+end
+hp_close fd
+end
+
+fn hp_read path view uchar * n ulong b edit uchar * cap ulong to ulong
+probe = new uchar 1 0
+hp_require le cap len b
+fd = hp_open path n 524288 0
+used = ulong 0
+while lt used cap bound 999999
+step = sub cap used
+if gt step 4096
+step = 4096
+end
+k = hp_fill fd b used step
+used = add used k
+if lt k step
+hp_close fd
+ret used
+end
+end
+note Exact-capacity input is accepted only after a separate EOF probe.
+r = hp_get fd probe 0 1
+hp_require eq r 0
+hp_close fd
+ret used
+end
+
+fn hp_cat path view uchar * n ulong to void
+b = new uchar 4096 0
+hp_require le get HUsed 0 len HSrc
+fd = hp_open path n 524288 0
+for chunk ulong 999999
+k = hp_fill fd b 0 4096
+p = get HUsed 0
+hp_require le k sub len HSrc p
+for i ulong k
+put HSrc add p i get b i
+end
+put HUsed 0 add p k
+if lt k 4096
+hp_close fd
+ret
+end
+end
+hp_require false
+end
+
+fn hp_fdok fd int to void
+b = new uchar 128 0
+for tries ulong 64
+r = fstat fd b 0 128
+if ne r -4
+hp_require eq r 0
+ret
+end
+end
+hp_require false
+end
+
+note Copy into an unused descriptor above stderr, without changing the parent's table.
+note Called only after fork; this single-threaded child performs no concurrent opens.
+fn hp_save fd int to int
+b = new uchar 128 0
+for cand ulong 65536
+if ge cand 3
+r = fstat int cand b 0 128
+if eq r -4
+continue
+end
+if eq r -9
+for tries ulong 64
+r = dupfd fd int cand 524288
+if ne r -4
+if eq r long cand
+ret int cand
+end
+ret -1
+end
+end
+ret -1
+end
+if ne r 0
+ret -1
+end
+end
+end
+ret -1
+end
+
+note A failed child writes the exec-error pipe and exits 127, never an expected tool exit.
+fn hp_childbad errfd int to void
+b = new uchar 1 1
+for tries ulong 64
+r = write errfd b 0 1
+if eq r 1
+exit 127
+end
+if ne r -4
+break
+end
+end
+note If the error cannot be reported, force a signaled status that the parent refuses.
+r = killpid int getpid 9
+exit 127
+end
+
+fn hp_dupto fd int target int errfd int to void
+if eq fd target
+ret
+end
+for tries ulong 64
+r = dupfd fd target 0
+if ne r -4
+if ne r long target
+hp_childbad errfd
+end
+ret
+end
+end
+hp_childbad errfd
+end
+
+fn hp_child infd int outfd int rd int wr int to void
+errfd = wr
+if lt wr 3
+errfd = hp_save wr
+if lt errfd 0
+hp_childbad wr
+end
+r = fclose wr
+if ne r 0
+hp_childbad errfd
+end
+end
+r = fclose rd
+if ne r 0
+hp_childbad errfd
+end
+saved = int -1
+if ge infd 0
+saved = hp_save infd
+if lt saved 0
+hp_childbad errfd
+end
+end
+note Preserve stdin first, so even the input=1/output=0 swap is well-defined.
+if ge outfd 0
+if eq outfd 1
+temp = hp_save outfd
+if lt temp 0
+hp_childbad errfd
+end
+hp_dupto temp 1 errfd
+r = fclose temp
+if ne r 0
+hp_childbad errfd
+end
+else
+hp_dupto outfd 1 errfd
+end
+end
+if ge saved 0
+hp_dupto saved 0 errfd
+r = fclose saved
+if ne r 0
+hp_childbad errfd
+end
+end
+if gt infd 2
+r = fclose infd
+if ne r 0
+hp_childbad errfd
+end
+end
+if and gt outfd 2 ne outfd infd
+r = fclose outfd
+if ne r 0
+hp_childbad errfd
+end
+end
+r = execprog HArg 0 get HLen 0
+hp_childbad errfd
+end
+
+note Validate the complete canonical list before execprog can trap in a child.
+fn hp_args to void
+total = get HLen 0
+count = get HCnt 0
+hp_require and ge total 4 le total 4096
+hp_require and ge count 1 le count 64
+head = or ulong get HArg 0 shl ulong get HArg 1 8
+hp_require eq head count
+p = ulong 2
+for record ulong count
+hp_require le p sub total 2
+n = or ulong get HArg p shl ulong get HArg add p 1 8
+p = add p 2
+hp_require le n sub total p
+if eq record 0
+hp_require gt n 0
+end
+for i ulong n
+hp_require ne get HArg add p i 0
+end
+p = add p n
+end
+hp_require eq p total
+end
+
+
+fn hp_u32 b view uchar * off ulong to ulong
+v = ulong 0
+for i ulong 4
+v = or v shl ulong get b add off i mul i 8
+end
+ret v
+end
+
+fn hp_wait pid long st edit uchar 4 to void
+for tries ulong 64
+r = waitpid int pid st 0 4 0
+if ne r -4
+hp_require eq r pid
+ret
+end
+end
+hp_require false
+end
+
+fn hp_say label view uchar * to void
+hp_wpart 2 label 0 len label
+end
+
+fn hp_diag label view uchar * value long to void
+digits = new uchar 32 0
+hp_say label
+v = value
+if lt v 0
+hp_say HPMinus
+v = neg v
+end
+n = hp_num ulong v digits
+hp_wpart 2 digits 0 n
+end
+
+fn hp_argv0 to void
+hp_say HPArg
+n = or ulong get HArg 2 shl ulong get HArg 3 8
+used = ulong 0
+while lt used n bound 4096
+r = long -4
+for tries ulong 64
+r = write 2 HArg add used 4 sub n used
+if ne r -4
+break
+end
+end
+if le r 0
+ret
+end
+used = add used ulong r
+end
+hp_say HPNew
+end
+
+fn hp_result expected long st view uchar 4 piperc long marker uchar to void
+ok = eq piperc 0
+ok = and ok eq get st 0 0
+ok = and ok eq get st 2 0
+ok = and ok eq get st 3 0
+ok = and ok eq long get st 1 expected
+if not ok
+hp_say HPExec
+hp_diag HPExp expected
+hp_diag HPSt0 long get st 0
+hp_diag HPSt1 long get st 1
+hp_diag HPSt2 long get st 2
+hp_diag HPSt3 long get st 3
+hp_diag HPPipe piperc
+hp_diag HPByte long marker
+hp_argv0
+end
+hp_require ok
+end
+
+fn hp_exec infd int outfd int expected long to void
+ends = new uchar 8 0
+st = new uchar 4 0
+probe = new uchar 1 0
+hp_require and ge expected 0 le expected 255
+hp_args
+if ge infd 0
+hp_fdok infd
+end
+if ge outfd 0
+hp_fdok outfd
+end
+r = long -4
+for tries ulong 64
+r = pipefds ends 0 8 524288
+if ne r -4
+break
+end
+end
+hp_require eq r 0
+rd = int hp_u32 ends 0
+wr = int hp_u32 ends 4
+pid = fork
+if eq pid 0
+hp_child infd outfd rd wr
+exit 127
+end
+if lt pid 0
+hp_close rd
+hp_close wr
+hp_require false
+end
+hp_close wr
+hp_wait pid st
+r = hp_get rd probe 0 1
+hp_close rd
+note Error-pipe EOF and all four wait-status bytes are checked together.
+hp_result expected st r get probe 0
+end
+
+note The global source is written directly, never passed across a global-borrow boundary.
+fn hp_src fd int to void
+hp_require le get HUsed 0 len HSrc
+off = ulong 0
+while lt off get HUsed 0 bound 999999
+step = sub get HUsed 0 off
+if gt step 4096
+step = 4096
+end
+used = ulong 0
+while lt used step bound 4096
+r = long -4
+for tries ulong 64
+r = write fd HSrc add off used sub step used
+if ne r -4
+break
+end
+end
+hp_require gt r 0
+hp_require le ulong r sub step used
+used = add used ulong r
+end
+off = add off step
+end
+end
+
+fn hp_build path view uchar * n ulong to void
+hp_path path n
+fd = hp_open HPComp len HPComp or int 577 524288 420
+hp_src fd
+hp_close fd
+infd = hp_open HPComp len HPComp 524288 0
+outfd = hp_open path n or int 577 524288 420
+hp_tool 0
+hp_exec infd outfd 0
+hp_close infd
+hp_close outfd
+for tries ulong 64
+r = chmod path 0 n 493
+if ne r -4
+hp_require eq r 0
+ret
+end
+end
+hp_require false
+end
+
+fn hp_equal a view uchar * b view uchar * used ulong to bool
+hp_require le used len a
+hp_require le used len b
+for i ulong used
+if ne get a i get b i
+ret false
+end
+end
+ret true
+end
+
+fn hp_cmp a view uchar * an ulong b view uchar * bn ulong to bool
+left = new uchar 4096 0
+right = new uchar 4096 0
+af = hp_open a an 524288 0
+bf = hp_open b bn 524288 0
+for chunk ulong 999999
+ac = hp_fill af left 0 4096
+bc = hp_fill bf right 0 4096
+if ne ac bc
+hp_close af
+hp_close bf
+ret false
+end
+if not hp_equal left right ac
+hp_close af
+hp_close bf
+ret false
+end
+if lt ac 4096
+hp_close af
+hp_close bf
+ret true
+end
+end
+hp_require false
+ret false
+end
+
+fn hp_num value ulong dst edit uchar 32 to ulong
+rev = new uchar 32 0
+v = value
+n = ulong 0
+while true bound 32
+put rev n uchar add rem v 10 48
+n = add n 1
+v = div v 10
+if eq v 0
+break
+end
+end
+for i ulong n
+put dst i get rev sub sub n 1 i
+end
+ret n
+end

@@ -1,0 +1,58 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note cfg16:family1direct/2rowpipe/3staged,K,LB,rows-or-MT,warps,component,mutant0,reserved0.
+note Native component concatenation shares one instruction array and one allocation namespace.
+note No component performs physical allocation. One effect stream covers all boundaries.
+note out8:count,peakGPR,peakUGPR,shared,virtualGPR,virtualUGPR,reserved0,reserved0.
+fn bc_compose cfg view ulong 16 ins edit ulong 8192 m edit ulong 2048 phys edit ulong 288 out edit ulong 8 to uint
+spec = new ulong 16 0
+small = new ulong 8 0
+st = new ulong 4 0
+rs = new ulong 4 0
+for k ulong 8
+put out k 0
+end
+for k ulong 10
+if ne get cfg add k 6 0
+ret 1
+end
+end
+family = get cfg 0
+if or lt family 1 gt family 3
+ret 1
+end
+for k ulong 5
+put spec k get cfg add k 1
+put small k get cfg add k 1
+end
+rc = uint 1
+if eq family 1
+rc = bc_project small ins m st
+end
+if eq family 2
+if ne get cfg 5 0
+ret 1
+end
+rc = bc_rowpipe small ins m st
+end
+if eq family 3
+rc = bc_staged spec ins m st
+end
+if ne rc 0
+ret rc
+end
+rc = bc_ircheck ins get st 0 m
+if ne rc 0
+ret add rc 8
+end
+rc = bc_regalloc ins get st 0 m phys rs 128
+if ne rc 0
+ret add rc 16
+end
+put out 0 get st 0
+put out 1 get rs 1
+put out 2 get rs 2
+put out 3 get st 3
+put out 4 get st 1
+put out 5 get st 2
+ret 0
+end

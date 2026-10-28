@@ -47,7 +47,9 @@
 #include <string.h>
 
 #define WS_WARP 32
+#ifndef WS_MAX_THREADS
 #define WS_MAX_THREADS 256
+#endif
 #define WS_MAX_WARPS (WS_MAX_THREADS / WS_WARP)
 #define WS_MAX_FRAGS 64
 #define WS_NBAR BW_RECONV_MAX_BAR

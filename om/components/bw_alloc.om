@@ -1,0 +1,200 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Native migration of omega_bw_ir_append/regalloc_solve at CUDApp b759afc3.
+note Existing BlackwellIR serializer unchanged:8ulong/insn,1024insn,256GPR+32UGPR.
+note meta2048: widths0..287,first288..575,last576..863,phys864..1151,
+note active1152..1439,order1440..1695. Unallocated width0; no pointer identity.
+const BCNONE ulong 18446744073709551615
+fn bc_touch m edit ulong 2048 v ulong at ulong to void
+if eq get m add v 288 BCNONE
+put m add v 288 at
+end
+put m add v 576 at
+end
+fn bc_intervals ins view ulong 8192 n ulong m edit ulong 2048 to uint
+for v ulong 288
+put m add v 288 BCNONE
+put m add v 576 BCNONE
+put m add v 1152 0
+end
+for i ulong n
+b = mul i 8
+f = get ins add b 7
+for k ulong 5
+v = get ins add add b k 1
+if ne v BCNONE
+u = ulong 0
+if eq k 4
+u = 256
+else
+if and eq k 0 ne and f 1 0
+u = 256
+end
+end
+if ge v sub ulong 288 u
+ret 1
+end
+v = add v u
+if eq get m v 0
+ret 1
+end
+bc_touch m v i
+end
+end
+end
+note Explicit loop extension: every backward BRA extends loop-carried intervals.
+for i ulong n
+if eq get ins mul i 8 46
+raw = and get ins add mul i 8 6 4294967295
+if ge raw 2147483648
+delta = sub ulong 4294967296 raw
+if gt delta i
+ret 1
+end
+start = sub i delta
+for v ulong 256
+first = get m add v 288
+last = get m add v 576
+if ne first BCNONE
+if and lt first start ge last start
+if lt last i
+put m add v 576 i
+end
+end
+end
+end
+end
+end
+end
+ret 0
+end
+fn bc_release m edit ulong 2048 busy edit uchar 246 first ulong lim ulong to void
+for v ulong 256
+if ne get m add v 1152 0
+if lt get m add v 576 first
+p = get m add v 864
+for k ulong get m v
+if lt add p k lim
+put busy add p k 0
+end
+end
+put m add v 1152 0
+end
+end
+end
+end
+fn bc_find busy view uchar 246 width ulong lim ulong to ulong
+for p ulong lim
+if ge p 2
+if eq rem p width 0
+if le add p width lim
+ok = true
+for k ulong width
+if ne get busy add p k 0
+ok = false
+end
+end
+if ok
+ret p
+end
+end
+end
+end
+end
+ret BCNONE
+end
+fn bc_allocate m edit ulong 2048 phys edit ulong 288 lim ulong to ulong
+busy = new uchar 246 0
+count = ulong 0
+peak = ulong 2
+for v ulong 256
+if ne get m v 0
+if ne get m add v 288 BCNONE
+put m add count 1440 v
+count = add count 1
+else
+put phys v 2
+end
+end
+end
+note Preserve the reference's exact deterministic pairwise sort, including ties.
+for i ulong count
+for j ulong count
+if gt j i
+a = get m add i 1440
+b = get m add j 1440
+if gt get m add a 288 get m add b 288
+put m add i 1440 b
+put m add j 1440 a
+end
+end
+end
+end
+for i ulong count
+v = get m add i 1440
+bc_release m busy get m add v 288 lim
+w = get m v
+p = bc_find busy w lim
+if eq p BCNONE
+ret 0
+end
+for k ulong w
+put busy add p k 1
+end
+put m add v 864 p
+put m add v 1152 1
+put phys v p
+top = sub add p w 1
+if gt top peak
+peak = top
+end
+end
+ret add peak 1
+end
+fn bc_regalloc ins view ulong 8192 n ulong m edit ulong 2048 phys edit ulong 288 stats edit ulong 4 lim ulong to uint
+if or eq n 0 gt n 1024
+ret 1
+end
+if or lt lim 3 gt lim 246
+ret 1
+end
+for v ulong 288
+w = get m v
+if and ne w 0 and ne w 1 and ne w 2 ne w 4
+ret 1
+end
+if and ge v 256 gt w 2
+ret 1
+end
+put phys v BCNONE
+end
+rc = bc_intervals ins n m
+if ne rc 0
+ret rc
+end
+peak = bc_allocate m phys lim
+if eq peak 0
+ret 2
+end
+cur = ulong 4
+for uv ulong 32
+v = add uv 256
+w = get m v
+if ne w 0
+if eq w 2
+if ne rem cur 2 0
+cur = add cur 1
+end
+end
+if gt add cur w 32
+ret 2
+end
+put phys v cur
+cur = add cur w
+end
+end
+put stats 0 n
+put stats 1 peak
+put stats 2 cur
+put stats 3 0
+ret 0
+end
