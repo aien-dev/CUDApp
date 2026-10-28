@@ -2,10 +2,7 @@ note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 note Private retained-snapshot consistency checker, NOT artifact admission authority.
 note Existing successful admission supplies bytes/name/actualid; selected immutable bundle supplies launch/expectedid.
 note Concatenate digest.om and Composer realize.om dependencies before this unit.
-text kt_info ".nv.info."
-text kt_text ".text."
-text kt_bank ".nv.constant0."
-text kt_elfn "ELF"
+note Function image has no text globals; prefix words reuse cubin_elf.om Wolfram-filed constants.
 fn kt_range n ulong off ulong count ulong to bool
 if gt off n
 ret false
@@ -28,21 +25,30 @@ ret v
 end
 fn kt_plen kind ulong to ulong
 if eq kind 0
-ret len kt_info
+ret 9
 end
 if eq kind 1
-ret len kt_text
+ret 6
 end
-ret len kt_bank
+ret 14
+end
+fn kt_pbyte word ulong i ulong to uchar
+ret uchar and shr word mul i 8 255
 end
 fn kt_pref kind ulong i ulong to uchar
 if eq kind 0
-ret get kt_info i
+if lt i 8
+ret kt_pbyte 8027224783864622638 i
+end
+ret 46
 end
 if eq kind 1
-ret get kt_text i
+ret kt_pbyte 51077770998830 i
 end
-ret get kt_bank i
+if lt i 8
+ret kt_pbyte 8317708033571843630 i
+end
+ret kt_pbyte 50785646698868 sub i 8
 end
 note ctx12: filelen shoff shcount stroff strlen infohdr infooff infolen symoff symlen symcount reserved.
 fn kt_named b view uchar 32768 ctx view ulong 12 off ulong obs view uchar 2048 count ulong kind ulong to bool
@@ -72,7 +78,7 @@ if ne get b 0 127
 ret -21
 end
 for j ulong 3
-if ne get b add j 1 get kt_elfn j
+if ne get b add j 1 kt_pbyte 4684026196722992511 add j 1
 ret -21
 end
 end

@@ -1,0 +1,196 @@
+{
+  "schema": "cudapp-native-template-function-host-evidence/1",
+  "state": "EXERCISED_HOST_ONLY",
+  "issue": "aien-dev/CUDApp#158",
+  "parent_issue": "aien-dev/CUDApp#26",
+  "source_base_commit": "79d17381f9489922828f4555007ee1af150b4568",
+  "compiler_revision": "e5b32567a7aff3ce594e3254a622a846a6cd190b",
+  "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+  "diagnosis": {
+    "reported_failure": "NativeIntegrate production quant+realize+digest+templates bare function compile EOF error9; original program fixture passed",
+    "pinned_source": "seed/omc/omc.om fnstore rejects global pool/text in function mode; only numeric const allowed",
+    "fix": "Remove all four top-level text globals; use existing Wolfram-filed om/cubin/cubin_elf.om packed prefix constants through pure kt_pbyte, no allocations or ABI changes",
+    "original_program_receipt": "templates-evidence.json preserved unchanged; not production function-mode proof"
+  },
+  "source_sha256": {
+    "/home/drakestapleton/fix/quant-schema/om/quant/quant.om": "44bce96f3c274401e19a71b835814d69caf2bea8c2b1f4f43616c7c121232f09",
+    "/home/drakestapleton/fix/kernel-compose/om/components/realize.om": "990ee91cf164d5a77bfa2918ba77828550fc6d191abf40dd293523dda359931c",
+    "/home/drakestapleton/fix/kernel-cache/om/cache/digest.om": "b0e49da9e6c146da0d040476d84bff8d93486c563e19ef8f1d731b1ffb15c051",
+    "/home/drakestapleton/fix/kernel-cache/om/cache/templates.om": "08b8f9aad44cf64bc74653ceb314c78109bbaf59cd3d0ff2132fbc29d32f27c3",
+    "/home/drakestapleton/fix/kernel-cache/om/cache/templates_fixture.om": "6358819a7f92bb3f450fc6a53c0d034d5b717a0b3d2d61453f555cde9a3d94f4",
+    "/home/drakestapleton/fix/kernel-cache/om/cache/templates_test.om": "f79baae08b50fed4ba1d97abefc577c6587d8528ed69a769ead30d653653eb2a"
+  },
+  "function_compile": {
+    "exit": 0,
+    "binary_bytes": 40832,
+    "binary_sha256": "11b5bee6e72867e5a14cd221b5d9afb5053b3cfad9540bc4edd0b83c430e4724",
+    "source_sha256": "ccfa33ec410313904556fbc473ef0259672c2c6a49761aa684aeb7265a1ecbc6",
+    "no_main": true,
+    "elf": false
+  },
+  "mcp_function_compile": {
+    "ok": true,
+    "binary_bytes": 40832,
+    "sha256": "11b5bee6e72867e5a14cd221b5d9afb5053b3cfad9540bc4edd0b83c430e4724",
+    "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+    "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+  },
+  "function_mode_negative_control": {
+    "mutation": "Prefix one otherwise-unused top-level text global to the same production unit",
+    "source_sha256": "340b61ec57f51f7b5d9f6bc3a5a6b8735b77115c1e595ea7d34df99515bf4f4a",
+    "exit": 9,
+    "stderr": "omc: line 1632: error 9\n",
+    "caught": true
+  },
+  "portable_fixture": {
+    "compile_exit": 0,
+    "binary_bytes": 53632,
+    "binary_sha256": "4d8d6ff3b42d8198c562eaf5b61e14a1c5553c11876d684401e95c95869bc798",
+    "source_sha256": "d54235ec4a16bb126febbb83c514d4b945c3a6be4c3a119b1dd9fbe4fbdd1804",
+    "run_exit": 0,
+    "bytes": 38976,
+    "frame_sha256": "eb79b2415985a2e683d39096d1100e36a07adef965d52a2c631c7fba4006d69f",
+    "byte_identical_independent_fixture": true
+  },
+  "native_test": {
+    "compile_exit": 0,
+    "binary_bytes": 51760,
+    "binary_sha256": "b498bed2a7af87fae19d8a6c27db8b551934eed3212ea33381bc85c78cf41d20",
+    "source_sha256": "baa99410a87bf6608fe71870cd08111ee1f8718e8ce8a1c48fe5707ee8a31d6f",
+    "exit": 0,
+    "stderr": "",
+    "assertions": 38
+  },
+  "guard_mutants": [
+    {
+      "compile_exit": 0,
+      "binary_bytes": 51700,
+      "binary_sha256": "127c7f5aebad07244511525e76b3c727f2ef2f5eb6364d8c32af808538e13d11",
+      "source_sha256": "f831d3f3677a8cb11b1487d03bedcdbaca848a475a38c803ff949cc46d32376a",
+      "name": "manifest_id_comparison",
+      "exit": 2,
+      "expected_exit": 2,
+      "caught": true,
+      "baseline_reached": true
+    },
+    {
+      "compile_exit": 0,
+      "binary_bytes": 51676,
+      "binary_sha256": "ad71d14105e7bde52607d69f35969015894bafe59091ee2c124d955625408947",
+      "source_sha256": "b6c4a07792f7e0e82753c7a741037a2e0cb942e896272f16157a00dcef1ba655",
+      "name": "abi_prefix_sha",
+      "exit": 30,
+      "expected_exit": 30,
+      "caught": true,
+      "baseline_reached": true
+    },
+    {
+      "compile_exit": 0,
+      "binary_bytes": 51652,
+      "binary_sha256": "f701866ee2a22d9c59b527fba72191377dfd7f399f0603830fe7d443a6e48540",
+      "source_sha256": "e6838f49945749d3cd518e42862badab2e8fc512020fc4738ab4105db10b0a00",
+      "name": "cbank_sha",
+      "exit": 32,
+      "expected_exit": 32,
+      "caught": true,
+      "baseline_reached": true
+    },
+    {
+      "compile_exit": 0,
+      "binary_bytes": 51668,
+      "binary_sha256": "390893a1c59810247a610c3db9a4f63caef2f859bbed7939b338639006a133e8",
+      "source_sha256": "7e5e3efd5a5d9ce8ab06dbf5b1a9e2417356946bef6ce28c5b385589cb1af52c",
+      "name": "qmd_pair_sha",
+      "exit": 33,
+      "expected_exit": 33,
+      "caught": true,
+      "baseline_reached": true
+    },
+    {
+      "compile_exit": 0,
+      "binary_bytes": 51672,
+      "binary_sha256": "1ae911a3ba28ff216e0a64abebf3520bb76fccc0c208f3d10654bee71be3cf4b",
+      "source_sha256": "687e3c07e36793a17f84f38ada68502755027169f444e2c68da78e1d4b990828",
+      "name": "qmd_scalar_binding",
+      "exit": 34,
+      "expected_exit": 34,
+      "caught": true,
+      "baseline_reached": true
+    },
+    {
+      "compile_exit": 0,
+      "binary_bytes": 51752,
+      "binary_sha256": "55516749af13ca2b3a8e084fe1c28370a2b46535e898ca0b5a73fd44f59fd541",
+      "source_sha256": "a88a0ad99d0e9dc9c5a6586f5db6121efa532631e27560db9dc099ce4a22b6c4",
+      "name": "duplicate_info_section",
+      "exit": 18,
+      "expected_exit": 18,
+      "caught": true,
+      "baseline_reached": true
+    },
+    {
+      "compile_exit": 0,
+      "binary_bytes": 51648,
+      "binary_sha256": "2cc3cf14a47f68bdd7d9f1fdab2ef87c5d64208688c9aa6fbd8ac15de4de3cf1",
+      "source_sha256": "efecdd2e5993903ea16552bc4613e90a27aad0e5c3716661aec88196590f8714",
+      "name": "duplicate_abi_tail",
+      "exit": 38,
+      "expected_exit": 38,
+      "caught": true,
+      "baseline_reached": true
+    },
+    {
+      "compile_exit": 0,
+      "binary_bytes": 51484,
+      "binary_sha256": "dbf301131d13bff5b8c088d5909c7ae16e2fc345fd2e55b191f9a876c46123d8",
+      "source_sha256": "d18697ec78e1cf0d5d795eea8db4968786c251d38b64e4c0d1281e8911d70f52",
+      "name": "actual_gpr_binding",
+      "exit": 28,
+      "expected_exit": 28,
+      "caught": true,
+      "baseline_reached": true
+    }
+  ],
+  "mcp_embedded_fixture_source_sha256": "fd28d3ddfc8a06ce43a41386d2757aa233a72cdd37ea2a61716f8854ac6efa0a",
+  "mcp_run": {
+    "compile": {
+      "ok": true,
+      "binary_bytes": 129796,
+      "sha256": "8ea2e19383b8873073eef5f421b070543f7d03c7f4c88c035b8390add4099c93",
+      "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"
+    },
+    "exit": {
+      "kind": "normal",
+      "code": 0
+    },
+    "stdout": "",
+    "stdout_bytes": 0,
+    "stdout_truncated": false,
+    "stderr": "",
+    "stderr_bytes": 0,
+    "stderr_truncated": false,
+    "limits": {
+      "timeout_ms": 10000,
+      "cpu_seconds": 10,
+      "address_space_bytes": 268435456,
+      "file_size_bytes": 1048576,
+      "processes": 5
+    },
+    "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+  },
+  "oracle": "Original immutable existing C exporter/admission fixture and readelf/std SHA oracle from templates-evidence.json; frame bytes unchanged",
+  "omega_mcp_tools_used": [
+    "lookup",
+    "compile",
+    "run",
+    "explain_error"
+  ],
+  "limits": {
+    "actual_existing_runtime_lifecycle": "PARENT_INTEGRATION_PENDING",
+    "hardware_upload_timing": "NOT_RUN",
+    "device_execution": "NOT_RUN",
+    "whole_model_acceptance": "NOT_RUN",
+    "gpu_calls": false,
+    "new_allocator_session_runtime": false
+  }
+}
