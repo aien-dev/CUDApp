@@ -208,3 +208,29 @@ Independent symbolic synthetic cost oracle, through the mounted parent proxy:
 These costs are explicit synthetic policy controls, not observed nanoseconds,
 speedups, GB10 measurements or serving evidence.
 
+## Private graph context lookup
+
+`om/pipeline/context.om` exports
+`native_context(keys view ulong128, count ulong, actual view ulong4) -> long`
+for the existing ABI1 bridge. Up to sixteen active private graph-owned tuples
+have stride4: `{operation kind, layer index, window start, window rows}`.
+Return is the unique 1-based ordinal,0 absent,-1 for count above16 or multiple
+matches. Count0 is a normal absent binding. Unused cells are ignored; no portable
+serialization, padding convention or artifact schema is introduced.
+
+Each selected ordinal identifies its own immutable existing query, rows, wanted
+canonical record, candidates and prepared artifacts under the existing session
+lock. This lookup must never derive a new wanted/query from the selected code.
+The graph actual execution tuple supplies the lookup key; candidate/tensor
+lifetimes remain owned by the graph. Unknown operation kinds may match raw
+registered tuples here; support and exact MNK/launch are independently refused
+by the existing binding validator. Matching a tuple never authenticates a
+qualification, joint MoE closure, router/permutation/combine semantics, or a
+production registration. With no accepted receipt-authority construction path,
+production context count remains0.
+
+`tests/pipeline/context.om` exercises empty/max/invalid counts, every tuple field,
+late excluded entries, duplicate match refusal and unrelated duplicate isolation.
+Its synthetic fixture and compiled tuple-comparison/duplicate-guard mutants are
+recorded in `tests/pipeline/context-evidence.json`. Compile this test after only
+the exact context unit; it has no Quant/Composer/Cache dependency.
