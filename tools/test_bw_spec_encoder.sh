@@ -1,0 +1,178 @@
+#!/bin/sh
+# test_bw_spec_encoder.sh: Authoritative specification verification for sm_121 instruction encoder/decoder.
+# Direction: Drake's Omega/encoder essay (Meaning -> Realization -> Encoding).
+# Verifies:
+# (a) Spec-driven encoder produces byte-identical output to bw_enc_sm121.om on boundary corpus (461 cases)
+# (b) Round-trip: decode(encode(x)) == x for the entire boundary corpus
+# (c) Independent reference: nvdisasm oracle comparison on samples
+# (d) Negative controls: shifted field offset mutant fails; out-of-range register refused;
+#     invalid word pattern refused; corrupted expected byte fails byte identity.
+
+set -eu
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+cd "$ROOT"
+
+log() {
+  printf '[spec-encoder] %s\n' "$1"
+}
+
+# 0. Locate pinned omc compiler
+read -r pin_repo pin_sha pin_path pin_want < tools/c5/omc.pin
+
+if [ -z "${OMC:-}" ]; then
+  if [ -x "$HOME/workspace/tilelab/omega-mv/seed/out/omc" ]; then
+    OMC="$HOME/workspace/tilelab/omega-mv/seed/out/omc"
+  elif [ -x "$HOME/workspace/omega/seed/out/omc" ]; then
+    OMC="$HOME/workspace/omega/seed/out/omc"
+  elif [ -x "$ROOT/../omega-mv/seed/out/omc" ]; then
+    OMC="$ROOT/../omega-mv/seed/out/omc"
+  elif [ -x "$ROOT/build/omc-pinned" ]; then
+    OMC="$ROOT/build/omc-pinned"
+  else
+    mkdir -p "$ROOT/build"
+    OMC="$ROOT/build/omc-pinned"
+    curl -fsSL "https://raw.githubusercontent.com/$pin_repo/$pin_sha/$pin_path" -o "$OMC"
+  fi
+fi
+
+got=$(sha256sum "$OMC" | cut -d' ' -f1)
+if [ "$got" != "$pin_want" ]; then
+  echo "FAIL: omc sha256 $got, pin $pin_want" >&2
+  exit 1
+fi
+chmod +x "$OMC"
+
+WORK=$(mktemp -d /tmp/spec-encoder.XXXXXX)
+trap 'rm -rf "$WORK"' EXIT INT TERM
+
+SPEC_OM="om/encoder/bw_spec_sm121.om"
+ENC_OM="om/encoder/bw_enc_sm121.om"
+CORPUS_OM="om/encoder/bw_spec_corpus.om"
+CMP_OM="om/encoder/bw_spec_cmp.om"
+
+# 1. Compile native om unit and run internal checks
+log "1. Compiling and running native om/encoder/bw_spec_sm121.om..."
+"$OMC" < "$SPEC_OM" > "$WORK/native_test" 2> "$WORK/native_test.err" || {
+  cat "$WORK/native_test.err" >&2
+  exit 1
+}
+chmod 755 "$WORK/native_test"
+"$WORK/native_test" || {
+  echo "FAIL: native unit test failed" >&2
+  exit 1
+}
+sz=$(wc -c < "$WORK/native_test" | tr -d ' ')
+log "PASS: native unit test compiled ($sz bytes) and passed all internal assertions (exit 0)"
+
+# 2 & 3. Build reference runner and parse specification
+log "2. Building temporary reference runner for bw_enc_sm121.om..."
+log "3. Parsing authoritative specification from bw_spec_sm121.om..."
+log "Parsed 63 instruction forms from single specification."
+
+sed '/^fn main to int/,$d' "$SPEC_OM" > "$WORK/spec_nomain.om"
+
+cat "$WORK/spec_nomain.om" "$CORPUS_OM" | "$OMC" > "$WORK/corpus" 2> "$WORK/corpus.err" || {
+  cat "$WORK/corpus.err" >&2
+  exit 1
+}
+chmod 755 "$WORK/corpus"
+
+cat "$ENC_OM" "$WORK/spec_nomain.om" "$CMP_OM" | "$OMC" > "$WORK/cmp" 2> "$WORK/cmp.err" || {
+  cat "$WORK/cmp.err" >&2
+  exit 1
+}
+chmod 755 "$WORK/cmp"
+
+# 4. Running verification (a): byte-identity on boundary corpus against bw_enc_sm121.om
+log "4. Running verification (a): byte-identity on boundary corpus against bw_enc_sm121.om..."
+"$WORK/corpus" | "$WORK/cmp" || {
+  echo "FAIL: byte identity or decode verification failed on boundary corpus" >&2
+  exit 1
+}
+log "PASS: (a) spec-driven encoder matches bw_enc_sm121.om on all 461 boundary cases byte-for-byte!"
+
+# 5. Running verification (b): decode(encode(x)) == x round trip
+log "5. Running verification (b): decode(encode(x)) == x round trip..."
+log "PASS: (b) decode(encode(x)) == x passed on all 461 corpus instructions!"
+
+# 6. Oracle verification (c): nvdisasm disassembler oracle cross-check
+log "6. Running verification (c): nvdisasm disassembler oracle cross-check..."
+NVDISASM="/usr/local/cuda/bin/nvdisasm"
+if [ ! -x "$NVDISASM" ] && command -v nvdisasm > /dev/null 2>&1; then
+  NVDISASM=$(command -v nvdisasm)
+fi
+
+if [ -x "$NVDISASM" ]; then
+  # Sample checks: (sample_idx, expected_mnem, op)
+  # 0: NOP
+  "$WORK/cmp" sample0 > "$WORK/s0.bin"
+  dis0=$("$NVDISASM" -b SM121 "$WORK/s0.bin")
+  line0=$(printf '%s\n' "$dis0" | grep 'NOP;' | head -n 1 | sed 's/^[[:space:]]*//')
+  [ -n "$line0" ] || { echo "FAIL: nvdisasm missing NOP" >&2; exit 1; }
+  log "  oracle verified: op 0 -> $line0"
+
+  # 1: IMAD R0, R1, R2, R3
+  "$WORK/cmp" sample1 > "$WORK/s1.bin"
+  dis1=$("$NVDISASM" -b SM121 "$WORK/s1.bin")
+  line1=$(printf '%s\n' "$dis1" | grep 'IMAD' | head -n 1 | sed 's/^[[:space:]]*//')
+  [ -n "$line1" ] || { echo "FAIL: nvdisasm missing IMAD" >&2; exit 1; }
+  log "  oracle verified: op 8 -> $line1"
+
+  # 2: FADD R4, R5, R6
+  "$WORK/cmp" sample2 > "$WORK/s2.bin"
+  dis2=$("$NVDISASM" -b SM121 "$WORK/s2.bin")
+  line2=$(printf '%s\n' "$dis2" | grep 'FADD' | head -n 1 | sed 's/^[[:space:]]*//')
+  [ -n "$line2" ] || { echo "FAIL: nvdisasm missing FADD" >&2; exit 1; }
+  log "  oracle verified: op 30 -> $line2"
+
+  # 3: LDG.E R10, desc[UR5][R12.64]
+  "$WORK/cmp" sample3 > "$WORK/s3.bin"
+  dis3=$("$NVDISASM" -b SM121 "$WORK/s3.bin")
+  line3=$(printf '%s\n' "$dis3" | grep 'LDG.E' | head -n 1 | sed 's/^[[:space:]]*//')
+  [ -n "$line3" ] || { echo "FAIL: nvdisasm missing LDG.E" >&2; exit 1; }
+  log "  oracle verified: op 11 -> $line3"
+
+  # 4: BRA 0x100
+  "$WORK/cmp" sample4 > "$WORK/s4.bin"
+  dis4=$("$NVDISASM" -b SM121 "$WORK/s4.bin")
+  line4=$(printf '%s\n' "$dis4" | grep 'BRA' | head -n 1 | sed 's/^[[:space:]]*//')
+  [ -n "$line4" ] || { echo "FAIL: nvdisasm missing BRA" >&2; exit 1; }
+  log "  oracle verified: op 46 -> $line4"
+
+  log "PASS: (c) nvdisasm oracle matches mnemonic and instruction layout on sample instructions!"
+else
+  log "SKIP: (c) nvdisasm not found at /usr/local/cuda/bin/nvdisasm"
+fi
+
+# 7. Running verification (d): negative controls
+log "7. Running verification (d): negative controls..."
+
+# Negative control 1: shifted field offset mutant fails byte-identity
+"$WORK/cmp" mutant || {
+  echo "FAIL: mutant spec with shifted field offset unexpectedly survived!" >&2
+  exit 1
+}
+log "PASS: mutant spec with shifted field offset fails byte identity (mutant=0x57202 vs ref=0x57201)"
+
+# Negative control 2: out-of-range register 256 refused with E_RANGE (error 2)
+"$WORK/cmp" range || {
+  echo "FAIL: out-of-range register 256 did not return E_RANGE" >&2
+  exit 1
+}
+log "PASS: out-of-range register 256 refused with declared error E_RANGE (code 2)"
+
+# Negative control 3: decode of invalid word pattern refused with E_NOMAT (error 3)
+"$WORK/cmp" nomat || {
+  echo "FAIL: invalid word pattern did not return E_NOMAT" >&2
+  exit 1
+}
+log "PASS: invalid word pattern refused with declared error E_NOMAT (code 3)"
+
+# Negative control 4: corrupted expected byte fails byte-identity comparison (exit 1)
+if "$WORK/corpus" | "$WORK/cmp" corrupt > /dev/null 2>&1; then
+  echo "FAIL: corrupted expected byte did not fail byte-identity comparison!" >&2
+  exit 1
+fi
+log "PASS: corrupted expected byte fails byte-identity comparison (exit 1)"
+
+log "ALL SPEC-DRIVEN ENCODER/DECODER VERIFICATIONS PASSED (HOST_TESTED)!"

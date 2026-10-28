@@ -60,7 +60,7 @@ test-om-encoder-corpus:
 
 .PHONY: test-om-spec-encoder
 test-om-spec-encoder:
-	python3 tools/test_bw_spec_encoder.py
+	sh tools/test_bw_spec_encoder.sh
 
 test-om-units:
 	OMEGA_OMC=$(OMEGA_MV)/seed/out/omc OMEGA_BRIDGE=$(OMEGA_BRIDGE_DIR) sh om/units.sh --check

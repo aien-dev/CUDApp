@@ -973,13 +973,13 @@ end
 ret get o 6
 end
 
-fn off24 imm ulong to bool
+fn sp_off24 imm ulong to bool
 ret or lt imm 8388608 ge imm 4286578688
 end
 
 fn sp_chkr role ulong val ulong min_v ulong max_v ulong to bool
 if eq role R_OFF24
-ret off24 val
+ret sp_off24 val
 end
 if eq role R_BSSY
 ret not or lt val 2 ge val 2147483648
@@ -1062,9 +1062,9 @@ base = mul idx 45
 put w 0 get sp_tbl add base 2
 put w 1 get sp_tbl add base 4
 put w 2 get sp_tbl add base 6
-ctl = get o 7
-if ne ctl 0
-put w 3 ctl
+sp_ctl = get o 7
+if ne sp_ctl 0
+put w 3 sp_ctl
 else
 put w 3 get sp_tbl add base 8
 end
