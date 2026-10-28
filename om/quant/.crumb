@@ -1,0 +1,20 @@
+{
+  "extensions": {
+    "generated": {
+      "children": [],
+      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiled_at": "2026-10-28T11:57:43Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:df444a4851a11488c9f816664d2271ba87c9a35183fd1e247cc8cc5e0ff18f3f",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 0,
+      "generated_at_commit": "b759afc3f5e46f152ffb06b39882ffa28cacaf96",
+      "source_tree": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "layer": "realization",
+  "name": "quant",
+  "purpose": "Canonical quantization descriptors and bounded lossless repacking",
+  "schema_version": "1.0.0"
+}
