@@ -53,4 +53,6 @@ Concatenate `quant.om`, `realize.om`, `digest.om`, `residency.om`, `artifact.om`
 
 `host-evidence.json` records the initial exercised source at commit `f0909113243674eeda1cf7539710ac425978e2f1`, dependency hashes, compiler and executable identities, digest oracle vectors, native caller exits and caught mutants. `generation-evidence.json` preserves that receipt and adds the final source hashes, immutable QuantSchema/Composer dependency commits, generation-zero compatibility caller, and the caught zero-generation rejection mutant. Storage capacity bookkeeping is supported by the mounted Wolfram query `16+32*16 -> 528` in `/home/drakestapleton/handoffs/wolfram-lane-query-results-20261028.json`; it proves no lifetime property.
 
+`digest-varied-evidence.json` additionally checks exact varied source and native-executable byte prefixes against the independent SHA-256 oracle. These exercise direct full-block byte order, not only repeated-byte padding boundaries.
+
 Host policy checks are not upload, launch, whole-model or hardware qualification. Hardware upload timing, paired cold/warm microbenchmarks and full-model acceptance remain NOT_RUN until an explicitly authorized window. Production bridge registration and existing runtime caller cutover are coordinated by the integration owner, not duplicated in this directory.
