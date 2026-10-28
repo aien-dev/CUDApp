@@ -1,0 +1,30 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Verification-only exhaustive BF16 input probe, compared to unchanged C pack oracle.
+note Output65536 records: status byte then little-endian folded binary32 bits.
+note Invalid output value bits are diagnostic only, never admitted by quant_repack.
+fn qsc_put out edit uchar 327680 p ulong v uint to void
+for j ulong 4
+put out add p j uchar and shr v mul j 8 255
+end
+end
+fn main to int
+sc = new uchar 1024 0
+out = new uchar 327680 0
+for i ulong 65536
+put sc 0 uchar and i 255
+put sc 1 uchar shr i 8
+r = quant_svalid sc 0 1
+put out mul i 5 uchar r
+v = bitcast uint quant_fold sc 0
+qsc_put out add mul i 5 1 v
+end
+p = ulong 0
+while lt p 327680 bound 327680
+n = write 1 out p sub ulong 327680 p
+if le n 0
+ret 82
+end
+p = add p ulong n
+end
+ret 0
+end
