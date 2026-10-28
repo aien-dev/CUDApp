@@ -1,4 +1,5 @@
 {
+  "_portable_derivation":{"schema":"AIEN_PORTABLE_RECEIPT_V1","original_sha256":"616d56daf57f2ffcb2f2058c83a1b398d2c1e87680d77f52f5e9a1f72317acb8","original_git_blob":"8217694c3c5510c3d9d0a5bb926486c039349362","placeholder":"$AIEN_RECEIPT_HOME","rule":"Remove this metadata line and replace the placeholder with the producer HOME prefix obtained from the original Git blob.","scrubbed_sha256":"a03f84f7ccdfa820ec7ba2ab04cd6c303fe4170c741d1c7d927f4b18b2437a05","scrubbed_hash_domain":"document bytes with exactly the _portable_derivation metadata line removed"},
   "schema": "cudapp-native-template-function-host-evidence/1",
   "state": "EXERCISED_HOST_ONLY",
   "issue": "aien-dev/CUDApp#158",
@@ -13,12 +14,12 @@
     "original_program_receipt": "templates-evidence.json preserved unchanged; not production function-mode proof"
   },
   "source_sha256": {
-    "/home/drakestapleton/fix/quant-schema/om/quant/quant.om": "44bce96f3c274401e19a71b835814d69caf2bea8c2b1f4f43616c7c121232f09",
-    "/home/drakestapleton/fix/kernel-compose/om/components/realize.om": "990ee91cf164d5a77bfa2918ba77828550fc6d191abf40dd293523dda359931c",
-    "/home/drakestapleton/fix/kernel-cache/om/cache/digest.om": "b0e49da9e6c146da0d040476d84bff8d93486c563e19ef8f1d731b1ffb15c051",
-    "/home/drakestapleton/fix/kernel-cache/om/cache/templates.om": "08b8f9aad44cf64bc74653ceb314c78109bbaf59cd3d0ff2132fbc29d32f27c3",
-    "/home/drakestapleton/fix/kernel-cache/om/cache/templates_fixture.om": "6358819a7f92bb3f450fc6a53c0d034d5b717a0b3d2d61453f555cde9a3d94f4",
-    "/home/drakestapleton/fix/kernel-cache/om/cache/templates_test.om": "f79baae08b50fed4ba1d97abefc577c6587d8528ed69a769ead30d653653eb2a"
+    "$AIEN_RECEIPT_HOME/fix/quant-schema/om/quant/quant.om": "44bce96f3c274401e19a71b835814d69caf2bea8c2b1f4f43616c7c121232f09",
+    "$AIEN_RECEIPT_HOME/fix/kernel-compose/om/components/realize.om": "990ee91cf164d5a77bfa2918ba77828550fc6d191abf40dd293523dda359931c",
+    "$AIEN_RECEIPT_HOME/fix/kernel-cache/om/cache/digest.om": "b0e49da9e6c146da0d040476d84bff8d93486c563e19ef8f1d731b1ffb15c051",
+    "$AIEN_RECEIPT_HOME/fix/kernel-cache/om/cache/templates.om": "08b8f9aad44cf64bc74653ceb314c78109bbaf59cd3d0ff2132fbc29d32f27c3",
+    "$AIEN_RECEIPT_HOME/fix/kernel-cache/om/cache/templates_fixture.om": "6358819a7f92bb3f450fc6a53c0d034d5b717a0b3d2d61453f555cde9a3d94f4",
+    "$AIEN_RECEIPT_HOME/fix/kernel-cache/om/cache/templates_test.om": "f79baae08b50fed4ba1d97abefc577c6587d8528ed69a769ead30d653653eb2a"
   },
   "function_compile": {
     "exit": 0,

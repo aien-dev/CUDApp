@@ -43,6 +43,22 @@ teardown permits their retirement. This does not qualify or activate native
 candidates: production graph state remains absent until the existing
 independent receipt/admission path accepts exact artifacts.
 
+The same host fixture executes the actual graph recording and incumbent
+nonempty-submit adapters. It checks that successful command-list ordinals are
+not mistaken for error status. Paired submission has independent per-buffer
+QMD-publication controls: omission for either queue must refuse. No synthetic
+completion or handle is hardware or full-model evidence.
+
+`make test-portable-receipts` is part of the full host suite and needs full Git
+history, `OMEGA_OMC`, and `OMEGA_BRIDGE`. Public derived receipts substitute
+`$AIEN_RECEIPT_HOME` for the producer's HOME prefix. Their metadata states the
+original Git blob, original SHA-256, exact substitution rule, and scrubbed
+payload SHA-256. The scrubbed hash domain is the document with exactly its
+inserted metadata line removed; `tests/portable_receipts.tsv` also pins the
+complete derived-file SHA-256. The `.om` checker reconstructs original bytes
+from each derivative and compares both hashes and the immutable original Git
+blob, with refusal controls. Originals and historical commits are unchanged.
+
 Canonical consumer integration uses the existing single-commit `cudapp.lock`,
 not a second artifact or qualification registry. The isolated Omega consumer
 cutover builds an authenticated committed source archive and links its actual

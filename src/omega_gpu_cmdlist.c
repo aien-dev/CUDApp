@@ -589,7 +589,9 @@ int omega_gpu_cmdlist_submit_pair(OmegaGpuCmdList *a, OmegaGpuCmdList *b, const 
     const size_t na = emit_chunk(a, &o, 0, a->n, marker_va), nb = emit_chunk(b, &o, 0, b->n, marker_va + PAIR_B_MARKER);
     volatile uint32_t *mk = (volatile uint32_t *)((uint8_t *)marker->cpu + MARKER_OFF);
     mk[0] = 0; mk[4] = 0; mk[PAIR_B_MARKER / 4] = 0; mk[PAIR_B_MARKER / 4 + 4] = 0;
-    if (p->sync_cpu_to_gpu(p->ctx, marker->handle, MARKER_OFF, PAIR_B_MARKER + 0x20) != OMEGA_GPU_PLAT_OK) {
+    if (p->sync_cpu_to_gpu(p->ctx, a->qmds.handle, 0, (uint64_t)a->n * OMEGA_GPU_CMDLIST_QMD_BYTES) != OMEGA_GPU_PLAT_OK ||
+        p->sync_cpu_to_gpu(p->ctx, b->qmds.handle, 0, (uint64_t)b->n * OMEGA_GPU_CMDLIST_QMD_BYTES) != OMEGA_GPU_PLAT_OK ||
+        p->sync_cpu_to_gpu(p->ctx, marker->handle, MARKER_OFF, PAIR_B_MARKER + 0x20) != OMEGA_GPU_PLAT_OK) {
         omega_gpu_session_set_error("cmdlist pair: sync qmd / marker"); return -1;
     }
     const uint64_t t0 = p->time_now_ns(p->ctx);

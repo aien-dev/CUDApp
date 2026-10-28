@@ -1,13 +1,14 @@
 {
+  "_portable_derivation":{"schema":"AIEN_PORTABLE_RECEIPT_V1","original_sha256":"f4a6891e313c2d93135935cd0ebf8edc7f7e067f8a23539bd89f0e8754c3ac6c","original_git_blob":"c71f20dadadf37e8858fe1a75885b6645d856e06","placeholder":"$AIEN_RECEIPT_HOME","rule":"Remove this metadata line and replace the placeholder with the producer HOME prefix obtained from the original Git blob.","scrubbed_sha256":"5d10423175e9900a047e7b768e52c08e16b97d243cb29904619d30478ff5bbaa","scrubbed_hash_domain":"document bytes with exactly the _portable_derivation metadata line removed"},
   "schema": "cudapp-native-cache-runtime-ops-host-evidence/1",
   "state": "EXERCISED_HOST_ONLY",
   "assignment": "NativeIntegrate delegated only runtime.om ops16/17/18; shared index and commit untouched",
   "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
   "compiler_revision": "e5b32567a7aff3ce594e3254a622a846a6cd190b",
   "source_sha256": {
-    "/home/drakestapleton/fix/native-integration/om/cache/residency.om": "0da6b33438e98934425f1ea83d194298f390cc68029f0750ebfc70060f87bf61",
-    "/home/drakestapleton/fix/native-integration/om/cache/runtime.om": "cd89ec72bfb0c9e2238117e81ddf5b7e4cc6c4af82416e28a839e13e89693c8f",
-    "/home/drakestapleton/fix/kernel-cache/om/cache/runtime_ops_test.om": "5c0569afa863d27437cddfa36460e3b0ccc4dca30ae98869b01f3d79b4425875"
+    "$AIEN_RECEIPT_HOME/fix/native-integration/om/cache/residency.om": "0da6b33438e98934425f1ea83d194298f390cc68029f0750ebfc70060f87bf61",
+    "$AIEN_RECEIPT_HOME/fix/native-integration/om/cache/runtime.om": "cd89ec72bfb0c9e2238117e81ddf5b7e4cc6c4af82416e28a839e13e89693c8f",
+    "$AIEN_RECEIPT_HOME/fix/kernel-cache/om/cache/runtime_ops_test.om": "5c0569afa863d27437cddfa36460e3b0ccc4dca30ae98869b01f3d79b4425875"
   },
   "function_compile": {
     "exit": 0,

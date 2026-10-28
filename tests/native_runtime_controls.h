@@ -10,6 +10,12 @@
 #include "sha256.h"
 #include "omega_blackwell_qmd.h"
 
+#ifdef CUDAPP_NATIVE_RUNTIME_TEST
+int omega_gpu_q36_test_submit_incumbent(OmegaGpuCmdList *);
+int omega_gpu_q36_test_record_fp8(OmegaGpuCmdList *, OmegaGpuQ36NativeState *,
+    const OmegaGpuFp8Tensor *, uint64_t, uint64_t, uint64_t);
+#endif
+
 static OmegaNativeArtifactSnapshot nr_snapshot;
 static void nr_u32(uint8_t *p, uint32_t v) {
     for (unsigned i=0;i<4;++i) p[i]=(uint8_t)(v>>(8*i));
@@ -348,6 +354,19 @@ static void c_native_chain(void) {
     EXPECT(prepared.cache->pool[b+3]==1 && prepared.cache->pool[b+4]==0);
     omega_gpu_cmdlist_reset(cl); EXPECT(omega_gpu_cmdlist_count(cl)==0);
     EXPECT(prepared.cache->pool[b+3]==0 && omega_native_lease_op(&prepared,5,0)==0);
+#ifdef CUDAPP_NATIVE_RUNTIME_TEST
+    /* Real selected graph caller must accept ordinal 0 AND later ordinal 1.
+     * The typed-host fake does not execute either encoded kernel. */
+    EXPECT(omega_gpu_q36_test_record_fp8(cl,s,t,inputs[0].va,inputs[1].va,inputs[2].va)==0);
+    EXPECT(omega_gpu_cmdlist_count(cl)==1);
+    EXPECT(omega_gpu_q36_test_record_fp8(cl,s,t,inputs[0].va,inputs[1].va,inputs[2].va)==0);
+    EXPECT(omega_gpu_cmdlist_count(cl)==2);
+    unsigned graph_submits=fk.submits;
+    /* g.native/g.moe are NULL in this actual nonempty production submit caller. */
+    EXPECT(omega_gpu_q36_test_submit_incumbent(cl)==0);
+    EXPECT(fk.submits>graph_submits && omega_gpu_cmdlist_count(cl)==0);
+    EXPECT(prepared.cache->pool[b+3]==0 && prepared.cache->pool[b+4]==0);
+#endif
     omega_gpu_fp8_cache_clear(); EXPECT(nr_code_va(&a)==0);
     for(unsigned i=0;i<3;++i) omega_gpu_session_free(&inputs[i]);
     free(s); omega_gpu_session_unlock();

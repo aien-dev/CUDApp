@@ -1,4 +1,5 @@
 {
+  "_portable_derivation":{"schema":"AIEN_PORTABLE_RECEIPT_V1","original_sha256":"38f16d81a7d1ac7fa222c0f8f7a718127bad7ebe6d5924662d6c62038ec3bdf0","original_git_blob":"33549e7617b6a02715ec735158ce3a597307be79","placeholder":"$AIEN_RECEIPT_HOME","rule":"Remove this metadata line and replace the placeholder with the producer HOME prefix obtained from the original Git blob.","scrubbed_sha256":"63f3248646fe38e585ed86902798bab00c587a27e09941cab6df41f4ec96424a","scrubbed_hash_domain":"document bytes with exactly the _portable_derivation metadata line removed"},
   "schema": "cudapp-cache-varied-sha-evidence/1",
   "source_commit": "693464cfcff678a9278fe4586f8a24b07ce45fb2",
   "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
@@ -6,7 +7,7 @@
   "oracle": "Python standard-library hashlib SHA-256 independent read-only checker",
   "vectors": [
     {
-      "source": "/home/drakestapleton/fix/kernel-cache/om/cache/digest.om",
+      "source": "$AIEN_RECEIPT_HOME/fix/kernel-cache/om/cache/digest.om",
       "source_sha256": "b0e49da9e6c146da0d040476d84bff8d93486c563e19ef8f1d731b1ffb15c051",
       "used_bytes": 128,
       "expected_sha256": "b2d5f84353816c35fc78652f71b4c523ccb2ffc8ac1672aced9c2b811707fa55",
@@ -14,7 +15,7 @@
       "exit": 0
     },
     {
-      "source": "/home/drakestapleton/fix/kernel-cache/om/cache/digest.om",
+      "source": "$AIEN_RECEIPT_HOME/fix/kernel-cache/om/cache/digest.om",
       "source_sha256": "b0e49da9e6c146da0d040476d84bff8d93486c563e19ef8f1d731b1ffb15c051",
       "used_bytes": 4096,
       "expected_sha256": "b171ecde91dfabd0e1346f1fb096e877a20d1d950816264deedc01b20544fb30",
@@ -22,7 +23,7 @@
       "exit": 0
     },
     {
-      "source": "/home/drakestapleton/fix/kernel-cache/build/cache/artifact-gen0",
+      "source": "$AIEN_RECEIPT_HOME/fix/kernel-cache/build/cache/artifact-gen0",
       "source_sha256": "dc6f418daeaa8d235fe10b2b55e7c008ccdafda2662e16607575c01f91882621",
       "used_bytes": 16384,
       "expected_sha256": "e191c392f3333aeb1ea8b4d79171a7285b17f4359ed9899f2220c6a9049b042d",

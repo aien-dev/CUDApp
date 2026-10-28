@@ -424,7 +424,9 @@ static int submit_now(OmegaGpuQ36Graph *g) {
     if (omega_gpu_cmdlist_count(g->cl) == 0) return OMEGA_GPU_DGRAPH_OK;
     OmegaGpuCmdListOpts o = list_opts(g);
     OmegaGpuCmdListStats st; memset(&st, 0, sizeof st);
-    int rc = omega_gpu_cmdlist_submit_observed(g->cl, &o, &st, g->moe ? q36_moe_observe : NULL, g);
+    int rc = g->moe
+        ? omega_gpu_cmdlist_submit_observed(g->cl, &o, &st, q36_moe_observe, g)
+        : omega_gpu_cmdlist_submit(g->cl, &o, &st);
     g->acc.launches += st.launches; g->acc.submits += st.submits; g->acc.chip_ns += st.elapsed_ns; g->acc.sems_done += st.sems_done;
     if (rc == 0 && g->stamps) {
         uint64_t tmp[OMEGA_GPU_CMDLIST_MAX_LAUNCHES + 1];
@@ -494,7 +496,7 @@ static int native_record_fp8(OmegaGpuQ36Graph *g, uint8_t kind, const OmegaGpuFp
     if (selected == 1) return omega_gpu_fp8_gemv_grouped_record(g->cl, t, groups, tab, x, xrows, y);
     int rc = omega_gpu_fp8_record_native(g->cl, t, a, &lease, groups, tab, x, xrows, y);
     omega_q36_native_end(&lease);
-    return rc;
+    return omega_q36_native_record_status(rc);
 }
 static int rec_fp8(OmegaGpuQ36Graph *g, uint8_t kind, const OmegaGpuFp8Tensor *t, uint64_t tab, uint64_t x, uint64_t y) {
     return after_op(g, kind, native_record_fp8(g, kind, t, 1, tab, x, 1, y));
@@ -648,7 +650,7 @@ static int native_record_gemm(OmegaGpuQ36Graph *g, uint8_t kind, const OmegaGpuF
     if (selected == 1) return after_op(g, kind, omega_gpu_fp8gemm_record(g->cl, t, rows, segs, seg, xp, y, xm, ym, incumbent_mt, 0, NULL));
     int rc = omega_gpu_fp8gemm_record_native(g->cl, t, a, &lease, rows, segs, seg, xp, y, xm, ym);
     omega_q36_native_end(&lease);
-    return after_op(g, kind, rc);
+    return after_op(g, kind, omega_q36_native_record_status(rc));
 }
 /* rows of width floats permuted through tab into out (the GEMM's x' lane layout); the input row stride is the kernel's */
 static int rec_perm(OmegaGpuQ36Graph *g, int ki, uint64_t in, uint64_t tab, uint64_t out, uint32_t width, uint32_t rows) {
@@ -1282,8 +1284,8 @@ static int pf_record_moe_window(OmegaGpuQ36Graph *g, uint64_t ordinal) {
     if (!rc) rc = rec_perm(g, K_PERM_XO, m->router.xout_va + w[7], pt, xp, H, n);
     if (!rc) p->ordinal[0] = omega_gpu_cmdlist_count(g->cl);
     if (!rc) rc = after_op(g, OMEGA_GPU_Q36_K_GATE_UP,
-        omega_gpu_fp8gemm_record_native(g->cl, g->layer[l].gu, p->artifact[0],
-            &p->lease[0], rows, rows, pf_h(g, g->pf.sgu), xp, gu, xm, ym));
+        omega_q36_native_record_status(omega_gpu_fp8gemm_record_native(g->cl, g->layer[l].gu, p->artifact[0],
+            &p->lease[0], rows, rows, pf_h(g, g->pf.sgu), xp, gu, xm, ym)));
     uint32_t sw[OMEGA_DEC_SW_WORDS] = {0};
     put64(sw, OMEGA_DEC_SW_GU, gu); put64(sw, OMEGA_DEC_SW_ACT, act);
     putf(sw, OMEGA_DEC_SW_SCALE, SCALE_2P64);
@@ -1292,8 +1294,8 @@ static int pf_record_moe_window(OmegaGpuQ36Graph *g, uint64_t ordinal) {
     if (!rc) rc = rec_perm(g, K_PERM_ACT, act, pt + (uint64_t)(H + OMEGA_GPU_Q36_MIXER_OUT) * 4u, actp, EI, rows);
     if (!rc) p->ordinal[1] = omega_gpu_cmdlist_count(g->cl);
     if (!rc) rc = after_op(g, OMEGA_GPU_Q36_K_DOWN,
-        omega_gpu_fp8gemm_record_native(g->cl, g->layer[l].dn, p->artifact[1],
-            &p->lease[1], rows, rows, pf_h(g, g->pf.sdn), actp, dn, ym, ym));
+        omega_q36_native_record_status(omega_gpu_fp8gemm_record_native(g->cl, g->layer[l].dn, p->artifact[1],
+            &p->lease[1], rows, rows, pf_h(g, g->pf.sdn), actp, dn, ym, ym)));
     return rc;
 }
 
@@ -1628,3 +1630,19 @@ int omega_gpu_q36_graph_prefill(OmegaGpuQ36Graph *g, uint32_t head, const float 
     omega_gpu_session_unlock();
     return rc;
 }
+
+#ifdef CUDAPP_NATIVE_RUNTIME_TEST
+/* Existing fake typed-session oracle only: run the actual static callers.
+ * No setter, native admission or test symbol exists in production builds. */
+int omega_gpu_q36_test_submit_incumbent(OmegaGpuCmdList *cl) {
+    OmegaGpuQ36Graph g = {0}; g.cl = cl;
+    return submit_now(&g);
+}
+int omega_gpu_q36_test_record_fp8(OmegaGpuCmdList *cl, OmegaGpuQ36NativeState *state,
+    const OmegaGpuFp8Tensor *tensor, uint64_t tab, uint64_t x, uint64_t y) {
+    OmegaGpuQ36NativeGraph native = {.keys = {OMEGA_GPU_Q36_K_MIX,0,0,0},
+        .count = 1, .context = state};
+    OmegaGpuQ36Graph g = {0}; g.cl = cl; g.native = &native;
+    return rec_fp8(&g, OMEGA_GPU_Q36_K_MIX, tensor, tab, x, y);
+}
+#endif

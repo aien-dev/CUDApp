@@ -333,9 +333,25 @@ HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-a
 	test-gpu-engine-backend-mutants test-gpu-engine-gb10-compile test-gpu-serving-alloc test-gpu-engine-freestanding \
 	test-codegen-freestanding test-gpu-session-platform test-gpu-native-runtime test-gpu-wait test-gpu-wait-mutants host-tests-m16 \
 	test-runtime-api test-runtime-portability test-doctor test-hello-sim test-native-artifact-manifest test-gemm-selectors \
-	test-native-artifact zero-cuda-gate verify-vendored test-swap-cli test-om-encoder test-om-spec-encoder test-om-cubin $(CARRIED_HOST_TESTS)
+	test-native-artifact zero-cuda-gate verify-vendored test-swap-cli test-om-encoder test-om-spec-encoder test-om-cubin \
+	test-portable-receipts $(CARRIED_HOST_TESTS)
 test: $(HOST_TESTS)
 	@echo "CUDA++ HOST TESTS PASS ($(words $(HOST_TESTS)) targets)"
+
+# Original Git blobs are read-only verification oracles, not a replacement receipt authority.
+.PHONY: test-portable-receipts
+test-portable-receipts: test-om-units tests/portable_receipts.om tests/portable_receipts.tsv om/cache/digest.om
+	@mkdir -p build/portable_receipts
+	cat om/cache/digest.om tests/portable_receipts.om > build/portable_receipts.source.om
+	"$(OMEGA_OMC)" < build/portable_receipts.source.om > build/portable_receipts_check
+	chmod +x build/portable_receipts_check
+	@set -eu; tab=$$(printf '\t'); \
+	while IFS="$$tab" read -r path blob derived_sha; do \
+		test -n "$$path" && test -n "$$blob" && test -n "$$derived_sha"; \
+		printf '%s  %s\n' "$$derived_sha" "$$path" | sha256sum -c -; \
+		GIT_NO_REPLACE_OBJECTS=1 git cat-file blob "$$blob" > build/portable_receipts/original; \
+		./build/portable_receipts_check build/portable_receipts/original "$$path" "$$blob"; \
+	done < tests/portable_receipts.tsv
 
 # The vendored NVIDIA headers match THIRD_PARTY.md's SHA256SUMS; the self-test (flipped byte, extra file) must FAIL.
 .PHONY: verify-vendored test-swap-cli

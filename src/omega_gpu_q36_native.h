@@ -3,6 +3,10 @@
 #define OMEGA_GPU_Q36_NATIVE_H
 #include "omega_gpu_native_runtime.h"
 #include "omega_gpu_cmdlist_native.h"
+/* Native append returns the successful command-list ordinal, not status zero. */
+static inline int omega_q36_native_record_status(int ordinal) {
+    return ordinal < 0 ? ordinal : 0;
+}
 /* Borrowed router-owner facts. The caller holds the session lock and consumes
  * them before recording can replace either cached kernel. Exact encoded bytes
  * exclude the code allocation's prefetch tail. This conveys no admission. */

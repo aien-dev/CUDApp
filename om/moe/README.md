@@ -36,7 +36,7 @@ Source baseline CUDApp b759afc3f5e46f152ffb06b39882ffa28cacaf96: q36 K_GROUP bat
 
 Finite map arithmetic was independently checked via mounted Wolfram tools, relayed by Main. WolframLanguageEvaluator: `With[{routed=Flatten[Table[9 t+s,{t,0,127},{s,0,7}]],shared=Table[9 t+8,{t,0,127}]},{Length[routed],Length[Union[routed]],Length[Union[routed]]==Length[routed],Intersection[shared,routed]}]` -> `{1024,1024,True,{}}`. This establishes finite routed destination uniqueness and shared/routed disjointness only, not kernel execution or capacity safety. Generic Reduce queries emitted warnings and are not used as proofs.
 
-Saved model config only: `/home/drakestapleton/models/qwen3.6-35b-a3b-fp8-95a723d0/config.json` matches SHA256 `570ef7ea45a7e1d3de2b1d3c70c4ac3562d0e768acdc195778cb4f4d95025845`, also recorded in the cached #604 receipt `baseline-20261025T021219Z/cached/provenance.txt`. It declares Qwen3_5MoeForConditionalGeneration, hidden2048,layers40,experts256,picks8,MoE intermediate512,shared intermediate512. No live model endpoint was queried. Current runtime identity verification is PENDING.
+Saved model config only: `$HOME/models/qwen3.6-35b-a3b-fp8-95a723d0/config.json` matches SHA256 `570ef7ea45a7e1d3de2b1d3c70c4ac3562d0e768acdc195778cb4f4d95025845`, also recorded in the cached #604 receipt `baseline-20261025T021219Z/cached/provenance.txt`. It declares Qwen3_5MoeForConditionalGeneration, hidden2048,layers40,experts256,picks8,MoE intermediate512,shared intermediate512. No live model endpoint was queried. Current runtime identity verification is PENDING.
 
 ## Remaining full acceptance
 

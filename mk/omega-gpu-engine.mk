@@ -213,13 +213,15 @@ build/test_omega_gpu_session_platform: tests/test_omega_gpu_session_platform.c $
 GPU_NATIVE_RUNTIME_SRCS = src/omega_gpu_cmdlist.c src/omega_gpu_fp8_api.c \
 	src/omega_gpu_fp8gemm_api.c src/omega_blackwell_codegen_moe.c src/omega_blackwell_codegen_moe2.c \
 	src/omega_blackwell_codegen_gemm.c src/omega_gpu_fp8_pack.c src/omega_gpu_mem_cached.c \
-	src/omega_gpu_hostmath.c src/omega_native_artifact.c src/omega_cubin.c src/cudapp_om_units.c
+	src/omega_gpu_hostmath.c src/omega_native_artifact.c src/omega_cubin.c src/cudapp_om_units.c \
+	src/omega_gpu_q36_graph.c src/omega_gpu_decode_graph.c src/omega_gpu_router_api.c
 .PHONY: test-gpu-native-runtime
 build/test_omega_gpu_native_runtime: tests/test_omega_gpu_session_platform.c tests/native_runtime_controls.h \
 		$(GPU_FS_LINK) $(GPU_NATIVE_RUNTIME_SRCS) src/omega_gpu_native_runtime.h src/omega_gpu_q36_native.h \
 		src/omega_gpu_cmdlist_native.h src/omega_native_artifact_snapshot.h
 	@mkdir -p build
 	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Isrc -DOMEGA_GPU_NO_POSIX -DOMEGA_NATIVE_RUNTIME_TEST \
+		-DCUDAPP_NATIVE_RUNTIME_TEST -ffunction-sections -fdata-sections -Wl,--gc-sections \
 		-o $@ tests/test_omega_gpu_session_platform.c $(GPU_FS_LINK) $(GPU_NATIVE_RUNTIME_SRCS) -lpthread -lm
 test-gpu-native-runtime: build/test_omega_gpu_native_runtime
 	./build/test_omega_gpu_native_runtime

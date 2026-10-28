@@ -18,6 +18,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
+          fetch-depth: 0 # Portable derived receipts verify immutable original Git blobs.
       - name: Toolchain record
         run: gcc --version | head -n 1 && make --version | head -n 1
       - name: Pinned host verification tools
