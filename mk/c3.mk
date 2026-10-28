@@ -9,8 +9,13 @@ $(GPU_SCAN_TEST): tests/gpu_scan_test.c tests/bw_warp_sim.h src/omega_gpu_scan.h
 GPU_GEMM_TEST = $(OUT_DIR)/gpu_gemm_test
 $(GPU_GEMM_TEST): tests/gpu_gemm_test.c tests/bw_warp_sim_tc.h tests/bw_hmma_model.h tests/bw_qmma_model.h src/omega_gpu_gemm.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -Itests -o $@ tests/gpu_gemm_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
-.PHONY: test-gpu-scan test-gpu-gemm
+GPU_TILELAB_TEST = $(OUT_DIR)/gpu_tilelab_test
+$(GPU_TILELAB_TEST): tests/gpu_tilelab_test.c src/omega_gpu_gemm.h src/omega_gpu_session.h $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -ffp-contract=off -Itests -o $@ tests/gpu_tilelab_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+.PHONY: test-gpu-scan test-gpu-gemm test-tilelab-host
 test-gpu-scan: $(GPU_SCAN_TEST)
 	./$(GPU_SCAN_TEST) --sim
 test-gpu-gemm: $(GPU_GEMM_TEST)
 	./$(GPU_GEMM_TEST) --sim
+test-tilelab-host: $(GPU_TILELAB_TEST)
+	./$(GPU_TILELAB_TEST) --host-only
