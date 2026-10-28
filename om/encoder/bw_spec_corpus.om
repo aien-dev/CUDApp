@@ -17,7 +17,7 @@ ret
 end
 if eq role 7
 put o 5 val
-put o 13 1
+put o 14 1
 ret
 end
 put o 3 val
@@ -151,25 +151,42 @@ end
 ret 0
 end
 
-fn emit_one_field fbase ulong c_i ulong f_i ulong nf ulong op ulong o edit ulong 16 to void
+fn emit_one_field sp_tbl view ulong 3001 fbase ulong c_i ulong f_i ulong nf ulong o edit ulong 16 to void
+op = get o 0
 role = get sp_tbl fbase
 word = get sp_tbl add fbase 1
 min_v = get sp_tbl add fbase 5
 max_v = get sp_tbl add fbase 6
 v_idx = get_v_idx c_i f_i nf
 val = get_fld_val min_v max_v v_idx
+note Fixtures deliberately choose representable special-layout immediates.
+note Refusal tests separately retain the raw nonrepresentable boundaries.
+if eq role R_LDC
+shift = get sp_tbl add fbase 2
+step = shr ulong 256 shift
+val = mul div val step step
+end
+if eq role R_BSSY
+val = add and sub val 1 268435455 1
+end
 set_o_field role word val op o
 end
 
-fn emit_form_multi base ulong op ulong var ulong nf ulong o edit ulong 16 buf edit uchar 128 to int
+fn emit_form_multi sp_tbl view ulong 3001 base ulong o edit ulong 16 buf edit uchar 128 to int
+op = get sp_tbl base
+var = get sp_tbl add base 1
+nf = get sp_tbl add base 9
 for c_i ulong 8
 clear_o o op
 for f_i ulong nf
 fbase = add add base 10 mul f_i 7
-emit_one_field fbase c_i f_i nf op o
+emit_one_field sp_tbl fbase c_i f_i nf o
 end
 finalize_o op var o
 st = write_case o buf
+if ne sp_find sp_tbl o div base 45
+ret 2
+end
 if ne st 0
 ret 1
 end
@@ -177,7 +194,7 @@ end
 ret 0
 end
 
-fn emit_form idx ulong o edit ulong 16 buf edit uchar 128 to int
+fn emit_form sp_tbl view ulong 3001 idx ulong o edit ulong 16 buf edit uchar 128 to int
 base = mul idx 45
 op = get sp_tbl base
 var = get sp_tbl add base 1
@@ -186,21 +203,22 @@ nf = get sp_tbl add base 9
 if eq nf 0
 clear_o o op
 finalize_o op var o
+if ne sp_find sp_tbl o idx
+ret 2
+end
 ret write_case o buf
 end
 
 if eq nf 1
 fbase = add base 10
-role = get sp_tbl fbase
-word = get sp_tbl add fbase 1
-min_v = get sp_tbl add fbase 5
-max_v = get sp_tbl add fbase 6
 for c_i ulong 4
 clear_o o op
-val = get_fld_val min_v max_v c_i
-set_o_field role word val op o
+emit_one_field sp_tbl fbase c_i 0 1 o
 finalize_o op var o
 st1 = write_case o buf
+if ne sp_find sp_tbl o idx
+ret 2
+end
 if ne st1 0
 ret 1
 end
@@ -208,18 +226,23 @@ end
 ret 0
 end
 
-ret emit_form_multi base op var nf o buf
+ret emit_form_multi sp_tbl base o buf
 end
 
 fn main to int
-sp_init
+sp_tbl = new ulong 3001 0
+sp_init sp_tbl
 o = new ulong 16 0
 buf = new uchar 128 0
 for idx ulong 63
-st = emit_form idx o buf
+st = emit_form sp_tbl idx o buf
 if ne st 0
 ret 1
 end
+end
+note Fault control: a complete valid stream followed by producer failure.
+if ge argcnt 2
+ret 7
 end
 ret 0
 end

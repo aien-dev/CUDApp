@@ -1,0 +1,223 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Concatenate after tools/tilelab_process.om. Args: HOST_FAULT_DRIVER REPLAY NEW_SCRATCH_DIR
+note All GEMMs are CPU fault injection in an explicitly separate compile-time driver build.
+text ttwords "--shapes\n2,2,2\n--rounds\n1\n--out\n--fault\nmutant_error\nwarm_error\ntimed_error\nmutant_good\n--host-only\n--cfg\nbad\"name\\arm\t:2,4,2,4,8\n\"red_mutants_caught\":3\n\"arm\":\"bad\\\"name\\\\arm\\u0009\"\n\"fails\":0\n/dev/full\n/bin/false\n/nonexistent/tilelab-driver\nx:2,4,2,4,8\n\"red_mutants_caught\":0\n\"cells\":[]\n\"arm\"\ncafé € 😀:2,4,2,4,8\n\"arm\":\"café € 😀\"\n"
+text ttsuffix "/receipt.json"
+text ttshape "2,2,2"
+text ttbad "garbage"
+text ttpass "TILELAB_HOST_FAULT PASS (synthetic CPU only; GPU NOT_RUN)\n"
+global tf uchar 65536
+global tfn ulong 1
+fn tt_check good bool to void
+if not good
+exit 1
+end
+end
+fn tt_addword idx ulong to void
+tl_word idx
+tl_add
+end
+fn tt_path to void
+tl_arg 3
+n = get tn 0
+tt_check le add n len ttsuffix 4095
+for i ulong len ttsuffix
+put tb add n i get ttsuffix i
+end
+put tn 0 add n len ttsuffix
+end
+fn tt_base to void
+tl_clear
+tl_arg 1
+tl_add
+tt_addword 0
+tt_addword 1
+tt_addword 2
+tt_addword 3
+end
+fn tt_out to void
+tt_addword 4
+tt_path
+tl_add
+end
+fn tt_read to void
+fd = fopen tb 0 get tn 0 0 0
+tt_check ge fd 0
+n = ulong 0
+while lt n len tf bound 65536
+r = read int fd tf n sub len tf n
+tt_check ge r 0
+if eq r 0
+break
+end
+n = add n ulong r
+end
+tt_check lt n len tf
+put tfn 0 n
+tt_check eq fclose int fd 0
+end
+fn tt_match p ulong n ulong to bool
+for i ulong n
+if ne get tf add p i get tb i
+ret false
+end
+end
+ret true
+end
+fn tt_count word ulong to ulong
+tl_word word
+count = ulong 0
+n = get tn 0
+if gt n get tfn 0
+ret 0
+end
+for p ulong add sub get tfn 0 n 1
+if tt_match p n
+count = add count 1
+end
+end
+ret count
+end
+fn tt_receipt to void
+tt_path
+tt_read
+end
+fn tt_fault word ulong want int to void
+tt_base
+tt_out
+tt_addword 5
+tt_addword word
+tt_check eq tl_run want
+tt_receipt
+end
+fn tt_shapes count ulong bad bool to void
+tl_clear
+tl_arg 1
+tl_add
+tt_addword 10
+tt_addword 0
+p = ulong 0
+for i ulong count
+if ne i 0
+put tb p 59
+p = add p 1
+end
+for j ulong len ttshape
+put tb p get ttshape j
+p = add p 1
+end
+end
+if bad
+put tb p 59
+p = add p 1
+for i ulong len ttbad
+put tb p get ttbad i
+p = add p 1
+end
+end
+put tn 0 p
+tl_add
+end
+fn tt_replay driver ulong count ulong want int to void
+tl_clear
+tl_arg 2
+tl_add
+if eq driver 0
+tl_arg 1
+else
+tl_word driver
+end
+tl_add
+tt_path
+tl_add
+tt_addword 1
+tt_addword 3
+for i ulong count
+tt_addword 19
+end
+tt_check eq tl_run want
+end
+fn tt_chunk digit uchar arms ulong to void
+tt_path
+p = get tn 0
+put tb p 46
+put tb add p 1 digit
+put tb add p 2 46
+put tb add p 3 106
+put tb add p 4 115
+put tb add p 5 111
+put tb add p 6 110
+put tn 0 add p 7
+tt_read
+tt_check eq tt_count 22 arms
+tt_check eq tt_count 15 1
+end
+fn tt_invalid to void
+tt_base
+tt_addword 11
+tl_word 19
+note A standalone non-UTF8 byte in an otherwise valid configuration must be refused.
+put tb 0 255
+tl_add
+tt_check eq tl_run 2
+end
+fn main to int
+tt_check eq argcnt 4
+for i ulong len ttwords
+put tw i get ttwords i
+end
+tl_arg 3
+tt_check eq makedir tb 0 get tn 0 448 0
+tt_shapes 16 false
+tt_check eq tl_run 0
+tt_shapes 17 false
+tt_check eq tl_run 2
+tt_shapes 16 true
+tt_check eq tl_run 2
+tt_shapes 0 true
+tt_check eq tl_run 2
+note Baseline successful synthetic executions must catch real wrong-result mutants.
+tt_base
+tt_out
+tt_addword 11
+tt_addword 12
+tt_check eq tl_run 0
+tt_receipt
+tt_check eq tt_count 13 1
+tt_check eq tt_count 14 1
+tt_check eq tt_count 15 1
+note Multibyte identifiers preserve their UTF8 bytes, unlike bytewise Unicode escaping.
+tt_base
+tt_out
+tt_addword 11
+tt_addword 23
+tt_check eq tl_run 0
+tt_receipt
+tt_check eq tt_count 24 1
+tt_invalid
+note Runtime errors are not oracle catches. Failed warmup/timed work has no successful cell.
+tt_fault 6 1
+tt_check eq tt_count 20 1
+tt_fault 7 1
+tt_check eq tt_count 21 1
+tt_fault 8 1
+tt_check eq tt_count 21 1
+note Negative control: successfully executed mutants with correct results must fail.
+tt_fault 9 1
+tt_check eq tt_count 20 1
+note Opening succeeds but buffered receipt writes fail.
+tt_base
+tt_addword 4
+tt_addword 16
+tt_check eq tl_run 2
+note Replay propagates child failure and exec failure, and chunks 31 cfgs across three children.
+tt_replay 17 0 1
+tt_replay 18 0 127
+tt_replay 0 31 0
+tt_chunk 48 16
+tt_chunk 49 16
+tt_chunk 50 2
+r = write 1 ttpass 0 len ttpass
+tt_check eq r long len ttpass
+ret 0
+end
