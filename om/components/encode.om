@@ -1,0 +1,17 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Concatenate repaired bw_enc_sm121 and bw_spec_sm121 unchanged before this adapter.
+note One instruction representation and encoder; sp_enc independently validates solved semantics.
+fn bc_encode ins view ulong 8192 phys view ulong 288 n ulong pad ulong code edit uchar 16384 to ulong
+o = new ulong 16 0
+w = new ulong 4 0
+if or eq n 0 gt n 1024
+ret 0
+end
+for i ulong n
+opnds ins i phys o
+if ne sp_enc o w 0
+ret 0
+end
+end
+ret bw_enc_sm121 ins phys n pad code
+end

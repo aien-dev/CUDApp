@@ -1,0 +1,19 @@
+{
+  "extensions": {
+    "generated": {
+      "children": [],
+      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiled_at": "2026-10-28T12:22:27Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:3a2acc96b47ad0650e2680d6e934e307ef163c76d8deb5ba5b301d6262550cd0",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 0,
+      "generated_at_commit": "2e93f998b70852abcd425f8865d842a05dad76ea",
+      "source_tree": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "name": "componenttests",
+  "purpose": "Native composer host acceptance and independent oracles",
+  "schema_version": "1.0.0"
+}
