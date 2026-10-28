@@ -1,0 +1,266 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note CUDApp157 canonical realization v1. Concatenate after quant.om.
+note Wire is 1152 used bytes in uchar4096; trailing bytes MUST zero.
+note 64 LE64 metadata, eight SHA256 digests, exact QuantSchema384.
+note Digests semantic/compiler/encoder/spec/unsolvedIR/code/launch/lineage.
+note A nonzero digest is not evidence: caller must hash actual bytes and qualify.
+fn compose_word b view uchar 4096 k ulong to ulong
+v = ulong 0
+for j ulong 8
+v = or v shl ulong get b add mul k 8 j mul j 8
+end
+ret v
+end
+fn compose_put b edit uchar 4096 k ulong v ulong to void
+for j ulong 8
+put b add mul k 8 j uchar and shr v mul j 8 255
+end
+end
+fn compose_digest b view uchar 4096 slot ulong h view uchar 32 to bool
+if ge slot 8
+ret false
+end
+for j ulong 32
+if ne get b add add 512 mul slot 32 j get h j
+ret false
+end
+end
+ret true
+end
+fn compose_codeid b view uchar 4096 h view uchar 32 to bool
+ret compose_digest b 5 h
+end
+fn compose_launchid b view uchar 4096 h view uchar 32 to bool
+ret compose_digest b 6 h
+end
+fn compose_check b view uchar 4096 n ulong to uint
+d = new ulong 48 0
+q = new uchar 384 0
+if ne n 1152
+ret 1
+end
+if or ne compose_word b 0 1 ne compose_word b 1 1152
+ret 1
+end
+if ne compose_word b 2 121
+ret 2
+end
+note v1 no optional feature bits: SM121 warp instruction path only, no TMA/TMEM.
+if ne compose_word b 3 0
+ret 2
+end
+for k ulong 3
+v = compose_word b add k 4
+if or eq v 0 gt v 16777216
+ret 3
+end
+end
+note type tags1F32 2BF16 3E4M3 4E5M2. This bounded realization uses folded E4M3.
+if or ne compose_word b 7 1 ne compose_word b 8 3
+ret 2
+end
+if or ne compose_word b 9 1 ne compose_word b 10 1
+ret 2
+end
+if or ne compose_word b 11 1 ne compose_word b 12 0
+ret 2
+end
+note alias0 means disjoint input weights scales output. Admission must prove addresses.
+if ne compose_word b 13 0
+ret 2
+end
+for k ulong 6
+if eq compose_word b add k 14 0
+ret 3
+end
+end
+if gt compose_word b 17 32
+ret 3
+end
+if gt compose_word b 18 16
+ret 3
+end
+if gt compose_word b 19 2
+ret 2
+end
+if gt compose_word b 20 127
+ret 2
+end
+if gt compose_word b 21 16384
+ret 3
+end
+if or lt compose_word b 22 3 gt compose_word b 22 246
+ret 3
+end
+if or lt compose_word b 23 4 gt compose_word b 23 32
+ret 3
+end
+if gt compose_word b 24 16
+ret 3
+end
+if ne compose_word b 25 mul compose_word b 17 32
+ret 3
+end
+if gt mul compose_word b 25 compose_word b 22 65536
+ret 3
+end
+for k ulong 3
+if eq compose_word b add k 26 0
+ret 3
+end
+end
+cnt = ulong 0
+for k ulong 8
+if ne compose_word b add k 30 0
+cnt = add cnt 1
+end
+end
+if or eq cnt 0 ne cnt compose_word b 29
+ret 1
+end
+for k ulong 26
+if ne compose_word b add k 38 0
+ret 1
+end
+end
+for k ulong 8
+nz = uchar 0
+for j ulong 32
+nz = or nz get b add add 512 mul k 32 j
+end
+if eq nz 0
+ret 1
+end
+end
+for j ulong 384
+put q j get b add j 768
+end
+rc = quant_read q d
+if ne rc 0
+ret 4
+end
+rc = quant_check d
+if ne rc 0
+ret 4
+end
+note Quant descriptor describes a load-time chunk, NOT necessarily entire MNK.
+if or ne get d 1 2 ne get d 24 3
+ret 2
+end
+if or ne get d 40 1 ne get d 32 0
+ret 2
+end
+for j ulong 2944
+if ne get b add j 1152 0
+ret 1
+end
+end
+ret 0
+end
+fn compose_match a view uchar 4096 b view uchar 4096 to bool
+if ne compose_check a 1152 0
+ret false
+end
+if ne compose_check b 1152 0
+ret false
+end
+for k ulong 12
+if ne compose_word a add k 2 compose_word b add k 2
+ret false
+end
+end
+note semantic and pinned tool identities only; qualification remains candidate-specific.
+for j ulong 128
+if ne get a add j 512 get b add j 512
+ret false
+end
+end
+for j ulong 384
+if ne get a add j 768 get b add j 768
+ret false
+end
+end
+ret true
+end
+note launch template is32 LE64 words: v1,gridXYZ,blockXYZ,shared,gpr,ugpr,barriers,
+note cbankOffset,argWords,paramABI,relocationPolicy;15..18parameterABI SHA256 limbs,
+note 19..22constantbank SHA256 limbs,23..26zeroVA QMD templates SHA256 limbs;27..31zero.
+note Address-free templates only; blockY=blockZ=1; args remain immutable artifact data.
+fn compose_launch b view uchar 4096 l view ulong 32 to uint
+if ne compose_check b 1152 0
+ret 1
+end
+if or ne get l 0 1 ne get l 4 compose_word b 25
+ret 1
+end
+if or ne get l 5 1 ne get l 6 1
+ret 1
+end
+for j ulong 3
+if ne get l add j 1 compose_word b add j 26
+ret 1
+end
+end
+for j ulong 4
+if ne get l add j 7 compose_word b add j 21
+ret 1
+end
+end
+if or eq get l 11 0 gt get l 12 32
+ret 1
+end
+if or eq get l 12 0 ne get l 13 1
+ret 1
+end
+if ne get l 14 1
+ret 1
+end
+for k ulong 3
+v = ulong 0
+for j ulong 4
+v = or v get l add add 15 mul k 4 j
+end
+if eq v 0
+ret 1
+end
+end
+for j ulong 5
+if ne get l add j 27 0
+ret 1
+end
+end
+ret 0
+end
+fn compose_launchread b view uchar 4096 wire view uchar 4096 n ulong to uint
+l = new ulong 32 0
+if ne n 256
+ret 1
+end
+for k ulong 32
+put l k compose_word wire k
+end
+for j ulong 3840
+if ne get wire add j 256 0
+ret 1
+end
+end
+ret compose_launch b l
+end
+fn compose_launchwrite l view ulong 32 wire edit uchar 4096 to void
+for j ulong 4096
+put wire j 0
+end
+for k ulong 32
+compose_put wire k get l k
+end
+end
+fn compose_quant b view uchar 4096 q edit uchar 384 to void
+for j ulong 384
+put q j get b add j 768
+end
+end
+fn compose_setquant b edit uchar 4096 q view uchar 384 to void
+for j ulong 384
+put b add j 768 get q j
+end
+end
