@@ -1,6 +1,6 @@
 # CUDA++ (GPU machine-code toolchain, runtime and driver client for NVIDIA GPUs without the CUDA toolkit)
 
-> CUDA++ is the GPU half of the Omega runtime. It writes sm_121 machine code (SASS) directly, launches it through its own client for NVIDIA's open kernel module ioctls, and ships matrix multiply, attention, elementwise and mixture-of-experts libraries on top. No CUDA toolkit, `nvcc`, PTX, `libcuda` or cuBLAS is used. It builds with `make` and a C compiler; it runs only on the NVIDIA GB10 (DGX Spark, sm_121) with the 580.173.02 open kernel module. The repository on GitHub is `CUDApp`; the project name is written CUDA++.
+> CUDA++ is the GPU half of the Omega runtime. It writes sm_121 machine code (SASS) directly, launches it through its own client for NVIDIA's open kernel module ioctls, and ships matrix multiply, attention, elementwise and mixture-of-experts libraries on top. Its build and runtime use no CUDA toolkit, `nvcc`, PTX, `libcuda` or cuBLAS. Host verification uses NVIDIA's offline `nvdisasm` as an independent instruction oracle, never as an implementation dependency. It builds with `make` and a C compiler; it runs only on the NVIDIA GB10 (DGX Spark, sm_121) with the 580.173.02 open kernel module. The repository on GitHub is `CUDApp`; the project name is written CUDA++.
 
 Shared rules: read https://www.aienos.com/agents/RULES.md first. This file adds what is specific to this repository; where the two differ, this file wins here.
 
@@ -23,7 +23,7 @@ cd CUDApp
 make -j8          # build/libomega_gpu.a, copied to build/libcudapp.a
 ```
 
-Needs Linux, `git`, `make` and `gcc` (the `Makefile` uses `CC ?= gcc` and builds with `-Wall -Wextra -Werror`). Nothing from the CUDA toolkit is needed. The host build and host tests need no GPU. Running a kernel on the chip needs a DGX Spark (GB10) with NVIDIA's open kernel module 580.173.02 loaded and `/dev/nvidia0` and `/dev/nvidia-uvm` present.
+Needs Linux, `git`, `make` and `gcc` (the `Makefile` uses `CC ?= gcc` and builds with `-Wall -Wextra -Werror`). Nothing from the CUDA toolkit is needed to build or run. The complete host test suite additionally requires offline `nvdisasm` for independent encoder operand checks and the pinned Omega verification tools; missing required tools are NOT_RUN, not PASS. The host build and host tests need no GPU. Running a kernel on the chip needs a DGX Spark (GB10) with NVIDIA's open kernel module 580.173.02 loaded and `/dev/nvidia0` and `/dev/nvidia-uvm` present.
 
 ## Configuration
 
@@ -70,7 +70,7 @@ make hello-gpu                              # runs make doctor, then examples/he
 - Status words in `README.md` and `ROADMAP.md` are PASS (receipt on a named commit), PARTIAL, MISSING, BUILDING. Do not upgrade a status without the receipt.
 - New source files carry `SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception`. Keep third-party notices (`THIRD_PARTY.md`, `NOTICE`).
 - Plain English, short sentences, every number with the command that produced it.
-- CI on pull requests is GitHub CodeQL (C/C++ and Python). It does not run `make test`; run it yourself and put the result in the pull request, naming every failure in that run.
+- Pull request CI runs the host-only `make test` suite, pinned Omega binding regeneration and mutants, SBOM generation and GitHub CodeQL. Its disposable arm64 host-test runner installs only the checksum-verified NVIDIA `nvdisasm` 13.0.85 executable and the bridge source pinned by `om/omega-bridge.lock`. The archive URL and SHA-256 are fixed in `.github/workflows/ci.yml`, from NVIDIA's `redistrib_13.0.2.json` manifest. The oracle is verification-only: no CUDA driver, runtime or compiler is installed, no NVIDIA binary is committed, and no GPU is opened. Provisioning errors and missing-oracle checks remain failures. Put local results in the pull request with their exact source revision; all-green host CI is not physical qualification.
 
 ## Safety and approvals
 
