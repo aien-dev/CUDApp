@@ -1,7 +1,7 @@
 {
   "compiler": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
   "physical_execution": "NOT_RUN: no GPU authority",
-  "independent_numerical_execution": "NOT_RUN: unchanged scalar/warp oracle not yet wired to native frames",
+  "independent_numerical_execution": "PASS reused existing scalar/warp oracles on every native IR/allocation frame",
   "composer_root": "PASS direct/changed-direct/rowpipe/dense-staged/mapped-staged and mutant refusal",
   "cases": [
     {
@@ -16,6 +16,7 @@
       "whole_frame_sha256": "b5bb30768c79fdd6e463153e38ce69663e6b7bfa6f9777f21e59d29aee3dc5e7",
       "code_sha256": "b98ca8e082ea30ac4b4dfc6fd1c467dae9b2d7ec57e8e485d269a35bf75eb218",
       "code_bytes": 1792,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst4.6231305e-08\nwrong-result mutant: double-oracle bad384\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -30,6 +31,7 @@
       "whole_frame_sha256": "82e1fe1f85ae72da78da8435a467aeaad12ba3142355dda985111d5e74ab7e78",
       "code_sha256": "4332a0604636db1bba0190e3924cca4a48bf1edbb92dcc436c329fb8a8f2186a",
       "code_bytes": 1792,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst4.6231305e-08\nwrong-result mutant: double-oracle bad384\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -44,6 +46,7 @@
       "whole_frame_sha256": "dfe766517383af13f38a3be4832881d7b1fbff1820e6d4fd08916cb9da0248e2",
       "code_sha256": "5ddf1834fa8f873cfb408a3db23bf9ee98856717bca07eb0bc2de86ca5ea1203",
       "code_bytes": 2560,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst5.08413955e-08\nwrong-result mutant: double-oracle bad384\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -58,6 +61,7 @@
       "whole_frame_sha256": "f76f241f356bd835eee26ebb6c62649cdff353125ae6dee88065d36017490ce9",
       "code_sha256": "c6e0000a724c9b60294c1c04fbdc9fd3d3d66a77644533bd3be6c7051b4f2a35",
       "code_bytes": 2560,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst5.08413955e-08\nwrong-result mutant: double-oracle bad384\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -72,6 +76,7 @@
       "whole_frame_sha256": "b5c9e72c669b051bbb176fc6e34ab7cd0fd2e404f153c60669935693a7a16744",
       "code_sha256": "54a6dccc0a7e28049b78b86143b773a1674169104437f38bdf6cdf795e57d3b0",
       "code_bytes": 2688,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst2.19413562e-08\nwrong-result mutant: double-oracle bad192\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -86,6 +91,7 @@
       "whole_frame_sha256": "205d60f19cfeef336863ee70719cc4ad19e0868f95b09da40309ae5c4cd5260d",
       "code_sha256": "27df81f48fb5e37108b83ffac9432108245105f1f0bcad05a4db378b7ec5a05b",
       "code_bytes": 2688,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst2.19413562e-08\nwrong-result mutant: double-oracle bad192\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -100,6 +106,7 @@
       "whole_frame_sha256": "e28872ee8f3ef58ef893c7cc8d0f55f8854208dfb9960a408f67b7f3fdcf9989",
       "code_sha256": "f0231a9e12751e58fd0f8235f15bc517f8fdc9f85f9bb2b0506e5265b2e93fe5",
       "code_bytes": 7168,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst2.34430326e-08\nwrong-result mutant: double-oracle bad96\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -114,6 +121,7 @@
       "whole_frame_sha256": "ec5e30c2dddd377866677ee0232f2a2daa69c1c0e1b9795d66cb1dabd26c6146",
       "code_sha256": "7474910f589e2c87ec14c13f2b071085ae0ee8dabe34aa0cfe4b63e6b351b4e4",
       "code_bytes": 7168,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst2.34430326e-08\nwrong-result mutant: double-oracle bad96\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -127,6 +135,7 @@
       "whole_frame_sha256": "3a371f1666bd5dc9a19cf5b8194efe036ab870a7fc75895f8e6ec19f3ac35e91",
       "code_sha256": "78bc0f2df9a571413ffcdd3a39ddbd5dbc7621110df820f61315dfaab377ac69",
       "code_bytes": 2464,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst4.6231305e-08\nwrong-result mutant: double-oracle bad384\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -140,6 +149,7 @@
       "whole_frame_sha256": "a4a5dbd7262f52094cab063de88f87acb64495bfbe22b721dff58cb4e4df0566",
       "code_sha256": "90aee5a111786f94c020e9811292fe00163d58149286958d01fb417e688673e3",
       "code_bytes": 4192,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst4.09446669e-08\nwrong-result mutant: double-oracle bad384\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -153,6 +163,7 @@
       "whole_frame_sha256": "3098e413ee1a5dcc9f88eb391aedeecd213605f73347b3dea72b1f9c82c3f4ed",
       "code_sha256": "0f74138cc209383a759856cc664ad93191bac3be216a67445d7d6584d3c3e885",
       "code_bytes": 14032,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst5.08413955e-08\nwrong-result mutant: double-oracle bad48\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -166,6 +177,7 @@
       "whole_frame_sha256": "cdfaf9063264eac4a82ec5d8a2e485030d16fd6e5c566fdc03fd94e00f05428d",
       "code_sha256": "26fa9aa2e8c7f13092ee0c3ce05af084817c463c3c5729bcf44886aa214d9b30",
       "code_bytes": 13776,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst2.34430326e-08\nwrong-result mutant: double-oracle bad384\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -179,6 +191,7 @@
       "whole_frame_sha256": "9bb2ccf3ff595fd2d13e4a3fb675d8985b8c906162118147df82a0c82fea3870",
       "code_sha256": "ed0b07997b07ff610a8fe4f606419a5a535f7f2d8c5adb4dee93dd088bc9e834",
       "code_bytes": 3408,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst4.6231305e-08\nwrong-result mutant: double-oracle bad192\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -192,6 +205,7 @@
       "whole_frame_sha256": "1175b512ada89033d8e325ef848f0d7627b70821f106fec855cd6b4d2e5b3647",
       "code_sha256": "6f5f4a6656e609237cbebea8a515b122759a0da815f2ccd96f9b71f721580bb6",
       "code_bytes": 5296,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst4.6231305e-08\nwrong-result mutant: double-oracle bad96\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -205,6 +219,7 @@
       "whole_frame_sha256": "aa3277e5d7eb736c85893d6fed49e1cdb388d495498981eb44669bdae834696c",
       "code_sha256": "baf48e0f39b2f28248aef84ceeb0d16f9eba8d6169a9cda47a713103e626859b",
       "code_bytes": 9072,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst4.6231305e-08\nwrong-result mutant: double-oracle bad48\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -218,6 +233,7 @@
       "whole_frame_sha256": "0e79082d41d08f8731e4b18b9bcf076f19d7b2229eae0a2bd9c47e6daf481633",
       "code_sha256": "f027ef23ca78a894058c5dfb1f5fa03a7d84c6140239a6dc30c03e329bfce4ea",
       "code_bytes": 3680,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst5.08413955e-08\nwrong-result mutant: double-oracle bad384\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -231,6 +247,7 @@
       "whole_frame_sha256": "69a78e64b0b94c6158b39e9c22fae4f07352aaf85d996683acae19dcf9626474",
       "code_sha256": "f3a31d0e46633f8b8f6f676e60200fdc70e7dccece61a621e9e2566744692f41",
       "code_bytes": 4880,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst5.08413955e-08\nwrong-result mutant: double-oracle bad192\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -244,6 +261,7 @@
       "whole_frame_sha256": "f0724d95784e2823dc71db7f54c594e3441baacddce5e6cb9688f3a3749777a6",
       "code_sha256": "14c088bcc43a1ea3d969efbd48ce58178826829f2a432ed65b56222162a65add",
       "code_bytes": 8112,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst5.08413955e-08\nwrong-result mutant: double-oracle bad96\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -257,6 +275,7 @@
       "whole_frame_sha256": "0d7e5e353eef118c833e5e59d4d1b2312e22f0003d81f7836c4e9675b1c49aee",
       "code_sha256": "951d37014603add081a6aed701bedfb9092ca68ca24c5ba95591204588a74724",
       "code_bytes": 5520,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst3.52032282e-08\nwrong-result mutant: double-oracle bad384\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -270,6 +289,7 @@
       "whole_frame_sha256": "2556960f0cd0a56319fc07874ef7272a3e387fbdb8ac1859bdff6d5a6e3cdecd",
       "code_sha256": "31ff252e98a4bec3aceac3927c4a2ee85d0ae06db4ecb47f535da2ad213b7e58",
       "code_bytes": 8336,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst2.31778183e-08\nwrong-result mutant: double-oracle bad384\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -283,6 +303,7 @@
       "whole_frame_sha256": "b7c47a397281a2e803392726f2a0eaaf5c59fe17dd702a85bf5540e35c098c01",
       "code_sha256": "115cc72a3661f7bc9c292960c57a12fa32d92f068a5a2ac16eb43fce2164c67f",
       "code_bytes": 6624,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst2.71861138e-08\nwrong-result mutant: double-oracle bad384\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -296,6 +317,7 @@
       "whole_frame_sha256": "6bf26339edc695467a15ed717f407917beb8dda3a04745b1928d556cecbe5540",
       "code_sha256": "4d21346c76a6c1a7c46139a599fade79f2ffe3fc2f581d595b243db9ec8e4c98",
       "code_bytes": 8160,
+      "numerical_result": "native grouped gemv both fragment orders, distinct experts/X rows, double-oracle bad0 worst2.77894745e-08\nwrong-result mutant: double-oracle bad192\nunknown-op mutant refused: run 0 (order 0, warp order 0): OP at pc 0: opcode not modelled\n",
       "result": "PASS"
     },
     {
@@ -310,6 +332,7 @@
       "whole_frame_sha256": "b9c7ab925b8ac3218fa5da8b84ec1a4274bfbc3825178810dea6c3662aaf0cb0",
       "code_sha256": "8a22d1b4d7410de7ba90c99b2df9d411cd57ca62be65874892c333dfe6ec7053",
       "code_bytes": 8320,
+      "numerical_result": "native staged both fragment orders, empty segment, tail rows, multi-segment: 0 of 600 outputs differ from the emulation (bit-identical)\nwrong-result mutant: 240 of 600 outputs differ from the emulation\nunknown-op mutant refused: order 0: OP at pc 0: opcode not modelled (pc 0)\n",
       "result": "PASS"
     },
     {
@@ -324,6 +347,7 @@
       "whole_frame_sha256": "d2aadb24ccef714ab59c3c8faa9ef7bab63864061ad184d75f317959cc37afde",
       "code_sha256": "14dda72a841737c0d05170e21d5c18f5b503070780c23e83dd35fc7b560174eb",
       "code_bytes": 12928,
+      "numerical_result": "native staged both fragment orders, empty segment, tail rows, multi-segment: 0 of 600 outputs differ from the emulation (bit-identical)\nwrong-result mutant: 160 of 600 outputs differ from the emulation\nunknown-op mutant refused: order 0: OP at pc 0: opcode not modelled (pc 0)\n",
       "result": "PASS"
     },
     {
@@ -338,6 +362,7 @@
       "whole_frame_sha256": "4b9d01bba1d132fad59aa1ab6cbb5f9f47fab1569d4ea9585a112a3b59d521c3",
       "code_sha256": "fda45ac0af6ea2b4e158f0bf741224f60ba9712fe1aab3a20bd8465f6f1f6bb8",
       "code_bytes": 8960,
+      "numerical_result": "native staged both fragment orders, empty segment, tail rows, multi-segment, YMAP movement: 0 of 600 outputs differ from the emulation (bit-identical), rows moved by YMAP\nwrong-result mutant: 240 of 600 outputs differ from the emulation, rows moved by YMAP\nunknown-op mutant refused: order 0: OP at pc 0: opcode not modelled (pc 0)\n",
       "result": "PASS"
     },
     {
@@ -352,6 +377,7 @@
       "whole_frame_sha256": "1187077d46bbde6a47308c5a0eb0cdb2f7b656609c612667f466c9c27cf1373e",
       "code_sha256": "dcc15337b09a9567dac2ff8b3e909fce8cc1cc270ddcd85ddbd7c2998d1a9ba3",
       "code_bytes": 7424,
+      "numerical_result": "native staged both fragment orders, empty segment, tail rows, multi-segment: 0 of 600 outputs differ from the emulation (bit-identical)\nwrong-result mutant: 240 of 600 outputs differ from the emulation\nunknown-op mutant refused: order 0: OP at pc 0: opcode not modelled (pc 0)\n",
       "result": "PASS"
     },
     {
@@ -366,6 +392,7 @@
       "whole_frame_sha256": "397a81243d3f0ebd069fbb667bc0420ff5645d28c48d441a0682ab06cde9b638",
       "code_sha256": "2da1a95abf7f3c1f4fe858f641e17c27503ebecb10ed3a1494a5682983526b77",
       "code_bytes": 8064,
+      "numerical_result": "native staged both fragment orders, empty segment, tail rows, multi-segment: 0 of 600 outputs differ from the emulation (bit-identical)\nwrong-result mutant: 240 of 600 outputs differ from the emulation\nunknown-op mutant refused: order 0: OP at pc 0: opcode not modelled (pc 0)\n",
       "result": "PASS"
     }
   ],
@@ -377,7 +404,9 @@
     "rowpipe --sb-rd: mismatch detected PASS",
     "rowpipe --branch: mismatch detected PASS",
     "rowpipe native/oracle register exhaustion and malformed frames refuse without output PASS",
-    "native component-unit malformed op/bundle/wait/branch/resource/MMA controls PASS"
+    "native component-unit malformed op/bundle/wait/branch/resource/MMA controls PASS",
+    "every native case: FFMA-to-FADD executes but numerically disagrees PASS",
+    "every native case: existing unknown-op refusal preserved PASS"
   ],
   "source_baseline": "b759afc3f5e46f152ffb06b39882ffa28cacaf96",
   "encoder_source_revision": "85c059cc15edf704c9833fe4832f18c052ee83b3",
@@ -395,5 +424,18 @@
     "om/components/realize.om": "2edff07a46c79c39a264dde9e5d6dfa02ed2f6dda677da8cc8a178f60c9a1c9d",
     "om/components/rowpipe.om": "6676bdb26037acff3739c2c0117869d9e52345dec5a987079ed9f2497783b43a",
     "om/components/staged.om": "6c36ce4f58f04225558a384818573c76b11591bcb734c386ff8ee17149f87257"
+  },
+  "numerical_verifier_sha256": {
+    "tests/components/run.py": "b10ed71a993c1fb1da3f2387e473718335620d449f28f7f06f3d5eb5b6dccf7d",
+    "tests/components/numerical.c": "2a681d826969bcf52422e19e60fc47d73f0529d536738f9007499732dbbfe2dc",
+    "tests/components/native-frame.h": "ba874d7a4cb7cf53a9168f8c0394e167ef958882cd5db1a9299258e0dd313529",
+    "tests/gpu_fp8_api_test.c": "f71b34e1c77f9f6a17e62757e26a97b4f8f181ba746e5acad6ce87ebf2e81072",
+    "tests/gpu_fp8gemm_test.c": "c5a804c46c79da1cf2f4c1bd82f6ab0c2ee5e7f15f0438326392b3a657e6e3de",
+    "tests/bw_warp_sim.h": "f709e17cf4fceab93f1f33f8d63798dc652c6cf4e88d968532898b933dd5dc80",
+    "tests/bw_warp_sim_k.h": "2f7167ac67d9bb815372df0a8f8cd0cefcb05035b44313bd62f1e8354ecd02c2",
+    "src/omega_gpu_fp8_pack.c": "eaa651e04da8bd72957b374395e419e41872e3e1af761e9fba7135014445c87a",
+    "src/omega_gpu_hostmath.c": "9aee5b24d788434236f8dd0fd5d201c4dd6d78712adad966f44ce5797e71b622",
+    "src/omega_gpu_fp8gemm_api.c": "e89a21c96fd578bbb57990141c945f1098abaac90d230cbc3afffe26f58527b7",
+    "src/omega_blackwell_matmul.c": "457cafc15d3d040091e64830b1856367a3150d061dd450f15939d1c4462bde69"
   }
 }
