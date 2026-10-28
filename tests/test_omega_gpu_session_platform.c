@@ -663,6 +663,7 @@ typedef struct { const char *id; void (*fn)(void); } Case;
 static const Case CASES[] = {
 #ifdef OMEGA_NATIVE_RUNTIME_TEST
     {"NATIVE_SYNTHETIC_QUANT_COMPOSE_ENCODE_CACHE_SELECT_RECORD", c_native_chain},
+    {"NATIVE_REAL_COMPOSE_CAPACITY_REFUSES_WITHOUT_TRAP", c_native_compose_capacity},
     {"NATIVE_TIMEOUT_RETAINS_CODE_UNTIL_CONFIRMED_TEARDOWN", c_native_timeout_refs},
     {"NATIVE_NORMAL_CLOSE_INVALIDATES_EXACT_LEASE", c_native_close_epoch},
     {"NATIVE_ACTUAL_OWNER_MODEFINAL_OBSERVER_BINDING", c_native_observer_modes},
