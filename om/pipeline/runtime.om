@@ -1,0 +1,27 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Private graph state owns all candidates and canonical bytes. Not a qualification authority.
+note Qualification records must be resolved by existing evaluator/receipt owners, not the caller.
+note One selection under existing session lock; copy only selected canonical record from immutable graph pool.
+fn native_graph q view ulong 64 rows view ulong 1024 p edit ulong 528 want view uchar 4096 records view uchar 65536 out edit ulong 32 to long
+sel = new ulong 16 0
+real = new uchar 4096 0
+for i ulong 32
+put out i 0
+end
+rc = pl_select q rows sel
+if ne rc 0
+ret long rc
+end
+if ge get sel 1 16
+ret 65
+end
+base = mul get sel 1 4096
+for i ulong 4096
+put real i get records add base i
+end
+rc = pl_checkrow rows want real sel
+if ne rc 0
+ret long rc
+end
+ret long pl_finish q rows p sel out
+end

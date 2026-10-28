@@ -8,9 +8,11 @@
  * written by the CPU, WAIT_FOR_IDLE sits between launches, and the PCAS launch method.
  */
 #include "omega_gpu_cmdlist.h"
+#include "omega_gpu_cmdlist_native.h"
 #include "omega_blackwell_codegen.h"
 #include "omega_blackwell_qmd.h"
 #include "omega_blackwell_submit.h"
+#include "omega_gpu_native_runtime.h"
 #include <string.h>
 
 #define PAGE 0x1000ull
@@ -36,6 +38,13 @@ static const uint32_t SETUP_WORDS[18] = {
     0x20012559, 0x00000000,
 };
 
+typedef struct {
+    OmegaGpuNativeCache *cache;
+    uint64_t state[16];
+    uint64_t code_va; /* successful add() intent, independently checked against actual QMD in .om */
+    uint32_t n_args; /* exact successful add() fact, including incumbent entries */
+    uint8_t intent_seal[32]; /* generated normalized bank/QMD binding at native add */
+} NativeRef;
 struct OmegaGpuCmdList {
     uint32_t cap, n;
     OmegaGpuMem banks, qmds, sems, scratch;
@@ -53,18 +62,77 @@ struct OmegaGpuCmdList {
     const OmegaGpuCmdList *wait_other; /* the one list this list waits on (it must be the other list of the pair) */
     uint32_t wait_max;    /* highest launch index of wait_other waited on */
     uint32_t gen;         /* omega_gpu_session_recoveries() at create: a list from before a recovery is stale (C5) */
+    uint64_t epoch;        /* normal close/reopen also invalidates device handles */
+    uint64_t record_generation; /* advanced only by generated policy on safe reset */
+    NativeRef *native;    /* per-launch exact code ownership, metadata only */
 };
+
+static uint64_t next_record_generation(uint64_t previous) {
+    uint64_t next = 0;
+    return omega_native_revision(&next, previous) == OMEGA_OK ? next : 0;
+}
 
 static uint32_t g_latched; /* 1 + omega_gpu_session_recoveries() at the latch; 0 never latched (C5: a recovery lifts it) */
 
 int omega_gpu_cmdlist_is_latched(void) { return __atomic_load_n(&g_latched, __ATOMIC_ACQUIRE) == omega_gpu_session_recoveries() + 1u ? 1 : 0; }
 uint32_t omega_gpu_cmdlist_count(const OmegaGpuCmdList *cl) { return cl ? cl->n : 0; }
-void omega_gpu_cmdlist_reset(OmegaGpuCmdList *cl) { if (cl) { cl->n = 0; cl->pending_wait = 0; cl->nwaits = 0; cl->wait_other = NULL; cl->wait_max = 0; } }
+static int native_event(NativeRef *ref, unsigned event) {
+    if (!ref->cache) return 0;
+    uint64_t result = 0;
+    return omega_native_event(&result, ref->cache->pool, 528, ref->state, 16,
+                              omega_gpu_session_epoch(), event) == OMEGA_OK && result == 0 ? 0 : -1;
+}
+static int native_events(OmegaGpuCmdList *cl, uint32_t first, uint32_t end, unsigned event) {
+    for (uint32_t i = first; i < end; i++)
+        if (native_event(&cl->native[i], event) != 0) return -1;
+    return 0;
+}
+static int native_begin(OmegaGpuCmdList *cl, uint32_t first, uint32_t end) {
+    uint32_t i;
+    for (i = first; i < end; i++) if (native_event(&cl->native[i], 1) != 0) break;
+    if (i == end) return 0;
+    (void)native_events(cl, first, i, 4); /* none of this chunk was submitted */
+    omega_gpu_session_set_error("cmdlist: native code lease refused before submit");
+    return -1;
+}
+void omega_gpu_cmdlist_reset(OmegaGpuCmdList *cl) {
+    if (!cl) return;
+    if (native_events(cl, 0, cl->n, 5) != 0) {
+        omega_gpu_session_set_error("cmdlist reset: uncertain native flight still owns list buffers"); return;
+    }
+    const uint64_t next = next_record_generation(cl->record_generation);
+    if (!next) {
+        omega_gpu_session_set_error("cmdlist reset: record generation exhausted"); return;
+    }
+    (void)native_events(cl, 0, cl->n, 3);
+    memset(cl->native, 0, (size_t)cl->cap * sizeof *cl->native);
+    cl->n = 0; cl->pending_wait = 0; cl->nwaits = 0; cl->wait_other = NULL; cl->wait_max = 0;
+    cl->record_generation = next;
+}
 /* C5: every handle of a list made before the latest session recovery belongs to the closed device */
 static int stale(const OmegaGpuCmdList *cl) {
-    if (cl->gen == omega_gpu_session_recoveries()) return 0;
+    if (cl->gen == omega_gpu_session_recoveries() && cl->epoch == omega_gpu_session_epoch()) return 0;
     omega_gpu_session_set_error("cmdlist: made before a session recovery (its buffers are gone): create a new list");
     return 1;
+}
+int omega_gpu_cmdlist_owner(const OmegaGpuCmdList *cl, OmegaGpuCmdListOwner *out) {
+    if (!cl || !out || stale(cl)) return -1;
+    out->banks = cl->banks; out->qmds = cl->qmds; out->semaphores = cl->sems;
+    out->scratch = cl->scratch; out->stamps = cl->stamps;
+    out->record_generation = cl->record_generation;
+    out->capacity = cl->cap; out->count = cl->n;
+    return 0;
+}
+int omega_gpu_cmdlist_entry(const OmegaGpuCmdList *cl, uint32_t index, OmegaGpuCmdListEntry *out) {
+    if (!cl || !out || index >= cl->n || stale(cl)) return -1;
+    out->bank = (const uint8_t *)cl->banks.cpu + (size_t)index * OMEGA_GPU_CMDLIST_BANK_BYTES;
+    out->qmd_slot = (const uint8_t *)cl->qmds.cpu + (size_t)index * OMEGA_GPU_CMDLIST_QMD_BYTES;
+    out->intent_seal = cl->native[index].intent_seal;
+    out->code_va = cl->native[index].code_va;
+    out->pending_wait = cl->wait_va[index]; out->record_generation = cl->record_generation;
+    out->ordinal = index; out->count = cl->n; out->n_args = cl->native[index].n_args;
+    out->independent = cl->indep[index];
+    return 0;
 }
 int omega_gpu_cmdlist_wait_for(OmegaGpuCmdList *cl, const OmegaGpuCmdList *other, uint32_t index) {
     if (!cl || !other || cl == other || index >= other->n) { omega_gpu_session_set_error("cmdlist wait_for: another list and one of its launches"); return -1; }
@@ -108,11 +176,15 @@ int omega_gpu_cmdlist_create(uint32_t cap, OmegaGpuCmdList **out) {
     if (!cl) return -1;
     cl->cap = cap;
     cl->gen = omega_gpu_session_recoveries();
+    cl->epoch = omega_gpu_session_epoch();
+    cl->record_generation = next_record_generation(0);
+    if (!cl->record_generation) { omega_gpu_host_free(cl); return -1; }
     cl->words_cap = RING_WORDS;
     cl->words = omega_gpu_host_alloc((size_t)cl->words_cap * 4u);
     cl->indep = omega_gpu_host_calloc(cap, 1);
     cl->wait_va = omega_gpu_host_calloc(cap, sizeof *cl->wait_va);
-    int rc = cl->words && cl->indep && cl->wait_va ? 0 : -1;
+    cl->native = omega_gpu_host_calloc(cap, sizeof *cl->native);
+    int rc = cl->words && cl->indep && cl->wait_va && cl->native ? 0 : -1;
     omega_gpu_session_lock();
     if (rc == 0 && !omega_gpu_session_open()) rc = -1;
     if (rc == 0 && (omega_gpu_session_alloc((size_t)cap * OMEGA_GPU_CMDLIST_BANK_BYTES, &cl->banks) != 0 ||
@@ -135,18 +207,20 @@ int omega_gpu_cmdlist_create(uint32_t cap, OmegaGpuCmdList **out) {
 void omega_gpu_cmdlist_free(OmegaGpuCmdList *cl) {
     if (!cl) return;
     omega_gpu_session_lock();
+    if (cl->native) (void)native_events(cl, 0, cl->n, 3); /* timeout retains pool flight refs until device teardown */
     OmegaGpuMem *m[] = { &cl->banks, &cl->qmds, &cl->sems, &cl->stamps, &cl->scratch, &cl->nop_code };
     for (unsigned i = 0; i < sizeof m / sizeof m[0]; i++) if (m[i]->cpu) omega_gpu_session_free(m[i]);
     omega_gpu_session_unlock();
     omega_gpu_host_free(cl->words);
     omega_gpu_host_free(cl->indep);
     omega_gpu_host_free(cl->wait_va);
+    omega_gpu_host_free(cl->native);
     omega_gpu_host_free(cl);
 }
 
 static uint32_t round8(uint32_t v) { return (v + 7u) / 8u * 8u; }
 
-int omega_gpu_cmdlist_add(OmegaGpuCmdList *cl, const OmegaGpuLaunch *L) {
+static int add_recorded(OmegaGpuCmdList *cl, const OmegaGpuLaunch *L, NativeRef *pending) {
     if (!cl || !L || !L->args || L->n_args == 0 || L->n_args > OMEGA_GPU_SESSION_MAX_ARGS || L->threads_x == 0 || L->grid_x == 0 || L->grid_y == 0 ||
         L->code_va == 0) { omega_gpu_session_set_error("cmdlist add: arguments"); return -1; }
     if (stale(cl)) return -1;
@@ -176,12 +250,39 @@ int omega_gpu_cmdlist_add(OmegaGpuCmdList *cl, const OmegaGpuLaunch *L) {
     uint8_t *qs = (uint8_t *)cl->qmds.cpu + (size_t)i * OMEGA_GPU_CMDLIST_QMD_BYTES;
     memcpy(qs, q1, sizeof q1);
     memcpy(qs + 0x200, q0, sizeof q0);
+    if (pending) {
+        uint64_t result = 0;
+        if (omega_native_mcseal(&result, bank, OMEGA_GPU_CMDLIST_BANK_BYTES,
+            qs, OMEGA_GPU_CMDLIST_QMD_BYTES, L->n_args, pending->intent_seal, 32) != OMEGA_OK ||
+            result != 0) return -1;
+        pending->n_args = L->n_args;
+        pending->code_va = L->code_va;
+        cl->native[i] = *pending;
+    } else {
+        cl->native[i].n_args = L->n_args;
+        cl->native[i].code_va = L->code_va;
+    }
     cl->indep[cl->n] = 0;
     cl->wait_va[cl->n] = cl->pending_wait;
     if (cl->pending_wait) cl->nwaits++;
     cl->pending_wait = 0;
     cl->n++;
     return (int)i;
+}
+int omega_gpu_cmdlist_add(OmegaGpuCmdList *cl, const OmegaGpuLaunch *L) {
+    return add_recorded(cl, L, NULL);
+}
+
+int omega_gpu_cmdlist_add_native(OmegaGpuCmdList *cl, const OmegaGpuLaunch *L, const OmegaGpuNativeLease *lease) {
+    if (!cl || !lease || !lease->cache || cl->n >= cl->cap || stale(cl)) return -1;
+    NativeRef pending; memset(&pending, 0, sizeof pending);
+    pending.cache = lease->cache;
+    pending.state[0] = 1; pending.state[1] = lease->slot;
+    pending.state[2] = lease->revision; pending.state[3] = lease->epoch;
+    if (native_event(&pending, 0) != 0) return -1;
+    int index = add_recorded(cl, L, &pending);
+    if (index < 0) { (void)native_event(&pending, 3); return -1; }
+    return index;
 }
 
 #define WAIT_OK 0
@@ -260,8 +361,17 @@ static size_t emit_inline_qmd(uint32_t *pb, size_t n, uint64_t va, const uint32_
     memcpy(&pb[n], words, 96 * 4); return n + 96;
 }
 
-/* One submission's method stream for launches [done, end) into cl->words, ending with the completion tail at marker_va.
- * Shared by submit and submit_pair (L136) so both emit the same words. Returns the word count. */
+/* Finalize ALL retained slots before observation, synchronization or any queue
+ * commit. INLINE consumes the same bytes, including after PCAS reuse. */
+static void prepare_qmd_mode(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *op) {
+    for (uint32_t i = 0; i < cl->n; i++) {
+        uint32_t *q1 = (uint32_t *)((uint8_t *)cl->qmds.cpu + (size_t)i * OMEGA_GPU_CMDLIST_QMD_BYTES);
+        const uint64_t q1_va = cl->qmds.va + (uint64_t)i * OMEGA_GPU_CMDLIST_QMD_BYTES;
+        q1[10] = op->mode == OMEGA_GPU_CMDLIST_INLINE ? 0x00190000u : 0;
+        q1[12] = op->mode == OMEGA_GPU_CMDLIST_INLINE ? (uint32_t)((q1_va + 0x200) >> 8) : 0;
+    }
+}
+/* One submission's method stream for launches [done,end), followed by completion. */
 static size_t emit_chunk(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *op, uint32_t done, uint32_t end, uint64_t marker_va) {
     const OmegaGpuCmdListOpts o = *op;
     uint32_t *pb = cl->words;
@@ -295,15 +405,9 @@ static size_t emit_chunk(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *op, uin
         const uint64_t q1_va = cl->qmds.va + (uint64_t)i * OMEGA_GPU_CMDLIST_QMD_BYTES;
         if (o.mode == OMEGA_GPU_CMDLIST_INLINE) {
             const uint8_t *qs = (const uint8_t *)cl->qmds.cpu + (size_t)i * OMEGA_GPU_CMDLIST_QMD_BYTES;
-            uint32_t q1[OMEGA_BW_QMD_WORDS];
-            memcpy(q1, qs, sizeof q1);
-            q1[10] = 0x00190000u; q1[12] = (uint32_t)((q1_va + 0x200) >> 8); /* the session pair: QMD1 decrements QMD0 */
             n = emit_inline_qmd(pb, n, q1_va + 0x200, (const uint32_t *)(qs + 0x200));
-            n = emit_inline_qmd(pb, n, q1_va, q1);
+            n = emit_inline_qmd(pb, n, q1_va, (const uint32_t *)qs);
         } else {
-            /* standalone grid: no dependent QMD (NVK builds Blackwell QMDs without one, nak/qmd.rs Qmd5_0) */
-            uint32_t *q1 = (uint32_t *)((uint8_t *)cl->qmds.cpu + (size_t)i * OMEGA_GPU_CMDLIST_QMD_BYTES);
-            q1[10] = 0; q1[12] = 0;
             pb[n++] = bw_mthd(1, MTHD_SEND_PCAS_A, 1); pb[n++] = (uint32_t)(q1_va >> 8);
             pb[n++] = bw_mthd(1, MTHD_SEND_SIGNALING_PCAS2_B, 1); pb[n++] = PCAS_ACTION_INVALIDATE_COPY_SCHEDULE;
         }
@@ -316,7 +420,8 @@ static size_t emit_chunk(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *op, uin
     return n;
 }
 
-int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opts, OmegaGpuCmdListStats *st) {
+static int submit_observed(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opts, OmegaGpuCmdListStats *st,
+                           OmegaGpuCmdListObserver observer, void *context) {
     OmegaGpuCmdListOpts o; memset(&o, 0, sizeof o);
     if (opts) o = *opts;
     if (st) { memset(st, 0, sizeof *st); st->first_missing = -1; }
@@ -332,6 +437,13 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
     const uint64_t marker_va = marker->va + MARKER_OFF;
     const uint64_t timeout = o.timeout_ms ? o.timeout_ms : DEFAULT_TIMEOUT_MS;
     const uint32_t spin = o.spin_us ? o.spin_us : omega_gpu_session_spin_us();
+    prepare_qmd_mode(cl, &o);
+    if (observer) {
+        const OmegaGpuCmdListConsumed consumed = { .options = o, .timeout_ms = timeout, .spin_us = spin };
+        if (observer(cl, &consumed, context) != 0) {
+            omega_gpu_session_set_error("cmdlist submit: actual native closure refused before queue commit"); return -1;
+        }
+    }
     const uint64_t th0 = p->time_now_ns(p->ctx);
 
     /* semaphores INIT, markers 0, everything the CPU wrote made visible */
@@ -368,17 +480,15 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
         const uint32_t end = (cl->n - done > room) ? done + room : cl->n;
         uint32_t *pb = cl->words;
         size_t n = emit_chunk(cl, &o, done, end, marker_va);
-        if (o.mode != OMEGA_GPU_CMDLIST_INLINE &&
-            p->sync_cpu_to_gpu(p->ctx, cl->qmds.handle, 0, (uint64_t)cl->n * OMEGA_GPU_CMDLIST_QMD_BYTES) != OMEGA_GPU_PLAT_OK) {
-            omega_gpu_session_set_error("cmdlist submit: sync qmd"); return -1;
-        }
         mk[0] = 0; mk[4] = 0;
         (void)p->sync_cpu_to_gpu(p->ctx, marker->handle, MARKER_OFF, 0x20);
         const uint64_t t0 = p->time_now_ns(p->ctx);
         host += t0 - tb;
+        if (native_begin(cl, done, end) != 0) return -1;
         const int qrc = p->queue_submit(p->ctx, s->queue, pb, (uint32_t)n);
         if (qrc == OMEGA_GPU_PLAT_REFUSED_BUSY) { force_latch(cl, "cmdlist: an earlier submission is still in flight (latched)"); return -1; }
         if (qrc != OMEGA_GPU_PLAT_OK) {
+            (void)native_events(cl, done, end, 4);
             omega_gpu_session_set_error("cmdlist submit: queue_submit refused"); return -1; /* refused: nothing in flight */
         }
         int w = wait_word(p, marker, 0, OMEGA_BW_MARKER_COMPLETION_PAYLOAD, timeout, spin);
@@ -387,6 +497,7 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
         (void)p->sync_gpu_to_cpu(p->ctx, marker->handle, MARKER_OFF, 0x20);
         elapsed += p->time_now_ns(p->ctx) - t0;
         (void)p->queue_retire(p->ctx, s->queue);
+        (void)native_events(cl, done, end, 2); /* both authoritative completion markers observed */
         submits++; words += (uint32_t)n; done = end;
     }
     (void)p->sync_gpu_to_cpu(p->ctx, cl->sems.handle, 0, (uint64_t)cl->n * 16u);
@@ -399,6 +510,14 @@ int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opt
     if (st) { st->launches = cl->n; st->submits = submits; st->words = words; st->elapsed_ns = elapsed; st->host_ns = host; st->sems_done = ok; st->first_missing = missing; }
     if (missing >= 0) { omega_gpu_session_set_error("cmdlist: a launch semaphore is not DONE (launch did not run)"); return -1; }
     return 0;
+}
+int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opts, OmegaGpuCmdListStats *st) {
+    return submit_observed(cl, opts, st, NULL, NULL);
+}
+int omega_gpu_cmdlist_submit_observed(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opts, OmegaGpuCmdListStats *st,
+                                     OmegaGpuCmdListObserver observer, void *context) {
+    if (!observer) return -1;
+    return submit_observed(cl, opts, st, observer, context);
 }
 
 /* L136: list a on the session queue and list b on extra queue 1, both in flight before either is waited. Each list gets
@@ -465,6 +584,7 @@ int omega_gpu_cmdlist_submit_pair(OmegaGpuCmdList *a, OmegaGpuCmdList *b, const 
         const uint32_t avail = L[k]->words_cap - 18u - TAIL_WORDS - 2u - STAMP_WORDS;
         if (prefix > avail || (avail - prefix) / (L[k]->nwaits ? 14u : 8u) < L[k]->n) { omega_gpu_session_set_error("cmdlist pair: a list does not fit one submission"); return -1; }
     }
+    prepare_qmd_mode(a, &o); prepare_qmd_mode(b, &o);
     if (pair_prep(p, a) || pair_prep(p, b)) { omega_gpu_session_set_error("cmdlist pair: sync_cpu_to_gpu"); return -1; }
     const size_t na = emit_chunk(a, &o, 0, a->n, marker_va), nb = emit_chunk(b, &o, 0, b->n, marker_va + PAIR_B_MARKER);
     volatile uint32_t *mk = (volatile uint32_t *)((uint8_t *)marker->cpu + MARKER_OFF);
@@ -476,10 +596,21 @@ int omega_gpu_cmdlist_submit_pair(OmegaGpuCmdList *a, OmegaGpuCmdList *b, const 
     }
     const uint64_t t0 = p->time_now_ns(p->ctx);
     const uint64_t host = t0 - th0;
-    if (p->queue_submit(p->ctx, s->queue, a->words, (uint32_t)na) != OMEGA_GPU_PLAT_OK) {
-        omega_gpu_session_set_error("cmdlist pair: queue_submit (queue 0) refused"); return -1; /* nothing in flight */
+    if (native_begin(a, 0, a->n) != 0) return -1;
+    if (native_begin(b, 0, b->n) != 0) { (void)native_events(a, 0, a->n, 4); return -1; }
+    const int aqrc = p->queue_submit(p->ctx, s->queue, a->words, (uint32_t)na);
+    if (aqrc != OMEGA_GPU_PLAT_OK) {
+        if (aqrc == OMEGA_GPU_PLAT_REFUSED_BUSY) {
+            pair_latch("cmdlist pair: uncertain earlier submission (latched)");
+        } else {
+            (void)native_events(a, 0, a->n, 4);
+            (void)native_events(b, 0, b->n, 4);
+        }
+        omega_gpu_session_set_error("cmdlist pair: queue_submit (queue 0) refused"); return -1;
     }
-    const int b_ok = p->queue_submit(p->ctx, q1, b->words, (uint32_t)nb) == OMEGA_GPU_PLAT_OK;
+    const int bqrc = p->queue_submit(p->ctx, q1, b->words, (uint32_t)nb);
+    const int b_ok = bqrc == OMEGA_GPU_PLAT_OK;
+    if (!b_ok && bqrc != OMEGA_GPU_PLAT_REFUSED_BUSY) (void)native_events(b, 0, b->n, 4);
     int w = wait_word(p, marker, 0, OMEGA_BW_MARKER_COMPLETION_PAYLOAD, timeout, spin);
     if (w == WAIT_OK) w = wait_word(p, marker, 0x10, OMEGA_BW_MARKER2_PAYLOAD, timeout, spin);
     if (w == WAIT_OK && b_ok) w = wait_word(p, marker, PAIR_B_MARKER, OMEGA_BW_MARKER_COMPLETION_PAYLOAD, timeout, spin);
@@ -488,8 +619,13 @@ int omega_gpu_cmdlist_submit_pair(OmegaGpuCmdList *a, OmegaGpuCmdList *b, const 
     (void)p->sync_gpu_to_cpu(p->ctx, marker->handle, MARKER_OFF, PAIR_B_MARKER + 0x20);
     const uint64_t elapsed = p->time_now_ns(p->ctx) - t0;
     (void)p->queue_retire(p->ctx, s->queue);
-    if (!b_ok) { omega_gpu_session_set_error("cmdlist pair: queue_submit (queue 1) refused"); return -1; } /* a completed and is retired */
+    (void)native_events(a, 0, a->n, 2);
+    if (!b_ok) {
+        if (bqrc == OMEGA_GPU_PLAT_REFUSED_BUSY) pair_latch("cmdlist pair: queue 1 uncertain earlier flight (latched)");
+        omega_gpu_session_set_error("cmdlist pair: queue_submit (queue 1) refused"); return -1;
+    }
     (void)p->queue_retire(p->ctx, q1);
+    (void)native_events(b, 0, b->n, 2);
     const int ra = pair_check(p, a, (uint32_t)na, elapsed, host, sa), rb = pair_check(p, b, (uint32_t)nb, elapsed, host, sb);
     return ra == 0 && rb == 0 ? 0 : -1;
 }

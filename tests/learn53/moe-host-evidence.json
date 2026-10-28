@@ -1,0 +1,203 @@
+{
+  "schema": "cudapp-learn53-moe-closure-host-evidence-v1",
+  "evidence_class": "HOST_ONLY_SYNTHETIC",
+  "baseline": "b759afc3f5e46f152ffb06b39882ffa28cacaf96",
+  "recorded_utc": "2026-10-28T12:55:59.336238+00:00",
+  "compiler": {
+    "repository": "https://github.com/aien-dev/omega-mv.git",
+    "revision": "e5b32567a7aff3ce594e3254a622a846a6cd190b",
+    "sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"
+  },
+  "sources": {
+    "native/learn53/moe-closure.om": "b1061e65ffdf69fe071ef357d5bf346bfb065b81414c63c466d228fe2fa76847",
+    "native/learn53/moe-closure.lock": "3b6db1cf0702276fb5a614326a13b4f96d0e22a6a20bd7748c7c689ec0075cc6",
+    "tests/learn53/moe-fixtures.om": "3c6bdd787d87ec759d30163a759d71141cceb5dfe2da28c3051f48a516aaf091",
+    "tests/learn53/moe-unit.om": "3bd1d4fe4035790e0417d210b00abde5fed923ab354a484ff859f423b56490d8",
+    "tests/learn53/moe-export.om": "fca0b88b1b0f106a2d7142f3cafff7e24a98acd9a5fa298c1f60361420b33213"
+  },
+  "construction": "Export and SHA-verify each immutable Git object in moe-closure.lock, concatenate in lock order, append closure, fixtures and chosen test; no mutable imports or vendored duplicate implementations.",
+  "unit_command": {
+    "tool": "omega.run",
+    "source_composition": [
+      "moe-closure.lock sources in order",
+      "native/learn53/moe-closure.om",
+      "tests/learn53/moe-fixtures.om",
+      "tests/learn53/moe-unit.om"
+    ],
+    "source_sha256": "40ecbda8d9b731d5241808f6603d836c123e72f6e2a9ffa09042cd184bfd7000",
+    "timeout_ms": 20000
+  },
+  "unit_result": {
+    "compile": {
+      "ok": true,
+      "binary_bytes": 57792,
+      "sha256": "461c0a55c469bc789813d14a42c2742e21fc51435d1700843150038db2565357",
+      "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"
+    },
+    "exit": {
+      "kind": "normal",
+      "code": 0
+    },
+    "stdout": "MOE-CLOSURE HOST_ONLY PASS\n",
+    "stdout_bytes": 27,
+    "stdout_truncated": false,
+    "stderr": "",
+    "stderr_bytes": 0,
+    "stderr_truncated": false,
+    "limits": {
+      "timeout_ms": 20000,
+      "cpu_seconds": 10,
+      "address_space_bytes": 268435456,
+      "file_size_bytes": 1048576,
+      "processes": 5
+    },
+    "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+  },
+  "verifier_mutants": {
+    "wire-equality-removed": {
+      "compile": {
+        "ok": true,
+        "binary_bytes": 57760,
+        "sha256": "0104a644b4e4f6194bf9dcfe58944a9a9abd8dbc2a6ccf0df77f68e9cf1c4dbf",
+        "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"
+      },
+      "exit": {
+        "kind": "normal",
+        "code": 15
+      },
+      "stdout": "",
+      "stdout_bytes": 0,
+      "stdout_truncated": false,
+      "stderr": "",
+      "stderr_bytes": 0,
+      "stderr_truncated": false,
+      "limits": {
+        "timeout_ms": 20000,
+        "cpu_seconds": 10,
+        "address_space_bytes": 268435456,
+        "file_size_bytes": 1048576,
+        "processes": 5
+      },
+      "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+    },
+    "result-custody-equality-removed": {
+      "compile": {
+        "ok": true,
+        "binary_bytes": 57768,
+        "sha256": "44b4a4df4c5c497f94274c88ef862299ec17bcf83aeff26d8a761efac0a2dc95",
+        "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"
+      },
+      "exit": {
+        "kind": "normal",
+        "code": 13
+      },
+      "stdout": "",
+      "stdout_bytes": 0,
+      "stdout_truncated": false,
+      "stderr": "",
+      "stderr_bytes": 0,
+      "stderr_truncated": false,
+      "limits": {
+        "timeout_ms": 20000,
+        "cpu_seconds": 10,
+        "address_space_bytes": 268435456,
+        "file_size_bytes": 1048576,
+        "processes": 5
+      },
+      "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+    },
+    "paired-artifact-check-removed": {
+      "compile": {
+        "ok": true,
+        "binary_bytes": 57632,
+        "sha256": "5f613caa60a5ec194fb65727dcaca34863557214fb2bf85be54267fb26562941",
+        "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"
+      },
+      "exit": {
+        "kind": "normal",
+        "code": 23
+      },
+      "stdout": "",
+      "stdout_bytes": 0,
+      "stdout_truncated": false,
+      "stderr": "",
+      "stderr_bytes": 0,
+      "stderr_truncated": false,
+      "limits": {
+        "timeout_ms": 20000,
+        "cpu_seconds": 10,
+        "address_space_bytes": 268435456,
+        "file_size_bytes": 1048576,
+        "processes": 5
+      },
+      "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+    }
+  },
+  "external_oracle": {
+    "compile_command": "pinned omc < exact export composition > export; require compile exit0 before chmod700 and execution",
+    "source_sha256": "a339dfef34867620b67b48d2e7c739d574c6160d4964b5b498f0e83d640c16e8",
+    "binary_sha256": "0c6a18f05b8f5ac94f23499dd7f36964e7d8b301ee075120e2c0722cbcd3aa00",
+    "commands": [
+      "printf byte0 | export -> one-token.wire",
+      "printf byte1 | export -> one-token.native-sha256",
+      "sha256sum one-token.wire; compare to native raw32 bytes",
+      "printf byte2 | export -> fifteen-token-two-window.wire",
+      "printf byte3 | export -> fifteen-token-two-window.native-sha256",
+      "sha256sum fifteen-token-two-window.wire; compare to native raw32 bytes"
+    ],
+    "results": [
+      {
+        "label": "one-token",
+        "wire_bytes": 11264,
+        "native_sha256": "2ce28d4b14114eeed27afbc49531349e1b4a98f56954584e60897aa83b43eef1",
+        "external_sha256sum": "2ce28d4b14114eeed27afbc49531349e1b4a98f56954584e60897aa83b43eef1",
+        "match": true
+      },
+      {
+        "label": "fifteen-token-two-window",
+        "wire_bytes": 11264,
+        "native_sha256": "ea482a3a504e4bf76c8b492836e0f0359c6f7017be4502e36587ab6dc9f15d3a",
+        "external_sha256sum": "ea482a3a504e4bf76c8b492836e0f0359c6f7017be4502e36587ab6dc9f15d3a",
+        "match": true
+      }
+    ]
+  },
+  "wolfram": [
+    {
+      "query": "{Expand[32*(9*t)],9*n+8,3072+8*i,128*8+64*32+128*8*8}",
+      "result": "{288*t,8+9*n,3072+8*i,11264}",
+      "warnings": false
+    },
+    {
+      "query": "({#[[1]],#[[2]],9 #[[2]],#[[1]]2048 4,#[[1]]9 512 8,#[[1]]9 512 4,#[[1]]9 2048 4,#[[1]]256}& /@ {{0,14},{14,1}})",
+      "result": "{{0,14,126,0,0,0,0,0},{14,1,9,114688,516096,258048,1032192,3584}}",
+      "warnings": false
+    }
+  ],
+  "controls": [
+    "every scalar/order/resource/stride/generation/length field changed independently",
+    "every SHA identity role changed independently",
+    "every table cell and unused row changed independently",
+    "identical malformed expected/observed refused",
+    "wrong GU/DN partner/role and every selector digest limb refused",
+    "session epoch0 accepted as exact context; altered context refused",
+    "binding refusal clears stale instance SHA",
+    "serializer refusal clears wire",
+    "every result-custody cell substitution refused; equal device-class2 claims refused",
+    "literal one-token and ragged two-window oracle tables",
+    "family3 canonical payload refusal preserved"
+  ],
+  "qualification": {
+    "accepted_hardware_receipts": [],
+    "production_record_count": 0,
+    "device_execution": "NOT_RUN",
+    "parent_consumer_integration": "NOT_RUN",
+    "protected_evaluator": "NOT_RUN",
+    "MoE_numerical_and_full_cost": "NOT_RUN",
+    "mapped_family3_payload_hash_positive": "NOT_RUN; canonical owner refuses family3, downstream blob-hash logic static-reviewed only"
+  },
+  "consultation": {
+    "design": "subject versus instance, acyclic identity graph, exact-byte validation before comparison, independently observed metadata and retained snapshots required",
+    "final_static_review": "No blocking issue found; downstream family3 payload hash positive not exercised; fixed Wolfram contract evidence pointer discrepancy."
+  }
+}

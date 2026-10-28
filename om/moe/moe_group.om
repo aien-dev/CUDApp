@@ -1,0 +1,101 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Reuse OMEGA_DEC_GROUP groups=9 one CTA; no new GPU executor or inter-CTA protocol.
+note req: ids,tgu,tdn,sgu,sdn,xmap,ymap,stride,tokens,seg_entries,map_entries,
+note directory_slots,session_generation,current_generation,admitted,shared_id.
+note admitted is the external selector/cache admission verdict, NOT qualification here.
+note Router directories must be the existing q36 router outputs including shared slot 8.
+note seg_entries must cover ALL R descriptors, including GROUP trailing zero writes.
+note Output is exact OMEGA_DEC_GR_WORDS u32 constant-bank words, little endian pairs.
+fn moe_word o edit uchar 64 p ulong v ulong to void
+for b ulong 4
+put o add mul p 4 b uchar and shr v mul b 8 255
+end
+end
+fn moe_pair o edit uchar 64 p ulong v ulong to void
+moe_word o p and v 4294967295
+moe_word o add p 1 shr v 32
+end
+fn moe_extent r view ulong 16 i ulong to ulong
+if lt i 3
+width = mul ulong 9 16
+if eq i 0
+width = mul ulong 8 4
+end
+ret add mul sub get r 8 1 get r 7 width
+end
+if lt i 5
+ret mul mul get r 8 9 32
+end
+ret mul add mul get r 8 9 8 4
+end
+fn moe_overlap a ulong al ulong b ulong bl ulong to bool
+if ge a add b bl
+ret false
+end
+ret lt b add a al
+end
+fn moe_alias r view ulong 16 to bool
+for i ulong 7
+n = moe_extent r i
+if gt get r i sub ulong 18446744073709551615 n
+ret true
+end
+end
+for j ulong 4
+for i ulong add j 3
+n = moe_extent r i
+m = moe_extent r add j 3
+if moe_overlap get r i n get r add j 3 m
+ret true
+end
+end
+end
+ret false
+end
+fn moe_group r view ulong 16 o edit uchar 64 to ulong
+if gt get r 8 128
+ret 1
+end
+rows = mul get r 8 9
+if or eq get r 8 0 gt rows 128
+ret 1
+end
+if or ne get r 11 9 ne get r 15 256
+ret 1
+end
+if lt get r 9 rows
+ret 2
+end
+if lt get r 10 add rows 8
+ret 2
+end
+if or eq get r 7 0 gt get r 7 4294967295
+ret 2
+end
+if lt get r 7 mul ulong 9 16
+ret 2
+end
+if ne rem get r 7 16 0
+ret 3
+end
+for i ulong 7
+if or eq get r i 0 ne rem get r i 8 0
+ret 3
+end
+end
+if ne get r 12 get r 13
+ret 4
+end
+if ne get r 14 1
+ret 4
+end
+if moe_alias r
+ret 5
+end
+for i ulong 7
+moe_pair edit o mul i 2 get r i
+end
+moe_word o 14 get r 7
+moe_word o 15 get r 8
+ret 0
+end

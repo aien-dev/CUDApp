@@ -1,0 +1,6 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Concatenate residency.om before this final unsigned revision projection root.
+note Revision projection is unsigned end-to-end, including upper-half ulong values.
+fn native_slotrev p view ulong 528 slot ulong gen ulong to ulong
+ret kc_revision p slot gen
+end

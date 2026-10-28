@@ -1,0 +1,685 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Seeded native host conductor; concatenate proc.om, cases.om, then this file.
+note C and nvdisasm/sha256sum are independent verification tools only, never production dependencies.
+text Rt00000 "om/encoder/bw_spec_sm121.om"
+text Rt00002 "om/components/bw_alloc.om"
+text Rt00003 "om/components/bw_effect.om"
+text Rt00004 "om/components/bw_check.om"
+text Rt00005 "om/components/bw_project.om"
+text Rt00006 "om/components/rowpipe.om"
+text Rt00007 "om/components/staged.om"
+text Rt00008 "om/components/compose.om"
+text Rt00009 "om/encoder/bw_enc_sm121.om"
+text Rt00010 "om/components/encode.om"
+text Rt00011 "build/components/component-unit"
+text Rt00012 "tests/components/component-unit.om"
+text Rt00013 "build/components/compose-unit"
+text Rt00014 "tests/components/compose-unit.om"
+text Rt00015 "build/components/direct"
+text Rt00016 "tests/components/direct-caller.om"
+text Rt00017 "build/components/rowpipe"
+text Rt00018 "tests/components/rowpipe-caller.om"
+text Rt00019 "build/components/staged"
+text Rt00020 "tests/components/staged-caller.om"
+text Rt00021 "-std=gnu11"
+text Rt00022 "-O2"
+text Rt00023 "-Wall"
+text Rt00024 "-Wextra"
+text Rt00025 "-Werror"
+text Rt00026 "-DOMEGA_GPU_NO_POSIX"
+text Rt00027 "-ffunction-sections"
+text Rt00028 "-fdata-sections"
+text Rt00029 "-Wl,--gc-sections"
+text Rt00030 "-Isrc"
+text Rt00031 "-DWS_MAX_THREADS=1024"
+text Rt00032 "-DCOMPONENT_STAGED"
+text Rt00033 "tests/components/numerical.c"
+text Rt00034 "src/omega_gpu_fp8_pack.c"
+text Rt00035 "src/omega_gpu_hostmath.c"
+text Rt00036 "src/omega_gpu_fp8gemm_api.c"
+text Rt00037 "src/omega_blackwell_matmul.c"
+text Rt00038 "src/omega_blackwell_codegen_moe.c"
+text Rt00039 "src/omega_blackwell_codegen_moe2.c"
+text Rt00040 "src/omega_blackwell_codegen_gemm.c"
+text Rt00041 "src/omega_blackwell_codegen.c"
+text Rt00042 "-lm"
+text Rt00043 "tests/components/direct-oracle.c"
+text Rt00044 "src/omega_blackwell_codegen_moe.c"
+text Rt00045 "tests/components/rowpipe-oracle.c"
+text Rt00046 "src/omega_blackwell_codegen_moe2.c"
+text Rt00047 "tests/components/staged-oracle.c"
+text Rt00048 "src/omega_blackwell_codegen_gemm.c"
+text Rt00049 "src/omega_blackwell_codegen.c"
+text Rt00050 "-o"
+text Rt00051 "build/components/direct-oracle"
+text Rt00052 "build/components/rowpipe-oracle"
+text Rt00053 "build/components/staged-oracle"
+text Rt00054 "build/components/numerical-gemv"
+text Rt00055 "build/components/numerical-staged"
+text Rt00056 "build/components/hash.txt"
+text Rt00057 "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"
+text Rt00058 "\""
+text Rt00059 "\\"
+text Rt00060 ","
+text Rt00061 "\n"
+text Rt00062 "\n{\"family\":"
+text Rt00063 "direct"
+text Rt00064 "rowpipe"
+text Rt00065 "staged"
+text Rt00066 ",\"spec\":["
+text Rt00067 "],\"whole_frame_sha256\":"
+text Rt00068 ",\"code_sha256\":"
+text Rt00069 ",\"numerical_result\":"
+text Rt00070 ",\"result\":\"PASS\"}"
+text Rt00071 ":"
+text Rt00072 "build/components/receipt.json"
+text Rt00073 "{\"conductor\":\"seeded Omega proc.om + cases.om + run.om\",\"compiler\":\"2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f\",\"source_baseline\":\"b759afc3f5e46f152ffb06b39882ffa28cacaf96\",\"encoder_source_revision\":\"1c5a8398d93b49e6765c2e3752aaad8611027d0d\",\"quant_source_revision\":\"fe25929ce71b11703eafa72395df2dd495aa61f2\",\"physical_execution\":\"NOT_RUN: no GPU authority\",\"cases\":["
+text Rt00074 "],\"independent_numerical_execution\":\"PASS reused existing scalar/warp oracles on every native IR/allocation frame\",\"composer_root\":\"PASS direct/changed-direct/rowpipe/dense-staged/mapped-staged and mutant refusal\",\"negative_controls\":[\"reserved component fields refuse\",\"SB_B/SB_RD/branch reference mutations differ\",\"native/oracle resource exhaustion refuses without output\",\"truncated/oversized frames refuse without output\",\"typed op/bundle/wait/branch/resource/MMA controls PASS\",\"every native frame FFMA-to-FADD executes but numerical oracle disagrees\",\"every native frame unknown-op refusal preserved\"],\"source_sha256\":{\"tests/components/proc.om\":"
+text Rt00075 "tests/components/proc.om"
+text Rt00076 "tests/components/cases.om"
+text Rt00077 "tests/components/run.om"
+text Rt00078 "tests/components/numerical.c"
+text Rt00079 "tests/components/native-frame.h"
+text Rt00080 "tests/gpu_fp8_api_test.c"
+text Rt00081 "tests/gpu_fp8gemm_test.c"
+text Rt00082 "tests/bw_warp_sim.h"
+text Rt00083 "tests/bw_warp_sim_k.h"
+text Rt00084 "src/omega_gpu_fp8_pack.c"
+text Rt00085 "src/omega_gpu_hostmath.c"
+text Rt00086 "src/omega_gpu_fp8gemm_api.c"
+text Rt00087 "src/omega_blackwell_matmul.c"
+text Rt00088 "om/components/bw_alloc.om"
+text Rt00089 "om/components/bw_check.om"
+text Rt00090 "om/components/bw_effect.om"
+text Rt00091 "om/components/bw_project.om"
+text Rt00092 "om/components/compose.om"
+text Rt00093 "om/components/encode.om"
+text Rt00094 "om/components/fixture.om"
+text Rt00095 "om/components/realize.om"
+text Rt00096 "om/components/rowpipe.om"
+text Rt00097 "om/components/staged.om"
+text Rt00098 "},\"encoder_source_sha256\":{"
+text Rt00099 "om/encoder/bw_enc_sm121.om"
+text Rt00100 "om/encoder/bw_spec_sm121.om"
+text Rt00101 "},\"tool_versions\":{\"nvdisasm\":"
+text Rt00102 "usage: conductor OMC ENCODER_ROOT NVDISASM CC SHA256SUM QUANT_SOURCE\n"
+text Rt00103 "build"
+text Rt00104 "build/components"
+text Rt00105 "PASS native Omega component conductor: 8 direct, 14 rowpipe, 6 staged; independent numerics/bytes/disassembly/refusals and staged structural controls\n"
+text RtBytes ",\"code_bytes\":"
+text RtCcVer ",\"cc\":"
+text RtShaVer ",\"sha256sum\":"
+text RtVEnd "}}\n"
+text RtVerP "build/components/version.txt"
+text RtVFlag "--version"
+text RtDFlag "-V"
+text RtEncPin "12369bf1e383e79a4926e7758aaf5f3f778f2945c91327ce0aa570babffc05e6"
+text RtSpPin "d38dd63f842dff1dae525208576825f3a0027dead5ab2cde9482cf70b87e8ae9"
+text RtSrc0 "tests/components/component-unit.om"
+text RtSrc1 "tests/components/compose-unit.om"
+text RtSrc2 "tests/components/direct-caller.om"
+text RtSrc3 "tests/components/rowpipe-caller.om"
+text RtSrc4 "tests/components/staged-caller.om"
+text RtSrc5 "tests/components/direct-oracle.c"
+text RtSrc6 "tests/components/rowpipe-oracle.c"
+text RtSrc7 "tests/components/staged-oracle.c"
+text RtSrc8 "src/omega_blackwell_codegen.c"
+text RtSrc9 "src/omega_blackwell_codegen_moe.c"
+text RtSrc10 "src/omega_blackwell_codegen_moe2.c"
+text RtSrc11 "src/omega_blackwell_codegen_gemm.c"
+text RtSrc12 "src/omega_blackwell_codegen.h"
+text RtSrc13 "tests/components/wolfram.json"
+global HQuant uchar 1024
+global HQn ulong 1
+text RtQuant "om/quant/quant.om"
+text RtQPin "44bce96f3c274401e19a71b835814d69caf2bea8c2b1f4f43616c7c121232f09"
+text RtAdmit "om/components/admit.om"
+text RtRUnit "tests/components/record-unit.om"
+text RtRBin "build/components/record-unit"
+text RtRMut "build/components/record-mutant"
+text RtGuard "if lt compose_word b 22 add get actual 1 2"
+text RtWeak "if false"
+text RtRKey ",\"staged_structural_result\":"
+text RtRcpt "tests/components/host-receipt.json"
+fn rc_publish to void
+b = new uchar 262144 0
+n = hp_read Rt00072 len Rt00072 b len b
+hp_require gt n 0
+hp_write RtRcpt len RtRcpt b n
+end
+fn rt_qpath path edit uchar 1024 to ulong
+used = get HQn 0
+for j ulong used
+put path j get HQuant j
+end
+ret used
+end
+fn rt_qpin to void
+path = new uchar 1024 0
+n = rt_qpath path
+h = new uchar 64 0
+rh_get path n h
+for j ulong 64
+hp_require eq get h j get RtQPin j
+end
+end
+note Build a concrete weak-GPR checker mutant without changing checked-in production source.
+fn rt_weak to void
+hits = ulong 0
+used = get HUsed 0
+for pos ulong sub used len RtGuard
+same = uint 1
+for j ulong len RtGuard
+if ne get HSrc add pos j get RtGuard j
+same = 0
+end
+end
+if ne same 0
+hits = add hits 1
+for j ulong len RtGuard
+c = uchar 32
+if lt j len RtWeak
+c = get RtWeak j
+end
+put HSrc add pos j c
+end
+end
+end
+hp_require eq hits 1
+end
+fn rt_record kind ulong to void
+path = new uchar 1024 0
+n = rt_qpath path
+hp_cat path n
+rt_nl
+hp_cat Rt00095 len Rt00095
+rt_nl
+hp_cat RtAdmit len RtAdmit
+rt_nl
+hp_cat Rt00094 len Rt00094
+rt_nl
+hp_cat RtRUnit len RtRUnit
+rt_nl
+if eq kind 7
+rt_weak
+hp_build RtRMut len RtRMut
+else
+hp_build RtRBin len RtRBin
+end
+end
+
+fn rt_nl to void
+pos = get HUsed 0
+hp_require lt pos len HSrc
+put HSrc pos 10
+put HUsed 0 add pos 1
+end
+fn rt_path suffix view uchar * n ulong dst edit uchar 1024 to ulong
+used = get HEn 0
+hp_require le add add used 1 n 1024
+for j ulong used
+put dst j get HEnc j
+end
+put dst used 47
+for j ulong n
+put dst add add used 1 j get suffix j
+end
+ret add add used 1 n
+end
+fn rt_enc suffix view uchar * n ulong to void
+path = new uchar 1024 0
+used = rt_path suffix n path
+hp_cat path used
+rt_nl
+end
+fn rt_spec to void
+rt_enc Rt00000 len Rt00000
+end
+fn rt_comp kind ulong to void
+put HUsed 0 0
+hp_cat Rt00002 len Rt00002
+rt_nl
+hp_cat Rt00003 len Rt00003
+rt_nl
+hp_cat Rt00004 len Rt00004
+rt_nl
+hp_cat Rt00005 len Rt00005
+rt_nl
+if or ge kind 6 or eq kind 2 eq kind 4
+hp_cat Rt00006 len Rt00006
+rt_nl
+end
+if or ge kind 6 or eq kind 2 eq kind 5
+hp_cat Rt00007 len Rt00007
+rt_nl
+end
+if or eq kind 2 ge kind 6
+hp_cat Rt00008 len Rt00008
+rt_nl
+end
+if and ge kind 3 le kind 5
+rt_enc Rt00009 len Rt00009
+rt_spec
+hp_cat Rt00010 len Rt00010
+rt_nl
+end
+if eq kind 1
+hp_cat Rt00012 len Rt00012
+rt_nl
+hp_build Rt00011 len Rt00011
+end
+if eq kind 2
+hp_cat Rt00014 len Rt00014
+rt_nl
+hp_build Rt00013 len Rt00013
+end
+if eq kind 3
+hp_cat Rt00016 len Rt00016
+rt_nl
+hp_build Rt00015 len Rt00015
+end
+if eq kind 4
+hp_cat Rt00018 len Rt00018
+rt_nl
+hp_build Rt00017 len Rt00017
+end
+if eq kind 5
+hp_cat Rt00020 len Rt00020
+rt_nl
+hp_build Rt00019 len Rt00019
+end
+if ge kind 6
+rt_record kind
+end
+end
+note execprog intentionally supplies an empty environment; locate the selected cc toolchain explicitly.
+fn rt_ccpref to void
+b = new uchar 1024 0
+last = ulong 0
+for j ulong get HCn 0
+if eq get HCc j 47
+last = add j 1
+end
+end
+hp_require gt last 0
+hp_require le last 1022
+put b 0 45
+put b 1 66
+for j ulong last
+put b add j 2 get HCc j
+end
+hp_arg b add last 2
+end
+fn rt_cc kind ulong to void
+hp_tool 1
+rt_ccpref
+hp_arg Rt00021 len Rt00021
+hp_arg Rt00022 len Rt00022
+hp_arg Rt00023 len Rt00023
+hp_arg Rt00024 len Rt00024
+hp_arg Rt00025 len Rt00025
+hp_arg Rt00026 len Rt00026
+hp_arg Rt00027 len Rt00027
+hp_arg Rt00028 len Rt00028
+hp_arg Rt00029 len Rt00029
+hp_arg Rt00030 len Rt00030
+if ge kind 4
+hp_arg Rt00031 len Rt00031
+if eq kind 5
+hp_arg Rt00032 len Rt00032
+end
+hp_arg Rt00033 len Rt00033
+hp_arg Rt00034 len Rt00034
+hp_arg Rt00035 len Rt00035
+hp_arg Rt00036 len Rt00036
+hp_arg Rt00037 len Rt00037
+hp_arg Rt00038 len Rt00038
+hp_arg Rt00039 len Rt00039
+hp_arg Rt00040 len Rt00040
+hp_arg Rt00041 len Rt00041
+hp_arg Rt00042 len Rt00042
+else
+if eq kind 1
+hp_arg Rt00043 len Rt00043
+hp_arg Rt00044 len Rt00044
+end
+if eq kind 2
+hp_arg Rt00045 len Rt00045
+hp_arg Rt00046 len Rt00046
+end
+if eq kind 3
+hp_arg Rt00047 len Rt00047
+hp_arg Rt00048 len Rt00048
+end
+hp_arg Rt00049 len Rt00049
+end
+hp_arg Rt00050 len Rt00050
+if eq kind 1
+hp_arg Rt00051 len Rt00051
+end
+if eq kind 2
+hp_arg Rt00052 len Rt00052
+end
+if eq kind 3
+hp_arg Rt00053 len Rt00053
+end
+if eq kind 4
+hp_arg Rt00054 len Rt00054
+end
+if eq kind 5
+hp_arg Rt00055 len Rt00055
+end
+hp_exec -1 -1 0
+end
+fn rh_get path view uchar * n ulong dst edit uchar 64 to void
+hp_tool 3
+hp_arg path n
+fd = int fopen Rt00056 0 len Rt00056 577 420
+hp_require ge fd 0
+hp_exec -1 fd 0
+hp_require eq fclose fd 0
+b = new uchar 2048 0
+used = hp_read Rt00056 len Rt00056 b 2048
+hp_require ge used 66
+hp_require eq get b 64 32
+for j ulong 64
+v = get b j
+hp_require or and ge v 48 le v 57 and ge v 97 le v 102
+put dst j v
+end
+end
+fn rt_pin to void
+path = new uchar 1024 0
+n = get HOn 0
+for j ulong n
+put path j get HOm j
+end
+h = new uchar 64 0
+rh_get path n h
+for j ulong 64
+hp_require eq get h j get Rt00057 j
+end
+end
+global RCFile int 1
+global RCCount ulong 1
+fn rc_text a view uchar * n ulong to void
+pos = ulong 0
+tries = ulong 0
+while lt pos n bound 999999
+z = write get RCFile 0 a pos sub n pos
+if eq z -4
+tries = add tries 1
+hp_require le tries 64
+else
+hp_require gt z 0
+pos = add pos ulong z
+end
+end
+end
+fn rc_quote a view uchar * n ulong to void
+rc_text Rt00058 len Rt00058
+b = new uchar 6 0
+for j ulong n
+v = get a j
+if or eq v 34 eq v 92
+put b 0 92
+put b 1 v
+rc_text b 2
+else
+if lt v 32
+put b 0 92
+put b 1 117
+put b 2 48
+put b 3 48
+hi = div ulong v 16
+lo = rem ulong v 16
+put b 4 uchar add hi 48
+if ge hi 10
+put b 4 uchar add hi 87
+end
+put b 5 uchar add lo 48
+if ge lo 10
+put b 5 uchar add lo 87
+end
+rc_text b 6
+else
+put b 0 v
+rc_text b 1
+end
+end
+end
+rc_text Rt00058 len Rt00058
+end
+fn rc_num n ulong to void
+b = new uchar 32 0
+used = hp_num n b
+rc_text b used
+end
+fn rc_hash path view uchar * n ulong to void
+h = new uchar 64 0
+rh_get path n h
+rc_quote h 64
+end
+fn rc_chash which ulong to void
+path = new uchar 256 0
+n = get KCAn 0
+if eq which 1
+n = get KCCn 0
+end
+for j ulong n
+if eq which 0
+put path j get KCActual j
+else
+put path j get KCCode j
+end
+end
+rc_hash path n
+end
+fn rc_numout to void
+path = new uchar 256 0
+n = get KCNn 0
+for j ulong n
+put path j get KCNum j
+end
+b = new uchar 8192 0
+used = hp_read path n b 8192
+hp_require gt used 0
+rc_quote b used
+end
+fn rc_record fam ulong idx ulong to void
+path = new uchar 256 0
+n = kc_name fam idx KCRText path
+b = new uchar 1024 0
+used = hp_read path n b 1024
+hp_require gt used 0
+rc_text RtRKey len RtRKey
+rc_quote b used
+end
+fn rc_case fam ulong idx ulong cfg view ulong 16 to void
+if ne get RCCount 0 0
+rc_text Rt00060 len Rt00060
+end
+rc_text Rt00062 len Rt00062
+if eq fam 1
+rc_quote Rt00063 len Rt00063
+end
+if eq fam 2
+rc_quote Rt00064 len Rt00064
+end
+if eq fam 3
+rc_quote Rt00065 len Rt00065
+end
+rc_text Rt00066 len Rt00066
+fields = ulong 5
+if eq fam 2
+fields = ulong 4
+end
+for j ulong fields
+if ne j 0
+rc_text Rt00060 len Rt00060
+end
+rc_num get cfg j
+end
+rc_text Rt00067 len Rt00067
+rc_chash 0
+rc_text Rt00068 len Rt00068
+rc_chash 1
+rc_text RtBytes len RtBytes
+rc_num get KCBytes 0
+rc_text Rt00069 len Rt00069
+rc_numout
+if eq fam 3
+rc_record fam idx
+end
+rc_text Rt00070 len Rt00070
+put RCCount 0 add get RCCount 0 1
+end
+fn rc_source path view uchar * n ulong to void
+rc_text Rt00060 len Rt00060
+rc_quote path n
+rc_text Rt00071 len Rt00071
+rc_hash path n
+end
+fn rc_begin to void
+fd = int fopen Rt00072 0 len Rt00072 577 420
+hp_require ge fd 0
+put RCFile 0 fd
+put RCCount 0 0
+rc_text Rt00073 len Rt00073
+end
+fn rc_finish to void
+hp_require eq get RCCount 0 28
+rc_text Rt00074 len Rt00074
+rc_hash Rt00075 len Rt00075
+rc_source Rt00076 len Rt00076
+rc_source Rt00077 len Rt00077
+rc_source Rt00078 len Rt00078
+rc_source Rt00079 len Rt00079
+rc_source Rt00080 len Rt00080
+rc_source Rt00081 len Rt00081
+rc_source Rt00082 len Rt00082
+rc_source Rt00083 len Rt00083
+rc_source Rt00084 len Rt00084
+rc_source Rt00085 len Rt00085
+rc_source Rt00086 len Rt00086
+rc_source Rt00087 len Rt00087
+rc_source Rt00088 len Rt00088
+rc_source Rt00089 len Rt00089
+rc_source Rt00090 len Rt00090
+rc_source Rt00091 len Rt00091
+rc_source Rt00092 len Rt00092
+rc_source Rt00093 len Rt00093
+rc_source Rt00094 len Rt00094
+rc_source Rt00095 len Rt00095
+rc_source Rt00096 len Rt00096
+rc_source Rt00097 len Rt00097
+rc_source RtSrc0 len RtSrc0
+rc_source RtSrc1 len RtSrc1
+rc_source RtSrc2 len RtSrc2
+rc_source RtSrc3 len RtSrc3
+rc_source RtSrc4 len RtSrc4
+rc_source RtSrc5 len RtSrc5
+rc_source RtSrc6 len RtSrc6
+rc_source RtSrc7 len RtSrc7
+rc_source RtSrc8 len RtSrc8
+rc_source RtSrc9 len RtSrc9
+rc_source RtSrc10 len RtSrc10
+rc_source RtSrc11 len RtSrc11
+rc_source RtSrc12 len RtSrc12
+rc_source RtSrc13 len RtSrc13
+rc_source RtAdmit len RtAdmit
+rc_source RtRUnit len RtRUnit
+rc_text Rt00060 len Rt00060
+rc_quote RtQuant len RtQuant
+rc_text Rt00071 len Rt00071
+path = new uchar 1024 0
+n = rt_qpath path
+rc_hash path n
+rc_text Rt00098 len Rt00098
+rc_quote Rt00099 len Rt00099
+rc_text Rt00071 len Rt00071
+rc_ehash Rt00099 len Rt00099
+rc_text Rt00060 len Rt00060
+rc_quote Rt00100 len Rt00100
+rc_text Rt00071 len Rt00071
+rc_ehash Rt00100 len Rt00100
+rc_text Rt00101 len Rt00101
+rc_ver 2 RtDFlag len RtDFlag
+rc_text RtCcVer len RtCcVer
+rc_ver 1 RtVFlag len RtVFlag
+rc_text RtShaVer len RtShaVer
+rc_ver 3 RtVFlag len RtVFlag
+rc_text RtVEnd len RtVEnd
+hp_require eq fsync get RCFile 0 0
+hp_require eq fclose get RCFile 0 0
+end
+fn rc_ehash path view uchar * n ulong to void
+b = new uchar 1024 0
+used = rt_path path n b
+rc_hash b used
+end
+fn rt_epin suffix view uchar * n ulong expected view uchar 64 to void
+path = new uchar 1024 0
+used = rt_path suffix n path
+h = new uchar 64 0
+rh_get path used h
+for j ulong 64
+hp_require eq get h j get expected j
+end
+end
+fn rc_ver which ulong flag view uchar * n ulong to void
+hp_tool which
+hp_arg flag n
+fd = int fopen RtVerP 0 len RtVerP 577 420
+hp_require ge fd 0
+hp_exec -1 fd 0
+hp_require eq fclose fd 0
+b = new uchar 8192 0
+used = hp_read RtVerP len RtVerP b 8192
+hp_require gt used 0
+rc_quote b used
+end
+fn main to int
+if ne argcnt 7
+z = write 2 Rt00102 0 len Rt00102
+ret 64
+end
+n = argread 1 HOm 0 1024
+hp_require and gt n 0 le n 1024
+put HOn 0 ulong n
+n = argread 2 HEnc 0 1024
+hp_require and gt n 0 le n 1024
+put HEn 0 ulong n
+n = argread 3 HDis 0 1024
+hp_require and gt n 0 le n 1024
+put HDn 0 ulong n
+n = argread 4 HCc 0 1024
+hp_require and gt n 0 le n 1024
+put HCn 0 ulong n
+n = argread 5 HSha 0 1024
+hp_require and gt n 0 le n 1024
+put HSn 0 ulong n
+n = argread 6 HQuant 0 1024
+hp_require and gt n 0 le n 1024
+put HQn 0 ulong n
+z = makedir Rt00103 0 len Rt00103 493
+hp_require or eq z 0 eq z -17
+z = makedir Rt00104 0 len Rt00104 493
+hp_require or eq z 0 eq z -17
+rt_pin
+rt_epin Rt00099 len Rt00099 RtEncPin
+rt_epin Rt00100 len Rt00100 RtSpPin
+rt_qpin
+for i ulong 5
+rt_comp add i 1
+rt_cc add i 1
+end
+rt_comp 6
+rt_comp 7
+rc_begin
+kc_cases
+rc_finish
+rc_publish
+z = write 1 Rt00105 0 len Rt00105
+ret 0
+end

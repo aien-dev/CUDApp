@@ -600,6 +600,29 @@ EXPERIMENTAL", the ones a caller is most likely to want promoted). `make test-ru
 - Launch helpers whose caller already holds the session lock: `omega_gpu_pf_kernel_locked`, `omega_gpu_pf_launch_locked`, `omega_gpu_pf_open_locked`.
 - Everything under `src/omega_gpu_*` and `src/omega_blackwell_*` in headers the manifest does not name (kernel builder, encoder, per-model APIs, launch helpers).
 
+The private `omega_gpu_native_runtime.h` and `omega_gpu_q36_native.h` headers
+bind generated Omega residency/selection policy to existing runtime handles.
+They are not public API or a caller-controlled qualification interface. A
+prepared lease pins code; recording takes a distinct pin; submission acquires
+an inflight reference before queueing. A timeout is not completion: reset and
+cache clearing must retain pending code, and freeing the host command-list
+object cannot release its inflight code reference. A confirmed device teardown
+advances the private session epoch; only then may stale cache ownership be
+invalidated. Exact-native recording consumes the selected canonical artifact's
+uploaded code address and validated launch declaration rather than generating
+an incumbent kernel for the same shape.
+
+Canonical manifests and the existing independent qualification/admission path
+remain authoritative. Realization digests and live closure digests are binding
+metadata, not alternative trust stores. No native candidate is activated by
+these private interfaces, host fixture handles, manifest text or caller flags.
+The public header inventory, version and manifest are intentionally unchanged.
+The private `omega_native_artifact_snapshot.h` interface retains exactly the
+manifest, text, cubin, QMD and constant-bank bytes checked by existing artifact
+admission. Digest and semantic checks share those read-once buffers; reopening
+a mutable path cannot substitute unchecked bytes. A snapshot transfers byte
+custody only, not independent qualification or permission to activate code.
+
 ## 11. Checking this file
 
 `make test-runtime-api` runs `tools/runtime_api_check.sh` on the real headers and then `tools/runtime_api_negative.sh`. The

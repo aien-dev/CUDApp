@@ -1,3 +1,3 @@
-# omega-bridge seeded-portable-1 converter; src/toc.om + src/seeded.om.
-# Draft omega-bridge#36; seed sha256 is checked by om/units.sh and the converter.
-dfd8393aa3d4a67280349921c479b8dd52f88e58
+# Checked portable hosted and import-free scalar Omega converters.
+# Draft omega-bridge#36; exact source and frontend hashes checked by om/units.sh.
+cb492a76348546dc1ffe5857492e0796cfcec232

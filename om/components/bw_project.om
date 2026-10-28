@@ -1,0 +1,304 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Port of existing nondeep OmegaFp8GemvSpec sched0 coal0 at b759afc3.
+note spec8:K,laneBytes,rows,warps,load-order component(0X-first/1W-first),reserved0.
+note Mutants are never accepted production specs. No solved bytes or second IR.
+fn bc_log v ulong to ulong
+for i ulong 32
+if eq shl ulong 1 i v
+ret i
+end
+end
+ret BCNONE
+end
+fn bc_imm ins edit ulong 8192 s edit ulong 64 d ulong a ulong c ulong imm ulong to void
+put s 8 imm
+put s 9 0
+bc_imad ins s 8 d a c
+end
+fn bc_wide ins edit ulong 8192 s edit ulong 64 d ulong a ulong c ulong imm ulong to void
+put s 8 imm
+put s 9 0
+bc_imad ins s 9 d a c
+end
+fn bc_shift ins edit ulong 8192 s edit ulong 64 d ulong a ulong subreg ulong amount ulong to void
+bc_node s 17 d a BCNONE BCNONE
+put s 22 amount
+put s 23 shl subreg 24
+bc_emit ins s 0
+end
+fn bc_mask ins edit ulong 8192 s edit ulong 64 d ulong a ulong subreg ulong mask ulong to void
+bc_node s 18 d a BCNONE BCNONE
+put s 22 mask
+put s 23 shl subreg 24
+bc_emit ins s 0
+end
+fn bc_initregs m edit ulong 2048 s edit ulong 64 r edit ulong 64 to void
+uv = bc_vreg s m 2 true
+for k ulong 31
+width = ulong 1
+if or lt k 3 and ge k 14 le k 16
+width = 2
+end
+if or and ge k 18 le k 20 and ge k 24 le k 28
+width = 2
+end
+put r k bc_vreg s m width false
+end
+for row ulong get s 34
+put r add 32 mul row 2 bc_vreg s m 1 false
+put r add 33 mul row 2 bc_vreg s m div get s 33 4 false
+end
+for word ulong get s 38
+put r add word 48 bc_vreg s m 4 false
+end
+put r 52 bc_vreg s m 1 false
+put r 53 bc_vreg s m 2 false
+for k ulong 6
+put r add k 54 bc_vreg s m 1 false
+end
+end
+fn bc_prologue ins edit ulong 8192 s edit ulong 64 r view ulong 64 to void
+bc_node s 7 0 BCNONE BCNONE BCNONE
+put s 22 856
+put s 23 1
+bc_emit ins s 4
+for k ulong 7
+op = ulong 4
+if lt k 3
+op = 5
+end
+bc_node s op get r k BCNONE BCNONE BCNONE
+put s 22 add ulong 896 mul k 8
+if ge k 3
+put s 22 add ulong 920 mul sub k 3 4
+end
+bc_emit ins s 2
+end
+for k ulong 3
+bc_node s 3 get r add k 7 BCNONE BCNONE BCNONE
+put s 22 33
+if eq k 1
+put s 22 37
+end
+if eq k 2
+put s 22 38
+end
+bc_emit ins s 2
+end
+bc_inst ins s 2 get r 12 BCNONE 1
+bc_shift ins s get r 10 get r 7 0 5
+bc_mask ins s get r 11 get r 7 0 31
+bc_imm ins s get r 13 get r 9 BCNONE 1
+bc_wide ins s get r 14 get r 13 get r 0 16
+put s 8 0
+bc_mem ins s 56 get r 15 get r 14 2
+put s 8 8
+bc_mem ins s 56 get r 16 get r 14 3
+bc_node s 8 get r 17 get r 9 get r 4 BCNONE
+bc_emit ins s 0
+bc_wide ins s get r 18 get r 17 get r 1 1
+bc_node s 8 get r 17 get r 9 get r 5 BCNONE
+bc_emit ins s 0
+bc_wide ins s get r 19 get r 17 get r 2 1
+bc_wide ins s get r 20 get r 11 get r 18 mul get s 33 4
+bc_imm ins s get r 21 get r 11 BCNONE get s 33
+bc_shift ins s get r 22 get r 11 0 get s 39
+bc_imm ins s get r 22 get r 22 BCNONE 4
+bc_imm ins s get r 23 get r 8 get r 10 get s 35
+end
+fn bc_decode ins edit ulong 8192 s edit ulong 64 r view ulong 64 to void
+wq = get s 11
+word = get s 12
+byteidx = get s 13
+if lt byteidx 3
+put s 8 shl ulong 1 sub ulong 20 mul byteidx 8
+put s 9 word
+bc_imad ins s 8 get r 55 wq BCNONE
+else
+bc_shift ins s get r 55 wq word 4
+end
+bc_mask ins s get r 56 get r 55 0 shl ulong 127 20
+bc_mask ins s get r 57 wq word shl ulong 128 mul byteidx 8
+put s 8 1
+if lt byteidx 3
+put s 8 shl ulong 1 sub ulong 24 mul byteidx 8
+end
+put s 9 0
+bc_imad ins s 8 get r 58 get r 57 get r 56
+end
+fn bc_xloads ins edit ulong 8192 s edit ulong 64 r view ulong 64 to void
+for q ulong get s 38
+put s 8 mul q 16
+bc_mem ins s 57 get r add q 48 get r 26 get s 10
+put s 10 3
+end
+end
+fn bc_loads ins edit ulong 8192 s edit ulong 64 r view ulong 64 to void
+put s 10 2
+if eq get s 36 0
+bc_xloads ins s r
+end
+bc_wide ins s get r 53 get r 12 get r 25 0
+for row ulong get s 34
+put s 8 mul row get s 32
+op = ulong 56
+if eq get s 33 16
+op = 57
+end
+dst = get r add 33 mul row 2
+bc_mem ins s op dst get r 24 get s 10
+put s 10 3
+end
+put s 8 0
+bc_mem ins s 11 get r 52 get r 53 3
+if eq get s 36 1
+bc_xloads ins s r
+end
+end
+fn bc_dotword ins edit ulong 8192 s edit ulong 64 r view ulong 64 to void
+for byteidx ulong 4
+put s 13 byteidx
+bc_decode ins s r
+put s 9 byteidx
+bc_ffma ins s get r 54 get r 58 get r add get s 12 48 get r 54
+end
+end
+fn bc_accum ins edit ulong 8192 s edit ulong 64 r view ulong 64 row ulong to void
+put s 9 0
+acc = get r add 32 mul row 2
+bc_ffma ins s acc get r 54 get r 52 acc
+end
+fn bc_dot ins edit ulong 8192 s edit ulong 64 r view ulong 64 to void
+for row ulong get s 34
+bc_inst ins s 1 get r 54 BCNONE 0
+put s 11 get r add 33 mul row 2
+for word ulong get s 38
+put s 12 word
+bc_dotword ins s r
+end
+bc_accum ins s r row
+end
+end
+fn bc_reduce ins edit ulong 8192 s edit ulong 64 r view ulong 64 to void
+for row ulong get s 34
+acc = get r add 32 mul row 2
+for q ulong 5
+bc_node s 42 get r 59 acc BCNONE BCNONE
+put s 22 shr ulong 16 q
+bc_emit ins s 2
+bc_node s 30 acc acc get r 59 BCNONE
+bc_emit ins s 0
+end
+end
+end
+fn bc_epilogue ins edit ulong 8192 s edit ulong 64 r view ulong 64 to void
+bc_reduce ins s r
+bc_wide ins s get r 27 get r 23 get r 19 mul get s 34 4
+bc_pred ins s get r 11 get r 12
+put s 13 get s 0
+bc_node s 54 BCNONE BCNONE BCNONE BCNONE
+put s 22 2
+bc_emit ins s 9
+put s 14 bc_branch ins s add get s 0 1 true
+for row ulong get s 34
+bc_wide ins s get r 28 get r 12 get r 27 mul row 4
+bc_node s 12 BCNONE get r 28 get r add 32 mul row 2 BCNONE
+put s 21 0
+bc_emit ins s 5
+end
+put s 15 get s 0
+bc_node s 55 BCNONE BCNONE BCNONE BCNONE
+bc_emit ins s 10
+bc_patch ins get s 14 get s 15
+bc_patch ins get s 13 add get s 15 1
+end
+fn bc_prcheck spec view ulong 8 to uint
+if or eq get spec 0 0 gt get spec 0 32768
+ret 1
+end
+if and ne get spec 1 8 ne get spec 1 16
+ret 1
+end
+if and ne get spec 2 1 and ne get spec 2 2 and ne get spec 2 4 ne get spec 2 8
+ret 1
+end
+if or eq get spec 3 0 gt get spec 3 32
+ret 1
+end
+if ne rem get spec 0 mul get spec 1 32 0
+ret 1
+end
+if gt get spec 4 1
+ret 1
+end
+for k ulong 3
+if ne get spec add k 5 0
+ret 1
+end
+end
+ret 0
+end
+fn bc_prbody ins edit ulong 8192 s edit ulong 64 r view ulong 64 to void
+bc_prologue ins s r
+put s 41 get s 0
+bc_pred ins s get r 23 get r 3
+put s 42 bc_branch ins s add get s 0 1 true
+bc_wide ins s get r 24 get r 23 get r 15 mul get s 34 get s 32
+bc_wide ins s get r 24 get r 21 get r 24 1
+bc_shift ins s get r 29 get r 23 0 get s 40
+bc_wide ins s get r 25 get r 29 get r 16 div get s 32 32
+bc_wide ins s get r 25 get r 22 get r 25 1
+bc_wide ins s get r 26 get r 12 get r 20 0
+for row ulong get s 34
+bc_inst ins s 1 get r add 32 mul row 2 BCNONE 0
+end
+bc_inst ins s 2 get r 30 BCNONE get s 37
+put s 43 get s 0
+bc_loads ins s r
+bc_dot ins s r
+bc_wide ins s get r 24 get r 12 get r 24 mul get s 33 32
+bc_wide ins s get r 26 get r 12 get r 26 mul get s 33 128
+bc_wide ins s get r 25 get r 12 get r 25 get s 33
+bc_imm ins s get r 30 get r 12 get r 30 4294967295
+bc_pred ins s get r 30 get r 12
+at = bc_branch ins s get s 43 true
+bc_epilogue ins s r
+bc_imm ins s get r 23 get r 6 get r 23 1
+at = bc_branch ins s get s 41 false
+bc_patch ins get s 42 get s 0
+bc_node s 45 BCNONE BCNONE BCNONE BCNONE
+bc_emit ins s 7
+at = bc_branch ins s get s 0 false
+note Historical tail BRA has exact fixed control independent of scheduler pending.
+put ins add mul at 8 6 shl ulong 1032192 32
+end
+fn bc_project spec view ulong 8 ins edit ulong 8192 m edit ulong 2048 stats edit ulong 4 to uint
+if ne bc_prcheck spec 0
+ret 1
+end
+s = new ulong 64 0
+r = new ulong 64 0
+for k ulong 2048
+put m k 0
+end
+for k ulong 8192
+put ins k 0
+end
+for k ulong 5
+put s add k 32 get spec k
+end
+put s 37 div get spec 0 mul get spec 1 32
+put s 38 div get spec 1 4
+put s 39 bc_log div ulong 128 get spec 1
+put s 40 bc_log div ulong 128 get spec 2
+bc_initregs m s r
+bc_prbody ins s r
+if ne get s 3 0
+ret 2
+end
+put stats 0 get s 0
+put stats 1 get s 4
+put stats 2 get s 5
+put stats 3 0
+ret 0
+end

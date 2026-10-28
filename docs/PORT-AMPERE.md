@@ -50,7 +50,7 @@ Blackwell header.
 | VRAM-aware D1 reserve | DONE | `nvrm/nvrm.c:637` queries the selected framebuffer heap. `src/omega_gpu_platform_linux.c:233` reads reserve policy and `:248` uses free VRAM, never host MemAvailable, for local allocations. `CUDAPP_GPU_MIN_FREE_BYTES` supports a precise safe refusal; the default MiB reserve remains documented by the runtime. The refusal precedes the driver allocation call. |
 | Safe reserve refusal proof | DONE | `tests/ampere/memory_refusal.c:39` sets reserve above total VRAM (therefore above free VRAM even if other processes release memory), then requests only a small allocation. It requires refusal, zero intervening RM allocation ioctls and unchanged free VRAM. Simulated-driver coverage is separate from this real-device test. It never pressure-allocates VRAM. |
 | Open-module and device selection doctor | DONE | `tests/ampere/doctor.py:79` verifies Linux x86_64, the exact pinned open module, requested PCI IDs, device nodes and an unambiguous BDF. `CUDAPP_GPU_BDF` selects that exact GPU in the driver client. `test_doctor.py` uses a fake filesystem and is always SIMULATED. No driver is opened by the doctor. |
-| Portable Omega build provenance | DONE | `om/units.sh:14` regenerates all four checked units through the pinned bounded Omega-to-C converter; separate generated translation units replace the AArch64 executable-code trampoline. `om/omega-bridge.lock`, `src/cudapp_om_units.ident` and the generated declarations retain unit SHA → C SHA provenance. Missing/mismatched converter or seed is a refusal, not a C fallback. |
+| Portable Omega build provenance | IMPLEMENTED | `om/units.sh` covers all canonical hosted roots plus Ampere encoding/runtime and the separate revision/epoch freestanding profile. Checked portable generated translation units replace executable-code trampolines. `om/omega-bridge.lock`, per-unit identities and generated declarations retain exact composed-source SHA → C SHA provenance. Missing/mismatched converter, profile or seed refuses before installation. Final host acceptance is recorded separately below. |
 | Native x86_64 host build | DONE | `.github/workflows/ampere-x86.yml:13` uses a native Ubuntu x86 runner for the full host build/tests and offline oracle. `src/omega_numeric.c:31` adds the x86 host-reference tier using scalar SSE/fused libm where appropriate; integer-defined conversions are not mislabeled as an independent conversion oracle. Local x86 emulation, if run, is labeled HOST_EMULATED separately. |
 | Device test plan / runner | DONE | `tests/ampere/README.md`, `doctor.py`, `run.py`, `math_device.c`, and `memory_refusal.c` cover doctor, complete vector-add output, intentionally failing vector-add, exhaustive unary math, a numerical negative control and safe memory refusal. The runner starts each result at NOT_RUN, records real outputs and stops on failure. |
 | GA102 / GA104 execution and qualification | BLOCKED | No RTX device is attached or authorized here. Both device states remain NOT_RUN. Need the actual host, OS, driver version, SSH access and a GPU window before any real execution. |
@@ -76,15 +76,20 @@ launch target grows `OmegaGpuLaunch`; rebuild callers against the new headers.
 The ABI manifest and semver gate must agree. The existing sm_121 default, driver
 pin and negative controls are not weakened for the port.
 
-The portable converter is pinned to omega-bridge
-`dfd8393aa3d4a67280349921c479b8dd52f88e58`
-([draft PR #36](https://github.com/aien-dev/omega-bridge/pull/36)).
-Its explicitly selected seeded frontend uses omega e5b32567 compiler SHA-256
+The portable converter is the pending
+[omega-bridge draft #36](https://github.com/aien-dev/omega-bridge/pull/36);
+the exact source commit is recorded in `om/omega-bridge.lock`. Its explicitly
+selected seeded frontend uses omega e5b32567 compiler SHA-256
 `2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f`.
-Main, acting for Drake, authorized this separately pinned mode; the original
-191b776 frontend gate remains unchanged and required. The new mode must refuse
-a wrong-seed mutant. The generated identities pin both frontend and converter
-bytes, not merely a moving branch name.
+The original 191b776 frontend gate remains unchanged and required. The expanded
+route supports bounded canonical compositions and internal binary32 quant
+operations; a separately checked scalar profile supplies import-free revision
+and epoch without hosted trap machinery. Generated identities pin each
+converter, frontend and compiler, not a moving branch name.
+
+Experimental native x86 compiler work (#923) remains a distinct failing route,
+not a build, generation or acceptance prerequisite here. Portable C is generated
+by the seeded AArch64 compiler and compiled normally for the selected host.
 
 The x86 numeric source/header divergence from Omega's retained CPU oracles is
 intentional. Main authorized four explicit cutover blob pins, each with a

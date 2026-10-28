@@ -1,0 +1,185 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Independent rank-based verifier, not planner counting scatter.
+fn moe_rank ids view ulong 1024 c view ulong 8 e ulong t ulong s ulong to ulong
+rank = ulong 0
+orig = add mul t get c 2 s
+for i ulong mul get c 1 get c 2
+id = ulong get ids i
+if lt id e
+rank = add rank 1
+else
+if eq id e
+if lt i orig
+rank = add rank 1
+end
+end
+end
+end
+ret rank
+end
+fn moe_vrow w view ulong 10368 c view ulong 8 p ulong i ulong id ulong to ulong
+b = mul p 9
+t = div i get c 2
+s = rem i get c 2
+if ne get w b id
+ret 1
+end
+if ne get w add b 1 t
+ret 1
+end
+if ne get w add b 2 t
+ret 2
+end
+if ne get w add b 3 s
+ret 2
+end
+if ne get w add b 4 s
+ret 3
+end
+if ne get w add b 8 s
+ret 3
+end
+y = mul t add get c 2 1
+y = add y s
+if ne get w add b 7 y
+ret 4
+end
+ret 0
+end
+fn moe_vroutes c view ulong 8 ids view ulong 1024 w view ulong 10368 to ulong
+for i ulong mul get c 1 get c 2
+id = ulong get ids i
+if ne id 4294967295
+t = div i get c 2
+s = rem i get c 2
+p = moe_rank ids c id t s
+rc = moe_vrow w c p i id
+if ne rc 0
+ret rc
+end
+end
+end
+ret 0
+end
+fn moe_vshared c view ulong 8 w view ulong 10368 m view ulong 8 to ulong
+for t ulong get c 1
+p = add get m 2 t
+b = mul p 9
+if ne get w b get c 3
+ret 7
+end
+if ne get w add b 1 t
+ret 7
+end
+if ne get w add b 2 t
+ret 7
+end
+if ne get w add b 3 get c 2
+ret 8
+end
+if ne get w add b 4 get c 2
+ret 8
+end
+if ne get w add b 8 get c 2
+ret 9
+end
+y = mul t add get c 2 1
+y = add y get c 2
+if ne get w add b 7 y
+ret 10
+end
+end
+ret 0
+end
+fn moe_vmaps w view ulong 10368 mp view ulong 2320 m view ulong 8 to ulong
+for p ulong get m 0
+b = mul p 9
+if ne get mp p get w add b 1
+ret 5
+end
+if ne get mp add 1160 p get w add b 7
+ret 11
+end
+end
+for k ulong 8
+if ne get mp add get m 0 k 0
+ret 17
+end
+if ne get mp add add 1160 get m 0 k 0
+ret 17
+end
+end
+ret 0
+end
+fn moe_vseg w view ulong 10368 sg view ulong 1028 z ulong pos ulong to ulong
+b = mul z 4
+if or ne get sg add b 1 pos eq get sg add b 2 0
+ret 12
+end
+for k ulong ulong get sg add b 2
+v = mul add pos k 9
+if ne get w v get sg b
+ret 13
+end
+if ne get w add v 5 pos
+ret 14
+end
+if ne get w add v 6 get sg add b 2
+ret 14
+end
+end
+ret 0
+end
+fn moe_vsegments c view ulong 8 w view ulong 10368 sg view ulong 1028 m view ulong 8 to ulong
+pos = ulong 0
+for z ulong get m 1
+rc = moe_vseg w sg z pos
+if ne rc 0
+ret rc
+end
+b = mul z 4
+flag = ulong 0
+if eq get sg b get c 3
+flag = 1
+end
+if ne get sg add b 3 flag
+ret 15
+end
+pos = add pos ulong get sg add b 2
+end
+if ne pos get m 0
+ret 16
+end
+ret 0
+end
+fn moe_vcounts c view ulong 8 ids view ulong 1024 m view ulong 8 to ulong
+nr = ulong 0
+for i ulong mul get c 1 get c 2
+if ne get ids i 4294967295
+nr = add nr 1
+end
+end
+if or ne get m 2 nr ne get m 0 add nr get c 1
+ret 6
+end
+ret 0
+end
+fn moe_verify c view ulong 8 ids view ulong 1024 w view ulong 10368 sg view ulong 1028 mp view ulong 2320 m view ulong 8 to ulong
+rc = moe_vcounts c ids m
+if ne rc 0
+ret rc
+end
+rc = moe_vroutes c ids w
+if ne rc 0
+ret rc
+end
+rc = moe_vshared c w m
+if ne rc 0
+ret rc
+end
+rc = moe_vmaps w mp m
+if ne rc 0
+ret rc
+end
+ret moe_vsegments c w sg m
+end

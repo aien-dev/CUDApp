@@ -37,6 +37,15 @@ static uint64_t o_io(unsigned op,uint64_t fd,const void *p,uint64_t n,uint64_t o
 static int o_valid(unsigned t,uint64_t v){unsigned w=o_width(t);__int128 x=o_value(t,v);__int128 m=((__int128)1)<<(t>=6?w-1:w);return t>=6?x>=-m&&x<m:x>=0&&x<m;}
 static int o_buf(const void *p,uint64_t n,uint64_t want,unsigned t){uintptr_t a=(uintptr_t)p;uint64_t z=t==2?1:8;return p&&n==want&&a%z==0&&n<=UINTPTR_MAX/z&&a<=UINTPTR_MAX-n*z;}
 static int o_overlap(const void *a,uint64_t an,const void *b,uint64_t bn){uintptr_t x=(uintptr_t)a,y=(uintptr_t)b;return x<y+bn&&y<x+an;}
+#include <float.h>
+#include <fenv.h>
+#if FLT_RADIX != 2 || FLT_MANT_DIG != 24 || FLT_MAX_EXP != 128 || FLT_EVAL_METHOD != 0
+#error unsupported binary32 environment
+#endif
+#if defined(__FAST_MATH__)
+#error fast math is not a supported Omega environment
+#endif
+static uint64_t o_f32(unsigned op,uint64_t a,uint64_t b){uint32_t ua=(uint32_t)a,ub=(uint32_t)b,ur;float x,y;__builtin_memcpy(&x,&ua,4);__builtin_memcpy(&y,&ub,4);if(op==1)return ua&UINT32_C(0x7fffffff);if(op==2){volatile float z=x*y;__builtin_memcpy(&ur,(const void*)&z,4);return ur;}return x<=y;}
 static uint64_t f0(const void *v0, uint64_t v0_n);
 static uint64_t f1(const void *v0, uint64_t v0_n);
 static uint64_t f2(void *v0, uint64_t v0_n, uint64_t v1, uint64_t v2);

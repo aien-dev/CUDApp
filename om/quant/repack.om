@@ -1,0 +1,4 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+fn native_repack d view ulong 48 src view uchar 65536 sc view uchar 1024 dst edit uchar 65536 ds edit uchar 1024 to ulong
+ret ulong quant_repack d src sc dst ds
+end
