@@ -1,0 +1,16 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Existing router u32 little-endian picks to ABI1 logical ulong words.
+note n counts active entries, not tokens; no masking or expert validation here.
+fn moe_ids32 src view uchar 4096 n ulong ids edit ulong 1024 to ulong
+if gt n 1024
+ret 1
+end
+for i ulong n
+v = ulong 0
+for b ulong 4
+v = or v shl ulong get src add mul i 4 b mul b 8
+end
+put ids i v
+end
+ret 0
+end
