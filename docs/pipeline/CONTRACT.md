@@ -63,7 +63,7 @@ lifecycle fields are checked separately, not discarded from receipt scope.
 | 10 | Microkernel-only cost, diagnostic; never used to rank |
 | 11..14 | Workspace bytes, registers, shared bytes, threads |
 | 15 | Required hardware feature bits, subset of admitted exact profile |
-| 16 | Code bytes (cache consumer metadata) |
+| 16 | Charged resident allocation bytes, including actual upload padding (exact cache request size) |
 | 17..20 | Same lifecycle/generation fields as request 3..6 |
 | 21..24 | Artifact SHA256 |
 | 25..28 | Launch SHA256 |
@@ -118,6 +118,11 @@ generation, artifact/bundle digests, profile/buffer/lifecycle context, reserved.
 The existing runtime must use `kc_acquire` before submission, `kc_retire` only
 after observed completion, and `kc_unpin` when the recorded list is discarded.
 All calls require the existing session lock; this is not cross-process isolation.
+Resident charge in row16 is the existing allocator's actual budget charge,
+including its allocation padding, not the raw instruction payload length.
+The latter remains independently checked by `kc_validate` sizes/code SHA.
+`kc_find` must retain exact size matching: never hide an allocation difference
+behind a key hit or silently detach resident accounting from the real allocation.
 
 `pl_graph(q, rows, pool, request_real, selected_real, decision[32])` is the
 actual native graph-admission caller: select, validate canonical realization and
