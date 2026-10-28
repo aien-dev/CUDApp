@@ -32,6 +32,46 @@ CUDA++ is not affiliated with or endorsed by NVIDIA; CUDA is NVIDIA's trademark.
 
 **On this page:** [the stack](#the-stack) · [how I did it](#how-i-did-it) · [the machine code](#what-the-machine-code-looks-like) · [the driver, part by part](#the-driver-part-by-part) · [one launch, start to finish](#one-launch-start-to-finish) · [CUDA, piece by piece](#cuda-piece-by-piece) · [speed](#speed-against-the-ceiling) · [run your first kernel](#run-your-first-kernel)
 
+## TileLab driver checks and replay
+
+`make test-tilelab-host TILELAB_OMC=/path/to/pinned/omc` runs the driver's
+host-only refusals and oracle checks, then the bounded Omega conductor in
+`tests/tilelab_host_fault.om`. The compiler must match `tools/c5/omc.pin`.
+The separately compiled `gpu_tilelab_host_fault` replaces every GEMM and
+configuration entry with nondelegating CPU fault injection; it does not call
+GPU or session entry points. Its receipts say `execution: synthetic-host`.
+These results are host control-flow evidence, never chip qualification.
+
+The conductor checks the full shape-list capacity, escaped JSON identifiers,
+failed warmup and timed calls, runtime-failed mutants, successfully executed
+wrong-result mutants, correct-result negative controls, and buffered receipt
+failure on `/dev/full`. A runtime error cannot count as a caught mutant.
+Receipt write or close failure returns nonzero before a final PASS.
+Arm names must be valid UTF-8. JSON preserves multibyte identifiers exactly,
+escapes quotes, backslashes and control characters, and refuses malformed
+UTF-8 before any execution or receipt creation.
+
+Build the current replay with `make tilelab-replay TILELAB_OMC=/path/to/pinned/omc`.
+Its interface is:
+
+```text
+build/tilelab_replay DRIVER OUTPUT_PREFIX "M,N,K;..." ROUNDS [NAME:RT,CT,WM,WN,BAND ...]
+```
+
+It invokes the driver directly, without a shell, and groups at most fifteen
+explicit configurations per invocation because the default arm occupies the
+remaining slot. Outputs are `OUTPUT_PREFIX.0.json`, `.1.json`, and so on.
+Every child must succeed; nonzero child exits, failed execution, and signals
+stop replay without printing replay PASS. The host conductor checks failure
+propagation and a configuration list spanning three invocations.
+
+Using the real device driver still requires the operator's current GPU-window
+authorization. Neither building replay nor passing host tests grants it.
+The scripts and receipts under `evidence/TILELAB-20261028/` are immutable
+historical records, not current executable gates. In particular, the archived
+sweep scripts can mask child failures and an over-capacity group. Use this
+current replay for new runs; do not rewrite the historical scripts or receipts.
+
 ## The stack
 
 <p align="center"><img src="docs/img/stack.svg" width="100%" alt="CUDA and CUDA++ layer by layer. The compiler, maths libraries, runtime and driver library of CUDA are closed and CUDA++ has its own code for their jobs. NVIDIA's open kernel module stays; the signed GSP firmware stays."></p>

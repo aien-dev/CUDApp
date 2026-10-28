@@ -4,8 +4,14 @@ fn read_exact fd int buf edit uchar 128 n ulong to long
 got = ulong 0
 while lt got n bound 128
 r = read fd buf got sub n got
-if le r 0
-ret r
+if lt r 0
+ret -1
+end
+if eq r 0
+if ne got 0
+ret -1
+end
+ret 0
 end
 got = add got ulong r
 end
@@ -29,6 +35,51 @@ put o i unpack_u64 buf off
 end
 end
 
+note Compare active semantic roles, not inactive packing slots. Zero control
+note and FSET default are documented canonicalizations, absent RA/RB means RZ.
+fn same_sem o view ulong 16 dec view ulong 16 to bool
+idx = sp_find o
+if eq idx 63
+ret false
+end
+if ne sp_find dec idx
+ret false
+end
+if ne get o 0 get dec 0
+ret false
+end
+base = mul idx 45
+control = get o 7
+if eq control 0
+control = get sp_tbl add base 8
+if eq get o 0 46
+if and eq get o 6 0 eq get o 9 0
+control = 1032192
+else
+control = 1042944
+end
+end
+end
+if ne control get dec 7
+ret false
+end
+nf = get sp_tbl add base 9
+for f ulong nf
+fb = add add base 10 mul f 7
+role = get sp_tbl fb
+word = get sp_tbl add fb 1
+a = sp_val role word o
+b = sp_val role word dec
+if and eq role R_FSET eq a 0
+a = 66084864
+end
+if ne a b
+ret false
+end
+end
+ret true
+end
+
 fn run_check_loop corrupt bool to int
 buf = new uchar 128 0
 o = new ulong 16 0
@@ -39,7 +90,10 @@ count = ulong 0
 
 while lt count 500 bound 500
 r = read_exact int 0 buf 128
-if le r 0
+if lt r 0
+ret 2
+end
+if eq r 0
 break
 end
 unpack_case buf o
@@ -63,7 +117,7 @@ dst = sp_dec w_spec o_dec
 if ne dst 0
 ret 1
 end
-if ne get o_dec 0 get o 0
+if not same_sem o o_dec
 ret 1
 end
 count = add count 1
@@ -147,6 +201,7 @@ fn run_neg_mutant to int
 o = new ulong 16 0
 w_mut = new ulong 4 0
 w_ref = new ulong 4 0
+decoded = new ulong 16 0
 put o 0 1
 put o 1 5
 r_ref = enc1 o w_ref
@@ -172,6 +227,12 @@ end
 end
 
 if same
+ret 1
+end
+if ne sp_dec w_mut decoded E_OK
+ret 1
+end
+if same_sem o decoded
 ret 1
 end
 ret 0

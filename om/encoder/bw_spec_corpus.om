@@ -17,7 +17,7 @@ ret
 end
 if eq role 7
 put o 5 val
-put o 13 1
+put o 14 1
 ret
 end
 put o 3 val
@@ -158,6 +158,16 @@ min_v = get sp_tbl add fbase 5
 max_v = get sp_tbl add fbase 6
 v_idx = get_v_idx c_i f_i nf
 val = get_fld_val min_v max_v v_idx
+note Fixtures deliberately choose representable special-layout immediates.
+note Refusal tests separately retain the raw nonrepresentable boundaries.
+if eq role R_LDC
+shift = get sp_tbl add fbase 2
+step = shr ulong 256 shift
+val = mul div val step step
+end
+if eq role R_BSSY
+val = add and sub val 1 268435455 1
+end
 set_o_field role word val op o
 end
 
@@ -170,6 +180,9 @@ emit_one_field fbase c_i f_i nf op o
 end
 finalize_o op var o
 st = write_case o buf
+if ne sp_find o div base 45
+ret 2
+end
 if ne st 0
 ret 1
 end
@@ -186,6 +199,9 @@ nf = get sp_tbl add base 9
 if eq nf 0
 clear_o o op
 finalize_o op var o
+if ne sp_find o idx
+ret 2
+end
 ret write_case o buf
 end
 
@@ -198,9 +214,12 @@ max_v = get sp_tbl add fbase 6
 for c_i ulong 4
 clear_o o op
 val = get_fld_val min_v max_v c_i
-set_o_field role word val op o
+emit_one_field fbase c_i 0 1 op o
 finalize_o op var o
 st1 = write_case o buf
+if ne sp_find o idx
+ret 2
+end
 if ne st1 0
 ret 1
 end
@@ -220,6 +239,10 @@ st = emit_form idx o buf
 if ne st 0
 ret 1
 end
+end
+note Fault control: a complete valid stream followed by producer failure.
+if ge argcnt 2
+ret 7
 end
 ret 0
 end
