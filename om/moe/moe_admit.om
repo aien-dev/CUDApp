@@ -1,0 +1,62 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Concatenate exact Quant/Composer/Cache/Pipeline units before this unit.
+note Trusted owner first runs pl_realcheck on immutable canonical records; no serializer here.
+note Existing session lock spans validation, selection and record pin acquisition.
+note Applicability binds router/routing/shape/layout closure. No receipt is authenticated here.
+note Return76 wrong family, Pipeline status unchanged,80+GROUP refusal.
+note Success lease uses existing kc_acquire/retire/unpin cmdlist lifecycle.
+fn moe_clear lease edit ulong 16 to void
+for i ulong 16
+put lease i 0
+end
+end
+fn moe_req r view ulong 16 q view ulong 64 p view ulong 528 words edit uchar 64 to long
+rq = new ulong 16 0
+for i ulong 16
+put rq i get r i
+end
+put rq 12 get q 3
+put rq 13 get p 1
+note This shape helper's admitted bit is internal; pl_pin remains mandatory before publication.
+put rq 14 1
+rc = moe_group view rq words
+if ne rc 0
+ret long add rc 80
+end
+ret 0
+end
+fn moe_family sel view ulong 16 p edit ulong 528 lease edit ulong 16 to int
+if eq get sel 2 3
+ret 0
+end
+rc = kc_unpin p get lease 1 get lease 2 get lease 3
+moe_clear lease
+if ne rc 0
+ret 75
+end
+ret 76
+end
+fn moe_copy src view uchar 64 dst edit uchar 64 to void
+for i ulong 64
+put dst i get src i
+end
+end
+fn moe_admit r view ulong 16 q view ulong 64 a view ulong 1024 p edit ulong 528 o edit uchar 64 lease edit ulong 16 to long
+words = new uchar 64 0
+sel = new ulong 16 0
+moe_clear lease
+rc = moe_req r q p edit words
+if ne rc 0
+ret rc
+end
+rc = long pl_pin q a p edit sel lease
+if ne rc 0
+ret rc
+end
+rc = long moe_family view sel p lease
+if ne rc 0
+ret rc
+end
+moe_copy view words o
+ret 0
+end
