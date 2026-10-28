@@ -132,12 +132,14 @@ owner resolves `selected_real` from the exact chosen artifact, not a shape
 lookup. It must also check `compose_launch` and actual code/templates through the
 existing artifact loader; matching stored digests alone does not check blobs.
 
-Current Composer v1 admits native direct1 and row-pipelined2 only. The policy's
-family3 staged GEMM is exercised with clearly synthetic records, but canonical
-staged consumption explicitly refuses. This is an unsupported native composition
-gate, not a measured performance result. Unknown families/features remain refused.
+The frozen Composer schema `2e93f998b70852abcd425f8865d842a05dad76ea`
+used by these host receipts admits native direct1 and row-pipelined2 only.
+These receipts exercise family3 policy with synthetic records and explicit
+canonical staged refusal. Newer Composer #166 adds structural family3 support;
+it does not confer candidate qualification or device/full-model evidence.
+Unknown families/features remain refused.
 
-Main confirmed there is currently no graph-owned qualification resolver or
+At the baseline, Main confirmed no graph-owned qualification resolver or
 selected-artifact recording ABI. Required integration seams are
 `src/omega_gpu_q36_graph.c:rec_fp8` (existing grouped GEMV recording),
 `rec_gemm` (existing FP8 GEMM recording), and `pf_record_experts` (routed/shared
