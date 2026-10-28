@@ -1,0 +1,205 @@
+# Deterministic dual-pipeline policy (#57)
+
+This is a pure native Omega predicate, not another tuner, qualification service,
+GPU runtime, or activation gate. It scans at most sixteen owner-resolved records.
+No M cutoff exists. Direct GEMV (family 1), register-fed warp MMA (2), and staged
+GEMM (3) compete only on a frozen complete-workload cost. A family number does
+not establish hardware support. The incumbent is preserved on ties and failed
+alternative admission; an inapplicable incumbent causes refusal, not an unsafe
+fallback. PR #139 remains unqualified: its filed full-cost gate fails small
+cells. Nothing in this policy imports that branch or changes current defaults.
+
+## Trust boundary
+
+`pl_select(request[64], records[1024], output[16])` consumes trusted inputs from
+the existing #35 realization/#54 candidate, #53 evaluator, and #17 measurement
+owners. Matching digests and gate bits do **not** authenticate evidence. The
+owner must resolve a single immutable qualification bundle whose subjects bind
+the canonical realization, exact emitted code and launch, quant descriptor,
+compiler/encoder/spec pins, frozen workload, graph dependencies, numerical mode,
+physical execution, full-path performance and model quality. Candidate writers
+must not supply or modify these records. No new signer or trust store is added.
+
+The predicate cannot turn arbitrary caller assertions into physical evidence.
+Synthetic tests are policy controls only and are not production-consumable
+qualification bundles. No production registry is populated by this change.
+
+## Request cells (unsigned 64-bit)
+
+| Cells | Meaning |
+| --- | --- |
+| 0 | Version 1 |
+| 1 | Active record count, 1..16 |
+| 2 | Incumbent zero-based record ordinal |
+| 3..6 | Session generation, exact target/driver profile, buffer ownership generation, lifecycle context (cold/warm/prepared identity) |
+| 7..10 | Available workspace bytes, register ceiling, shared bytes, thread ceiling |
+| 11 | Exact admitted capability bits; never inferred from SM number |
+| 12 | Reviewed minimum absolute complete-path benefit, ns |
+| 13 | Reviewed maximum complete-path cost, ns |
+| 14..17 | Frozen workload-equivalence SHA256 |
+| 18..21 | Current graph/dependency closure SHA256 |
+| 22..25 | Reviewed policy SHA256 (includes per-workload constraints and aggregation protocol) |
+| 26..29 | Frozen measurement/comparison protocol SHA256 |
+| 30..33 | Incumbent artifact SHA256; invalidates dependent evidence on replacement |
+| 34..37 | Exact applicability SHA256 from canonical dependency adapter |
+| 38..63 | Reserved zero |
+
+All digest groups contain four canonical little-endian unsigned 64-bit limbs and
+must be nonzero. Applicability binds exact semantic/quant/shape/routing/layout/
+strides/alignment/tails/alias/numerical contract and compiler/encoder/spec pins.
+Alternative tile/warp/stage/pipeline/code identities are excluded **only** from
+workload equivalence, never from individual qualification subjects. Resource and
+lifecycle fields are checked separately, not discarded from receipt scope.
+
+## Record cells (sixteen rows, stride 64)
+
+| Offset | Meaning |
+| --- | --- |
+| 0 | Family 1 direct GEMV, 2 warp MMA, 3 staged GEMM; unknown refuses |
+| 1 | Independent semantic, byte/launch, physical, full-workload, quality gates: exact mask 31 |
+| 2 | Known nonoverlapping phase mask, exactly 63; zero durations mean measured zero, not unknown |
+| 3 | Complete-path cost, ns, positive |
+| 4..9 | Packing/conversion, upload/transfer, preparation (compile/cache invalidation), dispatch, synchronization/barriers, complete execution, ns |
+| 10 | Microkernel-only cost, diagnostic; never used to rank |
+| 11..14 | Workspace bytes, registers, shared bytes, threads |
+| 15 | Required hardware feature bits, subset of admitted exact profile |
+| 16 | Code bytes (cache consumer metadata) |
+| 17..20 | Same lifecycle/generation fields as request 3..6 |
+| 21..24 | Artifact SHA256 |
+| 25..28 | Launch SHA256 |
+| 29..32 | Immutable resolved qualification-bundle SHA256 |
+| 33..36 | Workload-equivalence SHA256 |
+| 37..40 | Graph/dependency closure SHA256 |
+| 41..44 | Reviewed policy SHA256 |
+| 45..48 | Measurement protocol SHA256 |
+| 49..52 | Incumbent dependency artifact SHA256 |
+| 53..56 | Canonical applicability SHA256 |
+| 57..60 | Final code SHA256, separate from canonical realization artifact digest |
+| 61..63 | Reserved zero |
+
+Unsigned phase addition is checked before every operation; overflow or a phase
+sum exceeding measured complete-path cost rejects the row. Components must be
+nonoverlapping under the measurement protocol; amortization is supplied by its
+frozen lifecycle record, never calculated from a guessed reuse count. Packing,
+upload and preparation may not be silently omitted for a cold candidate.
+
+Duplicate artifact identities refuse the set, avoiding ambiguous slot reuse or
+bundle choice. Strictly lower complete cost wins; incumbent wins equal cost.
+Other ties use ascending canonical digest limb order. Array order cannot change
+the chosen identity. Unknown/unqualified alternatives cannot replace incumbent.
+No TMA or tcgen05/TMEM support is inferred on SM121: the target owner and physical
+receipt must explicitly qualify each required feature and exact artifact.
+
+## Result and consumption
+
+Return 0 means a policy result, 65 malformed/ambiguous set, 69 no qualified exact
+incumbent. Output is cleared on every refusal. Success output: 0 valid marker 1;
+1 ordinal; 2 family; 3 complete cost; 4..7 artifact digest; 8..11 qualification
+bundle digest; 12..15 session/profile/buffer/lifecycle snapshot.
+
+This result is advisory, **not** a kernel handle or launch capability. Before
+recording, Main's existing graph/cache owner must revalidate the exact bundle,
+request snapshot and generations and atomically acquire/pin the artifact and
+all tensor/resource dependencies through existing completion. Cache slot reuse,
+eviction, recovery, tensor changes or budget changes invalidate the result.
+Do not retry the incumbent after any partial candidate execution: state rollback
+belongs to the existing KV/recurrent state owner, not this selector.
+
+`pl_realcheck(request_real[4096], candidate_real[4096], row[64])` consumes the
+Composer's exact `compose_match`, `compose_codeid`, and `compose_launchid` and
+Cache's `kc_sha` over precisely 1152 canonical bytes. Quant validation is the
+Composer validator's exact `quant_check` dependency. No parallel descriptor
+serializer exists here. Return 69 rejects changed applicability/code/launch or
+artifact identity. `pl_pin(request, records, cache[528], output, lease[16])`
+then takes a recorded-code reference on an already prepared hit. It never
+compiles, uploads, evicts or prewarms during graph recording. Miss/stale/busy
+returns 75 and clears result/lease. Lease contains valid marker, slot, revision,
+generation, artifact/bundle digests, profile/buffer/lifecycle context, reserved.
+The existing runtime must use `kc_acquire` before submission, `kc_retire` only
+after observed completion, and `kc_unpin` when the recorded list is discarded.
+All calls require the existing session lock; this is not cross-process isolation.
+
+`pl_graph(q, rows, pool, request_real, selected_real, decision[32])` is the
+actual native graph-admission caller: select, validate canonical realization and
+declared family/features/GPR/shared/threads, then pin. Decision cells0..15 are
+the policy output and16..31 the lease. Refusal clears all32 cells. The graph
+owner resolves `selected_real` from the exact chosen artifact, not a shape
+lookup. It must also check `compose_launch` and actual code/templates through the
+existing artifact loader; matching stored digests alone does not check blobs.
+
+Current Composer v1 admits native direct1 and row-pipelined2 only. The policy's
+family3 staged GEMM is exercised with clearly synthetic records, but canonical
+staged consumption explicitly refuses. This is an unsupported native composition
+gate, not a measured performance result. Unknown families/features remain refused.
+
+Main confirmed there is currently no graph-owned qualification resolver or
+selected-artifact recording ABI. Required integration seams are
+`src/omega_gpu_q36_graph.c:rec_fp8` (existing grouped GEMV recording),
+`rec_gemm` (existing FP8 GEMM recording), and `pf_record_experts` (routed/shared
+prefill groups). `consume.om` supplies the actual native admission caller for
+that integration. It is not evidence that selected instructions were recorded
+by those incumbent C paths. Preserve the incumbent/default and production
+refusal until Main binds the selected exact code and launch to the command list.
+
+The native caller patch is `om/pipeline/consume.om`; C consumer/shared-header
+registration and bridge generation belong to Main. The current incumbent remains
+active until independent native GB10 and full-model gates approve replacement.
+
+## Predeclared measurement families
+
+Use actual `omega_gpu_q36_graph.h` contracts: decode M=1; supported conversation
+strokes through MAX_HEADS; batch v2 dense and nine-group experts; prefill through
+PREFILL_MAX_ROWS including boundary and ragged expert segments. Dense shapes are
+GDN mix N=12288,K=2048; attention mix N=9216,K=2048; output N=2048,K=4096;
+gate/up N=1024,K=2048; down N=2048,K=512. Freeze real checkpoint/target/config,
+per-workload bounds, warm/cold policy, aggregation weights, numerical thresholds
+and minimum benefit through #17 before final measurements. No invented timing
+threshold or paper-derived performance ratio is adopted here.
+
+Predeclare decode head counts1..8 and prefill row counts
+`{1,2,4,8,16,32,64,128}`, plus ragged/empty expert segments at
+`{0,1,7,8,9,127,128}` where each existing API's capacity permits. These are
+measurement cells, never selection thresholds. Include existing #139 failing
+small cells unchanged; a new family does not inherit that PR's correctness
+receipt or erase its failed performance evidence. Compare both cold and
+already-prepared cache lifecycles, one-shot and frozen repeated-use requests.
+
+Measure preprocessing, repack, compile, upload, dispatch, synchronization and
+complete execution using paired/interleaved complete paths, then full-model
+quality/latency against the filed #604 baseline. Preserve every failure and
+inconclusive result. Host policy controls are not device or serving evidence.
+
+## Host controls and reproduction
+
+`tests/pipeline/host-evidence.json` records exact ordered source hashes, pinned
+compiler, all three native caller exits0, and five compiled guard mutants
+rejected by those same controls. `fixture.om` and Composer's `fixture.om` are
+test-only synthetic declarations. They never enter a trusted production registry.
+The current source/file-content dependency pins are in `dependencies.lock`;
+Main integrates the exact peer commits before bridge registration.
+`tests/pipeline/pin-invalidation-evidence.json` adds the exact compiler-digest
+mutation at canonical byte544, recording the final graph-test source/binary
+and successful control plus caught bypass mutant. The earlier receipt preserves
+the preceding semantic-digest mutation rather than rewriting that evidence.
+`tests/pipeline/final-source-evidence.json` is the final-source run of all three
+controls and five mutants after aligning with existing session recovery
+generation0. Cache initial generation0, pin/inflight/completion and later
+invalidation are exercised. Earlier source receipts remain historical;
+dependency lock and this final receipt identify the integrated source exactly.
+
+Compile each test by concatenating Quant's `quant.om`, Composer's `realize.om`,
+Cache's `digest.om` and `residency.om`, this lane's `select.om`, `graph.om`,
+`consume.om`, and `tests/pipeline/fixture.om`, followed by the test source.
+For `graph-caller.om` insert Composer's shared `fixture.om` before the test.
+Feed that source to the exact pinned `omc`; execute the host AArch64 output.
+The policy, cache-caller and graph-caller expected exit is0. Mutation definitions
+and observed nonzero exits are retained in the JSON receipt; a mutant compile
+failure would not count as detection.
+
+Independent symbolic synthetic cost oracle, through the mounted parent proxy:
+`WolframLanguageEvaluator:
+{Simplify[packing+upload+prepare+dispatch+barriers+execution,Assumptions->And@@Thread[{packing,upload,prepare,dispatch,barriers,execution}>=0]],Total[{2,3,5,7,11,13}],Total[{1,1,1,1,1,100}],Total[{20,20,20,20,20,1}],100-41,100-105,100-101}`
+`-> {barriers + dispatch + execution + packing + prepare + upload,41,105,101,59,-5,-1}`.
+These costs are explicit synthetic policy controls, not observed nanoseconds,
+speedups, GB10 measurements or serving evidence.
+

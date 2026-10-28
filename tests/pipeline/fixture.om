@@ -1,0 +1,65 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Synthetic policy controls only. Not GPU timing, qualification or activation.
+fn pl_fixture q edit ulong 64 a edit ulong 1024 to void
+for j ulong 64
+put q j 0
+end
+for j ulong 1024
+put a j 0
+end
+put q 0 1
+put q 1 3
+put q 2 0
+for j ulong 4
+put q add 3 j 1
+put q add 7 j 128
+end
+put q 11 1
+put q 12 1
+put q 13 100
+for j ulong 24
+put q add 14 j add j 1
+end
+for r ulong 3
+b = mul r 64
+put a b add r 1
+put a add b 1 31
+put a add b 2 63
+put a add b 3 100
+put a add b 9 100
+put a add b 10 1
+for j ulong 4
+put a add add b 11 j 1
+put a add add b 17 j 1
+end
+put a add b 15 1
+put a add b 16 1
+for j ulong 4
+put a add add b 21 j add j add mul r 4 17
+put a add add b 25 j add j 1
+put a add add b 29 j add j 1
+put a add add b 57 j add j 1
+end
+for j ulong 24
+put a add add b 33 j get q add 14 j
+end
+end
+note Incumbent identity is shared by dependency references, not each candidate ID.
+for j ulong 4
+put a add 21 j get q add 30 j
+end
+put a 67 41
+put a 73 41
+put a 131 41
+put a 137 41
+end
+fn pl_expect q view ulong 64 a view ulong 1024 o edit ulong 16 want ulong to int
+rc = pl_select q a o
+if ne rc 0
+ret 1
+end
+if ne get o 1 want
+ret 2
+end
+ret 0
+end

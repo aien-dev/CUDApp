@@ -1,0 +1,39 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Actual graph admission caller for Main's existing graph/command-list owner.
+note Must be invoked under existing session lock with trusted immutable bundle.
+note The selected canonical real comes from the owner's qualified registry.
+fn pl_checkrow a view ulong 1024 want view uchar 4096 real view uchar 4096 sel view ulong 16 to int
+row = new ulong 64 0
+base = mul get sel 1 64
+for j ulong 64
+put row j get a add base j
+end
+ret pl_realcheck want real row
+end
+fn pl_finish q view ulong 64 a view ulong 1024 p edit ulong 528 sel edit ulong 16 out edit ulong 32 to int
+lease = new ulong 16 0
+rc = pl_selected q a p sel lease
+if ne rc 0
+ret rc
+end
+for j ulong 16
+put out j get sel j
+put out add j 16 get lease j
+end
+ret 0
+end
+fn pl_graph q view ulong 64 a view ulong 1024 p edit ulong 528 want view uchar 4096 real view uchar 4096 out edit ulong 32 to int
+sel = new ulong 16 0
+for j ulong 32
+put out j 0
+end
+rc = pl_select q a sel
+if ne rc 0
+ret rc
+end
+rc = pl_checkrow a want real sel
+if ne rc 0
+ret rc
+end
+ret pl_finish q a p sel out
+end

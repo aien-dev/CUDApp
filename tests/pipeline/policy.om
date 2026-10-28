@@ -1,0 +1,155 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Synthetic policy controls only. Not GPU timing, qualification or activation.
+fn main to int
+q = new ulong 64 0
+a = new ulong 1024 0
+o = new ulong 16 0
+pl_fixture q a
+if ne pl_expect q a o 1 0
+ret 1
+end
+note Replay returns the identical artifact and bundle, no search or learned state.
+for j ulong 16
+if ne pl_expect q a o 1 0
+ret 2
+end
+end
+note Faster-but-wrong: semantic gate absent. Other qualified candidate remains.
+put a 65 30
+if ne pl_expect q a o 2 0
+ret 3
+end
+put a 129 30
+if ne pl_expect q a o 0 0
+ret 4
+end
+note Micro-fast/full-slow: retain incumbent despite diagnostic micro cost1.
+pl_fixture q a
+put a 67 105
+put a 73 105
+put a 131 101
+put a 137 101
+if ne pl_expect q a o 0 0
+ret 5
+end
+note Packing makes fast execution lose on complete cost.
+put a 68 100
+put a 73 1
+if ne pl_expect q a o 0 0
+ret 6
+end
+note Complete phase mask mandatory; zero is not unknown.
+pl_fixture q a
+put a 66 31
+put a 130 31
+if ne pl_expect q a o 0 0
+ret 7
+end
+note Every applicability limb invalidates candidate evidence: includes target,
+note layout/tails/alias/budget and compiler/encoder/spec through canonical adapter.
+for p ulong 24
+pl_fixture q a
+put a add 97 p 0
+put a add 161 p 0
+if ne pl_expect q a o 0 0
+ret 8
+end
+end
+note Generation/profile/buffer/lifecycle invalidation.
+for p ulong 4
+pl_fixture q a
+put a add 81 p 2
+put a add 145 p 2
+if ne pl_expect q a o 0 0
+ret 9
+end
+end
+note Each resource ceiling must admit both alternatives independently.
+for p ulong 4
+pl_fixture q a
+put a add 75 p 129
+put a add 139 p 129
+if ne pl_expect q a o 0 0
+ret 10
+end
+end
+note Unsupported family or target feature refuses; never inferred TMA/tcgen05.
+pl_fixture q a
+put a 64 4
+put a 143 2
+if ne pl_expect q a o 0 0
+ret 11
+end
+note Overflow and inconsistent full cost both reject.
+pl_fixture q a
+put a 68 18446744073709551615
+put a 69 1
+put a 132 100
+if ne pl_expect q a o 0 0
+ret 12
+end
+note Incumbent ties preserve incumbent even if alternatives occupy earlier IDs.
+pl_fixture q a
+put a 67 100
+put a 73 100
+put a 131 100
+put a 137 100
+put q 12 0
+if ne pl_expect q a o 0 0
+ret 13
+end
+note Minimum benefit belongs to reviewed policy, no embedded ratio.
+pl_fixture q a
+put q 12 100
+if ne pl_expect q a o 0 0
+ret 14
+end
+note Invalid incumbent cannot be called a qualified fallback.
+pl_fixture q a
+put a 1 0
+if ne pl_select q a o 69
+ret 15
+end
+for j ulong 16
+if ne get o j 0
+ret 16
+end
+end
+note Duplicate artifact identities refuse rather than depending on record order.
+pl_fixture q a
+for j ulong 4
+put a add 149 j get a add 85 j
+end
+if ne pl_select q a o 65
+ret 17
+end
+note Replacing incumbent invalidates every dependent receipt.
+pl_fixture q a
+put q 30 0
+if ne pl_select q a o 69
+ret 18
+end
+note Permuting candidate slots preserves exact selected artifact identity.
+pl_fixture q a
+tmp = new ulong 64 0
+for j ulong 64
+put tmp j get a add 64 j
+put a add 64 j get a add 128 j
+put a add 128 j get tmp j
+end
+if ne pl_expect q a o 2 0
+ret 19
+end
+note Changed resource or full-path time budget invalidates incumbent as well.
+pl_fixture q a
+put q 7 0
+if ne pl_select q a o 69
+ret 20
+end
+pl_fixture q a
+put q 13 1
+if ne pl_select q a o 69
+ret 21
+end
+ret 0
+end
