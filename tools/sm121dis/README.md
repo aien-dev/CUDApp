@@ -36,3 +36,30 @@ The checks that used to call `nvdisasm` now call ours:
 | `corpus.sh` | runs every GPU test with `OMEGA_KERNEL_DUMP_DIR` set, so each kernel the library encodes is saved |
 | `check.sh` | compares our text with nvdisasm's for every saved kernel; PASS only when every word agrees |
 | `oracle_pairs.sh` | turns nvdisasm's listing into the same one-line-per-word form |
+
+## Exact MMIO semantic contract (issue #171)
+
+`BW_IR_LDG_MMIO` promises `LDG.E.MMIO.GPU`, not the historical encoder's EF
+cache policy. `make test-sm121-mmio OMEGA_MV=/path/to/pinned/omega` concatenates
+the production encoder with `om/encoder/mmio_test.om`. The Omega fixture emits
+one instruction and checks NVIDIA nvdisasm 13.0.85's exact mnemonic and register,
+descriptor and address operands. It then emits an otherwise identical EF
+mutant; the same Omega expectation must refuse it with exit status 4.
+The seeded compiler SHA-256 remains pinned; the oracle's version and binary
+SHA-256 are recorded. Neither decoder output nor mutant bytes enter production.
+
+This tests an IR semantic promise, unlike a decoder-only comparison that can
+agree about the wrong instruction. Existing golden receipts are not rewritten.
+Before/after corpus identities record any emitted-kernel byte impact separately.
+GB10 cache behavior and device execution remain **NOT_RUN**; no live model is
+rebuilt, replaced, or deployed by this check.
+
+The recorded pre/post comparison at base `e84326dca9f1ef9afbeaf249fb3e46ae0a2517f7`
+has **773 identical existing SASS kernels and four identical captured cubins**
+(including a copied bundle used for manifest-tampering controls).
+The complete before/after SHA-256 maps and empty changed-kernel/artifact lists
+are in `evidence/CUDAPP-SM121-MMIO/corpus-impact.json`, bound to exact source,
+generated binding and NVIDIA oracle identities. The existing producer corpus
+does not exercise op21; the new single-op fixture does. The generated encoder
+and host library bytes change as expected, but no deployed artifact is rebuilt
+or loaded. Corpus equality is not cache-behavior or device qualification.
