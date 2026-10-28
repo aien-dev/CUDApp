@@ -281,7 +281,11 @@ int omega_blackwell_execute_matmul(const OmegaMatMulSpec *spec,
     *hsem = 0;
     *hmarker = 0;
     *hmarker2 = 0;
+#if defined(__aarch64__)
     __asm__ volatile("dsb sy" ::: "memory");
+#else
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+#endif
 
     /* Assemble unified pushbuffer */
     uint32_t pb[1024];
@@ -374,7 +378,11 @@ int omega_blackwell_execute_matmul(const OmegaMatMulSpec *spec,
     /* Wait for hardware completion marker */
     /* CHIPWAIT-2: marker with marker2 required (C3: the second release lands only after the L2 flush). */
     if (bw_wait_one(__func__, "marker", hmarker, OMEGA_BW_MARKER_COMPLETION_PAYLOAD, hmarker2, OMEGA_BW_MARKER2_PAYLOAD) != 0) { m16_native_close(&ctx); return -1; }
+#if defined(__aarch64__)
     __asm__ volatile("dsb sy" ::: "memory");
+#else
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+#endif
     uint64_t t_end = current_time_ns();
 
     /* Validate intermediate semaphore updated to 6 */
@@ -538,7 +546,11 @@ int omega_blackwell_execute_matmul_tensor(const OmegaMatMulSpec *spec,
     *hsem = 0;
     *hmarker = 0;
     *hmarker2 = 0;
+#if defined(__aarch64__)
     __asm__ volatile("dsb sy" ::: "memory");
+#else
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+#endif
 
     uint32_t pb[1024];
     size_t pb_len = 0;
@@ -619,7 +631,11 @@ int omega_blackwell_execute_matmul_tensor(const OmegaMatMulSpec *spec,
 
     /* CHIPWAIT-2: marker with marker2 required (C3: the second release lands only after the L2 flush). */
     if (bw_wait_one(__func__, "marker", hmarker, OMEGA_BW_MARKER_COMPLETION_PAYLOAD, hmarker2, OMEGA_BW_MARKER2_PAYLOAD) != 0) { m16_native_close(&ctx); return -1; }
+#if defined(__aarch64__)
     __asm__ volatile("dsb sy" ::: "memory");
+#else
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+#endif
     uint64_t t_end = current_time_ns();
 
     if (*hsem != OMEGA_BW_SEMAPHORE_INTERMEDIATE_DONE) { m16_native_close(&ctx); return -1; }

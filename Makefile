@@ -24,10 +24,13 @@ CFLAGS ?= -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc \
 	-I$(NVIDIA_OPEN)/kernel-open/common/inc \
 	-I$(NVIDIA_OPEN)/kernel-open/nvidia-uvm \
 	-I$(NVIDIA_OPEN)/src/nvidia/arch/nvalloc/unix/include
+# Portable checked Omega-to-C output; each unit has a separate private runtime namespace.
+CUDAPP_OM_UNIT_SRCS = src/cudapp_om_bw_enc_sm121.c src/cudapp_om_cubin_elf.c \
+	src/cudapp_om_ampere_enc_sm86.c src/cudapp_om_amp_runtime.c
 -include mk/*.mk
 
 # sm_121 instruction encoder (CUDApp#79): om (default) = om/encoder/bw_enc_sm121.om through the generated binding
-# src/cudapp_om_units.c; c = the migration-pending C encoder, the differential oracle; diff = both on every call,
+# portable generated C units in CUDAPP_OM_UNIT_SRCS; c = the migration-pending C encoder, the differential oracle; diff = both on every call,
 # abort on any difference (mk/om-encoder.mk). Use a separate OUT_DIR per value.
 CUDAPP_ENCODER ?= om
 CUDAPP_ENCODER_DEFS_om :=
@@ -40,10 +43,10 @@ endif
 
 # Every C file of the GPU part, the shared base (tools/extract/shared.txt), the driver client and the generated
 # binding of the seeded Omega units (om/units.sh).
-SRCS := $(sort $(wildcard src/omega_blackwell_*.c src/omega_gpu_*.c)) \
+SRCS := $(sort $(wildcard src/omega_blackwell_*.c src/omega_gpu_*.c src/omega_ampere_*.c)) \
 	src/omega_cubin.c src/omega_native_artifact.c src/omega_sm121_disasm.c \
-	src/sha256.c src/omega_canonical.c src/omega_core.c src/omega_vector.c src/cudapp_om_units.c \
-	$(PHYSICS_DIR)/m16/m16_native.c $(PHYSICS_DIR)/nvrm/nvrm.c
+	src/sha256.c src/omega_canonical.c src/omega_core.c src/omega_vector.c $(CUDAPP_OM_UNIT_SRCS) \
+	$(PHYSICS_DIR)/m16/m16_native.c $(PHYSICS_DIR)/nvrm/nvrm.c $(AMPERE_CORPUS_SRCS)
 OBJS = $(patsubst %.c,$(OUT_DIR)/%.o,$(notdir $(SRCS)))
 DEPS = $(OBJS:.o=.d)
 -include $(DEPS)
@@ -88,7 +91,7 @@ test-native-artifact: $(ARTIFACT_EXPORT) $(ARTIFACT_TEST)
 	./$(ARTIFACT_TEST) $(OUT_DIR)/artifact-test
 # Pure artifact-format boundary: portable host test, no driver or device objects.
 .PHONY: test-native-artifact-manifest
-$(OUT_DIR)/native_artifact_manifest_test: tests/native_artifact_manifest_test.c src/omega_native_artifact.c src/omega_cubin.c src/omega_blackwell_realize.c src/sha256.c src/cudapp_om_units.c | $(OUT_DIR)
+$(OUT_DIR)/native_artifact_manifest_test: tests/native_artifact_manifest_test.c src/omega_native_artifact.c src/omega_cubin.c src/omega_blackwell_realize.c src/sha256.c $(CUDAPP_OM_UNIT_SRCS) | $(OUT_DIR)
 	$(CC) $(CFLAGS) -ffunction-sections -fdata-sections -Wl,--gc-sections -o $@ $^ -lpthread
 test-native-artifact-manifest: $(OUT_DIR)/native_artifact_manifest_test
 	./$(OUT_DIR)/native_artifact_manifest_test
@@ -333,7 +336,8 @@ HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-a
 	test-gpu-engine-backend-mutants test-gpu-engine-gb10-compile test-gpu-serving-alloc test-gpu-engine-freestanding \
 	test-codegen-freestanding test-gpu-session-platform test-gpu-wait test-gpu-wait-mutants host-tests-m16 \
 	test-runtime-api test-runtime-portability test-doctor test-hello-sim test-native-artifact-manifest test-gemm-selectors \
-	test-native-artifact zero-cuda-gate verify-vendored test-swap-cli test-om-encoder test-om-spec-encoder test-om-cubin $(CARRIED_HOST_TESTS)
+	test-native-artifact zero-cuda-gate verify-vendored test-swap-cli test-om-encoder test-om-spec-encoder test-om-cubin \
+	test-ampere-encoder test-ampere-cubin test-ampere-numeric-host test-ampere-runtime test-ampere-plan $(CARRIED_HOST_TESTS)
 test: $(HOST_TESTS)
 	@echo "CUDA++ HOST TESTS PASS ($(words $(HOST_TESTS)) targets)"
 

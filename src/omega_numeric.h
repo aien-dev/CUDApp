@@ -27,8 +27,8 @@
  * src/omega_numeric_gb10.c.
  *
  * Build with -ffp-contract=off: the reference and CPU tiers must not depend
- * on whether the compiler fuses a*b+c. Fused operations are written as
- * explicit AArch64 instructions.
+ * on whether the compiler fuses a*b+c. Fused operations use explicit AArch64
+ * instructions or the correctly rounded x86 host fmaf implementation.
  */
 
 #include <stdbool.h>
@@ -100,7 +100,11 @@ static inline bool omega_iszero(float x) {
  * omega_numeric_reference, omega_numeric_cpu_realize,
  * omega_numeric_reference_ftz and omega_numeric_seed_bound refuse with
  * OMEGA_NUMERIC_ERR_FPENV (and compute nothing) when any is set. They never
- * change FPCR themselves.
+ * change the environment themselves. On x86-64, MXCSR rounding, FTZ and DAZ
+ * and the x87 rounding mode are checked; read_fpcr returns a normalized report
+ * in the same bit positions (not the raw MXCSR). The x86 arithmetic tier uses
+ * scalar SSE and fmaf (existing host libm dependency); integer conversions
+ * share the exact bit-model and are not an independent conversion oracle.
  */
 #define OMEGA_NUMERIC_FPCR_REQUIRED_CLEAR \
     ((1ULL << 0) | (1ULL << 1) | (1ULL << 2) | (1ULL << 19) | (3ULL << 22) | (1ULL << 24) | (1ULL << 25) | \
@@ -152,12 +156,12 @@ int omega_ref_fsetp_pred(int op, float a, float b);
 /* a * b + c rounded once (RNE, subnormals kept), integer arithmetic on the bit
  * patterns (no FMADD). NaN results are the canonical quiet NaN. */
 float    omega_ref_ffma_int(float a, float b, float c);
-/* True when the host CPU has FEAT_BF16 (BFCVT); the CPU realization of
- * F32_TO_BF16 then uses BFCVT, otherwise it refuses (OMEGA_NUMERIC_ERR_NOT_ENCODED). */
+/* True when the AArch64 CPU has FEAT_BF16 (BFCVT). Other hosts return false.
+ * The x86 tier implements the exact integer BF16 conversion without that ISA. */
 bool     omega_numeric_cpu_has_bf16(void);
 
-/* Correctly rounded IEEE division and square root (the AArch64 FDIV/FSQRT
- * instructions; not libm). The semantic target for omega_math_div/sqrt. */
+/* Correctly rounded IEEE division and square root (AArch64 FDIV/FSQRT or
+ * x86 scalar SSE). The semantic target for omega_math_div/sqrt. */
 float omega_ieee_div(float x, float y);
 float omega_ieee_sqrt(float x);
 

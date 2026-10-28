@@ -1,0 +1,168 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Pure Ampere runtime decisions and QMD serialization. Host ioctls stay in nvrm.c.
+note Vendor fields: NVIDIA open-gpu-doc classes/compute/clc7c0qmd.h QMDV03_00.
+note m[0] operation: 1 class-set admission, 2 byte reserve admission, 3 QMD.
+note Class selection m[1]=rawSM,m[2..3]=vendorSM86/121,m[4..9]=Ampere then Blackwell classes,m[10..11]=presence masks.
+note Reserve m[1]=available bytes, m[2]=request bytes, m[3]=reserve bytes.
+note QMD m[1..9]=code,cbank,semaphore,threadsX,threadsY,gridX,gridY,registers,sharedBytes.
+note q is 64 zero-extended uint words, not a native struct. Return 1 accepted or 0 refused.
+fn amp_field q edit ulong 64 lo ulong hi ulong val ulong to void
+for bit ulong 64
+if gt add lo bit hi
+break
+end
+idx = div add lo bit 32
+pos = rem add lo bit 32
+v = shl and shr val bit 1 pos
+put q idx or get q idx v
+end
+end
+fn amp_runtime m view ulong 16 q edit ulong 64 to ulong
+if eq get m 0 1
+if eq get m 1 get m 2
+if ne get m 10 7
+ret 0
+end
+put q 0 86
+put q 1 1
+put q 2 get m 4
+put q 3 get m 5
+put q 4 get m 6
+ret 1
+end
+if eq get m 1 get m 3
+if ne get m 11 7
+ret 0
+end
+put q 0 121
+put q 1 0
+put q 2 get m 7
+put q 3 get m 8
+put q 4 get m 9
+ret 1
+end
+ret 0
+end
+if eq get m 0 2
+if gt get m 2 get m 1
+ret 0
+end
+if lt sub get m 1 get m 2 get m 3
+ret 0
+end
+ret 1
+end
+if eq get m 0 4
+note Packet admission: target-specific class/PCAS and shared host semaphore/memop.
+note m[1]=method bytes, m[2]=count, m[3]=subchannel, m[4]=first payload word.
+if eq get m 3 0
+if and eq get m 1 get m 8 eq get m 2 5
+ret 1
+end
+if and eq get m 1 get m 9 eq get m 2 4
+ret 1
+end
+ret 0
+end
+if ne get m 3 1
+ret 0
+end
+if ne get m 2 1
+ret 0
+end
+if and eq get m 1 0 eq get m 4 get m 5
+ret 1
+end
+if eq get m 1 get m 6
+ret 1
+end
+if and eq get m 1 get m 10 eq get m 4 get m 11
+ret 1
+end
+if and eq get m 1 get m 7 eq get m 4 3
+ret 1
+end
+ret 0
+end
+if ne get m 0 3
+ret 0
+end
+if or eq get m 1 0 ne rem get m 1 128 0
+ret 0
+end
+if or ge get m 1 shl ulong 1 49 ge get m 2 shl ulong 1 49
+ret 0
+end
+if ne rem get m 2 16 0
+ret 0
+end
+if or ge get m 3 shl ulong 1 40 ne and get m 3 15 0
+ret 0
+end
+if or eq get m 4 0 eq get m 5 0
+ret 0
+end
+if or gt get m 4 1024 gt get m 5 1024
+ret 0
+end
+if gt mul get m 4 get m 5 1024
+ret 0
+end
+if or eq get m 6 0 eq get m 7 0
+ret 0
+end
+if or gt get m 6 2147483647 gt get m 7 65535
+ret 0
+end
+if or eq get m 8 0 gt get m 8 255
+ret 0
+end
+note NVIDIA Ampere tuning guide sections 1.4.1.1/1.4.2.3: SM86 block max99KiB, carveouts32/64/100KiB.
+if gt get m 9 shl ulong 99 10
+ret 0
+end
+smem = mul div add get m 9 255 256 256
+cfg = ulong 9
+if gt smem shl ulong 32 10
+cfg = add div ulong 64 4 1
+end
+if gt smem shl ulong 64 10
+cfg = add div ulong 100 4 1
+end
+for i ulong 64
+put q i 0
+end
+note Invalidate shader data/instruction/constant caches. QMD3 uses per-release enable.
+amp_field q 189 191 7
+amp_field q 368 369 1
+amp_field q 378 378 1
+amp_field q 384 415 get m 6
+amp_field q 416 431 get m 7
+amp_field q 448 463 1
+amp_field q 544 561 smem
+note Hardware carveout encoding: sizeKiB/4+1, matching QMD read-only Mesa oracle.
+amp_field q 562 567 cfg
+amp_field q 569 574 add div ulong 100 4 1
+amp_field q 576 579 0
+amp_field q 580 583 3
+amp_field q 592 607 get m 4
+amp_field q 608 623 get m 5
+amp_field q 624 639 1
+amp_field q 640 640 1
+amp_field q 648 656 get m 8
+amp_field q 657 662 cfg
+amp_field q 763 767 1
+amp_field q 768 799 get m 3
+amp_field q 800 807 shr get m 3 32
+amp_field q 819 819 1
+amp_field q 823 823 1
+amp_field q 830 831 1
+amp_field q 832 863 1
+amp_field q 1024 1055 get m 2
+amp_field q 1056 1072 shr get m 2 32
+amp_field q 1074 1074 1
+amp_field q 1075 1087 shr ulong 4096 4
+amp_field q 1536 1567 get m 1
+amp_field q 1568 1584 shr get m 1 32
+ret 1
+end

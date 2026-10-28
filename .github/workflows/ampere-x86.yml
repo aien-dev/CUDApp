@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# Native x86 execution of the checked Omega-to-C units; no ARM emulation,
+# CUDA runtime, driver submission or GPU qualification.
+name: Ampere native x86 host
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-x86-host:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Native scalar numeric portability (no bridge or GPU)
+        run: make test-ampere-numeric-host
+      - name: Pinned offline x86 instruction oracle
+        # Vendor manifest: https://developer.download.nvidia.com/compute/cuda/redist/redistrib_13.0.2.json
+        # cuda_nvdisasm.linux-x86_64, version 13.0.85. Verification only.
+        run: |
+          package=cuda_nvdisasm-linux-x86_64-13.0.85-archive
+          archive="$RUNNER_TEMP/$package.tar.xz"
+          curl --fail --location --silent --show-error --proto '=https' --tlsv1.2 \
+            "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvdisasm/linux-x86_64/$package.tar.xz" \
+            --output "$archive"
+          printf '%s  %s\n' 0541e0230f724a43d67288ef882c63351d0c302bf567591b7620d40f93c2c93c "$archive" | sha256sum --check --strict
+          tar -xJf "$archive" -C "$RUNNER_TEMP" "$package/bin/nvdisasm"
+          sudo install -D -m755 "$RUNNER_TEMP/$package/bin/nvdisasm" /usr/local/cuda/bin/nvdisasm
+          /usr/local/cuda/bin/nvdisasm --version
+          printf '%s\n' /usr/local/cuda/bin >> "$GITHUB_PATH"
+          git clone -q https://github.com/aien-dev/omega-bridge "$RUNNER_TEMP/omega-bridge"
+          git -C "$RUNNER_TEMP/omega-bridge" checkout -q "$(grep -v '^#' om/omega-bridge.lock)"
+      - name: Native host build and tests (no GPU)
+        env:
+          OMEGA_BRIDGE: ${{ runner.temp }}/omega-bridge
+        run: |
+          make -j2 all
+          make test test-native-artifact zero-cuda-gate test-ampere-cubin-disasm
+          make OUT_DIR=build-ampere-oracle CUDAPP_AMPERE_CORPUS=1 test-ampere-encoder-oracle

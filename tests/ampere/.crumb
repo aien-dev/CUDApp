@@ -1,0 +1,20 @@
+{
+  "extensions": {
+    "generated": {
+      "children": [],
+      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiled_at": "2026-10-28T17:00:43Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:d4a012604c144937114a37f7098191245497a2199020f4d2fb3646a067ecae83",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 0,
+      "generated_at_commit": "6e8c383fd8b7bd0d09fbbe8e3c36f32818d58bae",
+      "source_tree": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "layer": "tests",
+  "name": "ampere-device-tests",
+  "purpose": "Host-only preflight fixtures and explicit opt-in RTX3090/RTX3060Ti device qualification; all real devices remain NOT_RUN until receipts exist",
+  "schema_version": "1.0.0"
+}

@@ -26,8 +26,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if !defined(__aarch64__)
-#error "E1 reduction CPU tier uses AArch64 FP instructions (fadd, fmaxnm, fminnm, fdiv, ucvtf)"
+#if defined(__x86_64__)
+#include <xmmintrin.h>
+#elif !defined(__aarch64__)
+#error "E1 reduction CPU tier supports AArch64 and x86-64"
 #endif
 
 static const char *const RED_NAMES[OMEGA_RED_COUNT] = { "SUM", "MAX", "MIN", "MEAN" };
@@ -122,6 +124,7 @@ int omega_reduce_reference(OmegaReduceOp op, const float *x, size_t n, float *ou
 /* ---- CPU realization tier ------------------------------------------------- */
 
 static inline float cpu_combine(OmegaReduceOp op, float a, float b) {
+#if defined(__aarch64__)
     float r;
     if (op == OMEGA_RED_SUM) {
         __asm__ volatile("fadd %s0, %s1, %s2" : "=w"(r) : "w"(a), "w"(b));
@@ -134,6 +137,20 @@ static inline float cpu_combine(OmegaReduceOp op, float a, float b) {
     if (op == OMEGA_RED_MAX) __asm__ volatile("fmaxnm %s0, %s1, %s2" : "=w"(r) : "w"(qa), "w"(qb));
     else                     __asm__ volatile("fminnm %s0, %s1, %s2" : "=w"(r) : "w"(qa), "w"(qb));
     return r;
+#else
+    if (op == OMEGA_RED_SUM)
+        return _mm_cvtss_f32(_mm_add_ss(_mm_set_ss(a), _mm_set_ss(b)));
+    /* SSE MINSS/MAXSS do not implement minimumNumber for NaN and signed
+     * zero. Spell that contract explicitly rather than using those opcodes. */
+    if (omega_isnan(a)) return b;
+    if (omega_isnan(b)) return a;
+    if (a == 0.0f && b == 0.0f) {
+        uint32_t ua = omega_float_to_bits(a), ub = omega_float_to_bits(b);
+        uint32_t sign = op == OMEGA_RED_MAX ? (ua & ub) : (ua | ub);
+        return omega_bits_to_float(sign & 0x80000000u);
+    }
+    return op == OMEGA_RED_MAX ? (a > b ? a : b) : (a < b ? a : b);
+#endif
 }
 
 /* One buffer, compacted in place: tile j's result goes to buf[j] (j <= 32j). */
@@ -173,8 +190,13 @@ int omega_reduce_cpu(OmegaReduceOp op, const float *x, size_t n, float *out) {
     rc = cpu_sum_like(OMEGA_RED_SUM, x, n, &s);
     if (rc != OMEGA_NUMERIC_OK) return rc;
     uint32_t n32 = (uint32_t)n;
+#if defined(__aarch64__)
     __asm__ volatile("ucvtf %s0, %w1" : "=w"(fn) : "r"(n32));
     __asm__ volatile("fdiv %s0, %s1, %s2" : "=w"(r) : "w"(s), "w"(fn));
+#else
+    fn = (float)n32;
+    r = _mm_cvtss_f32(_mm_div_ss(_mm_set_ss(s), _mm_set_ss(fn)));
+#endif
     *out = r;
     return OMEGA_NUMERIC_OK;
 }

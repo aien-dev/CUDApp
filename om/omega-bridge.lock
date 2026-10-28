@@ -1,2 +1,3 @@
-# omega-bridge commit whose src/native.om generates src/cudapp_om_units.c, cudapp_native.h (om/units.sh pins its sha256)
-431fff0a95f84c0a8bf9d3383f94d7e1f02d913e
+# omega-bridge seeded-portable-1 converter; src/toc.om + src/seeded.om.
+# Draft omega-bridge#36; seed sha256 is checked by om/units.sh and the converter.
+dfd8393aa3d4a67280349921c479b8dd52f88e58

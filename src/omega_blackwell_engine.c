@@ -390,7 +390,11 @@ static int be_build(void *ctx, const OmegaGpuJob *job)
     *c->hmarker = 0;
     *c->hmarker2 = 0;
     if (!c->c3) c->hmarker2 = NULL; /* never waited for, never reported */
+#if defined(__aarch64__)
     __asm__ volatile("dsb sy" ::: "memory");
+#else
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+#endif
 
     /* ---- unified pushbuffer, SUB@676f16f lines 130-195 ---- */
     c->pb_len = 0;
@@ -555,7 +559,11 @@ static int be_barrier(void *ctx, uint64_t timeout_ms)
     BeCtx *c = (BeCtx *)ctx;
     (void)timeout_ms;
     begin(c);
+#if defined(__aarch64__)
     __asm__ volatile("dsb sy" ::: "memory");
+#else
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+#endif
     return 0;
 }
 

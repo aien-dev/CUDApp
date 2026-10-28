@@ -1,10 +1,10 @@
-note cubin_elf.om: the sm_121 cubin ELF packer of CUDApp (OM-GPU-RETIRE, lane CudappOm).
+note cubin_elf.om: explicitly selected sm_86/sm_121 cubin ELF packer.
 note It replaces the body of omega_cubin_pack in src/omega_cubin.c, which stays compiled only behind
 note CUDAPP_MIGRATION_PENDING_C_CUBIN as the differential oracle (make CUDAPP_CUBIN=c|diff).
 note
 note Input (omega_cubin.c packs it):
 note m: 0 strlen of the name   1 text_len   2 nparams   3 cbank_size   4 gpr_count   5 shared_reserved
-note    6 7 unused; from 8 three per parameter: offset, size, is_pointer (only when nparams <= 32)
+note    6 target SM (86 or 121; 0 retains historical 121) 7 unused; from 8 parameter triples
 note nm: the name's first 64 bytes; tx: the text (16777216 bytes, the C limit 1 shl 24)
 note o: the output image, little-endian words; byte p is bits 8 (p rem 8) of word p / 8
 note Result: the image's byte count, or the refusal 1..7 of OMEGA_CUBIN_E_* (an image is never below 8
@@ -22,6 +22,20 @@ const OWN ulong 16777216
 const OBYTES ulong 134217728
 const MLEN ulong 104
 const PBASE ulong 896
+
+fn parbase m view ulong MLEN to ulong
+if eq get m 6 86
+ret 352
+end
+ret PBASE
+end
+
+fn smtarget m view ulong MLEN to ulong
+if eq get m 6 0
+ret 121
+end
+ret get m 6
+end
 
 note one byte into the word image
 fn pb o edit ulong OWN p ulong v ulong to void
@@ -127,7 +141,7 @@ end
 
 note the parameter walk and the bank checks, in the C order
 fn pchk m view ulong MLEN o edit ulong OWN to ulong
-e = PBASE
+e = parbase m
 np = get m 2
 for i ulong np
 b = add 8 mul i 3
@@ -143,7 +157,7 @@ put o 0 5
 put o 2 e
 ret 4
 end
-if or gt cb 1024 lt cb PBASE
+if or gt cb 1024 lt cb parbase m
 put o 0 6
 ret 4
 end
@@ -151,6 +165,9 @@ ret 0
 end
 
 fn chk m view ulong MLEN nm view uchar 64 o edit ulong OWN to ulong
+if not or eq smtarget m 86 eq smtarget m 121
+ret 1
+end
 if eq nmok nm get m 0 0
 ret 1
 end
@@ -247,15 +264,31 @@ end
 end
 
 note ELF header: 0x7f E L F, ELFCLASS64, LSB, version 1, ELFOSABI_NV 0x41 as one word; ABI version 8
-fn whdr o edit ulong OWN l view ulong 16 to void
+fn whdr o edit ulong OWN l view ulong 16 m view ulong MLEN to void
 p64 o 0 4684026196722992511
+if eq smtarget m 86
+pb o 7 51
+end
+if eq smtarget m 86
+pb o 8 7
+else
 pb o 8 8
+end
 p16 o 16 2
 p16 o 18 190
+if eq smtarget m 86
+p32 o 20 130
+else
 p32 o 20 1
+end
 p64 o 32 get l 12
 p64 o 40 get l 11
+if eq smtarget m 86
+note ELF EF_CUDA_SM86 | EF_CUDA_VIRTUAL_SM86 | 64-bit addressing and unified texture mode.
+p32 o 48 or shl ulong 86 16 or shl ulong 5 8 ulong 86
+else
 p32 o 48 100694274
+end
 p16 o 52 64
 p16 o 54 56
 p16 o 56 5
@@ -333,14 +366,14 @@ p16 o p 14084
 p16 o add p 2 4
 p32 o add p 4 130
 q = add p 8
-e = PBASE
+e = parbase m
 np = get m 2
 for i ulong np
 b = add 8 mul i 3
 of = get m b
 p16 o q 5892
 p16 o add q 2 12
-p32 o add q 8 or i shl sub of PBASE 16
+p32 o add q 8 or i shl sub of parbase m 16
 ty = ulong 1175552
 if ne get m add b 2 0
 ty = 2225408
@@ -355,13 +388,13 @@ ret e
 end
 
 note the attributes after the parameters, from q
-fn wtail o edit ulong OWN q ulong e ulong gpr ulong to void
+fn wtail o edit ulong OWN q ulong e ulong gpr ulong base ulong to void
 p16 o q 6403
-p16 o add q 2 sub e PBASE
+p16 o add q 2 sub e base
 p16 o add q 4 2564
 p16 o add q 6 8
 p32 o add q 8 3
-p32 o add q 12 or PBASE shl sub e PBASE 16
+p32 o add q 12 or base shl sub e base 16
 p16 o add q 16 20483
 p16 o add q 20 6915
 p16 o add q 22 gpr
@@ -373,14 +406,14 @@ p16 o add q 34 4
 end
 
 note .note.nv.cuinfo: namesz 12, descsz 8, type 0x3e8, "NVIDIA Corp", 2, sm 121, 130
-fn wnote o edit ulong OWN p ulong to void
+fn wnote o edit ulong OWN p ulong sm ulong to void
 p32 o p 12
 p32 o add p 4 8
 p32 o add p 8 1000
 q = ps o add p 12 4836937782729987662 8
 q = ps o q 7369327 3
 p16 o add p 24 2
-p16 o add p 26 121
+p16 o add p 26 sm
 p32 o add p 28 130
 end
 
@@ -484,12 +517,12 @@ fn winfo o edit ulong OWN l view ulong 16 m view ulong MLEN to void
 p = get l 8
 e = wpar o p m
 q = add add p 8 mul 16 get m 2
-wtail o q e get m 4
+wtail o q e get m 4 parbase m
 end
 
 note every section payload and both header tables into the zeroed image
 fn wbody o edit ulong OWN l view ulong 16 m view ulong MLEN nm view uchar 64 tx view uchar TXN to void
-whdr o l
+whdr o l m
 n = get m 0
 wshs o get l 1 nm n
 q = pn o add get l 2 1 nm n
@@ -498,7 +531,7 @@ wtext o tx get l 4 get m 1
 wginfo o get l 6 get m 4
 wcompat o get l 7
 winfo o l m
-wnote o get l 10
+wnote o get l 10 smtarget m
 wsha o l m
 wshb o l m
 wph o l m

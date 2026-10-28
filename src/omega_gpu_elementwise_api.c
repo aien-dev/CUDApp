@@ -930,7 +930,11 @@ static int kernel_for(OmegaGpuEwOp op, bool upload, Slot **out, bool *hit) {
     if (upload && !s->code.cpu) {
         if (omega_gpu_session_alloc_code(s->kernel.code_size, &s->code) != 0) return OMEGA_GPU_EW_CHIP_FAIL;
         memcpy(s->code.cpu, s->kernel.code, s->kernel.code_size);
+#if defined(__aarch64__)
         __asm__ volatile("dsb sy" ::: "memory");
+#else
+        __atomic_thread_fence(__ATOMIC_SEQ_CST);
+#endif
     }
     *out = s;
     return OMEGA_GPU_EW_OK;
@@ -983,7 +987,11 @@ static int run_abc(const Slot *ks, const void *a, size_t a_bytes, const void *b,
     size_t c_words = c_bytes / 4;
     uint32_t *c_dev = (uint32_t *)g_c.mem.cpu;
     for (size_t i = 0; i < c_words; i++) c_dev[i] = EW_POISON;
+#if defined(__aarch64__)
     __asm__ volatile("dsb sy" ::: "memory");
+#else
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+#endif
 
     uint32_t args[OMEGA_BW_CBANK_MATMUL_ARGS_WORDS];
     args[0] = (uint32_t)g_a.mem.va; args[1] = (uint32_t)(g_a.mem.va >> 32);

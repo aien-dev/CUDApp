@@ -12,7 +12,7 @@
 # After a deliberate header change: edit the line here, run `tools/runtime_api_check.sh --bless` to refresh numbers, review the diff,
 # and bump the version (MAJOR/MINOR/PATCH, rule in API.md section 2; tools/runtime_api_semver.sh checks the bump against the base).
 # Names a manifest header declares that are NOT API go in omega_runtime_api.internal, each with a reason (the check fails otherwise).
-abi omega_runtime 0.6.0
+abi omega_runtime 0.7.0
 header src/omega_runtime_api.h
 header src/omega_gpu_platform.h
 header src/omega_gpu_session.h
@@ -37,9 +37,9 @@ header src/omega_gpu_prefill.h
 header src/omega_gpu_pfhost.h
 # ---- version ----
 const OMEGA_RUNTIME_API_VERSION_MAJOR 0
-const OMEGA_RUNTIME_API_VERSION_MINOR 6
+const OMEGA_RUNTIME_API_VERSION_MINOR 7
 const OMEGA_RUNTIME_API_VERSION_PATCH 0
-const OMEGA_RUNTIME_API_VERSION 6
+const OMEGA_RUNTIME_API_VERSION 7
 # ---- platform contract (src/omega_gpu_platform.h, ABI 1.2) ----
 struct OmegaGpuDeviceHandle 8 4 # STABLE
 field OmegaGpuDeviceHandle index 0 4 u32 1
@@ -135,7 +135,7 @@ field OmegaGpuScratch mem 0 40 struct:OmegaGpuMem 1
 field OmegaGpuScratch cap 40 8 u64 1
 field OmegaGpuScratch high_water 48 8 u64 1
 field OmegaGpuScratch reserved 56 1 bool 1
-struct OmegaGpuLaunch 72 8 # STABLE
+struct OmegaGpuLaunch 80 8 # STABLE
 field OmegaGpuLaunch code_va 0 8 u64 1
 field OmegaGpuLaunch gpr_count 8 4 u32 1
 field OmegaGpuLaunch threads_x 12 4 u32 1
@@ -148,6 +148,7 @@ field OmegaGpuLaunch n_args 48 4 u32 1
 field OmegaGpuLaunch timeout_ms 56 8 u64 1
 field OmegaGpuLaunch shared_bytes 64 4 u32 1
 field OmegaGpuLaunch spin_us 68 4 u32 1
+field OmegaGpuLaunch target_sm 72 4 u32 1
 struct OmegaGpuParkStats 16 8 # STABLE
 field OmegaGpuParkStats buffers 0 4 u32 1
 field OmegaGpuParkStats untracked 4 4 u32 1
@@ -155,6 +156,7 @@ field OmegaGpuParkStats bytes 8 8 u64 1
 fn omega_gpu_session_lock fn() -> () # STABLE
 fn omega_gpu_session_unlock fn() -> () # STABLE
 fn omega_gpu_session_open fn() -> *mut OmegaGpuSession # STABLE
+fn omega_gpu_session_target_sm fn() -> u32 # EXPERIMENTAL
 fn omega_gpu_session_is_open fn() -> bool # STABLE
 fn omega_gpu_session_is_blocked fn() -> i32 # STABLE
 fn omega_gpu_session_close fn() -> () # STABLE

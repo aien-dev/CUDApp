@@ -51,7 +51,7 @@ jobs:
             *) echo "make test exited 0 without the final CUDA++ HOST TESTS PASS line"; exit 1 ;;
           esac
   om-units:
-    # The committed Omega bindings (src/cudapp_om_units.c) regenerate byte for byte from the pinned omc and
+    # The committed portable Omega bindings (src/cudapp_om_*.c) regenerate byte for byte from the pinned omc and
     # omega-bridge, and every mutant .om unit goes red. omega-mv e5b32567 carries the pinned seed/out/omc.
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
