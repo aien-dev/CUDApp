@@ -33,6 +33,78 @@ end
 fn compose_launchid b view uchar 4096 h view uchar 32 to bool
 ret compose_digest b 6 h
 end
+note Family3 structural subset mirrors sg_valid, not artifact qualification.
+fn compose_staged b view uchar 4096 to uint
+mt = compose_word b 14
+tk = compose_word b 16
+w = compose_word b 17
+if and ne mt 1 and ne mt 2 and ne mt 4 ne mt 8
+ret 2
+end
+if ne compose_word b 15 1
+ret 2
+end
+if and ne tk 256 ne tk 512
+ret 2
+end
+if or eq w 0 gt w 32
+ret 3
+end
+if ne and w sub w 1 0
+ret 3
+end
+lb = div tk 32
+if ne rem mul mt lb w 0
+ret 2
+end
+if gt div mul mt lb w 8
+ret 2
+end
+if or gt compose_word b 6 16384 ne rem compose_word b 6 tk 0
+ret 2
+end
+ks = div compose_word b 6 tk
+if and ne rem ks 2 0 gt ks 3
+ret 2
+end
+u = ks
+if eq rem ks 2 0
+u = 2
+end
+note Word18 is emitted K-step unroll U for family3, not buffer depth.
+if ne compose_word b 18 u
+ret 2
+end
+required = mul mul mt 128 lb
+if or lt compose_word b 21 required ne rem compose_word b 21 128 0
+ret 3
+end
+note Keep the existing launch declaration granularity; peak+2 needs actual out8.
+if or lt compose_word b 22 16 ne rem compose_word b 22 8 0
+ret 3
+end
+if or ne compose_word b 23 6 ne compose_word b 24 1
+ret 3
+end
+if or gt compose_word b 26 4294967295 gt compose_word b 27 4294967295
+ret 3
+end
+if or ne compose_word b 28 1 gt mul compose_word b 26 w 4294967295
+ret 3
+end
+note This FFMA family has seven non-MMA component declarations; IDs remain opaque.
+if or ne compose_word b 29 7 ne compose_word b 32 0
+ret 2
+end
+for k ulong 8
+if ne k 2
+if eq compose_word b add k 30 0
+ret 2
+end
+end
+end
+ret 0
+end
 fn compose_check b view uchar 4096 n ulong to uint
 d = new ulong 48 0
 q = new uchar 384 0
@@ -80,7 +152,7 @@ end
 if gt compose_word b 18 16
 ret 3
 end
-if gt compose_word b 19 2
+if gt compose_word b 19 3
 ret 2
 end
 if gt compose_word b 20 127
@@ -142,6 +214,12 @@ end
 rc = quant_check d
 if ne rc 0
 ret 4
+end
+if eq compose_word b 19 3
+rc = compose_staged b
+if ne rc 0
+ret rc
+end
 end
 note Quant descriptor describes a load-time chunk, NOT necessarily entire MNK.
 if or ne get d 1 2 ne get d 24 3
@@ -214,6 +292,17 @@ ret 1
 end
 if ne get l 14 1
 ret 1
+end
+if eq compose_word b 19 3
+if ne get l 11 896
+ret 1
+end
+if and ne get l 12 8 ne get l 12 12
+ret 1
+end
+if and eq get l 12 12 gt compose_word b 14 4
+ret 1
+end
 end
 for k ulong 3
 v = ulong 0
