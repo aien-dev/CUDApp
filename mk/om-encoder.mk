@@ -73,7 +73,7 @@ OM_ENC_MUTANTS = 's/^ret or base shl rb o 1 16$$/ret or base shl rb o 1 17/' \
 	's/^p = 262144$$/p = 0/' \
 	's/^const NOPC ulong 1032192$$/const NOPC ulong 1032193/'
 test-om-encoder-mutants: build/test_codegen_freestanding
-	@[ -x $(OMEGA_MV)/seed/out/omc ] && [ -f $(OMEGA_BRIDGE_DIR)/src/native.om ] || { echo "NOT_RUN: set OMEGA_MV and OMEGA_BRIDGE_DIR"; exit 3; }
+	@[ -x "$(OMEGA_OMC)" ] && [ -f "$(OMEGA_BRIDGE)/src/toc.om" ] && [ -f "$(OMEGA_BRIDGE)/src/freest.om" ] || { echo "NOT_RUN: set pinned OMEGA_OMC and OMEGA_BRIDGE"; exit 3; }
 	@mkdir -p $(OM_ENC_DIR)
 	./build/test_codegen_freestanding --dump > $(OM_ENC_DIR)/c-dump.txt
 	@n=0; for m in $(OM_ENC_MUTANTS); do n=$$((n+1)); d=$(OM_ENC_DIR)/mutant$$n; rm -rf $$d; mkdir -p $$d; \
