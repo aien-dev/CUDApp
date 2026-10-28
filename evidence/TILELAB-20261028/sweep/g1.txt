@@ -1,0 +1,81 @@
+arm default rt=2 ct=4 wm=2 wn=4 band=8: accepted
+arm w11b0 rt=2 ct=4 wm=1 wn=1 band=0: accepted
+arm w11b8 rt=2 ct=4 wm=1 wn=1 band=8: accepted
+arm w11b32 rt=2 ct=4 wm=1 wn=1 band=32: accepted
+arm w12b0 rt=2 ct=4 wm=1 wn=2 band=0: accepted
+arm w12b8 rt=2 ct=4 wm=1 wn=2 band=8: accepted
+arm w12b32 rt=2 ct=4 wm=1 wn=2 band=32: accepted
+arm w14b0 rt=2 ct=4 wm=1 wn=4 band=0: accepted
+arm w14b8 rt=2 ct=4 wm=1 wn=4 band=8: accepted
+arm w14b32 rt=2 ct=4 wm=1 wn=4 band=32: accepted
+arm w21b0 rt=2 ct=4 wm=2 wn=1 band=0: accepted
+arm w21b8 rt=2 ct=4 wm=2 wn=1 band=8: accepted
+arm w21b32 rt=2 ct=4 wm=2 wn=1 band=32: accepted
+arm w22b0 rt=2 ct=4 wm=2 wn=2 band=0: accepted
+arm w22b8 rt=2 ct=4 wm=2 wn=2 band=8: accepted
+red: rt=3 refused=yes, wm=3 refused=yes
+oracle self-test: exact result 0 wrong, planted error 1 wrong
+1024x1024x1024 default      main p50 0.2044 ms p95 0.2046 ms 10.50 TFLOPS gpr 120 worst err/bound 0.018 (1048576 checked)
+1024x1024x1024 w11b0        main p50 0.3058 ms p95 0.3072 ms 7.02 TFLOPS gpr 120 worst err/bound 0.018 (1048576 checked)
+1024x1024x1024 w11b8        main p50 0.3057 ms p95 0.3076 ms 7.02 TFLOPS gpr 120 worst err/bound 0.018 (1048576 checked)
+1024x1024x1024 w11b32       main p50 0.3056 ms p95 0.3066 ms 7.03 TFLOPS gpr 120 worst err/bound 0.018 (1048576 checked)
+1024x1024x1024 w12b0        main p50 0.2045 ms p95 0.3084 ms 10.50 TFLOPS gpr 120 worst err/bound 0.018 (1048576 checked)
+1024x1024x1024 w12b8        main p50 0.3058 ms p95 0.6639 ms 7.02 TFLOPS gpr 120 worst err/bound 0.018 (1048576 checked)
+1024x1024x1024 w12b32       main p50 0.2932 ms p95 0.3062 ms 7.33 TFLOPS gpr 120 worst err/bound 0.018 (1048576 checked)
+1024x1024x1024 w14b0        main p50 0.2787 ms p95 0.3065 ms 7.71 TFLOPS gpr 120 worst err/bound 0.018 (1048576 checked)
+1024x1024x1024 w14b8        main p50 0.2619 ms p95 0.3058 ms 8.20 TFLOPS gpr 120 worst err/bound 0.018 (1048576 checked)
+1024x1024x1024 w14b32       main p50 0.2041 ms p95 0.2700 ms 10.52 TFLOPS gpr 120 worst err/bound 0.018 (1048576 checked)
+1024x1024x1024 w21b0        main p50 0.3055 ms p95 0.3062 ms 7.03 TFLOPS gpr 120 worst err/bound 0.018 (1048576 checked)
+1024x1024x1024 w21b8        main p50 0.2611 ms p95 0.3063 ms 8.22 TFLOPS gpr 120 worst err/bound 0.018 (1048576 checked)
+1024x1024x1024 w21b32       main p50 0.3057 ms p95 0.3066 ms 7.02 TFLOPS gpr 120 worst err/bound 0.018 (1048576 checked)
+1024x1024x1024 w22b0        main p50 0.2052 ms p95 0.3065 ms 10.46 TFLOPS gpr 120 worst err/bound 0.018 (1048576 checked)
+1024x1024x1024 w22b8        main p50 0.3057 ms p95 0.3077 ms 7.02 TFLOPS gpr 120 worst err/bound 0.018 (1048576 checked)
+4096x4096x4096 default      main p50 4.6905 ms p95 6.4653 ms 29.30 TFLOPS gpr 120 worst err/bound 0.008 (258048 checked)
+4096x4096x4096 w11b0        main p50 7.9389 ms p95 9.0869 ms 17.31 TFLOPS gpr 120 worst err/bound 0.008 (258048 checked)
+4096x4096x4096 w11b8        main p50 8.2479 ms p95 9.7638 ms 16.66 TFLOPS gpr 120 worst err/bound 0.008 (258048 checked)
+4096x4096x4096 w11b32       main p50 7.5396 ms p95 8.6461 ms 18.23 TFLOPS gpr 120 worst err/bound 0.008 (258048 checked)
+4096x4096x4096 w12b0        main p50 5.2062 ms p95 9.1568 ms 26.40 TFLOPS gpr 120 worst err/bound 0.008 (258048 checked)
+4096x4096x4096 w12b8        main p50 7.2150 ms p95 7.4240 ms 19.05 TFLOPS gpr 120 worst err/bound 0.008 (258048 checked)
+4096x4096x4096 w12b32       main p50 6.1125 ms p95 7.5283 ms 22.48 TFLOPS gpr 120 worst err/bound 0.008 (258048 checked)
+4096x4096x4096 w14b0        main p50 4.9864 ms p95 10.4809 ms 27.56 TFLOPS gpr 120 worst err/bound 0.008 (258048 checked)
+4096x4096x4096 w14b8        main p50 6.3083 ms p95 8.0405 ms 21.79 TFLOPS gpr 120 worst err/bound 0.008 (258048 checked)
+4096x4096x4096 w14b32       main p50 5.3079 ms p95 10.1807 ms 25.89 TFLOPS gpr 120 worst err/bound 0.008 (258048 checked)
+4096x4096x4096 w21b0        main p50 7.8341 ms p95 8.7468 ms 17.54 TFLOPS gpr 120 worst err/bound 0.008 (258048 checked)
+4096x4096x4096 w21b8        main p50 7.4311 ms p95 7.5373 ms 18.50 TFLOPS gpr 120 worst err/bound 0.008 (258048 checked)
+4096x4096x4096 w21b32       main p50 6.3092 ms p95 6.8186 ms 21.78 TFLOPS gpr 120 worst err/bound 0.008 (258048 checked)
+4096x4096x4096 w22b0        main p50 5.4031 ms p95 7.7278 ms 25.44 TFLOPS gpr 120 worst err/bound 0.008 (258048 checked)
+4096x4096x4096 w22b8        main p50 6.7097 ms p95 6.9195 ms 20.48 TFLOPS gpr 120 worst err/bound 0.008 (258048 checked)
+2048x8192x2048 default      main p50 2.8528 ms p95 5.1987 ms 24.09 TFLOPS gpr 120 worst err/bound 0.011 (516096 checked)
+2048x8192x2048 w11b0        main p50 7.0335 ms p95 7.2442 ms 9.77 TFLOPS gpr 120 worst err/bound 0.011 (516096 checked)
+2048x8192x2048 w11b8        main p50 3.9726 ms p95 4.1795 ms 17.30 TFLOPS gpr 120 worst err/bound 0.011 (516096 checked)
+2048x8192x2048 w11b32       main p50 4.0757 ms p95 5.1903 ms 16.86 TFLOPS gpr 120 worst err/bound 0.011 (516096 checked)
+2048x8192x2048 w12b0        main p50 7.1114 ms p95 7.9342 ms 9.66 TFLOPS gpr 120 worst err/bound 0.011 (516096 checked)
+2048x8192x2048 w12b8        main p50 3.8691 ms p95 4.7860 ms 17.76 TFLOPS gpr 120 worst err/bound 0.011 (516096 checked)
+2048x8192x2048 w12b32       main p50 3.7664 ms p95 4.3188 ms 18.25 TFLOPS gpr 120 worst err/bound 0.011 (516096 checked)
+2048x8192x2048 w14b0        main p50 6.8231 ms p95 7.0658 ms 10.07 TFLOPS gpr 120 worst err/bound 0.011 (516096 checked)
+2048x8192x2048 w14b8        main p50 3.3672 ms p95 4.9919 ms 20.41 TFLOPS gpr 120 worst err/bound 0.011 (516096 checked)
+2048x8192x2048 w14b32       main p50 3.4463 ms p95 5.5981 ms 19.94 TFLOPS gpr 120 worst err/bound 0.011 (516096 checked)
+2048x8192x2048 w21b0        main p50 5.2007 ms p95 5.2978 ms 13.21 TFLOPS gpr 120 worst err/bound 0.011 (516096 checked)
+2048x8192x2048 w21b8        main p50 3.6649 ms p95 4.0768 ms 18.75 TFLOPS gpr 120 worst err/bound 0.011 (516096 checked)
+2048x8192x2048 w21b32       main p50 3.6769 ms p95 4.1834 ms 18.69 TFLOPS gpr 120 worst err/bound 0.011 (516096 checked)
+2048x8192x2048 w22b0        main p50 5.2995 ms p95 6.3174 ms 12.97 TFLOPS gpr 120 worst err/bound 0.011 (516096 checked)
+2048x8192x2048 w22b8        main p50 3.4618 ms p95 3.6535 ms 19.85 TFLOPS gpr 120 worst err/bound 0.011 (516096 checked)
+8192x8192x8192 default      main p50 32.0729 ms p95 46.3520 ms 34.28 TFLOPS gpr 120 worst err/bound 0.006 (516096 checked)
+8192x8192x8192 w11b0        main p50 154.7139 ms p95 159.5100 ms 7.11 TFLOPS gpr 120 worst err/bound 0.006 (516096 checked)
+8192x8192x8192 w11b8        main p50 72.2925 ms p95 72.7857 ms 15.21 TFLOPS gpr 120 worst err/bound 0.006 (516096 checked)
+8192x8192x8192 w11b32       main p50 69.0616 ms p95 69.7594 ms 15.92 TFLOPS gpr 120 worst err/bound 0.006 (516096 checked)
+8192x8192x8192 w12b0        main p50 154.2899 ms p95 156.6973 ms 7.13 TFLOPS gpr 120 worst err/bound 0.006 (516096 checked)
+8192x8192x8192 w12b8        main p50 63.1400 ms p95 64.7079 ms 17.41 TFLOPS gpr 120 worst err/bound 0.006 (516096 checked)
+8192x8192x8192 w12b32       main p50 71.4107 ms p95 73.2618 ms 15.40 TFLOPS gpr 120 worst err/bound 0.006 (516096 checked)
+8192x8192x8192 w14b0        main p50 153.1856 ms p95 157.7527 ms 7.18 TFLOPS gpr 120 worst err/bound 0.006 (516096 checked)
+8192x8192x8192 w14b8        main p50 52.0755 ms p95 52.4831 ms 21.11 TFLOPS gpr 120 worst err/bound 0.006 (516096 checked)
+8192x8192x8192 w14b32       main p50 103.1485 ms p95 121.8938 ms 10.66 TFLOPS gpr 120 worst err/bound 0.006 (516096 checked)
+8192x8192x8192 w21b0        main p50 81.9553 ms p95 82.4120 ms 13.42 TFLOPS gpr 120 worst err/bound 0.006 (516096 checked)
+8192x8192x8192 w21b8        main p50 60.7849 ms p95 63.3881 ms 18.09 TFLOPS gpr 120 worst err/bound 0.006 (516096 checked)
+8192x8192x8192 w21b32       main p50 57.5593 ms p95 59.3873 ms 19.10 TFLOPS gpr 120 worst err/bound 0.006 (516096 checked)
+8192x8192x8192 w22b0        main p50 81.2987 ms p95 82.2143 ms 13.52 TFLOPS gpr 120 worst err/bound 0.006 (516096 checked)
+8192x8192x8192 w22b8        main p50 54.3750 ms p95 54.8082 ms 20.22 TFLOPS gpr 120 worst err/bound 0.006 (516096 checked)
+red: mutant 1 CAUGHT (4095 wrong)
+red: mutant 2 CAUGHT (4095 wrong)
+red: mutant 3 CAUGHT (4095 wrong)
+TILELAB_CHIP: PASS

@@ -48,3 +48,16 @@ Statistics are from Wolfram Language, via the hosted evaluator over direct MCP H
 - Window `20261028T004445Z-a319ce`: gb10 shared, quiet none.
 - The 35B was serving during these runs (in_flight 1, GPU 96% busy).
 - They are kept for correctness only. Do not read their timings as a result.
+
+## Planner recalibration (sweep/ and holdout/)
+
+sweep/: 35 configs x 4 shapes, window 20261028T010515Z-053293; the fit is in omega-mv seed/tilelab/WOLFRAM.md.
+holdout/: 29 configs x 3 shapes the fit never saw, window 20261028T013220Z-3ce2f0, 9 rounds, 0 wrong, 3/3 chip mutants caught per run.
+
+| held-out shape | best of 29 (p50 ms) | best of planner's 3 `measure` lines | default rt2 ct4 wm2 wn4 band8 |
+|---|---|---|---|
+| 3072^3 | wm4 wn4 band16 2.043 | 2.043 (1.000) | 2.245 (1.099x) |
+| 4096x1024x4096 | wm4 wn4 band8 0.918 | 0.918 (1.000) | 1.124 (1.225x) |
+| 1024x8192x8192 | wm4 wn4 band8 3.581 | 3.581 (1.000) | 3.721 (1.039x) |
+
+HOST_TESTED planner + EXERCISED on GB10 (single session, single chip). Not QUALIFIED.
