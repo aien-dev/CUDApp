@@ -4,7 +4,7 @@ fn mf_fill b edit uchar 16384 to void
 for i ulong 16384
 put b i 0
 end
-mc_put edit b 0 1
+mc_put edit b 0 2
 mc_put edit b 1 159
 mc_put edit b 2 11264
 mc_put edit b 3 1

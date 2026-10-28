@@ -1,0 +1,50 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note HOST_ONLY SYNTHETIC; emit four native digests challenged by an independent byte oracle.
+fn mo_emit h view uchar 32 to bool
+ret eq write 1 h 0 32 32
+end
+fn main to int
+h = new uchar 32 0
+code = new uchar 16384 51
+if ne mc_code code 16 edit h 0
+ret 1
+end
+if not mo_emit h
+ret 74
+end
+m = new ulong 32 0
+s = new ulong 16 0
+bank = new uchar 1024 17
+qmd = new uchar 1024 34
+mo_launch edit m edit s
+mo_qmd m edit qmd
+if ne mc_launch m bank qmd s edit h 0
+ret 2
+end
+if not mo_emit h
+ret 74
+end
+dm = new ulong 8 0
+r = new ulong 1024 0
+mo_dir edit dm edit r
+if ne mc_dir dm r edit h 0
+ret 3
+end
+if not mo_emit h
+ret 74
+end
+for i ulong 8
+put dm i 0
+end
+for i ulong 1024
+put r i 0
+end
+mo_alloc edit dm edit r
+if ne mc_alloc dm r edit h 0
+ret 4
+end
+if not mo_emit h
+ret 74
+end
+ret 0
+end
