@@ -1,0 +1,102 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Host fixture ONLY: digest sentinels are synthetic, never an admission receipt.
+fn compose_setid b edit uchar 4096 slot ulong h view uchar 32 to void
+if lt slot 8
+for j ulong 32
+put b add add 512 mul slot 32 j get h j
+end
+end
+end
+fn compose_fixture b edit uchar 4096 l edit ulong 32 to uint
+d = new ulong 48 0
+q = new uchar 384 0
+for j ulong 4096
+put b j 0
+end
+for j ulong 32
+put l j 0
+end
+put d 0 1
+put d 1 2
+put d 2 8
+put d 4 1
+put d 5 128
+put d 6 128
+put d 11 1
+put d 13 1
+put d 14 8
+put d 15 1
+put d 17 128
+put d 18 256
+put d 19 2
+put d 24 3
+put d 25 256
+put d 26 4
+put d 27 1
+put d 30 32768
+put d 31 4
+put d 33 256
+put d 34 8
+put d 35 4
+put d 36 32768
+put d 37 8
+put d 40 1
+put d 41 256
+rc = quant_write d q
+if ne rc 0
+ret rc
+end
+for j ulong 384
+put b add j 768 get q j
+end
+compose_put b 0 1
+compose_put b 1 1152
+compose_put b 2 121
+compose_put b 4 1
+compose_put b 5 128
+compose_put b 6 256
+compose_put b 7 1
+compose_put b 8 3
+compose_put b 9 1
+compose_put b 10 1
+compose_put b 11 1
+compose_put b 14 1
+compose_put b 15 1
+compose_put b 16 256
+compose_put b 17 8
+compose_put b 18 1
+compose_put b 19 1
+compose_put b 20 7
+compose_put b 22 64
+compose_put b 23 6
+compose_put b 24 1
+compose_put b 25 256
+compose_put b 26 1
+compose_put b 27 1
+compose_put b 28 1
+compose_put b 29 7
+for k ulong 8
+if ne k 2
+compose_put b add k 30 add k 1
+end
+put b add 512 mul k 32 uchar add k 1
+end
+put l 0 1
+put l 1 1
+put l 2 1
+put l 3 1
+put l 4 256
+put l 5 1
+put l 6 1
+put l 8 64
+put l 9 6
+put l 10 1
+put l 11 896
+put l 12 10
+put l 13 1
+put l 14 1
+put l 15 1
+put l 19 2
+put l 23 3
+ret compose_check b 1152
+end
