@@ -171,7 +171,7 @@ fn mc_valid b view uchar 16384 n ulong to long
 if ne n 11264
 ret 1
 end
-if or ne mc_word b 0 1 ne mc_word b 1 159
+if or ne mc_word b 0 2 ne mc_word b 1 159
 ret 1
 end
 if ne mc_word b 2 n
@@ -575,4 +575,361 @@ put out i 0
 end
 end
 ret s
+end
+note Nested live-instance preimages, not admitted native artifact template identities.
+note All input arrays and out32 MUST be disjoint; existing owner supplies actual retained snapshots.
+fn mc_clear out edit uchar 32 to void
+for i ulong 32
+put out i 0
+end
+end
+fn mc_code code view uchar 16384 n ulong out edit uchar 32 to long
+mc_clear edit out
+if or eq n 0 or gt n 16384 ne rem n 16 0
+ret 1
+end
+if ne kc_codesha code n edit out 0
+ret 6
+end
+ret 0
+end
+fn mc_submit m view ulong 32 s view ulong 16 to long
+if or ne get s 0 1 or ne get s 1 159 ne get s 2 4
+ret 1
+end
+if or eq get s 3 0 ne get s 3 get m 7
+ret 1
+end
+if or gt get s 4 1 gt get s 5 4
+ret 2
+end
+if or eq get s 6 0 gt get s 7 1000000
+ret 1
+end
+if or gt get s 8 1 or ne get s 9 0 gt get s 10 1
+ret 2
+end
+if or eq get s 11 0 or gt get s 11 4096 ge get m 6 get s 11
+ret 1
+end
+for i ulong 4
+if ne get s add 12 i 0
+ret 1
+end
+end
+ret 0
+end
+fn mc_qword q view uchar 1024 off ulong to ulong
+v = ulong 0
+for i ulong 4
+v = or v shl ulong get q add off i mul i 8
+end
+ret v
+end
+fn mc_qcode q view uchar 1024 to ulong
+low = shl mc_qword q 128 4
+high = and mc_qword q 132 sub shl ulong 1 21 1
+ret or low shl high 36
+end
+fn mc_lmeta m view ulong 32 qmd view uchar 1024 to long
+if or ne get m 0 1 or ne get m 1 159 ne get m 2 1
+ret 1
+end
+if or gt get m 3 5 or eq get m 4 0 gt get m 4 32
+ret 1
+end
+n = get m 5
+if eq n 0
+ret 1
+end
+if gt n 16384
+ret 1
+end
+if ne rem n 16 0
+ret 1
+end
+if or eq get m 7 0 gt get m 8 1
+ret 1
+end
+if ne rem get m 9 8 0
+ret 3
+end
+if eq get m 10 0
+ret 3
+end
+if ne rem get m 10 16 0
+ret 3
+end
+if ne mc_qcode qmd get m 10
+ret 3
+end
+for i ulong 21
+if ne get m add 11 i 0
+ret 1
+end
+end
+ret 0
+end
+fn mc_lbytes bank view uchar 1024 qmd view uchar 1024 n ulong b edit uchar 16384 to ulong
+off = ulong 384
+for i ulong add 896 mul n 4
+put b add off i get bank i
+end
+off = add off add 896 mul n 4
+for i ulong 384
+put b add off i get qmd i
+end
+off = add off 384
+for i ulong 384
+put b add off i get qmd add 512 i
+end
+ret add off 384
+end
+fn mc_launch m view ulong 32 bank view uchar 1024 qmd view uchar 1024 s view ulong 16 out edit uchar 32 to long
+mc_clear edit out
+st = mc_lmeta m qmd
+if ne st 0
+ret st
+end
+st = mc_submit m s
+if ne st 0
+ret st
+end
+b = new uchar 16384 0
+for i ulong 32
+mc_put edit b i get m i
+end
+for i ulong 16
+mc_put edit b add 32 i get s i
+end
+n = mc_lbytes bank qmd get m 4 edit b
+if ne kc_codesha b n edit out 0
+ret 6
+end
+ret 0
+end
+fn mc_dir m view ulong 8 entries view ulong 1024 out edit uchar 32 to long
+mc_clear edit out
+if or ne get m 0 1 or ne get m 1 159 ne get m 2 2
+ret 1
+end
+if or gt get m 3 1 or ne get m 4 257 eq get m 5 0
+ret 1
+end
+if or gt get m 6 4294967295 ne get m 7 0
+ret 1
+end
+b = new uchar 16384 0
+for i ulong 8
+mc_put edit b i get m i
+end
+for i ulong 1024
+if lt i 514
+if or eq get entries i 0 ne rem get entries i 8 0
+ret 3
+end
+mc_put edit b add 8 i get entries i
+else
+if ne get entries i 0
+ret 1
+end
+end
+end
+if ne kc_codesha b 4176 edit out 0
+ret 6
+end
+ret 0
+end
+fn mc_record r view ulong 1024 i ulong to long
+p = mul i 16
+if ge get r p 64
+ret 1
+end
+if ne i 0
+if le get r p get r sub p 16
+ret 1
+end
+end
+if or gt get r add p 1 4294967295 or eq get r add p 2 0 gt get r add p 2 4294967295
+ret 1
+end
+if or lt get r add p 3 2 gt get r add p 3 4
+ret 1
+end
+va = get r add p 4
+size = get r add p 5
+rv = get r add p 6
+avail = get r add p 7
+if or eq va 0 ne rem va 8 0
+ret 3
+end
+if or eq size 0 gt va sub ulong 18446744073709551615 size
+ret 3
+end
+if or lt rv va ge rv add va size
+ret 3
+end
+if or eq avail 0 gt avail sub add va size rv
+ret 3
+end
+if or ne rem rv 8 0 eq get r add p 8 0
+ret 3
+end
+for j ulong 7
+if ne get r add add p 9 j 0
+ret 1
+end
+end
+ret 0
+end
+fn mc_backing r view ulong 1024 i ulong to long
+p = mul i 16
+for j ulong i
+q = mul j 16
+if eq get r add p 1 get r add q 1
+if ne get r add p 2 get r add q 2
+ret 3
+end
+for k ulong 3
+if ne get r add add p 3 k get r add add q 3 k
+ret 3
+end
+end
+end
+end
+ret 0
+end
+fn mc_alloc m view ulong 8 r view ulong 1024 out edit uchar 32 to long
+mc_clear edit out
+if or ne get m 0 1 or ne get m 1 159 ne get m 2 3
+ret 1
+end
+if or eq get m 3 0 gt get m 3 64
+ret 1
+end
+for i ulong 3
+if eq get m add 4 i 0
+ret 1
+end
+end
+if ne get m 7 0
+ret 1
+end
+for i ulong get m 3
+st = mc_record r i
+if ne st 0
+ret st
+end
+st = mc_backing r i
+if ne st 0
+ret st
+end
+end
+base = mul get m 3 16
+for i ulong sub ulong 1024 base
+if ne get r add base i 0
+ret 1
+end
+end
+b = new uchar 16384 0
+for i ulong 8
+mc_put edit b i get m i
+end
+for i ulong 1024
+mc_put edit b add 8 i get r i
+end
+if ne kc_codesha b 8256 edit out 0
+ret 6
+end
+ret 0
+end
+note Every occurrence is retained; code and launch series share the owner's actual-entry order.
+fn mc_smeta m view ulong 8 ord view ulong 128 to long
+if or ne get m 0 1 or ne get m 1 159 ne get m 2 5
+ret 1
+end
+if or gt get m 3 5 gt get m 4 1
+ret 1
+end
+if or eq get m 5 0 gt get m 5 128
+ret 1
+end
+if eq get m 4 0
+if or ne get m 6 0 ne get m 7 0
+ret 1
+end
+for i ulong 128
+if ne get ord i 0
+ret 1
+end
+end
+ret 0
+end
+if or eq get m 6 0 or eq get m 7 0 gt get m 7 4096
+ret 1
+end
+for i ulong 128
+if lt i get m 5
+if ge get ord i get m 7
+ret 1
+end
+if gt i 0
+if le get ord i get ord sub i 1
+ret 1
+end
+end
+else
+if ne get ord i 0
+ret 1
+end
+end
+end
+ret 0
+end
+fn mc_sdigs hashes view uchar 4096 n ulong to long
+for i ulong 128
+v = uchar 0
+for j ulong 32
+if lt i n
+v = or v get hashes add mul i 32 j
+else
+if ne get hashes add mul i 32 j 0
+ret 1
+end
+end
+end
+if and lt i n eq v 0
+ret 3
+end
+end
+ret 0
+end
+fn mc_series m view ulong 8 hashes view uchar 4096 ord view ulong 128 out edit uchar 32 to long
+mc_clear edit out
+if ne mc_smeta m ord 0
+ret 1
+end
+st = mc_sdigs hashes get m 5
+if ne st 0
+ret st
+end
+b = new uchar 16384 0
+for i ulong 8
+mc_put edit b i get m i
+end
+off = ulong 64
+if eq get m 4 1
+for i ulong 128
+mc_put edit b add 8 i get ord i
+end
+off = ulong 1088
+end
+for i ulong 4096
+put b add off i get hashes i
+end
+if ne kc_codesha b add off 4096 edit out 0
+mc_clear edit out
+ret 6
+end
+ret 0
 end

@@ -1,0 +1,227 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note HOST_ONLY SYNTHETIC; no device qualification or owner-snapshot authentication.
+text mo_ok "MOE-OBSERVE HOST_ONLY PASS\n"
+fn mo_launchtest to bool
+m = new ulong 32 0
+s = new ulong 16 0
+bank = new uchar 1024 17
+qmd = new uchar 1024 34
+h = new uchar 32 0
+g = new uchar 32 0
+mo_launch edit m edit s
+mo_qmd m edit qmd
+if ne mc_launch m bank qmd s edit h 0
+ret false
+end
+for i ulong 32
+put m i xor get m i 1
+st = ulong mc_launch m bank qmd s edit g
+if eq st 0
+if mo_equal h g
+ret false
+end
+else
+if not mo_zero g
+ret false
+end
+end
+put m i xor get m i 1
+end
+for i ulong 16
+put s i xor get s i 1
+st = ulong mc_launch m bank qmd s edit g
+if eq st 0
+if mo_equal h g
+ret false
+end
+else
+if not mo_zero g
+ret false
+end
+end
+put s i xor get s i 1
+end
+for i ulong add 896 mul get m 4 4
+mo_flip edit bank i
+if ne mc_launch m bank qmd s edit g 0
+ret false
+end
+if mo_equal h g
+ret false
+end
+mo_flip edit bank i
+end
+for i ulong 1024
+mo_flip edit qmd i
+st = ulong mc_launch m bank qmd s edit g
+if or lt i 384 and ge i 512 lt i 896
+if eq st 0
+if mo_equal h g
+ret false
+end
+else
+if not mo_zero g
+ret false
+end
+end
+else
+if or ne st 0 not mo_equal h g
+ret false
+end
+end
+mo_flip edit qmd i
+end
+note Padding outside the driver and active arguments is not consumed by this identity.
+for i ulong 104
+st = add ulong 920 i
+mo_flip edit bank st
+if ne mc_launch m bank qmd s edit g 0
+ret false
+end
+if not mo_equal h g
+ret false
+end
+mo_flip edit bank st
+end
+ret true
+end
+fn mo_dirtest to bool
+m = new ulong 8 0
+r = new ulong 1024 0
+h = new uchar 32 0
+g = new uchar 32 0
+mo_dir edit m edit r
+if ne mc_dir m r edit h 0
+ret false
+end
+for i ulong 8
+put m i xor get m i 1
+st = mc_dir m r edit g
+if eq st 0
+if mo_equal h g
+ret false
+end
+else
+if not mo_zero g
+ret false
+end
+end
+put m i xor get m i 1
+end
+for i ulong 1024
+put r i xor get r i 8
+st = mc_dir m r edit g
+if lt i 514
+if or ne st 0 mo_equal h g
+ret false
+end
+else
+if or ne st 1 not mo_zero g
+ret false
+end
+end
+put r i xor get r i 8
+end
+put r 513 0
+if or ne mc_dir m r edit g 3 not mo_zero g
+ret false
+end
+ret true
+end
+fn mo_alloctest to bool
+m = new ulong 8 0
+r = new ulong 1024 0
+h = new uchar 32 0
+g = new uchar 32 0
+mo_alloc edit m edit r
+if ne mc_alloc m r edit h 0
+ret false
+end
+for i ulong 8
+put m i xor get m i 1
+st = mc_alloc m r edit g
+if eq st 0
+if mo_equal h g
+ret false
+end
+else
+if not mo_zero g
+ret false
+end
+end
+put m i xor get m i 1
+end
+for i ulong 1024
+put r i xor get r i 1
+st = mc_alloc m r edit g
+if eq st 0
+if mo_equal h g
+ret false
+end
+else
+if not mo_zero g
+ret false
+end
+end
+put r i xor get r i 1
+end
+note Same buffer index cannot simultaneously name conflicting generations or backing allocations.
+put r 18 2
+if or ne mc_alloc m r edit g 3 not mo_zero g
+ret false
+end
+put r 18 1
+put r 21 8192
+if or ne mc_alloc m r edit g 3 not mo_zero g
+ret false
+end
+ret true
+end
+fn mo_codetest to bool
+code = new uchar 16384 51
+h = new uchar 32 0
+g = new uchar 32 0
+if ne mc_code code 16 edit h 0
+ret false
+end
+for i ulong 16
+put code i xor get code i 1
+if or ne mc_code code 16 edit g 0 mo_equal h g
+ret false
+end
+put code i xor get code i 1
+end
+put code 16 0
+if or ne mc_code code 16 edit g 0 not mo_equal h g
+ret false
+end
+if or ne mc_code code 0 edit g 1 not mo_zero g
+ret false
+end
+if or ne mc_code code 17 edit g 1 not mo_zero g
+ret false
+end
+if or ne mc_code code 16385 edit g 1 not mo_zero g
+ret false
+end
+ret true
+end
+fn main to int
+if not mo_launchtest
+ret 31
+end
+if not mo_dirtest
+ret 32
+end
+if not mo_alloctest
+ret 33
+end
+if not mo_codetest
+ret 34
+end
+wrote = write 1 mo_ok 0 len mo_ok
+if ne wrote long len mo_ok
+ret 74
+end
+ret 0
+end

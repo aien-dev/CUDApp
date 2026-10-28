@@ -236,6 +236,17 @@ end
 if not mf_pack a edit b
 ret 18
 end
+note Version1 direct-leaf wires are never accepted by the Version2 consumer.
+mc_put edit a 0 1
+mf_copy a edit b
+put h 0 255
+if ne mc_bind a b 11264 edit h 1
+ret 27
+end
+if not mf_zero h
+ret 28
+end
+mf_fill edit a
 note Equally malformed expected+observed must refuse, not compare equal and succeed.
 mc_put edit a 13 8
 mf_copy a edit b
