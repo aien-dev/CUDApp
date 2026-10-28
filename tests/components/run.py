@@ -11,7 +11,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'build/components'
-OMC = Path(os.environ.get('OMEGA_OMC', '/home/drakestapleton/workspace/omega-mcp/build/omc'))
+OMC = Path(os.environ.get('OMEGA_OMC', shutil.which('omc') or 'omc'))
 ENC = Path(os.environ.get('COMPONENT_ENCODER_DIR', ROOT))
 PIN = '2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f'
 BASE = ['bw_alloc.om', 'bw_effect.om', 'bw_check.om', 'bw_project.om']

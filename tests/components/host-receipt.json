@@ -426,7 +426,7 @@
     "om/components/staged.om": "6c36ce4f58f04225558a384818573c76b11591bcb734c386ff8ee17149f87257"
   },
   "numerical_verifier_sha256": {
-    "tests/components/run.py": "b10ed71a993c1fb1da3f2387e473718335620d449f28f7f06f3d5eb5b6dccf7d",
+    "tests/components/run.py": "ec00db81094aa1ac861a02d0cccac99347f1b775420c3e89f16e3987224d00bc",
     "tests/components/numerical.c": "2a681d826969bcf52422e19e60fc47d73f0529d536738f9007499732dbbfe2dc",
     "tests/components/native-frame.h": "ba874d7a4cb7cf53a9168f8c0394e167ef958882cd5db1a9299258e0dd313529",
     "tests/gpu_fp8_api_test.c": "f71b34e1c77f9f6a17e62757e26a97b4f8f181ba746e5acad6ce87ebf2e81072",
@@ -437,5 +437,14 @@
     "src/omega_gpu_hostmath.c": "9aee5b24d788434236f8dd0fd5d201c4dd6d78712adad966f44ce5797e71b622",
     "src/omega_gpu_fp8gemm_api.c": "e89a21c96fd578bbb57990141c945f1098abaac90d230cbc3afffe26f58527b7",
     "src/omega_blackwell_matmul.c": "457cafc15d3d040091e64830b1856367a3150d061dd450f15939d1c4462bde69"
+  },
+  "public_path_scan": {
+    "categories": "absolute private-home/temp paths, SSH/file URLs, host-specific workspace checkout paths",
+    "paths": [
+      "om/components",
+      "tests/components",
+      "tests/bw_warp_sim.h"
+    ],
+    "result": "PASS no matches"
   }
 }
