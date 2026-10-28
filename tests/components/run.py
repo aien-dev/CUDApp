@@ -47,6 +47,18 @@ def oracle(name, generator):
              '-ffunction-sections', '-fdata-sections', '-Wl,--gc-sections', '-Isrc',
              f'tests/components/{name}-oracle.c', f'src/{generator}', 'src/omega_blackwell_codegen.c', '-o', path])
     return path
+def numerical(staged):
+    path = OUT / ('numerical-staged' if staged else 'numerical-gemv')
+    flags = ['-DCOMPONENT_STAGED'] if staged else []
+    command(['cc','-std=gnu11','-O2','-Wall','-Wextra','-Werror','-DWS_MAX_THREADS=1024',
+             '-DOMEGA_GPU_NO_POSIX','-ffunction-sections','-fdata-sections','-Wl,--gc-sections',
+             '-Isrc',*flags,'tests/components/numerical.c',
+             'src/omega_gpu_fp8_pack.c','src/omega_gpu_hostmath.c','src/omega_gpu_fp8gemm_api.c',
+             'src/omega_blackwell_matmul.c',
+             'src/omega_blackwell_codegen_moe.c','src/omega_blackwell_codegen_moe2.c',
+             'src/omega_blackwell_codegen_gemm.c','src/omega_blackwell_codegen.c','-lm','-o',path])
+    return path
+
 
 def payload(spec, size):
     return struct.pack('<' + 'Q' * size, *(list(spec) + [0] * (size - len(spec))))
@@ -75,6 +87,8 @@ def main():
     refs = {'direct': oracle('direct', 'omega_blackwell_codegen_moe.c'),
             'rowpipe': oracle('rowpipe', 'omega_blackwell_codegen_moe2.c'),
             'staged': oracle('staged', 'omega_blackwell_codegen_gemm.c')}
+    numeric = {'direct': numerical(False), 'staged': numerical(True)}
+    numeric['rowpipe'] = numeric['direct']
     cases = {'direct': [(256,8,1,4,0),(256,8,1,4,1),(512,16,1,4,0),(512,16,1,4,1),
                         (2048,8,2,8,0),(2048,8,2,8,1),(4096,16,4,16,0),(4096,16,4,16,1)],
              'rowpipe': [(256,8,1,1),(768,8,1,5),(512,16,8,16),(4096,16,1,32),
@@ -84,7 +98,7 @@ def main():
                         (768,8,4,8,0),(1024,16,4,16,0)]}
     binaries = {'direct': direct, 'rowpipe': rowpipe, 'staged': staged}
     report = {'compiler': PIN, 'physical_execution': 'NOT_RUN: no GPU authority',
-              'independent_numerical_execution': 'NOT_RUN: unchanged scalar/warp oracle not yet wired to native frames',
+              'independent_numerical_execution': 'PASS reused existing scalar/warp oracles on every native IR/allocation frame',
               'composer_root': 'PASS direct/changed-direct/rowpipe/dense-staged/mapped-staged and mutant refusal',
               'cases': [], 'negative_controls': []}
     for family, specs in cases.items():
@@ -103,8 +117,13 @@ def main():
             if b'INVALID' in sass.upper() or b'UNKNOWN' in sass.upper():
                 raise RuntimeError(f'{kernel}: disassembler rejected an instruction')
             (OUT / f'{family}-{index}.sass').write_bytes(sass)
+            numbers = command([numeric[family], OUT / f'{family}-{index}.actual',
+                               *map(str,spec), *(['0'] if family=='rowpipe' else []),
+                               '2' if family=='rowpipe' else '1'])
+            (OUT / f'{family}-{index}.numeric').write_bytes(numbers)
             report['cases'].append({'family': family, 'spec': spec, 'whole_frame_sha256': hashlib.sha256(actual).hexdigest(),
-                                    'code_sha256': hashlib.sha256(code).hexdigest(), 'code_bytes': len(code), 'result': 'PASS'})
+                                    'code_sha256': hashlib.sha256(code).hexdigest(), 'code_bytes': len(code),
+                                    'numerical_result': numbers.decode(), 'result': 'PASS'})
         bad = list(specs[0]) + [0] * ((16 if family == 'staged' else 8) - len(specs[0]))
         reserved = 6 if family == 'staged' else 5
         bad[reserved] = 1
