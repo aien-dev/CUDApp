@@ -214,9 +214,9 @@ speedups, GB10 measurements or serving evidence.
 
 `om/pipeline/context.om` exports
 `native_context(keys view ulong128, count ulong, actual view ulong4) -> long`
-for the existing ABI1 bridge. Up to sixteen active private graph-owned tuples
+for the existing ABI1 bridge. Up to thirty-two active private graph-owned tuples
 have stride4: `{operation kind, layer index, window start, window rows}`.
-Return is the unique 1-based ordinal,0 absent,-1 for count above16 or multiple
+Return is the unique 1-based ordinal,0 absent,-1 for count above32 or multiple
 matches. Count0 is a normal absent binding. Unused cells are ignored; no portable
 serialization, padding convention or artifact schema is introduced.
 
@@ -231,8 +231,11 @@ qualification, joint MoE closure, router/permutation/combine semantics, or a
 production registration. With no accepted receipt-authority construction path,
 production context count remains0.
 
-`tests/pipeline/context.om` exercises empty/max/invalid counts, every tuple field,
-late excluded entries, duplicate match refusal and unrelated duplicate isolation.
-Its synthetic fixture and compiled tuple-comparison/duplicate-guard mutants are
-recorded in `tests/pipeline/context-evidence.json`. Compile this test after only
-the exact context unit; it has no Quant/Composer/Cache dependency.
+`tests/pipeline/context.om` exercises count32/33, every ordinal including31/32,
+empty/invalid counts, every tuple field, late excluded entries, a duplicate at
+the final active slot and unrelated duplicate isolation. Current focused
+controls and compiled old-cap/tuple/duplicate/count-guard mutants are recorded
+in `tests/pipeline/context32-evidence.json`. The original sixteen-context
+`context-evidence.json` remains historical, unchanged. Compile the test after
+only the exact context unit; it has no Quant/Composer/Cache dependency. This
+bounded private arena does not promise a model-wide context organization.
