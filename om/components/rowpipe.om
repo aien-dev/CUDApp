@@ -419,7 +419,7 @@ bc_patch ins get s 48 get s 0
 bc_node s 45 BCNONE BCNONE BCNONE BCNONE
 bc_emit ins s 7
 at = bc_branch ins s get s 0 false
-put ins add mul at 8 6 shl ulong 1032192 32
+bc_tail ins at
 if ne get s 3 0
 rp_zero ins m stats
 ret 2

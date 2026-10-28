@@ -1,0 +1,21 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Actual merged169 nv_staged recomposition seam. This is not full artifact admission or device evidence.
+fn main to int
+rec = new uchar 4096 0
+launch = new uchar 4096 0
+code = new uchar 16384 99
+compose_put rec 6 1536
+compose_put rec 16 512
+compose_put rec 14 8
+compose_put rec 17 16
+compose_put launch 12 8
+if ne nv_staged rec code launch 0 -14
+ret 78
+end
+for j ulong 16384
+if ne get code j 99
+ret 79
+end
+end
+ret 0
+end
