@@ -32,7 +32,7 @@ test-ampere-encoder-oracle: $(AMPERE_ENCODER_TEST) $(OUT_DIR)/ampere_math_device
 	@mkdir -p $(AMPERE_ORACLE_CORPUS)/sm121
 	OMEGA_AMPERE_CORPUS_DIR=$(abspath $(AMPERE_ORACLE_CORPUS)) ./$(AMPERE_ENCODER_TEST)
 	OMEGA_AMPERE_CORPUS_DIR=$(abspath $(AMPERE_ORACLE_CORPUS)) ./$(OUT_DIR)/ampere_families
-	OMEGA_AMPERE_CORPUS_DIR=$(abspath $(AMPERE_ORACLE_CORPUS)) ./$(OUT_DIR)/ampere_matmul_families
+	OMEGA_AMPERE_CORPUS_DIR=$(abspath $(AMPERE_ORACLE_CORPUS)) ./$(OUT_DIR)/ampere_matmul_families --dump
 	OMEGA_AMPERE_CORPUS_DIR=$(abspath $(AMPERE_ORACLE_CORPUS)) sh tools/sm121dis/corpus.sh $(OUT_DIR) $(AMPERE_ORACLE_CORPUS)/sm121
 	OMEGA_AMPERE_CORPUS_DIR=$(abspath $(AMPERE_ORACLE_CORPUS)) ./$(OUT_DIR)/ampere_math_device --emit-only
 	python3 tools/ampere_nvdisasm.py $(AMPERE_ORACLE_CORPUS)

@@ -109,8 +109,8 @@ static void class_and_bdf(void) {
     assert(select_classes(&rm, bw, 3) != 0); /* a Blackwell class set cannot authorize SM86 */
     rm.sm_version = NV2080_CTRL_GR_INFO_SM_VERSION_12_01;
     assert(select_classes(&rm, bw, 3) == 0 && rm.target_sm == 121 && !rm.discrete);
-    rm.sm_version = NV2080_CTRL_GR_INFO_SM_VERSION_8_00;
-    assert(select_classes(&rm, amp, 3) != 0); /* GA100 is not silently treated as GA10x */
+    rm.sm_version = NV2080_CTRL_GR_INFO_SM_VERSION_8_09;
+    assert(select_classes(&rm, amp, 3) != 0); /* Ada is not silently treated as GA10x */
     nv_ioctl_card_info_t cards[64] = {0};
     cards[0].valid = cards[1].valid = 1;
     cards[1].pci_info.bus = 1; cards[1].pci_info.slot = 2;

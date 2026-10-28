@@ -54,8 +54,14 @@ def normalize(text, target):
     return text
 
 
-def compare(exe, reference, actual):
+def compare(exe, reference, actual, ops=()):
     expected = [normalize(x, "SM121") for x in decode(exe, "SM121", reference)]
+    # Op21's IR contract is MMIO.GPU. Historical SM121 incorrectly emits EF;
+    # repair that legacy encoder separately, never treat the two as aliases.
+    # This target-specific expectation retains every register/address operand.
+    for i, op in enumerate(ops):
+        if op == 21:
+            expected[i] = re.sub(r"\bLDG\.E\.EF\b", "LDG.E.MMIO.GPU", expected[i])
     observed = [normalize(x, "SM86") for x in decode(exe, "SM86", actual)]
     if expected != observed:
         for i, (a, b) in enumerate(zip(expected, observed)):
@@ -76,17 +82,19 @@ def main():
     coverage = set()
     mutation = None
     uniform_dst_mutation = None
+    mmio_mutation = None
     for actual in pairs:
         prefix = str(actual)[:-len("sm86.bin")]
         reference = Path(prefix + "sm121.bin").read_bytes()
         code = actual.read_bytes()
-        try:
-            decoded = compare(args.nvdisasm, reference, code)
-        except RuntimeError as error:
-            raise RuntimeError(f"{actual.name}: {error}") from error
         metadata = Path(prefix + "ir").read_bytes()
         if len(metadata) % 8:
             raise RuntimeError("malformed IR metadata")
+        ops = [op for op, _ in struct.iter_unpack("=II", metadata)]
+        try:
+            decoded = compare(args.nvdisasm, reference, code, ops)
+        except RuntimeError as error:
+            raise RuntimeError(f"{actual.name}: {error}") from error
         coverage.update(op for op, _ in struct.iter_unpack("=II", metadata))
         if mutation is None:
             for i, text in enumerate(decoded):
@@ -94,7 +102,7 @@ def main():
                     changed = bytearray(code)
                     # Corrupt a real GPR destination, not padding or an ignored bit.
                     changed[i * 16 + 2] ^= 1
-                    mutation = (reference, bytes(changed))
+                    mutation = (reference, bytes(changed), ops)
                     break
         if uniform_dst_mutation is None:
             for i, text in enumerate(decoded):
@@ -103,8 +111,14 @@ def main():
                     # Reintroduce the old bug: a uniform SOURCE selected UR2's
                     # physical index for the GPR destination instead of R12.
                     changed[i * 16 + 2] = 2
-                    uniform_dst_mutation = (reference, bytes(changed))
+                    uniform_dst_mutation = (reference, bytes(changed), ops)
                     break
+        if mmio_mutation is None and 21 in ops:
+            changed = bytearray(code)
+            i = ops.index(21)
+            # Historical EF word must not satisfy the Ampere MMIO contract.
+            struct.pack_into("<I", changed, i * 16 + 8, 202250496)
+            mmio_mutation = (reference, bytes(changed), ops)
     missing = set(range(60)) - coverage
     if missing:
         raise RuntimeError(f"opcode coverage missing: {sorted(missing)}")
@@ -124,6 +138,14 @@ def main():
         pass
     else:
         raise RuntimeError("negative control BROKEN: old uniform-destination bug passed")
+    if mmio_mutation is None:
+        raise RuntimeError("MMIO contract regression missing")
+    try:
+        compare(args.nvdisasm, *mmio_mutation)
+    except RuntimeError:
+        pass
+    else:
+        raise RuntimeError("negative control BROKEN: EF load satisfied MMIO contract")
     refused = list(args.corpus.glob("*.refused"))
     refused_markers = {imm for file in refused for op, imm in struct.iter_unpack("=II", file.read_bytes())
                        if (op, imm) in {(16, 0x51303832), (37, 0x46453433)}}

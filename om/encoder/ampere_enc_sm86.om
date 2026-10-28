@@ -287,7 +287,7 @@ put4 w wda o 29217 rb o 3 0 ctl o 5227520
 ret 0
 end
 if eq op 31
-put4 w wda o 29217 rb o 3 0 ctl o 5227520
+put4 w wda o 29217 or rb o 3 2147483648 0 ctl o 5227520
 ret 0
 end
 if eq op 32

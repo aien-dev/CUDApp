@@ -37,6 +37,7 @@ jobs:
           git clone -q https://github.com/aien-dev/omega-bridge "$RUNNER_TEMP/omega-bridge"
           git -C "$RUNNER_TEMP/omega-bridge" checkout -q "$(grep -v '^#' om/omega-bridge.lock)"
           git -C "$RUNNER_TEMP/omega-bridge" rev-parse HEAD
+          (cd "$RUNNER_TEMP/omega-bridge" && sh tools/bootstrap.sh && sh tools/build.sh)
       - name: Host-only tests
         # The runner's bash uses -e -o pipefail, so make's status is captured with `||`.
         env:
@@ -65,6 +66,7 @@ jobs:
           git -C "$RUNNER_TEMP/omega-mv" checkout -q e5b32567a7aff3ce594e3254a622a846a6cd190b
           git clone -q https://github.com/aien-dev/omega-bridge "$RUNNER_TEMP/omega-bridge"
           git -C "$RUNNER_TEMP/omega-bridge" checkout -q "$(grep -v '^#' om/omega-bridge.lock)"
+          (cd "$RUNNER_TEMP/omega-bridge" && sh tools/bootstrap.sh && sh tools/build.sh)
       - name: Bindings regenerate and mutants go red
         run: make test-om-units test-om-encoder-mutants test-om-cubin-mutants OMEGA_MV="$RUNNER_TEMP/omega-mv" OMEGA_BRIDGE_DIR="$RUNNER_TEMP/omega-bridge"
   sbom:

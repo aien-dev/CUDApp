@@ -455,7 +455,7 @@ static int ref_queue_submit(void *ctx, OmegaGpuQueueHandle q, const uint32_t *wo
             uint32_t *dst = ring->cpu;
             if (xpre) memcpy(dst, L2_INVAL_PREFIX, sizeof L2_INVAL_PREFIX);
             memcpy(dst + xpre, words, (size_t)nwords * 4u);
-            __asm__ volatile("dsb sy" ::: "memory");
+            barrier();
             if (nvrm_chan_submit(&r->m16.rm, (uint32_t)slot + 1u, ring, 0, nwords + xpre) != 0) rc = OMEGA_GPU_PLAT_REFUSED_DEVICE;
             else { r->x_l2_pending[slot] = 0; r->xinflight[slot]++; }
         }

@@ -1,4 +1,13 @@
 # omega_path	omega_blob — omega-mv e5b32567a7aff3ce594e3254a622a846a6cd190b (cutover), GPU paths per map.sh against CUDA++ 008d9bd
+# Ampere x86 cutover, Main authorization 2026-10-28; retained Omega CPU-oracle copies at main 6999fa9e6dae.
+# Scalar CPU realization gains explicit x86 SSE/fmaf; future changes to the retained Omega copy must still fail.
+src/omega_numeric.c	271f0027b37069249bb79af99d139f1aee92c36c
+# Public scalar contract describes both host realizations and their non-independent conversion oracle.
+src/omega_numeric.h	b3548189a5d0101bfa1d3f9e83abb3595528004b
+# Reduction CPU realization gains x86 SSE with explicit NaN/signed-zero handling.
+src/omega_numeric_reduce.c	3dffadfe031a774191d07bddacd203fadee6a4b2
+# Public reduction contract describes x86 realization alongside unchanged AArch64 realization.
+src/omega_numeric_reduce.h	ac9cf9c9b636b292ab23d5a25309cf2669496a17
 Makefile	4e068c1de5026d2ac4f6c2463fbb4292e6c26ec0
 evidence/C3-GEMM/01-host-only.log	c581c5126718bc24ef10ed1b1637528018a260e5
 evidence/C3-GEMM/02-sim.log	fd97da9f29871abfc16fb2ed938c38a4d3c2314f
