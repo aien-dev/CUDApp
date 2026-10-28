@@ -1,4 +1,5 @@
 {
+  "_portable_derivation":{"schema":"AIEN_PORTABLE_RECEIPT_V1","original_sha256":"4c5df7a60ecc1a7d10388fd052829505d389296758375ac3fe8550c54ce19e46","original_git_blob":"b8701bf54c6a1d29f09888a65269a14ec26dc301","placeholder":"$AIEN_RECEIPT_HOME","rule":"Remove this metadata line and replace the placeholder with the producer HOME prefix obtained from the original Git blob.","scrubbed_sha256":"1ae715aaac8c945eb1bf73f154790ae4b06dd12a56d0ea2024339333cd4f0bff","scrubbed_hash_domain":"document bytes with exactly the _portable_derivation metadata line removed"},
   "schema": "cudapp-cache-host-evidence/1",
   "observed_utc": "2026-10-28T11:54:13.284857+00:00",
   "repository_baseline": "b759afc3f5e46f152ffb06b39882ffa28cacaf96",
@@ -12,9 +13,9 @@
     "lifecycle_test.om": "4bdc774f1eece5add1f126d5f4832741b59aa9dad7a6c5051d863410ca673eef"
   },
   "dependencies": {
-    "/home/drakestapleton/fix/quant-schema/om/quant/quant.om": "44bce96f3c274401e19a71b835814d69caf2bea8c2b1f4f43616c7c121232f09",
-    "/home/drakestapleton/fix/kernel-compose/om/components/realize.om": "2edff07a46c79c39a264dde9e5d6dfa02ed2f6dda677da8cc8a178f60c9a1c9d",
-    "/home/drakestapleton/fix/kernel-compose/om/components/fixture.om": "082e53cff85d139de60bb0bc9dd83b8fc3368b7c1c09397699db9f30883ed3ee"
+    "$AIEN_RECEIPT_HOME/fix/quant-schema/om/quant/quant.om": "44bce96f3c274401e19a71b835814d69caf2bea8c2b1f4f43616c7c121232f09",
+    "$AIEN_RECEIPT_HOME/fix/kernel-compose/om/components/realize.om": "2edff07a46c79c39a264dde9e5d6dfa02ed2f6dda677da8cc8a178f60c9a1c9d",
+    "$AIEN_RECEIPT_HOME/fix/kernel-compose/om/components/fixture.om": "082e53cff85d139de60bb0bc9dd83b8fc3368b7c1c09397699db9f30883ed3ee"
   },
   "digest": {
     "oracle": "Python standard-library hashlib SHA-256 independent read-only checker",
@@ -159,7 +160,7 @@
   "capacity_query": {
     "query": "16+32*16",
     "result": "528",
-    "source": "/home/drakestapleton/handoffs/wolfram-lane-query-results-20261028.json"
+    "source": "$AIEN_RECEIPT_HOME/handoffs/wolfram-lane-query-results-20261028.json"
   },
   "scope": "Pure native host policy and serializer/hash validation, not hardware qualification"
 }

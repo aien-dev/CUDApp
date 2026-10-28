@@ -1,0 +1,75 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Per-launch command list lease; existing session lock serializes every event.
+note Lease0present,1slot,2revision,3epoch,4recorded,5flight;6..15zero.
+note op0attach,1before-submit,2observed-complete,3discard,4definitely-not-submitted.
+note A timeout calls NONE of complete/refused/discard. Device-dead epoch may clear stale ownership.
+fn native_event p edit ulong 528 lease edit ulong 16 epoch ulong op ulong to long
+if eq op 0
+if or ne get lease 0 1 or ne get lease 3 epoch ne get lease 4 0
+ret -1
+end
+rc = kc_pin p get lease 1 get lease 2 epoch
+if ne rc 0
+ret long rc
+end
+put lease 4 1
+ret 0
+end
+if eq get lease 0 0
+ret 0
+end
+if ne get lease 3 epoch
+if and or eq op 3 eq op 5 gt epoch get lease 3
+for i ulong 16
+put lease i 0
+end
+ret 0
+end
+ret -2
+end
+if eq op 1
+if or ne get lease 4 1 ne get lease 5 0
+ret -8
+end
+rc = kc_acquire p get lease 1 get lease 2 epoch
+if ne rc 0
+ret long rc
+end
+put lease 5 1
+ret 0
+end
+if or eq op 2 eq op 4
+if ne get lease 5 1
+ret -8
+end
+rc = kc_retire p get lease 1 get lease 2 epoch
+if ne rc 0
+ret long rc
+end
+put lease 5 0
+ret 0
+end
+if eq op 5
+if ne get lease 5 0
+ret -6
+end
+ret 0
+end
+if eq op 3
+if ne get lease 5 0
+ret -6
+end
+if ne get lease 4 1
+ret -8
+end
+rc = kc_unpin p get lease 1 get lease 2 epoch
+if ne rc 0
+ret long rc
+end
+for i ulong 16
+put lease i 0
+end
+ret 0
+end
+ret -1
+end

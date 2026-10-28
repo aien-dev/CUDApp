@@ -44,7 +44,7 @@ Then compile two program units using the same compiler: the common dependencies 
 
 ## Session-resident metadata
 
-`residency.om` is a standalone native unit. All storage is caller-owned: a zero-initialized `ulong[528]` contains a header and up to 32 fixed rows, matching the combined existing GEMV/GEMM/TC cache slot bound. `kc_init(pool,generation,profile,byte_budget,slot_budget)` accepts a nonzero profile/budget and 1 through 32 slots. Generation zero is valid: the existing `omega_gpu_session_recoveries()` and command-list generation start there. Reinitializing an active pool refuses; session changes use `kc_invalidate` with the strictly newer existing recovery generation. Profile is an opaque runtime admission identity covering target and driver compatibility, not a replacement for checking them.
+`residency.om` is a standalone native unit. All storage is caller-owned: a zero-initialized `ulong[528]` contains a header and up to 32 fixed rows, matching the combined existing GEMV/GEMM/TC cache slot bound. `kc_init(pool,generation,profile,byte_budget,slot_budget)` accepts a nonzero profile/budget and 1 through 32 slots. The metadata ABI permits generation zero for historical host controls. Integrated callers use the actual monotonic session epoch, not a recovery count that can alias a normal close/reopen. Reinitializing an active pool refuses; changes use `kc_invalidate` with a strictly newer epoch after device handles are dead. Profile is an opaque runtime admission identity, not a replacement for target/driver checking.
 
 The caller supplies `ulong[16]` requests:
 
@@ -75,6 +75,36 @@ Empty slots are chosen first. Otherwise deterministic round-robin replacement sk
 
 `kc_prepare` and `kc_find` return `slot+1` on a hit/reservation. `kc_find` alone returns zero for a miss. Other successful operations return zero. Refusals: -1 invalid input, -2 stale generation/profile, -3 sealed miss, -4 simultaneous byte budget, -5 pinned/full slot budget, -6 pending/busy, -7 owner/revision token mismatch, -8 reference-state violation, -9 counter/revision overflow. Artifact validation uses -10 malformed canonical record, -11 code identity mismatch, -12 launch identity mismatch and -13 stored realization-key mismatch.
 
+## Integrated native entries
+
+`runtime.om` retains operations0..15 and supplies16 (validate current token),
+17 (initialize/current-context/revoke metadata), and18 (derive the next owner
+ticket and prepare a private request copy). Operation17 returns1 after a new
+context and0 for an unchanged valid context. It cannot prove device teardown:
+the existing session owner must destroy handles before advancing the epoch.
+Operation18 refuses owner overflow and never mutates its borrowed request.
+
+`lease.om` is a separate final native entry that checks retained session epoch
+and nonzero revision before dispatch. `slotrev.om` returns the full unsigned
+revision without a signed-host conversion. Each production frame must end in
+its declared entry; concatenating several public roots does not export them
+from the seeded compiler. `om/units.sh` registers these separate frames.
+
+Existing FP8/GEMM/TC owners invoke generated policy under the session lock.
+Actual selected artifacts retain canonical bytes, code, launch, manifest ID
+and the existing immutable artifact-admission snapshot through preparation.
+Runtime allocation/upload/recording consumes those exact bytes and leases.
+No caller-supplied qualification flag, realization hash, or cache hit replaces
+the artifact manifest or independently accepted qualification authority.
+
+`runtime-separated-evidence.json` records the exact separated-entry source,
+64 exercised controls and9 caught compiled mutants. Earlier operation/lease
+receipts remain source-bound historical observations, including their explicit
+entry-layout limitation. `runtime_ops_test.om` is the native host conductor.
+The existing fake-platform oracle additionally exercises actual runtime
+preparation/recording, close/reopen revocation, timeout retention and dead-handle
+recovery. Its handles and completion model are synthetic, never device evidence.
+
 ## Host checks and limits
 
 Concatenate `residency.om` and `lifecycle_test.om`, then compile and execute with the production-pinned compiler. The native test exercises duplicate pending registration, full/pinned refusal, wrong owner, abort preservation, prepared/record/in-flight lifetimes, interrupted completion, sealed miss, coexistence byte budget, owner-ticket reuse, revision reuse and stale-session refusal. It must exit zero. Removing the in-flight victim guard must make the unchanged test exit 12.
@@ -83,8 +113,8 @@ Concatenate `digest.om` and `digest_test.om`, compile, then feed exact stdin byt
 
 Concatenate `quant.om`, `realize.om`, `digest.om`, `residency.om`, `artifact.om`, Composer's `fixture.om`, then `artifact_test.om`. This host-only fixture invokes the sole-owner QuantSchema/Composer serializers, validates payload hashes and launch declarations, constructs a cache request, commits residency, and proves a changed valid scale declaration misses. It also refuses changed scale, tile, spec, target and numerical identities; corrupt code; malformed launch framing; canonical padding; wrong stored keys; and invalid payload bounds. Synthetic fixture payloads and lineage digests are not production artifacts. Omitting QuantSchema bytes from the hash makes the unchanged test exit 12; skipping launch declaration consistency makes it exit 23.
 
-`host-evidence.json` records the initial exercised source at commit `f0909113243674eeda1cf7539710ac425978e2f1`, dependency hashes, compiler and executable identities, digest oracle vectors, native caller exits and caught mutants. `generation-evidence.json` preserves that receipt and adds the final source hashes, immutable QuantSchema/Composer dependency commits, generation-zero compatibility caller, and the caught zero-generation rejection mutant. Storage capacity bookkeeping is supported by the mounted Wolfram query `16+32*16 -> 528` in `/home/drakestapleton/handoffs/wolfram-lane-query-results-20261028.json`; it proves no lifetime property.
+`host-evidence.json` records the initial exercised source at commit `f0909113243674eeda1cf7539710ac425978e2f1`, dependency hashes, compiler and executable identities, digest oracle vectors, native caller exits and caught mutants. `generation-evidence.json` preserves that receipt and adds the final source hashes, immutable QuantSchema/Composer dependency commits, generation-zero compatibility caller, and the caught zero-generation rejection mutant. Storage capacity bookkeeping is supported by the mounted Wolfram query `16+32*16 -> 528` in `$HOME/handoffs/wolfram-lane-query-results-20261028.json`; it proves no lifetime property.
 
 `digest-varied-evidence.json` additionally checks exact varied source and native-executable byte prefixes against the independent SHA-256 oracle. These exercise direct full-block byte order, not only repeated-byte padding boundaries.
 
-Host policy checks are not upload, launch, whole-model or hardware qualification. Hardware upload timing, paired cold/warm microbenchmarks and full-model acceptance remain NOT_RUN until an explicitly authorized window. Production bridge registration and existing runtime caller cutover are coordinated by the integration owner, not duplicated in this directory.
+Host checks do not qualify upload timing, numerical execution, hardware, or a full model. Paired cold/warm chip benchmarks and full-model acceptance remain NOT_RUN until explicitly authorized. Shared production registration and caller binding are implemented by the integration owner; the production graph resolver remains NULL/count0 because no new exact artifact has accepted independent hardware/full-model qualification.

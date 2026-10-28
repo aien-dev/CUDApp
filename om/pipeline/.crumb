@@ -1,0 +1,29 @@
+{
+  "extensions": {
+    "generated": {
+      "children": [],
+      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiled_at": "2026-10-28T15:50:30Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:805faf2db4f652d19178a20ad182a980644ef12732768f10ae2c46e756f37fc4",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 14,
+      "generated_at_commit": "017069c63f80dca6ebb97f4426296bba9e01ad76",
+      "source_tree": "sha256:ef9e40937892c5ea51254ecf2d8e927c88956fd983eba03e1de48109cb66eba1"
+    },
+    "owner_lane": "PipelineSelect",
+    "seed": {
+      "files": [
+        "consume.om",
+        "graph.om",
+        "select.om"
+      ],
+      "purpose_auto": "Repository root pipeline. Purpose not yet described by a human."
+    }
+  },
+  "layer": "native-policy",
+  "name": "pipeline",
+  "purpose": "Bounded deterministic qualified pipeline selection, canonical realization binding and graph cache pinning for CUDApp57.",
+  "schema_version": "1.0.0"
+}

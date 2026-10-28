@@ -1,0 +1,5 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note ABI1 adapter only; serializer authority stays in the pinned learn53 unit.
+fn native_mclaunch meta view ulong 32 bank view uchar 1024 qmdslot view uchar 1024 submit view ulong 16 out edit uchar 32 to long
+ret mc_launch meta bank qmdslot submit out
+end

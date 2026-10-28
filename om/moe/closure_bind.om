@@ -1,0 +1,5 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note q18 is the frozen joint subject, never the returned live-instance SHA.
+fn native_mcbind e view uchar 16384 a view uchar 16384 q view ulong 64 r view ulong 64 role ulong o edit uchar 32 to long
+ret mc_bindctx e a q r role o
+end

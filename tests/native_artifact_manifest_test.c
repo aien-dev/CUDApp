@@ -8,10 +8,22 @@
 #include <string.h>
 #include <unistd.h>
 #include "omega_native_artifact.h"
+#include "omega_native_artifact_snapshot.h"
 #include "sha256.h"
 
 static int checks, failures;
 #define CHECK(c, msg) do { checks++; if (!(c)) { failures++; fprintf(stderr, "FAIL: %s\n", msg); } } while (0)
+/* Linker observation only: all semantic admission remains the real runtime. */
+static char snapshot_paths[OMEGA_SNAPSHOT_FILES][280];
+static unsigned snapshot_reads[OMEGA_SNAPSHOT_FILES];
+static int snapshot_watch;
+FILE *__real_fopen(const char *, const char *);
+FILE *__wrap_fopen(const char *path, const char *mode) {
+    if (snapshot_watch)
+        for (unsigned i = 0; i < OMEGA_SNAPSHOT_FILES; ++i)
+            if (!strcmp(path, snapshot_paths[i])) ++snapshot_reads[i];
+    return __real_fopen(path, mode);
+}
 static void save(const char *path, const char *s, size_t n) {
     int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
     if (fd < 0) exit(2);
@@ -129,6 +141,38 @@ int main(void) {
     };
     CHECK(omega_native_artifact_export(&a,prefix,id,err,sizeof err)==0, "export fixture");
     CHECK(omega_native_artifact_admit(prefix,"580.173.02",id,err,sizeof err)==0, "admit canonical fixture");
+    {
+        static const char *const files[] = {
+            ".manifest", ".text.bin", ".cubin", ".qmd0.bin", ".qmd1.bin", ".cbank_args.bin"
+        };
+        for (unsigned i = 0; i < OMEGA_SNAPSHOT_FILES; ++i)
+            snprintf(snapshot_paths[i], sizeof snapshot_paths[i], "%s%s", prefix, files[i]);
+        OmegaNativeArtifactSnapshot snapshot = {0}, refused = {0};
+        snapshot_watch = 1;
+        int rc = omega_native_artifact_snapshot(prefix, "580.173.02", id, &snapshot, err, sizeof err);
+        snapshot_watch = 0;
+        CHECK(rc == 0, "snapshot uses the existing canonical admission");
+        for (unsigned i = 0; i < OMEGA_SNAPSHOT_FILES; ++i)
+            CHECK(snapshot_reads[i] == 1, "checked artifact file must be read exactly once");
+        CHECK(snapshot.sizes[OMEGA_SNAPSHOT_TEXT] == sizeof text &&
+              !memcmp(snapshot.bytes[OMEGA_SNAPSHOT_TEXT], text, sizeof text),
+              "snapshot retains exactly the checked code bytes");
+        uint8_t changed[sizeof text]; memcpy(changed, text, sizeof changed); changed[0] ^= 1;
+        save(snapshot_paths[OMEGA_SNAPSHOT_TEXT], (const char *)changed, sizeof changed);
+        CHECK(snapshot.sizes[OMEGA_SNAPSHOT_TEXT] == sizeof text &&
+              !memcmp(snapshot.bytes[OMEGA_SNAPSHOT_TEXT], text, sizeof text),
+              "path mutation cannot replace retained checked bytes");
+        CHECK(omega_native_artifact_snapshot(prefix, "580.173.02", id, &refused, err, sizeof err) ==
+              OMEGA_ARTIFACT_E_DIGEST, "new snapshot refuses changed code under the old manifest");
+        for (unsigned i = 0; i < OMEGA_SNAPSHOT_FILES; ++i)
+            CHECK(refused.bytes[i] == NULL && refused.sizes[i] == 0,
+                  "refused admission transfers no byte custody");
+        omega_native_artifact_snapshot_free(&snapshot);
+        for (unsigned i = 0; i < OMEGA_SNAPSHOT_FILES; ++i)
+            CHECK(snapshot.bytes[i] == NULL && snapshot.sizes[i] == 0,
+                  "snapshot release clears host custody");
+        save(snapshot_paths[OMEGA_SNAPSHOT_TEXT], (const char *)text, sizeof text);
+    }
     char original[8192], m[16384];
     FILE *f=fopen(path,"rb"); if (!f) return 2;
     size_t n=fread(original,1,sizeof original-1,f);

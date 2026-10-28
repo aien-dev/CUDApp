@@ -1,0 +1,5 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note ABI1 adapter only; serializer authority stays in the pinned learn53 unit.
+fn native_mcalloc meta view ulong 8 records view ulong 1024 out edit uchar 32 to long
+ret mc_alloc meta records out
+end
