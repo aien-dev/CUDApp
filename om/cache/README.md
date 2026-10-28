@@ -10,6 +10,36 @@ This directory implements issue #158. It does not open a GPU, allocate device me
 
 The realization key is not the full artifact-store manifest ID. Existing `omega_native_artifact_export` and `omega_native_artifact_admit` remain authoritative for immutable portable artifact files, framed templates, relocations, target and driver admission. The cache never treats a filename, a hash match, or metadata validity as hardware qualification. `kc_validate` invokes the Composer-owned `compose_launchread` to check canonical launch declaration consistency, then independently binds code and launch bytes to their record digests and checks the stored realization key. The admitting runtime must still enforce existing full artifact admission and actual template-content identity before upload. Canonical bytes and code remain immutable for their entire registered lifetime; device handles and virtual addresses never enter the realization key.
 
+## Retained admitted-template binding
+
+`templates.om` adds private `native_templates(launch: uchar[4096], cubin: uchar[32768], observed: uchar[2048], sizes: ulong[8]) -> long`. Concatenate the same QuantSchema/Composer dependencies and `digest.om` before it. It is a **consistency checker after successful existing artifact admission**, never a second artifact-admission authority.
+
+The runtime must supply launch bytes and expected manifest ID from the selected immutable canonical bundle, not derive expectations from the candidate snapshot. All observed bytes, actual successful admission ID and function name must come from that single retained admission snapshot. Do not reopen files between admission and this call. Keep the snapshot alive through checking/upload; the integration owner retains ownership of this custody and the existing session lock.
+
+The private handoff has this exact layout; it is not a new realization schema:
+
+| `observed` bytes | Contents |
+| --- | --- |
+| 0 through 767 | Exact retained QMD0 followed by QMD1 |
+| 768 through 895 | Retained cbank argument bytes, zero unused tail |
+| 896 through 959 | Retained admitted function name, no embedded NUL, zero unused tail |
+| 960 through 991 | Expected manifest ID as raw SHA-256 bytes from selected immutable bundle |
+| 992 through 1023 | Zero |
+| 1024 through 1087 | Actual successful admission ID, exactly 64 lowercase hex bytes |
+| 1088 through 2047 | Zero |
+
+`sizes[0..2]` are exact cubin bytes, cbank bytes and function-name bytes; words 3 through 7 are zero. Cubin capacity is 32768, cbank capacity 128, and name length is 1 through 63. Cubin unused tail and canonical launch reserved/tail bytes must be zero.
+
+The checker bounds every ELF64LE range before reading it, requires a unique exact `.nv.info.<admitted-name>` section, and checks its links to the matching text section and symbol table. It parses the ordered existing ABI prefix from the section start: 0x37, at most 32 ordinal-ordered KPARAM records, 0x19, then PARAM_CBANK. It checks parameter bounds, pointer alignment/extent and the referenced constant bank. The SHA prefix ends immediately before 0x50. The remaining attribute stream must be bounded, contain exactly one matching GPR declaration, and contain no later ABI override. The scalar KPARAM encoding does not state its byte width; this checker does not invent one.
+
+It hashes the exact ABI prefix, retained cbank bytes and QMD0/QMD1 pair with SHA-256 and compares them to the Composer-owned serialized launch identities. QMD grid/block, register allocation and shared-memory declarations are cross-checked against launch metadata, including when a changed QMD is rehashed. UGPR/barrier fields have no separate observed declaration in the existing exporter; their authority remains the selected canonical compiler/encoder lineage and code identity, not a newly claimed QMD measurement. Existing full admission still owns zero-VA/template policy, target/driver checks and the complete manifest/file identity.
+
+Success is zero. Refusals: -20 shape/padding, -21 ELF framing/ranges, -22 unique section/name/links, -23 ABI stream/parameter/cbank/GPR mismatch, -24 admission-ID syntax/mismatch, -25 QMD scalar mismatch, -26 ABI-prefix SHA, -27 cbank SHA, -28 QMD-pair SHA.
+
+`templates_fixture.om` preserves the exact first independently admitted C exporter fixture from `tests/native_artifact_manifest_test.c`, including its cubin and templates as immutable hex bytes. It uses `compose_launchwrite`, not a parallel canonical serializer. Its standard SHA oracle prefix was independently located by `readelf`: section offset 0x560, length 40 ending before 0x50. This synthetic zero-text fixture has `device-load=NOT_RUN`; successful admission is not successful execution or numerical proof.
+
+Compile two units using the production-pinned compiler: the common dependencies plus `templates_fixture.om`, and the common dependencies plus `templates_test.om`. Pipe the fixture executable into the test executable. The unchanged native test must exit zero. It checks positive admission-fixture binding, changed IDs/name/reserved bytes, malformed ELF/link/duplicate sections, ordered ABI/parameter/cbank/GPR checks, all three digest bindings, later ABI overrides, and QMD semantic drift even after rehashing. `templates-evidence.json` records the independently preserved snapshot comparison, pinned local/MCP runs and caught guard-removal mutants. It does not replace the integration owner's actual existing-runtime lifecycle smoke.
+
 ## Session-resident metadata
 
 `residency.om` is a standalone native unit. All storage is caller-owned: a zero-initialized `ulong[528]` contains a header and up to 32 fixed rows, matching the combined existing GEMV/GEMM/TC cache slot bound. `kc_init(pool,generation,profile,byte_budget,slot_budget)` accepts a nonzero profile/budget and 1 through 32 slots. Generation zero is valid: the existing `omega_gpu_session_recoveries()` and command-list generation start there. Reinitializing an active pool refuses; session changes use `kc_invalidate` with the strictly newer existing recovery generation. Profile is an opaque runtime admission identity covering target and driver compatibility, not a replacement for checking them.

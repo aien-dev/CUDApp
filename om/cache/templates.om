@@ -1,0 +1,531 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Private retained-snapshot consistency checker, NOT artifact admission authority.
+note Existing successful admission supplies bytes/name/actualid; selected immutable bundle supplies launch/expectedid.
+note Concatenate digest.om and Composer realize.om dependencies before this unit.
+text kt_info ".nv.info."
+text kt_text ".text."
+text kt_bank ".nv.constant0."
+text kt_elfn "ELF"
+fn kt_range n ulong off ulong count ulong to bool
+if gt off n
+ret false
+end
+ret le count sub n off
+end
+fn kt_u b view uchar 32768 off ulong count ulong to ulong
+v = ulong 0
+for j ulong count
+v = or v shl ulong get b add off j mul j 8
+end
+ret v
+end
+fn kt_obs b view uchar 2048 off ulong count ulong to ulong
+v = ulong 0
+for j ulong count
+v = or v shl ulong get b add off j mul j 8
+end
+ret v
+end
+fn kt_plen kind ulong to ulong
+if eq kind 0
+ret len kt_info
+end
+if eq kind 1
+ret len kt_text
+end
+ret len kt_bank
+end
+fn kt_pref kind ulong i ulong to uchar
+if eq kind 0
+ret get kt_info i
+end
+if eq kind 1
+ret get kt_text i
+end
+ret get kt_bank i
+end
+note ctx12: filelen shoff shcount stroff strlen infohdr infooff infolen symoff symlen symcount reserved.
+fn kt_named b view uchar 32768 ctx view ulong 12 off ulong obs view uchar 2048 count ulong kind ulong to bool
+pn = kt_plen kind
+if not kt_range get ctx 4 off add add pn count 1
+ret false
+end
+base = add get ctx 3 off
+for j ulong pn
+if ne get b add base j kt_pref kind j
+ret false
+end
+end
+base = add base pn
+for j ulong count
+if ne get b add base j get obs add 896 j
+ret false
+end
+end
+ret eq get b add base count 0
+end
+fn kt_elf b view uchar 32768 n ulong obs view uchar 2048 count ulong ctx edit ulong 12 to int
+if or lt n 64 gt n 32768
+ret -21
+end
+if ne get b 0 127
+ret -21
+end
+for j ulong 3
+if ne get b add j 1 get kt_elfn j
+ret -21
+end
+end
+if or ne get b 4 2 or ne get b 5 1 ne get b 6 1
+ret -21
+end
+if or ne kt_u b 16 2 2 ne kt_u b 18 2 190
+ret -21
+end
+if or ne kt_u b 20 4 1 or ne kt_u b 52 2 64 ne kt_u b 58 2 64
+ret -21
+end
+put ctx 0 n
+put ctx 1 kt_u b 40 8
+put ctx 2 kt_u b 60 2
+if or eq get ctx 2 0 gt get ctx 2 512
+ret -21
+end
+if not kt_range n get ctx 1 mul get ctx 2 64
+ret -21
+end
+si = kt_u b 62 2
+if or eq si 0 ge si get ctx 2
+ret -21
+end
+sh = add get ctx 1 mul si 64
+if ne kt_u b add sh 4 4 3
+ret -21
+end
+put ctx 3 kt_u b add sh 24 8
+put ctx 4 kt_u b add sh 32 8
+if not kt_range n get ctx 3 get ctx 4
+ret -21
+end
+for i ulong get ctx 2
+sh = add get ctx 1 mul i 64
+si = kt_u b sh 4
+if ge si get ctx 4
+ret -21
+end
+if kt_named b ctx si obs count 0
+if ne get ctx 5 0
+ret -22
+end
+put ctx 5 sh
+end
+end
+if eq get ctx 5 0
+ret -22
+end
+sh = get ctx 5
+if ne kt_u b add sh 4 4 shl ulong 7 28
+ret -22
+end
+put ctx 6 kt_u b add sh 24 8
+put ctx 7 kt_u b add sh 32 8
+if not kt_range n get ctx 6 get ctx 7
+ret -22
+end
+ret 0
+end
+fn kt_assoc b view uchar 32768 ctx edit ulong 12 obs view uchar 2048 count ulong to int
+sh = get ctx 5
+ti = kt_u b add sh 44 4
+si = kt_u b add sh 40 4
+if or eq ti 0 ge ti get ctx 2
+ret -22
+end
+if or eq si 0 ge si get ctx 2
+ret -22
+end
+sh = add get ctx 1 mul ti 64
+if ne kt_u b add sh 4 4 1
+ret -22
+end
+if not kt_named b ctx kt_u b sh 4 obs count 1
+ret -22
+end
+if not kt_range get ctx 0 kt_u b add sh 24 8 kt_u b add sh 32 8
+ret -22
+end
+sh = add get ctx 1 mul si 64
+if or ne kt_u b add sh 4 4 2 ne kt_u b add sh 56 8 24
+ret -22
+end
+put ctx 8 kt_u b add sh 24 8
+put ctx 9 kt_u b add sh 32 8
+if ne rem get ctx 9 24 0
+ret -22
+end
+if not kt_range get ctx 0 get ctx 8 get ctx 9
+ret -22
+end
+put ctx 10 div get ctx 9 24
+ret 0
+end
+fn kt_symbol b view uchar 32768 ctx view ulong 12 obs view uchar 2048 count ulong index ulong need ulong to bool
+if ge index get ctx 10
+ret false
+end
+p = add get ctx 8 mul index 24
+if ne and get b add p 4 15 3
+ret false
+end
+si = kt_u b add p 6 2
+if or eq si 0 ge si get ctx 2
+ret false
+end
+p = add get ctx 1 mul si 64
+if ne kt_u b add p 4 4 1
+ret false
+end
+if not kt_named b ctx kt_u b p 4 obs count 2
+ret false
+end
+if lt kt_u b add p 32 8 need
+ret false
+end
+ret kt_range get ctx 0 kt_u b add p 24 8 kt_u b add p 32 8
+end
+note ABI numeric encodings come unchanged from om/cubin/cubin_elf.om wpar/wtail.
+fn kt_prefix b view uchar 32768 ctx view ulong 12 launch view uchar 4096 span edit ulong 4 to int
+p = get ctx 6
+lim = add p get ctx 7
+if not kt_range lim p 8
+ret -23
+end
+if or ne kt_u b p 2 14084 ne kt_u b add p 2 2 4
+ret -23
+end
+if ne kt_u b add p 4 4 130
+ret -23
+end
+put span 0 p
+p = add p 8
+ord = ulong 0
+last = ulong 0
+while lt p lim bound 33
+if not kt_range lim p 4
+ret -23
+end
+if ne kt_u b p 2 5892
+break
+end
+if or ge ord 32 not kt_range lim p 16
+ret -23
+end
+if or ne kt_u b add p 2 2 12 ne kt_u b add p 4 4 0
+ret -23
+end
+v = kt_u b add p 8 4
+if ne and v 65535 ord
+ret -23
+end
+v = shr v 16
+if or lt v last ge v mul compose_word launch 12 4
+ret -23
+end
+last = add v 1
+v = kt_u b add p 12 4
+if not or eq v 1175552 eq v 2225408
+ret -23
+end
+if eq v 2225408
+if ne rem sub last 1 8 0
+ret -23
+end
+last = add last 7
+end
+ord = add ord 1
+p = add p 16
+end
+if not kt_range lim p 20
+ret -23
+end
+if or ne kt_u b p 2 6403 ne kt_u b add p 4 2 2564
+ret -23
+end
+if ne kt_u b add p 6 2 8
+ret -23
+end
+v = kt_u b add p 2 2
+if or gt v mul compose_word launch 12 4 lt v last
+ret -23
+end
+if ne kt_u b add p 12 4 or compose_word launch 11 shl v 16
+ret -23
+end
+put span 2 kt_u b add p 8 4
+put span 3 add compose_word launch 11 v
+p = add p 16
+put span 1 sub p get span 0
+if gt get span 1 4096
+ret -23
+end
+ret 0
+end
+fn kt_banklink b view uchar 32768 ctx view ulong 12 obs view uchar 2048 count ulong span view ulong 4 to int
+if not kt_symbol b ctx obs count get span 2 get span 3
+ret -23
+end
+ret 0
+end
+fn kt_abiid attr ulong to bool
+ret or eq attr 55 or eq attr 23 or eq attr 25 or eq attr 10 eq attr 80
+end
+fn kt_tail b view uchar 32768 ctx view ulong 12 launch view uchar 4096 span view ulong 4 to int
+p = add get span 0 get span 1
+lim = add get ctx 6 get ctx 7
+if or ne kt_u b p 2 20483 ne kt_u b add p 2 2 0
+ret -23
+end
+p = add p 4
+ord = ulong 0
+while lt p lim bound 8192
+if not kt_range lim p 4
+ret -23
+end
+v = kt_u b p 2
+if kt_abiid shr v 8
+ret -23
+end
+if eq v 6915
+if or ne ord 0 ne kt_u b add p 2 2 compose_word launch 8
+ret -23
+end
+ord = 1
+end
+v = and v 255
+if eq v 4
+v = add 4 kt_u b add p 2 2
+else
+if not or eq v 2 eq v 3
+ret -23
+end
+v = 4
+end
+if not kt_range lim p v
+ret -23
+end
+p = add p v
+end
+if ne ord 1
+ret -23
+end
+ret 0
+end
+fn kt_hex c uchar to int
+if and ge c 48 le c 57
+ret sub int c 48
+end
+if and ge c 97 le c 102
+ret add sub int c 97 10
+end
+ret -1
+end
+fn kt_shape launch view uchar 4096 obs view uchar 2048 sizes view ulong 8 to int
+if or eq get sizes 0 0 gt get sizes 0 32768
+ret -20
+end
+if or eq get sizes 1 0 gt get sizes 1 128
+ret -20
+end
+if or eq get sizes 2 0 gt get sizes 2 63
+ret -20
+end
+for i ulong 5
+if ne get sizes add i 3 0
+ret -20
+end
+end
+if ne get sizes 1 mul compose_word launch 12 4
+ret -20
+end
+if or ne compose_word launch 0 1 ne compose_word launch 11 896
+ret -20
+end
+if or ne compose_word launch 13 1 ne compose_word launch 14 1
+ret -20
+end
+for i ulong 3880
+note Canonical launch tail begins at27 words, including reserved words27..31.
+if ne get launch add 216 i 0
+ret -20
+end
+end
+for i ulong 128
+if and ge i get sizes 1 ne get obs add 768 i 0
+ret -20
+end
+end
+for i ulong 64
+if lt i get sizes 2
+if eq get obs add 896 i 0
+ret -20
+end
+else
+if ne get obs add 896 i 0
+ret -20
+end
+end
+end
+for i ulong 32
+if ne get obs add 992 i 0
+ret -20
+end
+hi = kt_hex get obs add 1024 mul i 2
+lo = kt_hex get obs add 1025 mul i 2
+if or lt hi 0 lt lo 0
+ret -24
+end
+if ne get obs add 960 i uchar or shl hi 4 lo
+ret -24
+end
+end
+for i ulong 960
+if ne get obs add 1088 i 0
+ret -20
+end
+end
+ret 0
+end
+fn kt_qcheck launch view uchar 4096 obs view uchar 2048 to int
+for i ulong 3
+if ne kt_obs obs add 384 mul add 39 i 4 4 compose_word launch add 1 i
+ret -25
+end
+end
+if or eq compose_word launch 1 0 or eq compose_word launch 2 0 ne compose_word launch 3 1
+ret -25
+end
+if or eq compose_word launch 4 0 or gt compose_word launch 4 65535 ne compose_word launch 5 1
+ret -25
+end
+if ne compose_word launch 6 1
+ret -25
+end
+v = compose_word launch 4
+v = or v shl compose_word launch 5 16
+if ne kt_obs obs add ulong 384 mul ulong 34 4 4 v
+ret -25
+end
+v = kt_obs obs add ulong 384 mul ulong 35 4 4
+if ne and v 255 compose_word launch 6
+ret -25
+end
+gpr = compose_word launch 8
+if lt gpr 16
+gpr = 16
+end
+if or gt gpr 511 ne and shr v 8 511 gpr
+ret -25
+end
+v = compose_word launch 7
+if gt v 4294967295
+ret -25
+end
+if eq v 0
+v = 8
+else
+v = div add v 127 128
+end
+if gt v 2047
+ret -25
+end
+if ne and kt_obs obs add ulong 384 mul ulong 36 4 4 2047 v
+ret -25
+end
+ret 0
+end
+fn kt_equal launch view uchar 4096 hash view uchar 32 slot ulong to bool
+for i ulong 32
+if ne get launch add mul slot 8 i get hash i
+ret false
+end
+end
+ret true
+end
+fn kt_hashinfo launch view uchar 4096 cubin view uchar 32768 span view ulong 4 to bool
+buf = new uchar 4096 0
+hash = new uchar 32 0
+for i ulong get span 1
+put buf i get cubin add get span 0 i
+end
+if ne kc_sha buf get span 1 hash 0
+ret false
+end
+ret kt_equal launch hash 15
+end
+fn kt_obshash launch view uchar 4096 obs view uchar 2048 off ulong count ulong slot ulong to bool
+buf = new uchar 4096 0
+hash = new uchar 32 0
+for i ulong count
+put buf i get obs add off i
+end
+if ne kc_sha buf count hash 0
+ret false
+end
+ret kt_equal launch hash slot
+end
+fn kt_hashes launch view uchar 4096 cubin view uchar 32768 obs view uchar 2048 sizes view ulong 8 span view ulong 4 to int
+if not kt_hashinfo launch cubin span
+ret -26
+end
+if not kt_obshash launch obs 768 get sizes 1 19
+ret -27
+end
+if not kt_obshash launch obs 0 768 23
+ret -28
+end
+ret 0
+end
+fn kt_tailzero cubin view uchar 32768 n ulong to bool
+for i ulong sub 32768 n
+if ne get cubin add n i 0
+ret false
+end
+end
+ret true
+end
+fn native_templates launch view uchar 4096 cubin view uchar 32768 observed view uchar 2048 sizes view ulong 8 to long
+ctx = new ulong 12 0
+span = new ulong 4 0
+rc = kt_shape launch observed sizes
+if ne rc 0
+ret long rc
+end
+if not kt_tailzero cubin get sizes 0
+ret -20
+end
+rc = kt_elf cubin get sizes 0 observed get sizes 2 ctx
+if ne rc 0
+ret long rc
+end
+rc = kt_assoc cubin ctx observed get sizes 2
+if ne rc 0
+ret long rc
+end
+rc = kt_prefix cubin ctx launch span
+if ne rc 0
+ret long rc
+end
+rc = kt_banklink cubin ctx observed get sizes 2 span
+if ne rc 0
+ret long rc
+end
+rc = kt_tail cubin ctx launch span
+if ne rc 0
+ret long rc
+end
+rc = kt_qcheck launch observed
+if ne rc 0
+ret long rc
+end
+ret long kt_hashes launch cubin observed sizes span
+end
