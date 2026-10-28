@@ -50,7 +50,7 @@ Blackwell header.
 | VRAM-aware D1 reserve | DONE | `nvrm/nvrm.c:637` queries the selected framebuffer heap. `src/omega_gpu_platform_linux.c:233` reads reserve policy and `:248` uses free VRAM, never host MemAvailable, for local allocations. `CUDAPP_GPU_MIN_FREE_BYTES` supports a precise safe refusal; the default MiB reserve remains documented by the runtime. The refusal precedes the driver allocation call. |
 | Safe reserve refusal proof | DONE | `tests/ampere/memory_refusal.c:39` sets reserve above total VRAM (therefore above free VRAM even if other processes release memory), then requests only a small allocation. It requires refusal, zero intervening RM allocation ioctls and unchanged free VRAM. Simulated-driver coverage is separate from this real-device test. It never pressure-allocates VRAM. |
 | Open-module and device selection doctor | DONE | `tests/ampere/doctor.py:79` verifies Linux x86_64, the exact pinned open module, requested PCI IDs, device nodes and an unambiguous BDF. `CUDAPP_GPU_BDF` selects that exact GPU in the driver client. `test_doctor.py` uses a fake filesystem and is always SIMULATED. No driver is opened by the doctor. |
-| Portable Omega build provenance | IMPLEMENTED | `om/units.sh` covers all canonical hosted roots plus Ampere encoding/runtime and the separate revision/epoch freestanding profile. Checked portable generated translation units replace executable-code trampolines. `om/omega-bridge.lock`, per-unit identities and generated declarations retain exact composed-source SHA → C SHA provenance. Missing/mismatched converter, profile or seed refuses before installation. Final host acceptance is recorded separately below. |
+| Portable Omega build provenance | IMPLEMENTED | `om/units.sh` covers all canonical hosted roots plus Ampere encoding/runtime and the separate revision/epoch/f16 freestanding profile. Checked portable generated translation units replace executable-code trampolines. `om/omega-bridge.lock`, per-unit identities and generated declarations retain exact composed-source SHA → C SHA provenance. Missing/mismatched converter, profile or seed refuses before installation. Final host acceptance is recorded separately below. |
 | Native x86_64 host build | IMPLEMENTED; acceptance pending | The native run at `067815f8` executed x86 host consumers but failed the unchanged freestanding undefined-symbol gate on `__truncsfhf2` ([actual run](https://github.com/aien-dev/CUDApp/actions/runs/40753959689)). The repair uses import-free integer Omega conversion rather than weakening that gate or linking libgcc. `.github/workflows/ampere-x86.yml` separates pinned ARM provenance under QEMU from genuinely native x86 compiled-C consumers and offline oracles. `src/omega_numeric.c` is the host-reference tier; integer-defined conversions are not an independent device oracle. Converter x86 emulation alone is not whole-consumer native acceptance. |
 | Device test plan / runner | DONE | `tests/ampere/README.md`, `doctor.py`, `run.py`, `math_device.c`, and `memory_refusal.c` cover doctor, complete vector-add output, intentionally failing vector-add, exhaustive unary math, a numerical negative control and safe memory refusal. The runner starts each result at NOT_RUN, records real outputs and stops on failure. |
 | GA102 / GA104 execution and qualification | BLOCKED | No RTX device is attached or authorized here. Both device states remain NOT_RUN. Need the actual host, OS, driver version, SSH access and a GPU window before any real execution. |
@@ -108,9 +108,9 @@ selected seeded frontend uses omega e5b32567 compiler SHA-256
 `2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f`.
 The original 191b776 frontend gate remains unchanged and required. The expanded
 route supports bounded canonical compositions and internal binary32 quant
-operations; a separately checked scalar profile supplies import-free revision
-and epoch without hosted trap machinery. Generated identities pin each
-converter, frontend and compiler, not a moving branch name.
+operations; a separately checked scalar profile supplies import-free revision,
+epoch and binary32-to-binary16 RNE conversion without hosted trap machinery.
+Generated identities pin each converter, frontend and compiler, not a moving branch name.
 
 The disposable x86 CI runner uses Ubuntu's verification-only
 `qemu-user-static` package `8.2.2+ds-0ubuntu1.19`, amd64 package SHA256
@@ -128,6 +128,16 @@ with the runner's C compiler, checked with `readelf`, then exercised by the
 unchanged acceptance targets. QEMU is neither linked into production nor an
 implementation dependency; its intended Omega replacement is the separate
 native x86 compiler, which still fails and is not assumed usable.
+
+`om/numeric/f16.om` implements the freestanding conversion; the C caller
+only bitcasts the input and calls its checked scalar ABI. The hosted
+`_Float16` cast remains the independent verification oracle, not production
+freestanding code. `make test-ampere-f16-host` checks signed zero,
+subnormals, ties-to-even, overflow, infinities and NaNs, rejects six
+conversion mutants and compares a stepped raw-input sweep with that
+native cast. The full host suite requires this target. The generated
+unit compiles with no undefined symbols; the unchanged aggregate
+freestanding allowlist continues to refuse unexpected runtime helpers.
 
 Experimental native x86 compiler work (#923) remains a distinct failing route,
 not a build, generation or acceptance prerequisite here. Portable C is generated

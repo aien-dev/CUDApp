@@ -1,0 +1,61 @@
+{
+  "status": "EXERCISED_ARM_HOST_ONLY",
+  "consumer_source": "7b06a7542017dc0987f1bdbd3c13992ec0baa46c",
+  "bridge_source": "ead98302ff0a649c49c3f2c7568af5e1b3da33eb",
+  "bridge_behavior_ci": "https://github.com/aien-dev/omega-bridge/actions/runs/40758894095",
+  "bridge_behavior_ci_conclusion": "success",
+  "host_acceptance": {
+    "command": "make -j2 OUT_DIR=build-ampere-final OMEGA_SEED=<191b> OMEGA_OMC=<2c824> OMEGA_MV=<e5b32567> OMEGA_BRIDGE=<ead98302> OMEGA_BRIDGE_DIR=<ead98302> all test test-native-artifact zero-cuda-gate ampere-device-build",
+    "exit": 0,
+    "targets": 58,
+    "raw_evidence": "artifact://1353",
+    "generation": "40 roots regenerate byte for byte",
+    "freestanding_link": "17 files; unchanged import allowlist; malloc canary refused",
+    "f16": "boundary/native stepped sweep/six mutant controls PASS"
+  },
+  "pins": {
+    "freest_sha256": "836cbf9ef8a3c4ee82b0458070884405bc8296f83b10f933556bf27750bb3661",
+    "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+    "baseline_sha256": "191b776ef98821597c3e30655da6d680a9b66edbc9ceaca3c39c61ea6df098e9"
+  },
+  "pin_refusals": [
+    {
+      "mutation": "compiler",
+      "exit": 3,
+      "installed_files": 0
+    },
+    {
+      "mutation": "src/toc.om",
+      "exit": 3,
+      "installed_files": 0
+    },
+    {
+      "mutation": "src/freest.om",
+      "exit": 3,
+      "installed_files": 0
+    },
+    {
+      "mutation": "tools/bridge-seeded",
+      "exit": 3,
+      "installed_files": 0
+    },
+    {
+      "mutation": "tools/bridge-freest",
+      "exit": 3,
+      "installed_files": 0
+    }
+  ],
+  "x86_cross_link": {
+    "architecture": "Advanced Micro Devices X86-64",
+    "undefined": [
+      "sha256_hash",
+      "strlen"
+    ],
+    "half_runtime_helper": "absent",
+    "execution": "NOT_RUN; cross-object inspection only"
+  },
+  "native_x86_acceptance": "PENDING_CI_40759620071",
+  "historical_receipts": "UNCHANGED",
+  "native_x86_compiler_923": "FAILING_SEPARATE_NOT_A_DEPENDENCY",
+  "device": "NOT_RUN"
+}
