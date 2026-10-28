@@ -26,7 +26,7 @@ CFLAGS ?= -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc \
 	-I$(NVIDIA_OPEN)/src/nvidia/arch/nvalloc/unix/include
 # Portable checked Omega-to-C output; each unit has a separate private runtime namespace.
 CUDAPP_OM_HOSTED_SRCS = $(wildcard src/cudapp_om_*.c)
-CUDAPP_OM_FREEST_SRCS = src/cudapp_freest_revision.c src/cudapp_freest_epoch.c
+CUDAPP_OM_FREEST_SRCS = src/cudapp_freest_revision.c src/cudapp_freest_epoch.c src/cudapp_freest_f16.c
 CUDAPP_OM_UNIT_SRCS = $(CUDAPP_OM_HOSTED_SRCS) $(CUDAPP_OM_FREEST_SRCS)
 -include mk/*.mk
 
@@ -338,7 +338,7 @@ HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-a
 	test-codegen-freestanding test-gpu-session-platform test-gpu-native-runtime test-gpu-wait test-gpu-wait-mutants host-tests-m16 \
 	test-runtime-api test-runtime-portability test-doctor test-hello-sim test-native-artifact-manifest test-gemm-selectors \
 	test-native-artifact zero-cuda-gate verify-vendored test-swap-cli test-om-encoder test-om-spec-encoder test-om-cubin \
-	test-ampere-encoder test-ampere-cubin test-ampere-numeric-host test-ampere-runtime test-ampere-plan test-portable-receipts $(CARRIED_HOST_TESTS)
+	test-ampere-encoder test-ampere-cubin test-ampere-numeric-host test-ampere-f16-host test-ampere-runtime test-ampere-plan test-portable-receipts $(CARRIED_HOST_TESTS)
 test: $(HOST_TESTS)
 	@echo "CUDA++ HOST TESTS PASS ($(words $(HOST_TESTS)) targets)"
 

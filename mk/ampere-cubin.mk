@@ -33,3 +33,12 @@ $(AMPERE_CUBIN_DIR)/numeric-host: tests/ampere_numeric_host_test.c src/omega_num
 
 test-ampere-numeric-host: $(AMPERE_CUBIN_DIR)/numeric-host
 	$(AMPERE_CUBIN_DIR)/numeric-host
+
+# The native floating cast is an independent verification oracle only.
+.PHONY: test-ampere-f16-host
+$(AMPERE_CUBIN_DIR)/f16-host: tests/ampere/test_f16_behavior.c src/cudapp_freest_f16.c
+	@mkdir -p $(AMPERE_CUBIN_DIR)
+	$(CC) $(CFLAGS) -O3 -o $@ tests/ampere/test_f16_behavior.c src/cudapp_freest_f16.c
+
+test-ampere-f16-host: $(AMPERE_CUBIN_DIR)/f16-host
+	$(AMPERE_CUBIN_DIR)/f16-host

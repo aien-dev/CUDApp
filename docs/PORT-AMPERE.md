@@ -51,7 +51,7 @@ Blackwell header.
 | Safe reserve refusal proof | DONE | `tests/ampere/memory_refusal.c:39` sets reserve above total VRAM (therefore above free VRAM even if other processes release memory), then requests only a small allocation. It requires refusal, zero intervening RM allocation ioctls and unchanged free VRAM. Simulated-driver coverage is separate from this real-device test. It never pressure-allocates VRAM. |
 | Open-module and device selection doctor | DONE | `tests/ampere/doctor.py:79` verifies Linux x86_64, the exact pinned open module, requested PCI IDs, device nodes and an unambiguous BDF. `CUDAPP_GPU_BDF` selects that exact GPU in the driver client. `test_doctor.py` uses a fake filesystem and is always SIMULATED. No driver is opened by the doctor. |
 | Portable Omega build provenance | IMPLEMENTED | `om/units.sh` covers all canonical hosted roots plus Ampere encoding/runtime and the separate revision/epoch freestanding profile. Checked portable generated translation units replace executable-code trampolines. `om/omega-bridge.lock`, per-unit identities and generated declarations retain exact composed-source SHA → C SHA provenance. Missing/mismatched converter, profile or seed refuses before installation. Final host acceptance is recorded separately below. |
-| Native x86_64 host build | IMPLEMENTED | `.github/workflows/ampere-x86.yml` schedules a native Ubuntu x86 runner for the full host build/tests and offline oracle. Adding the job is not a successful run: current-head native CI was not observed during recovery. `src/omega_numeric.c` supplies the x86 host-reference tier; integer-defined conversions are not mislabeled as an independent oracle. Converter scalar x86 emulation is HOST_EMULATED, not whole-consumer native acceptance. |
+| Native x86_64 host build | IMPLEMENTED; acceptance pending | The native run at `067815f8` executed x86 host consumers but failed the unchanged freestanding undefined-symbol gate on `__truncsfhf2` ([actual run](https://github.com/aien-dev/CUDApp/actions/runs/40753959689)). The repair uses import-free integer Omega conversion rather than weakening that gate or linking libgcc. `.github/workflows/ampere-x86.yml` separates pinned ARM provenance under QEMU from genuinely native x86 compiled-C consumers and offline oracles. `src/omega_numeric.c` is the host-reference tier; integer-defined conversions are not an independent device oracle. Converter x86 emulation alone is not whole-consumer native acceptance. |
 | Device test plan / runner | DONE | `tests/ampere/README.md`, `doctor.py`, `run.py`, `math_device.c`, and `memory_refusal.c` cover doctor, complete vector-add output, intentionally failing vector-add, exhaustive unary math, a numerical negative control and safe memory refusal. The runner starts each result at NOT_RUN, records real outputs and stops on failure. |
 | GA102 / GA104 execution and qualification | BLOCKED | No RTX device is attached or authorized here. Both device states remain NOT_RUN. Need the actual host, OS, driver version, SSH access and a GPU window before any real execution. |
 
@@ -111,6 +111,23 @@ route supports bounded canonical compositions and internal binary32 quant
 operations; a separately checked scalar profile supplies import-free revision
 and epoch without hosted trap machinery. Generated identities pin each
 converter, frontend and compiler, not a moving branch name.
+
+The disposable x86 CI runner uses Ubuntu's verification-only
+`qemu-user-static` package `8.2.2+ds-0ubuntu1.19`, amd64 package SHA256
+`ec80ee896fe8f57f7420f4d4076164cb0fa613df6848568cdf5d1a2dbe2347cb`,
+and AArch64 interpreter SHA256
+`1152646a17920a81c618d62574ee8ae8b63243349957095d40212c2245f20aab`.
+An ARM runner source-bootstraps baseline compiler
+`191b776ef98821597c3e30655da6d680a9b66edbc9ceaca3c39c61ea6df098e9`;
+the x86 job checks that artifact and the seeded compiler before use.
+Only their AArch64 ELF execution is registered, with exact magic, mask and
+interpreter checks and unconditional removal of this run's handler afterward.
+No Spark binfmt configuration is changed. These executions are EMULATED
+provenance, not a native compiler result. Native x86 ELF consumers are built
+with the runner's C compiler, checked with `readelf`, then exercised by the
+unchanged acceptance targets. QEMU is neither linked into production nor an
+implementation dependency; its intended Omega replacement is the separate
+native x86 compiler, which still fails and is not assumed usable.
 
 Experimental native x86 compiler work (#923) remains a distinct failing route,
 not a build, generation or acceptance prerequisite here. Portable C is generated
