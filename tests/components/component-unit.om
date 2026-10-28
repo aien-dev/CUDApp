@@ -1,0 +1,117 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Concatenate allocator,effect,check,project,then this host-only unit caller.
+fn ut_ir ins edit ulong 8192 meta edit ulong 2048 n ulong to int
+old = get ins 0
+put ins 0 999
+if eq bc_ircheck ins n meta 0
+ret 5
+end
+put ins 0 old
+for i ulong n
+base = mul i 8
+op = get ins base
+if eq op 56
+slot = add base 6
+old = get ins slot
+put ins slot and old 4294967295
+if eq bc_ircheck ins n meta 0
+ret 6
+end
+put ins slot old
+reg = get ins add base 1
+width = get meta reg
+put meta reg 1
+if eq bc_ircheck ins n meta 0
+ret 7
+end
+put meta reg width
+end
+if eq op 54
+slot = add base 6
+old = get ins slot
+put ins slot or shl shr old 32 32 2147483647
+if eq bc_ircheck ins n meta 0
+ret 8
+end
+put ins slot old
+end
+end
+ret 0
+end
+fn ut_mma to int
+ins = new ulong 8192 0
+meta = new ulong 2048 0
+s = new ulong 64 0
+args = new ulong 4 0
+bc_node s 1 0 1 BCNONE BCNONE
+bc_emit ins s 13
+if eq get s 3 0
+ret 11
+end
+for j ulong 64
+put s j 0
+end
+for j ulong 4
+put args j j
+put meta j 4
+end
+put meta 2 2
+if ne bc_mma ins s meta args 0
+ret 12
+end
+if ne get s 0 3
+ret 13
+end
+if ne shr get ins 6 32 bc_control 8 7 7 0 false
+ret 14
+end
+if ne shr get ins 14 32 bc_control 15 7 7 0 false
+ret 15
+end
+if ne shr get ins 22 32 bc_control 14 7 7 0 false
+ret 16
+end
+put meta 2 1
+if eq bc_mma ins s meta args 0
+ret 17
+end
+ret 0
+end
+fn main to int
+spec = new ulong 8 0
+ins = new ulong 8192 0
+meta = new ulong 2048 0
+phys = new ulong 288 0
+st = new ulong 4 0
+rs = new ulong 4 0
+put spec 0 256
+put spec 1 8
+put spec 2 1
+put spec 3 4
+if ne bc_project spec ins meta st 0
+ret 1
+end
+if ne bc_ircheck ins get st 0 meta 0
+ret 2
+end
+if ne bc_regalloc ins get st 0 meta phys rs 128 0
+ret 3
+end
+if eq bc_regalloc ins get st 0 meta phys rs 3 0
+ret 4
+end
+rc = ut_ir ins meta get st 0
+if ne rc 0
+ret rc
+end
+put spec 4 2
+if eq bc_project spec ins meta st 0
+ret 9
+end
+put spec 4 0
+put spec 5 1
+if eq bc_project spec ins meta st 0
+ret 10
+end
+ret ut_mma
+end

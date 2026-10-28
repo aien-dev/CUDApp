@@ -1,0 +1,66 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Concatenate allocator,effect,project,repaired bw_enc_sm121,then this host caller.
+global CTIn uchar 64
+global CTOut uchar 8
+fn ct_word v ulong to bool
+for j ulong 8
+put CTOut j uchar and shr v mul j 8 255
+end
+ret eq write 1 CTOut 0 8 8
+end
+fn ct_parse spec edit ulong 8 to void
+for k ulong 8
+v = ulong 0
+for j ulong 8
+v = or v shl ulong get CTIn add mul k 8 j mul j 8
+end
+put spec k v
+end
+end
+fn ct_frame ins view ulong 8192 meta view ulong 2048 phys view ulong 288 st view ulong 4 rs view ulong 4 to void
+for k ulong 4
+ok = ct_word get st k
+end
+ok = ct_word get rs 1
+ok = ct_word get rs 2
+for k ulong get st 1
+ok = ct_word get meta k
+ok = ct_word get phys k
+end
+for k ulong get st 2
+ok = ct_word get meta add k 256
+ok = ct_word get phys add k 256
+end
+for k ulong mul get st 0 8
+ok = ct_word get ins k
+end
+end
+fn main to int
+spec = new ulong 8 0
+ins = new ulong 8192 0
+meta = new ulong 2048 0
+phys = new ulong 288 0
+st = new ulong 4 0
+rs = new ulong 4 0
+code = new uchar 16384 0
+if ne read 0 CTIn 0 64 64
+ret 65
+end
+ct_parse spec
+rc = bc_project spec ins meta st
+if ne rc 0
+ret 66
+end
+if ne bc_regalloc ins get st 0 meta phys rs 128 0
+ret 67
+end
+nbytes = bc_encode ins phys get st 0 1 code
+if eq nbytes 0
+ret 68
+end
+ct_frame ins meta phys st rs
+if ne write 1 code 0 nbytes long nbytes
+ret 74
+end
+ret 0
+end

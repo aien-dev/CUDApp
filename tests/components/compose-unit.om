@@ -1,0 +1,53 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Actual root caller, not a generator-only substitute.
+fn ut_compose cfg view ulong 16 to uint
+ins = new ulong 8192 0
+m = new ulong 2048 0
+p = new ulong 288 0
+out = new ulong 8 0
+rc = bc_compose cfg ins m p out
+if ne rc 0
+ret rc
+end
+if or eq get out 0 0 eq get out 1 0
+ret 99
+end
+ret 0
+end
+fn main to int
+cfg = new ulong 16 0
+put cfg 0 1
+put cfg 1 256
+put cfg 2 8
+put cfg 3 1
+put cfg 4 4
+if ne ut_compose cfg 0
+ret 1
+end
+put cfg 5 1
+if ne ut_compose cfg 0
+ret 2
+end
+put cfg 0 2
+put cfg 5 0
+if ne ut_compose cfg 0
+ret 3
+end
+put cfg 0 3
+put cfg 1 2048
+put cfg 2 16
+put cfg 3 4
+put cfg 4 16
+if ne ut_compose cfg 0
+ret 4
+end
+put cfg 5 1
+if ne ut_compose cfg 0
+ret 5
+end
+put cfg 6 1
+if eq ut_compose cfg 0
+ret 6
+end
+ret 0
+end
