@@ -37,12 +37,27 @@ end
 
 note Compare active semantic roles, not inactive packing slots. Zero control
 note and FSET default are documented canonicalizations, absent RA/RB means RZ.
-fn same_sem o view ulong 16 dec view ulong 16 to bool
-idx = sp_find o
+note Keep field-local values out of the seeded comparator's register live range.
+fn same_fld sp_tbl view ulong 3001 fb ulong o view ulong 16 dec view ulong 16 to bool
+role = get sp_tbl fb
+word = get sp_tbl add fb 1
+a = sp_val role word o
+b = sp_val role word dec
+if and eq role R_FSET eq a 0
+a = 66084864
+end
+if ne a b
+ret false
+end
+ret true
+end
+
+fn same_sem sp_tbl view ulong 3001 o view ulong 16 dec view ulong 16 to bool
+idx = sp_find sp_tbl o
 if eq idx 63
 ret false
 end
-if ne sp_find dec idx
+if ne sp_find sp_tbl dec idx
 ret false
 end
 if ne get o 0 get dec 0
@@ -66,21 +81,14 @@ end
 nf = get sp_tbl add base 9
 for f ulong nf
 fb = add add base 10 mul f 7
-role = get sp_tbl fb
-word = get sp_tbl add fb 1
-a = sp_val role word o
-b = sp_val role word dec
-if and eq role R_FSET eq a 0
-a = 66084864
-end
-if ne a b
+if not same_fld sp_tbl fb o dec
 ret false
 end
 end
 ret true
 end
 
-fn run_check_loop corrupt bool to int
+fn run_check_loop sp_tbl edit ulong 3001 corrupt bool to int
 buf = new uchar 128 0
 o = new ulong 16 0
 w_ref = new ulong 4 0
@@ -97,12 +105,10 @@ if eq r 0
 break
 end
 unpack_case buf o
-st_ref = enc1 o w_ref
-st_spec = sp_enc o w_spec
-if ne st_ref 0
+if ne enc1 o w_ref 0
 ret 1
 end
-if ne st_spec 0
+if ne sp_enc sp_tbl o w_spec 0
 ret 1
 end
 if and corrupt eq count 0
@@ -113,11 +119,10 @@ if ne get w_ref k get w_spec k
 ret 1
 end
 end
-dst = sp_dec w_spec o_dec
-if ne dst 0
+if ne sp_dec sp_tbl w_spec o_dec 0
 ret 1
 end
-if not same_sem o o_dec
+if not same_sem sp_tbl o o_dec
 ret 1
 end
 count = add count 1
@@ -129,7 +134,7 @@ end
 ret 0
 end
 
-fn emit_sample s_idx ulong to int
+fn emit_sample sp_tbl edit ulong 3001 s_idx ulong to int
 o = new ulong 16 0
 w = new ulong 4 0
 buf = new uchar 16 0
@@ -172,7 +177,7 @@ put o 0 46
 put o 6 16
 end
 
-st = sp_enc o w
+st = sp_enc sp_tbl o w
 if ne st 0
 ret 1
 end
@@ -197,7 +202,7 @@ end
 ret 0
 end
 
-fn run_neg_mutant to int
+fn run_neg_mutant sp_tbl edit ulong 3001 to int
 o = new ulong 16 0
 w_mut = new ulong 4 0
 w_ref = new ulong 4 0
@@ -212,7 +217,7 @@ end
 note Shift field on form 1 (MOV_RZ): fbase = 55, shift is at 57
 orig_sh = get sp_tbl 57
 put sp_tbl 57 add orig_sh 1
-r_mut = sp_enc o w_mut
+r_mut = sp_enc sp_tbl o w_mut
 put sp_tbl 57 orig_sh
 
 if ne r_mut 0
@@ -229,31 +234,31 @@ end
 if same
 ret 1
 end
-if ne sp_dec w_mut decoded E_OK
+if ne sp_dec sp_tbl w_mut decoded E_OK
 ret 1
 end
-if same_sem o decoded
+if same_sem sp_tbl o decoded
 ret 1
 end
 ret 0
 end
 
-fn run_neg_range to int
+fn run_neg_range sp_tbl edit ulong 3001 to int
 o = new ulong 16 0
 w = new ulong 4 0
 put o 0 1
 put o 1 256
-st = sp_enc o w
+st = sp_enc sp_tbl o w
 if ne st E_RANGE
 ret 1
 end
 ret 0
 end
 
-fn run_neg_nomat to int
+fn run_neg_nomat sp_tbl edit ulong 3001 to int
 w = new ulong 4 4294967295
 dec = new ulong 16 0
-dst = sp_dec w dec
+dst = sp_dec sp_tbl w dec
 if ne dst E_NOMAT
 ret 1
 end
@@ -261,7 +266,8 @@ ret 0
 end
 
 fn main to int
-sp_init
+sp_tbl = new ulong 3001 0
+sp_init sp_tbl
 mode = new uchar 16 0
 k = ulong 0
 if ge argcnt 2
@@ -272,35 +278,35 @@ end
 end
 
 if eq k 0
-ret run_check_loop false
+ret run_check_loop sp_tbl false
 end
 
 c0 = get mode 0
 
 if eq c0 99
 note 'c' -> corrupt
-ret run_check_loop true
+ret run_check_loop sp_tbl true
 end
 
 if eq c0 115
 note 's' -> sample
 s_idx = sub ulong get mode 6 48
-ret emit_sample s_idx
+ret emit_sample sp_tbl s_idx
 end
 
 if eq c0 109
 note 'm' -> mutant
-ret run_neg_mutant
+ret run_neg_mutant sp_tbl
 end
 
 if eq c0 114
 note 'r' -> range
-ret run_neg_range
+ret run_neg_range sp_tbl
 end
 
 if eq c0 110
 note 'n' -> nomat
-ret run_neg_nomat
+ret run_neg_nomat sp_tbl
 end
 
 ret 1

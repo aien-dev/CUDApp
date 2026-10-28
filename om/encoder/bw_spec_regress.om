@@ -11,22 +11,22 @@ put o i 0
 end
 put o 0 op
 end
-fn parity o view ulong 16 to void
+fn parity sp_tbl edit ulong 3001 o view ulong 16 to void
 w = new ulong 4 0
 ref = new ulong 4 0
 dec = new ulong 16 0
 require eq enc1 o ref E_OK
-require eq sp_enc o w E_OK
+require eq sp_enc sp_tbl o w E_OK
 for i ulong 4
 require eq get w i get ref i
 end
-require eq sp_dec w dec E_OK
-require same_sem o dec
+require eq sp_dec sp_tbl w dec E_OK
+require same_sem sp_tbl o dec
 end
-fn emit_words o view ulong 16 to void
+fn emit_words sp_tbl edit ulong 3001 o view ulong 16 to void
 w = new ulong 4 0
 buf = new uchar 16 0
-require eq sp_enc o w E_OK
+require eq sp_enc sp_tbl o w E_OK
 for i ulong 4
 v = get w i
 off = mul i 4
@@ -38,19 +38,20 @@ end
 require eq write 1 buf 0 16 16
 end
 fn main to int
+sp_tbl = new ulong 3001 0
 w = new ulong 4 4294967295
 dec = new ulong 16 0
 buf128 = new uchar 128 0
 o = new ulong 16 0
 mode = new uchar 16 0
 note Cold decoder must initialize without any prior encoder call.
-require eq sp_dec w dec E_NOMAT
+require eq sp_dec sp_tbl w dec E_NOMAT
 note All absent RA/RB operands must encode RZ, independently byte checked.
 for j ulong 3
 reset_o o add 51 j
 put o 1 4
 put o 4 7
-parity o
+parity sp_tbl o
 end
 note RRU destination is a full GPR, not a uniform register.
 reset_o o 8
@@ -61,11 +62,11 @@ put o 4 3
 put o 8 1
 put o 12 1
 put o 14 1
-parity o
-require eq sp_enc o w E_OK
-require eq sp_dec w dec E_OK
+parity sp_tbl o
+require eq sp_enc sp_tbl o w E_OK
+require eq sp_dec sp_tbl w dec E_OK
 put dec 8 0
-require not same_sem o dec
+require not same_sem sp_tbl o dec
 note Optional sample output for offline nvdisasm, no binary listing committed.
 if ge argcnt 2
 got = argread 1 mode 0 16
@@ -75,43 +76,43 @@ reset_o o add ulong 51 sub ulong get mode 1 48
 put o 1 4
 put o 4 7
 end
-emit_words o
+emit_words sp_tbl o
 ret 0
 end
 reset_o o 42
 put o 6 32
-require eq sp_enc o w E_RANGE
+require eq sp_enc sp_tbl o w E_RANGE
 reset_o o 51
 put o 6 256
-require eq sp_enc o w E_RANGE
+require eq sp_enc sp_tbl o w E_RANGE
 reset_o o 10
 put o 1 8
-require eq sp_enc o w E_RANGE
+require eq sp_enc sp_tbl o w E_RANGE
 reset_o o 12
 put o 6 4294967296
-require eq sp_enc o w E_RANGE
+require eq sp_enc sp_tbl o w E_RANGE
 reset_o o 4
 put o 6 1
-require eq sp_enc o w E_RANGE
+require eq sp_enc sp_tbl o w E_RANGE
 put o 6 262143
-require eq sp_enc o w E_RANGE
+require eq sp_enc sp_tbl o w E_RANGE
 reset_o o 54
 put o 6 2147483647
-require eq sp_enc o w E_RANGE
+require eq sp_enc sp_tbl o w E_RANGE
 reset_o o 46
 put o 6 4294967296
-require eq sp_enc o w E_RANGE
+require eq sp_enc sp_tbl o w E_RANGE
 note A decoded active operand mutation must fail semantically.
 reset_o o 8
 put o 13 1
-require eq sp_enc o w E_OK
-require eq sp_dec w dec E_OK
-require same_sem o dec
+require eq sp_enc sp_tbl o w E_OK
+require eq sp_dec sp_tbl w dec E_OK
+require same_sem sp_tbl o dec
 put dec 1 add get dec 1 1
-require not same_sem o dec
-require eq sp_dec w dec E_OK
+require not same_sem sp_tbl o dec
+require eq sp_dec sp_tbl w dec E_OK
 put dec 7 xor get dec 7 1
-require not same_sem o dec
+require not same_sem sp_tbl o dec
 note Read errors and partial EOF are distinct from clean EOF.
 require eq read_exact int -1 buf128 128 -1
 ret 0
