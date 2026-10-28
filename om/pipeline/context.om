@@ -1,0 +1,28 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Private graph-owned context tuple lookup, not a qualification or artifact schema.
+note Tuple4 is operation kind, layer index, window start, window rows.
+note keys capacity128; up to16 active tuples stride4. Unused cells ignored.
+fn pc_same keys view ulong 128 off ulong actual view ulong 4 to bool
+for j ulong 4
+if ne get keys add off j get actual j
+ret false
+end
+end
+ret true
+end
+note Return unique 1-based context ordinal,0 absent,-1 invalid count/duplicate match.
+fn native_context keys view ulong 128 count ulong actual view ulong 4 to long
+if gt count 16
+ret -1
+end
+hit = long 0
+for i ulong count
+if pc_same keys mul i 4 actual
+if ne hit 0
+ret -1
+end
+hit = long add i 1
+end
+end
+ret hit
+end
