@@ -86,6 +86,28 @@ Main, acting for Drake, authorized this separately pinned mode; the original
 a wrong-seed mutant. The generated identities pin both frontend and converter
 bytes, not merely a moving branch name.
 
+The x86 numeric source/header divergence from Omega's retained CPU oracles is
+intentional. Main authorized four explicit cutover blob pins, each with a
+rationale, in `tools/extract/drift-baseline.tsv:2`; no wildcard exclusion is
+used. `tools/extract/drift.sh:110` mutates each retained source/header and
+requires a named drift failure, preserving future change detection.
+
+The Ampere oracle also exposed the historical sm_121 `BW_IR_LDG_MMIO` mismatch:
+its header promises MMIO.GPU but its old encoder emits EF
+([issue #171](https://github.com/aien-dev/CUDApp/issues/171)).
+The sm_86 expectation enforces the IR's MMIO.GPU contract, retaining every
+operand and rejecting an EF mutant; it does not equate the cache policies.
+The sm_121 correction is isolated in a separate PR and is not part of this
+port. No disassembly result establishes cache coherence or device behavior.
+
+SM86 `BRA` uses a byte-displacement field rather than SM121's split field.
+The corpus oracle retains exact branch/join destinations and barrier registers;
+wrong-target and wrong-barrier controls must fail. SM86 BSSY/BSYNC omit SM121's
+printed `.RECONVERGENT` qualifier, not its reconvergence semantics.
+Signed-field arithmetic is recorded with its Wolfram query and result in
+`evidence/CUDAPP-AMPERE/wolfram-branch.txt`. FSUB's source negate bit is also
+checked independently; FADD cannot satisfy the subtraction contract.
+
 ## First real run: operator-provided access
 
 Provide, for **each card**: which machine holds it, the machine's OS/distribution

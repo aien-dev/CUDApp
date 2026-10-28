@@ -1,4 +1,4 @@
-note ampere_enc_sm86.om: explicit SM86 encoder; the SM121 encoder is unchanged.
+note Explicit SM86 encoder; SM121 uses its separate bw_enc_sm121.om unit.
 note Input layout matches bw_enc_sm121.om. Global addresses are plain 64-bit registers,
 note not Blackwell descriptors. Parameter constants move from byte 896 to byte 352.
 note The final preflight validates every operand and instruction before storing any output.
@@ -366,15 +366,14 @@ end
 ret 1
 end
 
-note op 46: BRA. rel = imm - 1 as int32; low 6 bits at w0 18..23, rel arithmetic-shifted by 6 at w1 bit 2
+note SM86 BRA stores the signed byte displacement in w1 and low 18 bits of w2, not the SM121 split field.
 fn enc_bra o view ulong 16 w edit ulong 4 to ulong
 imm = get o 6
 rel = and sub imm 1 4294967295
-s = shr rel 6
-c = ulong 58720256
+s = and shl rel 4 4294967295
+c = or 58720256 shr rel 28
 if ge rel 2147483648
-s = or s 4227858432
-c = 58982399
+c = or 58982384 shr rel 28
 end
 d = get o 7
 if eq d 0
@@ -383,8 +382,8 @@ if and eq imm 0 eq get o 9 0
 d = NOPC
 end
 end
-a = or or 2375 shl pred o 12 shl and rel 63 18
-put4 w a and shl s 2 4294967295 c d
+a = or 2375 shl pred o 12
+put4 w a s c d
 ret 0
 end
 

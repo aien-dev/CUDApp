@@ -92,6 +92,19 @@ int main(void)
             len != nop_len || memcmp(code, legacy, len)) return 1;
         if (omega_bw_encode_program(&program, legacy, sizeof(legacy), &len)) return 1;
     }
+    /* The FSUB source-B negate bit is semantic, not optional scheduling data. */
+    {
+        size_t len = 0;
+        init(); program.insns[0] = fixture(BW_IR_FSUB, 0);
+        if (omega_gpu_encode_program_target(&program, 86, code, sizeof(code), &len) ||
+            !(code[7] & 0x80)) return 1;
+    }
+    {
+        size_t len = 0;
+        init(); program.insns[0] = fixture(BW_IR_BRA, 0);
+        if (omega_gpu_encode_program_target(&program, 86, code, sizeof(code), &len) ||
+            code[4] != 16 || code[2] != 0) return 1;
+    }
     init(); program.insns[0] = fixture(BW_IR_NOP, 0); if (refused(80)) return 1;
     program.count = 2; program.insns[1] = fixture(60, 0); if (refused(86)) return 1;
     init(); program.insns[0] = fixture(BW_IR_HMMA_BF16, 0); program.insns[0].imm = OMEGA_QMMA_MARK; if (refused(86)) return 1;

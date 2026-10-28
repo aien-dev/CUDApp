@@ -29,6 +29,7 @@ test-ampere-encoder: $(AMPERE_ENCODER_TEST)
 test-ampere-encoder-oracle: $(AMPERE_ENCODER_TEST) $(OUT_DIR)/ampere_math_device \
 		$(OUT_DIR)/ampere_families $(OUT_DIR)/ampere_matmul_families sm121dis-corpus-bins
 	@test "$(CUDAPP_AMPERE_CORPUS)" = 1 || { echo 'use CUDAPP_AMPERE_CORPUS=1 and a fresh OUT_DIR' >&2; exit 1; }
+	@rm -rf -- $(AMPERE_ORACLE_CORPUS)
 	@mkdir -p $(AMPERE_ORACLE_CORPUS)/sm121
 	OMEGA_AMPERE_CORPUS_DIR=$(abspath $(AMPERE_ORACLE_CORPUS)) ./$(AMPERE_ENCODER_TEST)
 	OMEGA_AMPERE_CORPUS_DIR=$(abspath $(AMPERE_ORACLE_CORPUS)) ./$(OUT_DIR)/ampere_families

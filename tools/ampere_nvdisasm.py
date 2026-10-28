@@ -62,6 +62,11 @@ def compare(exe, reference, actual, ops=()):
     for i, op in enumerate(ops):
         if op == 21:
             expected[i] = re.sub(r"\bLDG\.E\.EF\b", "LDG.E.MMIO.GPU", expected[i])
+        if op in (54, 55):
+            # SM86 BSSY/BSYNC are reconvergence-barrier operations. SM121's
+            # explicit RECONVERGENT qualifier is not an SM86 mnemonic;
+            # retain each barrier register, guard, and exact join address.
+            expected[i] = re.sub(r"\b(BSSY|BSYNC)\.RECONVERGENT\b", r"\1", expected[i])
     observed = [normalize(x, "SM86") for x in decode(exe, "SM86", actual)]
     if expected != observed:
         for i, (a, b) in enumerate(zip(expected, observed)):
@@ -83,6 +88,10 @@ def main():
     mutation = None
     uniform_dst_mutation = None
     mmio_mutation = None
+    subtraction_mutation = None
+    branch_mutation = None
+    reconvergence_mutation = None
+    sync_barrier_mutation = None
     for actual in pairs:
         prefix = str(actual)[:-len("sm86.bin")]
         reference = Path(prefix + "sm121.bin").read_bytes()
@@ -119,6 +128,22 @@ def main():
             # Historical EF word must not satisfy the Ampere MMIO contract.
             struct.pack_into("<I", changed, i * 16 + 8, 202250496)
             mmio_mutation = (reference, bytes(changed), ops)
+        if subtraction_mutation is None and 31 in ops:
+            changed = bytearray(code)
+            changed[ops.index(31) * 16 + 7] &= 0x7f
+            subtraction_mutation = (reference, bytes(changed), ops)
+        if branch_mutation is None and 46 in ops:
+            changed = bytearray(code)
+            changed[ops.index(46) * 16 + 4] ^= 0x10
+            branch_mutation = (reference, bytes(changed), ops)
+        if reconvergence_mutation is None and 54 in ops:
+            changed = bytearray(code)
+            changed[ops.index(54) * 16 + 4] ^= 0x10
+            reconvergence_mutation = (reference, bytes(changed), ops)
+        if sync_barrier_mutation is None and 55 in ops:
+            changed = bytearray(code)
+            changed[ops.index(55) * 16 + 2] ^= 1
+            sync_barrier_mutation = (reference, bytes(changed), ops)
     missing = set(range(60)) - coverage
     if missing:
         raise RuntimeError(f"opcode coverage missing: {sorted(missing)}")
@@ -146,6 +171,38 @@ def main():
         pass
     else:
         raise RuntimeError("negative control BROKEN: EF load satisfied MMIO contract")
+    if subtraction_mutation is None:
+        raise RuntimeError("subtraction modifier regression missing")
+    try:
+        compare(args.nvdisasm, *subtraction_mutation)
+    except RuntimeError:
+        pass
+    else:
+        raise RuntimeError("negative control BROKEN: FADD satisfied the FSUB contract")
+    if branch_mutation is None:
+        raise RuntimeError("Ampere branch displacement regression missing")
+    try:
+        compare(args.nvdisasm, *branch_mutation)
+    except RuntimeError:
+        pass
+    else:
+        raise RuntimeError("negative control BROKEN: wrong branch destination accepted")
+    if reconvergence_mutation is None:
+        raise RuntimeError("Ampere reconvergence join regression missing")
+    try:
+        compare(args.nvdisasm, *reconvergence_mutation)
+    except RuntimeError:
+        pass
+    else:
+        raise RuntimeError("negative control BROKEN: wrong reconvergence join accepted")
+    if sync_barrier_mutation is None:
+        raise RuntimeError("Ampere reconvergence barrier regression missing")
+    try:
+        compare(args.nvdisasm, *sync_barrier_mutation)
+    except RuntimeError:
+        pass
+    else:
+        raise RuntimeError("negative control BROKEN: wrong reconvergence barrier accepted")
     refused = list(args.corpus.glob("*.refused"))
     refused_markers = {imm for file in refused for op, imm in struct.iter_unpack("=II", file.read_bytes())
                        if (op, imm) in {(16, 0x51303832), (37, 0x46453433)}}
@@ -153,6 +210,7 @@ def main():
         raise RuntimeError("native FP8 QMMA and E4M3 conversion refusal coverage missing")
     print(f"SM86 offline oracle: {len(pairs)} kernels, every opcode/operand matched; mutated operand refused;")
     print(f"native FP8 refusals: {len(refused)} kernels. Device qualification: NOT_RUN")
+    print("MMIO policy, subtraction sign, branch target, reconvergence join/barrier controls refused")
 
 
 if __name__ == "__main__":
