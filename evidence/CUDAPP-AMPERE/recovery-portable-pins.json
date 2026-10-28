@@ -1,0 +1,20 @@
+{
+  "status": "EXERCISED_HOST_ONLY",
+  "consumer_source": "dbb1b5002fd7d96ff4695b2da4dcb3238db226c2",
+  "canonical_base": "c6977b4906229fe83f41103b7eff65b64a0986d6",
+  "bridge_source": "cb492a76348546dc1ffe5857492e0796cfcec232",
+  "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+  "baseline_compiler_sha256": "191b776ef98821597c3e30655da6d680a9b66edbc9ceaca3c39c61ea6df098e9",
+  "generation": {"command": "OMEGA_SEED=<baseline> OMEGA_OMC=<seeded> OMEGA_BRIDGE=<bridge36> sh om/units.sh", "exit": 0, "hosted_roots": 37, "import_free_scalar_roots": 2},
+  "refusal_method": "Run sh om/units.sh with OMEGA_UNITS_DEST an empty temporary directory. Substitute /bin/true for compiler, or append one newline to exactly one pinned source/frontend in an isolated bridge copy. Require exit3 and no installed output files for each control.",
+  "refusals": [
+    {"mutation":"compiler", "exit":3, "installed_files":0},
+    {"mutation":"src/toc.om", "exit":3, "installed_files":0},
+    {"mutation":"src/freest.om", "exit":3, "installed_files":0},
+    {"mutation":"tools/bridge-seeded", "exit":3, "installed_files":0},
+    {"mutation":"tools/bridge-freest", "exit":3, "installed_files":0}
+  ],
+  "native_x86_compiler_923": "FAILING_SEPARATE_WORK_NOT_A_DEPENDENCY",
+  "device": "NOT_RUN",
+  "historical_receipts": "UNCHANGED"
+}

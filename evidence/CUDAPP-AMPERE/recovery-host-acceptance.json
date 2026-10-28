@@ -1,0 +1,31 @@
+{
+  "status": "EXERCISED_HOST_ONLY",
+  "source": "dbb1b5002fd7d96ff4695b2da4dcb3238db226c2",
+  "bridge": "cb492a76348546dc1ffe5857492e0796cfcec232",
+  "host": "Linux AArch64",
+  "command": "make -j2 OUT_DIR=build-ampere-final OMEGA_SEED=<baseline191b776> OMEGA_OMC=<seeded2c82480> OMEGA_MV=<seed-checkout> OMEGA_BRIDGE=<bridge36> OMEGA_BRIDGE_DIR=<bridge36> all test test-native-artifact zero-cuda-gate ampere-device-build",
+  "exit": 0,
+  "final_verdict": "CUDA++ HOST TESTS PASS (57 targets)",
+  "observed": [
+    "PASS portable Omega units regenerate byte for byte: 37 hosted plus separate revision and epoch scalar translation units",
+    "PASS NATIVE_REAL_COMPOSE_CAPACITY_REFUSES_WITHOUT_TRAP",
+    "freestanding malloc-import allowlist negative control refused",
+    "native artifact manifest: 70 checks, 0 failed",
+    "artifact export: 47 checks, 0 failed",
+    "ZERO_CUDA SELF-TEST PASS; both final executable probes PASS",
+    "VENDORED PASS: 68 files match hashes, none unlisted",
+    "encoder differential: 68 golden instructions and 14 fixture programs; flipped-bit control refused",
+    "cubin differential: 869 calls, 750 images; flipped-image-bit control refused",
+    "AMPERE CUBIN HOST PASS and AMPERE NUMERIC HOST PASS",
+    "Ampere simulated RM allocation, QMD/class, session-ordering and argument serialization PASS",
+    "Ampere VRAM reserve and mismatched-target simulated refusals PASS",
+    "Ampere simulated doctor, math oracle negative controls, emit-only and hello simulator PASS",
+    "existing backend mutants: 120 total, 107 killed, 13 classified redundant, 0 test gaps"
+  ],
+  "verification_runner_note": "An earlier Python capture invocation was interrupted by a queued Eval-cell deadline before saving its log; it is not counted as acceptance. The durable shell invocation above completed normally. Raw session artifact: artifact://540.",
+  "native_x86_consumer_ci": "NOT_OBSERVED",
+  "native_x86_omega_compiler_923": "SEPARATE_FAILING_ROUTE_NOT_A_DEPENDENCY",
+  "RTX3090": "NOT_RUN",
+  "RTX3060Ti": "NOT_RUN",
+  "GPU_or_live_service_actions": "NONE"
+}

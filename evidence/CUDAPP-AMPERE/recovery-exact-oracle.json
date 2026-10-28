@@ -1,0 +1,18 @@
+{
+  "status": "EXERCISED_HOST_ONLY",
+  "source": "dbb1b5002fd7d96ff4695b2da4dcb3238db226c2",
+  "nvdisasm_version": "13.0.85",
+  "nvdisasm_sha256": "bc40070d596fa49b81c0905ca1d05e457aaec071280f742997d4a0b511781b25",
+  "producer_command": "make -j2 OUT_DIR=build-ampere-oracle-final CUDAPP_AMPERE_CORPUS=1 OMEGA_SEED=<baseline191b776> OMEGA_OMC=<seeded2c82480> OMEGA_MV=<seed-checkout> OMEGA_BRIDGE=<bridge36> test-ampere-encoder-oracle",
+  "producer_result": "All producer commands exited0; SM121 capture contained773 kernels; Ampere math emission PASS. Overall make deadline600s expired while running the comparison. This invocation is not reported as PASS.",
+  "completed_comparison_command": "python3 tools/ampere_nvdisasm.py build-ampere-oracle-final/ampere-oracle-corpus",
+  "completed_comparison_exit": 0,
+  "completed_comparison_output": [
+    "SM86 offline oracle: 2169 kernels, every opcode/operand matched; mutated operand refused;",
+    "native FP8 refusals: 73 kernels. Device qualification: NOT_RUN",
+    "MMIO policy, subtraction sign, branch target, reconvergence join/barrier controls refused",
+    "IADD3's discarded PT outputs retained semantically; unexpected carry output refused"
+  ],
+  "SM121_MMIO_repair": "Separate issue171/draft172, source885e32017eaae6208719eefcfa516ceaa853a846. Do not treat historical EF as an alias of MMIO.GPU; explicit per-op expected semantics are retained here.",
+  "device_qualification": "NOT_RUN"
+}

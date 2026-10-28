@@ -51,7 +51,7 @@ Blackwell header.
 | Safe reserve refusal proof | DONE | `tests/ampere/memory_refusal.c:39` sets reserve above total VRAM (therefore above free VRAM even if other processes release memory), then requests only a small allocation. It requires refusal, zero intervening RM allocation ioctls and unchanged free VRAM. Simulated-driver coverage is separate from this real-device test. It never pressure-allocates VRAM. |
 | Open-module and device selection doctor | DONE | `tests/ampere/doctor.py:79` verifies Linux x86_64, the exact pinned open module, requested PCI IDs, device nodes and an unambiguous BDF. `CUDAPP_GPU_BDF` selects that exact GPU in the driver client. `test_doctor.py` uses a fake filesystem and is always SIMULATED. No driver is opened by the doctor. |
 | Portable Omega build provenance | IMPLEMENTED | `om/units.sh` covers all canonical hosted roots plus Ampere encoding/runtime and the separate revision/epoch freestanding profile. Checked portable generated translation units replace executable-code trampolines. `om/omega-bridge.lock`, per-unit identities and generated declarations retain exact composed-source SHA → C SHA provenance. Missing/mismatched converter, profile or seed refuses before installation. Final host acceptance is recorded separately below. |
-| Native x86_64 host build | DONE | `.github/workflows/ampere-x86.yml:13` uses a native Ubuntu x86 runner for the full host build/tests and offline oracle. `src/omega_numeric.c:31` adds the x86 host-reference tier using scalar SSE/fused libm where appropriate; integer-defined conversions are not mislabeled as an independent conversion oracle. Local x86 emulation, if run, is labeled HOST_EMULATED separately. |
+| Native x86_64 host build | IMPLEMENTED | `.github/workflows/ampere-x86.yml` schedules a native Ubuntu x86 runner for the full host build/tests and offline oracle. Adding the job is not a successful run: current-head native CI was not observed during recovery. `src/omega_numeric.c` supplies the x86 host-reference tier; integer-defined conversions are not mislabeled as an independent oracle. Converter scalar x86 emulation is HOST_EMULATED, not whole-consumer native acceptance. |
 | Device test plan / runner | DONE | `tests/ampere/README.md`, `doctor.py`, `run.py`, `math_device.c`, and `memory_refusal.c` cover doctor, complete vector-add output, intentionally failing vector-add, exhaustive unary math, a numerical negative control and safe memory refusal. The runner starts each result at NOT_RUN, records real outputs and stops on failure. |
 | GA102 / GA104 execution and qualification | BLOCKED | No RTX device is attached or authorized here. Both device states remain NOT_RUN. Need the actual host, OS, driver version, SSH access and a GPU window before any real execution. |
 
@@ -65,6 +65,31 @@ programs without executing them. The instruction oracle command is:
 ```sh
 make OUT_DIR=build-ampere-oracle CUDAPP_AMPERE_CORPUS=1 test-ampere-encoder-oracle
 ```
+
+Recovery host acceptance at `dbb1b5002fd7d96ff4695b2da4dcb3238db226c2`
+used bridge `cb492a76348546dc1ffe5857492e0796cfcec232`, after preserving
+the interrupted index at `3e4145d3` and integrating canonical `c6977b49`
+plus the accepted capacity-refusal source/tests through `ca441c5a`.
+`make -j2 OUT_DIR=build-ampere-final all test test-native-artifact
+zero-cuda-gate ampere-device-build` exited zero on the AArch64 host:
+`CUDA++ HOST TESTS PASS (57 targets)`. This includes byte-identical
+regeneration of all 39 roots, real compose-capacity refusal, import-free
+scalar linkage/allowlist controls, Ampere simulated ordering and VRAM
+admission, numeric/cubin checks, and existing encoder/cubin differentials.
+The five compiler/converter/frontend mutation controls each refused with
+exit 3 and installed no output ([pin receipt](../evidence/CUDAPP-AMPERE/recovery-portable-pins.json)).
+These are host results, not RTX execution or a native x86 compiler result.
+
+The fresh instrumented producer run captured 773 SM121 kernels and emitted
+the Ampere math corpus. Its 600-second make deadline expired during decoding;
+the completed standalone comparison then exited zero: 2169 SM86 kernels,
+every opcode and operand matched, 73 native-FP8 refusals. Register operand,
+uniform destination, EF-versus-MMIO.GPU policy, subtraction sign, branch,
+reconvergence join/barrier and carry-output mutants were refused.
+See [exact oracle receipt](../evidence/CUDAPP-AMPERE/recovery-exact-oracle.json).
+The legacy SM121 MMIO repair remains separate in issue171/draft172;
+its unchanged 773-kernel and four-artifact impact receipts are not hardware
+qualification and are not silently folded into Ampere's expected semantics.
 
 The [device plan](../tests/ampere/README.md) keeps separate NOT_RUN entries for
 every check on each card. Exhaustive math uses the intended NVIDIA PTX bounds,
