@@ -1,0 +1,20 @@
+{
+  "extensions": {
+    "generated": {
+      "children": [],
+      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiled_at": "2026-10-28T19:58:29Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:19bf03508a03ea9fe4a98949a6144d2590f4500c3d7c6226c0c004a2d31f7508",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 1,
+      "generated_at_commit": "067815f8580206f1bbccd7fa302c1ac354029910",
+      "source_tree": "sha256:4c752a1a64a5b6c9c7df491445eb1f6ed00794628aa43a133b6e358b601036d9"
+    }
+  },
+  "layer": "numeric",
+  "name": "numeric",
+  "purpose": "Portable scalar numeric conversions, IEEE binary32 to binary16 RNE",
+  "schema_version": "1.0.0"
+}
