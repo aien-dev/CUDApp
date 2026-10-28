@@ -21,6 +21,15 @@ build/hello_gpu --sim   # simulator, not a hardware result
 make doctor             # diagnostic; may report NOT READY on other hosts
 ```
 
+The standalone grouped-MoE host acceptance is `sh tests/moe/run.sh`. Set
+`OMEGA_OMC` and `OMEGA_BRIDGE` to the exact pins in `om/units.sh`; set
+`QUANT_ROOT`, `CACHE_ROOT`, `COMPOSE_ROOT` and `PIPELINE_ROOT` to the same
+canonical checkout under test. Its included graph oracle uses GNU11, matching
+the production build's POSIX interfaces; strict ISO C11 alone does not expose
+`strnlen`. The generated native caller remains compiled with strict C11.
+The runner exercises index/admission, incumbent grouping, sparse rank and
+refusal/mutant controls without opening a GPU. It is not whole-model evidence.
+
 Only on a qualified GB10 when it is safe to use the GPU (never interrupt a live service):
 
 ```sh
