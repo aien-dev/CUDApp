@@ -1,8 +1,38 @@
 note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 note Concatenate residency.om before this native host test. No GPU or new session.
+fn kc_test_zero to int
+p = new ulong 528 0
+r = new ulong 16 0
+put r 1 121
+put r 2 1
+put r 3 1
+put r 7 1
+if ne kc_init p 0 121 10 1 0
+ret 1
+end
+if ne kc_prepare p r 1
+ret 2
+end
+if ne kc_commit p 0 1 0 0
+ret 3
+end
+if ne kc_pin p 0 1 0 0
+ret 4
+end
+if ne kc_invalidate p 1 121 0
+ret 5
+end
+if ne kc_pin p 0 1 0 -2
+ret 6
+end
+ret 0
+end
 fn main to int
 p = new ulong 528 0
 r = new ulong 16 0
+if ne kc_test_zero 0
+ret 43
+end
 if ne kc_init p 1 121 100 1 0
 ret 1
 end

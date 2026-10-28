@@ -18,7 +18,7 @@ fn kc_init p edit ulong 528 gen ulong profile ulong budget ulong slots ulong to 
 if ne get p 0 0
 ret -8
 end
-if or eq gen 0 or eq profile 0 or eq budget 0 or eq slots 0 gt slots 32
+if or eq profile 0 or eq budget 0 or eq slots 0 gt slots 32
 ret -1
 end
 for i ulong 528
