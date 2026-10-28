@@ -128,6 +128,19 @@ with the runner's C compiler, checked with `readelf`, then exercised by the
 unchanged acceptance targets. QEMU is neither linked into production nor an
 implementation dependency; its intended Omega replacement is the separate
 native x86 compiler, which still fails and is not assumed usable.
+The native x86 consumer acceptance for source
+`592cee255eaba4b86c5a823ed071c2773a3d4f13` completed successfully in
+[run 40762515409](https://github.com/aien-dev/CUDApp/actions/runs/40762515409),
+which checked out PR merge `6a2b759333ce791663d0107949659c7a3cd887bb`.
+It reported 58 host targets, byte-identical regeneration of all 40 portable
+roots, half-conversion boundary/sweep/mutant controls, the unchanged
+freestanding import allowlist, and the 2169-kernel offline SM86 oracle.
+The compiler/converter provenance executions remain EMULATED; the three
+consumer ELF headers were checked as x86-64. Physical RTX execution remains
+NOT_RUN. A separate CodeQL finding in the offline cubin fixture writer is
+repaired by explicitly creating new output files with mode 0600, independent
+of the caller's umask; this does not change the cubin bytes or production code.
+
 
 `om/numeric/f16.om` implements the freestanding conversion; the C caller
 only bitcasts the input and calls its checked scalar ABI. The hosted

@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* Host-only ELF/container checks. No driver, libcuda or device access. */
 #include "omega_cubin.h"
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); return 1; } } while (0)
 static uint16_t u16(const uint8_t *p) { return (uint16_t)(p[0] | (uint16_t)p[1] << 8); }
@@ -66,7 +68,10 @@ int main(int argc, char **argv) {
     CHECK(!target_matches(image, n, 86)); /* negative control: wrong ABI */
     image[8] = 7;
     if (argc == 2) {
-        FILE *f = fopen(argv[1], "wb");
+        /* Keep the offline fixture private even with a permissive umask. */
+        int fd = open(argv[1], O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+        FILE *f = fd >= 0 ? fdopen(fd, "wb") : NULL;
+        if (!f && fd >= 0) close(fd);
         CHECK(f != NULL);
         int wrote = fwrite(image, 1, n, f) == n;
         int closed = fclose(f) == 0;
