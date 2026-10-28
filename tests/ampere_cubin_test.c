@@ -68,7 +68,7 @@ int main(int argc, char **argv) {
     CHECK(!target_matches(image, n, 86)); /* negative control: wrong ABI */
     image[8] = 7;
     if (argc == 2) {
-        /* Keep the offline fixture private even with a permissive umask. */
+        /* Create new offline fixtures privately even with a permissive umask. */
         int fd = open(argv[1], O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
         FILE *f = fd >= 0 ? fdopen(fd, "wb") : NULL;
         if (!f && fd >= 0) close(fd);
