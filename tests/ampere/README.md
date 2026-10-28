@@ -159,3 +159,24 @@ A doctor PASS, disassembler PASS, or x86 host PASS must never be copied into a
 device result. No script modifies the qualified-device table. Only actual real-card
 results with the required negative controls can support a separate reviewed
 qualification change. Any failed check leaves the corresponding card unqualified.
+
+## Experimental native Omega x86 oracle
+
+This optional host-only probe does not change the production bridge-C route.
+Use a checkout of omega-mv draft #923 at
+`becf5c817bcb7e0846d12ebfc2be91042d8ad89a`; the probe verifies both that revision
+and its tracked AArch64 compiler fingerprint before compiling anything.
+
+```sh
+python3 tests/ampere/native_omega_x86.py \
+  --compiler-tree /path/to/pinned/omega-mv \
+  --output build/ampere-native-x86
+```
+
+The probe compiles all four actual units to x86 and executes composed small-unit
+callers under `qemu-x86_64`, comparing their output with native AArch64 and
+requiring negative controls to fail. Label these results **EMULATED**, not native
+x86 or device qualification. The cubin unit's full-size private-ABI buffers do
+not fit Omega's local-array/stack limits; its native private-ABI execution remains
+**NOT_RUN**, not a reduced-signature or fake-buffer PASS. The generated bridge-C
+cubin tests exercise the full-size host boundary separately.

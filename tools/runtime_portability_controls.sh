@@ -13,7 +13,7 @@ ok=0
 
 fresh() { # fresh <name>: scratch root with a copy of the GPU files and the table
 	r="$scratch/$1"; rm -rf "$r"; mkdir -p "$r/src"
-	cp src/omega_gpu_* src/omega_blackwell_* src/omega_bw_* "$r/src/"
+	cp src/omega_gpu_* src/omega_blackwell_* src/omega_bw_* src/omega_ampere_* "$r/src/"
 	cp "$table" "$r/table.tsv"
 }
 expect_fail() { # expect_fail <name> <pattern> <what was broken>
