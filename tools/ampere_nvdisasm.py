@@ -62,6 +62,10 @@ def compare(exe, reference, actual, ops=()):
     for i, op in enumerate(ops):
         if op == 21:
             expected[i] = re.sub(r"\bLDG\.E\.EF\b", "LDG.E.MMIO.GPU", expected[i])
+        if op == 14:
+            # SM86 omits the two discarded carry outputs; SM121 prints PT.
+            # Real predicate outputs are not removed and must still match.
+            expected[i] = expected[i].replace(", PT, PT,", ",", 1)
         if op in (54, 55):
             # SM86 BSSY/BSYNC are reconvergence-barrier operations. SM121's
             # explicit RECONVERGENT qualifier is not an SM86 mnemonic;
@@ -92,6 +96,8 @@ def main():
     branch_mutation = None
     reconvergence_mutation = None
     sync_barrier_mutation = None
+    carry_mutation = None
+    mismatches = []
     for actual in pairs:
         prefix = str(actual)[:-len("sm86.bin")]
         reference = Path(prefix + "sm121.bin").read_bytes()
@@ -103,7 +109,8 @@ def main():
         try:
             decoded = compare(args.nvdisasm, reference, code, ops)
         except RuntimeError as error:
-            raise RuntimeError(f"{actual.name}: {error}") from error
+            mismatches.append(f"{actual.name}: {error}")
+            continue
         coverage.update(op for op, _ in struct.iter_unpack("=II", metadata))
         if mutation is None:
             for i, text in enumerate(decoded):
@@ -144,6 +151,12 @@ def main():
             changed = bytearray(code)
             changed[ops.index(55) * 16 + 2] ^= 1
             sync_barrier_mutation = (reference, bytes(changed), ops)
+        if carry_mutation is None and 14 in ops:
+            changed = bytearray(code)
+            changed[ops.index(14) * 16 + 10] ^= 2
+            carry_mutation = (reference, bytes(changed), ops)
+    if mismatches:
+        raise RuntimeError("\n".join(mismatches))
     missing = set(range(60)) - coverage
     if missing:
         raise RuntimeError(f"opcode coverage missing: {sorted(missing)}")
@@ -203,6 +216,14 @@ def main():
         pass
     else:
         raise RuntimeError("negative control BROKEN: wrong reconvergence barrier accepted")
+    if carry_mutation is None:
+        raise RuntimeError("Ampere discarded-carry regression missing")
+    try:
+        compare(args.nvdisasm, *carry_mutation)
+    except RuntimeError:
+        pass
+    else:
+        raise RuntimeError("negative control BROKEN: unexpected carry output accepted")
     refused = list(args.corpus.glob("*.refused"))
     refused_markers = {imm for file in refused for op, imm in struct.iter_unpack("=II", file.read_bytes())
                        if (op, imm) in {(16, 0x51303832), (37, 0x46453433)}}
@@ -211,6 +232,7 @@ def main():
     print(f"SM86 offline oracle: {len(pairs)} kernels, every opcode/operand matched; mutated operand refused;")
     print(f"native FP8 refusals: {len(refused)} kernels. Device qualification: NOT_RUN")
     print("MMIO policy, subtraction sign, branch target, reconvergence join/barrier controls refused")
+    print("IADD3's discarded PT outputs retained semantically; unexpected carry output refused")
 
 
 if __name__ == "__main__":

@@ -107,6 +107,9 @@ printed `.RECONVERGENT` qualifier, not its reconvergence semantics.
 Signed-field arithmetic is recorded with its Wolfram query and result in
 `evidence/CUDAPP-AMPERE/wolfram-branch.txt`. FSUB's source negate bit is also
 checked independently; FADD cannot satisfy the subtraction contract.
+IADD3's discarded `PT` carry outputs are explicit on SM121 and implicit on
+SM86. Only those two discarded outputs are omitted from the target-specific
+expectation; an unexpected carry predicate must still fail the oracle.
 
 ## First real run: operator-provided access
 
