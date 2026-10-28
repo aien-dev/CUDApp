@@ -19,12 +19,14 @@ The caller supplies `ulong[16]` requests:
 | Words | Meaning |
 | --- | --- |
 | 0, 1 | Current session generation and admitted profile |
-| 2 | Uploaded code byte count |
+| 2 | Actual charged resident code allocation bytes, including upload padding |
 | 3 through 6 | SHA-256 realization digest, four little-endian u64 limbs |
 | 7 | Nonzero, strictly increasing registration owner ticket within the session |
 | 8 through 15 | Reserved; caller initializes to zero |
 
 The pool contains no device handles or addresses. Callers must not mutate pool cells directly. `kc_revision(pool,slot,generation)` returns zero for invalid/stale/busy entries and otherwise the nonzero resident revision. `kc_livebytes` reports committed resident code bytes for the current generation. The header also records lookup hits, misses and committed evictions; these are bookkeeping, not timing or serving-throughput evidence.
+
+The existing allocator is authoritative for word 2: use `omega_gpu_code_alloc_bytes(code_size)`, exactly as `omega_gpu_session_alloc_code` does, without duplicating its padding arithmetic. Raw payload length is separately bound by `kc_validate`'s `sizes[1]` and the code digest. `kc_request` deliberately preserves the caller's charged size. `kc_find` refuses an inconsistent charged size for an otherwise identical resident key; a hash hit cannot detach physical budget accounting from the real allocation. Selector row 16 carries the same charged allocation size.
 
 ### Lifecycle
 
@@ -50,5 +52,7 @@ Concatenate `digest.om` and `digest_test.om`, compile, then feed exact stdin byt
 Concatenate `quant.om`, `realize.om`, `digest.om`, `residency.om`, `artifact.om`, Composer's `fixture.om`, then `artifact_test.om`. This host-only fixture invokes the sole-owner QuantSchema/Composer serializers, validates payload hashes and launch declarations, constructs a cache request, commits residency, and proves a changed valid scale declaration misses. It also refuses changed scale, tile, spec, target and numerical identities; corrupt code; malformed launch framing; canonical padding; wrong stored keys; and invalid payload bounds. Synthetic fixture payloads and lineage digests are not production artifacts. Omitting QuantSchema bytes from the hash makes the unchanged test exit 12; skipping launch declaration consistency makes it exit 23.
 
 `host-evidence.json` records the initial exercised source at commit `f0909113243674eeda1cf7539710ac425978e2f1`, dependency hashes, compiler and executable identities, digest oracle vectors, native caller exits and caught mutants. `generation-evidence.json` preserves that receipt and adds the final source hashes, immutable QuantSchema/Composer dependency commits, generation-zero compatibility caller, and the caught zero-generation rejection mutant. Storage capacity bookkeeping is supported by the mounted Wolfram query `16+32*16 -> 528` in `/home/drakestapleton/handoffs/wolfram-lane-query-results-20261028.json`; it proves no lifetime property.
+
+`digest-varied-evidence.json` additionally checks exact varied source and native-executable byte prefixes against the independent SHA-256 oracle. These exercise direct full-block byte order, not only repeated-byte padding boundaries.
 
 Host policy checks are not upload, launch, whole-model or hardware qualification. Hardware upload timing, paired cold/warm microbenchmarks and full-model acceptance remain NOT_RUN until an explicitly authorized window. Production bridge registration and existing runtime caller cutover are coordinated by the integration owner, not duplicated in this directory.
