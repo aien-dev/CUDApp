@@ -102,10 +102,10 @@ text Rt00098 "},\"encoder_source_sha256\":{"
 text Rt00099 "om/encoder/bw_enc_sm121.om"
 text Rt00100 "om/encoder/bw_spec_sm121.om"
 text Rt00101 "},\"tool_versions\":{\"nvdisasm\":"
-text Rt00102 "usage: conductor OMC ENCODER_ROOT NVDISASM CC SHA256SUM\n"
+text Rt00102 "usage: conductor OMC ENCODER_ROOT NVDISASM CC SHA256SUM QUANT_SOURCE\n"
 text Rt00103 "build"
 text Rt00104 "build/components"
-text Rt00105 "PASS native Omega component conductor: 8 direct, 14 rowpipe, 5 staged; independent numerics/bytes/disassembly/refusals\n"
+text Rt00105 "PASS native Omega component conductor: 8 direct, 14 rowpipe, 6 staged; independent numerics/bytes/disassembly/refusals and staged structural controls\n"
 text RtBytes ",\"code_bytes\":"
 text RtCcVer ",\"cc\":"
 text RtShaVer ",\"sha256sum\":"
@@ -129,6 +129,84 @@ text RtSrc10 "src/omega_blackwell_codegen_moe2.c"
 text RtSrc11 "src/omega_blackwell_codegen_gemm.c"
 text RtSrc12 "src/omega_blackwell_codegen.h"
 text RtSrc13 "tests/components/wolfram.json"
+global HQuant uchar 1024
+global HQn ulong 1
+text RtQuant "om/quant/quant.om"
+text RtQPin "44bce96f3c274401e19a71b835814d69caf2bea8c2b1f4f43616c7c121232f09"
+text RtAdmit "om/components/admit.om"
+text RtRUnit "tests/components/record-unit.om"
+text RtRBin "build/components/record-unit"
+text RtRMut "build/components/record-mutant"
+text RtGuard "if lt compose_word b 22 add get actual 1 2"
+text RtWeak "if false"
+text RtRKey ",\"staged_structural_result\":"
+text RtRcpt "tests/components/host-receipt.json"
+fn rc_publish to void
+b = new uchar 262144 0
+n = hp_read Rt00072 len Rt00072 b len b
+hp_require gt n 0
+hp_write RtRcpt len RtRcpt b n
+end
+fn rt_qpath path edit uchar 1024 to ulong
+used = get HQn 0
+for j ulong used
+put path j get HQuant j
+end
+ret used
+end
+fn rt_qpin to void
+path = new uchar 1024 0
+n = rt_qpath path
+h = new uchar 64 0
+rh_get path n h
+for j ulong 64
+hp_require eq get h j get RtQPin j
+end
+end
+note Build a concrete weak-GPR checker mutant without changing checked-in production source.
+fn rt_weak to void
+hits = ulong 0
+used = get HUsed 0
+for pos ulong sub used len RtGuard
+same = uint 1
+for j ulong len RtGuard
+if ne get HSrc add pos j get RtGuard j
+same = 0
+end
+end
+if ne same 0
+hits = add hits 1
+for j ulong len RtGuard
+c = uchar 32
+if lt j len RtWeak
+c = get RtWeak j
+end
+put HSrc add pos j c
+end
+end
+end
+hp_require eq hits 1
+end
+fn rt_record kind ulong to void
+path = new uchar 1024 0
+n = rt_qpath path
+hp_cat path n
+rt_nl
+hp_cat Rt00095 len Rt00095
+rt_nl
+hp_cat RtAdmit len RtAdmit
+rt_nl
+hp_cat Rt00094 len Rt00094
+rt_nl
+hp_cat RtRUnit len RtRUnit
+rt_nl
+if eq kind 7
+rt_weak
+hp_build RtRMut len RtRMut
+else
+hp_build RtRBin len RtRBin
+end
+end
 
 fn rt_nl to void
 pos = get HUsed 0
@@ -167,19 +245,19 @@ hp_cat Rt00004 len Rt00004
 rt_nl
 hp_cat Rt00005 len Rt00005
 rt_nl
-if or eq kind 2 eq kind 4
+if or ge kind 6 or eq kind 2 eq kind 4
 hp_cat Rt00006 len Rt00006
 rt_nl
 end
-if or eq kind 2 eq kind 5
+if or ge kind 6 or eq kind 2 eq kind 5
 hp_cat Rt00007 len Rt00007
 rt_nl
 end
-if eq kind 2
+if or eq kind 2 ge kind 6
 hp_cat Rt00008 len Rt00008
 rt_nl
 end
-if ge kind 3
+if and ge kind 3 le kind 5
 rt_enc Rt00009 len Rt00009
 rt_spec
 hp_cat Rt00010 len Rt00010
@@ -209,6 +287,9 @@ if eq kind 5
 hp_cat Rt00020 len Rt00020
 rt_nl
 hp_build Rt00019 len Rt00019
+end
+if ge kind 6
+rt_record kind
 end
 end
 note execprog intentionally supplies an empty environment; locate the selected cc toolchain explicitly.
@@ -405,6 +486,15 @@ used = hp_read path n b 8192
 hp_require gt used 0
 rc_quote b used
 end
+fn rc_record fam ulong idx ulong to void
+path = new uchar 256 0
+n = kc_name fam idx KCRText path
+b = new uchar 1024 0
+used = hp_read path n b 1024
+hp_require gt used 0
+rc_text RtRKey len RtRKey
+rc_quote b used
+end
 fn rc_case fam ulong idx ulong cfg view ulong 16 to void
 if ne get RCCount 0 0
 rc_text Rt00060 len Rt00060
@@ -438,6 +528,9 @@ rc_text RtBytes len RtBytes
 rc_num get KCBytes 0
 rc_text Rt00069 len Rt00069
 rc_numout
+if eq fam 3
+rc_record fam idx
+end
 rc_text Rt00070 len Rt00070
 put RCCount 0 add get RCCount 0 1
 end
@@ -455,7 +548,7 @@ put RCCount 0 0
 rc_text Rt00073 len Rt00073
 end
 fn rc_finish to void
-hp_require eq get RCCount 0 27
+hp_require eq get RCCount 0 28
 rc_text Rt00074 len Rt00074
 rc_hash Rt00075 len Rt00075
 rc_source Rt00076 len Rt00076
@@ -494,6 +587,14 @@ rc_source RtSrc10 len RtSrc10
 rc_source RtSrc11 len RtSrc11
 rc_source RtSrc12 len RtSrc12
 rc_source RtSrc13 len RtSrc13
+rc_source RtAdmit len RtAdmit
+rc_source RtRUnit len RtRUnit
+rc_text Rt00060 len Rt00060
+rc_quote RtQuant len RtQuant
+rc_text Rt00071 len Rt00071
+path = new uchar 1024 0
+n = rt_qpath path
+rc_hash path n
 rc_text Rt00098 len Rt00098
 rc_quote Rt00099 len Rt00099
 rc_text Rt00071 len Rt00071
@@ -539,7 +640,7 @@ hp_require gt used 0
 rc_quote b used
 end
 fn main to int
-if ne argcnt 6
+if ne argcnt 7
 z = write 2 Rt00102 0 len Rt00102
 ret 64
 end
@@ -558,6 +659,9 @@ put HCn 0 ulong n
 n = argread 5 HSha 0 1024
 hp_require and gt n 0 le n 1024
 put HSn 0 ulong n
+n = argread 6 HQuant 0 1024
+hp_require and gt n 0 le n 1024
+put HQn 0 ulong n
 z = makedir Rt00103 0 len Rt00103 493
 hp_require or eq z 0 eq z -17
 z = makedir Rt00104 0 len Rt00104 493
@@ -565,13 +669,17 @@ hp_require or eq z 0 eq z -17
 rt_pin
 rt_epin Rt00099 len Rt00099 RtEncPin
 rt_epin Rt00100 len Rt00100 RtSpPin
+rt_qpin
 for i ulong 5
 rt_comp add i 1
 rt_cc add i 1
 end
+rt_comp 6
+rt_comp 7
 rc_begin
 kc_cases
 rc_finish
+rc_publish
 z = write 1 Rt00105 0 len Rt00105
 ret 0
 end

@@ -40,9 +40,13 @@ text KCUnk "UNKNOWN"
 text KCSbB "--sb-b"
 text KCSbRd "--sb-rd"
 text KCBranch "--branch"
+text KCRText ".record"
+text KCRBad ".record-mutant"
+text KCRec "build/components/record-unit"
+text KCRecMut "build/components/record-mutant"
 text KCDSpecs "256 8 1 4 0\n256 8 1 4 1\n512 16 1 4 0\n512 16 1 4 1\n2048 8 2 8 0\n2048 8 2 8 1\n4096 16 4 16 0\n4096 16 4 16 1\n"
 text KCRSpecs "256 8 1 1\n768 8 1 5\n512 16 8 16\n4096 16 1 32\n256 8 2 1\n256 8 4 1\n256 8 8 1\n512 16 1 1\n512 16 2 3\n512 16 4 3\n1024 8 1 2\n2048 16 1 4\n1536 16 1 5\n1024 16 2 3\n"
-text KCSSpecs "2048 16 4 16 0\n2048 16 8 16 0\n2048 16 4 16 1\n768 8 4 8 0\n1024 16 4 16 0\n"
+text KCSSpecs "2048 16 4 16 0\n2048 16 8 16 0\n2048 16 4 16 1\n768 8 4 8 0\n1024 16 4 16 0\n256 8 4 8 0\n"
 
 fn kc_piece dst edit uchar * pos ulong src view uchar * used ulong to ulong
 hp_require le used sub len dst pos
@@ -339,6 +343,26 @@ hp_arg KCOne len KCOne
 end
 kc_run -1 output on 0
 end
+fn kc_record fam ulong idx ulong expect view uchar * en ulong to void
+path = new uchar 256 0
+for mutant ulong 2
+fd = int fopen expect 0 en 0 0
+hp_require ge fd 0
+status = long 0
+n = ulong 0
+if eq mutant 0
+n = kc_name fam idx KCRText path
+hp_start KCRec len KCRec
+else
+n = kc_name fam idx KCRBad path
+hp_start KCRecMut len KCRecMut
+status = 70
+end
+kc_args fam
+kc_run fd path n status
+hp_require eq fclose fd 0
+end
+end
 fn kc_positive fam ulong idx ulong to void
 path = new uchar 256 0
 expect = new uchar 256 0
@@ -367,6 +391,9 @@ hp_require hp_cmp actual get KCAn 0 expect en
 kc_extract fam
 kc_dis fam idx
 kc_numeric fam
+if eq fam 3
+kc_record fam idx expect en
+end
 for j ulong 16
 put cfg j get KCCfg j
 end
@@ -436,7 +463,7 @@ if eq family 2
 count = 14
 end
 if eq family 3
-count = 5
+count = 6
 end
 for idx ulong count
 kc_spec family idx
