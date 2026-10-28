@@ -1,0 +1,27 @@
+{
+  "extensions": {
+    "generated": {
+      "children": [],
+      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiled_at": "2026-10-28T12:02:22Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:060c0c24f7b43f16f9f3a56d1ed91242a1ad2d3dc3f6d1d500c95b9de2091cfc",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 1,
+      "generated_at_commit": "b759afc3f5e46f152ffb06b39882ffa28cacaf96",
+      "source_tree": "sha256:6e5be12e98270f82072f1aaa1a97910ac1544d44821e0beba4038ccb6ce6cb56"
+    },
+    "owner_lane": "PipelineSelect",
+    "seed": {
+      "files": [
+        "CONTRACT.md"
+      ],
+      "purpose_auto": "Repository root pipeline. Purpose not yet described by a human."
+    }
+  },
+  "layer": "contract",
+  "name": "pipeline",
+  "purpose": "Pipeline57 trusted-record interface, immutable schema dependencies, integration boundaries and predeclared authorized measurement cells.",
+  "schema_version": "1.0.0"
+}
