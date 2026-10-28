@@ -69,8 +69,20 @@ jobs:
           git -C "$RUNNER_TEMP/omega-mv" checkout -q e5b32567a7aff3ce594e3254a622a846a6cd190b
           git clone -q https://github.com/aien-dev/omega-bridge "$RUNNER_TEMP/omega-bridge"
           git -C "$RUNNER_TEMP/omega-bridge" checkout -q "$(grep -v '^#' om/omega-bridge.lock)"
+      - name: Pinned offline NVIDIA instruction oracle
+        run: |
+          package=cuda_nvdisasm-linux-sbsa-13.0.85-archive
+          archive="$RUNNER_TEMP/$package.tar.xz"
+          curl --fail --location --silent --show-error --proto '=https' --tlsv1.2 \
+            "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvdisasm/linux-sbsa/$package.tar.xz" \
+            --output "$archive"
+          printf '%s  %s\n' 77e2ef1494270839829d5608352ba67a278e80fdaf4e3cc3c8ac9cb73e1c463c "$archive" | sha256sum --check --strict
+          tar -xJf "$archive" -C "$RUNNER_TEMP" "$package/bin/nvdisasm"
+          sudo install -D -m755 "$RUNNER_TEMP/$package/bin/nvdisasm" /usr/local/cuda/bin/nvdisasm
       - name: Bindings regenerate and mutants go red
         run: make test-om-units test-om-encoder-mutants test-om-cubin-mutants OMEGA_MV="$RUNNER_TEMP/omega-mv" OMEGA_BRIDGE_DIR="$RUNNER_TEMP/omega-bridge"
+      - name: Exact MMIO contract and wrong-cache-policy control
+        run: make test-sm121-mmio OMEGA_MV="$RUNNER_TEMP/omega-mv"
   sbom:
     runs-on: ubuntu-latest
     timeout-minutes: 10

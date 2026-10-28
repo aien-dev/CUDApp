@@ -48,3 +48,29 @@ test-zero-nvdisasm: $(SM121DIS) build/sm121dis $(addprefix $(OUT_DIR)/,gpu_atten
 	@if PHYSICS_DIR="$(PHYSICS_DIR)" sh tools/sm121dis/zero_nvdisasm.sh $(OUT_DIR) --red > $(OUT_DIR)/zero-nvdisasm-red.log 2>&1; then \
 		echo "RED CHECK BROKEN: the planted nvdisasm calls passed the gate"; exit 1; \
 	else echo "red check: the planted nvdisasm calls FAIL the gate, as they must ($$(grep -c 'FAIL$$' $(OUT_DIR)/zero-nvdisasm-red.log) lines)"; fi
+
+# Issue #171: the semantic fixture and expectation live in Omega. NVIDIA's
+# pinned offline decoder is read-only; neither output nor the mutant enters a kernel.
+NVDISASM ?= /usr/local/cuda/bin/nvdisasm
+SM121_MMIO = $(OUT_DIR)/sm121-mmio
+$(SM121_MMIO): om/encoder/bw_enc_sm121.om om/encoder/mmio_test.om
+	@mkdir -p $(OUT_DIR)
+	@test "$$(sha256sum < $(OMEGA_MV)/seed/out/omc | cut -c1-64)" = 2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f || { echo "NOT_RUN: wrong seeded compiler"; exit 3; }
+	cat $^ > $@.om
+	$(OMEGA_MV)/seed/out/omc < $@.om > $@
+	chmod +x $@
+
+.PHONY: test-sm121-mmio
+test-sm121-mmio: $(SM121_MMIO)
+	@$(NVDISASM) --version > $(SM121_MMIO).version
+	@case "$$(cat $(SM121_MMIO).version)" in *V13.0.85*) ;; *) echo "NOT_RUN: nvdisasm version must be 13.0.85"; exit 3;; esac
+	@sha256sum $(NVDISASM)
+	$(SM121_MMIO) > $(SM121_MMIO).bin
+	$(NVDISASM) -b SM121 -hex $(SM121_MMIO).bin > $(SM121_MMIO).nv
+	$(SM121_MMIO) check oracle < $(SM121_MMIO).nv
+	$(SM121_MMIO) wrong-cache-policy > $(SM121_MMIO)-ef.bin
+	$(NVDISASM) -b SM121 -hex $(SM121_MMIO)-ef.bin > $(SM121_MMIO)-ef.nv
+	@if $(SM121_MMIO) check oracle < $(SM121_MMIO)-ef.nv; then \
+		echo "FAIL: EF satisfied the MMIO.GPU contract"; exit 1; \
+	else rc=$$?; test "$$rc" = 4 || exit "$$rc"; \
+		echo "PASS: exact MMIO.GPU op and operands; wrong-EF negative refused. GB10 DEVICE NOT_RUN"; fi

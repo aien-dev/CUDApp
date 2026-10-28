@@ -1,0 +1,12 @@
+cat om/encoder/bw_enc_sm121.om om/encoder/mmio_test.om > build-c697-final/sm121-mmio.om
+<pinned-omega>/seed/out/omc < build-c697-final/sm121-mmio.om > build-c697-final/sm121-mmio
+chmod +x build-c697-final/sm121-mmio
+bc40070d596fa49b81c0905ca1d05e457aaec071280f742997d4a0b511781b25  /usr/local/cuda/bin/nvdisasm
+build-c697-final/sm121-mmio > build-c697-final/sm121-mmio.bin
+/usr/local/cuda/bin/nvdisasm -b SM121 -hex build-c697-final/sm121-mmio.bin > build-c697-final/sm121-mmio.nv
+build-c697-final/sm121-mmio check oracle < build-c697-final/sm121-mmio.nv
+build-c697-final/sm121-mmio wrong-cache-policy > build-c697-final/sm121-mmio-ef.bin
+/usr/local/cuda/bin/nvdisasm -b SM121 -hex build-c697-final/sm121-mmio-ef.bin > build-c697-final/sm121-mmio-ef.nv
+PASS: exact MMIO.GPU op and operands; wrong-EF negative refused. GB10 DEVICE NOT_RUN
+sh tools/sm121dis/corpus_selftest.sh
+PASS: missing and failing corpus producers are refused
