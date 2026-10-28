@@ -1,0 +1,95 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Standalone checks for bw_spec_sm121.om; the reusable module has no entrypoint.
+fn main to int
+sp_tbl = new ulong 3001 0
+sp_init sp_tbl
+o = new ulong 16 0
+w = new ulong 4 0
+dec = new ulong 16 0
+
+note Test 1: NOP encode and decode
+for i ulong 16
+put o i 0
+end
+st = sp_enc sp_tbl o w
+if ne st 0
+ret 10
+end
+if ne get w 0 31000
+ret 11
+end
+dst = sp_dec sp_tbl w dec
+if ne dst 0
+ret 12
+end
+if ne get dec 0 0
+ret 13
+end
+
+note Test 2: IMAD encode and decode
+for i ulong 16
+put o i 0
+end
+put o 0 8
+put o 1 10
+put o 2 11
+put o 3 12
+put o 4 13
+put o 13 1
+st = sp_enc sp_tbl o w
+if ne st 0
+ret 20
+end
+dst = sp_dec sp_tbl w dec
+if ne dst 0
+ret 21
+end
+if ne get dec 0 8
+ret 22
+end
+if ne get dec 1 10
+ret 23
+end
+if ne get dec 2 11
+ret 24
+end
+if ne get dec 3 12
+ret 25
+end
+if ne get dec 4 13
+ret 26
+end
+
+note Test 3: Out-of-range register refusal (register 256)
+for i ulong 16
+put o i 0
+end
+put o 0 1
+put o 1 256
+st2 = sp_enc sp_tbl o w
+if ne st2 E_RANGE
+ret 30
+end
+
+note Test 4: Unsupported opcode refusal
+for i ulong 16
+put o i 0
+end
+put o 0 99
+st3 = sp_enc sp_tbl o w
+if ne st3 E_UNSUP
+ret 40
+end
+
+note Test 5: Refusal of unmatched bit pattern on decode
+put w 0 4294967295
+put w 1 4294967295
+put w 2 4294967295
+put w 3 4294967295
+dst = sp_dec sp_tbl w dec
+if ne dst E_NOMAT
+ret 50
+end
+
+ret 0
+end

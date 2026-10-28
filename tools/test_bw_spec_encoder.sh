@@ -50,9 +50,9 @@ ENC_OM="om/encoder/bw_enc_sm121.om"
 CORPUS_OM="om/encoder/bw_spec_corpus.om"
 CMP_OM="om/encoder/bw_spec_cmp.om"
 
-# 1. Compile native om unit and run internal checks
-log "1. Compiling and running native om/encoder/bw_spec_sm121.om..."
-"$OMC" < "$SPEC_OM" > "$WORK/native_test" 2> "$WORK/native_test.err" || {
+# 1. Compose the pure specification with its separate executable test driver
+log "1. Compiling and running standalone specification assertions..."
+cat "$SPEC_OM" om/encoder/bw_spec_test.om | "$OMC" > "$WORK/native_test" 2> "$WORK/native_test.err" || {
   cat "$WORK/native_test.err" >&2
   exit 1
 }
@@ -69,15 +69,13 @@ log "2. Building temporary reference runner for bw_enc_sm121.om..."
 log "3. Parsing authoritative specification from bw_spec_sm121.om..."
 log "Parsed 63 instruction forms from single specification."
 
-sed '/^fn main to int/,$d' "$SPEC_OM" > "$WORK/spec_nomain.om"
-
-cat "$WORK/spec_nomain.om" "$CORPUS_OM" | "$OMC" > "$WORK/corpus" 2> "$WORK/corpus.err" || {
+cat "$SPEC_OM" "$CORPUS_OM" | "$OMC" > "$WORK/corpus" 2> "$WORK/corpus.err" || {
   cat "$WORK/corpus.err" >&2
   exit 1
 }
 chmod 755 "$WORK/corpus"
 
-cat "$ENC_OM" "$WORK/spec_nomain.om" "$CMP_OM" | "$OMC" > "$WORK/cmp" 2> "$WORK/cmp.err" || {
+cat "$ENC_OM" "$SPEC_OM" "$CMP_OM" | "$OMC" > "$WORK/cmp" 2> "$WORK/cmp.err" || {
   cat "$WORK/cmp.err" >&2
   exit 1
 }
@@ -194,7 +192,7 @@ log "PASS: corrupted expected byte fails byte-identity comparison (exit 1)"
 
 # Audit controls: build failures are never treated as semantic mutant kills.
 sed '/^fn main to int/,$d' "$CMP_OM" > "$WORK/cmp_nomain.om"
-cat "$ENC_OM" "$WORK/spec_nomain.om" "$WORK/cmp_nomain.om" om/encoder/bw_spec_regress.om > "$WORK/regress.om"
+cat "$ENC_OM" "$SPEC_OM" "$WORK/cmp_nomain.om" om/encoder/bw_spec_regress.om > "$WORK/regress.om"
 "$OMC" < "$WORK/regress.om" > "$WORK/regress" 2> "$WORK/regress.err" || {
   cat "$WORK/regress.err" >&2
   exit 1
@@ -227,4 +225,23 @@ else
 fi
 log "PASS: audit raw ranges, absent RZ parity, cold decode, active-operand mutant, read error and truncated records"
 
+# 8. Exercise actual native function bytes through the unchanged pinned bridge.
+BRIDGE=${OMEGA_BRIDGE:-"$ROOT/../omega-bridge"}
+NATIVE_PIN=c77a5922f91d53d4a0bbd4e7b1c4703f7098263abc843be2918db1ece7496782
+[ -f "$BRIDGE/src/native.om" ] || { echo "NOT_RUN: set OMEGA_BRIDGE to pinned bridge" >&2; exit 3; }
+[ "$(sha256sum < "$BRIDGE/src/native.om" | cut -c1-64)" = "$NATIVE_PIN" ] || {
+  echo "FAIL: native bridge source pin mismatch" >&2; exit 1;
+}
+cat "$ENC_OM" "$SPEC_OM" om/encoder/bw_spec_native.om > "$WORK/function.om"
+"$OMC" < "$WORK/function.om" > "$WORK/function.bin"
+magic=$(od -An -tx1 -N4 "$WORK/function.bin" | tr -d ' \n')
+[ "$magic" != 7f454c46 ] || { echo "FAIL: native unit is an ELF executable" >&2; exit 1; }
+"$OMC" < "$BRIDGE/src/native.om" > "$WORK/native-gen"
+chmod 755 "$WORK/native-gen"
+{ cat "$WORK/function.om"; printf '\0'; printf '%08d' "$(wc -c < "$WORK/function.bin")"; cat "$WORK/function.bin"; } > "$WORK/native.in"
+"$WORK/native-gen" c < "$WORK/native.in" > "$WORK/omega_native.c"
+"$WORK/native-gen" h < "$WORK/native.in" > "$WORK/omega_native.h"
+${CC:-cc} -std=gnu11 -O2 -Wall -Wextra -Werror -DBW_SPEC_NATIVE_PROBE -I"$WORK" \
+  -include "$WORK/omega_native.h" tests/bw_encode_control_test.c "$WORK/omega_native.c" -o "$WORK/native-probe"
+"$WORK/native-probe"
 log "ALL SPEC-DRIVEN ENCODER/DECODER VERIFICATIONS PASSED (HOST_TESTED)!"
