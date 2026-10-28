@@ -32,11 +32,12 @@ end
 ret 0
 end
 fn rp_admit ins view ulong 8192 phys view ulong 288 n ulong to uint
+state = new ulong 3001 0
 o = new ulong 16 0
 w = new ulong 4 0
 for j ulong n
 opnds ins j phys o
-if ne sp_enc o w 0
+if ne sp_enc state o w 0
 ret 1
 end
 end
