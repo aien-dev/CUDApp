@@ -14,6 +14,8 @@
 #include "omega_gpu_gemm.h"
 #include "omega_gpu_session.h"
 #include <inttypes.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -87,7 +89,8 @@ int main(int argc, char **argv) {
       printf("oracle self-test: exact result %" PRIu64 " wrong, planted error %" PRIu64 " wrong\n", good, bad); if (good || !bad) fails++; }
     if (host) { printf("TILELAB_CHIP host: %s\n", fails ? "FAIL" : "PASS"); return fails ? 1 : 0; }
 
-    FILE *js = out ? fopen(out, "w") : NULL; if (out && !js) { perror(out); return 2; }
+    int jfd = out ? open(out, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644) : -1;
+    FILE *js = jfd >= 0 ? fdopen(jfd, "w") : NULL; if (out && !js) { perror(out); if (jfd >= 0) close(jfd); return 2; }
     if (js) fprintf(js, "{\"tool\":\"gpu_tilelab_test\",\"rounds\":%d,\"cells\":[", rounds);
     int firstcell = 1;
     for (int s = 0; s < nsh; s++) {
