@@ -55,7 +55,30 @@ The following integer constants represent semantic field roles in `bw_spec_sm121
 
 ## Specification Table Representation
 
-In native seeded Omega, the specification is laid out as a flat global table `sp_tbl ulong 3000`.
+The reusable module is function-mode Omega: no global pools and no `main`.
+The owner allocates a zero-filled fixed-size `ulong 3001` workspace once per
+encoding batch and passes it explicitly. Slots 0..2999 retain the authoritative
+flat specification table; slot 3000 is the initialization marker, written only
+after every table initializer completes. `sp_init` is idempotent for that owner.
+`sp_enc` and `sp_dec` initialize on first use, including a cold decoder call.
+
+The workspace is private process state, not an authenticated input format. Do not
+accept it from a caller or serialized artifact, mutate it after initialization,
+or race/share it across concurrent owners. Reuse it within one batch rather than
+rebuilding the table for every instruction. Fixed-size array parameters occupy
+one seeded argument slot. Initialization setters use at most six arguments.
+
+Public signatures are `sp_init(state edit ulong 3001)`,
+`sp_enc(state edit ulong 3001, o view ulong 16, w edit ulong 4) -> ulong`, and
+`sp_dec(state edit ulong 3001, w view ulong 4, o edit ulong 16) -> ulong`.
+Emit words only after `E_OK`: a failed encoder call may have already written
+partial output. A native adapter must store these validated words directly,
+including padding NOPs, rather than re-encode through the reference oracle.
+
+Standalone assertions now live in `om/encoder/bw_spec_test.om`; concatenate that
+driver after the reusable module for executable mode. No source stripping or
+second encoder table is needed. The original audit source remains frozen at
+CUDApp `85c059cc15edf704c9833fe4832f18c052ee83b3` (draft PR #160).
 
 Each instruction form header occupies 10 slots:
 - `+0`: `op` (Blackwell IR opcode)
@@ -91,13 +114,13 @@ The encoder refuses invalid input with explicit error codes instead of truncatin
 
 ## Dual Derivation
 
-1. **`sp_enc o w -> err`**:
+1. **`sp_enc state o w -> err`**:
    - Matches `o` to an instruction form.
    - Sets fixed word bits `w0_fix..w2_fix` and control word `w3`.
    - Validates the raw semantic operand before inserting masked bits.
    - Checks special-layout immediates by decoding their inserted representation and requiring exact equality.
-2. **`sp_dec w o -> err`**:
-   - Initializes its shared table automatically, including standalone cold calls.
+2. **`sp_dec state w o -> err`**:
+   - Initializes its owner-private table automatically, including standalone cold calls.
    - Searches `sp_tbl` for a form whose fixed bits match: `(w[k] & mask) == fix`.
    - Extracts each field: `val = (w[word] >> shift) & mask`.
    - Populates decoded IR array `o[]`.
@@ -108,3 +131,23 @@ The encoder refuses invalid input with explicit error codes instead of truncatin
    - Boundary fixtures select representable aligned immediates; separate audit regressions require refusal of raw lossy values.
    - `sh tools/test_bw_spec_encoder.sh` checks reference bytes, active operands, cold decode, malformed streams and independent offline nvdisasm operands. Producer failure, truncated records and read errors fail closed.
    - All checks are host-only. Physical qualification of the changed encoder remains NOT_RUN until an authorized chip run. Frozen historical receipts are unchanged.
+
+## Function-mode host regression
+
+`OMEGA_BRIDGE=/path/to/omega-bridge sh tools/test_bw_spec_encoder.sh` also
+compiles the reusable module plus `bw_spec_native.om` as function bytes and
+executes the generated bridge binding through the existing C oracle driver.
+The semantic assertions remain in Omega. They cover cold decoder initialization,
+private workspace isolation, warmed-table mutation without accidental reinit,
+full RRU destination/source semantics, a deliberately corrupted expected operand
+(return 1), and actual raw SHFL refusal (return `E_RANGE`, 2). Build, bridge,
+compiler-pin, ELF-image and binding-status failures are not semantic mutant kills.
+
+The exact compiler remains omega-mv `e5b32567a7aff3ce594e3254a622a846a6cd190b`,
+SHA-256 `2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f`.
+The unchanged bridge source `src/native.om` is pinned by SHA-256
+`c77a5922f91d53d4a0bbd4e7b1c4703f7098263abc843be2918db1ece7496782`.
+This command proves a host function binding, not physical GPU qualification or
+the downstream `bc_encode` consumer; that consumer requires its own native
+runtime fixture at its exact integrated source pin. Physical qualification is
+NOT_RUN. Historical audit and device receipts are not rewritten.
