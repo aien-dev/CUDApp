@@ -175,9 +175,9 @@ set_hdr 9 8 1 2083328 4
 set_w0 9 31780 65535
 set_w1 9 0 4294967040
 set_w2 9 260964864 4294967040
-set_fld 9 0 5 0 16
-set_bnd 9 0 5 0 0
-set_max 9 0 31
+set_fld 9 0 1 0 16
+set_bnd 9 0 8 0 0
+set_max 9 0 255
 set_fld 9 1 2 0 24
 set_bnd 9 1 8 0 0
 set_max 9 1 255
@@ -931,9 +931,21 @@ if or eq role R_RD eq role R_URD
 ret get o 1
 end
 if or eq role R_RA eq role R_URA
+op = get o 0
+if and eq role R_RA or eq op 51 or eq op 52 eq op 53
+if eq get o 12 0
+ret 255
+end
+end
 ret get o 2
 end
 if eq role R_RB
+op = get o 0
+if or eq op 51 or eq op 52 eq op 53
+if eq get o 13 0
+ret 255
+end
+end
 ret get o 3
 end
 if eq role R_URB
@@ -948,9 +960,9 @@ ret get o 4
 end
 if eq role R_PRED3
 if eq word 0
-ret and get o 1 7
+ret get o 1
 end
-ret and get o 4 7
+ret get o 4
 end
 if eq role R_PRED
 if eq get o 9 0
@@ -965,16 +977,16 @@ if eq role R_BAR
 ret get o 11
 end
 if eq role R_SHFL
-ret and get o 6 31
+ret get o 6
 end
 if eq role R_LUT
-ret and get o 6 255
+ret get o 6
 end
 ret get o 6
 end
 
 fn sp_off24 imm ulong to bool
-ret or lt imm 8388608 ge imm 4286578688
+ret or lt imm 8388608 and ge imm 4286578688 le imm 4294967295
 end
 
 fn sp_chkr role ulong val ulong min_v ulong max_v ulong to bool
@@ -988,7 +1000,7 @@ if eq role R_LDSW
 ret lt val 8388608
 end
 if eq role R_BRA
-ret true
+ret le val 4294967295
 end
 ret not or lt val min_v lt max_v val
 end
@@ -1049,6 +1061,19 @@ if not ok
 ret E_RANGE
 end
 sp_fput fbase val w
+note Reject values whose special bit layout would discard semantic bits.
+probe = new ulong 16 0
+special = sp_dimm role fbase w probe
+if special
+if eq role R_FSET
+if eq val 0
+ret E_OK
+end
+end
+if ne get probe 6 val
+ret E_RANGE
+end
+end
 ret E_OK
 end
 
@@ -1172,6 +1197,11 @@ ret
 end
 if or eq role R_RB eq role R_URB
 if eq role R_URB
+op = get o 0
+if or eq op 6 eq op 7
+put o 1 raw
+ret
+end
 put o 5 raw
 put o 14 1
 else
@@ -1216,6 +1246,7 @@ put o 6 raw
 end
 
 fn sp_dec w view ulong 4 o edit ulong 16 to ulong
+sp_init
 idx = sp_dfnd w
 if eq idx 63
 ret E_NOMAT

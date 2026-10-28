@@ -85,8 +85,23 @@ chmod 755 "$WORK/cmp"
 
 # 4. Running verification (a): byte-identity on boundary corpus against bw_enc_sm121.om
 log "4. Running verification (a): byte-identity on boundary corpus against bw_enc_sm121.om..."
-"$WORK/corpus" | "$WORK/cmp" || {
-  echo "FAIL: byte identity or decode verification failed on boundary corpus" >&2
+produce() {
+  destination=$1
+  shift
+  if "$WORK/corpus" "$@" > "$destination"; then
+    return 0
+  else
+    producer_rc=$?
+    echo "FAIL: corpus producer failed ($producer_rc)" >&2
+    return "$producer_rc"
+  fi
+}
+produce "$WORK/corpus.bin"
+rc=0
+produce "$WORK/producer-failed.bin" fault > /dev/null 2>&1 || rc=$?
+[ "$rc" -eq 7 ] || { echo "FAIL: terminal producer error expected 7, got $rc" >&2; exit 1; }
+"$WORK/cmp" < "$WORK/corpus.bin" || {
+  echo "FAIL: byte identity or semantic decode verification failed on boundary corpus" >&2
   exit 1
 }
 log "PASS: (a) spec-driven encoder matches bw_enc_sm121.om on all 461 boundary cases byte-for-byte!"
@@ -169,10 +184,47 @@ log "PASS: out-of-range register 256 refused with declared error E_RANGE (code 2
 log "PASS: invalid word pattern refused with declared error E_NOMAT (code 3)"
 
 # Negative control 4: corrupted expected byte fails byte-identity comparison (exit 1)
-if "$WORK/corpus" | "$WORK/cmp" corrupt > /dev/null 2>&1; then
-  echo "FAIL: corrupted expected byte did not fail byte-identity comparison!" >&2
+rc=0
+"$WORK/cmp" corrupt < "$WORK/corpus.bin" > /dev/null 2>&1 || rc=$?
+if [ "$rc" -ne 1 ]; then
+  echo "FAIL: corrupt control expected semantic mismatch 1, got $rc" >&2
   exit 1
 fi
 log "PASS: corrupted expected byte fails byte-identity comparison (exit 1)"
+
+# Audit controls: build failures are never treated as semantic mutant kills.
+sed '/^fn main to int/,$d' "$CMP_OM" > "$WORK/cmp_nomain.om"
+cat "$ENC_OM" "$WORK/spec_nomain.om" "$WORK/cmp_nomain.om" om/encoder/bw_spec_regress.om > "$WORK/regress.om"
+"$OMC" < "$WORK/regress.om" > "$WORK/regress" 2> "$WORK/regress.err" || {
+  cat "$WORK/regress.err" >&2
+  exit 1
+}
+chmod 755 "$WORK/regress"
+"$WORK/regress"
+for bytes in 1 127; do
+  cp "$WORK/corpus.bin" "$WORK/partial.bin"
+  dd if=/dev/zero bs=1 count="$bytes" >> "$WORK/partial.bin" 2>/dev/null
+  rc=0
+  "$WORK/cmp" < "$WORK/partial.bin" || rc=$?
+  [ "$rc" -eq 2 ] || { echo "FAIL: partial-record expected 2, got $rc" >&2; exit 1; }
+done
+if [ -x "$NVDISASM" ]; then
+  "$WORK/regress" sample > "$WORK/rru.bin"
+  "$NVDISASM" -b SM121 "$WORK/rru.bin" > "$WORK/rru.dis"
+  grep -Eq 'IMAD[[:space:]]+R32, R1, UR2, R3[[:space:]]*;' "$WORK/rru.dis" || {
+    echo "FAIL: nvdisasm RRU operand mismatch" >&2; exit 1;
+  }
+  for sample in z0 z1 z2; do
+    "$WORK/regress" "$sample" > "$WORK/$sample.bin"
+    "$NVDISASM" -b SM121 "$WORK/$sample.bin" > "$WORK/$sample.dis"
+    grep -Eq 'R4, RZ, RZ, R7' "$WORK/$sample.dis" || {
+      echo "FAIL: nvdisasm absent-source RZ mismatch ($sample)" >&2; exit 1;
+    }
+  done
+else
+  echo "NOT_RUN: required independent operand oracle nvdisasm" >&2
+  exit 3
+fi
+log "PASS: audit raw ranges, absent RZ parity, cold decode, active-operand mutant, read error and truncated records"
 
 log "ALL SPEC-DRIVEN ENCODER/DECODER VERIFICATIONS PASSED (HOST_TESTED)!"
