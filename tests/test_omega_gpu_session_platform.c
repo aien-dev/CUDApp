@@ -22,6 +22,7 @@
 #include "omega_gpu_wait.h"
 #include "omega_gpu_fmt.h"
 #include "omega_blackwell_submit.h"
+#include "omega_blackwell_qmd.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -178,6 +179,34 @@ static int f_submit(void *c, OmegaGpuQueueHandle q, const uint32_t *w, uint32_t 
             w[i + 4] == 4u) { /* the semaphore init upload: the kernel ran, the semaphore says DONE */
             uint32_t *s = va_to_cpu(((uint64_t)w[i + 1] << 32) | w[i + 2]);
             if (s) *s = OMEGA_BW_SEMAPHORE_INTERMEDIATE_DONE;
+        }
+        /* INLINE oracle: compare the actual method payload to the mode-final
+         * owner slot before modeling its release. This never executes a kernel. */
+        if (i + 98u < n &&
+            w[i] == ((2u << 28) | (98u << 16) | (1u << 13) | (0x0318u >> 2))) {
+            uint64_t va = ((uint64_t)(w[i + 1] & 0x1ffu) << 40) |
+                ((uint64_t)w[i + 2] << 8);
+            uint32_t *qmd = va_to_cpu(va);
+            if (!qmd || memcmp(qmd,w+i+3,OMEGA_BW_QMD_BYTES)!=0)
+                return OMEGA_GPU_PLAT_REFUSED_BAD_LENGTH;
+            if (omega_blackwell_verify_qmd_invariants(qmd)==0) {
+                uint32_t *sem=va_to_cpu((uint64_t)qmd[15]|((uint64_t)qmd[16]<<32));
+                if (sem) *sem=qmd[17];
+            }
+            i += 98u;
+            continue;
+        }
+        /* Independent host completion model for a recorded standalone PCAS grid.
+         * Decode the actual emitted QMD and release address; never execute or
+         * claim qualification of the encoded kernel. */
+        if (w[i] == ((2u << 28) | (1u << 16) | (1u << 13) | (0x02b4u >> 2)) &&
+            w[i + 2] == ((2u << 28) | (1u << 16) | (1u << 13) | (0x02c0u >> 2)) &&
+            w[i + 3] == 3u) {
+            uint32_t *qmd = va_to_cpu((uint64_t)w[i + 1] << 8);
+            if (qmd && omega_blackwell_verify_qmd_invariants(qmd) == 0) {
+                uint32_t *sem = va_to_cpu((uint64_t)qmd[15] | ((uint64_t)qmd[16] << 32));
+                if (sem) *sem = qmd[17];
+            }
         }
     }
     return 0;
@@ -557,8 +586,18 @@ static void c_fmt_matches_snprintf(void) {
     EXPECT(s[0] == '\0');
 }
 
+#ifdef OMEGA_NATIVE_RUNTIME_TEST
+#include "native_runtime_controls.h"
+#endif
+
 typedef struct { const char *id; void (*fn)(void); } Case;
 static const Case CASES[] = {
+#ifdef OMEGA_NATIVE_RUNTIME_TEST
+    {"NATIVE_SYNTHETIC_QUANT_COMPOSE_ENCODE_CACHE_SELECT_RECORD", c_native_chain},
+    {"NATIVE_TIMEOUT_RETAINS_CODE_UNTIL_CONFIRMED_TEARDOWN", c_native_timeout_refs},
+    {"NATIVE_NORMAL_CLOSE_INVALIDATES_EXACT_LEASE", c_native_close_epoch},
+    {"NATIVE_ACTUAL_OWNER_MODEFINAL_OBSERVER_BINDING", c_native_observer_modes},
+#endif
     {"INSTALL_REFUSALS_ABI_1_1", c_install_refusals},
     {"FREESTANDING_NO_DEFAULT_PLATFORM", c_no_default_platform},
     {"OPEN_LAUNCH_CLOSE_TYPED_UNCACHED_POLLING", c_open_launch_close},

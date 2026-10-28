@@ -34,6 +34,43 @@ build/hello_gpu --sim
 
 The code-allocation source scan inside `make test` expands only existing source files and refuses an empty readset, a missing/unreadable input, or any scanner error. Its negative controls also require the intended refusal diagnostic, so a setup failure cannot count as detecting forbidden allocation sizing. A clean scan is only a check of the selected source idioms, not GPU execution evidence.
 
+`make test-gpu-native-runtime` extends the existing session-platform fixture
+with generated native Quant, Composer, encoder, residency and selector calls,
+then the actual FP8 cache and command-list integration. Platform handles are
+synthetic host fixtures, not live GPU handles. Recorded/inflight references
+remain pinned on timeout; only observed completion or confirmed session
+teardown permits their retirement. This does not qualify or activate native
+candidates: production graph state remains absent until the existing
+independent receipt/admission path accepts exact artifacts.
+
+Canonical consumer integration uses the existing single-commit `cudapp.lock`,
+not a second artifact or qualification registry. The isolated Omega consumer
+cutover builds an authenticated committed source archive and links its actual
+callers to that canonical library:
+
+```sh
+OMEGA_OMC=/absolute/path/to/pinned/omc \
+OMEGA_BRIDGE=/absolute/path/to/pinned/omega-bridge \
+make -C /absolute/path/to/Omega check-cudapp \
+  CUDAPP_DIR=/absolute/path/to/committed/CUDApp
+```
+
+`tools/cudapp-stage.sh` verifies the exact lock, exports committed source,
+requires native-unit regeneration agreement, and builds the canonical archive.
+Fresh compiled Omega guards authenticate the staged source and emit its
+source/archive/library provenance. Working checkout edits are not archived.
+Consumer headers resolve from `stage/source`; the library is
+`stage/build/libcudapp.a`, linked after the Omega CPU/evidence adapter companion.
+Wrong/missing pins and changed staged source refuse; `LOCK_CHECK` is not a
+bypass. No merge, deployment, live serving consumption, chip qualification or
+default native activation follows from this development cutover.
+
+The acceptance boundaries remain [#5](https://github.com/aien-dev/CUDApp/issues/5)
+and [#106](https://github.com/aien-dev/CUDApp/issues/106). Historical extraction
+maps and receipts remain unchanged. The obsolete
+[consumer PR #618](https://github.com/aien-dev/omega-mv/pull/618) used an older
+pin and different source-check contract; it is not the canonical cutover base.
+
 If an x86-64 checkout fails on an architecture-specific instruction, record the full error and compare with [the existing reproducibility issue #15](https://github.com/aien-dev/CUDApp/issues/15). Do not suppress the memory-ordering instruction or call a partial host run a passing full suite.
 
 Optional: `python3 tools/figures/make_figures.py --check` verifies that README diagrams match the generator. Check it on your exact commit.

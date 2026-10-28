@@ -1,0 +1,154 @@
+{
+  "schema": "cudapp-native-cache-runtime-lease-host-evidence/1",
+  "state": "EXERCISED_HOST_ONLY",
+  "preceding_receipt": "runtime-ops-evidence.json preserved unchanged, before lease roots",
+  "compiler_revision": "e5b32567a7aff3ce594e3254a622a846a6cd190b",
+  "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+  "source_sha256": {
+    "/home/drakestapleton/fix/native-integration/om/cache/residency.om": "0da6b33438e98934425f1ea83d194298f390cc68029f0750ebfc70060f87bf61",
+    "/home/drakestapleton/fix/native-integration/om/cache/runtime.om": "087d9d23311b0c3afbb4e6d6b5e04347569134b078ba1af5d188c1368c39e8e7",
+    "/home/drakestapleton/fix/kernel-cache/om/cache/runtime_ops_test.om": "894e1b9befe6feed6988fdaac6ea827e74365da2b18944d0cb3145bec3b2d65b"
+  },
+  "function_compile": {
+    "exit": 0,
+    "binary_bytes": 10364,
+    "sha256": "bcd26b11e07cc43953640e8666637df9830ce1f0517638754ba9455b02732065",
+    "source_sha256": "d8474ebde70c41108e4ecb4642f5a34311698179b3558e76f3b156a32c55d8e5"
+  },
+  "native_controls": {
+    "compile_exit": 0,
+    "binary_sha256": "a6e45216093ed0847dd433b1f48cd9f2cd4a1147480ec47081e5172cd513becc",
+    "source_sha256": "cc752ba74896a11e343b625b864ae6038fc1305e0f1b162812fd0aaafd80b36b",
+    "run_exit": 0,
+    "controls": 64,
+    "added_controls": "lease epoch mismatch/zero revision refuse without pool mutation; stale current context preserves native refusal; native_slotrev preserves full u64 MAX, invalid/stale/pending projection0; unsigned MAX revision valid pin/unpin; wrong revision refuses",
+    "max_revision_constant_source": "Existing residency.om ulong MAX overflow/ref checks, copied verbatim; no new computed boundary constant"
+  },
+  "mutants": [
+    {
+      "name": "profile_bypass",
+      "source_sha256": "69a2403b7a6eceeb1169664f046d825e5faab24a99aed8094d32e0da1822be7a",
+      "binary_sha256": "b747a1dc717d1c3aee690ac73e2505aeca7f082857ad096ed47c76141d5bb927",
+      "compile_exit": 0,
+      "exit": 16,
+      "expected_exit": 16,
+      "caught": true
+    },
+    {
+      "name": "token_bypass",
+      "source_sha256": "4363c63a0e99c53fee5a6494566b2e140009d295de33ab00d8f051b96b200b76",
+      "binary_sha256": "bd141c2f0c41f00150d7ee5b2896374ecb0e5dddc7664ca80988b61cf1bd6212",
+      "compile_exit": 0,
+      "exit": 21,
+      "expected_exit": 21,
+      "caught": true
+    },
+    {
+      "name": "refresh_same_reports_new",
+      "source_sha256": "06d6e111d9b4f83eda2876bd9cb5ae0e95aa27141de8b6564a7e99e322b61834",
+      "binary_sha256": "1b5fd16dcef97b640017a53a514788ed371ccf036cd61147498afa5467eeb3d5",
+      "compile_exit": 0,
+      "exit": 4,
+      "expected_exit": 4,
+      "caught": true
+    },
+    {
+      "name": "invalidate_bypass",
+      "source_sha256": "1e31821421f2b9fb8e5d25b893c4a03367a819b897e990dd01dafadecca42f9e",
+      "binary_sha256": "6eced197a96c85a923169a0c19f61140efc7ae5393ab4552f8247fa6f2ba4ee3",
+      "compile_exit": 0,
+      "exit": 18,
+      "expected_exit": 18,
+      "caught": true
+    },
+    {
+      "name": "caller_owner_reintroduced",
+      "source_sha256": "a276e802ca773d905149662b764eb8e2746f77908e780d9edd55f3cabffd5b25",
+      "binary_sha256": "ae71e6c1e01b304f19ab88bf6c244809576130e513be2a9de630c09facf60bb5",
+      "compile_exit": 0,
+      "exit": 7,
+      "expected_exit": 7,
+      "caught": true
+    },
+    {
+      "name": "owner_overflow_bypass",
+      "source_sha256": "41826736ae3e420bb9ffc59e43b7224d3b5fc633e78f3d3da66af07af49b2be2",
+      "binary_sha256": "3a902b31c4c8453542786187d86a46eddf8ef033b5b7d374dc6acff92ab46856",
+      "compile_exit": 0,
+      "exit": 44,
+      "expected_exit": 44,
+      "caught": true
+    },
+    {
+      "name": "lease_epoch_bypass",
+      "source_sha256": "e747964a5f5dd866edba2f2a4b1c7c7c5769bd6050c0c01c6bf6927e3312b840",
+      "binary_sha256": "0eb10cc34d5e2ac206579c95d10b7623486d05876f0acebc5bdf473426a62d64",
+      "compile_exit": 0,
+      "exit": 51,
+      "expected_exit": 51,
+      "caught": true
+    },
+    {
+      "name": "lease_zero_bypass",
+      "source_sha256": "0adf740b052573aad64580c0b7d31326e13273e2adaec6a025f62d630d35969a",
+      "binary_sha256": "adc9e114b81726f1bb41a6599b97480561794128643374f5ed5b1689b787c46d",
+      "compile_exit": 0,
+      "exit": 53,
+      "expected_exit": 53,
+      "caught": true
+    },
+    {
+      "name": "signed_projection_reintroduced",
+      "source_sha256": "85567c840b09270f85666acae5a0f10997628c1382a40476dd88fadbfe465259",
+      "binary_sha256": "c8d3b068970e0fec73db36a79ea99d2b74ce25557f3450e13c0db8baff8e6e98",
+      "compile_exit": 0,
+      "exit": 105,
+      "expected_exit": 105,
+      "caught": true
+    }
+  ],
+  "mcp_compile": {
+    "ok": true,
+    "binary_bytes": 10364,
+    "sha256": "bcd26b11e07cc43953640e8666637df9830ce1f0517638754ba9455b02732065",
+    "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+    "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+  },
+  "mcp_run": {
+    "compile": {
+      "ok": true,
+      "binary_bytes": 18936,
+      "sha256": "a6e45216093ed0847dd433b1f48cd9f2cd4a1147480ec47081e5172cd513becc",
+      "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"
+    },
+    "exit": {
+      "kind": "normal",
+      "code": 0
+    },
+    "stdout": "",
+    "stdout_bytes": 0,
+    "stdout_truncated": false,
+    "stderr": "",
+    "stderr_bytes": 0,
+    "stderr_truncated": false,
+    "limits": {
+      "timeout_ms": 10000,
+      "cpu_seconds": 10,
+      "address_space_bytes": 268435456,
+      "file_size_bytes": 1048576,
+      "processes": 5
+    },
+    "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+  },
+  "omega_mcp_tools_used": [
+    "lookup",
+    "compile",
+    "run"
+  ],
+  "limits": {
+    "shared_index_commit_registration": "NativeIntegrate sole owner; untouched",
+    "existing_caller": "PARENT_INTEGRATION_PENDING",
+    "gpu_upload_whole_model": "NOT_RUN",
+    "teardown_lock_authority": "unchanged caller precondition"
+  }
+}

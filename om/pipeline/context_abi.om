@@ -1,0 +1,5 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Private ABI adapter; native_context owns exact operation/window matching.
+fn native_context_lookup keys view ulong 128 count ulong actual view ulong 4 to long
+ret native_context keys count actual
+end

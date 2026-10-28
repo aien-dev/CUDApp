@@ -4,6 +4,8 @@
 #include "omega_gpu_tcgemm_api.h"
 #include "omega_gpu_session.h"
 #include "omega_gpu_fmt.h"
+#include "omega_gpu_native_runtime.h"
+#include "omega_gpu_code_alloc.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -22,6 +24,7 @@ static struct {
     bool hooked;
     Slot cache[CACHE_SLOTS];
     unsigned next;
+    OmegaGpuNativeCache native;
 } g;
 
 const char *omega_gpu_tcgemm_last_error(void) { return omega_gpu_session_last_error(); }
@@ -36,7 +39,17 @@ const char *omega_gpu_tcgemm_rc_name(int rc) {
     }
 }
 static void cache_clear_locked(void) {
-    for (unsigned i = 0; i < CACHE_SLOTS; i++) { if (!g.cache[i].valid) continue; omega_gpu_session_free(&g.cache[i].code); memset(&g.cache[i], 0, sizeof g.cache[i]); }
+    for (unsigned i = 0; i < CACHE_SLOTS; i++) {
+        if (!g.cache[i].valid) continue;
+        if (g.cache[i].pinned) {
+            OmegaGpuNativeLease lease = omega_native_cache_lease(&g.native, i);
+            if (omega_native_lease_op(&lease, 5, 0) == 0) g.cache[i].pinned = false;
+        }
+        if (omega_native_cache_victim(&g.native, i, 0) != 1) continue;
+        omega_gpu_session_free(&g.cache[i].code);
+        (void)omega_native_cache_victim(&g.native, i, 1);
+        memset(&g.cache[i], 0, sizeof g.cache[i]);
+    }
     g.next = 0;
 }
 static void on_session_close(void) {
@@ -61,10 +74,10 @@ void omega_gpu_tcgemm_spec_for(uint32_t k, uint32_t n, OmegaTcGemmSpec *spec) {
 }
 
 static int kernel_for(const OmegaTcGemmSpec *spec, Slot **out, bool *hit) {
+    int fresh = omega_native_cache_refresh(&g.native, CACHE_SLOTS);
+    if (fresh < 0) return OMEGA_GPU_TCGEMM_CODEGEN_FAIL;
+    if (fresh) memset(g.cache, 0, sizeof g.cache);
     for (unsigned i = 0; i < CACHE_SLOTS; i++) { Slot *s = &g.cache[i]; if (s->valid && memcmp(&s->spec, spec, sizeof *spec) == 0) { *out = s; *hit = true; return OMEGA_GPU_TCGEMM_OK; } }
-    Slot *s = NULL;
-    for (unsigned i = 0; i < CACHE_SLOTS && !s; i++) { Slot *c = &g.cache[(g.next + i) % CACHE_SLOTS]; if (!c->valid || !c->pinned) { s = c; g.next = (unsigned)((c - g.cache) + 1) % CACHE_SLOTS; } }
-    if (!s) { omega_gpu_session_set_error("tc gemm kernel cache: every slot holds a prepared kernel"); return OMEGA_GPU_TCGEMM_TOO_LARGE; }
     BlackwellIRProgram *prog = omega_gpu_host_calloc(1, sizeof *prog);
     if (!prog) { omega_gpu_session_set_error("tc gemm codegen: host memory"); return OMEGA_GPU_TCGEMM_CODEGEN_FAIL; }
     int cg = omega_blackwell_codegen_tcgemm_prog(spec, prog);
@@ -75,13 +88,22 @@ static int kernel_for(const OmegaTcGemmSpec *spec, Slot **out, bool *hit) {
         char e[160]; omega_gpu_fmt(e, sizeof e, "tc gemm kernel: %u warps x %u declared registers do not fit", spec->warps, decl);
         omega_gpu_session_set_error(e); omega_gpu_host_free(prog); return OMEGA_GPU_TCGEMM_TOO_LARGE;
     }
-    OmegaGpuMem code;
-    if (omega_gpu_session_alloc_code(need, &code) != 0) { omega_gpu_host_free(prog); return OMEGA_GPU_TCGEMM_CHIP_FAIL; }
-    OmegaBlackwellKernel kernel;
-    cg = omega_blackwell_kernel_encode_into(prog, code.cpu, need, &kernel);
+    uint8_t key[32]; uint64_t request[16];
+    int index = omega_native_shape_key(spec, sizeof *spec, key) == 0 ?
+        omega_native_cache_reserve(&g.native, key, omega_gpu_code_alloc_bytes(need), request) : -1;
+    if (index < 0) { omega_gpu_host_free(prog); return OMEGA_GPU_TCGEMM_TOO_LARGE; }
+    Slot *s = &g.cache[index];
+    OmegaGpuMem code = {0}; OmegaBlackwellKernel kernel;
+    if (omega_gpu_session_alloc_code(need, &code) != 0) cg = -1;
+    else cg = omega_blackwell_kernel_encode_into(prog, code.cpu, need, &kernel);
     omega_gpu_host_free(prog);
-    if (cg != 0 || !kernel.code || kernel.code_size != need) { omega_gpu_session_free(&code); return OMEGA_GPU_TCGEMM_CODEGEN_FAIL; }
-    if (omega_gpu_session_sync_to_gpu(&code) != 0) { omega_gpu_session_free(&code); return OMEGA_GPU_TCGEMM_CHIP_FAIL; }
+    if (cg != 0 || !kernel.code || kernel.code_size != need ||
+        omega_gpu_session_sync_to_gpu(&code) != 0 ||
+        omega_native_cache_finish(&g.native, (unsigned)index, request, 1) != 0) {
+        omega_gpu_session_free(&code);
+        (void)omega_native_cache_finish(&g.native, (unsigned)index, request, 0);
+        return OMEGA_GPU_TCGEMM_CHIP_FAIL;
+    }
     if (s->valid) omega_gpu_session_free(&s->code);
     memset(s, 0, sizeof *s);
     s->valid = true; s->spec = *spec; s->kernel = kernel; s->code = code;
@@ -94,7 +116,11 @@ int omega_gpu_tcgemm_prepare(uint32_t k) {
     omega_gpu_session_lock();
     int rc = OMEGA_GPU_TCGEMM_OK; Slot *s = NULL; bool hit = false;
     if (!dev_open_locked()) rc = OMEGA_GPU_TCGEMM_CHIP_FAIL;
-    else if ((rc = kernel_for(&sp, &s, &hit)) == OMEGA_GPU_TCGEMM_OK) s->pinned = true;
+    else if ((rc = kernel_for(&sp, &s, &hit)) == OMEGA_GPU_TCGEMM_OK && !s->pinned) {
+        OmegaGpuNativeLease lease = omega_native_cache_lease(&g.native, (unsigned)(s - g.cache));
+        if (omega_native_lease_op(&lease, 5, 1) != 0) rc = OMEGA_GPU_TCGEMM_TOO_LARGE;
+        else s->pinned = true;
+    }
     omega_gpu_session_unlock();
     return rc;
 }

@@ -139,18 +139,21 @@ canonical staged refusal. Newer Composer #166 adds structural family3 support;
 it does not confer candidate qualification or device/full-model evidence.
 Unknown families/features remain refused.
 
-At the baseline, Main confirmed no graph-owned qualification resolver or
-selected-artifact recording ABI. Required integration seams are
-`src/omega_gpu_q36_graph.c:rec_fp8` (existing grouped GEMV recording),
-`rec_gemm` (existing FP8 GEMM recording), and `pf_record_experts` (routed/shared
-prefill groups). `consume.om` supplies the actual native admission caller for
-that integration. It is not evidence that selected instructions were recorded
-by those incumbent C paths. Preserve the incumbent/default and production
-refusal until Main binds the selected exact code and launch to the command list.
+The shared integration binds the selected immutable artifact to the actual
+FP8/GEMM cache upload and recorded code handle under the existing session lock.
+The private `src/omega_gpu_q36_native.h` resolves exact graph-owned contexts,
+prepared artifacts, canonical requests and immutable owner observations.
+The call binding additionally checks actual tensor allocation epoch against
+current session epoch and its independently assigned owner generation.
+Failed canonical, artifact, session, ownership or qualification checks refuse;
+they do not retry an incumbent after partial candidate work.
 
-The native caller patch is `om/pipeline/consume.om`; C consumer/shared-header
-registration and bridge generation belong to Main. The current incumbent remains
-active until independent native GB10 and full-model gates approve replacement.
+The actual `rec_fp8`, `rec_gemm` and paired expert recording paths consume that
+selection instead of discarding it. A generic standalone selected expert
+record refuses when a paired GROUP/window contract is required. No API lets
+candidate writers populate accepted records. Production graph state remains
+NULL/count0 until the existing independent evaluator/receipt owners accept
+exact artifacts; current defaults and the incumbent path are unchanged.
 
 ## Predeclared measurement families
 
@@ -239,3 +242,38 @@ in `tests/pipeline/context32-evidence.json`. The original sixteen-context
 `context-evidence.json` remains historical, unchanged. Compile the test after
 only the exact context unit; it has no Quant/Composer/Cache dependency. This
 bounded private arena does not promise a model-wide context organization.
+
+## Actual recording and mode-final closure binding
+
+`omega_gpu_cmdlist_owner` and `omega_gpu_cmdlist_entry` project real borrowed
+owner descriptors, successful-add ordinals, code VA, argument count, generation,
+bank and QMD slots. Observers execute once under the session lock after every
+slot has its final consumed PCAS/INLINE mode, before any synchronization or
+queue commit. INLINE emits those same mode-final bytes, including list reuse
+after PCAS. An observer refusal queues nothing. Uncertain completion retains
+in-flight and recorded references; reset cannot revoke pending code.
+
+For selected native additions, generated `native_mcseal` freezes the complete
+active bank prefix and arguments plus both active384-byte QMDs before publishing
+the successful add. Only the two mode-dependent QMD1 fields are normalized.
+The private GU/DN `native_mcintent` guard binds roles6/7, actual ordinal and
+generation, code VA, final mode and actual typed QMD-slot VA to that seal.
+Legacy recording gains no extra seal computation. Seals are owner-intent
+bindings, not signatures, manifest replacements, or qualification statements.
+
+The graph projects actual router/directory/tensor/code owners. Six nested
+canonical hashes are recomputed from those observations, and native coverage
+checks the actual same-list role sequence and every GU/DN occurrence against
+the graph-owned window plan. Neither expected wire bytes nor candidate flags
+manufacture provenance. Missing owner provenance or an unsupported full-chunk
+closure refuses. The canonical MC family3 refusal remains unchanged; structural
+staged emission is not a qualified MoE closure or full-model capability.
+
+`om/pipeline/test_mccover.om` exercises positive coverage and normalized mode
+reuse, wrong identity/generation/count/order, missing GU/DN, active bank/QMD
+mutation, and malformed mode/slot bindings. The independent native observer
+fixture consumes actual existing host-runtime owner wires against intent hashes
+frozen by the legacy C oracle before recording. Synthetic role0 labels and
+fake-device completion prove host caller/byte binding only, not GROUP semantics,
+kernel execution, physical correctness, performance or qualification.
+

@@ -19,6 +19,76 @@ extern "C" {
 uint32_t omega_bw_enc_sm121(uint64_t *result, const void *o_ins, uint64_t o_ins_len, const void *o_phys, uint64_t o_phys_len, uint64_t o_n, uint64_t o_pad, void *o_code, uint64_t o_code_len);
 /* fn cubin_elf m view ulong 104 nm view uchar 64 tx view uchar 16777216 o edit ulong 16777216 to ulong */
 uint32_t omega_cubin_elf(uint64_t *result, const void *o_m, uint64_t o_m_len, const void *o_nm, uint64_t o_nm_len, const void *o_tx, uint64_t o_tx_len, void *o_o, uint64_t o_o_len);
+/* fn native_repack d view ulong 48 src view uchar 65536 sc view uchar 1024 dst edit uchar 65536 ds edit uchar 1024 to ulong */
+uint32_t omega_native_repack(uint64_t *result, const void *o_d, uint64_t o_d_len, const void *o_src, uint64_t o_src_len, const void *o_sc, uint64_t o_sc_len, void *o_dst, uint64_t o_dst_len, void *o_ds, uint64_t o_ds_len);
+/* fn native_quant op ulong d edit ulong 48 wire edit uchar 384 to ulong */
+uint32_t omega_native_quant(uint64_t *result, uint64_t o_op, void *o_d, uint64_t o_d_len, void *o_wire, uint64_t o_wire_len);
+/* fn native_compose cfg view ulong 16 ins edit ulong 8192 meta edit ulong 2048 phys edit ulong 288 out edit ulong 8 to ulong */
+uint32_t omega_native_compose(uint64_t *result, const void *o_cfg, uint64_t o_cfg_len, void *o_ins, uint64_t o_ins_len, void *o_meta, uint64_t o_meta_len, void *o_phys, uint64_t o_phys_len, void *o_out, uint64_t o_out_len);
+/* fn bc_encode ins view ulong 8192 phys view ulong 288 n ulong pad ulong code edit uchar 16384 to ulong */
+uint32_t omega_bc_encode(uint64_t *result, const void *o_ins, uint64_t o_ins_len, const void *o_phys, uint64_t o_phys_len, uint64_t o_n, uint64_t o_pad, void *o_code, uint64_t o_code_len);
+/* fn native_cache p edit ulong 528 req view ulong 16 tok view ulong 16 op ulong to long */
+uint32_t omega_native_cache(uint64_t *result, void *o_p, uint64_t o_p_len, const void *o_req, uint64_t o_req_len, const void *o_tok, uint64_t o_tok_len, uint64_t o_op);
+/* fn native_lease p edit ulong 528 req view ulong 16 tok view ulong 16 op ulong to long */
+uint32_t omega_native_lease(uint64_t *result, void *o_p, uint64_t o_p_len, const void *o_req, uint64_t o_req_len, const void *o_tok, uint64_t o_tok_len, uint64_t o_op);
+/* fn native_slotrev p view ulong 528 slot ulong gen ulong to ulong */
+uint32_t omega_native_slotrev(uint64_t *result, const void *o_p, uint64_t o_p_len, uint64_t o_slot, uint64_t o_gen);
+/* fn native_event p edit ulong 528 lease edit ulong 16 epoch ulong op ulong to long */
+uint32_t omega_native_event(uint64_t *result, void *o_p, uint64_t o_p_len, void *o_lease, uint64_t o_lease_len, uint64_t o_epoch, uint64_t o_op);
+/* fn native_validate rec view uchar 4096 sizes view ulong 4 code view uchar 16384 launch view uchar 4096 expected view uchar 32 out edit uchar 32 to long */
+uint32_t omega_native_validate(uint64_t *result, const void *o_rec, uint64_t o_rec_len, const void *o_sizes, uint64_t o_sizes_len, const void *o_code, uint64_t o_code_len, const void *o_launch, uint64_t o_launch_len, const void *o_expected, uint64_t o_expected_len, void *o_out, uint64_t o_out_len);
+/* fn native_key data view uchar 4096 n ulong out edit uchar 32 to long */
+uint32_t omega_native_key(uint64_t *result, const void *o_data, uint64_t o_data_len, uint64_t o_n, void *o_out, uint64_t o_out_len);
+/* fn native_codekey data view uchar 16384 n ulong out edit uchar 32 to long */
+uint32_t omega_native_codekey(uint64_t *result, const void *o_data, uint64_t o_data_len, uint64_t o_n, void *o_out, uint64_t o_out_len);
+/* fn native_templates launch view uchar 4096 cubin view uchar 32768 observed view uchar 2048 sizes view ulong 8 to long */
+uint32_t omega_native_templates(uint64_t *result, const void *o_launch, uint64_t o_launch_len, const void *o_cubin, uint64_t o_cubin_len, const void *o_observed, uint64_t o_observed_len, const void *o_sizes, uint64_t o_sizes_len);
+/* fn native_graph q view ulong 64 rows view ulong 1024 p edit ulong 528 want view uchar 4096 records view uchar 65536 out edit ulong 32 to long */
+uint32_t omega_native_graph(uint64_t *result, const void *o_q, uint64_t o_q_len, const void *o_rows, uint64_t o_rows_len, void *o_p, uint64_t o_p_len, const void *o_want, uint64_t o_want_len, const void *o_records, uint64_t o_records_len, void *o_out, uint64_t o_out_len);
+/* fn native_context_lookup keys view ulong 128 count ulong actual view ulong 4 to long */
+uint32_t omega_native_context_lookup(uint64_t *result, const void *o_keys, uint64_t o_keys_len, uint64_t o_count, const void *o_actual, uint64_t o_actual_len);
+/* fn native_binding real view uchar 4096 launch view uchar 4096 call view ulong 12 out edit ulong 32 to long */
+uint32_t omega_native_binding(uint64_t *result, const void *o_real, uint64_t o_real_len, const void *o_launch, uint64_t o_launch_len, const void *o_call, uint64_t o_call_len, void *o_out, uint64_t o_out_len);
+/* fn moe_plan c view ulong 8 ids view ulong 1024 w edit ulong 10368 sg edit ulong 1028 mp edit ulong 2320 m edit ulong 8 to ulong */
+uint32_t omega_moe_plan(uint64_t *result, const void *o_c, uint64_t o_c_len, const void *o_ids, uint64_t o_ids_len, void *o_w, uint64_t o_w_len, void *o_sg, uint64_t o_sg_len, void *o_mp, uint64_t o_mp_len, void *o_m, uint64_t o_m_len);
+/* fn moe_group r view ulong 16 o edit uchar 64 to ulong */
+uint32_t omega_moe_group(uint64_t *result, const void *o_r, uint64_t o_r_len, void *o_o, uint64_t o_o_len);
+/* fn moe_ids32 src view uchar 4096 n ulong ids edit ulong 1024 to ulong */
+uint32_t omega_moe_ids32(uint64_t *result, const void *o_src, uint64_t o_src_len, uint64_t o_n, void *o_ids, uint64_t o_ids_len);
+/* fn moe_maps32 m view ulong 8 mp view ulong 2320 out edit uchar 9280 to ulong */
+uint32_t omega_moe_maps32(uint64_t *result, const void *o_m, uint64_t o_m_len, const void *o_mp, uint64_t o_mp_len, void *o_out, uint64_t o_out_len);
+/* fn moe_segs32 sg view ulong 1028 m view ulong 8 dir view ulong 514 out edit uchar 8224 to ulong */
+uint32_t omega_moe_segs32(uint64_t *result, const void *o_sg, uint64_t o_sg_len, const void *o_m, uint64_t o_m_len, const void *o_dir, uint64_t o_dir_len, void *o_out, uint64_t o_out_len);
+/* fn moe_windows c view ulong 8 o edit ulong 1024 m edit ulong 4 to ulong */
+uint32_t omega_moe_windows(uint64_t *result, const void *o_c, uint64_t o_c_len, void *o_o, uint64_t o_o_len, void *o_m, uint64_t o_m_len);
+/* fn moe_admit r view ulong 16 q view ulong 64 a view ulong 1024 p edit ulong 528 o edit uchar 64 lease edit ulong 16 to long */
+uint32_t omega_moe_admit(uint64_t *result, const void *o_r, uint64_t o_r_len, const void *o_q, uint64_t o_q_len, const void *o_a, uint64_t o_a_len, void *o_p, uint64_t o_p_len, void *o_o, uint64_t o_o_len, void *o_lease, uint64_t o_lease_len);
+/* fn native_mcpack s view ulong 128 h view uchar 2048 w view ulong 1024 o edit uchar 16384 to long */
+uint32_t omega_native_mcpack(uint64_t *result, const void *o_s, uint64_t o_s_len, const void *o_h, uint64_t o_h_len, const void *o_w, uint64_t o_w_len, void *o_o, uint64_t o_o_len);
+/* fn native_mcbind e view uchar 16384 a view uchar 16384 q view ulong 64 r view ulong 64 role ulong o edit uchar 32 to long */
+uint32_t omega_native_mcbind(uint64_t *result, const void *o_e, uint64_t o_e_len, const void *o_a, uint64_t o_a_len, const void *o_q, uint64_t o_q_len, const void *o_r, uint64_t o_r_len, uint64_t o_role, void *o_o, uint64_t o_o_len);
+/* fn native_mcblob w view uchar 16384 a view uchar 4096 c view uchar 16384 n ulong l view uchar 256 role ulong to long */
+uint32_t omega_native_mcblob(uint64_t *result, const void *o_w, uint64_t o_w_len, const void *o_a, uint64_t o_a_len, const void *o_c, uint64_t o_c_len, uint64_t o_n, const void *o_l, uint64_t o_l_len, uint64_t o_role);
+/* fn native_mccover c view ulong 16 roles view ulong 4096 counts view ulong 8 owner view ulong 4 to long */
+uint32_t omega_native_mccover(uint64_t *result, const void *o_c, uint64_t o_c_len, const void *o_roles, uint64_t o_roles_len, const void *o_counts, uint64_t o_counts_len, const void *o_owner, uint64_t o_owner_len);
+/* fn native_mcintent m view ulong 32 bank view uchar 1024 qmd view uchar 1024 s view ulong 16 seal view uchar 32 to long */
+uint32_t omega_native_mcintent(uint64_t *result, const void *o_m, uint64_t o_m_len, const void *o_bank, uint64_t o_bank_len, const void *o_qmd, uint64_t o_qmd_len, const void *o_s, uint64_t o_s_len, const void *o_seal, uint64_t o_seal_len);
+/* fn native_mcseal bank view uchar 1024 qmd view uchar 1024 n ulong out edit uchar 32 to long */
+uint32_t omega_native_mcseal(uint64_t *result, const void *o_bank, uint64_t o_bank_len, const void *o_qmd, uint64_t o_qmd_len, uint64_t o_n, void *o_out, uint64_t o_out_len);
+/* fn native_mccode code view uchar 16384 n ulong out edit uchar 32 to long */
+uint32_t omega_native_mccode(uint64_t *result, const void *o_code, uint64_t o_code_len, uint64_t o_n, void *o_out, uint64_t o_out_len);
+/* fn native_mclaunch meta view ulong 32 bank view uchar 1024 qmdslot view uchar 1024 submit view ulong 16 out edit uchar 32 to long */
+uint32_t omega_native_mclaunch(uint64_t *result, const void *o_meta, uint64_t o_meta_len, const void *o_bank, uint64_t o_bank_len, const void *o_qmdslot, uint64_t o_qmdslot_len, const void *o_submit, uint64_t o_submit_len, void *o_out, uint64_t o_out_len);
+/* fn native_mcdir meta view ulong 8 entries view ulong 1024 out edit uchar 32 to long */
+uint32_t omega_native_mcdir(uint64_t *result, const void *o_meta, uint64_t o_meta_len, const void *o_entries, uint64_t o_entries_len, void *o_out, uint64_t o_out_len);
+/* fn native_mcalloc meta view ulong 8 records view ulong 1024 out edit uchar 32 to long */
+uint32_t omega_native_mcalloc(uint64_t *result, const void *o_meta, uint64_t o_meta_len, const void *o_records, uint64_t o_records_len, void *o_out, uint64_t o_out_len);
+/* fn native_mcseries meta view ulong 8 hashes view uchar 4096 ordinals view ulong 128 out edit uchar 32 to long */
+uint32_t omega_native_mcseries(uint64_t *result, const void *o_meta, uint64_t o_meta_len, const void *o_hashes, uint64_t o_hashes_len, const void *o_ordinals, uint64_t o_ordinals_len, void *o_out, uint64_t o_out_len);
+/* fn native_revision previous ulong to ulong */
+uint32_t omega_native_revision(uint64_t *result, uint64_t o_previous);
+/* fn native_epoch previous ulong to ulong */
+uint32_t omega_native_epoch(uint64_t *result, uint64_t o_previous);
 #ifdef __cplusplus
 }
 #endif
