@@ -58,6 +58,10 @@ test-om-encoder-corpus:
 	@if grep -v ' SAME$$' $(OM_ENC_DIR)/corpus-diff.log; then echo "FAIL corpus encoder diff"; exit 1; fi
 	@echo "encoder corpus: $$(ls $(OM_ENC_DIR)/k-om/*.bin | wc -l) distinct kernels identical .om vs C; diff build $$(grep -c '^program ' $(OM_ENC_DIR)/corpus-diff.log) program encodes and $$(grep -c '^insn ' $(OM_ENC_DIR)/corpus-diff.log) single-instruction encodes, all SAME"
 
+.PHONY: test-om-spec-encoder
+test-om-spec-encoder:
+	sh tools/test_bw_spec_encoder.sh
+
 test-om-units:
 	OMEGA_OMC=$(OMEGA_MV)/seed/out/omc OMEGA_BRIDGE=$(OMEGA_BRIDGE_DIR) sh om/units.sh --check
 

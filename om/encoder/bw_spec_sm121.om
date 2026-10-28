@@ -1,0 +1,1329 @@
+note bw_spec_sm121.om: authoritative specification-driven sm_121 instruction encoder and decoder.
+note Follows Drake's essay direction: Meaning -> Realization -> Encoding.
+note Single table: 63 instruction forms (covering all 60 opcodes of BlackwellIROpcode),
+note with bit offset, width, signedness, min, max, fixed bits and mask for each word.
+note From this single specification, both sp_enc (encoder) and sp_dec (decoder) are implemented.
+
+const E_OK ulong 0
+const E_UNSUP ulong 1
+const E_RANGE ulong 2
+const E_NOMAT ulong 3
+
+const R_NONE ulong 0
+const R_RD ulong 1
+const R_RA ulong 2
+const R_RB ulong 3
+const R_RC ulong 4
+const R_URD ulong 5
+const R_URA ulong 6
+const R_URB ulong 7
+const R_PRED ulong 8
+const R_IMM32 ulong 9
+const R_OFF24 ulong 10
+const R_IMM16 ulong 11
+const R_BAR ulong 12
+const R_BSSY ulong 13
+const R_BRA ulong 14
+const R_LDC ulong 15
+const R_SHFL ulong 16
+const R_LUT ulong 17
+const R_S2R ulong 18
+const R_LDSW ulong 19
+const R_FSET ulong 20
+const R_PRED3 ulong 21
+
+global sp_tbl ulong 3000
+global sp_ok ulong 1
+
+fn set_hdr idx ulong op ulong var ulong w3_def ulong nf ulong to void
+base = mul idx 45
+put sp_tbl base op
+put sp_tbl add base 1 var
+put sp_tbl add base 8 w3_def
+put sp_tbl add base 9 nf
+end
+
+fn set_w0 idx ulong fix ulong mask ulong to void
+base = mul idx 45
+put sp_tbl add base 2 fix
+put sp_tbl add base 3 mask
+end
+
+fn set_w1 idx ulong fix ulong mask ulong to void
+base = mul idx 45
+put sp_tbl add base 4 fix
+put sp_tbl add base 5 mask
+end
+
+fn set_w2 idx ulong fix ulong mask ulong to void
+base = mul idx 45
+put sp_tbl add base 6 fix
+put sp_tbl add base 7 mask
+end
+
+fn set_fld idx ulong f_idx ulong role ulong word ulong shift ulong to void
+fbase = add add mul idx 45 10 mul f_idx 7
+put sp_tbl fbase role
+put sp_tbl add fbase 1 word
+put sp_tbl add fbase 2 shift
+end
+
+fn set_bnd idx ulong f_idx ulong width ulong is_s ulong min_v ulong to void
+fbase = add add mul idx 45 10 mul f_idx 7
+put sp_tbl add fbase 3 width
+put sp_tbl add fbase 4 is_s
+put sp_tbl add fbase 5 min_v
+end
+
+fn set_max idx ulong f_idx ulong max_v ulong to void
+fbase = add add mul idx 45 10 mul f_idx 7
+put sp_tbl add fbase 6 max_v
+end
+
+fn c_init0 to void
+set_hdr 0 0 0 1032192 0
+set_w0 0 31000 4294967295
+set_w1 0 0 4294967295
+set_w2 0 0 4294967295
+set_hdr 1 1 0 1040896 1
+set_w0 1 29186 4278255615
+set_w1 1 255 4294967295
+set_w2 1 3840 4294967295
+set_fld 1 0 1 0 16
+set_bnd 1 0 8 0 0
+set_max 1 0 255
+set_hdr 2 2 0 1040896 2
+set_w0 2 30722 4278255615
+set_w1 2 0 0
+set_w2 2 3840 4294967295
+set_fld 2 0 1 0 16
+set_bnd 2 0 8 0 0
+set_max 2 0 255
+set_fld 2 1 9 1 0
+set_bnd 2 1 32 0 0
+set_max 2 1 4294967295
+set_hdr 3 3 0 926208 2
+set_w0 3 31001 4278255615
+set_w1 3 0 4294967295
+set_w2 3 0 4294902015
+set_fld 3 0 1 0 16
+set_bnd 3 0 8 0 0
+set_max 3 0 255
+set_fld 3 1 18 2 8
+set_bnd 3 1 8 0 0
+set_max 3 1 255
+set_hdr 4 4 0 1040896 2
+set_w0 4 4278221698 4278255615
+set_w1 4 0 4278190143
+set_w2 4 2048 4294967295
+set_fld 4 0 1 0 16
+set_bnd 4 0 8 0 0
+set_max 4 0 255
+set_fld 4 1 15 1 6
+set_bnd 4 1 18 0 0
+set_max 4 1 262143
+set_hdr 5 5 0 926208 2
+set_w0 5 4278221698 4278255615
+set_w1 5 0 4278190143
+set_w2 5 2560 4294967295
+set_fld 5 0 1 0 16
+set_bnd 5 0 8 0 0
+set_max 5 0 255
+set_fld 5 1 15 1 6
+set_bnd 5 1 18 0 0
+set_max 5 1 262143
+set_hdr 6 6 0 926208 2
+set_w0 6 4278220716 4278255615
+set_w1 6 0 4278190111
+set_w2 6 134219776 4294967295
+set_fld 6 0 5 0 16
+set_bnd 6 0 8 0 0
+set_max 6 0 31
+set_fld 6 1 15 1 5
+set_bnd 6 1 19 0 0
+set_max 6 1 524287
+set_hdr 7 7 0 945664 2
+set_w0 7 4278220716 4278255615
+set_w1 7 0 4278190111
+set_w2 7 134220288 4294967295
+set_fld 7 0 5 0 16
+set_bnd 7 0 8 0 0
+set_max 7 0 31
+set_fld 7 1 15 1 5
+set_bnd 7 1 19 0 0
+set_max 7 1 524287
+set_hdr 8 8 0 2083328 4
+set_w0 8 29220 65535
+set_w1 8 0 4294967040
+set_w2 8 126747136 4294967040
+set_fld 8 0 1 0 16
+set_bnd 8 0 8 0 0
+set_max 8 0 255
+set_fld 8 1 2 0 24
+set_bnd 8 1 8 0 0
+set_max 8 1 255
+set_fld 8 2 3 1 0
+set_bnd 8 2 8 0 0
+set_max 8 2 255
+set_fld 8 3 4 2 0
+set_bnd 8 3 8 0 0
+set_max 8 3 255
+end
+
+fn c_init1 to void
+set_hdr 9 8 1 2083328 4
+set_w0 9 31780 65535
+set_w1 9 0 4294967040
+set_w2 9 260964864 4294967040
+set_fld 9 0 5 0 16
+set_bnd 9 0 5 0 0
+set_max 9 0 31
+set_fld 9 1 2 0 24
+set_bnd 9 1 8 0 0
+set_max 9 1 255
+set_fld 9 2 7 1 0
+set_bnd 9 2 5 0 0
+set_max 9 2 31
+set_fld 9 3 4 2 0
+set_bnd 9 3 8 0 0
+set_max 9 3 255
+set_hdr 10 8 2 2083328 4
+set_w0 10 30756 65535
+set_w1 10 0 0
+set_w2 10 126747136 4294967040
+set_fld 10 0 1 0 16
+set_bnd 10 0 8 0 0
+set_max 10 0 255
+set_fld 10 1 2 0 24
+set_bnd 10 1 8 0 0
+set_max 10 1 255
+set_fld 10 2 9 1 0
+set_bnd 10 2 32 0 0
+set_max 10 2 4294967295
+set_fld 10 3 4 2 0
+set_bnd 10 3 8 0 0
+set_max 10 3 255
+set_hdr 11 9 0 2083840 4
+set_w0 11 30757 65535
+set_w1 11 0 0
+set_w2 11 126746624 4294967040
+set_fld 11 0 1 0 16
+set_bnd 11 0 8 0 0
+set_max 11 0 255
+set_fld 11 1 2 0 24
+set_bnd 11 1 8 0 0
+set_max 11 1 255
+set_fld 11 2 9 1 0
+set_bnd 11 2 32 0 0
+set_max 11 2 4294967295
+set_fld 11 3 4 2 0
+set_bnd 11 3 8 0 0
+set_max 11 3 255
+set_hdr 12 10 0 3136000 3
+set_w0 12 31756 65535
+set_w1 12 0 4294967040
+set_w2 12 200302704 4294967295
+set_fld 12 0 21 0 16
+set_bnd 12 0 8 0 0
+set_max 12 0 7
+set_fld 12 1 2 0 24
+set_bnd 12 1 8 0 0
+set_max 12 1 255
+set_fld 12 2 7 1 0
+set_bnd 12 2 8 0 0
+set_max 12 2 31
+set_hdr 13 10 1 2087424 3
+set_w0 13 30732 65535
+set_w1 13 0 0
+set_w2 13 66085488 4294967295
+set_fld 13 0 21 0 16
+set_bnd 13 0 8 0 0
+set_max 13 0 7
+set_fld 13 1 2 0 24
+set_bnd 13 1 8 0 0
+set_max 13 1 255
+set_fld 13 2 9 1 0
+set_bnd 13 2 32 0 0
+set_max 13 2 4294967295
+set_hdr 14 11 0 991744 3
+set_w0 14 31105 65535
+set_w1 14 0 4294967040
+set_w2 14 203299072 4294967295
+set_fld 14 0 1 0 16
+set_bnd 14 0 8 0 0
+set_max 14 0 255
+set_fld 14 1 2 0 24
+set_bnd 14 1 8 0 0
+set_max 14 1 255
+set_fld 14 2 7 1 0
+set_bnd 14 2 8 0 0
+set_max 14 2 31
+set_hdr 15 12 0 1040896 4
+set_w0 15 31110 16777215
+set_w1 15 0 0
+set_w2 15 202381568 4294967040
+set_fld 15 0 2 0 24
+set_bnd 15 0 8 0 0
+set_max 15 0 255
+set_fld 15 1 3 1 0
+set_bnd 15 1 8 0 0
+set_max 15 1 255
+set_fld 15 2 10 1 8
+set_bnd 15 2 24 1 18446744073701163008
+set_max 15 2 8388607
+set_fld 15 3 7 2 0
+set_bnd 15 3 8 0 0
+set_max 15 3 31
+set_hdr 16 13 0 1040896 3
+set_w0 16 31110 16777215
+set_w1 16 0 4294967040
+set_w2 16 202447104 4294967040
+set_fld 16 0 2 0 24
+set_bnd 16 0 8 0 0
+set_max 16 0 255
+set_fld 16 1 3 1 0
+set_bnd 16 1 8 0 0
+set_max 16 1 255
+set_fld 16 2 7 2 0
+set_bnd 16 2 8 0 0
+set_max 16 2 31
+set_hdr 17 14 0 17811968 3
+set_w0 17 29200 65535
+set_w1 17 0 4294967040
+set_w2 17 134209791 4294967295
+set_fld 17 0 1 0 16
+set_bnd 17 0 8 0 0
+set_max 17 0 255
+set_fld 17 1 2 0 24
+set_bnd 17 1 8 0 0
+set_max 17 1 255
+set_fld 17 2 3 1 0
+set_bnd 17 2 8 0 0
+set_max 17 2 255
+end
+
+fn c_init2 to void
+set_hdr 18 15 0 1040896 4
+set_w0 18 29244 65535
+set_w1 18 0 4294967040
+set_w2 18 6144 4294967040
+set_fld 18 0 1 0 16
+set_bnd 18 0 8 0 0
+set_max 18 0 255
+set_fld 18 1 2 0 24
+set_bnd 18 1 8 0 0
+set_max 18 1 255
+set_fld 18 2 3 1 0
+set_bnd 18 2 8 0 0
+set_max 18 2 255
+set_fld 18 3 4 2 0
+set_bnd 18 3 8 0 0
+set_max 18 3 255
+set_hdr 19 16 0 1040896 4
+set_w0 19 29244 65535
+set_w1 19 0 4294967040
+set_w2 19 268288 4294967040
+set_fld 19 0 1 0 16
+set_bnd 19 0 8 0 0
+set_max 19 0 255
+set_fld 19 1 2 0 24
+set_bnd 19 1 8 0 0
+set_max 19 1 255
+set_fld 19 2 3 1 0
+set_bnd 19 2 8 0 0
+set_max 19 2 255
+set_fld 19 3 4 2 0
+set_bnd 19 3 8 0 0
+set_max 19 3 255
+set_hdr 20 17 0 2083328 3
+set_w0 20 4278220825 4278255615
+set_w1 20 0 0
+set_w2 20 71168 4294967040
+set_fld 20 0 1 0 16
+set_bnd 20 0 8 0 0
+set_max 20 0 255
+set_fld 20 1 9 1 0
+set_bnd 20 1 32 0 0
+set_max 20 1 4294967295
+set_fld 20 2 2 2 0
+set_bnd 20 2 8 0 0
+set_max 20 2 255
+set_hdr 21 18 0 2083328 3
+set_w0 21 30738 65535
+set_w1 21 0 0
+set_w2 21 126796031 4294967295
+set_fld 21 0 1 0 16
+set_bnd 21 0 8 0 0
+set_max 21 0 255
+set_fld 21 1 2 0 24
+set_bnd 21 1 8 0 0
+set_max 21 1 255
+set_fld 21 2 9 1 0
+set_bnd 21 2 32 0 0
+set_max 21 2 4294967295
+set_hdr 22 19 0 991744 3
+set_w0 22 31105 65535
+set_w1 22 0 4294967040
+set_w2 22 203298048 4294967295
+set_fld 22 0 1 0 16
+set_bnd 22 0 8 0 0
+set_max 22 0 255
+set_fld 22 1 2 0 24
+set_bnd 22 1 8 0 0
+set_max 22 1 255
+set_fld 22 2 7 1 0
+set_bnd 22 2 8 0 0
+set_max 22 2 31
+set_hdr 23 20 0 991744 3
+set_w0 23 31105 65535
+set_w1 23 0 4294967040
+set_w2 23 203380992 4294967295
+set_fld 23 0 1 0 16
+set_bnd 23 0 8 0 0
+set_max 23 0 255
+set_fld 23 1 2 0 24
+set_bnd 23 1 8 0 0
+set_max 23 1 255
+set_fld 23 2 7 1 0
+set_bnd 23 2 8 0 0
+set_max 23 2 31
+set_hdr 24 21 0 991744 3
+set_w0 24 31105 65535
+set_w1 24 0 4294967040
+set_w2 24 202250496 4294967295
+set_fld 24 0 1 0 16
+set_bnd 24 0 8 0 0
+set_max 24 0 255
+set_fld 24 1 2 0 24
+set_bnd 24 1 8 0 0
+set_max 24 1 255
+set_fld 24 2 7 1 0
+set_bnd 24 2 8 0 0
+set_max 24 2 31
+set_hdr 25 22 0 1040896 4
+set_w0 25 2438 4095
+set_w1 25 0 4294967040
+set_w2 25 202463488 4294967040
+set_fld 25 0 8 0 12
+set_bnd 25 0 4 0 0
+set_max 25 0 8
+set_fld 25 1 2 0 24
+set_bnd 25 1 8 0 0
+set_max 25 1 255
+set_fld 25 2 3 1 0
+set_bnd 25 2 8 0 0
+set_max 25 2 255
+set_fld 25 3 7 2 0
+set_bnd 25 3 8 0 0
+set_max 25 3 31
+set_hdr 26 23 0 1043456 0
+set_w0 26 31122 4294967295
+set_w1 26 0 4294967295
+set_w2 26 45056 4294967295
+end
+
+fn c_init3 to void
+set_hdr 27 24 0 1043456 0
+set_w0 27 31122 4294967295
+set_w1 27 0 4294967295
+set_w2 27 12288 4294967295
+set_hdr 28 25 0 1042432 0
+set_w0 28 4278221199 4294967295
+set_w1 28 0 4294967295
+set_w2 28 33554432 4294967295
+set_hdr 29 26 0 3284480 4
+set_w0 29 31144 65535
+set_w1 29 2147483648 2147483648
+set_w2 29 136270080 4294967040
+set_fld 29 0 1 0 16
+set_bnd 29 0 8 0 0
+set_max 29 0 255
+set_fld 29 1 2 0 24
+set_bnd 29 1 8 0 0
+set_max 29 1 255
+set_fld 29 2 3 1 0
+set_bnd 29 2 8 0 0
+set_max 29 2 255
+set_fld 29 3 7 2 0
+set_bnd 29 3 8 0 0
+set_max 29 3 31
+set_hdr 30 27 0 3284480 4
+set_w0 30 31144 65535
+set_w1 30 2147483648 2147483648
+set_w2 30 203378944 4294967040
+set_fld 30 0 1 0 16
+set_bnd 30 0 8 0 0
+set_max 30 0 255
+set_fld 30 1 2 0 24
+set_bnd 30 1 8 0 0
+set_max 30 1 255
+set_fld 30 2 3 1 0
+set_bnd 30 2 8 0 0
+set_max 30 2 255
+set_fld 30 3 7 2 0
+set_bnd 30 3 8 0 0
+set_max 30 3 31
+set_hdr 31 28 0 2087424 2
+set_w0 31 29196 65535
+set_w1 31 0 4294967040
+set_w2 31 66084976 4294967295
+set_fld 31 0 2 0 24
+set_bnd 31 0 8 0 0
+set_max 31 0 255
+set_fld 31 1 3 1 0
+set_bnd 31 1 8 0 0
+set_max 31 1 255
+set_hdr 32 29 0 2083328 3
+set_w0 32 29202 65535
+set_w1 32 0 4294967040
+set_w2 32 126762239 4294967295
+set_fld 32 0 1 0 16
+set_bnd 32 0 8 0 0
+set_max 32 0 255
+set_fld 32 1 2 0 24
+set_bnd 32 1 8 0 0
+set_max 32 1 255
+set_fld 32 2 3 1 0
+set_bnd 32 2 8 0 0
+set_max 32 2 255
+set_hdr 33 30 0 5227520 3
+set_w0 33 29217 65535
+set_w1 33 0 4294967040
+set_w2 33 0 4294967295
+set_fld 33 0 1 0 16
+set_bnd 33 0 8 0 0
+set_max 33 0 255
+set_fld 33 1 2 0 24
+set_bnd 33 1 8 0 0
+set_max 33 1 255
+set_fld 33 2 3 1 0
+set_bnd 33 2 8 0 0
+set_max 33 2 255
+set_hdr 34 31 0 5227520 3
+set_w0 34 29217 65535
+set_w1 34 2147483648 2147483648
+set_w2 34 0 4294967295
+set_fld 34 0 1 0 16
+set_bnd 34 0 8 0 0
+set_max 34 0 255
+set_fld 34 1 2 0 24
+set_bnd 34 1 8 0 0
+set_max 34 1 255
+set_fld 34 2 3 1 0
+set_bnd 34 2 8 0 0
+set_max 34 2 255
+set_hdr 35 32 0 5227520 3
+set_w0 35 29216 65535
+set_w1 35 0 4294967040
+set_w2 35 4194304 4294967295
+set_fld 35 0 1 0 16
+set_bnd 35 0 8 0 0
+set_max 35 0 255
+set_fld 35 1 2 0 24
+set_bnd 35 1 8 0 0
+set_max 35 1 255
+set_fld 35 2 3 1 0
+set_bnd 35 2 8 0 0
+set_max 35 2 255
+end
+
+fn c_init4 to void
+set_hdr 36 33 0 5227520 4
+set_w0 36 29219 65535
+set_w1 36 0 4294967040
+set_w2 36 0 4294967040
+set_fld 36 0 1 0 16
+set_bnd 36 0 8 0 0
+set_max 36 0 255
+set_fld 36 1 2 0 24
+set_bnd 36 1 8 0 0
+set_max 36 1 255
+set_fld 36 2 3 1 0
+set_bnd 36 2 8 0 0
+set_max 36 2 255
+set_fld 36 3 4 2 0
+set_bnd 36 3 8 0 0
+set_max 36 3 255
+set_hdr 37 34 0 5227520 4
+set_w0 37 29195 65535
+set_w1 37 0 4294967040
+set_w2 37 0 0
+set_fld 37 0 21 0 16
+set_bnd 37 0 8 0 0
+set_max 37 0 7
+set_fld 37 1 2 0 24
+set_bnd 37 1 8 0 0
+set_max 37 1 255
+set_fld 37 2 3 1 0
+set_bnd 37 2 8 0 0
+set_max 37 2 255
+set_fld 37 3 20 2 0
+set_bnd 37 3 32 0 0
+set_max 37 3 4294967295
+set_hdr 38 35 0 1034752 4
+set_w0 38 29192 65535
+set_w1 38 0 4294967040
+set_w2 38 0 4294967288
+set_fld 38 0 1 0 16
+set_bnd 38 0 8 0 0
+set_max 38 0 255
+set_fld 38 1 2 0 24
+set_bnd 38 1 8 0 0
+set_max 38 1 255
+set_fld 38 2 3 1 0
+set_bnd 38 2 8 0 0
+set_max 38 2 255
+set_fld 38 3 21 2 0
+set_bnd 38 3 8 0 0
+set_max 38 3 7
+set_hdr 39 36 0 5227520 3
+set_w0 39 29193 65535
+set_w1 39 0 4294967040
+set_w2 39 58720256 4294967295
+set_fld 39 0 1 0 16
+set_bnd 39 0 8 0 0
+set_max 39 0 255
+set_fld 39 1 2 0 24
+set_bnd 39 1 8 0 0
+set_max 39 1 255
+set_fld 39 2 3 1 0
+set_bnd 39 2 8 0 0
+set_max 39 2 255
+set_hdr 40 37 0 5227520 3
+set_w0 40 29193 65535
+set_w1 40 0 4294967040
+set_w2 40 125829120 4294967295
+set_fld 40 0 1 0 16
+set_bnd 40 0 8 0 0
+set_max 40 0 255
+set_fld 40 1 2 0 24
+set_bnd 40 1 8 0 0
+set_max 40 1 255
+set_fld 40 2 3 1 0
+set_bnd 40 2 8 0 0
+set_max 40 2 255
+set_hdr 41 38 0 5235200 2
+set_w0 41 29253 4278255615
+set_w1 41 0 4294967040
+set_w2 41 2102272 4294967295
+set_fld 41 0 1 0 16
+set_bnd 41 0 8 0 0
+set_max 41 0 255
+set_fld 41 1 2 1 0
+set_bnd 41 1 8 0 0
+set_max 41 1 255
+set_hdr 42 39 0 5120512 2
+set_w0 42 29445 4278255615
+set_w1 42 0 4294967040
+set_w2 42 2158848 4294967295
+set_fld 42 0 1 0 16
+set_bnd 42 0 8 0 0
+set_max 42 0 255
+set_fld 42 1 2 1 0
+set_bnd 42 1 8 0 0
+set_max 42 1 255
+set_hdr 43 40 0 926720 2
+set_w0 43 29448 4278255615
+set_w1 43 0 4294967040
+set_w2 43 4096 4294967295
+set_fld 43 0 1 0 16
+set_bnd 43 0 8 0 0
+set_max 43 0 255
+set_fld 43 1 2 1 0
+set_bnd 43 1 8 0 0
+set_max 43 1 255
+set_hdr 44 41 0 926720 2
+set_w0 44 29448 4278255615
+set_w1 44 0 4294967040
+set_w2 44 5120 4294967295
+set_fld 44 0 1 0 16
+set_bnd 44 0 8 0 0
+set_max 44 0 255
+set_fld 44 1 2 1 0
+set_bnd 44 1 8 0 0
+set_max 44 1 255
+end
+
+fn c_init5 to void
+set_hdr 45 42 0 926720 3
+set_w0 45 32649 65535
+set_w1 45 134225664 4229955583
+set_w2 45 917504 4294967295
+set_fld 45 0 1 0 16
+set_bnd 45 0 8 0 0
+set_max 45 0 255
+set_fld 45 1 2 0 24
+set_bnd 45 1 8 0 0
+set_max 45 1 255
+set_fld 45 2 16 1 21
+set_bnd 45 2 5 0 0
+set_max 45 2 31
+set_hdr 46 58 0 1042432 3
+set_w0 46 31108 65535
+set_w1 46 0 255
+set_w2 46 3072 4294967295
+set_fld 46 0 1 0 16
+set_bnd 46 0 8 0 0
+set_max 46 0 255
+set_fld 46 1 2 0 24
+set_bnd 46 1 8 0 0
+set_max 46 1 255
+set_fld 46 2 19 1 8
+set_bnd 46 2 24 0 0
+set_max 46 2 8388607
+set_hdr 47 43 0 1040896 3
+set_w0 47 31108 65535
+set_w1 47 0 4294967295
+set_w2 47 0 4294901760
+set_fld 47 0 1 0 16
+set_bnd 47 0 8 0 0
+set_max 47 0 255
+set_fld 47 1 2 0 24
+set_bnd 47 1 8 0 0
+set_max 47 1 255
+set_fld 47 2 11 2 0
+set_bnd 47 2 16 0 0
+set_max 47 2 65535
+set_hdr 48 44 0 1040896 3
+set_w0 48 29576 16777215
+set_w1 48 0 4294967040
+set_w2 48 0 4294901760
+set_fld 48 0 2 0 24
+set_bnd 48 0 8 0 0
+set_max 48 0 255
+set_fld 48 1 3 1 0
+set_bnd 48 1 8 0 0
+set_max 48 1 255
+set_fld 48 2 11 2 0
+set_bnd 48 2 16 0 0
+set_max 48 2 65535
+set_hdr 49 45 0 1042944 1
+set_w0 49 2381 4095
+set_w1 49 0 4294967295
+set_w2 49 58720256 4294967295
+set_fld 49 0 8 0 12
+set_bnd 49 0 4 0 0
+set_max 49 0 7
+set_hdr 50 46 0 1042944 2
+set_w0 50 2375 4095
+set_w1 50 0 3
+set_w2 50 58720256 4286578688
+set_fld 50 0 8 0 12
+set_bnd 50 0 4 0 0
+set_max 50 0 8
+set_fld 50 1 14 0 0
+set_bnd 50 1 32 1 18446744071562067968
+set_max 50 1 2147483647
+set_hdr 51 47 0 926720 2
+set_w0 51 29448 4278255615
+set_w1 51 0 4294967040
+set_w2 51 2048 4294967295
+set_fld 51 0 1 0 16
+set_bnd 51 0 8 0 0
+set_max 51 0 255
+set_fld 51 1 2 1 0
+set_bnd 51 1 8 0 0
+set_max 51 1 255
+set_hdr 52 48 0 1043456 0
+set_w0 52 31517 4294967295
+set_w1 52 0 4294967295
+set_w2 52 65536 4294967295
+set_hdr 53 49 0 927744 2
+set_w0 53 31108 65535
+set_w1 53 255 4294967295
+set_w2 53 134219776 4294967295
+set_fld 53 0 1 0 16
+set_bnd 53 0 8 0 0
+set_max 53 0 255
+set_fld 53 1 2 0 24
+set_bnd 53 1 8 0 0
+set_max 53 1 255
+end
+
+fn c_init6 to void
+set_hdr 54 50 0 1040896 2
+set_w0 54 31112 16777215
+set_w1 54 0 4294967040
+set_w2 54 134220031 4294967295
+set_fld 54 0 2 0 24
+set_bnd 54 0 8 0 0
+set_max 54 0 255
+set_fld 54 1 3 1 0
+set_bnd 54 1 8 0 0
+set_max 54 1 255
+set_hdr 55 51 0 2083328 5
+set_w0 55 29202 65535
+set_w1 55 0 4294967040
+set_w2 55 126746624 4294901760
+set_fld 55 0 1 0 16
+set_bnd 55 0 8 0 0
+set_max 55 0 255
+set_fld 55 1 2 0 24
+set_bnd 55 1 8 0 0
+set_max 55 1 255
+set_fld 55 2 3 1 0
+set_bnd 55 2 8 0 0
+set_max 55 2 255
+set_fld 55 3 4 2 0
+set_bnd 55 3 8 0 0
+set_max 55 3 255
+set_fld 55 4 17 2 8
+set_bnd 55 4 8 0 0
+set_max 55 4 255
+set_hdr 56 52 0 2083328 4
+set_w0 56 29209 65535
+set_w1 56 0 4294967040
+set_w2 56 1536 4294967040
+set_fld 56 0 1 0 16
+set_bnd 56 0 8 0 0
+set_max 56 0 255
+set_fld 56 1 2 0 24
+set_bnd 56 1 8 0 0
+set_max 56 1 255
+set_fld 56 2 3 1 0
+set_bnd 56 2 8 0 0
+set_max 56 2 255
+set_fld 56 3 4 2 0
+set_bnd 56 3 8 0 0
+set_max 56 3 255
+set_hdr 57 53 0 2083328 4
+set_w0 57 29223 65535
+set_w1 57 0 4294967040
+set_w2 57 126746624 4294967040
+set_fld 57 0 1 0 16
+set_bnd 57 0 8 0 0
+set_max 57 0 255
+set_fld 57 1 2 0 24
+set_bnd 57 1 8 0 0
+set_max 57 1 255
+set_fld 57 2 3 1 0
+set_bnd 57 2 8 0 0
+set_max 57 2 255
+set_fld 57 3 4 2 0
+set_bnd 57 3 8 0 0
+set_max 57 3 255
+set_hdr 58 54 0 1040896 3
+set_w0 58 2373 4095
+set_w1 58 0 0
+set_w2 58 58720768 4294967295
+set_fld 58 0 8 0 12
+set_bnd 58 0 4 0 0
+set_max 58 0 8
+set_fld 58 1 12 0 16
+set_bnd 58 1 4 0 0
+set_max 58 1 15
+set_fld 58 2 13 1 0
+set_bnd 58 2 32 0 2
+set_max 58 2 2147483647
+set_hdr 59 55 0 1042944 2
+set_w0 59 2369 4095
+set_w1 59 0 4294967295
+set_w2 59 58720768 4294967295
+set_fld 59 0 8 0 12
+set_bnd 59 0 4 0 0
+set_max 59 0 8
+set_fld 59 1 12 0 16
+set_bnd 59 1 4 0 0
+set_max 59 1 15
+set_hdr 60 56 0 991744 4
+set_w0 60 31105 65535
+set_w1 60 0 0
+set_w2 60 203299584 4294967295
+set_fld 60 0 1 0 16
+set_bnd 60 0 8 0 0
+set_max 60 0 255
+set_fld 60 1 2 0 24
+set_bnd 60 1 8 0 0
+set_max 60 1 255
+set_fld 60 2 7 1 0
+set_bnd 60 2 8 0 0
+set_max 60 2 31
+set_fld 60 3 10 1 8
+set_bnd 60 3 24 1 18446744073701163008
+set_max 60 3 8388607
+set_hdr 61 57 0 991744 4
+set_w0 61 31105 65535
+set_w1 61 0 0
+set_w2 61 203300096 4294967295
+set_fld 61 0 1 0 16
+set_bnd 61 0 8 0 0
+set_max 61 0 255
+set_fld 61 1 2 0 24
+set_bnd 61 1 8 0 0
+set_max 61 1 255
+set_fld 61 2 7 1 0
+set_bnd 61 2 8 0 0
+set_max 61 2 31
+set_fld 61 3 10 1 8
+set_bnd 61 3 24 1 18446744073701163008
+set_max 61 3 8388607
+set_hdr 62 59 0 926720 2
+set_w0 62 29448 4278255615
+set_w1 62 0 4294967040
+set_w2 62 3072 4294967295
+set_fld 62 0 1 0 16
+set_bnd 62 0 8 0 0
+set_max 62 0 255
+set_fld 62 1 2 1 0
+set_bnd 62 1 8 0 0
+set_max 62 1 255
+end
+
+fn sp_init to void
+if ne get sp_ok 0 0
+ret
+end
+c_init0
+c_init1
+c_init2
+c_init3
+c_init4
+c_init5
+c_init6
+put sp_ok 0 1
+end
+
+fn sp_find o view ulong 16 to ulong
+op = get o 0
+for i ulong 63
+base = mul i 45
+f_op = get sp_tbl base
+if eq f_op op
+var = get sp_tbl add base 1
+if eq op 8
+  if ne get o 13 0
+    if eq var 0
+      ret i
+    end
+  else
+    if and ne get o 8 0 ne get o 14 0
+      if eq var 1
+        ret i
+      end
+    else
+      if eq var 2
+        ret i
+      end
+    end
+  end
+else
+  if eq op 10
+    if and ne get o 8 0 ne get o 14 0
+      if eq var 0
+        ret i
+      end
+    else
+      if eq var 1
+        ret i
+      end
+    end
+  else
+    ret i
+  end
+end
+end
+end
+ret 63
+end
+
+fn sp_val role ulong word ulong o view ulong 16 to ulong
+if or eq role R_RD eq role R_URD
+ret get o 1
+end
+if or eq role R_RA eq role R_URA
+ret get o 2
+end
+if eq role R_RB
+ret get o 3
+end
+if eq role R_URB
+op = get o 0
+if or eq op 6 eq op 7
+ret get o 1
+end
+ret get o 5
+end
+if eq role R_RC
+ret get o 4
+end
+if eq role R_PRED3
+if eq word 0
+ret and get o 1 7
+end
+ret and get o 4 7
+end
+if eq role R_PRED
+if eq get o 9 0
+ret 7
+end
+if eq get o 10 0
+ret 0
+end
+ret 8
+end
+if eq role R_BAR
+ret get o 11
+end
+if eq role R_SHFL
+ret and get o 6 31
+end
+if eq role R_LUT
+ret and get o 6 255
+end
+ret get o 6
+end
+
+fn sp_off24 imm ulong to bool
+ret or lt imm 8388608 ge imm 4286578688
+end
+
+fn sp_chkr role ulong val ulong min_v ulong max_v ulong to bool
+if eq role R_OFF24
+ret sp_off24 val
+end
+if eq role R_BSSY
+ret not or lt val 2 ge val 2147483648
+end
+if eq role R_LDSW
+ret lt val 8388608
+end
+if eq role R_BRA
+ret true
+end
+ret not or lt val min_v lt max_v val
+end
+
+fn sp_fput fbase ulong val ulong w edit ulong 4 to void
+role = get sp_tbl fbase
+if eq role R_BRA
+rel = and sub val 1 4294967295
+put w 0 or get w 0 shl and rel 63 18
+s = shr rel 6
+c = ulong 58720256
+if ge rel 2147483648
+s = or s 4227858432
+c = 58982399
+end
+put w 1 or get w 1 and shl s 2 4294967295
+put w 2 c
+ret
+end
+if eq role R_BSSY
+put w 1 or get w 1 and mul sub val 1 16 4294967295
+ret
+end
+if eq role R_LDC
+shift = get sp_tbl add fbase 2
+put w 1 or get w 1 and shl val shift 16776960
+ret
+end
+if or eq role R_LDSW eq role R_OFF24
+put w 1 or get w 1 shl and val 16777215 8
+ret
+end
+if eq role R_FSET
+if ne val 0
+put w 2 val
+else
+put w 2 66084864
+end
+ret
+end
+word = get sp_tbl add fbase 1
+shift = get sp_tbl add fbase 2
+width = get sp_tbl add fbase 3
+mask = sub shl 1 width 1
+val_m = and val mask
+cur_w = get w word
+put w word or cur_w shl val_m shift
+end
+
+fn sp_fenc fbase ulong o view ulong 16 w edit ulong 4 to ulong
+role = get sp_tbl fbase
+word = get sp_tbl add fbase 1
+min_v = get sp_tbl add fbase 5
+max_v = get sp_tbl add fbase 6
+val = sp_val role word o
+ok = sp_chkr role val min_v max_v
+if not ok
+ret E_RANGE
+end
+sp_fput fbase val w
+ret E_OK
+end
+
+fn sp_enc o view ulong 16 w edit ulong 4 to ulong
+sp_init
+idx = sp_find o
+if eq idx 63
+ret E_UNSUP
+end
+base = mul idx 45
+put w 0 get sp_tbl add base 2
+put w 1 get sp_tbl add base 4
+put w 2 get sp_tbl add base 6
+sp_ctl = get o 7
+if ne sp_ctl 0
+put w 3 sp_ctl
+else
+put w 3 get sp_tbl add base 8
+end
+nf = get sp_tbl add base 9
+for f_i ulong nf
+fbase = add add base 10 mul f_i 7
+st = sp_fenc fbase o w
+if ne st E_OK
+ret st
+end
+end
+if eq get sp_tbl base 46
+if eq get o 7 0
+val = get o 6
+if and eq val 0 eq get o 9 0
+put w 3 1032192
+else
+put w 3 1042944
+end
+end
+end
+ret E_OK
+end
+
+fn sp_dfnd w view ulong 4 to ulong
+for i ulong 63
+base = mul i 45
+w0_fix = get sp_tbl add base 2
+w0_mask = get sp_tbl add base 3
+if ne and get w 0 w0_mask w0_fix
+continue
+end
+w1_fix = get sp_tbl add base 4
+w1_mask = get sp_tbl add base 5
+if ne and get w 1 w1_mask w1_fix
+continue
+end
+w2_fix = get sp_tbl add base 6
+w2_mask = get sp_tbl add base 7
+if ne and get w 2 w2_mask w2_fix
+continue
+end
+ret i
+end
+ret 63
+end
+
+fn sp_dimm role ulong fbase ulong w view ulong 4 o edit ulong 16 to bool
+if eq role R_BRA
+low6 = and shr get w 0 18 63
+hi = and shr get w 1 2 67108863
+if or eq get w 2 58982399 ne and get w 1 2147483648 0
+if ne and hi 33554432 0
+hi = or hi 4227858432
+end
+end
+rel = or shl hi 6 low6
+put o 6 and add rel 1 4294967295
+ret true
+end
+if eq role R_BSSY
+put o 6 add div get w 1 16 1
+ret true
+end
+if eq role R_LDC
+shift = get sp_tbl add fbase 2
+put o 6 shr and get w 1 16776960 shift
+ret true
+end
+if or eq role R_LDSW eq role R_OFF24
+raw = and shr get w 1 8 16777215
+if and eq role R_OFF24 ge raw 8388608
+raw = or raw 4278190080
+end
+put o 6 raw
+ret true
+end
+if eq role R_FSET
+put o 6 get w 2
+ret true
+end
+ret false
+end
+
+fn sp_fdec fbase ulong w view ulong 4 o edit ulong 16 to void
+role = get sp_tbl fbase
+is_imm = sp_dimm role fbase w o
+if is_imm
+ret
+end
+word = get sp_tbl add fbase 1
+shift = get sp_tbl add fbase 2
+width = get sp_tbl add fbase 3
+mask = sub shl 1 width 1
+raw = and shr get w word shift mask
+if or eq role R_RD eq role R_URD
+put o 1 raw
+put o 8 1
+ret
+end
+if or eq role R_RA eq role R_URA
+put o 2 raw
+put o 12 1
+ret
+end
+if or eq role R_RB eq role R_URB
+if eq role R_URB
+put o 5 raw
+put o 14 1
+else
+put o 3 raw
+put o 13 1
+end
+ret
+end
+if eq role R_RC
+put o 4 raw
+ret
+end
+if eq role R_PRED3
+if eq word 0
+put o 1 raw
+put o 8 1
+else
+put o 4 raw
+end
+ret
+end
+if eq role R_PRED
+if eq raw 0
+put o 9 1
+put o 10 0
+else
+if eq raw 8
+put o 9 1
+put o 10 1
+else
+put o 9 0
+put o 10 0
+end
+end
+ret
+end
+if eq role R_BAR
+put o 11 raw
+ret
+end
+put o 6 raw
+end
+
+fn sp_dec w view ulong 4 o edit ulong 16 to ulong
+idx = sp_dfnd w
+if eq idx 63
+ret E_NOMAT
+end
+for k ulong 16
+put o k 0
+end
+base = mul idx 45
+put o 0 get sp_tbl base
+put o 7 get w 3
+nf = get sp_tbl add base 9
+for f_i ulong nf
+fbase = add add base 10 mul f_i 7
+sp_fdec fbase w o
+end
+ret E_OK
+end
+
+
+fn main to int
+sp_init
+o = new ulong 16 0
+w = new ulong 4 0
+dec = new ulong 16 0
+
+note Test 1: NOP encode and decode
+for i ulong 16
+put o i 0
+end
+st = sp_enc o w
+if ne st 0
+ret 10
+end
+if ne get w 0 31000
+ret 11
+end
+dst = sp_dec w dec
+if ne dst 0
+ret 12
+end
+if ne get dec 0 0
+ret 13
+end
+
+note Test 2: IMAD encode and decode
+for i ulong 16
+put o i 0
+end
+put o 0 8
+put o 1 10
+put o 2 11
+put o 3 12
+put o 4 13
+put o 13 1
+st = sp_enc o w
+if ne st 0
+ret 20
+end
+dst = sp_dec w dec
+if ne dst 0
+ret 21
+end
+if ne get dec 0 8
+ret 22
+end
+if ne get dec 1 10
+ret 23
+end
+if ne get dec 2 11
+ret 24
+end
+if ne get dec 3 12
+ret 25
+end
+if ne get dec 4 13
+ret 26
+end
+
+note Test 3: Out-of-range register refusal (register 256)
+for i ulong 16
+put o i 0
+end
+put o 0 1
+put o 1 256
+st2 = sp_enc o w
+if ne st2 E_RANGE
+ret 30
+end
+
+note Test 4: Unsupported opcode refusal
+for i ulong 16
+put o i 0
+end
+put o 0 99
+st3 = sp_enc o w
+if ne st3 E_UNSUP
+ret 40
+end
+
+note Test 5: Refusal of unmatched bit pattern on decode
+put w 0 4294967295
+put w 1 4294967295
+put w 2 4294967295
+put w 3 4294967295
+dst = sp_dec w dec
+if ne dst E_NOMAT
+ret 50
+end
+
+ret 0
+end
