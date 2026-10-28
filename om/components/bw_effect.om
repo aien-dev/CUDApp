@@ -158,8 +158,18 @@ bc_emit ins s 8
 ret at
 end
 fn bc_patch ins edit ulong 8192 at ulong target ulong to void
+note A refused emission can leave branchsite=count=1024; never patch an unallocated slot.
+if ge at 1024
+ret
+end
 k = add mul at 8 6
 put ins k or shl shr get ins k 32 32 and sub target at 4294967295
+end
+fn bc_tail ins edit ulong 8192 at ulong to void
+if ge at 1024
+ret
+end
+put ins add mul at 8 6 shl ulong 1032192 32
 end
 note Typed HMMA component: BF16 A quad,B pair,C/D quads; no raw solved bytes.
 note Component includes existing hmma_wait15+nop14 spacing before any external reader.

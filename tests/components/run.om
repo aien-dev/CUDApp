@@ -140,7 +140,44 @@ text RtRMut "build/components/record-mutant"
 text RtGuard "if lt compose_word b 22 add get actual 1 2"
 text RtWeak "if false"
 text RtRKey ",\"staged_structural_result\":"
-text RtRcpt "tests/components/host-receipt.json"
+text RtRcpt "tests/components/capacity-host-receipt.json"
+text RtCap "tests/components/capacity-unit.om"
+text RtCapB "build/components/capacity-unit"
+text RtCapM1 "build/components/capacity-patch-mutant"
+text RtCapM2 "build/components/capacity-tail-mutant"
+text RtCapIf "if ge at 1024"
+text RtCapRs ",\"capacity_regression\":{\"baseline\":\"c6977b4906229fe83f41103b7eff65b64a0986d6\",\"baseline_exit\":103,\"fixed_exit\":0,\"patch_guard_removal_exit\":103,\"tail_guard_removal_exit\":103,\"staged_cfg\":[3,1536,16,8,16,0],\"result\":\"PASS\"}"
+text RtCapRun "tests/components/capacity-runtime-unit.om"
+text RtCapRB "build/components/capacity-runtime-unit"
+text RtVal "om/cache/validate.om"
+text RtDig "om/cache/digest.om"
+text RtRes "om/cache/residency.om"
+text RtArt "om/cache/artifact.om"
+fn rt_val to void
+path = new uchar 1024 0
+n = rt_qpath path
+hp_cat path n
+rt_nl
+hp_cat Rt00095 len Rt00095
+rt_nl
+hp_cat RtDig len RtDig
+rt_nl
+hp_cat RtRes len RtRes
+rt_nl
+hp_cat RtArt len RtArt
+rt_nl
+rt_enc Rt00009 len Rt00009
+rt_spec
+hp_cat Rt00010 len Rt00010
+rt_nl
+hp_cat RtAdmit len RtAdmit
+rt_nl
+hp_cat RtVal len RtVal
+rt_nl
+hp_cat RtCapRun len RtCapRun
+rt_nl
+hp_build RtCapRB len RtCapRB
+end
 fn rc_publish to void
 b = new uchar 262144 0
 n = hp_read Rt00072 len Rt00072 b len b
@@ -208,6 +245,30 @@ hp_build RtRBin len RtRBin
 end
 end
 
+fn rt_uncap which ulong to void
+hits = ulong 0
+for pos ulong sub get HUsed 0 len RtCapIf
+same = true
+for j ulong len RtCapIf
+if ne get HSrc add pos j get RtCapIf j
+same = false
+end
+end
+if same
+hits = add hits 1
+if eq hits which
+for j ulong len RtCapIf
+c = uchar 32
+if lt j len RtWeak
+c = get RtWeak j
+end
+put HSrc add pos j c
+end
+end
+end
+end
+hp_require eq hits 2
+end
 fn rt_nl to void
 pos = get HUsed 0
 hp_require lt pos len HSrc
@@ -288,8 +349,25 @@ hp_cat Rt00020 len Rt00020
 rt_nl
 hp_build Rt00019 len Rt00019
 end
-if ge kind 6
+if and ge kind 6 le kind 7
 rt_record kind
+end
+if and ge kind 8 le kind 10
+hp_cat RtCap len RtCap
+rt_nl
+if eq kind 8
+hp_build RtCapB len RtCapB
+else
+rt_uncap sub kind 8
+if eq kind 9
+hp_build RtCapM1 len RtCapM1
+else
+hp_build RtCapM2 len RtCapM2
+end
+end
+end
+if eq kind 11
+rt_val
 end
 end
 note execprog intentionally supplies an empty environment; locate the selected cc toolchain explicitly.
@@ -589,6 +667,12 @@ rc_source RtSrc12 len RtSrc12
 rc_source RtSrc13 len RtSrc13
 rc_source RtAdmit len RtAdmit
 rc_source RtRUnit len RtRUnit
+rc_source RtCap len RtCap
+rc_source RtCapRun len RtCapRun
+rc_source RtVal len RtVal
+rc_source RtDig len RtDig
+rc_source RtRes len RtRes
+rc_source RtArt len RtArt
 rc_text Rt00060 len Rt00060
 rc_quote RtQuant len RtQuant
 rc_text Rt00071 len Rt00071
@@ -609,6 +693,7 @@ rc_text RtCcVer len RtCcVer
 rc_ver 1 RtVFlag len RtVFlag
 rc_text RtShaVer len RtShaVer
 rc_ver 3 RtVFlag len RtVFlag
+rc_text RtCapRs len RtCapRs
 rc_text RtVEnd len RtVEnd
 hp_require eq fsync get RCFile 0 0
 hp_require eq fclose get RCFile 0 0
@@ -676,6 +761,18 @@ rt_cc add i 1
 end
 rt_comp 6
 rt_comp 7
+rt_comp 8
+rt_comp 9
+rt_comp 10
+hp_start RtCapB len RtCapB
+hp_exec -1 -1 0
+hp_start RtCapM1 len RtCapM1
+hp_exec -1 -1 103
+hp_start RtCapM2 len RtCapM2
+hp_exec -1 -1 103
+rt_comp 11
+hp_start RtCapRB len RtCapRB
+hp_exec -1 -1 0
 rc_begin
 kc_cases
 rc_finish
