@@ -207,13 +207,8 @@ end
 
 if eq nf 1
 fbase = add base 10
-role = get sp_tbl fbase
-word = get sp_tbl add fbase 1
-min_v = get sp_tbl add fbase 5
-max_v = get sp_tbl add fbase 6
 for c_i ulong 4
 clear_o o op
-val = get_fld_val min_v max_v c_i
 emit_one_field fbase c_i 0 1 op o
 finalize_o op var o
 st1 = write_case o buf
