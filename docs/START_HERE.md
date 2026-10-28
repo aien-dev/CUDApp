@@ -32,6 +32,8 @@ build/hello_gpu --sim
 
 `make test` is the host-only suite. Its success marker is `CUDA++ HOST TESTS PASS (<count> targets)`; `<count>` is computed from the current `HOST_TESTS` manifest in `Makefile`, not a fixed historical count. The suite contains intentional failure/mutation cases: judge the **exit code and final result**, not the presence of the words FAIL/ERROR in intermediate logs. It can take several minutes. `make zero-cuda-gate` inspects ELF metadata and runs its own negative control; it is **not** a proof that kernel drivers or firmware have disappeared.
 
+The code-allocation source scan inside `make test` expands only existing source files and refuses an empty readset, a missing/unreadable input, or any scanner error. Its negative controls also require the intended refusal diagnostic, so a setup failure cannot count as detecting forbidden allocation sizing. A clean scan is only a check of the selected source idioms, not GPU execution evidence.
+
 If an x86-64 checkout fails on an architecture-specific instruction, record the full error and compare with [the existing reproducibility issue #15](https://github.com/aien-dev/CUDApp/issues/15). Do not suppress the memory-ordering instruction or call a partial host run a passing full suite.
 
 Optional: `python3 tools/figures/make_figures.py --check` verifies that README diagrams match the generator. Check it on your exact commit.
