@@ -244,5 +244,4 @@ chmod 755 "$WORK/native-gen"
 ${CC:-cc} -std=gnu11 -O2 -Wall -Wextra -Werror -DBW_SPEC_NATIVE_PROBE -I"$WORK" \
   -include "$WORK/omega_native.h" tests/bw_encode_control_test.c "$WORK/omega_native.c" -o "$WORK/native-probe"
 "$WORK/native-probe"
-
 log "ALL SPEC-DRIVEN ENCODER/DECODER VERIFICATIONS PASSED (HOST_TESTED)!"
