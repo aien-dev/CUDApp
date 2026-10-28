@@ -1,0 +1,76 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Concatenate QuantSchema quant.om, Composer realize.om, and cache digest.om before this unit.
+note Portable storage remains omega_native_artifact export/admit. No second manifest or identity schema.
+note Cache key is SHA256 of Composer exact canonical used bytes, never structs or device addresses.
+note Caller owns immutable admitted bytes; session-resident handle policy is residency.om.
+note -1 invalid bounds, -10 canonical realization refusal, -11 code id, -12 launch id, -13 store key.
+fn kc_equal a view uchar 32 b view uchar 32 to bool
+for i ulong 32
+if ne get a i get b i
+ret false
+end
+end
+ret true
+end
+fn kc_key rec view uchar 4096 n ulong out edit uchar 32 to int
+if ne compose_check rec n 0
+ret -10
+end
+ret kc_sha rec n out
+end
+note sizes4 = canonical used bytes, encoded code used bytes, canonical relocatable launch used bytes, reserved0.
+note Validate every immutable payload on read; a filename or prior validation is not admission.
+fn kc_validate rec view uchar 4096 sizes view ulong 4 code view uchar 16384 launch view uchar 4096 expected view uchar 32 out edit uchar 32 to int
+hash = new uchar 32 0
+if or eq get sizes 1 0 gt get sizes 1 16384
+ret -1
+end
+if or eq get sizes 2 0 gt get sizes 2 4096
+ret -1
+end
+if ne get sizes 3 0
+ret -1
+end
+if ne compose_check rec get sizes 0 0
+ret -10
+end
+if ne compose_launchread rec launch get sizes 2 0
+ret -12
+end
+if ne kc_codesha code get sizes 1 hash 0
+ret -1
+end
+if not compose_codeid rec hash
+ret -11
+end
+if ne kc_sha launch get sizes 2 hash 0
+ret -1
+end
+if not compose_launchid rec hash
+ret -12
+end
+if ne kc_sha rec get sizes 0 hash 0
+ret -1
+end
+if not kc_equal hash expected
+ret -13
+end
+for i ulong 32
+put out i get hash i
+end
+ret 0
+end
+fn kc_request rec view uchar 4096 n ulong req edit ulong 16 to int
+hash = new uchar 32 0
+if ne kc_key rec n hash 0
+ret -10
+end
+for i ulong 4
+word = ulong 0
+for j ulong 8
+word = or word shl ulong get hash add mul i 8 j mul j 8
+end
+put req add 3 i word
+end
+ret 0
+end
