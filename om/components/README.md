@@ -40,6 +40,8 @@ On source `c6977b4906229fe83f41103b7eff65b64a0986d6`, legal staged configuration
 
 `capacity-unit.om` exercises the actual composer refusal, zero result counters, a nearby successful U2 configuration, direct/rowpipe controls, final valid and first invalid patch/tail slots, oversized indices, and HMMA's three-slot atomic capacity boundary. Removing either new slot guard must reproduce trap103. `capacity-runtime-unit.om` calls the actual #169 `nv_staged` recomposition seam and requires refusal without touching supplied code. This last check does not claim a fully admitted artifact or device execution. The generated public composer caller is also exercised by the existing session-platform host test.
 
+The generated public-adapter regression resets its status to `UINT64_MAX` before each capacity-refusal call and again before valid-call recovery. A previous refusal value must not satisfy the next call's assertion. The native runtime fixture runs on the synthetic platform without linking the Linux device platform; its PASS is host-only.
+
 The native conductor writes a new `tests/components/capacity-host-receipt.json`; it preserves the historical `host-receipt.json` unchanged. Both source pins and executed control results belong to their respective receipts. Physical qualification remains NOT_RUN, and every production registration, cache gate and device authorization requirement is unchanged.
 
 
