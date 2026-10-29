@@ -731,6 +731,7 @@ static const Case CASES[] = {
     {"CMDLIST_CREATE_AFTER_LOCK_PRECEDING_RECOVERY_IS_USABLE", c_cmdlist_create_after_recovery},
     {"CMDLIST_CLOSE_AFTER_CREATE_STILL_REFUSES_STALE_LIST", c_cmdlist_close_after_create_stale},
     {"NATIVE_SYNTHETIC_QUANT_COMPOSE_ENCODE_CACHE_SELECT_RECORD", c_native_chain},
+    {"NATIVE_REAL_COMPOSE_CAPACITY_REFUSES_WITHOUT_TRAP", c_native_compose_capacity},
     {"NATIVE_TIMEOUT_RETAINS_CODE_UNTIL_CONFIRMED_TEARDOWN", c_native_timeout_refs},
     {"NATIVE_NORMAL_CLOSE_INVALIDATES_EXACT_LEASE", c_native_close_epoch},
     {"NATIVE_ACTUAL_OWNER_MODEFINAL_OBSERVER_BINDING", c_native_observer_modes},
