@@ -23,7 +23,10 @@ and instruction-alignment checks. Disabled capacity zero is still refused.
 - `address-test.om` decodes the address pair and models each store's effective
   address inside a guarded capture extent. It checks ordinary and low-half-carry
   cases, untouched header/reserved bytes/canaries, signed 24-bit store offsets,
-  and the branch predicate and complete relative displacement. It does not use
+  the branch predicate and complete relative displacement, the GLOBALTIMERLO
+  source and R2 destination, and each record field's store-source register.
+  Its in-test timer and register mutations must be refused after each field is
+  changed, and the original bytes are restored. It does not use
   the nvdisasm decode or the emitter's address helpers as its oracle. This limited
   arithmetic model does not validate GPU instruction scheduling or scoreboards.
 - `guard-test.om` exercises enable/check values 0, 1, 2 and maximum unsigned
@@ -57,15 +60,27 @@ done
 
 All four units must exit zero. The original emitter test prints its individual
 checks. The three new tests are silent on success and return a named assertion
-status in their source on failure. These tests are not yet integrated into
-`make test` or the historical disassembler runner.
+status in their source on failure. `run-emitter-checks.sh` now compiles and runs
+all four units before its external decode check. A failed compile, nonempty
+compiler stderr or failing unit stops the runner before any later stage.
+These units are still not integrated into `make test`.
+
+The runner's shell control flow can be checked without a compiler or GPU:
+
+```sh
+sh tests/device-trace/run-runner-controls.sh
+```
+
+That check uses synthetic compiler programs and decode rows. It checks unit
+composition and failure propagation only; it is not native Omega execution,
+an instruction decoder or evidence that the emitter's instruction words work.
 
 ## Disassembler check (replaces the historical golden)
 
 The historical `expected.sass` described the original PR84 head
 `60d6c57fc6821accce0027d65dd239355beeb543`, including the erroneous
-multiply-based address formation, and was itself an NVIDIA-tool listing, which
-`AGENTS.md` forbids in the repository. It is removed. `run-emitter-checks.sh`
+multiply-based address formation, and was itself an NVIDIA-tool listing.
+PR #93 removed it. `run-emitter-checks.sh`
 now keeps the nvdisasm listing in its temporary directory and checks it against
 hand-written expectations: the opcode counts of the two 20-instruction marker
 blocks and the address-formation lines (`MOV R6, 0x40` / `0x80`, then
