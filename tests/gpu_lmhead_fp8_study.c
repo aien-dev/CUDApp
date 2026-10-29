@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "test_out_file.h"
 
 #define V 151936u
 #define H 2048u
@@ -112,7 +113,7 @@ int main(int argc, char **argv) {
         bucket_dis[0], bucket[0], bucket_dis[1], bucket[1], bucket_dis[2], bucket[2], bucket_dis[3], bucket[3],
         n ? tb_ns[n / 2] / 1e3 : 0.0, n ? tf_ns[n / 2] / 1e3 : 0.0);
     printf("%s", rep);
-    if (out_path) { FILE *o = fopen(out_path, "w"); if (o) { fputs(rep, o); fclose(o); } }
+    if (out_path) { FILE *o = test_out_open(out_path); if (o) { fputs(rep, o); fclose(o); } }
     omega_gpu_bf16_tensor_free(tb); omega_gpu_fp8_tensor_free(tf);
     omega_gpu_session_close();
     return fails ? 1 : 0;

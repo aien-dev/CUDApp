@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "test_out_file.h"
 
 static int g_checks, g_failed;
 #define CHECK(cond, ...) do { g_checks++; if (!(cond)) { g_failed++; printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -305,7 +306,7 @@ static void evict_host_caches(void) {
 static double med(uint64_t *v, uint32_t n) { qsort(v, n, 8, cmp_u64); return (double)v[n / 2]; }
 
 static int chip_run(const char *out_path, uint32_t reps, uint32_t N, uint32_t K) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot write %s\n", out_path); return 1; }
     if (out) fprintf(out, "{\"receipt\":\"OMEGA_GPU_BF16_GEMV_V1\",\"n\":%u,\"k\":%u,\"reps\":%u,\"evict\":%d,\"spin_us\":%u,\"points\":[", N, K, reps, g_evict, omega_gpu_session_spin_us());
     uint16_t *w = make_w((size_t)N * K, 90001); float *x = make_x(K, 90002);

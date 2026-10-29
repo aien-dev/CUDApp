@@ -11,7 +11,14 @@
 # Writes OUTDIR/run-NN.log (load average before, exit code after) and OUTDIR/summary.txt. Exit 0 only when all N passed.
 set -eu
 OUT=${1:?usage: tools/c4_streams_chip.sh OUTDIR [N]}
-N=${2:-10}
+N=${2-10}
+case "$N" in
+    ''|*[!0-9]*) echo 'N must be a positive decimal integer' >&2; exit 2 ;;
+esac
+[ "$N" -gt 0 ] 2>/dev/null || {
+    echo 'N must be a positive decimal integer in the shell integer range' >&2
+    exit 2
+}
 BIN=${BIN:-build/gpu_streams_test}
 LOCK=${LOCK:-/tmp/aien-gb10.lock}
 [ -x "$BIN" ] || { echo "NOT_RUN: $BIN is not built" >&2; exit 2; }

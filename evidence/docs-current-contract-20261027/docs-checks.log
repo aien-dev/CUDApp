@@ -1,0 +1,22 @@
+$ git diff --check
+PASS
+$ python3 AST parse for both figure scripts
+PASS tools/figures/make_figures.py
+PASS tools/figures/test_stack_legend.py
+$ sh -n tests/device-trace/run-emitter-checks.sh tools/artifact_smoke.sh
+PASS
+$ pandoc -f gfm -t html README.md PROVENANCE.md CONTRIBUTING.md AGENTS.md docs/HOW_I_DID_IT.md
+PASS
+$ test ! -e tests/device-trace/expected.sass
+PASS: removed fixture is absent
+$ grep -n nvdisasm tests/device-trace/run-emitter-checks.sh
+6:#   2. nvdisasm 13.0 on the emitted words   -- an outside oracle. It is not part of the
+64:nvdisasm --binary SM121 "$work/words.bin" > "$work/got.sass"
+94:echo 'nvdisasm decode matches the hand-written expectations (40 instructions)'
+$ grep -n "access(nv" tests/gpu_reconv_test.c
+177:    if (access(nv, X_OK) != 0) { printf("nvdisasm: not present, listing check skipped for %s\n", name); return 0; }
+$ grep -n "command -v" tools/artifact_smoke.sh
+11:    if command -v nvdisasm >/dev/null 2>&1; then
+16:    if command -v cuobjdump >/dev/null 2>&1; then
+$ git diff --name-only -- src native swap nvrm tests/device-trace
+PASS: no runtime, swap or emitter changes

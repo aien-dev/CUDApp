@@ -46,6 +46,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include "test_out_file.h"
 
 #define TOL 1e-5
 static int g_checks, g_failed;
@@ -1116,7 +1117,7 @@ static int grid_ab(const char *arms_csv, uint32_t reps, uint32_t seed) {
 }
 
 static int chip_run(const char *out_path, uint32_t reps) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 1; }
     if (out) fprintf(out, "{\"test\":\"OMEGA_GPU_FP8_GEMV\",\"points\":[");
     static const ChipPoint pts[] = {
@@ -1292,8 +1293,10 @@ int main(int argc, char **argv) {
         if (budget) omega_gpu_fp8_set_cta_budget(budget);
         if (depth_set) { omega_gpu_fp8_set_depth(1, depth); g_depth_forced = 1; }
         (void)omega_gpu_session_set_spin_us(spin);
-        if (grid_arms) grid_ab(grid_arms, reps ? reps : 1, seed); else chip_run(out_path, reps ? reps : 1);
+        int grid_rc = 0;
+        if (grid_arms) grid_rc = grid_ab(grid_arms, reps ? reps : 1, seed); else chip_run(out_path, reps ? reps : 1);
         omega_gpu_session_close();
+        if (grid_rc) return grid_rc;
     }
     printf("gpu_fp8_api_test: %d checks, %d failed: %s\n", g_checks, g_failed, g_failed ? "FAIL" : "PASS");
     return g_failed ? 1 : 0;

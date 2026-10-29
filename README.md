@@ -92,7 +92,7 @@ I'm not the only one mapping this instruction set in the open, and I credit the 
 
 <p align="center"><img src="docs/img/reverse-engineering.svg" width="100%" alt="The method in eight steps. Learn: my own probe kernel, nvcc once offline, read the bytes back, change one detail. Prove: field hypothesis, my encoder writes it, the GB10 runs it, golden words in the tests. A wrong answer goes back to the hypothesis."></p>
 
-No NVIDIA binary is in this repository. One listing printed by NVIDIA's `nvdisasm` is stored as a test pin: the decode of CUDA++'s own trace-emitter words (`PROVENANCE.md` section 6). The whole method, step by step with the files and receipts: [docs/HOW_I_DID_IT.md](docs/HOW_I_DID_IT.md).
+No NVIDIA binary or NVIDIA-tool listing is stored in the current tree. The former `nvdisasm` test pin of CUDA++'s own trace-emitter words was removed in #93; its history is recorded in `PROVENANCE.md` section 6. The whole method, step by step with the files and receipts: [docs/HOW_I_DID_IT.md](docs/HOW_I_DID_IT.md).
 
 ### What the machine code looks like
 
@@ -397,7 +397,7 @@ work: 12582912 bytes moved (8388608 read, 4194304 written), 1048576 floating-poi
 
 Receipt: `evidence/dx/d3-faults/hello-sim-spark.txt`; the ceiling, `evidence/OWN30B-T3-TC-PEAK-BW-5faa0f70-20261013T2236Z/`. **FIXED on the simulator.** Left: the measured GPU time printed next to the floor, from a chip run (the code prints it; it has not run on the chip yet).
 
-Replacing a developer's CUDA libraries and NVIDIA's kernel module with CUDA++ is ledger item L401; its section here comes with it.
+The developer replacement workflow is ledger item L401. Its kernel-module replacement scope is pending a separate kernel decision; the supported path here retains NVIDIA's open kernel module.
 
 ## Run your first kernel
 
