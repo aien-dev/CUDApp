@@ -1,0 +1,18 @@
+Patch-only audit, run from the repository root on source commit
+8b022055ad01bc148ff4f8fa6c7443995e5b5510. Not a repository-history audit.
+Temporary directory names below are represented by shell variables.
+
+$ tools/extract/audit-selftest.sh
+SELFTEST PASS: planted 15 (one in a deleted file's history, one in a commit message), found 15
+exit=0
+
+$ checkdir=$(mktemp -d)
+$ git init -q "$checkdir"
+$ git diff bba6da8045ba5baaf0a81f7152af44d52e24f563..8b022055ad01bc148ff4f8fa6c7443995e5b5510 > "$checkdir/repair.patch"
+$ cp tools/figures/test_stack_legend.py "$checkdir/test_stack_legend.py"
+$ git -C "$checkdir" -c user.name=Test -c user.email=test@example.invalid add .
+$ git -C "$checkdir" -c user.name=Test -c user.email=test@example.invalid commit -qm 'local repair scan fixture'
+$ out=$(mktemp -d)  # any writable output directory
+$ tools/extract/audit-scan.sh "$checkdir" "$out"
+blobs 2  binaries 0  secret-hits 0  private-hits 0 (0 distinct)
+exit=0
