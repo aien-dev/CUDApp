@@ -1,0 +1,38 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note HOST_ONLY synthetic byte emitter; mode0 exact wire, mode1 native digest.
+fn main to int
+b = new uchar 16384 0
+h = new uchar 32 0
+mode = new uchar 1 0
+last = new uchar 1 0
+if ne read 0 mode 0 1 1
+ret 65
+end
+if ne read 0 last 0 1 0
+ret 65
+end
+mf_fill edit b
+if ge get mode 0 2
+mf_fifteen edit b
+put mode 0 sub get mode 0 2
+end
+if ne mc_valid b 11264 0
+ret 65
+end
+if eq get mode 0 0
+if ne write 1 b 0 11264 11264
+ret 74
+end
+ret 0
+end
+if eq get mode 0 1
+if ne kc_codesha b 11264 edit h 0
+ret 65
+end
+if ne write 1 h 0 32 32
+ret 74
+end
+ret 0
+end
+ret 65
+end

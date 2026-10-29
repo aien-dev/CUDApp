@@ -1,0 +1,130 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Existing runtime glue owns allocation, session lock, upload and completion observation.
+note op0init,1prepare,2commit,3abort,4revision,5hold,6pin,7acquire,8retire,9unpin,10seal,11invalidate,12find.
+note req uses cache canonical request16. tok0slot,1revision,2owner,3signed hold delta bits.
+note op16context/token read-only;17refresh returns1only init/newer dead-handle epoch;18pool-owned reservation ticket.
+note Only existing teardown owner supplies a newer dead-handle epoch. Same epoch cannot change profile.
+fn native_cache p edit ulong 528 req view ulong 16 tok view ulong 16 op ulong to long
+copy = new ulong 16 0
+if eq op 0
+ret long kc_init p get req 0 get req 1 get req 2 get req 7
+end
+if eq op 1
+ret long kc_prepare p req
+end
+if eq op 2
+ret long kc_commit p get tok 0 get tok 2 get req 0
+end
+if eq op 3
+ret long kc_abort p get tok 0 get tok 2 get req 0
+end
+if eq op 4
+ret long kc_revision p get tok 0 get req 0
+end
+if eq op 5
+if eq get tok 3 1
+ret long kc_hold p get tok 0 get tok 1 get req 0 1
+end
+if eq get tok 3 0
+ret long kc_hold p get tok 0 get tok 1 get req 0 -1
+end
+ret -1
+end
+if eq op 6
+ret long kc_pin p get tok 0 get tok 1 get req 0
+end
+if eq op 7
+ret long kc_acquire p get tok 0 get tok 1 get req 0
+end
+if eq op 8
+ret long kc_retire p get tok 0 get tok 1 get req 0
+end
+if eq op 9
+ret long kc_unpin p get tok 0 get tok 1 get req 0
+end
+if eq op 10
+ret long kc_seal p get req 0 get tok 3
+end
+if eq op 11
+ret long kc_invalidate p get req 0 get req 1
+end
+if eq op 12
+ret long kc_find p req
+end
+if eq op 13
+if ne kc_context p get req 0 get req 1 0
+ret -2
+end
+if ge get tok 0 get p 4
+ret -1
+end
+if kc_victim_ok p get tok 0
+ret 1
+end
+ret 0
+end
+if eq op 14
+if ne kc_context p get req 0 get req 1 0
+ret -2
+end
+if ge get tok 0 get p 4
+ret -1
+end
+if not kc_victim_ok p get tok 0
+ret -5
+end
+b = kc_base get tok 0
+put p 5 sub get p 5 get p add b 2
+for i ulong 16
+if ne i 1
+put p add b i 0
+end
+end
+ret 0
+end
+if eq op 15
+rc = kc_token p get tok 0 get tok 1 get req 0
+if ne rc 0
+ret long rc
+end
+if ne kc_find p req int add get tok 0 1
+ret -7
+end
+ret 0
+end
+if eq op 16
+rc = kc_context p get req 0 get req 1
+if ne rc 0
+ret long rc
+end
+ret long kc_token p get tok 0 get tok 1 get req 0
+end
+if eq op 17
+if eq get p 0 0
+rc = kc_init p get req 0 get req 1 get req 2 get req 7
+if ne rc 0
+ret long rc
+end
+ret 1
+end
+if eq kc_context p get req 0 get req 1 0
+ret 0
+end
+rc = kc_invalidate p get req 0 get req 1
+if ne rc 0
+ret long rc
+end
+ret 1
+end
+if eq op 18
+if eq get p 12 18446744073709551615
+ret -9
+end
+for i ulong 16
+put copy i get req i
+end
+put copy 7 add get p 12 1
+ret long kc_prepare p copy
+end
+ret -1
+end

@@ -1,0 +1,570 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note HOST_ONLY portable public receipt inverse checker. Compose om/cache/digest.om first.
+note argv: original-file derived-file original-git-blob. Original is supplied by git cat-file.
+note No writes, network, GPU, truststore or production authority. All refusals are nonzero.
+note Buffers bound each input to 262144 bytes; capacity and read errors fail closed.
+text prhome "/home/"
+text prplace "$AIEN_RECEIPT_HOME"
+text prkey "\"_portable_derivation\""
+text prhex "0123456789abcdef"
+text prm0 "  \"_portable_derivation\":{\"schema\":\"AIEN_PORTABLE_RECEIPT_V1\",\"original_sha256\":\""
+text prm1 "\",\"original_git_blob\":\""
+text prm2 "\",\"placeholder\":\"$AIEN_RECEIPT_HOME\",\"rule\":\"Remove this metadata line and replace the placeholder with the producer HOME prefix obtained from the original Git blob.\",\"scrubbed_sha256\":\""
+text prm3 "\",\"scrubbed_hash_domain\":\"document bytes with exactly the _portable_derivation metadata line removed\"},\n"
+text prpass "PORTABLE_RECEIPT HOST_ONLY PASS controls=11\n"
+global pro uchar 262144
+global prd uchar 262144
+global prr uchar 262144
+global prs uchar 262144
+global prh uchar 256
+global prm uchar 1024
+global prb uchar 40
+global prn ulong 7
+note prn: original length, derived length, HOME length, metadata length, first body placeholder,
+note scrubbed length, scrubbed metadata hash offset. Scrubbed domain excludes exactly the added line.
+fn pr_load which ulong to bool
+pathbuf = new uchar 4096 0
+extra = new uchar 1 0
+n = argread add which 1 pathbuf 0 len pathbuf
+if le n 0
+ret false
+end
+fd = fopen pathbuf 0 ulong n 0 0
+if lt fd 0
+ret false
+end
+pos = ulong 0
+ok = true
+while lt pos 262144 bound 262144
+k = long 0
+if eq which 0
+k = read int fd pro pos sub ulong 262144 pos
+else
+k = read int fd prd pos sub ulong 262144 pos
+end
+if lt k 0
+ok = false
+break
+end
+if eq k 0
+break
+end
+pos = add pos ulong k
+end
+if eq pos 262144
+k = read int fd extra 0 1
+if ne k 0
+ok = false
+end
+end
+if ne fclose int fd 0
+ok = false
+end
+put prn which pos
+ret ok
+end
+fn pr_user c uchar to bool
+if and ge c 97 le c 122
+ret true
+end
+if and ge c 65 le c 90
+ret true
+end
+if and ge c 48 le c 57
+ret true
+end
+ret or eq c 95 or eq c 45 eq c 46
+end
+note Keep delimiter alternatives shallow at the pinned non-spilling register allocator.
+fn pr_delim c uchar to bool
+if or eq c 47 eq c 34
+ret true
+end
+if or eq c 32 eq c 10
+ret true
+end
+ret or eq c 9 eq c 39
+end
+fn pr_ohome p ulong to bool
+if gt add p len prhome get prn 0
+ret false
+end
+for i ulong len prhome
+if ne get pro add p i get prhome i
+ret false
+end
+end
+ret true
+end
+fn pr_oplace p ulong to bool
+if gt add p len prplace get prn 0
+ret false
+end
+for i ulong len prplace
+if ne get pro add p i get prplace i
+ret false
+end
+end
+ret true
+end
+fn pr_dplace p ulong to bool
+if gt add p len prplace get prn 1
+ret false
+end
+for i ulong len prplace
+if ne get prd add p i get prplace i
+ret false
+end
+end
+ret true
+end
+fn pr_okey p ulong to bool
+if gt add p len prkey get prn 0
+ret false
+end
+for i ulong len prkey
+if ne get pro add p i get prkey i
+ret false
+end
+end
+ret true
+end
+fn pr_infer to bool
+put prn 2 0
+for p ulong get prn 0
+if or pr_oplace p pr_okey p
+ret false
+end
+if pr_ohome p
+q = add p len prhome
+while lt q get prn 0 bound 256
+if not pr_user get pro q
+break
+end
+q = add q 1
+if ge sub q p 256
+ret false
+end
+end
+if eq q add p len prhome
+ret false
+end
+note Require a complete username and an unescaped path delimiter, not a truncated suffix.
+if eq q get prn 0
+ret false
+end
+c = get pro q
+if not pr_delim c
+ret false
+end
+n = sub q p
+if eq get prn 2 0
+put prn 2 n
+for j ulong n
+put prh j get pro add p j
+end
+else
+if ne n get prn 2
+ret false
+end
+for j ulong n
+if ne get prh j get pro add p j
+ret false
+end
+end
+end
+end
+end
+ret gt get prn 2 6
+end
+note Reuse existing SHA ABI. Separate transport/scheduling/tail stages keep register scopes bounded.
+fn pr_source which ulong p ulong to uchar
+if eq which 0
+ret get pro p
+end
+if eq which 1
+ret get prr p
+end
+ret get prs p
+end
+fn pr_schedule which ulong off ulong w edit uint 64 to void
+block = new uchar 4096 0
+for j ulong 64
+p = add off j
+put block j pr_source which p
+end
+kc_sched w block 0
+end
+fn pr_tail which ulong n ulong padbuf edit uchar 128 to void
+base = mul div n 64 64
+for j ulong rem n 64
+p = add base j
+put padbuf j pr_source which p
+end
+end
+fn pr_hash which ulong out edit uchar 32 to void
+padbuf = new uchar 128 0
+s = new uint 8 0
+w = new uint 64 0
+kt = new uint 64 0
+kc_k kt
+kc_iv s
+n = get prn 0
+if eq which 2
+n = get prn 5
+end
+for off ulong div n 64
+pr_schedule which mul off 64 w
+kc_rounds s w kt
+end
+pr_tail which n padbuf
+kc_finish s w kt padbuf n
+kc_output s out
+end
+fn pr_metadata digest view uchar 32 scrub view uchar 32 to void
+p = ulong 0
+for i ulong len prm0
+put prm p get prm0 i
+p = add p 1
+end
+for i ulong 32
+put prm p get prhex shr get digest i 4
+p = add p 1
+put prm p get prhex and get digest i 15
+p = add p 1
+end
+for i ulong len prm1
+put prm p get prm1 i
+p = add p 1
+end
+for i ulong 40
+put prm p get prb i
+p = add p 1
+end
+for i ulong len prm2
+put prm p get prm2 i
+p = add p 1
+end
+put prn 6 p
+for i ulong 32
+put prm p get prhex shr get scrub i 4
+p = add p 1
+put prm p get prhex and get scrub i 15
+p = add p 1
+end
+for i ulong len prm3
+put prm p get prm3 i
+p = add p 1
+end
+put prn 3 p
+end
+fn pr_inverse to bool
+p = add get prn 3 2
+q = ulong 2
+put prr 0 123
+put prr 1 10
+put prn 4 0
+while lt p get prn 1 bound 262144
+if pr_dplace p
+if eq get prn 4 0
+put prn 4 p
+end
+if gt add q get prn 2 get prn 0
+ret false
+end
+for j ulong get prn 2
+put prr q get prh j
+q = add q 1
+end
+p = add p len prplace
+else
+if ge q get prn 0
+ret false
+end
+put prr q get prd p
+q = add q 1
+p = add p 1
+end
+end
+if ne q get prn 0
+ret false
+end
+for i ulong q
+if ne get pro i get prr i
+ret false
+end
+end
+ret ne get prn 4 0
+end
+note Exact forward comparison additionally refuses missed substitutions and extra metadata anywhere.
+fn pr_forward to bool
+p = ulong 2
+q = add get prn 3 2
+while lt p get prn 0 bound 262144
+match = false
+if le add p get prn 2 get prn 0
+match = true
+for j ulong get prn 2
+if ne get pro add p j get prh j
+match = false
+end
+end
+end
+if match
+if gt add q len prplace get prn 1
+ret false
+end
+for j ulong len prplace
+if ne get prd add q j get prplace j
+ret false
+end
+end
+q = add q len prplace
+p = add p get prn 2
+else
+if ge q get prn 1
+ret false
+end
+if ne get pro p get prd q
+ret false
+end
+p = add p 1
+q = add q 1
+end
+end
+ret eq q get prn 1
+end
+note Phase helpers isolate global-to-global byte transport from the digest-array register scope.
+fn pr_strip to bool
+m = get prn 3
+n = get prn 1
+if lt n add m 2
+ret false
+end
+n = sub n m
+put prn 5 n
+put prs 0 123
+put prs 1 10
+count = sub n 2
+for i ulong count
+dst = add i 2
+src = add dst m
+v = get prd src
+put prs dst v
+end
+ret true
+end
+fn pr_metacheck to bool
+count = get prn 3
+for i ulong count
+src = add i 2
+v = get prd src
+if ne get prm i v
+ret false
+end
+end
+ret true
+end
+fn pr_verify to int
+sha = new uchar 32 0
+invsha = new uchar 32 0
+if or lt get prn 0 3 lt get prn 1 3
+ret 10
+end
+if or ne get pro 0 123 ne get pro 1 10
+ret 11
+end
+if or ne get prd 0 123 ne get prd 1 10
+ret 12
+end
+if not pr_infer
+ret 13
+end
+pr_hash 0 sha
+note First assemble only to determine the fixed metadata-line length; digest values cannot change it.
+pr_metadata sha invsha
+if not pr_strip
+ret 14
+end
+pr_hash 2 invsha
+pr_metadata sha invsha
+if not pr_metacheck
+ret 15
+end
+if not pr_inverse
+ret 16
+end
+if not pr_forward
+ret 17
+end
+pr_hash 1 invsha
+for i ulong 32
+if ne get sha i get invsha i
+ret 18
+end
+end
+ret 0
+end
+note Controls mutate one independent input dimension at a time, restore it, and demand refusal.
+note Original/hash/blob/schema/placeholder/body; body and metadata truncation; duplicate metadata;
+note scrubbed hash and scrubbed hash-domain mutations are independent mandatory controls.
+note Backward insertion and forward restoration preserve overlapping source bytes exactly.
+fn pr_duplicate to bool
+n = get prn 1
+m = get prn 3
+if gt add n m 262144
+ret false
+end
+count = sub n 2
+for i ulong count
+src = sub n 1
+src = sub src i
+dst = add src m
+v = get prd src
+put prd dst v
+end
+for i ulong m
+dst = add i 2
+v = get prm i
+put prd dst v
+end
+put prn 1 add n m
+rc = pr_verify
+for i ulong count
+dst = add i 2
+src = add dst m
+v = get prd src
+put prd dst v
+end
+put prn 1 n
+if eq rc 0
+ret false
+end
+ret eq pr_verify 0
+end
+fn pr_controls to bool
+last = sub get prn 0 1
+saved = get pro last
+put pro last xor saved 1
+rc = pr_verify
+put pro last saved
+if eq rc 0
+ret false
+end
+p = add len prm0 2
+saved = get prd p
+put prd p 33
+rc = pr_verify
+put prd p saved
+if eq rc 0
+ret false
+end
+p = add get prn 6 2
+saved = get prd p
+put prd p 33
+rc = pr_verify
+put prd p saved
+if eq rc 0
+ret false
+end
+p = sub add get prn 3 2 5
+saved = get prd p
+put prd p 33
+rc = pr_verify
+put prd p saved
+if eq rc 0
+ret false
+end
+saved = get prb 0
+put prb 0 103
+rc = pr_verify
+put prb 0 saved
+if eq rc 0
+ret false
+end
+saved = get prd 30
+put prd 30 33
+rc = pr_verify
+put prd 30 saved
+if eq rc 0
+ret false
+end
+rc = pr_verify
+if ne rc 0
+ret false
+end
+p = get prn 4
+saved = get prd p
+put prd p 33
+rc = pr_verify
+put prd p saved
+if eq rc 0
+ret false
+end
+p = sub get prn 1 1
+saved = get prd p
+put prd p xor saved 1
+rc = pr_verify
+put prd p saved
+if eq rc 0
+ret false
+end
+put prn 1 sub get prn 1 1
+rc = pr_verify
+put prn 1 add get prn 1 1
+if eq rc 0
+ret false
+end
+note Truncate inside metadata independently of the final-body-byte truncation above.
+oldlen = get prn 1
+put prn 1 add get prn 3 1
+rc = pr_verify
+put prn 1 oldlen
+if eq rc 0
+ret false
+end
+rc = pr_verify
+if ne rc 0
+ret false
+end
+ret pr_duplicate
+end
+fn pr_hexchar c uchar to bool
+if and ge c 48 le c 57
+ret true
+end
+ret and ge c 97 le c 102
+end
+fn main to int
+blobbuf = new uchar 41 0
+if ne argcnt 4
+ret 90
+end
+if ne argread 3 blobbuf 0 len blobbuf 40
+ret 91
+end
+for i ulong 40
+c = get blobbuf i
+if not pr_hexchar c
+ret 91
+end
+put prb i c
+end
+if not pr_load 0
+ret 92
+end
+if not pr_load 1
+ret 93
+end
+rc = pr_verify
+if ne rc 0
+ret rc
+end
+if not pr_controls
+ret 94
+end
+if ne write 1 prpass 0 len prpass long len prpass
+ret 95
+end
+ret 0
+end

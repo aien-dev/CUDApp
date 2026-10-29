@@ -29,7 +29,7 @@ $(OM_CUBIN_DIR)/artifact_diff: tests/gpu_artifact_export_test.c src/omega_native
 $(OM_CUBIN_DIR)/manifest_diff: tests/native_artifact_manifest_test.c src/omega_native_artifact.c src/omega_blackwell_realize.c \
 		src/sha256.c $(OM_CUBIN_DEPS)
 	@mkdir -p $(OM_CUBIN_DIR)
-	$(CC) $(CFLAGS) $(OM_CUBIN_DIFF) -ffunction-sections -fdata-sections -Wl,--gc-sections -o $@ \
+	$(CC) $(CFLAGS) $(OM_CUBIN_DIFF) -ffunction-sections -fdata-sections -Wl,--gc-sections -Wl,--wrap=fopen -o $@ \
 		tests/native_artifact_manifest_test.c src/omega_native_artifact.c \
 		src/omega_cubin.c src/omega_blackwell_realize.c src/sha256.c src/cudapp_om_units.c -lpthread
 

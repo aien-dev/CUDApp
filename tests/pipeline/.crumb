@@ -1,0 +1,30 @@
+{
+  "extensions": {
+    "generated": {
+      "children": [],
+      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiled_at": "2026-10-28T14:58:15Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:197e9444ad4ac910b050d5da31a99b37c8fd6dab3b23a5474e765331433adfaa",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 10,
+      "generated_at_commit": "31fbb1bb2aa79c5cb63e5b947b97335442563c8a",
+      "source_tree": "sha256:7162d331237d47dea14c66134b27b33d5aa895fd341e776ed629bd11b8111ba2"
+    },
+    "owner_lane": "PipelineSelect",
+    "seed": {
+      "files": [
+        "cache-caller.om",
+        "fixture.om",
+        "graph-caller.om",
+        "policy.om"
+      ],
+      "purpose_auto": "Repository root pipeline. Purpose not yet described by a human."
+    }
+  },
+  "layer": "host-controls",
+  "name": "pipeline",
+  "purpose": "Synthetic native policy, canonical graph and cache-lifecycle controls with independent oracle and compiled guard-mutant evidence.",
+  "schema_version": "1.0.0"
+}

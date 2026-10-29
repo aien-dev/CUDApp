@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-# CI for CUDA++: the host-only test set (`make test`, no GPU opened, no CUDA toolkit) on a
+# CI for CUDA++: the host-only test set (`make test`, no GPU opened, offline nvdisasm oracle) on a
 # GitHub-hosted arm64 runner, judged by the exit code and the final
 # `CUDA++ HOST TESTS PASS (<n> targets)` line as AGENTS.md prescribes. Chip tests need a GB10
 # and stay NOT_RUN here. A second job writes an SPDX SBOM of the tree for auditors.
@@ -15,16 +15,39 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0 # Portable derived receipts verify immutable original Git blobs.
       - name: Toolchain record
         run: gcc --version | head -n 1 && make --version | head -n 1
+      - name: Pinned host verification tools
+        # Disposable hosted runner only. No CUDA driver, runtime or compiler is installed.
+        # Archive identity: NVIDIA cuda_nvdisasm.linux-sbsa in redistrib_13.0.2.json.
+        run: |
+          package=cuda_nvdisasm-linux-sbsa-13.0.85-archive
+          archive="$RUNNER_TEMP/$package.tar.xz"
+          curl --fail --location --silent --show-error --proto '=https' --tlsv1.2 \
+            "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvdisasm/linux-sbsa/$package.tar.xz" \
+            --output "$archive"
+          printf '%s  %s\n' 77e2ef1494270839829d5608352ba67a278e80fdaf4e3cc3c8ac9cb73e1c463c "$archive" | sha256sum --check --strict
+          tar -xJf "$archive" -C "$RUNNER_TEMP" "$package/bin/nvdisasm"
+          sudo install -D -m755 "$RUNNER_TEMP/$package/bin/nvdisasm" /usr/local/cuda/bin/nvdisasm
+          /usr/local/cuda/bin/nvdisasm --version
+          printf '%s\n' /usr/local/cuda/bin >> "$GITHUB_PATH"
+          git clone -q https://github.com/aien-dev/omega-mv "$RUNNER_TEMP/omega-mv"
+          git -C "$RUNNER_TEMP/omega-mv" checkout -q e5b32567a7aff3ce594e3254a622a846a6cd190b
+          git clone -q https://github.com/aien-dev/omega-bridge "$RUNNER_TEMP/omega-bridge"
+          git -C "$RUNNER_TEMP/omega-bridge" checkout -q "$(grep -v '^#' om/omega-bridge.lock)"
+          git -C "$RUNNER_TEMP/omega-bridge" rev-parse HEAD
       - name: Host-only tests
         # The runner's bash uses -e -o pipefail, so make's status is captured with `||`.
+        env:
+          OMEGA_OMC: ${{ runner.temp }}/omega-mv/seed/out/omc
+          OMEGA_BRIDGE: ${{ runner.temp }}/omega-bridge
         run: |
           rc=0; make test > "$RUNNER_TEMP/make-test.log" 2>&1 || rc=$?
-          tail -n 20 "$RUNNER_TEMP/make-test.log"
+          cat "$RUNNER_TEMP/make-test.log"
           [ "$rc" -eq 0 ] || exit "$rc"
           last=$(tail -n 1 "$RUNNER_TEMP/make-test.log")
           case $last in
@@ -37,7 +60,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Pinned Omega tools
@@ -52,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3

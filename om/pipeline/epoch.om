@@ -1,0 +1,9 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Session epoch advances only after confirmed teardown; MAX permanently refuses reopen.
+note Pure scalar binding: no host words, mutable globals, stack arena or runtime imports.
+fn native_epoch previous ulong to ulong
+if eq previous 18446744073709551615
+ret 18446744073709551615
+end
+ret add previous 1
+end

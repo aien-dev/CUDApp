@@ -1,0 +1,201 @@
+{
+  "schema": "pipeline57-host-policy-controls/1",
+  "recorded_at": "2026-10-28T11:56:31.464180+00:00",
+  "status": "EXERCISED_HOST_ONLY",
+  "baseline": "b759afc3f5e46f152ffb06b39882ffa28cacaf96",
+  "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+  "source_order": [
+    {
+      "path": "/home/drakestapleton/fix/quant-schema/om/quant/quant.om",
+      "sha256": "44bce96f3c274401e19a71b835814d69caf2bea8c2b1f4f43616c7c121232f09"
+    },
+    {
+      "path": "/home/drakestapleton/fix/kernel-compose/om/components/realize.om",
+      "sha256": "2edff07a46c79c39a264dde9e5d6dfa02ed2f6dda677da8cc8a178f60c9a1c9d"
+    },
+    {
+      "path": "/home/drakestapleton/fix/kernel-cache/om/cache/digest.om",
+      "sha256": "b0e49da9e6c146da0d040476d84bff8d93486c563e19ef8f1d731b1ffb15c051"
+    },
+    {
+      "path": "/home/drakestapleton/fix/kernel-cache/om/cache/residency.om",
+      "sha256": "530896fa2164963f31b8e32fd41137efe1a31bcfa136158705bb091cf97ad0ea"
+    },
+    {
+      "path": "om/pipeline/select.om",
+      "sha256": "1e066cdf0d7a192dd83fbda733e9c1d40ba2b10d539f8ecd1937fafd299caa86"
+    },
+    {
+      "path": "om/pipeline/graph.om",
+      "sha256": "560a0b8f89d6ef8f555b35d6e4e7e89ab423ba2ebad5c48b5a31362dddbe3546"
+    },
+    {
+      "path": "om/pipeline/consume.om",
+      "sha256": "bf59a6b9b4e2409dd7d9b8ad67ef418355b5c9c8e3acce4a483eb63fa8b3b9dd"
+    },
+    {
+      "path": "tests/pipeline/fixture.om",
+      "sha256": "2bbaca982cdb052864ceed1255b62e46de19beda8a7e5a5e50e3d1a01999adb4"
+    },
+    {
+      "path": "/home/drakestapleton/fix/kernel-compose/om/components/fixture.om",
+      "sha256": "082e53cff85d139de60bb0bc9dd83b8fc3368b7c1c09397699db9f30883ed3ee"
+    },
+    {
+      "path": "tests/pipeline/policy.om",
+      "sha256": "6ed0bc911279a09d13cca701e512f6b4f74566dea46628f16ffb5074b944e2c6"
+    },
+    {
+      "path": "tests/pipeline/cache-caller.om",
+      "sha256": "ad32d4e6c8722120a11ee43d9d88409f2a504e879478b0421adaa020ee80937e"
+    },
+    {
+      "path": "tests/pipeline/graph-caller.om",
+      "sha256": "1944d8620dbed30cace343cfc28754e77ba9d41b3daaccb0b29cdce9e0e408b4"
+    }
+  ],
+  "compiler_input": "Concatenate listed sources in order, excluding other main test files; Composer fixture only for graph-caller. UTF-8 source chunks joined by one newline. Compile stdin with pinned omc and execute resulting AArch64 host binary.",
+  "controls": [
+    {
+      "test": "policy",
+      "compile_status": 0,
+      "source_sha256": "5118e512d68b288284f405c6bcaf5a6b93eeb1b6072447e910b4c0c282ef4ae9",
+      "compile_stderr": "",
+      "run_status": 0,
+      "binary_sha256": "b08730b38501c656365b4e1c925d7c9392e5df7926aab42a00a3b6deb47aa8e3",
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "test": "cache-caller",
+      "compile_status": 0,
+      "source_sha256": "512243a065f4ea77fa2c54882c8de020fa188f3d77a16b194516a9ddac6d7a40",
+      "compile_stderr": "",
+      "run_status": 0,
+      "binary_sha256": "a98248ef8cb9850ee6e495455484c03fbc713f38684a0ae9f1b62e56ebc51295",
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "test": "graph-caller",
+      "compile_status": 0,
+      "source_sha256": "19298c94928e3f6769808ba77242b7cf0a2d4ae2f881c8b724eb0e040ba21600",
+      "compile_stderr": "",
+      "run_status": 0,
+      "binary_sha256": "3ebb63525a1a27d98beaa6c8a2f9773119f91e20cd2a2bb7fa07169a9d090956",
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "guard_mutants": [
+    {
+      "test": "policy",
+      "compile_status": 0,
+      "source_sha256": "41724801b05dd474442d0408cea55a099dee10887878027a9ff517a6e6406780",
+      "compile_stderr": "",
+      "run_status": 3,
+      "binary_sha256": "7ab3e801860ef8eed434bb473bda0f1c7dab15260f30e7cb847498d85f7288f5",
+      "stdout": "",
+      "stderr": "",
+      "name": "qualification-mask",
+      "target": "om/pipeline/select.om",
+      "replace": "if ne get a add b 1 31\n",
+      "with_source": "if eq ulong 0 1\n"
+    },
+    {
+      "test": "policy",
+      "compile_status": 0,
+      "source_sha256": "7e7052a52224b830891002b44e8d80ac86ef24099e9104bb6713ac96df3d90f3",
+      "compile_stderr": "",
+      "run_status": 6,
+      "binary_sha256": "88a8cd72c2144496e6e2f712c196c06180c88693b6ef2ea1072e696e99335f2c",
+      "stdout": "",
+      "stderr": "",
+      "name": "execution-only-cost",
+      "target": "om/pipeline/select.om",
+      "replace": "v = get a add b 3\n",
+      "with_source": "v = get a add b 9\n"
+    },
+    {
+      "test": "policy",
+      "compile_status": 0,
+      "source_sha256": "e486c8ad4918e00336dd02f1b4afe6eee18505e03d69b1b3bc431cb89b53375f",
+      "compile_stderr": "",
+      "run_status": 1,
+      "binary_sha256": "22e94a83af727429379451a2089bedfb03c165371565de6cb518bd6ff79c432a",
+      "stdout": "",
+      "stderr": "",
+      "name": "micro-only-cost",
+      "target": "om/pipeline/select.om",
+      "replace": "v = get a add b 3\n",
+      "with_source": "v = get a add b 10\n"
+    },
+    {
+      "test": "graph-caller",
+      "compile_status": 0,
+      "source_sha256": "0910ec3ccaffb6045a3e7d97bc96ea3d3f47b3d43d664c90309f0f4572e55277",
+      "compile_stderr": "",
+      "run_status": 10,
+      "binary_sha256": "36a861d383a5d1d6e956a653eee0b49a95ce06c2cfced3be72823b86c4c58bc9",
+      "stdout": "",
+      "stderr": "",
+      "name": "skip-canonical-binding",
+      "target": "om/pipeline/consume.om",
+      "replace": "rc = pl_checkrow a want real sel\n",
+      "with_source": "rc = int 0\n"
+    },
+    {
+      "test": "cache-caller",
+      "compile_status": 0,
+      "source_sha256": "fff3b26ee9ca6f6e56c45e97aeaf1962cca6378ba664ccdca5df93732aa70573",
+      "compile_stderr": "",
+      "run_status": 9,
+      "binary_sha256": "d2227642d0bc241187a8671f96f0707e0c0acf0dc981335d7e40af4faebb46d5",
+      "stdout": "",
+      "stderr": "",
+      "name": "skip-recorded-pin",
+      "target": "om/pipeline/graph.om",
+      "replace": "rc = kc_pin p slot rev get q 3\n",
+      "with_source": "rc = int 0\n"
+    }
+  ],
+  "independent_oracle": {
+    "kind": "synthetic policy controls, not measured timing",
+    "tool": "mcp__wolfram_wolframlanguageevaluator (fresh mounted parent proxy)",
+    "query": "{Simplify[packing+upload+prepare+dispatch+barriers+execution,Assumptions->And@@Thread[{packing,upload,prepare,dispatch,barriers,execution}>=0]],Total[{2,3,5,7,11,13}],Total[{1,1,1,1,1,100}],Total[{20,20,20,20,20,1}],100-41,100-105,100-101}",
+    "result": "{barriers + dispatch + execution + packing + prepare + upload, 41, 105, 101, 59, -5, -1}",
+    "source_receipt": "/home/drakestapleton/handoffs/wolfram-lane-query-results-20261028.json",
+    "golden_policy": "Fixture incumbent100, candidates41 ties resolve smaller canonical identity; omitted qualification never wins; micro/exec1 with full105/101 never replaces incumbent; permutation preserves artifact. These expected decisions are fixed controls independent of selector implementation."
+  },
+  "actual_omega_mcp_tools_used": [
+    "lookup(view)",
+    "compile(overflow boundary assistance probe)",
+    "run(same probe normal0)",
+    "explain_error(12 register pool exhausted)"
+  ],
+  "preserved_compiler_failures": [
+    {
+      "stage": "initial duplicate identity comparison",
+      "status": 12,
+      "resolution": "Bounded helper lowers temporary register pressure."
+    },
+    {
+      "stage": "initial canonical digest conversion",
+      "status": 12,
+      "resolution": "Bounded endian helper lowers temporary register pressure."
+    },
+    {
+      "stage": "initial consume/test frames",
+      "status": 12,
+      "resolution": "Split checked selection, canonical binding, pinning and fixture frames; select runs once."
+    }
+  ],
+  "not_run": [
+    "GB10 native instruction execution",
+    "staged family3 native composition (current Composer refuses unsupported pipeline)",
+    "binding selected exact code/launch to incumbent graph rec_* recording paths",
+    "whole-model physical/numerical/quality/performance acceptance",
+    "served baseline comparison"
+  ],
+  "production_change": "None. No qualified registry, activation, incumbent replacement, GPU/model call, merge or deployment."
+}

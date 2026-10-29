@@ -22,6 +22,8 @@
 #include "omega_gpu_wait.h"
 #include "omega_gpu_fmt.h"
 #include "omega_blackwell_submit.h"
+#include "omega_blackwell_qmd.h"
+#include "omega_gpu_cmdlist.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,6 +45,10 @@ static struct {
     OmegaGpuDeviceHandle dev;
     OmegaGpuQueueHandle q;
     OmegaGpuBufferHandle ring;
+    OmegaGpuBufferHandle queue_ring[NB];
+    uint64_t gpu_sync_off[NB], gpu_sync_len[NB];
+    unsigned gpu_sync_tick[NB], require_qmd_after, drop_publication;
+    unsigned qmd_checks, qmd_refusals, qmd_seen[2], qmd_seen_count;
     int mode;
     int cancel_on_poll;       /* poll_word calls omega_gpu_session_cancel() on its first call */
     uint64_t ns;
@@ -122,6 +128,17 @@ static int f_sync(void *c, OmegaGpuBufferHandle h, uint64_t off, uint64_t len) {
     fk.syncs++;
     return 0;
 }
+/* Publication is per buffer and directional; a global barrier cannot satisfy
+ * this independent fake transport's queue-visible QMD range contract. */
+static int f_sync_to_gpu(void *c, OmegaGpuBufferHandle h, uint64_t off, uint64_t len) {
+    const int rc = f_sync(c, h, off, len);
+    if (!rc && fk.drop_publication != h.index + 1u) {
+        fk.gpu_sync_off[h.index] = off;
+        fk.gpu_sync_len[h.index] = len;
+        fk.gpu_sync_tick[h.index] = fk.syncs;
+    }
+    return rc;
+}
 static int f_poll(void *c, OmegaGpuBufferHandle h, uint64_t off, uint32_t want, uint64_t ms, uint32_t *seen) {
     (void)c;
     if (!buf_live(h)) return OMEGA_GPU_PLAT_REFUSED_STALE_HANDLE;
@@ -139,14 +156,14 @@ static int f_qopen(void *c, OmegaGpuDeviceHandle d, OmegaGpuBufferHandle ring, O
     (void)c;
     int rc = omega_gpu_handles_check(&fk.t, d.index, d.generation, OMEGA_GPU_HANDLE_DEVICE);
     if (!rc && (!buf_live(ring) || fk.t.kind[ring.index] != OMEGA_GPU_HANDLE_BUF_QUEUE)) rc = OMEGA_GPU_PLAT_REFUSED_BAD_KIND;
-    if (!rc) rc = omega_gpu_handles_open(&fk.t, OMEGA_GPU_HANDLE_QUEUE, 0, 1, 0, &o->index, &o->generation);
-    if (!rc) { fk.q = *o; fk.ring = ring; }
+    if (!rc) rc = omega_gpu_handles_open(&fk.t, OMEGA_GPU_HANDLE_QUEUE, 0, g_caps.max_queues, 0, &o->index, &o->generation);
+    if (!rc) { fk.q = *o; fk.ring = ring; fk.queue_ring[o->index] = ring; }
     return rc;
 }
 static int f_qclose(void *c, OmegaGpuQueueHandle q) {
     (void)c;
     int rc = omega_gpu_handles_close(&fk.t, q.index, q.generation, OMEGA_GPU_HANDLE_QUEUE);
-    if (!rc) memset(&fk.q, 0, sizeof fk.q);
+    if (!rc) { memset(&fk.q, 0, sizeof fk.q); memset(&fk.queue_ring[q.index], 0, sizeof fk.queue_ring[q.index]); }
     return rc;
 }
 /* The fake device: the launch completes at submit (both markers and the semaphore), or never (hang). The marker and
@@ -164,8 +181,9 @@ static int f_submit(void *c, OmegaGpuQueueHandle q, const uint32_t *w, uint32_t 
     (void)c;
     int rc = omega_gpu_handles_check(&fk.t, q.index, q.generation, OMEGA_GPU_HANDLE_QUEUE);
     if (rc) return rc;
-    if ((uint64_t)n * 4u > fk.desc[fk.ring.index].bytes) return OMEGA_GPU_PLAT_REFUSED_BAD_LENGTH;
-    memcpy(fk.mem[fk.ring.index], w, (size_t)n * 4u);
+    const OmegaGpuBufferHandle ring = fk.queue_ring[q.index];
+    if (!buf_live(ring) || (uint64_t)n * 4u > fk.desc[ring.index].bytes) return OMEGA_GPU_PLAT_REFUSED_BAD_LENGTH;
+    memcpy(fk.mem[ring.index], w, (size_t)n * 4u);
     fk.submits++;
     if (fk.mode != MODE_COMPLETE) return 0;
     for (uint32_t i = 0; i + 5 < n; i++) {
@@ -179,6 +197,52 @@ static int f_submit(void *c, OmegaGpuQueueHandle q, const uint32_t *w, uint32_t 
             uint32_t *s = va_to_cpu(((uint64_t)w[i + 1] << 32) | w[i + 2]);
             if (s) *s = OMEGA_BW_SEMAPHORE_INTERMEDIATE_DONE;
         }
+        /* INLINE oracle: compare the actual method payload to the mode-final
+         * owner slot before modeling its release. This never executes a kernel. */
+        if (i + 98u < n &&
+            w[i] == ((2u << 28) | (98u << 16) | (1u << 13) | (0x0318u >> 2))) {
+            uint64_t va = ((uint64_t)(w[i + 1] & 0x1ffu) << 40) |
+                ((uint64_t)w[i + 2] << 8);
+            uint32_t *qmd = va_to_cpu(va);
+            if (!qmd || memcmp(qmd,w+i+3,OMEGA_BW_QMD_BYTES)!=0)
+                return OMEGA_GPU_PLAT_REFUSED_BAD_LENGTH;
+            if (omega_blackwell_verify_qmd_invariants(qmd)==0) {
+                uint32_t *sem=va_to_cpu((uint64_t)qmd[15]|((uint64_t)qmd[16]<<32));
+                if (sem) *sem=qmd[17];
+            }
+            i += 98u;
+            continue;
+        }
+        /* Independent host completion model for a recorded standalone PCAS grid.
+         * Decode the actual emitted QMD and release address; never execute or
+         * claim qualification of the encoded kernel. */
+        if (w[i] == ((2u << 28) | (1u << 16) | (1u << 13) | (0x02b4u >> 2)) &&
+            w[i + 2] == ((2u << 28) | (1u << 16) | (1u << 13) | (0x02c0u >> 2)) &&
+            w[i + 3] == 3u) {
+            if (fk.require_qmd_after) {
+                const uint64_t va = (uint64_t)w[i + 1] << 8;
+                int published = 0;
+                for (uint32_t j = 0; j < NB; j++) {
+                    const uint64_t base = 0x100000000ull + (uint64_t)j * 0x1000000ull;
+                    if (!fk.mem[j] || !fk.t.live[j] || va < base || va - base >= fk.desc[j].bytes) continue;
+                    const uint64_t off = va - base, len = OMEGA_GPU_CMDLIST_QMD_BYTES;
+                    if (fk.gpu_sync_tick[j] >= fk.require_qmd_after &&
+                        off >= fk.gpu_sync_off[j] && len <= fk.gpu_sync_len[j] &&
+                        off - fk.gpu_sync_off[j] <= fk.gpu_sync_len[j] - len) {
+                        published = 1;
+                        if (fk.qmd_seen_count < 2u) fk.qmd_seen[fk.qmd_seen_count++] = j;
+                        fk.qmd_checks++;
+                    }
+                    break;
+                }
+                if (!published) { fk.qmd_refusals++; return OMEGA_GPU_PLAT_REFUSED_BAD_LENGTH; }
+            }
+            uint32_t *qmd = va_to_cpu((uint64_t)w[i + 1] << 8);
+            if (qmd && omega_blackwell_verify_qmd_invariants(qmd) == 0) {
+                uint32_t *sem = va_to_cpu((uint64_t)qmd[15] | ((uint64_t)qmd[16] << 32));
+                if (sem) *sem = qmd[17];
+            }
+        }
     }
     return 0;
 }
@@ -188,7 +252,7 @@ static void f_hfree(void *c, void *p) { (void)c; free(p); }
 
 static OmegaGpuPlatform g_plat = {
     .ctx = &fk, .time_now_ms = f_now_ms, .wait_ms = f_wait, .lock = f_lock, .unlock = f_unlock,
-    .dma_alloc = f_alloc, .dma_free = f_free, .sync_cpu_to_gpu = f_sync, .sync_gpu_to_cpu = f_sync, .poll_word = f_poll,
+    .dma_alloc = f_alloc, .dma_free = f_free, .sync_cpu_to_gpu = f_sync_to_gpu, .sync_gpu_to_cpu = f_sync, .poll_word = f_poll,
     .device_open = f_dev_open, .device_close = f_dev_close, .diag_text = f_diag,
     .queue_open = f_qopen, .queue_close = f_qclose, .queue_submit = f_submit, .queue_retire = f_retire,
     .time_now_ns = f_now_ns, .host_alloc = f_halloc, .host_free = f_hfree,
@@ -557,8 +621,55 @@ static void c_fmt_matches_snprintf(void) {
     EXPECT(s[0] == '\0');
 }
 
+#ifdef OMEGA_NATIVE_RUNTIME_TEST
+#include "native_runtime_controls.h"
+
+static void native_pair_visibility(unsigned missing) {
+    fk_reset();
+    g_caps.max_queues = 2;
+    EXPECT(install() == 0);
+    OmegaGpuCmdList *a = NULL, *b = NULL;
+    EXPECT(omega_gpu_cmdlist_create(1, &a) == 0);
+    EXPECT(omega_gpu_cmdlist_create(1, &b) == 0);
+    if (!a || !b) return;
+    omega_gpu_session_lock();
+    OmegaGpuLaunch launch = launch_desc(100);
+    EXPECT(omega_gpu_cmdlist_add(a, &launch) == 0);
+    EXPECT(omega_gpu_cmdlist_add(b, &launch) == 0);
+    OmegaGpuCmdListOpts opts = { .mode = OMEGA_GPU_CMDLIST_PCAS, .timeout_ms = 100 };
+    OmegaGpuCmdListStats sa, sb;
+    fk.require_qmd_after = fk.syncs + 1u;
+    EXPECT(omega_gpu_cmdlist_submit_pair(a, b, &opts, &sa, &sb) == 0);
+    EXPECT(fk.qmd_checks == 2u && fk.qmd_seen_count == 2u && fk.qmd_refusals == 0u);
+    EXPECT(fk.submits == 2u && sa.sems_done == 1u && sb.sems_done == 1u);
+    if (missing && fk.qmd_seen_count == 2u) {
+        fk.drop_publication = fk.qmd_seen[missing - 1u] + 1u;
+        fk.require_qmd_after = fk.syncs + 1u;
+        EXPECT(omega_gpu_cmdlist_submit_pair(a, b, &opts, &sa, &sb) != 0);
+        EXPECT(fk.qmd_refusals == 1u);
+        EXPECT(strstr(omega_gpu_session_last_error(), "queue_submit") != NULL);
+    }
+    omega_gpu_session_unlock();
+    omega_gpu_cmdlist_free(a);
+    omega_gpu_cmdlist_free(b);
+    omega_gpu_session_close();
+}
+static void c_native_pair_visible(void) { native_pair_visibility(0); }
+static void c_native_pair_missing_a(void) { native_pair_visibility(1); }
+static void c_native_pair_missing_b(void) { native_pair_visibility(2); }
+#endif
+
 typedef struct { const char *id; void (*fn)(void); } Case;
 static const Case CASES[] = {
+#ifdef OMEGA_NATIVE_RUNTIME_TEST
+    {"NATIVE_SYNTHETIC_QUANT_COMPOSE_ENCODE_CACHE_SELECT_RECORD", c_native_chain},
+    {"NATIVE_TIMEOUT_RETAINS_CODE_UNTIL_CONFIRMED_TEARDOWN", c_native_timeout_refs},
+    {"NATIVE_NORMAL_CLOSE_INVALIDATES_EXACT_LEASE", c_native_close_epoch},
+    {"NATIVE_ACTUAL_OWNER_MODEFINAL_OBSERVER_BINDING", c_native_observer_modes},
+    {"NATIVE_PAIR_REQUIRES_BOTH_QMD_PUBLICATIONS", c_native_pair_visible},
+    {"NATIVE_PAIR_REFUSES_MISSING_FIRST_QMD_PUBLICATION", c_native_pair_missing_a},
+    {"NATIVE_PAIR_REFUSES_MISSING_SECOND_QMD_PUBLICATION", c_native_pair_missing_b},
+#endif
     {"INSTALL_REFUSALS_ABI_1_1", c_install_refusals},
     {"FREESTANDING_NO_DEFAULT_PLATFORM", c_no_default_platform},
     {"OPEN_LAUNCH_CLOSE_TYPED_UNCACHED_POLLING", c_open_launch_close},

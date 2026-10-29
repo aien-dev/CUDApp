@@ -1,0 +1,38 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Concatenate the repaired function-mode encoder and checked spec unchanged before this adapter.
+note One instruction representation; emit only words returned by the checked sp_enc.
+fn bc_encode ins view ulong 8192 phys view ulong 288 n ulong pad ulong code edit uchar 16384 to ulong
+state = new ulong 3001 0
+o = new ulong 16 0
+w = new ulong 4 0
+if or eq n 0 gt n 1024
+ret 0
+end
+cnt = n
+if ne pad 0
+cnt = mul div add n 7 8 8
+if lt cnt 32
+cnt = 32
+end
+end
+for i ulong n
+opnds ins i phys o
+if ne sp_enc state o w 0
+ret 0
+end
+store code i w
+end
+if gt cnt n
+note BW_IR_NOP is opcode0; padding is encoded semantically, never pasted machine bytes.
+for j ulong 16
+put o j 0
+end
+if ne sp_enc state o w 0
+ret 0
+end
+for j ulong sub cnt n
+store code add n j w
+end
+end
+ret mul cnt 16
+end

@@ -1,4 +1,21 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+#ifdef BW_SPEC_NATIVE_PROBE
+#include "omega_native.h"
+#include <stdio.h>
+int main(void) {
+    for (uint64_t mode = 0; mode < 3; ++mode) {
+        uint64_t result = UINT64_MAX;
+        uint32_t status = omega_sp_native_probe(&result, mode);
+        if (status != 0 || result != mode) {
+            fprintf(stderr, "native spec probe mode %llu: status %u result %llu\n",
+                    (unsigned long long)mode, status, (unsigned long long)result);
+            return 1;
+        }
+    }
+    puts("PASS: generated function binding, private state, semantic mutant=1, raw refusal=2");
+    return 0;
+}
+#else
 /*
  * bw_encode_control_test: every opcode the encoder accepts must carry the control word the emitter scheduled
  * (BlackwellIRInsn.control: stall, yield, write / read scoreboards, wait mask) into the instruction's top word
@@ -49,3 +66,5 @@ int main(void) {
            checked, refused, bad, bad ? "FAIL" : "PASS");
     return bad ? 1 : 0;
 }
+
+#endif

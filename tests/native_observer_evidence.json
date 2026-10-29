@@ -1,0 +1,161 @@
+{
+  "_portable_derivation":{"schema":"AIEN_PORTABLE_RECEIPT_V1","original_sha256":"18453ca8040f8c72d2399c4730c15afc9e7b81146ccc28d6e3f9651b119a7e54","original_git_blob":"fe042828719efe8338e62581b2043849d26a71cf","placeholder":"$AIEN_RECEIPT_HOME","rule":"Remove this metadata line and replace the placeholder with the producer HOME prefix obtained from the original Git blob.","scrubbed_sha256":"ff848d6f681abe03a73d243473d9fe680a15cdcd1f4ccd2920a5889063a145c2","scrubbed_hash_domain":"document bytes with exactly the _portable_derivation metadata line removed"},
+  "schema": "cudapp-native-observer-host-v1",
+  "scope": "HOST_ONLY actual fake-platform cmdlist state; no GPU, numerical, admission qualification, deployment or live service claim",
+  "base_revision": "a7d363406082b6c74424224bec8e9a9a62049a68",
+  "closure_revision": "4aef070f207f849e1672103e9edd0be21600e1a3",
+  "closure_sha256": "e123a9bcf91ac2011db1378eab8e3396e477b5841fe79b7caa67fb56e1511c70",
+  "compiler": {
+    "path": "$AIEN_RECEIPT_HOME/workspace/omega-review/seed/out/omc",
+    "sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+    "lock_revision": "e5b32567a7aff3ce594e3254a622a846a6cd190b"
+  },
+  "composition": "native/learn53/moe-closure.lock exact verified Git objects in order; pinned moe-closure.om; tests/native_observer_cases.om; tests/native_observer_run.om",
+  "sources": {
+    "tests/native_observer_cases.om": "fbc476cafa985f2fc965da0670dbd437fea7299630e6161b6edc5dec79794e95",
+    "tests/native_observer_run.om": "2d67b9b1a10ac9a55d24ce404639210baa8f9865ad20f392c33f07fd206e5e62"
+  },
+  "binary_sha256": "9fba4110bd53a957ca5b26e67a2e0ab9fa2168bc1c4c07776e2a2610d38e4e65",
+  "command": "build/native-observer/observer < /tmp/native-observer-real-owner/NAME.wire",
+  "positive_owner_snapshots": {
+    "fresh-pcas-0.wire": {
+      "sha256": "6d6348934a19e8382848b6de01f8e5aae9a183c670cf875884cad24a8e18643d",
+      "bytes": 2464,
+      "expected_rc": 0,
+      "observed_rc": 0,
+      "stdout": "NATIVE_OBSERVER HOST_ONLY PASS\n",
+      "stderr": ""
+    },
+    "fresh-pcas-1.wire": {
+      "sha256": "66b052cfa2b1613a118f757e02d76c42720c497e2ed0791ee75abe4ceff222f4",
+      "bytes": 2464,
+      "expected_rc": 0,
+      "observed_rc": 0,
+      "stdout": "NATIVE_OBSERVER HOST_ONLY PASS\n",
+      "stderr": ""
+    },
+    "fresh-inline-0.wire": {
+      "sha256": "379dbb61f62c6e7e071647bc5e640dd6bd9acd4cfe551b92624f7732ed7a9cc7",
+      "bytes": 2464,
+      "expected_rc": 0,
+      "observed_rc": 0,
+      "stdout": "NATIVE_OBSERVER HOST_ONLY PASS\n",
+      "stderr": ""
+    },
+    "fresh-inline-1.wire": {
+      "sha256": "111f0fb34c02f691f161dc6170955c30a2ce751aca8856d01bd41f167558bd8b",
+      "bytes": 2464,
+      "expected_rc": 0,
+      "observed_rc": 0,
+      "stdout": "NATIVE_OBSERVER HOST_ONLY PASS\n",
+      "stderr": ""
+    },
+    "reuse-inline-0.wire": {
+      "sha256": "5713f147989872b372904853b3331c94add65b1584ddfd52ce273318055ae388",
+      "bytes": 2464,
+      "expected_rc": 0,
+      "observed_rc": 0,
+      "stdout": "NATIVE_OBSERVER HOST_ONLY PASS\n",
+      "stderr": ""
+    },
+    "reuse-inline-1.wire": {
+      "sha256": "d92b0d2e300eaf07723dc1582123496d95ec90f28f2ab6fc9d2796cb9a8f2c12",
+      "bytes": 2464,
+      "expected_rc": 0,
+      "observed_rc": 0,
+      "stdout": "NATIVE_OBSERVER HOST_ONLY PASS\n",
+      "stderr": ""
+    }
+  },
+  "mutant_results": {
+    "stale-generation": {
+      "fresh-pcas-0.wire": {
+        "expected_rc": 21,
+        "observed_rc": 21,
+        "stdout": ""
+      },
+      "fresh-pcas-1.wire": {
+        "expected_rc": 21,
+        "observed_rc": 21,
+        "stdout": ""
+      },
+      "fresh-inline-0.wire": {
+        "expected_rc": 21,
+        "observed_rc": 21,
+        "stdout": ""
+      },
+      "fresh-inline-1.wire": {
+        "expected_rc": 21,
+        "observed_rc": 21,
+        "stdout": ""
+      },
+      "reuse-inline-0.wire": {
+        "expected_rc": 21,
+        "observed_rc": 21,
+        "stdout": ""
+      },
+      "reuse-inline-1.wire": {
+        "expected_rc": 21,
+        "observed_rc": 21,
+        "stdout": ""
+      }
+    },
+    "skip-launch": {
+      "fresh-pcas-0.wire": {
+        "expected_rc": 24,
+        "observed_rc": 24,
+        "stdout": ""
+      },
+      "fresh-pcas-1.wire": {
+        "expected_rc": 24,
+        "observed_rc": 24,
+        "stdout": ""
+      },
+      "fresh-inline-0.wire": {
+        "expected_rc": 24,
+        "observed_rc": 24,
+        "stdout": ""
+      },
+      "fresh-inline-1.wire": {
+        "expected_rc": 24,
+        "observed_rc": 24,
+        "stdout": ""
+      },
+      "reuse-inline-0.wire": {
+        "expected_rc": 24,
+        "observed_rc": 24,
+        "stdout": ""
+      },
+      "reuse-inline-1.wire": {
+        "expected_rc": 24,
+        "observed_rc": 24,
+        "stdout": ""
+      }
+    }
+  },
+  "negative_controls": {
+    "empty-input": {
+      "expected_rc": 30,
+      "observed_rc": 30,
+      "stdout": ""
+    },
+    "truncated-input": {
+      "expected_rc": 30,
+      "observed_rc": 30,
+      "stdout": ""
+    },
+    "trailing-byte": {
+      "expected_rc": 31,
+      "observed_rc": 31,
+      "stdout": ""
+    },
+    "wrong-frozen-root": {
+      "expected_rc": 10,
+      "observed_rc": 10,
+      "stdout": ""
+    }
+  },
+  "initial_finding": "Original stale control XORed generation1 into0 and did not kill equality-guard mutant. Changed to distinct NONZERO generation before final matrix; final results above.",
+  "lifecycle_scope": "Actual add/bind precommit, bind-after-submit/no-fallback and all-chunk lifecycle evidence owned by NativeIntegrate existing C oracle; this conductor consumes only its independently observed callback bytes and independently frozen expected root.",
+  "fixture_revision": "6452630c2a70fcf4003f5b6cdf472fae3a68a0ea"
+}
