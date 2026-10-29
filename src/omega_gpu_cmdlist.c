@@ -175,8 +175,6 @@ int omega_gpu_cmdlist_create(uint32_t cap, OmegaGpuCmdList **out) {
     OmegaGpuCmdList *cl = omega_gpu_host_calloc(1, sizeof *cl);
     if (!cl) return -1;
     cl->cap = cap;
-    cl->gen = omega_gpu_session_recoveries();
-    cl->epoch = omega_gpu_session_epoch();
     cl->record_generation = next_record_generation(0);
     if (!cl->record_generation) { omega_gpu_host_free(cl); return -1; }
     cl->words_cap = RING_WORDS;
@@ -195,6 +193,9 @@ int omega_gpu_cmdlist_create(uint32_t cap, OmegaGpuCmdList **out) {
         rc = -1;
     if (rc == 0 && build_nop(cl) != 0) { omega_gpu_session_set_error("cmdlist create: nop kernel"); rc = -1; }
     if (rc == 0) {
+        /* Bind lifetime to the locked session that allocated these buffers. */
+        cl->gen = omega_gpu_session_recoveries();
+        cl->epoch = omega_gpu_session_epoch();
         memset(cl->scratch.cpu, 0, 0x4000);
         if (omega_gpu_session_sync_to_gpu(&cl->scratch) != 0) rc = -1;
     }
