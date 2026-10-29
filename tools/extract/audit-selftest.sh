@@ -44,3 +44,4 @@ if (( found < planted )); then echo "SELFTEST FAIL: planted $planted, found $fou
 if ! grep -q "^$binsha " "$t/out/binaries.txt"; then echo "SELFTEST FAIL: NUL-byte blob not listed in binaries.txt"; exit 1; fi
 if ! grep -q "leak.gz(gzip):" "$t/out/secrets.txt"; then echo "SELFTEST FAIL: secret inside gzip blob not found"; exit 1; fi
 echo "SELFTEST PASS: planted $planted (one in a deleted file's history, one in a commit message, one in a NUL-byte blob, one gzipped), found $found; binary listed"
+bash "$here/audit-error-selftest.sh"
