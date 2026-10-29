@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # CUDApp#79: the sm_121 instruction encoder in seeded Omega (om/encoder/bw_enc_sm121.om), linked through the
 # omega-bridge native binding src/cudapp_om_units.c that om/units.sh generates. The C encoder in
 # src/omega_blackwell_codegen.c is migration-pending: the freestanding build and the oracle builds only.

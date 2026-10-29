@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * omega_blackwell_codegen_attn256.c: the one-launch decode attention kernel for head_dim 256 (see the header). The
  * emitter helpers are the ones of omega_blackwell_codegen_attn.c (control words, read barrier on every load, loop

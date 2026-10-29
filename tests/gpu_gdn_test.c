@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * gpu_gdn_test: the one-launch Gated DeltaNet decode step of Qwen3.8-27B (omega_gpu_gdn_api.h), omega#542.
  *   --host-only   layout helpers, codegen budgets and refusals, the double oracle's delta-rule property

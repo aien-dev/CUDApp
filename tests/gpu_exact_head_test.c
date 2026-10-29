@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * gpu_exact_head_test: the exact two-pass lm_head (HUM lever L314) on the Qwen3.6-35B-A3B head.
  *   --sim   warp-simulator proofs of the new kernels: XBOUND (lo <= s - c|h|, hi >= s + c|h| on every row despite f32

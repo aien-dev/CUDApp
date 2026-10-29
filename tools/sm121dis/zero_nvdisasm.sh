@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # zero_nvdisasm.sh: the second half of bar C6 in docs/OMEGA.md, "nothing calls nvdisasm" (L386).
 #
 # Two checks, both must pass:

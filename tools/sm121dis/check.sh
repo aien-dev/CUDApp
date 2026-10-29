@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # check.sh <sm121dis> <kernel-dir> <work-dir>: Omega's disassembler against nvdisasm (the oracle) on every <kernel-dir>/*.bin.
 # Per kernel: PASS when every word's text is the same (spacing collapsed), else FAIL with the first differences.
 # Exit 0 only when every kernel passes; 2 when nvdisasm or a kernel is missing. nvdisasm is a decoder used offline as

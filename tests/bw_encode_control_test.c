@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 #ifdef BW_SPEC_NATIVE_PROBE
 #include "omega_native.h"
 #include <stdio.h>

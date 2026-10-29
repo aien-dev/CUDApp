@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # corpus.sh <build-out-dir> <kernel-dir>: collects every kernel the library builds, without a GPU, into <kernel-dir>.
 # Each GPU test runs in its host-only (and simulator) modes with OMEGA_KERNEL_DUMP_DIR set, so every program the
 # library encodes lands as <sha16>.bin (src/omega_blackwell_codegen.c omega_kernel_dump). In CUDA++ the corpus is the
