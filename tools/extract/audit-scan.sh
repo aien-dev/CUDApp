@@ -36,9 +36,31 @@ awk 'NF>=2 {sha=$1; $1=""; sub(/^ /,""); if (!(sha in p)) p[sha]=$0} END {for (s
 : > "$out/compressed.txt"; : > "$out/unscanned.txt"
 # scan FILE LABEL: secret and private rules over the raw bytes (-a: a NUL byte
 # must not make grep skip the file or stop matching).
+matches() {
+    local rc=0 match_fd
+    # Open separately: a shell redirection failure must not look like grep's no-match status.
+    if ! exec {match_fd}> "$tmp/matches"; then
+        echo 'AUDIT INCOMPLETE: cannot open match output' >&2
+        exit 2
+    fi
+    grep "$@" >&"$match_fd" || rc=$?
+    exec {match_fd}>&-
+    if (( rc > 1 )); then
+        echo "AUDIT INCOMPLETE: grep failed with status $rc" >&2
+        exit 2
+    fi
+}
+prefix() {
+    local label=$1 line
+    while IFS= read -r line; do
+        printf '%s:%s\n' "$label" "$line"
+    done
+}
 scan() {
-    grep -naP -e "$secret_re" "$1" 2>/dev/null | tr -d '\000' | cut -c1-200 | sed "s|^|$sha $2:|" >> "$out/secrets.txt" || true
-    grep -noaP -e "$private_re" "$1" 2>/dev/null | tr -d '\000' | sed "s|^|$2:|" >> "$out/private.txt" || true
+    matches -naP -e "$secret_re" "$1"
+    tr -d '\000' < "$tmp/matches" | cut -c1-200 | prefix "$sha $2" >> "$out/secrets.txt"
+    matches -noaP -e "$private_re" "$1"
+    tr -d '\000' < "$tmp/matches" | prefix "$2" >> "$out/private.txt"
 }
 mkdir -p "$tmp/b"
 nblob=0
@@ -50,7 +72,8 @@ while read -r sha type size; do
     # Binary = contains a NUL byte. Counted with tr, not grep -P '\x00': GNU
     # grep 3.11 under LC_ALL=C never matches NUL that way, which left this list
     # empty on every run before 2026-10-27 (CUDApp#89).
-    if [[ $(tr -dc '\000' < "$tmp/b/x" | wc -c) -gt 0 ]]; then
+    nul_bytes=$(tr -dc '\000' < "$tmp/b/x" | wc -c)
+    if [[ $nul_bytes -gt 0 ]]; then
         echo "$sha $size $path" >> "$out/binaries.txt"
     fi
     scan "$tmp/b/x" "$path"
@@ -77,8 +100,10 @@ done < "$tmp/types"
 # commit and tag messages (and identities, for the record)
 git -C "$repo" log --all --format='%H%n%B' > "$tmp/msgs"
 git -C "$repo" for-each-ref refs/tags --format='%(objectname)%0a%(contents)' >> "$tmp/msgs"
-grep -nP -e "$secret_re" "$tmp/msgs" | cut -c1-200 | sed 's|^|MSG:|' >> "$out/secrets.txt" || true
-grep -noP -e "$private_re" "$tmp/msgs" | sed 's|^|MSG:|' >> "$out/private.txt" || true
+matches -nP -e "$secret_re" "$tmp/msgs"
+cut -c1-200 < "$tmp/matches" | prefix MSG >> "$out/secrets.txt"
+matches -noP -e "$private_re" "$tmp/msgs"
+prefix MSG < "$tmp/matches" >> "$out/private.txt"
 cp "$tmp/msgs" "$out/messages.txt"
 
 # private hits, grouped by the matched text (the reviewer reads this list)
