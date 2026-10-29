@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "test_out_file.h"
 
 /* round a float to bf16 and back, as the API does on the way in */
 static float bf16r(float f) { uint16_t h = omega_fp32_to_bf16(f); uint32_t u = (uint32_t)h << 16; float o; memcpy(&o, &u, 4); return o; }
@@ -382,7 +383,7 @@ static uint64_t med_u64(uint64_t *v, int n) {
     return v[n / 2];
 }
 static int stages_profile(const char *shapes, const char *out_path) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
     if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_MATMUL_STAGES_V1\",\"cta_budget\":%u,\"warmups\":3,\"timed\":7,\"rows\":[", omega_gpu_matmul_cta_budget());
     char *copy = strdup(shapes), *save = NULL;
@@ -442,7 +443,7 @@ static int stages_profile(const char *shapes, const char *out_path) {
 }
 
 static int chip_sweep(const char *shapes, const char *out_path, int mutant) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
     if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_MATMUL_API_SWEEP_V2\",\"mutant\":%s,\"cta_budget\":%u,\"shapes\":[", mutant ? "true" : "false", omega_gpu_matmul_cta_budget());
     char *copy = strdup(shapes);
@@ -512,7 +513,7 @@ static int cmp_double(const void *x, const void *y) { double a = *(const double 
 /* Resident path: upload B once, then 100 calls; median wall time per call must be under 5 ms.
  * Parity: first and last result against the double reference (0 elements at or beyond 1e-5). */
 static int timing(const char *shapes, const char *out_path) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
     if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_MATMUL_API_TIMING_V1\",\"cta_budget\":%u,\"spin_us\":%u,\"calls\":100,\"shapes\":[", omega_gpu_matmul_cta_budget(), omega_gpu_session_spin_us());
     char *copy = strdup(shapes); char *save = NULL; int first = 1;
@@ -588,7 +589,7 @@ static int timing(const char *shapes, const char *out_path) {
 static const char *UPDATE_SHAPES = "16,768,2304;16,768,50304";
 static double median5(double *s) { qsort(s, 5, sizeof *s, cmp_double); return s[2]; }
 static int update_mode(const char *shapes, const char *out_path) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
     if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_TENSOR_UPDATE_V1\",\"cta_budget\":%u,\"timed_calls\":5,\"shapes\":[", omega_gpu_matmul_cta_budget());
     char *copy = strdup(shapes); char *save = NULL; int first = 1;

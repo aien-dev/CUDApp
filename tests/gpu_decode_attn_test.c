@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "test_out_file.h"
 
 static int g_checks, g_failed;
 #define CHECK(cond, ...) do { g_checks++; if (!(cond)) { g_failed++; printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -318,7 +319,7 @@ static int fill_history(OmegaGpuDecodeAttnCache *cache, const Case *c) {
     return OMEGA_GPU_DATTN_OK;
 }
 static int chip_run(const char *out_path, uint32_t reps) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot write %s\n", out_path); return 1; }
     if (out) fprintf(out, "{\"receipt\":\"OMEGA_GPU_DECODE_ATTN_V1\",\"reps\":%u,\"evict\":%d,\"points\":[", reps, g_evict);
     const uint32_t MAXP = 32768;
@@ -417,7 +418,7 @@ static int geometry_refusal(uint32_t qh, uint32_t kvh, uint32_t hd, const char *
     for (int i = 0; i < nw; i++) printf("  reason %d: %s\n", i + 1, why[i]);
     printf("  needed: a decode attention kernel for this geometry (ternary engine design KT3)\n");
     if (out_path) {
-        FILE *f = fopen(out_path, "w");
+        FILE *f = test_out_open(out_path);
         if (f) {
             fprintf(f, "{\"test\":\"gpu_decode_attn_test\",\"q_heads\":%u,\"kv_heads\":%u,\"head_dim\":%u,\"kernel_q_heads\":%u,\"kernel_kv_heads\":%u,\"reasons\":[",
                     qh, kvh, hd, OMEGA_GPU_DATTN_Q_HEADS, OMEGA_GPU_DATTN_KV_HEADS);

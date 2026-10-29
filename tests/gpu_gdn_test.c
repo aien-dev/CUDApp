@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "test_out_file.h"
 
 static int g_checks, g_failed;
 #define CHECK(cond, ...) do { g_checks++; if (!(cond)) { g_failed++; printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -228,7 +229,7 @@ static void host_only(void) {
         int enc = code ? omega_blackwell_kernel_encode_into(&p, code, need, &kern) : -1;
         int np = enc == 0 ? omega_tc_patch_code(&p, code, need) : -1;
         const uint32_t want = omega_gdn_bfly_count(&p);
-        if (getenv("GDN_DUMP") && code && atoi(getenv("GDN_DUMP")) == (int)k) { FILE *f = fopen("gdn_pf.bin", "wb"); if (f) { fwrite(code, 1, need, f); fclose(f); } }
+        if (getenv("GDN_DUMP") && code && atoi(getenv("GDN_DUMP")) == (int)k) { FILE *f = test_out_open("gdn_pf.bin"); if (f) { fwrite(code, 1, need, f); fclose(f); } }
         CHECK(rc == 0 && enc == 0 && np >= 0 && (uint32_t)np == want && (k == 0 || want > 0),
               "prefill kernel %u encodes: %zu insns, %u registers, %d of %u butterflies patched", k, p.count, p.regalloc.peak_gpr_usage, np, want);
         free(code);
@@ -836,7 +837,7 @@ static int chip_bf16(const char *out_path, uint32_t reps) {
     CHECK(bad_out == 0 && bad_tail == 0 && bad_state == 0, "chip bf16 == f32 + round to nearest even on store");
     CHECK(rounded > NS, "chip bf16 really rounds");
     if (out_path) {
-        FILE *f = fopen(out_path, "w");
+        FILE *f = test_out_open(out_path);
         if (f) {
             fprintf(f, "{\"receipt\":\"OMEGA_GPU_GDN_BF16_V1\",\"ratio\":%u,\"calls\":%u,\"prefill_tokens\":%u,\"outputs_differing\":%u,"
                        "\"tails_differing\":%u,\"states_not_rn\":%u,\"rounded\":%u,\"values\":%u,\"chip_us_bf16\":%.3f,\"chip_us_f32\":%.3f,\"verdict\":\"%s\"}\n",
@@ -849,7 +850,7 @@ static int chip_bf16(const char *out_path, uint32_t reps) {
     return g_failed ? 1 : 0;
 }
 static int chip_run(const char *out_path, uint32_t reps) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot write %s\n", out_path); return 1; }
     if (out) fprintf(out, "{\"receipt\":\"OMEGA_GPU_GDN_V1\",\"reps\":%u,\"tol\":{\"out\":%g,\"tail\":%g,\"state\":%g},\"points\":[", reps, TOL_OUT, TOL_TAIL, TOL_STATE);
     OmegaGpuGdn *g = NULL;

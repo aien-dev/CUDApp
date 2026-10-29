@@ -37,6 +37,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "test_out_file.h"
 
 static int g_checks, g_failed;
 #define CHECK(cond, ...) do { g_checks++; if (!(cond)) { g_failed++; printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -620,7 +621,7 @@ int main(int argc, char **argv) {
     host_only();
     if (sim) sim_battery();
     if (!host && !sim) {
-        if (json) { g_json = fopen(json, "w"); if (g_json) fprintf(g_json, "{\"test\": \"gpu_prefill_attn\", \"points\": [\n"); }
+        if (json) { g_json = test_out_open(json); if (g_json) fprintf(g_json, "{\"test\": \"gpu_prefill_attn\", \"points\": [\n"); }
         if (warps) omega_gpu_prefill_attn_set_warps(warps);
         int ok = 1;
         if (fused) omega_gpu_prefill_attn_set_fused(1);
