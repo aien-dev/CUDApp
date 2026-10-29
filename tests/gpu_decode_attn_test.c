@@ -17,6 +17,7 @@
 #include "omega_gpu_decode_attn_api.h"
 #include "omega_gpu_session.h"
 #include "omega_gpu_hostmath.h"
+#include "omega_blackwell_qmd.h"
 #include "bw_warp_sim_k.h"
 #include "out_sha.h"
 #include <inttypes.h>
@@ -213,7 +214,7 @@ static void host_only(void) {
     CHECK(omega_gpu_decode_attn_cache_alloc(0, 256, THETA, NULL) == OMEGA_GPU_DATTN_BAD_ARGS, "NULL out refused");
     { OmegaGpuDecodeAttnCache *c = (OmegaGpuDecodeAttnCache *)1;
       CHECK(omega_gpu_decode_attn_cache_alloc(1, 100, THETA, &c) == OMEGA_GPU_DATTN_BAD_ARGS && c == NULL, "max_pos not a multiple of 256 refused before any device work"); }
-    CHECK(OMEGA_DATTN_SHARED_BYTES <= 16384u, "shared memory within the QMD cap (%u)", OMEGA_DATTN_SHARED_BYTES);
+    CHECK(OMEGA_DATTN_SHARED_BYTES <= OMEGA_BW_QMD_MAX_SHARED_BYTES, "shared memory within the QMD cap (%u of %u)", OMEGA_DATTN_SHARED_BYTES, OMEGA_BW_QMD_MAX_SHARED_BYTES);
 }
 
 /* ------------------------------------------------------------- simulator */

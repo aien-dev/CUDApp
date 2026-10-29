@@ -21,6 +21,7 @@
 #include "omega_gpu_prefill_attn_api.h"
 #include "omega_gpu_session.h"
 #include "omega_blackwell_codegen_tc.h"
+#include "omega_blackwell_qmd.h"
 #include "bw_warp_sim_pa.h"
 #if defined(__has_include)
 #if __has_include("omega_gpu_prefill.h")
@@ -170,7 +171,7 @@ static void host_only(void) {
       CHECK(omega_prefill_attn_prog_stats(&s, &n, &gp, &ph) == 0 && n <= 1024 && omega_bw_gpr_declared(gp) <= 128, "APPEND + mirror in budget: %u insns %u gprs", n, gp);
       printf("codegen warps 8 APPEND + mirror: %u instructions, %u registers\n", n, gp); }
     CHECK(omega_gpu_prefill_attn(NULL, 0, 0, 1, NULL, EPS, 1.0f, NULL, NULL) == OMEGA_GPU_DATTN_BAD_ARGS, "NULL cache refused");
-    CHECK(OMEGA_PATTN_SHARED_BYTES <= 16384u, "shared memory within the QMD cap");
+    CHECK(OMEGA_PATTN_SHARED_BYTES <= OMEGA_BW_QMD_MAX_SHARED_BYTES, "shared memory within the QMD cap (%u of %u)", OMEGA_PATTN_SHARED_BYTES, OMEGA_BW_QMD_MAX_SHARED_BYTES);
     /* reference sanity: a single token at position 0 returns its own v row (rounded) */
     { Case c; case_make(&c, 256, 0, 1, 5, 1.0f); uint16_t kr[512], vr[512];
       emu_rows(c.qkv, c.kn, EPS, 0, THETA, kr, vr);

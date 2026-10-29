@@ -1,0 +1,5 @@
+gateup run: CHIP_FAIL (qmd build (shared_bytes))
+down run: CHIP_FAIL (qmd build (shared_bytes))
+qkv run: CHIP_FAIL (qmd build (shared_bytes))
+o run: CHIP_FAIL (qmd build (shared_bytes))
+GPU_PFGEMM: FAIL

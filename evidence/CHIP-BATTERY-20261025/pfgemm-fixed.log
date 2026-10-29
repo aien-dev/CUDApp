@@ -1,0 +1,29 @@
+gateup second launch identical: yes
+gateup bit-identity on 48 sampled rows: 0 differ (beyond 1 bf16 ulp; 1 within 1 ulp of 36864)
+TCGEMM2 gateup tokens 3600 M 28800 n 1536 k 2048 tiles 293: median 3.036 ms (min 3.031), 59.7 TFLOPS, weights 403 MB -> 133 GB/s of distinct weights
+gateup mutant 1: caught
+gateup mutant 2: caught
+gateup mutant 3: caught
+gateup mutant 4: caught
+down second launch identical: yes
+down bit-identity on 48 sampled rows: 0 differ
+TCGEMM2 down tokens 3600 M 28800 n 2048 k 768 tiles 289: median 2.425 ms (min 2.413), 37.4 TFLOPS, weights 201 MB -> 83 GB/s of distinct weights
+down mutant 1: caught
+down mutant 2: caught
+down mutant 3: caught
+down mutant 4: caught
+qkv second launch identical: yes
+qkv bit-identity on 48 sampled rows: 0 differ
+TCGEMM2 qkv tokens 3600 M 3600 n 5120 k 2048 tiles 29: median 1.184 ms (min 1.169), 63.8 TFLOPS, weights 10 MB -> 9 GB/s of distinct weights
+qkv mutant 1: caught
+qkv mutant 2: caught
+qkv mutant 3: caught
+qkv mutant 4: caught
+o second launch identical: yes
+o bit-identity on 48 sampled rows: 0 differ
+TCGEMM2 o tokens 3600 M 3600 n 2048 k 4096 tiles 29: median 0.882 ms (min 0.876), 68.5 TFLOPS, weights 8 MB -> 10 GB/s of distinct weights
+o mutant 1: caught
+o mutant 2: caught
+o mutant 3: caught
+o mutant 4: caught
+GPU_PFGEMM: PASS
