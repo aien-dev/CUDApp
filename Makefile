@@ -328,12 +328,18 @@ $(GPU_L2_REUSE_TEST): tests/gpu_l2_reuse_test.c src/omega_gpu_fp8_api.h src/omeg
 
 # The Blackwell QMD shared-memory field (word 36): the encoding of every size, the fixed SM-config
 # fields beside it, and the refusal one byte over OMEGA_BW_QMD_MAX_SHARED_BYTES (a host check, no GPU).
-.PHONY: test-gpu-qmd-shared
+.PHONY: test-gpu-qmd-shared test-gpu-qmd-shared-clean-build
 QMD_SHARED_TEST = $(OUT_DIR)/test_omega_bw_qmd_shared
-$(QMD_SHARED_TEST): tests/test_omega_bw_qmd_shared.c src/omega_blackwell_qmd.h src/omega_blackwell_qmd.c
+$(QMD_SHARED_TEST): tests/test_omega_bw_qmd_shared.c src/omega_blackwell_qmd.h src/omega_blackwell_qmd.c | $(OUT_DIR)
 	$(CC) $(CFLAGS) -o $@ tests/test_omega_bw_qmd_shared.c src/omega_blackwell_qmd.c
 test-gpu-qmd-shared: $(QMD_SHARED_TEST)
 	$(QMD_SHARED_TEST)
+
+# Build the same host-only test with an output directory that does not exist yet.
+# The normal test target does not recurse through this regression target.
+test-gpu-qmd-shared-clean-build:
+	+@set -eu; out=$$(mktemp -d); trap 'rm -rf "$$out"' EXIT; \
+		$(MAKE) --no-print-directory OUT_DIR="$$out/new" test-gpu-qmd-shared
 
 # Every host-only check: no GPU, no device opened. The chip gates are listed in README.md.
 HOST_TESTS = test-drift test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-attention test-gpu-moe-window \
@@ -344,7 +350,7 @@ HOST_TESTS = test-drift test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv
 	test-codegen-freestanding test-gpu-session-platform test-gpu-native-runtime test-gpu-wait test-gpu-wait-mutants host-tests-m16 \
 	test-runtime-api test-runtime-portability test-doctor test-hello-sim test-native-artifact-manifest test-gemm-selectors \
 	test-native-artifact zero-cuda-gate verify-vendored test-swap-cli test-om-encoder test-om-spec-encoder test-om-cubin \
-	test-portable-receipts test-gpu-qmd-shared test-model-capacity $(CARRIED_HOST_TESTS)
+	test-portable-receipts test-gpu-qmd-shared test-model-capacity test-gpu-qmd-shared-clean-build $(CARRIED_HOST_TESTS)
 test: $(HOST_TESTS)
 	@echo "CUDA++ HOST TESTS PASS ($(words $(HOST_TESTS)) targets)"
 
