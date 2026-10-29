@@ -25,6 +25,13 @@ for phase in -naP -noaP -nP -noP; do
         exit 1
     fi
 done
+mkdir "$t/openfailbin"
+real_mktemp=$(command -v mktemp)
+printf '#!/bin/bash\nset -e\np=$(%q "$@")\nmkdir "$p/matches"\nprintf "%%s\\n" "$p"\n' "$real_mktemp" > "$t/openfailbin/mktemp"
+chmod +x "$t/openfailbin/mktemp"
+rc=0
+PATH="$t/openfailbin:$PATH" bash "$t/scanner/audit-scan.sh" "$t/repo" "$t/out" > "$t/log" 2>&1 || rc=$?
+[[ $rc == 2 ]] || { echo "ERROR SELFTEST FAIL: output-open error returned $rc"; exit 1; }
 for rule in secrets private; do
     cp "$t/scanner/rules-$rule.txt" "$t/rule.save"
     printf '[\n' > "$t/scanner/rules-$rule.txt"

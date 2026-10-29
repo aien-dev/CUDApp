@@ -39,7 +39,10 @@ awk 'NF>=2 {sha=$1; $1=""; sub(/^ /,""); if (!(sha in p)) p[sha]=$0} END {for (s
 matches() {
     local rc=0 match_fd
     # Open separately: a shell redirection failure must not look like grep's no-match status.
-    exec {match_fd}> "$tmp/matches"
+    if ! exec {match_fd}> "$tmp/matches"; then
+        echo 'AUDIT INCOMPLETE: cannot open match output' >&2
+        exit 2
+    fi
     grep "$@" >&"$match_fd" || rc=$?
     exec {match_fd}>&-
     if (( rc > 1 )); then
