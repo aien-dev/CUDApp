@@ -344,9 +344,13 @@ HOST_TESTS = test-drift test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv
 	test-codegen-freestanding test-gpu-session-platform test-gpu-native-runtime test-gpu-wait test-gpu-wait-mutants host-tests-m16 \
 	test-runtime-api test-runtime-portability test-doctor test-hello-sim test-native-artifact-manifest test-gemm-selectors \
 	test-native-artifact zero-cuda-gate verify-vendored test-swap-cli test-om-encoder test-om-spec-encoder test-om-cubin \
-	test-portable-receipts test-gpu-qmd-shared $(CARRIED_HOST_TESTS)
+	test-portable-receipts test-gpu-qmd-shared test-model-capacity $(CARRIED_HOST_TESTS)
 test: $(HOST_TESTS)
 	@echo "CUDA++ HOST TESTS PASS ($(words $(HOST_TESTS)) targets)"
+
+.PHONY: test-model-capacity
+test-model-capacity:
+	OMEGA_OMC="$(OMEGA_OMC)" sh tests/models/capacity.sh
 
 .PHONY: test-drift
 test-drift:

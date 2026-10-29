@@ -130,24 +130,27 @@ end
 if ne rem k bs 0
 trap 5
 end
-if gt mul m n 256
+note Divide the capacity before comparing so full-width dimensions cannot wrap products.
+if ne n 0
+if gt m div ulong 256 n
 trap 5
+end
 end
 kb = div k bs
-if gt mul kb m 256
+if gt m div ulong 256 kb
 trap 5
 end
-if gt mul kb n 256
+if gt n div ulong 256 kb
 trap 5
 end
 eb = k
 if lt fmt 2
 eb = div k 2
 end
-if gt mul eb m 4096
+if gt m div ulong 4096 eb
 trap 5
 end
-if gt mul eb n 4096
+if gt n div ulong 4096 eb
 trap 5
 end
 end
