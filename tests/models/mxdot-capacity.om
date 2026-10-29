@@ -1,0 +1,69 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Full-width dimensions reach the real library entry, unlike the byte-sized wire fixture.
+note Input is one scenario byte. Refused scenarios must exit with trap 5.
+fn main to int
+mode = new uchar 1 0
+if ne read 0 mode 0 1 1
+ret 1
+end
+a = new uchar 4096 0
+b = new uchar 4096 0
+sa = new uchar 256 0
+sb = new uchar 256 0
+c = new f64 256 1.0f64
+d = new ulong 4 0
+put d 1 16
+put d 2 16
+put d 3 16
+if eq get mode 0 1
+put d 1 9223372036854775808
+put d 2 2
+put d 3 32
+end
+if eq get mode 0 2
+put d 1 0
+put d 2 9223372036854775808
+put d 3 32
+end
+if eq get mode 0 3
+put d 1 9223372036854775808
+put d 2 0
+put d 3 32
+end
+if eq get mode 0 4
+put d 1 0
+put d 2 1
+end
+if eq get mode 0 5
+put d 1 1
+put d 2 0
+end
+if eq get mode 0 6
+put d 1 17
+end
+if eq get mode 0 7
+put d 1 129
+put d 2 0
+put d 3 32
+end
+if eq get mode 0 8
+put d 0 2
+put d 1 1
+put d 2 0
+put d 3 8192
+end
+mxmm a sa b sb c d
+if eq get mode 0 0
+for i ulong 256
+if ne get c i 0.0f64
+ret 2
+end
+end
+end
+if or eq get mode 0 4 eq get mode 0 5
+if ne get c 0 1.0f64
+ret 3
+end
+end
+ret 0
+end

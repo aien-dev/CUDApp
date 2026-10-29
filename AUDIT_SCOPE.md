@@ -54,7 +54,7 @@ research stage; current native qualification of this checkout is NOT_RUN.
 
 - Untrusted input: tensor shapes, sizes and buffers passed by callers of the library API
   (`docs/runtime/API.md`, `src/omega_runtime_api.h`); environment variables `CUDAPP_MEM_RESERVE_MIB`,
-  `CUDAPP_MEMINFO`, `CUDAPP_DOCTOR_ROOT`, `AIEN_OMEGA_DGRAPH_BARRIER`, `AIEN_OMEGA_DGRAPH_PREFETCH`;
+  `CUDAPP_DOCTOR_ROOT`, `AIEN_OMEGA_DGRAPH_BARRIER`, `AIEN_OMEGA_DGRAPH_PREFETCH`;
   `/proc` and `/sys` contents read by the doctor.
 - Trusted: NVIDIA's open kernel module 580.173.02, its headers in `third_party/`, and the
   signed GSP firmware. The kernel module enforces the privilege boundary between processes; this

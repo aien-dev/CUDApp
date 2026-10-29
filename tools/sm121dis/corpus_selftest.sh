@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # A missing or failing producer must invalidate the disassembler corpus.
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)

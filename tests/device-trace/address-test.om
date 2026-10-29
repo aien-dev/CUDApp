@@ -3,6 +3,11 @@ note Host-only semantic regression, not a GPU emulator or hardware receipt.
 note Compose after trace-emit.om. Decode the two address instructions independently of
 note the emitter helpers/golden, then model each STG effective address in a guarded extent.
 note Restoring the original base-low multiplication must fail, even if a golden is updated.
+note Field formats: src/omega_blackwell_codegen.c BW_IR_S2R/BW_IR_STG_E at
+note bba6da8045ba5baaf0a81f7152af44d52e24f563, the existing frozen reference.
+note Selector 82 is class B: nvdisasm 13.0 decoded our own PR84 words as GLOBALTIMERLO.
+note Historical tool receipt: evidence/device-trace/emitter-host-20261026/receipt.json.
+note These field checks are host models; chip qualification remains NOT_RUN.
 
 global Aregs ulong 256
 global Amem uchar 256
@@ -53,6 +58,22 @@ off = and shr off 8 16777215
 if ge off 8388608
 ret false
 end
+note Contract v1 fields at offsets 0/4/8 use R6; stamp uses R2; IDs use R10:R13.
+note Decode the low byte of word 1 independently of gtstg (frozen C encoder BW_IR_STG_E).
+if or gt off 28 ne rem off 4 0
+ret false
+end
+want = ulong 6
+if eq off 12
+want = ulong 2
+end
+if ge off 16
+want = add ulong 10 div sub off 16 4
+end
+val = and aword add p 4 255
+if ne val want
+ret false
+end
 dst = get Aregs breg
 dst = or dst shl get Aregs add breg 1 32
 dst = add dst off
@@ -70,6 +91,19 @@ ret true
 end
 
 fn amark start ulong base ulong want ulong to bool
+note S2R fields from frozen C encoder BW_IR_S2R; no producer constants or helpers used.
+note Register 82 is GLOBALTIMERLO, as independently decoded in the historical host receipt.
+clock = aword add start 48
+if ne and clock 65535 31001
+ret false
+end
+if ne and shr clock 16 255 2
+ret false
+end
+clock = aword add start 56
+if ne and shr clock 8 255 82
+ret false
+end
 for i ulong 256
 put Aregs i 0
 end
@@ -128,6 +162,42 @@ end
 ret true
 end
 
+fn abranch p ulong to int
+note Predicate-insensitive branch opcode, @P0, rel18: index1 +1 +18 =20.
+w = aword p
+if ne and w 4095 2375
+ret 6
+end
+if ne and shr w 12 15 0
+ret 7
+end
+if ne shr w 18 18
+ret 8
+end
+if ne aword add p 4 0
+ret 9
+end
+if ne aword add p 8 58720256
+ret 10
+end
+ret 0
+end
+
+fn aneg pos ulong value uchar to bool
+note Test the model itself: a changed field must be refused, then restore the stream.
+old = get gbout pos
+put gbout pos value
+ok = aextent 4096 4160 4224
+for i ulong 2
+rc = abranch add mul i 320 16
+if ne rc 0
+ok = false
+end
+end
+put gbout pos old
+ret not ok
+end
+
 fn main to int
 put gbinlen 0 0
 put gtchecks 0 1
@@ -151,25 +221,50 @@ ok = aextent 4096 4160 4224
 if not ok
 ret 5
 end
-note Predicate-insensitive branch opcode, @P0, rel18: index1 +1 +18 =20.
 for i ulong 2
 p = add mul i 320 16
+rc = abranch p
+if ne rc 0
+ret rc
+end
+end
+note Each marker must sample GLOBALTIMERLO into R2, not thread identity or another register.
+for i ulong 2
+start = mul i 320
+note Byte 18 changes the branch displacement; byte 309 is the last store offset.
+ok = aneg add start 18 0
+if not ok
+ret 15
+end
+ok = aneg add start 309 60
+if not ok
+ret 16
+end
+ok = aneg add start 57 33
+if not ok
+ret 11
+end
+ok = aneg add start 50 0
+if not ok
+ret 12
+end
+note Every record field has a named source register, not just an in-bounds destination.
+for j ulong 20
+p = add start mul j 16
 w = aword p
-if ne and w 4095 2375
-ret 6
+if eq and w 65535 31110
+old = get gbout add p 4
+ok = aneg add p 4 uchar xor old 1
+if not ok
+ret 13
 end
-if ne and shr w 12 15 0
-ret 7
 end
-if ne shr w 18 18
-ret 8
 end
-if ne aword add p 4 0
-ret 9
 end
-if ne aword add p 8 58720256
-ret 10
-end
+note Negative controls restored all bytes and the positive stream remains valid.
+ok = aextent 4096 4160 4224
+if not ok
+ret 14
 end
 ret 0
 end

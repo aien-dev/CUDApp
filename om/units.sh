@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Regenerate every hosted and freestanding production Omega binding, or with
 # --check require exact committed output (1 differs, 3 tools unavailable).
 # Pure scalar lifecycle roots use the checked freest profile, not hosted imports.

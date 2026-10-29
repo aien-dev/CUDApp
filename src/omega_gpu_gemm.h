@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_gpu_gemm.h -- matrix multiply of any shape on the GB10 tensor cores (row C3 of docs/OMEGA.md).
  *
  *   C = A * B     A is M x K, B is K x N, C is M x N f32 (row-major), every M, N, K from 1 to OMEGA_GPU_GEMM_MAX_DIM

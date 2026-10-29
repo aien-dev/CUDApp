@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * omega_gpu_gdn_api.c: resident Gated DeltaNet parameters, tails, states and the one-launch decode step (see the
  * header). Session use mirrors omega_gpu_router_api.c: buffers from omega_gpu_session_alloc (GPU-uncached, host-visible),
