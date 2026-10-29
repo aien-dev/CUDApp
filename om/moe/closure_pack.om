@@ -1,0 +1,5 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note ABI1 adapter only; serializer authority stays in the pinned learn53 unit.
+fn native_mcpack s view ulong 128 h view uchar 2048 w view ulong 1024 o edit uchar 16384 to long
+ret mc_pack s h w o
+end

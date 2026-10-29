@@ -14,6 +14,7 @@
  */
 #include "omega_gpu_session.h"
 #include "omega_gpu_code_alloc.h"
+#include "cudapp_native.h"
 #include "omega_gpu_fmt.h"
 #include "omega_blackwell_qmd.h"
 #include "omega_blackwell_submit.h" /* launch constants only (macros); the vector executor itself stays Linux-private */
@@ -42,6 +43,7 @@ static const OmegaGpuPlatform *g_p; /* installed platform (atomic load / store) 
 static OmegaGpuPlatformCaps g_caps;
 static OmegaGpuSession g_s;
 static bool g_open;
+static uint64_t g_epoch = 1; /* changes only after confirmed device teardown */
 static uint32_t g_blocked;  /* latched (atomic) */
 static uint32_t g_locked;   /* session lock held (atomic) */
 static uint32_t g_cancel;   /* cancel requested (atomic) */
@@ -56,6 +58,14 @@ static OmegaGpuParkStats g_park;
 #define LOAD(x) __atomic_load_n(&(x), __ATOMIC_ACQUIRE)
 #define STORE(x, v) __atomic_store_n(&(x), (v), __ATOMIC_RELEASE)
 #define BUMP(x, by) STORE((x), LOAD(x) + (by)) /* lock held: one writer */
+
+/* The generated pure-scalar root owns saturation. Called only after the
+ * platform confirms teardown; refusal preserves the exhausted sentinel. */
+static void advance_device_epoch(void) {
+    uint64_t next = UINT64_MAX;
+    (void)omega_native_epoch(&next, LOAD(g_epoch));
+    STORE(g_epoch, next);
+}
 
 /* ---- platform ---- */
 
@@ -221,15 +231,24 @@ int omega_gpu_session_is_parked(OmegaGpuBufferHandle h) {
     return 0;
 }
 
+/* L136: queues past the first (omega_gpu_session_extra_queue), each with its own 64 KB ring; opened on demand, closed
+ * and freed before queue 0 at close, parked at the latch like the session ring. */
+#define XQ_MAX 3u
+static OmegaGpuQueueHandle g_xq[XQ_MAX];
+static OmegaGpuMem g_xpb[XQ_MAX];
+
 /* Uncertain completion: the device may still touch any session buffer. Keep everything, refuse everything. */
 static void latch(const char *why) {
     STORE(g_blocked, 1u);
+    for (uint32_t i = 0; i < XQ_MAX; i++) if (g_xpb[i].cpu) park(&g_xpb[i]);
     if (g_s.pb.cpu) park(&g_s.pb);
     if (g_s.cbank.cpu) park(&g_s.cbank);
     if (g_s.marker.cpu) park(&g_s.marker);
     if (g_s.qmd.cpu) park(&g_s.qmd);
     omega_gpu_session_set_error(why);
 }
+
+void omega_gpu_session_latch_uncertain(const char *why) { latch(why ? why : "uncertain completion (latched by a caller)"); }
 
 /* ---- buffers ---- */
 
@@ -342,6 +361,7 @@ static void free_session_buffers(void) {
 OmegaGpuSession *omega_gpu_session_open(void) {
     if (LOAD(g_blocked)) { omega_gpu_session_set_error("process latched"); return NULL; }
     if (g_open) return &g_s;
+    if (LOAD(g_epoch) == UINT64_MAX) { omega_gpu_session_set_error("device epoch exhausted"); return NULL; }
     const OmegaGpuPlatform *p = platform();
     if (!p) { omega_gpu_session_set_error("no GPU platform installed (omega_gpu_session_set_platform)"); return NULL; }
     uint64_t t0 = p->time_now_ns(p->ctx);
@@ -361,15 +381,39 @@ OmegaGpuSession *omega_gpu_session_open(void) {
         if (rc != OMEGA_GPU_PLAT_OK) fail_plat("queue_open", rc);
         memcpy(keep, g_err, sizeof keep);
         free_session_buffers();
-        g_open = false;
-        (void)p->device_close(p->ctx, g_s.dev);
-        memset(&g_s.dev, 0, sizeof g_s.dev);
+        rc = p->device_close(p->ctx, g_s.dev);
+        if (rc == OMEGA_GPU_PLAT_OK) {
+            advance_device_epoch();
+            g_open = false;
+            memset(&g_s.dev, 0, sizeof g_s.dev);
+        } else {
+            STORE(g_blocked, 1u); /* preserve the device handle until recovery confirms teardown */
+        }
         omega_gpu_fmt(g_err, sizeof g_err, "session scratch alloc (%s)", keep);
         return NULL;
     }
     g_s.opens++;
     g_s.last_open_ns = p->time_now_ns(p->ctx) - t0;
     return &g_s;
+}
+
+int omega_gpu_session_extra_queue(uint32_t i, OmegaGpuQueueHandle *out) {
+    const OmegaGpuPlatform *p = platform();
+    if (!out || i == 0u || i > XQ_MAX) { omega_gpu_session_set_error("extra_queue: index outside 1..3"); return -1; }
+    if (LOAD(g_blocked) || !g_open || !p) { omega_gpu_session_set_error("extra_queue: device not open or latched"); return -1; }
+    if (g_xq[i - 1u].generation != 0u) { *out = g_xq[i - 1u]; return 0; }
+    for (uint32_t j = 0; j + 1u < i; j++)
+        if (g_xq[j].generation == 0u) { omega_gpu_session_set_error("extra_queue: open queues in order (1, then 2, ...)"); return -1; }
+    if (mem_alloc(OMEGA_GPU_HANDLE_BUF_QUEUE, RIGHTS_RING, 0x10000, &g_xpb[i - 1u])) return -1;
+    const int rc = p->queue_open(p->ctx, g_s.dev, g_xpb[i - 1u].handle, &g_xq[i - 1u]);
+    if (rc != OMEGA_GPU_PLAT_OK) {
+        fail_plat("queue_open (extra queue)", rc);
+        memset(&g_xq[i - 1u], 0, sizeof g_xq[i - 1u]);
+        omega_gpu_session_free(&g_xpb[i - 1u]);
+        return -1;
+    }
+    *out = g_xq[i - 1u];
+    return 0;
 }
 
 int omega_gpu_session_on_close(void (*hook)(void)) { /* caller holds the lock (the APIs register from their open path) */
@@ -387,17 +431,72 @@ void omega_gpu_session_close(void) {
     if (g_open && !LOAD(g_blocked) && p) {
         for (unsigned i = 0; i < g_nhooks; i++) g_hooks[i]();
         if (!LOAD(g_blocked)) { /* a hook's launch may have latched: then nothing below runs */
+            for (uint32_t i = XQ_MAX; i-- > 0;) { /* L136: extra queues first, then queue 0 */
+                if (g_xq[i].generation != 0u) (void)p->queue_close(p->ctx, g_xq[i]);
+                memset(&g_xq[i], 0, sizeof g_xq[i]);
+                omega_gpu_session_free(&g_xpb[i]);
+            }
             (void)p->queue_close(p->ctx, g_s.queue);
             memset(&g_s.queue, 0, sizeof g_s.queue);
             free_session_buffers();
-            (void)p->device_close(p->ctx, g_s.dev); /* every handle of this device is stale from here */
-            memset(&g_s.dev, 0, sizeof g_s.dev);
-            g_open = false;
+            int rc = p->device_close(p->ctx, g_s.dev);
+            if (rc == OMEGA_GPU_PLAT_OK) {
+                advance_device_epoch();
+                memset(&g_s.dev, 0, sizeof g_s.dev);
+                g_open = false;
+            } else {
+                fail_plat("close: device teardown fault (still latched)", rc);
+                STORE(g_blocked, 1u);
+            }
         }
     }
     omega_gpu_session_unlock();
 }
 
+
+/* C5: the way back from a latch without restarting the process. The on-close hooks run first, still latched, so the APIs
+ * drop their resident kernels and scratch (their frees park: nothing is released while the old device may run). Then
+ * the device closes: the Linux reference closes the RM client, which destroys every channel of this process (extra
+ * queues first) and with it every grid still running on them, then frees and unmaps every buffer, parked ones
+ * included. Only after the close returned OK is the latch lifted; the next open starts a new device. */
+static uint32_t g_recoveries;
+static uint32_t g_module_latched; /* a module (the command lists) latched itself while the session stayed usable */
+
+void omega_gpu_session_note_module_latch(void) { STORE(g_module_latched, 1u); }
+
+int omega_gpu_session_recover(void) {
+    omega_gpu_session_lock();
+    const OmegaGpuPlatform *p = LOAD(g_p);
+    int rc = -1;
+    const int latched = LOAD(g_blocked) || LOAD(g_module_latched);
+    if (!latched || !g_open || !p) {
+        omega_gpu_session_set_error(latched ? "recover: latched but no device is open" : "recover: not latched (nothing to recover)");
+        goto out;
+    }
+    for (unsigned i = 0; i < g_nhooks; i++) g_hooks[i]();
+    const int prc = p->device_close(p->ctx, g_s.dev);
+    if (prc != OMEGA_GPU_PLAT_OK) { fail_plat("recover: the device close reported a teardown fault (still latched: the old grid may live on, exit the process)", prc); goto out; }
+    memset(g_xq, 0, sizeof g_xq);
+    memset(g_xpb, 0, sizeof g_xpb);
+    const uint32_t opens = g_s.opens;
+    memset(&g_s, 0, sizeof g_s);
+    g_s.opens = opens;
+    g_open = false;
+    memset(g_parked, 0, sizeof g_parked);
+    memset(&g_park, 0, sizeof g_park);
+    BUMP(g_recoveries, 1u);
+    advance_device_epoch();
+    STORE(g_module_latched, 0u);
+    STORE(g_blocked, 0u);
+    omega_gpu_session_set_error("");
+    rc = 0;
+out:
+    omega_gpu_session_unlock();
+    return rc;
+}
+
+uint32_t omega_gpu_session_recoveries(void) { return LOAD(g_recoveries); }
+uint64_t omega_gpu_session_epoch(void) { return LOAD(g_epoch); }
 /* ---- launch ---- */
 
 static uint32_t round_up(uint32_t v, uint32_t q) { return (v + q - 1) / q * q; }

@@ -1,0 +1,87 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Concatenate after tools/tilelab_process.om. Usage: DRIVER OUTPUT_PREFIX SHAPES ROUNDS [CFG...]
+note Current replay, not a historical evidence script. Device driver requires operator GPU authorization.
+text trwords "--shapes\n--rounds\n--out\n--cfg\n"
+text trpass "TILELAB_REPLAY PASS\n"
+fn tr_output group ulong to void
+tl_arg 2
+p = get tn 0
+if gt p 4070
+exit 90
+end
+put tb p 46
+p = add p 1
+start = p
+v = group
+while true bound 20
+put tb p uchar add rem v 10 48
+p = add p 1
+v = div v 10
+if eq v 0
+break
+end
+end
+last = sub p 1
+while lt start last bound 20
+x = get tb start
+put tb start get tb last
+put tb last x
+start = add start 1
+last = sub last 1
+end
+put tb p 46
+put tb add p 1 106
+put tb add p 2 115
+put tb add p 3 111
+put tb add p 4 110
+put tn 0 add p 5
+end
+fn main to int
+if lt argcnt 5
+ret 90
+end
+for i ulong len trwords
+put tw i get trwords i
+end
+idx = ulong 5
+group = ulong 0
+while true bound 999999
+tl_clear
+tl_arg 1
+tl_add
+tl_word 0
+tl_add
+tl_arg 3
+tl_add
+tl_word 1
+tl_add
+tl_arg 4
+tl_add
+tl_word 2
+tl_add
+tr_output group
+tl_add
+count = ulong 0
+while and lt idx ulong argcnt lt count 15 bound 15
+tl_word 3
+tl_add
+tl_arg idx
+tl_add
+idx = add idx 1
+count = add count 1
+end
+rc = tl_run
+if ne rc 0
+ret rc
+end
+group = add group 1
+if ge idx ulong argcnt
+break
+end
+end
+r = write 1 trpass 0 len trpass
+if ne r long len trpass
+ret 93
+end
+ret 0
+end

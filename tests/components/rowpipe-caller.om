@@ -1,0 +1,148 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Host-only caller. stdin exactly64 bytes: eight LE64 spec words.
+note Concatenate bw_alloc,bw_effect,bw_project,rowpipe,bw_enc_sm121,bw_spec_sm121,this.
+note bw_spec_sm121 contributes only the prefix before its standalone fn main.
+note stdout same shared caller frame:stats4,peakGPR,peakUGPR,width+phys per GPR/UGPR,
+note all used eight-cell instructions,then unpadded instruction bytes.
+note Exit66 is a clean refusal with zero outputs;69 means refusal leaked output.
+fn rp_word v ulong to bool
+b = new uchar 8 0
+for j ulong 8
+put b j uchar and shr v mul j 8 255
+end
+n = ulong 0
+while lt n 8 bound 8
+k = write 1 b n sub ulong 8 n
+if le k 0
+ret false
+end
+n = add n ulong k
+end
+ret true
+end
+fn rp_bytes b view uchar 16384 n ulong to int
+sent = ulong 0
+while lt sent n bound 16384
+k = write 1 b sent sub n sent
+if le k 0
+ret 74
+end
+sent = add sent ulong k
+end
+ret 0
+end
+fn rp_admit ins view ulong 8192 phys view ulong 288 n ulong to uint
+state = new ulong 3001 0
+o = new ulong 16 0
+w = new ulong 4 0
+for j ulong n
+opnds ins j phys o
+if ne sp_enc state o w 0
+ret 1
+end
+end
+ret 0
+end
+fn rp_input spec edit ulong 8 to int
+b = new uchar 64 0
+n = ulong 0
+while lt n 64 bound 64
+k = read 0 b n sub ulong 64 n
+if le k 0
+ret 65
+end
+n = add n ulong k
+end
+extra = read 0 b 0 1
+if ne extra 0
+ret 65
+end
+for j ulong 8
+v = ulong 0
+for k ulong 8
+v = or v shl ulong get b add mul j 8 k mul k 8
+end
+put spec j v
+end
+ret 0
+end
+fn rp_irout ins view ulong 8192 m view ulong 2048 phys view ulong 288 stats view ulong 4 astats view ulong 4 to int
+for j ulong 4
+if not rp_word get stats j
+ret 74
+end
+end
+if not rp_word get astats 1
+ret 74
+end
+if not rp_word get astats 2
+ret 74
+end
+for j ulong get stats 1
+if not rp_word get m j
+ret 74
+end
+if not rp_word get phys j
+ret 74
+end
+end
+for j ulong get stats 2
+if not rp_word get m add j 256
+ret 74
+end
+if not rp_word get phys add j 256
+ret 74
+end
+end
+for j ulong mul get stats 0 8
+if not rp_word get ins j
+ret 74
+end
+end
+ret 0
+end
+fn main to int
+spec = new ulong 8 0
+ins = new ulong 8192 1
+m = new ulong 2048 1
+stats = new ulong 4 1
+astats = new ulong 4 0
+phys = new ulong 288 0
+code = new uchar 16384 0
+if ne rp_input spec 0
+ret 65
+end
+rc = bc_rowpipe spec ins m stats
+if ne rc 0
+for j ulong 8192
+if ne get ins j 0
+ret 69
+end
+end
+for j ulong 2048
+if ne get m j 0
+ret 69
+end
+end
+for j ulong 4
+if ne get stats j 0
+ret 69
+end
+end
+ret 66
+end
+if ne bc_regalloc ins get stats 0 m phys astats 128 0
+ret 67
+end
+if ne rp_admit ins phys get stats 0 0
+ret 68
+end
+size = bw_enc_sm121 ins phys get stats 0 0 code
+if eq size 0
+ret 68
+end
+if ne rp_irout ins m phys stats astats 0
+ret 74
+end
+ret rp_bytes code size
+end

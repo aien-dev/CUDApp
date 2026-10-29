@@ -1,0 +1,5 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note ABI1 return adapter only; composition belongs to the exact pinned component module.
+fn native_compose cfg view ulong 16 ins edit ulong 8192 meta edit ulong 2048 phys edit ulong 288 out edit ulong 8 to ulong
+ret ulong bc_compose cfg ins meta phys out
+end

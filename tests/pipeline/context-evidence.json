@@ -1,0 +1,118 @@
+{
+  "schema": "pipeline57-private-context-controls/1",
+  "recorded_at": "2026-10-28T13:25:15.304876+00:00",
+  "status": "EXERCISED_HOST_ONLY",
+  "contract": "native_context(keys view ulong128,count ulong,actual view ulong4)->long; exact opaque4word tuples; unique1based ordinal,0absent,-1invalidcount or duplicate match; count<=16; unusedcellsignored",
+  "source_sha256": "9e214860e456b03ea87780b8eeb5589eb28ab6764b0fa6e9d70edf4d8e3b0bae",
+  "test_sha256": "3c177e6add02233138097ad514e5739cab690e1ed93ffbc211743896f7840f5d",
+  "compiler_input_sha256": "16975b2744176478c3a83d485f104760e028850aa522ea8aac5f763a11b3e8cf",
+  "compile_tool": "mcp__omega_compile",
+  "compile": {
+    "ok": true,
+    "binary_bytes": 2068,
+    "sha256": "e8fe3158381f6a9a6413bfd3e2604b4aa83bc6c68dd9b2345ce63a88d18bd20d",
+    "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+    "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+  },
+  "run_tool": "mcp__omega_run",
+  "run": {
+    "compile": {
+      "ok": true,
+      "binary_bytes": 2068,
+      "sha256": "e8fe3158381f6a9a6413bfd3e2604b4aa83bc6c68dd9b2345ce63a88d18bd20d",
+      "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"
+    },
+    "exit": {
+      "kind": "normal",
+      "code": 0
+    },
+    "stdout": "",
+    "stdout_bytes": 0,
+    "stdout_truncated": false,
+    "stderr": "",
+    "stderr_bytes": 0,
+    "stderr_truncated": false,
+    "limits": {
+      "timeout_ms": 5000,
+      "cpu_seconds": 10,
+      "address_space_bytes": 268435456,
+      "file_size_bytes": 1048576,
+      "processes": 5
+    },
+    "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+  },
+  "guard_mutants": [
+    {
+      "name": "ignore-window-rows",
+      "replace": "for j ulong 4\n",
+      "with_source": "for j ulong 3\n",
+      "source_sha256": "1e4e207ab1009f4c74840f31e775f3e64c6cbfb5da14b9a04f1eac1b6b89d64e",
+      "result": {
+        "compile": {
+          "ok": true,
+          "binary_bytes": 2068,
+          "sha256": "0fa2465ce7ec2799de41b5e1688f604a69d98bed8aae35c92226265d6bf72bab",
+          "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"
+        },
+        "exit": {
+          "kind": "normal",
+          "code": 7
+        },
+        "stdout": "",
+        "stdout_bytes": 0,
+        "stdout_truncated": false,
+        "stderr": "",
+        "stderr_bytes": 0,
+        "stderr_truncated": false,
+        "limits": {
+          "timeout_ms": 5000,
+          "cpu_seconds": 10,
+          "address_space_bytes": 268435456,
+          "file_size_bytes": 1048576,
+          "processes": 5
+        },
+        "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+      }
+    },
+    {
+      "name": "ignore-duplicate-match",
+      "replace": "if ne hit 0\n",
+      "with_source": "if eq ulong 0 1\n",
+      "source_sha256": "e502b54ad07d84d275daca2c68436654a80367155e095397f37e16e4d24f269d",
+      "result": {
+        "compile": {
+          "ok": true,
+          "binary_bytes": 2072,
+          "sha256": "1806f5e3293f3de510c4e81f2b812a89dd3f447b24d2023ab881dbde8d9d8e3c",
+          "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"
+        },
+        "exit": {
+          "kind": "normal",
+          "code": 8
+        },
+        "stdout": "",
+        "stdout_bytes": 0,
+        "stdout_truncated": false,
+        "stderr": "",
+        "stderr_bytes": 0,
+        "stderr_truncated": false,
+        "limits": {
+          "timeout_ms": 5000,
+          "cpu_seconds": 10,
+          "address_space_bytes": 268435456,
+          "file_size_bytes": 1048576,
+          "processes": 5
+        },
+        "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+      }
+    }
+  ],
+  "golden_controls": "Literal integer bookkeeping expectations in independent native caller:16 unique registered ordinals; empty/absent0; count17/maxulong invalid; duplicate selected tuple-1; otherfield changes absent; unrelated duplicate does not affect distinct exact hit. No statistical or performance computation.",
+  "not_run": [
+    "graph registration/bridge binding (shared integration owner)",
+    "joint MoE semantic closure qualification",
+    "physical GPU execution",
+    "whole-model correctness/quality/performance",
+    "production registration"
+  ]
+}

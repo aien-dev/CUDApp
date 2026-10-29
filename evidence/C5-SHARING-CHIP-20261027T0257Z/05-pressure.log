@@ -1,0 +1,17 @@
+loadavg 10.42 7.53 6.70 3/3497 1611942
+cmd build/c5_matrix /home/drakestapleton/workspace/c5s-cudapp/build/gpu_isolation_test /home/drakestapleton/.venv/bin/python p
+[matrix] start pid 1611945
+[cuda] READY pid=1611945 hold_gib=16 expect_offset=0
+[matrix] CUDA process ready after ms 1606
+[matrix] start pid 1612377
+[1612379] ok: process 2: 17364 work launches over 3000 ms, own inputs: 0 wrong values, 0 failed launches, slowest 2.537 ms
+[1612378] ok: process 1: 17324 work launches over 3001 ms, own inputs: 0 wrong values, 0 failed launches, slowest 3.577 ms
+[1612377] ok: C5 two processes on one GPU: both right (ready R R, exits 0, 0), running side by side for 3000 ms
+C5 recovery: NOT_RUN (values-only; hang needs a separate reservation)
+C5 isolation values: PASS (1 checks)
+ exit status 0
+[matrix] CUDA process alive when ours finished: 1
+[cuda] pid=1611945 launches=18003 wrong=0 secs=41.9
+ exit status 0
+C5 matrix: PASS case p
+exit 0

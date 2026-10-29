@@ -1,0 +1,128 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note HOST_ONLY synthetic digest occurrences; no recorded device entries or qualification.
+text ms_ok "MOE-SERIES HOST_ONLY PASS\n"
+fn ms_flip b edit uchar 4096 i ulong to void
+put b i xor get b i 1
+end
+fn ms_check kind ulong to bool
+m = new ulong 8 0
+h = new uchar 4096 0
+ord = new ulong 128 0
+a = new uchar 32 0
+g = new uchar 32 0
+ms_fill edit m edit h edit ord 2 kind
+if ne mc_series m h ord edit a 0
+ret false
+end
+for i ulong 8
+put m i xor get m i 1
+st = mc_series m h ord edit g
+if eq st 0
+if mo_equal a g
+ret false
+end
+else
+if not mo_zero g
+ret false
+end
+end
+put m i xor get m i 1
+end
+for i ulong 4096
+ms_flip edit h i
+st = mc_series m h ord edit g
+if ge i 64
+if or ne st 1 not mo_zero g
+ret false
+end
+else
+if eq i 0
+if or ne st 3 not mo_zero g
+ret false
+end
+else
+if or ne st 0 mo_equal a g
+ret false
+end
+end
+end
+ms_flip edit h i
+end
+for i ulong 128
+put ord i xor get ord i 1
+if or ne mc_series m h ord edit g 1 not mo_zero g
+ret false
+end
+put ord i xor get ord i 1
+end
+if eq kind 1
+put ord 1 4095
+if or ne mc_series m h ord edit g 0 mo_equal a g
+ret false
+end
+put ord 1 4096
+if or ne mc_series m h ord edit g 1 not mo_zero g
+ret false
+end
+else
+put m 6 7
+if or ne mc_series m h ord edit g 1 not mo_zero g
+ret false
+end
+put m 6 0
+put m 7 4096
+if or ne mc_series m h ord edit g 1 not mo_zero g
+ret false
+end
+end
+ms_fill edit m edit h edit ord 128 kind
+if ne mc_series m h ord edit a 0
+ret false
+end
+ms_flip edit h 4095
+if or ne mc_series m h ord edit g 0 mo_equal a g
+ret false
+end
+ms_flip edit h 4095
+if eq kind 1
+put ord 127 4096
+if or ne mc_series m h ord edit g 1 not mo_zero g
+ret false
+end
+put ord 127 4095
+end
+put m 5 129
+if or ne mc_series m h ord edit g 1 not mo_zero g
+ret false
+end
+put m 5 0
+if or ne mc_series m h ord edit g 1 not mo_zero g
+ret false
+end
+note Identical code occurrences remain separate, ordered entries; no deduplication.
+ms_fill edit m edit h edit ord 2 kind
+put h 32 1
+if ne mc_series m h ord edit a 0
+ret false
+end
+put m 5 1
+put h 32 0
+put ord 1 0
+if or ne mc_series m h ord edit g 0 mo_equal a g
+ret false
+end
+ret true
+end
+fn main to int
+if not ms_check 0
+ret 41
+end
+if not ms_check 1
+ret 42
+end
+wrote = write 1 ms_ok 0 len ms_ok
+if ne wrote long len ms_ok
+ret 74
+end
+ret 0
+end

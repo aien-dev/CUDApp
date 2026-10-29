@@ -1,0 +1,37 @@
+{
+  "schema": "pipeline57-pin-invalidation-amendment/1",
+  "recorded_at": "2026-10-28T11:59:03.953839+00:00",
+  "status": "EXERCISED_HOST_ONLY",
+  "reason": "Extend canonical graph fixture control from semantic-digest mutation at byte512 to exact compiler-digest mutation at byte544. Earlier host-evidence remains unchanged.",
+  "test_sha256": "fe786d903d5b0219caaf7ffcd381cd1d6f9e8d91b277141faebd57657dd25d42",
+  "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+  "control": {
+    "test": "graph-caller",
+    "compile_status": 0,
+    "source_sha256": "3b6d6e37bc23b6c3b86ac1cac9354a7e1884ce5ce386baf66cbfed755a25787d",
+    "compile_stderr": "",
+    "run_status": 0,
+    "binary_sha256": "b9465469af5a32d305cdae4ceabef7a9a8901a4ffd350dd915da9d6a9c3c245d",
+    "stdout": "",
+    "stderr": ""
+  },
+  "guard_mutant": {
+    "test": "graph-caller",
+    "compile_status": 0,
+    "source_sha256": "08357c7bb96bb54db6202a3bb365b9bd3723e5ef133b43345f7bd6472c97c622",
+    "compile_stderr": "",
+    "run_status": 10,
+    "binary_sha256": "2b2b14aff0c99f86e47459dec0a9e71a598d80f44e120c54f4f0eb0ce25a9744",
+    "stdout": "",
+    "stderr": "",
+    "name": "skip-canonical-binding",
+    "target": "om/pipeline/consume.om",
+    "replace": "rc = pl_checkrow a want real sel\n",
+    "with_source": "rc = int 0\n"
+  },
+  "not_run": [
+    "device execution",
+    "selected artifact launch binding",
+    "whole-model qualification"
+  ]
+}

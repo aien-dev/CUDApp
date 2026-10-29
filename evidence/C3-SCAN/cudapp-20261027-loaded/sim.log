@@ -1,0 +1,10 @@
+ 20:44:51  up 6 days  2:25,  5 users,  load average: 13.88, 15.05, 15.70
+kernel 0: 45 insns, 768 bytes, 18 gprs
+kernel 1: 45 insns, 768 bytes, 18 gprs
+kernel 2: 45 insns, 768 bytes, 18 gprs
+kernel 3: 79 insns, 1280 bytes, 26 gprs
+kernel 4: 33 insns, 640 bytes, 18 gprs
+simulator order 0: 340 runs, reductions wrong 0, prefix sums wrong 0
+simulator order 1: 336 runs, reductions wrong 0, prefix sums wrong 0
+C3 scan sim: PASS (139 checks)
+exit 0

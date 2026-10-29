@@ -1,0 +1,5 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note ABI1 adapter only; serializer authority stays in the pinned learn53 unit.
+fn native_mcdir meta view ulong 8 entries view ulong 1024 out edit uchar 32 to long
+ret mc_dir meta entries out
+end

@@ -1,0 +1,486 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note QuantSchema v1. Canonical metadata, not tensor content authentication or GPU admission.
+note Numerical sources native/models and omega_gpu_fp8_pack.c at b759afc3.
+note All unsigned extent arithmetic is guarded before multiplication or indexing.
+fn quant_sem d view ulong 48 to uint
+if ne get d 0 1
+ret 1
+end
+fmt = get d 1
+if or lt fmt 1 gt fmt 6
+ret 1
+end
+if or eq get d 17 0 eq get d 18 0
+ret 3
+end
+if gt get d 17 div ulong 18446744073709551615 get d 18
+ret 3
+end
+if or ne get d 19 2 ne get d 15 1
+ret 1
+end
+if or ne get d 14 get d 2 ne get d 16 0
+ret 1
+end
+for i ulong 4
+if ne get d add i 20 0
+ret 1
+end
+end
+if or gt get d 9 1 gt get d 10 1
+ret 1
+end
+if gt get d 4 4
+ret 1
+end
+if eq get d 7 0
+if ne get d 8 0
+ret 7
+end
+else
+if ne get d 7 1
+ret 7
+end
+end
+if eq get d 4 0
+if or ne get d 5 0 ne get d 6 0
+ret 1
+end
+else
+if or eq get d 5 0 eq get d 6 0
+ret 1
+end
+end
+if eq fmt 1
+if or lt get d 2 1 gt get d 2 8
+ret 1
+end
+if or lt get d 3 1 gt get d 3 2
+ret 1
+end
+if or ne get d 11 0 ne get d 13 0
+ret 1
+end
+if ne get d 12 0
+ret 1
+end
+if eq get d 7 1
+if ne get d 3 1
+ret 7
+end
+if ge get d 8 shl ulong 1 get d 2
+ret 7
+end
+end
+ret 0
+end
+if or ne get d 3 0 ne get d 7 0
+ret 7
+end
+if or ne get d 11 1 ne get d 13 1
+ret 1
+end
+if gt get d 12 1
+ret 1
+end
+if or eq fmt 4 eq fmt 5
+if ne get d 2 4
+ret 1
+end
+else
+if ne get d 2 8
+ret 1
+end
+end
+if ge fmt 4
+if ne get d 12 0
+ret 1
+end
+if ne get d 5 1
+ret 1
+end
+if eq fmt 5
+if or ne get d 4 3 ne get d 6 16
+ret 1
+end
+else
+if or ne get d 4 2 ne get d 6 32
+ret 1
+end
+end
+end
+ret 0
+end
+fn quant_meta d view ulong 48 to uint
+r = quant_sem d
+if ne r 0
+ret r
+end
+if or lt get d 24 1 gt get d 24 3
+ret 1
+end
+if or ne get d 38 0 ne get d 39 0
+ret 1
+end
+if or gt get d 32 1 gt get d 40 1
+ret 1
+end
+if gt get d 35 4
+ret 1
+end
+for i ulong 6
+if ne get d add i 42 0
+ret 1
+end
+end
+a = get d 27
+if or eq a 0 gt a 4096
+ret 4
+end
+if ne and a sub a 1 0
+ret 4
+end
+if or gt get d 30 65536 gt get d 36 65536
+ret 3
+end
+if or gt get d 31 1024 gt get d 37 1024
+ret 3
+end
+ret 0
+end
+fn quant_ceil a ulong b ulong to ulong
+if eq rem a b 0
+ret div a b
+end
+ret add div a b 1
+end
+fn quant_size typ ulong to ulong
+if eq typ 0
+ret 0
+end
+if eq typ 1
+ret 2
+end
+if eq typ 4
+ret 4
+end
+ret 1
+end
+fn quant_span rows ulong stride ulong width ulong off ulong avail ulong to bool
+if gt off avail
+ret false
+end
+if lt stride width
+ret false
+end
+room = sub avail off
+if gt width room
+ret false
+end
+if eq rows 0
+ret false
+end
+if eq stride 0
+ret false
+end
+ret le sub rows 1 div sub room width stride
+end
+fn quant_layout d view ulong 48 to uint
+fmt = get d 1
+lay = get d 24
+if eq fmt 1
+ret 2
+end
+if eq lay 1
+if or gt fmt 3 ne get d 4 0
+ret 2
+end
+if or ne get d 35 0 ne get d 40 0
+ret 2
+end
+if or ne get d 32 0 ne get d 41 get d 18
+ret 4
+end
+ret 0
+end
+if eq lay 2
+if lt fmt 4
+ret 2
+end
+if or ne get d 35 get d 4 ne get d 40 0
+ret 2
+end
+if eq get d 32 0
+if ne rem get d 18 get d 6 0
+ret 4
+end
+end
+if ne get d 41 mul quant_ceil get d 18 get d 6 get d 6
+ret 4
+end
+ret 0
+end
+if ne fmt 2
+ret 2
+end
+if or ne get d 4 1 ne get d 35 4
+ret 2
+end
+if or ne get d 5 128 ne get d 6 128
+ret 2
+end
+if or ne get d 40 1 ne get d 12 0
+ret 2
+end
+if or ne rem get d 17 128 0 ne rem get d 18 128 0
+ret 4
+end
+if or ne get d 32 0 ne get d 41 get d 18
+ret 4
+end
+ret 0
+end
+fn quant_extents d view ulong 48 to uint
+rows = get d 17
+cols = get d 18
+if or gt rows 65536 gt cols 65536
+ret 3
+end
+if gt get d 41 65536
+ret 3
+end
+unit = div ulong 8 get d 2
+width = quant_ceil cols unit
+if not quant_span rows get d 25 width get d 28 get d 30
+ret 3
+end
+outw = quant_ceil get d 41 unit
+if not quant_span rows get d 33 outw 0 get d 36
+ret 3
+end
+if ne rem get d 33 get d 27 0
+ret 4
+end
+if gt rows div ulong 65536 get d 33
+ret 3
+end
+if ne get d 36 mul rows get d 33
+ret 3
+end
+if eq get d 4 0
+if or ne get d 26 0 ne get d 34 0
+ret 4
+end
+if or ne get d 29 0 ne get d 31 0
+ret 4
+end
+if ne get d 37 0
+ret 4
+end
+ret 0
+end
+srows = quant_ceil rows get d 5
+scount = quant_ceil cols get d 6
+if not quant_span srows get d 26 mul scount quant_size get d 4 get d 29 get d 31
+ret 3
+end
+if not quant_span srows get d 34 mul scount quant_size get d 35 0 get d 37
+ret 3
+end
+if gt srows div ulong 1024 get d 34
+ret 3
+end
+if ne get d 37 mul srows get d 34
+ret 3
+end
+ret 0
+end
+fn quant_check d view ulong 48 to uint
+r = quant_meta d
+if ne r 0
+ret r
+end
+note Bound dimensions before computing padded extents in layout validation.
+if or gt get d 17 65536 gt get d 18 65536
+ret 3
+end
+r = quant_layout d
+if ne r 0
+ret r
+end
+ret quant_extents d
+end
+fn quant_write d view ulong 48 b edit uchar 384 to uint
+r = quant_meta d
+if ne r 0
+ret r
+end
+for i ulong 48
+v = get d i
+for j ulong 8
+put b add mul i 8 j uchar and shr v mul j 8 255
+end
+end
+ret 0
+end
+fn quant_read b view uchar 384 d edit ulong 48 to uint
+for i ulong 48
+v = ulong 0
+for j ulong 8
+v = or v shl ulong get b add mul i 8 j mul j 8
+end
+put d i v
+end
+ret quant_meta d
+end
+note WolframLanguageEvaluator {FromDigits["cbf29ce484222325",16],FromDigits["100000001b3",16]}
+note -> {14695981039346656037,1099511628211}; parent mounted tool 2026-10-28.
+note FNV is indexing only, never authentication or a substitute for content SHA.
+fn quant_hash b view uchar 384 to ulong
+h = ulong 14695981039346656037
+for i ulong 384
+h = mul xor h ulong get b i 1099511628211
+end
+ret h
+end
+fn quant_shash b view uchar 384 to ulong
+h = ulong 14695981039346656037
+for i ulong 192
+h = mul xor h ulong get b i 1099511628211
+end
+ret h
+end
+fn quant_fold sc view uchar 1024 pos ulong to f32
+u = or uint get sc pos shl uint get sc add pos 1 8
+s = bitcast f32 shl u 16
+ret mul s bitcast f32 shl add uint 127 56 23
+end
+fn quant_scpos d view ulong 48 row ulong col ulong to ulong
+base = add get d 29 mul row get d 26
+ret add base mul col quant_size get d 4
+end
+fn quant_svalid sc view uchar 1024 p ulong typ ulong to uint
+u = uint get sc p
+if eq typ 2
+if eq u 255
+ret 6
+end
+end
+if eq typ 3
+if gt u 126
+ret 6
+end
+end
+if eq typ 1
+u = or u shl uint get sc add p 1 8
+s = bitcast f32 shl u 16
+if not le fabs s 3.0e38f32
+ret 6
+end
+if not le fabs quant_fold sc p 3.0e38f32
+ret 6
+end
+end
+ret 0
+end
+fn quant_scales d view ulong 48 sc view uchar 1024 to uint
+if eq get d 4 0
+ret 0
+end
+rows = quant_ceil get d 17 get d 5
+cols = quant_ceil get d 18 get d 6
+for i ulong mul rows cols
+p = quant_scpos d div i cols rem i cols
+r = quant_svalid sc p get d 4
+if ne r 0
+ret r
+end
+end
+ret 0
+end
+fn quant_weights d view ulong 48 src view uchar 65536 to uint
+rows = get d 17
+cols = get d 18
+for r ulong rows
+base = add get d 28 mul r get d 25
+if eq get d 2 4
+if ne rem cols 2 0
+if ne and get src add base div cols 2 240 0
+ret 4
+end
+end
+continue
+end
+for c ulong cols
+u = uint get src add base c
+if eq get d 12 0
+if eq get d 1 3
+if ge and u 127 124
+ret 5
+end
+else
+if eq and u 127 127
+ret 5
+end
+end
+end
+end
+end
+ret 0
+end
+fn quant_copyw d view ulong 48 src view uchar 65536 dst edit uchar 65536 to void
+for i ulong get d 36
+put dst i 0
+end
+width = quant_ceil get d 18 div ulong 8 get d 2
+for i ulong mul get d 17 width
+ip = add get d 28 mul div i width get d 25
+ip = add ip rem i width
+op = mul div i width get d 33
+op = add op rem i width
+put dst op get src ip
+end
+end
+fn quant_scaleout sc view uchar 1024 ds edit uchar 1024 ip ulong op ulong fold bool to void
+if fold
+v = bitcast uint quant_fold sc ip
+for j ulong 4
+put ds add op j uchar and shr v mul j 8 255
+end
+else
+put ds op get sc ip
+end
+end
+fn quant_copys d view ulong 48 sc view uchar 1024 ds edit uchar 1024 to void
+for i ulong get d 37
+put ds i 0
+end
+if eq get d 4 0
+ret
+end
+rows = quant_ceil get d 17 get d 5
+cols = quant_ceil get d 18 get d 6
+for i ulong mul rows cols
+ip = quant_scpos d div i cols rem i cols
+op = mul div i cols get d 34
+op = add op mul rem i cols quant_size get d 35
+quant_scaleout sc ds ip op eq get d 24 3
+end
+end
+fn quant_repack d view ulong 48 src view uchar 65536 sc view uchar 1024 dst edit uchar 65536 ds edit uchar 1024 to uint
+r = quant_check d
+if ne r 0
+ret r
+end
+r = quant_weights d src
+if ne r 0
+ret r
+end
+r = quant_scales d sc
+if ne r 0
+ret r
+end
+quant_copyw d src dst
+quant_copys d sc ds
+ret 0
+end

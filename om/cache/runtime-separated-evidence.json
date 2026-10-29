@@ -1,0 +1,193 @@
+{
+  "_portable_derivation":{"schema":"AIEN_PORTABLE_RECEIPT_V1","original_sha256":"3001ab4751c32267d7f8a53bda454c4ec65ab8d969031024b49130fb39fdd246","original_git_blob":"fb8e3ce4a41b7391cf9d49b1643dec9d1be809a3","placeholder":"$AIEN_RECEIPT_HOME","rule":"Remove this metadata line and replace the placeholder with the producer HOME prefix obtained from the original Git blob.","scrubbed_sha256":"23bff028f095fbc71d2befb1c258aba7d629e4f4eb0e4d43ce78ddd3a2c8e351","scrubbed_hash_domain":"document bytes with exactly the _portable_derivation metadata line removed"},
+  "schema": "cudapp-native-cache-runtime-separated-roots-host-evidence/1",
+  "state": "EXERCISED_HOST_ONLY",
+  "correction": "Function mode exports final declared function. Prior combined runtime-lease-evidence.json compilation did not establish separate native_cache/lease/slotrev entry ABIs; preserved unchanged. Production now uses separate exact composites with asserted final roots.",
+  "compiler_revision": "e5b32567a7aff3ce594e3254a622a846a6cd190b",
+  "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+  "source_sha256": {
+    "$AIEN_RECEIPT_HOME/fix/native-integration/om/cache/residency.om": "0da6b33438e98934425f1ea83d194298f390cc68029f0750ebfc70060f87bf61",
+    "$AIEN_RECEIPT_HOME/fix/native-integration/om/cache/runtime.om": "cd89ec72bfb0c9e2238117e81ddf5b7e4cc6c4af82416e28a839e13e89693c8f",
+    "$AIEN_RECEIPT_HOME/fix/native-integration/om/cache/lease.om": "3e631be022f7ef2f7013eb1032609d1a25c7c7ab2070f8fa7bdd4ddae5f46122",
+    "$AIEN_RECEIPT_HOME/fix/native-integration/om/cache/slotrev.om": "0b3446c510376bf4236f0f576a130e7a415eefb43eff1bfed79a74d34dc0bfee",
+    "$AIEN_RECEIPT_HOME/fix/kernel-cache/om/cache/runtime_ops_test.om": "894e1b9befe6feed6988fdaac6ea827e74365da2b18944d0cb3145bec3b2d65b"
+  },
+  "composite_units": {
+    "native_cache": {
+      "final_declared_function": "native_cache",
+      "source_sha256": "7c4313cd1e72c2628165cbef93c27cfe48fc627e2c089b8d530212f2aae49be6",
+      "compile_exit": 0,
+      "binary_bytes": 10184,
+      "binary_sha256": "9d996839e4f598a2a510e33725a59823f50bb2e3fa7eafd5c8ff0fa38044930b",
+      "mcp_compile": {
+        "ok": true,
+        "binary_bytes": 10184,
+        "sha256": "9d996839e4f598a2a510e33725a59823f50bb2e3fa7eafd5c8ff0fa38044930b",
+        "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+        "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+      }
+    },
+    "native_lease": {
+      "final_declared_function": "native_lease",
+      "source_sha256": "b68cd9ab978a2ce6ad639ff11462a821bd194b8bce1922de8a496d1a747abc1c",
+      "compile_exit": 0,
+      "binary_bytes": 10308,
+      "binary_sha256": "8a38453ad93d3a66c3b6387fbf5d60016b955c4b82c8bb5903e3e09292d504ca",
+      "mcp_compile": {
+        "ok": true,
+        "binary_bytes": 10308,
+        "sha256": "8a38453ad93d3a66c3b6387fbf5d60016b955c4b82c8bb5903e3e09292d504ca",
+        "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+        "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+      }
+    },
+    "native_slotrev": {
+      "final_declared_function": "native_slotrev",
+      "source_sha256": "7011c2ef65c052b372986743eafddd91d18428f9270bbdc22ee63168b85a1c0d",
+      "compile_exit": 0,
+      "binary_bytes": 6196,
+      "binary_sha256": "75c2bafd3a428dbaecfefd860e5038db0ec24e4df6c2928f61370d997b734f1c",
+      "mcp_compile": {
+        "ok": true,
+        "binary_bytes": 6196,
+        "sha256": "75c2bafd3a428dbaecfefd860e5038db0ec24e4df6c2928f61370d997b734f1c",
+        "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+        "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+      }
+    }
+  },
+  "native_controls": {
+    "source_order": [
+      "residency.om",
+      "runtime.om",
+      "lease.om",
+      "slotrev.om",
+      "runtime_ops_test.om"
+    ],
+    "source_sha256": "ab99ec306e5a38bbdaf3089373225838b18532e2a82a3bbb89fe3d8c98bb683b",
+    "compile_exit": 0,
+    "binary_sha256": "a6e45216093ed0847dd433b1f48cd9f2cd4a1147480ec47081e5172cd513becc",
+    "run_exit": 0,
+    "controls": 64
+  },
+  "mutants": [
+    {
+      "name": "profile_bypass",
+      "source_sha256": "5bc7915195d3d22e2f93f9a5dd34a8295c148fe55f2a7d28a1547536860a5007",
+      "binary_sha256": "b747a1dc717d1c3aee690ac73e2505aeca7f082857ad096ed47c76141d5bb927",
+      "compile_exit": 0,
+      "exit": 16,
+      "expected_exit": 16,
+      "caught": true
+    },
+    {
+      "name": "token_bypass",
+      "source_sha256": "6c624c1f35ec19af1391dde79ea98290770f2e69632c4205c62b7e8eac02068f",
+      "binary_sha256": "bd141c2f0c41f00150d7ee5b2896374ecb0e5dddc7664ca80988b61cf1bd6212",
+      "compile_exit": 0,
+      "exit": 21,
+      "expected_exit": 21,
+      "caught": true
+    },
+    {
+      "name": "refresh_same_reports_new",
+      "source_sha256": "1b5b864be9be14f743e30c4207301b1e06ddb130cd36a3d5ecdab7c2c95e102c",
+      "binary_sha256": "1b5fd16dcef97b640017a53a514788ed371ccf036cd61147498afa5467eeb3d5",
+      "compile_exit": 0,
+      "exit": 4,
+      "expected_exit": 4,
+      "caught": true
+    },
+    {
+      "name": "invalidate_bypass",
+      "source_sha256": "4922fe12558dc8ab76ec41c5c076f462bc9558466fb3ff564f6a3d48423d4fab",
+      "binary_sha256": "6eced197a96c85a923169a0c19f61140efc7ae5393ab4552f8247fa6f2ba4ee3",
+      "compile_exit": 0,
+      "exit": 18,
+      "expected_exit": 18,
+      "caught": true
+    },
+    {
+      "name": "caller_owner_reintroduced",
+      "source_sha256": "6a95ad5e352b4825df4f8e746923cad380a39c7365d8eae4af3757364fd07d4c",
+      "binary_sha256": "ae71e6c1e01b304f19ab88bf6c244809576130e513be2a9de630c09facf60bb5",
+      "compile_exit": 0,
+      "exit": 7,
+      "expected_exit": 7,
+      "caught": true
+    },
+    {
+      "name": "owner_overflow_bypass",
+      "source_sha256": "4bc76934725f9582b369781ca36301beaf9104eeddeaa80ae577aa46e018c437",
+      "binary_sha256": "3a902b31c4c8453542786187d86a46eddf8ef033b5b7d374dc6acff92ab46856",
+      "compile_exit": 0,
+      "exit": 44,
+      "expected_exit": 44,
+      "caught": true
+    },
+    {
+      "name": "lease_epoch_bypass",
+      "source_sha256": "0654ecc2c9d53188078459e256fbff3f622d7fd1a5f1c6a55190f06da70c9ca1",
+      "binary_sha256": "0eb10cc34d5e2ac206579c95d10b7623486d05876f0acebc5bdf473426a62d64",
+      "compile_exit": 0,
+      "exit": 51,
+      "expected_exit": 51,
+      "caught": true
+    },
+    {
+      "name": "lease_zero_bypass",
+      "source_sha256": "ead02282d14b62939b27b1e25722356c699b8c74fd847b46f90f3ecac85cfe03",
+      "binary_sha256": "adc9e114b81726f1bb41a6599b97480561794128643374f5ed5b1689b787c46d",
+      "compile_exit": 0,
+      "exit": 53,
+      "expected_exit": 53,
+      "caught": true
+    },
+    {
+      "name": "signed_projection_reintroduced",
+      "source_sha256": "b62718e32d0cbd00dc845cbb6895f1397f496a767ebef714160d88c3052c9e66",
+      "binary_sha256": "c8d3b068970e0fec73db36a79ea99d2b74ce25557f3450e13c0db8baff8e6e98",
+      "compile_exit": 0,
+      "exit": 105,
+      "expected_exit": 105,
+      "caught": true
+    }
+  ],
+  "mcp_run": {
+    "compile": {
+      "ok": true,
+      "binary_bytes": 18936,
+      "sha256": "a6e45216093ed0847dd433b1f48cd9f2cd4a1147480ec47081e5172cd513becc",
+      "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"
+    },
+    "exit": {
+      "kind": "normal",
+      "code": 0
+    },
+    "stdout": "",
+    "stdout_bytes": 0,
+    "stdout_truncated": false,
+    "stderr": "",
+    "stderr_bytes": 0,
+    "stderr_truncated": false,
+    "limits": {
+      "timeout_ms": 10000,
+      "cpu_seconds": 10,
+      "address_space_bytes": 268435456,
+      "file_size_bytes": 1048576,
+      "processes": 5
+    },
+    "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+  },
+  "omega_mcp_tools_used": [
+    "lookup",
+    "compile",
+    "run"
+  ],
+  "limits": {
+    "real_bridge_caller": "PARENT_NATIVEINTEGRATE_PENDING",
+    "shared_index_commit_registration": "NativeIntegrate sole owner, not touched",
+    "gpu_upload_whole_model": "NOT_RUN",
+    "existing_session_lock_and_dead_handle_epoch": "caller precondition remains"
+  }
+}

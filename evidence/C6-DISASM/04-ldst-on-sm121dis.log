@@ -1,0 +1,6 @@
+# omega c6/disasm b6a96d10 (worktree diff sha e3b0c44298fc1c14), 2026-10-22T01:59:45Z
+# command: quiet-build tools/ldst_nvdisasm_check.sh
+disassembler: sm121dis: Omega's own sm_121 disassembler (src/omega_sm121_disasm.c)
+[PASS] ldst: 148 of 148 kernels decode, every word, to the encoder's text
+VERDICT PASS
+exit=0

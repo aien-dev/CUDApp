@@ -1,0 +1,235 @@
+{
+  "schema": "cudapp-learn53-moe-observe-host-evidence-v1",
+  "classification": "HOST_ONLY_SYNTHETIC",
+  "outer_wire_version": 2,
+  "prior_version1_receipt": {
+    "commit": "32af495759065feb542c9460dfe63ecbb2e05c81",
+    "path": "tests/learn53/moe-host-evidence.json",
+    "unchanged": true
+  },
+  "compiler": {
+    "repository": "https://github.com/aien-dev/omega-mv.git",
+    "revision": "e5b32567a7aff3ce594e3254a622a846a6cd190b",
+    "sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"
+  },
+  "dependency_source_lock": "native/learn53/moe-closure.lock",
+  "source_files_sha256": {
+    "native/learn53/moe-closure.om": "e123a9bcf91ac2011db1378eab8e3396e477b5841fe79b7caa67fb56e1511c70",
+    "native/learn53/moe-closure.lock": "3b6db1cf0702276fb5a614326a13b4f96d0e22a6a20bd7748c7c689ec0075cc6",
+    "docs/learn53/CONTRACT.md": "6766188f1db200d97ccccfec25319f1448841a408d1b5a40281940b887ad0c9b",
+    "tests/learn53/moe-fixtures.om": "133139616b4feddc0f892078dd989ae99616f81601956e786863e5f11bd4c5a2",
+    "tests/learn53/moe-unit.om": "47fcbe800f7b9efc8904a7ece4c34b8e089a0131f715d4a40ff40bb3e2b9b6f6",
+    "tests/learn53/moe-export.om": "fca0b88b1b0f106a2d7142f3cafff7e24a98acd9a5fa298c1f60361420b33213",
+    "tests/learn53/moe-observe-fixtures.om": "bbc92602ee42301cbf8c3ba61dd97e954107a3f5526e844b3ec66ec6f2c1608f",
+    "tests/learn53/moe-observe-unit.om": "09eb6030779fa32790b3ae7e1bc78ec84b66d100af8335b9aa7458c7471427b9",
+    "tests/learn53/moe-observe-export.om": "0dd8635d859bfb2a13a2944466576e806e53082a18f0ecb43bee4021f7dc8de3",
+    "tests/learn53/moe-series-unit.om": "16b548b4abd60997c83427a20e9ff00a63dfbc1162830f070f51dacd1b2fabc6",
+    "tests/learn53/moe-series-export.om": "0aaa6c0c8038bf57a40207d196ec499238d8780540b1dfbf5fcae126e1211c00"
+  },
+  "execution": {
+    "executor": "omega MCP run",
+    "isolation": "bwrap+prlimit: no network, no host files, cleared environment",
+    "timeout_ms": 20000,
+    "cpu_seconds": 10,
+    "address_space_bytes": 268435456
+  },
+  "positive_native_runs": {
+    "closure-v2": {
+      "source_sha256": "64d7e126a118f8af5b3c8d64bc700fd397038dc5b2512ab5afa94286dd7f19e9",
+      "compile_ok": true,
+      "binary_sha256": "c1540094dee0491ffab25aab72decbee49295158ef49950a414eb42ab31e7001",
+      "binary_bytes": 65332,
+      "exit_code": 0,
+      "stdout": "MOE-CLOSURE HOST_ONLY PASS\n",
+      "stderr": ""
+    },
+    "nested-observation": {
+      "source_sha256": "460f2039f8ff9a7ce5d75c74cc287afad29835babfc250ab302a02c788b6b5dc",
+      "compile_ok": true,
+      "binary_sha256": "29d447146543df8b0e5ed6b2a43ec43f7b3d60b442dc4778f6ca09f06ef7b16b",
+      "binary_bytes": 60812,
+      "exit_code": 0,
+      "stdout": "MOE-OBSERVE HOST_ONLY PASS\n",
+      "stderr": ""
+    },
+    "ordered-series": {
+      "source_sha256": "c33d6f3d1ca1d70a93948f5df286379336766483de9ca113e0f0d01ac8b2e182",
+      "compile_ok": true,
+      "binary_sha256": "7c2b4aa56e2ca0efdea9913035cb84c7fa3a275cb7fc6ed86656904d782d2bda",
+      "binary_bytes": 57884,
+      "exit_code": 0,
+      "stdout": "MOE-SERIES HOST_ONLY PASS\n",
+      "stderr": ""
+    }
+  },
+  "verifier_mutants": {
+    "closure-byte-equality-removed": {
+      "source_sha256": "20f922d48ebd4567aea55896354e064ddac96a51f3c39cfebfc844f0317ae260",
+      "transform": {"before": "if ne get want i get got i\nret 4\nend", "after": ""},
+      "expected_failure_exit": 15,
+      "compile_ok": true,
+      "binary_sha256": "7f9f1bd2e5c6a5c292435d167aaf62ab8e4ac43299bb9655ec83e1e0acf3d9b5",
+      "binary_bytes": 65284,
+      "exit_code": 15,
+      "stdout": "",
+      "stderr": ""
+    },
+    "custody-observed-equality-removed": {
+      "source_sha256": "ff760c24504773a7e50473a10b78630d20552e69bdc49e3c67b719a5e50d99a5",
+      "transform": {"before": "if ne get ctx i get got i\nret 5\nend", "after": ""},
+      "expected_failure_exit": 13,
+      "compile_ok": true,
+      "binary_sha256": "c1fba24e835ebfdb57ba3d5ddacb3b98529f2f5749f9c2e3663a07aa41bd9c59",
+      "binary_bytes": 65288,
+      "exit_code": 13,
+      "stdout": "",
+      "stderr": ""
+    },
+    "selected-paired-artifact-check-removed": {
+      "source_sha256": "dfee1468f980ea9a02995fde6dc98d1553088de712632ce26897c378d52adae0",
+      "transform": {"before": "if ne get row add 21 i mc_limb b add 22 mul role 8 i\nret 5\nend", "after": ""},
+      "expected_failure_exit": 23,
+      "compile_ok": true,
+      "binary_sha256": "468e685a8e1bf65179252f3460af58986a1a7852737a379c1c9a28ea92dbf8c4",
+      "binary_bytes": 65156,
+      "exit_code": 23,
+      "stdout": "",
+      "stderr": ""
+    },
+    "QMD0-not-bound": {
+      "source_sha256": "bc1cc3946af63904640e6672216ed3bf81c05b926ea071e604bb615c3c3ca881",
+      "transform": {"before": "put b add off i get qmd add 512 i", "after": "put b add off i get qmd i"},
+      "expected_failure_exit": 31,
+      "compile_ok": true,
+      "binary_sha256": "dfc29761ce7d6dc878e3fd8dc1aed8b012fb4863c3a2cb118e2051c1390bca00",
+      "binary_bytes": 60804,
+      "exit_code": 31,
+      "stdout": "",
+      "stderr": ""
+    },
+    "shared-directory-slot-not-bound": {
+      "source_sha256": "491e8ec17be87a1ea9bf726a169dacc958dc775e32bd973c59e56cada81ebc71",
+      "transform": {"before": "mc_put edit b add 8 i get entries i", "after": "if lt i 512\nmc_put edit b add 8 i get entries i\nend"},
+      "expected_failure_exit": 32,
+      "compile_ok": true,
+      "binary_sha256": "d7c4df36a19b98f3801c80b8ece1918432ce3026fc8f10de8fe8db46b0b717c2",
+      "binary_bytes": 60820,
+      "exit_code": 32,
+      "stdout": "",
+      "stderr": ""
+    },
+    "conflicting-backing-check-removed": {
+      "source_sha256": "c3f0658a6b9c15547d58ef7fa20e417eb0038bf71cb560fb079ffdb0cd2aebf2",
+      "transform": {"before": "st = mc_backing r i", "after": "st = long 0"},
+      "expected_failure_exit": 33,
+      "compile_ok": true,
+      "binary_sha256": "ee3e1af1473b0137c0454469029e298914d18a79e0e592b12de02c5dbfd6fdb3",
+      "binary_bytes": 60716,
+      "exit_code": 33,
+      "stdout": "",
+      "stderr": ""
+    },
+    "consumed-completion-not-bound": {
+      "source_sha256": "4a5e0b3fd1d4ac03a64dbc8441dee50ff999571d631c748c76d63c556ef3158e",
+      "transform": {"before": "mc_put edit b add 32 i get s i", "after": "if or lt i 6 gt i 7\nmc_put edit b add 32 i get s i\nend"},
+      "expected_failure_exit": 31,
+      "compile_ok": true,
+      "binary_sha256": "2661b7771283697cff0f880ac399705d98d48696786fe18292971d4add14350a",
+      "binary_bytes": 60836,
+      "exit_code": 31,
+      "stdout": "",
+      "stderr": ""
+    },
+    "series-order-check-removed": {
+      "source_sha256": "25851ed21428b70728cd835a1d7d53e527d2623c5311f5d1072be5109fd2c287",
+      "transform": {"before": "if le get ord i get ord sub i 1\nret 1\nend", "after": ""},
+      "expected_failure_exit": 42,
+      "compile_ok": true,
+      "binary_sha256": "7c66ab2373f08d2906da26dfd8b9434456b851ac80786fa5f660bd5282453ed0",
+      "binary_bytes": 57840,
+      "exit_code": 42,
+      "stdout": "",
+      "stderr": ""
+    },
+    "series-last-occurrence-not-bound": {
+      "source_sha256": "ba73b71bb9ee1358a5a516c02a1b5174a16bb81d1065ba5cd7e1402bb670166c",
+      "transform": {"before": "for i ulong 4096\nput b add off i get hashes i\nend", "after": "for i ulong 4064\nput b add off i get hashes i\nend"},
+      "expected_failure_exit": 41,
+      "compile_ok": true,
+      "binary_sha256": "47b48bb4ba3797666f137de1dbbd01d56f9e1256cdab7ad9c6f5955115f9779f",
+      "binary_bytes": 57880,
+      "exit_code": 41,
+      "stdout": "",
+      "stderr": ""
+    },
+    "code-series-context-check-removed": {
+      "source_sha256": "350061310249c79e456c84554b25aacdece49c7438854165b997bac9fc1e4e76",
+      "transform": {"before": "if or ne get m 6 0 ne get m 7 0\nret 1\nend", "after": ""},
+      "expected_failure_exit": 41,
+      "compile_ok": true,
+      "binary_sha256": "4c44f4555f0eb54f6da9c99e6bbcf1e762942a26868f992b0a9535484a6d0040",
+      "binary_bytes": 57836,
+      "exit_code": 41,
+      "stdout": "",
+      "stderr": ""
+    }
+  },
+  "independent_oracles": {
+    "method": "Pinned omc compiles exporter after SHA-checked exact Git object composition. One-shot read-only Python struct.pack LE byte assembly for nested/series preimages; external sha256sum computes expected digests. Outer wire is exported separately and checked by sha256sum. No permanent host serializer or runtime introduced.",
+    "closure_v2": {
+      "source_sha256": "595a10d002e82b1b3724fa9721fd0480a19c121b6eedc994db4055de4638bafd",
+      "binary_sha256": "31dbc84eac96b58f30bcf34bae8439a52a7d18341d59400905ed9999d4d2a967",
+      "exit": 0,
+      "results": [
+        {"label": "one-token-v2", "wire_bytes": 11264, "native_sha256": "2ad4ce40deb03dba48f8215655d3248ac7efed582c35ef525b902a22d20ec9da", "external_sha256sum": "2ad4ce40deb03dba48f8215655d3248ac7efed582c35ef525b902a22d20ec9da", "match": true},
+        {"label": "fifteen-token-two-window-v2", "wire_bytes": 11264, "native_sha256": "8cab0e1c131a42d8f2222fb274590f887eb3d446458315a874ca118e2f6df4ea", "external_sha256sum": "8cab0e1c131a42d8f2222fb274590f887eb3d446458315a874ca118e2f6df4ea", "match": true}
+      ]
+    },
+    "nested_observation": {
+      "source_sha256": "8ab35b2a3b4cfb74fae2e94f9067afab157d3de875adf9d4b3969883eca1c71c",
+      "binary_sha256": "eaf6c0e193c977a200d40da096b6b86b578cb6efdeb200d7182db890885ab509",
+      "exit": 0,
+      "stdout_bytes": 128,
+      "oracles": [
+        {"kind": "code", "preimage_bytes": 16, "native_sha256": "a088eff91e38dff1bbed9bacdb1522671eabab26b8ec76130efba0dbb9e67c6a", "independent_sha256sum": "a088eff91e38dff1bbed9bacdb1522671eabab26b8ec76130efba0dbb9e67c6a", "match": true},
+        {"kind": "launch", "preimage_bytes": 2072, "native_sha256": "25f0dd447c2d6565e44f25f660aea71a5b9855a375bad142d487ad17bbb27e62", "independent_sha256sum": "25f0dd447c2d6565e44f25f660aea71a5b9855a375bad142d487ad17bbb27e62", "match": true},
+        {"kind": "directory", "preimage_bytes": 4176, "native_sha256": "e41673b521b20e708a549cdf9927e8186ec4c86765f4e2e1915183e7b0e47716", "independent_sha256sum": "e41673b521b20e708a549cdf9927e8186ec4c86765f4e2e1915183e7b0e47716", "match": true},
+        {"kind": "allocation", "preimage_bytes": 8256, "native_sha256": "8686ba3fee15841452ae6d40390d25f8fd71a32dcc068f80be125f92882b968a", "independent_sha256sum": "8686ba3fee15841452ae6d40390d25f8fd71a32dcc068f80be125f92882b968a", "match": true}
+      ]
+    },
+    "ordered_series": {
+      "source_sha256": "7390c2ab22a4b2e8f51f2d803e073fe8cb0553a81f6405a623eba9836b6116d4",
+      "binary_sha256": "052867e63c46f8ceb81e854ce938d56b16655ddfb4df9bd8168b361ee34d1dc0",
+      "exit": 0,
+      "stdout_bytes": 128,
+      "results": [
+        {"role": 1, "kind": 0, "active_count": 2, "preimage_bytes": 4160, "native_sha256": "da0296601fb6353b2aa9a265d16121ef8e504076f92b748842482745d0cc8b9c", "independent_sha256sum": "da0296601fb6353b2aa9a265d16121ef8e504076f92b748842482745d0cc8b9c", "match": true},
+        {"role": 1, "kind": 1, "active_count": 2, "preimage_bytes": 5184, "native_sha256": "41fe82ec5d53647c1c2b46aaf1b979dc4aff7a52f34cb9318650990c53d54d4c", "independent_sha256sum": "41fe82ec5d53647c1c2b46aaf1b979dc4aff7a52f34cb9318650990c53d54d4c", "match": true},
+        {"role": 5, "kind": 0, "active_count": 128, "preimage_bytes": 4160, "native_sha256": "052e2fe833f7edb2f8a2bb25d4548f18f626d971a6523c9561d96828e4093c8b", "independent_sha256sum": "052e2fe833f7edb2f8a2bb25d4548f18f626d971a6523c9561d96828e4093c8b", "match": true},
+        {"role": 5, "kind": 1, "active_count": 128, "preimage_bytes": 5184, "native_sha256": "1f993155a522f9499216b87e8de3a3a4bc38583732a9ebecaaeb9cb9b61633d7", "independent_sha256sum": "1f993155a522f9499216b87e8de3a3a4bc38583732a9ebecaaeb9cb9b61633d7", "match": true}
+      ]
+    }
+  },
+  "controls": [
+    "Version2 accepts canonical synthetic wire; identical Version1 wires refuse and clear stale SHA",
+    "Every outer scalar/SHA role/window/reserved byte, GU/DN mix, selector context and custody substitution challenged",
+    "Every launch metadata/consumed-option cell and active bank/QMD byte challenged; inactive bank tail/QMD gaps excluded",
+    "Synthetic QMD PROGRAM_ADDRESS agrees with independently supplied synthetic code-VA metadata",
+    "All257 ordered W/S pairs including shared contribution and reserved directory entries challenged",
+    "All allocation metadata/record cells challenged; index0 accepted; contradictory same-index generation/backing refused",
+    "Every series metadata/digest/ordinal cell challenged for both code and launch kinds",
+    "Two router-role occurrences and full128 combine-role occurrences independently hashed; last occurrence and ordinal4095 included",
+    "Code-only series refuses live record generation/full-count/ordinals; preserves count and ordered repeated occurrences",
+    "All10 verifier mutants compiled successfully and were rejected by the corresponding executable"
+  ],
+  "limits": {
+    "actual_owner_snapshot_and_consumption": "NOT_RUN: NativeIntegrate/ObserverFixture own mode-final QMD preparation, once-resolved options, same-traversal code/launch correspondence and all-entry precommit refusal",
+    "complete_effective_method_or_chunk_barrier_stream": "NOT_BOUND by mc_launch; owning group51 dependency contract remains separate",
+    "actual_protected_evaluator_execution": "NOT_RUN",
+    "independent_numerical_model_quality_and_full_cost": "NOT_RUN",
+    "accepted_hardware_receipts": "ABSENT in this slice",
+    "GPU_execution": "NOT_RUN",
+    "canonical_native_GU_DN_family3_positive": "NOT_RUN; existing compose_check family3 refusal preserved",
+    "production_registration_or_new_authority": "NONE; no q=true production or signed qualification receipts"
+  }
+}

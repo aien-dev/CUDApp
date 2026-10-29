@@ -1,0 +1,81 @@
+PIN omc 2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f
+Outputs: $HOME/work/MultiTarget/out/gate3
+COMPILE targets src=8e5349ecbcbbc83b8d8a614393d045dec82d251022dc3e0bc6776b5405c69994 bin=499b15a603eb6ef3bf4e040c2f04267b5efaa7b01d8dfc5d614411bdfa1ddf09
+COMPILE emit src=e2c51836cea0d58adf387c223d7d8af88f5e8dc19ba675d91ef9e0008bb5dc29 bin=e95e2dabe1bd991950ce75978bf090d4ff2ae3df7e9c4b75d86ec2b15b899958
+COMPILE conform src=3df70d5d9c88fa810464654885e9058a74df62bc4102f150b89a37c456f45459 bin=4c8672b6c64a2260eba5dc8cce7d0bfa59d2cdd88118f6a1a82e6ea0f2b0cbe1
+PASS table rows=22 supported=nvidia-sm_121 planned_not_run=19 host=2
+PASS table-negative row claiming PASS rejected
+MODULE vadd.cl.spv sha256=6ebe7f4b7e511d52cc59177bb1bc0213fffeabd8d98be898a2e7376d9a323644 bytes=956
+MODULE vadd.vk.spv sha256=b56654c9853cfc2f869a7f3d9df44c6811875dffce596bd1e102468a2ce80444 bytes=1028
+MODULE fsum16.cl.spv sha256=60d3cd48ce768eabb0e381f74e4118d543677560f409f0a807e0ed462d37b299 bytes=2156
+MODULE fsum16.vk.spv sha256=1c139c14212e0cee1fa7f702f33884b20df927210371dc6c6803b5a151015805 bytes=2140
+TOOL spirv-val SPIRV-Tools v2025.1 unknown hash, 2026-05-13T06:03:38+00:00
+PASS spirv-val-vadd.cl exit=0 
+PASS spirv-val-vadd.vk exit=0 
+PASS spirv-val-vadd.cl.mutant exit=0 
+PASS spirv-val-vadd.vk.mutant exit=0 
+PASS spirv-val-fsum16.cl exit=0 
+PASS spirv-val-fsum16.vk exit=0 
+PASS spirv-val-fsum16.cl.mutant exit=0 
+PASS spirv-val-fsum16.vk.mutant exit=0 
+PASS spirv-val-negative trunc rejected: error: line 0: Missing OpFunctionEnd at end of module.
+PASS spirv-val-negative badmagic rejected: error: line 0: Invalid SPIR-V magic number.
+PASS spirv-val-negative overrun rejected: error: line 1: Invalid instruction OpCapability starting at word 5: expected no more operands after 2 words, but stated word count is 32514.
+PASS load-cl-vadd exit=0 LOAD ACCEPT SPIRV_CL version=1.0 bound=53 words=239 insns=58 entry=vadd
+PASS load-vk-vadd exit=0 LOAD ACCEPT SPIRV_VK version=1.3 bound=53 words=257 insns=66 entry=vadd
+PASS load-cl-fsum16 exit=0 LOAD ACCEPT SPIRV_CL version=1.0 bound=111 words=539 insns=115 entry=fsum16
+PASS load-vk-fsum16 exit=0 LOAD ACCEPT SPIRV_VK version=1.3 bound=111 words=535 insns=121 entry=fsum16
+PASS load-neg-truncated exit=21 LOAD REFUSE SPIRV_VK code=21 reason=SPIR-V instruction runs past the end, has word count 0, or the module does not end with OpFunctionEnd
+PASS load-neg-overrun exit=21 LOAD REFUSE SPIRV_VK code=21 reason=SPIR-V instruction runs past the end, has word count 0, or the module does not end with OpFunctionEnd
+PASS load-neg-badmagic exit=20 LOAD REFUSE SPIRV_VK code=20 reason=not a SPIR-V module (magic, version, bound or schema)
+PASS load-neg-aarch64 exit=11 LOAD REFUSE AARCH64 code=11 reason=format has no backend yet (PLANNED)
+PASS load-neg-cl-as-vk exit=22 LOAD REFUSE SPIRV_VK code=22 reason=not Vulkan compute SPIR-V (needs Shader, no Kernel, Logical GLSL450)
+PASS load-neg-vk-as-cl exit=22 LOAD REFUSE SPIRV_CL code=22 reason=not OpenCL kernel SPIR-V (needs Kernel+Addresses, no Shader, Physical64 OpenCL)
+PASS load-neg-entry exit=23 LOAD REFUSE SPIRV_VK code=23 reason=no entry point of the right model (or with that name)
+PASS load-neg-entry-prefix exit=23 LOAD REFUSE SPIRV_CL code=23 reason=no entry point of the right model (or with that name)
+PASS load-neg-msl exit=11 LOAD REFUSE MSL_SOURCE code=11 reason=format has no backend yet (PLANNED)
+PASS load-neg-cubin exit=12 LOAD REFUSE CUBIN code=12 reason=format reserved (CUBIN, #864 HOLD)
+PASS load-neg-unknown exit=10 LOAD REFUSE PTX code=10 reason=unknown format tag
+PASS load-neg-spv-as-sm121 exit=40 LOAD REFUSE SM121_RAW code=40 reason=SM121_RAW must be non-empty 16-byte instructions and not ELF or SPIR-V
+PASS load-sm121-shape exit=0 LOAD ACCEPT SM121_RAW bytes=32
+PASS load-neg-sm121-odd exit=40 LOAD REFUSE SM121_RAW code=40 reason=SM121_RAW must be non-empty 16-byte instructions and not ELF or SPIR-V
+REFERENCE vadd sha256=72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6 fsum16 sha256=6a6de93787e333d506d50996589af3e025c16b9bfc7c9493e1af34578e076290
+PASS reference = hello_gpu --sim output sha256 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+PASS conform-neg-planted exit=1 CONFORM vadd n=1048576 wrong=1 unwritten=0 first=1024
+PASS conform-self exit=0 CONFORM vadd n=1048576 wrong=0 unwritten=0 first=none
+spirv-host: cl library=$HOME/workspace/openaccel-lab/.oal/pocl/lib/libpocl.so.2.16.0 platform="OpenCL 3.0 PoCL 7.2  Linux, Release, RELOC, SPIR-V, LLVM 18.1.3, SLEEF, POCL_DEBUG"
+spirv-host: cl device="cpu-generic-0xd87" type=CPU
+PASS conform-vadd-cl exit=0 CONFORM vadd n=1048576 wrong=0 unwritten=0 first=none
+PASS conform-fsum16-cl exit=0 CONFORM fsum16 n=65536 wrong=0 unwritten=0 first=none
+PASS conform-neg-vadd-cl-mutant exit=1 CONFORM vadd n=1048576 wrong=1048576 unwritten=0 first=0
+PASS conform-neg-fsum16-cl-mutant exit=1 CONFORM fsum16 n=65536 wrong=44123 unwritten=0 first=2
+PASS bytes vadd.cl.out = vadd.ref sha256=72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+PASS bytes fsum16.cl.out = fsum16.ref sha256=6a6de93787e333d506d50996589af3e025c16b9bfc7c9493e1af34578e076290
+spirv-host: vk icd=/usr/share/vulkan/icd.d/lvp_icd.json device="llvmpipe (LLVM 20.1.2, 128 bits)" type=CPU api=1.4.318 driver=0x6402008
+PASS conform-vadd-vk exit=0 CONFORM vadd n=1048576 wrong=0 unwritten=0 first=none
+PASS conform-fsum16-vk exit=0 CONFORM fsum16 n=65536 wrong=0 unwritten=0 first=none
+PASS conform-neg-vadd-vk-mutant exit=1 CONFORM vadd n=1048576 wrong=1048576 unwritten=0 first=0
+PASS conform-neg-fsum16-vk-mutant exit=1 CONFORM fsum16 n=65536 wrong=44123 unwritten=0 first=2
+PASS bytes vadd.vk.out = vadd.ref sha256=72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+PASS bytes fsum16.vk.out = fsum16.ref sha256=6a6de93787e333d506d50996589af3e025c16b9bfc7c9493e1af34578e076290
+PASS isolation-neg-cl exit=9 spirv-host: isolation FAILED: forbidden path "libpocl" present
+PASS isolation-neg-vk exit=9 spirv-host: isolation FAILED: forbidden path "vulkan_lvp" present
+TOOL llvm-mc 18.1.3; ld.lld Ubuntu LLD 18.1.3 (compatible with GNU linkers)
+HSACO ORACLE sha256=65329a0827c9b3bec7e0c2643f13941c549afa8a91bafce87ff2f82be561e881 bytes=2904
+PASS llvm-readelf: gfx1151 flags 0x4A, HSA OSABI, NT_AMDGPU_METADATA target gfx1151, vadd.kd
+PASS load-hsaco exit=0 LOAD ACCEPT AMDGPU_HSACO target=amdgcn-amd-amdhsa--gfx1151 mach=0x4a abi=3 kernels=1 note=AMDGPU/NT_AMDGPU_METADATA bytes=2904
+PASS load-neg-hsaco-wrong-gfx exit=33 LOAD REFUSE AMDGPU_HSACO code=33 reason=e_flags mach does not match the requested gfx target
+PASS load-neg-hsaco-unknown-gfx exit=37 LOAD REFUSE AMDGPU_HSACO code=37 reason=unknown gfx target (known: gfx900 gfx90a gfx942 gfx1030 gfx1100 gfx1151 gfx1200 gfx1201)
+PASS load-neg-hsaco-no-gfx exit=2 AMDGPU_HSACO needs the gfx target argument
+PASS load-neg-spv-as-hsaco exit=30 LOAD REFUSE AMDGPU_HSACO code=30 reason=not an ELF64 little-endian version-1 file
+PASS load-neg-hsaco-as-spv exit=20 LOAD REFUSE SPIRV_VK code=20 reason=not a SPIR-V module (magic, version, bound or schema)
+PASS load-neg-hsaco-as-sm121 exit=40 LOAD REFUSE SM121_RAW code=40 reason=SM121_RAW must be non-empty 16-byte instructions and not ELF or SPIR-V
+PASS oracle sees the planted note target gfx1150
+PASS load-neg-note-target exit=36 LOAD REFUSE AMDGPU_HSACO code=36 reason=metadata amdhsa.target, amdhsa.version or amdhsa.kernels does not match
+PASS load-neg-note-type exit=34 LOAD REFUSE AMDGPU_HSACO code=34 reason=no well-formed AMDGPU NT_AMDGPU_METADATA note in a PT_NOTE segment
+PASS load-neg-eflags exit=33 LOAD REFUSE AMDGPU_HSACO code=33 reason=e_flags mach does not match the requested gfx target
+PASS load-neg-osabi exit=31 LOAD REFUSE AMDGPU_HSACO code=31 reason=OSABI is not HSA (64) or ABI version is not code object v4/v5
+PASS load-neg-abi-v6 exit=31 LOAD REFUSE AMDGPU_HSACO code=31 reason=OSABI is not HSA (64) or ABI version is not code object v4/v5
+PASS load-neg-hsaco-truncated exit=34 LOAD REFUSE AMDGPU_HSACO code=34 reason=no well-formed AMDGPU NT_AMDGPU_METADATA note in a PT_NOTE segment
+hardware NOT_RUN: every GPU target except the GB10 (no AMD, Intel, Apple, Qualcomm, Arm, Imagination, Broadcom or Vortex device on this host; PoCL and lavapipe are CPUs)
+MULTITARGET PASS pass=63 fail=0 not_run=0

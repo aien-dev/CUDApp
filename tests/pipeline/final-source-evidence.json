@@ -1,0 +1,168 @@
+{
+  "schema": "pipeline57-final-source-compatibility/1",
+  "recorded_at": "2026-10-28T12:02:01.127489+00:00",
+  "status": "EXERCISED_HOST_ONLY",
+  "reason": "Actual session recoveries begins0; allow exact initial generation and exercise gen0 cache preparation/pin/inflight/retire/recovery invalidation. Retains earlier receipts rather than rewriting them. Includes exact compiler pin mutation from amendment.",
+  "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+  "source_order": [
+    {
+      "path": "/home/drakestapleton/fix/quant-schema/om/quant/quant.om",
+      "sha256": "44bce96f3c274401e19a71b835814d69caf2bea8c2b1f4f43616c7c121232f09"
+    },
+    {
+      "path": "/home/drakestapleton/fix/kernel-compose/om/components/realize.om",
+      "sha256": "2edff07a46c79c39a264dde9e5d6dfa02ed2f6dda677da8cc8a178f60c9a1c9d"
+    },
+    {
+      "path": "/home/drakestapleton/fix/kernel-cache/om/cache/digest.om",
+      "sha256": "b0e49da9e6c146da0d040476d84bff8d93486c563e19ef8f1d731b1ffb15c051"
+    },
+    {
+      "path": "/home/drakestapleton/fix/kernel-cache/om/cache/residency.om",
+      "sha256": "0da6b33438e98934425f1ea83d194298f390cc68029f0750ebfc70060f87bf61"
+    },
+    {
+      "path": "om/pipeline/select.om",
+      "sha256": "ddd114fe3bfc246014e4d6d72b7c5eacaf0173c790edac5fa30553ed7fd3acc5"
+    },
+    {
+      "path": "om/pipeline/graph.om",
+      "sha256": "560a0b8f89d6ef8f555b35d6e4e7e89ab423ba2ebad5c48b5a31362dddbe3546"
+    },
+    {
+      "path": "om/pipeline/consume.om",
+      "sha256": "bf59a6b9b4e2409dd7d9b8ad67ef418355b5c9c8e3acce4a483eb63fa8b3b9dd"
+    },
+    {
+      "path": "tests/pipeline/fixture.om",
+      "sha256": "2bbaca982cdb052864ceed1255b62e46de19beda8a7e5a5e50e3d1a01999adb4"
+    },
+    {
+      "path": "/home/drakestapleton/fix/kernel-compose/om/components/fixture.om",
+      "sha256": "082e53cff85d139de60bb0bc9dd83b8fc3368b7c1c09397699db9f30883ed3ee"
+    },
+    {
+      "path": "tests/pipeline/policy.om",
+      "sha256": "6ed0bc911279a09d13cca701e512f6b4f74566dea46628f16ffb5074b944e2c6"
+    },
+    {
+      "path": "tests/pipeline/cache-caller.om",
+      "sha256": "dbdf6139048d4bc8b76f88d69665e13371fad8ed2d02eedb3becc8457e9505e2"
+    },
+    {
+      "path": "tests/pipeline/graph-caller.om",
+      "sha256": "fe786d903d5b0219caaf7ffcd381cd1d6f9e8d91b277141faebd57657dd25d42"
+    }
+  ],
+  "controls": [
+    {
+      "test": "policy",
+      "compile_status": 0,
+      "source_sha256": "af238c05d63b5d1a4393aba310ac6c080d99c11268a26a880383a28da4a11331",
+      "compile_stderr": "",
+      "run_status": 0,
+      "binary_sha256": "6b39cc441732b4206406b49a26b816ecc44122a6e3961c0f78d17189aba1505e",
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "test": "cache-caller",
+      "compile_status": 0,
+      "source_sha256": "e649b170790d109e15f8fb158bc9947bb0f9cdf5fbd281d6f33b0eb558758c78",
+      "compile_stderr": "",
+      "run_status": 0,
+      "binary_sha256": "e1366b58b77c8ab32410ad15f0fbcab0afbabcbcfc14664d423d384d3405aece",
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "test": "graph-caller",
+      "compile_status": 0,
+      "source_sha256": "f7d6fb7e0d6a5060552be043919f08a6d607dc27d2eb35e0b65da527eead89e1",
+      "compile_stderr": "",
+      "run_status": 0,
+      "binary_sha256": "4ec93c81ed6cbaddb9b6acfa8699ee133e179c2e3515619caa40d5a59640f144",
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "guard_mutants": [
+    {
+      "test": "policy",
+      "compile_status": 0,
+      "source_sha256": "106a90ed64266748fa2186e1f9455ed5be2431537259363aa87a21a25e5525e3",
+      "compile_stderr": "",
+      "run_status": 3,
+      "binary_sha256": "8ef32b5c00a3e071616793889c1c7f51a5d9f88e8815a8c3d9890892fc3819c3",
+      "stdout": "",
+      "stderr": "",
+      "name": "qualification-mask",
+      "target": "om/pipeline/select.om",
+      "replace": "if ne get a add b 1 31\n",
+      "with_source": "if eq ulong 0 1\n"
+    },
+    {
+      "test": "policy",
+      "compile_status": 0,
+      "source_sha256": "fea5521572f78e15ff08dc4a7121fa057325e8dbff997b613c6d8f15004adde5",
+      "compile_stderr": "",
+      "run_status": 6,
+      "binary_sha256": "de3d4647178059e6512dbdb04ebf9dd17062e8bbb5734a7ab2294ccd2a6df317",
+      "stdout": "",
+      "stderr": "",
+      "name": "execution-only-cost",
+      "target": "om/pipeline/select.om",
+      "replace": "v = get a add b 3\n",
+      "with_source": "v = get a add b 9\n"
+    },
+    {
+      "test": "policy",
+      "compile_status": 0,
+      "source_sha256": "426d26775a4e1a2320db143f20357206ba25979a1aeebc5b41ee927ed3255e27",
+      "compile_stderr": "",
+      "run_status": 1,
+      "binary_sha256": "e660966b78e8656ca2087cd79e1401207ccfb3ae7a614d5f508a8809ddca8e21",
+      "stdout": "",
+      "stderr": "",
+      "name": "micro-only-cost",
+      "target": "om/pipeline/select.om",
+      "replace": "v = get a add b 3\n",
+      "with_source": "v = get a add b 10\n"
+    },
+    {
+      "test": "graph-caller",
+      "compile_status": 0,
+      "source_sha256": "ba8e676e61bf886c2b0d6918359eddc9cfba301f11ee4bee01162d8b42f79cdb",
+      "compile_stderr": "",
+      "run_status": 10,
+      "binary_sha256": "5efe6b4470ca102270e53f7596e71a60262e7a7f9fc44f9660fdc1a16cecee46",
+      "stdout": "",
+      "stderr": "",
+      "name": "skip-canonical-binding",
+      "target": "om/pipeline/consume.om",
+      "replace": "rc = pl_checkrow a want real sel\n",
+      "with_source": "rc = int 0\n"
+    },
+    {
+      "test": "cache-caller",
+      "compile_status": 0,
+      "source_sha256": "93876947f54b306fe82f3c5ff0911324bf4a25e73a6fab5d11b482b966e26b61",
+      "compile_stderr": "",
+      "run_status": 9,
+      "binary_sha256": "579110b1a3dcd2b124cc1ec3cd64605ad9bf7fa120ba942cd1723c3829568b98",
+      "stdout": "",
+      "stderr": "",
+      "name": "skip-recorded-pin",
+      "target": "om/pipeline/graph.om",
+      "replace": "rc = kc_pin p slot rev get q 3\n",
+      "with_source": "rc = int 0\n"
+    }
+  ],
+  "oracle": "Same Wolfram symbolic/synthetic controls and literal golden decisions as host-evidence.json; no new measured timing.",
+  "not_run": [
+    "selected code/launch binding to actual Q36 command list",
+    "GB10 execution",
+    "whole-model quality/performance acceptance",
+    "activation"
+  ]
+}

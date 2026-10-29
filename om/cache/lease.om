@@ -1,0 +1,9 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Concatenate residency.om and runtime.om before this final native lease root.
+note tok4 is retained lease epoch; req0 is current existing session epoch.
+fn native_lease p edit ulong 528 req view ulong 16 tok view ulong 16 op ulong to long
+if or ne get tok 4 get req 0 eq get tok 1 0
+ret -1
+end
+ret native_cache p req tok op
+end

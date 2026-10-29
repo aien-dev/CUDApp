@@ -1,0 +1,32 @@
+Decimal literals of om/cubin/cubin_elf.om (Omega takes decimal only and has no text in function mode) and the
+hex values or strings of src/omega_cubin.c they replace. Converted by the Wolfram Language evaluator (MCP),
+2026-10-27. Byte identity of the packed images is proven separately by make test-om-cubin (every call packed
+both ways and compared), not by this table. Byte offsets and section sizes (117+3n, 48+16n, 704, 984 ...) are
+byte bookkeeping read off the C writer's layout and are checked by the same byte-identity sweep.
+
+Query 1:
+le[s_] := FromDigits[Reverse[#], 256] & /@ Partition[ToCharacterCode[s], UpTo[8]];
+{le[".shstrtab"], le[".strtab"], le[".symtab"], le[".text."], le[".nv.constant0."], le[".nv.info"],
+ le[".nv.compat"], le[".nv.info."], le[".nv.shared.reserved.0"], le[".note.nv.cuinfo"], le["NVIDIA Corp"],
+ FromDigits[Reverse[{16^^7f,16^^45,16^^4c,16^^46,2,1,1,16^^41}],256],
+ FromDigits[#,16]&/@{"6007902","380","0021f500","0011f000","3e8","70000000","70000086","1000040","42","40","0101","400"},
+ BitOr[BitShiftLeft[FromDigits[#[[1]],16],8],#[[2]]]&/@{{"2f",4},{"11",4},{"12",4},{"37",4},{"17",4},{"19",3},
+   {"0a",4},{"50",3},{"1b",3},{"5f",3},{"4a",2},{"36",4}},
+ {2^24, 2^24*8, 2^27, 8 + 3*32}}
+Out[1]= {{7022363563455443758, 98}, {27691700481979182}, {27691700398420782}, {51077770998830},
+ {8317708033571843630, 50785646698868}, {8027224783864622638}, {8101253776481349166, 29793},
+ {8027224783864622638, 46}, {8241983636974759470, 8243121572516095077, 206936761718},
+ {8533809357193702958, 31356346816619310}, {4836937782729987662, 7369327}, 4684026196722992511,
+ {100694274, 896, 2225408, 1175552, 1000, 1879048192, 1879048326, 16777280, 66, 64, 257, 1024},
+ {12036, 4356, 4612, 14084, 5892, 6403, 2564, 20483, 6915, 24323, 18946, 13828},
+ {16777216, 134217728, 134217728, 104}}
+
+Reading: section-name strings as little-endian ulong chunks of up to 8 bytes (written by ps); ELF ident word
+7f 45 4c 46 02 01 01 41; e_flags 0x6007902; param base 0x380; ginfo/attr values; SHT_LOPROC 0x70000000 and
+0x70000086; note flags 0x1000040; .nv.info attribute words (id << 8 | format); array bounds 2^24 (text bytes,
+output words), 2^27 output bytes, meta length 8 + 3*32.
+
+Query 2 (the .nv.compat payload as little-endian 32-bit words):
+FromDigits[Reverse[#], 256] & /@ Partition[{16^^02,16^^09,0,0, 2,2,2,0, 2,5,5,0, 3,7,1,1, 2,3,0,0, 2,6,1,0,
+  4,16^^0b,8,0, 0,0,0,0, 0,0,0,0}, 4]
+Out[1]= {2306, 131586, 328962, 16844547, 770, 67074, 527108, 0, 0}

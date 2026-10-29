@@ -1,0 +1,19 @@
+/* throwaway: print sha256 of every tuned attention kernel (hd 64/128, f32/bf16, log2bs 0..8, log2gqa 0..6) */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "omega_gpu_attention_api.h"
+int main(void) {
+    for (unsigned hd = 64; hd <= 128; hd += 64)
+        for (int f = 0; f < 2; f++)
+            for (unsigned bs = 0; bs <= 8; bs++)
+                for (unsigned g = 0; g <= 6; g++) {
+                    OmegaBlackwellKernel k; memset(&k, 0, sizeof k);
+                    int rc = omega_gpu_attention_codegen_hd(f, bs, g, hd, &k);
+                    printf("hd%u %s bs%u gqa%u rc=%d insns=%zu ", hd, f ? "f32" : "bf16", bs, g, rc, k.insn_count);
+                    if (rc == 0) for (int i = 0; i < 32; i++) printf("%02x", k.code_digest[i]);
+                    printf("\n");
+                    free(k.code);
+                }
+    return 0;
+}

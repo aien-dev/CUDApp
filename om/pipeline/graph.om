@@ -1,0 +1,117 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Compose after exact Quant/Composer/Cache/select units, not a second serializer.
+note Existing session lock spans validation, selection, cache find+revision+pin.
+fn pl_digest h view uchar 32 r view ulong 64 off ulong to bool
+for i ulong 4
+v = ulong 0
+for j ulong 8
+v = or v shl ulong get h add mul i 8 j mul j 8
+end
+if ne v get r add off i
+ret false
+end
+end
+ret true
+end
+fn pl_bytes row view ulong 64 h edit uchar 32 off ulong to void
+for i ulong 4
+v = get row add off i
+for j ulong 8
+put h add mul i 8 j uchar and shr v mul j 8 255
+end
+end
+end
+fn pl_realcheck want view uchar 4096 real view uchar 4096 row view ulong 64 to int
+if not compose_match want real
+ret 69
+end
+if ne compose_word real 19 get row 0
+ret 69
+end
+if ne compose_word real 3 get row 15
+ret 69
+end
+if ne compose_word real 21 get row 13
+ret 69
+end
+if ne compose_word real 22 get row 12
+ret 69
+end
+if ne compose_word real 25 get row 14
+ret 69
+end
+h = new uchar 32 0
+rc = kc_sha real 1152 h
+if ne rc 0
+ret 65
+end
+if not pl_digest h row 21
+ret 69
+end
+pl_bytes row h 57
+if not compose_codeid real h
+ret 69
+end
+pl_bytes row h 25
+if not compose_launchid real h
+ret 69
+end
+ret 0
+end
+note Internal helper consumes the decision just checked under the same session lock.
+fn pl_selected q view ulong 64 a view ulong 1024 p edit ulong 528 o edit ulong 16 lease edit ulong 16 to int
+for i ulong 16
+put lease i 0
+end
+req = new ulong 16 0
+put req 0 get q 3
+put req 1 get q 4
+put req 2 get a add mul get o 1 64 16
+for i ulong 4
+put req add 3 i get o add 4 i
+end
+hit = kc_find p req
+if le hit 0
+for i ulong 16
+put o i 0
+end
+ret 75
+end
+slot = ulong sub hit 1
+rev = kc_revision p slot get q 3
+if eq rev 0
+for i ulong 16
+put o i 0
+end
+ret 75
+end
+rc = kc_pin p slot rev get q 3
+if ne rc 0
+for i ulong 16
+put o i 0
+end
+ret 75
+end
+put lease 0 1
+put lease 1 slot
+put lease 2 rev
+put lease 3 get q 3
+for i ulong 4
+put lease add 4 i get o add 4 i
+put lease add 8 i get o add 8 i
+end
+put lease 12 get q 4
+put lease 13 get q 5
+put lease 14 get q 6
+ret 0
+end
+fn pl_pin q view ulong 64 a view ulong 1024 p edit ulong 528 o edit ulong 16 lease edit ulong 16 to int
+for i ulong 16
+put lease i 0
+end
+rc = pl_select q a o
+if ne rc 0
+ret rc
+end
+ret pl_selected q a p o lease
+end

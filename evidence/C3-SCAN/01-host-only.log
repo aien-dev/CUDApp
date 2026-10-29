@@ -1,0 +1,6 @@
+kernel 0: 45 insns, 768 bytes, 18 gprs
+kernel 1: 45 insns, 768 bytes, 18 gprs
+kernel 2: 45 insns, 768 bytes, 18 gprs
+kernel 3: 79 insns, 1280 bytes, 26 gprs
+kernel 4: 33 insns, 640 bytes, 18 gprs
+C3 scan host: PASS (133 checks)

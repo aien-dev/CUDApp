@@ -1,0 +1,10 @@
+hello_gpu: c = a + b over 1048576 floats on the GPU, built with Omega's own kernel builder
+kernel built in 51 us: 32 instructions, 12 registers, no compiler run, no cache
+machine code sha256 9e28bd9c46f80584d77238a752e99cecddbc8d622ffbe320885ed2f499e1f075
+kernel: 32 instructions, 12 registers
+checked 1048576 of 1048576 elements: 1 wrong, 1 never written
+first mismatch: c[1048575] = -nan, expected 262144
+work: 12582912 bytes moved (8388608 read, 4194304 written), 1048576 floating-point operations
+      at the GB10's measured 195.1 GB/s read ceiling this needs at least 64.5 us; the GPU took 944.0 us (7% of the ceiling)
+output sha256 ec24bd3eaff225af5df8f4193410cffaa0e19cdb076bca98736d8d0759e8df75
+FAIL

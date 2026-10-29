@@ -1,0 +1,4 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+fn native_codekey data view uchar 16384 n ulong out edit uchar 32 to long
+ret long kc_codesha data n out
+end
