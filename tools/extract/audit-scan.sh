@@ -37,8 +37,11 @@ awk 'NF>=2 {sha=$1; $1=""; sub(/^ /,""); if (!(sha in p)) p[sha]=$0} END {for (s
 # scan FILE LABEL: secret and private rules over the raw bytes (-a: a NUL byte
 # must not make grep skip the file or stop matching).
 matches() {
-    local rc=0
-    grep "$@" > "$tmp/matches" || rc=$?
+    local rc=0 match_fd
+    # Open separately: a shell redirection failure must not look like grep's no-match status.
+    exec {match_fd}> "$tmp/matches"
+    grep "$@" >&"$match_fd" || rc=$?
+    exec {match_fd}>&-
     if (( rc > 1 )); then
         echo "AUDIT INCOMPLETE: grep failed with status $rc" >&2
         exit 2
