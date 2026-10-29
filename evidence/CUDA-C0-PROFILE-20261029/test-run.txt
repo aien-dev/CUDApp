@@ -1,0 +1,20 @@
+# CUDApp#184 C0 host admission run, 2026-10-29, Spark aarch64 host, CudaProfile lane
+# command: OMEGA_OMC=<omega-mv@e5b32567 seed/out/omc sha256 2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f> nice -n 19 ionice -c3 compat/cuda/test.sh /tmp/cudaprof/t1
+# parent: CUDApp main cc0908bdc0a0377f2166e9328dcf1d985457e27f plus this branch's compat/cuda files
+# observed exit: 0
+aarch64: CUDA-C0-PROFILE PASS records=138 imports=26 ptxops=13;
+added-import: CUDA-C0-PROFILE REFUSED missing import cuMemAllocManaged;
+dropped-import: CUDA-C0-PROFILE REFUSED unlisted import cuInit;
+edited-hash: CUDA-C0-PROFILE REFUSED artifact-hash artifact vadd_drv.aarch64;CUDA-C0-PROFILE REFUSED missing artifact host-exe;
+exe-missing-libcuda: CUDA-C0-PROFILE REFUSED missing needed libcuda.so.1;CUDA-C0-PROFILE REFUSED missing import cuCtxCreate_v4;CUDA-C0-PROFILE REFUSED missing import cuCtxDestroy_v2;CUDA-C0-PROFILE REFUSED missing import cuCtxSynchronize;CUDA-C0-PROFILE REFUSED missing import cuDeviceGet;CUDA-C0-PROFILE REFUSED missing import cuInit;CUDA-C0-PROFILE REFUSED missing import cuLaunchKernel;CUDA-C0-PROFILE REFUSED missing import cuMemAlloc_v2;CUDA-C0-PROFILE REFUSED missing import cuMemFree_v2;CUDA-C0-PROFILE REFUSED missing import cuMemcpyDtoH_v2;CUDA-C0-PROFILE REFUSED missing import cuMemcpyHtoD_v2;CUDA-C0-PROFILE REFUSED missing import cuModuleGetFunction;CUDA-C0-PROFILE REFUSED missing import cuModuleLoadData;CUDA-C0-PROFILE REFUSED missing import cuModuleUnload;
+isa-a-on-x86: CUDA-C0-PROFILE REFUSED host-isa x86_64;
+isa-x86-on-a: CUDA-C0-PROFILE REFUSED host-isa aarch64;
+libc-floor: CUDA-C0-PROFILE REFUSED libc-floor host GLIBC_2.17;
+lookup-prefix: CUDA-C0-PROFILE REFUSED dynamic-lookup import cuModuleGetFunction;CUDA-C0-PROFILE REFUSED dynamic-lookup import cuModuleLoadData;CUDA-C0-PROFILE REFUSED dynamic-lookup import cuModuleUnload;
+profile-missing-needed: CUDA-C0-PROFILE REFUSED unlisted needed libc.so.6;
+ptx-barrier: CUDA-C0-PROFILE REFUSED unlisted ptxop bar.sync;CUDA-C0-PROFILE REFUSED unsupported-op ptxop bar.sync;
+ptx-multi: CUDA-C0-PROFILE REFUSED multi-statement ret; ret;;
+schema-2: CUDA-C0-PROFILE REFUSED schema-mismatch schema AIEN_CUDA_COMPAT_PROFILE;
+unsupported-status: CUDA-C0-PROFILE REFUSED unsupported-status import cuInit;
+x86-exe-as-a: CUDA-C0-PROFILE REFUSED artifact-hash artifact vadd_drv.aarch64;CUDA-C0-PROFILE REFUSED unlisted verneed GLIBC_2.3.4;CUDA-C0-PROFILE REFUSED unlisted verneed GLIBC_2.4;CUDA-C0-PROFILE REFUSED unlisted verneed GLIBC_2.2.5;CUDA-C0-PROFILE REFUSED missing artifact host-exe;CUDA-C0-PROFILE REFUSED missing needed ld-linux-aarch64.so.1;CUDA-C0-PROFILE REFUSED missing verneed GLIBC_2.17;CUDA-C0-PROFILE REFUSED missing verneed GLIBC_2.17;CUDA-C0-PROFILE REFUSED missing import __stack_chk_guard;CUDA-C0-PROFILE REFUSED missing import abort;CUDA-C0-PROFILE REFUSED host-isa host aarch64;
+x86_64-static: CUDA-C0-PROFILE PASS records=136 imports=24 ptxops=13;

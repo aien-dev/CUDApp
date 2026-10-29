@@ -1,0 +1,1353 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note HOST_ONLY CUDA compatibility profile admission checker, CUDApp#184 gate C0.
+note Compose om/cache/digest.om first: cat om/cache/digest.om compat/cuda/c0_check.om | omc.
+note argv check: check PROFILE EXE PTX RUNISA, RUNISA is aarch64, x86_64 or static.
+note argv emit:  emit PROFILE EXE PTX prints the artifact-derived records; only the PROFILE
+note regprefix lines are used in emit mode. Emit output is an authoring aid, never admission.
+note exit 0 PASS, 1 REFUSED with one stdout line per refusal, 2 usage, 3 unreadable or oversized input.
+note Reads three files and stdout only: no writes, network, GPU, or execution of the artifact.
+note The ELF64 reader takes undefined .dynsym entries, DT_NEEDED and GNU verneed from section headers.
+note Admission requires exact set equality between profile and artifact for needed, verneed,
+note import, ptxdir, ptxop, sreg and entry records, so a missing or extra item refuses either way.
+text kw "schema profile host toolchain artifact needed verneed import lookup ptx entry regprefix ptxop sreg deny feature numeric launch expect runner ptxdir AIEN_CUDA_COMPAT_PROFILE 1 aarch64 x86_64 static ELF64 host-exe supported system weak unsupported absent replacement .version .target .address_size .entry .param cuda libc crt GLIBC_ C0 emit check malformed-record unknown-kind bad-arity duplicate-record schema-mismatch artifact-hash host-isa elf-invalid unlisted missing unsupported-status unsupported-op dynamic-lookup ptx-header libc-floor entry-params multi-statement AVAILABLE_NOT_RUN BLOCKED_HARDWARE BLOCKED_GPU_WINDOW BLOCKED_DECISION bad-runner-state CUDA-C0-PROFILE PASS REFUSED records= imports= ptxops= global binding"
+note Record kinds are kw words 0..20; ka holds each kind's exact field count in that order.
+text sk "000011110010110000001"
+text ka "346343353432333433353"
+text hx "0123456789abcdef"
+global pf uchar 65536
+global ex uchar 1048576
+global px uchar 65536
+global ag uchar 64
+global hb uchar 64
+global ch uchar 24
+global kwo ulong 96
+global kwl ulong 96
+global fs ulong 16384
+global fe ulong 16384
+global fc ulong 2048
+global lk ulong 2048
+global mk uchar 2048
+global sw ulong 1024
+global so ulong 1024
+global sn ulong 1024
+global ss ulong 1024
+global nv ulong 40
+note nv: 0 profile len, 1 artifact len, 2 ptx len, 3 runisa len, 4 records, 5 refusals, 6 mode 1 check,
+note 7 strtab offset, 8 strtab size, 9 second key offset, 10 second key len, 11 bind or param count,
+note 12 e_machine, 13 max GLIBC_ offset, 14 its len, 15..20 ptx version, target, address_size slices,
+note 21 previous dotted token kw id, 22 entry name offset, 23 its len, 24 param count, 25 in entry header,
+note 26 dynsym sections, 27 dynamic sections, 28 verneed sections, 29 duplicate ptx header, 30 e_shoff,
+note 31 e_shnum, 32 emitted item count.
+note Sources: 0 profile, 1 artifact, 2 ptx, 3 runisa argument, 4 kw, 5 hex digest.
+fn by src ulong p ulong to uchar
+if eq src 0
+ret get pf p
+end
+if eq src 1
+ret get ex p
+end
+if eq src 2
+ret get px p
+end
+if eq src 3
+ret get ag p
+end
+if eq src 4
+ret get kw p
+end
+ret get hb p
+end
+fn seq sa ulong oa ulong na ulong sb ulong ob ulong nb ulong to bool
+if ne na nb
+ret false
+end
+for i ulong na
+x = by sa add oa i
+y = by sb add ob i
+if ne x y
+ret false
+end
+end
+ret true
+end
+fn kwinit to void
+s = ulong 0
+w = ulong 0
+n = len kw
+for p ulong n
+c = get kw p
+if eq c 32
+put kwo w s
+put kwl w sub p s
+w = add w 1
+s = add p 1
+end
+end
+put kwo w s
+put kwl w sub n s
+end
+fn fo l ulong k ulong to ulong
+ret get fs add mul l 8 k
+end
+fn fl l ulong k ulong to ulong
+i = add mul l 8 k
+ret sub get fe i get fs i
+end
+fn fkw l ulong k ulong w ulong to bool
+a = fo l k
+b = fl l k
+c = get kwo w
+d = get kwl w
+ret seq 0 a b 4 c d
+end
+fn wsrc src ulong o ulong n ulong to void
+k = long 0
+if eq src 0
+k = write 1 pf o n
+end
+if eq src 1
+k = write 1 ex o n
+end
+if eq src 2
+k = write 1 px o n
+end
+if eq src 3
+k = write 1 ag o n
+end
+if eq src 4
+k = write 1 kw o n
+end
+if eq src 5
+k = write 1 hb o n
+end
+end
+fn wkw w ulong to void
+wsrc 4 get kwo w get kwl w
+end
+fn wc c uchar to void
+put ch 0 c
+k = write 1 ch 0 1
+end
+fn wnum v ulong to void
+p = ulong 24
+x = v
+while gt p 0 bound 24
+p = sub p 1
+put ch p uchar add rem x 10 48
+x = div x 10
+if eq x 0
+break
+end
+end
+k = write 1 ch p sub 24 p
+end
+fn rf why ulong w ulong src ulong o ulong n ulong to void
+wkw 68
+wc 32
+wkw 70
+wc 32
+wkw why
+if lt w 999
+wc 32
+wkw w
+end
+if gt n 0
+wc 32
+wsrc src o n
+end
+wc 10
+put nv 5 add get nv 5 1
+end
+fn rfl why ulong l ulong k ulong to void
+w = get lk l
+if gt w 20
+w = 999
+end
+rf why w 0 fo l k fl l k
+end
+fn ldf idx ulong which ulong to bool
+pathbuf = new uchar 4096 0
+extra = new uchar 1 0
+n = argread idx pathbuf 0 len pathbuf
+if le n 0
+ret false
+end
+fd = fopen pathbuf 0 ulong n 0 0
+if lt fd 0
+ret false
+end
+cap = ulong 65536
+if eq which 1
+cap = 1048576
+end
+pos = ulong 0
+ok = true
+while lt pos cap bound 999999
+k = long 0
+if eq which 0
+k = read int fd pf pos sub cap pos
+end
+if eq which 1
+k = read int fd ex pos sub cap pos
+end
+if eq which 2
+k = read int fd px pos sub cap pos
+end
+if lt k 0
+ok = false
+break
+end
+if eq k 0
+break
+end
+pos = add pos ulong k
+end
+if eq pos cap
+k2 = read int fd extra 0 1
+if ne k2 0
+ok = false
+end
+end
+if ne fclose int fd 0
+ok = false
+end
+put nv which pos
+ret ok
+end
+fn kwfind l ulong to ulong
+for w ulong 21
+if fkw l 0 w
+ret w
+end
+end
+ret 999
+end
+fn splitln p ulong e ulong l ulong to bool
+if ge l 2048
+rf 46 999 0 p sub e p
+ret false
+end
+k = ulong 0
+s = p
+q = p
+while lt q e bound 65536
+c = get pf q
+if eq c 9
+if or eq q s ge k 7
+rf 46 999 0 p sub e p
+ret false
+end
+put fs add mul l 8 k s
+put fe add mul l 8 k q
+k = add k 1
+s = add q 1
+else
+if or lt c 32 gt c 126
+rf 46 999 0 p sub e p
+ret false
+end
+end
+q = add q 1
+end
+if eq s e
+rf 46 999 0 p sub e p
+ret false
+end
+put fs add mul l 8 k s
+put fe add mul l 8 k e
+put fc l add k 1
+put mk l 0
+w = kwfind l
+put lk l w
+ret true
+end
+note Records are LF-terminated lines of TAB-separated printable ASCII fields, at most 8 fields.
+note Empty lines and lines starting with # are ignored; an unterminated last line refuses.
+fn parse to bool
+n = get nv 0
+p = ulong 0
+l = ulong 0
+while lt p n bound 65536
+e = p
+while lt e n bound 65536
+if eq get pf e 10
+break
+end
+e = add e 1
+end
+if eq e n
+rf 46 999 0 p sub n p
+ret false
+end
+if gt e p
+if ne get pf p 35
+if not splitln p e l
+ret false
+end
+l = add l 1
+end
+end
+p = add e 1
+end
+put nv 4 l
+ret true
+end
+fn hexok l ulong k ulong to bool
+if ne fl l k 64
+ret false
+end
+o = fo l k
+for i ulong 64
+c = get pf add o i
+if not or and ge c 48 le c 57 and ge c 97 le c 102
+ret false
+end
+end
+ret true
+end
+fn recok l ulong w ulong to bool
+if eq w 0
+if not and fkw l 1 21 fkw l 2 22
+rfl 50 l 1
+ret false
+end
+end
+if eq w 1
+if not fkw l 3 43
+rfl 50 l 3
+ret false
+end
+end
+if eq w 2
+if not and or fkw l 1 23 fkw l 1 24 fkw l 2 26
+rfl 52 l 1
+ret false
+end
+end
+if eq w 4
+if not and or fkw l 1 27 fkw l 1 9 hexok l 2
+rfl 46 l 1
+ret false
+end
+end
+if eq w 5
+if not or fkw l 2 33 fkw l 2 29
+rfl 46 l 1
+ret false
+end
+end
+if eq w 7
+ret impok l
+end
+if eq w 8
+if not fkw l 1 32
+rfl 46 l 1
+ret false
+end
+end
+if or or eq w 12 eq w 13 eq w 20
+if not fkw l 2 28
+rfl 56 l 1
+ret false
+end
+end
+if eq w 15
+if not or fkw l 2 28 fkw l 2 31
+rfl 46 l 1
+ret false
+end
+end
+if eq w 19
+if not or or fkw l 3 63 fkw l 3 64 or fkw l 3 65 fkw l 3 66
+rfl 67 l 1
+ret false
+end
+end
+ret true
+end
+note import SYMBOL CLASS STATUS SOURCE-API: class cuda, libc or crt; status supported, system
+note or weak; a CUDA import must be supported, and an unsupported status refuses admission.
+fn impok l ulong to bool
+if fkw l 3 31
+rfl 56 l 1
+ret false
+end
+if not or or fkw l 2 39 fkw l 2 40 fkw l 2 41
+rfl 46 l 2
+ret false
+end
+if not or or fkw l 3 28 fkw l 3 29 fkw l 3 30
+rfl 46 l 3
+ret false
+end
+if and fkw l 2 39 not fkw l 3 28
+rfl 56 l 1
+ret false
+end
+ret true
+end
+fn pcheck to bool
+nl = get nv 4
+ok = true
+for l ulong nl
+w = get lk l
+if eq w 999
+rfl 47 l 0
+ok = false
+else
+a = sub ulong get ka w 48
+if ne get fc l a
+rfl 48 l 0
+ok = false
+else
+if not recok l w
+ok = false
+end
+end
+end
+end
+ret ok
+end
+fn kcount w ulong to ulong
+c = ulong 0
+for l ulong get nv 4
+if eq get lk l w
+c = add c 1
+end
+end
+ret c
+end
+fn singles to bool
+ok = true
+if or eq get nv 4 0 ne get lk 0 0
+rf 50 999 0 0 0
+ret false
+end
+for w ulong 3
+if ne kcount w 1
+rf 49 w 0 0 0
+ok = false
+end
+end
+if ne kcount 9 1
+rf 49 9 0 0 0
+ok = false
+end
+if ne kcount 4 2
+rf 55 4 0 0 0
+ok = false
+end
+ret ok
+end
+fn samerec i ulong j ulong to bool
+w = get lk i
+if or ne w get lk j gt w 20
+ret false
+end
+if or or eq w 0 eq w 1 or eq w 2 eq w 9
+ret false
+end
+k = ulong 1
+if eq w 8
+k = 2
+end
+a = fo i k
+b = fl i k
+c = fo j k
+d = fl j k
+if not seq 0 a b 0 c d
+ret false
+end
+if ne w 6
+ret true
+end
+a = fo i 2
+b = fl i 2
+c = fo j 2
+d = fl j 2
+ret seq 0 a b 0 c d
+end
+fn dups to bool
+ok = true
+nl = get nv 4
+for i ulong nl
+for j ulong nl
+if gt j i
+if samerec i j
+rfl 49 j 1
+ok = false
+end
+end
+end
+end
+ret ok
+end
+fn seen w ulong src ulong o ulong n ulong to bool
+c = get nv 32
+for i ulong c
+if and eq get sw i w eq get ss i src
+if seq src get so i get sn i src o n
+ret true
+end
+end
+end
+if lt c 1024
+put sw c w
+put ss c src
+put so c o
+put sn c n
+put nv 32 add c 1
+end
+ret false
+end
+fn lookck src ulong o ulong n ulong to void
+for l ulong get nv 4
+if eq get lk l 8
+a = fo l 2
+b = fl l 2
+if le b n
+if seq 0 a b src o b
+rf 58 7 src o n
+end
+end
+end
+end
+end
+fn pnum l ulong k ulong to ulong
+v = ulong 0
+o = fo l k
+for i ulong fl l k
+v = add mul v 10 sub ulong get pf add o i 48
+end
+ret v
+end
+fn keyok l ulong w ulong to bool
+if ne w 6
+ret true
+end
+a = fo l 2
+b = fl l 2
+ret seq 0 a b 1 get nv 9 get nv 10
+end
+fn xtra l ulong w ulong to void
+if eq w 7
+if ne eq get nv 11 2 fkw l 3 30
+rfl 75 l 1
+end
+end
+if eq w 10
+if ne pnum l 2 get nv 11
+rfl 61 l 1
+end
+end
+end
+fn emitx w ulong to void
+if eq w 6
+wc 9
+wsrc 1 get nv 9 get nv 10
+end
+if eq w 7
+wc 9
+if eq get nv 11 2
+wkw 30
+else
+wkw 74
+end
+end
+if eq w 10
+wc 9
+wnum get nv 11
+end
+end
+fn item w ulong src ulong o ulong n ulong to void
+if eq w 7
+lookck src o n
+end
+if eq get nv 6 0
+fresh = true
+note ELF items (needed, verneed, import) are unique per artifact and verneed keys on two fields.
+if or lt w 5 gt w 7
+fresh = not seen w src o n
+end
+if fresh
+wkw w
+wc 9
+wsrc src o n
+emitx w
+wc 10
+end
+else
+found = false
+for l ulong get nv 4
+if and not found eq get lk l w
+a = fo l 1
+b = fl l 1
+if and seq 0 a b src o n keyok l w
+put mk l 1
+xtra l w
+found = true
+end
+end
+end
+if not found
+rf 54 w src o n
+end
+end
+end
+fn u16x o ulong to ulong
+ret or ulong get ex o shl ulong get ex add o 1 8
+end
+fn u32x o ulong to ulong
+a = u16x o
+b = u16x add o 2
+ret or a shl b 16
+end
+fn u64x o ulong to ulong
+a = u32x o
+b = u32x add o 4
+ret or a shl b 32
+end
+fn inx o ulong n ulong to bool
+t = get nv 1
+ret and le n t le o sub t n
+end
+fn setstr lnk ulong to bool
+if ge lnk get nv 31
+ret false
+end
+sh = add get nv 30 mul lnk 64
+if ne u32x add sh 4 3
+ret false
+end
+o = u64x add sh 24
+z = u64x add sh 32
+if not inx o z
+ret false
+end
+put nv 7 o
+put nv 8 z
+ret true
+end
+fn sl idx ulong to ulong
+o = get nv 7
+z = get nv 8
+q = idx
+while lt q z bound 999999
+if eq get ex add o q 0
+ret sub q idx
+end
+q = add q 1
+end
+ret 4294967295
+end
+fn symone e ulong to bool
+if ne u16x add e 6 0
+ret true
+end
+nm = u32x e
+q = sl nm
+if eq q 4294967295
+ret false
+end
+b = ulong get ex add e 4
+put nv 11 shr b 4
+item 7 1 add get nv 7 nm q
+ret true
+end
+fn symscan sh ulong to bool
+o = u64x add sh 24
+z = u64x add sh 32
+if or ne u64x add sh 56 24 not inx o z
+ret false
+end
+if not setstr u32x add sh 40
+ret false
+end
+for j ulong div z 24
+if gt j 0
+if not symone add o mul j 24
+ret false
+end
+end
+end
+put nv 26 add get nv 26 1
+ret true
+end
+fn dynscan sh ulong to bool
+o = u64x add sh 24
+z = u64x add sh 32
+if or ne u64x add sh 56 16 not inx o z
+ret false
+end
+if not setstr u32x add sh 40
+ret false
+end
+for j ulong div z 16
+e = add o mul j 16
+t = u64x e
+if eq t 0
+break
+end
+if eq t 1
+v = u64x add e 8
+q = sl v
+if eq q 4294967295
+ret false
+end
+item 5 1 add get nv 7 v q
+end
+end
+put nv 27 add get nv 27 1
+ret true
+end
+fn vgt o1 ulong n1 ulong o2 ulong n2 ulong to bool
+i = ulong 0
+j = ulong 0
+while or lt i n1 lt j n2 bound 64
+a = ulong 0
+while lt i n1 bound 32
+c = get ex add o1 i
+if eq c 46
+break
+end
+a = add mul a 10 sub ulong c 48
+i = add i 1
+end
+i = add i 1
+b = ulong 0
+while lt j n2 bound 32
+c = get ex add o2 j
+if eq c 46
+break
+end
+b = add mul b 10 sub ulong c 48
+j = add j 1
+end
+j = add j 1
+if gt a b
+ret true
+end
+if lt a b
+ret false
+end
+end
+ret false
+end
+fn vglibc o ulong n ulong to void
+if le n 6
+ret
+end
+if not seq 1 o 6 4 get kwo 42 6
+ret
+end
+if eq get nv 14 0
+put nv 13 o
+put nv 14 n
+ret
+end
+if vgt add o 6 sub n 6 add get nv 13 6 sub get nv 14 6
+put nv 13 o
+put nv 14 n
+end
+end
+fn vauxs a0 ulong cnt ulong base ulong to bool
+a = a0
+for k ulong cnt
+if not inx a 16
+ret false
+end
+nm = u32x add a 8
+q = sl nm
+if eq q 4294967295
+ret false
+end
+item 6 1 add base nm q
+vglibc add base nm q
+a = add a u32x add a 12
+end
+ret true
+end
+fn verscan sh ulong to bool
+o = u64x add sh 24
+z = u64x add sh 32
+if not inx o z
+ret false
+end
+if not setstr u32x add sh 40
+ret false
+end
+base = get nv 7
+p = o
+for c ulong u32x add sh 44
+if not inx p 16
+ret false
+end
+fi = u32x add p 4
+q = sl fi
+if eq q 4294967295
+ret false
+end
+put nv 9 add base fi
+put nv 10 q
+if not vauxs add p u32x add p 8 u16x add p 2 base
+ret false
+end
+p = add p u32x add p 12
+end
+put nv 28 add get nv 28 1
+ret true
+end
+note Verneed items are keyed by version name with the needing file as second key; item swaps them
+note into profile order (file, version) through nv 9/10 by calling with the file slice first.
+fn elfok to bool
+if not inx 0 64
+ret false
+end
+note 1179403647 is the little-endian u32 of 7f 45 4c 46; then ELFCLASS64, ELFDATA2LSB, EV_CURRENT.
+if ne u32x 0 1179403647
+ret false
+end
+if ne get ex 4 2
+ret false
+end
+if ne get ex 5 1
+ret false
+end
+if ne get ex 6 1
+ret false
+end
+t = u16x 16
+if and ne t 2 ne t 3
+ret false
+end
+put nv 12 u16x 18
+if ne u16x 58 64
+ret false
+end
+put nv 30 u64x 40
+put nv 31 u16x 60
+ret inx get nv 30 mul get nv 31 64
+end
+fn elfscan to bool
+if not elfok
+rf 53 999 1 0 0
+ret false
+end
+for i ulong get nv 31
+sh = add get nv 30 mul i 64
+t = u32x add sh 4
+ok = true
+if eq t 11
+ok = symscan sh
+end
+if eq t 6
+ok = dynscan sh
+end
+if eq t 1879048190
+ok = verscan sh
+end
+if not ok
+rf 53 999 1 0 0
+ret false
+end
+end
+if or ne get nv 26 1 or ne get nv 27 1 gt get nv 28 1
+rf 53 999 1 0 0
+ret false
+end
+ret true
+end
+fn isws c uchar to bool
+ret or eq c 32 eq c 9
+end
+fn istok c uchar to bool
+if or and ge c 48 le c 57 or and ge c 65 le c 90 and ge c 97 le c 122
+ret true
+end
+ret or or eq c 95 eq c 46 eq c 36
+end
+fn tokend s ulong e ulong to ulong
+q = s
+while lt q e bound 4096
+if not istok get px q
+break
+end
+q = add q 1
+end
+ret q
+end
+fn kwpx o ulong n ulong to ulong
+for w ulong 5
+v = add w 34
+if seq 2 o n 4 get kwo v get kwl v
+ret v
+end
+end
+ret 99
+end
+fn hdrval slot ulong o ulong n ulong to void
+if gt get nv add slot 1 0
+put nv 29 add get nv 29 1
+end
+put nv slot o
+put nv add slot 1 n
+end
+fn dirtok o ulong n ulong to void
+v = kwpx o n
+item 20 2 o n
+if and eq v 38 eq get nv 25 1
+put nv 24 add get nv 24 1
+end
+put nv 21 v
+end
+fn valtok o ulong n ulong to void
+v = get nv 21
+if eq v 34
+hdrval 15 o n
+end
+if eq v 35
+hdrval 17 o n
+end
+if eq v 36
+hdrval 19 o n
+end
+if eq v 37
+put nv 22 o
+put nv 23 n
+put nv 24 0
+put nv 25 1
+end
+put nv 21 99
+end
+fn pdir s ulong e ulong to void
+q = s
+put nv 21 99
+while lt q e bound 4096
+if istok get px q
+t = tokend q e
+if eq get px q 46
+dirtok q sub t q
+else
+valtok q sub t q
+end
+q = t
+else
+q = add q 1
+end
+end
+end
+fn alldig o ulong n ulong to bool
+if eq n 0
+ret false
+end
+for i ulong n
+c = get px add o i
+if or lt c 48 gt c 57
+ret false
+end
+end
+ret true
+end
+fn sregck o ulong n ulong to void
+for l ulong get nv 4
+if eq get lk l 11
+a = fo l 1
+b = fl l 1
+if gt n add b 1
+if seq 0 a b 2 add o 1 b
+if alldig add o add b 1 sub n add b 1
+ret
+end
+end
+end
+end
+end
+item 13 2 o n
+end
+fn denyck o ulong n ulong ro ulong rn ulong to void
+for l ulong get nv 4
+if eq get lk l 14
+a = fo l 1
+b = fl l 1
+if seq 0 a b 2 ro rn
+rf 57 12 2 o n
+end
+end
+end
+end
+fn pinst s ulong e ulong to void
+q = s
+if eq get px q 64
+while lt q e bound 4096
+if isws get px q
+break
+end
+q = add q 1
+end
+while lt q e bound 4096
+if not isws get px q
+break
+end
+q = add q 1
+end
+end
+t = tokend q e
+if eq t q
+rf 46 999 2 s sub e s
+ret
+end
+item 12 2 q sub t q
+r = q
+while lt r t bound 4096
+if eq get px r 46
+break
+end
+r = add r 1
+end
+denyck q sub t q q sub r q
+semi = ulong 0
+x = t
+while lt x e bound 4096
+c = get px x
+if eq c 59
+semi = add semi 1
+end
+if eq c 37
+y = tokend add x 1 e
+sregck x sub y x
+x = y
+else
+x = add x 1
+end
+end
+if ne semi 1
+rf 62 999 2 s sub e s
+end
+end
+fn openhdr to void
+if eq get nv 25 1
+put nv 11 get nv 24
+item 10 2 get nv 22 get nv 23
+put nv 25 0
+end
+end
+fn pline p ulong e ulong to void
+s = p
+while lt s e bound 4096
+if not isws get px s
+break
+end
+s = add s 1
+end
+if eq s e
+ret
+end
+c = get px s
+if or eq c 47 or eq c 125 eq c 41
+ret
+end
+if eq c 123
+openhdr
+ret
+end
+if eq c 46
+pdir s e
+ret
+end
+t = tokend s e
+if lt t e
+if eq get px t 58
+ret
+end
+end
+pinst s e
+end
+fn ptxscan to void
+n = get nv 2
+p = ulong 0
+while lt p n bound 65536
+e = p
+while lt e n bound 65536
+if eq get px e 10
+break
+end
+e = add e 1
+end
+pline p e
+p = add e 1
+end
+end
+fn sha src ulong n ulong out edit uchar 32 to void
+blk = new uchar 128 0
+pad = new uchar 128 0
+s = new uint 8 0
+w = new uint 64 0
+kt = new uint 64 0
+kc_k kt
+kc_iv s
+for off ulong div n 64
+for j ulong 64
+put blk j by src add mul off 64 j
+end
+kc_padsched w blk 0
+kc_rounds s w kt
+end
+base = mul div n 64 64
+for j ulong rem n 64
+put pad j by src add base j
+end
+kc_finish s w kt pad n
+kc_output s out
+end
+fn hexsrc src ulong n ulong to void
+out = new uchar 32 0
+sha src n out
+for i ulong 32
+v = get out i
+put hb mul i 2 get hx shr v 4
+put hb add mul i 2 1 get hx and v 15
+end
+end
+fn artck to void
+nl = get nv 4
+for l ulong nl
+if eq get lk l 4
+if fkw l 1 27
+hexsrc 1 get nv 1
+else
+hexsrc 2 get nv 2
+end
+a = fo l 2
+if seq 0 a 64 5 0 64
+put mk l 1
+else
+rfl 51 l 3
+end
+end
+end
+end
+fn artemit to void
+hexsrc 1 get nv 1
+wkw 4
+wc 9
+wkw 27
+wc 9
+wsrc 5 0 64
+wc 10
+hexsrc 2 get nv 2
+wkw 4
+wc 9
+wkw 9
+wc 9
+wsrc 5 0 64
+wc 10
+end
+note Set kinds that must be matched by the artifact: artifact needed verneed import entry ptxop sreg ptxdir.
+fn complete to void
+for l ulong get nv 4
+w = get lk l
+if le w 20
+if eq get sk w 49
+if eq get mk l 0
+rfl 55 l 1
+end
+end
+end
+end
+end
+fn ptxhdr to void
+for l ulong get nv 4
+if eq get lk l 9
+ok = eq get nv 29 0
+a = fo l 1
+b = fl l 1
+if not seq 0 a b 2 get nv 15 get nv 16
+ok = false
+end
+a = fo l 2
+b = fl l 2
+if not seq 0 a b 2 get nv 17 get nv 18
+ok = false
+end
+a = fo l 3
+b = fl l 3
+if not seq 0 a b 2 get nv 19 get nv 20
+ok = false
+end
+if not ok
+rfl 59 l 1
+end
+end
+end
+end
+fn hdremit to void
+wkw 9
+wc 9
+wsrc 2 get nv 15 get nv 16
+wc 9
+wsrc 2 get nv 17 get nv 18
+wc 9
+wsrc 2 get nv 19 get nv 20
+wc 10
+wkw 2
+wc 9
+if eq get nv 12 183
+wkw 23
+else
+if eq get nv 12 62
+wkw 24
+else
+wnum get nv 12
+end
+end
+wc 9
+wkw 26
+wc 9
+wsrc 1 get nv 13 get nv 14
+wc 10
+end
+note The libc floor in host field 5 must equal the highest GLIBC_ version the artifact requires.
+fn floorck l ulong to void
+a = fo l 5
+b = fl l 5
+c = get nv 13
+d = get nv 14
+ok = gt d 0
+if not seq 0 a b 1 c d
+ok = false
+end
+if not ok
+rfl 60 l 5
+end
+end
+fn isack to void
+for l ulong get nv 4
+if eq get lk l 2
+m = ulong 0
+if fkw l 1 23
+m = 183
+end
+if fkw l 1 24
+m = 62
+end
+if ne m get nv 12
+rfl 52 l 1
+end
+if not seq 3 0 get nv 3 4 get kwo 25 get kwl 25
+a = fo l 1
+b = fl l 1
+if not seq 3 0 get nv 3 0 a b
+rf 52 999 3 0 get nv 3
+end
+end
+floorck l
+end
+end
+end
+fn passline to void
+wkw 68
+wc 32
+wkw 69
+wc 32
+wkw 71
+wnum get nv 4
+wc 32
+wkw 72
+wnum kcount 7
+wc 32
+wkw 73
+wnum kcount 12
+wc 10
+end
+fn isrun to bool
+n = get nv 3
+for w ulong 3
+v = add w 23
+if seq 3 0 n 4 get kwo v get kwl v
+ret true
+end
+end
+ret false
+end
+fn main to int
+kwinit
+c = argcnt
+if lt c 2
+ret 2
+end
+m = argread 1 ag 0 len ag
+if le m 0
+ret 2
+end
+put nv 3 ulong m
+mode = ulong 2
+if seq 3 0 ulong m 4 get kwo 44 get kwl 44
+mode = 0
+end
+if seq 3 0 ulong m 4 get kwo 45 get kwl 45
+mode = 1
+end
+if eq mode 2
+ret 2
+end
+if and eq mode 0 ne c 5
+ret 2
+end
+if and eq mode 1 ne c 6
+ret 2
+end
+put nv 6 mode
+if not ldf 2 0
+ret 3
+end
+if not ldf 3 1
+ret 3
+end
+if not ldf 4 2
+ret 3
+end
+if eq mode 1
+r = argread 5 ag 0 len ag
+if le r 0
+ret 2
+end
+put nv 3 ulong r
+if not isrun
+ret 2
+end
+end
+if not parse
+ret 1
+end
+if eq mode 1
+if not pcheck
+ret 1
+end
+if not singles
+ret 1
+end
+if not dups
+ret 1
+end
+artck
+else
+artemit
+end
+if elfscan
+ptxscan
+end
+if eq mode 1
+complete
+ptxhdr
+isack
+else
+hdremit
+end
+if gt get nv 5 0
+ret 1
+end
+if eq mode 1
+passline
+end
+ret 0
+end

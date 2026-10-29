@@ -1,0 +1,150 @@
+# CUDApp#184 C0 frozen CUDA compatibility profile, aarch64 host executable.
+# Generated from the rebuilt fixture with: c0_check emit, then annotated by hand (class, status, api).
+# Admission: c0_check check THIS_FILE EXE PTX RUNISA (compat/cuda/test.sh). Format: compat/cuda/README.md.
+schema	AIEN_CUDA_COMPAT_PROFILE	1
+profile	cudapp-c0-vadd-aarch64	v1	C0
+host	aarch64	ELF64	lp64	linux-gnu	GLIBC_2.34
+# Toolchain that produced the artifact hashes below (CUDApp main cc0908bd, compat/cuda/build.sh).
+toolchain	gcc	13.3.0-6ubuntu2~24.04.1
+toolchain	binutils-ld	2.42
+toolchain	libc-dev	libc6-dev:arm64=2.39-0ubuntu8.9
+toolchain	cuda.h	CUDA_VERSION=13000
+toolchain	omc	omega-mv@e5b32567=2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f
+artifact	host-exe	1bb9e8f61055f5dd1d12a08d2a239f53e8362e0c623251d7288407150e4bca1c	vadd_drv.aarch64
+artifact	ptx	3f104fbfb9f2a98c633b9fab39cf1f67caae009d3785f42238b1c5ae32739971	vadd_u32.ptx
+# Dynamic dependencies. libcuda.so.1 is satisfied only by the CUDApp replacement driver library.
+needed	libcuda.so.1	replacement
+needed	libc.so.6	system
+needed	ld-linux-aarch64.so.1	system
+verneed	GLIBC_2.17	ld-linux-aarch64.so.1
+verneed	GLIBC_2.17	libc.so.6
+verneed	GLIBC_2.34	libc.so.6
+# Undefined dynamic symbols: every CUDA Driver API entry point the executable binds at load time.
+import	cuCtxCreate_v4	cuda	supported	cuCtxCreate
+import	cuCtxDestroy_v2	cuda	supported	cuCtxDestroy
+import	cuCtxSynchronize	cuda	supported	cuCtxSynchronize
+import	cuDeviceGet	cuda	supported	cuDeviceGet
+import	cuInit	cuda	supported	cuInit
+import	cuLaunchKernel	cuda	supported	cuLaunchKernel
+import	cuMemAlloc_v2	cuda	supported	cuMemAlloc
+import	cuMemFree_v2	cuda	supported	cuMemFree
+import	cuMemcpyDtoH_v2	cuda	supported	cuMemcpyDtoH
+import	cuMemcpyHtoD_v2	cuda	supported	cuMemcpyHtoD
+import	cuModuleGetFunction	cuda	supported	cuModuleGetFunction
+import	cuModuleLoadData	cuda	supported	cuModuleLoadData
+import	cuModuleUnload	cuda	supported	cuModuleUnload
+import	_ITM_deregisterTMCloneTable	crt	weak	toolchain
+import	_ITM_registerTMCloneTable	crt	weak	toolchain
+import	__cxa_finalize	crt	weak	toolchain
+import	__gmon_start__	crt	weak	toolchain
+import	__libc_start_main	crt	system	toolchain
+import	__printf_chk	libc	system	c11
+import	__stack_chk_fail	crt	system	toolchain
+import	__stack_chk_guard	crt	system	toolchain
+import	abort	libc	system	c11
+import	fclose	libc	system	c11
+import	fopen	libc	system	c11
+import	fread	libc	system	c11
+import	memset	libc	system	c11
+# Runtime-discovered entry points: these imports must be absent, so no call escapes the static list.
+lookup	absent	dlopen
+lookup	absent	dlmopen
+lookup	absent	dlsym
+lookup	absent	dlvsym
+lookup	absent	cuGetProcAddress
+lookup	absent	cuGetExportTable
+# PTX module consumed by cuModuleLoadData (hand-written from the PTX ISA, class A).
+ptx	8.0	sm_80	64
+entry	vadd_u32	4
+regprefix	r
+regprefix	rd
+regprefix	p
+ptxdir	.version	supported
+ptxdir	.target	supported
+ptxdir	.address_size	supported
+ptxdir	.visible	supported
+ptxdir	.entry	supported
+ptxdir	.param	supported
+ptxdir	.u64	supported
+ptxdir	.u32	supported
+ptxdir	.reg	supported
+ptxdir	.pred	supported
+ptxdir	.b32	supported
+ptxdir	.b64	supported
+ptxop	ld.param.u64	supported
+ptxop	ld.param.u32	supported
+ptxop	mov.u32	supported
+ptxop	mad.lo.u32	supported
+ptxop	setp.ge.u32	supported
+ptxop	bra	supported
+ptxop	cvta.to.global.u64	supported
+ptxop	mul.wide.u32	supported
+ptxop	add.s64	supported
+ptxop	ld.global.u32	supported
+ptxop	add.u32	supported
+ptxop	st.global.u32	supported
+ptxop	ret	supported
+sreg	%ctaid.x	supported
+sreg	%ntid.x	supported
+sreg	%tid.x	supported
+# Outside C0: any PTX opcode whose root is listed here refuses admission.
+deny	bar	barrier
+deny	barrier	barrier
+deny	shfl	warp-shuffle
+deny	vote	warp-vote
+deny	match	warp-match
+deny	redux	warp-reduce
+deny	atom	atomic
+deny	red	atomic
+deny	membar	memory-fence
+deny	fence	memory-fence
+deny	tex	texture
+deny	tld4	texture
+deny	txq	texture
+deny	suld	surface
+deny	sust	surface
+deny	call	device-call
+deny	cp	async-copy
+deny	mma	tensor-core
+deny	wmma	tensor-core
+deny	wgmma	tensor-core
+deny	tcgen05	tensor-core
+deny	ldmatrix	tensor-core
+deny	cvt	conversion
+deny	div	integer-division
+deny	rem	integer-division
+# Declared feature surface of C0.
+feature	driver-api	supported	cuInit..cuCtxDestroy-sequence-listed-by-import-rows
+feature	ptx-jit-load	supported	cuModuleLoadData-of-text-PTX-8.0-sm_80
+feature	global-memory-u32	supported	ld.global.u32-st.global.u32
+feature	runtime-api	unsupported	libcudart-not-in-C0
+feature	cubin-fatbin-load	unsupported	only-text-PTX-in-C0
+feature	streams-events	unsupported	default-stream-only
+feature	shared-memory	unsupported	no-.shared-state-space
+feature	warp-collectives	unsupported	see-deny-rows
+feature	atomics	unsupported	see-deny-rows
+feature	textures-surfaces	unsupported	see-deny-rows
+feature	floating-point	unsupported	integer-only-fixture
+feature	unified-memory	unsupported	cuMemAllocManaged-not-imported
+feature	multi-gpu-peer	unsupported	single-device-0
+feature	graphs	unsupported	cuGraph-not-imported
+numeric	add.u32	wrap-mod-2^32
+numeric	mad.lo.u32	low-32-bits-of-product-plus-addend
+numeric	mul.wide.u32	exact-64-bit-product
+numeric	setp.ge.u32	unsigned-compare
+# Launch and expected result; values computed with Wolfram (compat/cuda/README.md).
+launch	n	4099
+launch	block	256
+launch	grid	17
+launch	threads	4352
+launch	idle-tail-threads	253
+expect	stdout	VADD_U32-PASS-n=4099-grid=17-block=256-checksum=8806203976955
+expect	checksum	8806203976955
+expect	exit	0
+expect	tail-sentinel	0xA5A5A5A5-x64-unchanged
+# Runners: observed availability or the explicit blocker. NOT_RUN is never PASS.
+runner	spark-gb10-host	C0	AVAILABLE_NOT_RUN	host-gates-only:evidence/CUDA-C0-PROFILE-20261029
+runner	spark-gb10-device	C3	BLOCKED_GPU_WINDOW	10de:2e12-NVRM-580.173.02-needs-spark-window+Drake
+runner	arm64-amd-gpu	C4	BLOCKED_HARDWARE	no-AMD-GPU-on-any-inventoried-arm64-host
+runner	arm64-intel-gpu	C4	BLOCKED_HARDWARE	no-Intel-GPU-on-any-inventoried-arm64-host
+runner	stock-cuda-samples	C3	BLOCKED_DECISION	nvcc-on-NVIDIA-samples-outside-PROVENANCE-class-B

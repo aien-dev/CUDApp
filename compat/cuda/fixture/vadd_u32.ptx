@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+// CUDApp#184 C0 fixture kernel. Hand-authored from the public PTX ISA (PROVENANCE class A);
+// this file is not compiler output. c[i] = a[i] + b[i] modulo 2^32 for i < n, nothing for i >= n.
+// Parameters: three global-space byte addresses (u64) and the element count (u32).
+.version 8.0
+.target sm_80
+.address_size 64
+
+.visible .entry vadd_u32(
+	.param .u64 vadd_u32_a,
+	.param .u64 vadd_u32_b,
+	.param .u64 vadd_u32_c,
+	.param .u32 vadd_u32_n
+)
+{
+	.reg .pred %p<2>;
+	.reg .b32 %r<8>;
+	.reg .b64 %rd<11>;
+
+	ld.param.u64 %rd1, [vadd_u32_a];
+	ld.param.u64 %rd2, [vadd_u32_b];
+	ld.param.u64 %rd3, [vadd_u32_c];
+	ld.param.u32 %r1, [vadd_u32_n];
+	mov.u32 %r2, %ctaid.x;
+	mov.u32 %r3, %ntid.x;
+	mov.u32 %r4, %tid.x;
+	mad.lo.u32 %r5, %r2, %r3, %r4;
+	setp.ge.u32 %p1, %r5, %r1;
+	@%p1 bra DONE;
+	cvta.to.global.u64 %rd4, %rd1;
+	cvta.to.global.u64 %rd5, %rd2;
+	cvta.to.global.u64 %rd6, %rd3;
+	mul.wide.u32 %rd7, %r5, 4;
+	add.s64 %rd8, %rd4, %rd7;
+	add.s64 %rd9, %rd5, %rd7;
+	add.s64 %rd10, %rd6, %rd7;
+	ld.global.u32 %r6, [%rd8];
+	ld.global.u32 %r7, [%rd9];
+	add.u32 %r6, %r6, %r7;
+	st.global.u32 [%rd10], %r6;
+DONE:
+	ret;
+}

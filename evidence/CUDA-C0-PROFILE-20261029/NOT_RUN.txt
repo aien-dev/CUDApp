@@ -1,0 +1,1 @@
+GPU arms: NOT_RUN. Gate: spark-window plus Drake authorization. GB10 10de:2e12 rev a1, NVRM 580.173.02 open, read from /proc/driver/nvidia and lspci only.

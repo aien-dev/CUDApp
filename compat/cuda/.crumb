@@ -1,0 +1,20 @@
+{
+  "extensions": {
+    "generated": {
+      "children": [],
+      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiled_at": "2026-10-29T20:41:03Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:fb4f80f2ecf3a4f9e4a46051769db23d84fad8ef14e641540e536fce9aae538a",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 0,
+      "generated_at_commit": "cc0908bdc0a0377f2166e9328dcf1d985457e27f",
+      "source_tree": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "layer": "contract",
+  "name": "cuda-c0-profile",
+  "purpose": "CUDApp#184 C0 frozen CUDA compatibility profile: fixture, frozen per-ISA profiles, seeded .om admission checker and host test.",
+  "schema_version": "1.0.0"
+}

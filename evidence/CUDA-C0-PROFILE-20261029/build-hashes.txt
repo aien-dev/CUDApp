@@ -1,0 +1,4 @@
+built aarch64 1bb9e8f61055f5dd1d12a08d2a239f53e8362e0c623251d7288407150e4bca1c
+built x86_64 a03691b58ecdcb2a2a685c4da82eea32115e901d7c673a965f56ae3820b2ae7c
+built ptx 3f104fbfb9f2a98c633b9fab39cf1f67caae009d3785f42238b1c5ae32739971
+second build identical: cmp build-a.log build-b.log rc=0

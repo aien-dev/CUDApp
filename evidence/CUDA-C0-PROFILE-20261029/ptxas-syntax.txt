@@ -1,0 +1,4 @@
+ptxas syntax check (class B, own input, output discarded)
+command: ptxas -arch=sm_121 compat/cuda/fixture/vadd_u32.ptx -o /dev/null
+version: Cuda compilation tools, release 13.0, V13.0.88
+exit: 0
