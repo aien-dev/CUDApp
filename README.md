@@ -371,7 +371,7 @@ kernel built in 23 us: 32 instructions, 12 registers, no compiler run, no cache
 machine code sha256 6248b8ed338019f75e20b13a8ef7e63b4e35764229e0669ffbe54464353e87d1
 ```
 
-Receipt: `evidence/dx/d3-faults/hello-sim-spark.txt`. **FIXED for the kernels CUDA++ builds.** The model's larger kernels are built the same way; their build times are not yet printed.
+Receipt: `evidence/dx/d3-faults/hello-sim-spark.txt`, recorded on the Spark at commit `213a19a9` on 2026-10-22. The machine-code hash names the bytes that revision of the kernel builder produced and changes whenever the builder changes (at `cc0908bd` the same command prints `9e28bd9c…`, output hash unchanged); the check is that two runs of one build print the same hash. The build time depends on the machine and its load: on 2026-10-29 the same command printed 62 to 145 us on one pinned, low-priority core of a busy Spark. **FIXED for the kernels CUDA++ builds.** The model's larger kernels are built the same way; their build times are not yet printed.
 
 ### 10. Closed, model-shaped libraries
 
