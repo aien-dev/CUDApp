@@ -61,7 +61,7 @@ The research in `docs/PAIN_POINTS.md` ranks what developers hit with CUDA and it
 | D4 | The simulator first, from the same program: `hello_gpu --sim` | DONE |
 | D5 | Builds in seconds, ships small | DONE (2.0 s, 1.06 MB) |
 | D6 | A new chip works on day one or is refused with a sentence | DONE in doctor wrapper only; table row is not current-commit qualification |
-| D7 | Same inputs, same bits, at no cost | simulator DONE; chip open |
+| D7 | Same inputs, same bits, at no cost | simulator DONE; chip DONE for hello-gpu, bf16 GEMV, rmsnorm, decode attention (10 separate processes each, `evidence/d7-same-bits-chip/2026-10-27/`); other kernels not hashed; the "no cost" half is not measured |
 | D8 | No per-process CUDA tax | PLANNED (chip window) |
 | D9 | No licence that stops you | DONE (`evidence/dx/pain-points/licence.txt`) |
 | D10 | No compiling at run time | DONE for hello-gpu |

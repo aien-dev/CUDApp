@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # oracle_pairs.sh <nvdisasm -hex output>: one line per instruction, "<addr> <low 64 bits> <high 64 bits> <text> ;",
 # text with spacing collapsed but the space before the semicolon kept (nvdisasm leaves it out on padding words).
 # The C6 oracle side (docs/OMEGA.md): nvdisasm decodes, nothing it prints enters a kernel.

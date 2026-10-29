@@ -1,0 +1,27 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note HOST_ONLY raw digests: router code/launch count2, combine code/launch count128.
+fn main to int
+m = new ulong 8 0
+hashes = new uchar 4096 0
+ord = new ulong 128 0
+h = new uchar 32 0
+for i ulong 2
+n = ulong 2
+if eq i 1
+n = 128
+end
+for j ulong 2
+ms_fill edit m edit hashes edit ord n j
+if eq i 1
+put m 3 5
+end
+if ne mc_series m hashes ord edit h 0
+ret 2
+end
+if ne write 1 h 0 32 32
+ret 74
+end
+end
+end
+ret 0
+end

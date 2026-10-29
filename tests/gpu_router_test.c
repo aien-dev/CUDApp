@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "test_out_file.h"
 
 static int g_checks, g_failed;
 #define CHECK(cond, ...) do { g_checks++; if (!(cond)) { g_failed++; printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -350,7 +351,7 @@ static int chip_call(OmegaGpuRouter *r, uint32_t layer, const Case *c, int norm_
     return omega_gpu_router_read_back(r, o->xout, o->tgu, o->tdn);
 }
 static int chip_run(const char *out_path, uint32_t reps) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot write %s\n", out_path); return 1; }
     if (out) fprintf(out, "{\"receipt\":\"OMEGA_GPU_ROUTER_V1\",\"reps\":%u,\"evict\":%d,\"spin_us\":%u,\"points\":[", reps, g_evict, omega_gpu_session_spin_us());
     OmegaGpuRouter *r = NULL;

@@ -1,0 +1,165 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note HOST_ONLY: inputs MUST be projected from an actual appended unsubmitted list.
+note expected is frozen by the independent C oracle before mutation, not copied from observed.
+note Compose after canonical mc_launch; owner C tests retain lifecycle and no-fallback controls.
+fn no_equal a view uchar 32 b view uchar 32 to bool
+for i ulong 32
+if ne get a i get b i
+ret false
+end
+end
+ret true
+end
+fn no_match m view ulong 32 bank view uchar 1024 qmd view uchar 1024 s view ulong 16 want view uchar 32 to bool
+h = new uchar 32 0
+if ne mc_launch m bank qmd s edit h 0
+ret false
+end
+ret no_equal h want
+end
+fn no_changed m view ulong 32 bank view uchar 1024 qmd view uchar 1024 s view ulong 16 want view uchar 32 to bool
+h = new uchar 32 0
+if ne mc_launch m bank qmd s edit h 0
+ret false
+end
+ret not no_equal h want
+end
+fn no_reject m view ulong 32 bank view uchar 1024 qmd view uchar 1024 s view ulong 16 to bool
+h = new uchar 32 85
+if eq mc_launch m bank qmd s edit h 0
+ret false
+end
+for i ulong 32
+if ne get h i 0
+ret false
+end
+end
+ret true
+end
+fn no_cases m edit ulong 32 bank edit uchar 1024 qmd edit uchar 1024 s edit ulong 16 want view uchar 32 to long
+if not no_match m bank qmd s want
+ret 10
+end
+note Each active mutation is made only in independently observed state.
+note Effective bank prefix and final actual argument cell must both be bound.
+v = get bank 0
+put bank 0 xor v 1
+if not no_changed m bank qmd s want
+ret 11
+end
+put bank 0 v
+p = sub add ulong 896 mul get m 4 4 1
+v = get bank p
+put bank p xor v 1
+if not no_changed m bank qmd s want
+ret 12
+end
+put bank p v
+note Both actual QMD slots are authoritative; neither comes from the expected root.
+v = get qmd 0
+put qmd 0 xor v 1
+if not no_changed m bank qmd s want
+ret 13
+end
+put qmd 0 v
+v = get qmd 512
+put qmd 512 xor v 1
+if not no_changed m bank qmd s want
+ret 14
+end
+put qmd 512 v
+note Mode-final dependent QMD linkage words10/12 are consumed, not raw retained slots.
+v = get qmd 40
+put qmd 40 xor v 1
+if not no_changed m bank qmd s want
+ret 27
+end
+put qmd 40 v
+v = get qmd 48
+put qmd 48 xor v 1
+if not no_changed m bank qmd s want
+ret 28
+end
+put qmd 48 v
+note The owner supplies consumed timeout, not requested or recomputed options.
+u = get s 6
+put s 6 1
+if eq u 1
+put s 6 2
+end
+if not no_changed m bank qmd s want
+ret 15
+end
+put s 6 u
+u = get s 7
+put s 7 0
+if eq u 0
+put s 7 1
+end
+if not no_changed m bank qmd s want
+ret 16
+end
+put s 7 u
+note Slot padding and unused bank tail must not change the consumed preimage.
+v = get qmd 384
+put qmd 384 xor v 1
+if not no_match m bank qmd s want
+ret 17
+end
+put qmd 384 v
+v = get qmd 896
+put qmd 896 xor v 1
+if not no_match m bank qmd s want
+ret 18
+end
+put qmd 896 v
+if lt get m 4 32
+p = add ulong 896 mul get m 4 4
+v = get bank p
+put bank p xor v 1
+if not no_match m bank qmd s want
+ret 19
+end
+put bank p v
+end
+note Generation/count consistency and explicit skip-launch are hard refusals.
+u = get s 3
+put s 3 0
+if not no_reject m bank qmd s
+ret 20
+end
+note Use a DIFFERENT NONZERO generation, not another zero-generation refusal.
+put s 3 1
+if eq u 1
+put s 3 2
+end
+if not no_reject m bank qmd s
+ret 21
+end
+put s 3 u
+u = get s 11
+put s 11 get m 6
+if not no_reject m bank qmd s
+ret 22
+end
+put s 11 0
+if not no_reject m bank qmd s
+ret 23
+end
+put s 11 u
+put s 9 1
+if not no_reject m bank qmd s
+ret 24
+end
+put s 9 0
+u = get s 6
+put s 6 0
+if not no_reject m bank qmd s
+ret 25
+end
+put s 6 u
+if not no_match m bank qmd s want
+ret 26
+end
+ret 0
+end

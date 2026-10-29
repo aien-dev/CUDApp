@@ -1,0 +1,22 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Native ABI1 embeds function-mode code, never an ELF program image.
+global head uchar 4
+fn main to int
+n = read 0 head 0 4
+if ne n 4
+ret 3
+end
+if ne get head 0 127
+ret 0
+end
+if ne get head 1 69
+ret 0
+end
+if ne get head 2 76
+ret 0
+end
+if ne get head 3 70
+ret 0
+end
+ret 3
+end

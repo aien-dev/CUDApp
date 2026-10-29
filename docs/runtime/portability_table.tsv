@@ -56,12 +56,13 @@ src/omega_blackwell_submit.h	CHIP_SPECIFIC	Launch constants and executor interfa
 src/omega_bw_em.h	CHIP_SPECIFIC	Private IR emitter helpers for the sm_121 tensor-core generators (scheduling rules proven on the chip).	NO_HOSTED_INCLUDE
 src/omega_bw_em_q.h	CHIP_SPECIFIC	Private emitters for the FP8 QMMA placeholders (sm_121).	NO_HOSTED_INCLUDE
 src/omega_bw_reconv.h	CHIP_SPECIFIC	Warp reconvergence regions (BSSY, BSYNC) for the Blackwell IR emitters.	NO_HOSTED_INCLUDE
-src/omega_gpu_attention_api.c	CHIP_SPECIFIC	Builds and launches its own sm_121 attention kernels (stall counts as nvcc writes them for sm_121) through the session. In the freestanding closure.	FREESTANDING_PROVEN
+src/omega_gpu_attention_api.c	CHIP_SPECIFIC	Builds and launches its own sm_121 attention kernels (stall counts as nvcc writes them for sm_121) through the session: the tuned head_dim 64/128 kernels and, since runtime API 0.6.0, the general fallback kernel (head_dim 1..256, any GQA ratio). In the freestanding closure.	FREESTANDING_PROVEN
 src/omega_gpu_attention_api.h	CHIP_SPECIFIC	Attention API; its kernel type OmegaBlackwellKernel comes from omega_blackwell_matmul.h.	NO_HOSTED_INCLUDE
 src/omega_gpu_bf16_gemv_api.c	CHIP_SPECIFIC	Launches the bf16 GEMV through a command list; uses the Blackwell bf16 generator.	NO_HOSTED_INCLUDE
 src/omega_gpu_bf16_gemv_api.h	CHIP_SPECIFIC	bf16 GEMV API; includes omega_blackwell_codegen_bf16.h.	NO_HOSTED_INCLUDE
 src/omega_gpu_cmdlist.c	CHIP_SPECIFIC	Records launches into one method stream using clcec0 method numbers (WAIT_FOR_IDLE 0x0110, SEND_PCAS_A 0x02b4), the compute-class setup words, and the completion tail with an L2 flush.	NO_HOSTED_INCLUDE
 src/omega_gpu_cmdlist.h	CHIP_SPECIFIC	Command-list interface; documents the uncached marker page and the L2_FLUSH_DIRTY tail.	NO_HOSTED_INCLUDE
+src/omega_gpu_cmdlist_native.h	CHIP_SPECIFIC	Private projections of retained Blackwell code, constant banks and mode-final QMD bytes under the existing session lock; conveys no qualification.	NO_HOSTED_INCLUDE
 src/omega_gpu_code_alloc.h	CHIP_SPECIFIC	Code buffers keep a 2 KB tail after the last instruction because the SM instruction cache prefetches past it (omega#323; the cause on GB10 is INFERRED).	NO_HOSTED_INCLUDE
 src/omega_gpu_decode_attn_api.c	CHIP_SPECIFIC	Launches the decode attention kernel from the Blackwell generator through a command list.	NO_HOSTED_INCLUDE
 src/omega_gpu_decode_attn_api.h	CHIP_SPECIFIC	Decode attention API; includes omega_blackwell_codegen_attn.h.	NO_HOSTED_INCLUDE
@@ -86,6 +87,7 @@ src/omega_gpu_mem_cached.c	CHIP_SPECIFIC	Allocates GPU-cached weight buffers; re
 src/omega_gpu_mem_cached.h	CHIP_SPECIFIC	Documents the GPU-cached read-only weight invariant (nvos.h GPU_CACHEABLE: not coherent with CPU mappings).	NO_HOSTED_INCLUDE
 src/omega_gpu_moe_api.c	CHIP_SPECIFIC	Launches MoE matmul kernels from the Blackwell generators and the QMD builder.	NO_HOSTED_INCLUDE
 src/omega_gpu_moe_api.h	PORTABLE	MoE API surface over omega_gpu_matmul_api.h; no chip type in the header.	NO_HOSTED_INCLUDE
+src/omega_gpu_native_runtime.h	CHIP_SPECIFIC	Private binding of exact admitted GB10 artifacts to existing code allocations and generated native lease policy; includes the code-prefetch allocation contract.	NO_HOSTED_INCLUDE
 src/omega_gpu_pfgemm.c	CHIP_SPECIFIC	Prefill GEMM driver over the Blackwell tensor-core generators.	HOSTED_LIBC
 src/omega_gpu_pfhost.c	CHIP_SPECIFIC	Prefill router and combine launcher over the Blackwell pfhost generators.	NO_HOSTED_INCLUDE
 src/omega_gpu_pfhost.h	CHIP_SPECIFIC	Prefill router and combine API; documents bit-exact sm_121 kernel semantics.	NO_HOSTED_INCLUDE
@@ -121,6 +123,7 @@ src/omega_gpu_prefill_attn256_api.c	CHIP_SPECIFIC	Launches the two head_dim 256 
 src/omega_gpu_prefill_attn256_api.h	CHIP_SPECIFIC	Head_dim 256 prefill attention API; includes omega_blackwell_codegen_pattn256.h.	NO_HOSTED_INCLUDE
 src/omega_gpu_q36_graph.c	CHIP_SPECIFIC	Chains a whole Qwen3.6-35B-A3B decode token into one command list from Blackwell kernels.	HOSTED_LIBC
 src/omega_gpu_q36_graph.h	CHIP_SPECIFIC	Qwen3.6 decode graph interface over the decode graph, attention, Gated DeltaNet and router APIs.	NO_HOSTED_INCLUDE
+src/omega_gpu_q36_native.h	CHIP_SPECIFIC	Private Qwen3.6 graph and router-owner projections for Blackwell record binding; no independent qualification or signer.	NO_HOSTED_INCLUDE
 src/omega_gpu_q38_graph.c	CHIP_SPECIFIC	Chains a whole Qwen3.8-27B decode token into one command list from Blackwell kernels.	HOSTED_LIBC
 src/omega_gpu_q38_graph.h	CHIP_SPECIFIC	Qwen3.8 decode graph interface over the decode graph, attention and Gated DeltaNet APIs.	NO_HOSTED_INCLUDE
 src/omega_gpu_scan.c	CHIP_SPECIFIC	Builds and launches the reduction and prefix-sum kernels for the GB10 from Omega's IR emitters.	HOSTED_LIBC

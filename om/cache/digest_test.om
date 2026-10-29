@@ -1,0 +1,54 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Concatenate digest.om, hash exact stdin bytes, emit binary digest for sha256sum comparison.
+fn main to int
+buf = new uchar 4096 0
+code = new uchar 16384 0
+other = new uchar 32 0
+out = new uchar 32 0
+extra = new uchar 1 0
+n = ulong 0
+while lt n 16384 bound 16384
+k = read 0 code n sub ulong 16384 n
+if lt k 0
+ret 1
+end
+if eq k 0
+break
+end
+n = add n ulong k
+end
+if eq n 16384
+k = read 0 extra 0 1
+if ne k 0
+ret 2
+end
+end
+if ne kc_sha buf 4097 other -1
+ret 5
+end
+if ne kc_codesha code n out 0
+ret 3
+end
+if le n 4096
+for i ulong n
+put buf i get code i
+end
+if ne kc_sha buf n other 0
+ret 6
+end
+for i ulong 32
+if ne get out i get other i
+ret 7
+end
+end
+end
+n = 0
+while lt n 32 bound 32
+k = write 1 out n sub ulong 32 n
+if le k 0
+ret 4
+end
+n = add n ulong k
+end
+ret 0
+end

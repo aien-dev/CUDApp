@@ -4,7 +4,7 @@
 name: c4-streams
 on:
   pull_request:
-    paths: ['src/omega_gpu_cmdlist.*', 'src/omega_gpu_session.*', 'src/omega_gpu_platform_linux.*', 'nvrm/**', 'tests/gpu_streams_test.c', 'tests/gpu_isolation_test.c', 'tests/test_omega_gpu_session_platform.c', 'Makefile', 'mk/**', 'tools/c4_streams_chip.sh', '.github/workflows/c4-streams.yml']
+    paths: ['src/omega_gpu_cmdlist.*', 'src/omega_gpu_session.*', 'src/omega_gpu_platform_linux.*', 'nvrm/**', 'tests/gpu_streams_test.c', 'tests/gpu_isolation_test.c', 'tests/test_omega_gpu_session_platform.c', 'tests/test_chip_helpers.py', 'Makefile', 'mk/**', 'tools/c4_streams_chip.sh', 'tools/l136_channel_gates.sh', '.github/workflows/c4-streams.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -12,9 +12,11 @@ jobs:
   build:
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Host-only helper regressions (dummy processes)
+        run: python3 tests/test_chip_helpers.py -v
       - run: make -j4 build/gpu_streams_test build/gpu_isolation_test
       - run: ./build/gpu_streams_test --host-only
       - run: ./build/gpu_streams_test --sim

@@ -72,7 +72,7 @@ int omega_blackwell_codegen_pq_prog(const OmegaPqSpec *spec, BlackwellIRProgram 
 int omega_qg_spec_ok(const OmegaQgSpec *s) {
     if (!s) return 0;
     if (s->k < 128u || s->k > 32768u || s->k % 128u) return 0; /* the k loop counts at run time: no k-sized immediate */
-    if (s->rt != 4) return 0; /* rt 8 needs more than 128 registers and 17408 shared bytes (QMD cap 16384) */
+    if (s->rt != 4) return 0; /* rt 8 needs more than 128 registers (the GPR cap); its 17408 shared bytes are inside the QMD cap now */
     if (s->warps != 8 && s->warps != 16) return 0;
     if (s->epi > OMEGA_QG_EPI_SWIGLU || s->direct > 1 || s->wait > 120u) return 0;
     if (s->epi == OMEGA_QG_EPI_SWIGLU && s->n % 256u) return 0; /* gate and up halves start on a 128-row scale block */

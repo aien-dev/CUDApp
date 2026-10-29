@@ -1,0 +1,66 @@
+## A. the 10 good hello runs plus the chip control run (one unwritten element, --bug=short)
+$ tools/d7_same_bits_check.sh evidence/d7-same-bits-chip/2026-10-27/hello/run-*.log evidence/d7-same-bits-chip/2026-10-27/negative-control/hello-bug-short.log
+MISMATCH output
+  evidence/d7-same-bits-chip/2026-10-27/hello/run-01.log: 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+  evidence/d7-same-bits-chip/2026-10-27/hello/run-02.log: 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+  evidence/d7-same-bits-chip/2026-10-27/hello/run-03.log: 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+  evidence/d7-same-bits-chip/2026-10-27/hello/run-04.log: 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+  evidence/d7-same-bits-chip/2026-10-27/hello/run-05.log: 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+  evidence/d7-same-bits-chip/2026-10-27/hello/run-06.log: 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+  evidence/d7-same-bits-chip/2026-10-27/hello/run-07.log: 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+  evidence/d7-same-bits-chip/2026-10-27/hello/run-08.log: 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+  evidence/d7-same-bits-chip/2026-10-27/hello/run-09.log: 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+  evidence/d7-same-bits-chip/2026-10-27/hello/run-10.log: 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+  evidence/d7-same-bits-chip/2026-10-27/negative-control/hello-bug-short.log: ec24bd3eaff225af5df8f4193410cffaa0e19cdb076bca98736d8d0759e8df75
+d7 same-bits: MISMATCH
+exit 1
+
+## B. gemv runs 01-09 plus a copy of run 10 whose hash has its last hex digit changed b -> a (one bit)
+$ tools/d7_same_bits_check.sh evidence/d7-same-bits-chip/2026-10-27/gemv/run-0*.log evidence/d7-same-bits-chip/2026-10-27/negative-control/gemv-run-10-hash-last-hex-b-to-a.log
+MISMATCH gemv_f32_151936x2048
+  evidence/d7-same-bits-chip/2026-10-27/gemv/run-01.log: ed3805976ef5eb04a893ed9d3b9ad1cc8afa17e60a36b7d4dd9dd98e698f9e4b
+  evidence/d7-same-bits-chip/2026-10-27/gemv/run-02.log: ed3805976ef5eb04a893ed9d3b9ad1cc8afa17e60a36b7d4dd9dd98e698f9e4b
+  evidence/d7-same-bits-chip/2026-10-27/gemv/run-03.log: ed3805976ef5eb04a893ed9d3b9ad1cc8afa17e60a36b7d4dd9dd98e698f9e4b
+  evidence/d7-same-bits-chip/2026-10-27/gemv/run-04.log: ed3805976ef5eb04a893ed9d3b9ad1cc8afa17e60a36b7d4dd9dd98e698f9e4b
+  evidence/d7-same-bits-chip/2026-10-27/gemv/run-05.log: ed3805976ef5eb04a893ed9d3b9ad1cc8afa17e60a36b7d4dd9dd98e698f9e4b
+  evidence/d7-same-bits-chip/2026-10-27/gemv/run-06.log: ed3805976ef5eb04a893ed9d3b9ad1cc8afa17e60a36b7d4dd9dd98e698f9e4b
+  evidence/d7-same-bits-chip/2026-10-27/gemv/run-07.log: ed3805976ef5eb04a893ed9d3b9ad1cc8afa17e60a36b7d4dd9dd98e698f9e4b
+  evidence/d7-same-bits-chip/2026-10-27/gemv/run-08.log: ed3805976ef5eb04a893ed9d3b9ad1cc8afa17e60a36b7d4dd9dd98e698f9e4b
+  evidence/d7-same-bits-chip/2026-10-27/gemv/run-09.log: ed3805976ef5eb04a893ed9d3b9ad1cc8afa17e60a36b7d4dd9dd98e698f9e4b
+  evidence/d7-same-bits-chip/2026-10-27/negative-control/gemv-run-10-hash-last-hex-b-to-a.log: ed3805976ef5eb04a893ed9d3b9ad1cc8afa17e60a36b7d4dd9dd98e698f9e4a
+d7 same-bits: MISMATCH
+exit 1
+
+## C. dattn runs 01-09 plus a copy of run 10 with the context-32768 hash line removed
+$ tools/d7_same_bits_check.sh evidence/d7-same-bits-chip/2026-10-27/dattn/run-0*.log evidence/d7-same-bits-chip/2026-10-27/negative-control/dattn-run-10-without-pos32767-hash.log
+SAME dattn_pos0 e81b7427ea91d932b787c8b3aab785ebba891780039af46f87e57b557d31ecd8 in 10 of 10 runs
+SAME dattn_pos6 9f1969292c8226ec86e1d91ef5f2706bbc8b2034b831d44351c0b72e651d06fd in 10 of 10 runs
+SAME dattn_pos255 2a76c594bff6c41fbe33b90f5d4e5fa91c08c3b7945a757417170f301490c889 in 10 of 10 runs
+SAME dattn_pos300 7901e5e5c6499e531e16533afd9aa2e68cf0da8d0bc763b9feb7d62843ff60e8 in 10 of 10 runs
+SAME dattn_pos1023 c538767cf530fdc8495bfae1151c700e8a887cf5d1d4c6444a2ff38dffd41880 in 10 of 10 runs
+SAME dattn_pos4095 01db162e6a0fb8ae267b8dc1b2e97ffb48dc10b3094d015c86e6a6b5765c963c in 10 of 10 runs
+SAME dattn_pos8191 58fde3abe0308ba8aa23a51c9506595e29929eae3b7dc19462553af2f5acaff6 in 10 of 10 runs
+MISMATCH dattn_pos32767
+  evidence/d7-same-bits-chip/2026-10-27/dattn/run-01.log: 3741c568cb32da1310250b01feeb882cdcaaa8bf38c28a2247ad462aaca3b798
+  evidence/d7-same-bits-chip/2026-10-27/dattn/run-02.log: 3741c568cb32da1310250b01feeb882cdcaaa8bf38c28a2247ad462aaca3b798
+  evidence/d7-same-bits-chip/2026-10-27/dattn/run-03.log: 3741c568cb32da1310250b01feeb882cdcaaa8bf38c28a2247ad462aaca3b798
+  evidence/d7-same-bits-chip/2026-10-27/dattn/run-04.log: 3741c568cb32da1310250b01feeb882cdcaaa8bf38c28a2247ad462aaca3b798
+  evidence/d7-same-bits-chip/2026-10-27/dattn/run-05.log: 3741c568cb32da1310250b01feeb882cdcaaa8bf38c28a2247ad462aaca3b798
+  evidence/d7-same-bits-chip/2026-10-27/dattn/run-06.log: 3741c568cb32da1310250b01feeb882cdcaaa8bf38c28a2247ad462aaca3b798
+  evidence/d7-same-bits-chip/2026-10-27/dattn/run-07.log: 3741c568cb32da1310250b01feeb882cdcaaa8bf38c28a2247ad462aaca3b798
+  evidence/d7-same-bits-chip/2026-10-27/dattn/run-08.log: 3741c568cb32da1310250b01feeb882cdcaaa8bf38c28a2247ad462aaca3b798
+  evidence/d7-same-bits-chip/2026-10-27/dattn/run-09.log: 3741c568cb32da1310250b01feeb882cdcaaa8bf38c28a2247ad462aaca3b798
+  evidence/d7-same-bits-chip/2026-10-27/negative-control/dattn-run-10-without-pos32767-hash.log: missing
+d7 same-bits: MISMATCH
+exit 1
+
+## D. positive control for the same checker: the unmodified 10 gemv runs
+$ tools/d7_same_bits_check.sh evidence/d7-same-bits-chip/2026-10-27/gemv/run-*.log
+SAME gemv_f32_151936x2048 ed3805976ef5eb04a893ed9d3b9ad1cc8afa17e60a36b7d4dd9dd98e698f9e4b in 10 of 10 runs
+d7 same-bits: PASS (1 labels x 10 runs)
+exit 0
+
+## E. fewer than two logs
+$ tools/d7_same_bits_check.sh evidence/d7-same-bits-chip/2026-10-27/gemv/run-01.log
+usage: tools/d7_same_bits_check.sh LOG LOG [LOG...]  (at least two runs)
+exit 2

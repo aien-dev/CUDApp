@@ -1,0 +1,5 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Final root adapter; mcc_cover is the sole complete-operation policy.
+fn native_mccover c view ulong 16 roles view ulong 4096 counts view ulong 8 owner view ulong 4 to long
+ret mcc_cover c roles counts owner
+end

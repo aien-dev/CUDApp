@@ -1,0 +1,5 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Hash actual retained artifact blobs; this is binding, not qualification.
+fn native_mcblob w view uchar 16384 a view uchar 4096 c view uchar 16384 n ulong l view uchar 256 role ulong to long
+ret mc_blob w a c n l role
+end

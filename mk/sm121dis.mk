@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # C6 of docs/OMEGA.md: Omega's own sm_121 disassembler (src/omega_sm121_disasm.c, tools/sm121dis/).
 #   make test-sm121dis   collect every kernel the library builds (no GPU), compare our text with nvdisasm's, word by word;
 #                        then the red check: a decoder built with one deliberate fault must FAIL the same comparison.

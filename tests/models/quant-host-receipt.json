@@ -1,0 +1,196 @@
+{
+  "schema": 1,
+  "status": "HOST_TESTED",
+  "base_source": "b759afc3f5e46f152ffb06b39882ffa28cacaf96",
+  "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+  "platform": {
+    "system": "Linux",
+    "machine": "aarch64"
+  },
+  "omega_tools_used": [
+    "lookup(bitcast)",
+    "compile",
+    "run",
+    "explain_error(error12)"
+  ],
+  "native_caller": {
+    "parts": [
+      "om/quant/quant.om",
+      "native/models/fp8.om",
+      "native/models/mxfp4.om",
+      "native/models/nvfp4.om",
+      "native/models/mxdot.om",
+      "tests/models/quant-consumer.om",
+      "tests/models/quant-caller.om"
+    ],
+    "source_sha256": "ee7de539a6c6b0c59906c780c840bf064c6527eb21c3b9296d1816adef073a3e",
+    "binary_sha256": "d117779a017b081790c9f4e3c23a13877e55025be57964727122cb014095f181",
+    "exit": 0,
+    "stdout_hex": ""
+  },
+  "files": {
+    "om/quant/quant.om": "44bce96f3c274401e19a71b835814d69caf2bea8c2b1f4f43616c7c121232f09",
+    "native/models/fp8.om": "1baf86cbf966faf948913a30e10612ffcfeeed08f382f46c59fcd7539808bfad",
+    "native/models/mxfp4.om": "993b83945a854b3fa2eeba8f9fe4452f7468c7d0f6a349a11cc655dc7302bbf9",
+    "native/models/nvfp4.om": "5782686136803d3e19fa485bbe40630a0ff9bf22245c806744ed9095497abfed",
+    "native/models/mxdot.om": "005f6e13490b33206f333bc04251e0d4d78cff200646cfa85afa85140af550e1",
+    "tests/models/quant-consumer.om": "162ef3d69ab2f16cc72557a1147c71e0d7dc8eb27207953303cbe2fe8b5ef7de",
+    "tests/models/quant-caller.om": "6c713f07d6ce109161e774482def880dc6eff71ede0461f04473e67871786376",
+    "tests/models/quant-stream.om": "05c404f4c94403b7983484e412c5ba5814380ed4727f3d910e212de0b217eb9d",
+    "tests/models/quant-scales.om": "7650c2b35406c78b51dca8da7904cac5b93139821d6b8ec2eae6f7155bb78f71"
+  },
+  "scale_oracle": {
+    "kind": "unchanged-source differential, verification only",
+    "sources": [
+      "src/omega_gpu_fp8_pack.c",
+      "src/omega_blackwell_matmul.c",
+      "src/omega_gpu_hostmath.c"
+    ],
+    "source_sha256": {
+      "src/omega_gpu_fp8_pack.c": "eaa651e04da8bd72957b374395e419e41872e3e1af761e9fba7135014445c87a",
+      "src/omega_blackwell_matmul.c": "457cafc15d3d040091e64830b1856367a3150d061dd450f15939d1c4462bde69",
+      "src/omega_gpu_hostmath.c": "9aee5b24d788434236f8dd0fd5d201c4dd6d78712adad966f44ce5797e71b622"
+    },
+    "build_argv": [
+      "gcc",
+      "-fPIC",
+      "-shared",
+      "-O2",
+      "-Isrc",
+      "-o",
+      "oracle.so",
+      "src/omega_gpu_fp8_pack.c",
+      "src/omega_blackwell_matmul.c",
+      "src/omega_gpu_hostmath.c",
+      "-lm"
+    ],
+    "binary_sha256": "40ec8ed9418065434d8f870e9e4e14234ac0b6b1e1cd632c0f41ecb5d3f27554",
+    "oracle_function": "omega_fp8_pack_scales(..., count=1, mutant_no_fold=0)",
+    "patterns": 65536,
+    "accepted": 50884,
+    "refused": 14652,
+    "comparison": "all statuses equal; all accepted folded F32 bytes equal",
+    "probe_output_sha256": "a2178ccaa71a0f2ce9aaebb6d6d10abcf16d595d448dc1688b782c236bb40a28"
+  },
+  "canonical_stream": {
+    "input_bytes": 66944,
+    "output_bytes": 66944,
+    "exit": 0,
+    "output_sha256": "dc336255fc30d3c763e4b5480ecaa2114cf7b47b3b163fc305f6bd48da94f3c2",
+    "descriptor_words": [
+      1,
+      4,
+      4,
+      0,
+      2,
+      1,
+      32,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      1,
+      4,
+      1,
+      0,
+      1,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0,
+      2,
+      2,
+      1,
+      1,
+      0,
+      0,
+      2,
+      1,
+      1,
+      16,
+      1,
+      2,
+      16,
+      1,
+      0,
+      0,
+      0,
+      32,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "weight_fixture_bytes": [
+      33,
+      3
+    ],
+    "scale_fixture_bytes": [
+      127
+    ]
+  },
+  "negative_controls": [
+    {
+      "name": "weight-byte",
+      "exit": 1,
+      "source_sha256": "c755207126c6fda587015a6a83e4ffdcf20cee929f1217404ebd3341b9701133",
+      "binary_sha256": "0fa0ea27e3c59fc07dbd9aa77a86000af8f0f44bd29462a473128dc29bfefcad",
+      "replacement_from": "put dst op get src ip",
+      "replacement_to": "put dst op xor get src ip 1"
+    },
+    {
+      "name": "scale-reserved",
+      "exit": 4,
+      "source_sha256": "64a6a29bcc14739a2c38524dd46fabdaf2f9c2d30ad01f753747a8ce37896f94",
+      "binary_sha256": "77b92b798a7ac8830bc08970933d90ee136b4e8ba2ba4212ac7771e3a6096866",
+      "replacement_from": "if eq u 255",
+      "replacement_to": "if eq u 254"
+    },
+    {
+      "name": "fold-exponent",
+      "exit": 6,
+      "source_sha256": "70fefe294320c6cee80cb6cf41a63a54da200a60a94b8009cd98aa997bb0deb3",
+      "binary_sha256": "5f538293154f11e265bc5794014abae4d1433528d408c3de00b84b473e886955",
+      "replacement_from": "shl add uint 127 56 23",
+      "replacement_to": "shl add uint 127 sub uint 56 1 23"
+    },
+    {
+      "name": "physical-hash-truncation",
+      "exit": 7,
+      "source_sha256": "1698cd9d9d5dc022b27d11e06ab916d5f6526a4c22d5a5bc18266310044875e7",
+      "binary_sha256": "448b5c6e950b8850f6c618b07a9e6ca5a2dd8eb0dfceb8915a4f4baa1468f50d",
+      "replacement_from": "for i ulong 384\nh = mul",
+      "replacement_to": "for i ulong 192\nh = mul"
+    },
+    {
+      "name": "reserved-tag",
+      "exit": 4,
+      "source_sha256": "22d961a4106d6cb27b6c31abcddf8e80b225505e98182c5351103169d36d697f",
+      "binary_sha256": "a1f96b5680930594685625b8c33dc3a007a5f255e85f9730eef75b8e6f265931",
+      "replacement_from": "if ne get d add i 42 0",
+      "replacement_to": "if ne get d add i 42 get d add i 42"
+    }
+  ],
+  "wolfram": {
+    "tool": "WolframLanguageEvaluator via parent mounted session",
+    "query": "{FromDigits[\"cbf29ce484222325\",16],FromDigits[\"100000001b3\",16]}",
+    "result": [
+      14695981039346656037,
+      1099511628211
+    ],
+    "warnings": []
+  },
+  "not_run": [
+    "GPU consumer execution and byte/numerical qualification",
+    "whole-model logits/tokens/quality",
+    "loading/residency/traffic and cold/warm TTFT/TPOT measurements",
+    "serving integration and activation"
+  ],
+  "scope": "No GPU opened; existing numerical models are reused, not promoted as hardware evidence."
+}

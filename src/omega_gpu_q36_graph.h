@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 #ifndef OMEGA_GPU_Q36_GRAPH_H
 #define OMEGA_GPU_Q36_GRAPH_H
 /*

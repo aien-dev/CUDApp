@@ -1,0 +1,94 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Function-mode host probe. Concatenate bw_enc_sm121 and bw_spec_sm121 first.
+note Mode 0 must return 0; mode 1 corrupts an expected operand byte and returns 1;
+note mode 2 returns the real raw SHFL range refusal E_RANGE, never a setup error.
+fn np_eq a view ulong 4 b view ulong 4 to bool
+for i ulong 4
+if ne get a i get b i
+ret false
+end
+end
+ret true
+end
+fn sp_native_probe mode ulong to ulong
+state = new ulong 3001 0
+fresh = new ulong 3001 0
+o = new ulong 16 0
+dec = new ulong 16 0
+w = new ulong 4 4294967295
+ref = new ulong 4 0
+if ne sp_dec state w dec E_NOMAT
+ret 10
+end
+if ne get state 3000 1
+ret 11
+end
+if eq mode 2
+put o 0 42
+put o 6 32
+ret sp_enc state o w
+end
+note Warmed table mutation must survive cached initialization and change semantics.
+put o 0 1
+put o 1 5
+if ne enc1 o ref E_OK
+ret 12
+end
+shift = get state 57
+put state 57 add shift 1
+status = sp_enc state o w
+put state 57 shift
+if ne status E_OK
+ret 13
+end
+if np_eq w ref
+ret 14
+end
+if ne sp_dec state w dec E_OK
+ret 15
+end
+if eq get dec 1 get o 1
+ret 16
+end
+note Another zero-filled owner must retain canonical bytes independently.
+if ne get fresh 3000 0
+ret 17
+end
+if ne sp_enc fresh o w E_OK
+ret 18
+end
+if not np_eq w ref
+ret 19
+end
+note RRU full GPR destination and explicit uniform-source flags survive native calls.
+put o 0 8
+put o 1 32
+put o 2 1
+put o 4 3
+put o 5 2
+put o 8 1
+put o 12 1
+put o 14 1
+if ne enc1 o ref E_OK
+ret 20
+end
+if ne sp_enc state o w E_OK
+ret 21
+end
+if eq mode 1
+put ref 0 xor get ref 0 65536
+end
+if not np_eq w ref
+ret 1
+end
+if ne sp_dec state w dec E_OK
+ret 22
+end
+if or ne get dec 1 32 ne get dec 5 2
+ret 23
+end
+if or ne get dec 8 1 ne get dec 14 1
+ret 24
+end
+ret 0
+end
