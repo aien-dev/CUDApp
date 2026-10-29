@@ -336,7 +336,7 @@ test-gpu-qmd-shared: $(QMD_SHARED_TEST)
 	$(QMD_SHARED_TEST)
 
 # Every host-only check: no GPU, no device opened. The chip gates are listed in README.md.
-HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-attention test-gpu-moe-window \
+HOST_TESTS = test-drift test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-attention test-gpu-moe-window \
 	test-gpu-fp8 test-gpu-decode-attn test-gpu-router test-gpu-bf16-gemv test-gpu-fp8gemm test-gpu-tern-sched test-gpu-gpr-boundary \
 	test-gpu-cmdlist test-gpu-decode-graph test-gpu-code-alloc test-gpu-engine-compile test-gpu-engine \
 	test-gpu-engine-mutants test-gpu-engine-backend-compile test-gpu-engine-prod-build test-gpu-engine-sim \
@@ -347,6 +347,10 @@ HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-a
 	test-portable-receipts test-gpu-qmd-shared $(CARRIED_HOST_TESTS)
 test: $(HOST_TESTS)
 	@echo "CUDA++ HOST TESTS PASS ($(words $(HOST_TESTS)) targets)"
+
+.PHONY: test-drift
+test-drift:
+	bash tools/extract/test-drift.sh
 
 # Original Git blobs are read-only verification oracles, not a replacement receipt authority.
 .PHONY: test-portable-receipts
