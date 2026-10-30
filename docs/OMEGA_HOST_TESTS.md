@@ -22,6 +22,16 @@ exits 2 and names the requirement. `make test-omega-target-only` prints the
 same lines and exits 0; that exit is the report, not a pass of the named
 checks. On AArch64 those checks stay inside `make test`.
 
+`test-gpu-imadhi-rc` and `test-dagsim` stay in `make test` on x86-64. They are
+host programs and do not open a device. On the VM in
+`evidence/HOST-X86-20261030`, after main `b4f0480` was merged,
+`CUDAPP_MEM_RESERVE_MIB=0 make CC=gcc -j4 test` exited 0 and ended
+`CUDA++ HOST TESTS PASS (57 targets)`. Inside that run `test-gpu-imadhi-rc`
+printed PASS for `bw_warp_sim.h`, `bw_warp_sim_tc.h`, `bw_warp_sim_k.h` and
+`bw_warp_sim_pa.h`. `test-dagsim` printed `dagsim_unit: 171 checks, 0 failed`.
+The same `make CC=gcc test-gpu-imadhi-rc` command by itself also exited 0.
+GB10 stays NOT RUN.
+
 Three targets in that suite are the fresh-checkout contract:
 
 ```sh
