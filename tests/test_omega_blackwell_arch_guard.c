@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#if !defined(__aarch64__)
 static int refuse_ok(const char *what, int rc)
 {
     if (rc == 0 || errno != ENOTSUP) {
@@ -19,6 +20,7 @@ static int refuse_ok(const char *what, int rc)
     }
     return 0;
 }
+#endif
 
 int main(void)
 {

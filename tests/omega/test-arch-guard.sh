@@ -4,7 +4,6 @@
 # the binary is not executed, so a device is not opened. A cross compile is
 # not a runtime result.
 set -eu
-bin=${1:?architecture-guard binary}
 host=${TARGET_ARCH:-$(uname -m)}
 case "$host" in
   aarch64|arm64)
@@ -12,6 +11,7 @@ case "$host" in
     exit 0
     ;;
 esac
+bin=${1:?architecture-guard binary}
 if [ "${CROSS_COMPILE_ONLY:-0}" = 1 ]; then
   echo "x86-64 production refusal: NOT_RUN (cross compile only, binary $bin)"
   exit 0

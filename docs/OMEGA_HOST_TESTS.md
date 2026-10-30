@@ -51,7 +51,7 @@ make test-omega-target-only       # names the checks this host does not run
   driver.
 
 `make test-omega-arch-guard` runs that refusal on x86-64. On AArch64 the same
-target prints `NOT_RUN` and does not execute the binary, because a cross
+target prints `NOT_RUN` and does not build the binary, because a cross
 compile is not an x86-64 runtime result and the production path must not be
 asked to open a device from this check. `CROSS_COMPILE_ONLY=1` records the
 same `NOT_RUN` after a cross compile.

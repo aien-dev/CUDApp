@@ -382,8 +382,9 @@ test-gpu-qmd-shared-clean-build:
 		$(MAKE) --no-print-directory OUT_DIR="$$out/new" test-gpu-qmd-shared
 
 # Fresh-checkout contract for issue 15. The slice runner and the barrier contract
-# need no sibling compiler. The architecture guard runs on x86-64 and prints
-# NOT_RUN on AArch64 without executing the binary. test-omega-slices is the
+# need no sibling compiler. The architecture guard runs on x86-64. On AArch64
+# the target prints NOT_RUN and does not build the binary, so this check never
+# asks the production path to open a device. test-omega-slices is the
 # eight-slice gate and is not part of `make test`.
 .PHONY: test-omega-slice-runner test-omega-arch-guard test-omega-barrier-contract test-omega-binding-portable test-omega-target-only test-omega-slices
 ARCH_GUARD_TEST = $(OUT_DIR)/omega_blackwell_arch_guard_test
@@ -392,8 +393,13 @@ $(ARCH_GUARD_TEST): tests/test_omega_blackwell_arch_guard.c tests/fake_m16_nativ
 	$(CC) -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -ffunction-sections -fdata-sections \
 		$(CUDAPP_PORTABLE_DEFS) -Isrc -Itests $(GPU_ENGINE_PHYS_INC) -o $@ tests/test_omega_blackwell_arch_guard.c tests/fake_m16_native.c \
 		$(GPU_ENGINE_SIM_SRCS) src/omega_gpu_wait.c -Wl,--gc-sections -lm
+ifeq ($(CUDAPP_HOST_IS_AARCH64),1)
+test-omega-arch-guard:
+	OUT_DIR=$(OUT_DIR) sh tests/omega/test-arch-guard.sh
+else
 test-omega-arch-guard: $(ARCH_GUARD_TEST)
 	OUT_DIR=$(OUT_DIR) sh tests/omega/test-arch-guard.sh $(ARCH_GUARD_TEST)
+endif
 test-omega-slice-runner:
 	sh tests/omega/test-runner.sh
 test-omega-barrier-contract:
