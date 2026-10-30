@@ -142,6 +142,13 @@ $(GPU_FS_DIR)/%.o: src/%.c $(GPU_FS_HDRS)
 	@mkdir -p $(GPU_FS_DIR)
 	gcc $(GPU_FS_CFLAGS) -c -o $@ $<
 
+# src/cudapp_binding_portable.c is migration-pending C. The freestanding x86-64
+# link uses it as $(CUDAPP_FS_BINDING) and must pass the same switches as the
+# library. AArch64 links src/cudapp_freest_units.c, so this rule is unused there.
+$(GPU_FS_DIR)/cudapp_binding_portable.o: src/cudapp_binding_portable.c $(GPU_FS_HDRS)
+	@mkdir -p $(GPU_FS_DIR)
+	gcc $(GPU_FS_CFLAGS) $(CUDAPP_PORTABLE_DEFS) -c -o $@ $<
+
 $(GPU_FS_LINK): $(GPU_FS_OBJS)
 	gcc -r -nostdlib -o $@ $(GPU_FS_OBJS)
 	@bad=$$(nm -u $@ | awk '{print $$NF}' | grep -Ev '^(_GLOBAL_OFFSET_TABLE_|($(GPU_FS_ALLOWED)))$$' || true); \
