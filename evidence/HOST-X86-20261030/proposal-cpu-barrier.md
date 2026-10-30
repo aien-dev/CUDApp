@@ -14,4 +14,4 @@ The non-AArch64 fence is migration-pending C. The portable library compiles thos
 
 An AArch64 cross build of the shared objects that include this header is byte-identical to CUDA++ main. That comparison is not a GB10 run. GB10 device behavior stays NOT RUN.
 
-This draft is not yet filed on omega-mv. The header comment points here until a filed link replaces it.
+Filed as https://github.com/aien-dev/omega-mv/issues/939. The header comment links there. This file is the text that was drafted.

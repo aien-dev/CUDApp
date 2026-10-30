@@ -15,7 +15,7 @@
  * The portable library compiles the callers with the existing
  * CUDAPP_MIGRATION_PENDING_C_ENCODER and CUDAPP_MIGRATION_PENDING_C_CUBIN
  * switches, which select the C encoder and the C cubin writer. Extension
- * proposal drafted, not yet filed on omega-mv:
+ * proposal: https://github.com/aien-dev/omega-mv/issues/939
  * evidence/HOST-X86-20261030/proposal-cpu-barrier.md
  */
 static inline void nvrm_cpu_barrier(void)

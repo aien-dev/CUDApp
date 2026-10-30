@@ -10,7 +10,7 @@
  * host, and only with CUDAPP_MIGRATION_PENDING_C_ENCODER and
  * CUDAPP_MIGRATION_PENDING_C_CUBIN, the switches that select the C encoder and
  * the C cubin writer. The host test defines BINDING_PORTABLE. Extension
- * proposal drafted, not yet filed on omega-mv:
+ * proposal: https://github.com/aien-dev/omega-mv/issues/940
  * evidence/HOST-X86-20261030/proposal-binding-portable.md
  *
  * omega_native_revision and omega_native_epoch follow the committed

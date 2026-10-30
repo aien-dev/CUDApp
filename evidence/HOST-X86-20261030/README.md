@@ -137,6 +137,15 @@ With `uname -m` forced to `aarch64`, `make` on this tree and on main both leave 
 
 On x86-64, `make` with no `CC` in the environment sets `CC := gcc`.
 
+## Filed extension proposals
+
+Omega filed the two drafts:
+
+- Host CPU publication barrier: https://github.com/aien-dev/omega-mv/issues/939 (`nvrm/cpu_barrier.h`, [proposal-cpu-barrier.md](proposal-cpu-barrier.md))
+- Portable native binding: https://github.com/aien-dev/omega-mv/issues/940 (`src/cudapp_binding_portable.c`, [proposal-binding-portable.md](proposal-binding-portable.md))
+
+After those comment links replaced the drafted-not-filed sentences, the same `aarch64-linux-gnu-gcc` 13.3.0 command was run again. All eleven objects in [aarch64-objects.tsv](aarch64-objects.tsv) kept the same SHA-256. `src/cudapp_binding_portable.c` is not in that list. The AArch64 library does not compile it.
+
 ## NOT RUN
 
 - Native AArch64 `make test`. This machine is x86-64. The AArch64 barrier object above is a cross compile.

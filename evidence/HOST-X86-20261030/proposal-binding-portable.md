@@ -10,4 +10,4 @@ ADR 0043 missing feature. `src/cudapp_om_units.c` and `src/cudapp_freest_units.c
 
 `omega_native_revision` and `omega_native_epoch` follow the committed freestanding units. Every other entry returns status 34 and does not write its result. That refusal is not a result from the seeded unit. The C encoder and the C cubin writer do the portable codegen. This is not a run of `bw_enc_sm121.om` or `cubin_elf.om`, and it is not a pass of the `.om` versus C differential.
 
-This draft is not yet filed on omega-mv. The source comment points here until a filed link replaces it.
+Filed as https://github.com/aien-dev/omega-mv/issues/940. The source comment links there. This file is the text that was drafted.
