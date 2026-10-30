@@ -6,6 +6,7 @@
  * any closed NVIDIA userspace libraries or hardcoded addresses.
  */
 #include "m16_native.h"
+#include "cpu_barrier.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -72,7 +73,7 @@ int m16_native_enqueue_methods(M16NativeContext *ctx, const uint32_t *methods, s
     if (!ctx || !methods || count == 0) return -1;
     if (count > UINT32_MAX || count > ctx->pb_mem.size / sizeof(uint32_t)) return -1;
     memcpy(ctx->pb_mem.cpu, methods, count * sizeof(uint32_t));
-    __asm__ volatile("dsb sy" ::: "memory");
+    nvrm_cpu_barrier();
     return nvrm_enqueue(&ctx->rm, &ctx->pb_mem, 0, (uint32_t)count);
 }
 
@@ -104,7 +105,7 @@ int m16_native_wait_marker_ge(volatile uint32_t *marker, uint32_t target, uint64
     while (now_ns() < end) {
         if ((int32_t)(*marker - target) >= 0) return 0;
         usleep(50);
-        __asm__ volatile("yield");
+        nvrm_cpu_relax();
     }
     return ((int32_t)(*marker - target) >= 0) ? 0 : -1;
 }

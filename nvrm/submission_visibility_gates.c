@@ -4,6 +4,7 @@
  * The unfixed allocator stalls on the second submission on GB10.
  */
 #include "m16_native.h"
+#include "cpu_barrier.h"
 
 #include <inttypes.h>
 #include <stdio.h>
@@ -22,7 +23,7 @@ static int run_sequence(int reuse) {
         goto finish;
     volatile uint32_t *marker = completion.cpu;
     *marker = 0;
-    __asm__ volatile("dsb sy" ::: "memory");
+    nvrm_cpu_barrier();
     uint32_t count = reuse ? ctx.rm.entries * 2 + 3 : 2;
     for (uint32_t payload = 1; payload <= count; ++payload) {
         uint32_t methods[32];
@@ -38,7 +39,7 @@ static int run_sequence(int reuse) {
             uint32_t offset = (payload - 1) * 128;
             memcpy((unsigned char *)ctx.pb_mem.cpu + offset, methods,
                    (size_t)words * sizeof(uint32_t));
-            __asm__ volatile("dsb sy" ::: "memory");
+            nvrm_cpu_barrier();
             if (nvrm_enqueue(&ctx.rm, &ctx.pb_mem, offset, (uint32_t)words) != 0)
                 goto finish;
         }

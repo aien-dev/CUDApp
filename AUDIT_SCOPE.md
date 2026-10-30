@@ -89,7 +89,7 @@ make -j8
 ```
 
 Build variables: `CC`, `OUT_DIR` (default `build`), `PHYSICS_DIR` (default `.`). The host build
-needs no GPU. Fresh x86-64 portability is tracked in issue #15 (`docs/START_HERE.md`).
+needs no GPU. On x86-64, `make test` is the portable suite: it uses the C encoder and C cubin writer and does not assemble the seeded AArch64 binding. Target-only commands are in `docs/OMEGA_HOST_TESTS.md` (issue #15).
 
 ## Run every test
 

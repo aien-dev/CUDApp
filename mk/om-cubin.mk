@@ -33,6 +33,7 @@ $(OM_CUBIN_DIR)/manifest_diff: tests/native_artifact_manifest_test.c src/omega_n
 		tests/native_artifact_manifest_test.c src/omega_native_artifact.c \
 		src/omega_cubin.c src/omega_blackwell_realize.c src/sha256.c src/cudapp_om_units.c -lpthread
 
+ifeq ($(CUDAPP_HOST_IS_AARCH64),1)
 test-om-cubin: $(ARTIFACT_TEST) $(OUT_DIR)/native_artifact_manifest_test $(OM_CUBIN_DIR)/artifact_diff \
 		$(OM_CUBIN_DIR)/manifest_diff $(OM_CUBIN_DIR)/sweep_diff $(OM_CUBIN_DIR)/sweep_diff_red
 	rm -rf $(OM_CUBIN_DIR)/artifact-om $(OM_CUBIN_DIR)/artifact-diff $(OM_CUBIN_DIR)/diff.log
@@ -48,6 +49,11 @@ test-om-cubin: $(ARTIFACT_TEST) $(OUT_DIR)/native_artifact_manifest_test $(OM_CU
 	@if $(OM_CUBIN_DIR)/sweep_diff_red > /dev/null 2>&1; then \
 		echo "RED CHECK BROKEN: a flipped bit passed the cubin diff"; exit 1; \
 	else echo "red check: one flipped image bit aborts the cubin diff, as it must"; fi
+else
+test-om-cubin:
+	@echo "test-om-cubin: NOT_RUN (requires AArch64 Linux; the seeded cubin packer was not executed)"
+	@exit 2
+endif
 
 # Each mutant is one edit of the .om source, compiled by the pinned omc into its own binding; the sweep linked
 # with it (diff mode) must abort or fail.
