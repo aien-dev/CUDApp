@@ -12,12 +12,6 @@
 # this repository, so PHYSICS_DIR is "." here. Omega is meant to build the same sources
 # with PHYSICS_DIR pointing at a pinned CUDA++ checkout (cudapp.lock); that pin does not
 # exist yet and Omega main still takes nvrm/m16 from physics-mv (#106, #107).
-# GNU make defines CC as cc before this file is read, and ?= does not replace
-# that built-in. The documented compiler is gcc. An explicit CC= on the command
-# line or in the environment still wins.
-ifeq ($(origin CC),default)
-CC := gcc
-endif
 .DEFAULT_GOAL := all
 PHYSICS_DIR ?= .
 # The seeded bindings src/cudapp_om_units.c and src/cudapp_freest_units.c are
@@ -25,8 +19,16 @@ PHYSICS_DIR ?= .
 # instead and compiles the migration-pending C encoder and C cubin writer.
 # That is the portable host path. It is not a run of the seeded units.
 # CUDAPP_ENCODER=diff still requires the seeded binding and is refused here.
+# On AArch64, CC stays make's built-in (CC ?= gcc does not replace it), so a
+# GB10 `make` invokes the same compiler it did before this portability guard.
 CUDAPP_HOST_ARCH := $(shell uname -m)
 ifeq ($(filter aarch64 arm64,$(CUDAPP_HOST_ARCH)),)
+# GNU make defines CC as cc before this file is read, and ?= does not replace
+# that built-in. The documented x86-64 compiler is gcc. An explicit CC= on the
+# command line or in the environment still wins.
+ifeq ($(origin CC),default)
+CC := gcc
+endif
 CUDAPP_HOST_IS_AARCH64 :=
 CUDAPP_HOST_BINDING := src/cudapp_binding_portable.c
 CUDAPP_HOST_FREEST_BINDING :=
@@ -39,6 +41,9 @@ $(error CUDAPP_ENCODER=diff executes the AArch64 seeded binding; this host is $(
 endif
 $(info CUDA++ host $(CUDAPP_HOST_ARCH): seeded AArch64 binding is not assembled; C encoder and C cubin writer are the portable bodies; other seeded units refuse with status 34)
 else
+# Same assignment as before this branch. Make's built-in CC=cc wins, because ?=
+# does not replace a variable make already defined.
+CC ?= gcc
 CUDAPP_HOST_IS_AARCH64 := 1
 CUDAPP_HOST_BINDING := src/cudapp_om_units.c
 CUDAPP_HOST_FREEST_BINDING := src/cudapp_freest_units.c

@@ -1,5 +1,7 @@
 # x86-64 portable host suite
 
+On this VM, `make test` passes only with `CUDAPP_MEM_RESERVE_MIB=0` and exits 2 at the default 4096 MiB. The default was not changed. The refusing line is in [default-reserve.txt](default-reserve.txt).
+
 Measured 2026-10-30 on Linux 6.12.94+ x86_64, gcc 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1), 4 cores.
 `MemTotal` was 16387280 kB. `MemAvailable` during `make doctor` was 4.8 GiB.
 `/dev/nvidiactl`, `/dev/nvidia0`, `/dev/nvidia-uvm` and `/dev/aien-gpu` were absent.
@@ -103,6 +105,37 @@ The program included `src/omega_blackwell_matmul.h`, compiled with `gcc -O2 -Wal
 A fresh rebuild of that source was byte-identical to the binary that ran.
 The run exited 0 and printed `compared 4294967296 mismatches 0 first u=00000000 got=0000 want=0000`.
 That comparison is not a GB10 result. AArch64 still uses the hardware cast.
+
+## Drift gate, same failure on main
+
+`tools/extract/drift.sh /tmp/omega-mv HEAD` against omega-mv main `089e5b05350ee61cc1439f17d3d3052a18a3e0a5` ("Warp simulators refuse IMAD.HI.U32 with a register Rc, which the chip reads as a 64-bit pair (#514)", committer date 2026-10-30T12:10:11Z) exits 1 on this branch and on CUDA++ main `78fea51d6f8859ec8cc5e5561295fd5583b92c19`. Both name the same seven paths and the same omega blobs. The lines are in [drift-main-and-pr.txt](drift-main-and-pr.txt).
+
+That omega commit is the one that moved the seven paths. The previous omega main, `4c60d6baf5f1`, was the pin in the green main run [41050251136](https://github.com/aien-dev/CUDApp/actions/runs/41050251136) at 2026-10-30T11:45:16Z: `DRIFT-GATE: PASS (729 GPU paths, omega 4c60d6baf5f1, none moved away from CUDA++ since the baseline)`. At `4c60d6baf5f1` and at `b3dca0f1e28d`, the omega `Makefile` blob is the baseline blob `4e068c1de5026d2ac4f6c2463fbb4292e6c26ec0`. At `089e5b05350e` it is `a42b2b1f4cd7ffb683d1f54cadbceebde45d5e15`.
+
+CUDA++ main `Makefile` blob is `c1c714d34dc57cb251bc5e2f948b4430cb73b51e`. This branch's `Makefile` blob is `ee85035b395b6cdef53e51661fb43b5bf6bd146c`. Neither equals omega's new blob, so the Makefile row fails on main as well. This branch did not introduce it.
+
+The other six paths are untouched here. Their CUDA++ blobs match main, and `tests/gpu_imadhi_rc_test.c` is absent on both:
+
+| Path | CUDA++ main and this branch | omega `089e5b05350e` |
+|---|---|---|
+| `src/omega_blackwell_codegen.h` | `9dd4f62116ed66ff12c60c06e9070f5aa8ead679` | `1f0b70eecd3860da68bbe013860f27ca01da0d2f` |
+| `tests/bw_warp_sim.h` | `8652710eeaed8de86375a1c9eb46b1a0d5946463` | `6d93828f3979b3a7223ebe0f1952b53e1d414764` |
+| `tests/bw_warp_sim_k.h` | `2b040ed7756ddcffe716e198b266efa3c276dd54` | `993875647985cc99ce27a78003df26df91fd18e1` |
+| `tests/bw_warp_sim_pa.h` | `cee1061ba9d8cf88bd80ae80295863105e2d0810` | `157e396cde9d942cc0bfff02fd057ed393c52a0a` |
+| `tests/bw_warp_sim_tc.h` | `16699a135bc1c7bf3a3faffdb0116c223ad83390` | `a08e38b6a05d815448fe8b4546d204aff6f3e166` |
+| `tests/gpu_imadhi_rc_test.c` | absent | `179596a27cd1c24e02ec8459a45f2e7216ca2424` |
+
+The path count is 739 here and 730 on main because this branch adds CUDA++ files to the map. The drift count stays 7. CI on this pull request stays red on `drift` until CUDA++ holds omega `089e5b05350e`'s bytes for those seven paths. That import is not part of this change.
+
+## AArch64 objects match main
+
+GB10 runs stay **NOT RUN**. There is no GB10 and no `/dev/aien-gpu` here.
+
+Method: `aarch64-linux-gnu-gcc` 13.3.0 (`Ubuntu 13.3.0-6ubuntu2~24.04.1`) compiled each shared C file from this tree and from main `78fea51d6f8859ec8cc5e5561295fd5583b92c19` (`/tmp/cudapp-main`). Production flags were `-std=gnu11 -Wall -Wextra -Werror -D_GNU_SOURCE -O2` plus the `Makefile` include path, without `CUDAPP_PORTABLE_DEFS` and without `OMEGA_BLACKWELL_HOST_SIMULATOR`. `src/omega_blackwell_matmul.c` was also compiled freestanding (`-ffreestanding -fno-builtin -fno-stack-protector -DOMEGA_GPU_NO_POSIX`). `cmp` was byte-identical for every object. SHA-256 values are in [aarch64-objects.tsv](aarch64-objects.tsv). One hash is enough per row because the two files matched.
+
+With `uname -m` forced to `aarch64`, `make` on this tree and on main both leave `CC` as `cc`. The production recipe adds an empty `$(CUDAPP_PORTABLE_DEFS)`. The shell collapses that extra space. The compiler arguments otherwise match main, and the objects above are the outputs.
+
+On x86-64, `make` with no `CC` in the environment sets `CC := gcc`.
 
 ## NOT RUN
 

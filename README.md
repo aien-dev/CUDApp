@@ -432,7 +432,10 @@ make doctor   # is this machine ready? one line per check, each problem with its
 ```
 
 `make test` opens no device. It is the portable suite: the same command is the
-x86-64 host gate and the AArch64 host gate. Production ordering on AArch64
+x86-64 host gate and the AArch64 host gate. On the x86-64 VM in
+`evidence/HOST-X86-20261030`, that command exits 2 at the default
+`CUDAPP_MEM_RESERVE_MIB` of 4096 and passes only with
+`CUDAPP_MEM_RESERVE_MIB=0`. The default is unchanged. Production ordering on AArch64
 stays `dsb sy` (`nvrm/cpu_barrier.h`). On x86-64 the Blackwell device open
 returns `ENOTSUP` and names AArch64; the fake-driver simulator is a separate
 compile. `docs/OMEGA_HOST_TESTS.md` lists the portable commands and the

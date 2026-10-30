@@ -5,9 +5,16 @@ userspace tools, a GPU device node, or a sibling Omega checkout. It builds and
 runs on x86-64 Linux and on AArch64 Linux. It does not open `/dev/nvidia*` or
 `/dev/aien-gpu`.
 
-The compiler is gcc. GNU make's built-in `CC=cc` is replaced when you did not
-set `CC`. `make CC=clang test` still uses the compiler you named. Engine
-simulator recipes that name `gcc` directly keep that compiler.
+On x86-64, when you did not set `CC`, `make` uses gcc. GNU make's built-in
+`CC=cc` is left alone on AArch64, so a GB10 `make` still invokes `cc`.
+`make CC=clang test` still uses the compiler you named. Engine simulator
+recipes that name `gcc` directly keep that compiler.
+
+The default `CUDAPP_MEM_RESERVE_MIB` is 4096. It is not changed. On the x86-64
+VM in `evidence/HOST-X86-20261030`, `make CC=gcc -j4 test` exits 2 at that
+default and passes only with `CUDAPP_MEM_RESERVE_MIB=0`. The failing check
+refuses a 741.9 MiB serving upload because 4.6 GiB is free and the runtime
+keeps 4.0 GiB free. A host that cannot keep 4096 MiB free fails the same way.
 
 On x86-64, `make test` does not count checks that execute the seeded AArch64
 binding or the pinned `omc`. Those targets still exist. Invoking one directly

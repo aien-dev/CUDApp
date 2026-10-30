@@ -4,6 +4,15 @@
  * om/units.sh wrote them. This file is not that regeneration, and the AArch64
  * library does not link it.
  *
+ * ADR 0043 missing feature: those generated units are AArch64 machine code, and
+ * seeded Omega does not yet emit a binding the build host can assemble. This
+ * file is migration-pending C. The library compiles it only on a non-AArch64
+ * host, and only with CUDAPP_MIGRATION_PENDING_C_ENCODER and
+ * CUDAPP_MIGRATION_PENDING_C_CUBIN, the switches that select the C encoder and
+ * the C cubin writer. The host test defines BINDING_PORTABLE. Extension
+ * proposal drafted, not yet filed on omega-mv:
+ * evidence/HOST-X86-20261030/proposal-binding-portable.md
+ *
  * omega_native_revision and omega_native_epoch follow the committed
  * freestanding units. Those units were executed on an x86-64 host with
  * qemu-aarch64 8.2.2 and aarch64-linux-gnu-gcc 13, linking src/cudapp_freest_units.c.
@@ -18,6 +27,9 @@
  * On this host the C encoder and the C cubin writer are selected instead, so
  * those two entries are not on the portable codegen path.
  */
+#if !defined(CUDAPP_MIGRATION_PENDING_C_ENCODER) && !defined(CUDAPP_MIGRATION_PENDING_C_CUBIN) && !defined(BINDING_PORTABLE)
+#error src/cudapp_binding_portable.c is migration-pending C for a non-AArch64 host
+#endif
 #include <stddef.h>
 #include <stdint.h>
 #include "cudapp_native.h"
