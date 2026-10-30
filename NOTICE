@@ -30,3 +30,9 @@ see third_party/nvidia-open-580.173.02/COPYING.
 Mesa citations and other third-party references are listed in THIRD_PARTY.md.
 Files carrying SPDX-License-Identifier: AGPL-3.0-only are under that licence,
 not the one above; docs/LICENSING_TRANSITION.md lists them.
+
+AIEN-GPU INTERFACE HEADER:
+third_party/aien-gpu-abi1/aien_gpu_uapi.h is the aien-gpu.ko user-space
+interface, copied unchanged from aien-gpu commit
+eab436b052d8cd92ec8d471bafe51e76c84b8b7b. It is licensed MIT OR GPL-2.0-only
+(its SPDX line), not under this repository's licence.

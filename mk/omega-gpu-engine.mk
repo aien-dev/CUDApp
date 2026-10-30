@@ -88,7 +88,7 @@ test-gpu-engine-gb10-compile: build/test_omega_gpu_engine_gb10.o
 # Measurement (sc#277): driver allocations and frees made by the REAL session + matmul + attention
 # APIs while serving a Qwen3-4B-shaped sequence, against the simulated driver. Host only, no device.
 # Prints MEASURE lines; asserts only bookkeeping. Links no physics C sources, only its headers.
-GPU_SERVE_ALLOC_SRCS = src/omega_gpu_session.c src/omega_gpu_platform.c src/omega_gpu_platform_linux.c src/omega_gpu_fmt.c src/omega_gpu_matmul_api.c src/omega_gpu_attention_api.c src/omega_gpu_serving.c \
+GPU_SERVE_ALLOC_SRCS = src/omega_gpu_session.c src/omega_gpu_platform.c src/omega_gpu_platform_linux.c src/omega_gpu_mem_reserve.c src/omega_gpu_fmt.c src/omega_gpu_matmul_api.c src/omega_gpu_attention_api.c src/omega_gpu_serving.c \
 	src/omega_gpu_wait.c src/omega_blackwell_codegen.c src/cudapp_om_units.c src/omega_blackwell_encoder.c src/omega_blackwell_qmd.c \
 	src/omega_blackwell_matmul.c src/sha256.c src/cudapp_freest_units.c
 build/gpu_serving_alloc_count_test: tests/gpu_serving_alloc_count_test.c tests/fake_m16_native.c tests/fake_m16_native.h $(GPU_SERVE_ALLOC_SRCS)
@@ -225,7 +225,7 @@ build/test_omega_gpu_native_runtime: tests/test_omega_gpu_session_platform.c tes
 		-o $@ tests/test_omega_gpu_session_platform.c $(GPU_FS_LINK) $(GPU_NATIVE_RUNTIME_SRCS) -lpthread -lm
 test-gpu-native-runtime: build/test_omega_gpu_native_runtime
 	./build/test_omega_gpu_native_runtime
-GPU_LINUX_REF_SRCS = src/omega_gpu_session.c src/omega_gpu_platform.c src/omega_gpu_platform_linux.c src/omega_gpu_fmt.c src/omega_blackwell_qmd.c src/cudapp_freest_units.c
+GPU_LINUX_REF_SRCS = src/omega_gpu_session.c src/omega_gpu_platform.c src/omega_gpu_platform_linux.c src/omega_gpu_mem_reserve.c src/omega_gpu_fmt.c src/omega_blackwell_qmd.c src/cudapp_freest_units.c
 # omega #459: the command list over the reference (near-full ring with the #457 L2 invalidate prefix pending) needs the
 # cached allocation, the command list and the codegen behind its nop kernel.
 GPU_LINUX_REF_CMDLIST_SRCS = src/omega_gpu_mem_cached.c src/omega_gpu_cmdlist.c src/omega_blackwell_codegen.c src/cudapp_om_units.c src/omega_blackwell_encoder.c \
@@ -244,6 +244,44 @@ test-gpu-session-platform: build/test_omega_gpu_session_platform build/test_omeg
 	./build/test_omega_gpu_session_platform
 	./build/test_omega_gpu_platform_linux
 	./build/test_nvrm_va_slots
+
+# The aien-gpu platform (src/omega_gpu_platform_aien.c, second implementation of the contract over aien-gpu.ko) on a
+# simulated /dev/aien-gpu (tests/test_omega_gpu_platform_aien.c): no device opened. It links the Linux reference,
+# m16_native.c and nvrm.c only to compare caps, the GP entry and the USERD layout with them; nothing in it calls the
+# NVIDIA driver. The mutants prove the test can fail: each breaks one rule in a copy of the platform.
+GPU_AIEN_INC = -I$(PHYSICS_DIR)/third_party/aien-gpu-abi1
+GPU_AIEN_SRCS = src/omega_gpu_platform_aien.c src/omega_gpu_platform.c src/omega_gpu_mem_reserve.c src/omega_gpu_session.c \
+	src/omega_gpu_platform_linux.c src/omega_gpu_fmt.c src/omega_blackwell_qmd.c src/cudapp_freest_units.c \
+	$(PHYSICS_DIR)/m16/m16_native.c $(PHYSICS_DIR)/nvrm/nvrm.c
+# MIGRATION-PENDING C: the platform's code exists only with CUDAPP_MIGRATION_PENDING_AIEN_GPU=1, set here for the test and
+# its mutants and OFF in libomega_gpu.a and every other build (successor: native/aiengpu/context.om, CUDApp#128).
+GPU_AIEN_CFLAGS = -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -DCUDAPP_MIGRATION_PENDING_AIEN_GPU=1 \
+	-Isrc $(GPU_ENGINE_PHYS_INC) $(GPU_AIEN_INC)
+build/test_omega_gpu_platform_aien: tests/test_omega_gpu_platform_aien.c $(GPU_AIEN_SRCS) src/omega_gpu_platform_aien.h \
+		src/omega_gpu_mem_reserve.h third_party/aien-gpu-abi1/aien_gpu_uapi.h
+	@mkdir -p build
+	gcc $(GPU_AIEN_CFLAGS) -o $@ tests/test_omega_gpu_platform_aien.c $(GPU_AIEN_SRCS)
+GPU_AIEN_MUT_DIR = build/gpu_aien_mut
+.PHONY: test-gpu-platform-aien test-gpu-platform-aien-mutants
+test-gpu-platform-aien: build/test_omega_gpu_platform_aien test-gpu-platform-aien-mutants
+	./build/test_omega_gpu_platform_aien
+test-gpu-platform-aien-mutants: build/test_omega_gpu_platform_aien
+	@mkdir -p $(GPU_AIEN_MUT_DIR)
+	@set -e; killed=0; \
+	amut() { name=$$1; script=$$2; \
+	  sed -e "$$script" src/omega_gpu_platform_aien.c > $(GPU_AIEN_MUT_DIR)/$$name.c; \
+	  if cmp -s src/omega_gpu_platform_aien.c $(GPU_AIEN_MUT_DIR)/$$name.c; then echo "mutant $$name: pattern not found"; exit 1; fi; \
+	  srcs=$$(echo $(GPU_AIEN_SRCS) | tr ' ' '\n' | grep -v '^src/omega_gpu_platform_aien.c$$' | tr '\n' ' '); \
+	  gcc $(GPU_AIEN_CFLAGS) -o $(GPU_AIEN_MUT_DIR)/$$name tests/test_omega_gpu_platform_aien.c $(GPU_AIEN_MUT_DIR)/$$name.c $$srcs; \
+	  if ./$(GPU_AIEN_MUT_DIR)/$$name > $(GPU_AIEN_MUT_DIR)/$$name.log 2>&1; then echo "mutant $$name SURVIVED"; exit 1; fi; \
+	  echo "mutant $$name killed: $$(grep -c '^FAIL' $(GPU_AIEN_MUT_DIR)/$$name.log) case(s) failed"; killed=$$((killed+1)); }; \
+	amut no-doorbell 's|= r->token;|= 0;|'; \
+	amut no-gpput 's|r->put % OMEGA_GPU_AIEN_GP_ENTRIES;$$|0;|'; \
+	amut state-unchecked 's|info.state != AGPU_STATE_RM_READY|0|'; \
+	amut always-cached 's|cached ? 0u : AGPU_MEM_GPU_UNCACHED|0u|'; \
+	amut ring-never-full 's|>= OMEGA_GPU_AIEN_GP_ENTRIES - 1u|> 0xffffffffu - 1u|'; \
+	amut no-l2-prefix 's|r->l2_inval_pending = 1; /\* omega #457 \*/|{ }|'; \
+	echo "test-gpu-platform-aien-mutants: $$killed of 6 mutants killed"
 
 GPU_SESSION_MUT_DIR = build/gpu_session_mut
 test-gpu-session-mutants: $(GPU_FS_LINK)

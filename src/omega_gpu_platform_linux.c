@@ -21,6 +21,7 @@
 
 #include "m16_native.h"
 #include "nvrm.h"
+#include "omega_gpu_mem_reserve.h"
 
 #include <fcntl.h>
 #include <pthread.h>
@@ -216,70 +217,8 @@ static int ref_device_close(void *ctx, OmegaGpuDeviceHandle dev) {
 
 static const char *ref_diag_text(void *ctx) { return ((LinuxRef *)ctx)->diag; }
 
-/* Developer bar D1 (docs/PAIN_POINTS.md): on the GB10 every buffer this platform hands out is the machine's own memory,
- * which the CPU and GPU share, and the machine has no swap by default. Running it out does not end in an error message:
- * the whole box can freeze until a power cycle. So an allocation that would leave less than a reserve free is refused
- * here, before a handle slot or the driver is touched, with a sentence. The reserve is CUDAPP_MEM_RESERVE_MIB (MiB,
- * default 4096; 0 turns the check off). Tests point the check at a fake meminfo file with
- * omega_gpu_platform_linux_test_set_meminfo. When /proc/meminfo itself cannot be read the check cannot know, and allows
- * the allocation. */
-#define CUDAPP_MEM_RESERVE_DEFAULT_MIB 4096ull
-static void human_bytes(char *out, size_t n, uint64_t b) {
-    if (b < (1ull << 30)) snprintf(out, n, "%.1f MiB", (double)b / (double)(1ull << 20));
-    else snprintf(out, n, "%.1f GiB", (double)b / (double)(1ull << 30));
-}
-/* The meminfo file is chosen by code, never by the environment: this is the default session platform
- * (omega_gpu_session.c install_default) of every hosted program linked with libomega_gpu.a, serving processes included,
- * so a stale variable left in an environment must not be able to switch the D1 guard off (CodeQL cpp/path-injection
- * #40 was the former CUDAPP_MEMINFO variable). Every open is O_NOFOLLOW|O_NONBLOCK and must reach a regular file, since
- * the check runs under ref_lock: open() on a FIFO blocks, and a device file may act on open. A test file that cannot be
- * used that way falls back to the real /proc/meminfo. */
-static char g_meminfo_test_path[4096]; /* guarded by g_ref.mu; "" = /proc/meminfo */
-int omega_gpu_platform_linux_test_set_meminfo(const char *path) {
-    size_t n = path ? strlen(path) : 0;
-    if (n >= sizeof g_meminfo_test_path) return -1;
-    pthread_mutex_lock(&g_ref.mu);
-    memcpy(g_meminfo_test_path, n ? path : "", n);
-    g_meminfo_test_path[n] = '\0';
-    pthread_mutex_unlock(&g_ref.mu);
-    return 0;
-}
-static FILE *meminfo_open_regular(const char *path) {
-    int fd = open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
-    if (fd < 0) return NULL;
-    struct stat st;
-    if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode)) { close(fd); return NULL; }
-    FILE *f = fdopen(fd, "r");
-    if (!f) close(fd);
-    return f;
-}
-static FILE *meminfo_open(void) { /* caller holds g_ref.mu */
-    FILE *f = g_meminfo_test_path[0] ? meminfo_open_regular(g_meminfo_test_path) : NULL;
-    return f ? f : meminfo_open_regular("/proc/meminfo");
-}
-static int mem_reserve_check(LinuxRef *r, uint64_t bytes) {
-    unsigned long long reserve_mib = CUDAPP_MEM_RESERVE_DEFAULT_MIB;
-    const char *e = getenv("CUDAPP_MEM_RESERVE_MIB");
-    if (e && *e) { char *end = NULL; unsigned long long v = strtoull(e, &end, 10); if (end && end != e && *end == 0) reserve_mib = v; }
-    if (reserve_mib == 0) return OMEGA_GPU_PLAT_OK;
-    FILE *f = meminfo_open();
-    if (!f) return OMEGA_GPU_PLAT_OK;
-    unsigned long long avail_kb = 0; int have = 0; char line[256];
-    while (!have && fgets(line, sizeof line, f)) have = sscanf(line, "MemAvailable: %llu kB", &avail_kb) == 1;
-    fclose(f);
-    if (!have) return OMEGA_GPU_PLAT_OK;
-    /* Saturate rather than wrap: 2^44 MiB shifted by 20 is 2^64, and 2^54 kB times 1024 is 2^64 (RtMem F9). */
-    const uint64_t avail = avail_kb > UINT64_MAX / 1024ull ? UINT64_MAX : (uint64_t)avail_kb * 1024ull;
-    const uint64_t reserve = reserve_mib > (UINT64_MAX >> 20) ? UINT64_MAX : (uint64_t)reserve_mib << 20;
-    if (bytes <= avail && avail - bytes >= reserve) return OMEGA_GPU_PLAT_OK;
-    char want[32], free_[32], keep[32];
-    human_bytes(want, sizeof want, bytes); human_bytes(free_, sizeof free_, avail); human_bytes(keep, sizeof keep, reserve);
-    snprintf(r->diag, sizeof r->diag,
-             "dma_alloc: refused %s: %s of memory is free and CUDA++ keeps %s free (CUDAPP_MEM_RESERVE_MIB=%llu), because the CPU and "
-             "GPU share it and running it out freezes the machine. Free buffers or use a smaller batch.",
-             want, free_, keep, reserve_mib);
-    return OMEGA_GPU_PLAT_REFUSED_LIMIT;
-}
+/* Developer bar D1: src/omega_gpu_mem_reserve.c, shared with the aien-gpu platform. It runs under ref_lock; every meminfo
+ * open there is O_NOFOLLOW|O_NONBLOCK and must reach a regular file, so it cannot block on a FIFO or act on a device. */
 
 static int ref_dma_alloc(void *ctx, OmegaGpuDeviceHandle dev, const OmegaGpuBufferDesc *desc, OmegaGpuBufferHandle *out,
                          OmegaCpuView *cpu, OmegaGpuVa *gpu, OmegaGpuBusAddr *bus) {
@@ -299,7 +238,7 @@ static int ref_dma_alloc(void *ctx, OmegaGpuDeviceHandle dev, const OmegaGpuBuff
         (desc->kind != OMEGA_GPU_HANDLE_BUF_DATA || (desc->rights & (OMEGA_GPU_RIGHT_CPU_READ | OMEGA_GPU_RIGHT_HOST_POLLED))))
         rc = OMEGA_GPU_PLAT_REFUSED_CACHE_POLICY;
     if (rc != OMEGA_GPU_PLAT_OK) { rc = refuse(r, rc, "dma_alloc"); ref_unlock(r); return rc; }
-    rc = mem_reserve_check(r, desc->bytes); /* D1: before any slot or driver call; the sentence is in r->diag */
+    rc = omega_gpu_mem_reserve_check(desc->bytes, r->diag, sizeof r->diag); /* D1: before any slot or driver call; the sentence is in r->diag */
     if (rc != OMEGA_GPU_PLAT_OK) { ref_unlock(r); return rc; }
     uint32_t idx = 0, gen = 0;
     rc = omega_gpu_handles_open(&r->t, desc->kind, desc->bytes, LINUX_REF_BUFFERS, g_caps.max_total_bytes, &idx, &gen);

@@ -23,7 +23,8 @@ CFLAGS ?= -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc \
 	-I$(NVIDIA_OPEN)/src/common/sdk/nvidia/inc \
 	-I$(NVIDIA_OPEN)/kernel-open/common/inc \
 	-I$(NVIDIA_OPEN)/kernel-open/nvidia-uvm \
-	-I$(NVIDIA_OPEN)/src/nvidia/arch/nvalloc/unix/include
+	-I$(NVIDIA_OPEN)/src/nvidia/arch/nvalloc/unix/include \
+	-I$(PHYSICS_DIR)/third_party/aien-gpu-abi1
 -include mk/*.mk
 
 # sm_121 instruction encoder (CUDApp#79): om (default) = om/encoder/bw_enc_sm121.om through the generated binding
@@ -350,7 +351,7 @@ HOST_TESTS = test-drift test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv
 	test-codegen-freestanding test-gpu-session-platform test-gpu-native-runtime test-gpu-wait test-gpu-wait-mutants host-tests-m16 \
 	test-runtime-api test-runtime-portability test-doctor test-hello-sim test-native-artifact-manifest test-gemm-selectors \
 	test-native-artifact zero-cuda-gate verify-vendored test-swap-cli test-om-encoder test-om-spec-encoder test-om-cubin \
-	test-portable-receipts test-gpu-qmd-shared test-model-capacity test-gpu-qmd-shared-clean-build $(CARRIED_HOST_TESTS)
+	test-portable-receipts test-gpu-qmd-shared test-model-capacity test-gpu-qmd-shared-clean-build $(CARRIED_HOST_TESTS) test-gpu-platform-aien
 test: $(HOST_TESTS)
 	@echo "CUDA++ HOST TESTS PASS ($(words $(HOST_TESTS)) targets)"
 

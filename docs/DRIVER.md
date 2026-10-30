@@ -75,6 +75,22 @@ Completion is a word in GPU-uncached memory that the GPU writes with a semaphore
 
 ## 7. Above and below the client
 
-Above it, `src/omega_gpu_platform.h` is the contract the runtime is written against: typed handles instead of file descriptors, explicit rights and kinds for every buffer, polling named as polling, and no silent fallback. `src/omega_gpu_platform_linux.c` implements it on this client. Aien's GB10 driver research harness (L332, aienux#441) implements the same contract in a simulator; it isn't a product, and GB10 support goes upstream to Nova and nouveau.
+Above it, `src/omega_gpu_platform.h` is the contract the runtime is written against: typed handles instead of file descriptors, explicit rights and kinds for every buffer, polling named as polling, and no silent fallback. `src/omega_gpu_platform_linux.c` implements it on this client. Aien's GB10 driver research harness (L332, aienux#441) implements the same contract in a simulator; it isn't a product, and GB10 support goes upstream to Nova and nouveau. `src/omega_gpu_platform_aien.c` is that harness's user-space side (section 8): migration-pending C, compiled only for its host test.
 
 Below it, NVIDIA's open kernel module (`nvidia.ko`, `nvidia-uvm.ko`) does the rest: it boots the GPU's GSP firmware, builds page tables and schedules channels. The firmware stays NVIDIA's; the chip checks its signature.
+
+## 8. The second implementation: aien-gpu.ko (`src/omega_gpu_platform_aien.c`)
+
+Evidence level: IMPLEMENTED, host-tested on a simulated device. Hardware NOT_RUN: it has never opened a real `/dev/aien-gpu`. Research harness only, not a product: the shipped path stays NVIDIA's open kernel module (section 7), and GB10 support goes upstream to Nova and nouveau.
+
+Migration-pending C: the definition exists only when built with `CUDAPP_MIGRATION_PENDING_AIEN_GPU=1`, which only the host test and its mutants set; `libomega_gpu.a` and every other build leave it OFF. Its `.om` successor is `native/aiengpu/context.om` (aien-dev/CUDApp#128), waiting on the bridge extension aien-dev/omega-bridge#29 (open/ioctl/mmap host words, text constants, ordered stores, C function-table export).
+
+aien-gpu.ko is Aien's own research kernel module for the GB10 (L332, aienux#441); in place of `nvidia.ko` and `nvidia-uvm.ko` it exposes a small compute interface of its own, `third_party/aien-gpu-abi1/aien_gpu_uapi.h` (ABI 1). The platform fills the same table with the same caps and refusals as the Linux reference, except that it drives one queue where the reference can open extra channels, so the session, command list and libraries run on it unchanged:
+
+- `device_open`: open `/dev/aien-gpu` and `AGPU_INFO`; anything but ABI 1 in state `RM_READY` is a REFUSED_DEVICE with the state named. A missing node is a REFUSED_DEVICE naming the path.
+- `dma_alloc`: reserve a CPU range in [64 GiB, 1 TiB) with `MAP_FIXED_NOREPLACE` (a GPFIFO entry carries 40 address bits), `AGPU_MEM_ALLOC` at that address (`AGPU_MEM_GPU_UNCACHED` unless a device-private DATA buffer asked for GPU_CACHED), then map the object `MAP_FIXED|MAP_SHARED` over the reservation. The GPU address is the CPU address.
+- `queue_open`: one GPU-uncached buffer with the 1024-entry ring and USERD after it, an error notifier, `AGPU_CHAN_CREATE`, and a mapping of the usermode page.
+- `queue_submit`: the three steps of section 4 (entry from `omega_gpu_aien_gp_entry`, bit for bit `nvrm_gp_entry`; `GPPut` at `Nvc96fControl.GPPut`; the token stored at +0x90). `queue_retire`, `poll_word` and the omega #457 L2 invalidate prefix work as in the Linux reference.
+- `device_close` frees every buffer and the channel (a mapping keeps an aien-gpu object alive past `close`).
+
+What selects it: a program built with the switch ON calls `omega_gpu_session_set_platform(omega_gpu_platform_aien(&caps), &caps)` before the first session open; the hosted session still installs the Linux reference by default. `CUDAPP_AIEN_GPU_DEV` names another device node. `make test-gpu-platform-aien` runs `tests/test_omega_gpu_platform_aien.c` against a simulated `/dev/aien-gpu` and a simulated GPU that executes the semaphore releases from the ring, plus six mutants that must fail it.
