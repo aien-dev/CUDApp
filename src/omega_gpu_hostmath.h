@@ -1,4 +1,19 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2026 Drake Stapleton (AIEN / aien-dev)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #ifndef OMEGA_GPU_HOSTMATH_H
 #define OMEGA_GPU_HOSTMATH_H
 /*
@@ -11,7 +26,7 @@
  *   log(x):      x > 0 finite; NaN otherwise. Error a few ulp.
  *   exp(y):      0 below -745, +inf above 709.8. Error a few ulp.
  *   pow(b, e):   b > 0 finite; exp(e * log(b)). Relative error about |e * log b| * 2^-52.
- *   sincos(a):   valid for |a| < 2^20 * pi/2 (about 1.6e6; the RoPE table needs pos < 65536). Three-part
+ *   sincos(a):   valid for |a| < 2^20 * pi/2 (about 1.6e6; the RoPE table needs pos < 131072). Three-part
  *                Cody-Waite reduction with the fdlibm pi/2 pieces, series to r^16. Absolute error about 1e-16.
  *   pow2f(e):    2^e as f32, exact (built from the bit pattern) for -149 <= e <= 127; 0 below, +inf above.
  *                Replaces ldexpf(1.0f, e) (omega-mv#471).

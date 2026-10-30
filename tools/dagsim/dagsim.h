@@ -7,7 +7,8 @@
  * bandwidth (processor sharing), serialized launches, one capacity ledger,
  * dependencies and barriers. It never executes anything. It refuses rather
  * than guess: unknown provenance, stale calibration, capacity overflow,
- * unsupported constructs and cycles are all refusals with a reason.
+ * an inverted buffer lifetime (resolved end before start), unsupported
+ * constructs and cycles are all refusals with a reason.
  *
  * Host only. No GPU, no authority, no generation store.
  */
@@ -39,6 +40,7 @@ enum ds_status {
     DS_REFUSED_CYCLE,
     DS_REFUSED_UNSUPPORTED,      /* construct the evaluator does not model */
     DS_REFUSED_REMOVED_REQUIRED, /* a remaining op depends on removed work without a valid derivation */
+    DS_REFUSED_LIFETIME,         /* resolved buffer end is earlier than its start */
     DS_PARSE_ERROR
 };
 

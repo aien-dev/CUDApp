@@ -50,7 +50,10 @@
 #include <stdint.h>
 
 #define RX_CM_ARMS       8u
-#define RX_CM_OPS        1u     /* matvec only today; widen with a second operation */
+#define RX_CM_OPS        1u     /* matvec only. A new family widens this, changes
+                                 * RX_CM_CELLS, and must bump the blob version.
+                                 * An id outside 0 .. RX_CM_OPS-1 is refused;
+                                 * it is not aliased onto the last family. */
 #define RX_CM_CORES      3u
 #define RX_CM_PRESSURE   3u
 #define RX_CM_CELLS      (RX_CM_OPS * RX_CM_CORES * RX_CM_PRESSURE)
@@ -64,14 +67,16 @@
 #define RX_CM_ERR_ARG    -1
 #define RX_CM_ERR_FORMAT -2
 #define RX_CM_ERR_DIGEST -3
+#define RX_CM_ERR_UNSUPPORTED -4  /* semantic operation id is not a modeled family */
 #define RX_CM_SKIPPED     1       /* observe: pressure data with no quiet model to correct */
+#define RX_CM_CELL_NONE  UINT32_MAX /* not an index into RxCostModel.cell */
 enum { RX_CM_OP_MATVEC = 0 };
 enum { RX_CM_CORE_X925 = 0, RX_CM_CORE_A725 = 1, RX_CM_CORE_OTHER = 2 };
 
 /* What the caller knows about one call. Fields the matvec workload cannot
  * vary are carried and recorded, never used to fit (see spec). */
 typedef struct {
-    uint32_t op;                /* semantic operation class */
+    uint32_t op;                /* semantic operation class; only ids below RX_CM_OPS */
     uint32_t M, N;              /* input shape; branch count is 0 for matvec */
     uint64_t state_bytes;       /* working set: (M*N + N + M) * 8 */
     uint64_t cache_bytes;       /* last private cache of this core class */
@@ -101,18 +106,20 @@ typedef struct {
     int borrowed;               /* unseen pressure: the quiet prediction, widened */
     double energy_pj;           /* predicted energy per call (0 if no power figure) */
     double fail_p;              /* posterior mean failure probability */
+    int refused;                /* 1: this operation id is not modeled */
 } RxCmPrediction;
 
-enum { RX_CM_SELECT = 1, RX_CM_MEASURE = 2, RX_CM_FALLBACK = 3 };
+enum { RX_CM_SELECT = 1, RX_CM_MEASURE = 2, RX_CM_FALLBACK = 3, RX_CM_REFUSE = 4 };
 
-/* Why a MEASURE or FALLBACK was returned. */
+/* Why a MEASURE, FALLBACK or REFUSE was returned. */
 enum {
     RX_CM_WHY_CONFIDENT = 0,
     RX_CM_WHY_UNKNOWN_ARM,       /* an eligible arm has too few observations here */
     RX_CM_WHY_WORTH_MEASURING,   /* expected improvement from measuring exceeds ei_min */
     RX_CM_WHY_BUDGET_SPENT,      /* would measure, but the exploration budget is spent */
     RX_CM_WHY_NO_ELIGIBLE,       /* nothing but the fallback may run */
-    RX_CM_WHY_OVER_BUDGET        /* no arm is predicted to meet the latency/energy budget */
+    RX_CM_WHY_OVER_BUDGET,       /* no arm is predicted to meet the latency/energy budget */
+    RX_CM_WHY_UNSUPPORTED_OP     /* semantic operation id is not a modeled family */
 };
 
 typedef struct {
@@ -165,19 +172,31 @@ typedef struct {
 void rx_cm_default_policy(RxCmPolicy *p);
 void rx_cm_init(RxCostModel *m, uint32_t n_arms);
 
-/* Fold one measurement in. 0 on success; RX_CM_SKIPPED for a pressure
- * measurement when there is no quiet model yet to correct. */
+/* Fold one measurement in. RX_CM_OK on success; RX_CM_SKIPPED for a pressure
+ * measurement when there is no quiet model yet to correct.
+ * RX_CM_ERR_UNSUPPORTED when `f->op` is not a modeled family: no sufficient
+ * statistic, trial, failure, exploration counter or other model field changes.
+ * RX_CM_ERR_ARG for a null argument, an arm this model does not have, or a
+ * successful observation with zero latency. */
 int rx_cm_observe(RxCostModel *m, const RxCmFeatures *f, uint32_t arm, const RxCmObservation *o);
 
-/* Predict one arm. Needs RX_CM_MIN_OBS quiet observations for the core class.
- * Under pressure, adds the learned correction once it has RX_CM_RES_MIN_OBS
- * observations; before that, widens by RX_CM_UNSEEN_SHIFT and marks it
- * borrowed. */
-void rx_cm_predict(const RxCostModel *m, const RxCmFeatures *f, uint32_t arm, RxCmPrediction *out);
+/* Predict one arm. Returns RX_CM_ERR_UNSUPPORTED and sets out->refused when
+ * the semantic operation is not a modeled family. That output is zeros aside
+ * from `refused`: no mean, spread, failure rate or ranking is borrowed from
+ * another operation. Returns RX_CM_ERR_ARG for a null argument or an arm this
+ * model does not have. Otherwise returns RX_CM_OK.
+ * A supported operation needs RX_CM_MIN_OBS quiet observations for the core
+ * class before out->known is set. Under pressure, adds the learned correction
+ * once it has RX_CM_RES_MIN_OBS observations; before that, widens by
+ * RX_CM_UNSEEN_SHIFT and marks it borrowed. */
+int rx_cm_predict(const RxCostModel *m, const RxCmFeatures *f, uint32_t arm, RxCmPrediction *out);
 
-/* Decide. `allow_measure` 0 freezes the model's behaviour: it never asks to
- * measure and picks the best prediction. The fallback arm is chosen when no
- * other eligible arm has any prediction at all. */
+/* Decide. An unsupported semantic operation sets RX_CM_REFUSE and
+ * RX_CM_WHY_UNSUPPORTED_OP, leaves every prediction refused, and does not
+ * rank arms (`arm` and `measure[]` are set to n_arms, not a selection).
+ * `allow_measure` 0 freezes the model's behaviour for a supported operation:
+ * it never asks to measure and picks the best prediction. The fallback arm is
+ * chosen when no other eligible arm has any prediction at all. */
 void rx_cm_decide(const RxCostModel *m, const RxCmPolicy *p, const RxCmFeatures *f,
                   int allow_measure, RxCmDecision *out);
 
@@ -199,6 +218,13 @@ void rx_cm_digest(const RxCostModel *m, uint8_t out[32]);
 
 /* Basis for these features, exposed so tests can see exactly what is fit. */
 void rx_cm_basis(const RxCmFeatures *f, double phi[RX_CM_D]);
+
+/* Cell index for these features. RX_CM_CELL_NONE if `f` is null or `f->op`
+ * is not one of the RX_CM_OPS modeled families. That sentinel is never a
+ * legal index of RxCostModel.cell. An unknown core class maps to
+ * RX_CM_CORE_OTHER. Pressure above the last bucket saturates into that
+ * bucket. Those two mappings are hardware and pressure buckets, not a
+ * catch-all operation family. */
 uint32_t rx_cm_cell(const RxCmFeatures *f);
 
 /* Two-sided central interval half-width multiplier for coverage q with

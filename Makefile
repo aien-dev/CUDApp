@@ -351,10 +351,39 @@ test-gpu-cmdlist: $(GPU_CMDLIST_TEST)
 # host-only; the chip gate is tools/run_gpu_decode_graph_chip.sh under the GB10 lock.
 .PHONY: test-gpu-decode-graph
 GPU_DECODE_GRAPH_TEST = $(OUT_DIR)/gpu_decode_graph_test
+GPU_DGRAPH_ABORT_TEST = $(OUT_DIR)/test_omega_gpu_decode_graph_abort
 $(GPU_DECODE_GRAPH_TEST): tests/gpu_decode_graph_test.c src/omega_gpu_decode_graph.h src/omega_gpu_cmdlist.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -o $@ tests/gpu_decode_graph_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
-test-gpu-decode-graph: $(GPU_DECODE_GRAPH_TEST)
+test-gpu-decode-graph: $(GPU_DECODE_GRAPH_TEST) $(GPU_DGRAPH_ABORT_TEST) test-gpu-decode-graph-abort-mutants
 	./$(GPU_DECODE_GRAPH_TEST) --host-only
+	./$(GPU_DGRAPH_ABORT_TEST)
+
+# omega #518: lock and token-state recovery of the split API on a fake platform whose lock refuses a
+# second acquisition. Host only, opens no device. Each mutant breaks one rule in a copy of
+# omega_gpu_decode_graph.c linked ahead of the library; the test must FAIL on it.
+.PHONY: test-gpu-decode-graph-abort-mutants
+GPU_DGRAPH_MUT_DIR = $(OUT_DIR)/dgraph_mut
+$(GPU_DGRAPH_ABORT_TEST): tests/test_omega_gpu_decode_graph_abort.c src/omega_gpu_decode_graph.h src/omega_gpu_platform.h $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -o $@ tests/test_omega_gpu_decode_graph_abort.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+test-gpu-decode-graph-abort-mutants: $(OUT_DIR)/libomega_gpu.a
+	@mkdir -p $(GPU_DGRAPH_MUT_DIR)
+	@set -e; killed=0; \
+	dmut() { name=$$1; script=$$2; \
+	  sed -e "$$script" src/omega_gpu_decode_graph.c > $(GPU_DGRAPH_MUT_DIR)/$$name.c; \
+	  if cmp -s src/omega_gpu_decode_graph.c $(GPU_DGRAPH_MUT_DIR)/$$name.c; then echo "mutant $$name: pattern not found"; exit 1; fi; \
+	  $(CC) $(filter-out -MMD -MP,$(CFLAGS)) -c -o $(GPU_DGRAPH_MUT_DIR)/$$name.o $(GPU_DGRAPH_MUT_DIR)/$$name.c; \
+	  $(CC) $(filter-out -MMD -MP,$(CFLAGS)) -o $(GPU_DGRAPH_MUT_DIR)/$$name tests/test_omega_gpu_decode_graph_abort.c \
+	    $(GPU_DGRAPH_MUT_DIR)/$$name.o $(OUT_DIR)/libomega_gpu.a -lpthread -lm; \
+	  if ./$(GPU_DGRAPH_MUT_DIR)/$$name > $(GPU_DGRAPH_MUT_DIR)/$$name.log 2>&1; then echo "mutant $$name SURVIVED"; exit 1; fi; \
+	  nfail=$$(grep -c '^FAIL' $(GPU_DGRAPH_MUT_DIR)/$$name.log || true); \
+	  if [ "$$nfail" -eq 0 ]; then echo "mutant $$name: nonzero exit but no FAIL case (did not run?)"; cat $(GPU_DGRAPH_MUT_DIR)/$$name.log; exit 1; fi; \
+	  echo "mutant $$name killed: $$nfail case(s) failed"; killed=$$((killed+1)); }; \
+	dmut begin-fail-keeps-lock 's|    omega_gpu_session_unlock(); /\* begin_fail releases \*/|    ;|'; \
+	dmut begin-fail-stays-in-token 's|    g->in_token = 0; g->failed = 1;|    g->failed = 1;|'; \
+	dmut oneshot-old-bad-args-only 's|if (brc != OMEGA_GPU_DGRAPH_OK) {|if (brc == OMEGA_GPU_DGRAPH_BAD_ARGS) {|'; \
+	dmut abort-keeps-lock 's|g->n_stamp = 0; /\* no timeline for an abandoned token \*/|&\n    return OMEGA_GPU_DGRAPH_OK;|'; \
+	dmut abort-submits 's|^int omega_gpu_decode_graph_abort_token(OmegaGpuDecodeGraph \*g) {$$|&\n    if (g \&\& g->in_token) return omega_gpu_decode_graph_end_token(g, NULL, NULL);|'; \
+	echo "test-gpu-decode-graph-abort-mutants: $$killed of 5 mutants killed"
 
 # OWN-30B W-L2c (2026-10-14): per-launch fixed cost inside a command list (tests/gpu_launch_cost_test.c, chip only, GB10 lock).
 GPU_LAUNCH_COST_TEST = $(OUT_DIR)/gpu_launch_cost_test
@@ -423,7 +452,7 @@ HOST_TESTS = test-drift test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv
 	test-native-artifact zero-cuda-gate verify-vendored test-swap-cli test-om-encoder test-om-spec-encoder test-om-cubin \
 	test-portable-receipts test-gpu-qmd-shared test-model-capacity test-gpu-qmd-shared-clean-build \
 	test-omega-slice-runner test-omega-arch-guard test-omega-barrier-contract test-omega-binding-portable \
-	test-gpu-imadhi-rc test-dagsim $(CARRIED_HOST_TESTS)
+	test-gpu-imadhi-rc test-dagsim test-mufu-ftz $(CARRIED_HOST_TESTS)
 ifneq ($(CUDAPP_TARGET_ONLY_TESTS),)
 HOST_TESTS := $(filter-out $(CUDAPP_TARGET_ONLY_TESTS),$(HOST_TESTS)) test-omega-target-only
 endif
@@ -481,9 +510,9 @@ zero-cuda-gate: $(HELLO_GPU) $(GPU_API_TEST)
 	tools/zero-cuda-gate.sh --self-test
 	tools/zero-cuda-gate.sh $(HELLO_GPU) $(GPU_API_TEST)
 
-# omega #492: IMAD.HI.U32 with a register Rc. The chip reads Rc as a 64-bit register pair (nvcc 13.0
-# sm_121 oracle, evidence/IMADHI-RC-ORACLE-nvcc13.0-20261016; chip probe pending), so the four warp
-# simulators refuse a non-RZ Rc instead of modelling a 32-bit one. One binary per simulator header.
+# omega #492: IMAD.HI.U32 with a register Rc. The chip reads Rc as a 64-bit pair, low word Rc
+# (nvcc 13.0 sm_121 oracle, evidence/IMADHI-RC-ORACLE-nvcc13.0-20261016; chip probe NOT_RUN).
+# The four warp simulators model an even Rc as that pair and refuse an odd Rc. One binary per header.
 .PHONY: test-gpu-imadhi-rc
 GPU_IMADHI_SIMS = bw_warp_sim bw_warp_sim_tc bw_warp_sim_k bw_warp_sim_pa
 GPU_IMADHI_TESTS = $(GPU_IMADHI_SIMS:%=$(OUT_DIR)/gpu_imadhi_rc_test_%)
@@ -519,7 +548,7 @@ $(DS_OBJ): tools/dagsim/dagsim.c tools/dagsim/dagsim.h src/runtime/rx_costmodel.
 		rm -f $@; exit 1; fi
 
 $(DS_UNIT): tests/dagsim/dagsim_unit.c $(DS_OBJ) $(RX_CM_OBJ) $(DS_SHA_SRC) | $(OUT_DIR)
-	$(CC) $(CFLAGS) -Itools/dagsim -o $@ tests/dagsim/dagsim_unit.c $(DS_OBJ) $(RX_CM_OBJ) $(DS_SHA_SRC) -lm
+	$(CC) $(CFLAGS) -Itools/dagsim -o $@ tests/dagsim/dagsim_unit.c $(DS_OBJ) $(RX_CM_OBJ) $(DS_SHA_SRC) -Wl,--wrap=rx_cm_predict -lm
 
 $(DS_CLI): tools/dagsim/dagsim_cli.c $(DS_OBJ) $(RX_CM_OBJ) $(DS_SHA_SRC) | $(OUT_DIR)
 	$(CC) $(CFLAGS) -Itools/dagsim -o $@ tools/dagsim/dagsim_cli.c $(DS_OBJ) $(RX_CM_OBJ) $(DS_SHA_SRC) -lm
@@ -527,3 +556,5 @@ $(DS_CLI): tools/dagsim/dagsim_cli.c $(DS_OBJ) $(RX_CM_OBJ) $(DS_SHA_SRC) | $(OU
 test-dagsim: $(DS_UNIT) $(DS_CLI)
 	./$(DS_UNIT)
 	sh tests/dagsim/run_cli.sh $(DS_CLI) $(OUT_DIR)/dagsim-cli-out
+	sh tests/dagsim/mutant_lifetime.sh
+	sh tests/dagsim/mutant_predict.sh

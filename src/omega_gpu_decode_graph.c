@@ -1,4 +1,19 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2026 Drake Stapleton (AIEN / aien-dev)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 /*
  * omega_gpu_decode_graph.c: one decode token as one command list (see the header). Records the four decode APIs'
  * *_record launches and the omega_blackwell_codegen_dec glue kernels into an omega_gpu_cmdlist. Buffers:
@@ -285,6 +300,14 @@ int omega_gpu_decode_graph_record_swiglu(OmegaGpuDecodeGraph *g, uint64_t gu_va,
     return add_glue(g, OMEGA_GPU_DGRAPH_K_SWIGLU, &g->k[g->mutant == 1 ? K_SW_M1 : K_SW], OMEGA_DEC_INTER / OMEGA_DEC_THREADS, OMEGA_DEC_TOPK, (size_t)OMEGA_DEC_TOPK * OMEGA_DEC_INTER, a, OMEGA_DEC_SW_WORDS);
 }
 
+/* A failed begin leaves no token behind: list emptied, out of the token, lock released (no end_token owed, omega #518). */
+static int begin_fail(OmegaGpuDecodeGraph *g) {
+    omega_gpu_cmdlist_reset(g->cl);
+    g->in_token = 0; g->failed = 1;
+    omega_gpu_session_unlock(); /* begin_fail releases */
+    return OMEGA_GPU_DGRAPH_CHIP_FAIL;
+}
+
 int omega_gpu_decode_graph_begin_token(OmegaGpuDecodeGraph *g, const float *x_embed) {
     if (!g || g->in_token) return OMEGA_GPU_DGRAPH_BAD_ARGS;
     omega_gpu_session_lock();
@@ -293,11 +316,11 @@ int omega_gpu_decode_graph_begin_token(OmegaGpuDecodeGraph *g, const float *x_em
     memset(&g->acc, 0, sizeof g->acc);
     g->n_kind = 0; g->tagged_in_list = 0; g->n_stamp = 0;
     omega_gpu_cmdlist_reset(g->cl);
-    if (!omega_gpu_session_open()) return fail(g, NULL, OMEGA_GPU_DGRAPH_CHIP_FAIL);
+    if (!omega_gpu_session_open()) return begin_fail(g);
     uint32_t *tok = cpu_of(g, g->lo.token);
     tok[0] = TOKEN_POISON; tok[1] = TOKEN_POISON;
     if (x_embed) memcpy(cpu_of(g, g->lo.x), x_embed, OMEGA_GPU_DGRAPH_HIDDEN * 4u);
-    if (omega_gpu_session_sync_to_gpu(&g->buf) != 0) return fail(g, NULL, OMEGA_GPU_DGRAPH_CHIP_FAIL);
+    if (omega_gpu_session_sync_to_gpu(&g->buf) != 0) return begin_fail(g);
     return OMEGA_GPU_DGRAPH_OK;
 }
 
@@ -374,9 +397,18 @@ int omega_gpu_decode_graph_end_token(OmegaGpuDecodeGraph *g, uint32_t *token, Om
     return rc;
 }
 
+int omega_gpu_decode_graph_abort_token(OmegaGpuDecodeGraph *g) {
+    if (!g || !g->in_token) return OMEGA_GPU_DGRAPH_BAD_ARGS;
+    omega_gpu_cmdlist_reset(g->cl);
+    g->in_token = 0; g->tagged_in_list = 0; g->n_stamp = 0; /* no timeline for an abandoned token */
+    omega_gpu_session_unlock();
+    return OMEGA_GPU_DGRAPH_OK;
+}
+
 int omega_gpu_decode_graph_token(OmegaGpuDecodeGraph *g, const float *x_embed, uint32_t pos, uint32_t *token, OmegaGpuDecodeGraphStats *st) {
     if (!g) return OMEGA_GPU_DGRAPH_BAD_ARGS;
-    if (omega_gpu_decode_graph_begin_token(g, x_embed) == OMEGA_GPU_DGRAPH_BAD_ARGS) return OMEGA_GPU_DGRAPH_BAD_ARGS;
+    const int brc = omega_gpu_decode_graph_begin_token(g, x_embed);
+    if (brc != OMEGA_GPU_DGRAPH_OK) { if (st) memset(st, 0, sizeof *st); return brc; } /* nothing begun, lock free */
     for (uint32_t l = 0; l < g->cfg.layers && !g->failed; l++) (void)omega_gpu_decode_graph_record_layer(g, l, pos);
     if (!g->failed) (void)omega_gpu_decode_graph_record_final(g);
     return omega_gpu_decode_graph_end_token(g, token, st);
