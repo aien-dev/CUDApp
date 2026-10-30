@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-# Runtime API gate (Bar C2, docs/runtime/API.md section 2): the manifest against the headers, the public-surface check,
-# the version-bump check against the base branch, and every negative control of both. Host only: no GPU, no CUDA toolkit.
+# Runtime API gate (Bar C2, docs/runtime/API.md section 2; #189): the manifest against the headers, the public-surface
+# check, the version-bump check against the base branch, and every negative control of both.
+# Host only, on a GitHub-hosted runner with no GB10 and no CUDA toolkit. Chip execution is a separate step and is
+# NOT_RUN. `make test` in ci.yml (and the x86-64 host-tests job, #196) also lists test-runtime-api; neither runs
+# test-runtime-api-semver against the pull request base. This file does not replace those jobs.
 name: runtime-api
 on:
   pull_request:
@@ -20,7 +23,19 @@ jobs:
       - name: Toolchain record
         run: gcc --version | head -n 1 && make --version | head -n 1 && perl -v | sed -n 2p
       - name: Manifest, surface and negative controls
-        run: make test-runtime-api
+        run: |
+          rc=0
+          make test-runtime-api > "$RUNNER_TEMP/runtime-api.log" 2>&1 || rc=$?
+          cat "$RUNNER_TEMP/runtime-api.log"
+          [ "$rc" -eq 0 ] || exit "$rc"
+          last=$(tail -n 1 "$RUNNER_TEMP/runtime-api.log")
+          case $last in
+            "RESULT: PASS ("*")") ;;
+            *) echo "make test-runtime-api exited 0 without a final RESULT: PASS line: $last"; exit 1 ;;
+          esac
+      - name: GB10 sm_121 chip execution
+        run: |
+          printf '%s\n' "GB10 sm_121 chip execution: NOT_RUN (host manifest check only; /dev/nvidia0, /dev/nvidia-uvm and /dev/aien-gpu stay closed)"
       - name: Version bump against the base
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
