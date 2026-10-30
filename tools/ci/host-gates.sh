@@ -93,7 +93,8 @@ gpu_bug_refused_ok() {
 	grep -qF -e '--bug=past-end is only for --sim: on the GPU it would write past a buffer' "$log" || return 1
 }
 
-# make exits 2 when the doctor recipe exits 1. Exit 0 would be READY, which this runner must not claim.
+# make's exit status is the decision. Exit 2 is the recipe refusal. Exit 0 would be READY.
+# The words "Error 1" in make's message are not part of the check.
 doctor_ok() {
 	local rc=$1 log=$2
 	[ "$rc" -eq 2 ] || return 1
@@ -105,11 +106,25 @@ doctor_ok() {
 	grep -qF 'FAIL  GPU: no NVIDIA GPU found in /sys/bus/pci/devices' "$log" || return 1
 	grep -qF 'NOT READY:' "$log" || return 1
 	grep -qF 'NOT_RUN: the target table is seeded Omega' "$log" || return 1
-	grep -qF 'Error 1' "$log" || return 1
 	if grep -qxF 'READY. Next: make hello-gpu' "$log"; then
 		return 1
 	fi
 	return 0
+}
+
+# RUN when the binary can be executed. FAIL when make -j4 exited 0 and it is missing.
+# NOT_RUN only when that build already failed.
+hello_sim_rows() {
+	local make_rc=$1 hello=$2
+	if [ -x "$hello" ]; then
+		printf '%s\n' RUN
+		return 0
+	fi
+	if [ "$make_rc" -eq 0 ]; then
+		printf '%s\n' FAIL
+		return 0
+	fi
+	printf '%s\n' NOT_RUN
 }
 
 figures_ok() {
@@ -223,13 +238,51 @@ cudapp doctor: is this machine ready for CUDA++?
   FAIL  GPU: no NVIDIA GPU found in /sys/bus/pci/devices
 NOT READY: 5 problems above. Fix the first FAIL line and run make doctor again.
   NOT_RUN: the target table is seeded Omega and needs the pinned omc.
-make: *** [mk/dx-doctor.mk:14: doctor] Error 1
 EOF
 	expect_ok doctor-not-ready doctor_ok 2 "$log"
 	expect_reject doctor-exit0 doctor_ok 0 "$log"
+	printf '%s\n' 'make: *** [mk/dx-doctor.mk:14: doctor] Error 1' >>"$log"
+	expect_reject doctor-error-text-exit0 doctor_ok 0 "$log"
 	printf '%s\n' 'READY. Next: make hello-gpu' >>"$log"
 	expect_reject doctor-ready-line doctor_ok 2 "$log"
 	grep -qF 'NOT READY:' "$log" || { echo "FAIL doctor fixture lost NOT READY"; fail=1; }
+
+	saved_fail=$fail
+	saved_summary=$summary
+	fail=0
+	summary=$t/missing-hello-summary.txt
+	: >"$summary"
+	record_hello_or_fail 0 "$t/no-such-hello" || true
+	rows=$(grep -c '	FAIL	' "$summary" || true)
+	if [ "$fail" -eq 1 ] && [ "$rows" -eq 3 ]; then
+		echo "PASS missing-hello-after-make"
+	else
+		echo "FAIL missing-hello-after-make (fail=$fail rows=$rows)"
+		saved_fail=1
+	fi
+	fail=0
+	: >"$summary"
+	: >"$t/hello_gpu"
+	chmod +x "$t/hello_gpu"
+	if record_hello_or_fail 0 "$t/hello_gpu"; then
+		echo "PASS hello-present-is-run"
+	else
+		echo "FAIL hello-present-is-run"
+		saved_fail=1
+	fi
+	fail=0
+	: >"$summary"
+	record_hello_or_fail 2 "$t/no-such-hello" || true
+	rows=$(grep -c '	NOT_RUN	' "$summary" || true)
+	bad_rows=$(grep -c '	FAIL	' "$summary" || true)
+	if [ "$fail" -eq 0 ] && [ "$rows" -eq 3 ] && [ "$bad_rows" -eq 0 ]; then
+		echo "PASS missing-hello-after-failed-make"
+	else
+		echo "FAIL missing-hello-after-failed-make (fail=$fail not_run=$rows fail_rows=$bad_rows)"
+		saved_fail=1
+	fi
+	fail=$saved_fail
+	summary=$saved_summary
 
 	printf '%s\n' 'figures current: 10' >"$log"
 	expect_ok figures-current figures_ok 0 "$log"
@@ -264,6 +317,26 @@ record() {
 	if [ "$3" = FAIL ]; then
 		fail=1
 	fi
+}
+
+# Returns 0 only when the three simulator commands should run.
+# A successful make -j4 with no build/hello_gpu records three FAILs.
+record_hello_or_fail() {
+	local make_rc=$1 hello=$2 how
+	how=$(hello_sim_rows "$make_rc" "$hello")
+	if [ "$how" = RUN ]; then
+		return 0
+	fi
+	if [ "$how" = FAIL ]; then
+		record 'build/hello_gpu --sim' '-' FAIL 'make -j4 exited 0 and build/hello_gpu is missing'
+		record 'build/hello_gpu --sim --bug=past-end' '-' FAIL 'make -j4 exited 0 and build/hello_gpu is missing'
+		record 'build/hello_gpu --bug=past-end' '-' FAIL 'make -j4 exited 0 and build/hello_gpu is missing'
+		return 1
+	fi
+	record 'build/hello_gpu --sim' '-' NOT_RUN 'blocked: build/hello_gpu was not built'
+	record 'build/hello_gpu --sim --bug=past-end' '-' NOT_RUN 'blocked: build/hello_gpu was not built'
+	record 'build/hello_gpu --bug=past-end' '-' NOT_RUN 'blocked: build/hello_gpu was not built'
+	return 1
 }
 
 figures_mode() {
@@ -312,17 +385,18 @@ identity() {
 }
 
 gates() {
-	local log rc
+	local log rc make_rc
 	: >"$summary"
 	identity
 	note 'make test	exit=-	ENFORCED_ELSEWHERE	CI job host-tests in .github/workflows/ci.yml'
 	note 'make test-runtime-api	exit=-	ENFORCED_ELSEWHERE	.github/workflows/runtime-api.yml (#189)'
-	note 'x86-64 make test	exit=-	NOT_RUN	#196 owns that CI job'
+	note 'x86-64 make test	exit=-	ENFORCED_ELSEWHERE	job x86-host-tests in .github/workflows/host-x86.yml'
 	note 'make hello-gpu	exit=-	NOT_RUN	no GB10 and no /dev/aien-gpu on this runner'
 
 	log=$out/make-j4.log
 	run_log "$log" make -j4
-	rc=$(rc_of "$log")
+	make_rc=$(rc_of "$log")
+	rc=$make_rc
 	if archives_ok "$rc" build; then
 		sha256sum build/libomega_gpu.a build/libcudapp.a | tee "$out/archives.sha256"
 		record 'make -j4' "$rc" PASS "$(sed -n '1,2p' "$out/archives.sha256" | tr '\n' ' ')"
@@ -353,7 +427,7 @@ gates() {
 		record 'make zero-cuda-gate' '-' NOT_RUN 'blocked: make -j4 did not produce the library'
 	fi
 
-	if [ -x build/hello_gpu ]; then
+	if record_hello_or_fail "$make_rc" build/hello_gpu; then
 		log=$out/hello-sim.log
 		run_log "$log" build/hello_gpu --sim
 		rc=$(rc_of "$log")
@@ -387,10 +461,6 @@ gates() {
 		else
 			record 'build/hello_gpu --bug=past-end' "$rc" FAIL 'GPU bug path was not refused'
 		fi
-	else
-		record 'build/hello_gpu --sim' '-' NOT_RUN 'blocked: build/hello_gpu was not built'
-		record 'build/hello_gpu --sim --bug=past-end' '-' NOT_RUN 'blocked: build/hello_gpu was not built'
-		record 'build/hello_gpu --bug=past-end' '-' NOT_RUN 'blocked: build/hello_gpu was not built'
 	fi
 
 	log=$out/doctor.log

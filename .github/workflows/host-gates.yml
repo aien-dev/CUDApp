@@ -4,7 +4,7 @@
 # Composition, so this file stays small:
 # - make test is already the host-tests job in ci.yml. It is not repeated here.
 # - make test-runtime-api is runtime-api.yml. Issue #189 owns that job.
-# - An x86-64 host-tests job is issue #196. This file does not add one.
+# - x86-64 make test is the x86-host-tests job in .github/workflows/host-x86.yml. This file does not add it.
 # The AArch64 job below is the documented Linux host path with no GPU device opened.
 # Budgets: make -j4, 30 minutes on the arm runner, 5 minutes for the figure check.
 name: host-gates

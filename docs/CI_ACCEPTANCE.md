@@ -6,7 +6,7 @@ The workflow is `.github/workflows/host-gates.yml`. It composes with the jobs th
 
 - `make test` is the `host-tests` job in `.github/workflows/ci.yml`. That job judges the process exit code and the last line, `CUDA++ HOST TESTS PASS (<count> targets)`. The log keeps intentional `FAIL` and `ERROR` lines from mutants and negative controls. This policy does not start a second copy of that suite.
 - `make test-runtime-api` is `.github/workflows/runtime-api.yml`. Issue #189 owns any further change to that job.
-- An x86-64 `make test` job is issue #196. This policy does not add one.
+- x86-64 `make test` is the `x86-host-tests` job in `.github/workflows/host-x86.yml`. This policy does not add that job.
 
 ## What each gate is
 
