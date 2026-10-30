@@ -30,7 +30,7 @@ if [ "$rc" -eq 0 ]; then
   echo "mutant survived: unit suite passed after dropping LIFETIME_ORDER_CHECK"
   exit 1
 fi
-if ! grep -q 'inverted_lifetime_masks_overflow' "$tmp/out"; then
+if ! grep -q '^  FAIL .*inverted_lifetime_masks_overflow' "$tmp/out"; then
   echo "mutant did not fail named assertion inverted_lifetime_masks_overflow"
   cat "$tmp/out"
   exit 1

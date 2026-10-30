@@ -165,7 +165,7 @@ mk/runtime-r1.mk	a6cc401cfbc7f5c11fb149f71b4b1991b6147e85
 # Divergence: SPDX line only. The portability recipes match omega's text.
 mk/runtime-r3.mk	9c541fbb2574df1e91d291dd7b365cfce9fd471b
 mk/sm121dis.mk	d29fcba32384d80b1fd4897b4ed1fb2eb865d631
-# Divergence: this tree keeps the LLVM-exception SPDX line, cudapp_native.h, and the LDG.E.MMIO.GPU word 0x0c1f1900. Omega's file uses omega_native.h and 0x0c0e1900. The encoder word is not replaced.
+# Divergence: this tree keeps the LLVM-exception SPDX line, cudapp_native.h, and LDG.E.MMIO.GPU 0x0c1f1900. Omega emits LDG.E.EF 0x0c0e1900. Neither word has a NAK citation or a GB10 test, so under ADR 0043 provenance neither wins yet. CUDApp replaced omega's 0x0c0e1900 with 0x0c1f1900 in 3c163287d27b6e5a5f5b90c15b61ac83d8f26e2d after the shared import; omega still has the word from 11b6f4748facdb03d2ab39da966f110828007780.
 src/omega_blackwell_codegen.c	48c4e3e2e9ab15fff2a89c765096c21ae7654fe0
 src/omega_blackwell_codegen.h	d1d65f013b92e1e712cdfa39966ec690d9738f78
 src/omega_blackwell_codegen_attn.c	060e25cff987ff43fdb234aee39497253cf25c3a
@@ -357,8 +357,6 @@ tests/gpu_bf16_gemv_test.c	f37a595006adddd0261e5c741634909167888daf
 tests/gpu_cmdlist_test.c	f32d36caed78fda46cd1a7536da284d8d260e952
 tests/gpu_dattn256_multi_test.c	daef69b87e28c449d7756216f343d6463a0ddd7b
 tests/gpu_decode_attn256_test.c	b8b71061ad97336543635e09ee508d15a18fd437
-# Divergence: omega extends the host position checks to 131072. This test keeps its 65536 samples. The cap constant is mirrored in the header. Chip points above 65536 are NOT_RUN.
-tests/gpu_decode_attn_test.c	ff35e2a039efa661a056ab6a289e47a9b43cc73b
 tests/gpu_decode_graph_test.c	8af07f1e423f3db54438749eb4a76a1c9f09443c
 tests/gpu_elementwise_test.c	7a270eb5f45e96aa89d2e6fed6963b2ee044d05b
 tests/gpu_exact_head_test.c	5258f3d84f5bc44eca597666f146bb2cc54bcdf0

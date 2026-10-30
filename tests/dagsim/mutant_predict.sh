@@ -32,12 +32,12 @@ if [ "$rc" -eq 0 ]; then
   echo "mutant survived: unit suite passed after dropping the predict refusal check"
   exit 1
 fi
-if ! grep -q 'predict_unsupported_despite_known' "$tmp/out"; then
+if ! grep -q '^  FAIL .*predict_unsupported_despite_known' "$tmp/out"; then
   echo "mutant did not fail named assertion predict_unsupported_despite_known"
   cat "$tmp/out"
   exit 1
 fi
-if ! grep -q 'predict_refused_despite_known' "$tmp/out"; then
+if ! grep -q '^  FAIL .*predict_refused_despite_known' "$tmp/out"; then
   echo "mutant did not fail named assertion predict_refused_despite_known"
   cat "$tmp/out"
   exit 1
