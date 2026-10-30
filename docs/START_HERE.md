@@ -90,9 +90,11 @@ maps and receipts remain unchanged. The obsolete
 [consumer PR #618](https://github.com/aien-dev/omega-mv/pull/618) used an older
 pin and different source-check contract; it is not the canonical cutover base.
 
-On x86-64, `make test` is the portable host suite. Production `dsb sy` stays on AArch64 (`nvrm/cpu_barrier.h`). The x86-64 publication barrier is a real sequentially consistent fence. A target-only check that names its requirement and exits 2 is not a pass of that check. The two lists are in [docs/OMEGA_HOST_TESTS.md](OMEGA_HOST_TESTS.md) ([#15](https://github.com/aien-dev/CUDApp/issues/15)).
+On x86-64, `make test` is the portable host suite. Production `dsb sy` stays on AArch64 (`nvrm/cpu_barrier.h`). The x86-64 publication barrier is a real sequentially consistent fence. A target-only check that names its requirement and exits 2 is not a pass of that check. The two lists are in [docs/OMEGA_HOST_TESTS.md](OMEGA_HOST_TESTS.md) ([#15](https://github.com/aien-dev/CUDApp/issues/15)). The x86-64 device path returns `ENOTSUP` and the text `requires AArch64 Linux`. That path is not a supported GPU run.
 
-Optional: `python3 tools/figures/make_figures.py --check` verifies that README diagrams match the generator. Check it on your exact commit.
+`python3 tools/figures/make_figures.py --check` verifies that the README diagrams, including `docs/img/stack.svg`, match `tools/figures/make_figures.py`. It must print `figures current:` and exit 0. Pull requests run that check. When the generator changes, commit the regenerated SVG in the same change. A diagram that disagrees with the generator fails the check.
+
+Pull requests also run `make -j4`, `make test-native-artifact`, `make zero-cuda-gate`, `build/hello_gpu --sim` and read-only `make doctor` on `ubuntu-24.04-arm`. `make test` runs as the `host-tests` job. None of those jobs open a GPU. What a green check means is [docs/CI_ACCEPTANCE.md](CI_ACCEPTANCE.md).
 
 ## 3. Diagnose a native GPU machine
 

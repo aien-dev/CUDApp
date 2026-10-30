@@ -21,6 +21,8 @@ build/hello_gpu --sim   # simulator, not a hardware result
 make doctor             # diagnostic; may report NOT READY on other hosts
 ```
 
+Pull requests run those host commands. The acceptance rules are [docs/CI_ACCEPTANCE.md](docs/CI_ACCEPTANCE.md). A green check is a host or simulator result for that commit. It is not a GB10 result.
+
 Only on a qualified GB10 when it is safe to use the GPU (never interrupt a live service):
 
 ```sh
