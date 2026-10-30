@@ -28,9 +28,11 @@
  * host as an oracle only; see PROVENANCE.md).
  *
  * Limits, deliberate and recorded:
- *   - e_phoff/e_phnum are 0: this is a section-based container. The ptxas
- *     reference also carries PT_LOAD program headers; whether cuModuleLoadData
- *     needs them is exactly what the NOT_RUN device probe must decide.
+ *   - The writer emits five program headers (PT_PHDR, PT_LOAD for the header
+ *     table, text, shared and constant), matching the ptxas reference layout.
+ *     They are not sufficient for cuModuleLoadData: an image with them still
+ *     returned error 200 on GB10 (window 20261024T044814Z-4dc098, transcript
+ *     only; see evidence/MAX-INTEROP/G2). Whether they are necessary is open.
  *   - EIATTR_EXIT_INSTR_OFFSETS is omitted because this writer does not decode
  *     SASS and will not fabricate the EXIT byte offset. ptxas emits it; the
  *     driver treats it as optional metadata until a device load proves else.

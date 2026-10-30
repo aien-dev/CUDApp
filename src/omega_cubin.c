@@ -68,9 +68,11 @@ static void put32(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(
 static void put64(uint8_t *p, uint64_t v) { put32(p, (uint32_t)v); put32(p + 4, (uint32_t)(v >> 32)); }
 static size_t align_up(size_t n, size_t a) { return a ? (n + a - 1) / a * a : n; }
 
-/* One Elf64_Phdr. The cubin loader reads the PT_LOAD ranges to find the text,
- * constant and shared segments; without them cuModuleLoadData rejects the image
- * (REVIEW C-22, confirmed on-device: error 200). */
+/* One Elf64_Phdr, laid out like the ptxas reference (PT_LOAD for text,
+ * constant and shared). REVIEW C-22 assumed the loader needs them. On GB10 an
+ * image carrying them still returned error 200 (window 20261024T044814Z-4dc098,
+ * transcript only), so they are not sufficient; necessity is unproven. The
+ * load matrix in evidence/MAX-INTEROP/G2 isolates the remaining causes. */
 static void put_phdr(uint8_t *p, uint32_t type, uint32_t flags, uint64_t off,
                      uint64_t filesz, uint64_t memsz) {
     put32(p + 0, type);
