@@ -64,8 +64,9 @@ jobs:
             *) echo "make test exited 0 without the final CUDA++ HOST TESTS PASS line"; exit 1 ;;
           esac
   om-units:
-    # The committed Omega bindings (src/cudapp_om_units.c) regenerate byte for byte from the pinned omc and
-    # omega-bridge, and every mutant .om unit goes red. omega-mv e5b32567 carries the pinned seed/out/omc.
+    # The committed Omega bindings (src/cudapp_om_units.c and the x86linux pair src/cudapp_*_x86.c) regenerate
+    # byte for byte from the pinned omc and omega-bridge, and every mutant .om unit goes red. omega-mv e5b32567
+    # carries the pinned seed/out/omc; omega-mv bf54b19f carries the x86linux-capable omc (sha256 in om/units.sh).
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     steps:
@@ -78,6 +79,8 @@ jobs:
           git -C "$RUNNER_TEMP/omega-mv" checkout -q e5b32567a7aff3ce594e3254a622a846a6cd190b
           git clone -q https://github.com/aien-dev/omega-bridge "$RUNNER_TEMP/omega-bridge"
           git -C "$RUNNER_TEMP/omega-bridge" checkout -q "$(grep -v '^#' om/omega-bridge.lock)"
+          git -C "$RUNNER_TEMP/omega-mv" show bf54b19fa590e8ae925c0e80815516dbf41e7326:seed/out/omc > "$RUNNER_TEMP/omc-x86"
+          chmod +x "$RUNNER_TEMP/omc-x86"
       - name: Pinned offline NVIDIA instruction oracle
         run: |
           package=cuda_nvdisasm-linux-sbsa-13.0.85-archive
@@ -89,7 +92,7 @@ jobs:
           tar -xJf "$archive" -C "$RUNNER_TEMP" "$package/bin/nvdisasm"
           sudo install -D -m755 "$RUNNER_TEMP/$package/bin/nvdisasm" /usr/local/cuda/bin/nvdisasm
       - name: Bindings regenerate and mutants go red
-        run: make test-om-units test-om-encoder-mutants test-om-cubin-mutants OMEGA_MV="$RUNNER_TEMP/omega-mv" OMEGA_BRIDGE_DIR="$RUNNER_TEMP/omega-bridge"
+        run: make test-om-units test-om-encoder-mutants test-om-cubin-mutants OMEGA_MV="$RUNNER_TEMP/omega-mv" OMEGA_BRIDGE_DIR="$RUNNER_TEMP/omega-bridge" OMEGA_X86_OMC="$RUNNER_TEMP/omc-x86"
       - name: Exact MMIO contract and wrong-cache-policy control
         run: make test-sm121-mmio OMEGA_MV="$RUNNER_TEMP/omega-mv"
   sbom:

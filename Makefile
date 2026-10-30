@@ -15,10 +15,14 @@
 .DEFAULT_GOAL := all
 PHYSICS_DIR ?= .
 # The seeded bindings src/cudapp_om_units.c and src/cudapp_freest_units.c are
-# AArch64 machine code. A non-AArch64 host links src/cudapp_binding_portable.c
-# instead and compiles the migration-pending C encoder and C cubin writer.
-# That is the portable host path. It is not a run of the seeded units.
-# CUDAPP_ENCODER=diff still requires the seeded binding and is refused here.
+# AArch64 machine code; src/cudapp_om_units_x86.c and src/cudapp_freest_units_x86.c
+# are the same units compiled for x86linux (om/units.sh writes all four). An
+# x86-64 host links the x86 pair and runs the seeded units, as AArch64 does.
+# Any other host links src/cudapp_binding_portable.c instead and compiles the
+# migration-pending C encoder and C cubin writer. That is the portable host path.
+# It is not a run of the seeded units. CUDAPP_ENCODER=diff still requires a
+# seeded binding and is refused there. Rows that run the pinned omc (itself an
+# AArch64 program) stay target-only on every non-AArch64 host.
 # On AArch64, CC stays make's built-in (CC ?= gcc does not replace it), so a
 # GB10 `make` invokes the same compiler it did before this portability guard.
 CUDAPP_HOST_ARCH := $(shell uname -m)
@@ -30,6 +34,17 @@ ifeq ($(origin CC),default)
 CC := gcc
 endif
 CUDAPP_HOST_IS_AARCH64 :=
+ifeq ($(CUDAPP_HOST_ARCH),x86_64)
+CUDAPP_HOST_SEEDED := 1
+CUDAPP_HOST_BINDING := src/cudapp_om_units_x86.c
+CUDAPP_HOST_FREEST_BINDING := src/cudapp_freest_units_x86.c
+CUDAPP_FS_BINDING := src/cudapp_freest_units_x86.c
+CUDAPP_BINDING_SRCS := src/cudapp_om_units_x86.c src/cudapp_freest_units_x86.c
+CUDAPP_PORTABLE_DEFS :=
+CUDAPP_TARGET_ONLY_TESTS := test-om-spec-encoder test-portable-receipts test-model-capacity
+$(info CUDA++ host $(CUDAPP_HOST_ARCH): seeded x86linux binding; rows that run the pinned AArch64 omc are target-only)
+else
+CUDAPP_HOST_SEEDED :=
 CUDAPP_HOST_BINDING := src/cudapp_binding_portable.c
 CUDAPP_HOST_FREEST_BINDING :=
 CUDAPP_FS_BINDING := src/cudapp_binding_portable.c
@@ -37,14 +52,16 @@ CUDAPP_BINDING_SRCS := src/cudapp_binding_portable.c
 CUDAPP_PORTABLE_DEFS := -DCUDAPP_MIGRATION_PENDING_C_ENCODER -DCUDAPP_MIGRATION_PENDING_C_CUBIN
 CUDAPP_TARGET_ONLY_TESTS := test-om-encoder test-om-cubin test-gpu-native-runtime test-om-spec-encoder test-portable-receipts test-model-capacity
 ifeq ($(CUDAPP_ENCODER),diff)
-$(error CUDAPP_ENCODER=diff executes the AArch64 seeded binding; this host is $(CUDAPP_HOST_ARCH))
+$(error CUDAPP_ENCODER=diff executes a seeded binding; this host is $(CUDAPP_HOST_ARCH))
 endif
-$(info CUDA++ host $(CUDAPP_HOST_ARCH): seeded AArch64 binding is not assembled; C encoder and C cubin writer are the portable bodies; other seeded units refuse with status 34)
+$(info CUDA++ host $(CUDAPP_HOST_ARCH): no seeded binding is assembled; C encoder and C cubin writer are the portable bodies; other seeded units refuse with status 34)
+endif
 else
 # Same assignment as before this branch. Make's built-in CC=cc wins, because ?=
 # does not replace a variable make already defined.
 CC ?= gcc
 CUDAPP_HOST_IS_AARCH64 := 1
+CUDAPP_HOST_SEEDED := 1
 CUDAPP_HOST_BINDING := src/cudapp_om_units.c
 CUDAPP_HOST_FREEST_BINDING := src/cudapp_freest_units.c
 CUDAPP_FS_BINDING := src/cudapp_freest_units.c
@@ -64,7 +81,7 @@ CFLAGS ?= -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc \
 -include mk/*.mk
 
 # sm_121 instruction encoder (CUDApp#79): om (default) = om/encoder/bw_enc_sm121.om through the generated binding
-# src/cudapp_om_units.c; c = the migration-pending C encoder, the differential oracle; diff = both on every call,
+# $(CUDAPP_HOST_BINDING); c = the migration-pending C encoder, the differential oracle; diff = both on every call,
 # abort on any difference (mk/om-encoder.mk). Use a separate OUT_DIR per value.
 CUDAPP_ENCODER ?= om
 CUDAPP_ENCODER_DEFS_om :=
@@ -405,9 +422,9 @@ test-omega-slice-runner:
 test-omega-barrier-contract:
 	sh tests/omega/test-barrier-contract.sh
 test-omega-binding-portable:
-	CC=$(CC) OUT_DIR=$(OUT_DIR) sh tests/omega/test-binding-portable.sh
+	CC=$(CC) CUDAPP_HOST_ARCH=$(CUDAPP_HOST_ARCH) OUT_DIR=$(OUT_DIR) sh tests/omega/test-binding-portable.sh
 test-omega-target-only:
-	sh tests/omega/test-target-only.sh
+	CUDAPP_HOST_ARCH=$(CUDAPP_HOST_ARCH) sh tests/omega/test-target-only.sh
 test-omega-slices:
 	sh tests/omega/run.sh $(or $(OMEGA_SLICE_FUZZ),120)
 

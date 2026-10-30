@@ -16,11 +16,13 @@ default and passes only with `CUDAPP_MEM_RESERVE_MIB=0`. The failing check
 refuses a 741.9 MiB serving upload because 4.6 GiB is free and the runtime
 keeps 4.0 GiB free. A host that cannot keep 4096 MiB free fails the same way.
 
-On x86-64, `make test` does not count checks that execute the seeded AArch64
-binding or the pinned `omc`. Those targets still exist. Invoking one directly
-exits 2 and names the requirement. `make test-omega-target-only` prints the
-same lines and exits 0; that exit is the report, not a pass of the named
-checks. On AArch64 those checks stay inside `make test`.
+On x86-64, `make test` links the x86linux seeded binding (below) and runs the
+seeded encoder, cubin packer and native-unit checks, as on AArch64. It does not
+count checks that run the pinned `omc`, which is itself an AArch64 program.
+Those targets still exist. Invoking one directly exits 2 and names the
+requirement. `make test-omega-target-only` prints the same lines and exits 0;
+that exit is the report, not a pass of the named checks. On AArch64 those
+checks stay inside `make test`.
 
 `test-gpu-imadhi-rc` and `test-dagsim` stay in `make test` on x86-64. They are
 host programs and do not open a device. On the VM in
@@ -72,29 +74,42 @@ caller. A one-line unguarded fixture must fail. If `aarch64-linux-gnu-gcc` is
 absent on an x86-64 host, the AArch64 object row prints `NOT_RUN`. The source
 contract still runs.
 
-## Seeded binding on a non-AArch64 host
+## Seeded binding by host
 
-`src/cudapp_om_units.c` and `src/cudapp_freest_units.c` are generated AArch64
-machine code (`om/units.sh`). They are not edited. A host that is not AArch64
-does not assemble them.
+`om/units.sh` generates every binding from the pinned `omc` and omega-bridge.
+None of them is edited by hand.
 
-That host links `src/cudapp_binding_portable.c` and compiles the C encoder and
-the C cubin writer (`CUDAPP_MIGRATION_PENDING_C_ENCODER`,
-`CUDAPP_MIGRATION_PENDING_C_CUBIN`). `make` says so. This is how the portable
-suite produces instruction words and cubin images. It is not a run of
-`bw_enc_sm121.om` or `cubin_elf.om`, and it is not a pass of the `.om` versus C
-differential.
+| Host | Hosted binding | Freestanding binding |
+|---|---|---|
+| AArch64 | `src/cudapp_om_units.c` | `src/cudapp_freest_units.c` |
+| x86-64 | `src/cudapp_om_units_x86.c` | `src/cudapp_freest_units_x86.c` |
+| any other | `src/cudapp_binding_portable.c` | `src/cudapp_binding_portable.c` |
+
+The AArch64 and x86-64 files are the same `.om` units compiled for each target
+(`target x86linux` for the x86 pair) and emitted by the bridge's `native c` and
+`native freest` generators. They are machine code for that architecture, so
+each host assembles only its own pair. `om/units.sh --check` regenerates the
+x86 pair only when `OMEGA_X86_OMC` names the x86linux-capable `omc` whose
+SHA-256 is pinned in `om/units.sh`; without it the check prints `NOT_RUN` for
+the x86 pair. Both pairs declare the same `src/cudapp_native.h`; `om/units.sh`
+refuses when the x86 frames would declare a different header.
+
+A host that is neither AArch64 nor x86-64 links `src/cudapp_binding_portable.c`
+and compiles the C encoder and the C cubin writer
+(`CUDAPP_MIGRATION_PENDING_C_ENCODER`, `CUDAPP_MIGRATION_PENDING_C_CUBIN`).
+`make` says so. That is not a run of `bw_enc_sm121.om` or `cubin_elf.om`, and it
+is not a pass of the `.om` versus C differential.
 
 `omega_native_revision` and `omega_native_epoch` in the portable file follow
 the committed freestanding units. The vectors were taken by executing
 `src/cudapp_freest_units.c` under `qemu-aarch64` 8.2.2 on an x86-64 host
 (cross compile with `aarch64-linux-gnu-gcc`). That qemu run is not a GB10
 result. `make test-omega-binding-portable` checks the same vectors against
-whichever file this host links. Every other seeded entry returns status 34
-(`OMEGA_BAD_RT`) and does not write its result.
+whichever file this host links. In the portable file every other seeded entry
+returns status 34 (`OMEGA_BAD_RT`) and does not write its result.
 
-These commands exit 2 on x86-64. They run for real on AArch64 when their other
-tools are present:
+On such a host these commands exit 2. On x86-64 only the last three do, and on
+AArch64 none do when their other tools are present:
 
 ```sh
 make test-om-encoder
@@ -105,10 +120,10 @@ make test-portable-receipts
 make test-model-capacity
 ```
 
-`make test-codegen-freestanding` on x86-64 still runs the freestanding C
-encoder checks. The hosted `.om` comparison prints `NOT_RUN` and is not
-performed. `CUDAPP_ENCODER=diff` on x86-64 is an error: that mode executes the
-seeded binding.
+Without a seeded binding, `make test-codegen-freestanding` still runs the
+freestanding C encoder checks; the hosted `.om` comparison prints `NOT_RUN` and
+is not performed, and `CUDAPP_ENCODER=diff` is an error, because that mode
+executes the seeded binding.
 
 ## Omega slice gate
 
@@ -171,9 +186,9 @@ Target-only, not a silent pass inside `make test`:
 
 ```sh
 make test-omega-slices          # needs the pinned OSC compiler above
-make test-om-encoder            # AArch64; seeded encoder binding
-make test-om-cubin              # AArch64; seeded cubin packer
-make test-gpu-native-runtime    # AArch64; seeded native units
+make test-om-encoder            # AArch64 or x86-64; seeded encoder binding
+make test-om-cubin              # AArch64 or x86-64; seeded cubin packer
+make test-gpu-native-runtime    # AArch64 or x86-64; seeded native units
 make test-om-spec-encoder       # pinned omc and nvdisasm
 make test-portable-receipts     # pinned omc
 make test-model-capacity        # pinned omc

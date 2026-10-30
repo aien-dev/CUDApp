@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
-/* Portable host stand-in used only when the host cannot assemble the seeded
- * bindings. src/cudapp_om_units.c and src/cudapp_freest_units.c stay as
- * om/units.sh wrote them. This file is not that regeneration, and the AArch64
- * library does not link it.
+/* Portable host stand-in used only when the host cannot assemble a seeded
+ * binding. src/cudapp_om_units.c and src/cudapp_freest_units.c (AArch64) and
+ * src/cudapp_om_units_x86.c and src/cudapp_freest_units_x86.c (x86-64) stay as
+ * om/units.sh wrote them. This file is not that regeneration, and neither the
+ * AArch64 nor the x86-64 library links it.
  *
- * ADR 0043 missing feature: those generated units are AArch64 machine code, and
- * seeded Omega does not yet emit a binding the build host can assemble. This
- * file is migration-pending C. The library compiles it only on a non-AArch64
- * host, and only with CUDAPP_MIGRATION_PENDING_C_ENCODER and
+ * ADR 0043 missing feature: seeded Omega emits bindings for AArch64 and, since
+ * omega-mv#940, for x86linux. A host that is neither has no binding it can
+ * assemble. This file is migration-pending C. The library compiles it only on
+ * such a host, and only with CUDAPP_MIGRATION_PENDING_C_ENCODER and
  * CUDAPP_MIGRATION_PENDING_C_CUBIN, the switches that select the C encoder and
  * the C cubin writer. The host test defines BINDING_PORTABLE. Extension
  * proposal: https://github.com/aien-dev/omega-mv/issues/940

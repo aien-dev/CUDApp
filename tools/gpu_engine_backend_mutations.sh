@@ -41,6 +41,10 @@ aarch64|arm64)
     BIND_SRC=src/cudapp_om_units.c
     PORTABLE_DEFS=
     ;;
+x86_64)
+    BIND_SRC=src/cudapp_om_units_x86.c
+    PORTABLE_DEFS=
+    ;;
 *)
     BIND_SRC=src/cudapp_binding_portable.c
     PORTABLE_DEFS="-DCUDAPP_MIGRATION_PENDING_C_ENCODER -DCUDAPP_MIGRATION_PENDING_C_CUBIN"

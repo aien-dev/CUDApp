@@ -142,9 +142,10 @@ $(GPU_FS_DIR)/%.o: src/%.c $(GPU_FS_HDRS)
 	@mkdir -p $(GPU_FS_DIR)
 	gcc $(GPU_FS_CFLAGS) -c -o $@ $<
 
-# src/cudapp_binding_portable.c is migration-pending C. The freestanding x86-64
-# link uses it as $(CUDAPP_FS_BINDING) and must pass the same switches as the
-# library. AArch64 links src/cudapp_freest_units.c, so this rule is unused there.
+# src/cudapp_binding_portable.c is migration-pending C. The freestanding link on
+# a host without a seeded binding uses it as $(CUDAPP_FS_BINDING) and must pass
+# the same switches as the library. AArch64 and x86-64 link their seeded
+# src/cudapp_freest_units*.c, so this rule is unused there.
 $(GPU_FS_DIR)/cudapp_binding_portable.o: src/cudapp_binding_portable.c $(GPU_FS_HDRS)
 	@mkdir -p $(GPU_FS_DIR)
 	gcc $(GPU_FS_CFLAGS) $(CUDAPP_PORTABLE_DEFS) -c -o $@ $<
@@ -176,18 +177,18 @@ test-gpu-engine-freestanding: $(GPU_FS_LINK) build/test_omega_gpu_engine_freesta
 # nm -u check to refuse it (a check that can never fail proves nothing).
 .PHONY: test-codegen-freestanding test-gpu-fs-allowlist-control
 CODEGEN_FS_TEST_DEPS = tests/test_omega_codegen_freestanding.c src/omega_blackwell_codegen.h src/omega_blackwell_matmul.h
-# The hosted side encodes through the .om encoder (om/encoder/bw_enc_sm121.om via src/cudapp_om_units.c), the
+# The hosted side encodes through the .om encoder (om/encoder/bw_enc_sm121.om via $(CUDAPP_HOST_BINDING)), the
 # freestanding side through the migration-pending C encoder, so the cmp below is also an .om-vs-C differential.
-build/test_codegen_hosted: $(CODEGEN_FS_TEST_DEPS) src/omega_blackwell_codegen.c src/cudapp_om_units.c src/cudapp_native.h \
+build/test_codegen_hosted: $(CODEGEN_FS_TEST_DEPS) src/omega_blackwell_codegen.c $(CUDAPP_HOST_BINDING) src/cudapp_native.h \
 		src/omega_blackwell_matmul.c src/sha256.c
 	@mkdir -p build
 	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -pthread -Isrc -o $@ tests/test_omega_codegen_freestanding.c \
-		src/omega_blackwell_codegen.c src/cudapp_om_units.c src/omega_blackwell_matmul.c src/sha256.c
+		src/omega_blackwell_codegen.c $(CUDAPP_HOST_BINDING) src/omega_blackwell_matmul.c src/sha256.c
 build/test_codegen_freestanding: $(CODEGEN_FS_TEST_DEPS) $(GPU_FS_LINK)
 	@mkdir -p build
 	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Isrc -DOMEGA_GPU_NO_POSIX -o $@ tests/test_omega_codegen_freestanding.c \
 		$(GPU_FS_DIR)/omega_blackwell_codegen.o $(GPU_FS_DIR)/omega_blackwell_matmul.o $(GPU_FS_DIR)/sha256.o
-ifeq ($(CUDAPP_HOST_IS_AARCH64),1)
+ifeq ($(CUDAPP_HOST_SEEDED),1)
 test-codegen-freestanding: build/test_codegen_hosted build/test_codegen_freestanding test-gpu-fs-allowlist-control
 	./build/test_codegen_hosted --dump > build/codegen_dump_hosted.txt
 	./build/test_codegen_freestanding --dump > build/codegen_dump_freestanding.txt
@@ -196,7 +197,7 @@ test-codegen-freestanding: build/test_codegen_hosted build/test_codegen_freestan
 	./build/test_codegen_freestanding
 else
 test-codegen-freestanding: build/test_codegen_freestanding test-gpu-fs-allowlist-control
-	@echo "test-codegen-freestanding hosted comparison: NOT_RUN (requires AArch64 Linux; the .om versus C differential was not run)"
+	@echo "test-codegen-freestanding hosted comparison: NOT_RUN (requires a seeded binding: AArch64 or x86-64 Linux; the .om versus C differential was not run)"
 	./build/test_codegen_freestanding
 endif
 
@@ -237,17 +238,17 @@ build/test_omega_gpu_native_runtime: tests/test_omega_gpu_session_platform.c tes
 	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Isrc -DOMEGA_GPU_NO_POSIX -DOMEGA_NATIVE_RUNTIME_TEST \
 		-DCUDAPP_NATIVE_RUNTIME_TEST -ffunction-sections -fdata-sections -Wl,--gc-sections \
 		-o $@ tests/test_omega_gpu_session_platform.c $(GPU_FS_LINK) $(GPU_NATIVE_RUNTIME_SRCS) -lpthread -lm
-ifeq ($(CUDAPP_HOST_IS_AARCH64),1)
+ifeq ($(CUDAPP_HOST_SEEDED),1)
 test-gpu-native-runtime: build/test_omega_gpu_native_runtime
 	./build/test_omega_gpu_native_runtime
 else
 test-gpu-native-runtime:
-	@echo "test-gpu-native-runtime: NOT_RUN (requires AArch64 Linux; the seeded native units were not executed)"
+	@echo "test-gpu-native-runtime: NOT_RUN (requires a seeded binding: AArch64 or x86-64 Linux; the seeded native units were not executed)"
 	@exit 2
 endif
-# On a non-AArch64 host the command-list list already links the portable binding,
-# which defines the scalar counters. Linking it twice would duplicate symbols.
-GPU_LINUX_REF_SRCS = src/omega_gpu_session.c src/omega_gpu_platform.c src/omega_gpu_platform_linux.c src/omega_gpu_fmt.c src/omega_blackwell_qmd.c $(if $(CUDAPP_HOST_IS_AARCH64),$(CUDAPP_FS_BINDING),)
+# On a host without a seeded binding the command-list list already links the portable
+# binding, which defines the scalar counters. Linking it twice would duplicate symbols.
+GPU_LINUX_REF_SRCS = src/omega_gpu_session.c src/omega_gpu_platform.c src/omega_gpu_platform_linux.c src/omega_gpu_fmt.c src/omega_blackwell_qmd.c $(if $(CUDAPP_HOST_SEEDED),$(CUDAPP_FS_BINDING),)
 # omega #459: the command list over the reference (near-full ring with the #457 L2 invalidate prefix pending) needs the
 # cached allocation, the command list and the codegen behind its nop kernel.
 GPU_LINUX_REF_CMDLIST_SRCS = src/omega_gpu_mem_cached.c src/omega_gpu_cmdlist.c src/omega_blackwell_codegen.c $(CUDAPP_HOST_BINDING) src/omega_blackwell_encoder.c \

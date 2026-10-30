@@ -34,8 +34,8 @@ build/hello_gpu --sim
 
 The code-allocation source scan inside `make test` expands only existing source files and refuses an empty readset, a missing/unreadable input, or any scanner error. Its negative controls also require the intended refusal diagnostic, so a setup failure cannot count as detecting forbidden allocation sizing. A clean scan is only a check of the selected source idioms, not GPU execution evidence.
 
-On x86-64, `make test-gpu-native-runtime` is outside `make test` and exits 2.
-On AArch64 it extends the existing session-platform fixture
+On a host without a seeded binding (neither AArch64 nor x86-64), `make test-gpu-native-runtime` is outside `make test` and exits 2.
+On AArch64 and x86-64 it extends the existing session-platform fixture
 with generated native Quant, Composer, encoder, residency and selector calls,
 then the actual FP8 cache and command-list integration. Platform handles are
 synthetic host fixtures, not live GPU handles. Recorded/inflight references

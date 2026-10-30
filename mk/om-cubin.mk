@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # The sm_121 cubin packer in seeded Omega (om/cubin/cubin_elf.om), linked through the omega-bridge native binding
-# src/cudapp_om_units.c that om/units.sh generates. The C writer in src/omega_cubin.c is migration-pending: the
+# $(CUDAPP_HOST_BINDING) that om/units.sh generates (AArch64 or x86linux). The C writer in src/omega_cubin.c is migration-pending: the
 # freestanding build and the oracle builds only (CUDAPP_MIGRATION_PENDING_C_CUBIN, CUDAPP_MIGRATION_PENDING_CUBIN_DIFF).
 #   make test-om-cubin           (in `make test`, no Omega tools needed)
 #       1. the cubin tests (gpu_artifact_export_test, native_artifact_manifest_test) through the .om packer;
@@ -11,17 +11,17 @@
 #       (needs OMEGA_MV and OMEGA_BRIDGE_DIR as in mk/om-encoder.mk; without them exit 3, NOT_RUN, never PASS).
 OM_CUBIN_DIR = $(OUT_DIR)/om-cubin
 OM_CUBIN_BUILD = gcc -std=gnu11 -O2 -Wall -Wextra -Werror -pthread -Isrc
-OM_CUBIN_DEPS = src/omega_cubin.c src/omega_cubin.h src/cudapp_om_units.c src/cudapp_native.h
+OM_CUBIN_DEPS = src/omega_cubin.c src/omega_cubin.h $(CUDAPP_HOST_BINDING) src/cudapp_native.h
 OM_CUBIN_DIFF = -DCUDAPP_MIGRATION_PENDING_CUBIN_DIFF
 
 .PHONY: test-om-cubin test-om-cubin-mutants
 $(OM_CUBIN_DIR)/sweep_diff: tests/om_cubin_sweep_test.c $(OM_CUBIN_DEPS)
 	@mkdir -p $(OM_CUBIN_DIR)
-	$(OM_CUBIN_BUILD) $(OM_CUBIN_DIFF) -o $@ tests/om_cubin_sweep_test.c src/omega_cubin.c src/cudapp_om_units.c
+	$(OM_CUBIN_BUILD) $(OM_CUBIN_DIFF) -o $@ tests/om_cubin_sweep_test.c src/omega_cubin.c $(CUDAPP_HOST_BINDING)
 $(OM_CUBIN_DIR)/sweep_diff_red: tests/om_cubin_sweep_test.c $(OM_CUBIN_DEPS)
 	@mkdir -p $(OM_CUBIN_DIR)
 	$(OM_CUBIN_BUILD) $(OM_CUBIN_DIFF) -DCUDAPP_CUBIN_DIFF_SELFTEST -o $@ tests/om_cubin_sweep_test.c src/omega_cubin.c \
-		src/cudapp_om_units.c
+		$(CUDAPP_HOST_BINDING)
 $(OM_CUBIN_DIR)/artifact_diff: tests/gpu_artifact_export_test.c src/omega_native_artifact.c $(OM_CUBIN_DEPS) $(OUT_DIR)/libomega_gpu.a
 	@mkdir -p $(OM_CUBIN_DIR)
 	$(CC) $(CFLAGS) $(OM_CUBIN_DIFF) -o $@ tests/gpu_artifact_export_test.c src/omega_native_artifact.c src/omega_cubin.c \
@@ -31,9 +31,9 @@ $(OM_CUBIN_DIR)/manifest_diff: tests/native_artifact_manifest_test.c src/omega_n
 	@mkdir -p $(OM_CUBIN_DIR)
 	$(CC) $(CFLAGS) $(OM_CUBIN_DIFF) -ffunction-sections -fdata-sections -Wl,--gc-sections -Wl,--wrap=fopen -o $@ \
 		tests/native_artifact_manifest_test.c src/omega_native_artifact.c \
-		src/omega_cubin.c src/omega_blackwell_realize.c src/sha256.c src/cudapp_om_units.c -lpthread
+		src/omega_cubin.c src/omega_blackwell_realize.c src/sha256.c $(CUDAPP_HOST_BINDING) -lpthread
 
-ifeq ($(CUDAPP_HOST_IS_AARCH64),1)
+ifeq ($(CUDAPP_HOST_SEEDED),1)
 test-om-cubin: $(ARTIFACT_TEST) $(OUT_DIR)/native_artifact_manifest_test $(OM_CUBIN_DIR)/artifact_diff \
 		$(OM_CUBIN_DIR)/manifest_diff $(OM_CUBIN_DIR)/sweep_diff $(OM_CUBIN_DIR)/sweep_diff_red
 	rm -rf $(OM_CUBIN_DIR)/artifact-om $(OM_CUBIN_DIR)/artifact-diff $(OM_CUBIN_DIR)/diff.log
@@ -51,7 +51,7 @@ test-om-cubin: $(ARTIFACT_TEST) $(OUT_DIR)/native_artifact_manifest_test $(OM_CU
 	else echo "red check: one flipped image bit aborts the cubin diff, as it must"; fi
 else
 test-om-cubin:
-	@echo "test-om-cubin: NOT_RUN (requires AArch64 Linux; the seeded cubin packer was not executed)"
+	@echo "test-om-cubin: NOT_RUN (requires a seeded binding: AArch64 or x86-64 Linux; the seeded cubin packer was not executed)"
 	@exit 2
 endif
 
