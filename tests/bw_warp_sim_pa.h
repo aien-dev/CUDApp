@@ -1,4 +1,19 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2026 Drake Stapleton (AIEN / aien-dev)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 /* bw_warp_sim.h: host SIMT simulator for the Blackwell IR (omega #308).
  *
  * Models what the earlier per-thread simulators could not: a warp of 32 lanes with an
@@ -29,6 +44,8 @@
  *                      an exit jumped past it, or a target was corrupted)
  *   WS_E_NEVER_JOINED  the warp finished with a barrier still armed
  *   WS_E_SELF_BRANCH, WS_E_PC, WS_E_OP, WS_E_SHIFT, WS_E_MEM, WS_E_SMEM, WS_E_FRAGS
+ *   WS_E_IMADHI_RC     IMAD.HI.U32 with a register Rc: the chip reads Rc as a 64-bit pair (omega #492,
+ *                      nvcc oracle, chip probe pending), so a non-RZ Rc is refused, not modelled
  * Every error names the pc. Memory: global addresses are host pointers (optionally range
  * checked); shared memory is a per-CTA buffer poisoned at CTA start so a read of a word
  * nobody wrote shows up in the oracle comparison.
@@ -70,12 +87,12 @@
 enum {
     WS_OK = 0, WS_E_SHFL_SPLIT, WS_E_SHFL_EXITED, WS_E_BAR_SPLIT, WS_E_BSYNC_UNARMED, WS_E_BSSY_REARM,
     WS_E_JOIN_MISMATCH, WS_E_NONMEMBER, WS_E_STUCK, WS_E_NEVER_JOINED, WS_E_SELF_BRANCH, WS_E_PC,
-    WS_E_OP, WS_E_SHIFT, WS_E_MEM, WS_E_SMEM, WS_E_FRAGS, WS_E_BAR_TIMEOUT, WS_E_STEPS
+    WS_E_OP, WS_E_SHIFT, WS_E_MEM, WS_E_SMEM, WS_E_FRAGS, WS_E_BAR_TIMEOUT, WS_E_STEPS, WS_E_IMADHI_RC
 };
 static const char *ws_err_name(int e) {
     static const char *const n[] = { "OK", "SHFL_SPLIT", "SHFL_EXITED", "BAR_SPLIT", "BSYNC_UNARMED", "BSSY_REARM",
         "JOIN_MISMATCH", "NONMEMBER", "STUCK", "NEVER_JOINED", "SELF_BRANCH", "PC", "OP", "SHIFT", "MEM", "SMEM",
-        "FRAGS", "BAR_TIMEOUT", "STEPS" };
+        "FRAGS", "BAR_TIMEOUT", "STEPS", "IMADHI_RC" };
     return (e >= 0 && e < (int)(sizeof n / sizeof n[0])) ? n[e] : "?";
 }
 
@@ -158,7 +175,9 @@ static void ws_lane_exec(WsSim *s, WsLane *l, const BlackwellIRInsn *in, int pc,
     case BW_IR_MOV_RZ: ws_wrs(l, in->dst_vreg, in->dst_subreg, 0, p); break;
     case BW_IR_IMAD: ws_wrs(l, in->dst_vreg, in->dst_subreg, in->src2_vreg >= 0 ? a * b + c : a * in->imm + c, p); break;
     case BW_IR_IMAD_WIDE: ws_wr64(l, in->dst_vreg, (uint64_t)a * in->imm + ws_rd64(l, in->src3_vreg, p), p); break;
-    case BW_IR_IMAD_HI_U32: ws_wrs(l, in->dst_vreg, in->dst_subreg, (uint32_t)(((uint64_t)a * b) >> 32) + c, p); break;
+    case BW_IR_IMAD_HI_U32: /* Rd = hi32(Ra * Rb) with Rc = RZ. The chip reads a register Rc as a 64-bit pair (omega #492): refused until a chip probe pins the model */
+        if (in->src3_vreg >= 0) { ws_fail(s, WS_E_IMADHI_RC, pc, "IMAD.HI.U32 with a register Rc (the chip reads Rc as a 64-bit pair, not chip-probed): use RZ, or SHF.R + IADD3"); return; }
+        ws_wrs(l, in->dst_vreg, in->dst_subreg, (uint32_t)(((uint64_t)a * b) >> 32), p); break;
     case BW_IR_IADD3: ws_wrs(l, in->dst_vreg, in->dst_subreg, a + b, p); break; /* the encoder's IADD3 has Rc = RZ */
     case BW_IR_SHF_R: ws_wrs(l, in->dst_vreg, in->dst_subreg, a >> (in->imm & 31), p); break;
     case BW_IR_SHF_L_U32: if (b >= 32) { ws_fail(s, WS_E_SHIFT, pc, "SHF.L.U32 amount >= 32 (not chip-verified)"); return; } ws_wrs(l, in->dst_vreg, in->dst_subreg, a << b, p); break;

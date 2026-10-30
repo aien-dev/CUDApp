@@ -1,0 +1,31 @@
+# OEV1 fixture: Spark M1 hardware passport subset (omega-mv#578), pinned 2026-10-19.
+# Every number below is a loaded-machine measurement (load1 15 to 29) or a datasheet
+# ceiling, and says which. Nothing here was produced by running a GPU in this harness.
+oev version=1
+machine id=spark-b87b soc=GB10 cores=20 mem_bytes=137438953472 prov=specified src=nvidia-dgx-spark-datasheet
+build repo=omega-mv sha=f4a9849f00000000000000000000000000000000 physics=6d7cf0d4
+calibration id=M1-20261019 taken=2026-10-19 valid_days=30 load1=24.2 src=~/yardsticks/aien-model/M1/
+
+# Resources. One capacity ledger for CPU and GPU (unified memory).
+resource id=cpu kind=compute slots=20 prov=specified src=nproc
+resource id=gpu kind=compute slots=1 prov=specified src=one-job-at-a-time-engine
+resource id=dram_spec kind=bandwidth cap=273e9 prov=specified src=nvidia-dgx-spark-datasheet
+resource id=dram_gpu kind=bandwidth cap=218.6e9 lo=218.6e9 hi=219e9 prov=measured src=handoff-2026-10-19-qwen38-decode-speed.md:calc:e726ff77
+resource id=dram_cpu kind=bandwidth cap=65.4e9 lo=60.8e9 hi=69.8e9 prov=measured src=M1/block4.csv:gb=1,threads=8
+resource id=unified_mem kind=capacity cap=137438953472 prov=specified src=nvidia-dgx-spark-datasheet
+resource id=gpu_launch kind=launch prov=measured src=M1/block2.csv
+
+# Ops. A CPU realization call (block1 path) feeding one GPU job (block2) whose
+# fixed submit lifecycle dominates, then a CPU memcpy of 1 GB (block4, 1 thread).
+op id=realize kind=compute engine=cpu t_ns=20000 lo=19400 hi=22800 prov=measured src=M1/block1.csv:path_ns_per_call
+op id=gpu_job kind=compute engine=gpu t_ns=0 prov=measured src=M1/block2.csv:vecadd_65 launch_ns=40736700 launcher=gpu_launch
+op id=copy1g kind=copy engine=cpu t_ns=111000000 lo=107900000 hi=116600000 prov=measured src=M1/block4.csv:gb=1,threads=1 bytes=2000000000 bw=dram_cpu
+dep realize gpu_job
+dep gpu_job copy1g
+
+# Buffers.
+buffer id=src1g bytes=1000000000 cap=unified_mem first=copy1g last=copy1g
+buffer id=dst1g bytes=1000000000 cap=unified_mem first=copy1g last=copy1g
+
+# Labelled sensitivity only: 100 W is a made-up figure, not an instrument.
+energy instrument=what-if-100W boundary=wall power_w=100 prov=synthetic
