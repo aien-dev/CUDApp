@@ -36,8 +36,18 @@ PHYS=$(cd "${PHYSICS_DIR:-../physics}" 2>/dev/null && pwd -P) || {
 }
 TP=$PHYS/third_party/nvidia-open-580.173.02
 INC="-I$PHYS/m16 -I$PHYS/nvrm -I$TP/src/common/sdk/nvidia/inc -I$TP/kernel-open/common/inc -I$TP/kernel-open/nvidia-uvm -I$TP/src/nvidia/arch/nvalloc/unix/include"
-SRCS="src/omega_blackwell_submit.c src/omega_blackwell_engine.c src/omega_gpu_engine.c src/omega_blackwell_matmul.c src/omega_blackwell_codegen.c src/cudapp_om_units.c src/omega_blackwell_encoder.c src/omega_blackwell_qmd.c src/omega_blackwell_realize.c src/omega_vector.c src/omega_core.c src/omega_canonical.c src/sha256.c"
-BUILD="gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -ffunction-sections -fdata-sections -Isrc -Itests $INC -o .gpu_engine_bt tests/test_omega_blackwell_engine.c tests/fake_m16_native.c $SRCS -Wl,--gc-sections -lm"
+case $(uname -m) in
+aarch64|arm64)
+    BIND_SRC=src/cudapp_om_units.c
+    PORTABLE_DEFS=
+    ;;
+*)
+    BIND_SRC=src/cudapp_binding_portable.c
+    PORTABLE_DEFS="-DCUDAPP_MIGRATION_PENDING_C_ENCODER -DCUDAPP_MIGRATION_PENDING_C_CUBIN"
+    ;;
+esac
+SRCS="src/omega_blackwell_submit.c src/omega_blackwell_engine.c src/omega_gpu_engine.c src/omega_blackwell_matmul.c src/omega_blackwell_codegen.c $BIND_SRC src/omega_blackwell_encoder.c src/omega_blackwell_qmd.c src/omega_blackwell_realize.c src/omega_vector.c src/omega_core.c src/omega_canonical.c src/sha256.c"
+BUILD="gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -DOMEGA_BLACKWELL_HOST_SIMULATOR -pthread -ffunction-sections -fdata-sections $PORTABLE_DEFS -Isrc -Itests $INC -o .gpu_engine_bt tests/test_omega_blackwell_engine.c tests/fake_m16_native.c $SRCS -Wl,--gc-sections -lm"
 
 OUT=${GPU_ENGINE_BMUT_OUT:-}
 set -- -k table -m - -t ./.gpu_engine_bt -b "$BUILD" \
@@ -113,7 +123,7 @@ BE_FLUSH_OP_DROPPED~src/omega_blackwell_engine.c~R:pb_put(c, 0x10u << 27);@>@pb_
 BE_FLUSH_METHOD_CHANGED~src/omega_blackwell_engine.c~R:pb_put(c, nvrm_mthd(0, 0x0028, 4));@>@pb_put(c, nvrm_mthd(0, 0x002c, 4));~the flush uses the memory-operation method
 BE_WFI_FLAG_RELEASE1~src/omega_blackwell_engine.c~/pb_put(c, OMEGA_BW_MARKER_COMPLETION_PAYLOAD);/,+2 s/0x1u | (1u << 20)/0x1u/~the first release waits for idle (WFI)
 BE_WFI_FLAG_RELEASE2~src/omega_blackwell_engine.c~/pb_put(c, BE_MARKER2_PAYLOAD);/,+2 s/0x1u | (1u << 20)/0x1u/~the second release waits for idle (WFI)
-BE_BARRIER_IN_BUILD~src/omega_blackwell_engine.c~/^static int be_build/,/^}/ s/__asm__ volatile("dsb sy" ::: "memory");/(void)0;/~dsb sy after zeroing the sync words~redundant~a CPU barrier instruction has no effect a host test can observe (the fake driver runs on the same core); it is verified on the chip only (Phase B)
+BE_BARRIER_IN_BUILD~src/omega_blackwell_engine.c~/^static int be_build/,/^}/ s/nvrm_cpu_barrier();/(void)0;/~CPU barrier after zeroing the sync words~redundant~a CPU barrier instruction has no effect a host test can observe (the fake driver runs on the same core); it is verified on the chip only (Phase B)
 BE_QMD_RELEASE_CHECK~src/omega_blackwell_engine.c~R:if (qmd1_words[9] != 3u ||@>@if (0 ||~extra QMD1 release-word checks~redundant~the real descriptor builder always produces these words (src/omega_blackwell_qmd.c), so no input makes the check fire; it guards a future change of the builder, which tests/test_omega_blackwell_qmd.c style checks cover
 BE_PB_OVERFLOW~src/omega_blackwell_engine.c~R:if (c->pb_overflow) {@>@if (0) {~pushbuffer word-capacity guard~redundant~the vector pushbuffer is a fixed 492 words against a 1024-word capacity, so it cannot overflow for any job
 # ---- submit, waits, diagnostics ------------------------------------------------------

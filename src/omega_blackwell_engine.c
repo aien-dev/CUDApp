@@ -38,6 +38,7 @@
 #include "omega_blackwell_qmd.h"
 #include "omega_blackwell_submit.h"
 #include "m16_native.h"
+#include "cpu_barrier.h"
 
 #include <errno.h>
 #include <stdatomic.h>
@@ -210,6 +211,15 @@ static int be_open_device(void *ctx)
 {
     BeCtx *c = (BeCtx *)ctx;
     int rc;
+#if !defined(__aarch64__) && !defined(OMEGA_BLACKWELL_HOST_SIMULATOR)
+    /* The production device is the GB10 on AArch64 Linux. A portable host
+     * compiles this file and refuses to open it. The fake-driver tests define
+     * OMEGA_BLACKWELL_HOST_SIMULATOR. That define does not create an x86 GPU. */
+    c->last_rc = -1;
+    note(c, "Blackwell GPU backend requires AArch64 Linux");
+    errno = ENOTSUP;
+    return -1;
+#endif
     if (atomic_flag_test_and_set(&g_busy)) return -1; /* another run is active; touch nothing */
     memset(c, 0, sizeof *c);
     c->native_open = 1;
@@ -390,7 +400,7 @@ static int be_build(void *ctx, const OmegaGpuJob *job)
     *c->hmarker = 0;
     *c->hmarker2 = 0;
     if (!c->c3) c->hmarker2 = NULL; /* never waited for, never reported */
-    __asm__ volatile("dsb sy" ::: "memory");
+    nvrm_cpu_barrier(); /* AArch64: dsb sy. See nvrm/cpu_barrier.h. */
 
     /* ---- unified pushbuffer, SUB@676f16f lines 130-195 ---- */
     c->pb_len = 0;
@@ -555,7 +565,7 @@ static int be_barrier(void *ctx, uint64_t timeout_ms)
     BeCtx *c = (BeCtx *)ctx;
     (void)timeout_ms;
     begin(c);
-    __asm__ volatile("dsb sy" ::: "memory");
+    nvrm_cpu_barrier(); /* AArch64: dsb sy before readback. */
     return 0;
 }
 

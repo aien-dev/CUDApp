@@ -35,6 +35,7 @@ $(OM_ENC_DIR)/codegen_diff_red: $(OM_ENC_TEST_DEPS) $(OM_ENC_SRCS) src/cudapp_om
 	$(OM_ENC_BUILD) -DCUDAPP_MIGRATION_PENDING_ENCODER_DIFF -DCUDAPP_ENCODER_DIFF_SELFTEST -o $@ \
 		tests/test_omega_codegen_freestanding.c $(OM_ENC_SRCS) src/cudapp_om_units.c
 
+ifeq ($(CUDAPP_HOST_IS_AARCH64),1)
 test-om-encoder: $(OM_ENC_DIR)/codegen_om $(OM_ENC_DIR)/codegen_diff $(OM_ENC_DIR)/codegen_diff_red
 	$(OM_ENC_DIR)/codegen_om --golden
 	rm -f $(OM_ENC_DIR)/diff.log
@@ -46,6 +47,11 @@ test-om-encoder: $(OM_ENC_DIR)/codegen_om $(OM_ENC_DIR)/codegen_diff $(OM_ENC_DI
 	@if CUDAPP_ENCODER_DIFF_LOG=$(OM_ENC_DIR)/diff_red.log $(OM_ENC_DIR)/codegen_diff_red --dump > /dev/null 2>&1; then \
 		echo "RED CHECK BROKEN: a flipped bit passed the encoder diff"; exit 1; \
 	else echo "red check: one flipped bit aborts the encoder diff, as it must"; fi
+else
+test-om-encoder:
+	@echo "test-om-encoder: NOT_RUN (requires AArch64 Linux; src/cudapp_om_units.c is AArch64 machine code and was not executed)"
+	@exit 2
+endif
 
 test-om-encoder-corpus:
 	$(MAKE) OUT_DIR=$(OUT_DIR) CUDAPP_ENCODER=om sm121dis-corpus-bins
@@ -62,8 +68,14 @@ test-om-encoder-corpus:
 	@echo "encoder corpus: $$(ls $(OM_ENC_DIR)/k-om/*.bin | wc -l) distinct kernels identical .om vs C; diff build $$(grep -c '^program ' $(OM_ENC_DIR)/corpus-diff.log) program encodes and $$(grep -c '^insn ' $(OM_ENC_DIR)/corpus-diff.log) single-instruction encodes, all SAME"
 
 .PHONY: test-om-spec-encoder
+ifeq ($(CUDAPP_HOST_IS_AARCH64),1)
 test-om-spec-encoder:
 	sh tools/test_bw_spec_encoder.sh
+else
+test-om-spec-encoder:
+	@echo "test-om-spec-encoder: NOT_RUN (requires the pinned omc and nvdisasm; not part of the portable host suite)"
+	@exit 2
+endif
 
 test-om-units:
 	OMEGA_OMC="$(OMEGA_OMC)" OMEGA_BRIDGE="$(OMEGA_BRIDGE)" sh om/units.sh --check

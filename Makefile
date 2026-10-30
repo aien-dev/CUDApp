@@ -12,9 +12,41 @@
 # this repository, so PHYSICS_DIR is "." here. Omega is meant to build the same sources
 # with PHYSICS_DIR pointing at a pinned CUDA++ checkout (cudapp.lock); that pin does not
 # exist yet and Omega main still takes nvrm/m16 from physics-mv (#106, #107).
-CC ?= gcc
+# GNU make defines CC as cc before this file is read, and ?= does not replace
+# that built-in. The documented compiler is gcc. An explicit CC= on the command
+# line or in the environment still wins.
+ifeq ($(origin CC),default)
+CC := gcc
+endif
 .DEFAULT_GOAL := all
 PHYSICS_DIR ?= .
+# The seeded bindings src/cudapp_om_units.c and src/cudapp_freest_units.c are
+# AArch64 machine code. A non-AArch64 host links src/cudapp_binding_portable.c
+# instead and compiles the migration-pending C encoder and C cubin writer.
+# That is the portable host path. It is not a run of the seeded units.
+# CUDAPP_ENCODER=diff still requires the seeded binding and is refused here.
+CUDAPP_HOST_ARCH := $(shell uname -m)
+ifeq ($(filter aarch64 arm64,$(CUDAPP_HOST_ARCH)),)
+CUDAPP_HOST_IS_AARCH64 :=
+CUDAPP_HOST_BINDING := src/cudapp_binding_portable.c
+CUDAPP_HOST_FREEST_BINDING :=
+CUDAPP_FS_BINDING := src/cudapp_binding_portable.c
+CUDAPP_BINDING_SRCS := src/cudapp_binding_portable.c
+CUDAPP_PORTABLE_DEFS := -DCUDAPP_MIGRATION_PENDING_C_ENCODER -DCUDAPP_MIGRATION_PENDING_C_CUBIN
+CUDAPP_TARGET_ONLY_TESTS := test-om-encoder test-om-cubin test-gpu-native-runtime test-om-spec-encoder test-portable-receipts test-model-capacity
+ifeq ($(CUDAPP_ENCODER),diff)
+$(error CUDAPP_ENCODER=diff executes the AArch64 seeded binding; this host is $(CUDAPP_HOST_ARCH))
+endif
+$(info CUDA++ host $(CUDAPP_HOST_ARCH): seeded AArch64 binding is not assembled; C encoder and C cubin writer are the portable bodies; other seeded units refuse with status 34)
+else
+CUDAPP_HOST_IS_AARCH64 := 1
+CUDAPP_HOST_BINDING := src/cudapp_om_units.c
+CUDAPP_HOST_FREEST_BINDING := src/cudapp_freest_units.c
+CUDAPP_FS_BINDING := src/cudapp_freest_units.c
+CUDAPP_BINDING_SRCS := src/cudapp_om_units.c src/cudapp_freest_units.c
+CUDAPP_PORTABLE_DEFS :=
+CUDAPP_TARGET_ONLY_TESTS :=
+endif
 OUT_DIR ?= build
 GPU_PROD_TARGET ?= $(OUT_DIR)/libomega_gpu.a
 NVIDIA_OPEN := $(PHYSICS_DIR)/third_party/nvidia-open-580.173.02
@@ -42,7 +74,7 @@ endif
 # binding of the seeded Omega units (om/units.sh).
 SRCS := $(sort $(wildcard src/omega_blackwell_*.c src/omega_gpu_*.c)) \
 	src/omega_cubin.c src/omega_native_artifact.c src/omega_sm121_disasm.c \
-	src/sha256.c src/omega_canonical.c src/omega_core.c src/omega_vector.c src/cudapp_om_units.c src/cudapp_freest_units.c \
+	src/sha256.c src/omega_canonical.c src/omega_core.c src/omega_vector.c $(CUDAPP_BINDING_SRCS) \
 	$(PHYSICS_DIR)/m16/m16_native.c $(PHYSICS_DIR)/nvrm/nvrm.c
 OBJS = $(patsubst %.c,$(OUT_DIR)/%.o,$(notdir $(SRCS)))
 DEPS = $(OBJS:.o=.d)
@@ -52,7 +84,7 @@ vpath %.c src $(PHYSICS_DIR)/m16 $(PHYSICS_DIR)/nvrm
 $(OUT_DIR):
 	mkdir -p $@
 $(OUT_DIR)/%.o: %.c | $(OUT_DIR)
-	$(CC) $(CFLAGS) $(CUDAPP_ENCODER_DEFS) -c $< -o $@
+	$(CC) $(CFLAGS) $(CUDAPP_ENCODER_DEFS) $(CUDAPP_PORTABLE_DEFS) -c $< -o $@
 
 .PHONY: all libcudapp test clean
 all: $(OUT_DIR)/libomega_gpu.a $(OUT_DIR)/libcudapp.a
@@ -71,10 +103,13 @@ clean:
 ARTIFACT_EXPORT = $(OUT_DIR)/artifact-export
 artifact-export: $(ARTIFACT_EXPORT)
 ARTIFACT_TEST = $(OUT_DIR)/gpu_artifact_export_test
+# These two recipes compile omega_cubin.c on the command line, which overrides the
+# archive member. On a non-AArch64 host that must be the C cubin writer
+# (CUDAPP_PORTABLE_DEFS). On AArch64 the variable is empty and the .om packer stays.
 $(ARTIFACT_EXPORT): tools/artifact_export.c src/omega_native_artifact.c src/omega_cubin.c $(OUT_DIR)/libomega_gpu.a
-	$(CC) $(CFLAGS) -o $@ tools/artifact_export.c src/omega_native_artifact.c src/omega_cubin.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+	$(CC) $(CFLAGS) $(CUDAPP_PORTABLE_DEFS) -o $@ tools/artifact_export.c src/omega_native_artifact.c src/omega_cubin.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
 $(ARTIFACT_TEST): tests/gpu_artifact_export_test.c src/omega_native_artifact.c src/omega_cubin.c $(OUT_DIR)/libomega_gpu.a
-	$(CC) $(CFLAGS) -o $@ tests/gpu_artifact_export_test.c src/omega_native_artifact.c src/omega_cubin.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+	$(CC) $(CFLAGS) $(CUDAPP_PORTABLE_DEFS) -o $@ tests/gpu_artifact_export_test.c src/omega_native_artifact.c src/omega_cubin.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
 # cubin-probe is the only target that links NVIDIA's libcuda: an interop check that NVIDIA's own loader accepts
 # CUDA++'s cubin. It is not in `make test`; zero-cuda-gate (in HOST_TESTS) checks hello_gpu and the API test link no CUDA.
 CUDA_INC ?= /usr/local/cuda/include
@@ -88,8 +123,8 @@ test-native-artifact: $(ARTIFACT_EXPORT) $(ARTIFACT_TEST)
 	./$(ARTIFACT_TEST) $(OUT_DIR)/artifact-test
 # Pure artifact-format boundary: portable host test, no driver or device objects.
 .PHONY: test-native-artifact-manifest
-$(OUT_DIR)/native_artifact_manifest_test: tests/native_artifact_manifest_test.c src/omega_native_artifact.c src/omega_cubin.c src/omega_blackwell_realize.c src/sha256.c src/cudapp_om_units.c | $(OUT_DIR)
-	$(CC) $(CFLAGS) -ffunction-sections -fdata-sections -Wl,--gc-sections -Wl,--wrap=fopen -o $@ $^ -lpthread
+$(OUT_DIR)/native_artifact_manifest_test: tests/native_artifact_manifest_test.c src/omega_native_artifact.c src/omega_cubin.c src/omega_blackwell_realize.c src/sha256.c $(CUDAPP_HOST_BINDING) | $(OUT_DIR)
+	$(CC) $(CFLAGS) $(CUDAPP_PORTABLE_DEFS) -ffunction-sections -fdata-sections -Wl,--gc-sections -Wl,--wrap=fopen -o $@ $^ -lpthread
 test-native-artifact-manifest: $(OUT_DIR)/native_artifact_manifest_test
 	./$(OUT_DIR)/native_artifact_manifest_test
 .PHONY: libomega_gpu test-gpu-matmul-api
@@ -341,7 +376,32 @@ test-gpu-qmd-shared-clean-build:
 	+@set -eu; out=$$(mktemp -d); trap 'rm -rf "$$out"' EXIT; \
 		$(MAKE) --no-print-directory OUT_DIR="$$out/new" test-gpu-qmd-shared
 
+# Fresh-checkout contract for issue 15. The slice runner and the barrier contract
+# need no sibling compiler. The architecture guard runs on x86-64 and prints
+# NOT_RUN on AArch64 without executing the binary. test-omega-slices is the
+# eight-slice gate and is not part of `make test`.
+.PHONY: test-omega-slice-runner test-omega-arch-guard test-omega-barrier-contract test-omega-binding-portable test-omega-target-only test-omega-slices
+ARCH_GUARD_TEST = $(OUT_DIR)/omega_blackwell_arch_guard_test
+$(ARCH_GUARD_TEST): tests/test_omega_blackwell_arch_guard.c tests/fake_m16_native.c tests/fake_m16_native.h \
+		$(GPU_ENGINE_SIM_SRCS) src/omega_gpu_wait.c | $(OUT_DIR)
+	$(CC) -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -ffunction-sections -fdata-sections \
+		$(CUDAPP_PORTABLE_DEFS) -Isrc -Itests $(GPU_ENGINE_PHYS_INC) -o $@ tests/test_omega_blackwell_arch_guard.c tests/fake_m16_native.c \
+		$(GPU_ENGINE_SIM_SRCS) src/omega_gpu_wait.c -Wl,--gc-sections -lm
+test-omega-arch-guard: $(ARCH_GUARD_TEST)
+	OUT_DIR=$(OUT_DIR) sh tests/omega/test-arch-guard.sh $(ARCH_GUARD_TEST)
+test-omega-slice-runner:
+	sh tests/omega/test-runner.sh
+test-omega-barrier-contract:
+	sh tests/omega/test-barrier-contract.sh
+test-omega-binding-portable:
+	CC=$(CC) OUT_DIR=$(OUT_DIR) sh tests/omega/test-binding-portable.sh
+test-omega-target-only:
+	sh tests/omega/test-target-only.sh
+test-omega-slices:
+	sh tests/omega/run.sh $(or $(OMEGA_SLICE_FUZZ),120)
+
 # Every host-only check: no GPU, no device opened. The chip gates are listed in README.md.
+# Portable commands and the AArch64-only rows are separated in docs/OMEGA_HOST_TESTS.md.
 HOST_TESTS = test-drift test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-attention test-gpu-moe-window \
 	test-gpu-fp8 test-gpu-decode-attn test-gpu-router test-gpu-bf16-gemv test-gpu-fp8gemm test-gpu-tern-sched test-gpu-gpr-boundary \
 	test-gpu-cmdlist test-gpu-decode-graph test-gpu-code-alloc test-gpu-engine-compile test-gpu-engine \
@@ -350,13 +410,23 @@ HOST_TESTS = test-drift test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv
 	test-codegen-freestanding test-gpu-session-platform test-gpu-native-runtime test-gpu-wait test-gpu-wait-mutants host-tests-m16 \
 	test-runtime-api test-runtime-portability test-doctor test-hello-sim test-native-artifact-manifest test-gemm-selectors \
 	test-native-artifact zero-cuda-gate verify-vendored test-swap-cli test-om-encoder test-om-spec-encoder test-om-cubin \
-	test-portable-receipts test-gpu-qmd-shared test-model-capacity test-gpu-qmd-shared-clean-build $(CARRIED_HOST_TESTS)
+	test-portable-receipts test-gpu-qmd-shared test-model-capacity test-gpu-qmd-shared-clean-build \
+	test-omega-slice-runner test-omega-arch-guard test-omega-barrier-contract test-omega-binding-portable $(CARRIED_HOST_TESTS)
+ifneq ($(CUDAPP_TARGET_ONLY_TESTS),)
+HOST_TESTS := $(filter-out $(CUDAPP_TARGET_ONLY_TESTS),$(HOST_TESTS)) test-omega-target-only
+endif
 test: $(HOST_TESTS)
 	@echo "CUDA++ HOST TESTS PASS ($(words $(HOST_TESTS)) targets)"
 
 .PHONY: test-model-capacity
+ifeq ($(CUDAPP_HOST_IS_AARCH64),1)
 test-model-capacity:
 	OMEGA_OMC="$(OMEGA_OMC)" sh tests/models/capacity.sh
+else
+test-model-capacity:
+	@echo "test-model-capacity: NOT_RUN (requires the pinned omc; not part of the portable host suite)"
+	@exit 2
+endif
 
 .PHONY: test-drift
 test-drift:
@@ -364,6 +434,7 @@ test-drift:
 
 # Original Git blobs are read-only verification oracles, not a replacement receipt authority.
 .PHONY: test-portable-receipts
+ifeq ($(CUDAPP_HOST_IS_AARCH64),1)
 test-portable-receipts: test-om-units tests/portable_receipts.om tests/portable_receipts.tsv om/cache/digest.om
 	@mkdir -p build/portable_receipts
 	cat om/cache/digest.om tests/portable_receipts.om > build/portable_receipts.source.om
@@ -376,6 +447,11 @@ test-portable-receipts: test-om-units tests/portable_receipts.om tests/portable_
 		GIT_NO_REPLACE_OBJECTS=1 git cat-file blob "$$blob" > build/portable_receipts/original; \
 		./build/portable_receipts_check build/portable_receipts/original "$$path" "$$blob"; \
 	done < tests/portable_receipts.tsv
+else
+test-portable-receipts:
+	@echo "test-portable-receipts: NOT_RUN (requires the pinned omc; not part of the portable host suite)"
+	@exit 2
+endif
 
 # The vendored NVIDIA headers match THIRD_PARTY.md's SHA256SUMS; the self-test (flipped byte, extra file) must FAIL.
 .PHONY: verify-vendored test-swap-cli

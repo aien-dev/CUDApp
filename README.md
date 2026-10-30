@@ -426,12 +426,22 @@ On a shared machine, hold the GPU lock your operator uses around these commands 
 
 ```bash
 make          # build/libomega_gpu.a (also as build/libcudapp.a)
-make test     # every host-only check: encoder goldens, simulators, refusals, mutation tests
+make test     # portable host suite: x86-64 and AArch64, no NVIDIA tools, no sibling checkout
 python3 tools/figures/make_figures.py --check   # the figures on this page match the code they are drawn from
 make doctor   # is this machine ready? one line per check, each problem with its fix; opens no device
 ```
 
-`make test` opens no device. The chip gates (`./build/gpu_*_test --out receipt.json`) need a GB10; each test's comment in the `Makefile` says how it is run.
+`make test` opens no device. It is the portable suite: the same command is the
+x86-64 host gate and the AArch64 host gate. Production ordering on AArch64
+stays `dsb sy` (`nvrm/cpu_barrier.h`). On x86-64 the Blackwell device open
+returns `ENOTSUP` and names AArch64; the fake-driver simulator is a separate
+compile. `docs/OMEGA_HOST_TESTS.md` lists the portable commands and the
+target-only ones.
+
+The chip gates (`./build/gpu_*_test --out receipt.json`) and `make hello-gpu`
+need a GB10. `make test-omega-slices` needs `OMEGA_OSC_COMPILER_DIR` pointing
+at the pinned OSC compiler checkout. None of those are inside `make test`.
+Each chip test's comment in the `Makefile` says how it is run.
 
 `make test-gemm-selectors` is the focused host-only CLI regression for PFGEMM,
 QGEMM and FP8GEMM. Each validates `--shape` before host/simulator/chip work or

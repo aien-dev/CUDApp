@@ -37,19 +37,22 @@ Needs Linux, `git`, `make` and `gcc` (the `Makefile` uses `CC ?= gcc` and builds
 Host commands (no GPU opened):
 
 ```bash
-make test                     # every host-only check: about 7 minutes
+make test                     # portable host suite, x86-64 and AArch64: about 7 minutes
 make test-native-artifact     # offline native artifact export test
 make zero-cuda-gate           # the built programs need no CUDA library (self-test first)
 make doctor                   # is this machine ready? reads /proc, /sys and /dev only
 build/hello_gpu --sim         # the first kernel on the host warp simulator
+make test-omega-slices        # eight OSC slices; needs OMEGA_OSC_COMPILER_DIR; not part of make test
 python3 tools/figures/make_figures.py --check   # README figures match the code
 python3 tools/figures/test_stack_legend.py -v   # rendered legend check; needs Inkscape
 ```
 
+- `docs/OMEGA_HOST_TESTS.md` separates portable commands from target-only ones. `make test` needs no NVIDIA tool and no sibling checkout. On x86-64 the production Blackwell open returns `ENOTSUP` and names AArch64, and the seeded AArch64 binding is not assembled: the C encoder and C cubin writer are the portable bodies, and `make test-om-encoder`, `make test-om-cubin`, `make test-gpu-native-runtime`, `make test-om-spec-encoder`, `make test-portable-receipts` and `make test-model-capacity` exit 2. AArch64 keeps `dsb sy` and keeps those rows in `make test`. `make test-omega-arch-guard` prints `NOT_RUN` on AArch64 and does not run the binary.
+
 - Judge `make test` by its exit code and its last line, `CUDA++ HOST TESTS PASS (<count> targets)`, where `<count>` is computed from the current `HOST_TESTS` manifest in `Makefile`. The log contains many `FAIL` and `ERROR` lines by design (mutation tests and negative controls that must fail). Do not grep the log for them.
 - `make test` already runs the host-only `test-gpu-*` targets listed in `HOST_TESTS` in the `Makefile`. Run those through `make test`, not by hand.
 - `make zero-cuda-gate` reads ELF metadata only (`tools/zero-cuda-gate.sh`).
-- `test-portable-receipts` is included in `make test`. It needs full Git history plus the pinned `OMEGA_OMC` and `OMEGA_BRIDGE` used by `test-om-units`. The `.om` checker verifies original and scrubbed-payload SHA-256, exact HOME-substitution reversal, original Git-blob identity, and independent refusal controls. The TSV separately pins each complete derived file. These are portable derivatives, never rewritten original receipts or qualification authority.
+- `test-portable-receipts` is included in `make test` on AArch64. It needs full Git history plus the pinned `OMEGA_OMC` and `OMEGA_BRIDGE` used by `test-om-units`. On x86-64 it is outside `make test` and exits 2: the pinned compiler is not part of the portable suite. The `.om` checker verifies original and scrubbed-payload SHA-256, exact HOME-substitution reversal, original Git-blob identity, and independent refusal controls. The TSV separately pins each complete derived file. These are portable derivatives, never rewritten original receipts or qualification authority.
 - `python3 tools/figures/make_figures.py --check` must print `figures current: <n>`. Regenerate figures only when you change the data they are drawn from, and commit the regenerated SVGs with that change.
 
 GPU commands (need a GB10; do not run from an agent session unless the maintainer has given you a GPU window on the DGX Spark):

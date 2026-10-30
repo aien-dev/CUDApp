@@ -92,10 +92,16 @@ float omega_bf16_to_fp32(uint16_t b) {
 }
 
 uint16_t omega_fp32_to_fp16(float f) {
+#if defined(OMEGA_GPU_NO_POSIX) && !defined(__aarch64__)
+    /* x86-64 freestanding: the _Float16 cast is libgcc __truncsfhf2, which the
+     * freestanding allowlist rejects. The integer form is the same rounding. */
+    return omega_fp32_to_fp16_rne(f);
+#else
     _Float16 h = (_Float16)f;
     uint16_t u;
     memcpy(&u, &h, 2);
     return u;
+#endif
 }
 
 uint16_t omega_fp32_to_bf16(float f) {
