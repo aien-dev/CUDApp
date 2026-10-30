@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "test_out_file.h"
 
 #define CASES 2048u
 
@@ -136,7 +137,7 @@ int main(int argc, char **argv) {
     if (argc > 2 && strcmp(argv[1], "--dump") == 0) { /* raw code words for nvdisasm -b SM121 (offline check only) */
         static BlackwellIRProgram p; static uint8_t buf[OMEGA_BW_CODE_CAP_MAX]; size_t len = 0;
         if (omega_blackwell_codegen_tc_probe_prog(argc > 3 ? atoi(argv[3]) : 0, &p) != 0 || omega_bw_encode_program(&p, buf, sizeof buf, &len) != 0) return 1;
-        FILE *f = fopen(argv[2], "wb"); if (!f) return 1; fwrite(buf, 1, len, f); fclose(f); printf("peak %u, %zu bytes\n", p.regalloc.peak_gpr_usage, len); return 0;
+        FILE *f = test_out_open(argv[2]); if (!f) return 1; fwrite(buf, 1, len, f); fclose(f); printf("peak %u, %zu bytes\n", p.regalloc.peak_gpr_usage, len); return 0;
     }
     int host = argc > 1 && strcmp(argv[1], "--host-only") == 0;
     if (getenv("TC_PROBE_SEED")) rng = strtoull(getenv("TC_PROBE_SEED"), NULL, 0) | 1u; /* fresh data for a confirmation run */
@@ -154,7 +155,7 @@ int main(int argc, char **argv) {
     } else {
         if (run_chip(0, out, in) != 0) { printf("TC_PROBE: FAIL chip\n"); return 1; }
         if (run_chip(1, outm, in) != 0) { printf("TC_PROBE: FAIL chip (mutant)\n"); return 1; }
-        if (save) { FILE *sf = fopen(save, "wb"); if (sf) { fwrite(out, 1, (size_t)CASES * OMEGA_TC_PROBE_OUT_BYTES, sf); fwrite(outm, 1, (size_t)CASES * OMEGA_TC_PROBE_OUT_BYTES, sf); fclose(sf); } }
+        if (save) { FILE *sf = test_out_open(save); if (sf) { fwrite(out, 1, (size_t)CASES * OMEGA_TC_PROBE_OUT_BYTES, sf); fwrite(outm, 1, (size_t)CASES * OMEGA_TC_PROBE_OUT_BYTES, sf); fclose(sf); } }
     }
     /* poison and plausibility: relative error vs the exact double sum */
     size_t poison = 0, far = 0, total = (size_t)CASES * 128u;

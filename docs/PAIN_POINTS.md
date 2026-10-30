@@ -118,7 +118,7 @@ The workarounds can be worse than the error. In Triton's sm_121 issue: "Those \"
 
 **Why people stay.** For training, small differences rarely matter, and speed does.
 
-**CUDA++'s answer (row D7).** CUDA++'s reductions use a fixed order (`evidence/E1-CLOSURE/`), so the same inputs give the same bits without a switch and without a cost to turn off. The row is done when two runs of the same job give the same output hash on the simulator and on the chip. Status: DONE on the simulator (`evidence/dx/d3-faults/hello-sim-spark.txt`, the same output hash twice); the chip half is open.
+**CUDA++'s answer (row D7).** CUDA++'s reductions use a fixed order (`evidence/E1-CLOSURE/`), so the same inputs give the same bits without a switch and without a cost to turn off. The row is done when two runs of the same job give the same output hash on the simulator and on the chip. Status: DONE on the simulator (`evidence/dx/d3-faults/hello-sim-spark.txt`, the same output hash twice) and on the GB10 for hello-gpu, the bf16 matrix-vector 151936 x 2048, rmsnorm and decode attention, 10 separate processes each with no setting (`evidence/d7-same-bits-chip/2026-10-27/SUMMARY.md`). Other kernels, other GPUs and other inputs are not covered (`docs/issues/D7-same-bits-chip.md`).
 
 ### 2.7 Memory and start-up cost of the CUDA context (rank 7)
 
@@ -196,7 +196,7 @@ Each row has a done-when anyone can run. A row is DONE only with a receipt on a 
 | D4 | The simulator first, from the same program | `hello_gpu --sim` runs the same kernel program on the host warp simulator and checks every answer bit for bit, with no GPU | DONE (`evidence/dx/d3-faults/`) |
 | D5 | Builds in seconds, ships small | Fresh-checkout build time and library size printed by a receipt on the Spark | DONE (`evidence/dx/pain-points/d5-build-from-empty.txt`) |
 | D6 | A new chip works on day one or is refused with a sentence | `make doctor` names any unqualified NVIDIA GPU with what is missing and the porting steps; never a bare "no kernel image"; host test with an unknown PCI id | DONE (`evidence/dx/d2-doctor/fake-machines.txt`) |
-| D7 | Same inputs, same bits, at no cost | Two runs of the same job give the same output hash, on the simulator and on the chip | simulator half DONE; chip half open |
+| D7 | Same inputs, same bits, at no cost | Two runs of the same job give the same output hash, on the simulator and on the chip | DONE: simulator (hello-gpu); GB10 for hello-gpu, bf16 GEMV, rmsnorm, decode attention, 10 runs each (`evidence/d7-same-bits-chip/2026-10-27/`); other kernels not hashed |
 | D8 | No per-process CUDA tax | The memory a CUDA++ process holds beyond its own buffers is measured and printed | PLANNED (needs a chip window) |
 | D9 | No licence that stops you | At 2026-10-22, MIT and reverse-engineering/port rights; current candidate is Apache-2.0 WITH LLVM-exception with the exact MIT snapshot preserved (`docs/LICENSING_TRANSITION.md`) | Historical receipt `evidence/dx/pain-points/licence.txt` |
 | D10 | No compiling at run time | hello-gpu prints its kernel build time and the hash of its machine code, identical across runs; no cache directory | DONE for hello-gpu |

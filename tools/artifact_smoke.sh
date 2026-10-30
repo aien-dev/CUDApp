@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Offline smoke for exported native artifacts. Uses nvdisasm/cuobjdump only if
 # present; they are independent readers, never build inputs. Opens no device.
 set -eu

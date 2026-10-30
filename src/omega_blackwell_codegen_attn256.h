@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 #ifndef OMEGA_BLACKWELL_CODEGEN_ATTN256_H
 #define OMEGA_BLACKWELL_CODEGEN_ATTN256_H
 /*

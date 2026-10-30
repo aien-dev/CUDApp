@@ -58,7 +58,7 @@ CUDA++'s libraries (matrix multiply, attention, elementwise, mixture-of-experts 
 
 The current first-party license is Apache-2.0 WITH LLVM-exception. You may read, disassemble, reverse engineer and translate CUDA++ output, including its machine code, and port CUDA++ to any hardware, subject to the applicable license and retained third-party notices. This is deliberate: CUDA's license restricts reverse engineering its output to target other hardware (`docs/PAIN_POINTS.md`, section 2.8); CUDA++ does not impose that restriction on its own output.
 
-Do not send us NVIDIA's code or binaries. CUDA++ stores no NVIDIA binary, cubin, PTX or firmware. The only listing printed by an NVIDIA tool is a test pin of our own words, recorded in `PROVENANCE.md` section 6 (`docs/AUDIT.md`). If you used NVIDIA's compiler or disassembler on your own small kernels to learn an encoding, say so in the code comment, as the existing code does (`docs/HOW_I_DID_IT.md`, step 2).
+Do not send us NVIDIA's code or binaries. CUDA++ stores no NVIDIA binary, cubin, PTX, firmware or NVIDIA-tool listing in the current tree. The former trace-emitter test pin of our own words was removed in #93; its history is recorded in `PROVENANCE.md` section 6 (`docs/AUDIT.md`). If you used NVIDIA's compiler or disassembler on your own small kernels to learn an encoding, say so in the code comment, as the existing code does (`docs/HOW_I_DID_IT.md`, step 2).
 
 ## How a change gets in
 

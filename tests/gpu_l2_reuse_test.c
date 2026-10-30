@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "test_out_file.h"
 
 static int g_checks, g_failed;
 #define EV_N 32768u
@@ -55,7 +56,7 @@ int main(int argc, char **argv) {
     omega_fp8_pack_x_f32(x, k, xd.cpu);
     if (omega_gpu_session_sync_to_gpu(&xd) != 0) return 1;
 
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out) fprintf(out, "{\"test\":\"OMEGA_GPU_L2_REUSE\",\"k\":%u,\"reps\":%u,\"points\":[", k, reps);
     int first_pt = 1; double ratio_unc_max = 0, ratio_cached_min = 1e9;
     /* evictor: a GPU-cached EV_N x k tensor (67 MB) read first in every list, so "cold" is cold even if L2 keeps lines across submits */

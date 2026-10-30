@@ -1,0 +1,5 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note ABI1 adapter only; serializer authority stays in the pinned learn53 unit.
+fn native_mcseries meta view ulong 8 hashes view uchar 4096 ordinals view ulong 128 out edit uchar 32 to long
+ret mc_series meta hashes ordinals out
+end

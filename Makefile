@@ -3,7 +3,9 @@
 #
 #   make            libomega_gpu.a (= libcudapp.a): GPU toolchain + runtime + libraries + driver client
 #   make test       every host-only test (no GPU needed)
-#   make doctor     is this machine ready? one line per check, each FAIL with its fix (no GPU opened)
+#   make doctor     is this machine ready? one line per check, each FAIL with its fix (no GPU opened);
+#                   with OMC=/abs/pinned/omc it also lists every GPU target row (backend/targets.om)
+#   make test-multitarget OMC=...  portable-backend host gate: SPIR-V on CPU drivers, HSACO checks
 #   make hello-gpu  run the doctor, then build examples/hello_gpu and run it (on a GB10)
 #
 # The driver client (nvrm/, m16/) and the NVIDIA open headers (third_party/) are in
@@ -25,7 +27,7 @@ CFLAGS ?= -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc \
 -include mk/*.mk
 
 # sm_121 instruction encoder (CUDApp#79): om (default) = om/encoder/bw_enc_sm121.om through the generated binding
-# src/omega_om_units.c; c = the migration-pending C encoder, the differential oracle; diff = both on every call,
+# src/cudapp_om_units.c; c = the migration-pending C encoder, the differential oracle; diff = both on every call,
 # abort on any difference (mk/om-encoder.mk). Use a separate OUT_DIR per value.
 CUDAPP_ENCODER ?= om
 CUDAPP_ENCODER_DEFS_om :=
@@ -40,7 +42,7 @@ endif
 # binding of the seeded Omega units (om/units.sh).
 SRCS := $(sort $(wildcard src/omega_blackwell_*.c src/omega_gpu_*.c)) \
 	src/omega_cubin.c src/omega_native_artifact.c src/omega_sm121_disasm.c \
-	src/sha256.c src/omega_canonical.c src/omega_core.c src/omega_vector.c src/omega_om_units.c \
+	src/sha256.c src/omega_canonical.c src/omega_core.c src/omega_vector.c src/cudapp_om_units.c src/cudapp_freest_units.c \
 	$(PHYSICS_DIR)/m16/m16_native.c $(PHYSICS_DIR)/nvrm/nvrm.c
 OBJS = $(patsubst %.c,$(OUT_DIR)/%.o,$(notdir $(SRCS)))
 DEPS = $(OBJS:.o=.d)
@@ -86,8 +88,8 @@ test-native-artifact: $(ARTIFACT_EXPORT) $(ARTIFACT_TEST)
 	./$(ARTIFACT_TEST) $(OUT_DIR)/artifact-test
 # Pure artifact-format boundary: portable host test, no driver or device objects.
 .PHONY: test-native-artifact-manifest
-$(OUT_DIR)/native_artifact_manifest_test: tests/native_artifact_manifest_test.c src/omega_native_artifact.c src/omega_cubin.c src/omega_blackwell_realize.c src/sha256.c src/omega_om_units.c | $(OUT_DIR)
-	$(CC) $(CFLAGS) -ffunction-sections -fdata-sections -Wl,--gc-sections -o $@ $^ -lpthread
+$(OUT_DIR)/native_artifact_manifest_test: tests/native_artifact_manifest_test.c src/omega_native_artifact.c src/omega_cubin.c src/omega_blackwell_realize.c src/sha256.c src/cudapp_om_units.c | $(OUT_DIR)
+	$(CC) $(CFLAGS) -ffunction-sections -fdata-sections -Wl,--gc-sections -Wl,--wrap=fopen -o $@ $^ -lpthread
 test-native-artifact-manifest: $(OUT_DIR)/native_artifact_manifest_test
 	./$(OUT_DIR)/native_artifact_manifest_test
 .PHONY: libomega_gpu test-gpu-matmul-api
@@ -154,6 +156,9 @@ test-gpu-reconv: $(GPU_RECONV_TEST)
 # whole parity battery through the host IR simulator (--sim, no chip); the chip
 # gate is `./build/gpu_attention_test --out receipt.json` through the heavy queue
 # (tools/run_gpu_attention_chip.sh). -ffp-contract=off keeps the oracle free of FMA.
+# General kernel (0.6.0): --general --sim runs the predeclared 318-config sweep (head_dim 1..256, MHA/GQA/MQA,
+# causal/windows, strides, paged) and the general mutants on the host simulator; the chip run is
+# `./build/gpu_attention_test --general --out g.json` under /tmp/aien-gb10.lock.
 .PHONY: test-gpu-attention
 GPU_ATTN_TEST = $(OUT_DIR)/gpu_attention_test
 $(GPU_ATTN_TEST): tests/gpu_attention_test.c tests/bw_warp_sim.h src/omega_gpu_attention_api.h $(OUT_DIR)/libomega_gpu.a
@@ -165,6 +170,7 @@ test-gpu-attention: $(GPU_ATTN_TEST)
 	./$(GPU_ATTN_TEST) --hd 128 --host-only
 	./$(GPU_ATTN_TEST) --hd 128 --sim
 	./$(GPU_ATTN_TEST) --hd 128 --divergent --sim
+	./$(GPU_ATTN_TEST) --general --sim --out $(OUT_DIR)/gpu_attention_general_sim.json
 
 # FB-1 cut 4b: fresh-process device-open probe (flake investigation, tools/probe_gpu_open.sh)
 $(OUT_DIR)/gpu_session_probe: tests/gpu_session_probe.c src/omega_gpu_session.h $(OUT_DIR)/libomega_gpu.a
@@ -189,6 +195,7 @@ GPU_FP8_TEST = $(OUT_DIR)/gpu_fp8_api_test
 $(GPU_FP8_TEST): tests/gpu_fp8_api_test.c tests/bw_warp_sim.h src/omega_gpu_fp8_api.h src/omega_blackwell_codegen_moe.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -Itests -o $@ tests/gpu_fp8_api_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
 test-gpu-fp8: $(GPU_FP8_TEST)
+	sh tests/grid_ab_exit_test.sh ./$(GPU_FP8_TEST)
 	./$(GPU_FP8_TEST) --host-only
 	./$(GPU_FP8_TEST) --sim
 
@@ -231,6 +238,14 @@ test-gpu-bf16-gemv: $(GPU_BF16_TEST)
 
 # The ternary GEMV host test (tests/gpu_tern_test.c) stays in Omega: its reference is Omega's ternary
 # algebra oracle (src/algebra), which is not part of CUDA++. The library itself (omega_gpu_tern_api) is here.
+# Sass#4 (2026-10-27): the generator's I2FP consumer rule (scoreboard or >= 19 cycles), host only, with its negative
+# control (mutant 4, the pre-fix stall 6, must be refused). No reference oracle needed, so it lives here.
+.PHONY: test-gpu-tern-sched
+GPU_TERN_SCHED_TEST = $(OUT_DIR)/gpu_tern_sched_test
+$(GPU_TERN_SCHED_TEST): tests/gpu_tern_sched_test.c src/omega_blackwell_codegen_tern.h $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -o $@ tests/gpu_tern_sched_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+test-gpu-tern-sched: $(GPU_TERN_SCHED_TEST)
+	$(GPU_TERN_SCHED_TEST)
 
 
 # OWN-30B (2026-10-13): report-only lm_head study, fp8 vs bf16 argmax agreement on the real checkpoint (chip, GB10 lock).
@@ -322,17 +337,56 @@ GPU_L2_REUSE_TEST = $(OUT_DIR)/gpu_l2_reuse_test
 $(GPU_L2_REUSE_TEST): tests/gpu_l2_reuse_test.c src/omega_gpu_fp8_api.h src/omega_gpu_cmdlist.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -o $@ tests/gpu_l2_reuse_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
 
+# The Blackwell QMD shared-memory field (word 36): the encoding of every size, the fixed SM-config
+# fields beside it, and the refusal one byte over OMEGA_BW_QMD_MAX_SHARED_BYTES (a host check, no GPU).
+.PHONY: test-gpu-qmd-shared test-gpu-qmd-shared-clean-build
+QMD_SHARED_TEST = $(OUT_DIR)/test_omega_bw_qmd_shared
+$(QMD_SHARED_TEST): tests/test_omega_bw_qmd_shared.c src/omega_blackwell_qmd.h src/omega_blackwell_qmd.c | $(OUT_DIR)
+	$(CC) $(CFLAGS) -o $@ tests/test_omega_bw_qmd_shared.c src/omega_blackwell_qmd.c
+test-gpu-qmd-shared: $(QMD_SHARED_TEST)
+	$(QMD_SHARED_TEST)
+
+# Build the same host-only test with an output directory that does not exist yet.
+# The normal test target does not recurse through this regression target.
+test-gpu-qmd-shared-clean-build:
+	+@set -eu; out=$$(mktemp -d); trap 'rm -rf "$$out"' EXIT; \
+		$(MAKE) --no-print-directory OUT_DIR="$$out/new" test-gpu-qmd-shared
+
 # Every host-only check: no GPU, no device opened. The chip gates are listed in README.md.
-HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-mathlibs test-gpu-reconv test-gpu-attention test-gpu-moe-window \
-	test-gpu-fp8 test-gpu-decode-attn test-gpu-router test-gpu-bf16-gemv test-gpu-fp8gemm test-gpu-gpr-boundary \
+HOST_TESTS = test-drift test-gpu-matmul-api test-gpu-elementwise test-gpu-mathlibs test-gpu-reconv test-gpu-attention test-gpu-moe-window \
+	test-gpu-fp8 test-gpu-decode-attn test-gpu-router test-gpu-bf16-gemv test-gpu-fp8gemm test-gpu-tern-sched test-gpu-gpr-boundary \
 	test-gpu-cmdlist test-gpu-decode-graph test-gpu-code-alloc test-gpu-engine-compile test-gpu-engine \
 	test-gpu-engine-mutants test-gpu-engine-backend-compile test-gpu-engine-prod-build test-gpu-engine-sim \
 	test-gpu-engine-backend-mutants test-gpu-engine-gb10-compile test-gpu-serving-alloc test-gpu-engine-freestanding \
-	test-codegen-freestanding test-gpu-session-platform test-gpu-wait test-gpu-wait-mutants host-tests-m16 \
+	test-codegen-freestanding test-gpu-session-platform test-gpu-native-runtime test-gpu-wait test-gpu-wait-mutants host-tests-m16 \
 	test-runtime-api test-runtime-portability test-doctor test-hello-sim test-native-artifact-manifest test-gemm-selectors \
-	test-native-artifact zero-cuda-gate verify-vendored test-swap-cli test-om-encoder test-om-cubin $(CARRIED_HOST_TESTS)
+	test-native-artifact zero-cuda-gate verify-vendored test-swap-cli test-om-encoder test-om-spec-encoder test-om-cubin \
+	test-portable-receipts test-gpu-qmd-shared test-model-capacity test-gpu-qmd-shared-clean-build $(CARRIED_HOST_TESTS)
 test: $(HOST_TESTS)
 	@echo "CUDA++ HOST TESTS PASS ($(words $(HOST_TESTS)) targets)"
+
+.PHONY: test-model-capacity
+test-model-capacity:
+	OMEGA_OMC="$(OMEGA_OMC)" sh tests/models/capacity.sh
+
+.PHONY: test-drift
+test-drift:
+	bash tools/extract/test-drift.sh
+
+# Original Git blobs are read-only verification oracles, not a replacement receipt authority.
+.PHONY: test-portable-receipts
+test-portable-receipts: test-om-units tests/portable_receipts.om tests/portable_receipts.tsv om/cache/digest.om
+	@mkdir -p build/portable_receipts
+	cat om/cache/digest.om tests/portable_receipts.om > build/portable_receipts.source.om
+	"$(OMEGA_OMC)" < build/portable_receipts.source.om > build/portable_receipts_check
+	chmod +x build/portable_receipts_check
+	@set -eu; tab=$$(printf '\t'); \
+	while IFS="$$tab" read -r path blob derived_sha; do \
+		test -n "$$path" && test -n "$$blob" && test -n "$$derived_sha"; \
+		printf '%s  %s\n' "$$derived_sha" "$$path" | sha256sum -c -; \
+		GIT_NO_REPLACE_OBJECTS=1 git cat-file blob "$$blob" > build/portable_receipts/original; \
+		./build/portable_receipts_check build/portable_receipts/original "$$path" "$$blob"; \
+	done < tests/portable_receipts.tsv
 
 # The vendored NVIDIA headers match THIRD_PARTY.md's SHA256SUMS; the self-test (flipped byte, extra file) must FAIL.
 .PHONY: verify-vendored test-swap-cli

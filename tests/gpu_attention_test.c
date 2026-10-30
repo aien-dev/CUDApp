@@ -10,6 +10,11 @@
  *   ./gpu_attention_test --sweep [--out s.json]  head-scaling sweep: paged bf16 at head_dim 64 over q heads
  *                                             1..64 x every kv-head divisor x ctx 256/2048, parity + timings
  *                                             (receipt OMEGA_GPU_ATTENTION_SWEEP_V1; --sim marks host timings)
+ *   ./gpu_attention_test --general [--sim] [--out g.json]  general kernel (0.6.0): the refusals, every head_dim 1..256
+ *                                             encoded, then the predeclared seeded sweep (318 configs: head_dim 1..256 odd
+ *                                             included, MHA/GQA/MQA, causal/non-causal/windows, strides, paged) against
+ *                                             an f64 oracle, the general mutants and a routing proof
+ *                                             (receipt OMEGA_GPU_ATTENTION_GENERAL_V1, see general_sweep)
  *   ./gpu_attention_test --out receipt.json   chip gate: every shape against the host oracle, the
  *                                             mutants (deliberately wrong kernels, all of
  *                                             1 .. OMEGA_GPU_ATTN_MUTANT_COUNT-1) which the same
@@ -35,6 +40,7 @@
 #include "omega_blackwell_codegen.h"
 #include "omega_sm121_disasm.h" /* C6 (L386): Omega's own disassembler replaces nvdisasm here */
 #include "bw_warp_sim.h" /* omega #308: SIMT warp simulator for --divergent */
+#include <fcntl.h>
 #include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
@@ -42,6 +48,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include "test_out_file.h"
 
 static int g_checks, g_failed;
 static int g_sim_mode; /* --sim: the host simulator never opens the device */
@@ -189,11 +196,13 @@ static OmegaGpuKvLayout layout_for(uint32_t num_blocks, uint32_t bs, uint32_t la
 static void host_only(void) {
     float q[64 * 64], kv[64 * 64], out[64 * 64]; memset(q, 0, sizeof q); memset(kv, 0, sizeof kv);
     CHECK(omega_gpu_gqa_attention_f32(NULL, kv, kv, 1, 32, 4, 64, out, NULL) == OMEGA_GPU_ATTN_BAD_ARGS, "NULL q refused");
-    CHECK(omega_gpu_gqa_attention_f32(q, kv, kv, 1, 32, 4, 96, out, NULL) == OMEGA_GPU_ATTN_TOO_LARGE, "head_dim 96 refused (TOO_LARGE)");
-    CHECK(omega_gpu_gqa_attention_f32(q, kv, kv, 1, 32, 4, 256, out, NULL) == OMEGA_GPU_ATTN_TOO_LARGE, "head_dim 256 refused (TOO_LARGE)");
-    CHECK(omega_gpu_gqa_attention_f32(q, kv, kv, 1, 6, 2, 64, out, NULL) == OMEGA_GPU_ATTN_BAD_ARGS, "gqa ratio 3 refused");
+    /* 0.6.0: head_dim 96 / 256, GQA ratio 3 and contexts past 4096 now run on the general kernel (--general covers them);
+     * these are the shapes that stay refused, before any device work */
+    CHECK(omega_gpu_gqa_attention_f32(q, kv, kv, 1, 32, 4, 257, out, NULL) == OMEGA_GPU_ATTN_TOO_LARGE, "head_dim 257 refused (TOO_LARGE)");
+    CHECK(omega_gpu_gqa_attention_f32(q, kv, kv, 1, 32, 4, 0, out, NULL) == OMEGA_GPU_ATTN_BAD_ARGS, "head_dim 0 refused");
+    CHECK(omega_gpu_gqa_attention_f32(q, kv, kv, 1, 7, 2, 64, out, NULL) == OMEGA_GPU_ATTN_BAD_ARGS, "7 q heads / 2 kv heads refused");
     CHECK(omega_gpu_gqa_attention_f32(q, kv, kv, 1, 32, 5, 64, out, NULL) == OMEGA_GPU_ATTN_BAD_ARGS, "32 q heads / 5 kv heads refused");
-    CHECK(omega_gpu_gqa_attention_f32(q, kv, kv, OMEGA_GPU_ATTN_MAX_GQA_CTX + 1, 32, 4, 64, out, NULL) == OMEGA_GPU_ATTN_TOO_LARGE, "context past the envelope refused");
+    CHECK(omega_gpu_gqa_attention_f32(q, kv, kv, 1u << 26, 32, 4, 64, out, NULL) == OMEGA_GPU_ATTN_TOO_LARGE, "context past the 32-bit offset envelope refused");
     for (int i = 0; i < 64; i++) out[i] = 1.0f;
     OmegaGpuAttnInfo info;
     CHECK(omega_gpu_gqa_attention_f32(q, kv, kv, 0, 1, 1, 64, out, &info) == OMEGA_GPU_ATTN_OK && out[0] == 0.0f && out[63] == 0.0f && info.chip_calls == 0, "seq_len 0 writes zeros without a launch");
@@ -335,7 +344,7 @@ static void batch_single_repeat_checks(const char *name, const BatchCtx *bc, con
 
 
 static int chip(const char *out_path) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
     if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_ATTENTION_V1\",\"tolerances\":{\"rel\":2e-4,\"abs\":2e-5,\"large_scores_rel\":1e-3,\"large_scores_abs\":1e-4},\"cases\":[");
     uint32_t seed = 0xfb1c0005u;
@@ -426,7 +435,7 @@ static int chip(const char *out_path) {
     {   /* rows path refusals */
         float d[1]; OmegaGpuAttnInfo i0;
         CHECK(omega_gpu_gqa_attention_rows_f32(d, d, d, 0, 0, 32, 4, hd, d, &i0) == OMEGA_GPU_ATTN_BAD_ARGS, "rows: zero rows refused");
-        CHECK(omega_gpu_gqa_attention_rows_f32(d, d, d, OMEGA_GPU_ATTN_MAX_GQA_CTX, 1, 32, 4, hd, d, &i0) == OMEGA_GPU_ATTN_TOO_LARGE, "rows: base + rows past the context bound refused");
+        CHECK(omega_gpu_gqa_attention_rows_f32(d, d, d, 0x7fffffffu, 1, 32, 4, hd, d, &i0) == OMEGA_GPU_ATTN_TOO_LARGE, "rows: base + rows past 2^31 refused (past 4096 runs on the general kernel since 0.6.0)");
     }
     /* 2. large scores (q scaled by 200): the softmax without the running max overflows */
     {
@@ -700,8 +709,8 @@ static int chip(const char *out_path) {
 typedef struct { uint32_t r[256]; int pc; int p0; int done; uint64_t path; } SimThr;
 static uint32_t sim_cbank[256];
 static uint8_t sim_shared[8192];
-#define SIM_TMAX 128
-#define SIM_T ((int)g_hd) /* threads per CTA = head_dim */
+#define SIM_TMAX 256
+#define SIM_T ((int)omega_gpu_attention_test_threads()) /* threads per CTA of the kernel being simulated: head_dim (tuned) or roundup(head_dim, 32) (general) */
 static uint32_t g_smem_cap; /* negative control: pretend the QMD declared this many bytes (0 = the real 16 * head_dim) */
 #define SIM_SMEM (g_smem_cap ? g_smem_cap : omega_gpu_attention_test_shared_bytes()) /* the shared memory the QMD declares for this kernel (launcher: shared_bytes_for) */
 static int g_sim_err;
@@ -819,7 +828,7 @@ static int cmp_d(const void *a, const void *b) { double x = *(const double *)a, 
  * context falls with more CTAs per (sequence, head) or stays flat (bandwidth bound: the four query heads of a
  * kv head each read its slice). */
 static int split_timing(const char *out_path) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
     enum { N = 100 };
     const uint32_t hd = g_hd, nqh = 32, nkv = 8, bs = 16, layers = 2, layer = 1;
@@ -873,7 +882,7 @@ static int split_timing(const char *out_path) {
 }
 
 static int timing(const char *out_path) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
     enum { N = 100 };
     const uint32_t hd = 64, nqh = 32, nkv = 4, seq = 2048;
@@ -918,10 +927,10 @@ static int timing(const char *out_path) {
  * `--sweep [--out sweep.json]`: the production paged bf16 path at head_dim 64 over query-head
  * counts 1, 2, 4, 8, 16, 24, 32, 64 and every divisor as the kv-head count, at context 256
  * (latency) and 2048 (bandwidth), block size 16, scattered block ids. Points whose GQA ratio
- * is not a power of two are mathematically legal (the generic contract allows them) but
- * outside the current kernel envelope (codegen selects the kv head with a shift): they are
- * called anyway, must be refused with BAD_ARGS, and are recorded as
- * "unsupported_by_kernel_envelope" (no chip time). Every supported point is checked against
+ * is not a power of two ran outside the tuned kernel (its codegen selects the kv head with a
+ * shift) and were refused before 0.6.0; since 0.6.0 they run on the general kernel
+ * (omega_gpu_attention_general, class "general") and are checked and timed like the tuned
+ * points (class "tuned"); points_unsupported stays in the receipt and must be 0. Every point is checked against
  * the host oracle on its first call, then warmed and timed over N calls (median / p90 of the
  * whole call and of the chip kernel time). Gates: parity, no unwritten word, one device open,
  * every call OK; the timings are evidence, not a threshold. Only quantities the stack measures
@@ -929,7 +938,7 @@ static int timing(const char *out_path) {
  * through this path and are reported as unavailable. Under --sim the timings are host-simulator
  * timings and the receipt says so. */
 static int sweep(const char *out_path) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
     const int N = g_sim_mode ? 1 : 20;
     const uint32_t hd = 64, bs = 16, layers = 1, layer = 0;
@@ -939,7 +948,7 @@ static int sweep(const char *out_path) {
     if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_ATTENTION_SWEEP_V1\",\"path\":\"paged_bf16\",\"head_dim\":%u,\"block_size\":%u,\"timed_calls\":%d,\"host_simulator\":%s,"
                      "\"tolerances\":{\"rel\":2e-4,\"abs\":2e-5},\"hardware_counters\":\"unavailable (SM occupancy, bandwidth utilisation, cache hit rates are not observable through this path)\",\"points\":[",
                      hd, bs, N, g_sim_mode ? "true" : "false");
-    int npoints = 0, supported = 0, unsupported = 0;
+    int npoints = 0, supported = 0, general_pts = 0, unsupported = 0;
     double *samples = malloc((size_t)N * sizeof *samples), *ksamples = malloc((size_t)N * sizeof *ksamples);
     for (int qi = 0; qi < 8; qi++) for (uint32_t nkv = 1; nkv <= qheads[qi]; nkv++) {
         uint32_t nqh = qheads[qi];
@@ -957,13 +966,9 @@ static int sweep(const char *out_path) {
             for (size_t i = 0; i < n; i++) q[i] = frand(&seed, -1.0f, 1.0f);
             OmegaGpuAttnInfo info; memset(&info, 0, sizeof info);
             int rc = omega_gpu_paged_attention_bf16(q, pool, &ly, ids, nblk, ctx, layer, nqh, nkv, hd, got, &info);
-            const char *klass; int pass; size_t bad = 0; double worst = 0; int ok_calls = 0; uint32_t unwritten = 0, cache_hits = 0; double med = 0, p90 = 0, kmed = 0, kp90 = 0;
-            if (!pow2) {
-                klass = "unsupported_by_kernel_envelope";
-                pass = rc == OMEGA_GPU_ATTN_BAD_ARGS; unsupported++;
-                CHECK(pass, "sweep %uq/%ukv ctx %u: ratio %u (not a power of two) refused with BAD_ARGS (got %s)", nqh, nkv, ctx, ratio, omega_gpu_attention_rc_name(rc));
-            } else {
-                klass = "supported"; supported++;
+            const char *klass = pow2 ? "tuned" : "general"; int pass; size_t bad = 0; double worst = 0; int ok_calls = 0; uint32_t unwritten = 0, cache_hits = 0; double med = 0, p90 = 0, kmed = 0, kp90 = 0;
+            {
+                supported++; general_pts += !pow2;
                 oracle_paged(q, pool, &ly, ids, nblk, ctx, layer, nqh, nkv, hd, want);
                 bad = compare(got, want, n, 2e-4, 2e-5, &worst);
                 unwritten = info.unwritten_words;
@@ -992,20 +997,14 @@ static int sweep(const char *out_path) {
                                  med, p90, kmed, kp90, cache_hits, info.kernel_cache_hit ? "true" : "false", kv_staged, kv_naive, blk_l, blk_u, qb, tb, ob, kv_src == OMEGA_GPU_ATTN_KV_STAGED ? "staged" : "resident");
                 npoints++;
             }
-            if (!pow2) {
-                printf("%s sweep %2uq/%2ukv ratio %2u ctx %4u: %s (rc=%s)\n", pass ? "PASS" : "FAIL", nqh, nkv, ratio, ctx, klass, omega_gpu_attention_rc_name(rc));
-                if (out) fprintf(out, "%s{\"q_heads\":%u,\"kv_heads\":%u,\"gqa_ratio\":%u,\"head_dim\":%u,\"context\":%u,\"q_width\":%zu,\"out_width\":%zu,\"class\":\"%s\",\"rc\":\"%s\",\"pass\":%s}",
-                                 npoints ? "," : "", nqh, nkv, ratio, hd, ctx, n, n, klass, omega_gpu_attention_rc_name(rc), pass ? "true" : "false");
-                npoints++;
-            }
             free(pool); free(ids); free(q); free(got); free(want);
         }
     }
     free(samples); free(ksamples);
     uint32_t opens = omega_gpu_session_open_count();
     CHECK(opens == (g_sim_mode ? 0u : 1u), "sweep: device opened %s (opens=%u)", g_sim_mode ? "never (simulator)" : "once", opens);
-    printf("sweep: %d points (%d supported, %d unsupported by the kernel envelope), device_opens=%u\n", npoints, supported, unsupported, opens);
-    if (out) { fprintf(out, "],\"points_total\":%d,\"points_supported\":%d,\"points_unsupported\":%d,\"device_opens\":%u,\"checks\":%d,\"failed\":%d,\"verdict\":\"%s\"}\n", npoints, supported, unsupported, opens, g_checks, g_failed, g_failed == 0 ? "OMEGA_GPU_ATTENTION_SWEEP_PASS" : "OMEGA_GPU_ATTENTION_SWEEP_FAIL"); fclose(out); }
+    printf("sweep: %d points (%d supported, %d of them on the general kernel, %d unsupported), device_opens=%u\n", npoints, supported, general_pts, unsupported, opens);
+    if (out) { fprintf(out, "],\"points_total\":%d,\"points_supported\":%d,\"points_general\":%d,\"points_unsupported\":%d,\"device_opens\":%u,\"checks\":%d,\"failed\":%d,\"verdict\":\"%s\"}\n", npoints, supported, general_pts, unsupported, opens, g_checks, g_failed, g_failed == 0 ? "OMEGA_GPU_ATTENTION_SWEEP_PASS" : "OMEGA_GPU_ATTENTION_SWEEP_FAIL"); fclose(out); }
     return 0;
 }
 
@@ -1171,9 +1170,298 @@ static void hd_codegen_checks(void) {
     free(kn.code);
 }
 
+/* ------------------------------------------------------ general kernel (0.6.0, AttnGeneral)
+ * --general [--sim] [--out g.json]: the predeclared, seeded sweep of the general kernel. Every config is drawn from
+ * GEN_SEED by gen_config below BEFORE any result is seen (same list on the simulators and the chip): 22 head dims
+ * (1 2 3 5 7 31 33 63 64 65 80 96 97 112 127 128 129 160 191 192 255 256) x 14 configs each (MHA, GQA of every ratio
+ * 1..8 incl. non-powers of two, MQA up to 16:1; kv lengths 1, 2, T-1, T, T+1, 2T+1, 3T-1, 17, 100, 257 with
+ * T = roundup(head_dim, 32), the chunk; causal, non-causal, sliding windows, query positions past the context; user
+ * scales; f32 and bf16 KV; padded token / head strides whose gaps hold NaN; the general entry, the contiguous and
+ * rows entries, the paged batch entry, staged and resident) plus fixed edges (contexts past 4096, 1024 query heads,
+ * empty windows, kv_len 0). At head_dim 64 / 128 every other config forces the general kernel (the tuned kernel
+ * takes the rest). Oracle: oracle_general, f64 scores and softmax over the same range rule written independently
+ * (signed positions). Tolerance: |got - want| <= rel * |want| + 2e-5 with rel 2e-4 (kv <= 2048, the battery's) or
+ * 4e-4 past it (f32 sum rounding grows with n: 4096 * 2^-24 = 2.4e-4, 5000 * 2^-24 = 3.0e-4; WolframLanguageEvaluator).
+ * Then each general mutant runs down the same list until one config catches it; a mutant no config catches fails. */
+#define GEN_SEED 0xa77e0601u
+static const uint32_t k_gen_hds[] = { 1, 2, 3, 5, 7, 31, 33, 63, 64, 65, 80, 96, 97, 112, 127, 128, 129, 160, 191, 192, 255, 256 };
+enum { GEN_PER_HD = 14, GEN_ENTRY_GENERAL = 0, GEN_ENTRY_GQA, GEN_ENTRY_ROWS, GEN_ENTRY_PAGED, GEN_ENTRY_RESIDENT };
+static const char *const k_gen_entry[] = { "general", "gqa_f32", "rows_f32", "paged_batch", "paged_resident" };
+typedef struct {
+    uint32_t hd, nqh, nkv, rows, kv, pos0, causal; int32_t wl, wr; float scale;
+    uint32_t bf16, tpad, hpad, entry, bs, force; uint32_t seed;
+} GCfg;
+
+static void oracle_general(const OmegaGpuAttnGeneralDesc *d, const float *q, const float *k, const float *v, float *out) {
+    const long long n = d->kv_len; const size_t nqh = d->num_q_heads, nkv = d->num_kv_heads, hd = d->head_dim, ratio = nqh / nkv;
+    const size_t ts = d->kv_token_stride ? d->kv_token_stride : nkv * hd, hs = d->kv_head_stride ? d->kv_head_stride : hd;
+    const double sc = d->scale > 0.0f ? (double)d->scale : 1.0 / sqrt((double)hd);
+    double *s = malloc((size_t)(n > 0 ? n : 1) * sizeof *s);
+    for (size_t i = 0; i < d->num_rows; i++) {
+        const long long p = (long long)d->q_pos0 + (long long)i;
+        long long hi = d->causal ? p + 1 : (d->window_right >= 0 ? p + d->window_right + 1 : n);
+        if (hi > n) hi = n;
+        long long lo = d->window_left >= 0 ? p - d->window_left : 0;
+        if (lo < 0) lo = 0;
+        if (lo > hi) lo = hi;
+        for (size_t h = 0; h < nqh; h++) {
+            const float *qh = q + (i * nqh + h) * hd; float *o = out + (i * nqh + h) * hd; const size_t kvh = h / ratio;
+            if (lo == hi) { memset(o, 0, hd * 4); continue; }
+            double mx = -INFINITY;
+            for (long long t = lo; t < hi; t++) {
+                const float *kt = k + (size_t)t * ts + kvh * hs; double dot = 0.0;
+                for (size_t e = 0; e < hd; e++) dot += (double)qh[e] * (double)kt[e];
+                s[t] = dot * sc; if (s[t] > mx) mx = s[t];
+            }
+            double sum = 0.0; for (long long t = lo; t < hi; t++) { s[t] = exp(s[t] - mx); sum += s[t]; }
+            for (size_t e = 0; e < hd; e++) {
+                double a = 0.0; for (long long t = lo; t < hi; t++) a += s[t] * (double)v[(size_t)t * ts + kvh * hs + e];
+                o[e] = (float)(a / sum);
+            }
+        }
+    }
+    free(s);
+}
+
+/* The predeclared config list: a pure function of (GEN_SEED, head dim index, config index). */
+static GCfg gen_config(uint32_t hdi, uint32_t c) {
+    GCfg g; memset(&g, 0, sizeof g);
+    uint32_t s = GEN_SEED ^ (hdi * 0x9e3779b9u) ^ (c * 0x85ebca6bu); lcg(&s); lcg(&s);
+    g.seed = lcg(&s);
+    g.hd = k_gen_hds[hdi];
+    const uint32_t T = (g.hd + 31u) & ~31u;
+    static const uint32_t ratios[] = { 1, 2, 3, 4, 5, 8 };
+    g.nkv = 1 + lcg(&s) % 4; uint32_t ratio = ratios[lcg(&s) % 6];
+    if (c == 0) { g.nkv = 1; ratio = 1 + lcg(&s) % 16; } /* MQA */
+    if (c == 1) ratio = 1;                                 /* MHA */
+    const uint32_t kvs[10] = { 1, 2, T - 1, T, T + 1, 2 * T + 1, 3 * T - 1, 17, 100, 257 };
+    g.kv = kvs[(c + hdi) % 10];
+    const uint32_t e5 = c % 5;
+    g.entry = e5 <= 1 ? GEN_ENTRY_GENERAL : e5 == 2 ? GEN_ENTRY_GQA : e5 == 3 ? GEN_ENTRY_ROWS : (c == 9 ? GEN_ENTRY_RESIDENT : GEN_ENTRY_PAGED);
+    g.rows = g.entry == GEN_ENTRY_GQA ? 1 : 1 + lcg(&s) % 4;
+    if (g.entry == GEN_ENTRY_ROWS && g.rows > g.kv) g.rows = g.kv;
+    /* bound the work so the host simulators finish: CTAs x threads <= 8192 */
+    while ((g.nkv * ratio) * g.rows * T > 8192u && ratio > 1) ratio--;
+    while ((g.nkv * ratio) * g.rows * T > 8192u && g.rows > 1) g.rows--;
+    while ((g.nkv * ratio) * g.rows * T > 8192u && g.nkv > 1) g.nkv--;
+    g.nqh = g.nkv * ratio;
+    g.wl = g.wr = OMEGA_GPU_ATTN_WINDOW_NONE;
+    if (g.entry == GEN_ENTRY_GENERAL) {
+        const uint32_t mode = lcg(&s) % 4;
+        g.causal = mode == 0 || mode == 2;
+        if (mode == 2) g.wl = (int32_t)(lcg(&s) % (g.kv + 1));
+        if (mode == 3) { g.wl = (int32_t)(lcg(&s) % (g.kv / 2 + 2)) - 1; g.wr = (int32_t)(lcg(&s) % (g.kv / 2 + 2)) - 1; }
+        g.pos0 = lcg(&s) % (g.kv + 2);
+        if (lcg(&s) % 4 == 0) g.scale = 0.03f + 0.27f * (float)(lcg(&s) % 1000) / 1000.0f;
+        g.bf16 = lcg(&s) & 1u;
+        if (lcg(&s) & 1u) { g.tpad = lcg(&s) % 3; g.hpad = lcg(&s) % 2; }
+    } else if (g.entry == GEN_ENTRY_GQA) { g.causal = 1; g.pos0 = g.kv - 1; g.bf16 = 0; }
+    else if (g.entry == GEN_ENTRY_ROWS) { g.causal = 1; g.pos0 = g.kv - g.rows; g.bf16 = 0; }
+    else { g.bf16 = 1; g.bs = 1u << (lcg(&s) % 6); }
+    g.force = (g.hd == 64 || g.hd == 128) && (c & 1u);
+    return g;
+}
+
+/* Fixed edges, appended to the list after the per-head-dim configs. */
+static int gen_edges(GCfg *o) {
+    int n = 0; GCfg g;
+#define EDGE(...) do { memset(&g, 0, sizeof g); g.wl = g.wr = OMEGA_GPU_ATTN_WINDOW_NONE; g.seed = 0xed6e0000u + (uint32_t)n; __VA_ARGS__; o[n++] = g; } while (0)
+    EDGE(g.hd = 64; g.nqh = 8; g.nkv = 2; g.rows = 1; g.kv = 4097; g.pos0 = 4096; g.causal = 1; g.entry = GEN_ENTRY_GQA);       /* past the tuned 4096 */
+    EDGE(g.hd = 128; g.nqh = 2; g.nkv = 1; g.rows = 3; g.kv = 4097; g.pos0 = 4094; g.causal = 1; g.entry = GEN_ENTRY_ROWS);     /* rows across 4096 */
+    EDGE(g.hd = 256; g.nqh = 16; g.nkv = 2; g.rows = 1; g.kv = 1000; g.pos0 = 999; g.bf16 = 1; g.entry = GEN_ENTRY_GENERAL);    /* the 35B's head shape, non-causal */
+    EDGE(g.hd = 1; g.nqh = 1024; g.nkv = 1; g.rows = 1; g.kv = 33; g.pos0 = 32; g.causal = 1; g.entry = GEN_ENTRY_GENERAL);      /* 1024 q heads, MQA */
+    EDGE(g.hd = 2; g.nqh = 1024; g.nkv = 1024; g.rows = 1; g.kv = 5; g.pos0 = 4; g.entry = GEN_ENTRY_GENERAL);                  /* 1024 heads, MHA */
+    EDGE(g.hd = 33; g.nqh = 4; g.nkv = 2; g.rows = 3; g.kv = 40; g.pos0 = 7; g.wl = 0; g.wr = 0; g.entry = GEN_ENTRY_GENERAL);  /* one-key window */
+    EDGE(g.hd = 65; g.nqh = 3; g.nkv = 1; g.rows = 2; g.kv = 10; g.pos0 = 50; g.wl = 3; g.causal = 1; g.entry = GEN_ENTRY_GENERAL); /* empty ranges -> zeros */
+    EDGE(g.hd = 97; g.nqh = 2; g.nkv = 1; g.rows = 2; g.kv = 5000; g.pos0 = 4900; g.wl = 300; g.causal = 1; g.bf16 = 1; g.tpad = 1; g.entry = GEN_ENTRY_GENERAL); /* window, > 4096 */
+    EDGE(g.hd = 96; g.nqh = 12; g.nkv = 4; g.rows = 3; g.kv = 70; g.bs = 16; g.bf16 = 1; g.entry = GEN_ENTRY_RESIDENT);         /* resident paged, GQA 3 */
+    EDGE(g.hd = 80; g.nqh = 6; g.nkv = 6; g.rows = 1; g.kv = 0; g.entry = GEN_ENTRY_GENERAL);                                    /* kv_len 0: zeros, no launch */
+#undef EDGE
+    return n;
+}
+
+/* Runs one config; returns the violations (SIZE_MAX when rc != OK). */
+static size_t gen_run(const GCfg *g, int *rc_out, double *worst, OmegaGpuAttnInfo *info) {
+    uint32_t s = g->seed;
+    const uint32_t hd = g->hd, nqh = g->nqh, nkv = g->nkv, R = g->rows;
+    const size_t qn = (size_t)R * nqh * hd;
+    float *q = malloc(qn * 4), *got = malloc(qn * 4), *want = malloc(qn * 4);
+    for (size_t i = 0; i < qn; i++) { q[i] = frand(&s, -1.0f, 1.0f); got[i] = NAN; }
+    int rc; size_t bad;
+    memset(info, 0, sizeof *info);
+    if (g->entry == GEN_ENTRY_PAGED || g->entry == GEN_ENTRY_RESIDENT) {
+        const uint32_t bs = g->bs, maxb = (g->kv + bs - 1) / bs + 1, nblk = R * maxb + 2;
+        OmegaGpuKvLayout ly = layout_for(nblk, bs, 2, nkv, hd);
+        uint8_t *pool = malloc(ly.pool_bytes); uint16_t *pw = (uint16_t *)pool;
+        for (size_t i = 0; i < ly.pool_bytes / 2; i++) pw[i] = f2bf(frand(&s, -1.0f, 1.0f));
+        int32_t *tables = malloc((size_t)R * maxb * 4), *ctxs = malloc(R * 4);
+        for (uint32_t q_ = 0; q_ < R; q_++) {
+            ctxs[q_] = q_ == 0 ? (int32_t)g->kv : (int32_t)(lcg(&s) % (g->kv + 1));
+            for (uint32_t b = 0; b < maxb; b++) tables[(size_t)q_ * maxb + b] = (b + 1 == maxb && (lcg(&s) & 1u)) ? -1 : (int32_t)(lcg(&s) % nblk);
+        }
+        const void *use = pool; void *res = NULL;
+        if (g->entry == GEN_ENTRY_RESIDENT) {
+            int prc = omega_gpu_attention_pool_alloc(ly.pool_bytes, &res);
+            if (prc == OMEGA_GPU_ATTN_OK && res) { memcpy(res, pool, ly.pool_bytes); use = res; } else res = NULL;
+        }
+        rc = res || g->entry == GEN_ENTRY_PAGED
+                 ? omega_gpu_paged_attention_batch_bf16(q, use, &ly, tables, ctxs, maxb, R, 1, nqh, nkv, hd, got, info)
+                 : OMEGA_GPU_ATTN_CHIP_FAIL;
+        if (res) omega_gpu_attention_pool_free();
+        oracle_batch(q, pool, &ly, tables, ctxs, maxb, R, 1, nqh, nkv, hd, want);
+        free(pool); free(tables); free(ctxs);
+    } else {
+        const uint64_t hs = (uint64_t)hd + g->hpad, ts = (uint64_t)nkv * hs + g->tpad;
+        const size_t ne = (size_t)(g->kv ? g->kv : 1) * ts;
+        float *kf = malloc(ne * 4), *vf = malloc(ne * 4);
+        void *kr = malloc(ne * (g->bf16 ? 2 : 4)), *vr = malloc(ne * (g->bf16 ? 2 : 4));
+        for (size_t i = 0; i < ne; i++) {
+            const size_t in_tok = i % ts, hp = in_tok % hs; const bool gap = in_tok >= (size_t)nkv * hs || hp >= hd;
+            float a = gap ? NAN : frand(&s, -1.0f, 1.0f), b = gap ? NAN : frand(&s, -1.0f, 1.0f);
+            if (g->bf16) { uint16_t ab = f2bf(a), bb = f2bf(b); ((uint16_t *)kr)[i] = ab; ((uint16_t *)vr)[i] = bb; kf[i] = bf2f(ab); vf[i] = bf2f(bb); }
+            else { ((float *)kr)[i] = a; ((float *)vr)[i] = b; kf[i] = a; vf[i] = b; }
+        }
+        OmegaGpuAttnGeneralDesc d = { .num_rows = R, .num_q_heads = nqh, .num_kv_heads = nkv, .head_dim = hd, .kv_len = g->kv, .q_pos0 = g->pos0,
+                                      .causal = g->causal, .window_left = g->wl, .window_right = g->wr, .scale = g->scale, .kv_bf16 = g->bf16,
+                                      .kv_token_stride = (g->tpad || g->hpad) ? ts : 0, .kv_head_stride = (g->tpad || g->hpad) ? hs : 0 };
+        if (g->entry == GEN_ENTRY_GQA) rc = omega_gpu_gqa_attention_f32(q, kr, vr, g->kv, nqh, nkv, hd, got, info);
+        else if (g->entry == GEN_ENTRY_ROWS) rc = omega_gpu_gqa_attention_rows_f32(q, kr, vr, g->kv - R, R, nqh, nkv, hd, got, info);
+        else rc = omega_gpu_attention_general(&d, q, kr, vr, got, info);
+        oracle_general(&d, q, kf, vf, want);
+        free(kf); free(vf); free(kr); free(vr);
+    }
+    const double rel = g->kv > 2048 ? 4e-4 : 2e-4;
+    *worst = 0.0;
+    bad = rc == OMEGA_GPU_ATTN_OK ? compare(got, want, qn, rel, 2e-5, worst) : SIZE_MAX;
+    *rc_out = rc;
+    free(q); free(got); free(want);
+    return bad;
+}
+
+static void general_refusals(void) {
+    float d4[4] = { 0 }; OmegaGpuAttnInfo info;
+    const OmegaGpuAttnGeneralDesc ok = { .num_rows = 1, .num_q_heads = 4, .num_kv_heads = 2, .head_dim = 8, .kv_len = 1, .causal = 1,
+                                         .window_left = -1, .window_right = -1 };
+    OmegaGpuAttnGeneralDesc d;
+#define REFUSE(want, label, ...) do { d = ok; __VA_ARGS__; CHECK(omega_gpu_attention_general(&d, d4, d4, d4, d4, &info) == (want), "general refuses %s (%s)", label, #want); } while (0)
+    REFUSE(OMEGA_GPU_ATTN_BAD_ARGS, "head_dim 0", d.head_dim = 0);
+    REFUSE(OMEGA_GPU_ATTN_TOO_LARGE, "head_dim 257", d.head_dim = 257);
+    REFUSE(OMEGA_GPU_ATTN_BAD_ARGS, "num_q_heads 0", d.num_q_heads = 0);
+    REFUSE(OMEGA_GPU_ATTN_BAD_ARGS, "num_kv_heads 0", d.num_kv_heads = 0);
+    REFUSE(OMEGA_GPU_ATTN_BAD_ARGS, "6 q heads / 4 kv heads (not a divisor)", d.num_q_heads = 6; d.num_kv_heads = 4);
+    REFUSE(OMEGA_GPU_ATTN_BAD_ARGS, "more kv heads than q heads", d.num_q_heads = 2; d.num_kv_heads = 4);
+    REFUSE(OMEGA_GPU_ATTN_TOO_LARGE, "1025 q heads", d.num_q_heads = 1025; d.num_kv_heads = 1);
+    REFUSE(OMEGA_GPU_ATTN_BAD_ARGS, "num_rows 0", d.num_rows = 0);
+    REFUSE(OMEGA_GPU_ATTN_BAD_ARGS, "window_left -2", d.window_left = -2);
+    REFUSE(OMEGA_GPU_ATTN_BAD_ARGS, "window_right -2", d.causal = 0; d.window_right = -2);
+    REFUSE(OMEGA_GPU_ATTN_BAD_ARGS, "negative scale", d.scale = -0.5f);
+    REFUSE(OMEGA_GPU_ATTN_BAD_ARGS, "NaN scale", d.scale = NAN);
+    REFUSE(OMEGA_GPU_ATTN_TOO_LARGE, "a KV plane past the 32-bit offsets", d.kv_len = 1u << 26; d.head_dim = 256);
+#undef REFUSE
+    CHECK(omega_gpu_attention_general(NULL, d4, d4, d4, d4, &info) == OMEGA_GPU_ATTN_BAD_ARGS, "general refuses a NULL desc");
+    CHECK(omega_gpu_attention_general(&ok, NULL, d4, d4, d4, &info) == OMEGA_GPU_ATTN_BAD_ARGS, "general refuses NULL q");
+    CHECK(omega_gpu_attention_general(&ok, d4, NULL, d4, d4, &info) == OMEGA_GPU_ATTN_BAD_ARGS, "general refuses NULL k with kv_len > 0");
+    CHECK(omega_gpu_attention_general(&ok, d4, d4, d4, NULL, &info) == OMEGA_GPU_ATTN_BAD_ARGS, "general refuses NULL out");
+    d = ok; d.kv_len = 0; d4[0] = 1.0f;
+    CHECK(omega_gpu_attention_general(&d, d4, NULL, NULL, d4, &info) == OMEGA_GPU_ATTN_OK && d4[0] == 0.0f && info.chip_calls == 0, "general kv_len 0 writes zeros without a launch");
+    /* the tuned entries route their out-of-domain shapes; what stays out is refused before any device work */
+    CHECK(omega_gpu_gqa_attention_f32(d4, d4, d4, 1, 7, 2, 64, d4, NULL) == OMEGA_GPU_ATTN_BAD_ARGS, "gqa: 7 q heads / 2 kv heads refused");
+    CHECK(omega_gpu_gqa_attention_f32(d4, d4, d4, 1, 4, 2, 257, d4, NULL) == OMEGA_GPU_ATTN_TOO_LARGE, "gqa: head_dim 257 refused");
+    CHECK(omega_gpu_gqa_attention_f32(d4, d4, d4, 1u << 26, 4, 2, 256, d4, NULL) == OMEGA_GPU_ATTN_TOO_LARGE, "gqa: a context past the 32-bit offsets refused");
+    CHECK(omega_gpu_gqa_attention_rows_f32(d4, d4, d4, 0x7fffffffu, 1, 4, 2, 64, d4, NULL) == OMEGA_GPU_ATTN_TOO_LARGE, "rows: base + rows past 2^31 refused");
+    /* every head dim 1..256 encodes under the register budget, f32 and bf16 */
+    int bad_cg = 0; uint32_t max_gpr = 0;
+    for (uint32_t hd = 1; hd <= 256; hd++) for (int f32 = 0; f32 < 2; f32++) {
+        OmegaBlackwellKernel k; memset(&k, 0, sizeof k);
+        int rc = omega_gpu_attention_codegen_general(f32 != 0, 4, hd, &k);
+        if (rc != OMEGA_GPU_ATTN_OK || k.code_size == 0 || k.gpr_count > 96u) { bad_cg++; printf("general codegen hd %u f32 %d: rc %s gprs %u\n", hd, f32, omega_gpu_attention_rc_name(rc), k.gpr_count); }
+        if (k.gpr_count > max_gpr) max_gpr = k.gpr_count;
+        free(k.code);
+    }
+    CHECK(bad_cg == 0, "general kernel encodes for every head_dim 1..256, f32 and bf16, within 96 registers (%d failed, peak %u gprs)", bad_cg, max_gpr);
+    OmegaBlackwellKernel kx; memset(&kx, 0, sizeof kx);
+    CHECK(omega_gpu_attention_codegen_general(false, 4, 0, &kx) == OMEGA_GPU_ATTN_BAD_ARGS && omega_gpu_attention_codegen_general(false, 4, 257, &kx) == OMEGA_GPU_ATTN_TOO_LARGE,
+          "general codegen refuses head_dim 0 and 257");
+}
+
+static int general_sweep(const char *out_path) {
+    /* 0600, not fopen's 0666 & ~umask (CodeQL cpp/world-writable-file-creation) */
+    int out_fd = out_path ? open(out_path, O_WRONLY | O_CREAT | O_TRUNC, 0600) : -1;
+    FILE *out = out_fd >= 0 ? fdopen(out_fd, "w") : NULL;
+    if (out_path && !out) { if (out_fd >= 0) close(out_fd); printf("cannot open %s\n", out_path); return 2; }
+    general_refusals();
+    const size_t nhd = sizeof k_gen_hds / sizeof k_gen_hds[0];
+    GCfg *cfg = malloc((nhd * GEN_PER_HD + 16) * sizeof *cfg); size_t n = 0;
+    for (uint32_t h = 0; h < nhd; h++) for (uint32_t c = 0; c < GEN_PER_HD; c++) cfg[n++] = gen_config(h, c);
+    n += (size_t)gen_edges(cfg + n);
+    if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_ATTENTION_GENERAL_V1\",\"seed\":\"0x%08x\",\"simulator\":%s,\"tolerance\":{\"rel\":2e-4,\"rel_kv_over_2048\":4e-4,\"abs\":2e-5},\"configs\":[",
+                      GEN_SEED, g_sim_mode ? "true" : "false");
+    size_t pass = 0;
+    for (size_t i = 0; i < n; i++) {
+        const GCfg *g = &cfg[i]; int rc; double worst; OmegaGpuAttnInfo info;
+        omega_gpu_attention_test_force_general(g->force != 0);
+        size_t bad = gen_run(g, &rc, &worst, &info);
+        omega_gpu_attention_test_force_general(false);
+        /* the resident entry must read the pool in place: nothing staged */
+        const bool ok = rc == OMEGA_GPU_ATTN_OK && bad == 0 && (g->entry != GEN_ENTRY_RESIDENT || info.kv_bytes_staged == 0);
+        pass += ok;
+        CHECK(ok, "general #%zu %s hd %u q %u kv-heads %u rows %u kv %u pos0 %u causal %u win %d/%d scale %g %s pad %u/%u bs %u force %u: rc %s bad %zu worst %g",
+              i, k_gen_entry[g->entry], g->hd, g->nqh, g->nkv, g->rows, g->kv, g->pos0, g->causal, g->wl, g->wr, (double)g->scale, g->bf16 ? "bf16" : "f32",
+              g->tpad, g->hpad, g->bs, g->force, omega_gpu_attention_rc_name(rc), bad == SIZE_MAX ? (size_t)0 : bad, worst);
+        if (out) fprintf(out, "%s{\"i\":%zu,\"entry\":\"%s\",\"hd\":%u,\"nqh\":%u,\"nkv\":%u,\"rows\":%u,\"kv\":%u,\"pos0\":%u,\"causal\":%u,\"wl\":%d,\"wr\":%d,\"scale\":%g,\"kv_bf16\":%u,\"tpad\":%u,\"hpad\":%u,\"bs\":%u,\"force_general\":%u,"
+                         "\"rc\":\"%s\",\"violations\":%zu,\"worst_scaled\":%.4g,\"chip_calls\":%u,\"threads_per_cta\":%u,\"kv_bytes_staged\":%" PRIu64 ",\"chip_ns\":%" PRIu64 ",\"pass\":%s}",
+                         i ? "," : "", i, k_gen_entry[g->entry], g->hd, g->nqh, g->nkv, g->rows, g->kv, g->pos0, g->causal, g->wl, g->wr, (double)g->scale, g->bf16,
+                         g->tpad, g->hpad, g->bs, g->force, omega_gpu_attention_rc_name(rc), bad == SIZE_MAX ? (size_t)0 : bad, worst, info.chip_calls, info.threads_per_cta,
+                         (uint64_t)info.kv_bytes_staged, (uint64_t)info.elapsed_ns, ok ? "true" : "false");
+    }
+    printf("general sweep: %zu of %zu configs pass\n", pass, n);
+    if (out) fprintf(out, "],\"configs_total\":%zu,\"configs_pass\":%zu,\"mutants\":[", n, pass);
+    int caught_all = 1;
+    for (int m = 1; m < OMEGA_GPU_ATTN_GMUT_COUNT; m++) {
+        omega_gpu_attention_test_set_general_mutant((OmegaGpuAttnGeneralMutant)m);
+        long at = -1; int mrc = 0; size_t mbad = 0;
+        for (size_t i = 0; i < n && at < 0; i++) {
+            const GCfg *g = &cfg[i]; double worst; OmegaGpuAttnInfo info;
+            if (g->kv == 0) continue;
+            omega_gpu_attention_test_force_general(true); /* a mutant lives in the general kernel: route every config there */
+            size_t bad = gen_run(g, &mrc, &worst, &info);
+            omega_gpu_attention_test_force_general(false);
+            if (mrc != OMEGA_GPU_ATTN_OK || bad != 0) { at = (long)i; mbad = bad; }
+        }
+        omega_gpu_attention_test_set_general_mutant(OMEGA_GPU_ATTN_GMUT_NONE);
+        const char *nm = omega_gpu_attention_general_mutant_name((OmegaGpuAttnGeneralMutant)m);
+        CHECK(at >= 0, "general mutant %s caught (first at config %ld, rc %s, violations %zu)", nm, at, omega_gpu_attention_rc_name(mrc), mbad == SIZE_MAX ? (size_t)0 : mbad);
+        printf("general mutant %s: %s at config %ld\n", nm, at >= 0 ? "caught" : "NOT CAUGHT", at);
+        caught_all &= at >= 0;
+        if (out) fprintf(out, "%s{\"mutant\":\"%s\",\"caught\":%s,\"first_config\":%ld,\"rc\":\"%s\",\"violations\":%zu}", m > 1 ? "," : "", nm, at >= 0 ? "true" : "false", at,
+                         omega_gpu_attention_rc_name(mrc), mbad == SIZE_MAX ? (size_t)0 : mbad);
+    }
+    /* routing proof: the GQA_MAP mutant lives only in the general kernel, so on a tuned-domain shape (head_dim 64, GQA 4)
+     * it must show when the general kernel is forced and must NOT show on the default route (the tuned kernel) */
+    int route_forced = -1, route_default = -1;
+    {
+        GCfg g; memset(&g, 0, sizeof g);
+        g.hd = 64; g.nqh = 8; g.nkv = 2; g.rows = 1; g.kv = 100; g.pos0 = 99; g.causal = 1; g.entry = GEN_ENTRY_GQA; g.seed = 0x70e7e000u;
+        g.wl = g.wr = OMEGA_GPU_ATTN_WINDOW_NONE;
+        int rc; double w; OmegaGpuAttnInfo info;
+        omega_gpu_attention_test_set_general_mutant(OMEGA_GPU_ATTN_GMUT_GQA_MAP);
+        omega_gpu_attention_test_force_general(true);
+        size_t bf = gen_run(&g, &rc, &w, &info); route_forced = rc == OMEGA_GPU_ATTN_OK && bf == 0 ? 0 : 1;
+        omega_gpu_attention_test_force_general(false);
+        size_t bd = gen_run(&g, &rc, &w, &info); route_default = rc == OMEGA_GPU_ATTN_OK && bd == 0 ? 0 : 1;
+        omega_gpu_attention_test_set_general_mutant(OMEGA_GPU_ATTN_GMUT_NONE);
+        CHECK(route_forced == 1 && route_default == 0, "routing: hd 64 GQA 4 runs the tuned kernel by default (general mutant invisible: %d) and the general kernel when forced (mutant visible: %d)",
+              route_default == 0, route_forced == 1);
+    }
+    if (out) { fprintf(out, "],\"mutants_all_caught\":%s,\"routing\":{\"forced_general_sees_mutant\":%s,\"default_tuned_sees_mutant\":%s},\"checks\":%d,\"failed\":%d}\n",
+                       caught_all ? "true" : "false", route_forced == 1 ? "true" : "false", route_default == 1 ? "true" : "false", g_checks, g_failed); fclose(out); }
+    free(cfg);
+    return 0;
+}
+
 
 int main(int argc, char **argv) {
-    const char *out_path = NULL; int host = 0, sim = 0, timing_mode = 0, sweep_mode = 0, split_timing_mode = 0;
+    const char *out_path = NULL; int host = 0, sim = 0, timing_mode = 0, sweep_mode = 0, split_timing_mode = 0, general_mode = 0;
     uint32_t spin_us = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--host-only") == 0) host = 1;
@@ -1182,6 +1470,7 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--timing") == 0) timing_mode = 1;
         else if (strcmp(argv[i], "--split-timing") == 0) split_timing_mode = 1;
         else if (strcmp(argv[i], "--sweep") == 0) sweep_mode = 1;
+        else if (strcmp(argv[i], "--general") == 0) general_mode = 1;
         else if (strcmp(argv[i], "--hd") == 0 && i + 1 < argc) g_hd = (uint32_t)atoi(argv[++i]);
         else if (strcmp(argv[i], "--spin-us") == 0 && i + 1 < argc) spin_us = (uint32_t)atoi(argv[++i]);
         else if (strcmp(argv[i], "--out") == 0 && i + 1 < argc) out_path = argv[++i];
@@ -1192,7 +1481,8 @@ int main(int argc, char **argv) {
     if (g_divergent) omega_gpu_attention_test_set_divergent(1);
     if (sim) { g_sim_mode = 1; omega_gpu_attention_test_set_simulator(g_divergent ? ws_attn_launch : sim_launch); }
     if (sim && g_divergent && !host) divergent_negative_control();
-    if (host) { host_only(); hd_codegen_checks(); }
+    if (host) { host_only(); hd_codegen_checks(); general_refusals(); }
+    else if (general_mode) { if (general_sweep(out_path) != 0) return 2; }
     else if (split_timing_mode) { if (split_timing(out_path) != 0) return 2; }
     else if (timing_mode) { if (timing(out_path) != 0) return 2; }
     else if (sweep_mode) { if (sweep(out_path) != 0) return 2; }

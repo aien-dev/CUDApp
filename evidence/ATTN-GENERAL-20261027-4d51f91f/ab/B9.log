@@ -1,0 +1,2 @@
+PASS timing gqa_f32_tinyllama_32q4kv_ctx2048 first_call_ms=48.967 ok_calls=100/100 violations=0 worst_scaled_err=0.00323017 median_ms=0.815 p90_ms=1.001 min_ms=0.497 max_ms=1.126 chip_us_mean=699.4 device_opens=1
+PASS: 2 checks, 0 failed

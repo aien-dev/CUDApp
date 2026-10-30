@@ -1,0 +1,576 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note emit.om: seeded-Omega SPIR-V kernel builder for the portable backend (docs/ARCHITECTURE.md).
+note It writes one SPIR-V module to stdout for a fixed FP32 kernel and one environment:
+note   cl  SPIR-V 1.0, OpenCL Kernel, Physical64, CrossWorkgroup pointer arguments (format SPIRV_CL)
+note   vk  SPIR-V 1.3, Vulkan Shader GLCompute, Logical GLSL450, StorageBuffer bindings (format SPIRV_VK)
+note Why a kernel builder and not the IR route: omc IR mode refuses float words (OMEGESE 9.9 at
+note omega-mv 369dbc96), so seed/spirv/irspirv.om and vkspirv.om translate integer IR only. This file
+note is the FP32 builder until IR v7 (omega-mv#883) carries floats; it is not a compiler.
+note Opcode, enum and layout authority: registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html
+note Every module is checked by spirv-val and by backend/targets.om before any run.
+note
+note Kernels (n = element count for vadd, row count for fsum16; gid = global invocation x):
+note   vadd    c[gid] = a[gid] + b[gid]                      for gid < n (hello_gpu's operation)
+note   fsum16  o[gid] = (((x[16g] + x[16g+1]) + x[16g+2]) ... + x[16g+15])  frozen left-to-right order
+note cl arguments: vadd (a, b, c, uint n), fsum16 (x, o, uint n).
+note vk bindings set 0: vadd a=0 b=1 c=2, fsum16 x=0 o=1; n = OpArrayLength of the output buffer;
+note LocalSize 64 1 1.
+note
+note Usage: emit vadd|fsum16 cl|vk [mutant]
+note mutant plants a wrong kernel for negative controls: vadd uses OpFSub, fsum16 adds right-to-left.
+note Exit: 0 module written; 2 usage; 3 stdout write failed. Traps exit 100 + code.
+om2
+
+text tuse "usage: emit vadd|fsum16 cl|vk [mutant]\n"
+text tio "emit: stdout write failed\n"
+text tvadd "vadd"
+text tfsum "fsum16"
+text tcl "cl"
+text tvk "vk"
+text tmut "mutant"
+
+const IVOID uint 1
+const IU32 uint 2
+const IU64 uint 3
+const IF32 uint 4
+const IBOOL uint 5
+const IV3 uint 6
+const IPIN uint 7
+const IPF uint 8
+const IFN uint 9
+const IGID uint 10
+const IMAIN uint 11
+const IRTA uint 12
+const IST uint 13
+const IPST uint 14
+const IB0 uint 15
+const IB1 uint 16
+const IB2 uint 17
+const IN uint 18
+const IK0 uint 20
+const IK16 uint 36
+const IDYN uint 40
+
+global gw uint 4096
+global gob uchar 16384
+global garg uchar 16
+note gst: 0 word fill, 1 next id, 2 env (0 cl, 1 vk), 3 kernel (0 vadd, 1 fsum16), 4 mutant
+global gst ulong 8
+
+fn usage to void
+n = write 2 tuse 0 len tuse
+exit 2
+end
+
+fn w v uint to void
+f = get gst 0
+put gw f v
+put gst 0 add f 1
+end
+
+fn op c uint n uint to void
+w or shl n 16 c
+end
+
+fn nid to uint
+i = get gst 1
+put gst 1 add i 1
+ret uint i
+end
+
+fn isvk to bool
+ret eq get gst 2 1
+end
+
+note Literal string: bytes little-endian in words, a zero byte always ends it, zero padded.
+fn strwc t view uchar * to uint
+ret uint add div len t 4 1
+end
+
+fn wstr t view uchar * to void
+nw = ulong strwc t
+for i ulong nw
+v = uint 0
+for k ulong 4
+j = add mul i 4 k
+if lt j len t
+v = or v shl uint get t j mul uint k 8
+end
+end
+w v
+end
+end
+
+fn argis i ulong t view uchar * to bool
+n = argread i garg 0 len garg
+if ne n long len t
+ret false
+end
+for k ulong len t
+if ne get garg k get t k
+ret false
+end
+end
+ret true
+end
+
+fn kname to void
+if eq get gst 3 0
+wstr tvadd
+ret
+end
+wstr tfsum
+end
+
+fn knamewc to uint
+if eq get gst 3 0
+ret strwc tvadd
+end
+ret strwc tfsum
+end
+
+fn nbuf to uint
+if eq get gst 3 0
+ret 3
+end
+ret 2
+end
+
+note Buffer i (0-based) as an id: cl parameters and vk variables share IB0..IB2.
+fn bufid i uint to uint
+ret add IB0 i
+end
+
+fn outbuf to uint
+ret bufid sub nbuf 1
+end
+
+fn header to void
+if isvk
+op 17 2
+w 1
+op 14 3
+w 0
+w 1
+op 15 add 4 knamewc
+w 5
+w IMAIN
+kname
+w IGID
+op 16 6
+w IMAIN
+w 17
+w 64
+w 1
+w 1
+ret
+end
+op 17 2
+w 4
+op 17 2
+w 6
+op 17 2
+w 11
+op 14 3
+w 2
+w 2
+op 15 add 4 knamewc
+w 6
+w IMAIN
+kname
+w IGID
+end
+
+fn decor to void
+op 71 4
+w IGID
+w 11
+w 28
+if not isvk
+op 71 3
+w IGID
+w 22
+ret
+end
+op 71 4
+w IRTA
+w 6
+w 4
+op 72 5
+w IST
+w 0
+w 35
+w 0
+op 71 3
+w IST
+w 2
+for i uint nbuf
+op 71 4
+w bufid i
+w 34
+w 0
+op 71 4
+w bufid i
+w 33
+w i
+end
+end
+
+fn types to void
+op 19 2
+w IVOID
+op 21 4
+w IU32
+w 32
+w 0
+op 22 3
+w IF32
+w 32
+op 20 2
+w IBOOL
+if isvk
+op 23 4
+w IV3
+w IU32
+w 3
+op 32 4
+w IPIN
+w 1
+w IV3
+op 29 3
+w IRTA
+w IF32
+op 30 3
+w IST
+w IRTA
+op 32 4
+w IPST
+w 12
+w IST
+op 32 4
+w IPF
+w 12
+w IF32
+op 33 3
+w IFN
+w IVOID
+ret
+end
+op 21 4
+w IU64
+w 64
+w 0
+op 23 4
+w IV3
+w IU64
+w 3
+op 32 4
+w IPIN
+w 1
+w IV3
+op 32 4
+w IPF
+w 5
+w IF32
+op 33 add 4 nbuf
+w IFN
+w IVOID
+for i uint nbuf
+w IPF
+end
+w IU32
+end
+
+note Index constants k = 0..16 at ids IK0 + k: ulong for cl (two literal words), uint for vk.
+fn consts to void
+for k uint 17
+if isvk
+op 43 4
+w IU32
+w add IK0 k
+w k
+end
+if not isvk
+op 43 5
+w IU64
+w add IK0 k
+w k
+w 0
+end
+end
+end
+
+fn vars to void
+if isvk
+for i uint nbuf
+op 59 4
+w IPST
+w bufid i
+w 12
+end
+end
+op 59 4
+w IPIN
+w IGID
+w 1
+end
+
+fn idxty to uint
+if isvk
+ret IU32
+end
+ret IU64
+end
+
+fn eptr b uint x uint to uint
+p = nid
+if isvk
+op 65 6
+w IPF
+w p
+w b
+w IK0
+w x
+ret p
+end
+op 70 5
+w IPF
+w p
+w b
+w x
+ret p
+end
+
+fn ld p uint to uint
+r = nid
+if isvk
+op 61 4
+w IF32
+w r
+w p
+ret r
+end
+op 61 6
+w IF32
+w r
+w p
+w 2
+w 4
+ret r
+end
+
+fn st p uint v uint to void
+if isvk
+op 62 3
+w p
+w v
+ret
+end
+op 62 5
+w p
+w v
+w 2
+w 4
+end
+
+fn farith c uint a uint b uint to uint
+r = nid
+op c 5
+w IF32
+w r
+w a
+w b
+ret r
+end
+
+fn iarith c uint a uint b uint to uint
+r = nid
+op c 5
+w idxty
+w r
+w a
+w b
+ret r
+end
+
+fn bvadd x uint to void
+a = ld eptr IB0 x
+b = ld eptr IB1 x
+c = uint 129
+if eq get gst 4 1
+c = 131
+end
+s = farith c a b
+st eptr IB2 x s
+end
+
+fn fsel i uint to uint
+if eq get gst 4 1
+ret sub 15 i
+end
+ret i
+end
+
+fn fld bs uint k uint to uint
+x = bs
+if ne k 0
+x = iarith 128 bs add IK0 k
+end
+ret ld eptr IB0 x
+end
+
+fn bfsum x uint to void
+bs = iarith 132 x IK16
+acc = fld bs fsel 0
+for i uint 15
+v = fld bs fsel add i 1
+acc = farith 129 acc v
+end
+st eptr IB1 x acc
+end
+
+fn count x uint to uint
+n = nid
+if isvk
+op 68 5
+w IU32
+w n
+w outbuf
+w 0
+ret n
+end
+op 113 4
+w IU64
+w n
+w IN
+ret n
+end
+
+fn body to void
+op 54 5
+w IVOID
+w IMAIN
+w 0
+w IFN
+if not isvk
+for i uint nbuf
+op 55 3
+w IPF
+w bufid i
+end
+op 55 3
+w IU32
+w IN
+end
+op 248 2
+w nid
+v = nid
+op 61 4
+w IV3
+w v
+w IGID
+x = nid
+op 81 5
+w idxty
+w x
+w v
+w 0
+n = count x
+c = nid
+op 176 5
+w IBOOL
+w c
+w x
+w n
+tl = nid
+ml = nid
+op 247 3
+w ml
+w 0
+op 250 4
+w c
+w tl
+w ml
+op 248 2
+w tl
+if eq get gst 3 0
+bvadd x
+end
+if eq get gst 3 1
+bfsum x
+end
+op 249 2
+w ml
+op 248 2
+w ml
+op 253 1
+op 56 1
+end
+
+fn ob o ulong v uint to void
+for k ulong 4
+put gob add o k uchar and shr v mul uint k 8 255
+end
+end
+
+fn flush to void
+nw = get gst 0
+ob 0 0x07230203
+if isvk
+ob 4 0x00010300
+end
+if not isvk
+ob 4 0x00010000
+end
+ob 8 0
+ob 12 uint get gst 1
+ob 16 0
+for i ulong nw
+ob add 20 mul i 4 get gw i
+end
+tot = add 20 mul nw 4
+r = write 1 gob 0 tot
+if ne r long tot
+n = write 2 tio 0 len tio
+exit 3
+end
+end
+
+fn main to int
+ac = argcnt
+if or lt ac 3 gt ac 4
+usage
+end
+put gst 3 9
+if argis 1 tvadd
+put gst 3 0
+end
+if argis 1 tfsum
+put gst 3 1
+end
+put gst 2 9
+if argis 2 tcl
+put gst 2 0
+end
+if argis 2 tvk
+put gst 2 1
+end
+if or eq get gst 3 9 eq get gst 2 9
+usage
+end
+if eq ac 4
+if not argis 3 tmut
+usage
+end
+put gst 4 1
+end
+put gst 1 ulong IDYN
+header
+decor
+types
+consts
+vars
+body
+flush
+ret 0
+end

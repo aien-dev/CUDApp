@@ -1,0 +1,15 @@
+{
+  "schema": "cudapp-learn53-moe-closure-source-lock-v1",
+  "repository": "https://github.com/aien-dev/CUDApp.git",
+  "baseline": "b759afc3f5e46f152ffb06b39882ffa28cacaf96",
+  "compiler": {"repository": "https://github.com/aien-dev/omega-mv.git", "revision": "e5b32567a7aff3ce594e3254a622a846a6cd190b", "sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"},
+  "sources": [
+    {"revision": "fe25929ce71b11703eafa72395df2dd495aa61f2", "path": "om/quant/quant.om", "sha256": "44bce96f3c274401e19a71b835814d69caf2bea8c2b1f4f43616c7c121232f09"},
+    {"revision": "2e93f998b70852abcd425f8865d842a05dad76ea", "path": "om/components/realize.om", "sha256": "2edff07a46c79c39a264dde9e5d6dfa02ed2f6dda677da8cc8a178f60c9a1c9d"},
+    {"revision": "693464cfcff678a9278fe4586f8a24b07ce45fb2", "path": "om/cache/digest.om", "sha256": "b0e49da9e6c146da0d040476d84bff8d93486c563e19ef8f1d731b1ffb15c051"},
+    {"revision": "966213fe14e37f39c94e4b57f140b19dd78af210", "path": "om/moe/moe_windows.om", "sha256": "b7aef37b135a1ffbe5ba32fd54d9c619b0552c1b87885afbde71c9cc1c1293b7"},
+    {"revision": "966213fe14e37f39c94e4b57f140b19dd78af210", "path": "om/moe/moe_group.om", "sha256": "2296030f59ae8aabb4b1dd37e8c05fb09bf5e02e8ef5d71f408f4aef11966170"}
+  ],
+  "construction": "export exact Git objects, verify each source digest, concatenate in listed order then moe-closure.om; do not vendor another implementation",
+  "qualification": "HOST_ONLY synthetic controls; actual accepted hardware receipts absent; no production registration"
+}

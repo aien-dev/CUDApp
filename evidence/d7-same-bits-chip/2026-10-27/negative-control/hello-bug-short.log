@@ -1,0 +1,16 @@
+# command: /home/drakestapleton/work/Determinism/CUDApp/build/hello_gpu_control --bug=short
+# binary sha256: 9b8d0b079ede116d0b4e7ddb80307cbe01367113ea6be232d082f7c338ddcaa8
+# git HEAD: 0490d98b6bc4bd3a6b09f80b4332cdfe1b9c090f
+# utc start: 2026-10-27T07:04:40.223111710Z
+hello_gpu: c = a + b over 1048576 floats on the GPU, built with Omega's own kernel builder
+kernel built in 16 us: 32 instructions, 12 registers, no compiler run, no cache
+machine code sha256 9e28bd9c46f80584d77238a752e99cecddbc8d622ffbe320885ed2f499e1f075
+kernel: 32 instructions, 12 registers
+checked 1048576 of 1048576 elements: 1 wrong, 1 never written
+first mismatch: c[1048575] = -nan, expected 262144
+work: 12582912 bytes moved (8388608 read, 4194304 written), 1048576 floating-point operations
+      at the GB10's measured 195.1 GB/s read ceiling this needs at least 64.5 us; the GPU took 1042.1 us (6% of the ceiling)
+output sha256 ec24bd3eaff225af5df8f4193410cffaa0e19cdb076bca98736d8d0759e8df75
+FAIL
+# exit: 1
+# utc end: 2026-10-27T07:04:40.311395217Z

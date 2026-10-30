@@ -1,0 +1,23 @@
+
+out/gate3/vadd-gfx1151.hsaco:	file format elf64-amdgpu
+
+Disassembly of section .text:
+
+0000000000001600 <vadd>:
+	s_load_b128 s[4:7], s[0:1], null                           // 000000001600: F4080100 F8000000
+	s_load_b64 s[8:9], s[0:1], 0x10                            // 000000001608: F4040200 F8000010
+	s_load_b32 s10, s[0:1], 0x18                               // 000000001610: F4000280 F8000018
+	v_and_b32_e32 v0, 0x3ff, v0                                // 000000001618: 360000FF 000003FF
+	s_lshl_b32 s11, s2, 6                                      // 000000001620: 840B8602
+	v_add_nc_u32_e32 v1, s11, v0                               // 000000001624: 4A02000B
+	s_waitcnt lgkmcnt(0)                                       // 000000001628: BF89FC07
+	v_cmp_gt_u32_e32 vcc_lo, s10, v1                           // 00000000162C: 7C98020A
+	s_and_saveexec_b32 s12, vcc_lo                             // 000000001630: BE8C206A
+	s_cbranch_execz 9                                          // 000000001634: BFA50009 <vadd+0x5c>
+	v_lshlrev_b32_e32 v2, 2, v1                                // 000000001638: 30040282
+	global_load_b32 v3, v2, s[4:5]                             // 00000000163C: DC520000 03040002
+	global_load_b32 v4, v2, s[6:7]                             // 000000001644: DC520000 04060002
+	s_waitcnt vmcnt(0)                                         // 00000000164C: BF8903F7
+	v_add_f32_e32 v3, v3, v4                                   // 000000001650: 06060903
+	global_store_b32 v2, v3, s[8:9]                            // 000000001654: DC6A0000 00080302
+	s_endpgm                                                   // 00000000165C: BFB00000

@@ -280,7 +280,7 @@ def fig_stack():
         y += rh + gap
     ly = y + 16
     for lab, col, x in (("closed, replaced by CUDA++", INK3, 48), ("first-party, Apache-2.0+LLVM", GREEN, 300),
-                        ("NVIDIA open source, stays", BLUE, 440), ("NVIDIA signed firmware, stays", AMBER, 740)):
+                        ("NVIDIA open source, stays", BLUE, 560), ("NVIDIA signed firmware, stays", AMBER, 840)):
         s.rect(x, ly - 11, 14, 14, stroke=col, fill="#0b1a17" if col == GREEN else CARD, rx=3, sw=1.5)
         s.text(x + 22, ly + 1, lab, size=14, fill=INK2)
     return s

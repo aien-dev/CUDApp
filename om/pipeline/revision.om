@@ -1,0 +1,8 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Zero is refusal, including exhausted owner generation; no wrap or reuse.
+fn native_revision previous ulong to ulong
+if eq previous 18446744073709551615
+ret 0
+end
+ret add previous 1
+end

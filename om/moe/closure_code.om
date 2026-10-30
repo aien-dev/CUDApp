@@ -1,0 +1,5 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note ABI1 adapter only; serializer authority stays in the pinned learn53 unit.
+fn native_mccode code view uchar 16384 n ulong out edit uchar 32 to long
+ret mc_code code n out
+end

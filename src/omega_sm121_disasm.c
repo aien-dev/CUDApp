@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_sm121_disasm.c -- see omega_sm121_disasm.h.
  *
  * Layout of a word (lo = bits 0..63, hi = bits 64..127): opcode bits 0..11; guard predicate bits 12..14 with its

@@ -1,0 +1,93 @@
+--- a/src/omega_gpu_q36_graph.c
++++ b/src/omega_gpu_q36_graph.c
+@@ -888,12 +888,12 @@
+ int omega_gpu_q36_graph_prefill_alloc(OmegaGpuQ36Graph *g, uint32_t cap) {
+     if (!g || g->in_token || cap == 0 || cap > OMEGA_GPU_Q36_PREFILL_MAX_ROWS) return OMEGA_GPU_DGRAPH_BAD_ARGS;
+     if (g->pf.cap >= cap) return OMEGA_GPU_DGRAPH_OK;
+-    const size_t P = cap, R = P * NG, RR = P * (NG - 1u), lbs = g->lo.lb_stride;
++    const size_t P = cap, R = P * NG, lbs = g->lo.lb_stride;
+     size_t ho = 0, dof = 0;
+ #define HREG(f, b) do { g->pf.f = ho; ho += al(b); } while (0)
+ #define DREG(f, b) do { g->pf.f = dof; dof += al(b); } while (0)
+     HREG(x, P * H * 4); HREG(rlb, P * lbs); HREG(sgu, 256u * OMEGA_GEMM_SEG_BYTES); HREG(sdn, 256u * OMEGA_GEMM_SEG_BYTES);
+-    HREG(sgu2, OMEGA_GEMM_SEG_BYTES); HREG(sdn2, OMEGA_GEMM_SEG_BYTES); HREG(xmap, (RR + PF_PAD) * 4); HREG(ymap, (RR + PF_PAD) * 4);
++    HREG(sgu2, OMEGA_GEMM_SEG_BYTES); HREG(sdn2, OMEGA_GEMM_SEG_BYTES); HREG(xmap, (R + PF_PAD) * 4); HREG(ymap, (R + PF_PAD) * 4);
+     HREG(xmap2, (P + PF_PAD) * 4); HREG(ymap2, (P + PF_PAD) * 4);
+     DREG(xq, P * H * 4); DREG(xp, (P + PF_PAD) * H * 4); DREG(mixN, P * OMEGA_GPU_Q36_GDN_MIX * 4); DREG(abN, P * OMEGA_GPU_Q36_AB * 4);
+     DREG(aggN, P * OMEGA_GPU_Q36_ATT_MIX * 4); DREG(attN, P * OMEGA_GPU_Q36_MIXER_OUT * 4); DREG(op, (P + PF_PAD) * OMEGA_GPU_Q36_MIXER_OUT * 4);
+@@ -944,7 +944,8 @@
+ static uint64_t pf_d(const OmegaGpuQ36Graph *g, size_t off) { return g->pf.db.va + off; }
+ 
+ /* part (a) of layer l: the mixer of every row and the router; ends with the router outputs in pf.rlb */
+-static int pf_record_mixer(OmegaGpuQ36Graph *g, uint32_t head, uint32_t l, uint32_t n, uint32_t pos0, uint32_t *ids_off, uint32_t *wts_off, uint32_t *xo_off) {
++static int pf_record_mixer(OmegaGpuQ36Graph *g, uint32_t head, uint32_t l, uint32_t n, uint32_t pos0, uint32_t *ids_off, uint32_t *wts_off, uint32_t *xo_off,
++                           OmegaGpuRouterDevOut *first_router) {
+     const uint32_t ki = g->layer[l].kind_index;
+     const uint64_t x0 = pf_h(g, g->pf.x), xq0 = pf_d(g, g->pf.xq), xp = pf_d(g, g->pf.xp), mixN = pf_d(g, g->pf.mixN), abN = pf_d(g, g->pf.abN);
+     const uint64_t aggN = pf_d(g, g->pf.aggN), attN = pf_d(g, g->pf.attN), op = pf_d(g, g->pf.op), oN = pf_d(g, g->pf.oN), rlb = pf_h(g, g->pf.rlb);
+@@ -1017,7 +1018,10 @@
+         const uint64_t lb = rlb + (uint64_t)r0 * g->lo.lb_stride;
+         rc = after_op(g, OMEGA_GPU_Q36_K_ROUTER, omega_gpu_router_record_rows(g->cl, g->cfg.router, l, x0 + r0 * XS, (uint32_t)XS, g->cfg.eps, 1, SCALE_2P64,
+                                                                              lb, g->lo.lb_stride, rows, &r));
+-        if (rc == OMEGA_GPU_DGRAPH_OK && r0 == 0) { *ids_off = (uint32_t)(r.ids_va - lb); *wts_off = (uint32_t)(r.wts_va - lb); *xo_off = (uint32_t)(r.xout_va - lb); }
++        if (rc == OMEGA_GPU_DGRAPH_OK && r0 == 0) {
++            *ids_off = (uint32_t)(r.ids_va - lb); *wts_off = (uint32_t)(r.wts_va - lb); *xo_off = (uint32_t)(r.xout_va - lb);
++            if (first_router) *first_router = r;
++        }
+     }
+     return rc;
+ }
+@@ -1096,6 +1100,44 @@
+     for (uint32_t t = last ? n - 1u : 0u; t < n && rc == OMEGA_GPU_DGRAPH_OK; t++)
+         rc = rec_res_w(g, g->mutant == 4 ? K_CN_M3 : K_CN, x0 + t * XS, dnN + (uint64_t)t * NG * H * 4u, rlb + (uint64_t)t * g->lo.lb_stride + wts_off, nw,
+                        last ? va_of(g, hidden_of(g, head)) : xq0 + t * XS, last && !g->head8 ? 1.0f : SCALE_2P64);
++    return rc;
++}
++
++/* Private adapter: graph resolver validates/pins canonical realization first.
++ * w is one moe_windows record; group_words is exact current-router moe_admit output.
++ * No submit/sync or new executor. Refuse flush_each via moe_windows cfg7. */
++static inline int pf_record_moe_window(OmegaGpuQ36Graph *g, uint32_t l, const uint64_t w[8],
++                                       const uint32_t group_words[OMEGA_DEC_GR_WORDS], uint64_t router_xo) {
++    const uint32_t n = (uint32_t)w[1], rows = (uint32_t)w[2];
++    const uint64_t xp = pf_d(g, g->pf.xp2) + w[3], gu = pf_d(g, g->pf.guN) + w[4];
++    const uint64_t act = pf_d(g, g->pf.actN) + w[5], actp = pf_d(g, g->pf.actp) + w[5], dn = pf_d(g, g->pf.dnN) + w[6];
++    const uint64_t xm = pf_h(g, g->pf.xmap), ym = pf_h(g, g->pf.ymap);
++    const uint64_t pt2048 = va_of(g, g->lo.ptab), pt512 = pt2048 + (uint64_t)(H + OMEGA_GPU_Q36_MIXER_OUT) * 4u;
++    int rc = add_glue(g, OMEGA_GPU_Q36_K_GROUP, K_GROUP, 1, 1, rows, group_words, OMEGA_DEC_GR_WORDS);
++    if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_perm(g, K_PERM_XO, router_xo + w[7], pt2048, xp, H, n);
++    if (rc == OMEGA_GPU_DGRAPH_OK)
++        rc = native_record_gemm(g, OMEGA_GPU_Q36_K_GATE_UP, g->layer[l].gu, rows, rows, pf_h(g, g->pf.sgu), xp, gu, xm, ym);
++    uint32_t sw[OMEGA_DEC_SW_WORDS]; memset(sw, 0, sizeof sw);
++    put64(sw, OMEGA_DEC_SW_GU, gu); put64(sw, OMEGA_DEC_SW_ACT, act); putf(sw, OMEGA_DEC_SW_SCALE, SCALE_2P64);
++    if (rc == OMEGA_GPU_DGRAPH_OK)
++        rc = add_glue(g, OMEGA_GPU_Q36_K_SWIGLU, g->mutant == 1 ? K_SW_M1 : K_SW, EI / OMEGA_DEC_THREADS, rows, (size_t)rows * EI, sw, OMEGA_DEC_SW_WORDS);
++    if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_perm(g, K_PERM_ACT, act, pt512, actp, EI, rows);
++    if (rc == OMEGA_GPU_DGRAPH_OK)
++        rc = native_record_gemm(g, OMEGA_GPU_Q36_K_DOWN, g->layer[l].dn, rows, rows, pf_h(g, g->pf.sdn), actp, dn, ym, ym);
++    return rc;
++}
++
++/* Same incumbent contribution order after all windows, not #18 fusion. */
++static inline int pf_record_moe_combine(OmegaGpuQ36Graph *g, uint32_t head, uint32_t l, uint32_t n, uint32_t wts_off) {
++    const uint64_t x0 = pf_h(g, g->pf.x), dn = pf_d(g, g->pf.dnN), xq = pf_d(g, g->pf.xq), rlb = pf_h(g, g->pf.rlb);
++    const uint64_t in_norm = va_of(g, g->lo.norms) + (uint64_t)l * H * 4u, XS = (uint64_t)H * 4u;
++    const int last = l + 1 == g->cfg.layers;
++    const uint64_t nw = last ? va_of(g, g->lo.fnorm) : in_norm + H * 4u;
++    if (!last && n > 1u && q36_cn_rows()) return rec_cn_rows(g, x0, dn, rlb + wts_off, nw, xq, SCALE_2P64, n);
++    int rc = OMEGA_GPU_DGRAPH_OK;
++    for (uint32_t t = last ? n - 1u : 0u; t < n && rc == OMEGA_GPU_DGRAPH_OK; t++)
++        rc = rec_res_w(g, g->mutant == 4 ? K_CN_M3 : K_CN, x0 + t * XS, dn + (uint64_t)t * NG * H * 4u, rlb + (uint64_t)t * g->lo.lb_stride + wts_off,
++                       nw, last ? va_of(g, hidden_of(g, head)) : xq + t * XS, last && !g->head8 ? 1.0f : SCALE_2P64);
+     return rc;
+ }
+ 
+@@ -1123,7 +1165,7 @@
+     }
+     for (uint32_t l = 0; l < g->cfg.layers && rc == OMEGA_GPU_DGRAPH_OK; l++) {
+         uint32_t ids_off = 0, wts_off = 0, xo_off = 0;
+-        rc = pf_record_mixer(g, head, l, n, pos0, &ids_off, &wts_off, &xo_off);
++        rc = pf_record_mixer(g, head, l, n, pos0, &ids_off, &wts_off, &xo_off, NULL);
+         if (rc == OMEGA_GPU_DGRAPH_OK) rc = submit_now(g);
+         if (rc == OMEGA_GPU_DGRAPH_OK && omega_gpu_session_sync_to_cpu(&g->pf.hb) != 0) rc = fail(g, NULL, OMEGA_GPU_DGRAPH_CHIP_FAIL);
+         uint32_t segs = 0;

@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "test_out_file.h"
 
 #define TOL 1e-5
 #define MAX_BUDGETS 16
@@ -232,7 +233,7 @@ int main(int argc, char **argv) {
     if (!nb) { nb = sizeof DEFAULT_BUDGETS / sizeof DEFAULT_BUDGETS[0]; memcpy(budgets, DEFAULT_BUDGETS, sizeof DEFAULT_BUDGETS); }
     if (repeats < 1) repeats = 1;
     if (repeats > 32) repeats = 32; /* 2 x repeats calls fit the per-budget timing arrays */
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
     if (out) {
         fprintf(out, "{\"schema\":\"OMEGA_GPU_MATMUL_R4_RECEIPT_V1\",\"default_budget\":%u,\"repeats\":%u,\"tol_rel_scale\":%g,\"budgets\":[", OMEGA_GPU_MATMUL_MAX_CTAS, repeats, TOL);

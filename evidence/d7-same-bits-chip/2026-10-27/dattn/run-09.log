@@ -1,0 +1,26 @@
+# command: /home/drakestapleton/work/Determinism/CUDApp/build/gpu_decode_attn_test --reps 1 --no-evict
+# utc start: 2026-10-27T07:04:06.922455681Z
+cache alloc (1 layer, 32768 positions): rc=OK 246.1 ms ()
+dattn_pos0 output sha256 e81b7427ea91d932b787c8b3aab785ebba891780039af46f87e57b557d31ecd8
+chip context 1                rc=OK        bad=0 worst=0.000 rows=ok (1 one-ulp k flips) grid=1x4 per_split=256 depth=4 kv_bytes=2048 fill=0.0ms chip_med=38.7us (0.1 GB/s) call_med=40.8us reps=1
+dattn_pos6 output sha256 9f1969292c8226ec86e1d91ef5f2706bbc8b2034b831d44351c0b72e651d06fd
+chip context 7                rc=OK        bad=0 worst=0.000 rows=ok (0 one-ulp k flips) grid=1x4 per_split=256 depth=4 kv_bytes=14336 fill=0.0ms chip_med=41.3us (0.3 GB/s) call_med=43.3us reps=1
+dattn_pos255 output sha256 2a76c594bff6c41fbe33b90f5d4e5fa91c08c3b7945a757417170f301490c889
+chip context 256              rc=OK        bad=0 worst=0.000 rows=ok (0 one-ulp k flips) grid=1x4 per_split=256 depth=4 kv_bytes=524288 fill=0.0ms chip_med=67.2us (7.8 GB/s) call_med=69.2us reps=1
+dattn_pos300 output sha256 7901e5e5c6499e531e16533afd9aa2e68cf0da8d0bc763b9feb7d62843ff60e8
+chip context 301 sharp q      rc=OK        bad=0 worst=0.000 rows=ok (0 one-ulp k flips) grid=2x4 per_split=256 depth=4 kv_bytes=616448 fill=0.0ms chip_med=74.8us (8.2 GB/s) call_med=77.0us reps=1
+chip context 301 sharp q      mutant 1: caught (rc=OK bad=3630 worst=25.864)
+chip context 301 sharp q      mutant 2: caught (rc=OK bad=3773 worst=40.263)
+chip context 301 sharp q      mutant 3: caught (rc=OK bad=820 worst=6.838)
+chip context 301 sharp q      mutant 4: caught (rc=OK bad=2010 worst=18.655)
+dattn_pos1023 output sha256 c538767cf530fdc8495bfae1151c700e8a887cf5d1d4c6444a2ff38dffd41880
+chip context 1024             rc=OK        bad=0 worst=0.000 rows=ok (0 one-ulp k flips) grid=4x4 per_split=256 depth=4 kv_bytes=2097152 fill=0.1ms chip_med=89.1us (23.5 GB/s) call_med=91.6us reps=1
+dattn_pos4095 output sha256 01db162e6a0fb8ae267b8dc1b2e97ffb48dc10b3094d015c86e6a6b5765c963c
+chip context 4096             rc=OK        bad=0 worst=0.000 rows=ok (0 one-ulp k flips) grid=16x4 per_split=256 depth=4 kv_bytes=8388608 fill=0.2ms chip_med=171.8us (48.8 GB/s) call_med=174.2us reps=1
+dattn_pos8191 output sha256 58fde3abe0308ba8aa23a51c9506595e29929eae3b7dc19462553af2f5acaff6
+chip context 8192             rc=OK        bad=0 worst=0.000 rows=ok (0 one-ulp k flips) grid=32x4 per_split=256 depth=4 kv_bytes=16777216 fill=0.5ms chip_med=352.8us (47.6 GB/s) call_med=354.8us reps=1
+dattn_pos32767 output sha256 3741c568cb32da1310250b01feeb882cdcaaa8bf38c28a2247ad462aaca3b798
+chip context 32768            rc=OK        bad=0 worst=0.000 rows=ok (0 one-ulp k flips) grid=128x4 per_split=256 depth=4 kv_bytes=67108864 fill=2.7ms chip_med=1172.5us (57.2 GB/s) call_med=1174.5us reps=1
+gpu_decode_attn_test: 29 checks, 0 failed: PASS
+# exit: 0
+# utc end: 2026-10-27T07:04:07.503226797Z

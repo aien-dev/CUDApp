@@ -1,0 +1,4 @@
+general rc=0
+hd64 rc=0
+hd128 rc=0
+sweep rc=0

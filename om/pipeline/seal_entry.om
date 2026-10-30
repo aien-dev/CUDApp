@@ -1,0 +1,5 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Final native-add seal adapter, no qualification or launch256 identity.
+fn native_mcseal bank view uchar 1024 qmd view uchar 1024 n ulong out edit uchar 32 to long
+ret mcc_seal bank qmd n edit out
+end

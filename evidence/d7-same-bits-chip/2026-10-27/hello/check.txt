@@ -1,0 +1,2 @@
+SAME output 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6 in 10 of 10 runs
+d7 same-bits: PASS (1 labels x 10 runs)

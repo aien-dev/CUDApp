@@ -1,0 +1,268 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Focused exact shared native_cache dispatcher ops16-18 host controls; no device/caller qualification.
+fn kr_equal p view ulong 528 saved view ulong 528 to bool
+for i ulong 528
+if ne get p i get saved i
+ret false
+end
+end
+ret true
+end
+fn kr_save p view ulong 528 saved edit ulong 528 to void
+for i ulong 528
+put saved i get p i
+end
+end
+fn main to int
+p = new ulong 528 0
+saved = new ulong 528 0
+req = new ulong 16 0
+tok = new ulong 16 0
+put req 1 121
+put req 7 2
+if ne native_cache p req tok 17 -1
+ret 1
+end
+if ne get p 0 0
+ret 2
+end
+put req 2 4096
+if ne native_cache p req tok 17 1
+ret 3
+end
+kr_save p saved
+if ne native_cache p req tok 17 0
+ret 4
+end
+if not kr_equal p saved
+ret 5
+end
+put req 2 128
+put req 3 11
+put req 7 99
+if ne native_cache p req tok 18 1
+ret 6
+end
+if ne get p 12 1
+ret 7
+end
+if ne get req 7 99
+ret 8
+end
+kr_save p saved
+if ne native_cache p req tok 18 -6
+ret 9
+end
+if or ne get p 12 1 ne get p 26 1
+ret 10
+end
+kr_save p saved
+if ne native_cache p req tok 17 0
+ret 11
+end
+if not kr_equal p saved
+ret 12
+end
+put tok 2 1
+if ne native_cache p req tok 2 0
+ret 13
+end
+put tok 1 1
+kr_save p saved
+if ne native_cache p req tok 16 0
+ret 14
+end
+if not kr_equal p saved
+ret 15
+end
+put req 1 122
+if ne native_cache p req tok 16 -2
+ret 16
+end
+if not kr_equal p saved
+ret 17
+end
+if ne native_cache p req tok 17 -2
+ret 18
+end
+if not kr_equal p saved
+ret 19
+end
+put req 1 121
+put req 0 1
+if ne native_cache p req tok 16 -2
+ret 20
+end
+put req 0 0
+put tok 1 2
+if ne native_cache p req tok 16 -7
+ret 21
+end
+put tok 1 1
+put tok 0 2
+if ne native_cache p req tok 16 -1
+ret 22
+end
+put tok 0 0
+if ne native_cache p req tok 15 0
+ret 23
+end
+put req 3 12
+if ne native_cache p req tok 15 -7
+ret 24
+end
+if ne native_cache p req tok 16 0
+ret 25
+end
+if ne native_cache p req tok 6 0
+ret 26
+end
+if ne native_cache p req tok 13 0
+ret 27
+end
+if ne native_cache p req tok 14 -5
+ret 28
+end
+if ne native_cache p req tok 18 2
+ret 29
+end
+if ne get p 12 2
+ret 30
+end
+put tok 0 1
+put tok 2 2
+if ne native_cache p req tok 3 0
+ret 31
+end
+put tok 0 0
+put tok 3 1
+if ne native_cache p req tok 10 0
+ret 32
+end
+if ne native_cache p req tok 18 -3
+ret 33
+end
+put tok 3 0
+if ne native_cache p req tok 10 0
+ret 34
+end
+put req 2 4096
+if ne native_cache p req tok 18 -4
+ret 35
+end
+put req 2 128
+put req 0 1
+put req 1 122
+if ne native_cache p req tok 17 1
+ret 36
+end
+if or ne get p 1 1 ne get p 2 122
+ret 37
+end
+if or ne get p 12 0 ne get p 5 0
+ret 38
+end
+if or ne get p 3 4096 ne get p 4 2
+ret 39
+end
+kr_save p saved
+put req 0 0
+if ne native_cache p req tok 17 -2
+ret 40
+end
+if not kr_equal p saved
+ret 41
+end
+if ne native_cache p req tok 16 -2
+ret 42
+end
+put req 0 1
+if ne native_cache p req tok 16 -7
+ret 43
+end
+put p 12 18446744073709551615
+kr_save p saved
+if ne native_cache p req tok 18 -9
+ret 44
+end
+if not kr_equal p saved
+ret 45
+end
+put p 0 2
+if ne native_cache p req tok 16 -1
+ret 46
+end
+put p 0 1
+put req 0 2
+if ne native_cache p req tok 17 1
+ret 47
+end
+if ne native_cache p req tok 18 1
+ret 48
+end
+put tok 2 1
+if ne native_cache p req tok 2 0
+ret 49
+end
+put tok 1 1
+put tok 4 2
+if ne native_lease p req tok 16 0
+ret 50
+end
+kr_save p saved
+put tok 4 1
+if ne native_lease p req tok 16 -1
+ret 51
+end
+if not kr_equal p saved
+ret 52
+end
+put tok 4 2
+put tok 1 0
+if ne native_lease p req tok 16 -1
+ret 53
+end
+if not kr_equal p saved
+ret 54
+end
+put tok 1 1
+put req 0 3
+if ne native_lease p req tok 16 -1
+ret 55
+end
+put tok 4 3
+if ne native_lease p req tok 16 -2
+ret 56
+end
+put req 0 2
+put tok 4 2
+put p 17 18446744073709551615
+put tok 1 18446744073709551615
+if ne native_slotrev p 0 2 18446744073709551615
+ret 57
+end
+if ne native_lease p req tok 16 0
+ret 58
+end
+if ne native_lease p req tok 6 0
+ret 59
+end
+if ne native_lease p req tok 9 0
+ret 60
+end
+put tok 1 1
+if ne native_lease p req tok 16 -7
+ret 61
+end
+if ne native_slotrev p 0 1 0
+ret 62
+end
+if ne native_slotrev p 2 2 0
+ret 63
+end
+put p 26 1
+if ne native_slotrev p 0 2 0
+ret 64
+end
+ret 0
+end

@@ -84,6 +84,8 @@ int omega_native_artifact_export(const OmegaNativeArtifact *a, const char *out_p
 /* Recompute and check an exported artifact's identity and every file digest, then the
  * manifest's own claims: strict min_driver (E_FORMAT), cbank_words 1..OMEGA_ARTIFACT_MAX_CBANK_WORDS
  * (E_FORMAT), QMD1 launch words equal to the manifest's grid/block/shared/gpr (E_CONTRACT).
+ * Every file is read once; digest and semantic checks use the same retained
+ * bytes rather than reopening a path after checking its digest.
  * current_driver may be NULL to skip the minimum-driver check; an unparsable one is E_ARG,
  * an older one E_DRIVER. out_id is written only when every check passes, empty otherwise. */
 int omega_native_artifact_admit(const char *out_prefix, const char *current_driver,

@@ -1,0 +1,479 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Native host acceptance only; C references and numerical executables are verification oracles.
+note Concatenate into the OM2 conductor after proc.om; no standalone main.
+global KCActual uchar 256
+global KCAn ulong 1
+global KCCode uchar 256
+global KCCn ulong 1
+global KCBytes ulong 1
+global KCNum uchar 256
+global KCNn ulong 1
+global KCCfg ulong 16
+global KCFrame uchar 262144
+global KCSize ulong 1
+text KCPrefix "build/components/"
+text KCDirect "direct"
+text KCRow "rowpipe"
+text KCStaged "staged"
+text KCDash "-"
+text KCActExt ".actual"
+text KCExpExt ".expected"
+text KCBinExt ".bin"
+text KCSasExt ".sass"
+text KCNumExt ".numeric"
+text KCOracle "-oracle"
+text KCInput "build/components/input"
+text KCBadOut "build/components/control.actual"
+text KCBadRef "build/components/control.expected"
+text KCRef0 "build/components/rowpipe-0.actual"
+text KCUnit "build/components/component-unit"
+text KCCmp "build/components/compose-unit"
+text KCGemv "build/components/numerical-gemv"
+text KCStageN "build/components/numerical-staged"
+text KCDisB "-b"
+text KCSM "SM121"
+text KCZero "0"
+text KCOne "1"
+text KCTwo "2"
+text KCInv "INVALID"
+text KCUnk "UNKNOWN"
+text KCSbB "--sb-b"
+text KCSbRd "--sb-rd"
+text KCBranch "--branch"
+text KCRText ".record"
+text KCRBad ".record-mutant"
+text KCRec "build/components/record-unit"
+text KCRecMut "build/components/record-mutant"
+text KCDSpecs "256 8 1 4 0\n256 8 1 4 1\n512 16 1 4 0\n512 16 1 4 1\n2048 8 2 8 0\n2048 8 2 8 1\n4096 16 4 16 0\n4096 16 4 16 1\n"
+text KCRSpecs "256 8 1 1\n768 8 1 5\n512 16 8 16\n4096 16 1 32\n256 8 2 1\n256 8 4 1\n256 8 8 1\n512 16 1 1\n512 16 2 3\n512 16 4 3\n1024 8 1 2\n2048 16 1 4\n1536 16 1 5\n1024 16 2 3\n"
+text KCSSpecs "2048 16 4 16 0\n2048 16 8 16 0\n2048 16 4 16 1\n768 8 4 8 0\n1024 16 4 16 0\n256 8 4 8 0\n"
+
+fn kc_piece dst edit uchar * pos ulong src view uchar * used ulong to ulong
+hp_require le used sub len dst pos
+for j ulong used
+put dst add pos j get src j
+end
+ret add pos used
+end
+fn kc_family fam ulong dst edit uchar * pos ulong to ulong
+if eq fam 1
+ret kc_piece dst pos KCDirect len KCDirect
+end
+if eq fam 2
+ret kc_piece dst pos KCRow len KCRow
+end
+hp_require eq fam 3
+ret kc_piece dst pos KCStaged len KCStaged
+end
+fn kc_name fam ulong idx ulong suffix view uchar * dst edit uchar * to ulong
+num = new uchar 32 0
+pos = kc_piece dst 0 KCPrefix len KCPrefix
+pos = kc_family fam dst pos
+pos = kc_piece dst pos KCDash len KCDash
+used = hp_num idx num
+pos = kc_piece dst pos num used
+ret kc_piece dst pos suffix len suffix
+end
+fn kc_binary fam ulong suffix view uchar * used ulong dst edit uchar * to ulong
+pos = kc_piece dst 0 KCPrefix len KCPrefix
+pos = kc_family fam dst pos
+ret kc_piece dst pos suffix used
+end
+fn kc_load table view uchar * idx ulong fields ulong to void
+for j ulong 16
+put KCCfg j 0
+end
+pos = ulong 0
+line = ulong 0
+while lt line idx bound 1024
+hp_require lt pos len table
+if eq get table pos 10
+line = add line 1
+end
+pos = add pos 1
+end
+for j ulong fields
+v = ulong 0
+digits = ulong 0
+while lt pos len table bound 20
+c = get table pos
+pos = add pos 1
+if or eq c 32 eq c 10
+break
+end
+hp_require and ge c 48 le c 57
+v = add mul v 10 sub ulong c 48
+digits = add digits 1
+end
+hp_require gt digits 0
+put KCCfg j v
+end
+end
+fn kc_spec fam ulong idx ulong to void
+if eq fam 1
+kc_load KCDSpecs idx 5
+else
+if eq fam 2
+kc_load KCRSpecs idx 4
+else
+hp_require eq fam 3
+kc_load KCSSpecs idx 5
+end
+end
+end
+note Globals are never function arguments at the pinned compiler. Copy paths locally.
+fn kc_save which ulong path view uchar * used ulong to void
+hp_require le used 256
+for j ulong used
+if eq which 0
+put KCActual j get path j
+else
+if eq which 1
+put KCCode j get path j
+else
+put KCNum j get path j
+end
+end
+end
+if eq which 0
+put KCAn 0 used
+else
+if eq which 1
+put KCCn 0 used
+else
+put KCNn 0 used
+end
+end
+end
+fn kc_path which ulong path edit uchar * to ulong
+used = get KCAn 0
+if eq which 1
+used = get KCCn 0
+end
+if eq which 2
+used = get KCNn 0
+end
+hp_require le used len path
+for j ulong used
+if eq which 0
+put path j get KCActual j
+else
+if eq which 1
+put path j get KCCode j
+else
+put path j get KCNum j
+end
+end
+end
+ret used
+end
+fn kc_read path view uchar * used ulong to ulong
+buf = new uchar 262144 0
+n = hp_read path used buf len buf
+for j ulong n
+put KCFrame j get buf j
+end
+put KCSize 0 n
+ret n
+end
+fn kc_store path view uchar * used ulong count ulong to void
+fd = int fopen path 0 used 578 420
+hp_require ge fd 0
+pos = ulong 0
+while lt pos count bound 262144
+n = write fd KCFrame pos sub count pos
+if eq n -4
+continue
+end
+hp_require gt n 0
+pos = add pos ulong n
+end
+hp_require eq fclose fd 0
+end
+fn kc_pack words ulong to void
+for j ulong words
+v = get KCCfg j
+base = mul j 8
+for k ulong 8
+shift = mul k 8
+octet = uchar and shr v shift 255
+pos = add base k
+put KCFrame pos octet
+end
+end
+end
+fn kc_input fam ulong used ulong to void
+for j ulong 129
+put KCFrame j 0
+end
+words = ulong 8
+if eq fam 3
+words = 16
+end
+kc_pack words
+kc_store KCInput len KCInput used
+end
+fn kc_run infd int path view uchar * used ulong status long to void
+fd = int fopen path 0 used 578 420
+hp_require ge fd 0
+hp_exec infd fd status
+hp_require eq fclose fd 0
+end
+fn kc_native fam ulong used ulong status long to void
+path = new uchar 256 0
+n = kc_binary fam KCOracle 0 path
+kc_input fam used
+fd = int fopen KCInput 0 len KCInput 0 0
+hp_require ge fd 0
+hp_start path n
+kc_run fd KCBadOut len KCBadOut status
+hp_require eq fclose fd 0
+end
+fn kc_args fam ulong to void
+num = new uchar 32 0
+fields = ulong 5
+if eq fam 2
+fields = 4
+end
+for j ulong fields
+n = hp_num get KCCfg j num
+hp_arg num n
+end
+end
+fn kc_ref fam ulong path view uchar * used ulong to void
+bin = new uchar 256 0
+n = kc_binary fam KCOracle len KCOracle bin
+hp_start bin n
+kc_args fam
+kc_run -1 path used 0
+end
+fn kc_word off ulong to ulong
+hp_require le add off 8 get KCSize 0
+v = ulong 0
+for j ulong 8
+v = or v shl ulong get KCFrame add off j mul j 8
+end
+ret v
+end
+fn kc_offset fam ulong to ulong
+prefix = ulong 0
+if eq fam 3
+prefix = 8
+hp_require eq kc_word 0 0
+end
+n = kc_word prefix
+nv = kc_word add prefix 8
+nu = kc_word add prefix 16
+hp_require and gt n 0 le n 1024
+hp_require and le nv 256 le nu 64
+regs = mul add nv nu 16
+start = add add prefix 48 regs
+start = add start mul n 64
+hp_require le start get KCSize 0
+ret start
+end
+fn kc_code start ulong to void
+code = new uchar 16384 0
+path = new uchar 256 0
+used = sub get KCSize 0 start
+hp_require and gt used 0 le used len code
+for j ulong used
+put code j get KCFrame add start j
+end
+pn = kc_path 1 path
+hp_write path pn code used
+put KCBytes 0 used
+end
+fn kc_extract fam ulong to void
+path = new uchar 256 0
+pn = kc_path 0 path
+n = kc_read path pn
+start = kc_offset fam
+kc_code start
+end
+fn kc_match sass view uchar * pos ulong word view uchar * used ulong to bool
+if gt len word sub used pos
+ret false
+end
+for j ulong len word
+c = get sass add pos j
+if and ge c 97 le c 122
+c = sub c 32
+end
+if ne c get word j
+ret false
+end
+end
+ret true
+end
+fn kc_dis fam ulong idx ulong to void
+path = new uchar 256 0
+codepath = new uchar 256 0
+sass = new uchar 1048576 0
+n = kc_name fam idx KCSasExt path
+cn = kc_path 1 codepath
+hp_tool 2
+hp_arg KCDisB len KCDisB
+hp_arg KCSM len KCSM
+hp_arg codepath cn
+kc_run -1 path n 0
+used = hp_read path n sass len sass
+for j ulong used
+hp_require not kc_match sass j KCInv used
+hp_require not kc_match sass j KCUnk used
+end
+end
+fn kc_numeric fam ulong to void
+path = new uchar 256 0
+output = new uchar 256 0
+pn = kc_path 0 path
+on = kc_path 2 output
+if eq fam 3
+hp_start KCStageN len KCStageN
+else
+hp_start KCGemv len KCGemv
+end
+hp_arg path pn
+kc_args fam
+if eq fam 2
+hp_arg KCZero len KCZero
+hp_arg KCTwo len KCTwo
+else
+hp_arg KCOne len KCOne
+end
+kc_run -1 output on 0
+end
+fn kc_record fam ulong idx ulong expect view uchar * en ulong to void
+path = new uchar 256 0
+for mutant ulong 2
+fd = int fopen expect 0 en 0 0
+hp_require ge fd 0
+status = long 0
+n = ulong 0
+if eq mutant 0
+n = kc_name fam idx KCRText path
+hp_start KCRec len KCRec
+else
+n = kc_name fam idx KCRBad path
+hp_start KCRecMut len KCRecMut
+status = 70
+end
+kc_args fam
+kc_run fd path n status
+hp_require eq fclose fd 0
+end
+end
+fn kc_positive fam ulong idx ulong to void
+path = new uchar 256 0
+expect = new uchar 256 0
+cfg = new ulong 16 0
+actual = new uchar 256 0
+n = kc_name fam idx KCActExt actual
+kc_save 0 actual n
+n = kc_name fam idx KCBinExt path
+kc_save 1 path n
+n = kc_name fam idx KCNumExt path
+kc_save 2 path n
+n = kc_binary fam KCOracle 0 path
+used = ulong 64
+if eq fam 3
+used = 128
+end
+kc_input fam used
+fd = int fopen KCInput 0 len KCInput 0 0
+hp_require ge fd 0
+hp_start path n
+kc_run fd actual get KCAn 0 0
+hp_require eq fclose fd 0
+en = kc_name fam idx KCExpExt expect
+kc_ref fam expect en
+hp_require hp_cmp actual get KCAn 0 expect en
+kc_extract fam
+kc_dis fam idx
+kc_numeric fam
+if eq fam 3
+kc_record fam idx expect en
+end
+for j ulong 16
+put cfg j get KCCfg j
+end
+rc_case fam idx cfg
+end
+fn kc_empty path view uchar * used ulong to void
+n = kc_read path used
+hp_require eq n 0
+end
+fn kc_reserved fam ulong to void
+kc_spec fam 0
+used = ulong 64
+status = long 66
+slot = ulong 5
+if eq fam 3
+used = 128
+status = 0
+slot = 6
+end
+put KCCfg slot 1
+kc_native fam used status
+if eq fam 3
+n = kc_read KCBadOut len KCBadOut
+hp_require eq n 8
+hp_require eq kc_word 0 1
+else
+kc_empty KCBadOut len KCBadOut
+end
+end
+fn kc_mutant mutation view uchar * to void
+path = new uchar 256 0
+n = kc_binary 2 KCOracle len KCOracle path
+hp_start path n
+kc_args 2
+hp_arg mutation len mutation
+kc_run -1 KCBadRef len KCBadRef 0
+hp_require not hp_cmp KCRef0 len KCRef0 KCBadRef len KCBadRef
+end
+fn kc_resource to void
+path = new uchar 256 0
+kc_spec 2 0
+put KCCfg 0 4096
+put KCCfg 3 16
+kc_native 2 64 67
+kc_empty KCBadOut len KCBadOut
+n = kc_binary 2 KCOracle len KCOracle path
+fd = int fopen KCInput 0 len KCInput 0 0
+hp_require ge fd 0
+hp_start path n
+kc_run fd KCBadRef len KCBadRef 66
+hp_require eq fclose fd 0
+kc_empty KCBadRef len KCBadRef
+kc_native 2 63 65
+kc_empty KCBadOut len KCBadOut
+kc_native 2 65 65
+kc_empty KCBadOut len KCBadOut
+end
+fn kc_cases to void
+hp_start KCUnit len KCUnit
+hp_exec -1 -1 0
+hp_start KCCmp len KCCmp
+hp_exec -1 -1 0
+for fam ulong 3
+family = add fam 1
+count = ulong 8
+if eq family 2
+count = 14
+end
+if eq family 3
+count = 6
+end
+for idx ulong count
+kc_spec family idx
+kc_positive family idx
+end
+kc_reserved family
+end
+kc_spec 2 0
+kc_mutant KCSbB
+kc_mutant KCSbRd
+kc_mutant KCBranch
+kc_resource
+end

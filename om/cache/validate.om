@@ -1,0 +1,66 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Runtime adapter reuses the sole-owner validator and fresh staged composer.
+note No caller may supply successful composer statistics or substitute code.
+note Callee scratch avoids the pinned compiler's sixteen-slot register ceiling.
+fn nv_record cfg view ulong 16 rec view uchar 4096 launch view uchar 4096 actual view ulong 8 to uint
+l = new ulong 32 0
+for i ulong 32
+put l i compose_word launch i
+end
+ret bc_record cfg rec l actual
+end
+fn nv_code ins view ulong 8192 phys view ulong 288 count ulong code view uchar 16384 bytes ulong to int
+fresh = new uchar 16384 0
+n = bc_encode ins phys count 1 fresh
+if or eq n 0 ne n bytes
+ret -14
+end
+for i ulong n
+if ne get fresh i get code i
+ret -14
+end
+end
+ret 0
+end
+fn nv_staged rec view uchar 4096 code view uchar 16384 launch view uchar 4096 bytes ulong to int
+cfg = new ulong 16 0
+ins = new ulong 8192 0
+meta = new ulong 2048 0
+phys = new ulong 288 0
+actual = new ulong 8 0
+if and ne compose_word launch 12 8 ne compose_word launch 12 12
+ret -14
+end
+put cfg 0 3
+put cfg 1 compose_word rec 6
+put cfg 2 div compose_word rec 16 32
+put cfg 3 compose_word rec 14
+put cfg 4 compose_word rec 17
+put cfg 5 div sub compose_word launch 12 8 4
+if ne bc_compose cfg ins meta phys actual 0
+ret -14
+end
+if ne nv_record cfg rec launch actual 0
+ret -14
+end
+ret nv_code ins phys get actual 0 code bytes
+end
+fn native_validate rec view uchar 4096 sizes view ulong 4 code view uchar 16384 launch view uchar 4096 expected view uchar 32 out edit uchar 32 to long
+key = new uchar 32 0
+for i ulong 32
+put out i 0
+end
+rc = kc_validate rec sizes code launch expected key
+if ne rc 0
+ret long rc
+end
+if eq compose_word rec 19 3
+if ne nv_staged rec code launch get sizes 1 0
+ret -14
+end
+end
+for i ulong 32
+put out i get key i
+end
+ret 0
+end

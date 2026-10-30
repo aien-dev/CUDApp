@@ -17,13 +17,16 @@
 #include "omega_gpu_decode_attn_api.h"
 #include "omega_gpu_session.h"
 #include "omega_gpu_hostmath.h"
+#include "omega_blackwell_qmd.h"
 #include "bw_warp_sim_k.h"
+#include "out_sha.h"
 #include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "test_out_file.h"
 
 static int g_checks, g_failed;
 #define CHECK(cond, ...) do { g_checks++; if (!(cond)) { g_failed++; printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -211,7 +214,7 @@ static void host_only(void) {
     CHECK(omega_gpu_decode_attn_cache_alloc(0, 256, THETA, NULL) == OMEGA_GPU_DATTN_BAD_ARGS, "NULL out refused");
     { OmegaGpuDecodeAttnCache *c = (OmegaGpuDecodeAttnCache *)1;
       CHECK(omega_gpu_decode_attn_cache_alloc(1, 100, THETA, &c) == OMEGA_GPU_DATTN_BAD_ARGS && c == NULL, "max_pos not a multiple of 256 refused before any device work"); }
-    CHECK(OMEGA_DATTN_SHARED_BYTES <= 16384u, "shared memory within the QMD cap (%u)", OMEGA_DATTN_SHARED_BYTES);
+    CHECK(OMEGA_DATTN_SHARED_BYTES <= OMEGA_BW_QMD_MAX_SHARED_BYTES, "shared memory within the QMD cap (%u of %u)", OMEGA_DATTN_SHARED_BYTES, OMEGA_BW_QMD_MAX_SHARED_BYTES);
 }
 
 /* ------------------------------------------------------------- simulator */
@@ -317,7 +320,7 @@ static int fill_history(OmegaGpuDecodeAttnCache *cache, const Case *c) {
     return OMEGA_GPU_DATTN_OK;
 }
 static int chip_run(const char *out_path, uint32_t reps) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot write %s\n", out_path); return 1; }
     if (out) fprintf(out, "{\"receipt\":\"OMEGA_GPU_DECODE_ATTN_V1\",\"reps\":%u,\"evict\":%d,\"points\":[", reps, g_evict);
     const uint32_t MAXP = 32768;
@@ -344,6 +347,8 @@ static int chip_run(const char *out_path, uint32_t reps) {
         if (rc == OMEGA_GPU_DATTN_OK) rc = omega_gpu_decode_attn(cache, 0, c.pos, c.qkv, EPS, 1.0f, y, &info);
         size_t bad = 0; double worst = 1e9; uint16_t kn[512], vn[512], kchip[512], vchip[512]; char rows[120] = "n/a";
         if (rc == OMEGA_GPU_DATTN_OK) {
+            char lab[32]; snprintf(lab, sizeof lab, "dattn_pos%u", c.pos);
+            out_sha_buf(lab, y, 4096 * 4);
             bad = parity(&c, y, 1.0f, &worst, kn, vn);
             for (unsigned g = 0; g < 4; g++) if (omega_gpu_decode_attn_cache_read(cache, 0, g, c.pos, kchip + g * 128, vchip + g * 128) != OMEGA_GPU_DATTN_OK) bad += 1000;
             if (!rows_ok(kchip, vchip, kn, vn, rows, sizeof rows)) bad += 1000;
@@ -414,7 +419,7 @@ static int geometry_refusal(uint32_t qh, uint32_t kvh, uint32_t hd, const char *
     for (int i = 0; i < nw; i++) printf("  reason %d: %s\n", i + 1, why[i]);
     printf("  needed: a decode attention kernel for this geometry (ternary engine design KT3)\n");
     if (out_path) {
-        FILE *f = fopen(out_path, "w");
+        FILE *f = test_out_open(out_path);
         if (f) {
             fprintf(f, "{\"test\":\"gpu_decode_attn_test\",\"q_heads\":%u,\"kv_heads\":%u,\"head_dim\":%u,\"kernel_q_heads\":%u,\"kernel_kv_heads\":%u,\"reasons\":[",
                     qh, kvh, hd, OMEGA_GPU_DATTN_Q_HEADS, OMEGA_GPU_DATTN_KV_HEADS);

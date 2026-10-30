@@ -3,7 +3,7 @@
 #define OMEGA_GPU_OM_IR_H
 /*
  * omega_gpu_om_ir: replay of BlackwellIR records emitted by a seeded Omega unit (om/mathlibs/mathlibs_ir.om,
- * bound through src/omega_om_units.c) into a BlackwellIRProgram, then register allocation, the loop live-range
+ * bound through src/cudapp_om_units.c) into a BlackwellIRProgram, then register allocation, the loop live-range
  * check and encoding (the .om sm_121 encoder behind omega_blackwell_kernel_encode_into).
  *
  * MIGRATION-PENDING C: this file is the register-allocation and replay glue only. Instruction selection,

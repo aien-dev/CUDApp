@@ -4,7 +4,7 @@
 
 #include <string.h>
 
-#include "omega_native.h"
+#include "cudapp_native.h"
 
 #define NONE64 UINT64_MAX
 

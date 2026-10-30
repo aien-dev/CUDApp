@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* gpu_gemm_test.c -- row C3 of docs/OMEGA.md: matrix multiply of any shape, BF16 and FP8 (e4m3), both layouts of A and B,
  * on the GB10 tensor cores, checked bit for bit against a host model of the same tensor-core steps (src/omega_gpu_gemm.h).
  *
@@ -10,7 +11,10 @@
  *                elements plus the last row and column. Speed: 2 M N K / kernel time, as a fraction of the measured
  *                tensor-core ceiling (BF16 HMMA 115.36 TFLOPS, evidence OWN30B-T3-TC-PEAK-BW-5faa0f70-20261013T2236Z;
  *                FP8 QMMA 237.52 TFLOPS, L151 as quoted in evidence/L403-roof-20261022). The mutants must be caught.
- *                --quick: 24 shapes, for a first look.
+ *                --quick: 24 shapes, for a first look. --part I/N: only shape indices s with s % N == I (every type and layout;
+ *                the red checks and the reopen check run in every part), so the 208 shapes split across short GPU holds.
+ *                --ceiling B,E: use B (BF16) and E (e4m3) TFLOPS as the ceiling, e.g. the best points of gpu_tc_peak_test
+ *                and gpu_qmma_probe_test measured in the same session.
  * Last line: "C3 gemm <tier>: PASS (<checks> checks)" or "... FAIL (<failed> of <checks>)". */
 #include "omega_gpu_gemm.h"
 #include "omega_gpu_session.h"
@@ -103,6 +107,10 @@ static void host_only(void) {
     check(omega_gpu_gemm(OMEGA_GPU_GEMM_E4M3, 0, 1, 1, 1, NULL, b, c, NULL) == OMEGA_GPU_GEMM_BAD_ARGS, "NULL A refused");
     OmegaGemmCfg bad; omega_gpu_gemm_default_cfg(OMEGA_GPU_GEMM_BF16, &bad); bad.rt = 3;
     check(!omega_gpu_gemm_cfg_ok(&bad), "a tile of 3 row tiles refused");
+    omega_gpu_gemm_default_cfg(OMEGA_GPU_GEMM_BF16, &bad); bad.band = 3;
+    check(!omega_gpu_gemm_cfg_ok(&bad), "a band of 3 tiles refused");
+    bad.band = 64;
+    check(!omega_gpu_gemm_cfg_ok(&bad), "a band of 64 tiles refused");
 
     /* the model itself is a multiply: within 2^-20 of the exact sum, relative to the sum of the magnitudes */
     for (int t = 0; t < 2; t++) for (unsigned lay = 0; lay < 4; lay++) {
@@ -125,9 +133,9 @@ static void host_only(void) {
         printf("%s\n", w);
     }
 
-    const OmegaGemmCfg shapes[] = { { 0, 2, 4, 2, 2, 4, 0 }, { 0, 1, 1, 1, 1, 4, 0 }, { 0, 4, 1, 2, 2, 2, 0 }, { 0, 1, 4, 4, 1, 2, 0 }, { 0, 2, 2, 1, 4, 8, 0 } };
-    OmegaGemmCfg big; omega_gpu_gemm_default_cfg(OMEGA_GPU_GEMM_BF16, &big); big.rt = 4; big.ct = 2;
-    check(!omega_gpu_gemm_cfg_ok(&big), "a tile past the register budget (rt 4 ct 2) refused");
+    /* rt 4 ct 2 and rt 4 ct 4 pass R127, so MAIN opts into the hardware register limit; band > 1 adds the banded grid */
+    const OmegaGemmCfg shapes[] = { { 0, 2, 4, 2, 2, 4, 0, 0 }, { 0, 1, 1, 1, 1, 4, 0, 0 }, { 0, 4, 1, 2, 2, 2, 0, 0 }, { 0, 1, 4, 4, 1, 2, 0, 0 },
+                                    { 0, 2, 2, 1, 4, 8, 0, 0 }, { 0, 4, 2, 2, 2, 4, 0, 0 }, { 0, 4, 4, 2, 2, 2, 0, 8 }, { 0, 2, 4, 2, 2, 4, 0, 32 } };
     for (int t = 0; t < 2; t++)
         for (size_t s = 0; s < sizeof shapes / sizeof shapes[0]; s++)
             for (int mut = 0; mut <= 3; mut++)
@@ -140,8 +148,8 @@ static void host_only(void) {
                     OmegaBlackwellKernel kk; memset(&kk, 0, sizeof kk);
                     int enc = code ? omega_blackwell_kernel_encode_into(p, code, bytes, &kk) : -1;
                     int np = enc == 0 ? omega_qmma_patch_code(p, code, bytes) : -1;
-                    snprintf(w, sizeof w, "%s rt %u ct %u wm %u wn %u kernel %d mutant %d: codegen %d, encode %d, qmma patches %d, %u gprs", tname(c.type),
-                             c.rt, c.ct, c.wm, c.wn, k, mut, rc, enc, np, (unsigned)kk.gpr_count);
+                    snprintf(w, sizeof w, "%s rt %u ct %u wm %u wn %u band %u kernel %d mutant %d: codegen %d, encode %d, qmma patches %d, %u gprs", tname(c.type),
+                             c.rt, c.ct, c.wm, c.wn, c.band, k, mut, rc, enc, np, (unsigned)kk.gpr_count);
                     check(rc == 0 && enc == 0 && kk.code_size == bytes && np >= 0 && (t == 1 || np == 0) && omega_bw_gpr_declared(kk.gpr_count) <= 255u, w);
                     if (mut == 0) printf("%s\n", w);
                     free(code); free(p);
@@ -200,7 +208,10 @@ static void sim_tier(void) {
     static const uint32_t sh[][3] = { { 1, 1, 1 }, { 1, 1, 17 }, { 16, 8, 16 }, { 17, 9, 33 }, { 64, 64, 64 }, { 65, 63, 100 },
                                       { 3, 130, 70 }, { 100, 3, 257 }, { 129, 65, 31 }, { 31, 200, 129 } };
     const size_t nsh = sizeof sh / sizeof sh[0];
-    const OmegaGemmCfg cfgs[] = { { 0, 2, 4, 2, 2, 4, 0 }, { 0, 1, 1, 1, 1, 4, 0 }, { 0, 4, 1, 1, 4, 2, 0 } };
+    /* banded: band 8 with at most 4 tile columns (only the first band, half of it leaves), band 2 with 1..25 tile columns
+     * (a last band of one column when odd) */
+    const OmegaGemmCfg cfgs[] = { { 0, 2, 4, 2, 4, 4, 0, 8 }, { 0, 2, 4, 2, 2, 4, 0, 0 }, { 0, 1, 1, 1, 1, 4, 0, 0 }, { 0, 4, 1, 1, 4, 2, 0, 0 },
+                                  { 0, 4, 4, 2, 2, 2, 0, 8 }, { 0, 1, 1, 1, 1, 4, 0, 2 } };
     void *A = malloc(300 * 300 * 2), *B = malloc(300 * 300 * 2);
     float *C = malloc(300 * 300 * 4);
     for (int t = 0; t < 2; t++)
@@ -220,12 +231,12 @@ static void sim_tier(void) {
                     runs++;
                     if (rc != 0 || bad) {
                         wrong++;
-                        snprintf(w, sizeof w, "sim %s rt %u ct %u wm %u wn %u, %ux%ux%u %s: rc %d, %" PRIu64 " wrong of %" PRIu64 " %s %s", tname(cfg.type), cfg.rt,
-                                 cfg.ct, cfg.wm, cfg.wn, M, N, K, lname(lay), rc, bad, checked, first, c.err);
+                        snprintf(w, sizeof w, "sim %s rt %u ct %u wm %u wn %u band %u, %ux%ux%u %s: rc %d, %" PRIu64 " wrong of %" PRIu64 " %s %s", tname(cfg.type), cfg.rt,
+                                 cfg.ct, cfg.wm, cfg.wn, cfg.band, M, N, K, lname(lay), rc, bad, checked, first, c.err);
                         check(0, w);
                     }
                 }
-            snprintf(w, sizeof w, "simulator %s rt %u ct %u wm %u wn %u: %" PRIu64 " multiplies, %" PRIu64 " wrong", tname(cfg.type), cfg.rt, cfg.ct, cfg.wm, cfg.wn, runs, wrong);
+            snprintf(w, sizeof w, "simulator %s rt %u ct %u wm %u wn %u band %u: %" PRIu64 " multiplies, %" PRIu64 " wrong", tname(cfg.type), cfg.rt, cfg.ct, cfg.wm, cfg.wn, cfg.band, runs, wrong);
             check(wrong == 0, w);
             printf("%s\n", w);
             sim_free(&c);
@@ -257,7 +268,7 @@ static size_t mem_available(void) {
     return kb * 1024u;
 }
 
-static const double CEIL_TFLOPS[2] = { 115.36, 237.52 };
+static double CEIL_TFLOPS[2] = { 115.36, 237.52 };
 
 static void chip_one(OmegaGpuGemmType t, unsigned lay, uint32_t M, uint32_t N, uint32_t K, void *A, void *B, float *C) {
     char w[600], first[200];
@@ -274,7 +285,7 @@ static void chip_one(OmegaGpuGemmType t, unsigned lay, uint32_t M, uint32_t N, u
     if (rc == 0 && bad == 0) printf("ok: %s\n", w);
 }
 
-static void chip_tier(int quick) {
+static void chip_tier(int quick, unsigned part, unsigned nparts) {
     char w[200];
     const size_t need = (size_t)8192 * 8192 * 2 * 2 + (size_t)8192 * 8192 * 4 + ((size_t)8 << 30);
     if (!quick && mem_available() < need * 2) { printf("NOT_RUN: MemAvailable %zu MiB < %zu MiB\n", mem_available() >> 20, need * 2 >> 20); exit(2); }
@@ -294,11 +305,12 @@ static void chip_tier(int quick) {
         for (unsigned lay = 0; lay < 4; lay++)
             for (size_t s = 0; s < nsh; s++) {
                 if (quick && lay != (unsigned)(s % 4)) continue;
+                if (s % nparts != part) continue;
                 uint32_t M = sh[s][0] > big ? big : sh[s][0], N = sh[s][1] > big ? big : sh[s][1], K = sh[s][2] > big ? big : sh[s][2];
                 chip_one((OmegaGpuGemmType)t, lay, M, N, K, A, B, C);
                 shapes++;
             }
-    printf("%d shapes, both types, all four layouts: %s\n", shapes, g_failed == before ? "PASS" : "FAIL");
+    printf("%d shapes (part %u/%u), both types, all four layouts: %s\n", shapes, part, nparts, g_failed == before ? "PASS" : "FAIL");
     for (int t = 0; t < 2; t++)
         for (int mut = 1; mut <= 3; mut++) {
             OmegaGemmCfg cfg; omega_gpu_gemm_default_cfg((OmegaGpuGemmType)t, &cfg); cfg.mutant = mut;
@@ -322,15 +334,18 @@ static void chip_tier(int quick) {
 int main(int argc, char **argv) {
     const char *tier = "chip";
     int quick = 0;
+    unsigned part = 0, nparts = 1;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--host-only")) tier = "host";
         else if (!strcmp(argv[i], "--sim")) tier = "sim";
         else if (!strcmp(argv[i], "--quick")) quick = 1;
-        else { fprintf(stderr, "usage: %s [--host-only | --sim | --quick]\n", argv[0]); return 2; }
+        else if (!strcmp(argv[i], "--part") && i + 1 < argc && sscanf(argv[i + 1], "%u/%u", &part, &nparts) == 2 && nparts > 0 && part < nparts) i++;
+        else if (!strcmp(argv[i], "--ceiling") && i + 1 < argc && sscanf(argv[i + 1], "%lf,%lf", &CEIL_TFLOPS[0], &CEIL_TFLOPS[1]) == 2 && CEIL_TFLOPS[0] > 0 && CEIL_TFLOPS[1] > 0) i++;
+        else { fprintf(stderr, "usage: %s [--host-only | --sim | --quick] [--part I/N] [--ceiling BF16,E4M3]\n", argv[0]); return 2; }
     }
     if (!strcmp(tier, "host")) host_only();
     else if (!strcmp(tier, "sim")) { host_only(); sim_tier(); }
-    else chip_tier(quick);
+    else { printf("ceiling: bf16 %.2f TFLOPS, e4m3 %.2f TFLOPS\n", CEIL_TFLOPS[0], CEIL_TFLOPS[1]); chip_tier(quick, part, nparts); }
     if (g_failed) printf("C3 gemm %s: FAIL (%d of %d)\n", tier, g_failed, g_checks);
     else printf("C3 gemm %s: PASS (%d checks)\n", tier, g_checks);
     return g_failed ? 1 : 0;

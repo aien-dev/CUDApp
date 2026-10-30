@@ -1,0 +1,253 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Independent admitted C exporter fixture, framed as launch4096/cubin32768/observed2048/sizes8LEu64.
+note The driver performs no admission; stdin is verification-only. Runtime caller owns successful admission custody.
+fn kt_sizes frame view uchar 38976 sizes edit ulong 8 to void
+for i ulong 8
+v = ulong 0
+for j ulong 8
+v = or v shl ulong get frame add add 38912 mul i 8 j mul j 8
+end
+put sizes i v
+end
+end
+fn kt_obsmut launch edit uchar 4096 cubin view uchar 32768 obs edit uchar 2048 sizes view ulong 8 off ulong expected long to bool
+old = get obs off
+put obs off xor old 1
+rc = native_templates launch cubin obs sizes
+put obs off old
+ret eq rc expected
+end
+fn kt_cubmut launch view uchar 4096 cubin edit uchar 32768 obs view uchar 2048 sizes view ulong 8 off ulong expected long to bool
+old = get cubin off
+put cubin off xor old 1
+rc = native_templates launch cubin obs sizes
+put cubin off old
+ret eq rc expected
+end
+fn kt_lmut launch edit uchar 4096 cubin view uchar 32768 obs view uchar 2048 sizes view ulong 8 off ulong expected long to bool
+old = get launch off
+put launch off xor old 1
+rc = native_templates launch cubin obs sizes
+put launch off old
+ret eq rc expected
+end
+fn kt_smut launch view uchar 4096 cubin view uchar 32768 obs view uchar 2048 sizes edit ulong 8 off ulong to bool
+old = get sizes off
+put sizes off xor old 1
+rc = native_templates launch cubin obs sizes
+put sizes off old
+ret eq rc -20
+end
+fn kt_resign launch edit uchar 4096 obs view uchar 2048 to int
+buf = new uchar 4096 0
+hash = new uchar 32 0
+for i ulong 768
+put buf i get obs i
+end
+if ne kc_sha buf 768 hash 0
+ret 1
+end
+for i ulong 32
+put launch add mul ulong 23 8 i get hash i
+end
+ret 0
+end
+fn kt_semantic launch edit uchar 4096 cubin view uchar 32768 obs edit uchar 2048 sizes view ulong 8 off ulong to bool
+old = get obs off
+put obs off xor old 1
+if ne kt_resign launch obs 0
+ret false
+end
+rc = native_templates launch cubin obs sizes
+put obs off old
+if ne kt_resign launch obs 0
+ret false
+end
+ret eq rc -25
+end
+fn kt_dupsection launch view uchar 4096 cubin edit uchar 32768 obs view uchar 2048 sizes view ulong 8 to bool
+backup = new uchar 64 0
+sh = kt_u cubin 40 8
+src = add sh mul ulong 8 64
+sh = add sh mul ulong 7 64
+for i ulong 64
+put backup i get cubin add sh i
+put cubin add sh i get cubin add src i
+end
+rc = native_templates launch cubin obs sizes
+for i ulong 64
+put cubin add sh i get backup i
+end
+ret eq rc -22
+end
+fn kt_paramhash launch view uchar 4096 cubin edit uchar 32768 obs view uchar 2048 sizes view ulong 8 off ulong to bool
+old = kt_u cubin off 4
+for i ulong 4
+put cubin add off i uchar and shr ulong 1175552 mul i 8 255
+end
+rc = native_templates launch cubin obs sizes
+for i ulong 4
+put cubin add off i uchar and shr old mul i 8 255
+end
+ret eq rc -26
+end
+fn kt_upperid launch view uchar 4096 cubin view uchar 32768 obs edit uchar 2048 sizes view ulong 8 to bool
+old = get obs 1024
+put obs 1024 65
+rc = native_templates launch cubin obs sizes
+put obs 1024 old
+ret eq rc -24
+end
+fn kt_taildupe launch view uchar 4096 cubin edit uchar 32768 obs view uchar 2048 sizes view ulong 8 off ulong to bool
+old = get cubin off
+put cubin off 55
+rc = native_templates launch cubin obs sizes
+put cubin off old
+ret eq rc -23
+end
+fn kt_cases launch edit uchar 4096 cubin edit uchar 32768 obs edit uchar 2048 sizes edit ulong 8 to int
+if ne native_templates launch cubin obs sizes 0
+ret 1
+end
+if not kt_obsmut launch cubin obs sizes 1024 -24
+ret 2
+end
+if not kt_obsmut launch cubin obs sizes 960 -24
+ret 3
+end
+if not kt_upperid launch cubin obs sizes
+ret 4
+end
+if not kt_obsmut launch cubin obs sizes 900 -20
+ret 5
+end
+if not kt_obsmut launch cubin obs sizes 992 -20
+ret 6
+end
+if not kt_obsmut launch cubin obs sizes 1088 -20
+ret 7
+end
+if not kt_obsmut launch cubin obs sizes 896 -22
+ret 8
+end
+if not kt_smut launch cubin obs sizes 1
+ret 9
+end
+if not kt_smut launch cubin obs sizes 2
+ret 10
+end
+if not kt_smut launch cubin obs sizes 3
+ret 11
+end
+if not kt_smut launch cubin obs sizes 7
+ret 12
+end
+if not kt_lmut launch cubin obs sizes 216 -20
+ret 13
+end
+if not kt_cubmut launch cubin obs sizes 32767 -20
+ret 14
+end
+if not kt_cubmut launch cubin obs sizes 0 -21
+ret 15
+end
+if not kt_cubmut launch cubin obs sizes 47 -21
+ret 16
+end
+if not kt_cubmut launch cubin obs sizes 62 -21
+ret 17
+end
+if not kt_dupsection launch cubin obs sizes
+ret 18
+end
+p = kt_u cubin 40 8
+p = add p mul ulong 8 64
+if not kt_cubmut launch cubin obs sizes add p 44 -22
+ret 19
+end
+p = kt_u cubin add p 24 8
+if not kt_cubmut launch cubin obs sizes p -23
+ret 20
+end
+if not kt_cubmut launch cubin obs sizes add p 4 -23
+ret 21
+end
+if not kt_cubmut launch cubin obs sizes add p 16 -23
+ret 22
+end
+if not kt_cubmut launch cubin obs sizes add p 18 -23
+ret 23
+end
+if not kt_cubmut launch cubin obs sizes add p 26 -23
+ret 24
+end
+if not kt_cubmut launch cubin obs sizes add p 32 -23
+ret 25
+end
+if not kt_cubmut launch cubin obs sizes add p 36 -23
+ret 26
+end
+if not kt_cubmut launch cubin obs sizes add p 45 -23
+ret 27
+end
+if not kt_cubmut launch cubin obs sizes add p 46 -23
+ret 28
+end
+if not kt_cubmut launch cubin obs sizes add p 58 -23
+ret 29
+end
+if not kt_paramhash launch cubin obs sizes add p 20
+ret 30
+end
+if not kt_lmut launch cubin obs sizes 120 -26
+ret 31
+end
+if not kt_obsmut launch cubin obs sizes 768 -27
+ret 32
+end
+if not kt_obsmut launch cubin obs sizes 0 -28
+ret 33
+end
+if not kt_semantic launch cubin obs sizes 540
+ret 34
+end
+if not kt_semantic launch cubin obs sizes 525
+ret 35
+end
+if not kt_semantic launch cubin obs sizes 528
+ret 36
+end
+if not kt_taildupe launch cubin obs sizes add p 49
+ret 38
+end
+if ne native_templates launch cubin obs sizes 0
+ret 37
+end
+ret 0
+end
+fn main to int
+frame = new uchar 38976 0
+pos = ulong 0
+while lt pos 38976 bound 38976
+n = read 0 frame pos sub 38976 pos
+if le n 0
+ret 90
+end
+pos = add pos ulong n
+end
+launch = new uchar 4096 0
+cubin = new uchar 32768 0
+obs = new uchar 2048 0
+sizes = new ulong 8 0
+for i ulong 4096
+put launch i get frame i
+end
+for i ulong 32768
+put cubin i get frame add 4096 i
+end
+for i ulong 2048
+put obs i get frame add 36864 i
+end
+kt_sizes frame sizes
+ret kt_cases launch cubin obs sizes
+end

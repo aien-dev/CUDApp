@@ -1,0 +1,76 @@
+{
+  "schema": "cudapp-cache-generation-evidence/1",
+  "observed_utc": "2026-10-28T12:01:05.352013+00:00",
+  "parent_evidence_commit": "f0909113243674eeda1cf7539710ac425978e2f1",
+  "parent_evidence": "om/cache/host-evidence.json",
+  "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+  "source_sha256": {
+    "digest.om": "b0e49da9e6c146da0d040476d84bff8d93486c563e19ef8f1d731b1ffb15c051",
+    "artifact.om": "788457cd86592f0175913a500424bb13381fc9a777443acd1dfd01c5f6513f04",
+    "residency.om": "0da6b33438e98934425f1ea83d194298f390cc68029f0750ebfc70060f87bf61",
+    "digest_test.om": "77eefc2184f5b0e59b44cc751bd4fc762e82d651b83b02b63d4735401033ddb0",
+    "artifact_test.om": "a31db9cde54a53a8c2e2269c520c7846836807c95840ed5006dca0e1ac668d98",
+    "lifecycle_test.om": "25aab650a39372c04305f242f4664fd8f1478c3c74180ec9a58083a9661681e3"
+  },
+  "dependencies": {
+    "quant": {
+      "commit": "fe25929ce71b11703eafa72395df2dd495aa61f2",
+      "path": "om/quant/quant.om",
+      "sha256": "44bce96f3c274401e19a71b835814d69caf2bea8c2b1f4f43616c7c121232f09"
+    },
+    "compose": {
+      "commit": "2e93f998b70852abcd425f8865d842a05dad76ea",
+      "path": "om/components/realize.om",
+      "sha256": "2edff07a46c79c39a264dde9e5d6dfa02ed2f6dda677da8cc8a178f60c9a1c9d"
+    },
+    "fixture": {
+      "commit": "2e93f998b70852abcd425f8865d842a05dad76ea",
+      "path": "om/components/fixture.om",
+      "sha256": "082e53cff85d139de60bb0bc9dd83b8fc3368b7c1c09397699db9f30883ed3ee"
+    }
+  },
+  "runtime_source_observation": [
+    "src/omega_gpu_session.c: static uint32_t g_recoveries is zero initialized",
+    "src/omega_gpu_cmdlist.c: cl->gen = omega_gpu_session_recoveries()"
+  ],
+  "behavior": "generation zero accepted without a parallel epoch or offset; strictly newer existing recovery generation invalidates stale references",
+  "lifecycle_exit": 0,
+  "artifact_caller_exit": 0,
+  "native_executables": {
+    "lifecycle": "96494f536738a6c848e37fb3a488bb4c42b246530347c8edd3ee04afd96c5d79",
+    "artifact": "dc6f418daeaa8d235fe10b2b55e7c008ccdafda2662e16607575c01f91882621"
+  },
+  "negative_control": {
+    "mutation": "reinstate rejection of gen0 during initialization",
+    "exit": 43
+  },
+  "omega_run": {
+    "compile": {
+      "ok": true,
+      "binary_bytes": 11496,
+      "sha256": "96494f536738a6c848e37fb3a488bb4c42b246530347c8edd3ee04afd96c5d79",
+      "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"
+    },
+    "exit": {
+      "kind": "normal",
+      "code": 0
+    },
+    "stdout": "",
+    "stdout_bytes": 0,
+    "stdout_truncated": false,
+    "stderr": "",
+    "stderr_bytes": 0,
+    "stderr_truncated": false,
+    "limits": {
+      "timeout_ms": 5000,
+      "cpu_seconds": 10,
+      "address_space_bytes": 268435456,
+      "file_size_bytes": 1048576,
+      "processes": 5
+    },
+    "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+  },
+  "actual_existing_runtime_caller": "NOT_RUN awaiting Main-owned shared cutover",
+  "device_upload_timing": "NOT_RUN no authorized hardware window",
+  "physical_full_model_acceptance": "NOT_RUN no authorized hardware window"
+}
