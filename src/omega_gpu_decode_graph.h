@@ -31,8 +31,20 @@
  * Memory: every buffer is omega_gpu_session_alloc (GPU-uncached; nvos.h:1117 "For system memory this will not be
  * coherent with direct CPU mappings"): the host writes x before the submit and reads the token / logits after.
  *
- * Threading: begin_token takes omega_gpu_session_lock() and end_token releases it. Between them only record calls
- * (this file's and the four APIs' *_record) may run on this thread; a non-record API call would self-deadlock.
+ * Threading: begin_token takes omega_gpu_session_lock() and end_token (or abort_token) releases it. Between them only
+ * record calls (this file's and the four APIs' *_record) may run on this thread; a non-record API call would
+ * self-deadlock.
+ * Lock and token state after each call (omega #518; tests/test_omega_gpu_decode_graph_abort.c enforces it):
+ *   begin_token  OK: lock held, in the token; exactly one end_token or abort_token is owed.
+ *                BAD_ARGS (NULL graph, already in a token): nothing taken, nothing changed.
+ *                CHIP_FAIL (device open refused or latched, x / token visibility sync refused): lock RELEASED, out of
+ *                the token, list empty; nothing owed (end_token and abort_token answer BAD_ARGS). Nothing was
+ *                submitted, so nothing is uncertain; the next begin_token may simply be called again (a latched
+ *                process fails it again at once: the graph never retries on its own).
+ *   record_*     lock still held, still in the token, whatever they return; a failure sticks (later records refuse).
+ *   end_token    always releases the lock and leaves the token, success or failure.
+ *   abort_token  releases the lock and leaves the token without submitting what was recorded.
+ *   token        (one-shot) returns with the lock released in every case.
  * The four APIs refuse a record that would evict a cached kernel: run one plain call per shape (or one token with the
  * host path) first, or simply record the first token (an empty cache slot is filled, never evicted).
  *
@@ -48,6 +60,7 @@
  *   int  omega_gpu_decode_graph_record_layer(OmegaGpuDecodeGraph *g, uint32_t layer, uint32_t pos);
  *   int  omega_gpu_decode_graph_record_final(OmegaGpuDecodeGraph *g);
  *   int  omega_gpu_decode_graph_end_token(OmegaGpuDecodeGraph *g, uint32_t *token, OmegaGpuDecodeGraphStats *st);
+ *   int  omega_gpu_decode_graph_abort_token(OmegaGpuDecodeGraph *g);
  *   int  omega_gpu_decode_graph_record_res(OmegaGpuDecodeGraph *g, uint32_t mode, uint64_t x_va, uint64_t a_va, uint64_t w_va,
  *                                          uint64_t nw_va, uint64_t y_va, float eps, float scale);
  *   int  omega_gpu_decode_graph_record_swiglu(OmegaGpuDecodeGraph *g, uint64_t gu_va, uint64_t act_va, float scale);
@@ -127,7 +140,8 @@ int omega_gpu_decode_graph_set_final_norm(OmegaGpuDecodeGraph *g, const float *f
 /* One whole token: x_embed (f32 [2048], the token's embedding row) -> greedy token. pos: the token's position. */
 int omega_gpu_decode_graph_token(OmegaGpuDecodeGraph *g, const float *x_embed, uint32_t pos, uint32_t *token, OmegaGpuDecodeGraphStats *st);
 
-/* The same in steps. begin_token takes the session lock, empties the list and (x_embed non-NULL) writes x. */
+/* The same in steps. begin_token takes the session lock, empties the list and (x_embed non-NULL) writes x. On
+ * CHIP_FAIL it has already released the lock and left the token (see Threading above): do not call end_token. */
 int omega_gpu_decode_graph_begin_token(OmegaGpuDecodeGraph *g, const float *x_embed);
 int omega_gpu_decode_graph_record_layer(OmegaGpuDecodeGraph *g, uint32_t layer, uint32_t pos);
 int omega_gpu_decode_graph_record_final(OmegaGpuDecodeGraph *g);
@@ -135,6 +149,10 @@ int omega_gpu_decode_graph_record_final(OmegaGpuDecodeGraph *g);
  * submit), reads the token (may be NULL), releases the lock. Always releases the lock, also after an earlier failed
  * record (then returns that failure without submitting). */
 int omega_gpu_decode_graph_end_token(OmegaGpuDecodeGraph *g, uint32_t *token, OmegaGpuDecodeGraphStats *st);
+/* Abandons a begun token: drops the recorded launches WITHOUT submitting them, leaves the token, releases the lock.
+ * OK, or BAD_ARGS when no token is begun. Nothing reaches the device, so nothing is uncertain; launches flush_each
+ * already submitted stay done. The device x keeps what begin_token wrote; the timeline is cleared. */
+int omega_gpu_decode_graph_abort_token(OmegaGpuDecodeGraph *g);
 
 /* Glue records (between begin and end): RES (omega_blackwell_codegen_dec.h modes ADD / COMBINE / NORM) and SWIGLU. */
 int omega_gpu_decode_graph_record_res(OmegaGpuDecodeGraph *g, uint32_t mode, uint64_t x_va, uint64_t a_va, uint64_t w_va,
