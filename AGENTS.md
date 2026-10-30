@@ -93,7 +93,7 @@ make hello-gpu                              # runs make doctor, then examples/he
 
 ## Cursor Cloud specific instructions
 
-Cloud Agent VMs are x86_64. The sources use the ARM `dsb sy` barrier, so `/usr/bin/gcc` cannot build them (CUDApp#15). `/usr/local/bin/cc` and `/usr/local/bin/gcc` are the aarch64 cross compiler, which is what `make` runs (`CC` defaults to `cc`). The built binaries are aarch64. Each boot registers qemu-user against `/usr/aarch64-linux-gnu` so they execute. If a binary exits with `Exec format error`, that registration has not run yet.
+Cloud Agent VMs are x86_64. The sources use the ARM `dsb sy` barrier, so `/usr/bin/gcc` cannot build them (CUDApp#15). `/usr/local/bin/cc` and `/usr/local/bin/gcc` are the aarch64 cross compiler, which is what `make` runs (`CC` defaults to `cc`). The built binaries are aarch64. qemu-user is registered against `/usr/aarch64-linux-gnu` at boot, and again by `/usr/local/bin/make` if that boot hook did not run. If a binary exits with `Exec format error`, run any `make` target once, then retry it.
 
 `make test` is the host suite. Judge the exit code and the last line, `CUDA++ HOST TESTS PASS (<count> targets)`. The log contains intentional `FAIL` lines. Under qemu it is slower than the arm64 CI runner. The attention simulator is one slow part. `test-codegen-freestanding` sweeps every 2^32 bf16 input; a 20 million iteration cast loop took 18 seconds here, so that sweep is on the order of an hour. `build/hello_gpu --sim` is the simulator hello world. `python3 tools/figures/make_figures.py --check` checks the README figures.
 
