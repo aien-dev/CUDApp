@@ -95,7 +95,8 @@ gpu_bug_refused_ok() {
 
 # make's exit status is the decision. Exit 2 is the recipe refusal. Every other exit fails.
 # The words "Error 1" in make's message are not part of the check.
-# Each whole line that starts with "  FAIL  " must be one of the five missing-hardware lines.
+# Every line matching ^[[:space:]]*FAIL([[:space:]]|:|$) is a problem line.
+# It must equal one of the five missing-hardware lines, whole line, and it counts toward the five.
 # A longer line, a prefix, or any other FAIL line fails. There must be exactly those five.
 # The summary line must start with "NOT READY: 5 problems above."
 doctor_fail_line() {
@@ -126,8 +127,7 @@ doctor_ok() {
 		return 1
 	fi
 	while IFS= read -r line || [ -n "$line" ]; do
-		case $line in
-		'  FAIL  '*)
+		if [[ "$line" =~ ^[[:space:]]*FAIL([[:space:]]|:|$) ]]; then
 			kind=$(doctor_fail_line "$line") || return 1
 			n=$((n + 1))
 			case $kind in
@@ -138,8 +138,7 @@ doctor_ok() {
 			gpu) gpu=$((gpu + 1)) ;;
 			*) return 1 ;;
 			esac
-			;;
-		esac
+		fi
 	done <"$log"
 	[ "$n" -eq 5 ] || return 1
 	[ "$module" -eq 1 ] && [ "$ctl" -eq 1 ] && [ "$gpu0" -eq 1 ] && [ "$uvm" -eq 1 ] && [ "$gpu" -eq 1 ] || return 1
@@ -295,6 +294,12 @@ EOF
 	expect_reject doctor-missing-allowlisted-line doctor_ok 2 "$t/doctor-missing"
 	expect_reject doctor-exit1 doctor_ok 1 "$t/doctor-good"
 	expect_reject doctor-exit3 doctor_ok 3 "$t/doctor-good"
+	cp "$t/doctor-good" "$t/doctor-noindent"
+	printf '%s\n' 'FAIL  x' >>"$t/doctor-noindent"
+	expect_reject doctor-fail-noindent doctor_ok 2 "$t/doctor-noindent"
+	cp "$t/doctor-good" "$t/doctor-tab"
+	printf '\tFAIL x\n' >>"$t/doctor-tab"
+	expect_reject doctor-fail-tab doctor_ok 2 "$t/doctor-tab"
 
 	saved_fail=$fail
 	saved_summary=$summary
