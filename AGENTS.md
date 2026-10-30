@@ -28,7 +28,7 @@ Needs Linux, `git`, `make` and `gcc` (the `Makefile` uses `CC ?= gcc` and builds
 ## Configuration
 
 - Build variables: `CC` (default `gcc`), `OUT_DIR` (default `build`), `PHYSICS_DIR` (default `.`; Omega overrides it).
-- `CUDAPP_MEM_RESERVE_MIB`: memory the runtime keeps free before any allocation reaches the driver (default 4096; `0` turns the check off). `CUDAPP_MEMINFO` replaces `/proc/meminfo` for tests.
+- `CUDAPP_MEM_RESERVE_MIB`: memory the runtime keeps free before any allocation reaches the driver (default 4096; `0` turns the check off). Tests point the check at a fake `/proc/meminfo` with `omega_gpu_platform_linux_test_set_meminfo` (no environment variable chooses that file).
 - `CUDAPP_DOCTOR_ROOT` points `make doctor` at a fake machine root; `CUDAPP_DOCTOR_SHOW=1 sh tests/doctor/run.sh build/cudapp-doctor` prints the doctor's output on the nine fake machines.
 - `AIEN_OMEGA_DGRAPH_BARRIER` and `AIEN_OMEGA_DGRAPH_PREFETCH` tune the decode graph (`src/omega_gpu_decode_graph.c`).
 
@@ -43,6 +43,7 @@ make zero-cuda-gate           # the built programs need no CUDA library (self-te
 make doctor                   # is this machine ready? reads /proc, /sys and /dev only
 build/hello_gpu --sim         # the first kernel on the host warp simulator
 python3 tools/figures/make_figures.py --check   # README figures match the code
+python3 tools/figures/test_stack_legend.py -v   # rendered legend check; needs Inkscape
 ```
 
 - Judge `make test` by its exit code and its last line, `CUDA++ HOST TESTS PASS (<count> targets)`, where `<count>` is computed from the current `HOST_TESTS` manifest in `Makefile`. The log contains many `FAIL` and `ERROR` lines by design (mutation tests and negative controls that must fail). Do not grep the log for them.
@@ -66,7 +67,7 @@ make hello-gpu                              # runs make doctor, then examples/he
 - Write the test first and watch it fail for the expected reason; include a negative control. A library change also needs a host reference, a simulator run where the simulator covers it, a mutation test and a chip receipt.
 - A failing test means the work is wrong. Never skip, loosen or rerun a test until it passes once.
 - Every instruction encoding has golden words in the tests and a chip run behind it. Do not change an encoder field without both.
-- No NVIDIA binary, cubin, PTX, firmware or listing printed by NVIDIA's tools goes in this repository (`docs/AUDIT.md`). The one exception is a regression pin of our own words, recorded in `PROVENANCE.md` section 6; the rules for allowed sources are in `PROVENANCE.md`. If you used NVIDIA's compiler or disassembler on your own small kernels to learn an encoding, say so in a code comment.
+- No NVIDIA binary, cubin, PTX, firmware or listing printed by NVIDIA's tools goes in this repository (`docs/AUDIT.md`). The former trace-emitter regression pin was removed in #93; its history is recorded in `PROVENANCE.md` section 6. The rules for allowed sources are in `PROVENANCE.md`. If you used NVIDIA's compiler or disassembler on your own small kernels to learn an encoding, say so in a code comment.
 - The runtime API is versioned. `docs/runtime/omega_runtime_api.manifest` is checked against the C headers it names and against `docs/runtime/API.md` by `make test` (`test-runtime-api`, with negative controls). Change a public header, the manifest and `API.md` together.
 - Status words in `README.md` and `ROADMAP.md` are PASS (receipt on a named commit), PARTIAL, MISSING, BUILDING. Do not upgrade a status without the receipt.
 - New source files carry `SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception`. Keep third-party notices (`THIRD_PARTY.md`, `NOTICE`).

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * gpu_exact_head_test: the exact two-pass lm_head (HUM lever L314) on the Qwen3.6-35B-A3B head.
  *   --sim   warp-simulator proofs of the new kernels: XBOUND (lo <= s - c|h|, hi >= s + c|h| on every row despite f32
@@ -21,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "test_out_file.h"
 
 static unsigned g_checks, g_failed;
 #define CHECK(cond, ...) do { g_checks++; if (!(cond)) { g_failed++; printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -270,7 +272,7 @@ static void chip(const char *dir, const char *hidden_path, uint32_t limit, int m
     printf("chip: %zu records, identical %zu, host-full agrees %zu, |C| mean %.1f p99 %.0f max %zu\n", done, same, host_same, cmean, c99, cmax);
     printf("chip: full head list p50 %.1f us p99 %.1f us; two-pass list p50 %.1f us p99 %.1f us\n", f50, f99, t50, t99);
     if (out_path) {
-        FILE *o = fopen(out_path, "w");
+        FILE *o = test_out_open(out_path);
         if (o) {
             fprintf(o, "{\n  \"test\": \"gpu_exact_head_test\", \"mutant\": %d, \"records\": %zu, \"identical\": %zu, \"host_full_agrees\": %zu,\n", mutant, done, same, host_same);
             fprintf(o, "  \"candidate_bits_differ\": %zu, \"full_argmax_missing\": %zu, \"C_mean\": %.3f, \"C_p99\": %.0f, \"C_max\": %zu,\n", bits_bad, missing, cmean, c99, cmax);

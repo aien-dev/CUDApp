@@ -270,7 +270,7 @@ bc_node s 45 BCNONE BCNONE BCNONE BCNONE
 bc_emit ins s 7
 at = bc_branch ins s get s 0 false
 note Historical tail BRA has exact fixed control independent of scheduler pending.
-put ins add mul at 8 6 shl ulong 1032192 32
+bc_tail ins at
 end
 fn bc_project spec view ulong 8 ins edit ulong 8192 m edit ulong 2048 stats edit ulong 4 to uint
 if ne bc_prcheck spec 0

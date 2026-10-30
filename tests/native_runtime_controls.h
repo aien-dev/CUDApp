@@ -114,6 +114,29 @@ static void nr_fixture(OmegaGpuNativeArtifact *a, uint8_t weights[65536], uint8_
     EXPECT(omega_native_payload(a,got)==0 && memcmp(got,a->realization,32)==0);
     EXPECT(omega_native_admitted(a,got)==0);
 }
+/* Regression for the real generated production adapter, not a copied composer.
+ * The legal staged shape exceeds instruction capacity. Refusal must be a
+ * semantic result with no published actual statistics, never bridge trap 3. */
+static void c_native_compose_capacity(void) {
+    uint64_t cfg[16]={3,1536,16,8,16};
+    uint64_t ins[8192]={0}, metadata[2048]={0}, phys[288]={0}, actual[8];
+    uint64_t status;
+    for(unsigned pass=0;pass<2;++pass) {
+        memset(actual,0xff,sizeof actual);
+        status=UINT64_MAX;
+        EXPECT(omega_native_compose(&status,cfg,16,ins,8192,metadata,2048,
+            phys,288,actual,8)==OMEGA_OK);
+        EXPECT(status==2);
+        for(unsigned i=0;i<8;++i) EXPECT(actual[i]==0);
+    }
+    /* The capacity refusal must not poison the next valid native call. */
+    memset(cfg,0,sizeof cfg);
+    cfg[0]=1; cfg[1]=256; cfg[2]=8; cfg[3]=1; cfg[4]=8;
+    status=UINT64_MAX;
+    EXPECT(omega_native_compose(&status,cfg,16,ins,8192,metadata,2048,
+        phys,288,actual,8)==OMEGA_OK && status==0);
+    EXPECT(actual[0]>0 && actual[0]<=1024);
+}
 static void nr_state(OmegaGpuQ36NativeState *s, const OmegaGpuNativeArtifact *a) {
     memset(s,0,sizeof *s); s->artifact[0]=*a;
     memcpy(s->wanted,a->canonical,4096); memcpy(s->records,a->canonical,4096);

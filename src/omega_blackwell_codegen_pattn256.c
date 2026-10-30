@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * omega_blackwell_codegen_pattn256.c: causal prefill attention for Qwen3.8-27B on tensor cores, the attend launch
  * (see the header). The emitter helpers are those of omega_blackwell_codegen_pattn.c, copied unchanged (control words,

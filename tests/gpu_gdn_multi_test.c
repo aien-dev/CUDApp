@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * gpu_gdn_multi_test: the multi-token Gated DeltaNet decode (L369, omega_gpu_gdn_api.h) must be the decode step T times,
  * bit for bit: every output row, the conv tail and the state after the last token.

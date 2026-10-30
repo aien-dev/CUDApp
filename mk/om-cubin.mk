@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # The sm_121 cubin packer in seeded Omega (om/cubin/cubin_elf.om), linked through the omega-bridge native binding
 # src/cudapp_om_units.c that om/units.sh generates. The C writer in src/omega_cubin.c is migration-pending: the
 # freestanding build and the oracle builds only (CUDAPP_MIGRATION_PENDING_C_CUBIN, CUDAPP_MIGRATION_PENDING_CUBIN_DIFF).

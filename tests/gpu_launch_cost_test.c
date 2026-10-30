@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "test_out_file.h"
 
 static int g_checks, g_failed;
 #define CHECK(c, ...) do { g_checks++; if (!(c)) { g_failed++; printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } else { printf("ok: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -104,7 +105,7 @@ int main(int argc, char **argv) {
     omega_fp8_pack_x_f32(x, k, xd.cpu);
     if (omega_gpu_session_sync_to_gpu(&xd) != 0) return 1;
 
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out) fprintf(out, "{\"test\":\"OMEGA_GPU_LAUNCH_COST\",\"n\":%u,\"k\":%u,\"bytes\":%" PRIu64 ",\"reps\":%u,\"points\":[", n, k, bytes, reps);
     static const uint32_t ms[] = { 1, 2, 4, 8, 16 };
     double t1[8] = { 0 }; int first_pt = 1;

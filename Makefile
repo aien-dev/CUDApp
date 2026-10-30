@@ -184,6 +184,7 @@ GPU_FP8_TEST = $(OUT_DIR)/gpu_fp8_api_test
 $(GPU_FP8_TEST): tests/gpu_fp8_api_test.c tests/bw_warp_sim.h src/omega_gpu_fp8_api.h src/omega_blackwell_codegen_moe.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -Itests -o $@ tests/gpu_fp8_api_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
 test-gpu-fp8: $(GPU_FP8_TEST)
+	sh tests/grid_ab_exit_test.sh ./$(GPU_FP8_TEST)
 	./$(GPU_FP8_TEST) --host-only
 	./$(GPU_FP8_TEST) --sim
 
@@ -325,8 +326,23 @@ GPU_L2_REUSE_TEST = $(OUT_DIR)/gpu_l2_reuse_test
 $(GPU_L2_REUSE_TEST): tests/gpu_l2_reuse_test.c src/omega_gpu_fp8_api.h src/omega_gpu_cmdlist.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -o $@ tests/gpu_l2_reuse_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
 
+# The Blackwell QMD shared-memory field (word 36): the encoding of every size, the fixed SM-config
+# fields beside it, and the refusal one byte over OMEGA_BW_QMD_MAX_SHARED_BYTES (a host check, no GPU).
+.PHONY: test-gpu-qmd-shared test-gpu-qmd-shared-clean-build
+QMD_SHARED_TEST = $(OUT_DIR)/test_omega_bw_qmd_shared
+$(QMD_SHARED_TEST): tests/test_omega_bw_qmd_shared.c src/omega_blackwell_qmd.h src/omega_blackwell_qmd.c | $(OUT_DIR)
+	$(CC) $(CFLAGS) -o $@ tests/test_omega_bw_qmd_shared.c src/omega_blackwell_qmd.c
+test-gpu-qmd-shared: $(QMD_SHARED_TEST)
+	$(QMD_SHARED_TEST)
+
+# Build the same host-only test with an output directory that does not exist yet.
+# The normal test target does not recurse through this regression target.
+test-gpu-qmd-shared-clean-build:
+	+@set -eu; out=$$(mktemp -d); trap 'rm -rf "$$out"' EXIT; \
+		$(MAKE) --no-print-directory OUT_DIR="$$out/new" test-gpu-qmd-shared
+
 # Every host-only check: no GPU, no device opened. The chip gates are listed in README.md.
-HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-attention test-gpu-moe-window \
+HOST_TESTS = test-drift test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-attention test-gpu-moe-window \
 	test-gpu-fp8 test-gpu-decode-attn test-gpu-router test-gpu-bf16-gemv test-gpu-fp8gemm test-gpu-tern-sched test-gpu-gpr-boundary \
 	test-gpu-cmdlist test-gpu-decode-graph test-gpu-code-alloc test-gpu-engine-compile test-gpu-engine \
 	test-gpu-engine-mutants test-gpu-engine-backend-compile test-gpu-engine-prod-build test-gpu-engine-sim \
@@ -334,9 +350,17 @@ HOST_TESTS = test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-a
 	test-codegen-freestanding test-gpu-session-platform test-gpu-native-runtime test-gpu-wait test-gpu-wait-mutants host-tests-m16 \
 	test-runtime-api test-runtime-portability test-doctor test-hello-sim test-native-artifact-manifest test-gemm-selectors \
 	test-native-artifact zero-cuda-gate verify-vendored test-swap-cli test-om-encoder test-om-spec-encoder test-om-cubin \
-	test-portable-receipts $(CARRIED_HOST_TESTS)
+	test-portable-receipts test-gpu-qmd-shared test-model-capacity test-gpu-qmd-shared-clean-build $(CARRIED_HOST_TESTS)
 test: $(HOST_TESTS)
 	@echo "CUDA++ HOST TESTS PASS ($(words $(HOST_TESTS)) targets)"
+
+.PHONY: test-model-capacity
+test-model-capacity:
+	OMEGA_OMC="$(OMEGA_OMC)" sh tests/models/capacity.sh
+
+.PHONY: test-drift
+test-drift:
+	bash tools/extract/test-drift.sh
 
 # Original Git blobs are read-only verification oracles, not a replacement receipt authority.
 .PHONY: test-portable-receipts

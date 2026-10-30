@@ -1,0 +1,108 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Concatenate allocator,effect,check,project,rowpipe,staged,compose,then this host-only caller.
+note Refused emissions must not patch/control a nonexistent slot before their capacity error reaches the caller.
+fn cu_slots to int
+ins = new ulong 8192 99
+s = new ulong 64 0
+m = new ulong 2048 0
+args = new ulong 4 0
+put s 0 1024
+at = bc_branch ins s 0 false
+if or ne at 1024 ne get s 3 1
+ret 70
+end
+bc_patch ins at 0
+bc_tail ins at
+for j ulong 8192
+if ne get ins j 99
+ret 71
+end
+end
+note Check both final valid slot and very large rejected indices before multiplication.
+bc_patch ins 18446744073709551615 0
+bc_tail ins 18446744073709551615
+bc_patch ins 1023 1023
+if ne and get ins 8190 4294967295 0
+ret 72
+end
+bc_tail ins 1023
+if ne get ins 8190 shl ulong 1032192 32
+ret 73
+end
+for j ulong 4
+put args j j
+put m j 4
+end
+put m 2 2
+for j ulong 3
+put s 0 add j 1022
+if eq bc_mma ins s m args 0
+ret 74
+end
+if ne get s 0 add j 1022
+ret 75
+end
+end
+put s 0 1021
+put s 1 0
+put s 3 0
+if ne bc_mma ins s m args 0
+ret 76
+end
+if ne get s 0 1024
+ret 77
+end
+ret 0
+end
+fn cu_case cfg view ulong 16 expected uint to int
+ins = new ulong 8192 0
+meta = new ulong 2048 0
+phys = new ulong 288 0
+actual = new ulong 8 99
+rc = bc_compose cfg ins meta phys actual
+if ne rc expected
+ret 65
+end
+if ne rc 0
+for j ulong 8
+if ne get actual j 0
+ret 66
+end
+end
+end
+ret 0
+end
+fn main to int
+rc = cu_slots
+if ne rc 0
+ret rc
+end
+cfg = new ulong 16 0
+put cfg 0 3
+put cfg 1 1536
+put cfg 2 16
+put cfg 3 8
+put cfg 4 16
+note This legal U3 shape previously trapped103 during branch patching at saturated instruction capacity.
+rc = cu_case cfg 2
+if ne rc 0
+ret rc
+end
+note A legal nearby U2 shape must remain realizable with unchanged instruction effects.
+put cfg 1 2048
+rc = cu_case cfg 0
+if ne rc 0
+ret rc
+end
+put cfg 0 1
+put cfg 1 256
+put cfg 2 8
+put cfg 3 1
+put cfg 4 4
+rc = cu_case cfg 0
+if ne rc 0
+ret rc
+end
+put cfg 0 2
+ret cu_case cfg 0
+end

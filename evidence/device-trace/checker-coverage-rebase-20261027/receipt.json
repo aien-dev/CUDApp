@@ -1,0 +1,169 @@
+{
+  "schema": "cudapp.device-trace.checker-coverage-rebase.v1",
+  "date_utc": "2026-10-27",
+  "status": "HOST_REFERENCE_AND_SYNTHETIC_ORCHESTRATION_PASS; NATIVE_AND_GPU_NOT_RUN",
+  "base_commit": "67f3135ef88d8f520dfc15a2b2bc3264f53f0d6a",
+  "source_commit": "679902827fa01b63fdb1288cf340f1e486437aa4",
+  "tested_tip_before_this_receipt": "96b92400bbc3c496da0ede8883d48333b88c0d84",
+  "platform": "Linux x86_64",
+  "prior_receipt": {
+    "path": "evidence/device-trace/checker-coverage-host-20261027/receipt.json",
+    "sha256": "e08d62d2f9f64a03563682327f6656037fb6df8e40014f6b343559a62d442d60",
+    "disposition": "Preserved unchanged as local pre-rebase history. Its old local source pin81f74bb is superseded for publication identity by6799028; the four changed test-file blobs are identical."
+  },
+  "scope_check": "git diff bba6da8 67f3135 -- AGENTS.md tests/device-trace native/blackwell/trace-emit.om native/blackwell/vector.om src/omega_blackwell_codegen.c is empty. No scoped implementation/test inputs changed across the rebase.",
+  "source_sha256": {
+    "tests/device-trace/address-test.om": "658d551fbe85a161a11b0971873930677ab5fd79fd985b761a8ba7ed43ec8370",
+    "tests/device-trace/run-emitter-checks.sh": "9713639a136b670ac09d1e7cb15b80292068554d7a5e2649c173285a156bb8f1",
+    "tests/device-trace/run-runner-controls.sh": "203bb36dcea10fed641e16d1cda361116e7c00b08c9d4d43dce7fed478febabe",
+    "tests/device-trace/README-safety.md": "dcd14ab49e847ffe52a974c225fa1d19f5e097773e5ae69ed128e09ea758e08c"
+  },
+  "focused_commands": [
+    "omega_ref check unit.projected.om",
+    "omega_ref run unit.projected.om",
+    "omega_ref run omc.om < unit.om > original.elf",
+    "omega_ref run omc.om < unit.projected.om > projected.elf",
+    "cmp original.elf projected.elf",
+    "sh tests/device-trace/run-runner-controls.sh",
+    "sh -n tests/device-trace/run-emitter-checks.sh tests/device-trace/run-runner-controls.sh",
+    "git diff --check 67f3135 HEAD"
+  ],
+  "oracle_and_projection": "Same frozen source, rebuilt referee binary, compiler source, independently expected self-output hash and literal-constant projection documented in the prior receipt. All generated ELFs remain unexecuted AArch64 outputs.",
+  "fresh_units": [
+    {
+      "test": "emitter",
+      "check_exit": 0,
+      "run_exit": 0,
+      "original_compile_exit": 0,
+      "projected_compile_exit": 0,
+      "identical_elf": true,
+      "elf_sha256": "dc5773073ff4dbcd4895df0db0557470461af802526d1e5e5f4147e093d1304b",
+      "stderr_empty": true
+    },
+    {
+      "test": "address",
+      "check_exit": 0,
+      "run_exit": 0,
+      "original_compile_exit": 0,
+      "projected_compile_exit": 0,
+      "identical_elf": true,
+      "elf_sha256": "8bc11f9ec2253cdc3d9959e67a6b032d98e1340f7fefb83031a0b2a4b3b4d7dc",
+      "stderr_empty": true
+    },
+    {
+      "test": "guard",
+      "check_exit": 0,
+      "run_exit": 0,
+      "original_compile_exit": 0,
+      "projected_compile_exit": 0,
+      "identical_elf": true,
+      "elf_sha256": "68423524f52c03da9916749b4d78c24995983dbb818ddc56bd0a7c1c23a588d9",
+      "stderr_empty": true
+    },
+    {
+      "test": "body",
+      "check_exit": 0,
+      "run_exit": 0,
+      "original_compile_exit": 0,
+      "projected_compile_exit": 0,
+      "identical_elf": true,
+      "elf_sha256": "a793ed62dc31e333682167bb0f2020062d84900479e0d9d883b7eaa8de499fe9",
+      "stderr_empty": true
+    }
+  ],
+  "fresh_source_mutants": [
+    {
+      "name": "timer_source",
+      "test": "address",
+      "expected_run_exit": 3,
+      "run_exit": 3,
+      "check_exit": 0,
+      "original_compile_exit": 0,
+      "projected_compile_exit": 0,
+      "identical_elf": true
+    },
+    {
+      "name": "timestamp_source",
+      "test": "address",
+      "expected_run_exit": 3,
+      "run_exit": 3,
+      "check_exit": 0,
+      "original_compile_exit": 0,
+      "projected_compile_exit": 0,
+      "identical_elf": true
+    },
+    {
+      "name": "store_offset",
+      "test": "address",
+      "expected_run_exit": 3,
+      "run_exit": 3,
+      "check_exit": 0,
+      "original_compile_exit": 0,
+      "projected_compile_exit": 0,
+      "identical_elf": true
+    },
+    {
+      "name": "second_branch",
+      "test": "address",
+      "expected_run_exit": 8,
+      "run_exit": 8,
+      "check_exit": 0,
+      "original_compile_exit": 0,
+      "projected_compile_exit": 0,
+      "identical_elf": true
+    },
+    {
+      "name": "noncanonical_guard",
+      "test": "guard",
+      "expected_run_exit": 1,
+      "run_exit": 1,
+      "check_exit": 0,
+      "original_compile_exit": 0,
+      "projected_compile_exit": 0,
+      "identical_elf": true
+    },
+    {
+      "name": "body_refusal",
+      "test": "body",
+      "expected_run_exit": 1,
+      "run_exit": 1,
+      "check_exit": 0,
+      "original_compile_exit": 0,
+      "projected_compile_exit": 0,
+      "identical_elf": true
+    }
+  ],
+  "runner_controls": {
+    "exit": 0,
+    "stdout": "RUNNER ORCHESTRATION CONTROLS PASS (synthetic tools; no native or GPU execution)",
+    "scope": "Synthetic compiler programs and deliberately synthetic decode rows, not native compilation or instruction decoding."
+  },
+  "independent_final_review": {
+    "source_commit": "679902827fa01b63fdb1288cf340f1e486437aa4",
+    "result": "No blocking behavioral defect. The prior retained-control gap is closed.",
+    "reproduced": "All four projected units check/run0 with empty stderr; original/projected compiler outputs identical; shell syntax, whitespace and synthetic runner controls pass. Timer/timestamp/offset source mutants reject3; second branch rejects8.",
+    "extra_controls": "Replacing abranch by ret0 fails15; making the branch mutation a no-op fails15; making the offset mutation a no-op fails16.",
+    "boundary": "Read-only reviewer; native ELF, real decoder and GPU NOT_RUN."
+  },
+  "full_suite": {
+    "command": "make test",
+    "exit": 2,
+    "failure": "Existing x86 assembler refusal of AArch64 ds instructions at src/omega_blackwell_engine.c:393/:558, Makefile:40. The full host suite did not run locally."
+  },
+  "crumb": {
+    "status": "NOT_RUN",
+    "reason": "No trusted crumb executable is on PATH or in the inspected workspace, and CUDApp has no crumb.lock. No candidate-chosen replacement tool was built. The targeted generated block remains unchanged and unrefreshed; root crumbs untouched."
+  },
+  "limits": [
+    "Native AArch64 execution of the changed units and full real runner NOT_RUN locally.",
+    "New main has ARM64 make-test CI, but the device-trace Omega units are still outside HOST_TESTS. CI cannot substitute for their native run.",
+    "GB10 execution, scheduling, clock/store qualification, launch integration and overhead NOT_RUN.",
+    "No emitter, C, driver, Makefile, workflow, admission, licence or trust-policy changes. No whole-listing-equivalence claim."
+  ],
+  "local_log_sha256": {
+    "mutations.log": "5a0664c77d01cdb48d248bc85d5f203ba3b6f1d9496b58b1825b8c6c78aa6806",
+    "units.log": "52dc316d0c572e5ce0a480dc27607fbe6d55db392cff08a3606a894dfe7ee0dc",
+    "runner.log": "a74a78599c4e2bb4c1230a1b1f08c962e49644ce9d0cf431ad956b070fd57165",
+    "make-test.log": "067fff5896ec353ecfa1a43f5d12c6484475bcbe3d7651f8bc9adb6d4e1fb6c8"
+  }
+}

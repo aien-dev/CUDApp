@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_gpu_scan_ref.c -- the host references of omega_gpu_scan.h: the frozen order, in plain C on the CPU.
  * Separate from the chip code so a CPU-only program can check them against the E1 reduction reference
  * (tests/gpu_scan_ref_check.c). Additions only, so no fused multiply-add can change a bit. */

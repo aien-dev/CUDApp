@@ -1,0 +1,17 @@
+test_overlapping_swatch_is_rejected (__main__.StackLegendTest.test_overlapping_swatch_is_rejected) ... ok
+test_rendered_labels_and_swatches_do_not_overlap (__main__.StackLegendTest.test_rendered_labels_and_swatches_do_not_overlap) ... FAIL
+
+======================================================================
+FAIL: test_rendered_labels_and_swatches_do_not_overlap (__main__.StackLegendTest.test_rendered_labels_and_swatches_do_not_overlap)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tools/figures/test_stack_legend.py", line 54, in test_rendered_labels_and_swatches_do_not_overlap
+    assert_clear(self, fig_stack().svg())
+  File "tools/figures/test_stack_legend.py", line 49, in assert_clear
+    test.assertFalse(overlap, f"legend items {j} and {i} overlap")
+AssertionError: True is not false : legend items 3 and 4 overlap
+
+----------------------------------------------------------------------
+Ran 2 tests in 1.571s
+
+FAILED (failures=1)

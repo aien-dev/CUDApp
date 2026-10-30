@@ -34,6 +34,17 @@ Every native frame also runs through the existing `sim_gemv`/`parity` or `sim_po
 
 `tests/components/wolfram.json` preserves Main's mounted Wolfram query/result for exact decode/control constants. In particular, the final byte's modeled scale is exactly1/16, and the migrated existing algorithm explicitly uses its source right-shift operation. The verifier tools were nvdisasm CUDA13.0 V13.0.85 and cc Ubuntu13.3.0-6ubuntu2~24.04.1. They are read-only qualification oracles, not production dependencies.
 
+### Capacity regression after merged #166 and #169
+
+On source `c6977b4906229fe83f41103b7eff65b64a0986d6`, legal staged configuration `(family3,K1536,laneBytes16,MT8,warps16,rowmap0)` exhausted the1024-instruction array and escaped with Omega bounds trap103 before returning the documented capacity refusal. Emission itself checked capacity, but later branch patching and direct/rowpipe tail-control writes used the refused instruction index. `bc_patch` and the shared `bc_tail` now check the slot before multiplying or accessing the array. The final emitter error remains authoritative; no truncated program is admitted.
+
+`capacity-unit.om` exercises the actual composer refusal, zero result counters, a nearby successful U2 configuration, direct/rowpipe controls, final valid and first invalid patch/tail slots, oversized indices, and HMMA's three-slot atomic capacity boundary. Removing either new slot guard must reproduce trap103. `capacity-runtime-unit.om` calls the actual #169 `nv_staged` recomposition seam and requires refusal without touching supplied code. This last check does not claim a fully admitted artifact or device execution. The generated public composer caller is also exercised by the existing session-platform host test.
+
+The generated public-adapter regression resets its status to `UINT64_MAX` before each capacity-refusal call and again before valid-call recovery. A previous refusal value must not satisfy the next call's assertion. The native runtime fixture runs on the synthetic platform without linking the Linux device platform; its PASS is host-only.
+
+The native conductor writes a new `tests/components/capacity-host-receipt.json`; it preserves the historical `host-receipt.json` unchanged. Both source pins and executed control results belong to their respective receipts. Physical qualification remains NOT_RUN, and every production registration, cache gate and device authorization requirement is unchanged.
+
+
 ## Not qualified or integrated by this lane
 
 Independent numerical execution of every native-produced IR/allocation frame is HOST PASS, including the changed weight-first component and dense/mapped staged configurations. The reused oracle seams are `gpu_fp8_api_test.c` (`sim_gemv`, `parity`) and `gpu_fp8gemm_test.c` (`sim_point2`). This evidence is independent of C-byte parity. Family3 now has strict canonical and launch structural admission derived from the implemented generator, plus `bc_record` binding checks; this does not grant qualification, production registration or physical admission. Shared integration must bind actual retained artifacts and preserve every independent qualification gate.

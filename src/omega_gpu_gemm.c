@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_gpu_gemm.c -- matrix multiply of any shape on the GB10 tensor cores (C3). See the header. */
 #include "omega_gpu_gemm.h"
 #include "omega_bw_em.h"

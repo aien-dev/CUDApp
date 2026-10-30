@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* gpu_gemm_test.c -- row C3 of docs/OMEGA.md: matrix multiply of any shape, BF16 and FP8 (e4m3), both layouts of A and B,
  * on the GB10 tensor cores, checked bit for bit against a host model of the same tensor-core steps (src/omega_gpu_gemm.h).
  *

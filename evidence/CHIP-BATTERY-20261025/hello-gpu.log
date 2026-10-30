@@ -1,0 +1,22 @@
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -o build/hello_gpu examples/hello_gpu/hello_gpu.c build/libomega_gpu.a -lpthread -lm
+build/cudapp-doctor
+cudapp doctor: is this machine ready for CUDA++?
+  info  system: Linux 7.0.0-1019-nvidia aarch64
+  ok    NVIDIA kernel module: open module 580.173.02 (CUDA++ speaks 580.173.02)
+  ok    device files: /dev/nvidiactl /dev/nvidia0 /dev/nvidia-uvm can be opened by this user
+  ok    GPU 000f:01:00.0: NVIDIA GB10 (sm_121), qualified (receipt: evidence/m16-blackwell-native-path-requalification-receipt.json)
+  ok    memory: 121.7 GiB shared by the CPU and the GPU, 58.8 GiB available now
+  info  CUDA toolkit: not needed and not used by CUDA++ (one is installed at /usr/local/cuda/bin/nvcc; that is fine)
+  info  compiler: this doctor was built by 13.3.0; CUDA++ needs only make and a C compiler
+READY. Next: make hello-gpu
+./build/hello_gpu
+hello_gpu: c = a + b over 1048576 floats on the GPU, built with Omega's own kernel builder
+kernel built in 23 us: 32 instructions, 12 registers, no compiler run, no cache
+machine code sha256 6248b8ed338019f75e20b13a8ef7e63b4e35764229e0669ffbe54464353e87d1
+kernel: 32 instructions, 12 registers
+checked 1048576 of 1048576 elements: 0 wrong, 0 never written
+work: 12582912 bytes moved (8388608 read, 4194304 written), 1048576 floating-point operations
+      at the GB10's measured 195.1 GB/s read ceiling this needs at least 64.5 us; the GPU took 939.0 us (7% of the ceiling)
+output sha256 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+PASS
+rc=0

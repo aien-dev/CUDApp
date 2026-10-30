@@ -1,0 +1,271 @@
+{
+  "schema": "cudapp.device-trace.checker-coverage-host.v1",
+  "date_utc": "2026-10-27",
+  "status": "LOCAL_HOST_REFERENCE_ONLY; NATIVE_AND_GPU_NOT_RUN; CRUMB_TOOL_UNAVAILABLE",
+  "base_commit": "bba6da8045ba5baaf0a81f7152af44d52e24f563",
+  "source_commit": "81f74bbcfc6eece6665758037f144b80c4756b3a",
+  "platform": "Linux x86_64",
+  "source_sha256": {
+    "tests/device-trace/address-test.om": "658d551fbe85a161a11b0971873930677ab5fd79fd985b761a8ba7ed43ec8370",
+    "tests/device-trace/run-emitter-checks.sh": "9713639a136b670ac09d1e7cb15b80292068554d7a5e2649c173285a156bb8f1",
+    "tests/device-trace/run-runner-controls.sh": "203bb36dcea10fed641e16d1cda361116e7c00b08c9d4d43dce7fed478febabe",
+    "tests/device-trace/README-safety.md": "dcd14ab49e847ffe52a974c225fa1d19f5e097773e5ae69ed128e09ea758e08c"
+  },
+  "change": [
+    "Run emitter/address/guard/body units before external decode; reject failed compiler output or nonempty compiler stderr before execution.",
+    "Require GLOBALTIMERLO into R2 and the contract store-source registers in the independent Omega address model.",
+    "Retain timer, destination, store-source, branch-displacement and store-offset byte-mutation controls for both markers.",
+    "Add explicitly synthetic shell-orchestration controls; product emitter and Makefile unchanged."
+  ],
+  "oracle": {
+    "role": "Existing frozen external test referee, not product implementation or native execution.",
+    "repository": "aien-dev/omega-mv",
+    "commit": "190130b71d0a59b93f01c515218a5509b149a145",
+    "path": "tools/omega_ref/omega_ref.c",
+    "source_sha256": "52e747096c1d978103432460a2978b21a604cc5d3e961bbe4b253fcc7636290e",
+    "binary_sha256": "158d610d9f6337943674f08d00d6480bbdd817e5b526180017c616b49d89d90a",
+    "build_command": "cc -O2 -g -std=gnu11 -Wall -Wextra -Werror -o omega_ref omega_ref.c -lpthread",
+    "cc": "Debian 14.2.0-19",
+    "projection": "The frozen referee predates const. Remove const NAME ulong VALUE declarations and replace whole NAME tokens in non-note lines by ulong VALUE, exactly as the earlier emitter-safety receipt documents. Original source is not edited. Every original/projected pair is compiled by real compiler source under the referee; outputs are compared, not executed."
+  },
+  "compiler": {
+    "repository": "aien-dev/omega-mv",
+    "source_revision": "7505b3a3e3cf5ee46933e3a89a021b4289037983",
+    "path": "seed/omc/omc.om",
+    "source_sha256": "c792b401193d8477d38965d6ddb0fd0cb8fd5ac24fcb92fae9af52037a765f1c",
+    "independently_expected_self_output_sha256": "499236398aabc652e2dae27fe4bdc4c5db3d3726314356e0dbef23e3345803ec",
+    "measured_self_output_sha256": "499236398aabc652e2dae27fe4bdc4c5db3d3726314356e0dbef23e3345803ec",
+    "self_compile_exit": 0,
+    "self_compile_stderr_bytes": 0,
+    "output_arch": "AArch64; NOT_EXECUTED"
+  },
+  "red": {
+    "semantic": "New timer/source controls against the old address predicates: checker/compiler accepted, projected run exit11, empty stderr.",
+    "orchestration": "New shell controls against base runner: exit1, missing compile address."
+  },
+  "final_units": [
+    {
+      "stage": "final",
+      "test": "emitter",
+      "source_sha256": "d8854d9067c74a334c9da38ca70e74f490e56bb07f2b10dc2383acc42a5ac04c",
+      "projected_sha256": "fd80925e2d04d40fdc11c48f5a62bcce6793a316c8f596e9d83c1aa534c9a51d",
+      "check_exit": 0,
+      "check_stderr": "",
+      "run_exit": 0,
+      "run_stderr": "",
+      "original_compile_exit": 0,
+      "original_compile_stderr": "",
+      "original_elf_sha256": "dc5773073ff4dbcd4895df0db0557470461af802526d1e5e5f4147e093d1304b",
+      "projected_compile_exit": 0,
+      "projected_compile_stderr": "",
+      "projected_elf_sha256": "dc5773073ff4dbcd4895df0db0557470461af802526d1e5e5f4147e093d1304b",
+      "same_elf": true
+    },
+    {
+      "stage": "final",
+      "test": "address",
+      "source_sha256": "03133702bfba2792f5fd2216bac71b40e883054e1d7abafe8c19213b9bdb1a97",
+      "projected_sha256": "1e262f31485d306c7e8133f2a495aeac58954f5f44e88d61d81470a50868224e",
+      "check_exit": 0,
+      "check_stderr": "",
+      "run_exit": 0,
+      "run_stderr": "",
+      "original_compile_exit": 0,
+      "original_compile_stderr": "",
+      "original_elf_sha256": "8bc11f9ec2253cdc3d9959e67a6b032d98e1340f7fefb83031a0b2a4b3b4d7dc",
+      "projected_compile_exit": 0,
+      "projected_compile_stderr": "",
+      "projected_elf_sha256": "8bc11f9ec2253cdc3d9959e67a6b032d98e1340f7fefb83031a0b2a4b3b4d7dc",
+      "same_elf": true
+    },
+    {
+      "stage": "final",
+      "test": "guard",
+      "source_sha256": "1137c36c1241f65b588beb4d163fecaf83f9a3c0368f727cbca08b095e1098b3",
+      "projected_sha256": "f471673a130f4a3bc0faf2ac3620d70da4e24bfaf5d5d4dbe40a6d7937a2eb70",
+      "check_exit": 0,
+      "check_stderr": "",
+      "run_exit": 0,
+      "run_stderr": "",
+      "original_compile_exit": 0,
+      "original_compile_stderr": "",
+      "original_elf_sha256": "68423524f52c03da9916749b4d78c24995983dbb818ddc56bd0a7c1c23a588d9",
+      "projected_compile_exit": 0,
+      "projected_compile_stderr": "",
+      "projected_elf_sha256": "68423524f52c03da9916749b4d78c24995983dbb818ddc56bd0a7c1c23a588d9",
+      "same_elf": true
+    },
+    {
+      "stage": "final",
+      "test": "body",
+      "source_sha256": "2bdae5f2e4a441397b3ebdfa7fd22789b6c97d59b67dc60b57f6bd635722c9af",
+      "projected_sha256": "2452e3783763e663f892d2800ee236469f2ae11320764de7979a868e14a7e2ce",
+      "check_exit": 0,
+      "check_stderr": "",
+      "run_exit": 0,
+      "run_stderr": "",
+      "original_compile_exit": 0,
+      "original_compile_stderr": "",
+      "original_elf_sha256": "a793ed62dc31e333682167bb0f2020062d84900479e0d9d883b7eaa8de499fe9",
+      "projected_compile_exit": 0,
+      "projected_compile_stderr": "",
+      "projected_elf_sha256": "a793ed62dc31e333682167bb0f2020062d84900479e0d9d883b7eaa8de499fe9",
+      "same_elf": true
+    }
+  ],
+  "accepted_source_mutants": [
+    {
+      "mutation": "timer_source",
+      "test": "address",
+      "expected_run_exit": 3,
+      "source_sha256": "4a8fc22a9c2b6414d70a18e288a9bb615b1121f034e1177797c7b82019bd8d00",
+      "check_exit": 0,
+      "check_stderr": "",
+      "run_exit": 3,
+      "run_stderr": "",
+      "original_compile_exit": 0,
+      "original_compile_stderr": "",
+      "original_elf_sha256": "df3c17bebfa316d16339bd28fe897b113e065ef14e5bddce932f1f21df196c62",
+      "projected_compile_exit": 0,
+      "projected_compile_stderr": "",
+      "projected_elf_sha256": "df3c17bebfa316d16339bd28fe897b113e065ef14e5bddce932f1f21df196c62",
+      "same_elf": true
+    },
+    {
+      "mutation": "timestamp_source",
+      "test": "address",
+      "expected_run_exit": 3,
+      "source_sha256": "d38a6804efa9aa2d4593b16cf12e78e663f6237fd66a1b79781f1ac982ab2907",
+      "check_exit": 0,
+      "check_stderr": "",
+      "run_exit": 3,
+      "run_stderr": "",
+      "original_compile_exit": 0,
+      "original_compile_stderr": "",
+      "original_elf_sha256": "89898a27ec22855315ed519bfecff5ef8565b81bb8e4fc18e0cf8fce2c441d91",
+      "projected_compile_exit": 0,
+      "projected_compile_stderr": "",
+      "projected_elf_sha256": "89898a27ec22855315ed519bfecff5ef8565b81bb8e4fc18e0cf8fce2c441d91",
+      "same_elf": true
+    },
+    {
+      "mutation": "store_offset",
+      "test": "address",
+      "expected_run_exit": 3,
+      "source_sha256": "36c2261ebdbba18dd6e4f65b91426df3ab4b4ed0b578cbcae64d0b5bf05b0280",
+      "check_exit": 0,
+      "check_stderr": "",
+      "run_exit": 3,
+      "run_stderr": "",
+      "original_compile_exit": 0,
+      "original_compile_stderr": "",
+      "original_elf_sha256": "d02372974777b5aff806c5eed15e7e8141e19c80c375af03dea1bc30762ecb44",
+      "projected_compile_exit": 0,
+      "projected_compile_stderr": "",
+      "projected_elf_sha256": "d02372974777b5aff806c5eed15e7e8141e19c80c375af03dea1bc30762ecb44",
+      "same_elf": true
+    },
+    {
+      "mutation": "second_branch",
+      "test": "address",
+      "expected_run_exit": 8,
+      "source_sha256": "eda13ce050dffeff4207f8d6b28be129477eb87eca348161baf492e1bbc296b5",
+      "check_exit": 0,
+      "check_stderr": "",
+      "run_exit": 8,
+      "run_stderr": "",
+      "original_compile_exit": 0,
+      "original_compile_stderr": "",
+      "original_elf_sha256": "3eea504012d839708f131d10e4aa4053d81356e12dff84f8072080e5cfe87216",
+      "projected_compile_exit": 0,
+      "projected_compile_stderr": "",
+      "projected_elf_sha256": "3eea504012d839708f131d10e4aa4053d81356e12dff84f8072080e5cfe87216",
+      "same_elf": true
+    },
+    {
+      "mutation": "noncanonical_guard",
+      "test": "guard",
+      "expected_run_exit": 1,
+      "source_sha256": "bdd6f3f505d4fe65717fe087ab5b66a346bc1601c05ae13d8ce5267a39df6164",
+      "check_exit": 0,
+      "check_stderr": "",
+      "run_exit": 1,
+      "run_stderr": "",
+      "original_compile_exit": 0,
+      "original_compile_stderr": "",
+      "original_elf_sha256": "043d2c1e7977ba94cdcd2ace87290c901206d1a1909293e6af0bd6a2fccdf79c",
+      "projected_compile_exit": 0,
+      "projected_compile_stderr": "",
+      "projected_elf_sha256": "043d2c1e7977ba94cdcd2ace87290c901206d1a1909293e6af0bd6a2fccdf79c",
+      "same_elf": true
+    },
+    {
+      "mutation": "body_refusal",
+      "test": "body",
+      "expected_run_exit": 1,
+      "source_sha256": "fe8847689136224eb62e9077b198ad4d26e9e1d0de1aed7251c953efe779d464",
+      "check_exit": 0,
+      "check_stderr": "",
+      "run_exit": 1,
+      "run_stderr": "",
+      "original_compile_exit": 0,
+      "original_compile_stderr": "",
+      "original_elf_sha256": "5f985e6dc8deea5fd9e70f3657d4b4c332d52b3c9ad9255c4845d1820e2e71eb",
+      "projected_compile_exit": 0,
+      "projected_compile_stderr": "",
+      "projected_elf_sha256": "5f985e6dc8deea5fd9e70f3657d4b4c332d52b3c9ad9255c4845d1820e2e71eb",
+      "same_elf": true
+    }
+  ],
+  "shell_controls": {
+    "command": "sh tests/device-trace/run-runner-controls.sh",
+    "exit": 0,
+    "stdout": "RUNNER ORCHESTRATION CONTROLS PASS (synthetic tools; no native or GPU execution)",
+    "scope": "Synthetic compiler programs and deliberately synthetic decode rows. Unit composition/failure propagation only, NOT native compilation or instruction decoding."
+  },
+  "other_checks": {
+    "commands": [
+      "sh -n tests/device-trace/run-emitter-checks.sh tests/device-trace/run-runner-controls.sh",
+      "git diff --check"
+    ],
+    "exit": 0,
+    "make_test": {
+      "baseline_exit": 2,
+      "final_exit": 2,
+      "failure": "x86 assembler rejects unchanged AArch64 ds instructions at src/omega_blackwell_engine.c:393 and :558; Makefile:40",
+      "suite_status": "NOT_RUN because build fails"
+    }
+  },
+  "independent_review": {
+    "scope": "Read-only source review, independent projected-unit runs and original/projected compiles, source mutants and synthetic runner-failure matrix. No native ELF or GPU execution.",
+    "result": "No blocking behavioral defect found. Reviewer identified missing retained branch/offset controls; these were then added without changing branch assertion codes, and the author reran final units, compiles, source mutants and shell controls.",
+    "snapshot_note": "Final branch/offset-control extraction is an author-verified response to the review, not a second independent whole-diff approval."
+  },
+  "limits": [
+    "Native AArch64 execution, full real runner and its nvdisasm stage NOT_RUN in this repair session.",
+    "Full host suite NOT_RUN after the architecture-specific build failure. No GPU execution, scheduling, launch, clock, store or overhead qualification.",
+    "No claim that these bounded assertions replace every operand property of the historical whole-listing comparison.",
+    "No trusted crumb executable or repository crumb.lock is available. Targeted crumb compile/verify NOT_RUN. tests/device-trace/.crumb generated data is not refreshed and is expected stale; no generated fields hand-edited and root crumb untouched.",
+    "No public claim, comment, push, PR, merge, installation, settings or deployment."
+  ],
+  "wolfram_modeled": [
+    {
+      "query": "Table[{o,Which[o==12,2,o>=16,10+(o-16)/4,True,6]},{o,0,28,4}]",
+      "result": "{{0,6},{4,6},{8,6},{12,2},{16,10},{20,11},{24,12},{28,13}}",
+      "units": "record byte offset to source register number"
+    },
+    {
+      "query": "{16*21+2, Table[BitAnd[BitShiftRight[BitOr[2375,BitShiftLeft[18,18]],8 i],255],{i,0,3}]}",
+      "result": "{338,{71,9,72,0}}",
+      "units": "second branch mutation byte index; original little-endian opcode word bytes"
+    }
+  ],
+  "local_log_sha256": {
+    "baseline-make-test.log": "4d17078ded478a8537fa945eaccb6d744dd7fda6d11a054ab32b4521ecdc7433",
+    "final-make-test.log": "067fff5896ec353ecfa1a43f5d12c6484475bcbe3d7651f8bc9adb6d4e1fb6c8",
+    "red-runner.log": "6be68a50014962c89ea395d07e78ab0d7d124cf4346a86bc535e7260c493b77c",
+    "final-runner.log": "a74a78599c4e2bb4c1230a1b1f08c962e49644ce9d0cf431ad956b070fd57165",
+    "final-results.json": "aa2574d3f14589f030bf98175fa67de58f188fdb8d3f99b4475b47ec732fe4c6",
+    "source-mutation-results.json": "ca856872247abc545b712200e539853431490c5b6fcb9ef85d72227f3caccf05"
+  }
+}

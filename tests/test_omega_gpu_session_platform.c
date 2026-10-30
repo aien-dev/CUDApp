@@ -54,6 +54,7 @@ static struct {
     uint64_t ns;
     unsigned allocs, frees, free_refusals, submits, polls, retires, syncs, irq_calls, dev_opens, dev_closes;
     unsigned locks_held;
+    void (*before_lock)(void); /* one contender completes before the fake lock is granted */
     unsigned cached_requests; /* buffers asked GPU-cached (must stay 0) */
     unsigned allocs_unlocked; /* allocations without the session lock (must stay 0) */
     int fail_open;
@@ -63,7 +64,15 @@ static struct {
 static uint64_t f_now_ns(void *c) { (void)c; fk.ns += 1000u; return fk.ns; }
 static uint64_t f_now_ms(void *c) { return f_now_ns(c) / 1000000u; }
 static int f_wait(void *c, uint64_t ms) { (void)c; fk.ns += ms * 1000000u; return 0; }
-static int f_lock(void *c, uint32_t id) { (void)c; if (id != OMEGA_GPU_SESSION_LOCK_ID) return OMEGA_GPU_PLAT_REFUSED_ARGS; fk.locks_held++; return 0; }
+static int f_lock(void *c, uint32_t id) {
+    (void)c;
+    if (id != OMEGA_GPU_SESSION_LOCK_ID) return OMEGA_GPU_PLAT_REFUSED_ARGS;
+    void (*before_lock)(void) = fk.before_lock;
+    fk.before_lock = NULL;
+    if (before_lock) before_lock();
+    fk.locks_held++;
+    return 0;
+}
 static int f_unlock(void *c, uint32_t id) { (void)c; if (id != OMEGA_GPU_SESSION_LOCK_ID || !fk.locks_held) return OMEGA_GPU_PLAT_REFUSED_ARGS; fk.locks_held--; return 0; }
 static const char *f_diag(void *c) { (void)c; return fk.fail_open ? "fake device: no GB10 here" : ""; }
 
@@ -624,6 +633,62 @@ static void c_fmt_matches_snprintf(void) {
 #ifdef OMEGA_NATIVE_RUNTIME_TEST
 #include "native_runtime_controls.h"
 
+static void recover_before_cmdlist_lock(void) {
+    omega_gpu_session_note_module_latch();
+    EXPECT(omega_gpu_session_recover() == 0);
+}
+
+static void cmdlist_create_lifetime(void (*before_lock)(void)) {
+    fk_reset();
+    EXPECT(install() == 0);
+    omega_gpu_session_lock();
+    EXPECT(omega_gpu_session_open() != NULL);
+    const uint64_t previous_epoch = omega_gpu_session_epoch();
+    omega_gpu_session_unlock();
+
+    /* Model a close/recovery winning the lock immediately before create.
+     * The hook runs real session teardown, not a fabricated epoch value. */
+    fk.before_lock = before_lock;
+    OmegaGpuCmdList *cl = NULL;
+    EXPECT(omega_gpu_cmdlist_create(1, &cl) == 0);
+    if (!cl) return;
+    EXPECT(fk.before_lock == NULL);
+    EXPECT(fk.dev_closes == 1 && fk.dev_opens == 2);
+    EXPECT(omega_gpu_session_epoch() != previous_epoch);
+    omega_gpu_session_lock();
+    OmegaGpuCmdListOwner owner;
+    EXPECT(omega_gpu_cmdlist_owner(cl, &owner) == 0);
+    OmegaGpuLaunch launch = launch_desc(100);
+    EXPECT(omega_gpu_cmdlist_add(cl, &launch) == 0);
+    omega_gpu_session_unlock();
+    omega_gpu_cmdlist_free(cl);
+    omega_gpu_session_close();
+}
+
+static void c_cmdlist_create_after_close(void) {
+    cmdlist_create_lifetime(omega_gpu_session_close);
+}
+
+static void c_cmdlist_create_after_recovery(void) {
+    cmdlist_create_lifetime(recover_before_cmdlist_lock);
+}
+
+static void c_cmdlist_close_after_create_stale(void) {
+    fk_reset();
+    EXPECT(install() == 0);
+    OmegaGpuCmdList *cl = NULL;
+    EXPECT(omega_gpu_cmdlist_create(1, &cl) == 0);
+    if (!cl) return;
+    omega_gpu_session_close();
+    omega_gpu_session_lock();
+    OmegaGpuCmdListOwner owner;
+    EXPECT(omega_gpu_cmdlist_owner(cl, &owner) != 0);
+    OmegaGpuLaunch launch = launch_desc(100);
+    EXPECT(omega_gpu_cmdlist_add(cl, &launch) != 0);
+    omega_gpu_session_unlock();
+    omega_gpu_cmdlist_free(cl);
+}
+
 static void native_pair_visibility(unsigned missing) {
     fk_reset();
     g_caps.max_queues = 2;
@@ -662,7 +727,11 @@ static void c_native_pair_missing_b(void) { native_pair_visibility(2); }
 typedef struct { const char *id; void (*fn)(void); } Case;
 static const Case CASES[] = {
 #ifdef OMEGA_NATIVE_RUNTIME_TEST
+    {"CMDLIST_CREATE_AFTER_LOCK_PRECEDING_CLOSE_IS_USABLE", c_cmdlist_create_after_close},
+    {"CMDLIST_CREATE_AFTER_LOCK_PRECEDING_RECOVERY_IS_USABLE", c_cmdlist_create_after_recovery},
+    {"CMDLIST_CLOSE_AFTER_CREATE_STILL_REFUSES_STALE_LIST", c_cmdlist_close_after_create_stale},
     {"NATIVE_SYNTHETIC_QUANT_COMPOSE_ENCODE_CACHE_SELECT_RECORD", c_native_chain},
+    {"NATIVE_REAL_COMPOSE_CAPACITY_REFUSES_WITHOUT_TRAP", c_native_compose_capacity},
     {"NATIVE_TIMEOUT_RETAINS_CODE_UNTIL_CONFIRMED_TEARDOWN", c_native_timeout_refs},
     {"NATIVE_NORMAL_CLOSE_INVALIDATES_EXACT_LEASE", c_native_close_epoch},
     {"NATIVE_ACTUAL_OWNER_MODEFINAL_OBSERVER_BINDING", c_native_observer_modes},
