@@ -93,22 +93,60 @@ gpu_bug_refused_ok() {
 	grep -qF -e '--bug=past-end is only for --sim: on the GPU it would write past a buffer' "$log" || return 1
 }
 
-# make's exit status is the decision. Exit 2 is the recipe refusal. Exit 0 would be READY.
+# make's exit status is the decision. Exit 2 is the recipe refusal. Every other exit fails.
 # The words "Error 1" in make's message are not part of the check.
+# Each whole line that starts with "  FAIL  " must be one of the five missing-hardware lines.
+# A longer line, a prefix, or any other FAIL line fails. There must be exactly those five.
+# The summary line must start with "NOT READY: 5 problems above."
+doctor_fail_line() {
+	case $1 in
+	'  FAIL  NVIDIA kernel module: not loaded (/proc/driver/nvidia/version does not exist)')
+		printf '%s\n' module ;;
+	'  FAIL  device files: /dev/nvidiactl is missing')
+		printf '%s\n' ctl ;;
+	'  FAIL  device files: /dev/nvidia0 is missing')
+		printf '%s\n' gpu0 ;;
+	'  FAIL  device files: /dev/nvidia-uvm is missing')
+		printf '%s\n' uvm ;;
+	'  FAIL  GPU: no NVIDIA GPU found in /sys/bus/pci/devices')
+		printf '%s\n' gpu ;;
+	*)
+		return 1
+		;;
+	esac
+}
+
 doctor_ok() {
-	local rc=$1 log=$2
+	local rc=$1 log=$2 line kind n=0 module=0 ctl=0 gpu0=0 uvm=0 gpu=0
+	local ready_n any_ready
 	[ "$rc" -eq 2 ] || return 1
 	grep -qF 'cudapp doctor: is this machine ready for CUDA++?' "$log" || return 1
-	grep -qF 'FAIL  NVIDIA kernel module: not loaded' "$log" || return 1
-	grep -qF 'FAIL  device files: /dev/nvidiactl is missing' "$log" || return 1
-	grep -qF 'FAIL  device files: /dev/nvidia0 is missing' "$log" || return 1
-	grep -qF 'FAIL  device files: /dev/nvidia-uvm is missing' "$log" || return 1
-	grep -qF 'FAIL  GPU: no NVIDIA GPU found in /sys/bus/pci/devices' "$log" || return 1
-	grep -qF 'NOT READY:' "$log" || return 1
 	grep -qF 'NOT_RUN: the target table is seeded Omega' "$log" || return 1
 	if grep -qxF 'READY. Next: make hello-gpu' "$log"; then
 		return 1
 	fi
+	while IFS= read -r line || [ -n "$line" ]; do
+		case $line in
+		'  FAIL  '*)
+			kind=$(doctor_fail_line "$line") || return 1
+			n=$((n + 1))
+			case $kind in
+			module) module=$((module + 1)) ;;
+			ctl) ctl=$((ctl + 1)) ;;
+			gpu0) gpu0=$((gpu0 + 1)) ;;
+			uvm) uvm=$((uvm + 1)) ;;
+			gpu) gpu=$((gpu + 1)) ;;
+			*) return 1 ;;
+			esac
+			;;
+		esac
+	done <"$log"
+	[ "$n" -eq 5 ] || return 1
+	[ "$module" -eq 1 ] && [ "$ctl" -eq 1 ] && [ "$gpu0" -eq 1 ] && [ "$uvm" -eq 1 ] && [ "$gpu" -eq 1 ] || return 1
+	ready_n=$(grep -cE '^NOT READY: 5 problems above\.' "$log" || true)
+	any_ready=$(grep -cE '^NOT READY:' "$log" || true)
+	[ "$ready_n" -eq 1 ] || return 1
+	[ "$any_ready" -eq 1 ] || return 1
 	return 0
 }
 
@@ -239,6 +277,7 @@ cudapp doctor: is this machine ready for CUDA++?
 NOT READY: 5 problems above. Fix the first FAIL line and run make doctor again.
   NOT_RUN: the target table is seeded Omega and needs the pinned omc.
 EOF
+	cp "$log" "$t/doctor-good"
 	expect_ok doctor-not-ready doctor_ok 2 "$log"
 	expect_reject doctor-exit0 doctor_ok 0 "$log"
 	printf '%s\n' 'make: *** [mk/dx-doctor.mk:14: doctor] Error 1' >>"$log"
@@ -246,6 +285,16 @@ EOF
 	printf '%s\n' 'READY. Next: make hello-gpu' >>"$log"
 	expect_reject doctor-ready-line doctor_ok 2 "$log"
 	grep -qF 'NOT READY:' "$log" || { echo "FAIL doctor fixture lost NOT READY"; fail=1; }
+
+	cp "$t/doctor-good" "$t/doctor-extra"
+	printf '%s\n' '  FAIL  device files: /dev/nvidia0 exists but this user cannot open it for reading and writing' >>"$t/doctor-extra"
+	expect_reject doctor-extra-fail doctor_ok 2 "$t/doctor-extra"
+	sed 's/^NOT READY: 5 problems above\./NOT READY: 6 problems above./' "$t/doctor-good" >"$t/doctor-count6"
+	expect_reject doctor-count-6 doctor_ok 2 "$t/doctor-count6"
+	grep -vxF '  FAIL  device files: /dev/nvidia-uvm is missing' "$t/doctor-good" >"$t/doctor-missing"
+	expect_reject doctor-missing-allowlisted-line doctor_ok 2 "$t/doctor-missing"
+	expect_reject doctor-exit1 doctor_ok 1 "$t/doctor-good"
+	expect_reject doctor-exit3 doctor_ok 3 "$t/doctor-good"
 
 	saved_fail=$fail
 	saved_summary=$summary
