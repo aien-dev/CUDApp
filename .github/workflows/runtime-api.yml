@@ -33,9 +33,9 @@ jobs:
             "RESULT: PASS ("*")") ;;
             *) echo "make test-runtime-api exited 0 without a final RESULT: PASS line: $last"; exit 1 ;;
           esac
-      - name: GB10 sm_121 chip execution
+      - name: GB10 sm_121 chip execution (NOT_RUN)
         run: |
-          printf '%s\n' "GB10 sm_121 chip execution: NOT_RUN (host manifest check only; /dev/nvidia0, /dev/nvidia-uvm and /dev/aien-gpu stay closed)"
+          printf '%s\n' "GB10 sm_121 chip execution: NOT_RUN (host manifest check only; /dev/nvidia0, /dev/nvidia-uvm and /dev/aien-gpu stay closed)" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Version bump against the base
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
