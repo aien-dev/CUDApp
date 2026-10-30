@@ -15,6 +15,10 @@ VM in `evidence/HOST-X86-20261030`, `make CC=gcc -j4 test` exits 2 at that
 default and passes only with `CUDAPP_MEM_RESERVE_MIB=0`. The failing check
 refuses a 741.9 MiB serving upload because 4.6 GiB is free and the runtime
 keeps 4.0 GiB free. A host that cannot keep 4096 MiB free fails the same way.
+GitHub Actions runs `CUDAPP_MEM_RESERVE_MIB=0 make CC=gcc -j4 test` and
+`make CC=gcc gpu-engine-freestanding` on `ubuntu-24.04`
+(`.github/workflows/host-x86.yml`). The AArch64 `host-tests` job is unchanged.
+GB10 stays NOT_RUN.
 
 On x86-64, `make test` does not count checks that execute the seeded AArch64
 binding or the pinned `omc`. Those targets still exist. Invoking one directly

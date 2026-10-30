@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# x86-64 host CI (issue #196). Runs the portable suite from docs/OMEGA_HOST_TESTS.md
+# and builds the x86 freestanding link (mk/omega-gpu-engine.mk, CUDAPP_PORTABLE_DEFS
+# on cudapp_binding_portable.o). Does not install nvdisasm, clone Omega, or open a GPU.
+# The AArch64 host-tests job stays in ci.yml. make test-runtime-api's version bump
+# stays in runtime-api.yml (#189). Further host gates for #90 belong in their own
+# change, not in this file. GB10 chip tests stay NOT_RUN.
+name: host-x86
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  x86-host-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Toolchain record
+        run: |
+          arch=$(uname -m)
+          echo "arch $arch"
+          [ "$arch" = x86_64 ]
+          gcc --version | head -n 1
+          make --version | head -n 1
+          echo "CUDAPP_MEM_RESERVE_MIB=0 for the portable suite (docs/OMEGA_HOST_TESTS.md). The default 4096 is unchanged."
+          echo "GB10: NOT_RUN"
+      - name: x86 freestanding link
+        # The runner's bash uses -e -o pipefail, so make's status is captured with `||`.
+        run: |
+          rc=0
+          make CC=gcc gpu-engine-freestanding > "$RUNNER_TEMP/freestanding.log" 2>&1 || rc=$?
+          cat "$RUNNER_TEMP/freestanding.log"
+          [ "$rc" -eq 0 ] || exit "$rc"
+          grep -F 'cudapp_binding_portable.o' "$RUNNER_TEMP/freestanding.log" | grep -F -- '-DCUDAPP_MIGRATION_PENDING_C_ENCODER' | grep -F -- '-DCUDAPP_MIGRATION_PENDING_C_CUBIN'
+          line=$(grep -E '^freestanding GPU link \([0-9]+ files\): only .*undefined$' "$RUNNER_TEMP/freestanding.log")
+          echo "$line"
+      - name: Portable host suite
+        env:
+          CUDAPP_MEM_RESERVE_MIB: "0"
+        run: |
+          rc=0
+          make CC=gcc -j4 test > "$RUNNER_TEMP/make-test.log" 2>&1 || rc=$?
+          cat "$RUNNER_TEMP/make-test.log"
+          [ "$rc" -eq 0 ] || exit "$rc"
+          last=$(tail -n 1 "$RUNNER_TEMP/make-test.log")
+          case $last in
+            "CUDA++ HOST TESTS PASS ("*" targets)") echo "$last" ;;
+            *) echo "make test exited 0 without the final CUDA++ HOST TESTS PASS line"; exit 1 ;;
+          esac
+          echo "GB10: NOT_RUN"
