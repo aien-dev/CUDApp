@@ -87,7 +87,7 @@ Linux today), `queue_submit(words)` (replaced by `ob_dispatch` + `ob_submit`).
 
 Code-object formats accepted by `ob_code_load`: `SM121_RAW`, `AMDGPU_HSACO`, `SPIRV_VK`, `SPIRV_CL`
 (OpenCL-environment SPIR-V: Kernel capability, Physical64 addressing, for OpenCL runtimes),
-`MSL_SOURCE`, `AARCH64`. `CUBIN` is reserved and unused while omega-mv #864 is on HOLD.
+`MSL_SOURCE`, `AARCH64`. `CUBIN` is reserved and unused. omega-mv #864 (`seed/sm80/cubin.om`) was closed unmerged; see `docs/CUBIN_WRITERS.md`.
 
 ### 3a. First pieces that exist (IMPLEMENTED; host EXERCISED; hardware NOT_RUN off the GB10)
 
@@ -140,7 +140,7 @@ faster.
 - Encodings come from Mesa NAK (MIT) plus chip tests (`THIRD_PARTY.md` §2). `docs/HOW_I_DID_IT.md` line 36
   records a preference for nvcc output where it and NAK disagree; every encoder field gets a NAK
   citation or a chip test before the GB10 encoder is declared the backend.
-- Nothing derived from omega-mv #864 (`cubin.om`) enters a backend while #864 is on HOLD.
+- Nothing derived from omega-mv #864 (`seed/sm80/cubin.om`) enters a backend. That pull request was closed unmerged on 2026-10-27. See `docs/CUBIN_WRITERS.md`.
 - AMD encodings come from AMD's published ISA reference guides; LLVM (`llvm-mc`, `llvm-readelf`) is a
   verification oracle only. The terms of the ISA guides are an open item for the IP-lawyer review.
   `backend/amd/vadd-gfx1151.s` is such an oracle fixture: it exists to test the loader, is labelled
