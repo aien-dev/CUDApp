@@ -33,7 +33,7 @@ Consequences:
 
 ## Load matrix (fixtures outside this repo)
 
-`~/handoffs/max-g2/cubin_variants.py` derives every image from two inputs.
+`tools/cubin_variants.py` (copy of `~/handoffs/max-g2/cubin_variants.py`) derives every image from two inputs.
 The first is the current writer's output: `artifact-export` at main b5746b94,
 artifact `acfba3aa…3b1e`. The second is a ptxas 13.0.88 control built from
 `control.cu` (same symbol and argument ABI, `-fmad=false`). The ptxas images
@@ -66,10 +66,10 @@ pass `readelf`. All except N1 pass `cuobjdump`.
   at tolerance 1e-4. Modes: default run, `--load-only`, `--expect-reject`.
   Exit codes: 0 pass (or expected reject), 2 usage, 3 no window, 4 load/CUDA
   failure, 5 numeric, 6 reject expected but image accepted.
-- `~/handoffs/max-g2/max_cubin_probe.mojo` (mojo 1.2.0, max 26.7.0): uses
+- `tools/max_cubin_probe.mojo` (mojo 1.2.0, max 26.7.0): uses
   `DeviceExternalFunction` with MAX-owned buffers and stream. Same sentinel,
   oracle and exit codes. Modes: `run|loadonly|reject`.
-- `~/handoffs/max-g2/run_matrix.sh`: loads each image with both probes first,
+- `tools/run_matrix.sh`: loads each image with both probes first,
   and launches an image only if both loaders accepted it. Writes `raw.log` and
   `results.tsv` to `$SPARK_WINDOW_DIR/max-g2/`. Disables MAX's pooled memory
   manager, so a shared window does not reserve chip memory next to the
