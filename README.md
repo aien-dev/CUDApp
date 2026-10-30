@@ -459,7 +459,7 @@ gates were NOT_RUN for this repair.
 
 ## How it fits with Omega and Omega Bridge
 
-Ownership rule ([ARCH-0042](https://github.com/aien-dev/aien-architecture-mv/pull/342), PROPOSED): Omega owns computation, CUDA++ owns GPU execution, Omega Bridge owns compatibility.
+Ownership rule ([ARCH-0042](https://github.com/aien-dev/aien-architecture-mv/blob/main/docs/adr/0042-omega-cudapp-bridge-ownership.md), Accepted 2026-10-30): Omega owns computation, CUDA++ owns GPU execution, Omega Bridge owns compatibility.
 
 - **CUDA++ (this repository)** owns GPU execution: the sm_121 encoder and GPU code generators, the cubin writer and artifact exporter, artifact admission, the disassembler, the driver client (`nvrm/`), submission, sessions and the GPU runtime.
 - **[Omega](https://github.com/aien-dev/omega-mv)** owns Aien's seeded `.om` language, its compiler and the compiler pin, semantics, and the declared contract of what a kernel computes. The existing Omegese → IR → sm_121 lowering, its checker and host words stay in omega-mv. omega-mv#885 (draft) adds a seeded `.om` port of that lowering. It stops at BlackwellIR, so register allocation and sm_121 encoding are still the C builder. CUDA++ is the GPU execution component Omega consumes.
@@ -467,7 +467,7 @@ Ownership rule ([ARCH-0042](https://github.com/aien-dev/aien-architecture-mv/pul
 
 The currently shipped CUDApp implementation still contains first-party C; the planned, test-gated replacement with native `.om` is tracked in [#79](https://github.com/aien-dev/CUDApp/issues/79). The code was split out of Omega on 2026-10-21 with its full history; `docs/AUDIT.md` records how, and what was checked before it was published.
 
-Not yet true: Omega does not consume CUDA++ at a pin today. Omega main has no `cudapp.lock`; it still builds its own diverged copy of the GPU code ([#106](https://github.com/aien-dev/CUDApp/issues/106)) and takes the driver client from physics-mv ([#107](https://github.com/aien-dev/CUDApp/issues/107)). The disassembler is in Omega ([#10](https://github.com/aien-dev/CUDApp/issues/10)) and a second, `.om` cubin writer is proposed there ([#108](https://github.com/aien-dev/CUDApp/issues/108)). The `.om` work here takes its compiler through Omega Bridge's bootstrap rather than an Omega pin ([omega-mv#870](https://github.com/aien-dev/omega-mv/issues/870)).
+Not yet true: Omega does not consume CUDA++ at a pin today. Omega main has no `cudapp.lock`; it still builds its own diverged copy of the GPU code ([#106](https://github.com/aien-dev/CUDApp/issues/106)) and takes the driver client from physics-mv ([#107](https://github.com/aien-dev/CUDApp/issues/107)). The disassembler is in Omega ([#10](https://github.com/aien-dev/CUDApp/issues/10)). The cubin writer lives here (`src/omega_cubin.c`, and `om/cubin/cubin_elf.om` on the hosted build). A second writer, omega-mv `seed/sm80/cubin.om`, is not on omega-mv main: it is the closed, unmerged branch of [omega-mv#864](https://github.com/aien-dev/omega-mv/pull/864). Ownership, the differences, and what was not run are in [docs/CUBIN_WRITERS.md](docs/CUBIN_WRITERS.md) ([#108](https://github.com/aien-dev/CUDApp/issues/108)). The `.om` work here takes its compiler through Omega Bridge's bootstrap rather than an Omega pin ([omega-mv#870](https://github.com/aien-dev/omega-mv/issues/870)).
 
 ## Names
 

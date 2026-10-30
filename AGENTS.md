@@ -13,7 +13,7 @@ Shared rules: read https://www.aienos.com/agents/RULES.md first. This file adds 
 - `tests/`: host tests and the chip tests (`tests/gpu_*_test.c`). `mk/*.mk`: build fragments included by the `Makefile`.
 - `evidence/`: dated receipts. They record what ran on a named commit; never edit or regenerate an existing receipt. New receipts go in a new folder.
 - `build/` is generated (`make`, `OUT_DIR`) and ignored by git.
-- Omega is meant to build these sources at a pinned commit (`cudapp.lock` in Omega). That pin does not exist yet: Omega main still builds its own diverged copy and takes `nvrm` from physics-mv (#106, #107). Changes to public headers or the runtime API will affect Omega once it does. Ownership rule: ARCH-0042, PROPOSED in aien-architecture-mv#342 (Omega owns computation, CUDA++ owns GPU execution, Omega Bridge owns compatibility).
+- Omega is meant to build these sources at a pinned commit (`cudapp.lock` in Omega). That pin does not exist yet: Omega main still builds its own diverged copy and takes `nvrm` from physics-mv (#106, #107). Changes to public headers or the runtime API will affect Omega once it does. Ownership rule: ARCH-0042, Accepted 2026-10-30 in aien-architecture-mv#342 (Omega owns computation, CUDA++ owns GPU execution, Omega Bridge owns compatibility). The cubin writer is this repository's: `docs/CUBIN_WRITERS.md` (#108). New cubin-writer work stays here. Do not import omega-mv `seed/sm80/cubin.om`.
 
 ## Installation
 
@@ -91,4 +91,5 @@ make hello-gpu                              # runs make doctor, then examples/he
 - `ROADMAP.md`: every NVIDIA piece on the Spark, its replacement and receipt.
 - `docs/DRIVER.md`, `docs/HOW_I_DID_IT.md`, `docs/runtime/API.md`, `docs/runtime/PORTABILITY.md`.
 - `docs/AUDIT.md`, `docs/LICENSING_TRANSITION.md`, `THIRD_PARTY.md`: provenance and licences.
+- `docs/CUBIN_WRITERS.md`: the two cubin writers, who owns new work, and what was not run (#108).
 - Aienux, the Aien kernel, which holds Aien's GB10 driver research harness (L332, aienux#441; not a product, NVIDIA's open kernel module stays and GB10 support goes upstream to Nova and nouveau): https://github.com/aien-dev/aienux

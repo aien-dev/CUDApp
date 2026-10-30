@@ -422,7 +422,8 @@ HOST_TESTS = test-drift test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv
 	test-runtime-api test-runtime-portability test-doctor test-hello-sim test-native-artifact-manifest test-gemm-selectors \
 	test-native-artifact zero-cuda-gate verify-vendored test-swap-cli test-om-encoder test-om-spec-encoder test-om-cubin \
 	test-portable-receipts test-gpu-qmd-shared test-model-capacity test-gpu-qmd-shared-clean-build \
-	test-omega-slice-runner test-omega-arch-guard test-omega-barrier-contract test-omega-binding-portable $(CARRIED_HOST_TESTS)
+	test-omega-slice-runner test-omega-arch-guard test-omega-barrier-contract test-omega-binding-portable \
+	test-gpu-imadhi-rc test-dagsim $(CARRIED_HOST_TESTS)
 ifneq ($(CUDAPP_TARGET_ONLY_TESTS),)
 HOST_TESTS := $(filter-out $(CUDAPP_TARGET_ONLY_TESTS),$(HOST_TESTS)) test-omega-target-only
 endif
@@ -479,3 +480,50 @@ test-swap-cli:
 zero-cuda-gate: $(HELLO_GPU) $(GPU_API_TEST)
 	tools/zero-cuda-gate.sh --self-test
 	tools/zero-cuda-gate.sh $(HELLO_GPU) $(GPU_API_TEST)
+
+# omega #492: IMAD.HI.U32 with a register Rc. The chip reads Rc as a 64-bit register pair (nvcc 13.0
+# sm_121 oracle, evidence/IMADHI-RC-ORACLE-nvcc13.0-20261016; chip probe pending), so the four warp
+# simulators refuse a non-RZ Rc instead of modelling a 32-bit one. One binary per simulator header.
+.PHONY: test-gpu-imadhi-rc
+GPU_IMADHI_SIMS = bw_warp_sim bw_warp_sim_tc bw_warp_sim_k bw_warp_sim_pa
+GPU_IMADHI_TESTS = $(GPU_IMADHI_SIMS:%=$(OUT_DIR)/gpu_imadhi_rc_test_%)
+$(OUT_DIR)/gpu_imadhi_rc_test_%: tests/gpu_imadhi_rc_test.c tests/%.h $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -Itests -DSIM_HEADER='"$*.h"' -o $@ tests/gpu_imadhi_rc_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+test-gpu-imadhi-rc: $(GPU_IMADHI_TESTS)
+	@for t in $(GPU_IMADHI_TESTS); do ./$$t || exit 1; done
+
+# Offline resource-DAG evaluator, imported verbatim from closed PR #590
+# (commit 3bd56731). Host arithmetic on the numbers written in the fixtures.
+# Not a validated cost model and not a hardware measurement.
+# src/omega_om_units.c is not in this tree. src/sha256.c is sha256_hash on every host.
+# tests/dagsim/sha256_host.c is omega's non-AArch64 stub and aborts if a digest is requested.
+# dagsim.o keeps the #590 (3bd56731) nm guard: no generation store, authority,
+# world, or a call that maps or runs code.
+.PHONY: test-dagsim
+DS_OBJ = $(OUT_DIR)/dagsim.o
+DS_UNIT = $(OUT_DIR)/dagsim_unit
+DS_CLI = $(OUT_DIR)/dagsim
+DS_SHA_SRC = src/sha256.c
+RX_CM_OBJ = $(OUT_DIR)/rx_costmodel.o
+
+$(RX_CM_OBJ): src/runtime/rx_costmodel.c src/runtime/rx_costmodel.h | $(OUT_DIR)
+	$(CC) $(CFLAGS) -c -o $@ src/runtime/rx_costmodel.c
+	@if nm -u $@ | grep -E 'rx_gen_|aienos_cap_|rx_caproot_|rx_capadmin_|rx_world_|mmap|mprotect|fork|exec|dlopen|system' ; then \
+		echo "rx_costmodel.o references an operation a cost model must not have"; \
+		rm -f $@; exit 1; fi
+
+$(DS_OBJ): tools/dagsim/dagsim.c tools/dagsim/dagsim.h src/runtime/rx_costmodel.h | $(OUT_DIR)
+	$(CC) $(CFLAGS) -Itools/dagsim -c -o $@ tools/dagsim/dagsim.c
+	@if nm -u $@ | grep -E 'rx_gen_|aienos_cap_|rx_caproot_|rx_capadmin_|rx_world_|mmap|mprotect|fork|exec|dlopen|system' ; then \
+		echo "dagsim.o references an operation an offline evaluator must not have"; \
+		rm -f $@; exit 1; fi
+
+$(DS_UNIT): tests/dagsim/dagsim_unit.c $(DS_OBJ) $(RX_CM_OBJ) $(DS_SHA_SRC) | $(OUT_DIR)
+	$(CC) $(CFLAGS) -Itools/dagsim -o $@ tests/dagsim/dagsim_unit.c $(DS_OBJ) $(RX_CM_OBJ) $(DS_SHA_SRC) -lm
+
+$(DS_CLI): tools/dagsim/dagsim_cli.c $(DS_OBJ) $(RX_CM_OBJ) $(DS_SHA_SRC) | $(OUT_DIR)
+	$(CC) $(CFLAGS) -Itools/dagsim -o $@ tools/dagsim/dagsim_cli.c $(DS_OBJ) $(RX_CM_OBJ) $(DS_SHA_SRC) -lm
+
+test-dagsim: $(DS_UNIT) $(DS_CLI)
+	./$(DS_UNIT)
+	sh tests/dagsim/run_cli.sh $(DS_CLI) $(OUT_DIR)/dagsim-cli-out
