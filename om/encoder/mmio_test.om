@@ -1,0 +1,106 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Concatenate after bw_enc_sm121.om. No arguments emits the production op21.
+note One argument emits an EF mutant. Two arguments check nvdisasm stdin.
+note The NVIDIA 13.0.85 oracle must decode exactly LDG.E.MMIO.GPU R4, desc[UR2][R8.64].
+note The historical EF cache policy is not an alias for MMIO.
+fn mmcheck to int
+buf = new uchar 4096 0
+n = ulong 0
+while lt n 4096
+k = read 0 buf n sub 4096 n
+if lt k 0
+ret 70
+end
+if eq k 0
+break
+end
+n = add n ulong k
+end
+if eq n 4096
+ret 71
+end
+needle = new uchar 35 0
+put needle 0 76
+put needle 1 68
+put needle 2 71
+put needle 3 46
+put needle 4 69
+put needle 5 46
+put needle 6 77
+put needle 7 77
+put needle 8 73
+put needle 9 79
+put needle 10 46
+put needle 11 71
+put needle 12 80
+put needle 13 85
+put needle 14 32
+put needle 15 82
+put needle 16 52
+put needle 17 44
+put needle 18 32
+put needle 19 100
+put needle 20 101
+put needle 21 115
+put needle 22 99
+put needle 23 91
+put needle 24 85
+put needle 25 82
+put needle 26 50
+put needle 27 93
+put needle 28 91
+put needle 29 82
+put needle 30 56
+put needle 31 46
+put needle 32 54
+put needle 33 52
+put needle 34 93
+i = ulong 0
+while le add i 35 n
+same = true
+for j ulong 35
+if ne get buf add i j get needle j
+same = false
+end
+end
+if same
+ret 0
+end
+i = add i 1
+end
+ret 4
+end
+fn main to int
+if gt argcnt 3
+ret 64
+end
+if eq argcnt 3
+ret mmcheck
+end
+o = new ulong 16 0
+w = new ulong 4 0
+put o 0 21
+put o 1 4
+put o 2 8
+put o 5 2
+if ne enc1 view o edit w 0
+ret 1
+end
+if ne get w 2 203364608
+ret 2
+end
+if eq argcnt 2
+put w 2 202250496
+end
+code = new uchar 16384 0
+store edit code 0 view w
+off = ulong 0
+while lt off 16
+n = write 1 code off sub 16 off
+if le n 0
+ret 3
+end
+off = add off ulong n
+end
+ret 0
+end

@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "kind": "SOURCE_REVIEW",
+  "reviewer": "ResumeAmpere.FinishMmio",
+  "independent_review": false,
+  "implementation_commit": "3c163287d27b6e5a5f5b90c15b61ac83d8f26e2d",
+  "baseline": "c6977b4906229fe83f41103b7eff65b64a0986d6",
+  "result": "PASS within host-only scope",
+  "reviewed_contracts": [
+    {
+      "files": [
+        "om/encoder/bw_enc_sm121.om",
+        "om/encoder/bw_spec_sm121.om",
+        "src/omega_blackwell_codegen.c"
+      ],
+      "finding": "All three encode the MMIO.GPU cache policy for op21; other op encodings unchanged by the semantic patch."
+    },
+    {
+      "files": [
+        "om/encoder/mmio_test.om",
+        "mk/sm121dis.mk"
+      ],
+      "finding": "Production encoder is concatenated with the fixture. The expected mnemonic, destination, descriptor and address match the single emitted instruction; otherwise-identical EF must return exactly 4. Canonical old encoder returns 2 before any bytes are emitted."
+    },
+    {
+      "files": [
+        "om/omega-bridge.lock",
+        "src/cudapp_om_units.ident",
+        "om/units.sh"
+      ],
+      "finding": "Canonical bridge 0c4cb9ff pin retained; exact compiler and generator digests enforced. All committed generated outputs regenerate byte-identically."
+    },
+    {
+      "files": [
+        "tools/sm121dis/corpus.sh",
+        "evidence/CUDAPP-SM121-MMIO/corpus-impact.json"
+      ],
+      "finding": "Full producer list unchanged; all producers ran successfully on both sources. Original e843 receipt preserved; fresh canonical receipt records all kernel and cubin identities."
+    },
+    {
+      "files": [
+        ".github/workflows/ci.yml"
+      ],
+      "finding": "Offline oracle provisioned on disposable arm64 runner with fixed archive checksum; oracle is verification-only. No GPU action added."
+    }
+  ],
+  "unresolved_scope_limits": [
+    "Existing corpus does not exercise op21; exact-op fixture covers that gap.",
+    "MMIO cache behavior and device execution remain NOT_RUN.",
+    "Source review is not an independent consultant review."
+  ],
+  "guide_impact": "No omega-harness guide affected: no syntax, compiler pin, ABI, bridge behavior, repository ownership or gate authority change. Repository-local sm121dis README updated."
+}

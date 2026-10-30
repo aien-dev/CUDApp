@@ -1,0 +1,25 @@
+sh tools/test_bw_spec_encoder.sh
+[spec-encoder] 1. Compiling and running standalone specification assertions...
+[spec-encoder] PASS: native unit test compiled (51948 bytes) and passed all internal assertions (exit 0)
+[spec-encoder] 2. Building temporary reference runner for bw_enc_sm121.om...
+[spec-encoder] 3. Parsing authoritative specification from bw_spec_sm121.om...
+[spec-encoder] Parsed 63 instruction forms from single specification.
+[spec-encoder] 4. Running verification (a): byte-identity on boundary corpus against bw_enc_sm121.om...
+[spec-encoder] PASS: (a) spec-driven encoder matches bw_enc_sm121.om on all 461 boundary cases byte-for-byte!
+[spec-encoder] 5. Running verification (b): decode(encode(x)) == x round trip...
+[spec-encoder] PASS: (b) decode(encode(x)) == x passed on all 461 corpus instructions!
+[spec-encoder] 6. Running verification (c): nvdisasm disassembler oracle cross-check...
+[spec-encoder]   oracle verified: op 0 -> /*0000*/                   NOP;
+[spec-encoder]   oracle verified: op 8 -> /*0000*/                   IMAD R0, R1, R2, R3 ;
+[spec-encoder]   oracle verified: op 30 -> /*0000*/                   FADD R4, R5, R6 ;
+[spec-encoder]   oracle verified: op 11 -> /*0000*/                   LDG.E R10, desc[UR5][R12.64] ;
+[spec-encoder]   oracle verified: op 46 -> /*0000*/                   BRA 0x100 ;
+[spec-encoder] PASS: (c) nvdisasm oracle matches mnemonic and instruction layout on sample instructions!
+[spec-encoder] 7. Running verification (d): negative controls...
+[spec-encoder] PASS: mutant spec with shifted field offset fails byte identity (mutant=0x57202 vs ref=0x57201)
+[spec-encoder] PASS: out-of-range register 256 refused with declared error E_RANGE (code 2)
+[spec-encoder] PASS: invalid word pattern refused with declared error E_NOMAT (code 3)
+[spec-encoder] PASS: corrupted expected byte fails byte-identity comparison (exit 1)
+[spec-encoder] PASS: audit raw ranges, absent RZ parity, cold decode, active-operand mutant, read error and truncated records
+PASS: generated function binding, private state, semantic mutant=1, raw refusal=2
+[spec-encoder] ALL SPEC-DRIVEN ENCODER/DECODER VERIFICATIONS PASSED (HOST_TESTED)!
