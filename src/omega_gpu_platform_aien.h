@@ -6,7 +6,8 @@
  * aien-gpu compute ABI 1 (third_party/aien-gpu-abi1/aien_gpu_uapi.h) and includes nothing from nvrm/, m16/ or
  * NVIDIA's headers. Everything above the contract (session, command list, libraries) runs unchanged on either.
  *
- * Same caps and the same refusals as the Linux reference: TIME, WAIT, LOCK, DMA, SYNC, COMPLETION (polling), DEVICE,
+ * Same caps and the same refusals as the Linux reference, except max_queues (1 here; the reference can open extra
+ * channels): TIME, WAIT, LOCK, DMA, SYNC, COMPLETION (polling), DEVICE,
  * QUEUE, CLOCK_NS, HOST_MEM; no MMIO, no IRQ; one device (ordinal 0), one queue; GPU-cached buffers only for
  * device-private DATA buffers, with the omega #457 L2 invalidate prefix after a host sync into one. The bus address
  * is reported as 0 (the module owns the IOMMU mapping).

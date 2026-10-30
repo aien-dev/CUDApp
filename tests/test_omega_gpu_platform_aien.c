@@ -211,7 +211,11 @@ static void c_caps(void) {
     OmegaGpuPlatformCaps caps, lcaps;
     const OmegaGpuPlatform *p = omega_gpu_platform_aien(&caps);
     (void)omega_gpu_platform_linux(&lcaps);
-    EXPECT(memcmp(&caps, &lcaps, sizeof caps) == 0); /* the same contract as the Linux reference */
+    /* The same contract as the Linux reference except the queue count: the reference opens extra channels
+     * (max_queues = 1 + NVRM_MAX_EXTRA_CHANNELS), aien-gpu ABI 1 drives one queue. */
+    EXPECT(caps.max_queues == 1 && lcaps.max_queues >= 1);
+    lcaps.max_queues = caps.max_queues;
+    EXPECT(memcmp(&caps, &lcaps, sizeof caps) == 0);
     EXPECT(caps.services == OMEGA_GPU_SVC_REQUIRED_SESSION);
     EXPECT(p->irq_wait == NULL && p->mmio_read32 == NULL && p->mmio_write32 == NULL);
     EXPECT(omega_gpu_platform_check_for(p, &caps, OMEGA_GPU_SVC_REQUIRED_SESSION) == OMEGA_GPU_PLAT_OK);

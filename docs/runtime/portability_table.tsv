@@ -113,7 +113,7 @@ src/omega_gpu_wait.c	PORTABLE	Bounded wait with a caller-supplied clock and hook
 src/omega_gpu_wait.h	PORTABLE	Bounded wait interface; includes only stdbool.h and stdint.h.	NO_HOSTED_INCLUDE
 src/omega_gpu_chip.c	CHIP_SPECIFIC	The qualified-chip table (GB10, PCI 10de:2e12, with its receipt) and the refusal text for any other NVIDIA GPU; scans /sys/bus/pci/devices with stdio and dirent. Developer bar D6.	HOSTED_LIBC
 src/omega_gpu_chip.h	PORTABLE	Types and declarations for the chip table and the PCI scan; no chip constant, no driver header.	NO_HOSTED_INCLUDE
-src/omega_gpu_mem_reserve.c	PORTABLE	Developer bar D1: refuses an allocation that would leave less than CUDAPP_MEM_RESERVE_MIB free; reads /proc/meminfo, or a regular file a test names by code. Shared by both hosted platforms.	HOSTED_LIBC
+src/omega_gpu_mem_reserve.c	CHIP_SPECIFIC	Developer bar D1: refuses an allocation that would leave less than CUDAPP_MEM_RESERVE_MIB free; reads Linux /proc/meminfo (O_NOFOLLOW, fstat regular-file check) or a regular file a test names by code through omega_gpu_platform_linux_test_set_meminfo. No chip knowledge; a Linux binding shared by both hosted platforms.	LINUX_DRIVER
 src/omega_gpu_mem_reserve.h	PORTABLE	Declares the D1 reserve check.	NO_HOSTED_INCLUDE
 src/omega_gpu_platform_aien.c	CHIP_SPECIFIC	The aien-gpu platform: the contract over aien-gpu.ko compute ABI 1 (/dev/aien-gpu), GPFIFO, USERD and doorbell written by the CPU. Hosted only, outside the freestanding closure. Hardware NOT_RUN.	LINUX_DRIVER
 src/omega_gpu_platform_aien.h	CHIP_SPECIFIC	Declares the aien-gpu platform, its GPFIFO/USERD/doorbell layout and the system-call hook for host tests.	NO_HOSTED_INCLUDE
