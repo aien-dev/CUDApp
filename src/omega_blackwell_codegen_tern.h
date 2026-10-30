@@ -53,7 +53,8 @@
  *   0x3b0 negn u32  -n (store rows < n) 0x3b4, 0x3b8, 0x3bc: -b0, -b1, -b2
  *
  * mutant (tests only): 1 flips the planes (the staged X_j are negated: plus acts as minus, y becomes -y), 2 is host-side only
- * (the API maps segments as ws_idx = r / (n / segments)), 3 drops pair j = 7 (trits 7 and 15 of every word).
+ * (the API maps segments as ws_idx = r / (n / segments)), 3 drops pair j = 7 (trits 7 and 15 of every word), 4 emits the
+ * pre-fix I2FP (fixed stall 6, no scoreboard): the generator must refuse it (omega_tern_i2fp_violations, Sass#4).
  */
 #include <stdint.h>
 #include "omega_blackwell_codegen.h"
@@ -67,6 +68,9 @@ extern "C" {
 /* Cycles every user stays behind a fixed-latency producer (chip-proven rule: >= 5; omega_gpu_elementwise_api.c:13).
  * The generator sets each stall from the register dependencies after allocation (tern_schedule_stalls). */
 #define OMEGA_TERN_FIXED_LAT 6u
+/* I2FP is decoupled (chip sweep lat-20261027T025808Z: i2fp->fmul 18, i2f->fmul 19 cycles). The generator puts it on
+ * scoreboard 0; a consumer without that wait must sit >= OMEGA_TERN_I2FP_LAT cycles behind or the program is refused. */
+#define OMEGA_TERN_I2FP_LAT 19u
 #define OMEGA_TERN_LAYOUT_ROWMAJOR 0
 #define OMEGA_TERN_LAYOUT_BLOCK 1
 #define OMEGA_TERN_EPI_I32 0
@@ -90,7 +94,7 @@ typedef struct {
     uint32_t warps;  /* 1 .. 32 */
     uint32_t depth;  /* K steps per loop iteration: divides chunk / 256; rows * depth <= 16 */
     uint32_t epi;    /* OMEGA_TERN_EPI_* */
-    int mutant;      /* 0 production; 1, 3 kernel mutants (2 is host-side, kernel identical to 0) */
+    int mutant;      /* 0 production; 1, 3 kernel mutants (2 is host-side, kernel identical to 0); 4 refused (I2FP stall 6) */
 } OmegaTernGemvSpec;
 
 int omega_blackwell_codegen_tern_gemv_prog(const OmegaTernGemvSpec *spec, BlackwellIRProgram *prog);
@@ -99,6 +103,8 @@ uint32_t omega_tern_gemv_steps(const OmegaTernGemvSpec *spec);        /* k / 256
 uint32_t omega_tern_gemv_shared_bytes(const OmegaTernGemvSpec *spec); /* 2 * chunk width */
 uint32_t omega_tern_gemv_chunks(const OmegaTernGemvSpec *spec);       /* x chunks: 1 for k <= 8192, else 2 */
 int omega_tern_gemv_prog_stats(const OmegaTernGemvSpec *spec, uint32_t *insns, uint32_t *gprs);
+/* I2FP consumer violations in a scheduled program (see the .c); the generator returns -1 when this is not 0. */
+long omega_tern_i2fp_violations(const BlackwellIRProgram *prog);
 
 /* Byte offset of word c of padded row r in a packed tensor (layout, R = rows for the block layout). */
 uint64_t omega_tern_word_offset(uint32_t layout, uint32_t R, uint32_t k, uint32_t r, uint32_t c);

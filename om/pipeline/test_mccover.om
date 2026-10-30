@@ -1,0 +1,266 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note HOST_ONLY SYNTHETIC policy controls, no receipt, admission, device or GPU.
+fn test_cover to long
+c = new ulong 16 0
+roles = new ulong 4096 8
+counts = new ulong 8 1
+owner = new ulong 4 0
+put c 0 1
+put c 1 159
+put c 2 6
+put c 3 1
+put c 4 1
+put c 5 64
+put c 6 1
+put c 8 8
+put c 9 7
+put c 10 16
+put owner 0 8
+put owner 1 7
+put owner 2 32
+put roles 0 1
+put roles 1 0
+put roles 2 2
+put roles 3 6
+put roles 4 3
+put roles 5 4
+put roles 6 7
+put roles 7 5
+if ne mcc_cover c roles counts owner 0
+ret 1
+end
+note A missing successful-add record cannot be replaced by an expected role.
+put roles 3 8
+if eq mcc_cover c roles counts owner 0
+ret 2
+end
+put roles 3 6
+put counts 6 0
+if eq mcc_cover c roles counts owner 0
+ret 3
+end
+put counts 6 1
+note Same role set with the wrong actual order is refused.
+put roles 3 3
+put roles 4 6
+if eq mcc_cover c roles counts owner 0
+ret 4
+end
+put roles 3 6
+put roles 4 3
+put c 9 6
+if eq mcc_cover c roles counts owner 0
+ret 5
+end
+put c 9 7
+put owner 0 7
+if eq mcc_cover c roles counts owner 0
+ret 6
+end
+put owner 0 8
+put roles 8 5
+if eq mcc_cover c roles counts owner 0
+ret 7
+end
+put roles 8 8
+put c 4 2
+if eq mcc_cover c roles counts owner 0
+ret 8
+end
+put c 4 1
+if ne mcc_cover c roles counts owner 0
+ret 9
+end
+ret 0
+end
+fn test_qword qmd edit uchar 1024 off ulong v ulong to void
+for i ulong 4
+put qmd add off i uchar and shr v mul i 8 255
+end
+end
+fn test_intent to long
+m = new ulong 32 0
+bank = new uchar 1024 0
+qmd = new uchar 1024 0
+s = new ulong 16 0
+seal = new uchar 32 0
+put m 0 1
+put m 1 159
+put m 2 1
+put m 3 6
+put m 4 1
+put m 5 16
+put m 7 7
+put m 10 4096
+put m 11 8192
+note Expected VA declared independently before writing the synthetic QMD.
+put qmd 129 1
+put s 0 1
+put s 1 159
+put s 2 4
+put s 3 7
+put s 6 1
+put s 11 8
+if ne mcc_seal bank qmd get m 4 edit seal 0
+ret 18
+end
+if ne native_mcintent m bank qmd s seal 0
+ret 10
+end
+put m 10 8192
+if eq native_mcintent m bank qmd s seal 0
+ret 11
+end
+put m 10 4096
+put m 3 7
+if ne native_mcintent m bank qmd s seal 0
+ret 12
+end
+put s 3 6
+if eq native_mcintent m bank qmd s seal 0
+ret 13
+end
+put s 3 7
+put m 6 8
+if eq native_mcintent m bank qmd s seal 0
+ret 14
+end
+put m 6 0
+note Mutations of driver prefix, actual argument, QMD1 and QMD0 each refuse.
+put bank 0 1
+if eq native_mcintent m bank qmd s seal 0
+ret 19
+end
+put bank 0 0
+put bank 896 1
+if eq native_mcintent m bank qmd s seal 0
+ret 20
+end
+put bank 896 0
+put qmd 0 1
+if eq native_mcintent m bank qmd s seal 0
+ret 21
+end
+put qmd 0 0
+put qmd 512 1
+if eq native_mcintent m bank qmd s seal 0
+ret 22
+end
+put qmd 512 0
+note Inactive bank tail/QMD gap are deliberately outside the seal.
+put bank 900 1
+put qmd 384 1
+if ne native_mcintent m bank qmd s seal 0
+ret 23
+end
+put bank 900 0
+put qmd 384 0
+note Exact PCAS to INLINE to PCAS reuse preserves seal, not unchecked modefields.
+test_qword edit qmd 40 1638400
+want = and shr add get m 11 512 8 4294967295
+test_qword edit qmd 48 want
+put s 4 1
+if ne native_mcintent m bank qmd s seal 0
+ret 24
+end
+put qmd 40 1
+if eq native_mcintent m bank qmd s seal 0
+ret 25
+end
+test_qword edit qmd 40 1638400
+put m 11 8448
+if eq native_mcintent m bank qmd s seal 0
+ret 26
+end
+put m 11 8192
+test_qword edit qmd 40 0
+test_qword edit qmd 48 0
+put s 4 0
+if ne native_mcintent m bank qmd s seal 0
+ret 27
+end
+put seal 0 xor get seal 0 1
+if eq native_mcintent m bank qmd s seal 0
+ret 28
+end
+if eq mcc_seal bank qmd 0 edit seal 0
+ret 29
+end
+for i ulong 32
+if ne get seal i 0
+ret 30
+end
+end
+ret 0
+end
+fn test_nwin n ulong to ulong
+ret div add n sub div ulong 128 9 1 div ulong 128 9
+end
+fn test_windows to long
+c = new ulong 16 0
+roles = new ulong 4096 8
+counts = new ulong 8 0
+owner = new ulong 4 0
+seq = new ulong 6 0
+put seq 1 2
+put seq 2 6
+put seq 3 3
+put seq 4 4
+put seq 5 7
+put c 0 1
+put c 1 159
+put c 2 6
+put c 3 128
+put c 4 test_nwin get c 3
+put c 5 64
+put c 9 77
+put c 10 16
+for i ulong 8
+put counts i get c 4
+end
+put counts 1 div add get c 3 63 64
+put counts 5 get c 3
+off = ulong 0
+for i ulong get counts 1
+put roles off 1
+off = add off 1
+end
+for w ulong get c 4
+for j ulong 6
+put roles off get seq j
+off = add off 1
+end
+end
+for i ulong get counts 5
+put roles off 5
+off = add off 1
+end
+put c 8 off
+put owner 0 off
+put owner 1 get c 9
+put owner 2 4096
+if ne mcc_cover c roles counts owner 0
+ret 15
+end
+put c 3 129
+if eq mcc_cover c roles counts owner 0
+ret 16
+end
+put c 3 128
+put roles sub off 1 8
+if eq mcc_cover c roles counts owner 0
+ret 17
+end
+ret 0
+end
+fn main to int
+r = test_cover
+if ne r 0
+ret int r
+end
+r = test_windows
+if ne r 0
+ret int r
+end
+ret int test_intent
+end

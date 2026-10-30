@@ -1,0 +1,8 @@
+# omega c6/disasm b6a96d10 (worktree diff sha e3b0c44298fc1c14), 2026-10-22T01:59:57Z
+# command: /tmp/c6/build/gpu_attention_test --host-only
+codegen paged_bf16: 216 insns, 58 gprs, 6 ugprs
+sm121dis paged_bf16: rc=0 insns=216 undecodable=0 missing=0 (/tmp/omega_attn_paged_bf16_1298554.sass)
+codegen gqa_f32: 184 insns, 56 gprs, 6 ugprs
+sm121dis gqa_f32: rc=0 insns=184 undecodable=0 missing=0 (/tmp/omega_attn_gqa_f32_1298554.sass)
+PASS: 107 checks, 0 failed
+exit=0

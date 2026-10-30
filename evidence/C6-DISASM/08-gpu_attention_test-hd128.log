@@ -1,0 +1,22 @@
+# omega c6/disasm b6a96d10 (worktree diff sha e3b0c44298fc1c14), 2026-10-22T01:59:57Z
+# command: /tmp/c6/build/gpu_attention_test --hd 128 --host-only
+FAIL: paged_bf16 kernel generated (rc OK, 624 insns, 84 gprs)
+codegen paged_bf16: 624 insns, 84 gprs, 6 ugprs
+FAIL: paged_bf16 mutant NO_MAX generated (rc OK, 84 gprs)
+FAIL: paged_bf16 mutant KV_HEAD generated (rc OK, 84 gprs)
+FAIL: paged_bf16 mutant SLOT generated (rc OK, 84 gprs)
+FAIL: paged_bf16 mutant NO_RESCALE generated (rc OK, 84 gprs)
+FAIL: paged_bf16 mutant Q_ROW generated (rc OK, 84 gprs)
+FAIL: paged_bf16 mutant OUT_ROW generated (rc OK, 84 gprs)
+sm121dis paged_bf16: rc=0 insns=624 undecodable=0 missing=0 (/tmp/omega_attn_paged_bf16_1298719.sass)
+FAIL: gqa_f32 kernel generated (rc OK, 512 insns, 72 gprs)
+codegen gqa_f32: 512 insns, 72 gprs, 6 ugprs
+FAIL: gqa_f32 mutant NO_MAX generated (rc OK, 72 gprs)
+FAIL: gqa_f32 mutant KV_HEAD generated (rc OK, 72 gprs)
+FAIL: gqa_f32 mutant SLOT generated (rc OK, 72 gprs)
+FAIL: gqa_f32 mutant NO_RESCALE generated (rc OK, 72 gprs)
+FAIL: gqa_f32 mutant Q_ROW generated (rc OK, 72 gprs)
+FAIL: gqa_f32 mutant OUT_ROW generated (rc OK, 72 gprs)
+sm121dis gqa_f32: rc=0 insns=512 undecodable=0 missing=0 (/tmp/omega_attn_gqa_f32_1298719.sass)
+FAIL: 107 checks, 14 failed
+exit=1

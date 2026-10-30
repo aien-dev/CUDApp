@@ -78,7 +78,7 @@ is listed in section 6.
 | Instruction latencies, QMD, dispatch order | `src/omega_gpu_elementwise_api.c`, `src/omega_gpu_cmdlist.c` | A | Mesa `sm120_instr_latencies.rs`, `qmd.rs`, `nvk_cmd_dispatch.c` (MIT). |
 | Tensor-core arithmetic model | `tests/gpu_tc_probe_test.c`, `tests/bw_hmma_model.h` | A (chip) | Fitted on chip outputs. |
 | cubin container writer | `src/omega_cubin.c`, `src/omega_cubin.h` | B | Layout read from a `ptxas 13.0.88 -arch=sm_121` reference output with `readelf`/`cuobjdump -elf` (the source does not name the probe input; the next change to the file records it). Header constants are also public in LLVM `ELF.h` (class A). No bytes copied. |
-| Decode cross-checks | `tests/gpu_reconv_test.c`, `tests/device-trace/run-emitter-checks.sh`, `tools/artifact_smoke.sh` | B | `nvdisasm`/`cuobjdump` read our own bytes; skipped when not installed. |
+| Decode cross-checks | `tests/gpu_reconv_test.c`, `tests/device-trace/run-emitter-checks.sh`, `tools/artifact_smoke.sh` | B | `nvdisasm`/`cuobjdump` read our own bytes. `gpu_reconv_test.c` and `artifact_smoke.sh` skip unavailable tools; `run-emitter-checks.sh` requires `nvdisasm` on `PATH`. |
 
 No source comment or record in this repository says a fact was obtained by disassembling an NVIDIA
 library, driver or firmware. A fact found to have such an origin is removed and re-derived from class A

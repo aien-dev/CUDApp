@@ -1,0 +1,252 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note OM-1 bounded SHA256 adaptation of omega-mv 6999fa9e om/sha256.
+note Constants copied from filed sha256-k.dec and sha256-iv.dec; no generated constants.
+note Exact used bytes only; no identity schema and no implicit padding.
+fn kc_rotr x uint n uint to uint
+ret or shr x n shl x sub uint 32 n
+end
+fn kc_k k edit uint 64 to void
+put k 0 1116352408
+put k 1 1899447441
+put k 2 3049323471
+put k 3 3921009573
+put k 4 961987163
+put k 5 1508970993
+put k 6 2453635748
+put k 7 2870763221
+put k 8 3624381080
+put k 9 310598401
+put k 10 607225278
+put k 11 1426881987
+put k 12 1925078388
+put k 13 2162078206
+put k 14 2614888103
+put k 15 3248222580
+put k 16 3835390401
+put k 17 4022224774
+put k 18 264347078
+put k 19 604807628
+put k 20 770255983
+put k 21 1249150122
+put k 22 1555081692
+put k 23 1996064986
+put k 24 2554220882
+put k 25 2821834349
+put k 26 2952996808
+put k 27 3210313671
+put k 28 3336571891
+put k 29 3584528711
+put k 30 113926993
+put k 31 338241895
+put k 32 666307205
+put k 33 773529912
+put k 34 1294757372
+put k 35 1396182291
+put k 36 1695183700
+put k 37 1986661051
+put k 38 2177026350
+put k 39 2456956037
+put k 40 2730485921
+put k 41 2820302411
+put k 42 3259730800
+put k 43 3345764771
+put k 44 3516065817
+put k 45 3600352804
+put k 46 4094571909
+put k 47 275423344
+put k 48 430227734
+put k 49 506948616
+put k 50 659060556
+put k 51 883997877
+put k 52 958139571
+put k 53 1322822218
+put k 54 1537002063
+put k 55 1747873779
+put k 56 1955562222
+put k 57 2024104815
+put k 58 2227730452
+put k 59 2361852424
+put k 60 2428436474
+put k 61 2756734187
+put k 62 3204031479
+put k 63 3329325298
+end
+fn kc_iv s edit uint 8 to void
+put s 0 1779033703
+put s 1 3144134277
+put s 2 1013904242
+put s 3 2773480762
+put s 4 1359893119
+put s 5 2600822924
+put s 6 528734635
+put s 7 1541459225
+end
+note Full blocks are read directly, not copied or zero-filled into an artifact-sized temporary.
+fn kc_sched w edit uint 64 m view uchar 4096 o ulong to void
+q = ulong 0
+x = uint 0
+for i ulong 16
+q = add o mul i 4
+x = uint get m q
+x = or shl x 8 uint get m add q 1
+x = or shl x 8 uint get m add q 2
+put w i or shl x 8 uint get m add q 3
+end
+kc_expand w
+end
+note Fixed-array signatures require separate readers at the OM-1 production pin.
+fn kc_codesched w edit uint 64 m view uchar 16384 o ulong to void
+q = ulong 0
+x = uint 0
+for i ulong 16
+q = add o mul i 4
+x = uint get m q
+x = or shl x 8 uint get m add q 1
+x = or shl x 8 uint get m add q 2
+put w i or shl x 8 uint get m add q 3
+end
+kc_expand w
+end
+fn kc_padsched w edit uint 64 m view uchar 128 o ulong to void
+q = ulong 0
+x = uint 0
+for i ulong 16
+q = add o mul i 4
+x = uint get m q
+x = or shl x 8 uint get m add q 1
+x = or shl x 8 uint get m add q 2
+put w i or shl x 8 uint get m add q 3
+end
+kc_expand w
+end
+fn kc_expand w edit uint 64 to void
+x = uint 0
+y = uint 0
+for i ulong 48
+x = get w add i 1
+y = get w add i 14
+x = add add get w i get w add i 9 xor xor kc_rotr x 7 kc_rotr x 18 shr x 3
+put w add i 16 add x xor xor kc_rotr y 17 kc_rotr y 19 shr y 10
+end
+end
+
+note The 64 rounds on the chaining value s. uint arithmetic wraps mod 2^32.
+note Ch(e,f,g) = (e and f) xor (not e and g) is written g xor (e and (f xor g)); Maj(a,b,c) =
+note (a and b) xor (a and c) xor (b and c) is written (a and b) or (c and (a or b)). Both are bitwise
+note identities. h first becomes T1, then T1 + T2, which is the next a; the names then shift by one.
+note The sums are built a term per line and each Sigma in two lines through t: 12 names are live, and
+note omc hands out 16 registers with no spilling (error 12 under compiler-s1/s2 for longer lines).
+fn kc_rounds s edit uint 8 w view uint 64 kt view uint 64 to void
+a = get s 0
+b = get s 1
+c = get s 2
+d = get s 3
+e = get s 4
+f = get s 5
+g = get s 6
+h = get s 7
+t = uint 0
+for i ulong 64
+h = add h get kt i
+h = add h get w i
+t = xor kc_rotr e 6 kc_rotr e 11
+t = xor t kc_rotr e 25
+h = add h t
+h = add h xor g and e xor f g
+d = add d h
+t = xor kc_rotr a 2 kc_rotr a 13
+t = xor t kc_rotr a 22
+h = add h t
+t = and c or a b
+h = add h or and a b t
+t = h
+h = g
+g = f
+f = e
+e = d
+d = c
+c = b
+b = a
+a = t
+end
+put s 0 add get s 0 a
+put s 1 add get s 1 b
+put s 2 add get s 2 c
+put s 3 add get s 3 d
+put s 4 add get s 4 e
+put s 5 add get s 5 f
+put s 6 add get s 6 g
+put s 7 add get s 7 h
+end
+fn kc_output s view uint 8 out edit uchar 32 to void
+for i ulong 8
+for j ulong 4
+q = add mul i 4 j
+v = shr get s i mul sub ulong 3 j 8
+put out q uchar and v 255
+end
+end
+end
+fn kc_finish s edit uint 8 w edit uint 64 kt view uint 64 buf edit uchar 128 n ulong to void
+used = rem n 64
+put buf used 128
+nb = ulong 64
+if ge used 56
+nb = 128
+end
+for i ulong 8
+q = sub nb add i 1
+v = shr shl n 3 mul i 8
+put buf q uchar and v 255
+end
+kc_padsched w buf 0
+kc_rounds s w kt
+if eq nb 128
+kc_padsched w buf 64
+kc_rounds s w kt
+end
+end
+fn kc_sha data view uchar 4096 n ulong out edit uchar 32 to int
+buf = new uchar 128 0
+s = new uint 8 0
+w = new uint 64 0
+kt = new uint 64 0
+if gt n 4096
+ret -1
+end
+kc_k kt
+kc_iv s
+for off ulong div n 64
+kc_sched w data mul off 64
+kc_rounds s w kt
+end
+base = mul div n 64 64
+for i ulong rem n 64
+put buf i get data add base i
+end
+kc_finish s w kt buf n
+kc_output s out
+ret 0
+end
+fn kc_codesha data view uchar 16384 n ulong out edit uchar 32 to int
+buf = new uchar 128 0
+s = new uint 8 0
+w = new uint 64 0
+kt = new uint 64 0
+if gt n 16384
+ret -1
+end
+kc_k kt
+kc_iv s
+for off ulong div n 64
+kc_codesched w data mul off 64
+kc_rounds s w kt
+end
+base = mul div n 64 64
+for i ulong rem n 64
+put buf i get data add base i
+end
+kc_finish s w kt buf n
+kc_output s out
+ret 0
+end

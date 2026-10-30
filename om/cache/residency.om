@@ -1,0 +1,326 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Caller-owned metadata only. Existing session lock serializes every call, including inspection.
+note No allocator, device handles, session implementation, or portable identity schema.
+note Pool header16, 32 rows of16 ulong cells. slot arguments are zero-based.
+note Header0..10: version generation profile budget slots used sealed cursor hits misses evictions.
+note Header11 reserved;12 last owner ticket;13..15 reserved. Pool starts zero, initialized once.
+note Row: valid revision bytes recorded inflight prepared key0..3 owner pendingbytes pendingkey0..3.
+note Request16: generation profile bytes key0..3 owner; remaining cells reserved zero.
+note Keys are SHA256 exact canonical realization bytes, decoded as four little-endian u64 limbs.
+note Caller must validate artifact and target/driver profile before prepare, retain its bytes immutable.
+note Return prepare/find: slot+1 on hit/reservation; find0miss; other operations0success.
+note -1 input, -2 stale, -3 sealed miss, -4 budget, -5 pinned/full, -6 busy, -7 token, -8 state, -9 overflow.
+note Two-phase prepare preserves victim until commit; budget includes old plus pending upload.
+fn kc_base slot ulong to ulong
+ret add 16 mul slot 16
+end
+fn kc_init p edit ulong 528 gen ulong profile ulong budget ulong slots ulong to int
+if ne get p 0 0
+ret -8
+end
+if or eq profile 0 or eq budget 0 or eq slots 0 gt slots 32
+ret -1
+end
+for i ulong 528
+put p i 0
+end
+put p 0 1
+put p 1 gen
+put p 2 profile
+put p 3 budget
+put p 4 slots
+ret 0
+end
+fn kc_context p view ulong 528 gen ulong profile ulong to int
+if ne get p 0 1
+ret -1
+end
+if or ne get p 1 gen ne get p 2 profile
+ret -2
+end
+ret 0
+end
+fn kc_match p view ulong 528 req view ulong 16 slot ulong to bool
+b = kc_base slot
+for i ulong 4
+if ne get p add b add 6 i get req add 3 i
+ret false
+end
+end
+ret true
+end
+fn kc_same_pending p view ulong 528 req view ulong 16 slot ulong to bool
+b = kc_base slot
+for i ulong 4
+if ne get p add b add 12 i get req add 3 i
+ret false
+end
+end
+ret true
+end
+fn kc_find p view ulong 528 req view ulong 16 to int
+rc = kc_context p get req 0 get req 1
+if ne rc 0
+ret rc
+end
+for slot ulong get p 4
+b = kc_base slot
+if ne get p b 0
+if kc_match p req slot
+if ne get p add b 10 0
+ret -6
+end
+if ne get p add b 2 get req 2
+ret -1
+end
+ret int add slot 1
+end
+end
+end
+ret 0
+end
+fn kc_pending p view ulong 528 to ulong
+n = ulong 0
+for slot ulong get p 4
+b = kc_base slot
+if ne get p add b 10 0
+n = add n get p add b 11
+end
+end
+ret n
+end
+fn kc_reserve p edit ulong 528 req view ulong 16 slot ulong to int
+b = kc_base slot
+if eq get p add b 1 18446744073709551615
+ret -9
+end
+if le get req 7 get p 12
+ret -7
+end
+put p 12 get req 7
+put p add b 10 get req 7
+put p add b 11 get req 2
+for i ulong 4
+put p add b add 12 i get req add 3 i
+end
+ret int add slot 1
+end
+fn kc_victim_ok p view ulong 528 slot ulong to bool
+b = kc_base slot
+if ne get p add b 10 0
+ret false
+end
+for i ulong 3
+if ne get p add b add 3 i 0
+ret false
+end
+end
+ret true
+end
+fn kc_prepare p edit ulong 528 req view ulong 16 to int
+rc = kc_find p req
+if lt rc 0
+ret rc
+end
+if gt rc 0
+put p 8 add get p 8 1
+ret rc
+end
+if or eq get req 7 0 eq get req 2 0
+ret -1
+end
+put p 9 add get p 9 1
+if ne get p 6 0
+ret -3
+end
+note A pending registration of the same digest refuses, regardless of owner.
+for slot ulong get p 4
+b = kc_base slot
+if ne get p add b 10 0
+if kc_same_pending p req slot
+ret -6
+end
+end
+end
+used = add get p 5 kc_pending p
+if gt get req 2 sub get p 3 used
+ret -4
+end
+note Prefer empty slots before deterministic round-robin replacement.
+for slot ulong get p 4
+b = kc_base slot
+if and eq get p b 0 eq get p add b 10 0
+ret kc_reserve p req slot
+end
+end
+for i ulong get p 4
+slot = rem add get p 7 i get p 4
+b = kc_base slot
+if kc_victim_ok p slot
+ret kc_reserve p req slot
+end
+end
+ret -5
+end
+fn kc_ticket p view ulong 528 slot ulong owner ulong gen ulong to int
+if or ne get p 0 1 ge slot get p 4
+ret -1
+end
+if ne get p 1 gen
+ret -2
+end
+if or eq owner 0 ne get p add kc_base slot 10 owner
+ret -7
+end
+ret 0
+end
+fn kc_commit p edit ulong 528 slot ulong owner ulong gen ulong to int
+rc = kc_ticket p slot owner gen
+if ne rc 0
+ret rc
+end
+b = kc_base slot
+old = get p add b 2
+if ne get p b 0
+put p 10 add get p 10 1
+end
+put p 5 add sub get p 5 old get p add b 11
+put p b 1
+put p add b 1 add get p add b 1 1
+put p add b 2 get p add b 11
+for i ulong 4
+put p add b add 6 i get p add b add 12 i
+put p add b add 12 i 0
+end
+put p add b 10 0
+put p add b 11 0
+put p 7 rem add slot 1 get p 4
+ret 0
+end
+fn kc_abort p edit ulong 528 slot ulong owner ulong gen ulong to int
+rc = kc_ticket p slot owner gen
+if ne rc 0
+ret rc
+end
+b = kc_base slot
+for i ulong 6
+put p add b add 10 i 0
+end
+ret 0
+end
+fn kc_seal p edit ulong 528 gen ulong on ulong to int
+if or ne get p 0 1 gt on 1
+ret -1
+end
+if ne get p 1 gen
+ret -2
+end
+if ne kc_pending p 0
+ret -6
+end
+put p 6 on
+ret 0
+end
+fn kc_token p view ulong 528 slot ulong rev ulong gen ulong to int
+if or ne get p 0 1 ge slot get p 4
+ret -1
+end
+if ne get p 1 gen
+ret -2
+end
+b = kc_base slot
+if or eq get p b 0 ne get p add b 1 rev
+ret -7
+end
+if ne get p add b 10 0
+ret -6
+end
+ret 0
+end
+fn kc_ref p edit ulong 528 slot ulong rev ulong gen ulong kind ulong delta int to int
+rc = kc_token p slot rev gen
+if ne rc 0
+ret rc
+end
+if or lt kind 3 gt kind 5
+ret -1
+end
+b = add kc_base slot kind
+if eq delta 1
+if eq get p b 18446744073709551615
+ret -9
+end
+if eq kind 4
+if eq get p add kc_base slot 3 0
+ret -8
+end
+end
+put p b add get p b 1
+ret 0
+end
+if ne delta -1
+ret -1
+end
+if eq get p b 0
+ret -8
+end
+put p b sub get p b 1
+ret 0
+end
+fn kc_pin p edit ulong 528 slot ulong rev ulong gen ulong to int
+ret kc_ref p slot rev gen 3 1
+end
+fn kc_unpin p edit ulong 528 slot ulong rev ulong gen ulong to int
+ret kc_ref p slot rev gen 3 -1
+end
+fn kc_acquire p edit ulong 528 slot ulong rev ulong gen ulong to int
+ret kc_ref p slot rev gen 4 1
+end
+note Caller invokes retire only after existing cmdlist successful completion observation.
+note Timeout/interruption is NOT completion: retain flight reference until recovery/invalidate.
+fn kc_retire p edit ulong 528 slot ulong rev ulong gen ulong to int
+ret kc_ref p slot rev gen 4 -1
+end
+fn kc_hold p edit ulong 528 slot ulong rev ulong gen ulong on int to int
+ret kc_ref p slot rev gen 5 on
+end
+note Only the existing session recovery/close owner may invalidate, after old handles are dead.
+fn kc_invalidate p edit ulong 528 gen ulong profile ulong to int
+if or ne get p 0 1 or le gen get p 1 eq profile 0
+ret -2
+end
+put p 1 gen
+put p 2 profile
+put p 5 0
+put p 6 0
+put p 7 0
+put p 12 0
+for slot ulong get p 4
+b = kc_base slot
+for i ulong 16
+put p add b i 0
+end
+end
+ret 0
+end
+note Accessors require the same existing session lock as mutation.
+note Revision zero is never issued and denotes invalid/stale/miss/busy.
+fn kc_revision p view ulong 528 slot ulong gen ulong to ulong
+if or ne get p 0 1 ge slot get p 4
+ret 0
+end
+if ne get p 1 gen
+ret 0
+end
+b = kc_base slot
+if or eq get p b 0 ne get p add b 10 0
+ret 0
+end
+ret get p add b 1
+end
+fn kc_livebytes p view ulong 528 gen ulong to ulong
+if or ne get p 0 1 ne get p 1 gen
+ret 0
+end
+ret get p 5
+end

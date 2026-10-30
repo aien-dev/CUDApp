@@ -1,0 +1,189 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Concatenate residency.om before this native host test. No GPU or new session.
+fn kc_test_zero to int
+p = new ulong 528 0
+r = new ulong 16 0
+put r 1 121
+put r 2 1
+put r 3 1
+put r 7 1
+if ne kc_init p 0 121 10 1 0
+ret 1
+end
+if ne kc_prepare p r 1
+ret 2
+end
+if ne kc_commit p 0 1 0 0
+ret 3
+end
+if ne kc_pin p 0 1 0 0
+ret 4
+end
+if ne kc_invalidate p 1 121 0
+ret 5
+end
+if ne kc_pin p 0 1 0 -2
+ret 6
+end
+ret 0
+end
+fn main to int
+p = new ulong 528 0
+r = new ulong 16 0
+if ne kc_test_zero 0
+ret 43
+end
+if ne kc_init p 1 121 100 1 0
+ret 1
+end
+put r 0 1
+put r 1 121
+put r 2 40
+put r 3 11
+put r 7 1
+if ne kc_prepare p r 1
+ret 2
+end
+note Concurrent duplicate and independent registration cannot steal pending slot.
+put r 7 2
+if ne kc_prepare p r -6
+ret 3
+end
+put r 3 12
+if ne kc_prepare p r -5
+ret 4
+end
+if ne kc_seal p 1 1 -6
+ret 5
+end
+if ne kc_commit p 0 2 1 -7
+ret 6
+end
+if ne kc_commit p 0 1 1 0
+ret 7
+end
+put r 3 11
+if ne kc_find p r 1
+ret 8
+end
+if ne kc_revision p 0 1 1
+ret 38
+end
+if ne kc_livebytes p 1 40
+ret 39
+end
+if ne kc_init p 1 121 100 1 -8
+ret 40
+end
+put r 2 41
+if ne kc_find p r -1
+ret 41
+end
+put r 2 40
+if ne kc_pin p 0 1 1 0
+ret 9
+end
+if ne kc_acquire p 0 1 1 0
+ret 10
+end
+if ne kc_unpin p 0 1 1 0
+ret 11
+end
+note Record reference released, but interrupted completion keeps flight reference pinned.
+put r 3 12
+if ne kc_prepare p r -5
+ret 12
+end
+if ne kc_retire p 0 1 1 0
+ret 13
+end
+if ne kc_retire p 0 1 1 -8
+ret 14
+end
+if ne kc_prepare p r 1
+ret 15
+end
+note Abort preserves immutable old entry and old revision after failed upload.
+if ne kc_abort p 0 2 1 0
+ret 16
+end
+put r 3 11
+if ne kc_find p r 1
+ret 17
+end
+if ne get p 17 1
+ret 18
+end
+if ne kc_seal p 1 1 0
+ret 19
+end
+put r 3 12
+if ne kc_prepare p r -3
+ret 20
+end
+put r 3 11
+if ne kc_prepare p r 1
+ret 21
+end
+if ne kc_seal p 1 0 0
+ret 22
+end
+put r 3 12
+put r 2 61
+if ne kc_prepare p r -4
+ret 23
+end
+put r 2 40
+if ne kc_prepare p r -7
+ret 37
+end
+put r 7 3
+if ne kc_prepare p r 1
+ret 24
+end
+if ne kc_commit p 0 3 1 0
+ret 25
+end
+if ne kc_pin p 0 1 1 -7
+ret 26
+end
+if ne kc_hold p 0 2 1 1 0
+ret 27
+end
+put r 3 13
+if ne kc_prepare p r -5
+ret 28
+end
+if ne kc_hold p 0 2 1 -1 0
+ret 29
+end
+note Session recovery destroys resident handles only, caller retains portable artifact bytes.
+if ne kc_invalidate p 2 122 0
+ret 30
+end
+if ne kc_pin p 0 2 1 -2
+ret 31
+end
+if ne kc_prepare p r -2
+ret 32
+end
+if ne kc_revision p 0 1 0
+ret 42
+end
+put r 0 2
+put r 1 122
+put r 7 2
+if ne kc_prepare p r 1
+ret 33
+end
+if ne kc_commit p 0 2 1 -2
+ret 34
+end
+if ne kc_abort p 0 2 2 0
+ret 35
+end
+if ne get p 5 0
+ret 36
+end
+ret 0
+end

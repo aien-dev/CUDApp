@@ -1,0 +1,19 @@
+{
+  "extensions": {
+    "generated": {
+      "children": [],
+      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiled_at": "2026-10-28T18:35:46Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:3e6458e66f2ac0a6c52bc872a386a26ad88239fb0a62e53e39760b947ff563cc",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 13,
+      "generated_at_commit": "b165817aa6535de8eefd42b042ea25ed7b5d9ab1",
+      "source_tree": "sha256:45bd7b4f52220d531f08995aa4c8acb07aa8bfc9fab911e2e7da81569ad83831"
+    }
+  },
+  "name": "components",
+  "purpose": "Typed unsolved Blackwell IR components and canonical realization records",
+  "schema_version": "1.0.0"
+}

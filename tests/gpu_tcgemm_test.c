@@ -18,6 +18,7 @@
 #include <string.h>
 #include <time.h>
 #include <math.h>
+#include "test_out_file.h"
 
 static const HmmaModel GB10 = { 16, 2, 0, 2, 0 };
 static uint64_t rng = 0x243f6a8885a308d3ull;
@@ -113,6 +114,7 @@ static int host_only(void) {
     /* production shapes: instructions and registers (declared = peak + 2 rounded to 8 <= 128; 32 * warps * declared <= 65536) */
     static const OmegaTcGemmSpec shapes[] = {
         { 2048, 4, 2, 8, 0 }, { 768, 4, 2, 8, 0 }, { 4096, 4, 2, 8, 0 }, { 2048, 4, 1, 8, 0 }, { 2048, 2, 2, 4, 0 }, { 2048, 4, 2, 4, 0 }, { 768, 4, 2, 4, 0 },
+        { 5120, 4, 2, 8, 0 }, { 17408, 4, 2, 8, 0 }, { 32768, 4, 2, 8, 0 }, /* Qwen3.8-27B widths and the new cap (omega#541) */
     };
     static BlackwellIRProgram prog;
     for (size_t i = 0; i < sizeof shapes / sizeof shapes[0]; i++) {
@@ -182,6 +184,7 @@ static int sim_tests(void) {
         { 2, 256, 256, 20, 7, 0, { 256, 4, 1, 8, 0 } },
         { 2, 128, 256, 33, 5, 1, { 256, 1, 4, 4, 0 } },
         { 1, 512, 256, 64, 64, 0, { 256, 4, 2, 8, 0 } },  /* dense: one expert, four CTAs across n */
+        { 1, 128, 17408, 64, 64, 0, { 17408, 4, 2, 8, 0 } }, /* Qwen3.8-27B down width (omega#541) */
     };
     for (size_t i = 0; i < sizeof pts / sizeof pts[0]; i++) {
         Prob p; prob_make(&p, pts[i].E, pts[i].n, pts[i].k, pts[i].M, pts[i].xr, pts[i].skew);
@@ -222,7 +225,7 @@ int main(int argc, char **argv) {
         static BlackwellIRProgram dp; static uint8_t buf[OMEGA_BW_CODE_CAP_MAX]; size_t len = 0;
         OmegaTcGemmSpec sp = { argc > 3 ? (uint32_t)atoi(argv[3]) : 2048u, argc > 4 ? (uint32_t)atoi(argv[4]) : 4u, argc > 5 ? (uint32_t)atoi(argv[5]) : 2u, argc > 6 ? (uint32_t)atoi(argv[6]) : 8u, argc > 7 ? atoi(argv[7]) : 0 };
         if (omega_blackwell_codegen_tcgemm_prog(&sp, &dp) != 0 || omega_bw_encode_program(&dp, buf, sizeof buf, &len) != 0) return 1;
-        FILE *f = fopen(argv[2], "wb"); if (!f) return 1; fwrite(buf, 1, len, f); fclose(f); printf("peak %u, %zu bytes\n", dp.regalloc.peak_gpr_usage, len); return 0;
+        FILE *f = test_out_open(argv[2]); if (!f) return 1; fwrite(buf, 1, len, f); fclose(f); printf("peak %u, %zu bytes\n", dp.regalloc.peak_gpr_usage, len); return 0;
     }
     int host = 0, sim = 0, chip = 0;
     for (int i = 1; i < argc; i++) {
@@ -272,6 +275,9 @@ int chip_tests(int argc, char **argv) {
     uint32_t E, n, k;
     if (!strcmp(shape, "gateup")) { E = 128; n = 1536; k = 2048; } else if (!strcmp(shape, "down")) { E = 128; n = 2048; k = 768; }
     else if (!strcmp(shape, "qkv")) { E = 1; n = 5120; k = 2048; } else if (!strcmp(shape, "o")) { E = 1; n = 2048; k = 4096; }
+    /* Qwen3.8-27B dense shapes (omega#541): MLP gate or up, down (k 17408), DeltaNet in_proj_qkv, out_proj / o_proj */
+    else if (!strcmp(shape, "q38gate")) { E = 1; n = 17408; k = 5120; } else if (!strcmp(shape, "q38down")) { E = 1; n = 5120; k = 17408; }
+    else if (!strcmp(shape, "q38qkv")) { E = 1; n = 10240; k = 5120; } else if (!strcmp(shape, "q38o")) { E = 1; n = 5120; k = 6144; }
     else { printf("unknown shape %s\n", shape); return 1; }
     const uint32_t M = E == 1 ? tokens : tokens * 8u;
     if (reps > 64) reps = 64;
@@ -313,7 +319,7 @@ int chip_tests(int argc, char **argv) {
             double ns = (double)ce[done / 2], flops = 2.0 * M * n * k;
             printf("TCGEMM %s (medians of %u): chip %.1f us, call %.1f us; %.2f TFLOPS; weights streamed %.0f MB (%.1f GB/s), activations gathered %.0f MB, output %.0f MB; total %.1f GB/s\n", shape, done, ns / 1e3, cc[done / 2] / 1e3,
                    flops / ns / 1e3, info.streamed_bytes / 1e6, info.streamed_bytes / ns, info.act_bytes / 1e6, (double)M * n * 4 / 1e6, (info.streamed_bytes + info.act_bytes + (double)M * n * 4) / ns);
-            if (outp) { FILE *f = fopen(outp, "w"); if (f) { fprintf(f, "{\"shape\":\"%s\",\"tokens\":%u,\"rows\":%u,\"tiles\":%u,\"reps\":%u,\"chip_median_ns\":%.0f,\"call_median_ns\":%" PRIu64 ",\"tflops\":%.3f,\"streamed_bytes\":%" PRIu64 ",\"act_bytes\":%" PRIu64 ",\"fail\":%d}\n",
+            if (outp) { FILE *f = test_out_open(outp); if (f) { fprintf(f, "{\"shape\":\"%s\",\"tokens\":%u,\"rows\":%u,\"tiles\":%u,\"reps\":%u,\"chip_median_ns\":%.0f,\"call_median_ns\":%" PRIu64 ",\"tflops\":%.3f,\"streamed_bytes\":%" PRIu64 ",\"act_bytes\":%" PRIu64 ",\"fail\":%d}\n",
                                                           shape, tokens, M, info.tiles, done, ns, cc[done / 2], flops / ns / 1e3, info.streamed_bytes, info.act_bytes, fail); fclose(f); } }
         }
     }

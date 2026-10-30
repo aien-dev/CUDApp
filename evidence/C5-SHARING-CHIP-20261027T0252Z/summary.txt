@@ -1,0 +1,18 @@
+35a4f61516425a91ea68a9c97f446a2424404a684d90bd14894b30334e3d90af  build/gpu_isolation_test
+c101019d4e1853eac04232ea822ad1eff02ad16ab9af0431352db677cfbdca06  build/gpu_isolation_test_mutant
+1231248e81435c56c5899e401fda806ad4d521e4b64fb36dd63b6c721371495b  build/c5_matrix
+driver 580.173.02
+cuda tenant torch 2.14.0+cu130 cuda 13.0
+start 2026-10-27T02:52:14Z loadavg 4.29 4.62 5.61 2/3506 1530087
+ok 01-values exit 0 (want 0) C5 isolation values: PASS (1 checks)
+ok 02-mutant exit 1 (want 1) C5 isolation values: FAIL (1 of 1)
+ok 03-hang exit 0 (want 0) C5 isolation chip: PASS (3 checks)
+ok 04-cuda exit 0 (want 0) C5 matrix: PASS case c
+ok 05-pressure exit 0 (want 0) C5 matrix: PASS case p
+FAIL 06-kill exit 1 (want 0) C5 matrix: FAIL case k
+ok 07-red exit 0 (want 0) C5 matrix: PASS case r
+ok 02-mutant red because of wrong values
+ok 08-health exit 0 (want 0) C5 isolation values: PASS (1 checks)
+end 2026-10-27T02:55:10Z
+kernel log lines during the hold: 2, Xid/NVRM/watchdog lines: 1
+checks not as expected: 1 of 9 (8 steps and the mutant's cause)

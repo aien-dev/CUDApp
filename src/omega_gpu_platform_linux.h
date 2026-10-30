@@ -35,6 +35,16 @@ extern "C" {
 /* The process-wide Linux reference platform and its caps (written to *caps when caps is not NULL). */
 const OmegaGpuPlatform *omega_gpu_platform_linux(OmegaGpuPlatformCaps *caps);
 
+/* L136: channels (GPFIFO queues) the next device_open creates, from env AIEN_OMEGA_GPU_CHANNELS: 1 (unset, empty, "1" or
+ * anything not 2..4) is today's single channel exactly; 2..4 adds that many minus one channels in the same channel group
+ * (nvrm_channel_n). Queue i (0-based, in queue_open order) submits on channel i. Read at every device_open. */
+uint32_t omega_gpu_platform_linux_channels_env(void);
+
+/* TEST ONLY. The D1 memory reserve check reads MemAvailable from path instead of /proc/meminfo; NULL or "" restores
+ * /proc/meminfo. A path that does not open, without following a final symlink and without blocking, to a regular file
+ * falls back to /proc/meminfo. Returns 0, or -1 (nothing changed) when path is 4096 bytes or longer. */
+int omega_gpu_platform_linux_test_set_meminfo(const char *path);
+
 #ifdef __cplusplus
 }
 #endif

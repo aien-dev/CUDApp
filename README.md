@@ -13,11 +13,11 @@
 > | **Supported** | The NVIDIA DGX Spark. Its GB10 Grace Blackwell chip (GPU compute capability sm_121, PCI id `10de:2e12`) is the only GPU CUDA++ has machine code for. |
 > | **Other GB10 systems** | Not run. CUDA++ recognises the GPU by its PCI id, not by the system maker, so another GB10 system with the same kernel module is the same target to the code. Nobody has run CUDA++ on one. |
 > | **You need** | Linux on the Spark's ARM CPU (aarch64). NVIDIA's open kernel module, version 580.173.02: `make doctor` and `make hello-gpu` refuse another version, and `/dev/nvidiactl`, `/dev/nvidia0` and `/dev/nvidia-uvm` must exist. NVIDIA's signed GSP firmware, which that module loads into the GPU. `git`, `make` and a C compiler. No CUDA toolkit. |
-> | **Not supported** | Other NVIDIA GPUs: PLANNED, not supported. A target row for the RTX 5070 (sm_120) exists on Omega's branch `rig/gb20x` (aien-dev/omega-mv, `src/omega_bw_target.h`), built from public sources and never run on that chip ([portability](docs/runtime/PORTABILITY.md)). AMD and Intel GPUs: not CUDA++ targets. Unmodified CUDA applications: not supported; a CUDA++ program calls CUDA++'s C kernel builder, and CUDA++ does not compile CUDA C++ or PTX. |
+> | **Not supported** | Other NVIDIA GPUs: PLANNED, not supported. A target row for the RTX 5070 (sm_120) exists on Omega's branch `rig/gb20x` (aien-dev/omega-mv, `src/omega_bw_target.h`), built from public sources and never run on that chip ([portability](docs/runtime/PORTABILITY.md)). Every other GPU, NVIDIA or not (AMD, Intel, Apple, Qualcomm, Arm, Imagination and the rest): PLANNED targets, not supported. CUDA++ has machine code, a driver client and receipts for exactly one GPU today, the GB10; the multi-backend split is [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (PROPOSED), and no capability claim about any other GPU is public until a kernel runs on it with a receipt. Unmodified CUDA applications: not supported; a CUDA++ program calls CUDA++'s C kernel builder, and CUDA++ does not compile CUDA C++ or PTX. |
 
 > **Licensing status:** This revision uses Apache-2.0 WITH LLVM-exception for first-party material. For the historical MIT version, use [`232332422bfdc31c8918085b50f13c1e18ab702e`](https://github.com/aien-dev/CUDApp/tree/232332422bfdc31c8918085b50f13c1e18ab702e). The old MIT grant and third-party notices are preserved. See [the transition and provenance audit](docs/LICENSING_TRANSITION.md).
 
-It runs on the NVIDIA GB10 (the DGX Spark, compute capability sm_121) today. On 2026-10-21 the model Aien serves on the Spark, Qwen3.6-35B-A3B (a mixture-of-experts model with about 3B parameters active per token), was served by the C GPU stack this repository was extracted from (the live build used the Omega repository's copy of these sources). The live server had only the C library, the maths library, `libgcc_s` and the loader mapped, and zero CUDA libraries (receipt in Omega: `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`). That stack is C, not code written in the Omega language: Omega kernels reaching the GPU is Omega bar C1, still BUILDING.
+It runs on the NVIDIA GB10 (the DGX Spark, compute capability sm_121) today. On 2026-10-21 the model Aien serves on the Spark, Qwen3.6-35B-A3B (a mixture-of-experts model with about 3B parameters active per token), was served by the C GPU stack this repository was extracted from (the live build used the Omega repository's copy of these sources). The live server had only the C library, the maths library, `libgcc_s` and the loader mapped, and zero CUDA libraries (receipt in Omega: `evidence/WHAT-OMEGA-IS-20261021/live-serve-no-cuda.txt`). That stack is mostly C. Two pieces of it now run as code written in the Omega language: the sm_121 instruction encoder (`om/encoder/bw_enc_sm121.om`) and the cubin packer (`om/cubin/cubin_elf.om`), compiled by the pinned Omega compiler and linked through an omega-bridge binding. Their C bodies are out of the default build and kept only as differential oracles; the .om encoder is byte-identical to the C one on every kernel the test suite builds ([evidence](evidence/CUDAPP-OM-ENCODER/README.md), migration table in CUDApp#79). The rest (kernel builders, register allocation, runtime) is still C, and Omega programs compiled to the GPU by the Omega compiler itself is Omega bar C1, still BUILDING.
 
 CUDA++ keeps growing to cover the jobs of NVIDIA's user-space software on the Spark, and then do things CUDA does not:
 
@@ -31,6 +31,46 @@ CUDA++ is not affiliated with or endorsed by NVIDIA; CUDA is NVIDIA's trademark.
 **New to CUDA++?** Start with the [first-run and independent verification guide](docs/START_HERE.md). It separates host-only tests from real GB10 execution, documents the current support boundary, and explains how to interpret receipts. See [contributing](CONTRIBUTING.md), [security reporting](SECURITY.md), and [the readiness roadmap](ROADMAP.md) before relying on it in a deployment.
 
 **On this page:** [the stack](#the-stack) · [how I did it](#how-i-did-it) · [the machine code](#what-the-machine-code-looks-like) · [the driver, part by part](#the-driver-part-by-part) · [one launch, start to finish](#one-launch-start-to-finish) · [CUDA, piece by piece](#cuda-piece-by-piece) · [speed](#speed-against-the-ceiling) · [run your first kernel](#run-your-first-kernel)
+
+## TileLab driver checks and replay
+
+`make test-tilelab-host TILELAB_OMC=/path/to/pinned/omc` runs the driver's
+host-only refusals and oracle checks, then the bounded Omega conductor in
+`tests/tilelab_host_fault.om`. The compiler must match `tools/c5/omc.pin`.
+The separately compiled `gpu_tilelab_host_fault` replaces every GEMM and
+configuration entry with nondelegating CPU fault injection; it does not call
+GPU or session entry points. Its receipts say `execution: synthetic-host`.
+These results are host control-flow evidence, never chip qualification.
+
+The conductor checks the full shape-list capacity, escaped JSON identifiers,
+failed warmup and timed calls, runtime-failed mutants, successfully executed
+wrong-result mutants, correct-result negative controls, and buffered receipt
+failure on `/dev/full`. A runtime error cannot count as a caught mutant.
+Receipt write or close failure returns nonzero before a final PASS.
+Arm names must be valid UTF-8. JSON preserves multibyte identifiers exactly,
+escapes quotes, backslashes and control characters, and refuses malformed
+UTF-8 before any execution or receipt creation.
+
+Build the current replay with `make tilelab-replay TILELAB_OMC=/path/to/pinned/omc`.
+Its interface is:
+
+```text
+build/tilelab_replay DRIVER OUTPUT_PREFIX "M,N,K;..." ROUNDS [NAME:RT,CT,WM,WN,BAND ...]
+```
+
+It invokes the driver directly, without a shell, and groups at most fifteen
+explicit configurations per invocation because the default arm occupies the
+remaining slot. Outputs are `OUTPUT_PREFIX.0.json`, `.1.json`, and so on.
+Every child must succeed; nonzero child exits, failed execution, and signals
+stop replay without printing replay PASS. The host conductor checks failure
+propagation and a configuration list spanning three invocations.
+
+Using the real device driver still requires the operator's current GPU-window
+authorization. Neither building replay nor passing host tests grants it.
+The scripts and receipts under `evidence/TILELAB-20261028/` are immutable
+historical records, not current executable gates. In particular, the archived
+sweep scripts can mask child failures and an over-capacity group. Use this
+current replay for new runs; do not rewrite the historical scripts or receipts.
 
 ## The stack
 
@@ -52,7 +92,7 @@ I'm not the only one mapping this instruction set in the open, and I credit the 
 
 <p align="center"><img src="docs/img/reverse-engineering.svg" width="100%" alt="The method in eight steps. Learn: my own probe kernel, nvcc once offline, read the bytes back, change one detail. Prove: field hypothesis, my encoder writes it, the GB10 runs it, golden words in the tests. A wrong answer goes back to the hypothesis."></p>
 
-No NVIDIA binary is in this repository. One listing printed by NVIDIA's `nvdisasm` is stored as a test pin: the decode of CUDA++'s own trace-emitter words (`PROVENANCE.md` section 6). The whole method, step by step with the files and receipts: [docs/HOW_I_DID_IT.md](docs/HOW_I_DID_IT.md).
+No NVIDIA binary or NVIDIA-tool listing is stored in the current tree. The former `nvdisasm` test pin of CUDA++'s own trace-emitter words was removed in #93; its history is recorded in `PROVENANCE.md` section 6. The whole method, step by step with the files and receipts: [docs/HOW_I_DID_IT.md](docs/HOW_I_DID_IT.md).
 
 ### What the machine code looks like
 
@@ -110,7 +150,7 @@ The CPU does five things, all of them plain memory writes except the last, which
 | libcuda (driver API) | Talk to the kernel driver | `nvrm` client, ioctls straight to the open kernel module | PARTIAL: implemented; M16 historical summary is unauditable here (see below) |
 | libcudart (runtime API) | Device, memory, launch, streams | Session, command lists, job engine | PARTIAL: one device, one process; no streams or events yet; a timeout ends GPU use for the process |
 | cuBLAS | Matrix multiply | Matmul, tensor-core GEMM, FP8 and BF16 libraries | PARTIAL: shaped for the models AIEN runs; no any-shape GEMM yet |
-| cuDNN, FlashAttention | Attention and network layers | Decode and prefill attention | PARTIAL: model-shaped |
+| cuDNN, FlashAttention | Attention and network layers | Decode and prefill attention | PARTIAL: the fused fast paths are model-shaped; since runtime API 0.6.0 a general fallback (`omega_gpu_attention_general`, EXPERIMENTAL) takes head_dim 1..256, any MHA/GQA/MQA ratio, causal or not, sliding windows and any length, chip-exercised on GB10 (`evidence/ATTN-GENERAL-20261027-4d51f91f/`). It is a scalar f32 kernel without tensor cores, and has no ALiBi, softcap or dropout |
 | CUB, Thrust | Reductions, scans, sorts | Frozen-order reductions (`evidence/E1-CLOSURE/`) | PARTIAL: no general scan or sort |
 | cuFFT, cuRAND | FFT, random numbers | none yet | MISSING |
 | cuobjdump, nvdisasm | Read machine code back | My own sm_121 disassembler | BUILDING: on Omega branch `c6/disasm` (19eebe0e) it agrees with `nvdisasm` on 331 kernels; not in CUDA++ yet. Some host tests here still call `nvdisasm` as a cross-check when it is installed |
@@ -277,18 +317,18 @@ Receipt: `evidence/dx/d2-doctor/fake-machines.txt`. **FIXED in the doctor wrappe
 
 **The pain.** "Completely reproducible results are not guaranteed across PyTorch releases, individual commits, or different platforms." ([PyTorch docs](https://docs.pytorch.org/docs/2.14/notes/randomness.html))
 
-**How CUDA++ fixes it.** CUDA++ adds in a fixed order (no atomics in its reductions, `evidence/E1-CLOSURE/`), so the same inputs give the same bits with no setting to turn on and no speed cost. Every hello-gpu run prints the hash of its output.
+**How CUDA++ fixes it.** CUDA++ adds in a fixed order (no atomics in its reductions, `evidence/E1-CLOSURE/`), so the same inputs give the same bits with no setting to turn on. Every hello-gpu run prints the hash of its output, and so do the chip paths of the bf16 matrix-vector, rmsnorm and decode-attention tests.
 
-**The command that shows it** (two runs):
+**The command that shows it** (10 separate processes on the GB10, nothing set, the caller holds the GPU lock; output from the receipt):
 
 ```
-$ build/hello_gpu --sim
-output sha256 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
-$ build/hello_gpu --sim
-output sha256 72d0c1b2928779e83518f0b4c7d101d933cf89f210cd4627e138c33c9ce9b6a6
+$ flock -w 900 /tmp/aien-gb10.lock tools/run_d7_same_bits_chip.sh gemv 10 /tmp/d7
+...                    (one line per run, then:)
+SAME gemv_f32_151936x2048 ed3805976ef5eb04a893ed9d3b9ad1cc8afa17e60a36b7d4dd9dd98e698f9e4b in 10 of 10 runs
+d7 same-bits: PASS (1 labels x 10 runs)
 ```
 
-Receipt: `evidence/dx/d3-faults/hello-sim-spark.txt`. **FIXED on the simulator.** Left: the same two-run check on the chip, for hello-gpu and a matrix-vector job (`docs/issues/D7-same-bits-chip.md`).
+Receipt: `evidence/d7-same-bits-chip/2026-10-27/SUMMARY.md` (chip) and `evidence/dx/d3-faults/hello-sim-spark.txt` (simulator). **FIXED on the GB10 for four jobs, 10 separate processes each, driver 580.173.02:** hello-gpu (vector add; the chip hash equals the simulator's), the bf16 matrix-vector 151936 x 2048 (warp-shuffle reduction), rmsnorm at three shapes (reduction across the block) and decode attention at eight context lengths up to 32768 (softmax reductions, combine across up to 128 splits). The checker goes red on a chip run with one element unwritten and on a one-bit hash change (`negative-control/`). Not shown: the other kernels (scan and sum-reduce build on main since #112 but are NOT_RUN in this check), other GPUs, other inputs (`docs/issues/D7-same-bits-chip.md`).
 
 ### 7. The per-process CUDA tax (3,478 GitHub issues match "CUDA context" memory overhead)
 
@@ -339,7 +379,7 @@ Receipt: `evidence/dx/d3-faults/hello-sim-spark.txt`. **FIXED for the kernels CU
 
 **How CUDA++ fixes it.** Every CUDA++ library is source in this repository, built by the same kernel builder you can call, with host references and a simulator.
 
-**NOT YET.** CUDA++'s matrix multiply and attention are shaped for the models AIEN runs. Any-shape GEMM, scans and sorts (Omega bar C3) and my own disassembler (bar C6) are ledger L386 (`docs/issues/D11-libraries.md`, `docs/issues/D13-disassembler.md`).
+**NOT YET.** CUDA++'s matrix multiply is shaped for the models Aien runs. Attention has a general fallback since runtime API 0.6.0 (head_dim 1..256, any GQA ratio, causal and non-causal, sliding window, any length), but it is a scalar f32 kernel; its fast fused paths are still model-shaped. Any-shape GEMM, scans and sorts (Omega bar C3) and my own disassembler (bar C6) are ledger L386 (`docs/issues/D11-libraries.md`, `docs/issues/D13-disassembler.md`).
 
 ### 11. The incentive: compute sold from data centers
 
@@ -357,7 +397,7 @@ work: 12582912 bytes moved (8388608 read, 4194304 written), 1048576 floating-poi
 
 Receipt: `evidence/dx/d3-faults/hello-sim-spark.txt`; the ceiling, `evidence/OWN30B-T3-TC-PEAK-BW-5faa0f70-20261013T2236Z/`. **FIXED on the simulator.** Left: the measured GPU time printed next to the floor, from a chip run (the code prints it; it has not run on the chip yet).
 
-Replacing a developer's CUDA libraries and NVIDIA's kernel module with CUDA++ is ledger item L401; its section here comes with it.
+The developer replacement workflow is ledger item L401. Its kernel-module replacement scope is pending a separate kernel decision; the supported path here retains NVIDIA's open kernel module.
 
 ## Run your first kernel
 

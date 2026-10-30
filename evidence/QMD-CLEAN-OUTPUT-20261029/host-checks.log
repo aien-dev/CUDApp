@@ -1,0 +1,71 @@
+## Same regression, missing prerequisite: expected failure
+$ make --no-print-directory test-gpu-qmd-shared-clean-build
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -o /tmp/tmp.vlg5GHBeNs/new/test_omega_bw_qmd_shared tests/test_omega_bw_qmd_shared.c src/omega_blackwell_qmd.c
+tests/test_omega_bw_qmd_shared.c:80:1: fatal error: opening dependency file /tmp/tmp.vlg5GHBeNs/new/test_omega_bw_qmd_shared.d: No such file or directory
+   80 | }
+      | ^
+compilation terminated.
+src/omega_blackwell_qmd.c:238:1: fatal error: opening dependency file /tmp/tmp.vlg5GHBeNs/new/test_omega_bw_qmd_shared.d: No such file or directory
+  238 | }
+      | ^
+compilation terminated.
+make[1]: *** [Makefile:334: /tmp/tmp.vlg5GHBeNs/new/test_omega_bw_qmd_shared] Error 1
+make: *** [Makefile:341: test-gpu-qmd-shared-clean-build] Error 2
+exit=2
+
+## Serial regression
+$ make --no-print-directory test-gpu-qmd-shared-clean-build
+mkdir -p /tmp/cudapp-qmd-verify-6_c66ej5/tmp.IOaEFY16cI/new
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -o /tmp/cudapp-qmd-verify-6_c66ej5/tmp.IOaEFY16cI/new/test_omega_bw_qmd_shared tests/test_omega_bw_qmd_shared.c src/omega_blackwell_qmd.c
+/tmp/cudapp-qmd-verify-6_c66ej5/tmp.IOaEFY16cI/new/test_omega_bw_qmd_shared
+word 36 default: shared7 8 min 9 max 26 target 9
+qmd shared: 112 checks, 0 failed: PASS
+exit=0
+
+## Parallel regression
+$ make --no-print-directory -j4 test-gpu-qmd-shared-clean-build
+mkdir -p /tmp/cudapp-qmd-verify-6_c66ej5/tmp.A9TZfZieIE/new
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -o /tmp/cudapp-qmd-verify-6_c66ej5/tmp.A9TZfZieIE/new/test_omega_bw_qmd_shared tests/test_omega_bw_qmd_shared.c src/omega_blackwell_qmd.c
+/tmp/cudapp-qmd-verify-6_c66ej5/tmp.A9TZfZieIE/new/test_omega_bw_qmd_shared
+word 36 default: shared7 8 min 9 max 26 target 9
+qmd shared: 112 checks, 0 failed: PASS
+exit=0
+
+## Compiler failure propagates: expected failure
+$ make --no-print-directory test-gpu-qmd-shared-clean-build CC=false
+mkdir -p /tmp/cudapp-qmd-verify-6_c66ej5/tmp.HuuefpWIXC/new
+false -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -o /tmp/cudapp-qmd-verify-6_c66ej5/tmp.HuuefpWIXC/new/test_omega_bw_qmd_shared tests/test_omega_bw_qmd_shared.c src/omega_blackwell_qmd.c
+make[1]: *** [Makefile:334: /tmp/cudapp-qmd-verify-6_c66ej5/tmp.HuuefpWIXC/new/test_omega_bw_qmd_shared] Error 1
+make: *** [Makefile:341: test-gpu-qmd-shared-clean-build] Error 2
+exit=2
+
+## mktemp failure propagates: expected failure
+$ make --no-print-directory test-gpu-qmd-shared-clean-build
+make: TMPDIR value /tmp/cudapp-qmd-verify-6_c66ej5/missing: No such file or directory
+make: using default temporary directory '/tmp'
+mktemp: failed to create directory via template ‘/tmp/cudapp-qmd-verify-6_c66ej5/missing/tmp.XXXXXXXXXX’: No such file or directory
+make: *** [Makefile:341: test-gpu-qmd-shared-clean-build] Error 1
+exit=2
+
+## Dry-run without execution
+$ make --no-print-directory -n test-gpu-qmd-shared-clean-build
+set -eu; out=$(mktemp -d); trap 'rm -rf "$out"' EXIT; \
+	make --no-print-directory OUT_DIR="$out/new" test-gpu-qmd-shared
+mkdir -p /tmp/cudapp-qmd-verify-6_c66ej5/tmp.RqS6AOhSBq/new
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -o /tmp/cudapp-qmd-verify-6_c66ej5/tmp.RqS6AOhSBq/new/test_omega_bw_qmd_shared tests/test_omega_bw_qmd_shared.c src/omega_blackwell_qmd.c
+/tmp/cudapp-qmd-verify-6_c66ej5/tmp.RqS6AOhSBq/new/test_omega_bw_qmd_shared
+exit=0
+
+## Direct target with absent output directory
+$ make --no-print-directory OUT_DIR=/tmp/cudapp-qmd-verify-6_c66ej5/direct test-gpu-qmd-shared
+mkdir -p /tmp/cudapp-qmd-verify-6_c66ej5/direct
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -o /tmp/cudapp-qmd-verify-6_c66ej5/direct/test_omega_bw_qmd_shared tests/test_omega_bw_qmd_shared.c src/omega_blackwell_qmd.c
+/tmp/cudapp-qmd-verify-6_c66ej5/direct/test_omega_bw_qmd_shared
+word 36 default: shared7 8 min 9 max 26 target 9
+qmd shared: 112 checks, 0 failed: PASS
+exit=0
+
+## Diff whitespace
+$ git diff --check
+exit=0
+All expected outcomes and temporary cleanup controls verified.

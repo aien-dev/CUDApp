@@ -17,26 +17,34 @@ log=${2:?usage: clean-user-hello.sh BRANCH LOG [URL]}
 url=${3:-https://github.com/aien-dev/CUDApp}
 lock=${CUDAPP_GPU_LOCK:-/tmp/aien-gb10.lock}
 board=${CUDAPP_BOARD:-}
-U=c2stranger$(date -u +%H%M%S)
+user_created=0
 cd / || exit 3
 run() { echo "+ $*"; "$@"; }
 note() { [ -n "$board" ] && echo "$(date -u +%FT%TZ) $*" >> "$board"; return 0; }
-tr_dir=$(mktemp -d "${TMPDIR:-/tmp}/clean-user-trace.XXXXXX")
+tr_dir=$(mktemp -d "${TMPDIR:-/tmp}/clean-user-trace.XXXXXX") || exit 3
+# Reuse the unique temporary-directory suffix instead of a clock-only name.
+# useradd is the atomic ownership check: an existing account is never ours.
+U=c2stranger${tr_dir##*.}
 exec > >(tee "$log") 2>&1
 echo "# clean-user-hello: branch=$branch url=$url user=$U"
 echo "# date: $(date -u +%FT%TZ)  host: $(uname -srm)  loadavg: $(cut -d' ' -f1-3 /proc/loadavg)"
 echo "# operator: $(id -un)  nvidia module: $(cat /sys/module/nvidia/version 2>/dev/null || echo none)"
 cleanup() {
 	if sudo test -s "$tr_dir/readme.trace"; then sudo gzip -9c "$tr_dir/readme.trace" > "$log.strace.gz" && echo "# full trace of the README block kept: $log.strace.gz"; fi
-	echo "# --- delete the temporary user ---"
-	run sudo pkill -u "$U" || true
-	run sudo userdel -r "$U" 2>&1 | grep -v 'mail spool' || true
+	if [ "$user_created" -eq 1 ]; then
+		echo "# --- delete the temporary user ---"
+		run sudo pkill -u "$U" || true
+		run sudo userdel -r "$U" 2>&1 | grep -v 'mail spool' || true
+		if getent passwd "$U" >/dev/null || [ -e "/home/$U" ]; then echo "# CLEANUP FAILED: $U still present"; else echo "# user $U and /home/$U removed"; fi
+	else
+		echo "# no account created by this run; account cleanup skipped"
+	fi
 	sudo rm -rf "$tr_dir"
-	if getent passwd "$U" >/dev/null || [ -e "/home/$U" ]; then echo "# CLEANUP FAILED: $U still present"; else echo "# user $U and /home/$U removed"; fi
 }
 trap cleanup EXIT
 echo "# --- create a brand-new user ---"
 run sudo useradd -m -s /bin/bash "$U" || exit 3
+user_created=1
 # the stranger's shell: an empty environment except what login(1) sets, then the distribution's login profile
 S() { sudo -u "$U" env -i HOME="/home/$U" USER="$U" LOGNAME="$U" SHELL=/bin/bash TERM=dumb LANG=C.UTF-8 PATH=/usr/local/bin:/usr/bin:/bin bash -lc "cd ~; $1"; }
 echo "# new user:"

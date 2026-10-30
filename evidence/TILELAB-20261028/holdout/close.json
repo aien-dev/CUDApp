@@ -1,0 +1,7 @@
+{"window_id": "20261028T013220Z-3ce2f0", "closed_by": "spark-window close", "reason": "closed", "verdict": "quiet machine", "held_s": 514, "state": {"utc": "2026-10-28T01:40:54Z", "loadavg": "2.40 2.79 2.37 1/1873 3515095", "mem_avail_kB": 115161372, "gpu_util_pct": "0", "gpu_W": "4.42",
+ "gb10_lock_holders": "",
+ "quiet_lock_holders": "",
+ "quiet_waiters": "",
+ "gpu_apps": "",
+ "sensors_row": "1793151654,2026-10-27T20:40:54-05:00,160,4.47,0,2.40,115156752,1,62", "sensors_row_age_s": 0}
+}

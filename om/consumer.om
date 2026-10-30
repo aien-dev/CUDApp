@@ -1,0 +1,50 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Read-only consumer guard: existing one-line commit lock then observed git HEAD.
+global data uchar 83
+fn main to int
+n = ulong 0
+while lt n 83
+r = read 0 data n sub ulong 83 n
+if lt r 0
+ret 3
+end
+if eq r 0
+break
+end
+n = add n ulong r
+end
+if ne n 82
+ret 3
+end
+if ne get data 40 10
+ret 3
+end
+if ne get data 81 10
+ret 3
+end
+nonzero = false
+for i ulong 40
+c = get data i
+if lt c 48
+ret 3
+end
+if gt c 57
+if lt c 97
+ret 3
+end
+if gt c 102
+ret 3
+end
+end
+if ne c 48
+nonzero = true
+end
+if ne c get data add i 41
+ret 3
+end
+end
+if not nonzero
+ret 3
+end
+ret 0
+end

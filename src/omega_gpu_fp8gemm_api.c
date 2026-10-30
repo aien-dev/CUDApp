@@ -4,7 +4,10 @@
  * GPU-uncached (nvos.h NVOS32_ATTR2_GPU_CACHEABLE), one launch = omega_gpu_session_launch. */
 #include "omega_gpu_fp8gemm_api.h"
 #include "omega_gpu_session.h"
+#include "omega_gpu_cmdlist.h"
 #include "omega_gpu_fmt.h"
+#include "omega_gpu_native_runtime.h"
+#include "omega_gpu_code_alloc.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -14,6 +17,8 @@
 
 typedef struct {
     bool valid, pinned;
+    bool exact;
+    uint8_t manifest[32];
     OmegaFp8GemmSpec spec;
     OmegaBlackwellKernel kernel;
     OmegaGpuMem code;
@@ -26,6 +31,7 @@ static struct {
     bool hooked;
     Slot cache[CACHE_SLOTS];
     unsigned next;
+    OmegaGpuNativeCache native;
 } g;
 
 const char *omega_gpu_fp8gemm_last_error(void) { return omega_gpu_session_last_error(); }
@@ -42,7 +48,13 @@ const char *omega_gpu_fp8gemm_rc_name(int rc) {
 static void cache_clear_locked(void) {
     for (unsigned i = 0; i < CACHE_SLOTS; i++) {
         if (!g.cache[i].valid) continue;
+        if (g.cache[i].pinned) {
+            OmegaGpuNativeLease lease = omega_native_cache_lease(&g.native, i);
+            if (omega_native_lease_op(&lease, 5, 0) == 0) g.cache[i].pinned = false;
+        }
+        if (omega_native_cache_victim(&g.native, i, 0) != 1) continue;
         omega_gpu_session_free(&g.cache[i].code);
+        (void)omega_native_cache_victim(&g.native, i, 1);
         memset(&g.cache[i], 0, sizeof g.cache[i]);
     }
     g.next = 0;
@@ -93,35 +105,86 @@ static void spec_for(uint32_t k, uint32_t segs, OmegaFp8GemmSpec *spec) {
     spec->mutant = g.mutant;
 }
 
+static int g_rec; /* 1 while a record call runs (lock held): kernel_for must not evict */
 static int kernel_for(const OmegaFp8GemmSpec *spec, Slot **out, bool *hit) {
+    int fresh = omega_native_cache_refresh(&g.native, CACHE_SLOTS);
+    if (fresh < 0) return OMEGA_GPU_FP8GEMM_CODEGEN_FAIL;
+    if (fresh) memset(g.cache, 0, sizeof g.cache); /* prior device handles are dead */
     for (unsigned i = 0; i < CACHE_SLOTS; i++) {
         Slot *s = &g.cache[i];
-        if (s->valid && memcmp(&s->spec, spec, sizeof *spec) == 0) { *out = s; *hit = true; return OMEGA_GPU_FP8GEMM_OK; }
+        if (s->valid && !s->exact && memcmp(&s->spec, spec, sizeof *spec) == 0) { *out = s; *hit = true; return OMEGA_GPU_FP8GEMM_OK; }
     }
-    Slot *s = NULL;
-    for (unsigned i = 0; i < CACHE_SLOTS && !s; i++) {
-        Slot *c = &g.cache[(g.next + i) % CACHE_SLOTS];
-        if (!c->valid || !c->pinned) { s = c; g.next = (unsigned)((c - g.cache) + 1) % CACHE_SLOTS; }
-    }
-    if (!s) { omega_gpu_session_set_error("fp8 gemm kernel cache: every slot holds a prepared kernel"); return OMEGA_GPU_FP8GEMM_TOO_LARGE; }
     BlackwellIRProgram *prog = omega_gpu_host_calloc(1, sizeof *prog);
     if (!prog) { omega_gpu_session_set_error("fp8 gemm codegen: host memory"); return OMEGA_GPU_FP8GEMM_CODEGEN_FAIL; }
     int cg = omega_blackwell_codegen_fp8gemm_prog(spec, prog);
     size_t need = cg == 0 ? omega_bw_program_code_bytes(prog) : 0;
-    if (cg != 0 || need == 0) { omega_gpu_host_free(prog); omega_gpu_session_set_error("fp8 gemm codegen refused the shape"); return OMEGA_GPU_FP8GEMM_CODEGEN_FAIL; }
-    if (!register_file_fits(spec->warps, prog->regalloc.peak_gpr_usage)) { omega_gpu_host_free(prog); return OMEGA_GPU_FP8GEMM_TOO_LARGE; }
-    OmegaGpuMem code;
-    if (omega_gpu_session_alloc_code(need, &code) != 0) { omega_gpu_host_free(prog); return OMEGA_GPU_FP8GEMM_CHIP_FAIL; }
-    OmegaBlackwellKernel kernel;
-    cg = omega_blackwell_kernel_encode_into(prog, code.cpu, need, &kernel);
+    if (cg != 0 || need == 0 || !register_file_fits(spec->warps, prog->regalloc.peak_gpr_usage)) {
+        omega_gpu_host_free(prog); return OMEGA_GPU_FP8GEMM_CODEGEN_FAIL;
+    }
+    uint8_t key[32]; uint64_t request[16];
+    int index = omega_native_shape_key(spec, sizeof *spec, key) == 0 ?
+        omega_native_cache_reserve(&g.native, key, omega_gpu_code_alloc_bytes(need), request) : -1;
+    if (index < 0) { omega_gpu_host_free(prog); return OMEGA_GPU_FP8GEMM_TOO_LARGE; }
+    Slot *s = &g.cache[index];
+    if (g_rec && s->valid) {
+        (void)omega_native_cache_finish(&g.native, (unsigned)index, request, 0);
+        omega_gpu_host_free(prog); return OMEGA_GPU_FP8GEMM_TOO_LARGE;
+    }
+    OmegaGpuMem code = {0}; OmegaBlackwellKernel kernel;
+    if (omega_gpu_session_alloc_code(need, &code) != 0) cg = -1;
+    else cg = omega_blackwell_kernel_encode_into(prog, code.cpu, need, &kernel);
     omega_gpu_host_free(prog);
-    if (cg != 0 || !kernel.code || kernel.code_size != need) { omega_gpu_session_free(&code); return OMEGA_GPU_FP8GEMM_CODEGEN_FAIL; }
-    if (omega_gpu_session_sync_to_gpu(&code) != 0) { omega_gpu_session_free(&code); return OMEGA_GPU_FP8GEMM_CHIP_FAIL; }
+    if (cg != 0 || !kernel.code || kernel.code_size != need ||
+        omega_gpu_session_sync_to_gpu(&code) != 0 ||
+        omega_native_cache_finish(&g.native, (unsigned)index, request, 1) != 0) {
+        omega_gpu_session_free(&code);
+        (void)omega_native_cache_finish(&g.native, (unsigned)index, request, 0);
+        return OMEGA_GPU_FP8GEMM_CHIP_FAIL;
+    }
     if (s->valid) omega_gpu_session_free(&s->code);
     memset(s, 0, sizeof *s);
     s->valid = true; s->spec = *spec; s->kernel = kernel; s->code = code;
     *out = s; *hit = false;
     return OMEGA_GPU_FP8GEMM_OK;
+}
+
+OmegaGpuNativeCache *omega_gpu_fp8gemm_native_cache(void) { return &g.native; }
+
+int omega_gpu_fp8gemm_prepare_native(const OmegaGpuNativeArtifact *a, OmegaGpuNativeLease *lease) {
+    uint8_t key[32]; uint64_t req[16], tok[16] = {0};
+    if (!lease || omega_native_admitted(a, key) != 0) return -1;
+    if (!dev_open_locked()) return -1;
+    int fresh = omega_native_cache_refresh(&g.native, CACHE_SLOTS);
+    if (fresh < 0) return -1;
+    if (fresh) memset(g.cache, 0, sizeof g.cache);
+    omega_native_context(req); req[2] = omega_gpu_code_alloc_bytes((size_t)a->sizes[1]);
+    memcpy(req + 3, key, 32);
+    int64_t found = omega_native_cache_call(&g.native, 12, req, tok);
+    if (found < 0) return -1;
+    int index = found ? (int)(found - 1) : omega_native_cache_reserve(&g.native, key, (size_t)req[2], req);
+    if (index < 0) return -1;
+    Slot *s = &g.cache[index];
+    if (found) {
+        if (!s->valid || !s->exact || memcmp(s->manifest, a->manifest, 32)) return -1;
+    } else {
+        OmegaGpuMem code = {0};
+        if (omega_gpu_session_alloc_code((size_t)a->sizes[1], &code) != 0) goto abort;
+        memcpy(code.cpu, a->code, (size_t)a->sizes[1]);
+        if (omega_gpu_session_sync_to_gpu(&code) != 0 ||
+            omega_native_cache_finish(&g.native, (unsigned)index, req, 1) != 0) {
+            omega_gpu_session_free(&code); goto abort;
+        }
+        if (s->valid) omega_gpu_session_free(&s->code);
+        memset(s, 0, sizeof *s);
+        s->valid = s->exact = true; s->code = code;
+        s->kernel.code = code.cpu; s->kernel.code_size = (size_t)a->sizes[1];
+        memcpy(s->manifest, a->manifest, 32);
+    }
+    *lease = omega_native_cache_lease(&g.native, (unsigned)index);
+    return omega_native_lease_op(lease, 5, 1);
+abort:
+    (void)omega_native_cache_finish(&g.native, (unsigned)index, req, 0);
+    return -1;
 }
 
 int omega_gpu_fp8gemm_prepare(uint32_t k) {
@@ -130,9 +193,86 @@ int omega_gpu_fp8gemm_prepare(uint32_t k) {
     omega_gpu_session_lock();
     int rc = OMEGA_GPU_FP8GEMM_OK;
     if (!dev_open_locked()) rc = OMEGA_GPU_FP8GEMM_CHIP_FAIL;
-    else for (int v = 0; v < 2 && rc == OMEGA_GPU_FP8GEMM_OK; v++) { Slot *s = NULL; bool hit = false; rc = kernel_for(&sp[v], &s, &hit); if (rc == OMEGA_GPU_FP8GEMM_OK) s->pinned = true; }
+    else for (int v = 0; v < 2 && rc == OMEGA_GPU_FP8GEMM_OK; v++) {
+        Slot *s = NULL; bool hit = false; rc = kernel_for(&sp[v], &s, &hit);
+        if (rc == OMEGA_GPU_FP8GEMM_OK && !s->pinned) {
+            OmegaGpuNativeLease lease = omega_native_cache_lease(&g.native, (unsigned)(s - g.cache));
+            if (omega_native_lease_op(&lease, 5, 1) != 0) rc = OMEGA_GPU_FP8GEMM_TOO_LARGE;
+            else s->pinned = true;
+        }
+    }
     omega_gpu_session_unlock();
     return rc;
+}
+
+/* ---- the stroke's record path (L312 v2): one launch appended to a command list, every buffer the caller's ---- */
+static void spec_for_stroke(uint32_t k, uint32_t segs, uint32_t mt, int rowmap, OmegaFp8GemmSpec *spec) {
+    spec_for(k, segs, spec);
+    if (mt) spec->mt = mt;
+    spec->rowmap = rowmap ? 1u : 0u;
+}
+int omega_gpu_fp8gemm_prepare_shape(uint32_t k, uint32_t segs, uint32_t mt, int rowmap) {
+    OmegaFp8GemmSpec spec; spec_for_stroke(k, segs, mt, rowmap, &spec);
+    if (omega_fp8gemm_shared_bytes(&spec) == 0) { omega_gpu_session_set_error("fp8 gemm prepare: shape refused (rowmap needs mt <= 4)"); return OMEGA_GPU_FP8GEMM_BAD_ARGS; }
+    omega_gpu_session_lock();
+    int rc = OMEGA_GPU_FP8GEMM_OK;
+    if (!dev_open_locked()) rc = OMEGA_GPU_FP8GEMM_CHIP_FAIL;
+    else {
+        Slot *s = NULL; bool hit = false; rc = kernel_for(&spec, &s, &hit);
+        if (rc == OMEGA_GPU_FP8GEMM_OK && !s->pinned) {
+            OmegaGpuNativeLease lease = omega_native_cache_lease(&g.native, (unsigned)(s - g.cache));
+            if (omega_native_lease_op(&lease, 5, 1) != 0) rc = OMEGA_GPU_FP8GEMM_TOO_LARGE;
+            else s->pinned = true;
+        }
+    }
+    omega_gpu_session_unlock();
+    return rc;
+}
+uint32_t omega_gpu_fp8gemm_cta_budget_for(uint32_t segs) { return g.ctas ? g.ctas : (segs >= 64u ? 2u : segs >= 8u ? 12u : 96u); }
+
+int omega_gpu_fp8gemm_record(OmegaGpuCmdList *cl, const OmegaGpuFp8Tensor *t, uint32_t rows, uint32_t segs, uint64_t seg_va, uint64_t xp_va,
+                             uint64_t y_va, uint64_t xmap_va, uint64_t ymap_va, uint32_t mt, uint32_t cta_budget, OmegaGpuFp8GemmInfo *info) {
+    if (info) memset(info, 0, sizeof *info);
+    uint32_t experts = 0, n = 0, k = 0;
+    omega_gpu_fp8_tensor_shape(t, &experts, &n, &k);
+    if (!cl || !t || !experts || !seg_va || !xp_va || !y_va || rows == 0 || segs == 0 || (!xmap_va) != (!ymap_va)) return OMEGA_GPU_FP8GEMM_BAD_ARGS;
+    if (rows > OMEGA_GPU_FP8GEMM_MAX_ROWS || segs > OMEGA_GPU_FP8GEMM_MAX_SEGMENTS) return OMEGA_GPU_FP8GEMM_TOO_LARGE;
+    OmegaFp8GemmSpec spec; spec_for_stroke(k, segs, mt, xmap_va != 0, &spec);
+    if (omega_fp8gemm_shared_bytes(&spec) == 0) { omega_gpu_session_set_error("fp8 gemm record: shape refused (rowmap needs mt <= 4)"); return OMEGA_GPU_FP8GEMM_BAD_ARGS; }
+    const uint32_t W = spec.warps;
+    uint32_t grid_x = (n + W - 1) / W;
+    const uint32_t budget = cta_budget ? cta_budget : omega_gpu_fp8gemm_cta_budget_for(segs);
+    if (grid_x > budget) grid_x = budget;
+    if (grid_x == 0) grid_x = 1;
+    /* caller holds the session lock */
+    if (!dev_open_locked()) return OMEGA_GPU_FP8GEMM_CHIP_FAIL;
+    Slot *ks = NULL; bool hit = false;
+    g_rec = 1;
+    int rc = kernel_for(&spec, &ks, &hit);
+    g_rec = 0;
+    if (rc != OMEGA_GPU_FP8GEMM_OK) return rc;
+    uint32_t args[OMEGA_GEMM_ARGS_WORDS_MAP]; memset(args, 0, sizeof args);
+    args[0] = (uint32_t)seg_va; args[1] = (uint32_t)(seg_va >> 32);
+    args[2] = (uint32_t)xp_va; args[3] = (uint32_t)(xp_va >> 32);
+    args[4] = (uint32_t)y_va; args[5] = (uint32_t)(y_va >> 32);
+    args[6] = n; args[7] = grid_x * W;
+    args[8] = (uint32_t)xmap_va; args[9] = (uint32_t)(xmap_va >> 32);
+    args[10] = (uint32_t)ymap_va; args[11] = (uint32_t)(ymap_va >> 32);
+    if (info) {
+        info->rows = rows; info->segments = segs; info->n = n; info->k = k; info->mt = spec.mt; info->warps_per_cta = W; info->lane_bytes = spec.lane_bytes;
+        info->grid_x = grid_x; info->grid_y = segs; info->kernel_cache_hit = hit;
+    }
+    OmegaGpuLaunch L = {
+        .code_va = ks->code.va, .gpr_count = gpr_declared(ks->kernel.gpr_count),
+        .threads_x = 32u * W, .threads_y = 1, .grid_x = grid_x, .grid_y = segs,
+        .num_elements = (size_t)rows * n,
+        .args = args, .n_args = spec.rowmap ? OMEGA_GEMM_ARGS_WORDS_MAP : OMEGA_GEMM_ARGS_WORDS, .timeout_ms = MARKER_TIMEOUT_MS,
+        .shared_bytes = omega_fp8gemm_shared_bytes(&spec),
+    };
+    if (!omega_bw_gpr_declared_ok(L.gpr_count, ks->kernel.gpr_count)) { omega_gpu_session_set_error("declared registers below peak + 2: refusing to launch"); return OMEGA_GPU_FP8GEMM_CHIP_FAIL; }
+    OmegaGpuNativeLease lease = omega_native_cache_lease(&g.native, (unsigned)(ks - g.cache));
+    if (omega_gpu_cmdlist_add_native(cl, &L, &lease) < 0) return OMEGA_GPU_FP8GEMM_CHIP_FAIL;
+    return OMEGA_GPU_FP8GEMM_OK;
 }
 
 /* x' = x * 2^64 in the kernel's lane layout: column c = s*32*LB + L*LB + w*4 + e  ->  index s*32*LB + (w*32 + L)*4 + e */
@@ -254,4 +394,41 @@ int omega_gpu_fp8gemm_f32(const OmegaGpuFp8Tensor *t, uint32_t M, const uint32_t
 }
 int omega_gpu_fp8gemm_bf16(const OmegaGpuFp8Tensor *t, uint32_t M, const uint32_t *ids, const uint32_t *trow, const uint16_t *x, uint32_t x_rows, float *y, OmegaGpuFp8GemmInfo *info) {
     return gemm_core(t, M, ids, trow, NULL, x, x_rows, y, info);
+}
+
+int omega_gpu_fp8gemm_native_code_observe(const OmegaGpuNativeLease *lease, OmegaGpuMem *out) {
+    if (!out) return -1;
+    *out = (OmegaGpuMem){0};
+    if (!lease || lease->cache != &g.native || omega_native_lease_op(lease, 16, 0) != 0)
+        return -1;
+    const Slot *s = &g.cache[lease->slot];
+    if (!s->exact) return -1;
+    *out = s->code;
+    return 0;
+}
+
+int omega_gpu_fp8gemm_record_native(OmegaGpuCmdList *cl, const OmegaGpuFp8Tensor *t,
+    const OmegaGpuNativeArtifact *a, const OmegaGpuNativeLease *lease,
+    uint32_t rows, uint32_t segs, uint64_t table, uint64_t xp, uint64_t y,
+    uint64_t xmap, uint64_t ymap) {
+    OmegaGpuNativeTensorObservation owner;
+    if (omega_gpu_fp8_native_observe(t, &owner) != 0) return -1;
+    const uint32_t n = owner.n, k = owner.k;
+    if (!cl || !t || !rows || !segs || !table || !xp || !y || (!!xmap != !!ymap) ||
+        !lease || lease->cache != &g.native || omega_native_bound(a, lease) != 0) return -1;
+    uint64_t call[12] = {2, rows, n, k, segs, xmap ? 12u : 8u, xmap ? 1u : 0u, 0,
+        owner.allocation_epoch, omega_gpu_session_epoch(), owner.owner_generation, 0}, launch[32];
+    if (omega_native_launch(a, call, launch) != 0) return -1;
+    Slot *s = &g.cache[lease->slot];
+    if (!s->exact || memcmp(s->manifest, a->manifest, 32)) return -1;
+    uint32_t args[12] = {(uint32_t)table, (uint32_t)(table >> 32),
+        (uint32_t)xp, (uint32_t)(xp >> 32), (uint32_t)y, (uint32_t)(y >> 32),
+        n, (uint32_t)launch[29], (uint32_t)xmap, (uint32_t)(xmap >> 32),
+        (uint32_t)ymap, (uint32_t)(ymap >> 32)};
+    OmegaGpuLaunch L = {.code_va = s->code.va, .gpr_count = (uint32_t)launch[8],
+        .threads_x = (uint32_t)launch[4], .threads_y = (uint32_t)launch[5],
+        .grid_x = (uint32_t)launch[1], .grid_y = (uint32_t)launch[2],
+        .num_elements = (size_t)rows * n, .args = args, .n_args = (uint32_t)call[5],
+        .timeout_ms = MARKER_TIMEOUT_MS, .shared_bytes = (uint32_t)launch[7]};
+    return omega_gpu_cmdlist_add_native(cl, &L, lease);
 }

@@ -1,0 +1,16 @@
+# omega c6/disasm c8d7d5294 (L386 train tip: over c5/isolation 934c1521, c3/gemm, c3/reduce-scan, main 0d72560a), 2026-10-24T23:38Z
+# command: sh tools/divsqrt_nvdisasm_check.sh
+disassembler: sm121dis: Omega's own sm_121 disassembler (src/omega_sm121_disasm.c)
+[PASS] div: all 264 words decode to the encoder's text
+[PASS] sqrt: all 336 words decode to the encoder's text
+[PASS] exp2: all 72 words decode to the encoder's text
+[PASS] log2: all 576 words decode to the encoder's text
+[PASS] sigmoid: all 344 words decode to the encoder's text
+[PASS] tanh: all 352 words decode to the encoder's text
+[PASS] sin: all 120 words decode to the encoder's text
+[PASS] cos: all 120 words decode to the encoder's text
+[PASS] erf: all 360 words decode to the encoder's text
+[PASS] gelu: all 424 words decode to the encoder's text
+[PASS] rsqrt: all 344 words decode to the encoder's text
+VERDICT PASS
+# exit 0

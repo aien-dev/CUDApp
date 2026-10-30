@@ -42,7 +42,7 @@
 extern "C" {
 #endif
 
-#define OMEGA_GPU_CMDLIST_MAX_LAUNCHES 2048u
+#define OMEGA_GPU_CMDLIST_MAX_LAUNCHES 4096u
 #define OMEGA_GPU_CMDLIST_BANK_BYTES 0x400u
 #define OMEGA_GPU_CMDLIST_QMD_BYTES 0x400u /* QMD1 at +0, QMD0 (INLINE mode) at +0x200 */
 
@@ -67,6 +67,9 @@ typedef struct {
                              back by omega_gpu_cmdlist_stamps. Costs 6 words + the report per launch. 0 = off. */
     int skip_launch;      /* TEST ONLY: >= 1 drops launch (skip_launch - 1) from the method stream (its slot stays
                              recorded), so the per-launch semaphore check must fail. 0 = off. */
+    int first_barrier_none; /* C4 streams: no WAIT_FOR_IDLE + invalidate before launch 0 (the CPU-written code, banks and QMDs
+                             must not sit in a stale cache line: fresh slots or unchanged contents). A WAIT_FOR_IDLE may also
+                             wait for grids of another queue of the group; the streams test measures both. 0 = the barrier. */
 } OmegaGpuCmdListOpts;
 
 typedef struct {
@@ -81,7 +84,8 @@ typedef struct {
 
 typedef struct OmegaGpuCmdList OmegaGpuCmdList;
 
-/* Takes the session lock itself. Allocates the slots for up to cap launches. 0 ok, -1 (session error names it). */
+/* Takes the session lock itself. Allocates the slots for up to cap launches. 0 ok, -1 (session error names it). A list
+ * belongs to the device it was made on: after omega_gpu_session_recover, add / submit / wait_for refuse it (C5). */
 int omega_gpu_cmdlist_create(uint32_t cap, OmegaGpuCmdList **out);
 void omega_gpu_cmdlist_free(OmegaGpuCmdList *cl);
 /* Caller holds the lock. Empties the list (slots are rewritten by the next adds). */
@@ -99,7 +103,20 @@ int omega_gpu_cmdlist_add(OmegaGpuCmdList *cl, const OmegaGpuLaunch *L);
 /* Caller holds the lock, device open, not latched. Submits every recorded launch in order, waits for the completion,
  * checks every launch semaphore. 0 ok; -1 with the stage named (omega_gpu_session_last_error). */
 int omega_gpu_cmdlist_submit(OmegaGpuCmdList *cl, const OmegaGpuCmdListOpts *opts, OmegaGpuCmdListStats *st);
-/* 1 once a timeout latched this module. */
+/* L136 (roadblock R3): caller holds the lock. List a on the session queue and list b on extra queue 1
+ * (omega_gpu_session_extra_queue; needs AIEN_OMEGA_GPU_CHANNELS >= 2 at device open), both submitted before either is
+ * waited, so the two may run at the same time. The lists must share no written buffer. PCAS mode, no stamps, each list in
+ * one submission. Both stats get the pair wall time (first submit to the last marker). 0 ok; -1 with the stage named;
+ * a marker timeout latches the session. */
+int omega_gpu_cmdlist_submit_pair(OmegaGpuCmdList *a, OmegaGpuCmdList *b, const OmegaGpuCmdListOpts *opts, OmegaGpuCmdListStats *sa, OmegaGpuCmdListStats *sb);
+/* C4 events. Caller holds the lock. The next launch added to cl waits, on the chip, until launch `index` of list `other`
+ * (already added there) has completed: a host semaphore ACQUIRE on that launch's release semaphore (DONE), emitted
+ * before the launch's barrier, which is always the full WAIT_FOR_IDLE + invalidate (whatever the options say), so the
+ * launch reads what the other launch wrote. A list waits on one other list only, and a list with waits runs only in
+ * submit_pair with that list (submit refuses it; submit_pair refuses a wait outside the pair or past its launches).
+ * 0 ok, -1 (no such launch, a second other list, or a list made before a session recovery). */
+int omega_gpu_cmdlist_wait_for(OmegaGpuCmdList *cl, const OmegaGpuCmdList *other, uint32_t index);
+/* 1 once a timeout latched this module, until omega_gpu_session_recover (C5). */
 int omega_gpu_cmdlist_is_latched(void);
 
 /* After a submit with opts.stamps = 1: out[0] = GPU timestamp (ns, PTIMER) before launch 0, out[i + 1] = after launch i completed

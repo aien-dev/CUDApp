@@ -1,0 +1,435 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Exact source: CUDApp b759afc3 src/omega_blackwell_codegen_moe2.c and moe.h.
+note Concatenate bw_alloc,bw_effect,bw_project,rowpipe. No solving or encoding here.
+note Frozen spec8:0K,1lane_bytes,2rows,3warps,4mutant MUST0,5..7reserved MUST0.
+note Unlike ignored C tuning fields this interface never silently accepts variants.
+note Returns0 unsolved IR,1 refused spec,2 emitter capacity. Outputs zero on refusal.
+note stats4=count,vregs,uvregs,sharedBytes; launch declares one CTA barrier.
+note SB_B data waits only at first takeover; SB_RD protects each load address.
+note Runtime loop consumes every issued B set before EXIT; branch/reconvergence order unchanged.
+note Private state32..41shape,42..48branchsites,49partial,50step,51row,52word,
+note 53weight,54dot/acc,55dot,56scale,57sharedoffset;10..12lowering scratch.
+note Shape admission does not solve resources: caller globally allocates with limit128.
+fn rp_check spec view ulong 8 to uint
+if or eq get spec 0 0 gt get spec 0 32768
+ret 1
+end
+if and ne get spec 1 8 ne get spec 1 16
+ret 1
+end
+if and ne get spec 2 1 and ne get spec 2 2 and ne get spec 2 4 ne get spec 2 8
+ret 1
+end
+if or eq get spec 3 0 gt get spec 3 32
+ret 1
+end
+for j ulong 4
+if ne get spec add j 4 0
+ret 1
+end
+end
+if ne rem get spec 0 mul get spec 1 32 0
+ret 1
+end
+ks = div get spec 0 mul get spec 1 32
+if or gt ks 16 gt mul mul get spec 2 ks get spec 1 128
+ret 1
+end
+if gt get spec 0 mul get spec 3 512
+ret 1
+end
+if ge add mul sub get spec 2 1 get spec 0 get spec 1 shl ulong 1 23
+ret 1
+end
+ret 0
+end
+fn rp_zero ins edit ulong 8192 m edit ulong 2048 stats edit ulong 4 to void
+for j ulong 8192
+put ins j 0
+end
+for j ulong 2048
+put m j 0
+end
+for j ulong 4
+put stats j 0
+end
+end
+fn rp_widx row ulong step ulong to ulong
+ret add ulong 64 mul add mul row 16 step 2
+end
+fn rp_regrow m edit ulong 2048 s edit ulong 64 r edit ulong 512 row ulong to void
+uv = bc_vreg s m 1 false
+put r add 32 mul row 2 uv
+uv = bc_vreg s m 1 false
+put r add 33 mul row 2 uv
+for step ulong get s 36
+idx = rp_widx row step
+uv = bc_vreg s m get s 38 false
+put r idx uv
+uv = bc_vreg s m get s 38 false
+put r add idx 1 uv
+end
+end
+fn rp_regs m edit ulong 2048 s edit ulong 64 r edit ulong 512 to void
+uv = bc_vreg s m 2 true
+for j ulong 24
+w = ulong 1
+if or lt j 3 or and ge j 14 le j 16 and ge j 18 le j 19
+w = 2
+end
+put r j bc_vreg s m w false
+end
+put r 24 bc_vreg s m 4 false
+for row ulong get s 34
+rp_regrow m s r row
+end
+for step ulong get s 36
+put r add 320 mul step 2 bc_vreg s m 1 false
+put r add 321 mul step 2 bc_vreg s m 1 false
+end
+for j ulong 7
+w = ulong 1
+if lt j 5
+w = 2
+end
+put r add j 25 bc_vreg s m w false
+end
+for j ulong 5
+put r add j 48 bc_vreg s m 1 false
+end
+for j ulong 9
+w = ulong 1
+if eq j 0
+w = 2
+end
+put r add j 352 bc_vreg s m w false
+end
+for j ulong get s 41
+put r add 384 mul j 2 bc_vreg s m 2 false
+put r add 385 mul j 2 bc_vreg s m 1 false
+end
+end
+fn rp_start ins edit ulong 8192 s edit ulong 64 r view ulong 512 to void
+bc_node s 7 0 BCNONE BCNONE BCNONE
+put s 22 856
+put s 23 1
+bc_emit ins s 4
+for j ulong 7
+op = ulong 4
+if lt j 3
+op = 5
+end
+bc_node s op get r j BCNONE BCNONE BCNONE
+put s 22 add ulong 896 mul j 8
+if ge j 3
+put s 22 add ulong 920 mul sub j 3 4
+end
+bc_emit ins s 2
+end
+for j ulong 3
+bc_node s 3 get r add j 7 BCNONE BCNONE BCNONE
+put s 22 33
+if eq j 1
+put s 22 37
+end
+if eq j 2
+put s 22 38
+end
+bc_emit ins s 2
+end
+bc_inst ins s 2 get r 12 BCNONE 1
+bc_shift ins s get r 10 get r 7 0 5
+bc_mask ins s get r 11 get r 7 0 31
+bc_imm ins s get r 13 get r 9 BCNONE 1
+bc_wide ins s get r 14 get r 13 get r 0 16
+put s 8 0
+bc_mem ins s 56 get r 15 get r 14 2
+put s 8 8
+bc_mem ins s 56 get r 16 get r 14 3
+bc_node s 8 get r 17 get r 9 get r 4 BCNONE
+bc_emit ins s 0
+bc_wide ins s get r 18 get r 17 get r 1 1
+bc_node s 8 get r 17 get r 9 get r 5 BCNONE
+bc_emit ins s 0
+bc_wide ins s get r 19 get r 17 get r 2 1
+bc_imm ins s get r 20 get r 11 BCNONE get s 33
+bc_shift ins s get r 21 get r 11 0 get s 39
+bc_imm ins s get r 21 get r 21 BCNONE 4
+bc_imm ins s get r 22 get r 8 get r 10 get s 35
+bc_imm ins s get r 23 get r 22 BCNONE 1
+end
+fn rp_clamp ins edit ulong 8192 s edit ulong 64 r view ulong 512 to void
+bc_imm ins s get r 356 get r 7 BCNONE 1
+put s 8 mul mul sub get s 41 1 32 get s 35
+put s 9 0
+bc_imad ins s 8 get r 356 get r 12 get r 356
+bc_imm ins s get r 358 get r 356 BCNONE 4294967295
+bc_imm ins s get r 358 get r 12 get r 358 sub get s 32 1
+bc_shift ins s get r 357 get r 358 0 31
+bc_imm ins s get r 358 get r 356 BCNONE 1
+put s 8 and sub ulong 0 get s 32 4294967295
+put s 9 0
+bc_imad ins s 8 get r 358 get r 12 get r 358
+bc_node s 8 get r 359 get r 357 get r 358 BCNONE
+bc_emit ins s 0
+bc_imm ins s get r 359 get r 359 get r 356 4294967295
+bc_imm ins s get r 360 get r 358 BCNONE 1
+bc_imm ins s get r 360 get r 12 get r 360 1
+bc_node s 8 get r 360 get r 357 get r 360 BCNONE
+bc_emit ins s 0
+bc_imm ins s get r 360 get r 360 get r 356 4294967295
+bc_wide ins s get r add 384 mul sub get s 41 1 2 get r 360 get r 18 4
+bc_imm ins s get r 355 get r 359 BCNONE 4
+end
+fn rp_stage ins edit ulong 8192 s edit ulong 64 r view ulong 512 to void
+put s 49 rem get s 32 mul get s 35 32
+bc_wide ins s get r 352 get r 7 get r 18 4
+bc_imm ins s get r 353 get r 7 BCNONE 4
+for j ulong get s 41
+put s 8 mul mul j 128 get s 35
+put s 9 0
+bc_imad ins s 9 get r add 384 mul j 2 get r 12 get r 352
+end
+if ne get s 49 0
+rp_clamp ins s r
+end
+for j ulong get s 41
+put s 8 0
+kind = ulong 3
+if eq j 0
+kind = 2
+end
+put s 10 get r add 385 mul j 2
+put s 11 get r add 384 mul j 2
+bc_mem ins s 11 get s 10 get s 11 kind
+end
+for j ulong get s 41
+if and ne get s 49 0 eq j sub get s 41 1
+bc_node s 50 BCNONE get r 355 get r add 385 mul j 2 BCNONE
+bc_emit ins s 5
+else
+put s 8 mul mul j 128 get s 35
+put s 9 0
+bc_imad ins s 8 get r 354 get r 12 get r 353
+bc_node s 50 BCNONE get r 354 get r add 385 mul j 2 BCNONE
+bc_emit ins s 5
+end
+end
+bc_node s 48 BCNONE BCNONE BCNONE BCNONE
+bc_emit ins s 6
+bc_imm ins s get r 31 get r 11 BCNONE mul get s 33 4
+end
+fn rp_loadrow ins edit ulong 8192 s edit ulong 64 r view ulong 512 to void
+put s 8 mul get s 51 get s 32
+put s 12 mul get s 50 32
+put s 12 mul get s 12 get s 33
+put s 8 add get s 8 get s 12
+put s 12 rp_widx get s 51 get s 50
+put s 12 get r add get s 12 1
+bc_mem ins s get s 11 get s 12 get r 25 get s 10
+put s 10 12
+end
+fn rp_issue ins edit ulong 8192 s edit ulong 64 r view ulong 512 to void
+bc_wide ins s get r 25 get r 22 get r 15 mul get s 34 get s 32
+bc_wide ins s get r 25 get r 20 get r 25 1
+bc_shift ins s get r 30 get r 22 0 get s 40
+bc_wide ins s get r 26 get r 30 get r 16 div get s 32 32
+bc_wide ins s get r 26 get r 21 get r 26 1
+put s 10 11
+put s 11 56
+if eq get s 33 16
+put s 11 57
+end
+for step ulong get s 36
+for row ulong get s 34
+put s 50 step
+put s 51 row
+rp_loadrow ins s r
+end
+end
+for step ulong get s 36
+if eq step 0
+put s 8 0
+bc_mem ins s 11 get r 321 get r 26 get s 10
+else
+put s 8 mul mul step get s 37 4
+put s 9 0
+bc_imad ins s 9 get r 27 get r 12 get r 26
+put s 8 0
+bc_mem ins s 11 get r add 321 mul step 2 get r 27 12
+end
+put s 10 12
+end
+bc_imm ins s get r 22 get r 6 get r 22 1
+end
+fn rp_takerow ins edit ulong 8192 s edit ulong 64 r view ulong 512 to void
+idx = rp_widx get s 51 get s 50
+for word ulong get s 38
+bc_node s 8 get r idx get r add idx 1 BCNONE BCNONE
+put s 22 1
+put s 23 or shl word 16 shl word 24
+bc_emit ins s get s 10
+put s 10 0
+end
+end
+fn rp_take ins edit ulong 8192 s edit ulong 64 r view ulong 512 to void
+put s 10 13
+for step ulong get s 36
+for row ulong get s 34
+put s 50 step
+put s 51 row
+rp_takerow ins s r
+end
+end
+for step ulong get s 36
+put s 10 get r add 320 mul step 2
+put s 11 get r add 321 mul step 2
+bc_imm ins s get s 10 get s 11 BCNONE 1
+end
+end
+fn rp_decode ins edit ulong 8192 s edit ulong 64 r view ulong 512 wq ulong word ulong byteidx ulong to void
+if lt byteidx 3
+put s 8 shl ulong 1 sub ulong 20 mul byteidx 8
+put s 9 word
+bc_imad ins s 8 get r 48 wq BCNONE
+else
+bc_shift ins s get r 48 wq word 4
+end
+bc_mask ins s get r 49 get r 48 0 shl ulong 127 20
+bc_mask ins s get r 50 wq word shl ulong 128 mul byteidx 8
+put s 8 1
+if lt byteidx 3
+put s 8 shl ulong 1 sub ulong 24 mul byteidx 8
+end
+put s 9 0
+bc_imad ins s 8 get r 51 get r 50 get r 49
+end
+fn rp_dotrow ins edit ulong 8192 s edit ulong 64 r view ulong 512 to void
+put s 53 get r rp_widx get s 51 get s 50
+put s 54 get r add 33 mul get s 51 2
+for byteidx ulong 4
+rp_decode ins s r get s 53 get s 52 byteidx
+put s 9 byteidx
+bc_ffma ins s get s 54 get r 51 get r 24 get s 54
+end
+end
+fn rp_step ins edit ulong 8192 s edit ulong 64 r view ulong 512 to void
+put s 57 mul get s 50 128
+put s 57 mul get s 57 get s 33
+put s 56 get r add 320 mul get s 50 2
+for row ulong get s 34
+bc_inst ins s 1 get r add 33 mul row 2 BCNONE 0
+end
+for word ulong get s 38
+put s 52 word
+bc_node s 58 get r 24 get r 31 BCNONE BCNONE
+put s 22 mul word 16
+put s 22 add get s 22 get s 57
+bc_emit ins s 2
+for row ulong get s 34
+put s 51 row
+rp_dotrow ins s r
+end
+end
+for row ulong get s 34
+put s 9 0
+put s 54 get r add 32 mul row 2
+put s 55 get r add 33 mul row 2
+bc_ffma ins s get s 54 get s 55 get s 56 get s 54
+end
+end
+fn rp_compute ins edit ulong 8192 s edit ulong 64 r view ulong 512 to void
+for row ulong get s 34
+bc_inst ins s 1 get r add 32 mul row 2 BCNONE 0
+end
+for step ulong get s 36
+put s 50 step
+rp_step ins s r
+end
+end
+fn rp_store ins edit ulong 8192 s edit ulong 64 r view ulong 512 to void
+for row ulong get s 34
+put s 54 get r add 32 mul row 2
+for j ulong 5
+bc_node s 42 get r 52 get s 54 BCNONE BCNONE
+put s 22 shr ulong 16 j
+bc_emit ins s 2
+bc_node s 30 get s 54 get s 54 get r 52 BCNONE
+bc_emit ins s 0
+end
+end
+bc_wide ins s get r 28 get r 23 get r 19 mul get s 34 4
+bc_pred ins s get r 11 get r 12
+put s 45 get s 0
+bc_node s 54 BCNONE BCNONE BCNONE BCNONE
+put s 22 2
+bc_emit ins s 9
+put s 46 bc_branch ins s add get s 0 1 true
+for row ulong get s 34
+bc_wide ins s get r 29 get r 12 get r 28 mul row 4
+bc_node s 12 BCNONE get r 29 get r add 32 mul row 2 BCNONE
+put s 21 0
+bc_emit ins s 5
+end
+put s 47 get s 0
+bc_node s 55 BCNONE BCNONE BCNONE BCNONE
+bc_emit ins s 10
+bc_patch ins get s 46 get s 47
+bc_patch ins get s 45 add get s 47 1
+end
+fn bc_rowpipe spec view ulong 8 ins edit ulong 8192 m edit ulong 2048 stats edit ulong 4 to uint
+s = new ulong 64 0
+r = new ulong 512 0
+rp_zero ins m stats
+if ne rp_check spec 0
+ret 1
+end
+for j ulong 4
+put s add j 32 get spec j
+end
+put s 36 div get spec 0 mul get spec 1 32
+put s 37 div mul get spec 1 32 128
+put s 38 div get spec 1 4
+put s 39 bc_log div ulong 128 get spec 1
+put s 40 bc_log div ulong 128 get spec 2
+put s 10 mul get spec 3 32
+put s 41 add get spec 0 get s 10
+put s 41 sub get s 41 1
+put s 41 div get s 41 get s 10
+rp_regs m s r
+rp_start ins s r
+rp_stage ins s r
+bc_pred ins s get r 22 get r 3
+put s 42 bc_branch ins s add get s 0 1 true
+rp_issue ins s r
+put s 43 get s 0
+rp_take ins s r
+bc_pred ins s get r 22 get r 3
+put s 44 bc_branch ins s add get s 0 1 true
+rp_issue ins s r
+bc_patch ins get s 44 get s 0
+rp_compute ins s r
+rp_store ins s r
+bc_imm ins s get r 23 get r 6 get r 23 1
+bc_pred ins s get r 23 get r 3
+put s 48 bc_branch ins s add get s 0 1 true
+at = bc_branch ins s get s 43 false
+bc_patch ins get s 42 get s 0
+bc_patch ins get s 48 get s 0
+bc_node s 45 BCNONE BCNONE BCNONE BCNONE
+bc_emit ins s 7
+at = bc_branch ins s get s 0 false
+bc_tail ins at
+if ne get s 3 0
+rp_zero ins m stats
+ret 2
+end
+put stats 0 get s 0
+put stats 1 get s 4
+put stats 2 get s 5
+put stats 3 mul get s 32 4
+if ne rem get s 32 mul get s 35 32 0
+put stats 3 add get stats 3 16
+end
+ret 0
+end

@@ -16,7 +16,6 @@
 #include "omega_gpu_cmdlist.h"
 #include "omega_gpu_mem_cached.h"
 #include "omega_gpu_platform_linux.h"
-#include "omega_gpu_mem_reserve.h"
 #include "omega_gpu_session.h"
 
 #include <stdio.h>
@@ -25,6 +24,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "test_out_file.h"
 
 /* The three driver symbols the session path needs that the fake (written for the vector engine) lacks. */
 static int g_open_fail;
@@ -213,16 +213,19 @@ static void c_l2_inval_prefix_once(void) {
 /* Fable review of omega #459: a stamped standalone list of >= 1167 launches filled one submission to 16381 words; with
  * the 5-word prefix pending that is 16386 > 16384 ring words, refused BAD_LENGTH on every retry. The command list must
  * budget the prefix the platform publishes (caps.submit_prefix_words). */
+/* 2048 launches (about 14 ring words each) fill the 16384-word ring so the list splits into exactly 2 submissions.
+ * OMEGA_GPU_CMDLIST_MAX_LAUNCHES is 4096 since L312, which would split into 4, so the count is pinned here. */
+#define NEAR_CAP_LAUNCHES 2048u
 static void c_cmdlist_near_cap_with_l2_inval_pending(void) {
     fake_reset();
     fk.kernel_mode = FK_KERNEL_SKIP;
     fk.alloc_max = 4u << 20; /* the 2048-launch bank and QMD buffers are 2 MiB each */
     OmegaGpuCmdList *cl = NULL;
-    EXPECT(omega_gpu_cmdlist_create(OMEGA_GPU_CMDLIST_MAX_LAUNCHES, &cl) == 0);
+    EXPECT(omega_gpu_cmdlist_create(NEAR_CAP_LAUNCHES, &cl) == 0);
     if (!cl) { printf("  %s\n", omega_gpu_session_last_error()); return; }
     omega_gpu_session_lock();
     OmegaGpuLaunch L = launch_desc(1000);
-    for (uint32_t i = 0; i < OMEGA_GPU_CMDLIST_MAX_LAUNCHES; i++) EXPECT(omega_gpu_cmdlist_add(cl, &L) == (int)i);
+    for (uint32_t i = 0; i < NEAR_CAP_LAUNCHES; i++) EXPECT(omega_gpu_cmdlist_add(cl, &L) == (int)i);
     const OmegaGpuPlatform *p = omega_gpu_session_platform();
     OmegaGpuMem cached;
     EXPECT(omega_gpu_session_alloc_cached(4096, &cached) == 0);
@@ -233,7 +236,7 @@ static void c_cmdlist_near_cap_with_l2_inval_pending(void) {
     const int rc = omega_gpu_cmdlist_submit(cl, &o, &st);
     if (rc != 0) printf("  cmdlist submit: %s (platform: %s)\n", omega_gpu_session_last_error(), p->diag_text(p->ctx));
     EXPECT(rc == 0);
-    EXPECT(st.sems_done == OMEGA_GPU_CMDLIST_MAX_LAUNCHES && st.first_missing == -1);
+    EXPECT(st.sems_done == NEAR_CAP_LAUNCHES && st.first_missing == -1);
     EXPECT(st.submits == 2 && fk.submit_calls - submits0 == 2);
     EXPECT(count_l2_inval() == 1); /* the first submission only */
     for (int i = 0; i < fk.nev; i++)
@@ -246,10 +249,10 @@ static void c_cmdlist_near_cap_with_l2_inval_pending(void) {
 /* Developer bar D1 (docs/PAIN_POINTS.md): on the GB10 every CUDA++ buffer is the machine's own memory, and running
  * it out freezes the whole box. The reference refuses an allocation that would leave less than the reserve free,
  * before the driver is called, with a sentence that names the bytes asked, the bytes free and the setting.
- * omega_gpu_mem_reserve_test_set_meminfo points the platform at a fake /proc/meminfo; CUDAPP_MEM_RESERVE_MIB sets the
+ * omega_gpu_platform_linux_test_set_meminfo points the platform at a fake /proc/meminfo; CUDAPP_MEM_RESERVE_MIB sets the
  * reserve (0 = off). CUDAPP_MEMINFO is ignored. */
 static void write_meminfo(const char *path, unsigned long long avail_kb) {
-    FILE *f = fopen(path, "w");
+    FILE *f = test_out_open(path);
     if (!f) { case_ok = 0; return; }
     fprintf(f, "MemTotal:       127535484 kB\nMemFree:          100000 kB\nMemAvailable:   %llu kB\n", avail_kb);
     fclose(f);
@@ -260,7 +263,7 @@ static void c_memory_reserve(void) {
     char path[] = "/tmp/cudapp-meminfo-XXXXXX";
     int fd = mkstemp(path); if (fd >= 0) close(fd);
     write_meminfo(path, 4097ull * 1024ull); /* 4097 MiB free: 1 MiB above the default 4096 MiB reserve */
-    EXPECT(omega_gpu_mem_reserve_test_set_meminfo(path) == 0);
+    EXPECT(omega_gpu_platform_linux_test_set_meminfo(path) == 0);
     unsetenv("CUDAPP_MEM_RESERVE_MIB");
     OmegaGpuPlatformCaps caps;
     const OmegaGpuPlatform *p = omega_gpu_platform_linux(&caps);
@@ -286,10 +289,10 @@ static void c_memory_reserve(void) {
     EXPECT(p->dma_alloc(p->ctx, d, &big, &h, &cpu, &va, &bus) == OMEGA_GPU_PLAT_OK);
     unsetenv("CUDAPP_MEM_RESERVE_MIB");
     /* A missing test path falls back to /proc/meminfo; that case is D1_MEMINFO_TEST_PATH_REGULAR_ENV_IGNORED. */
-    EXPECT(omega_gpu_mem_reserve_test_set_meminfo("") == 0);
+    EXPECT(omega_gpu_platform_linux_test_set_meminfo("") == 0);
     EXPECT(p->device_close(p->ctx, d) == OMEGA_GPU_PLAT_OK);
     /* through the session, the same sentence reaches omega_gpu_session_last_error() */
-    EXPECT(omega_gpu_mem_reserve_test_set_meminfo(path) == 0);
+    EXPECT(omega_gpu_platform_linux_test_set_meminfo(path) == 0);
     omega_gpu_session_lock();
     EXPECT(omega_gpu_session_open() != NULL);
     OmegaGpuMem m;
@@ -329,6 +332,45 @@ static void c_submit_refused_while_unretired(void) {
     OmegaGpuLaunch L = launch_desc(1000); /* the session's own launch path still runs submit, wait, retire */
     EXPECT(omega_gpu_session_launch(&L, NULL, NULL) == 0);
     EXPECT(omega_gpu_session_launch(&L, NULL, NULL) == 0);
+    omega_gpu_session_unlock();
+}
+
+/* Audit Q6 on an L136 extra queue: its ring is also rewritten from offset 0, and caps.max_inflight is per queue, so
+ * a second submission on the extra queue while the first is unretired is refused REFUSED_BUSY before any copy or
+ * doorbell; the two queues' in-flight counts are independent; queue_retire on the extra queue releases it. */
+static void c_extra_queue_submit_refused_while_unretired(void) {
+    fake_reset();
+    fk.kernel_mode = FK_KERNEL_SKIP;
+    fk.extra_channels = 1;
+    setenv("AIEN_OMEGA_GPU_CHANNELS", "2", 1);
+    OmegaGpuPlatformCaps caps;
+    const OmegaGpuPlatform *p = omega_gpu_platform_linux(&caps);
+    omega_gpu_session_lock();
+    OmegaGpuSession *s = omega_gpu_session_open();
+    EXPECT(s != NULL);
+    OmegaGpuQueueHandle q1;
+    const int xq = s ? omega_gpu_session_extra_queue(1, &q1) : -1;
+    EXPECT(xq == 0);
+    if (!s || xq != 0) { printf("  session: %s\n", omega_gpu_session_last_error()); omega_gpu_session_unlock(); return; }
+    static const uint32_t NOP[2] = { 0, 0 };
+    const int submits0 = fk.submit_calls;
+    EXPECT(p->queue_submit(p->ctx, q1, NOP, 2) == OMEGA_GPU_PLAT_OK);
+    EXPECT(fk.chan_submit_calls == 1);
+    EXPECT(p->queue_submit(p->ctx, q1, NOP, 2) == OMEGA_GPU_PLAT_REFUSED_BUSY); /* first one not retired */
+    EXPECT(fk.chan_submit_calls == 1); /* the refusal reached no driver call: no copy, no doorbell */
+    EXPECT(strstr(p->diag_text(p->ctx), "queue_submit") != NULL);
+    EXPECT(p->queue_submit(p->ctx, s->queue, NOP, 2) == OMEGA_GPU_PLAT_OK); /* queue 0 is independent */
+    EXPECT(p->queue_submit(p->ctx, s->queue, NOP, 2) == OMEGA_GPU_PLAT_REFUSED_BUSY);
+    EXPECT(fk.submit_calls - submits0 == 1);
+    EXPECT(p->queue_retire(p->ctx, s->queue) == OMEGA_GPU_PLAT_OK);
+    EXPECT(p->queue_submit(p->ctx, q1, NOP, 2) == OMEGA_GPU_PLAT_REFUSED_BUSY); /* retiring queue 0 does not free q1 */
+    EXPECT(p->queue_retire(p->ctx, q1) == OMEGA_GPU_PLAT_OK);
+    EXPECT(fk.chan_retire_calls == 1);
+    EXPECT(p->queue_retire(p->ctx, q1) == OMEGA_GPU_PLAT_OK); /* nothing in flight: no driver retire */
+    EXPECT(fk.chan_retire_calls == 1);
+    EXPECT(p->queue_submit(p->ctx, q1, NOP, 2) == OMEGA_GPU_PLAT_OK);
+    EXPECT(fk.chan_submit_calls == 2);
+    EXPECT(p->queue_retire(p->ctx, q1) == OMEGA_GPU_PLAT_OK);
     omega_gpu_session_unlock();
 }
 
@@ -385,7 +427,7 @@ static void c_reserve_overflow(void) {
     char path[] = "/tmp/cudapp-meminfo-XXXXXX";
     int fd = mkstemp(path); if (fd >= 0) close(fd);
     write_meminfo(path, 4097ull * 1024ull);
-    EXPECT(omega_gpu_mem_reserve_test_set_meminfo(path) == 0);
+    EXPECT(omega_gpu_platform_linux_test_set_meminfo(path) == 0);
     setenv("CUDAPP_MEM_RESERVE_MIB", "17592186044416", 1); /* 2^44 MiB */
     const OmegaGpuPlatform *p = omega_gpu_platform_linux(NULL);
     OmegaGpuDeviceHandle d;
@@ -401,11 +443,11 @@ static void c_reserve_overflow(void) {
     write_meminfo(path, 18014398509481984ull); /* 2^54 kB: 2^64 bytes, past uint64 */
     EXPECT(p->dma_alloc(p->ctx, d, &small, &h, &cpu, &va, &bus) == OMEGA_GPU_PLAT_OK);
     EXPECT(p->device_close(p->ctx, d) == OMEGA_GPU_PLAT_OK);
-    EXPECT(omega_gpu_mem_reserve_test_set_meminfo("") == 0);
+    EXPECT(omega_gpu_platform_linux_test_set_meminfo("") == 0);
     unlink(path);
 }
 
-/* CodeQL cpp/path-injection #40: the meminfo file is set by code (omega_gpu_mem_reserve_test_set_meminfo), never by
+/* CodeQL cpp/path-injection #40: the meminfo file is set by code (omega_gpu_platform_linux_test_set_meminfo), never by
  * the environment, and is honoured only when it opens, without following a final symlink and without blocking, to a
  * regular file; anything else falls back to the real /proc/meminfo. The reserve is 2^30 MiB (1 PiB), which the real
  * /proc/meminfo cannot cover, so a fallback shows as REFUSED_LIMIT, while the fake file claims 2^52 kB (4 EiB) free and
@@ -445,14 +487,14 @@ static void c_meminfo_test_path(void) {
         {NULL, OMEGA_GPU_PLAT_REFUSED_LIMIT, "NULL (restores /proc/meminfo)"},
     };
     for (size_t i = 0; i < sizeof t / sizeof t[0]; i++) {
-        EXPECT(omega_gpu_mem_reserve_test_set_meminfo(t[i].path) == 0);
+        EXPECT(omega_gpu_platform_linux_test_set_meminfo(t[i].path) == 0);
         const int rc = p->dma_alloc(p->ctx, d, &small, &h, &cpu, &va, &bus);
         EXPECT(rc == t[i].want);
         printf("  test meminfo %s: %s\n", t[i].what,
                rc == OMEGA_GPU_PLAT_OK ? "read" : rc == OMEGA_GPU_PLAT_REFUSED_LIMIT ? "/proc/meminfo read, refused" : "other");
     }
     /* the environment no longer chooses the file */
-    EXPECT(omega_gpu_mem_reserve_test_set_meminfo(NULL) == 0);
+    EXPECT(omega_gpu_platform_linux_test_set_meminfo(NULL) == 0);
     setenv("CUDAPP_MEMINFO", fake, 1);
     int rc = p->dma_alloc(p->ctx, d, &small, &h, &cpu, &va, &bus);
     EXPECT(rc == OMEGA_GPU_PLAT_REFUSED_LIMIT);
@@ -462,11 +504,11 @@ static void c_meminfo_test_path(void) {
     char longp[4200];
     memset(longp, 'a', sizeof longp - 1);
     longp[0] = '/'; longp[sizeof longp - 1] = '\0';
-    EXPECT(omega_gpu_mem_reserve_test_set_meminfo(fake) == 0);
-    EXPECT(omega_gpu_mem_reserve_test_set_meminfo(longp) == -1);
+    EXPECT(omega_gpu_platform_linux_test_set_meminfo(fake) == 0);
+    EXPECT(omega_gpu_platform_linux_test_set_meminfo(longp) == -1);
     EXPECT(p->dma_alloc(p->ctx, d, &small, &h, &cpu, &va, &bus) == OMEGA_GPU_PLAT_OK);
     unsetenv("CUDAPP_MEM_RESERVE_MIB");
-    EXPECT(omega_gpu_mem_reserve_test_set_meminfo("") == 0);
+    EXPECT(omega_gpu_platform_linux_test_set_meminfo("") == 0);
     EXPECT(p->device_close(p->ctx, d) == OMEGA_GPU_PLAT_OK);
     unlink(lnk); unlink(fifo); unlink(fake); rmdir(sub); rmdir(dir);
     alarm(0);
@@ -484,6 +526,7 @@ static const Case CASES[] = {
     {"CMDLIST_NEAR_CAP_SUBMITS_WITH_L2_INVAL_PENDING", c_cmdlist_near_cap_with_l2_inval_pending},
     {"D1_MEMORY_RESERVE_REFUSES_BEFORE_THE_DRIVER", c_memory_reserve},
     {"QUEUE_SUBMIT_REFUSED_WHILE_UNRETIRED", c_submit_refused_while_unretired},
+    {"EXTRA_QUEUE_SUBMIT_REFUSED_WHILE_UNRETIRED", c_extra_queue_submit_refused_while_unretired},
     {"CMDLIST_TIMEOUT_LATCHES_WITHOUT_LAUNCH_BEHIND_IT", c_cmdlist_timeout_latches_without_launch},
     {"ZERO_TIMEOUT_REFUSED_BEFORE_SUBMIT", c_zero_timeout_refused},
     {"D1_RESERVE_AND_MEMINFO_OVERFLOW_SATURATE", c_reserve_overflow},

@@ -1,0 +1,14 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Thin native wire entrypoint, using the sole canonical quant schema.
+fn native_quant op ulong d edit ulong 48 wire edit uchar 384 to ulong
+if eq op 0
+ret ulong quant_write d wire
+end
+if eq op 1
+ret ulong quant_read wire d
+end
+if eq op 2
+ret ulong quant_check d
+end
+ret 1
+end

@@ -1,0 +1,248 @@
+note bw_spec_corpus.om: generates authoritative sm_121 boundary test corpus (461 cases)
+
+fn set_o_field role ulong word ulong val ulong op ulong o edit ulong 16 to void
+if or eq role 1 eq role 5
+put o 1 val
+ret
+end
+if or eq role 2 eq role 6
+put o 2 val
+put o 12 1
+ret
+end
+if or eq role 3 eq role 7
+if and eq role 7 or eq op 6 eq op 7
+put o 1 val
+ret
+end
+if eq role 7
+put o 5 val
+put o 14 1
+ret
+end
+put o 3 val
+put o 13 1
+ret
+end
+if eq role 4
+put o 4 val
+ret
+end
+if eq role 21
+if eq word 0
+put o 1 val
+else
+put o 4 val
+end
+ret
+end
+if eq role 8
+if eq val 0
+put o 9 1
+put o 10 0
+else
+if eq val 8
+put o 9 1
+put o 10 1
+end
+end
+ret
+end
+if eq role 12
+put o 11 val
+ret
+end
+put o 6 and val 4294967295
+end
+
+fn get_fld_val min_v ulong max_v ulong v_idx ulong to ulong
+if eq v_idx 0
+ret min_v
+end
+if eq v_idx 1
+ret add min_v 1
+end
+if eq v_idx 2
+ret sub max_v 1
+end
+ret max_v
+end
+
+fn get_v_idx c_i ulong f_i ulong nf ulong to ulong
+if eq c_i 0
+ret 0
+end
+if eq c_i 1
+ret 3
+end
+last_f = sub nf 1
+if eq f_i last_f
+if eq c_i 2
+ret 1
+end
+if eq c_i 3
+ret 2
+end
+if eq c_i 4
+ret 3
+end
+if eq c_i 5
+ret 0
+end
+if eq c_i 6
+ret 1
+end
+ret 2
+end
+prev_f = sub nf 2
+if eq f_i prev_f
+if ge c_i 5
+ret 1
+end
+ret 0
+end
+ret 0
+end
+
+fn finalize_o op ulong var ulong o edit ulong 16 to void
+if eq op 8
+if eq var 0
+put o 13 1
+else
+if eq var 1
+put o 8 1
+put o 14 1
+end
+end
+else
+if eq op 10
+if eq var 0
+put o 8 1
+put o 14 1
+end
+end
+end
+end
+
+fn clear_o o edit ulong 16 op ulong to void
+for k ulong 16
+put o k 0
+end
+put o 0 op
+end
+
+fn write_case o view ulong 16 buf edit uchar 128 to int
+for i ulong 16
+v = get o i
+off = mul i 8
+for b ulong 8
+sh = mul b 8
+put buf add off b uchar and shr v sh 255
+end
+end
+sent = ulong 0
+while lt sent 128 bound 128
+w = write int 1 buf sent sub 128 sent
+if le w 0
+ret 1
+end
+sent = add sent ulong w
+end
+ret 0
+end
+
+fn emit_one_field sp_tbl view ulong 3001 fbase ulong c_i ulong f_i ulong nf ulong o edit ulong 16 to void
+op = get o 0
+role = get sp_tbl fbase
+word = get sp_tbl add fbase 1
+min_v = get sp_tbl add fbase 5
+max_v = get sp_tbl add fbase 6
+v_idx = get_v_idx c_i f_i nf
+val = get_fld_val min_v max_v v_idx
+note Fixtures deliberately choose representable special-layout immediates.
+note Refusal tests separately retain the raw nonrepresentable boundaries.
+if eq role R_LDC
+shift = get sp_tbl add fbase 2
+step = shr ulong 256 shift
+val = mul div val step step
+end
+if eq role R_BSSY
+val = add and sub val 1 268435455 1
+end
+set_o_field role word val op o
+end
+
+fn emit_form_multi sp_tbl view ulong 3001 base ulong o edit ulong 16 buf edit uchar 128 to int
+op = get sp_tbl base
+var = get sp_tbl add base 1
+nf = get sp_tbl add base 9
+for c_i ulong 8
+clear_o o op
+for f_i ulong nf
+fbase = add add base 10 mul f_i 7
+emit_one_field sp_tbl fbase c_i f_i nf o
+end
+finalize_o op var o
+st = write_case o buf
+if ne sp_find sp_tbl o div base 45
+ret 2
+end
+if ne st 0
+ret 1
+end
+end
+ret 0
+end
+
+fn emit_form sp_tbl view ulong 3001 idx ulong o edit ulong 16 buf edit uchar 128 to int
+base = mul idx 45
+op = get sp_tbl base
+var = get sp_tbl add base 1
+nf = get sp_tbl add base 9
+
+if eq nf 0
+clear_o o op
+finalize_o op var o
+if ne sp_find sp_tbl o idx
+ret 2
+end
+ret write_case o buf
+end
+
+if eq nf 1
+fbase = add base 10
+for c_i ulong 4
+clear_o o op
+emit_one_field sp_tbl fbase c_i 0 1 o
+finalize_o op var o
+st1 = write_case o buf
+if ne sp_find sp_tbl o idx
+ret 2
+end
+if ne st1 0
+ret 1
+end
+end
+ret 0
+end
+
+ret emit_form_multi sp_tbl base o buf
+end
+
+fn main to int
+sp_tbl = new ulong 3001 0
+sp_init sp_tbl
+o = new ulong 16 0
+buf = new uchar 128 0
+for idx ulong 63
+st = emit_form sp_tbl idx o buf
+if ne st 0
+ret 1
+end
+end
+note Fault control: a complete valid stream followed by producer failure.
+if ge argcnt 2
+ret 7
+end
+ret 0
+end

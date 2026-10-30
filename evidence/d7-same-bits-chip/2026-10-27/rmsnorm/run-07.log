@@ -1,0 +1,24 @@
+# command: /home/drakestapleton/work/Determinism/CUDApp/build/gpu_elementwise_test
+# utc start: 2026-10-27T07:03:58.129786352Z
+PASS ex2_probe n=4096 rc=OK violations=0 worst_scaled_err=0.152538 chip_ns=214513 calls=1 unwritten=0 | mutant rc=OK violations=4096 CAUGHT
+PASS shared_xchg_probe n=4096 rc=OK violations=0 worst_scaled_err=0 chip_ns=103120 calls=1 unwritten=0 | mutant rc=OK violations=4096 CAUGHT
+rmsnorm_4x2048 output sha256 fec7ab6c2a6f67496ed95afce7ff8d0083cc0d28ca594087ff944058e4822667
+PASS rmsnorm_4x2048 n=8192 rc=OK violations=0 worst_scaled_err=0.0244808 chip_ns=103393 calls=1 unwritten=0 | mutant rc=OK violations=8192 CAUGHT
+rmsnorm_1x256 output sha256 2a194f5e2fb95fbe2f584cbc7655a4683d00132738ffe3da3c43e234882d2470
+PASS rmsnorm_1x256 n=256 rc=OK violations=0 worst_scaled_err=0.0206888 chip_ns=102944 calls=1 unwritten=0 | mutant rc=OK violations=256 CAUGHT
+rmsnorm_2x8192 output sha256 257fcd904344990ba68a1e26d8e4ed227121d50a369f2c62f0aca32664435d88
+PASS rmsnorm_2x8192 n=16384 rc=OK violations=0 worst_scaled_err=0 chip_ns=103969 calls=1 unwritten=0 | mutant rc=OK violations=16384 CAUGHT
+PASS rope_32h_64d_pos17_theta10000 n=2048 rc=OK violations=0 worst_scaled_err=0 chip_ns=103392 calls=1 unwritten=0 | mutant rc=OK violations=1024 CAUGHT
+PASS rope_4h_64d_pos17_theta10000 n=256 rc=OK violations=0 worst_scaled_err=0 chip_ns=102977 calls=1 unwritten=0 | mutant rc=OK violations=128 CAUGHT
+PASS rope_32h_64d_pos1023_theta500000 n=2048 rc=OK violations=0 worst_scaled_err=0 chip_ns=104352 calls=1 unwritten=0 | mutant rc=OK violations=1024 CAUGHT
+PASS rope_8h_64d_pos1023_theta500000 n=512 rc=OK violations=0 worst_scaled_err=0 chip_ns=102785 calls=1 unwritten=0 | mutant rc=OK violations=256 CAUGHT
+PASS swiglu_5632 n=5632 rc=OK violations=0 worst_scaled_err=0.0196297 chip_ns=102912 calls=1 unwritten=0 | mutant rc=OK violations=5630 CAUGHT
+PASS swiglu_8192 n=8192 rc=OK violations=0 worst_scaled_err=0.0177689 chip_ns=103297 calls=1 unwritten=0 | mutant rc=OK violations=8192 CAUGHT
+PASS swiglu_1000 n=1000 rc=OK violations=0 worst_scaled_err=0.017264 chip_ns=102977 calls=1 unwritten=0 | mutant rc=OK violations=1000 CAUGHT
+PASS swiglu_131073 n=131073 rc=OK violations=0 worst_scaled_err=0.0236441 chip_ns=210305 calls=2 unwritten=0 | mutant rc=OK violations=131059 CAUGHT
+PASS swiglu_1572864 n=1572864 rc=OK violations=0 worst_scaled_err=0.0250368 chip_ns=1255612 calls=12 unwritten=0 | mutant rc=OK violations=1572612 CAUGHT
+PASS icache_reuse_rotation n=20 rc=OK violations=0 worst_scaled_err=0 chip_ns=2015644 calls=20 unwritten=0 | mutant rc=OK violations=0 CAUGHT
+device_opens=1
+PASS: 35 checks, 0 failed
+# exit: 0
+# utc end: 2026-10-27T07:03:58.230693569Z

@@ -1,0 +1,514 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Concatenate quant.om and existing fp8/mxfp4/nvfp4 models before this caller.
+fn qt_base d edit ulong 48 fmt ulong cols ulong to void
+for i ulong 48
+put d i 0
+end
+put d 0 1
+put d 1 fmt
+put d 2 8
+put d 11 1
+put d 13 1
+put d 14 8
+put d 15 1
+put d 17 1
+put d 18 cols
+put d 19 2
+put d 24 1
+put d 25 cols
+put d 27 1
+put d 30 cols
+put d 33 cols
+put d 36 cols
+put d 41 cols
+if ge fmt 4
+put d 24 2
+put d 4 2
+put d 5 1
+put d 6 32
+if eq fmt 5
+put d 4 3
+put d 6 16
+end
+if lt fmt 6
+put d 2 4
+put d 14 4
+end
+put d 25 quant_ceil cols div ulong 8 get d 2
+put d 30 get d 25
+put d 26 quant_ceil cols get d 6
+put d 31 get d 26
+put d 32 1
+put d 41 mul quant_ceil cols get d 6 get d 6
+put d 33 quant_ceil get d 41 div ulong 8 get d 2
+put d 36 get d 33
+put d 34 get d 26
+put d 35 get d 4
+put d 37 get d 31
+end
+end
+fn qt_wire to uint
+d = new ulong 48 0
+p = new ulong 48 0
+wire = new uchar 384 0
+other = new uchar 384 0
+qt_base d 4 3
+if ne quant_write d wire 0
+ret 1
+end
+if ne quant_read wire p 0
+ret 2
+end
+for i ulong 48
+if ne get p i get d i
+ret 3
+end
+end
+if ne quant_write p other 0
+ret 4
+end
+if ne quant_hash wire quant_hash other
+ret 5
+end
+put p 28 1
+if ne quant_write p other 0
+ret 6
+end
+if ne quant_shash wire quant_shash other
+ret 7
+end
+if eq quant_hash wire quant_hash other
+ret 8
+end
+ret 0
+end
+fn qt_nib src view uchar 65536 i ulong to uint
+v = uint get src div i 2
+ret and shr v uint mul rem i 2 4 15
+end
+fn qt_numer src view uchar 65536 sc view uchar 1024 dst view uchar 65536 ds view uchar 1024 fmt ulong cols ulong to uint
+block = ulong 32
+if eq fmt 5
+block = 16
+end
+for i ulong cols
+a = uint get src i
+b = uint get dst i
+if eq fmt 6
+a = e4m3bits a
+b = e4m3bits b
+else
+a = qt_nib src i
+b = qt_nib dst i
+if eq fmt 4
+a = mxfp4bits a uint get sc div i block
+b = mxfp4bits b uint get ds div i block
+else
+a = nvfp4bits a uint get sc div i block
+b = nvfp4bits b uint get ds div i block
+end
+end
+if ne a b
+ret 1
+end
+end
+ret 0
+end
+fn qt_blocks fmt ulong cols ulong to uint
+d = new ulong 48 0
+src = new uchar 65536 0
+sc = new uchar 1024 0
+dst = new uchar 65536 255
+ds = new uchar 1024 255
+qt_base d fmt cols
+for i ulong get d 30
+put src i uchar and i 255
+end
+if eq get d 2 4
+if ne rem cols 2 0
+pos = div cols 2
+put src pos and get src pos 15
+end
+end
+for i ulong get d 31
+put sc i 127
+if eq fmt 5
+put sc i 56
+end
+end
+if eq fmt 6
+for i ulong cols
+if eq and get src i 127 127
+put src i 0
+end
+end
+end
+if ne quant_repack d src sc dst ds 0
+ret 6
+end
+for i ulong get d 30
+if ne get src i get dst i
+ret 7
+end
+end
+for i ulong get d 36
+if ge i get d 30
+if ne get dst i 0
+ret 8
+end
+end
+end
+for i ulong get d 31
+if ne get sc i get ds i
+ret 9
+end
+end
+note Independently implemented source numeric decoder consumes actual packed output.
+if ne qt_numer src sc dst ds fmt cols 0
+ret 10
+end
+ret 0
+end
+fn qt_fp8 fmt ulong to uint
+d = new ulong 48 0
+src = new uchar 65536 0
+sc = new uchar 1024 0
+dst = new uchar 65536 255
+ds = new uchar 1024 255
+qt_base d fmt 256
+put d 12 1
+for i ulong 256
+put src i uchar i
+end
+if ne quant_repack d src sc dst ds 0
+ret 1
+end
+for i ulong 256
+if ne get src i get dst i
+ret 2
+end
+end
+put d 12 0
+if ne quant_repack d src sc dst ds 5
+ret 3
+end
+for i ulong 256
+if eq fmt 2
+if eq and i 127 127
+put src i 0
+end
+else
+if ge and i 127 124
+put src i 0
+end
+end
+end
+if ne quant_repack d src sc dst ds 0
+ret 4
+end
+ret 0
+end
+fn qt_negative to uint
+d = new ulong 48 0
+src = new uchar 65536 0
+sc = new uchar 1024 0
+dst = new uchar 65536 211
+ds = new uchar 1024 213
+qt_base d 4 3
+put sc 0 255
+if ne quant_repack d src sc dst ds 6
+ret 1
+end
+if or ne get dst 0 211 ne get ds 0 213
+ret 2
+end
+put sc 0 127
+put src 1 240
+if ne quant_repack d src sc dst ds 4
+ret 3
+end
+put src 1 0
+put d 31 0
+if ne quant_check d 3
+ret 4
+end
+put d 31 1
+put d 25 0
+if ne quant_check d 3
+ret 5
+end
+put d 25 2
+put d 27 3
+if ne quant_check d 4
+ret 6
+end
+put d 27 1
+put d 39 1
+if ne quant_check d 1
+ret 7
+end
+put d 39 0
+put d 42 1
+if ne quant_check d 1
+ret 8
+end
+put d 42 0
+put d 17 18446744073709551615
+if ne quant_check d 3
+ret 9
+end
+put d 17 1
+put d 7 1
+if ne quant_check d 7
+ret 10
+end
+put d 7 0
+put d 32 0
+if ne quant_check d 4
+ret 11
+end
+put d 32 1
+put d 41 31
+if ne quant_check d 4
+ret 12
+end
+put d 41 32
+put d 9 2
+if ne quant_check d 1
+ret 13
+end
+put d 9 0
+put d 1 7
+if ne quant_check d 1
+ret 14
+end
+ret 0
+end
+fn qt_ints to uint
+d = new ulong 48 0
+wire = new uchar 384 0
+p = new ulong 48 0
+qt_base d 2 8
+put d 1 1
+put d 3 1
+put d 11 0
+put d 13 0
+for bits ulong 8
+put d 2 add bits 1
+put d 14 add bits 1
+put d 7 1
+put d 8 sub shl ulong 1 add bits 1 1
+if ne quant_sem d 0
+ret 1
+end
+if ne quant_write d wire 0
+ret 2
+end
+if ne quant_read wire p 0
+ret 3
+end
+if ne quant_check p 2
+ret 4
+end
+put d 8 shl ulong 1 add bits 1
+if ne quant_sem d 7
+ret 5
+end
+end
+ret 0
+end
+fn qt_foldcase to uint
+d = new ulong 48 0
+src = new uchar 65536 0
+sc = new uchar 1024 0
+dst = new uchar 65536 255
+ds = new uchar 1024 255
+qt_base d 2 256
+put d 17 128
+put d 4 1
+put d 5 128
+put d 6 128
+put d 24 3
+put d 26 4
+put d 30 mul ulong 128 256
+put d 31 4
+put d 34 8
+put d 35 4
+put d 36 get d 30
+put d 37 8
+put d 40 1
+note BF16 source patterns 0 and sign-bit-only preserve signed zero.
+put sc 3 128
+if ne quant_repack d src sc dst ds 0
+ret 1
+end
+if ne get ds 7 128
+ret 2
+end
+put sc 0 128
+put sc 1 127
+if ne quant_repack d src sc dst ds 6
+ret 3
+end
+put sc 0 0
+put sc 1 128
+if ne quant_repack d src sc dst ds 0
+ret 4
+end
+if ne get ds 3 128
+ret 5
+end
+put sc 0 128
+put sc 1 63
+if ne quant_repack d src sc dst ds 0
+ret 6
+end
+if ne bitcast uint quant_fold sc 0 shl add uint 127 56 23
+ret 7
+end
+ret 0
+end
+fn qt_strides to uint
+d = new ulong 48 0
+src = new uchar 65536 0
+sc = new uchar 1024 0
+dst = new uchar 65536 255
+ds = new uchar 1024 255
+qt_base d 4 3
+put d 17 2
+put d 25 4
+put d 26 2
+put d 27 32
+put d 28 3
+put d 29 2
+put d 30 16
+put d 31 6
+put d 33 32
+put d 34 2
+put d 36 64
+put d 37 4
+put src 3 33
+put src 4 3
+put src 7 67
+put src 8 5
+put sc 2 127
+put sc 4 128
+if ne quant_repack d src sc dst ds 0
+ret 1
+end
+if or ne get dst 0 33 ne get dst 1 3
+ret 2
+end
+if or ne get dst 32 67 ne get dst 33 5
+ret 3
+end
+if or ne get ds 0 127 ne get ds 2 128
+ret 4
+end
+if or ne get ds 1 0 ne get ds 3 0
+ret 5
+end
+for i ulong 64
+if gt rem i 32 1
+if ne get dst i 0
+ret 6
+end
+end
+end
+put d 28 18446744073709551615
+if ne quant_repack d src sc dst ds 3
+ret 7
+end
+ret 0
+end
+fn qt_boundone fmt ulong scale uchar want uint to uint
+d = new ulong 48 0
+src = new uchar 65536 0
+sc = new uchar 1024 0
+dst = new uchar 65536 211
+ds = new uchar 1024 213
+qt_base d fmt 1
+put sc 0 scale
+if ne quant_repack d src sc dst ds want
+ret 1
+end
+if eq want 0
+if ne get ds 0 scale
+ret 2
+end
+else
+if ne get dst 0 211
+ret 3
+end
+if ne get ds 0 213
+ret 3
+end
+end
+ret 0
+end
+fn qt_boundaries to uint
+for f ulong 3
+if ne qt_boundone add f 4 0 0 0
+ret 1
+end
+if ne qt_boundone add f 4 126 0 0
+ret 2
+end
+if ne qt_boundone add f 4 255 6 0
+ret 3
+end
+if eq f 1
+if ne qt_boundone 5 127 6 0
+ret 4
+end
+if ne qt_boundone 5 254 6 0
+ret 5
+end
+else
+if ne qt_boundone add f 4 127 0 0
+ret 6
+end
+if ne qt_boundone add f 4 254 0 0
+ret 7
+end
+end
+end
+ret 0
+end
+fn main to int
+if ne qt_wire 0
+ret 7
+end
+for fmt ulong 3
+for k ulong 65
+if ne qt_blocks add fmt 4 add k 1 0
+ret 1
+end
+end
+end
+if ne qt_fp8 2 0
+ret 2
+end
+if ne qt_fp8 3 0
+ret 3
+end
+if ne qt_negative 0
+ret 4
+end
+if ne qt_ints 0
+ret 5
+end
+if ne qt_foldcase 0
+ret 6
+end
+if ne qt_consumer 0
+ret 8
+end
+if ne qt_strides 0
+ret 9
+end
+if ne qt_boundaries 0
+ret 10
+end
+ret 0
+end

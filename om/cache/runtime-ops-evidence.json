@@ -1,0 +1,138 @@
+{
+  "_portable_derivation":{"schema":"AIEN_PORTABLE_RECEIPT_V1","original_sha256":"f4a6891e313c2d93135935cd0ebf8edc7f7e067f8a23539bd89f0e8754c3ac6c","original_git_blob":"c71f20dadadf37e8858fe1a75885b6645d856e06","placeholder":"$AIEN_RECEIPT_HOME","rule":"Remove this metadata line and replace the placeholder with the producer HOME prefix obtained from the original Git blob.","scrubbed_sha256":"5d10423175e9900a047e7b768e52c08e16b97d243cb29904619d30478ff5bbaa","scrubbed_hash_domain":"document bytes with exactly the _portable_derivation metadata line removed"},
+  "schema": "cudapp-native-cache-runtime-ops-host-evidence/1",
+  "state": "EXERCISED_HOST_ONLY",
+  "assignment": "NativeIntegrate delegated only runtime.om ops16/17/18; shared index and commit untouched",
+  "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+  "compiler_revision": "e5b32567a7aff3ce594e3254a622a846a6cd190b",
+  "source_sha256": {
+    "$AIEN_RECEIPT_HOME/fix/native-integration/om/cache/residency.om": "0da6b33438e98934425f1ea83d194298f390cc68029f0750ebfc70060f87bf61",
+    "$AIEN_RECEIPT_HOME/fix/native-integration/om/cache/runtime.om": "cd89ec72bfb0c9e2238117e81ddf5b7e4cc6c4af82416e28a839e13e89693c8f",
+    "$AIEN_RECEIPT_HOME/fix/kernel-cache/om/cache/runtime_ops_test.om": "5c0569afa863d27437cddfa36460e3b0ccc4dca30ae98869b01f3d79b4425875"
+  },
+  "function_compile": {
+    "exit": 0,
+    "binary_bytes": 10184,
+    "sha256": "9d996839e4f598a2a510e33725a59823f50bb2e3fa7eafd5c8ff0fa38044930b",
+    "source_sha256": "7c4313cd1e72c2628165cbef93c27cfe48fc627e2c089b8d530212f2aae49be6"
+  },
+  "native_controls": {
+    "compile_exit": 0,
+    "binary_bytes": 16564,
+    "binary_sha256": "c962ef59d972527f007aeb0f6ec3dcb39a88aa26835fdcef927be25db8ba8c6e",
+    "source_sha256": "97ff81f991bc7e9a3a475ced3b6f4d03ce586698925a1f9d769c9efed9ff3074",
+    "run_exit": 0,
+    "controls": 46,
+    "coverage": [
+      "empty refresh invalid budget",
+      "empty init return1",
+      "same context return0 and allpool bytes unchanged",
+      "automatic pool owner not caller req7",
+      "duplicate concurrent registration preserves owner/pending",
+      "same epoch refresh preserves interrupted pending",
+      "commit and read-only descriptor token",
+      "profile/epoch/revision/slot/invalid version refusals",
+      "ops13/14/15 preserved victim and keyed-token behavior",
+      "pin/sealed miss/budget/abort",
+      "newer dead-handle epoch invalidation resets rows/tickets preserving slots/budget",
+      "older/profile-only refresh refuses unchanged",
+      "MAX owner refuses without mutation"
+    ]
+  },
+  "mutants": [
+    {
+      "name": "profile_bypass",
+      "source_sha256": "e8581a02374d391288d4944801b70a8b72d172901dc620a99c8bb13cfe4843c2",
+      "binary_sha256": "45ea0430850202b9c886849cf4a21913b42688d934c11a4ffc7aebed74840370",
+      "compile_exit": 0,
+      "exit": 16,
+      "caught": true
+    },
+    {
+      "name": "token_bypass",
+      "source_sha256": "1ef4402c0b2e732d95f7e775d3b59476ce665f7889d53bafd425206a7c42c4cf",
+      "binary_sha256": "30407bec0a5268e82d3c6359249353e3ca1d5cb731d022264a4206f5bc5a8fe5",
+      "compile_exit": 0,
+      "exit": 21,
+      "caught": true
+    },
+    {
+      "name": "refresh_same_reports_new",
+      "source_sha256": "c6f016468a529bed127f1296078be02df6ff7497a98fb59446699eec6266f96c",
+      "binary_sha256": "48e343411a249f6c1b0ce1c82c837add331d79b2ed8e2d771990e8f924bef85f",
+      "compile_exit": 0,
+      "exit": 4,
+      "caught": true
+    },
+    {
+      "name": "invalidate_bypass",
+      "source_sha256": "538a3019ff62d29c4ab06294caa9f72330f1a50731fca0ff649fde3d4cd4e0d2",
+      "binary_sha256": "a04a0944240e9863c8e848f55d3efaebc0322de78b635f6de7985ff69ae2f352",
+      "compile_exit": 0,
+      "exit": 18,
+      "caught": true
+    },
+    {
+      "name": "caller_owner_reintroduced",
+      "source_sha256": "9d29cb754645c1f5211391504fe93c3e80497437c113d09c83579452803df311",
+      "binary_sha256": "065df0f864d64344d1bcc215a4f6ccfac6531157613a72f4c9e9ca215e7694d0",
+      "compile_exit": 0,
+      "exit": 7,
+      "caught": true
+    },
+    {
+      "name": "owner_overflow_bypass",
+      "source_sha256": "9ab25414c441b7b540b8e3206bdb2b2a1d12f9a561cebd48a7eda8a80b7c61c3",
+      "binary_sha256": "a140e673db13b257cfda1192ada211bad36a33d9c0fde1b5c437986737c26e99",
+      "compile_exit": 0,
+      "exit": 44,
+      "caught": true
+    }
+  ],
+  "mcp_compile": {
+    "ok": true,
+    "binary_bytes": 10184,
+    "sha256": "9d996839e4f598a2a510e33725a59823f50bb2e3fa7eafd5c8ff0fa38044930b",
+    "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+    "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+  },
+  "mcp_run": {
+    "compile": {
+      "ok": true,
+      "binary_bytes": 16564,
+      "sha256": "c962ef59d972527f007aeb0f6ec3dcb39a88aa26835fdcef927be25db8ba8c6e",
+      "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"
+    },
+    "exit": {
+      "kind": "normal",
+      "code": 0
+    },
+    "stdout": "",
+    "stdout_bytes": 0,
+    "stdout_truncated": false,
+    "stderr": "",
+    "stderr_bytes": 0,
+    "stderr_truncated": false,
+    "limits": {
+      "timeout_ms": 10000,
+      "cpu_seconds": 10,
+      "address_space_bytes": 268435456,
+      "file_size_bytes": 1048576,
+      "processes": 5
+    },
+    "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+  },
+  "omega_mcp_tools_used": [
+    "lookup",
+    "compile",
+    "run"
+  ],
+  "limits": {
+    "existing_runtime_facing_caller": "PARENT_NATIVEINTEGRATE_PENDING",
+    "gpu": "NOT_RUN",
+    "upload_timing": "NOT_RUN",
+    "whole_model": "NOT_RUN",
+    "session_teardown_authority": "unchanged; only existing owner may supply dead-handle epoch",
+    "shared_registration_bridge_commit": "NativeIntegrate sole owner"
+  }
+}

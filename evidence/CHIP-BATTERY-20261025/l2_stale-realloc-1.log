@@ -1,0 +1,7 @@
+RUN mode=realloc cached=1 weight_cache_now=1 n=256 k=2048 reps=3
+SNAP site=gemv-A expected=2048 rows=256 stale_rows=0 stale_lines=0 of 4096 undecoded=0 y_min=2048.0 y_max=2048.0
+HOST freed A (va 0x1004133000), uploaded B at va 0x1004133000 same_va=yes phys=UNKNOWN reason=no physical address in the API
+SNAP site=gemv-B-1 expected=-2048 rows=256 stale_rows=0 stale_lines=0 of 4096 undecoded=0 y_min=-2048.0 y_max=-2048.0
+SNAP site=gemv-B-2 expected=-2048 rows=256 stale_rows=0 stale_lines=0 of 4096 undecoded=0 y_min=-2048.0 y_max=-2048.0
+SNAP site=gemv-B-3 expected=-2048 rows=256 stale_rows=0 stale_lines=0 of 4096 undecoded=0 y_min=-2048.0 y_max=-2048.0
+STALE mode=realloc cached=1 stale_or_undecoded_lines_total=0 verdict=FRESH

@@ -1,25 +1,36 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_gpu_mem_reserve.c -- developer bar D1: refuse an allocation that would leave less than the reserve free
- * (src/omega_gpu_mem_reserve.h). Hosted only: reads /proc/meminfo, or a regular file a test names by code. */
+ * (src/omega_gpu_mem_reserve.h). Hosted only: reads /proc/meminfo, or a regular file a test names by code with
+ * omega_gpu_platform_linux_test_set_meminfo. */
 #include "omega_gpu_mem_reserve.h"
 
 #include "omega_gpu_platform.h"
+#include "omega_gpu_platform_linux.h"
 
 #include <fcntl.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
-/* CodeQL cpp/path-injection #40: the meminfo path is never taken from the environment. */
-static char g_meminfo_test_path[4096];
+/* The meminfo file is chosen by code, never by the environment: the Linux platform is the default session platform
+ * (omega_gpu_session.c install_default) of every hosted program linked with libomega_gpu.a, serving processes included,
+ * so a stale variable left in an environment must not be able to switch the D1 guard off (CodeQL cpp/path-injection
+ * #40 was the former CUDAPP_MEMINFO variable). Every open is O_NOFOLLOW|O_NONBLOCK and must reach a regular file, since
+ * the check runs under the platform lock: open() on a FIFO blocks, and a device file may act on open. A test file that
+ * cannot be used that way falls back to the real /proc/meminfo. */
+static pthread_mutex_t g_meminfo_mu = PTHREAD_MUTEX_INITIALIZER;
+static char g_meminfo_test_path[4096]; /* guarded by g_meminfo_mu; "" = /proc/meminfo */
 
-int omega_gpu_mem_reserve_test_set_meminfo(const char *path) {
+int omega_gpu_platform_linux_test_set_meminfo(const char *path) {
     size_t n = path ? strlen(path) : 0;
     if (n >= sizeof g_meminfo_test_path) return -1;
-    memcpy(g_meminfo_test_path, path ? path : "", n);
+    pthread_mutex_lock(&g_meminfo_mu);
+    memcpy(g_meminfo_test_path, n ? path : "", n);
     g_meminfo_test_path[n] = '\0';
+    pthread_mutex_unlock(&g_meminfo_mu);
     return 0;
 }
 
@@ -34,14 +45,10 @@ static FILE *meminfo_open_regular(const char *path) {
 }
 
 static FILE *meminfo_open(void) {
-    /* Read and discard: a leftover CUDAPP_MEMINFO must not choose the file. */
-    const char *ignored = getenv("CUDAPP_MEMINFO");
-    (void)ignored;
-    if (g_meminfo_test_path[0]) {
-        FILE *f = meminfo_open_regular(g_meminfo_test_path);
-        if (f) return f;
-    }
-    return meminfo_open_regular("/proc/meminfo");
+    pthread_mutex_lock(&g_meminfo_mu);
+    FILE *f = g_meminfo_test_path[0] ? meminfo_open_regular(g_meminfo_test_path) : NULL;
+    pthread_mutex_unlock(&g_meminfo_mu);
+    return f ? f : meminfo_open_regular("/proc/meminfo");
 }
 
 static void human_bytes(char *out, size_t n, uint64_t b) {

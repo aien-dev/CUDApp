@@ -1,0 +1,163 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Block-scaled dot products and C = A B^T on the CPU for three formats:
+note fmt 0 NVFP4 (E2M1, UE4M3 scale per 16), fmt 1 MXFP4 (E2M1, E8M0 per 32),
+note fmt 2 MXFP8 E4M3 (E8M0 per 32). Needs fp8.om and nvfp4.om in the unit.
+note A is m rows and B is n rows, each row k elements, K-contiguous (TN, as the
+note cuBLASLt block-scaled path). Rows start on block boundaries. Element bytes
+note live in one 4096-byte array (FP4: two per byte, low nibble first), scales
+note in one 256-byte array, block-major per row. d holds fmt m n k.
+note Each block term is computed exactly: the element products are integers
+note (E2M1 times 2, E4M3 times 2^9), summed in a long, then times the two scales
+note as one binary64 power of two. Terms are added left to right in binary64
+note (round to nearest even). Error bound for nb blocks, u = 2^-53:
+note |acc - exact| <= gamma(nb-1) sum|term|, gamma(j) = j u/(1 - j u).
+note Wolfram: Max inner products {16 144 225, 32 144, 32 229376^2} ->
+note {518400, 4608, 1683627180032} < 2^53.
+note Refusals trap 5: NaN element (E4M3 127/255), E8M0 255, UE4M3 above 126,
+note a bad fmt, k not a multiple of the block, or arrays too small.
+fn e2m1sx nib uint to long
+v = long e2m1x2 and nib 7
+if eq and nib 8 8
+ret neg v
+end
+ret v
+end
+fn e4m3sx code uint to long
+ex = and shr code 3 15
+m = long and code 7
+if eq and code 127 127
+trap 5
+end
+v = m
+if gt ex 0
+v = shl or m 8 sub long ex 1
+end
+if eq and code 128 128
+ret neg v
+end
+ret v
+end
+fn pow2f64 k long to f64
+if lt k -1022
+trap 5
+end
+if gt k 1023
+trap 5
+end
+ret bitcast f64 shl ulong add k 1023 52
+end
+fn e8m0exp sc uint to long
+if eq sc 255
+trap 5
+end
+ret sub long sc 127
+end
+fn fp4get a view uchar 4096 i ulong to uint
+b = uint get a shr i 1
+ret and shr b uint mul and i 1 4 15
+end
+fn nvterm a view uchar 4096 sa view uchar 256 b view uchar 4096 sb view uchar 256 ia ulong ib ulong to f64
+acc = long 0
+for i ulong 16
+x = e2m1sx fp4get a add mul ia 16 i
+y = e2m1sx fp4get b add mul ib 16 i
+acc = add acc mul x y
+end
+ca = uint get sa ia
+cb = uint get sb ib
+w = mul long mul ue4m3sig ca ue4m3sig cb acc
+p = add add ue4m3exp ca ue4m3exp cb -2
+ret mul f64 w pow2f64 p
+end
+fn mx4term a view uchar 4096 sa view uchar 256 b view uchar 4096 sb view uchar 256 ia ulong ib ulong to f64
+acc = long 0
+for i ulong 32
+x = e2m1sx fp4get a add mul ia 32 i
+y = e2m1sx fp4get b add mul ib 32 i
+acc = add acc mul x y
+end
+p = add add e8m0exp uint get sa ia e8m0exp uint get sb ib -2
+ret mul f64 acc pow2f64 p
+end
+fn mx8term a view uchar 4096 sa view uchar 256 b view uchar 4096 sb view uchar 256 ia ulong ib ulong to f64
+acc = long 0
+for i ulong 32
+x = e4m3sx uint get a add mul ia 32 i
+y = e4m3sx uint get b add mul ib 32 i
+acc = add acc mul x y
+end
+p = add add e8m0exp uint get sa ia e8m0exp uint get sb ib -18
+ret mul f64 acc pow2f64 p
+end
+fn mxblk fmt ulong to ulong
+if eq fmt 0
+ret 16
+end
+if gt fmt 2
+trap 5
+end
+ret 32
+end
+fn mxterm a view uchar 4096 sa view uchar 256 b view uchar 4096 sb view uchar 256 d view ulong 4 ij ulong to f64
+fmt = get d 0
+n = get d 2
+kb = div get d 3 mxblk fmt
+ia = mul div ij n kb
+ib = mul rem ij n kb
+acc = 0.0f64
+for t ulong kb
+if eq fmt 0
+acc = add acc nvterm a sa b sb add ia t add ib t
+continue
+end
+if eq fmt 1
+acc = add acc mx4term a sa b sb add ia t add ib t
+continue
+end
+acc = add acc mx8term a sa b sb add ia t add ib t
+end
+ret acc
+end
+fn mxcheck d view ulong 4 to void
+fmt = get d 0
+bs = mxblk fmt
+m = get d 1
+n = get d 2
+k = get d 3
+if eq k 0
+trap 5
+end
+if ne rem k bs 0
+trap 5
+end
+note Divide the capacity before comparing so full-width dimensions cannot wrap products.
+if ne n 0
+if gt m div ulong 256 n
+trap 5
+end
+end
+kb = div k bs
+if gt m div ulong 256 kb
+trap 5
+end
+if gt n div ulong 256 kb
+trap 5
+end
+eb = k
+if lt fmt 2
+eb = div k 2
+end
+if gt m div ulong 4096 eb
+trap 5
+end
+if gt n div ulong 4096 eb
+trap 5
+end
+end
+fn mxmm a view uchar 4096 sa view uchar 256 b view uchar 4096 sb view uchar 256 c edit f64 256 d view ulong 4 to void
+mxcheck d
+mn = mul get d 1 get d 2
+for ij ulong mn
+put c ij mxterm a sa b sb d ij
+end
+end

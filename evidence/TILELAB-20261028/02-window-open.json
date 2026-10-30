@@ -1,0 +1,7 @@
+{"window_id": "20261028T005158Z-c4bcea", "name": "tilelab-ab", "owner": "TileLab", "lease_min": 20, "gb10": "exclusive", "waited_s": 1, "state": {"utc": "2026-10-28T00:51:59Z", "loadavg": "3.66 3.59 3.48 4/1831 2277114", "mem_avail_kB": 115835624, "gpu_util_pct": "0", "gpu_W": "4.69",
+ "gb10_lock_holders": "holds exclusive pid 2276267 (s) (set by a finished flock; processes with /tmp/aien-gb10.lock open now: pid 2276220 /bin/sh /home/drakestapleton/.local/bin/spark-window _hold 20261028T00); ",
+ "quiet_lock_holders": "holds exclusive pid 2276271 (s) (set by a finished flock; processes with /tmp/aien-quiet.lock open now: pid 2276220 /bin/sh /home/drakestapleton/.local/bin/spark-window _hold 20261028T00); ",
+ "quiet_waiters": "",
+ "gpu_apps": "",
+ "sensors_row": "1793148718,2026-10-27T19:51:58-05:00,150,4.60,0,3.66,115814776,0,62", "sensors_row_age_s": 1}
+}

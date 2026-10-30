@@ -75,14 +75,17 @@ extern "C" {
 enum {
     OMEGA_GPU_ATTN_OK = 0,
     OMEGA_GPU_ATTN_BAD_ARGS = -1,     /* NULL pointer, zero dimension, head mapping or block id out of range */
-    OMEGA_GPU_ATTN_TOO_LARGE = -2,    /* head_dim not in {64, 128}, num_q_heads > 64, context past the envelope */
+    OMEGA_GPU_ATTN_TOO_LARGE = -2,    /* head_dim > 256, num_q_heads > 1024, KV planes past the kernel's 32-bit offsets, a serving reservation exceeded */
     OMEGA_GPU_ATTN_CODEGEN_FAIL = -3, /* our codegen refused or exceeded the register budget */
     OMEGA_GPU_ATTN_CHIP_FAIL = -4,    /* device open, alloc, submit, marker or release failed */
     OMEGA_GPU_ATTN_UNWRITTEN = -5     /* output words still equal to their poison after the run */
 };
 
+/* The tuned kernel (the fast path, unchanged since 0.5): head_dim 64 or 128, at most MAX_Q_HEADS query heads, a
+ * power-of-two GQA ratio, contiguous context up to MAX_GQA_CTX. Every other valid shape (0.6.0, AttnGeneral) runs on
+ * the general kernel, see omega_gpu_attention_general below; the bounds of these constants are the tuned kernel's only. */
 #define OMEGA_GPU_ATTN_HEAD_DIM 64u      /* the original head_dim; threads per CTA = head_dim (one thread per dimension / per token of a chunk) */
-#define OMEGA_GPU_ATTN_HEAD_DIM_128 128u /* the second supported head_dim (Qwen3-4B) */
+#define OMEGA_GPU_ATTN_HEAD_DIM_128 128u /* the second tuned head_dim (Qwen3-4B) */
 #define OMEGA_GPU_ATTN_MAX_CTAS 64u
 /* Cut F (2026-10-12): a paged call splits each (sequence, head) over up to 2^MAX_LOG2SPLIT CTAs along the context
  * (whole chunks each, at least one chunk per split since cut J, 2026-10-12, which also raised the cap from 8 to 16: at
@@ -93,8 +96,14 @@ enum {
  * from its own context, so a result never depends on the other sequences in a launch. */
 #define OMEGA_GPU_ATTN_MAX_LOG2SPLIT 4u
 #define OMEGA_GPU_ATTN_SPLIT_MAX_CTAS 1024u
-#define OMEGA_GPU_ATTN_MAX_Q_HEADS 64u
-#define OMEGA_GPU_ATTN_MAX_GQA_CTX 4096u /* contiguous path: one block of 2^12 slots */
+#define OMEGA_GPU_ATTN_MAX_Q_HEADS 64u   /* tuned kernel only; the general kernel takes up to GENERAL_MAX_Q_HEADS */
+#define OMEGA_GPU_ATTN_MAX_GQA_CTX 4096u /* tuned contiguous kernel: one block of 2^12 slots; longer contexts run on the general kernel */
+/* General kernel domain (0.6.0): head_dim 1..256 (any value, odd included), num_q_heads 1..1024, any num_kv_heads
+ * dividing it (MHA, GQA of any ratio, MQA), contexts up to the 32-bit offset bound (2 * kv_len * num_kv_heads *
+ * head_dim * element bytes <= 0xffffffff, TOO_LARGE past it), causal or not, an optional sliding window. */
+#define OMEGA_GPU_ATTN_GENERAL_MAX_HEAD_DIM 256u
+#define OMEGA_GPU_ATTN_GENERAL_MAX_Q_HEADS 1024u
+#define OMEGA_GPU_ATTN_WINDOW_NONE (-1)
 
 /* Mirror of aien-kv-cache KvLayoutDesc (crates/aien-kv-cache/src/lib.rs, main 8b5caed),
  * field for field, strides in bytes. */
@@ -145,7 +154,8 @@ int omega_gpu_gqa_attention_f32(const float *q, const float *k_cache, const floa
  * chip in launches of up to OMEGA_GPU_ATTN_ROWS_MAX_CTAS / num_q_heads rows (grid y = row, the
  * same kernel as omega_gpu_gqa_attention_f32, so one row per launch is bit-identical to that
  * call). Under a serving reservation the rows per launch are also bounded by the q buffer
- * omega_gpu_attention_reserve_rows sized. base_len + num_rows <= OMEGA_GPU_ATTN_MAX_GQA_CTX. */
+ * omega_gpu_attention_reserve_rows sized. Shapes outside the tuned kernel (see OMEGA_GPU_ATTN_HEAD_DIM) and
+ * base_len + num_rows > OMEGA_GPU_ATTN_MAX_GQA_CTX run on the general kernel (omega_gpu_attention_general, causal). */
 #define OMEGA_GPU_ATTN_ROWS_MAX_CTAS 1024u
 int omega_gpu_gqa_attention_rows_f32(const float *q, const float *k_cache, const float *v_cache,
                                      uint32_t base_len, uint32_t num_rows, uint32_t num_q_heads,
@@ -166,6 +176,30 @@ int omega_gpu_paged_attention_batch_bf16(const float *q, const void *pool, const
                                          uint32_t max_blocks_per_seq, uint32_t num_seqs, uint32_t layer_idx,
                                          uint32_t num_q_heads, uint32_t num_kv_heads, uint32_t head_dim,
                                          float *out, OmegaGpuAttnInfo *info);
+
+/* General attention (0.6.0, AttnGeneral): the FlashAttention-style domain on one kernel that takes every shape.
+ * q and out: [num_rows][num_q_heads][head_dim] f32. k and v: kv_len tokens, f32 or bf16 (kv_bf16), element
+ * (k + t * kv_token_stride + kvh * kv_head_stride)[0 .. head_dim) for token t, kv head kvh; strides in ELEMENTS, 0 =
+ * dense [token][num_kv_heads][head_dim]. Query head h reads kv head h / (num_q_heads / num_kv_heads). Row i sits at
+ * position p = q_pos0 + i and attends to keys [lo, hi): hi = p + 1 when causal, else p + window_right + 1 when
+ * window_right >= 0, else kv_len; lo = p - window_left when window_left >= 0, else 0; both clamped to [0, kv_len].
+ * An empty range writes zeros. score = (q . k) * scale (scale 0 = 1 / sqrt(head_dim)); softmax and the accumulators in
+ * f32 (online softmax over chunks of roundup(head_dim, 32) tokens). q and k are taken AFTER rotary embedding (RoPE is
+ * the caller's, as in FlashAttention). The KV is gathered densely and staged once per call; rows go to the chip in
+ * launches of up to OMEGA_GPU_ATTN_ROWS_MAX_CTAS / num_q_heads rows, one CTA per (row, query head), roundup(head_dim, 32)
+ * threads. The tuned entries above route their out-of-domain shapes here; the paged entries do the same with one CTA
+ * per (sequence, head) and no context split. kv_len 0 writes zeros (k and v may then be NULL). */
+typedef struct {
+    uint32_t num_rows, num_q_heads, num_kv_heads, head_dim;
+    uint32_t kv_len, q_pos0;
+    uint32_t causal;                    /* nonzero: hi = p + 1 (window_right is ignored) */
+    int32_t window_left, window_right;  /* OMEGA_GPU_ATTN_WINDOW_NONE (-1) = unbounded on that side */
+    float scale;                        /* 0 = 1 / sqrt(head_dim); negative or NaN is BAD_ARGS */
+    uint32_t kv_bf16;                   /* nonzero: k / v are bf16, else f32 */
+    uint64_t kv_token_stride, kv_head_stride; /* elements; 0 = dense */
+} OmegaGpuAttnGeneralDesc;
+int omega_gpu_attention_general(const OmegaGpuAttnGeneralDesc *desc, const float *q, const void *k, const void *v,
+                                float *out, OmegaGpuAttnInfo *info);
 
 /* Resident KV pool (2026-10-12). One GPU-uncached, host-visible allocation of `bytes` that the caller
  * writes its paged bf16 KV into directly (sovereign-core's pool buffer). A paged call whose `pool`
@@ -245,6 +279,26 @@ int omega_gpu_attention_codegen(bool kv_f32, uint32_t log2_block_size, uint32_t 
  * omega_gpu_attention_codegen above is head_dim 64 and emits the same bytes as before head_dim 128 existed. */
 int omega_gpu_attention_codegen_hd(bool kv_f32, uint32_t log2_block_size, uint32_t log2_gqa, uint32_t head_dim,
                                    OmegaBlackwellKernel *kernel);
+
+/* The general kernel (head_dim 1..256; log2_block_size 31 = one contiguous block). */
+int omega_gpu_attention_codegen_general(bool kv_f32, uint32_t log2_block_size, uint32_t head_dim, OmegaBlackwellKernel *kernel);
+
+/* Test hooks of the general path (0.6.0). Mutants are planted defects the sweep must catch. */
+typedef enum {
+    OMEGA_GPU_ATTN_GMUT_NONE = 0,
+    OMEGA_GPU_ATTN_GMUT_GQA_MAP,    /* host: query head h reads kv head h % num_kv_heads (interleaved, not grouped) */
+    OMEGA_GPU_ATTN_GMUT_TAIL_CHUNK, /* kernel: a chunk that reaches past hi is skipped (drops the partial tail tile) */
+    OMEGA_GPU_ATTN_GMUT_TAIL_DIMS,  /* kernel: the dot product drops the head_dim % 4 tail dimensions */
+    OMEGA_GPU_ATTN_GMUT_CAUSAL,     /* kernel: the last key of every non-empty range is masked (causal off by one) */
+    OMEGA_GPU_ATTN_GMUT_SCALE,      /* host: score scale 1 / 8 for every head_dim (the pre-0.6 helper's assumption) */
+    OMEGA_GPU_ATTN_GMUT_COUNT
+} OmegaGpuAttnGeneralMutant;
+void omega_gpu_attention_test_set_general_mutant(OmegaGpuAttnGeneralMutant m); /* clears the kernel cache */
+const char *omega_gpu_attention_general_mutant_name(OmegaGpuAttnGeneralMutant m);
+/* Route shapes the tuned kernel takes through the general kernel as well (sweep coverage at head_dim 64 / 128). */
+void omega_gpu_attention_test_force_general(bool on);
+/* Threads per CTA of the kernel the simulator is running (set before each simulated launch). */
+uint32_t omega_gpu_attention_test_threads(void);
 
 /* One launch as the launcher sees it (test hook below). Pointers are host buffers;
  * params are the eight argument words after the four buffer addresses:

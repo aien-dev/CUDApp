@@ -1,0 +1,12 @@
+$ PYTHONDONTWRITEBYTECODE=1 python3 tools/figures/test_stack_legend.py -v
+test_overlapping_swatch_is_rejected (__main__.StackLegendTest.test_overlapping_swatch_is_rejected) ... ok
+test_rendered_labels_and_swatches_do_not_overlap (__main__.StackLegendTest.test_rendered_labels_and_swatches_do_not_overlap) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 1.383s
+
+OK
+exit=0
+$ python3 tools/figures/make_figures.py --check
+figures current: 10
+exit=0
