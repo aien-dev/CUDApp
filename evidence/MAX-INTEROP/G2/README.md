@@ -36,9 +36,10 @@ Consequences:
 `tools/cubin_variants.py` (copy of `~/handoffs/max-g2/cubin_variants.py`) derives every image from two inputs.
 The first is the current writer's output: `artifact-export` at main b5746b94,
 artifact `acfba3aa…3b1e`. The second is a ptxas 13.0.88 control built from
-`control.cu` (same symbol and argument ABI, `-fmad=false`). The ptxas images
-and E2 contain NVIDIA-tool bytes, so they stay out of this repo
-(PROVENANCE.md). Only their sha256 values are recorded here.
+`control.cu` (same symbol and argument ABI, `-fmad=false`). The ptxas images,
+E2, F and G contain NVIDIA-tool bytes, so they stay out of this repo
+(PROVENANCE.md). Only their sha256 values are recorded here. The generator is
+deterministic: two runs give identical images.
 
 | name | fn | expect | sha256 | isolates |
 |---|---|---|---|---|
@@ -50,13 +51,47 @@ and E2 contain NVIDIA-tool bytes, so they stay out of this repo
 | E2-omega-tkinfo-ptxas | omega_matmul_bf16 | UNKNOWN | `62acfe37b66a7f58db311b5ba3dcf2ccdd42220b56386a8bbcfc8e4178a992a2` | .note.nv.tkinfo (ptxas bytes) |
 | E3-omega-tkinfo-own | omega_matmul_bf16 | UNKNOWN | `67bd97401061daf1d798dfc1032066c3ef9f3579c9bc49883200a1d48f16a99e` | .note.nv.tkinfo (own strings) |
 | E4-omega-tkinfo-cg-symfix | omega_matmul_bf16 | UNKNOWN | `e4dad818f5fa68452e90a9a6807cf02ae055c6c2284889fd803c645789778c3e` | all three metadata gaps |
+| E5-omega-allmeta | omega_matmul_bf16 | UNKNOWN | `6cb0c73d96b995e05560ab94370c7c66883ef888064d804aaeda40abb21d2e2b` | E4 + EXIT_INSTR_OFFSETS `[0x400]`, CRS_STACK_SIZE 0, the two reserved-smem symbols, `.nv.constant0` link 0 / align 4 |
+| F-ctlcontainer-omega-sass | omega_matmul_bf16 | UNKNOWN: load => Omega SASS accepted | `83b133fd53fb1df50c427ae1f8f62b84f3bc0fdb9a2392bd69d9ab2f5ac6a773` | B's container with Omega's 0x480-byte text (section, segment, symbol size and EXIT offsets follow) |
+| G-omegacontainer-ctl-sass | omega_matmul_bf16 | UNKNOWN: load => CUDApp container accepted | `25f162490ac9b2b138d88be53a292f254ab06d3412bc85f8f0267730a83c30a5` | D's container with the control's 0x880-byte text at EOF (segment, symbol size, REGCOUNT 40, MAXREG 0xff follow; old text zeroed) |
 | N1-ctl-truncated | omega_matmul_bf16 | REJECT | `e059683df43d9a2a6e8fc5fbcc831378dbd5d7d75d2e32e4accf9ca79d43387d` | truncated image |
 | N2-ctl-wrong-entry | omega_matmul_bf16_missing | REJECT (500 NOT_FOUND) | `d95a489211830f58b93f092bab94ed4174c56cc4ae49779da3091aea2bf581d2` | entry name |
 | N3-ctl-eflags-sm80 | omega_matmul_bf16 | REJECT | `194a48dce16bcef34faadb233a46b9d9370a80d43326d62c2cdfd9819e5f84be` | e_flags arch field |
 | N4-max-vecadd-sm80 | vec_add | REJECT (209 NO_BINARY_FOR_GPU) | `b0a171991dc9a2c456b70d3221b6353d2e671159f94e5eca292986ff5bcf21e8` | wrong-arch real cubin |
 
 The same table is `~/handoffs/max-g2/variants/MATRIX.tsv`. All images
-pass `readelf`. All except N1 pass `cuobjdump`.
+pass `readelf`. All except N1 pass `cuobjdump -elf`. `nvdisasm -c` rejects N1
+("invalid ELF file"), reports illegal instructions for N3 and an old-format
+warning for N4, and disassembles every Omega image (C, D, E1-E5, F, G) without
+a message. F holds 72 instructions (Omega), G 136 (control).
+
+### Reading the matrix
+
+Each image holds exactly one kernel's code, and both kernels compute the
+same product, so numerics alone cannot tell them apart; the container and
+text bytes can.
+
+| B | F | G | cause of 200 |
+|---|---|---|---|
+| load | load | reject | CUDApp container; E1-E5 narrow it |
+| load | reject | load | Omega machine code (encoding or a field the driver checks in the text) |
+| load | reject | reject | both, or the combination |
+| reject | - | - | capmerc/merc required on this driver; F inherits B's gap |
+
+### Static comparison, D against A (host, cuobjdump/nvdisasm 13.0)
+
+Shared: e_flags `0x6007902`, ABI version 8, OS/ABI 0x41, ET_EXEC, five
+program headers, `EIATTR_MERCURY_ISA_VERSION 1.1`, `CUDA_API_VERSION 0x82`,
+the same KPARAM_INFO (3 x 8 bytes at 0x0/0x8/0x10, cbank 0x1f),
+`CBANK_PARAM_SIZE 0x18`, PARAM_CBANK at 0x380 size 0x18, all-zero `.nv.constant0`.
+
+D lacks, beyond what E1-E4 add: `EIATTR_EXIT_INSTR_OFFSETS` (A: 0x30,
+0x780), `EIATTR_CRS_STACK_SIZE` (A: 0), the symbols `.nv.reservedSmem.offset0`
+and `__nv_reservedSMEM_offset_0_alias` (the section is present),
+`.debug_frame` with its relocations, and the capmerc/merc sections (B).
+D's `.nv.constant0` has sh_link 3 and align 16 (A: 0 and 4). D's MAXREG is
+0x20 with REGCOUNT 32 (A: 0xff and 40). D's text is 0x480 bytes with one
+EXIT at 0x400, followed by a BRA self-loop.
 
 ## Probes
 
@@ -84,7 +119,7 @@ build/cubin_probe --load-only X fn 16 16 8 (no window)
   -> refused: SPARK_WINDOW is not set; no authorized GPU window, rc=3
 max_cubin_probe (no window)             -> refused, rc=3
 run_matrix.sh (no window)               -> refused, rc=3
-run_matrix.sh with stub probes          -> 12 rows; launch rows skipped when a load fails
+run_matrix.sh with stub probes          -> 15 rows; launch rows skipped when a load fails
 ```
 
 ## Device run (NOT_RUN; needs a ledger grant)

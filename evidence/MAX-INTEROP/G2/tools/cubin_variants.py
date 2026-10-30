@@ -3,7 +3,9 @@
 
 Builds cubin variants that separate the candidate causes of CUDApp#68's
 cuModuleLoadData error 200: missing program headers, missing capmerc/merc
-sections, missing .note.nv.tkinfo, .nv.callgraph, symtab sh_info.
+sections, missing .note.nv.tkinfo, .nv.callgraph, symtab sh_info, the
+remaining ptxas-only metadata (E5), and container versus machine code (F, G:
+each kernel's SASS inside the other writer's container).
 Writes variants/<name>.cubin and variants/MATRIX.tsv (name, fn, mode,
 expectation, sha256, what it isolates).
 """
@@ -15,12 +17,15 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 CTL = HERE / "ctl.cubin"
 STALE = Path("/dev/shm/cudapp-max/evidence/MAX-INTEROP/68/matmul-16x16x8.cubin")
-MAIN = HERE / "main/matmul-16x16x8.cubin"
+MAIN = HERE / "omega-main-artifact/matmul-16x16x8.cubin"
 SM80 = Path.home() / "workspace/maxinterop/max-source/max/kernels/test/gpu/device_context/data/vec_add.sm80.cubin"
 OUT = HERE / "variants"
 FN = "omega_matmul_bf16"
 
 SH = struct.Struct("<IIQQQQIIQQ")  # name type flags addr off size link info align entsize
+PH = struct.Struct("<IIQQQQQQ")  # type flags off vaddr paddr filesz memsz align
+SYM = struct.Struct("<IBBHQQ")  # name info other shndx value size
+EXIT_OFFS, CRS_STACK, MAXREG, REGCOUNT = 0x1C, 0x1E, 0x1B, 0x2F  # EIATTR codes (cuobjdump 13.0 names)
 
 
 class Elf:
@@ -80,6 +85,60 @@ class Elf:
         off = len(self.b)
         self.b += data
         return off
+
+    def data(self, i):
+        h = self.shdrs()[i]
+        return bytes(self.b[h[4] : h[4] + h[5]])
+
+    def replace(self, i, data, align):
+        """Move section i's contents to EOF; a caller moving a loaded section fixes its segment."""
+        self.set_sh(i, 4, self._append(data, max(align, 1)))
+        self.set_sh(i, 5, len(data))
+
+    def phdr(self, j):
+        return list(PH.unpack_from(self.b, self.u("<Q", 0x20) + j * 56))
+
+    def set_phdr(self, j, row):
+        PH.pack_into(self.b, self.u("<Q", 0x20) + j * 56, *row)
+
+    def text_phdr(self, text_off):
+        return next(j for j in range(self.u("<H", 0x38)) if self.phdr(j)[0] == 1 and self.phdr(j)[2] == text_off and self.phdr(j)[1] & 1)
+
+    def sym(self, k):
+        h = self.shdrs()[self.index(".symtab")]
+        return list(SYM.unpack_from(self.b, h[4] + k * 24))
+
+    def set_sym(self, k, row):
+        h = self.shdrs()[self.index(".symtab")]
+        SYM.pack_into(self.b, h[4] + k * 24, *row)
+
+
+def nvinfo(data):
+    """EIFMT_SVAL (4) entries carry a u16 size and a payload; the others a u16 value."""
+    out, o = [], 0
+    while o < len(data):
+        fmt, attr = data[o], data[o + 1]
+        n = struct.unpack_from("<H", data, o + 2)[0] if fmt == 4 else 0
+        out.append([fmt, attr, bytes(data[o + 4 : o + 4 + n]) if fmt == 4 else bytes(data[o + 2 : o + 4])])
+        o += 4 + n
+    assert o == len(data), "nv.info overrun"
+    return out
+
+
+def nvinfo_pack(entries):
+    return b"".join(bytes([f, a]) + (struct.pack("<H", len(v)) if f == 4 else b"") + v for f, a, v in entries)
+
+
+def exit_offsets(text):
+    """Offsets of EXIT (opcode bits 0..11 = 0x94d) in 16-byte sm_121 instructions."""
+    return [o for o in range(0, len(text), 16) if struct.unpack_from("<Q", text, o)[0] & 0xFFF == 0x94D]
+
+
+def set_attr(entries, attr, value):
+    hit = [e for e in entries if e[1] == attr]
+    assert len(hit) == 1, f"attr {attr:#x} occurs {len(hit)} times"
+    hit[0][2] = value
+    return entries
 
 
 def tkinfo_from(ctl: Elf):
@@ -160,6 +219,72 @@ def main():
     st = e.index(".symtab")
     e.set_sh(st, 7, e.shdrs()[st][5] // 24)
     emit("E4-omega-tkinfo-cg-symfix", bytes(e.b), FN, "run", "UNKNOWN", "all three metadata gaps")
+    # E5: E4 plus every remaining ptxas-only item except merc and .debug_frame:
+    # EXIT_INSTR_OFFSETS + CRS_STACK_SIZE, the two reserved-smem symbols, and
+    # .nv.constant0 sh_link/align as ptxas writes them.
+    ctl_text = ctl.data(ctl.index(".text." + FN))
+    assert exit_offsets(ctl_text) == [0x30, 0x780], "EXIT scan disagrees with cuobjdump on the control"
+    main_e = Elf(main_raw)
+    omega_text = main_e.data(main_e.index(".text." + FN))
+    omega_exits = exit_offsets(omega_text)
+    assert omega_exits == [0x400], omega_exits  # nvdisasm 13.0: /*0400*/ EXIT
+    ki = e.index(".nv.info." + FN)
+    ents = nvinfo(e.data(ki))
+    at = next(n for n, x in enumerate(ents) if x[1] == 0x4A) + 1
+    ents[at:at] = [[4, EXIT_OFFS, struct.pack(f"<{len(omega_exits)}I", *omega_exits)], [4, CRS_STACK, b"\0" * 4]]
+    e.replace(ki, nvinfo_pack(ents), 4)
+    sti, sx = e.index(".symtab"), e.index(".strtab")
+    strtab = e.data(sx)
+    names = [len(strtab), len(strtab) + len(".nv.reservedSmem.offset0") + 1]
+    e.replace(sx, strtab + b".nv.reservedSmem.offset0\0__nv_reservedSMEM_offset_0_alias\0", 1)
+    syms = e.data(sti) + SYM.pack(names[0], 0x21, 0, 0, 0x40, 4) + SYM.pack(names[1], 0x20, 0xA0, e.index(".nv.shared.reserved.0"), 0x40, 0)
+    e.replace(sti, syms, 8)
+    e.set_sh(sti, 7, len(syms) // 24)
+    c0 = e.index(".nv.constant0." + FN)
+    e.set_sh(c0, 6, 0)
+    e.set_sh(c0, 8, 4)
+    emit("E5-omega-allmeta", bytes(e.b), FN, "run", "UNKNOWN", "E4 + exit offsets, crs, smem syms, cbank0 link/align")
+    # F: the control's container without merc (B) carrying Omega's machine code.
+    # The text shrinks in place (0x880 -> 0x480); its segment, symbol size and
+    # EXIT offsets follow. REGCOUNT stays 40 (Omega needs 32). cbank0 is all zero in both.
+    f = Elf(bytes(nomerc.b))
+    ti = f.index(".text." + FN)
+    th = f.shdrs()[ti]
+    f.b[th[4] : th[4] + th[5]] = omega_text + b"\0" * (th[5] - len(omega_text))
+    f.set_sh(ti, 5, len(omega_text))
+    j = f.text_phdr(th[4])
+    ph = f.phdr(j)
+    ph[5] = ph[6] = len(omega_text)
+    f.set_phdr(j, ph)
+    k = th[7]  # .text sh_info = the function symbol
+    s = f.sym(k)
+    s[5] = len(omega_text)
+    f.set_sym(k, s)
+    ki = f.index(".nv.info." + FN)
+    f.replace(ki, nvinfo_pack(set_attr(nvinfo(f.data(ki)), EXIT_OFFS, struct.pack(f"<{len(omega_exits)}I", *omega_exits))), 4)
+    emit("F-ctlcontainer-omega-sass", bytes(f.b), FN, "run", "UNKNOWN: load => Omega SASS accepted", "machine code vs container (ptxas container)")
+    # G: the current CUDApp container (D) carrying the control's machine code.
+    # The text moves to EOF (0x480 -> 0x880) with its segment; symbol size,
+    # REGCOUNT 40 and MAXREG 0xff follow the control's code. The old Omega
+    # bytes are zeroed, so each of F and G holds exactly one kernel's code.
+    g = Elf(main_raw)
+    ti = g.index(".text." + FN)
+    th = g.shdrs()[ti]
+    j = g.text_phdr(th[4])
+    g.replace(ti, ctl_text, 128)
+    g.b[th[4] : th[4] + th[5]] = b"\0" * th[5]
+    ph = g.phdr(j)
+    ph[2], ph[5], ph[6] = g.shdrs()[ti][4], len(ctl_text), len(ctl_text)
+    g.set_phdr(j, ph)
+    k = th[7]
+    s = g.sym(k)
+    s[5] = len(ctl_text)
+    g.set_sym(k, s)
+    mi = g.index(".nv.info")
+    g.replace(mi, nvinfo_pack(set_attr(nvinfo(g.data(mi)), REGCOUNT, struct.pack("<II", k, 40))), 4)
+    ki = g.index(".nv.info." + FN)
+    g.replace(ki, nvinfo_pack(set_attr(nvinfo(g.data(ki)), MAXREG, b"\xff\0")), 4)
+    emit("G-omegacontainer-ctl-sass", bytes(g.b), FN, "run", "UNKNOWN: load => CUDApp container accepted", "machine code vs container (CUDApp container)")
     # Negative controls: each must be rejected.
     emit("N1-ctl-truncated", bytes(ctl.b[:1500]), FN, "reject", "REJECT", "truncated image")
     emit("N2-ctl-wrong-entry", bytes(ctl.b), "omega_matmul_bf16_missing", "reject", "REJECT (500 NOT_FOUND)", "entry name")
