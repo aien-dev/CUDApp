@@ -90,3 +90,19 @@ make hello-gpu                              # runs make doctor, then examples/he
 - `docs/AUDIT.md`, `docs/LICENSING_TRANSITION.md`, `THIRD_PARTY.md`: provenance and licences.
 - `docs/CUBIN_WRITERS.md`: the two cubin writers, who owns new work, and what was not run (#108).
 - Aienux, the Aien kernel, which holds Aien's GB10 driver research harness (L332, aienux#441; not a product, NVIDIA's open kernel module stays and GB10 support goes upstream to Nova and nouveau): https://github.com/aien-dev/aienux
+
+## Cursor Cloud specific instructions
+
+Cloud Agent VMs are x86_64. The sources use the ARM `dsb sy` barrier, so `/usr/bin/gcc` cannot build them (CUDApp#15). `/usr/local/bin/cc` and `/usr/local/bin/gcc` are the aarch64 cross compiler, which is what `make` runs (`CC` defaults to `cc`). The built binaries are aarch64. Each boot registers qemu-user against `/usr/aarch64-linux-gnu` so they execute. If a binary exits with `Exec format error`, that registration has not run yet.
+
+`make test` is the host suite. Judge the exit code and the last line, `CUDA++ HOST TESTS PASS (<count> targets)`. The log contains intentional `FAIL` lines. Under qemu it is slower than the arm64 CI runner. The attention simulator is one slow part. `test-codegen-freestanding` sweeps every 2^32 bf16 input; a 20 million iteration cast loop took 18 seconds here, so that sweep is on the order of an hour. `build/hello_gpu --sim` is the simulator hello world. `python3 tools/figures/make_figures.py --check` checks the README figures.
+
+Pinned tools sit where the Makefile looks, next to the checkout:
+
+- `../omega-mv` is omega-mv `e5b32567`, `seed/out/omc`, sha256 `2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f`
+- `../omega-bridge` is omega-bridge `0c4cb9ff980af278890b231b994eaede4dc7621c` (`om/omega-bridge.lock`)
+- `nvdisasm` 13.0.85 is the x86_64 redistributable from NVIDIA `redistrib_13.0.2.json` (CI uses the linux-sbsa archive of the same version)
+
+`/usr/local/bin/make` exports `CUDAPP_MEM_RESERVE_MIB=0` when the variable is unset. MemAvailable on this VM under-reports because of the hypervisor balloon, and the default 4 GiB reserve then refuses the Qwen-shaped upload in `test-gpu-serving-alloc`. The platform test unsets the variable and still checks the 4096 default against a fake meminfo. Do not copy that `0` onto a Spark.
+
+`make doctor` prints NOT READY here: no NVIDIA module and no `/dev/nvidia*`. That is the expected diagnostic. The doctor binary is aarch64, so its system line says aarch64; `uname -m` in the shell is x86_64. Do not run `make hello-gpu` or open `/dev/nvidia*`.
