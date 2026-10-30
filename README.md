@@ -457,6 +457,12 @@ Not yet true: Omega does not consume CUDA++ at a pin today. Omega main has no `c
 
 The C names still carry the `omega_` prefix they had inside Omega, so Omega's work in progress carries over unchanged (`tools/extract/carry.sh`). `docs/NAMING.md` has the plan for the `cudapp` names.
 
+## Human-Directed Agentic Engineering
+
+Development follows Human-Directed Agentic Engineering (HDAE): humans define goals, architecture, constraints, acceptance criteria, and stopping points; agents implement, execute checks, diagnose failures, and revise within those boundaries. Human review retains responsibility for claims, acceptance, and release decisions.
+
+For the documented method and a systems-software case study, see Gregory M. Kurtzer, [*Ginux: Building an Independent Kernel That Runs Linux Userspace through Human-Directed Agentic Engineering* (2026)](https://doi.org/10.5281/zenodo.23682548). This describes development, not GPU runtime autonomy or hardware qualification.
+
 ## Licence
 
 First-party material at this revision is Apache-2.0 WITH LLVM-exception ([LICENSE](LICENSE)); third-party terms and notices are in [THIRD_PARTY.md](THIRD_PARTY.md). The earlier MIT grant is documented in [the licensing transition](docs/LICENSING_TRANSITION.md) and the [license at the pinned historical MIT commit](https://github.com/aien-dev/CUDApp/blob/232332422bfdc31c8918085b50f13c1e18ab702e/LICENSE).
