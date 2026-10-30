@@ -19,7 +19,7 @@ sm121dis-corpus-bins: $(addprefix $(OUT_DIR)/,gpu_matmul_api_test gpu_elementwis
 	gpu_moe_window_test gpu_fp8_api_test gpu_decode_attn_test gpu_router_test gpu_bf16_gemv_test gpu_fp8gemm_test \
 	gpu_tc_probe_test gpu_tc_peak_test gpu_pf_mem_test gpu_qmma_probe_test gpu_cmdlist_test gpu_decode_graph_test gpu_tcgemm_test \
 	gpu_prefill_attn_test gpu_pfgemm_test gpu_qgemm_test gpu_pfhost_test gpu_gpr_boundary_test \
-	gpu_scan_test gpu_gemm_test gpu_streams_test gpu_isolation_test)
+	gpu_scan_test gpu_gemm_test gpu_streams_test gpu_isolation_test gpu_mathlibs_test)
 
 .PHONY: test-sm121dis sm121dis-corpus-bins test-sm121dis-corpus-controls
 test-sm121dis-corpus-controls:

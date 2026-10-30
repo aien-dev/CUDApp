@@ -1,0 +1,56 @@
+SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+MathLibsGpu Wolfram derivations, 2026-10-27 (WolframLanguageEvaluator MCP). MODELED bounds, not measurements.
+
+1. 64-bit constant splits (hi:lo of u32 halves)
+  C1 13787848793156543929 -> hi 3210233709, lo 484763065
+  C2 10723151780598845931 -> hi 2496678331, lo 321982955
+  G  11400714819323198485 -> hi 2654435769, lo 2135587861
+
+2. f32 bit patterns (decimal -> double -> RN f32), order:
+  GC0..GC8 1.50140941 0.246640727 -0.00417768164 -0.00125372503 0.00021858087 -4.39150654e-6 -3.5233877e-6 3.43273939e-7 2.81022636e-8
+  1.5, GT0..GT8 2.83297682 1.00167406 0.00943887047 -0.0076224613 0.00573950773 -0.00367342844 0.00134934322 0.000100950558 -0.000200214257
+  -ln2, sqrt2, 2.5, 3, 5, 2^-24, 2^-46
+  -> 3fc02e2f 3e7c8f63 bb88e4ef baa45408 396532db b6935ac1 b66c7357 34b84b36 32f16588 3fc00000
+     40354f7e 3f8036db 3c1aa57e bbf9c5d7 3bbc127b bb70bde7 3ab0dc72 38d3b56b b951f09b
+     bf317218 3fb504f3 40200000 40400000 40a00000 33800000 28800000
+
+3. Giles erfinv approximation error with f32-rounded coefficients, relative to InverseErf[x]/x, x=Sqrt[1-Exp[-w]]
+  central p_c(w-5/2): FindMaximum on [0.12,0.15] -> 1.2628329781882996e-7 at w=0.13255935
+     (grid [0.10,0.17] step 0.0025 max 1.2628267e-7; at w=5+1e-5: 7.5796754e-8; w=1e-12: 6.0811678e-8)
+  tail p_t(Sqrt[w]-3): grid [4.99,15.27] step 0.04 max 9.5792580e-8 at w=7.03; FindMaximum -> 9.57925938571691e-8 at w=7.03
+  max w = 22 Log[2] = 15.249237972318797 (A=1 gives 1-x^2 = 2^-22 approx)
+
+4. Normal output relative error bound (first order, both branches, w grid step 0.0005)
+  inputs: u=2^-24; MUFU.LG2 abs 2^-22 on (0.5,2), rel 2^-22 elsewhere; MUFU.RSQ rel 2^-22.9 (PTX ISA);
+          Horner with FFMA gamma_17 (16 roundings + 1 slack for literal conversion);
+          e(ln2_f32)=2.747835292638001e-9, e(sqrt2_f32)=1.711427111139585e-8; final 2u+e3+2u^2.
+  sensitivity max: central 2.598920909504621e-6, tail 2.1333191021814997e-6
+  E_central = 2.8615277772722253e-6, E_tail = 2.365435263949104e-6
+  E_rel = 2.8615277772722253e-6 (= 48.0085 u). Test tolerance: |z - z_ref| <= 2.87e-6 |z_ref|.
+
+5. FFT normwise bound, f32 Stockham radix-4 (+ one radix-2 stage when log2 N odd), forward and inverse
+  mu = 2u + 1e-15, eta = Sqrt[2] gamma_2 (1+mu) + mu = 2.8779672478872928e-7
+  B(N) = (1+u)^(2 n4 + n2) (1+eta)^(stages-1) - 1; reference R(N) = Sqrt[N] gamma_{N+10}(2^-53)
+  test: ||y_hat - y_ref|| <= (B+R)/(1-R) ||y_ref||
+  N     B                 R           tol             tol/u
+  4     1.19209293e-7     3.1e-15     1.19209296e-7   2.0000001
+  8     4.66610721e-7     5.7e-15     4.66610727e-7   7.8284290
+  16    5.26215394e-7     1.2e-14     5.26215405e-7   8.8284295
+  32    8.73616963e-7     2.6e-14     8.73616990e-7   14.656861
+  64    9.33221660e-7     6.6e-14     9.33221726e-7   15.656862
+  128   1.28062337e-6     1.7e-13     1.28062354e-6   21.485298
+  256   1.34022809e-6     4.7e-13     1.34022856e-6   22.485304
+  512   1.68762994e-6     1.3e-12     1.68763126e-6   28.313754
+  1024  1.74723469e-6     3.7e-12     1.74723836e-6   29.313795
+  2048  2.09463668e-6     1.0e-11     2.09464702e-6   35.142346
+
+6. Spot values of the f64 normal reference (tests/gpu_mathlibs_test.c normal_ref, host_normal_sweep), 2026-10-27
+  WolframLanguageEvaluator: Table[{A, N[Sqrt[2] InverseErf[(2 A - 2^24)/2^24], 20]}, {A, {1, 8388607, 8388609, 16777215, 12345679, 5000001}}]
+  A          z
+  1          -5.29470408485459805741
+  8388607    -1.4940668789333163667e-7
+  8388609     1.4940668789333163667e-7
+  16777215    5.29470408485459805741
+  12345679    0.63063321267521096414
+  5000001    -0.53009427681848114495
+  test: |normal_ref(A) - z| <= 1e-13 |z|

@@ -1,0 +1,19 @@
+# Sources changed after the 09:03:26Z chip run (chip-provenance.txt), and why the chip result still applies.
+#
+# src/omega_gpu_mathlibs_api.c: comment only. Line 2 gained the MIGRATION-PENDING note (successor
+# om/mathlibs/mathlibs_launch.om). No code, macro or __LINE__ use changed.
+#   at the chip run  56dd2f3ce37564ebff662873b3c73d366eb8bec2d967768bbcb5d1b0528f5907
+#   committed        27a5f48b83e2c72f72a730eaa8398825b8aa7d593fc5163360a47cf53f67ca56
+# Object built by the Makefile rule (cc 13.3.0, Makefile CFLAGS) from each version:
+#   before  d094be0902773b9d862b9ded53b7996a12a6f87f6e6b1061fd2bd43ff790db4f  build/omega_gpu_mathlibs_api.o
+#   after   d094be0902773b9d862b9ded53b7996a12a6f87f6e6b1061fd2bd43ff790db4f  build/omega_gpu_mathlibs_api.o
+# The object is byte-identical, so the library code the chip binary ran is unchanged.
+#
+# docs/runtime/portability_table.tsv, README.md, ROADMAP.md, docs/PAIN_POINTS.md, docs/img/replacement-map.svg and
+# tools/figures/make_figures.py changed after the run; none of them is built into the test binary.
+#
+# Rebuilt by `make test` (11:30Z) from the tree committed as 82f7985c675ff5f4b9859429973daa61d36887ac (`make -q` up to date):
+#   build/gpu_mathlibs_test  91b796c69c18abada6c02ed1be875f235d2b6a4ef311d3a2e6567c11545792de
+#   build/libomega_gpu.a     b27d5c3e1c1645a6315e01f455c5fae54c0f20479b17e9e3adee6c7b764ae397
+# Both equal binary_sha256 and libomega_gpu.a_sha256 in chip-provenance.txt: the committed head builds the
+# exact binary that produced chip-receipt.txt. No chip rerun was made for the comment change.

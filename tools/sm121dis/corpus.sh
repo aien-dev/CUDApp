@@ -31,7 +31,7 @@ for t in gpu_tcgemm_test gpu_prefill_attn_test gpu_pfgemm_test gpu_qgemm_test gp
     run "$OUT/$t" --host-only; run "$OUT/$t" --sim
 done
 run "$OUT/gpu_gpr_boundary_test"
-for t in gpu_scan_test gpu_gemm_test gpu_streams_test; do
+for t in gpu_scan_test gpu_gemm_test gpu_streams_test gpu_mathlibs_test; do
     run "$OUT/$t" --host-only; run "$OUT/$t" --sim
 done
 run "$OUT/gpu_isolation_test" --host-only

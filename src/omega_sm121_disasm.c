@@ -201,6 +201,7 @@ static const Row ROWS[] = {
     { 0x0000000000007308ull, 0x00000800ull, "MUFU.EX2 %d, %b" },
     { 0x0000000000007308ull, 0x00001000ull, "MUFU.RCP %d, %b" },
     { 0x0000000000007308ull, 0x00001400ull, "MUFU.RSQ %d, %b" },
+    { 0x0000000000007308ull, 0x00000c00ull, "MUFU.LG2 %d, %b" },
     /* memory */
     { 0x0000000000007981ull, 0x0c1e1100ull, "LDG.E%z %d, desc[%B][%a.64%o]" },
     { 0x0000000000007986ull, 0x0c101100ull, "STG.E%z desc[%C][%a.64%o], %b" },
@@ -219,8 +220,7 @@ static const Row ROWS[] = {
     { 0x0000000000007b1dull, 0x00010000ull, "BAR.SYNC.DEFER_BLOCKING 0x0" },
 };
 
-/* IMAD with an immediate: nvdisasm names the special cases. Returns 0 for another instruction, 1 when printed,
- * -1 for a shift by a power of two whose name nvdisasm was never seen to print (so it is reported, not guessed). */
+/* IMAD with an immediate: nvdisasm names the special cases. Returns 0 for another instruction, 1 when printed. */
 static int imad_imm(Out *w, uint64_t lo, uint64_t hi) {
     if (bits(lo, 0, 12) != 0x824 || (hi & HI_MASK & ~0xffull) != 0x078e0200ull) return 0;
     uint32_t imm = (uint32_t)bits(lo, 32, 32);
@@ -229,11 +229,10 @@ static int imad_imm(Out *w, uint64_t lo, uint64_t hi) {
     if (imm == 0) name = "IMAD.MOV";                                  /* d = c */
     else if (imm == 1) name = c == 255 ? "IMAD.MOV" : "IMAD.IADD";    /* d = a, d = a + c */
     else if (c == 255 && (imm & (imm - 1)) == 0) {
-        /* a shift. Seen in the corpus: .SHL for 2^1..2^6, 2^9, 2^10, 2^12, 2^20; plain IMAD for 2^16 and 2^31 */
+        /* a shift. nvdisasm (CUDA 13.0, -b SM121) on 2^1..2^31 with Rc = RZ, 2026-10-27: plain IMAD for 2^16 and
+         * 2^31, .SHL for every other power */
         int n = __builtin_ctz(imm);
-        if (n == 16 || n == 31) name = "IMAD";
-        else if (n <= 6 || n == 9 || n == 10 || n == 12 || n == 20) name = "IMAD.SHL";
-        else return -1;
+        name = (n == 16 || n == 31) ? "IMAD" : "IMAD.SHL";
     }
     put(w, "%s ", name);
     reg(w, "R", bits(lo, 16, 8)); put(w, ", "); reg(w, "R", bits(lo, 24, 8)); put(w, ", ");
