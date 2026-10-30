@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "CUDA++ for the NVIDIA DGX Spark"
+authors:
+  - family-names: Stapleton
+    given-names: Drake
+    orcid: "https://orcid.org/0009-0002-6890-7111"
+repository-code: "https://github.com/aien-dev/CUDApp"
+# LICENSE is authoritative: Apache-2.0 WITH LLVM-exception. The CFF license field
+# accepts only SPDX license ids, so it cannot carry the LLVM exception.
+license: "Apache-2.0"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.23578452"
+    description: "Reverse Engineering the CUDA Software Stack: An Independently Implemented GPU Machine-Code Toolchain for the NVIDIA GB10"
+  - type: doi
+    value: "10.5281/zenodo.23614483"
+    description: "A Call to Humanity: Breaking the CUDA Stranglehold on the Hardware Market"
+preferred-citation:
+  type: report
+  title: "Reverse Engineering the CUDA Software Stack: An Independently Implemented GPU Machine-Code Toolchain for the NVIDIA GB10"
+  authors:
+    - family-names: Stapleton
+      given-names: Drake
+      orcid: "https://orcid.org/0009-0002-6890-7111"
+  year: 2026
+  doi: "10.5281/zenodo.23578452"
+  publisher:
+    name: "Zenodo"
