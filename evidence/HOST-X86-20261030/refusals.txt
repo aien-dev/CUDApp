@@ -1,0 +1,30 @@
+=== make test-om-encoder ===
+CUDA++ host x86_64: seeded AArch64 binding is not assembled; C encoder and C cubin writer are the portable bodies; other seeded units refuse with status 34
+test-om-encoder: NOT_RUN (requires AArch64 Linux; src/cudapp_om_units.c is AArch64 machine code and was not executed)
+make: *** [mk/om-encoder.mk:53: test-om-encoder] Error 2
+EXIT:2
+
+=== make test-omega-slices ===
+CUDA++ host x86_64: seeded AArch64 binding is not assembled; C encoder and C cubin writer are the portable bodies; other seeded units refuse with status 34
+sh tests/omega/run.sh 120
+omega-slices: compiler harness not configured; set OMEGA_OSC_COMPILER_DIR to an Omega checkout
+omega-slices: required source commit: 1accb93164ce68a2ac2e2c680acf54782f260d62
+make: *** [Makefile:401: test-omega-slices] Error 2
+EXIT:2
+
+=== make test-omega-target-only ===
+CUDA++ host x86_64: seeded AArch64 binding is not assembled; C encoder and C cubin writer are the portable bodies; other seeded units refuse with status 34
+sh tests/omega/test-target-only.sh
+test-om-encoder: NOT_RUN (requires AArch64 Linux; src/cudapp_om_units.c is AArch64 machine code and was not executed)
+test-om-cubin: NOT_RUN (requires AArch64 Linux; the seeded cubin packer was not executed)
+test-codegen-freestanding hosted comparison: NOT_RUN (requires AArch64 Linux; the .om versus C differential was not run)
+test-gpu-native-runtime: NOT_RUN (requires AArch64 Linux; the seeded native units were not executed)
+test-om-spec-encoder: NOT_RUN (requires the pinned omc and nvdisasm; not part of the portable host suite)
+test-portable-receipts: NOT_RUN (requires the pinned omc; not part of the portable host suite)
+test-model-capacity: NOT_RUN (requires the pinned omc; not part of the portable host suite)
+target-only report: the lines above are refusals. make test-om-encoder and the other named targets exit 2. This report exiting 0 is not a pass of them.
+EXIT:0
+
+=== gh api repos/aien-dev/omega-osc-cubin ===
+{"message":"Not Found","documentation_url":"https://docs.github.com/rest/repos/repos#get-a-repository","status":"404"}gh: Not Found (HTTP 404)
+EXIT:1
