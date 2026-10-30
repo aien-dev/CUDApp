@@ -7,8 +7,9 @@ authors:
     given-names: Drake
     orcid: "https://orcid.org/0009-0002-6890-7111"
 repository-code: "https://github.com/aien-dev/CUDApp"
+# LICENSE is authoritative: Apache-2.0 WITH LLVM-exception. The CFF license field
+# accepts only SPDX license ids, so it cannot carry the LLVM exception.
 license: "Apache-2.0"
-doi: "10.5281/zenodo.23578452"
 identifiers:
   - type: doi
     value: "10.5281/zenodo.23578452"
