@@ -1,0 +1,16 @@
+# Minimum-work accounting fixtures (parent #276 clarification). Synthetic
+# numbers, labelled so; the point is the ledger, not the magnitudes.
+oev version=1
+machine id=t soc=t cores=4 mem_bytes=1000 prov=specified src=test
+build repo=omega-mv sha=0000000000000000000000000000000000000000
+calibration id=mw taken=2026-10-19 valid_days=3650 load1=0 src=synthetic
+resource id=cpu kind=compute slots=1 prov=specified src=test
+resource id=mem kind=capacity cap=1000 prov=specified src=test
+energy instrument=none
+op id=parse kind=compute engine=cpu t_ns=10 prov=synthetic src=t
+op id=search kind=compute engine=cpu t_ns=200 prov=synthetic src=t
+op id=check kind=compute engine=cpu t_ns=20 prov=synthetic src=t
+op id=execute kind=compute engine=cpu t_ns=50 prov=synthetic src=t
+dep parse search
+dep search check
+dep check execute
