@@ -1,11 +1,12 @@
 #!/bin/sh
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-# A missing or failing producer must invalidate the disassembler corpus.
+# A missing or failing producer, or one that exits 0 after a kernel could not be dumped whole, must invalidate the
+# disassembler corpus.
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/sm121dis-corpus-control.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT HUP INT TERM
-mkdir "$WORK/bin" "$WORK/missing" "$WORK/failing"
+mkdir "$WORK/bin" "$WORK/missing" "$WORK/failing" "$WORK/partial"
 rc=0
 sh "$HERE/corpus.sh" "$WORK/bin" "$WORK/missing" > "$WORK/missing.log" 2>&1 || rc=$?
 [ "$rc" -eq 127 ] && grep -q 'VERDICT FAIL: corpus producer failed:' "$WORK/missing.log" || {
@@ -18,5 +19,12 @@ sh "$HERE/corpus.sh" "$WORK/bin" "$WORK/failing" > "$WORK/failing.log" 2>&1 || r
 [ "$rc" -eq 42 ] && grep -q 'deliberate-producer-failure' "$WORK/failing.log" &&
     grep -q 'VERDICT FAIL: corpus producer failed:' "$WORK/failing.log" || {
     echo 'FAIL: a failing producer did not invalidate the corpus'; exit 1;
+}
+# exit 0, but omega_kernel_dump reported a kernel it could not write whole (src/omega_blackwell_codegen.c)
+printf '#!/bin/sh\necho "omega_kernel_dump: write failed, removed /x/k.bin" >&2\nexit 0\n' > "$WORK/bin/gpu_matmul_api_test"
+rc=0
+sh "$HERE/corpus.sh" "$WORK/bin" "$WORK/partial" > "$WORK/partial.log" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] && grep -q 'VERDICT FAIL: kernels not captured whole:' "$WORK/partial.log" || {
+    echo 'FAIL: a kernel not captured whole did not invalidate the corpus'; exit 1;
 }
 echo 'PASS: missing and failing corpus producers are refused'

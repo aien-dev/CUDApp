@@ -19,7 +19,7 @@ sm121dis-corpus-bins: $(addprefix $(OUT_DIR)/,gpu_matmul_api_test gpu_elementwis
 	gpu_moe_window_test gpu_fp8_api_test gpu_decode_attn_test gpu_router_test gpu_bf16_gemv_test gpu_fp8gemm_test \
 	gpu_tc_probe_test gpu_tc_peak_test gpu_pf_mem_test gpu_qmma_probe_test gpu_cmdlist_test gpu_decode_graph_test gpu_tcgemm_test \
 	gpu_prefill_attn_test gpu_pfgemm_test gpu_qgemm_test gpu_pfhost_test gpu_gpr_boundary_test \
-	gpu_scan_test gpu_gemm_test gpu_streams_test gpu_isolation_test)
+	gpu_scan_test gpu_gemm_test gpu_streams_test gpu_isolation_test bw_hazard_test)
 
 .PHONY: test-sm121dis sm121dis-corpus-bins test-sm121dis-corpus-controls
 test-sm121dis-corpus-controls:
@@ -30,6 +30,8 @@ test-sm121dis: $(SM121DIS) $(SM121DIS_RED) sm121dis-corpus-bins test-sm121dis-co
 	sh tools/sm121dis/check.sh $(SM121DIS) $(SM121DIS_K) $(OUT_DIR)/sm121dis-work
 	@if sh tools/sm121dis/check.sh $(SM121DIS_RED) $(SM121DIS_K) $(OUT_DIR)/sm121dis-red > $(OUT_DIR)/sm121dis-red.log 2>&1; then \
 		echo "RED CHECK BROKEN: the faulty decoder passed"; exit 1; \
+	elif ! grep -q '^VERDICT FAIL' $(OUT_DIR)/sm121dis-red.log; then \
+		echo "RED CHECK BROKEN: the faulty decoder's run did not reach a verdict"; tail -3 $(OUT_DIR)/sm121dis-red.log; exit 1; \
 	else echo "red check: the faulty decoder FAILS the comparison, as it must ($$(grep -c '^\[FAIL\]' $(OUT_DIR)/sm121dis-red.log) kernels)"; fi
 
 # The provenance checks (tools/divsqrt_nvdisasm_check.sh, tools/ldst_nvdisasm_check.sh, test-numeric-reduce-nvdisasm)
@@ -44,7 +46,7 @@ endif
 # provenance check with a decoy nvdisasm first on PATH, the CUDA directories removed from PATH, and strace on execve;
 # then its own red check plants two calls to nvdisasm and must see the gate FAIL.
 .PHONY: test-zero-nvdisasm
-test-zero-nvdisasm: $(SM121DIS) build/sm121dis $(addprefix $(OUT_DIR)/,gpu_attention_test gpu_elementwise_test gpu_fp8_api_test gpu_reconv_test)
+test-zero-nvdisasm: $(SM121DIS) build/sm121dis $(addprefix $(OUT_DIR)/,gpu_attention_test gpu_elementwise_test gpu_fp8_api_test gpu_reconv_test bw_hazard_test)
 	PHYSICS_DIR="$(PHYSICS_DIR)" sh tools/sm121dis/zero_nvdisasm.sh $(OUT_DIR)
 	@if PHYSICS_DIR="$(PHYSICS_DIR)" sh tools/sm121dis/zero_nvdisasm.sh $(OUT_DIR) --red > $(OUT_DIR)/zero-nvdisasm-red.log 2>&1; then \
 		echo "RED CHECK BROKEN: the planted nvdisasm calls passed the gate"; exit 1; \
