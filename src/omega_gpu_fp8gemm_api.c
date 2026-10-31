@@ -10,6 +10,7 @@
 #include "omega_gpu_native_runtime.h"
 #include "omega_gpu_code_alloc.h"
 #include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #define CACHE_SLOTS 8
@@ -242,7 +243,62 @@ int omega_gpu_fp8gemm_prepare_shape(uint32_t k, uint32_t segs, uint32_t mt, int 
     omega_gpu_session_unlock();
     return rc;
 }
-uint32_t omega_gpu_fp8gemm_cta_budget_for(uint32_t segs) { return g.ctas ? g.ctas : (segs >= 64u ? 2u : segs >= 8u ? 12u : 96u); }
+/* DRA-78 (P-DRA-4): AIEN_OMEGA_FP8GEMM_CTA_BUDGET, read once, sets the CTA budget per segment of the calls that take the
+ * API's choice (record cta_budget 0, the stroke; the prefill call) for a chip sweep. Comma-separated items, each "N" (every
+ * call) or "K:N" (the grouped calls of tensor width K with >= 8 segments: the stroke's experts, 512 = down, 2048 = gate_up;
+ * the dense trunk keeps the rule). N 1..1024, K 1..16384, at most one bare N and one item per K. Unset = the incumbent rule
+ * exactly. A malformed value is refused whole (one stderr line; the rule stays) so a sweep never runs a budget it did not
+ * name: slices check the resolved budget first with gpu_fp8gemm_test --spec-of K,SEGS,MT,ROWMAP --expect "ctas=N".
+ * Precedence: the record's cta_budget argument, then omega_gpu_fp8gemm_set_cta_budget, then K:N, then N, then the rule. */
+#define CTA_ENV_ITEMS 8
+static struct { int read; uint32_t all, n, k[CTA_ENV_ITEMS], c[CTA_ENV_ITEMS]; } g_cta_env;
+static int parse_dec(const char **p, uint32_t lo, uint32_t hi, uint32_t *v) {
+    const char *s = *p; uint32_t x = 0;
+    if (*s < '0' || *s > '9') return -1;
+    while (*s >= '0' && *s <= '9') { x = x * 10u + (uint32_t)(*s - '0'); if (x > hi) return -1; s++; }
+    if (x < lo) return -1;
+    *p = s; *v = x; return 0;
+}
+/* 0 on success (out filled), -1 malformed; s non-NULL */
+static int cta_env_parse(const char *s, uint32_t *all, uint32_t *n, uint32_t *ks, uint32_t *cs) {
+    *all = 0; *n = 0;
+    if (!*s) return -1;
+    for (;;) {
+        uint32_t a = 0, b = 0;
+        if (parse_dec(&s, 1, 16384, &a) != 0) return -1;
+        if (*s == ':') {
+            s++;
+            if (parse_dec(&s, 1, 1024, &b) != 0 || *n == CTA_ENV_ITEMS) return -1;
+            for (uint32_t i = 0; i < *n; i++) if (ks[i] == a) return -1;
+            ks[*n] = a; cs[*n] = b; (*n)++;
+        } else {
+            if (a > 1024u || *all) return -1;
+            *all = a;
+        }
+        if (!*s) return 0;
+        if (*s++ != ',') return -1;
+    }
+}
+static void cta_env_read(void) {
+    if (g_cta_env.read) return;
+    g_cta_env.read = 1;
+    const char *e = getenv("AIEN_OMEGA_FP8GEMM_CTA_BUDGET");
+    if (!e) return;
+    uint32_t all = 0, n = 0, ks[CTA_ENV_ITEMS], cs[CTA_ENV_ITEMS];
+    if (cta_env_parse(e, &all, &n, ks, cs) != 0) { fprintf(stderr, "omega_gpu_fp8gemm: AIEN_OMEGA_FP8GEMM_CTA_BUDGET=\"%s\" refused (want N or K:N items, N 1..1024): the incumbent budget stays\n", e); return; }
+    g_cta_env.all = all; g_cta_env.n = n;
+    for (uint32_t i = 0; i < n; i++) { g_cta_env.k[i] = ks[i]; g_cta_env.c[i] = cs[i]; }
+}
+/* the budget a call of width k (0: no width, the public form) with segs segments gets when its caller passes 0 */
+static uint32_t budget_for(uint32_t k, uint32_t segs) {
+    if (g.ctas) return g.ctas;
+    cta_env_read();
+    if (segs >= 8u) for (uint32_t i = 0; i < g_cta_env.n; i++) if (g_cta_env.k[i] == k) return g_cta_env.c[i];
+    if (g_cta_env.all) return g_cta_env.all;
+    return segs >= 64u ? 2u : segs >= 8u ? 12u : 96u;
+}
+uint32_t omega_gpu_fp8gemm_cta_budget_for(uint32_t segs) { return budget_for(0, segs); }
+uint32_t omega_gpu_fp8gemm_stroke_cta_budget(uint32_t k, uint32_t segs) { return budget_for(k, segs); }
 
 int omega_gpu_fp8gemm_record(OmegaGpuCmdList *cl, const OmegaGpuFp8Tensor *t, uint32_t rows, uint32_t segs, uint64_t seg_va, uint64_t xp_va,
                              uint64_t y_va, uint64_t xmap_va, uint64_t ymap_va, uint32_t mt, uint32_t cta_budget, OmegaGpuFp8GemmInfo *info) {
@@ -255,7 +311,7 @@ int omega_gpu_fp8gemm_record(OmegaGpuCmdList *cl, const OmegaGpuFp8Tensor *t, ui
     if (omega_fp8gemm_shared_bytes(&spec) == 0) { omega_gpu_session_set_error("fp8 gemm record: shape refused (rowmap needs mt <= 4)"); return OMEGA_GPU_FP8GEMM_BAD_ARGS; }
     const uint32_t W = spec.warps;
     uint32_t grid_x = (n + W - 1) / W;
-    const uint32_t budget = cta_budget ? cta_budget : omega_gpu_fp8gemm_cta_budget_for(segs);
+    const uint32_t budget = cta_budget ? cta_budget : budget_for(k, segs);
     if (grid_x > budget) grid_x = budget;
     if (grid_x == 0) grid_x = 1;
     /* caller holds the session lock */
@@ -351,7 +407,7 @@ static int gemm_core(const OmegaGpuFp8Tensor *t, uint32_t M, const uint32_t *ids
     if (general_ok && omega_fp8gemm_shared_bytes(&spec) == 0) return general_gemm(t, M, ids, trow, x32, x16, y, n, k, segs, info, OMEGA_GPU_FP8GEMM_CODEGEN_FAIL, t0);
     const uint32_t MT = spec.mt, W = spec.warps;
     uint32_t grid_x = (n + W - 1) / W;
-    uint32_t budget = g.ctas ? g.ctas : (segs >= 64u ? 2u : segs >= 8u ? 12u : 96u);
+    uint32_t budget = budget_for(k, segs);
     if (grid_x > budget) grid_x = budget;
     if (grid_x == 0) grid_x = 1;
 

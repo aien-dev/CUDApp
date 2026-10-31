@@ -457,14 +457,16 @@ static void run_shape(const Shape *S, uint32_t reps, uint32_t seed) {
     free(ids); free(trow); free(picks); free(x); free(y); free(yref); free(y2); weights_free(&W);
 }
 
-/* --spec-of K,SEGS,MT,ROWMAP: the spec the stroke path resolves under this process's environment, printed as one line;
- * with --expect "f=v ...", every listed field must hold (the env-gate checks of the decode levers: default off). */
+/* --spec-of K,SEGS,MT,ROWMAP: the spec the stroke path resolves under this process's environment, printed as one line with
+ * ctas = the CTA budget per segment it records with (DRA-78); with --expect "f=v ...", every listed field must hold (the
+ * env-gate checks of the decode levers: default off; the knob checks a chip slice runs before it measures). */
 static int spec_of(const char *arg, const char *expect) {
     unsigned k = 0, segs = 0, mt = 0, rowmap = 0;
     if (sscanf(arg, "%u,%u,%u,%u", &k, &segs, &mt, &rowmap) != 4) { printf("spec-of: bad argument %s\n", arg); return 2; }
     OmegaFp8GemmSpec s; omega_gpu_fp8gemm_stroke_spec(k, segs, mt, (int)rowmap, &s);
     char line[256];
-    snprintf(line, sizeof line, " k=%u lane_bytes=%u mt=%u warps=%u mutant=%d rowmap=%u x_ahead=%u ", s.k, s.lane_bytes, s.mt, s.warps, s.mutant, s.rowmap, s.x_ahead);
+    snprintf(line, sizeof line, " k=%u lane_bytes=%u mt=%u warps=%u mutant=%d rowmap=%u x_ahead=%u ctas=%u ", s.k, s.lane_bytes, s.mt, s.warps, s.mutant, s.rowmap, s.x_ahead,
+             omega_gpu_fp8gemm_stroke_cta_budget(k, segs));
     printf("spec-of %s:%s\n", arg, line);
     if (!expect) return 0;
     char want[64]; const char *p = expect; int n = 0, bad = 0;
@@ -496,6 +498,7 @@ int main(int argc, char **argv) {
     }
     if (spec_arg) {
         if (mt || warps) omega_gpu_fp8gemm_set_shape(mt, warps);
+        if (ctas) omega_gpu_fp8gemm_set_cta_budget(ctas);
         int rc = spec_of(spec_arg, expect);
         if (rc == 2 || !expect) return rc;
         printf("gpu_fp8gemm_test: %d checks, %d failed: %s\n", g_checks, g_failed, g_failed ? "FAIL" : "PASS");
