@@ -116,6 +116,10 @@ typedef struct {
                       * the K/V append (the prep launch before it wrote every token's rows; a split never reads past its token);
                       * out row t at ARG_OUT + t * ARG_OSTRIDE, partials at ARG_PART + t * ARG_PSTRIDE, counters at ARG_CNT + t * vy * 4.
                       * Every value is the decode launch's, bit for bit (same instructions, same combine order). */
+    uint32_t prep_xstride; /* DRA-85 (2026-11-01): prep = 1, multi = 0 only. Bytes between consecutive qkv rows; 0 = qkv_words * 4
+                      * (the program before this field existed, bit for bit). Qwen3.6-35B-A3B's prefill reads q|k|v out of its
+                      * 9216-word mixer rows (36864 bytes apart, omega_gpu_q36_graph.h ATT_MIX). Must be a multiple of 16 and
+                      * >= qkv_words * 4. Appended last. */
 } OmegaDecodeAttn256Spec;
 
 /* The shape a spec selects: 0 ok, -1 unsupported. */

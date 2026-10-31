@@ -183,6 +183,7 @@ int omega_blackwell_codegen_decode_attn256_prog(const OmegaDecodeAttn256Spec *sp
     const uint32_t D = spec->depth;
     OmegaDattn256Shape SH;
     if (omega_dattn256_shape(spec, &SH)) return -1;
+    if (spec->prep_xstride && (!spec->prep || spec->multi || spec->prep_xstride % 16u || spec->prep_xstride < SH.qkv_words * 4u)) return -1;
     const uint32_t H = SH.h;                         /* q heads per CTA row */
     const int OLD = SH.qh == OMEGA_DATTN256_Q_HEADS && SH.kvh == OMEGA_DATTN256_KV_HEADS && H == OMEGA_DATTN256_Q_PER_KV;
     const int MUT = spec->mutant;
@@ -202,7 +203,7 @@ int omega_blackwell_codegen_decode_attn256_prog(const OmegaDecodeAttn256Spec *sp
     s2r(e, tid, BW_SR_TID_X); s2r(e, cx, BW_SR_CTAID_X); s2r(e, cy, BW_SR_CTAID_Y);
     if (spec->prep && !spec->multi) {                /* prefill prep (#545): CTA cx = token cx at position pos0 + cx, its qkv row */
         iadd(e, pos, pos, cx);
-        { int rowoff = V(e); if (e->err) return -1; imadi(e, R(rowoff), R(cx), SH.qkv_words * 4u, NOREG); imadw(e, pqkv, rowoff, 1u, pqkv); }
+        { int rowoff = V(e); if (e->err) return -1; imadi(e, R(rowoff), R(cx), spec->prep_xstride ? spec->prep_xstride : SH.qkv_words * 4u, NOREG); imadw(e, pqkv, rowoff, 1u, pqkv); }
     }
     movi(e, one, 1); movrz(e, R(zero)); movi(e, c7fff, 0x7fffu); movi(e, c16, 16);
     shr(e, warp, tid, 5);
