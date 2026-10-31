@@ -72,7 +72,7 @@ static int pq_host(void) {
 }
 
 static int pq_sim_one(uint32_t k, uint32_t in_type, uint32_t groups, uint32_t rows, int mutant, size_t *bad_out, char *msg, size_t msgn) {
-    OmegaPqSpec sp = { k, in_type, mutant, groups };
+    OmegaPqSpec sp = { k, in_type, mutant, groups, 0 };
     static BlackwellIRProgram prog;
     if (omega_blackwell_codegen_pq_prog(&sp, &prog) != 0) { snprintf(msg, msgn, "codegen refused"); return -1; }
     float *x = malloc((size_t)rows * k * 4); uint16_t *xb = malloc((size_t)rows * k * 2);
@@ -339,7 +339,7 @@ static int qg_sim(void) {
     for (size_t c = 0; c < sizeof cs / sizeof cs[0]; c++) {
         const uint32_t bm = 16 * cs[c].rt;
         QProb p; qprob_make(&p, cs[c].E, cs[c].n, cs[c].k, cs[c].M, cs[c].xr, cs[c].layout, cs[c].direct, bm);
-        OmegaQgSpec sp = { cs[c].k, cs[c].rt, cs[c].warps, cs[c].layout == OMEGA_GPU_PF_PLAIN ? OMEGA_QG_EPI_F32 : OMEGA_QG_EPI_SWIGLU, cs[c].direct, cs[c].n, 45, 0 };
+        OmegaQgSpec sp = { cs[c].k, cs[c].rt, cs[c].warps, cs[c].layout == OMEGA_GPU_PF_PLAIN ? OMEGA_QG_EPI_F32 : OMEGA_QG_EPI_SWIGLU, cs[c].direct, cs[c].n, 45, 0, 0, 0 };
         uint32_t *rows = malloc(p.M * 4); for (uint32_t i = 0; i < p.M; i++) rows[i] = i;
         void *y = malloc((size_t)(p.M + bm) * p.n * 4);
         for (int order = 0; order < 2; order++) {

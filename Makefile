@@ -375,6 +375,9 @@ $(GPU_QMMA_PROBE_TEST): tests/gpu_qmma_probe_test.c tests/bw_qmma_model.h src/om
 GPU_QGEMM_TEST = $(OUT_DIR)/gpu_qgemm_test
 $(GPU_QGEMM_TEST): tests/gpu_qgemm_test.c tests/bw_qmma_model.h tests/bw_warp_sim_tc.h src/omega_gpu_prefill.h src/omega_blackwell_codegen_qg.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -DWS_MAX_THREADS=1024 -Itests -o $@ tests/gpu_qgemm_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+GPU_PFQ_TEST = $(OUT_DIR)/gpu_pfq_test
+$(GPU_PFQ_TEST): tests/gpu_pfq_test.c tests/pfq_legacy_words.h tests/bw_qmma_model.h tests/bw_warp_sim_tc.h src/omega_gpu_pfq_api.h src/omega_blackwell_codegen_qg.h $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -ffp-contract=off -DWS_MAX_THREADS=1024 -Itests -o $@ tests/gpu_pfq_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
 .PHONY: test-gemm-selectors
 test-gemm-selectors: $(GPU_PFGEMM_TEST) $(GPU_QGEMM_TEST) $(GPU_FP8GEMM_TEST)
 	python3 tests/gemm_selectors.py $(OUT_DIR)
@@ -382,11 +385,21 @@ test-gemm-selectors: $(GPU_PFGEMM_TEST) $(GPU_QGEMM_TEST) $(GPU_FP8GEMM_TEST)
 GPU_PFHOST_TEST = $(OUT_DIR)/gpu_pfhost_test
 $(GPU_PFHOST_TEST): tests/gpu_pfhost_test.c tests/bw_warp_sim_tc.h src/omega_gpu_pfhost.h src/omega_blackwell_codegen_pfhost.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -DWS_MAX_THREADS=1024 -Itests -o $@ tests/gpu_pfhost_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+# DRA-83: the q36 prefill chunk (row bounds, chunk knob, layout bytes, per-chunk streamed count, mutant 7, grid-y split).
+# The graph source is compiled in with the session/cmdlist/GEMM/prefill-kernel entry points it reaches stubbed (the DRA-82
+# QMMA planner and its code generator's spec checks linked); references only reachable from unexercised paths (native MoE,
+# device submit, kernel generation) stay unresolved and are never called. No device is opened.
+GPU_Q36_PFCHUNK_TEST = $(OUT_DIR)/gpu_q36_pfchunk_test
+$(GPU_Q36_PFCHUNK_TEST): tests/gpu_q36_pfchunk_test.c src/omega_gpu_q36_graph.c src/omega_gpu_q36_graph.h src/omega_gpu_pfq_api.c \
+                         src/omega_gpu_pfq_api.h src/omega_blackwell_codegen_qg.c
+	@mkdir -p $(OUT_DIR)
+	$(CC) $(CFLAGS) -ffunction-sections -fdata-sections -o $@ tests/gpu_q36_pfchunk_test.c src/omega_gpu_pfq_api.c \
+		src/omega_blackwell_codegen_qg.c -Wl,--gc-sections -Wl,--unresolved-symbols=ignore-in-object-files -lm
 # omega#456: the prefill tests above, host model and warp simulator only. Every run names --host-only or --sim, the two
 # modes that never open the device (each test's main returns before its chip part); chip runs stay under the GB10 lock.
 .PHONY: test-gpu-prefill-host
 test-gpu-prefill-host: $(GPU_TC_PROBE_TEST) $(GPU_TCGEMM_TEST) $(GPU_PATTN_TEST) $(GPU_PF_MEM_TEST) $(GPU_PFGEMM_TEST) \
-                       $(GPU_QMMA_PROBE_TEST) $(GPU_QGEMM_TEST) $(GPU_PFHOST_TEST)
+                       $(GPU_QMMA_PROBE_TEST) $(GPU_QGEMM_TEST) $(GPU_PFHOST_TEST) $(GPU_PFQ_TEST) $(GPU_Q36_PFCHUNK_TEST)
 	./$(GPU_TC_PROBE_TEST) --host-only
 	./$(GPU_QMMA_PROBE_TEST) --host-only
 	./$(GPU_PF_MEM_TEST) --host-only
@@ -400,7 +413,10 @@ test-gpu-prefill-host: $(GPU_TC_PROBE_TEST) $(GPU_TCGEMM_TEST) $(GPU_PATTN_TEST)
 	./$(GPU_QGEMM_TEST) --sim
 	./$(GPU_PFHOST_TEST) --host-only
 	./$(GPU_PFHOST_TEST) --sim
-	@echo "test-gpu-prefill-host: PASS (8 prefill tests, host model + warp simulator, no device)"
+	./$(GPU_PFQ_TEST) --host-only
+	./$(GPU_PFQ_TEST) --sim
+	./$(GPU_Q36_PFCHUNK_TEST)
+	@echo "test-gpu-prefill-host: PASS (10 prefill tests, host model + warp simulator, no device)"
 # omega#456: tools/own30b_decode_profile.c is a link-only recorder built by hand on the Spark; compile it with the
 # project's -Werror flags so a warning cannot land unseen.
 .PHONY: check-own30b-decode-profile

@@ -143,21 +143,48 @@ int omega_gpu_q36_graph_read_buf(OmegaGpuQ36Graph *g, int which, float *out, uin
  * in their ROWS forms; the GDN step and the attention launched per token in order on the head's own state). Per layer two
  * lists: the mixers and the router, then (after a host sort of the expert picks) the experts and COMBINE|NORM. want_token:
  * the last token's head and argmax as record_head_final (token, read_head(head) as after a token). prefill_alloc(cap)
- * sizes the buffers for chunks of up to cap tokens (1 .. OMEGA_GPU_Q36_PREFILL_MAX_ROWS; nothing shrinks).
+ * sizes the buffers for chunks of up to cap tokens (1 .. omega_gpu_q36_graph_prefill_rows_max(); nothing shrinks).
  * TEST ONLY: AIEN_OMEGA_Q36_PF_MUTANT=1 swaps the last two tokens' GDN steps, 2 drops one row of every expert segment,
  * 3 defers each GDN output copy past the next token's step, 5 gives the multi-token GDN a|b row stride 0 (every token
- * reads token 0's gates), 6 drops the attention prep launch (the chunk's own K/V rows never reach the cache). The GDN runs
+ * reads token 0's gates), 6 drops the attention prep launch (the chunk's own K/V rows never reach the cache), 7 (DRA-83)
+ * skips one chunk's expert segment: in the chunk at pos0 0, layer 0's highest-id routed segment is left out of the
+ * segment tables (its rows' expert outputs are never written) and out of the streamed count. The GDN runs
  * as ONE multi-token launch per layer (the decode step's arithmetic in a loop, bit-identical to the per-token launches;
  * mutants 1 and 3 use the per-token form); AIEN_OMEGA_Q36_PF_GDN=0 forces the per-token launches. Each attention layer is
  * one prep launch (every token's K/V rows) and one attend launch (grid (splits, tokens x rows), the decode kernel per
- * token, bit-identical; omega_gpu_decode_attn256_multi_record); AIEN_OMEGA_Q36_PF_ATTN=0 forces the per-token launches. */
+ * token, bit-identical; omega_gpu_decode_attn256_multi_record); AIEN_OMEGA_Q36_PF_ATTN=0 forces the per-token launches.
+ * DRA-82: AIEN_OMEGA_Q36_PF_QMMA=1 (read by prefill_alloc, which reallocates when it changed; default off) moves the mix,
+ * o, gate_up and down GEMMs onto the tensor cores (omega_gpu_pfq_api.h: per-row e4m3 quantiser + QMMA tiles of 64 rows,
+ * the routed and shared experts in one launch, no PERM launches). Not bit-identical to the GEMV: the activations are
+ * quantised to e4m3 per 128-wide block. o stays on the GEMV where the GDN runs per token. Refused with native artifacts.
+ * Row bounds (DRA-83): the legacy fp8 GEMV/GEMM prefill holds OMEGA_GPU_Q36_PREFILL_MAX_ROWS tokens per chunk; the
+ * tensor-core prefill (DRA-82, AIEN_OMEGA_Q36_PF_QMMA=1, default off) holds OMEGA_GPU_Q36_PREFILL_TC_MAX_ROWS. A cap above
+ * the legacy bound also needs the multi-token GDN, attention and COMBINE|NORM forms (their per-token fallbacks would
+ * overflow one command list) and no native MoE window path (its plan is sized for 128 tokens); prefill_alloc refuses
+ * it otherwise (BAD_ARGS). An allocation the session refuses returns CHIP_FAIL with both buffers freed and cap 0. */
 #define OMEGA_GPU_Q36_PREFILL_MAX_ROWS 128u /* x 8 routed expert rows <= the fp8 gemm's 1024 (the shared expert is its own GEMM) */
+#define OMEGA_GPU_Q36_PREFILL_TC_MAX_ROWS 8192u /* the tensor-core prefill only (DRA-83); the decode GEMV bound is unchanged */
+/* The row bound in force: OMEGA_GPU_Q36_PREFILL_TC_MAX_ROWS when AIEN_OMEGA_Q36_PF_QMMA=1, else
+ * OMEGA_GPU_Q36_PREFILL_MAX_ROWS (read from the environment on every call). */
+uint32_t omega_gpu_q36_graph_prefill_rows_max(void);
+/* The chunk knob (DRA-83): AIEN_OMEGA_Q36_PF_CHUNK, tokens per prefill chunk, read on every call. Unset: 128. A decimal
+ * 1 .. omega_gpu_q36_graph_prefill_rows_max() is written to *chunk (OK); anything else (0, text, above the bound) is
+ * BAD_ARGS and *chunk is left alone. */
+int omega_gpu_q36_graph_prefill_chunk(uint32_t *chunk);
+/* Bytes prefill_alloc(cap) asks for (host and device buffers; lb_stride the router layout stride and layers the layer
+ * count of the graph) at the same layout, with the QMMA regions when AIEN_OMEGA_Q36_PF_QMMA=1, or BAD_ARGS for a cap of 0
+ * or above omega_gpu_q36_graph_prefill_rows_max(). Host only. */
+int omega_gpu_q36_graph_prefill_bytes(uint32_t cap, uint32_t lb_stride, uint32_t layers, uint64_t *host_bytes, uint64_t *dev_bytes);
 int omega_gpu_q36_graph_prefill_alloc(OmegaGpuQ36Graph *g, uint32_t cap);
 uint32_t omega_gpu_q36_graph_prefill_cap(const OmegaGpuQ36Graph *g);
-/* fp8 GEMM weight bytes every prefill call on g so far streamed (a running count: take the difference around a call): every expert once per 4 of its rows, the dense mix/o once per 8
- * rows (the ceiling receipt: these bytes over the call time against the memory bandwidth). The bf16 a|b, router and head
- * reads are not counted. */
+/* fp8 GEMM weight bytes every prefill call on g so far streamed (a running count: take the difference around a call).
+ * Legacy path: every expert once per 4 of its rows, the dense mix/o once per 8 rows. Tensor-core path (pf qmma, DRA-83
+ * G2): every expert a chunk touches once, the shared expert once and the dense mix/o once per layer per chunk (the bytes
+ * a chunk must stream at least). The bf16 a|b, router and head reads are not counted. */
 uint64_t omega_gpu_q36_graph_prefill_streamed(const OmegaGpuQ36Graph *g);
+/* The same weights counted per GEMM pass as launched (legacy: 4 expert rows and 8 dense rows per pass, the two counts equal
+ * there; QMMA: one 64-row tile per pass). The gap to prefill_streamed is the re-read cache reuse must absorb. */
+uint64_t omega_gpu_q36_graph_prefill_passes_streamed(const OmegaGpuQ36Graph *g);
 int omega_gpu_q36_graph_prefill(OmegaGpuQ36Graph *g, uint32_t head, const float *x_embed, uint32_t n, uint32_t pos0, int want_token,
                                 uint32_t *token, OmegaGpuDecodeGraphStats *st);
 /* The gather table (u32 [9216]): agg[n] = mix[tab[n]]. */
