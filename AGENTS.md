@@ -92,7 +92,7 @@ make hello-gpu                              # runs make doctor, then examples/he
 - `docs/DRIVER.md`, `docs/HOW_I_DID_IT.md`, `docs/runtime/API.md`, `docs/runtime/PORTABILITY.md`.
 - `docs/AUDIT.md`, `docs/LICENSING_TRANSITION.md`, `THIRD_PARTY.md`: provenance and licences.
 - `docs/CUBIN_WRITERS.md`: the two cubin writers, who owns new work, and what was not run (#108).
-- Aienux, the Aien kernel, which holds Aien's GB10 driver research harness (L332, aienux#441; not a product, NVIDIA's open kernel module stays and GB10 support goes upstream to Nova and nouveau): https://github.com/aien-dev/aienux
+- Aienux, the Aien kernel, which holds the C reference for Aien's own GB10 driver and its GB10 simulator (L332, aienux#441). That driver replaces NVIDIA's `nvidia.ko` and `nvidia-uvm.ko`, together with aien-dev/aien-gpu and aien-dev/omega-gpu-driver; none has run on the GB10 yet (`ROADMAP.md`): https://github.com/aien-dev/aienux
 
 ## Cursor Cloud specific instructions
 
