@@ -83,6 +83,7 @@ typedef struct {
     int open_fail;
     int channel_fail;
     int submit_fail;
+    int submit_faults_device; /* with submit_fail: the failed submit also sets rm.faulted, as a channel error does */
     int close_fail;
     int extra_channels;   /* L136: nvrm_channel_n / nvrm_chan_submit succeed (default: refused, one channel) */
     uint64_t alloc_max;   /* largest nvrm_alloc the fake grants, 0 = the default 1 MiB */

@@ -1,18 +1,12 @@
-# omega_path	omega_blob. Cutover omega-mv e5b32567a7aff3ce594e3254a622a846a6cd190b, GPU paths per map.sh against CUDA++ 008d9bd.
-# Blobs omega changed through 62d1d0d668f897386a0e311374f8dbcc5c32dde8 (#492 IMAD.HI.U32 Rc refusal, #936 dagsim) were that commit's.
-# Blobs omega changed through b5ab3fe943048ac896b368a687a38fdc1dea4077 (trains #971 and #972, then #975) are that commit's.
-# A comment line that starts with '# Divergence:' names a path that is intentionally not omega's file. The blob on the next row is still omega's, so the gate stays quiet.
-# Makefile still differs: CUDA++ keeps its own build. Mirrored paths match b5ab3fe.
-# Divergence: CUDA++ keeps its own build (portable host binding, HOST_TESTS, PHYSICS_DIR .). The dagsim --wrap link, the two mutant scripts, and test-mufu-ftz are copied. Omega's Makefile blob is recorded so the rest does not fail the gate.
+# omega_path	omega_blob — omega-mv e5b32567a7aff3ce594e3254a622a846a6cd190b (cutover), GPU paths per map.sh against CUDA++ 008d9bd
+# Blobs omega changed through 62d1d0d668f897386a0e311374f8dbcc5c32dde8 (#492 IMAD.HI.U32 Rc refusal, #936 dagsim) are that commit's.
+# Makefile still differs: CUDA++ keeps its own build. The other refreshed paths match that commit.
+# Blobs omega changed through b5ab3fe943048ac896b368a687a38fdc1dea4077 (train r1 #971, train r2 #972) are that commit's; the omega bytes were synced (CUDApp sync/drift-omega-b5ab3fe).
+# Still differ at b5ab3fe on purpose: Makefile, mk/om-encoder.mk, mk/omega-gpu-engine.mk (CUDA++ keeps its own build; sha256 is src/sha256.c, not an Omega SHA unit, so #892 sha256-fs-parity does not apply);
+# src/omega_blackwell_codegen.c (cudapp_om_units.c / cudapp_native.h names only); mk/runtime-r1.mk, mk/runtime-r3.mk, docs/runtime/API.md, omega_runtime_api.manifest, src/omega_runtime_api.h (CUDA++ runtime API 0.6.0 supersedes the omega #955 backport);
+# docs/runtime/PORTABILITY.md, portability_table.tsv (#954 rows and reclassifications carried; CUDA++ rows and its sha256 build differ); tests/dagsim/mutant_{lifetime,predict}.sh (link src/sha256.c);
+# the merged src/ and tests/ files keep the CUDA++ licence header and CUDA++-ahead code with the omega change applied.
 Makefile	5527cafecd0cee9f87a7907b9065b8a8479ba057
-# Divergence: this tree's Runtime API document is version 0.6.0 and test-runtime-api checks it. Omega's new copy is 0.1 and does not describe these headers.
-docs/runtime/API.md	9f5f34321bfb3f8623623ca9a174b68e3ff3c3ed
-# Divergence: this tree's portability note matches its table. Omega's copy counts a different source tree, including files this repository does not build.
-docs/runtime/PORTABILITY.md	7b923a91e12f7f2e5c5954d80293517e19e8c959
-# Divergence: this tree's manifest is abi 0.6.0 and is checked against these headers. Omega's copy is abi 0.1 with a different header list.
-docs/runtime/omega_runtime_api.manifest	d02c0ebe0b6df7d4d8f52b51942dccd76cc8ec2d
-# Divergence: test-runtime-portability checks this tree's table. Omega's table is a different row set.
-docs/runtime/portability_table.tsv	7d927220d172fafa6135fbb9069683c5a3030119
 evidence/C3-GEMM/01-host-only.log	c581c5126718bc24ef10ed1b1637528018a260e5
 evidence/C3-GEMM/02-sim.log	fd97da9f29871abfc16fb2ed938c38a4d3c2314f
 evidence/C3-GEMM/README.md	0e730a9bf2072f34d59d9cdc1961f4112a7ff90e
@@ -154,20 +148,12 @@ evidence/R4-MATMUL-CTA-ffc3176a/smoke-1661fc72/mutant.log	a6435be5c5150f06447dce
 evidence/R4-MATMUL-CTA-ffc3176a/smoke-1661fc72/run.sh	d097786d66128d019e336acc7758e70a2eba0182
 evidence/R4-MATMUL-CTA-ffc3176a/smoke-1661fc72/sweep.bf820dbd4243086e9c61866a50ee8485440f6929793f17a25bcd05955303a507.json	fb6744b7d549004f58dc6106b7469afc2968ac6c
 evidence/R4-MATMUL-CTA-ffc3176a/smoke-1661fc72/sweep.log	14ea4d447540f2d875b05628ba0c1525f13fc8cf
-# Divergence: this fragment links src/cudapp_om_units.c and src/sha256.c. Omega's links src/omega_om_units.c, which is not in this tree.
-mk/om-encoder.mk	16de2e0d0f37e5e956795cfa71c34d73450e794b
 mk/omega-gpu-code-alloc.mk	3b217c32d9cc063c8b83d18ede48afcc24a594ae
-# Divergence: the sim link uses CUDAPP_HOST_BINDING, src/sha256.c, and OMEGA_BLACKWELL_HOST_SIMULATOR. Omega's uses src/omega_om_units.c and src/omega_sha256_fs.c.
 mk/omega-gpu-engine.mk	f3f5dd632c6a42c806ccdb687c8df6e7e5c35ffa
 mk/omega-gpu-wait.mk	42e5ed25b232b7ae67f922e9a4a948e3ef942159
-# Divergence: this tree keeps test-runtime-api-semver and the SPDX line. Omega's recipe is the check this file already runs, without the semver target.
-mk/runtime-r1.mk	a6cc401cfbc7f5c11fb149f71b4b1991b6147e85
-# Divergence: SPDX line only. The portability recipes match omega's text.
-mk/runtime-r3.mk	9c541fbb2574df1e91d291dd7b365cfce9fd471b
 mk/sm121dis.mk	d29fcba32384d80b1fd4897b4ed1fb2eb865d631
-# Divergence: this tree keeps the LLVM-exception SPDX line, cudapp_native.h, and LDG.E.MMIO.GPU 0x0c1f1900. Omega emits LDG.E.EF 0x0c0e1900. Neither word has a NAK citation or a GB10 test, so under ADR 0043 provenance neither wins yet. CUDApp replaced omega's 0x0c0e1900 with 0x0c1f1900 in 3c163287d27b6e5a5f5b90c15b61ac83d8f26e2d after the shared import; omega still has the word from 11b6f4748facdb03d2ab39da966f110828007780.
 src/omega_blackwell_codegen.c	48c4e3e2e9ab15fff2a89c765096c21ae7654fe0
-src/omega_blackwell_codegen.h	d1d65f013b92e1e712cdfa39966ec690d9738f78
+src/omega_blackwell_codegen.h	1f0b70eecd3860da68bbe013860f27ca01da0d2f
 src/omega_blackwell_codegen_attn.c	060e25cff987ff43fdb234aee39497253cf25c3a
 src/omega_blackwell_codegen_attn.h	4f84bba33c4cf4dfca8834335b6900aba01b677b
 src/omega_blackwell_codegen_attn256.c	ecb4c1dae47bfa0b7d25f90468b17de79247c040
@@ -206,9 +192,7 @@ src/omega_blackwell_codegen_tern.c	6177d45ad13dc53cdb8cb4b3f7a133240ef3c3c6
 src/omega_blackwell_codegen_tern.h	a9a7472cc5606fc285c330231c2a54a9f6e82490
 src/omega_blackwell_encoder.c	373a98cdac7c8bdbf3921579f013eac4cafe6647
 src/omega_blackwell_encoder.h	9050a2f03dcf7b072775d1182cc558b8d8e5b623
-# Divergence: this tree keeps cpu_barrier.h and does not take the persistent device (omega #575). That changes which device stays open. No GB10 run.
 src/omega_blackwell_engine.c	436de40edfab6b760ebaefe65840d10803497d98
-# Divergence: omega declares omega_blackwell_engine_shutdown and device_is_open. This tree's engine.c does not define them.
 src/omega_blackwell_engine.h	b2e931f2418f5fde839c95027bc007d433da7669
 src/omega_blackwell_gates.c	54ec7f76917c88306effbcb868d2954ba7d53be8
 src/omega_blackwell_gates.h	438131d832b09ced66519da9a462e3e16cba23d4
@@ -222,10 +206,6 @@ src/omega_blackwell_submit.c	5efba9c2ec7bd697487462361d851ce99777f5e6
 src/omega_blackwell_submit.h	41b36dcc36c576d3159b27e4d627a149a24d4ae3
 src/omega_bw_em.h	fd61cdd84e5d26fd72ee9a4c1d7d7ecccf61d297
 src/omega_bw_em_q.h	13c2803a1867df08fd9628fd98cab4059b999fa6
-# Divergence: not imported. The checker is tested against omega's encoder, and its fixture note quotes an nvcc listing. This tree's encoder already differs on LDG.E.MMIO.GPU. No GB10 run.
-src/omega_bw_hazard.c	026ae76bd0928051186e6ef95fe254d8e837173e
-# Divergence: not imported with src/omega_bw_hazard.c. Same reason.
-src/omega_bw_hazard.h	cd80642c186037bd172c9b340510b7a7fe994c46
 src/omega_bw_reconv.h	a10e07a371acdadcad8bdeb8bc498fcd3e43f1c5
 src/omega_canonical.c	0e91d5639a0f88f9f449828fc4a6311d9e1d1502
 src/omega_canonical.h	53cc8669910c7fca21bd3edc954eaec6a4c7bdc1
@@ -250,16 +230,9 @@ src/omega_gpu_engine.c	9965ca19a345fa8fc441102146bf99d0706dc045
 src/omega_gpu_engine.h	3733d534aaab756e0bfaff361021fe695d248f20
 src/omega_gpu_fmt.c	270f3fe3e6d9715650867cbb04afdde88c63adec
 src/omega_gpu_fmt.h	8a308f4b22f43c340c03ffe7acff43319c58fed2
-# Divergence: this tree's FP8 API body already differs. Omega adds slot-pool helpers. Replacing the body would drop this tree's FP8 path.
 src/omega_gpu_fp8_api.c	c1dcc83246942c6e5f2f986d6c4d5f14a58557ac
 src/omega_gpu_fp8_api.h	9c7caf2d269947e80554d029a1ed01a6c04f279b
-# Divergence: not imported. The slot pool calls helpers this tree's fp8_api.c does not have. Adding them means editing that frozen body.
-src/omega_gpu_fp8_internal.h	4ceca4bcf84ea4b1fc7728cd11fd102d44a59740
 src/omega_gpu_fp8_pack.c	77bd62063fb3b6641221466e813760282cb3b81c
-# Divergence: not imported. It needs omega_gpu_fp8_internal.h and src/omega_fp8_slot_table.c, which is outside the GPU map.
-src/omega_gpu_fp8_slots.c	839f466a09f20db060d6badab70776cfdf9cbc93
-# Divergence: not imported with src/omega_gpu_fp8_slots.c. Same reason.
-src/omega_gpu_fp8_slots.h	1ad8f6475a2eca4708798175b8a550e7bb706398
 src/omega_gpu_fp8gemm_api.c	5605a6ea823d9b41db741f249523cf38e75818ff
 src/omega_gpu_fp8gemm_api.h	2f14e9a41753a061a6a973c11233639a01ab554c
 src/omega_gpu_gdn_api.c	6d56e0e14ee5fbdcdd04e9fee880434af355013a
@@ -299,7 +272,6 @@ src/omega_gpu_scan_ref.c	ab5ee16a5df4f2317fd67ecee2c6e3f7d1e4285d
 src/omega_gpu_serving.c	9aba1a20d7cf505812b5bb170b628bb6ad54b94a
 src/omega_gpu_serving.h	d4acb7a2455c1a43e488bbeb07ebd3359c3e8152
 src/omega_gpu_session.c	41a72e285ccdf17baf8548dac5a7e3d35517aa51
-# Divergence: this tree's session header already differs. Omega's delta is comments (ABI 1.2, INTERNAL, recover, spin_us). src/omega_gpu_session.c is not in this drift.
 src/omega_gpu_session.h	4772b59828c8373ea4b6ced1dad0c25e7aa350ec
 src/omega_gpu_tcgemm_api.c	50e740472332f536069462a04cc89cb5680f298f
 src/omega_gpu_tcgemm_api.h	f75884996cbbd4a9531a39d363c55019ec070616
@@ -312,28 +284,22 @@ src/omega_numeric.h	b3548189a5d0101bfa1d3f9e83abb3595528004b
 src/omega_numeric_lifecycle.h	a90a359306f98420a3189a488fe413319b4fad38
 src/omega_numeric_reduce.c	3dffadfe031a774191d07bddacd203fadee6a4b2
 src/omega_numeric_reduce.h	ac9cf9c9b636b292ab23d5a25309cf2669496a17
-# Divergence: this header is 0.6.0 with PATCH. Omega's new file is 0.1 without PATCH. test-runtime-api checks this header.
-src/omega_runtime_api.h	89e2acbee00c0fee71c0fa78913726ccc8e2f708
 src/omega_sm121_disasm.c	796db0339247b998fa37c60a15aeac6105705774
 src/omega_sm121_disasm.h	aaf815d6387018ff0ac2598c23dac1398672cb60
 src/omega_types.h	433c3e8113c154e2c12e1cb508841319d29d1b7d
 src/omega_vector.c	a3add41a0d77a484d4357e913fb9e7c0c9b4cc23
 src/omega_vector.h	348195ca448839cb191ea1c9d5da05b4e61bdda8
-src/runtime/rx_costmodel.c	2a5df36d97e958633702581568c2fe76e808ed3c
-src/runtime/rx_costmodel.h	162b5f053102a06d02385d24d42da3b41068bb2b
+src/runtime/rx_costmodel.c	d8ddf956d88d4d9164682d2223a277cd04fc37dd
+src/runtime/rx_costmodel.h	6e2c0db52fafe3548e9161bc96ea9c07292dcd36
 src/sha256.h	7db16bcacfbe68623fc2a042dd4cca5a388e41f9
 tests/bw_encode_control_test.c	46a67b11dfc65bf7d6fab711312b6368a8814f87
-# Divergence: not imported with src/omega_bw_hazard.c. The red receipt fixtures quote an nvcc listing, and the decoder is checked against omega's encoder.
-tests/bw_hazard_test.c	c546f7699ffba1597c4d21c871b421bb656aed22
 tests/bw_hmma_model.h	f019912d90dd2f5b1b3634473abdc8f767c32c25
-tests/bw_mufu_ftz.h	e1263c4c6b3e1e0621720aeac04c617e758874b2
-tests/bw_mufu_ftz_test.c	573ce07328e8b96a898e61ef95b0419e9b08aff7
 tests/bw_qmma_model.h	8429ad2cbf5031f435b13f3bcb332dbdbfac1d58
-tests/bw_warp_sim.h	b88d19c2968435e10e11813d9a084dbbbf1896d9
-tests/bw_warp_sim_k.h	de22fb516cd79a4ec61c1bdb003212b3e9113d18
-tests/bw_warp_sim_pa.h	1aae63c496e3523dbc237668f1a408a88c93a1d8
-tests/bw_warp_sim_tc.h	59e4ad37965c70650cd5c6ce37f53d5f4a459937
-tests/dagsim/dagsim_unit.c	71b936399123ab68bff4078c4a23ef5f8fa23f73
+tests/bw_warp_sim.h	6d93828f3979b3a7223ebe0f1952b53e1d414764
+tests/bw_warp_sim_k.h	993875647985cc99ce27a78003df26df91fd18e1
+tests/bw_warp_sim_pa.h	157e396cde9d942cc0bfff02fd057ed393c52a0a
+tests/bw_warp_sim_tc.h	a08e38b6a05d815448fe8b4546d204aff6f3e166
+tests/dagsim/dagsim_unit.c	f9c6c089ea9bbb8ab820e5070583bd6c1cf98804
 tests/dagsim/fixtures/m1_spark_overlap.oev	249980f17162a95e47917072fa842b37bca08b41
 tests/dagsim/fixtures/m1_spark_subset.oev	34fdf73644edbaad5ead8d444752430aefb451a0
 tests/dagsim/fixtures/m1_synthetic_power.oev	3087178eaea87fedcc9bde161717b4b8316b43af
@@ -341,34 +307,26 @@ tests/dagsim/fixtures/mw_bad_elimination.oev	cc9e2a4803c6f98068812cc2da777a9a669
 tests/dagsim/fixtures/mw_baseline.oev	e2eaf36f8104aae08df67774734d5d5d25dfbce2
 tests/dagsim/fixtures/mw_reuse.oev	9e24750f34439621be86961c4357ec09715b4d13
 tests/dagsim/fixtures/needs_arch244_trace.oev	6711650728006ad0feff66cb0768d9e3fc6b5b6f
-# Divergence: non-AArch64 and AArch64 both link src/sha256.c. Omega links src/omega_om_units.c on AArch64 and tests/dagsim/sha256_host.c elsewhere. Neither is this tree's sha256_hash.
-tests/dagsim/mutant_lifetime.sh	b3641225446bc7750b9f49d2e62050a7fadf316a
-# Divergence: same sha256 link as tests/dagsim/mutant_lifetime.sh.
-tests/dagsim/mutant_predict.sh	89df5266df444b0a91d4d4c6f120d69ad52c61ef
-tests/dagsim/run_cli.sh	0c5d7b364f4a530ebfe1d4aac21a72e1fddf1b71
+tests/dagsim/run_cli.sh	5b22297de823d24af6c8f7e5f373b90f632aa461
 tests/dagsim/sha256_host.c	64ffdf4e5d6443ccf1272d43f6dba39589624c0a
-# Divergence: the new submit_faults_device flag is for the persistent-device sim. This tree's fakes already differ, and the engine does not take persistence.
 tests/fake_m16_native.c	54f204c266512c29324a46bbcda880c004509971
-# Divergence: same submit_faults_device flag as tests/fake_m16_native.c. Not taken.
 tests/fake_m16_native.h	cdb48ee8764184fdbf9d8895019d44f87a5e21ca
-# Divergence: this test already differs widely. Omega wires its per-thread MUFU cases through bw_mufu_ftz.h. The file is not replaced.
 tests/gpu_attention_test.c	8ba96c81c437141544a3dffc0801ca7f332bdbd8
 tests/gpu_bf16_gemv_test.c	f37a595006adddd0261e5c741634909167888daf
 tests/gpu_cmdlist_test.c	f32d36caed78fda46cd1a7536da284d8d260e952
 tests/gpu_dattn256_multi_test.c	daef69b87e28c449d7756216f343d6463a0ddd7b
 tests/gpu_decode_attn256_test.c	b8b71061ad97336543635e09ee508d15a18fd437
+tests/gpu_decode_attn_test.c	ff35e2a039efa661a056ab6a289e47a9b43cc73b
 tests/gpu_decode_graph_test.c	8af07f1e423f3db54438749eb4a76a1c9f09443c
 tests/gpu_elementwise_test.c	7a270eb5f45e96aa89d2e6fed6963b2ee044d05b
 tests/gpu_exact_head_test.c	5258f3d84f5bc44eca597666f146bb2cc54bcdf0
 tests/gpu_fp8_api_test.c	8fcf839dce9575af4b0abde499eb809e64ad36f7
-# Divergence: not imported with the slot pool. Same reason as src/omega_gpu_fp8_slots.c.
-tests/gpu_fp8_slots_test.c	1ef57aa4fcd4c3d1b3046dd8541df92684b3033d
 tests/gpu_fp8gemm_test.c	1a9669f47793fe77f75da31aff8321834a439199
 tests/gpu_gdn_multi_test.c	108578a8fc7dbb8b95db323e5ea1752da767601b
 tests/gpu_gdn_test.c	655875a653860259e3d93f80fb54bded048b26af
 tests/gpu_gemm_test.c	b60f70964f40113d59931993e1c9eaa046008cfa
 tests/gpu_gpr_boundary_test.c	052baca71823f2ad4941184785b24fa81713109a
-tests/gpu_imadhi_rc_test.c	efdb4f1a5fe5f5a83d87baf909e8b63d0fa305f2
+tests/gpu_imadhi_rc_test.c	179596a27cd1c24e02ec8459a45f2e7216ca2424
 tests/gpu_isolation_test.c	786629e31c02a1d5ee3de782761e47ff2647dfce
 tests/gpu_l2_reuse_test.c	169be18b7ba7c13fff48685e452d351663dc34be
 tests/gpu_l2_stale_test.c	fa4ab3c8d0541b2bb469b821280f87c60e7b45b5
@@ -378,14 +336,11 @@ tests/gpu_matmul_api_test.c	3f3034f1227b4f244f4e0287b8cb993523a0d276
 tests/gpu_matmul_r4_receipt.c	7b96b511fe042772ba0ff36a99004a0f5b40d9bd
 tests/gpu_moe_window_test.c	fa47ee6875a4e9682eda1107b0230c464cdfff22
 tests/gpu_pf_mem_test.c	2b2c4d1a76aa36e9161d3d8a38b6de89f3e1551d
-# Divergence: this test already calls the same flush (ws_mufu_ftz of exp2f). Omega renames that call to ws_mufu_ex2. The file is not replaced.
 tests/gpu_pfgemm_test.c	900878f59f98aaf3f0a16061b95b7d363882b1e9
 tests/gpu_pfhost_test.c	ba25fc5aab20f3feb81da9180fc615aa29f7d33f
 tests/gpu_prefill_attn256_test.c	72374f11bd23b28619765b91d8c7aa85a18b719a
-# Divergence: omega's host reference calls ws_mufu_rsq. This test keeps 1/sqrtf. The file already differs, and the note says eps keeps the result normal.
 tests/gpu_prefill_attn_test.c	5a20ae554749cabaa9854aa2306c617ed1e07e3c
 tests/gpu_q38_graph_test.c	69de826c8b69398c011fdb452aaab9d5060eb2ef
-# Divergence: omega routes the capped SwiGLU reference through ws_mufu_ex2 and ws_mufu_rcp. This test keeps exp2f and 1/d. Omega's own note says the cap makes the flush unobservable.
 tests/gpu_qgemm_test.c	15dd5cb87d5b695aaf4f27147c141ef95779ff8e
 tests/gpu_qmma_probe_test.c	639aa7cd2008825c8d6562634e769d1f12df28c7
 tests/gpu_reconv_test.c	3416fe6ea9f9a17cc9e0a52e09fd42e52d3f8c71
@@ -398,9 +353,7 @@ tests/gpu_tc_peak_test.c	5d2841cbafc3014775551c49531e0c9af3407992
 tests/gpu_tc_probe_test.c	934e4a03c2eb6a13e03b9b63ae1284e1038dc109
 tests/gpu_tcgemm_test.c	340ff8a63dc8b422c829161e4d43ef06bea743a1
 tests/gpu_tern_test.c	16dfca40fca26bb5a5a885697b7bdd5c0c3227af
-# Divergence: the new checks call omega_blackwell_engine_shutdown. This tree's engine does not define it.
 tests/test_omega_blackwell_engine.c	5d79271fbd597624a92d3a1544a10b7bccffc960
-# Divergence: licence header only. The hosted --golden path already matches omega b5ab3fe.
 tests/test_omega_codegen_freestanding.c	a84887375200f9a27393096f33333821df503df8
 tests/test_omega_gpu_code_alloc.c	2bebf3ca808f4cb38081a035fc633ebafc66dd8a
 tests/test_omega_gpu_engine.c	a1a1c15f8b8cf9f14d1581aab353ef4f1b8679c5
@@ -410,8 +363,8 @@ tests/test_omega_gpu_platform.c	38ff95b817b165611a4fadf036f37d7144d9bc2a
 tests/test_omega_gpu_platform_linux.c	eb9b9be4cecb87d5f17cb8b79c283f26a5a805dd
 tests/test_omega_gpu_session_platform.c	b02defe6fbfbe51494d25450809bffa65e8fda7b
 tests/test_omega_gpu_wait.c	0d4cc10d93af3dd9c7cd5590e934d133fe5a27b7
-tools/dagsim/dagsim.c	359a0243779794b1b18059e2e8e6abc68533ed5f
-tools/dagsim/dagsim.h	8ab62e55da5cb1049ccf912e6a14953ab3e92dc4
+tools/dagsim/dagsim.c	b7187d4450ea026881516638e65e21db3f4e6a78
+tools/dagsim/dagsim.h	a409b588ba3688ecf0318e10d25f3b1f3a911dbd
 tools/dagsim/dagsim_cli.c	fb279f9040cb33d051bebf8f9d1288b9be325230
 tools/gpu_engine_backend_mutations.sh	443b3585a8748715ea63b9e2a3ed848aae8ecc89
 tools/gpu_engine_mutations.sh	a909493d166084c94546a182eddb0e6ed441caca
@@ -423,3 +376,13 @@ tools/sm121dis/corpus_selftest.sh	061c618cdd4d4f898fa6a964821ab9dca1b4016e
 tools/sm121dis/oracle_pairs.sh	ae532a96225a9e5f40f7a2fe42ab7f0fd82b304d
 tools/sm121dis/sm121dis.c	b9d3e631cce1d45f60eb0f519f22e5e481bfe066
 tools/sm121dis/zero_nvdisasm.sh	54fc36fa658f9c3094b39e1aca639f711852a496
+docs/runtime/API.md	9f5f34321bfb3f8623623ca9a174b68e3ff3c3ed
+docs/runtime/PORTABILITY.md	7b923a91e12f7f2e5c5954d80293517e19e8c959
+docs/runtime/omega_runtime_api.manifest	d02c0ebe0b6df7d4d8f52b51942dccd76cc8ec2d
+docs/runtime/portability_table.tsv	7d927220d172fafa6135fbb9069683c5a3030119
+mk/om-encoder.mk	16de2e0d0f37e5e956795cfa71c34d73450e794b
+mk/runtime-r1.mk	a6cc401cfbc7f5c11fb149f71b4b1991b6147e85
+mk/runtime-r3.mk	9c541fbb2574df1e91d291dd7b365cfce9fd471b
+src/omega_runtime_api.h	89e2acbee00c0fee71c0fa78913726ccc8e2f708
+tests/dagsim/mutant_lifetime.sh	b3641225446bc7750b9f49d2e62050a7fadf316a
+tests/dagsim/mutant_predict.sh	89df5266df444b0a91d4d4c6f120d69ad52c61ef

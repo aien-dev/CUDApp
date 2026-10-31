@@ -12,7 +12,7 @@
 # After a deliberate header change: edit the line here, run `tools/runtime_api_check.sh --bless` to refresh numbers, review the diff,
 # and bump the version (MAJOR/MINOR/PATCH, rule in API.md section 2; tools/runtime_api_semver.sh checks the bump against the base).
 # Names a manifest header declares that are NOT API go in omega_runtime_api.internal, each with a reason (the check fails otherwise).
-abi omega_runtime 0.6.0
+abi omega_runtime 0.7.0
 header src/omega_runtime_api.h
 header src/omega_gpu_platform.h
 header src/omega_gpu_session.h
@@ -37,9 +37,9 @@ header src/omega_gpu_prefill.h
 header src/omega_gpu_pfhost.h
 # ---- version ----
 const OMEGA_RUNTIME_API_VERSION_MAJOR 0
-const OMEGA_RUNTIME_API_VERSION_MINOR 6
+const OMEGA_RUNTIME_API_VERSION_MINOR 7
 const OMEGA_RUNTIME_API_VERSION_PATCH 0
-const OMEGA_RUNTIME_API_VERSION 6
+const OMEGA_RUNTIME_API_VERSION 7
 # ---- platform contract (src/omega_gpu_platform.h, ABI 1.2) ----
 struct OmegaGpuDeviceHandle 8 4 # STABLE
 field OmegaGpuDeviceHandle index 0 4 u32 1
@@ -913,6 +913,7 @@ fn omega_gpu_decode_graph_begin_token fn(*mut OmegaGpuDecodeGraph, *const f32) -
 fn omega_gpu_decode_graph_record_layer fn(*mut OmegaGpuDecodeGraph, u32, u32) -> i32 # EXPERIMENTAL
 fn omega_gpu_decode_graph_record_final fn(*mut OmegaGpuDecodeGraph) -> i32 # EXPERIMENTAL
 fn omega_gpu_decode_graph_end_token fn(*mut OmegaGpuDecodeGraph, *mut u32, *mut OmegaGpuDecodeGraphStats) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_graph_abort_token fn(*mut OmegaGpuDecodeGraph) -> i32 # EXPERIMENTAL
 fn omega_gpu_decode_graph_record_res fn(*mut OmegaGpuDecodeGraph, u32, u64, u64, u64, u64, u64, f32, f32) -> i32 # EXPERIMENTAL
 fn omega_gpu_decode_graph_record_swiglu fn(*mut OmegaGpuDecodeGraph, u64, u64, f32) -> i32 # EXPERIMENTAL
 fn omega_gpu_decode_graph_list fn(*mut OmegaGpuDecodeGraph) -> *mut OmegaGpuCmdList # EXPERIMENTAL

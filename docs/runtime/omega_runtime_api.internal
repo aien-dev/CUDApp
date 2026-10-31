@@ -127,7 +127,6 @@ fn omega_gpu_bf16_kernel_fits # takes or returns a kernel-generator type, which 
 fn omega_gpu_bf16_test_set_mask_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
 fn omega_gpu_bf16_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
 fn omega_gpu_decode_attn_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
-fn omega_gpu_decode_graph_abort_token # abandons a begun token without submitting and releases the session lock; not promised
 fn omega_gpu_decode_graph_test_set_barrier_none # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
 fn omega_gpu_decode_graph_test_set_mutant # TEST ONLY: mutant or fault-injection hook for the decode-path batteries
 fn omega_gpu_decode_graph_test_set_prefetch_red # TEST ONLY: mutant or fault-injection hook for the decode-path batteries

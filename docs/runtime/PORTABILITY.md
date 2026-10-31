@@ -17,7 +17,7 @@ Porting Omega means answering two questions that are easy to mix up:
 2. **Operating system and driver.** Does this file need Linux, the NVIDIA open driver, or a C library?
 
 The table `docs/runtime/portability_table.tsv` answers both, one row per `src/omega_gpu_*`, `src/omega_blackwell_*` and
-`src/omega_bw_*` file (123 rows; the M17/M18 gate suite `omega_blackwell_gates.{c,h}` stays in Omega, which runs it against this library):
+`src/omega_bw_*` file (131 rows; the M17/M18 gate suite `omega_blackwell_gates.{c,h}` stays in Omega, which runs it against this library):
 
 | Column | Values | Meaning |
 |---|---|---|
@@ -28,7 +28,12 @@ The table `docs/runtime/portability_table.tsv` answers both, one row per `src/om
 Totals at base commit a8ffd2b9: 87 files are `CHIP_SPECIFIC` and 15 are `PORTABLE`. By `os_binding`: 13 `FREESTANDING_PROVEN`,
 77 `NO_HOSTED_INCLUDE`, 9 `HOSTED_LIBC`, 3 `LINUX_DRIVER`. The small `PORTABLE` count is the honest result: almost everything
 in `src/omega_gpu_*` launches a Blackwell kernel. CUDApp#125 adds 21 `CHIP_SPECIFIC` rows for the files the omega-mv
-carries (#120, #121) brought (15 `NO_HOSTED_INCLUDE`, 6 `HOSTED_LIBC`). Command to recount: section 7.
+carries (#120, #121) brought (15 `NO_HOSTED_INCLUDE`, 6 `HOSTED_LIBC`). The sync to omega-mv b5ab3fe9 (trains r1 #971 and
+r2 #972) adds 5 `CHIP_SPECIFIC` rows (`src/omega_bw_hazard.{c,h}`, omega-mv#554; `src/omega_gpu_fp8_slots.{c,h}` and
+`src/omega_gpu_fp8_internal.h`, #961) and carries omega's review of the public headers (#954): `omega_gpu_matmul_api.h`,
+`omega_gpu_moe_api.h`, `omega_gpu_platform.h`, `omega_gpu_serving.{c,h}` and `omega_gpu_session.h` become `CHIP_SPECIFIC`,
+`omega_gpu_scan_ref.c` becomes `PORTABLE` (section 3). Totals now: 120 `CHIP_SPECIFIC`, 11 `PORTABLE`; 13
+`FREESTANDING_PROVEN`, 98 `NO_HOSTED_INCLUDE`, 17 `HOSTED_LIBC`, 3 `LINUX_DRIVER`. Command to recount: section 7.
 
 `make test-runtime-portability` (host only, no compiler, no GPU) checks the table against the tree: every file has a row,
 every row names a real file, a `PORTABLE` row's file includes no Linux or NVRM header and no Blackwell header, and the
@@ -59,12 +64,15 @@ stall counts. The platform contract hides the *driver*; it does not hide the *GP
 
 | Piece | Where | Why it is portable |
 |---|---|---|
-| Platform contract, ABI 1.2 | `src/omega_gpu_platform.h`, `src/omega_gpu_platform.c` | Typed handles (index plus generation), separate CPU, GPU and bus address types, buffer kinds and rights, a service set negotiated up front, named refusals (`OmegaGpuPlatformRefusal`), no silent fallback. ABI 1.2 adds `submit_prefix_words`. Included in `make gpu-engine-freestanding`. |
+| Platform validation implementation | `src/omega_gpu_platform.c` | Reusable capability negotiation and handle-table checks, included in `make gpu-engine-freestanding`. This does not make the header contract chip-neutral: `omega_gpu_platform.h` specifies NVIDIA cache policy and GPFIFO queue semantics and is classified separately as `CHIP_SPECIFIC`. |
 | Engine state machine | `src/omega_gpu_engine.c`, `.h` | Open, validate, submit, verify, close, with a named failing step. Talks to a backend through a function table (`OmegaGpuBackend`). No chip knowledge. |
 | Bounded wait | `src/omega_gpu_wait.c` | Clock and hooks come from the caller; the freestanding build has no default clock. |
-| Serving reservation | `src/omega_gpu_serving.c` | Counts and bounds a session's allocations. |
 | Text and host math | `src/omega_gpu_fmt.c`, `src/omega_gpu_hostmath.c` | A bounded formatter and libm-free log, exp, pow. |
-| Public tensor entry points | `src/omega_gpu_matmul_api.h`, `src/omega_gpu_moe_api.h`, `src/omega_gpu_session.h` | Plain types in the signatures. The `.c` files behind the matmul and attention calls are chip-specific (section 2). |
+| Scan host reference | `src/omega_gpu_scan_ref.c` | The frozen reduction and prefix-sum order depends only on n and the element index (`docs/numeric/E1_REDUCTION_CONTRACT.md`); plain C additions on the CPU. Its header `omega_gpu_scan.h` is `CHIP_SPECIFIC` and pulls in `omega_blackwell_codegen.h`, so reuse elsewhere needs the reference declarations split out. |
+
+Plain C signatures are not evidence of a chip-neutral contract. The matmul header exposes Blackwell tile macros (16/8/16), the MoE header defines tile-major packing and column alignment, and the session header exposes QMD fields/defaults and the two-marker/L2-flush launch protocol. All three are `CHIP_SPECIFIC`. The platform header also requires review for another chip because its queue contract names GPFIFO and its host-polled rights require the NVIDIA GPU-uncached visibility rule. The serving header describes the GB10 reservation/cache contract; `omega_gpu_serving.c` calls those matmul/attention reservation APIs rather than implementing generic allocation accounting. Both serving files are therefore `CHIP_SPECIFIC`, even though the implementation builds without hosted headers.
+
+A hardware name in an example or historical comment alone is not a machine dependency. The classifications above are based on exposed layout, tile, visibility, queue or backend-call semantics. The remaining portable engine/math/formatter/wait helpers do not prove that their consumer or a complete backend supports another GPU.
 
 What the freestanding build proves, and what it does not, is in `docs/numeric/OMEGA_GPU_NATIVE_BOUNDARY.md` section 1 and
 section 4: the listed files link with only `memcpy`, `memmove`, `memset`, `memcmp`, `strlen` and `strcmp` undefined, and

@@ -70,7 +70,7 @@ test-om-encoder-corpus:
 .PHONY: test-om-spec-encoder
 ifeq ($(CUDAPP_HOST_IS_AARCH64),1)
 test-om-spec-encoder:
-	sh tools/test_bw_spec_encoder.sh
+	OMEGA_BRIDGE="$(OMEGA_BRIDGE)" sh tools/test_bw_spec_encoder.sh
 else
 test-om-spec-encoder:
 	@echo "test-om-spec-encoder: NOT_RUN (requires the pinned omc and nvdisasm; not part of the portable host suite)"
