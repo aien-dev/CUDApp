@@ -156,6 +156,16 @@ static void host_only(void) {
     dev[(1u * OMEGA_GDN_SLOTS + 7u) * 4u + 1u] += 1.0f; /* head 1 (a second copy of key head 0), q slot 7 */
     CHECK(omega_gdn_unpack_tail_r(GDN_TEST_RATIO, dev, t2) == -1, "unpack refuses disagreeing copies");
     free(t); free(t2); free(dev);
+    /* DRA-86 state view and device copy: every bad call is refused before the device opens */
+    {
+        OmegaGpuGdnStateView v;
+        CHECK(omega_gpu_gdn_state_view(NULL, &v) == OMEGA_GPU_GDN_BAD_ARGS, "state view refuses a NULL handle");
+        CHECK(omega_gpu_gdn_state_view((const OmegaGpuGdn *)&v, NULL) == OMEGA_GPU_GDN_BAD_ARGS, "state view refuses a NULL view");
+        CHECK(omega_gpu_gdn_dev_copy(0, 4096, 4096) == OMEGA_GPU_GDN_BAD_ARGS, "dev copy refuses a NULL source");
+        CHECK(omega_gpu_gdn_dev_copy(4096, 0, 4096) == OMEGA_GPU_GDN_BAD_ARGS, "dev copy refuses a NULL destination");
+        CHECK(omega_gpu_gdn_dev_copy(4096, 8192, 0) == OMEGA_GPU_GDN_BAD_ARGS, "dev copy refuses 0 bytes");
+        CHECK(omega_gpu_gdn_dev_copy(4096, 8192, 4096 + 4) == OMEGA_GPU_GDN_BAD_ARGS, "dev copy refuses a length off the 4096 grain");
+    }
     /* parameter block */
     Layer L; layer_make(&L, 9);
     uint8_t *blk = malloc(T_PAR_BYTES);

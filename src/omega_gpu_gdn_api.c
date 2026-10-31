@@ -360,6 +360,26 @@ static int zero_ts_locked(OmegaGpuGdn *g) {
     int rc = move_locked(KK_ZERO, 0, g->tail.va, tb);
     return rc == OMEGA_GPU_GDN_OK ? move_locked(KK_ZERO, 0, g->state.va, sb) : rc;
 }
+
+int omega_gpu_gdn_state_view(const OmegaGpuGdn *g, OmegaGpuGdnStateView *v) {
+    if (!g || !v) return OMEGA_GPU_GDN_BAD_ARGS;
+    memset(v, 0, sizeof *v);
+    v->layers = g->layers; v->ratio = g->ratio; v->cached = g->cached; v->state_bf16 = g->bf16;
+    v->par_va = g->par.va; v->tail_va = g->tail.va; v->state_va = g->state.va;
+    v->par_bytes = g->sh.par_bytes; v->tail_bytes = g->sh.tail_bytes; v->state_bytes = g->sh.state_bytes;
+    return OMEGA_GPU_GDN_OK;
+}
+
+int omega_gpu_gdn_dev_copy(uint64_t src_va, uint64_t dst_va, size_t bytes) {
+    const size_t per = (size_t)OMEGA_GDN_COPY_WORDS_PER_CTA * 4u;
+    /* refused before the device opens: a bad call never touches the chip */
+    if (!src_va || !dst_va || bytes == 0 || bytes % per || bytes / per > 0x7fffffffu) return OMEGA_GPU_GDN_BAD_ARGS;
+    omega_gpu_session_lock();
+    int rc = dev_open_locked() ? move_locked(KK_COPY, src_va, dst_va, bytes) : OMEGA_GPU_GDN_CHIP_FAIL;
+    omega_gpu_session_unlock();
+    return rc;
+}
+
 /* rec non-NULL (record path, caller holds the session lock): the inputs are the device rows dev_*, the launch is
  * appended to rec instead of submitted, nothing is staged, poisoned or read back. */
 static int gdn_core(OmegaGpuGdn *g, uint32_t layer, const float *qkv, const float *z, const float *ab, float eps_l2,

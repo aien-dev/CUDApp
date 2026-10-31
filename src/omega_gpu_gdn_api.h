@@ -71,6 +71,20 @@ int omega_gpu_gdn_set_layer(OmegaGpuGdn *g, uint32_t layer, const float *conv_w,
 int omega_gpu_gdn_reset(OmegaGpuGdn *g);
 int omega_gpu_gdn_set_state(OmegaGpuGdn *g, uint32_t layer, const float *tail, const float *state);
 int omega_gpu_gdn_get_state(OmegaGpuGdn *g, uint32_t layer, float *tail, float *state);
+/* DRA-86 (prefix cache) / DRA-84 (chunked prefill): the device addresses of the per-layer blocks, for VA -> VA work
+ * outside this file. Layer l: par_va + l * par_bytes (omega_gdn_pack_params_r), tail_va + l * tail_bytes
+ * (omega_gdn_pack_tail_r layout), state_va + l * state_bytes ([value heads][128 k][128 v], f32, or bf16 when
+ * state_bf16). cached: the tail and state are GPU-cached, so only chip launches may read or write them. */
+typedef struct {
+    uint32_t layers, ratio;
+    int cached, state_bf16;
+    uint64_t par_va, tail_va, state_va;
+    uint32_t par_bytes, tail_bytes, state_bytes;
+} OmegaGpuGdnStateView;
+int omega_gpu_gdn_state_view(const OmegaGpuGdn *g, OmegaGpuGdnStateView *v);
+/* One chip copy dst[i] = src[i] (the state copy kernel above, synchronous); bytes > 0 and a multiple of
+ * OMEGA_GDN_COPY_WORDS_PER_CTA * 4 = 4096, else BAD_ARGS. Takes the session lock. */
+int omega_gpu_gdn_dev_copy(uint64_t src_va, uint64_t dst_va, size_t bytes);
 int omega_gpu_gdn_step(OmegaGpuGdn *g, uint32_t layer, const float *qkv, const float *z, const float *ab, float eps_l2,
                        float eps_norm, float in_scale, float out_scale, float *out, OmegaGpuGdnInfo *info);
 struct OmegaGpuCmdList;
