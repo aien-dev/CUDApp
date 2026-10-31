@@ -300,7 +300,8 @@ mc_alloc(meta view ulong8, records view ulong1024, out edit uchar32) -> long
 Every refusal clears output32. `mc_code` requires positive exact encoded
 length, multiple16 and at most16384. It hashes exactly that prefix through
 the existing `kc_codesha`, excluding the allocation's instruction-prefetch
-tail. This bound follows existing `BW_MAX_IR_INSNS=1024`; exceeding it refuses
+tail. This bound is the 1024-instruction code size (16384 bytes) the cache was
+built for; `BW_MAX_IR_INSNS` is 2048 since DRA-84, and a longer program refuses
 instead of truncating. Actual code residency/VA-to-byte membership is the
 existing allocation owner's responsibility.
 

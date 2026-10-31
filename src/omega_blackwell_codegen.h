@@ -22,8 +22,8 @@
 #include <stdint.h>
 #include "omega_blackwell_matmul.h"
 
-#define BW_MAX_IR_INSNS         1024 /* cut K: the four-head hd 128 attention kernel is ~700 instructions */
-#define BW_MAX_VREGS            256
+#define BW_MAX_IR_INSNS         2048 /* cut K: the four-head hd 128 attention kernel is ~700 instructions; DRA-84: the fused chunked GDN scan */
+#define BW_MAX_VREGS            512  /* virtual registers (the physical budget stays BW_PHYS_GPR_HW_LIMIT) */
 #define BW_MAX_UVREGS           32
 #define BW_PHYS_GPR_START       2    /* Reserve R0, R1 */
 #define BW_PHYS_GPR_MAX         128  /* default allocation limit (R2..R127); a program may opt into more (omega_bw_ir_set_gpr_limit) */
