@@ -36,6 +36,14 @@
  *     x_rows == groups (one row per group: the down projections). x: x_rows * k f32, y: groups * n f32.
  *     The m = 1 call above is this call with groups = 1.
  *
+ *   General fallback (GemmGeneral, 2026-10-27): these three host-staged calls accept any groups >= 1 and any k the tensor
+ *     holds. A call the tuned kernels refuse (groups past OMEGA_GPU_FP8_MAX_GROUPS; a k the GEMV codegen refuses, e.g.
+ *     k % 256 != 0 at the default lane width: k = 128, 384, 640) runs omega_gpu_gemm_ex_fp8_block_rows per group instead
+ *     (weights dequantized exactly, fp32-input GEMM via bf16x3; info->general = 1, the kernel-shape fields stay 0). Not
+ *     when a test override (lane width, rows, warps, depth) or a kernel mutant is set: those calls keep the refusal. The
+ *     device-table and record forms (grouped_dev, grouped_record) keep the kernels' domain. With the build switch
+ *     CUDAPP_MIGRATION_PENDING_GEMM_EX off the refusal codes come back as before.
+ *
  *   int omega_gpu_fp8_prepare(uint32_t k);        build and pin the kernel for width k now (serving).
  *   void omega_gpu_fp8_tensor_free(OmegaGpuFp8Tensor *t);
  *   void omega_gpu_fp8_tensor_shape(const OmegaGpuFp8Tensor *t, uint32_t *experts, uint32_t *n, uint32_t *k);
@@ -85,6 +93,7 @@ typedef struct {
     bool kernel_cache_hit;
     char target_chip[64];
     uint32_t sm_architecture;
+    uint32_t general;           /* 1: the call ran the general fallback (omega_gpu_gemm_ex_fp8_block_rows), not the GEMV kernel */
 } OmegaGpuFp8Info;
 
 typedef struct OmegaGpuFp8Tensor OmegaGpuFp8Tensor;
@@ -203,6 +212,12 @@ void omega_gpu_fp8_set_gpr_pad(uint32_t pad);
 /* TEST ONLY: deliberately wrong kernels (1 scale dropped, 2 scale block never advances, 3 group table entry
  * of cy ^ 1). The parity test must catch each. Production never calls this. */
 void omega_gpu_fp8_test_set_mutant(int mutant);
+/* The general fallback for `m` host rows of x (x32 or x16, m x k) through expert `expert`: y (m x n) as the GEMV defines it,
+ * computed by omega_gpu_gemm_ex_fp8_block_rows. `refused` is returned unchanged when the build switch is off. The fp8
+ * grouped GEMM (omega_gpu_fp8gemm_api.h) uses it for the shapes its kernel refuses. */
+int omega_gpu_fp8_general_rows(const OmegaGpuFp8Tensor *t, uint32_t expert, const float *x32, const uint16_t *x16, uint32_t m,
+                               float *y, int refused);
+
 /* TEST ONLY: upload scales without the 2^56 fold (host-side mutant; the parity test must catch it). */
 void omega_gpu_fp8_test_set_no_fold(int on);
 /* The spec the API would pick for (k, n): for tests and the bandwidth table. */

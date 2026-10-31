@@ -1,0 +1,601 @@
+gemm_ex predeclared sweep: seed 20261027, 600 cases; check per element as stated in tests/gpu_gemm_ex_test.c lines 14-21
+0 bf16 x bf16^T -> f16 64x1x31 batch 1 pad 5/4/0 alpha 3.27826e-07 beta 0 edge 0
+1 f16 x f16^T -> f16 128x64x255 batch 1 pad 0/3/3 alpha 1.49012e-08 beta -1.5 edge 0
+2 e4m3 x e4m3^T -> bf16 256x1000x1 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0
+3 e5m2 x e5m2 -> f32 509x31x32 batch 1 pad 0/3/0 alpha -0.5 beta -1.5 edge 0
+4 bf16 x e4m3 -> f16 1021x257x256 batch 1 pad 0/5/4 alpha -7.45058e-09 beta 0 edge 0
+5 f16 x e5m2 -> f16 1025x13x3 batch 1 pad 0/7/0 alpha -4.76837e-07 beta 0 edge 0
+6 f32 x f32 -> f16 5x127x33 batch 1 pad 0/0/0 alpha 1.63913e-07 beta 0 edge 0
+7 f32 x f32^T -> f32 8x1x257 batch 1 pad 0/0/0 alpha 2.75 beta 1 FAST_BF16 edge 0
+8 f32 x bf16^T -> f16 17x63x5 batch 1 pad 7/0/2 alpha 4.76837e-07 beta 0 edge 0
+9 bf16 x f16^T -> f32 63x513x64 batch 1 pad 0/0/7 alpha -0.5 beta 0 edge 0
+10 f32 x f32 -> f32 65x17x511 batch 1 pad 0/0/0 alpha 2.75 beta 0 FFMA_REF edge 0
+11 e4m3 x e4m3 -> f16 129x256x7 batch 1 pad 0/4/2 alpha 1.86265e-09 beta 1 block-scale edge 0 blocks 7/100/128
+12 e4m3 x e5m2 -> f16 255x8x65 batch 1 pad 3/4/0 alpha 2.98023e-08 beta 0 tensor-scale edge 0
+13 bf16 x bf16^T -> f32 511x128x513 batch 1 pad 7/0/0 alpha -0.5 beta -1.5 edge 0
+14 f16 x f16^T -> f32 1023x2x13 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0
+15 e4m3 x e4m3^T -> f32 1x64x127 batch 1 pad 0/0/1 alpha -0.5 beta 0 edge 0
+16 e5m2^T x e5m2 -> f32 7x1021x1023 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0
+17 bf16^T x e4m3 -> f32 13x31x17 batch 1 pad 2/4/6 alpha 1 beta 0 edge 0
+18 f16^T x e5m2 -> f16 31x509x251 batch 1 pad 0/0/3 alpha 1.49012e-08 beta 0 edge 0
+19 f32^T x f32^T -> f32 64x13x1 batch 1 pad 0/0/0 alpha 1 beta 1 edge 0
+20 f32^T x f32^T -> bf16 97x251x31 batch 1 pad 0/7/0 alpha 1 beta 1 FAST_BF16 edge 0
+21 f32^T x bf16^T -> f32 251x3x255 batch 1 pad 3/0/1 alpha 1 beta 0 edge 0
+22 bf16^T x f16^T -> f16 256x97x2 batch 1 pad 0/7/4 alpha 1.90735e-06 beta -1.5 edge 0
+23 f32^T x f32 -> bf16 513x1023x33 batch 1 pad 0/0/0 alpha 1 beta 1 FFMA_REF edge 0
+24 e4m3^T x e4m3 -> bf16 1025x33x257 batch 1 pad 0/0/0 alpha 1 beta 0 block-scale edge 0 blocks 1/16/128
+25 e4m3^T x e5m2 -> f32 2x511x3 batch 1 pad 5/0/7 alpha 1 beta 0 tensor-scale edge 0
+26 bf16^T x bf16^T -> f16 8x16x63 batch 1 pad 4/0/3 alpha 1.63913e-07 beta 1 edge 0
+27 f16^T x f16^T -> f32 15x255x509 batch 3 pad 0/0/7 alpha 1 beta 1 edge 0
+28 e4m3^T x e4m3^T -> f16 32x5x7 batch 1 pad 0/0/0 alpha 4.76837e-07 beta 0 edge 0
+29 e5m2^T x e5m2 -> f32 65x65x65 batch 2 pad 0/4/3 alpha 2.75 beta 0 edge 0
+30 bf16^T x e4m3 -> f16 127x1021x511 batch 1 pad 4/4/0 alpha -3.72529e-09 beta 1 edge 0
+31 f16^T x e5m2 -> f32 255x32x8 batch 2 A-bcast pad 4/0/0 alpha 1 beta 0 edge 0
+32 f32^T x f32^T -> f32 257x509x97 batch 1 pad 0/6/5 alpha 2.75 beta 1 edge 0
+33 f32^T x f32^T -> f32 1000x15x1000 batch 1 pad 0/0/0 alpha -0.5 beta 0 FAST_BF16 edge 0
+34 f32^T x bf16^T -> f32 1023x251x13 batch 1 pad 0/0/0 alpha -0.5 beta -1.5 edge 0
+35 bf16^T x f16 -> f32 3x5x127 batch 1 pad 0/0/4 alpha 1 beta 0 edge 0
+36 f32^T x f32 -> f32 13x97x1021 batch 1 pad 0/0/0 alpha -0.5 beta -1.5 FFMA_REF edge 0
+37 e4m3^T x e4m3 -> f32 16x1025x16 batch 1 pad 0/0/0 alpha -0.5 beta 0 block-scale edge 0 blocks 100/7/128
+38 e4m3^T x e5m2 -> f16 33x33x129 batch 1 pad 0/0/1 alpha 4.09782e-08 beta 0 tensor-scale edge 0
+39 bf16^T x bf16^T -> bf16 64x513x1023 batch 2 pad 6/0/2 alpha 1 beta -1.5 edge 0
+40 f16^T x f16^T -> f32 128x16x17 batch 1 pad 0/7/0 alpha 2.75 beta 1 edge 0
+41 e4m3^T x e4m3^T -> f32 256x256x251 batch 1 pad 0/2/0 alpha 1 beta 0 edge 0
+42 e5m2^T x e5m2 -> f32 509x7x1 batch 1 pad 2/0/4 alpha 2.75 beta 0 edge 0
+43 bf16^T x e4m3 -> bf16 1021x128x32 batch 1 pad 1/0/0 alpha 1 beta 1 edge 0
+44 f16^T x e5m2 -> bf16 1025x1x255 batch 1 pad 6/7/0 alpha 1 beta 0 edge 0
+45 f32 x f32^T -> f16 5x64x2 batch 1 pad 0/0/0 alpha 5.24521e-06 beta 0 edge 0
+46 f32 x f32^T -> f32 15x1000x33 batch 1 pad 0/0/5 alpha 2.75 beta 1 FAST_BF16 edge 0
+47 f32 x bf16^T -> f32 31x17x257 batch 2 B-bcast pad 2/4/0 alpha -0.5 beta 1 edge 0
+48 bf16 x f16 -> f16 64x257x3 batch 1 pad 1/0/0 alpha 2.6226e-06 beta 0 edge 0
+49 f32 x f32 -> f32 97x8x63 batch 2 pad 0/4/3 alpha 2.75 beta 1 FFMA_REF edge 0
+50 e4m3 x e4m3 -> f32 251x129x509 batch 1 pad 0/6/0 alpha 2.75 beta 0 block-scale edge 0 blocks 16/16/128
+51 e4m3 x e5m2^T -> f16 509x2x7 batch 1 pad 0/0/0 alpha 1.3113e-06 beta 0 tensor-scale edge 0
+52 bf16 x bf16^T -> f16 513x65x65 batch 1 pad 1/0/3 alpha 8.19564e-08 beta 0 edge 0
+53 f16 x f16^T -> f32 1025x513x511 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0
+54 e4m3 x e4m3^T -> f32 2x17x8 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0
+55 e5m2 x e5m2 -> f32 8x256x97 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0
+56 bf16 x e4m3 -> f32 17x8x1000 batch 1 pad 4/0/0 alpha 2.75 beta 1 edge 0
+57 f16 x e5m2 -> f32 32x128x15 batch 2 pad 3/0/3 alpha 1 beta 1 edge 0
+58 f32 x f32^T -> f32 65x2x127 batch 1 pad 0/7/0 alpha 2.75 beta 0 edge 0
+59 f32 x f32^T -> f16 127x64x1021 batch 1 pad 0/0/5 alpha 3.72529e-09 beta 1 FAST_BF16 edge 0
+60 f32 x bf16^T -> f32 255x1021x16 batch 1 pad 4/0/5 alpha 1 beta -1.5 edge 0
+61 bf16 x f16 -> f32 257x31x129 batch 3 A-bcast B-bcast pad 3/3/0 alpha -0.5 beta 0 edge 0
+62 f32 x f32 -> f32 1000x509x1023 batch 1 pad 2/0/0 alpha 2.75 beta -1.5 FFMA_REF edge 0
+63 e4m3 x e4m3 -> bf16 1x13x17 batch 1 pad 0/0/0 alpha 1 beta 0 block-scale edge 0 blocks 128/7/100
+64 e4m3 x e5m2^T -> f32 3x129x251 batch 2 pad 0/0/5 alpha 1 beta 0 tensor-scale edge 0
+65 bf16 x bf16^T -> f32 13x3x1 batch 2 B-bcast pad 5/0/0 alpha -0.5 beta 0 edge 0
+66 f16 x f16^T -> f32 16x65x32 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0
+67 e4m3 x e4m3 -> bf16 33x1023x255 batch 2 A-bcast pad 0/6/4 alpha -0.5 beta 0 edge 0
+68 e5m2 x e5m2 -> bf16 97x32x2 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0
+69 bf16 x e4m3 -> f32 128x511x33 batch 2 B-bcast pad 6/0/0 alpha 2.75 beta -1.5 edge 0
+70 f16 x e5m2 -> bf16 256x15x257 batch 1 pad 5/6/0 alpha 1 beta -1.5 edge 0
+71 f32 x f32^T -> f32 509x255x8 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0
+72 f32 x f32^T -> f32 1021x5x65 batch 1 pad 0/0/0 alpha 1 beta -1.5 FAST_BF16 edge 0
+73 f32 x bf16^T -> f32 2x127x513 batch 2 pad 1/1/0 alpha 1 beta 0 edge 0
+74 bf16 x f16 -> f16 5x1025x13 batch 1 pad 5/0/1 alpha 2.38419e-07 beta 1 edge 0
+75 f32^T x f32 -> f16 15x63x127 batch 1 pad 5/0/0 alpha 2.98023e-08 beta -1.5 FFMA_REF edge 0
+76 e4m3^T x e4m3 -> bf16 17x509x1000 batch 1 pad 0/2/0 alpha 2.75 beta 1 block-scale edge 0 blocks 128/16/32
+77 e4m3^T x e5m2^T -> f16 63x15x15 batch 3 B-bcast pad 0/4/3 alpha 2.38419e-07 beta 0 tensor-scale edge 0
+78 bf16^T x bf16^T -> f32 127x251x128 batch 1 pad 7/3/0 alpha 2.75 beta 1 edge 0
+79 f16^T x f16^T -> f32 129x5x1023 batch 1 pad 7/7/5 alpha 1 beta 1 edge 0
+80 e4m3^T x e4m3 -> f32 257x97x17 batch 1 pad 0/0/0 alpha -0.5 beta -1.5 edge 0
+81 e5m2^T x e5m2 -> f32 511x1025x129 batch 1 pad 0/0/5 alpha 1 beta 0 edge 0
+82 bf16^T x e4m3 -> f32 1023x33x1025 batch 1 pad 0/0/0 alpha -0.5 beta 1 edge 0
+83 f16^T x e5m2^T -> f32 3x511x31 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0
+84 f32^T x f32^T -> bf16 7x16x255 batch 1 pad 0/3/2 alpha 1 beta 0 edge 0
+85 f32^T x f32^T -> f32 16x255x2 batch 1 pad 0/6/0 alpha 1 beta -1.5 FAST_BF16 edge 0
+86 f32^T x bf16^T -> bf16 31x7x32 batch 1 pad 0/1/0 alpha -0.5 beta 0 edge 0
+87 bf16^T x f16 -> f32 64x127x256 batch 1 pad 2/0/0 alpha 1 beta 0 edge 0
+88 f32^T x f32 -> f16 97x1x3 batch 1 pad 0/1/0 alpha -4.76837e-07 beta -1.5 FFMA_REF edge 0
+89 e4m3^T x e4m3 -> f16 251x63x63 batch 2 pad 0/0/0 alpha 6.40284e-10 beta 0 block-scale edge 0 blocks 7/1/128
+90 e4m3^T x e5m2^T -> bf16 509x1000x257 batch 1 pad 0/0/2 alpha -0.5 beta 0 tensor-scale edge 0
+91 bf16^T x bf16^T -> bf16 513x17x5 batch 1 pad 3/1/0 alpha 2.75 beta -1.5 edge 0
+92 f16^T x f16^T -> bf16 1025x257x64 batch 1 pad 2/0/1 alpha -0.5 beta 0 edge 0
+93 e4m3^T x e4m3 -> f32 2x8x511 batch 2 B-bcast pad 1/6/5 alpha 2.75 beta 1 edge 0
+94 e5m2^T x e5m2 -> f32 8x129x8 batch 3 pad 0/0/0 alpha 1 beta 0 edge 0
+95 bf16^T x e4m3 -> bf16 17x2x65 batch 1 pad 0/6/4 alpha -0.5 beta 1 edge 0
+96 f16^T x e5m2^T -> f32 32x65x513 batch 1 pad 4/3/0 alpha 1 beta 0 edge 0
+97 f32^T x f32^T -> f16 65x1021x13 batch 3 pad 0/0/0 alpha -1.19209e-07 beta -1.5 edge 0
+98 f32^T x f32^T -> bf16 127x32x127 batch 3 pad 0/0/0 alpha 1 beta 0 FAST_BF16 edge 0
+99 f32^T x bf16 -> f32 255x256x1021 batch 1 pad 0/0/5 alpha 1 beta 1 edge 0
+100 bf16^T x f16 -> f32 511x8x15 batch 1 pad 4/0/0 alpha -0.5 beta 0 edge 0
+101 f32^T x f32 -> f32 1000x128x128 batch 3 pad 0/0/0 alpha -0.5 beta 0 FFMA_REF edge 0
+102 e4m3^T x e4m3 -> f16 1x1x1023 batch 1 pad 0/0/2 alpha -7.27596e-12 beta 1 block-scale edge 0 blocks 128/100/16
+103 e4m3^T x e5m2^T -> bf16 3x64x17 batch 1 pad 0/1/0 alpha 1 beta 0 tensor-scale edge 0
+104 bf16 x bf16^T -> f32 13x1000x129 batch 3 pad 7/0/0 alpha 2.75 beta 0 edge 0
+105 f16 x f16^T -> bf16 31x31x1025 batch 1 pad 4/6/0 alpha -0.5 beta 1 edge 0
+106 e4m3 x e4m3 -> bf16 33x257x31 batch 2 B-bcast pad 0/0/0 alpha 2.75 beta -1.5 edge 0
+107 e5m2 x e5m2 -> bf16 97x13x255 batch 2 pad 0/0/0 alpha 1 beta 0 edge 0
+108 bf16 x e4m3 -> bf16 128x129x2 batch 3 pad 0/0/1 alpha 1 beta 1 edge 0
+109 f16 x e5m2^T -> bf16 256x3x32 batch 1 pad 6/0/6 alpha 1 beta 0 edge 0
+110 f32 x f32^T -> bf16 513x65x256 batch 1 pad 6/6/0 alpha 1 beta -1.5 edge 0
+111 f32 x f32^T -> f32 1021x1023x3 batch 3 B-bcast pad 0/0/5 alpha -0.5 beta 0 FAST_BF16 edge 0
+112 f32 x bf16 -> f32 2x32x63 batch 1 pad 0/4/1 alpha -0.5 beta -1.5 edge 0
+113 bf16 x f16 -> f16 5x511x509 batch 3 B-bcast pad 0/0/3 alpha 2.04891e-08 beta 0 edge 0
+114 f32 x f32 -> f32 1x1x1 batch 1 pad 0/2/0 alpha -0.5 beta -1.5 FFMA_REF edge 0
+115 e4m3 x e4m3^T -> f32 17x255x64 batch 3 pad 0/0/0 alpha 1 beta 0 block-scale edge 0 blocks 128/1/32
+116 e4m3 x e5m2^T -> f32 63x5x511 batch 3 B-bcast pad 0/0/0 alpha 2.75 beta 1 tensor-scale edge 0
+117 bf16 x bf16^T -> f32 127x127x8 batch 3 pad 0/0/0 alpha 1 beta 0 edge 0
+118 f16 x f16^T -> f32 129x1025x65 batch 1 pad 1/0/0 alpha -0.5 beta 1 edge 0
+119 e4m3 x e4m3 -> f32 257x33x513 batch 3 B-bcast pad 0/0/0 alpha 1 beta 0 edge 0
+120 e5m2 x e5m2 -> f16 511x513x13 batch 1 pad 0/0/0 alpha -1.19209e-07 beta 1 edge 0
+121 bf16 x e4m3 -> f16 1023x16x127 batch 1 pad 0/1/0 alpha 2.98023e-08 beta -1.5 edge 0
+122 f16 x e5m2^T -> f32 3x251x1021 batch 1 pad 1/7/0 alpha 1 beta 1 edge 0
+123 f32 x f32^T -> f32 7x3x15 batch 1 pad 1/6/0 alpha 1 beta 0 edge 0
+124 f32 x f32^T -> f32 16x97x128 batch 1 pad 0/0/0 alpha 2.75 beta 1 FAST_BF16 edge 0
+125 f32 x bf16 -> f16 31x1023x1 batch 1 pad 0/0/2 alpha 3.8147e-06 beta 1 edge 0
+126 bf16 x f16 -> f32 64x33x32 batch 1 pad 0/0/0 alpha 2.75 beta 1 edge 0
+127 f32 x f32 -> bf16 128x511x256 batch 1 pad 3/0/7 alpha 2.75 beta 0 FFMA_REF edge 0
+128 e4m3 x e4m3^T -> f32 251x16x2 batch 1 pad 0/0/6 alpha -0.5 beta 1 block-scale edge 0 blocks 128/1/100
+129 e4m3 x e5m2^T -> f32 509x255x33 batch 1 pad 0/0/0 alpha 2.75 beta 0 tensor-scale edge 0
+130 bf16 x bf16^T -> bf16 513x7x257 batch 1 pad 0/0/0 alpha 2.75 beta 1 edge 0
+131 f16 x f16 -> f16 1x1x1 batch 1 pad 3/3/2 alpha 1.04904e-05 beta 0 edge 0
+132 e4m3 x e4m3 -> f32 5x1x63 batch 1 pad 0/0/0 alpha 2.75 beta 1 edge 0
+133 e5m2 x e5m2 -> f32 8x63x509 batch 1 pad 0/6/0 alpha 1 beta 0 edge 0
+134 bf16^T x e4m3 -> f32 17x1000x7 batch 1 pad 0/0/5 alpha -0.5 beta -1.5 edge 0
+135 f16^T x e5m2^T -> f16 32x17x65 batch 1 pad 5/0/0 alpha 8.19564e-08 beta 1 edge 0
+136 f32^T x f32^T -> bf16 65x257x513 batch 1 pad 3/0/0 alpha 1 beta 0 edge 0
+137 f32^T x f32^T -> f32 127x8x8 batch 1 pad 0/0/2 alpha 2.75 beta -1.5 FAST_BF16 edge 0
+138 f32^T x bf16 -> f32 1x1x1 batch 1 pad 0/6/0 alpha 1 beta 1 edge 0
+139 bf16^T x f16 -> f32 511x2x1000 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0
+140 f32^T x f32 -> bf16 1000x64x15 batch 1 pad 5/6/6 alpha 1 beta 0 FFMA_REF edge 0
+141 e4m3^T x e4m3^T -> f16 1x1021x128 batch 1 pad 4/0/0 alpha 3.20142e-10 beta 1 block-scale edge 0 blocks 16/128/128
+142 e4m3^T x e5m2^T -> bf16 3x31x1021 batch 1 pad 0/3/0 alpha 1 beta 0 tensor-scale edge 0
+143 bf16^T x bf16^T -> f32 13x509x16 batch 1 pad 0/0/1 alpha 2.75 beta 0 edge 0
+144 f16^T x f16 -> f32 31x13x129 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0
+145 e4m3^T x e4m3 -> f32 33x251x1025 batch 2 A-bcast pad 0/0/6 alpha 1 beta 0 edge 0
+146 e5m2^T x e5m2 -> f32 97x1x17 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0
+147 bf16^T x e4m3^T -> f32 128x64x251 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0
+148 f16^T x e5m2^T -> f16 1x1x1 batch 2 pad 0/6/0 alpha -1.90735e-06 beta 1 edge 0
+149 f32^T x f32^T -> f32 513x31x32 batch 2 pad 7/0/0 alpha 1 beta -1.5 edge 0
+150 f32^T x f32^T -> bf16 1021x257x256 batch 2 pad 0/4/7 alpha 2.75 beta 0 FAST_BF16 edge 0
+151 f32^T x bf16 -> f32 2x13x2 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0
+152 bf16^T x f16 -> f32 5x129x33 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0
+153 f32^T x f32 -> f16 15x3x257 batch 2 B-bcast pad 7/0/0 alpha -3.72529e-09 beta 0 FFMA_REF edge 0
+154 e4m3^T x e4m3^T -> f32 32x65x5 batch 3 pad 6/3/0 alpha -0.5 beta 0 block-scale edge 0 blocks 1/100/128
+155 e4m3^T x e5m2^T -> f32 1x1x1 batch 1 pad 0/0/2 alpha 2.75 beta 0 tensor-scale edge 0
+156 bf16^T x bf16^T -> f32 127x32x509 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0
+157 f16^T x f16 -> f32 129x509x7 batch 1 pad 0/3/0 alpha 2.75 beta -1.5 edge 0
+158 e4m3^T x e4m3 -> f16 257x15x65 batch 2 B-bcast pad 2/0/2 alpha 2.98023e-08 beta 0 edge 0
+159 e5m2^T x e5m2 -> f32 1000x251x513 batch 1 pad 0/3/5 alpha 1 beta 0 edge 0
+160 bf16^T x e4m3^T -> bf16 1023x5x8 batch 1 pad 0/0/2 alpha 1 beta -1.5 edge 0
+161 f16^T x e5m2^T -> f32 3x97x97 batch 1 pad 0/7/0 alpha 2.75 beta 1 edge 0
+162 f32^T x f32^T -> f16 1x1x1 batch 2 pad 2/0/5 alpha -1.90735e-06 beta 0 edge 0
+163 f32 x f32 -> f32 16x33x15 batch 1 pad 0/0/6 alpha 2.75 beta -1.5 FAST_BF16 edge 0
+164 f32 x bf16 -> f16 31x513x128 batch 1 pad 0/0/0 alpha -1.49012e-08 beta 0 edge 0
+165 bf16 x f16 -> f16 1x1x1 batch 1 pad 0/0/0 alpha 1.04904e-05 beta -1.5 edge 0
+166 f32 x f32 -> f16 128x256x16 batch 1 pad 4/3/5 alpha -1.19209e-07 beta -1.5 FFMA_REF edge 0
+167 e4m3 x e4m3^T -> f32 251x7x129 batch 1 pad 1/0/0 alpha 2.75 beta 1 block-scale edge 0 blocks 100/128/32
+168 e4m3 x e5m2^T -> f16 509x128x1025 batch 1 pad 0/6/0 alpha 1.86265e-09 beta 0 tensor-scale edge 0
+169 bf16 x bf16^T -> f32 513x1023x31 batch 1 pad 0/0/5 alpha 2.75 beta 0 edge 0
+170 f16 x f16 -> f32 1025x33x251 batch 1 pad 4/0/0 alpha 1 beta -1.5 edge 0
+171 e4m3 x e4m3 -> f32 5x511x1 batch 1 pad 4/0/0 alpha 2.75 beta 1 edge 0
+172 e5m2 x e5m2 -> f16 1x1x1 batch 3 B-bcast pad 3/2/0 alpha 3.8147e-06 beta 0 edge 0
+173 bf16 x e4m3^T -> f32 17x255x256 batch 1 pad 0/0/0 alpha 2.75 beta -1.5 edge 0
+174 f16 x e5m2^T -> f16 32x7x2 batch 1 pad 0/0/7 alpha 1.90735e-06 beta 1 edge 0
+175 f32 x f32^T -> f32 65x127x33 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0
+176 f32 x f32 -> f32 129x1025x257 batch 1 pad 0/7/0 alpha 1 beta -1.5 FAST_BF16 edge 0
+177 f32 x bf16 -> f32 255x63x5 batch 1 pad 0/3/0 alpha 2.75 beta 1 edge 0
+178 bf16 x f16 -> f16 511x513x64 batch 1 pad 0/5/0 alpha 5.96046e-08 beta 0 edge 0
+179 f32 x f32^T -> f32 1x1x1 batch 1 pad 0/0/0 alpha 1 beta -1.5 FFMA_REF edge 0
+180 e4m3 x e4m3^T -> f32 1x256x13 batch 1 pad 6/0/0 alpha 1 beta -1.5 block-scale edge 0 blocks 1/16/100
+181 e4m3 x e5m2^T -> bf16 7x8x127 batch 1 pad 0/0/0 alpha 1 beta -1.5 tensor-scale edge 0
+182 bf16 x bf16^T -> bf16 1x1x1 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0
+183 f16 x f16 -> bf16 31x2x16 batch 1 pad 1/3/6 alpha 2.75 beta 1 edge 0
+184 e4m3 x e4m3 -> f32 33x64x128 batch 1 pad 6/0/0 alpha 1 beta 1 edge 0
+185 e5m2 x e5m2 -> f32 97x1021x1023 batch 2 pad 5/0/0 alpha -0.5 beta 0 edge 0
+186 bf16 x e4m3^T -> f32 251x31x17 batch 2 pad 0/0/6 alpha 1 beta 0 edge 0
+187 f16 x e5m2^T -> f32 256x509x251 batch 1 pad 0/1/5 alpha -0.5 beta 1 edge 0
+188 f32 x f32^T -> f16 513x13x1025 batch 2 A-bcast pad 1/0/0 alpha 1.86265e-09 beta 1 edge 0
+189 f32 x f32 -> f32 1x1x1 batch 1 pad 5/3/0 alpha 1 beta 1 FAST_BF16 edge 0
+190 f32 x bf16 -> f32 2x3x255 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0
+191 bf16 x f16 -> f32 5x97x2 batch 3 A-bcast pad 0/0/1 alpha 1 beta 0 edge 0
+192 f32^T x f32^T -> f32 15x1000x33 batch 3 pad 0/0/7 alpha -0.5 beta 0 FFMA_REF edge 0
+193 e4m3^T x e4m3^T -> f32 32x17x256 batch 1 pad 1/0/7 alpha 2.75 beta 1 block-scale edge 0 blocks 100/1/100
+194 e4m3^T x e5m2^T -> bf16 63x257x3 batch 3 A-bcast pad 0/7/0 alpha 2.75 beta 0 tensor-scale edge 0
+195 bf16^T x bf16 -> bf16 127x8x63 batch 3 pad 0/3/0 alpha 1 beta 1 edge 0
+196 f16^T x f16 -> f32 1x1x1 batch 1 pad 0/7/0 alpha 1 beta -1.5 edge 0
+197 e4m3^T x e4m3 -> bf16 257x2x7 batch 1 pad 3/0/4 alpha -0.5 beta 0 edge 0
+198 e5m2^T x e5m2 -> f32 1000x65x64 batch 1 pad 7/6/0 alpha 1 beta -1.5 edge 0
+199 bf16^T x e4m3^T -> f32 1x1x1 batch 1 pad 0/0/0 alpha -0.5 beta 1 edge 0
+200 f16^T x e5m2^T -> f32 3x32x8 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0
+201 f32^T x f32^T -> f32 7x509x97 batch 1 pad 3/3/0 alpha 1 beta 0 edge 0
+202 f32^T x f32 -> f32 16x15x513 batch 1 pad 2/0/0 alpha 1 beta 0 FAST_BF16 edge 0
+203 f32^T x bf16 -> f32 1x1x1 batch 1 pad 7/1/0 alpha -0.5 beta 0 edge 0
+204 bf16^T x f16 -> f32 64x5x127 batch 1 pad 0/1/2 alpha 1 beta -1.5 edge 0
+205 f32^T x f32^T -> bf16 128x97x1021 batch 1 pad 0/0/0 alpha -0.5 beta 1 FFMA_REF edge 0
+206 e4m3^T x e4m3^T -> f32 1x1x1 batch 1 pad 3/3/4 alpha 2.75 beta 1 block-scale edge 0 blocks 128/16/100
+207 e4m3^T x e5m2^T -> bf16 509x33x128 batch 1 pad 0/0/0 alpha 2.75 beta 1 tensor-scale edge 0
+208 bf16^T x bf16 -> f16 1021x513x1023 batch 1 pad 0/0/0 alpha 1.02445e-08 beta 0 edge 0
+209 f16^T x f16 -> f32 1025x16x17 batch 1 pad 0/0/7 alpha -0.5 beta -1.5 edge 0
+210 e4m3^T x e4m3 -> f16 5x256x251 batch 1 pad 0/0/0 alpha 4.09782e-08 beta 0 edge 0
+211 e5m2^T x e5m2^T -> f16 8x7x1 batch 1 pad 4/0/0 alpha -1.90735e-06 beta 0 edge 0
+212 bf16^T x e4m3^T -> f32 17x127x31 batch 1 pad 0/0/0 alpha 2.75 beta 0 edge 0
+213 f16^T x e5m2^T -> f32 1x1x1 batch 1 pad 0/5/0 alpha -0.5 beta 1 edge 0
+214 f32^T x f32^T -> f32 65x63x2 batch 1 pad 7/0/3 alpha 1 beta 1 edge 0
+215 f32^T x f32 -> f32 129x511x33 batch 1 pad 5/6/0 alpha 1 beta 0 FAST_BF16 edge 0
+216 f32^T x bf16 -> bf16 1x1x1 batch 1 pad 4/0/0 alpha 1 beta -1.5 edge 0
+217 bf16^T x f16 -> bf16 511x255x3 batch 3 B-bcast pad 0/0/0 alpha 1 beta -1.5 edge 0
+218 f32^T x f32^T -> f16 1000x5x63 batch 1 pad 0/0/4 alpha 5.96046e-08 beta 0 FFMA_REF edge 0
+219 e4m3^T x e4m3^T -> f32 1x127x509 batch 1 pad 7/0/0 alpha -0.5 beta -1.5 block-scale edge 0 blocks 100/100/100
+220 e4m3^T x e5m2^T -> f32 1x1x1 batch 1 pad 4/0/0 alpha 1 beta 1 tensor-scale edge 0
+221 bf16^T x bf16 -> f32 13x63x64 batch 1 pad 0/6/7 alpha 1 beta -1.5 edge 0
+222 f16 x f16 -> f32 31x513x511 batch 1 pad 0/1/3 alpha 2.75 beta 0 edge 0
+223 e4m3 x e4m3 -> f32 1x1x1 batch 1 pad 0/4/0 alpha -0.5 beta 1 edge 0
+224 e5m2 x e5m2^T -> f16 97x256x97 batch 1 pad 0/0/3 alpha 2.98023e-08 beta 0 edge 0
+225 bf16 x e4m3^T -> f32 251x8x1000 batch 3 pad 0/0/0 alpha 2.75 beta 0 edge 0
+226 f16 x e5m2^T -> f16 256x128x13 batch 2 pad 0/0/0 alpha 2.38419e-07 beta -1.5 edge 0
+227 f32 x f32 -> f32 1x1x1 batch 2 B-bcast pad 0/0/0 alpha 2.75 beta 1 edge 0
+228 f32 x f32 -> f32 1021x64x1021 batch 1 pad 2/0/6 alpha 1 beta 0 FAST_BF16 edge 0
+229 f32 x bf16 -> f32 2x1021x16 batch 2 pad 0/0/0 alpha 2.75 beta 1 edge 0
+230 bf16 x f16 -> bf16 1x1x1 batch 3 A-bcast B-bcast pad 0/2/0 alpha 1 beta -1.5 edge 0
+231 f32 x f32^T -> f32 15x257x1023 batch 2 pad 0/0/0 alpha 2.75 beta -1.5 FFMA_REF edge 0
+232 e4m3 x e4m3^T -> f32 32x13x17 batch 1 pad 2/0/2 alpha 2.75 beta 0 block-scale edge 0 blocks 1/100/16
+233 e4m3^T x e5m2^T -> f16 3x4096x32 batch 1 pad 0/0/7 alpha 3.27826e-07 beta 0 tensor-scale edge 0
+234 bf16 x bf16 -> f32 127x3x3 batch 3 A-bcast pad 6/0/0 alpha 1 beta 0 edge 0
+235 f16 x f16 -> f16 255x65x33 batch 3 pad 0/0/4 alpha 5.96046e-08 beta 1 edge 0
+236 e4m3 x e4m3 -> f32 257x1023x257 batch 1 pad 0/0/3 alpha 1 beta 1 edge 0
+237 e5m2 x e5m2^T -> f32 1x1x1 batch 1 pad 1/0/0 alpha -0.5 beta 0 edge 0
+238 bf16 x e4m3^T -> f16 1023x511x64 batch 1 pad 0/0/1 alpha 5.96046e-08 beta 0 edge 0
+239 f16 x e5m2^T -> f32 3x8x511 batch 1 pad 0/6/1 alpha -0.5 beta 1 edge 0
+240 f32 x f32 -> f32 1x1x1 batch 1 pad 0/3/0 alpha 1 beta 0 edge 0
+241 f32 x f32 -> f32 16x2x65 batch 1 pad 0/6/0 alpha -0.5 beta 0 FAST_BF16 edge 0
+242 f32 x bf16 -> f16 33x65x513 batch 3 pad 0/0/0 alpha 3.72529e-09 beta 0 edge 0
+243 bf16 x f16^T -> f16 64x1021x13 batch 3 A-bcast pad 0/0/0 alpha 2.38419e-07 beta 1 edge 0
+244 f32 x f32^T -> bf16 1x1x1 batch 3 pad 0/0/0 alpha 2.75 beta 0 FFMA_REF edge 0
+245 e4m3 x e4m3^T -> bf16 251x509x1000 batch 2 A-bcast pad 4/0/3 alpha 1 beta 0 block-scale edge 0 blocks 1/7/16
+246 e4m3 x e5m2^T -> f32 509x15x15 batch 1 pad 3/0/0 alpha 2.75 beta 1 tensor-scale edge 0
+247 bf16 x bf16 -> f32 1x1x1 batch 1 pad 0/0/4 alpha 1 beta 0 edge 0
+248 f16 x f16 -> f32 1025x5x1023 batch 2 pad 0/0/0 alpha 2.75 beta 0 edge 0
+249 e4m3 x e4m3 -> f32 5x97x16 batch 3 A-bcast pad 0/7/2 alpha -0.5 beta 0 edge 0
+250 e5m2 x e5m2 -> f32 5x4096x65 batch 1 pad 0/0/4 alpha 1 beta 1 edge 0
+251 bf16^T x e4m3^T -> f16 1x1x1 batch 1 pad 3/0/0 alpha 3.8147e-06 beta 0 edge 0
+252 f16^T x e5m2^T -> bf16 63x511x31 batch 1 pad 0/0/0 alpha 2.75 beta -1.5 edge 0
+253 f32^T x f32 -> bf16 65x16x255 batch 1 pad 0/0/4 alpha 1 beta 0 edge 0
+254 f32^T x f32 -> f16 1x1x1 batch 1 pad 0/0/0 alpha 1.04904e-05 beta -1.5 FAST_BF16 edge 0
+255 f32^T x bf16 -> bf16 255x7x32 batch 1 pad 0/0/2 alpha 1 beta -1.5 edge 0
+256 bf16^T x f16^T -> f16 511x127x256 batch 1 pad 0/6/5 alpha -7.45058e-09 beta 1 edge 0
+257 f32 x f32^T -> f32 4096x17x2 batch 1 pad 0/0/0 alpha -0.5 beta -1.5 FFMA_REF edge 0
+258 e4m3^T x e4m3^T -> f32 1x63x63 batch 1 pad 0/3/0 alpha 2.75 beta -1.5 block-scale edge 0 blocks 100/16/32
+259 e4m3^T x e5m2 -> bf16 7x1000x257 batch 1 pad 5/0/0 alpha 1 beta 1 tensor-scale edge 0
+260 bf16^T x bf16 -> f16 13x17x5 batch 1 pad 0/3/4 alpha 4.76837e-07 beta 1 edge 0
+261 f16^T x f16 -> f32 1x1x1 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0
+262 e4m3^T x e4m3 -> f32 64x5x511 batch 1 pad 0/0/7 alpha 2.75 beta 1 edge 0
+263 e5m2^T x e5m2^T -> f32 97x127x7 batch 2 pad 1/0/4 alpha 2.75 beta 0 edge 0
+264 bf16^T x e4m3^T -> f32 1x1x1 batch 1 pad 7/0/0 alpha 2.75 beta 0 edge 0
+265 f16^T x e5m2^T -> f16 256x63x513 batch 1 pad 0/0/4 alpha 3.72529e-09 beta -1.5 edge 0
+266 f32^T x f32 -> f32 513x513x13 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0
+267 f32^T x f32^T -> f32 4095x15x257 batch 1 pad 6/0/0 alpha 1 beta 0 FAST_BF16 edge 0
+268 f32^T x bf16 -> f32 1x1x1 batch 1 pad 7/6/0 alpha 2.75 beta 0 edge 0
+269 bf16^T x f16^T -> f32 8x7x15 batch 2 pad 0/6/0 alpha 1 beta 1 edge 0
+270 f32^T x f32^T -> bf16 15x128x128 batch 2 A-bcast B-bcast pad 0/0/4 alpha 2.75 beta -1.5 FFMA_REF edge 0
+271 e4m3^T x e4m3^T -> bf16 1x1x1 batch 1 pad 0/0/0 alpha 1 beta 0 block-scale edge 0 blocks 7/7/100
+272 e4m3^T x e5m2 -> bf16 63x64x17 batch 1 pad 0/0/0 alpha 1 beta -1.5 tensor-scale edge 0
+273 bf16^T x bf16 -> f32 127x1000x129 batch 2 A-bcast pad 0/0/1 alpha -0.5 beta 0 edge 0
+274 f16^T x f16 -> bf16 4095x17x8 batch 3 A-bcast pad 0/5/0 alpha 1 beta -1.5 edge 0
+275 e4m3^T x e4m3^T -> f16 257x257x31 batch 2 pad 0/1/0 alpha -5.96046e-08 beta 1 edge 0
+276 e5m2^T x e5m2^T -> f32 1000x13x255 batch 2 A-bcast B-bcast pad 3/0/0 alpha 1 beta 1 edge 0
+277 bf16^T x e4m3^T -> f32 1023x129x1 batch 3 pad 2/0/2 alpha 2.75 beta -1.5 edge 0
+278 f16^T x e5m2^T -> f16 1x1x1 batch 1 pad 0/0/0 alpha -1.90735e-06 beta -1.5 edge 0
+279 f32^T x f32 -> f32 13x65x256 batch 1 pad 0/5/0 alpha 1 beta 1 edge 0
+280 f32^T x f32 -> bf16 16x1023x3 batch 1 pad 0/0/0 alpha -0.5 beta -1.5 FAST_BF16 edge 0
+281 f32 x bf16 -> f16 1x1x1 batch 1 pad 4/0/0 alpha 3.8147e-06 beta -1.5 edge 0
+282 bf16 x f16^T -> f32 64x511x257 batch 1 pad 2/5/4 alpha 1 beta 1 edge 0
+283 f32 x f32^T -> f32 128x15x5 batch 1 pad 0/0/0 alpha -0.5 beta 0 FFMA_REF edge 0
+284 e4m3 x e4m3^T -> f32 33x5000x33 batch 1 pad 0/0/0 alpha 2.75 beta 0 block-scale edge 0 blocks 128/7/32
+285 e4m3 x e5m2 -> f32 1x1x1 batch 1 pad 0/0/7 alpha 1 beta 1 tensor-scale edge 0
+286 bf16 x bf16 -> bf16 1021x64x8 batch 1 pad 0/4/0 alpha 2.75 beta 0 edge 0
+287 f16 x f16 -> f32 1025x1021x65 batch 1 pad 0/7/0 alpha 1 beta 0 edge 0
+288 e4m3 x e4m3^T -> f16 1x1x1 batch 1 pad 0/4/4 alpha 1.04904e-05 beta 0 edge 0
+289 e5m2 x e5m2^T -> f32 15x509x16 batch 1 pad 0/0/0 alpha 2.75 beta 0 edge 0
+290 bf16 x e4m3^T -> f32 17x13x129 batch 1 pad 4/0/0 alpha 2.75 beta 0 edge 0
+291 f16 x e5m2 -> f32 31x4095x5 batch 1 pad 7/0/0 alpha -0.5 beta 0 edge 0
+292 f32 x f32 -> f32 1x1x1 batch 1 pad 0/0/0 alpha 2.75 beta -1.5 edge 0
+293 f32 x f32 -> f32 129x97x251 batch 1 pad 0/0/0 alpha 2.75 beta 0 FAST_BF16 edge 0
+294 f32 x bf16 -> f16 255x1023x1 batch 1 pad 6/0/0 alpha 1.04904e-05 beta -1.5 edge 0
+295 bf16 x f16^T -> bf16 1x1x1 batch 3 A-bcast pad 6/0/2 alpha -0.5 beta 1 edge 0
+296 f32 x f32^T -> bf16 1023x511x255 batch 1 pad 0/5/0 alpha -0.5 beta 0 FFMA_REF edge 0
+297 e4m3 x e4m3^T -> f32 1x16x2 batch 1 pad 0/0/7 alpha 1 beta 0 block-scale edge 0 blocks 16/100/32
+298 e4m3^T x e5m2^T -> f32 32x4095x256 batch 1 pad 3/1/0 alpha 1 beta -1.5 tensor-scale edge 0
+299 bf16 x bf16 -> f16 13x7x257 batch 1 pad 6/5/0 alpha 7.45058e-09 beta 0 edge 0
+300 f16 x f16 -> f32 31x127x5 batch 1 pad 0/0/4 alpha -0.5 beta 0 edge 0
+301 e4m3 x e4m3^T -> bf16 1x5000x129 batch 2 pad 3/0/0 alpha 1 beta -1.5 edge 0
+302 e5m2 x e5m2^T -> bf16 1x1x1 batch 1 pad 0/0/7 alpha -0.5 beta 0 edge 0
+303 bf16 x e4m3^T -> f32 251x1000x7 batch 1 pad 0/2/0 alpha 1 beta 0 edge 0
+304 f16 x e5m2 -> f32 256x17x65 batch 1 pad 0/0/0 alpha 1 beta 1 edge 0
+305 f32 x f32 -> f32 1x1x1 batch 1 pad 0/2/1 alpha -0.5 beta 0 edge 0
+306 f32 x f32 -> f32 1025x8x8 batch 1 pad 0/0/0 alpha 1 beta 1 FAST_BF16 edge 0
+307 f32 x bf16^T -> f32 2x128x97 batch 3 pad 1/0/0 alpha 2.75 beta 0 edge 0
+308 bf16^T x f16 -> f16 32x5000x1 batch 2 pad 0/0/3 alpha 3.8147e-06 beta -1.5 edge 0
+309 f32 x f32^T -> f32 1x1x1 batch 1 pad 0/0/0 alpha 1 beta 0 FFMA_REF edge 0
+310 e4m3^T x e4m3^T -> f32 32x513x127 batch 1 pad 0/0/0 alpha 1 beta 1 block-scale edge 0 blocks 1/7/100
+311 e4m3^T x e5m2 -> f16 65x16x1021 batch 1 pad 4/3/0 alpha -1.86265e-09 beta 0 tensor-scale edge 0
+312 bf16^T x bf16 -> f32 1x1x1 batch 1 pad 3/0/7 alpha 1 beta 0 edge 0
+313 f16^T x f16 -> f32 255x7x129 batch 3 pad 7/0/0 alpha 1 beta 0 edge 0
+314 e4m3^T x e4m3^T -> f32 257x128x1025 batch 3 B-bcast pad 0/5/0 alpha 2.75 beta 0 edge 0
+315 e5m2^T x e5m2 -> bf16 5000x5x5 batch 3 pad 0/0/0 alpha 1 beta 0 edge 0
+316 bf16^T x e4m3^T -> f32 1x1x1 batch 3 B-bcast pad 0/0/6 alpha 2.75 beta 1 edge 0
+317 f16^T x e5m2 -> f32 3x1000x1 batch 1 pad 0/0/5 alpha 1 beta -1.5 edge 0
+318 f32 x f32^T -> f32 4097x17x251 batch 3 pad 0/0/0 alpha 2.75 beta 0 edge 0
+319 f32^T x f32 -> bf16 1x1x1 batch 1 pad 0/0/3 alpha 1 beta 0 FAST_BF16 edge 0
+320 f32^T x bf16^T -> f32 33x13x2 batch 1 pad 0/0/0 alpha -0.5 beta 1 edge 0
+321 bf16^T x f16^T -> f16 64x129x33 batch 1 pad 3/0/0 alpha 5.96046e-08 beta 1 edge 0
+322 f32 x f32 -> bf16 5000x13x257 batch 1 pad 0/0/0 alpha 2.75 beta -1.5 FFMA_REF edge 0
+323 e4m3^T x e4m3 -> f32 256x65x5 batch 1 pad 0/2/2 alpha 1 beta 1 block-scale edge 0 blocks 100/100/32
+324 e4m3^T x e5m2 -> f32 509x1021x63 batch 1 pad 6/0/0 alpha -0.5 beta -1.5 tensor-scale edge 0
+325 bf16^T x bf16^T -> f16 4097x2x251 batch 1 pad 1/3/0 alpha 1.49012e-08 beta 0 edge 0
+326 f16^T x f16 -> f32 1x1x1 batch 1 pad 4/0/2 alpha 1 beta 0 edge 0
+327 e4m3^T x e4m3^T -> f32 5x15x65 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0
+328 e5m2^T x e5m2^T -> f32 15x251x513 batch 1 pad 0/0/4 alpha -0.5 beta 1 edge 0
+329 bf16^T x e4m3^T -> bf16 1x1x1 batch 1 pad 5/3/5 alpha -0.5 beta 0 edge 0
+330 f16^T x e5m2 -> f32 63x97x97 batch 1 pad 5/0/1 alpha 2.75 beta 0 edge 0
+331 f32^T x f32 -> f16 65x1025x1000 batch 1 pad 0/3/0 alpha 3.72529e-09 beta 1 edge 0
+332 f32 x f32^T -> f16 4097x32x97 batch 2 pad 6/0/0 alpha 2.98023e-08 beta -1.5 FAST_BF16 edge 0
+333 f32^T x bf16^T -> f16 1x1x1 batch 1 pad 0/2/1 alpha 3.8147e-06 beta 1 edge 0
+334 bf16^T x f16^T -> f32 511x13x1021 batch 1 pad 7/5/1 alpha 1 beta 0 edge 0
+335 f32^T x f32 -> f32 4096x17x7 batch 2 A-bcast B-bcast pad 0/3/0 alpha -0.5 beta 1 FFMA_REF edge 0
+336 e4m3^T x e4m3 -> f32 1x1x1 batch 1 pad 0/0/0 alpha 2.75 beta 1 block-scale edge 0 blocks 100/7/32
+337 e4m3^T x e5m2 -> f16 7x97x1025 batch 1 pad 0/0/7 alpha 1.86265e-09 beta -1.5 tensor-scale edge 0
+338 bf16^T x bf16 -> f32 16x1023x17 batch 1 pad 7/0/0 alpha -0.5 beta 0 edge 0
+339 f16^T x f16^T -> f32 5000x7x13 batch 1 pad 0/0/2 alpha -0.5 beta 0 edge 0
+340 e4m3 x e4m3^T -> f16 1x1x1 batch 1 pad 0/6/7 alpha 1.04904e-05 beta -1.5 edge 0
+341 e5m2 x e5m2^T -> f16 97x15x32 batch 1 pad 0/4/0 alpha 1.19209e-07 beta 1 edge 0
+342 bf16^T x e4m3^T -> bf16 17x4096x15 batch 1 pad 0/0/0 alpha 1 beta 1 edge 0
+343 f16 x e5m2 -> f16 1x1x1 batch 1 pad 7/1/0 alpha 1.04904e-05 beta 0 edge 0
+344 f32 x f32 -> f32 513x127x64 batch 1 pad 6/0/0 alpha -0.5 beta 1 edge 0
+345 f32 x f32 -> f16 1025x1025x511 batch 1 pad 0/0/0 alpha 7.45058e-09 beta 0 FAST_BF16 edge 0
+346 f32 x bf16^T -> f32 1x1x1 batch 1 pad 0/0/3 alpha -0.5 beta 0 edge 0
+347 bf16 x f16^T -> f16 8x513x65 batch 1 pad 2/0/0 alpha 2.98023e-08 beta 1 edge 0
+348 f32 x f32^T -> f32 15x17x513 batch 1 pad 0/1/2 alpha 1 beta 1 FFMA_REF edge 0
+349 e4m3 x e4m3 -> f32 16x4097x255 batch 1 pad 0/0/0 alpha -0.5 beta 1 block-scale edge 0 blocks 128/100/16
+350 e4m3 x e5m2 -> f16 1x1x1 batch 2 pad 0/7/0 alpha 3.8147e-06 beta 1 tensor-scale edge 0
+351 bf16 x bf16 -> f32 127x128x1021 batch 2 pad 0/0/6 alpha 2.75 beta -1.5 edge 0
+352 f16 x f16^T -> f32 33x4096x31 batch 1 pad 0/0/0 alpha 2.75 beta 0 edge 0
+353 e4m3 x e4m3^T -> f16 1x1x1 batch 2 pad 0/0/0 alpha 3.8147e-06 beta -1.5 edge 0
+354 e5m2 x e5m2^T -> f16 1000x1021x1023 batch 1 pad 0/0/0 alpha 3.72529e-09 beta 1 edge 0
+355 bf16 x e4m3 -> f32 1x16x17 batch 1 pad 5/0/5 alpha 1 beta 0 edge 0
+356 f16^T x e5m2 -> f32 15x4097x16 batch 1 pad 0/5/0 alpha -0.5 beta 0 edge 0
+357 f32 x f32 -> f16 1x1x1 batch 2 pad 1/0/0 alpha 3.8147e-06 beta -1.5 edge 0
+358 f32 x f32 -> f32 16x128x31 batch 3 A-bcast B-bcast pad 0/0/0 alpha 1 beta -1.5 FAST_BF16 edge 0
+359 f32^T x bf16 -> f16 8x4096x251 batch 1 pad 6/5/0 alpha 1.49012e-08 beta 1 edge 0
+360 bf16 x f16^T -> f32 1x1x1 batch 1 pad 4/2/6 alpha 1 beta -1.5 edge 0
+361 f32 x f32^T -> f16 128x1000x32 batch 1 pad 3/1/0 alpha 1.19209e-07 beta -1.5 FFMA_REF edge 0
+362 e4m3 x e4m3 -> f16 256x17x256 batch 3 A-bcast pad 0/0/0 alpha 5.82077e-11 beta 0 block-scale edge 0 blocks 7/1/16
+363 e4m3 x e5m2^T -> f32 13x4097x8 batch 1 pad 7/0/0 alpha 1 beta 0 tensor-scale edge 0
+364 bf16 x bf16 -> bf16 1021x8x63 batch 3 A-bcast pad 0/0/0 alpha 1 beta 0 edge 0
+365 f16 x f16^T -> f32 2x129x509 batch 3 pad 0/0/0 alpha 2.75 beta -1.5 edge 0
+366 e4m3^T x e4m3 -> bf16 8x4096x31 batch 1 pad 0/0/0 alpha 2.75 beta 0 edge 0
+367 e5m2 x e5m2^T -> f32 1x1x1 batch 1 pad 0/5/0 alpha 2.75 beta 1 edge 0
+368 bf16 x e4m3 -> f32 17x1021x511 batch 2 A-bcast B-bcast pad 0/7/7 alpha 1 beta -1.5 edge 0
+369 f16 x e5m2 -> f32 32x32x20000 batch 2 pad 0/0/4 alpha 1 beta 0 edge 0
+370 f32^T x f32 -> f32 1x1x1 batch 2 A-bcast pad 0/0/0 alpha 1 beta 1 edge 0
+371 f32^T x f32^T -> f32 129x15x513 batch 1 pad 0/2/2 alpha 1 beta 1 FAST_BF16 edge 0
+372 f32^T x bf16^T -> f32 257x251x13 batch 1 pad 0/0/2 alpha 1 beta 0 edge 0
+373 bf16 x f16^T -> f16 4096x1x255 batch 1 pad 0/0/0 alpha 4.09782e-08 beta 1 edge 0
+374 f32^T x f32^T -> f16 1x1x1 batch 1 pad 6/0/0 alpha 3.8147e-06 beta 0 FFMA_REF edge 0
+375 e4m3^T x e4m3 -> bf16 2x1025x15 batch 1 pad 5/4/0 alpha 1 beta 1 block-scale edge 0 blocks 16/100/16
+376 e4m3^T x e5m2 -> f32 4095x5x129 batch 1 pad 0/2/0 alpha -0.5 beta 1 tensor-scale edge 0
+377 bf16^T x bf16 -> f32 1x1x1 batch 1 pad 0/6/0 alpha 2.75 beta 1 edge 0
+378 f16^T x f16^T -> bf16 32x13x17 batch 2 pad 1/1/0 alpha 2.75 beta 1 edge 0
+379 e4m3^T x e4m3^T -> f32 65x129x251 batch 3 pad 0/0/0 alpha -0.5 beta 1 edge 0
+380 e5m2^T x e5m2 -> f32 4096x13x257 batch 1 pad 0/0/0 alpha 2.75 beta 1 edge 0
+381 bf16^T x e4m3 -> bf16 255x65x31 batch 1 pad 0/0/6 alpha 2.75 beta 0 edge 0
+382 f16^T x e5m2 -> f32 511x1023x255 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0
+383 f32^T x f32 -> f16 4095x13x257 batch 1 pad 0/0/0 alpha 7.45058e-09 beta -1.5 edge 0
+384 f32^T x f32^T -> f32 1x1x1 batch 1 pad 0/0/0 alpha 1 beta 0 FAST_BF16 edge 0
+385 f32^T x bf16^T -> bf16 3x15x256 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0
+386 bf16^T x f16^T -> f32 1x2x3617 batch 1 pad 7/0/7 alpha 1 beta 1 edge 0
+387 f32^T x f32 -> f16 4097x13x64 batch 1 pad 0/7/0 alpha 5.96046e-08 beta 1 FFMA_REF edge 0
+388 e4m3^T x e4m3 -> f32 33x127x509 batch 1 pad 0/7/0 alpha 1 beta 0 block-scale edge 0 blocks 16/7/16
+389 e4m3^T x e5m2 -> f32 97x1025x5 batch 1 pad 0/0/0 alpha 1 beta -1.5 tensor-scale edge 0
+390 bf16 x bf16 -> f32 4095x15x1 batch 1 pad 4/0/0 alpha 1 beta 0 edge 0
+391 f16^T x f16^T -> f32 1x1x1 batch 2 A-bcast B-bcast pad 3/0/0 alpha -0.5 beta -1.5 edge 0
+392 e4m3^T x e4m3^T -> bf16 513x17x8 batch 2 pad 2/5/0 alpha 2.75 beta 0 edge 0
+393 e5m2 x e5m2^T -> f16 64x17x20000 batch 1 pad 7/0/0 alpha 1.16415e-10 beta -1.5 edge 0
+394 bf16^T x e4m3 -> f32 1x1x1 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0
+395 f16^T x e5m2 -> f32 5x128x13 batch 2 pad 0/6/0 alpha 2.75 beta 0 edge 0
+396 f32^T x f32 -> f32 15x2x127 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0
+397 f32^T x f32^T -> bf16 4096x32x97 batch 1 pad 0/0/5 alpha -0.5 beta -1.5 FAST_BF16 edge 0
+398 f32^T x bf16^T -> f32 63x1000x31 batch 2 pad 0/0/6 alpha 1 beta -1.5 edge 0
+399 bf16 x f16^T -> f32 127x31x251 batch 1 pad 0/0/0 alpha -0.5 beta -1.5 edge 0
+400 f32^T x f32^T -> f16 15x4095x63 batch 1 pad 3/0/0 alpha 5.96046e-08 beta 0 FFMA_REF edge 0
+401 e4m3 x e4m3 -> f16 1x1x1 batch 1 pad 0/0/1 alpha 4.09782e-08 beta 0 block-scale edge 0 blocks 128/100/100
+402 e4m3 x e5m2 -> f32 511x127x256 batch 1 pad 0/0/0 alpha -0.5 beta 0 tensor-scale edge 0
+403 bf16^T x bf16^T -> f32 13x8x16383 batch 3 pad 0/1/3 alpha 2.75 beta -1.5 edge 0
+404 f16 x f16^T -> bf16 5x4096x97 batch 1 pad 0/0/7 alpha 2.75 beta 0 edge 0
+405 e4m3 x e4m3^T -> bf16 7x1000x257 batch 1 pad 4/0/0 alpha -0.5 beta 0 edge 0
+406 e5m2 x e5m2^T -> f32 16x17x5 batch 1 pad 0/2/7 alpha -0.5 beta 0 edge 0
+407 bf16 x e4m3^T -> f32 17x4095x15 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0
+408 f16 x e5m2 -> bf16 1x1x1 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0
+409 f32 x f32 -> f32 128x129x7 batch 1 pad 7/0/0 alpha -0.5 beta -1.5 edge 0
+410 f32 x f32 -> f32 65x13x1807 batch 3 A-bcast pad 4/1/0 alpha 1 beta 0 FAST_BF16 edge 0
+411 f32 x bf16^T -> f32 13x4096x97 batch 1 pad 0/4/0 alpha 2.75 beta 0 edge 0
+412 bf16 x f16^T -> bf16 513x1021x13 batch 1 pad 0/4/0 alpha 1 beta -1.5 edge 0
+413 f32 x f32 -> f32 1025x32x97 batch 1 pad 0/0/2 alpha -0.5 beta 1 FFMA_REF edge 0
+414 e4m3^T x e4m3 -> f16 2x4095x8 batch 1 pad 4/0/0 alpha 1.86265e-09 beta 0 block-scale edge 0 blocks 16/7/16
+415 e4m3 x e5m2 -> f32 8x13x15 batch 1 pad 0/0/7 alpha -0.5 beta -1.5 tensor-scale edge 0
+416 bf16 x bf16^T -> f32 17x251x128 batch 1 pad 0/1/0 alpha 1 beta 1 edge 0
+417 f16^T x f16^T -> f32 32x15x16383 batch 1 pad 0/4/0 alpha 1 beta 1 edge 0
+418 e4m3 x e4m3^T -> f32 1x1x1 batch 1 pad 1/0/5 alpha 1 beta 0 edge 0
+419 e5m2 x e5m2 -> f16 129x1023x129 batch 1 pad 0/0/0 alpha 1.49012e-08 beta 1 edge 0
+420 bf16 x e4m3^T -> f16 1x32x16383 batch 3 pad 0/0/0 alpha 6.40284e-10 beta -1.5 edge 0
+421 f16 x e5m2^T -> f32 8x4095x257 batch 2 B-bcast pad 0/1/0 alpha -0.5 beta 0 edge 0
+422 f32 x f32 -> bf16 1000x16x251 batch 1 pad 2/0/0 alpha 1 beta -1.5 edge 0
+423 f32 x f32^T -> f32 1x255x1 batch 1 pad 1/0/0 alpha -0.5 beta 1 FAST_BF16 edge 0
+424 f32^T x bf16^T -> f32 17x5000x2 batch 1 pad 0/0/0 alpha 1 beta 1 edge 0
+425 bf16 x f16^T -> f32 1x1x1 batch 1 pad 0/6/0 alpha -0.5 beta -1.5 edge 0
+426 f32 x f32 -> f32 31x1023x3 batch 1 pad 0/0/0 alpha 1 beta 0 FFMA_REF edge 0
+427 e4m3 x e4m3 -> f32 64x8x16383 batch 2 pad 0/0/0 alpha 1 beta 0 block-scale edge 0 blocks 100/100/32
+428 e4m3 x e5m2^T -> f32 4095x7x64 batch 2 A-bcast B-bcast pad 0/0/3 alpha 1 beta 0 tensor-scale edge 0
+429 bf16^T x bf16^T -> f32 128x15x5 batch 1 pad 0/0/0 alpha 1 beta 1 edge 0
+430 f16^T x f16^T -> bf16 256x255x64 batch 3 A-bcast pad 0/0/2 alpha -0.5 beta 1 edge 0
+431 e4m3^T x e4m3^T -> f32 5000x15x97 batch 2 pad 0/0/0 alpha -0.5 beta 0 edge 0
+432 e5m2^T x e5m2 -> bf16 1021x127x7 batch 3 pad 0/3/0 alpha 2.75 beta -1.5 edge 0
+433 bf16^T x e4m3 -> f16 2x1025x65 batch 3 A-bcast B-bcast pad 0/1/0 alpha 2.98023e-08 beta 0 edge 0
+434 f16 x e5m2^T -> f32 1x1x16384 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0
+435 f32^T x f32^T -> f32 1x1x1 batch 1 pad 6/0/3 alpha 2.75 beta 0 edge 0
+436 f32^T x f32^T -> f32 32x16x97 batch 1 pad 3/1/6 alpha 2.75 beta 0 FAST_BF16 edge 0
+437 f32^T x bf16^T -> f32 65x2x1808 batch 1 pad 0/0/0 alpha 1 beta 1 edge 0
+438 bf16 x f16^T -> f32 5000x1x251 batch 1 pad 0/7/0 alpha -0.5 beta 0 edge 0
+439 f32^T x f32 -> f32 129x128x128 batch 1 pad 0/0/5 alpha -0.5 beta 1 FFMA_REF edge 0
+440 e4m3^T x e4m3 -> f16 257x1x1023 batch 1 pad 5/0/0 alpha 1.45519e-11 beta 0 block-scale edge 0 blocks 128/1/32
+441 e4m3^T x e5m2^T -> bf16 4097x32x65 batch 1 pad 0/0/2 alpha 1 beta 0 tensor-scale edge 0
+442 bf16^T x bf16^T -> f32 1x1x1 batch 1 pad 0/4/0 alpha 1 beta 1 edge 0
+443 f16^T x f16^T -> f16 3x31x1025 batch 1 pad 0/0/0 alpha -9.31323e-10 beta 1 edge 0
+444 e4m3 x e4m3^T -> f32 13x65x16384 batch 1 pad 0/0/0 alpha -0.5 beta 1 edge 0
+445 e5m2^T x e5m2^T -> f32 4095x15x256 batch 1 pad 0/0/0 alpha 2.75 beta 0 edge 0
+446 bf16^T x e4m3 -> f32 33x129x1 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0
+447 f16^T x e5m2 -> f32 64x3x32 batch 1 pad 0/0/3 alpha -0.5 beta 0 edge 0
+448 f32^T x f32 -> f32 5000x33x16 batch 1 pad 0/3/0 alpha 1 beta 0 edge 0
+449 f32^T x f32^T -> f32 251x1000x3 batch 1 pad 7/0/5 alpha -0.5 beta 0 FAST_BF16 edge 0
+450 f32^T x bf16^T -> f16 509x17x33 batch 1 pad 0/5/0 alpha 5.96046e-08 beta 0 edge 0
+451 bf16^T x f16^T -> f32 32x13x1808 batch 1 pad 0/3/0 alpha 2.75 beta -1.5 edge 0
+452 f32^T x f32^T -> f32 4095x5x7 batch 1 pad 2/0/0 alpha 1 beta 0 FFMA_REF edge 0
+453 e4m3^T x e4m3 -> f32 5x128x97 batch 1 pad 7/2/0 alpha 1 beta -1.5 block-scale edge 0 blocks 16/100/16
+454 e4m3 x e5m2^T -> f32 2x33x16384 batch 3 B-bcast pad 0/1/0 alpha -0.5 beta 1 tensor-scale edge 0
+455 bf16 x bf16^T -> f32 5000x8x63 batch 1 pad 0/5/0 alpha 1 beta -1.5 edge 0
+456 f16^T x f16^T -> f32 32x1021x127 batch 1 pad 0/0/6 alpha 2.75 beta 0 edge 0
+457 e4m3^T x e4m3^T -> f32 65x31x1021 batch 1 pad 0/0/0 alpha 2.75 beta 0 edge 0
+458 e5m2 x e5m2^T -> f32 32x7x16385 batch 1 pad 0/0/2 alpha 2.75 beta 0 edge 0
+459 bf16 x e4m3 -> f32 1x1x1 batch 3 pad 0/2/6 alpha 2.75 beta -1.5 edge 0
+460 f16 x e5m2 -> f32 511x251x1023 batch 1 pad 0/4/0 alpha 2.75 beta 0 edge 0
+461 f32^T x f32 -> f32 33x65x1809 batch 1 pad 0/5/0 alpha 1 beta 0 edge 0
+462 f32^T x f32 -> bf16 2x5000x257 batch 1 pad 0/5/0 alpha 1 beta 0 FAST_BF16 edge 0
+463 f32 x bf16^T -> f32 7x1023x1 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0
+464 bf16 x f16 -> f16 13x33x31 batch 1 pad 0/0/0 alpha 1.19209e-07 beta -1.5 edge 0
+465 f32^T x f32^T -> f32 5x4097x7 batch 1 pad 0/0/0 alpha 1 beta -1.5 FFMA_REF edge 0
+466 e4m3 x e4m3 -> bf16 33x16x2 batch 1 pad 4/0/5 alpha 1 beta 0 block-scale edge 0 blocks 7/1/32
+467 e4m3 x e5m2^T -> f16 97x255x33 batch 1 pad 2/0/0 alpha 5.96046e-08 beta 0 tensor-scale edge 0
+468 bf16^T x bf16^T -> f32 15x65x16385 batch 1 pad 1/0/1 alpha 1 beta 1 edge 0
+469 f16^T x f16^T -> f32 32x5000x257 batch 1 pad 0/7/5 alpha -0.5 beta 0 edge 0
+470 e4m3 x e4m3^T -> bf16 513x1025x63 batch 2 pad 5/0/0 alpha 1 beta 1 edge 0
+471 e5m2 x e5m2 -> f32 65x63x16385 batch 1 pad 0/2/0 alpha 2.75 beta -1.5 edge 0
+472 bf16^T x e4m3 -> f32 3x4097x97 batch 1 pad 3/0/0 alpha 1 beta 1 edge 0
+473 f16 x e5m2 -> f32 8x15x65 batch 2 B-bcast pad 0/0/6 alpha 1 beta 0 edge 0
+474 f32 x f32^T -> bf16 15x251x511 batch 2 pad 0/0/5 alpha -0.5 beta 0 edge 0
+475 f32^T x f32^T -> bf16 17x1x1809 batch 1 pad 0/0/0 alpha 1 beta 0 FAST_BF16 edge 0
+476 f32^T x bf16 -> f16 33x5000x97 batch 1 pad 5/1/0 alpha 8.19564e-08 beta -1.5 edge 0
+477 bf16 x f16 -> f32 127x1025x1000 batch 3 A-bcast B-bcast pad 0/2/7 alpha -0.5 beta 0 edge 0
+478 f32^T x f32 -> f16 8x65x16385 batch 1 pad 6/7/0 alpha 3.20142e-10 beta 0 FFMA_REF edge 0
+479 e4m3 x e4m3 -> f32 5x4097x17 batch 2 A-bcast pad 0/0/0 alpha 1 beta 1 block-scale edge 0 blocks 128/1/32
+480 e4m3 x e5m2^T -> f32 1000x16x1021 batch 1 pad 6/0/0 alpha 2.75 beta 0 tensor-scale edge 0
+481 bf16 x bf16^T -> f32 1023x256x16 batch 3 A-bcast pad 0/0/0 alpha 1 beta 1 edge 0
+482 f16^T x f16 -> f32 2x13x16385 batch 2 B-bcast pad 0/0/0 alpha 1 beta 0 edge 0
+483 e4m3 x e4m3 -> f32 7x128x1023 batch 1 pad 2/0/0 alpha 1 beta 0 edge 0
+484 e5m2 x e5m2 -> bf16 16x1x17 batch 1 pad 6/0/4 alpha 2.75 beta 1 edge 0
+485 bf16 x e4m3 -> f32 31x65x16385 batch 1 pad 3/2/0 alpha 1 beta 1 edge 0
+486 f16 x e5m2 -> bf16 32x4097x2 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0
+487 f32^T x f32^T -> bf16 128x31x32 batch 2 pad 0/3/6 alpha 1 beta 0 edge 0
+488 f32^T x f32^T -> f32 251x257x255 batch 1 pad 1/2/3 alpha -0.5 beta 1 FAST_BF16 edge 0
+489 f32 x bf16^T -> bf16 4096x13x257 batch 1 pad 3/0/0 alpha 2.75 beta 0 edge 0
+490 bf16^T x f16 -> f32 1021x129x33 batch 2 pad 0/0/0 alpha -0.5 beta 1 edge 0
+491 f32^T x f32 -> f32 1025x2x257 batch 1 pad 0/0/6 alpha 1 beta 1 FFMA_REF edge 0
+492 e4m3 x e4m3^T -> f32 64x16x20000 batch 2 pad 0/0/2 alpha 1 beta -1.5 block-scale edge 0 blocks 1/100/100
+493 e4m3^T x e5m2 -> f32 5000x5x2 batch 3 B-bcast pad 0/4/0 alpha 2.75 beta 1 tensor-scale edge 0
+494 bf16^T x bf16^T -> f32 17x17x509 batch 1 pad 0/2/5 alpha 2.75 beta 1 edge 0
+495 f16^T x f16 -> bf16 32x8x20000 batch 2 pad 5/0/0 alpha -0.5 beta 0 edge 0
+496 e4m3 x e4m3 -> f32 4097x17x257 batch 1 pad 0/0/7 alpha 1 beta 1 edge 0
+497 e5m2^T x e5m2 -> f32 129x128x511 batch 1 pad 3/0/0 alpha 1 beta -1.5 edge 0
+498 bf16^T x e4m3 -> f32 255x2x8 batch 1 pad 1/0/1 alpha -0.5 beta 0 edge 0
+499 f16^T x e5m2 -> f16 13x63x20000 batch 2 pad 0/0/0 alpha 1.16415e-10 beta 0 edge 0
+500 f32^T x f32^T -> f16 1000x1021x1000 batch 1 pad 0/0/2 alpha 1.02445e-08 beta -1.5 edge 0
+501 f32^T x f32^T -> bf16 1x31x15 batch 3 pad 3/0/4 alpha 1 beta 0 FAST_BF16 edge 0
+502 f32 x bf16^T -> bf16 8x3x3617 batch 3 B-bcast pad 0/3/0 alpha -0.5 beta 0 edge 0
+503 bf16^T x f16 -> f16 4097x3x255 batch 1 pad 0/0/0 alpha 1.49012e-08 beta 1 edge 0
+504 f32^T x f32 -> f32 31x251x16 batch 1 pad 0/1/4 alpha 2.75 beta 0 FFMA_REF edge 0
+505 e4m3^T x e4m3 -> f32 33x3x129 batch 1 pad 0/3/0 alpha 1 beta 0 block-scale edge 0 blocks 1/100/128
+506 e4m3^T x e5m2 -> f16 8x33x20000 batch 3 B-bcast pad 0/0/0 alpha 1.16415e-10 beta 0 tensor-scale edge 0
+507 bf16^T x bf16^T -> f32 251x1023x32 batch 3 A-bcast pad 0/0/0 alpha -0.5 beta 0 edge 0
+508 f16^T x f16^T -> bf16 256x32x256 batch 1 pad 0/0/6 alpha 2.75 beta 1 edge 0
+509 e4m3 x e4m3^T -> f32 17x32x20000 batch 1 pad 0/5/0 alpha 1 beta 0 edge 0
+510 e5m2^T x e5m2^T -> f32 4097x3x1 batch 2 pad 0/4/0 alpha 1 beta 1 edge 0
+511 bf16^T x e4m3 -> f32 2x255x257 batch 3 pad 0/0/4 alpha -0.5 beta 1 edge 0
+512 f16^T x e5m2 -> bf16 32x15x20000 batch 1 pad 3/6/0 alpha -0.5 beta 1 edge 0
+513 f32 x f32^T -> f32 4096x1x33 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0
+514 f32^T x f32^T -> bf16 32x1025x511 batch 3 pad 6/0/0 alpha 1 beta 0 FAST_BF16 edge 0
+515 f32^T x bf16 -> f16 63x63x8 batch 3 A-bcast pad 5/0/0 alpha 1.3113e-06 beta 0 edge 0
+516 bf16 x f16^T -> f32 7x5x3617 batch 2 A-bcast pad 2/0/0 alpha 1 beta 0 edge 0
+517 f32 x f32 -> bf16 255x15x513 batch 3 pad 0/1/0 alpha 2.75 beta 1 FFMA_REF edge 0
+518 e4m3 x e4m3 -> f32 257x251x13 batch 1 pad 0/0/0 alpha 1 beta 1 block-scale edge 0 blocks 1/1/100
+519 e4m3^T x e5m2 -> f32 31x17x16383 batch 1 pad 2/1/0 alpha 2.75 beta -1.5 tensor-scale edge 0
+520 bf16^T x bf16 -> f32 31x4096x127 batch 1 pad 0/5/0 alpha 1 beta -1.5 edge 0
+521 f16 x f16^T -> f32 3x1025x15 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0
+522 e4m3 x e4m3 -> f32 13x33x128 batch 1 pad 0/3/5 alpha 1 beta -1.5 edge 0
+523 e5m2^T x e5m2^T -> f32 7x2x16383 batch 1 pad 6/3/0 alpha -0.5 beta -1.5 edge 0
+524 bf16 x e4m3 -> f32 33x16x17 batch 1 pad 0/7/0 alpha -0.5 beta 1 edge 0
+525 f16 x e5m2^T -> bf16 64x256x129 batch 1 pad 0/0/7 alpha 1 beta 0 edge 0
+526 f32^T x f32^T -> f32 3x5x1807 batch 1 pad 0/0/0 alpha 2.75 beta 0 edge 0
+527 f32^T x f32^T -> f32 32x4096x31 batch 1 pad 5/0/2 alpha 1 beta 1 FAST_BF16 edge 0
+528 f32 x bf16 -> f32 509x1x255 batch 1 pad 7/0/0 alpha -0.5 beta 0 edge 0
+529 bf16 x f16 -> bf16 1021x63x2 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0
+530 f32^T x f32^T -> bf16 3x4095x5 batch 3 pad 0/0/0 alpha 2.75 beta 0 FFMA_REF edge 0
+531 e4m3 x e4m3^T -> f32 5x17x256 batch 1 pad 0/0/0 alpha 2.75 beta 0 block-scale edge 0 blocks 128/100/32
+532 e4m3 x e5m2^T -> f32 8x257x3 batch 1 pad 2/7/4 alpha -0.5 beta 0 tensor-scale edge 0
+533 bf16 x bf16^T -> f32 8x33x16383 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0
+534 f16 x f16^T -> f32 63x129x257 batch 1 pad 0/1/0 alpha -0.5 beta 1 edge 0
+535 e4m3 x e4m3 -> bf16 65x2x5 batch 1 pad 0/0/2 alpha 1 beta 0 edge 0
+536 e5m2 x e5m2^T -> f16 1x64x16383 batch 1 pad 0/0/0 alpha -1.16415e-10 beta 0 edge 0
+537 bf16^T x e4m3^T -> f32 32x4095x1 batch 3 A-bcast B-bcast pad 5/0/0 alpha -0.5 beta -1.5 edge 0
+538 f16 x e5m2^T -> f32 511x32x8 batch 1 pad 0/0/6 alpha -0.5 beta 0 edge 0
+539 f32 x f32^T -> f32 1023x509x65 batch 1 pad 0/7/2 alpha 1 beta 0 edge 0
+540 f32^T x f32 -> f32 7x17x1807 batch 2 B-bcast pad 0/1/0 alpha 1 beta 0 FAST_BF16 edge 0
+541 f32 x bf16 -> bf16 7x128x13 batch 1 pad 4/0/0 alpha 1 beta 0 edge 0
+542 bf16 x f16 -> f32 13x2x127 batch 1 pad 0/2/0 alpha -0.5 beta 0 edge 0
+543 f32^T x f32 -> f32 16x63x16383 batch 1 pad 0/2/0 alpha 1 beta 0 FFMA_REF edge 0
+544 e4m3 x e4m3 -> f16 13x4096x1 batch 1 pad 2/0/6 alpha 4.09782e-08 beta 1 block-scale edge 0 blocks 16/1/128
+545 e4m3 x e5m2^T -> f32 97x31x128 batch 1 pad 4/0/0 alpha 1 beta 0 tensor-scale edge 0
+546 bf16^T x bf16^T -> f32 251x257x1023 batch 1 pad 4/0/0 alpha -0.5 beta -1.5 edge 0
+547 f16 x f16 -> f32 5x17x16384 batch 1 pad 4/4/0 alpha 1 beta 0 edge 0
+548 e4m3^T x e4m3 -> f32 513x129x129 batch 1 pad 0/0/0 alpha 1 beta 1 edge 0
+549 e5m2^T x e5m2 -> f32 1025x3x1025 batch 1 pad 0/0/1 alpha 1 beta 0 edge 0
+550 bf16 x e4m3 -> f32 65x63x16384 batch 1 pad 0/0/4 alpha -0.5 beta -1.5 edge 0
+551 f16^T x e5m2^T -> f16 8x1023x255 batch 1 pad 0/6/1 alpha 1.49012e-08 beta -1.5 edge 0
+552 f32^T x f32^T -> f32 15x32x2 batch 3 B-bcast pad 0/1/0 alpha 2.75 beta -1.5 edge 0
+553 f32^T x f32^T -> bf16 32x511x32 batch 1 pad 0/0/0 alpha 1 beta 0 FAST_BF16 edge 0
+554 f32^T x bf16 -> bf16 4095x3x251 batch 1 pad 6/0/0 alpha 1 beta 1 edge 0
+555 bf16^T x f16 -> f16 127x255x3 batch 3 pad 0/0/7 alpha -4.76837e-07 beta 0 edge 0
+556 f32^T x f32 -> f16 255x5x63 batch 1 pad 0/0/0 alpha 5.96046e-08 beta 1 FFMA_REF edge 0
+557 e4m3^T x e4m3^T -> bf16 7x16x16384 batch 1 pad 3/0/0 alpha -0.5 beta 1 block-scale edge 0 blocks 16/7/128
+558 e4m3^T x e5m2^T -> f16 1000x1025x5 batch 1 pad 1/4/0 alpha 4.76837e-07 beta 0 tensor-scale edge 0
+559 bf16^T x bf16^T -> f16 1023x63x64 batch 3 pad 6/0/0 alpha 1.63913e-07 beta -1.5 edge 0
+560 f16 x f16 -> f16 63x3x16384 batch 1 pad 0/6/7 alpha -1.16415e-10 beta -1.5 edge 0
+561 e4m3^T x e4m3 -> bf16 4095x13x129 batch 1 pad 6/0/0 alpha 1 beta 0 edge 0
+562 e5m2^T x e5m2 -> bf16 16x256x127 batch 1 pad 0/2/0 alpha -0.5 beta 0 edge 0
+563 bf16^T x e4m3^T -> f32 33x7x1021 batch 1 pad 1/0/0 alpha 2.75 beta 1 edge 0
+564 f16 x e5m2 -> f32 1x32x16384 batch 1 pad 0/0/0 alpha -0.5 beta 1 edge 0
+565 f32^T x f32^T -> f32 128x1023x129 batch 1 pad 0/0/0 alpha -0.5 beta -1.5 edge 0
+566 f32^T x f32^T -> f32 256x33x1025 batch 1 pad 0/0/0 alpha -0.5 beta 0 FAST_BF16 edge 0
+567 f32 x bf16^T -> f16 8x13x1808 batch 2 pad 2/0/0 alpha 1.86265e-09 beta -1.5 edge 0
+568 bf16^T x f16 -> bf16 1021x16x251 batch 3 pad 1/0/5 alpha 1 beta 0 edge 0
+569 f32^T x f32 -> f32 1025x255x1 batch 1 pad 0/6/0 alpha 2.75 beta -1.5 FFMA_REF edge 0
+570 e4m3^T x e4m3^T -> f16 5x7x32 batch 1 pad 0/3/0 alpha 4.65661e-10 beta 1 block-scale edge 0 blocks 1/7/16
+571 e4m3 x e5m2 -> bf16 17x32x16384 batch 1 pad 0/2/0 alpha 2.75 beta 0 tensor-scale edge 0
+572 bf16^T x bf16^T -> bf16 17x1x2 batch 1 pad 3/7/3 alpha 2.75 beta 0 edge 0
+573 f16^T x f16 -> bf16 63x63x33 batch 1 pad 0/0/0 alpha 2.75 beta -1.5 edge 0
+574 e4m3 x e4m3 -> f32 1x3x16384 batch 1 pad 0/7/0 alpha 1 beta 0 edge 0
+575 e5m2^T x e5m2 -> f32 129x17x5 batch 1 pad 6/5/3 alpha 1 beta -1.5 edge 0
+576 bf16 x e4m3^T -> f16 257x257x63 batch 1 pad 3/0/0 alpha 5.96046e-08 beta -1.5 edge 0
+577 f16 x e5m2^T -> f32 511x8x509 batch 1 pad 2/0/0 alpha 2.75 beta 0 edge 0
+578 f32^T x f32 -> f16 31x5000x3 batch 1 pad 0/0/0 alpha -4.76837e-07 beta 0 edge 0
+579 f32 x f32 -> f32 1x2x65 batch 1 pad 0/7/7 alpha 2.75 beta 0 FAST_BF16 edge 0
+580 f32 x bf16 -> f16 7x65x513 batch 1 pad 0/0/0 alpha 1.02445e-08 beta 0 edge 0
+581 bf16^T x f16^T -> f32 3x2x1809 batch 3 pad 0/5/0 alpha -0.5 beta 0 edge 0
+582 f32 x f32 -> f32 31x31x97 batch 1 pad 0/0/0 alpha 1 beta 0 FFMA_REF edge 0
+583 e4m3 x e4m3^T -> f32 64x509x1000 batch 1 pad 0/0/0 alpha 1 beta -1.5 block-scale edge 0 blocks 100/100/16
+584 e4m3 x e5m2^T -> bf16 16x17x16385 batch 1 pad 0/0/0 alpha 1 beta 1 tensor-scale edge 0
+585 bf16 x bf16^T -> f32 251x251x128 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0
+586 f16 x f16 -> f32 256x3x1021 batch 3 pad 0/4/6 alpha 2.75 beta 0 edge 0
+587 e4m3 x e4m3 -> bf16 513x64x16 batch 1 pad 0/0/3 alpha 2.75 beta 0 edge 0
+588 e5m2^T x e5m2 -> f32 64x63x16385 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0
+589 bf16 x e4m3^T -> f32 2x31x1025 batch 1 pad 7/1/0 alpha 2.75 beta -1.5 edge 0
+590 f16 x e5m2^T -> f32 8x257x17 batch 1 pad 4/0/0 alpha 1 beta 0 edge 0
+591 f32^T x f32^T -> bf16 5x33x1809 batch 1 pad 0/0/0 alpha -0.5 beta 1 edge 0
+592 f32 x f32 -> f32 32x129x1 batch 1 pad 0/0/0 alpha 1 beta 0 FAST_BF16 edge 0
+593 f32 x bf16 -> f32 65x3x32 batch 2 pad 7/0/0 alpha 1 beta -1.5 edge 0
+594 bf16 x f16 -> f32 127x65x256 batch 2 A-bcast B-bcast pad 7/0/0 alpha -0.5 beta 0 edge 0
+595 f32^T x f32 -> f16 13x5000x33 batch 3 A-bcast pad 0/5/4 alpha 1.63913e-07 beta -1.5 FFMA_REF edge 0
+596 e4m3 x e4m3^T -> bf16 257x32x33 batch 3 A-bcast pad 0/5/5 alpha 1 beta -1.5 block-scale edge 0 blocks 100/128/100
+597 e4m3 x e5m2^T -> bf16 1000x511x257 batch 2 A-bcast pad 0/7/0 alpha 1 beta 1 tensor-scale edge 0
+598 bf16 x bf16^T -> f16 65x33x16385 batch 2 pad 0/0/5 alpha 1.16415e-10 beta 1 edge 0
+599 f16 x f16 -> f32 3x255x64 batch 2 pad 0/0/3 alpha 1 beta -1.5 edge 0

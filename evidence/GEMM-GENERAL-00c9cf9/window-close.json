@@ -1,0 +1,7 @@
+{"window_id": "20261031T115238Z-0623b2", "closed_by": "spark-window close", "reason": "closed", "verdict": "quiet machine", "held_s": 45, "state": {"utc": "2026-10-31T11:53:23Z", "loadavg": "25.18 25.63 26.11 23/2217 2446530", "mem_avail_kB": 59388500, "gpu_util_pct": "92", "gpu_W": "47.62",
+ "gb10_lock_holders": "",
+ "quiet_lock_holders": "",
+ "quiet_waiters": "",
+ "gpu_apps": "2489455, 30366 MiB, /app/llama-server;",
+ "sensors_row": "1793447601,2026-10-31T06:53:21-05:00,180,46.50,86,25.18,59491168,1,207", "sensors_row_age_s": 2}
+}
