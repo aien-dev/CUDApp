@@ -32,10 +32,12 @@
  * is bit for bit the plain kernel's. No FSETP (never proven on the chip): h = hi + 0, t = tau + 0 (-0 becomes +0),
  * m = FMNMX.MAX(h, t), skip iff (m XOR h) != 0. hi and tau must not be NaN (the screen writes finite values).
  *
- * XBATCH form (spec.xbatch 2..4, L312 stroke: the lm_head once for all heads): xbatch x rows (row m at x + m * k floats,
+ * XBATCH form (spec.xbatch 2..8, L312 stroke: the lm_head once for all heads): xbatch x rows (row m at x + m * k floats,
  * all staged in shared memory: k * 4 * xbatch bytes) share every weight read; each (weight row, x row) accumulates in the
  * SAME order as the one-row kernel, so every output row is bit-identical to the one-row GEMV of its own x; y row m
- * goes to y + m * ystride floats (ystride >= n, required). grid_y stays 1.
+ * goes to y + m * ystride floats (ystride >= n, required). grid_y stays 1. Above 4 x rows (lever 6: all 8 heads in one
+ * read, 64 KiB of shared memory at k 2048) the x rows of a step are read one at a time and the eight weight halves are
+ * extracted once per step, so 16 warps still fit the register file; the programs at 1..4 x rows are unchanged.
  * MASK and XBATCH never mix (spec_ok refuses mask with xbatch > 1).
  *
  * mutant (tests only): 1 pairs the two halves of every word with the wrong x (low half takes the high half's x and
@@ -62,7 +64,7 @@ extern "C" {
 #define OMEGA_BF16_ARG_TAU 0x3a8u  /* MASK form: u64 tau (one f32) */
 #define OMEGA_BF16_MASK_ARGS_WORDS 12u
 #define OMEGA_BF16_STEP_BYTES 512u /* weight bytes per row per K step (32 lanes x 16) */
-#define OMEGA_BF16_MAX_XBATCH 4u    /* x rows per CTA in the XBATCH form (f32 rows staged in shared: 4 x 8 KiB at k 2048) */
+#define OMEGA_BF16_MAX_XBATCH 8u    /* x rows per CTA in the XBATCH form (f32 rows staged in shared: 8 x 8 KiB = 64 KiB at k 2048) */
 
 typedef struct {
     uint32_t k;      /* multiple of 256 (one step) and of 32 * warps (exact staging rounds), <= OMEGA_BF16_MAX_K */

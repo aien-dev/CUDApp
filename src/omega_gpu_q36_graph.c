@@ -615,6 +615,14 @@ static int q36_attn_heads(void) {
     if (g_attn_heads < 0) { const char *e = getenv("AIEN_OMEGA_Q36_ATTN_HEADS"); g_attn_heads = (e && e[0] == '1' && e[1] == 0) ? 1 : 0; }
     return g_attn_heads;
 }
+/* lever 6 (L312): the bf16 lm_head read ONCE for up to 8 heads (XBATCH form at 8 x rows, 64 KiB of shared memory, QMD
+ * word 36 in the 64 KB SM configuration) instead of once per 4. OFF unless AIEN_OMEGA_Q36_HEAD_XBATCH8=1 (chip-unqualified:
+ * groups of 4, the lever-1 launches, stay the default). */
+static int g_head_xbatch = 0;
+static uint32_t q36_head_xbatch(void) {
+    if (!g_head_xbatch) { const char *e = getenv("AIEN_OMEGA_Q36_HEAD_XBATCH8"); g_head_xbatch = (e && e[0] == '1' && e[1] == 0) ? 8 : 4; }
+    return (uint32_t)g_head_xbatch;
+}
 
 int omega_gpu_q36_graph_set_batch(OmegaGpuQ36Graph *g, int on) {
     if (!g || g->in_token) return OMEGA_GPU_DGRAPH_BAD_ARGS;
@@ -633,10 +641,10 @@ int omega_gpu_q36_graph_set_batch(OmegaGpuQ36Graph *g, int on) {
     if (q36_gdn_heads() && omega_gpu_gdn_prepare_heads(g->cfg.gdn) != OMEGA_GPU_GDN_OK) return OMEGA_GPU_DGRAPH_CHIP_FAIL;
     /* lever 5: the attention of every head in one launch (record_layer_heads; its own cache slot) */
     if (q36_attn_heads() && omega_gpu_decode_attn256_prepare_heads(g->cfg.attn) != OMEGA_GPU_DATTN_OK) return OMEGA_GPU_DGRAPH_CHIP_FAIL;
-    /* lever 1: the bf16 lm_head read once per group of up to OMEGA_BF16_MAX_XBATCH heads (record_final_heads) */
+    /* lever 1: the bf16 lm_head read once per group of up to q36_head_xbatch() heads (record_final_heads; lever 6: 8) */
     if (!g->head8) {
         uint32_t n = 0, k = 0; omega_gpu_bf16_tensor_shape(g->cfg.lm_head, &n, &k);
-        for (uint32_t xb = 2; xb <= OMEGA_BF16_MAX_XBATCH && xb <= g->heads; xb++)
+        for (uint32_t xb = 2; xb <= q36_head_xbatch() && xb <= g->heads; xb++)
             if (omega_gpu_bf16_prepare_xbatch(k, xb, g->am_ctas * OMEGA_DEC_ARGMAX_SPAN) != OMEGA_GPU_BF16_OK) return OMEGA_GPU_DGRAPH_CHIP_FAIL;
     }
     g->batch = 1;
@@ -864,7 +872,7 @@ int omega_gpu_q36_graph_record_head_final(OmegaGpuQ36Graph *g, uint32_t h) {
 }
 
 /* The batch's final head (v2 lever 1, L312): every head's hidden is ready after the last layer (record_layer_heads), so
- * the bf16 lm_head runs once per group of up to OMEGA_BF16_MAX_XBATCH heads (the XBATCH form: x rows hidden_of(h0..),
+ * the bf16 lm_head runs once per group of up to q36_head_xbatch() heads (4; 8 with lever 6) (the XBATCH form: x rows hidden_of(h0..),
  * y rows logits_of(h0..), ystride the logits slot; each row bit-identical to its own one-head launch), then the argmax
  * per head. The FP8 head keeps the per-head path (stroke() calls record_head_final). */
 static int record_final_heads(OmegaGpuQ36Graph *g) {
@@ -873,8 +881,9 @@ static int record_final_heads(OmegaGpuQ36Graph *g) {
     for (uint32_t h = 0; h < N; h++)
         if (!g->hidden_ready[h]) return fail(g, "q36 graph: batch final before the last layer", OMEGA_GPU_DGRAPH_BAD_ARGS);
     int rc = OMEGA_GPU_DGRAPH_OK;
-    for (uint32_t h0 = 0; h0 < N && rc == OMEGA_GPU_DGRAPH_OK; h0 += OMEGA_BF16_MAX_XBATCH) {
-        const uint32_t xb = N - h0 < OMEGA_BF16_MAX_XBATCH ? N - h0 : OMEGA_BF16_MAX_XBATCH;
+    const uint32_t G = q36_head_xbatch();
+    for (uint32_t h0 = 0; h0 < N && rc == OMEGA_GPU_DGRAPH_OK; h0 += G) {
+        const uint32_t xb = N - h0 < G ? N - h0 : G;
         rc = after_op(g, OMEGA_GPU_Q36_K_LM_HEAD, omega_gpu_bf16_gemv_xbatch_record(g->cl, g->cfg.lm_head, xb, va_of(g, hidden_of(g, h0)),
                                                                                      va_of(g, logits_of(g, h0)), g->am_ctas * OMEGA_DEC_ARGMAX_SPAN));
     }

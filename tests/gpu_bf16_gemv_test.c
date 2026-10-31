@@ -11,6 +11,7 @@
  */
 #include "omega_gpu_bf16_gemv_api.h"
 #include "omega_gpu_session.h"
+#include "omega_gpu_cmdlist.h"
 #include "bw_warp_sim_k.h"
 #include "out_sha.h"
 #include <inttypes.h>
@@ -99,10 +100,17 @@ static void host_only(void) {
       uint32_t decl = ((gg + 1 + 7) / 8) * 8;
       CHECK(rc == 0 && omega_bf16_gemv_shared_bytes(&s) == 32768u && 32u * 16u * decl <= 65536u, "codegen XBATCH 4 k 2048 warps 16 depth 8: rc %d insns %u gprs %u shared %u", rc, ni, gg, omega_bf16_gemv_shared_bytes(&s));
       printf("codegen XBATCH 4 k 2048 warps 16 depth 8: %u instructions, %u registers (declared %u), shared %u bytes\n", ni, gg, decl, omega_bf16_gemv_shared_bytes(&s)); }
-    { OmegaBf16GemvSpec s = { 2048, 1, 16, 8, 0, 249856, 5, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "xbatch 5 refused"); }
+    { /* L312 lever 6: 8 x rows per CTA (the lm_head once for all 8 heads), 64 KiB of shared memory, 16 warps inside the register file */
+      OmegaBf16GemvSpec s = { 2048, 1, 16, 8, 0, 249856, 8, 0 }; uint32_t ni = 0, gg = 0; int rc = omega_bf16_gemv_prog_stats(&s, &ni, &gg);
+      uint32_t decl = ((gg + 1 + 7) / 8) * 8;
+      CHECK(rc == 0 && ni <= 1024 && omega_bf16_gemv_shared_bytes(&s) == 65536u && 32u * 16u * decl <= 65536u, "codegen XBATCH 8 k 2048 warps 16 depth 8: rc %d insns %u gprs %u shared %u", rc, ni, gg, omega_bf16_gemv_shared_bytes(&s));
+      printf("codegen XBATCH 8 k 2048 warps 16 depth 8: %u instructions, %u registers (declared %u, register file %u of 65536), shared %u bytes\n", ni, gg, decl, 32u * 16u * decl, omega_bf16_gemv_shared_bytes(&s));
+      for (uint32_t xb = 5; xb <= 7; xb++) { s.xbatch = xb; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) == 0, "codegen XBATCH %u k 2048 builds", xb); } }
+    { OmegaBf16GemvSpec s = { 2048, 1, 16, 8, 0, 249856, 9, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "xbatch 9 refused"); }
     { OmegaBf16GemvSpec s = { 2048, 1, 16, 8, 0, 0, 2, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "xbatch without ystride refused"); }
-    { OmegaBf16GemvSpec s = { 4096, 1, 16, 16, 0, 249856, 4, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "xbatch 4 x k 4096 (64 KiB shared) refused"); }
-    { OmegaBf16GemvSpec s = { 2048, 1, 8, 8, 0, 249856, 4, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "xbatch 4 x k 2048 at 8 warps (more than 16 staging rounds) refused"); }
+    { OmegaBf16GemvSpec s = { 8192, 1, 32, 16, 0, 249856, 4, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "xbatch 4 x k 8192 (128 KiB shared) refused"); }
+    { OmegaBf16GemvSpec s = { 4096, 1, 16, 16, 0, 249856, 8, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "xbatch 8 x k 4096 (128 KiB shared) refused"); }
+    { OmegaBf16GemvSpec s = { 2048, 1, 8, 8, 0, 249856, 8, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "xbatch 8 x k 2048 at 8 warps (more than 32 staging rounds) refused"); }
     { OmegaBf16GemvSpec s = { 2048, 1, 16, 8, 4, 249856, 1, 0 }; CHECK(omega_bf16_gemv_prog_stats(&s, NULL, NULL) != 0, "mutant 4 at xbatch 1 refused"); }
     CHECK(OMEGA_BF16_ARGS_WORDS <= OMEGA_GPU_SESSION_MAX_ARGS, "argument words fit the constant bank window");
     uint16_t bad[256]; memset(bad, 0, sizeof bad); bad[7] = 0x7f80;
@@ -263,7 +271,8 @@ static void sim_battery(void) {
         }
     }
     { /* XBATCH form: every weight read feeds xb x rows; mutant 4 (every row reads x row 0) must be caught */
-        struct { uint32_t k, n, xb, ystride, grid; } xp[] = { { 1024, 96, 2, 100, 2 }, { 1024, 96, 4, 96, 3 }, { 2048, 64, 2, 70, 2 }, { 1024, 40, 3, 50, 2 } };
+        struct { uint32_t k, n, xb, ystride, grid; } xp[] = { { 1024, 96, 2, 100, 2 }, { 1024, 96, 4, 96, 3 }, { 2048, 64, 2, 70, 2 }, { 1024, 40, 3, 50, 2 },
+                                                                { 1024, 96, 8, 100, 2 }, { 1024, 40, 6, 44, 3 }, { 1024, 64, 5, 64, 2 } }; /* lever 6: 5..8 rows (the one-at-a-time x path) */
         for (size_t i = 0; i < sizeof xp / sizeof xp[0]; i++) {
             char msg[300]; size_t bad = 1;
             int err = sim_multi_point(xp[i].k, xp[i].n, xp[i].xb, xp[i].xb, xp[i].ystride, xp[i].grid, 0, 61 + (uint32_t)i, msg, sizeof msg, &bad);
@@ -274,6 +283,11 @@ static void sim_battery(void) {
         int err = sim_multi_point(1024, 64, 2, 2, 64, 2, 4, 79, msg, sizeof msg, &bad);
         CHECK(!err && bad != 0, "sim XBATCH mutant 4 must be caught: %s", msg);
         printf("sim XBATCH mutant 4: %s %s\n", err ? "ERROR" : bad ? "caught" : "NOT CAUGHT", msg);
+        for (int m = 1; m <= 4; m++) { /* lever 6: every mutant caught on the 8-row path too */
+            bad = 0; err = sim_multi_point(1024, 64, 8, 8, 64, 2, m, 80 + (uint32_t)m, msg, sizeof msg, &bad);
+            CHECK(!err && bad != 0, "sim XBATCH 8 mutant %d must be caught: %s", m, msg);
+            printf("sim XBATCH 8 mutant %d: %s %s\n", m, err ? "ERROR" : bad ? "caught" : "NOT CAUGHT", msg);
+        }
     }
     struct { uint32_t k, n, rows, warps, depth, grid; } pts[] = {
         { 2048, 100, 1, 8, 8, 2 }, { 2048, 100, 1, 8, 4, 3 }, { 2048, 64, 1, 8, 1, 2 }, { 2048, 96, 2, 8, 4, 2 }, { 2048, 96, 4, 8, 4, 1 },
@@ -383,6 +397,57 @@ static int chip_run(const char *out_path, uint32_t reps, uint32_t N, uint32_t K)
             }
             omega_gpu_bf16_test_set_mutant(0);
             free(ys);
+        }
+        omega_gpu_bf16_tensor_free(ts);
+    }
+    /* L312 lever 6: the XBATCH form on the chip, 4 x rows (32 KiB of shared memory, the known configuration) then 8 x rows
+     * (64 KiB: the first launch above the 32 KB configuration, word 36 MIN/TARGET 17): every y row bit-identical to the
+     * one-row emulation of its own x, the ystride gap untouched; mutant 4 (every row reads x row 0) caught at 8 rows. */
+    if (!omega_gpu_session_is_blocked()) {
+        const uint32_t MN = 4096, YS = MN + 8; OmegaGpuBf16Tensor *ts = NULL;
+        rc = omega_gpu_bf16_tensor_upload(MN, K, w, &ts);
+        CHECK(rc == 0, "xbatch tensor upload");
+        static const uint32_t xbs[] = { 4, 8 };
+        for (size_t i = 0; i < 2 && rc == 0; i++) {
+            const uint32_t xb = xbs[i];
+            float *xs = malloc((size_t)xb * K * 4);
+            for (uint32_t r = 0; r < xb; r++) { float *t = make_x(K, 90010 + r); memcpy(xs + (size_t)r * K, t, (size_t)K * 4); free(t); }
+            for (int mut = 0; mut <= (xb == 8 ? 4 : 0); mut += 4) {
+                omega_gpu_bf16_test_set_mutant(mut);
+                int prc = omega_gpu_bf16_prepare_xbatch(K, xb, YS);
+                CHECK(prc == 0, "chip XBATCH %u mutant %d prepare: %s %s", xb, mut, omega_gpu_bf16_rc_name(prc), prc ? omega_gpu_bf16_last_error() : "");
+                OmegaGpuCmdList *cl = NULL; OmegaGpuMem bx, by; memset(&bx, 0, sizeof bx); memset(&by, 0, sizeof by);
+                int ok = prc == 0 && omega_gpu_cmdlist_create(2, &cl) == 0;
+                omega_gpu_session_lock();
+                if (ok) ok = omega_gpu_session_alloc((size_t)xb * K * 4, &bx) == 0 && omega_gpu_session_alloc((size_t)xb * YS * 4, &by) == 0;
+                if (ok) {
+                    memcpy(bx.cpu, xs, (size_t)xb * K * 4); float *yb = by.cpu; for (size_t j = 0; j < (size_t)xb * YS; j++) yb[j] = -999.0f;
+                    ok = omega_gpu_session_sync_to_gpu(&bx) == 0 && omega_gpu_session_sync_to_gpu(&by) == 0;
+                }
+                if (ok) ok = omega_gpu_bf16_gemv_xbatch_record(cl, ts, xb, bx.va, by.va, YS) == 0;
+                OmegaGpuCmdListOpts opts; memset(&opts, 0, sizeof opts); OmegaGpuCmdListStats stc; memset(&stc, 0, sizeof stc);
+                if (ok) ok = omega_gpu_cmdlist_submit(cl, &opts, &stc) == 0;
+                if (ok) ok = omega_gpu_session_sync_to_cpu(&by) == 0;
+                size_t bad = 0, gap = 0;
+                if (ok) {
+                    const float *yb = by.cpu;
+                    for (uint32_t r = 0; r < xb; r++) { size_t f; bad += compare_emu(w, xs + (size_t)r * K, MN, K, yb + (size_t)r * YS, &f); for (uint32_t j = MN; j < YS; j++) if (yb[(size_t)r * YS + j] != -999.0f) gap++; }
+                }
+                if (bx.cpu) omega_gpu_session_free(&bx);
+                if (by.cpu) omega_gpu_session_free(&by);
+                omega_gpu_session_unlock();
+                if (cl) omega_gpu_cmdlist_free(cl);
+                if (mut == 0) {
+                    CHECK(ok && bad == 0 && gap == 0, "chip XBATCH %u (%u bytes of shared memory): %s, %zu of %u x %u rows differ, %zu gap words written", xb, K * 4 * xb, ok ? "ran" : omega_gpu_bf16_last_error(), bad, MN, xb, gap);
+                    printf("chip XBATCH %u (%u bytes of shared memory): %s, %zu of %u x %u rows differ from the emulation%s\n", xb, K * 4 * xb, ok ? "ran" : "FAILED", bad, MN, xb, ok && !bad ? " (bit-identical)" : "");
+                } else {
+                    CHECK(ok && bad != 0, "chip XBATCH %u mutant 4 must be caught (%s, %zu rows differ)", xb, ok ? "ran" : omega_gpu_bf16_last_error(), bad);
+                    printf("chip XBATCH %u mutant 4: %s (%zu rows differ)\n", xb, ok && bad ? "caught" : "NOT CAUGHT", bad);
+                }
+                if (out) fprintf(out, ",{\"point\":\"xbatch %u mutant %d\",\"ok\":%d,\"rows_bad\":%zu,\"shared_bytes\":%u}", xb, mut, ok, bad, K * 4 * xb);
+            }
+            omega_gpu_bf16_test_set_mutant(0);
+            free(xs);
         }
         omega_gpu_bf16_tensor_free(ts);
     }

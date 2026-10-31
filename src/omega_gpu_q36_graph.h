@@ -170,7 +170,7 @@ void omega_q36_perm_table(uint32_t *tab, uint32_t k);
  * one grouped GEMM over the N x 9 rows sorted by expert (GROUP kernel: every expert any conversation picked is read once),
  * the per-conversation state kernels (GDN, attention, router, COMBINE) stay per head. Values are those of the per-head
  * stroke (the gate: every head word-identical to its run alone). The final head (lever 1): the bf16 lm_head read once per
- * group of up to OMEGA_BF16_MAX_XBATCH heads (the XBATCH GEMV form), then the argmax per head; the FP8 head stays per head.
+ * group of up to 4 heads (8 with lever 6, AIEN_OMEGA_Q36_HEAD_XBATCH8=1; the XBATCH GEMV form), then the argmax per head; the FP8 head stays per head.
  * set_batch pins the GEMM and XBATCH kernels (session, once); AIEN_OMEGA_Q36_BATCH=1 at create does the same.
  * record_layer_heads is the per-layer step stroke() uses. */
 int omega_gpu_q36_graph_set_batch(OmegaGpuQ36Graph *g, int on);
