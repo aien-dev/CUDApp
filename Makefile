@@ -342,6 +342,37 @@ test-gpu-fp8gemm: $(GPU_FP8GEMM_TEST)
 	env AIEN_OMEGA_FP8GEMM_X_AHEAD=yes $(GPU_FP8GEMM_TEST) $(FP8GEMM_STROKE_GU) --expect "x_ahead=0"
 	env AIEN_OMEGA_FP8GEMM_X_AHEAD=1 $(GPU_FP8GEMM_TEST) $(FP8GEMM_STROKE_GU) --expect "rowmap=1 mt=4 x_ahead=1"
 	env AIEN_OMEGA_FP8GEMM_X_AHEAD=1 $(GPU_FP8GEMM_TEST) --spec-of 2048,16,8,0 --warps 4 --expect "x_ahead=0"
+	for v in "" 0 yes 2 " 1" "1 " 11; do \
+	  env AIEN_OMEGA_FP8GEMM_X_AHEAD="$$v" $(GPU_FP8GEMM_TEST) $(FP8GEMM_STROKE_GU) --expect "x_ahead=0" || exit 1; done
+	@# DRA-78: AIEN_OMEGA_FP8GEMM_CTA_BUDGET; unset = the incumbent rule exactly (segs >= 64: 2, >= 8: 12, else 96)
+	env -u AIEN_OMEGA_FP8GEMM_CTA_BUDGET $(GPU_FP8GEMM_TEST) --spec-of 512,64,4,1 --expect "ctas=2 x_ahead=0"
+	env -u AIEN_OMEGA_FP8GEMM_CTA_BUDGET $(GPU_FP8GEMM_TEST) --spec-of 2048,64,4,1 --expect "ctas=2"
+	env -u AIEN_OMEGA_FP8GEMM_CTA_BUDGET $(GPU_FP8GEMM_TEST) --spec-of 2048,8,4,1 --expect "ctas=12"
+	env -u AIEN_OMEGA_FP8GEMM_CTA_BUDGET $(GPU_FP8GEMM_TEST) --spec-of 512,7,4,1 --expect "ctas=96"
+	env -u AIEN_OMEGA_FP8GEMM_CTA_BUDGET $(GPU_FP8GEMM_TEST) --spec-of 2048,1,0,0 --expect "ctas=96"
+	env AIEN_OMEGA_FP8GEMM_CTA_BUDGET=4 $(GPU_FP8GEMM_TEST) --spec-of 2048,1,0,0 --expect "ctas=4"
+	env AIEN_OMEGA_FP8GEMM_CTA_BUDGET=512:4 $(GPU_FP8GEMM_TEST) --spec-of 512,64,4,1 --expect "ctas=4"
+	env AIEN_OMEGA_FP8GEMM_CTA_BUDGET=512:4 $(GPU_FP8GEMM_TEST) --spec-of 2048,64,4,1 --expect "ctas=2"
+	env AIEN_OMEGA_FP8GEMM_CTA_BUDGET=512:4 $(GPU_FP8GEMM_TEST) --spec-of 512,7,4,1 --expect "ctas=96"
+	env AIEN_OMEGA_FP8GEMM_CTA_BUDGET=512:4,2048:6 $(GPU_FP8GEMM_TEST) --spec-of 2048,8,4,1 --expect "ctas=6"
+	env AIEN_OMEGA_FP8GEMM_CTA_BUDGET=512:4,2048:6 $(GPU_FP8GEMM_TEST) --spec-of 2048,1,0,0 --expect "ctas=96"
+	env AIEN_OMEGA_FP8GEMM_CTA_BUDGET=2048:6,3 $(GPU_FP8GEMM_TEST) --spec-of 512,64,4,1 --expect "ctas=3"
+	env AIEN_OMEGA_FP8GEMM_CTA_BUDGET=2048:6,3 $(GPU_FP8GEMM_TEST) --spec-of 2048,64,4,1 --expect "ctas=6"
+	env AIEN_OMEGA_FP8GEMM_CTA_BUDGET=1024 $(GPU_FP8GEMM_TEST) --spec-of 512,64,4,1 --expect "ctas=1024"
+	env AIEN_OMEGA_FP8GEMM_CTA_BUDGET=512:4 $(GPU_FP8GEMM_TEST) --spec-of 512,64,4,1 --ctas 7 --expect "ctas=7"
+	@# malformed values are refused whole: the incumbent budget stays (512,64 -> 2)
+	for v in "" 0 1025 -1 abc 4x " 4" "4," ",4" "512:" ":4" "512:0" "512:4,,3" "512:4,512:5" "3,4" "512:4;3" "16385:4" "512:4:4"; do \
+	  env AIEN_OMEGA_FP8GEMM_CTA_BUDGET="$$v" $(GPU_FP8GEMM_TEST) --spec-of 512,64,4,1 --expect "ctas=2" || exit 1; done
+	@# DRA-79: AIEN_OMEGA_FP8GEMM_ROW_AHEAD; only exactly "1" turns it on, and only at one K step per row (k 512 at lane 16, k 256 at lane 8)
+	env -u AIEN_OMEGA_FP8GEMM_ROW_AHEAD $(GPU_FP8GEMM_TEST) --spec-of 512,64,4,1 --expect "row_ahead=0 ctas=2"
+	env -u AIEN_OMEGA_FP8GEMM_ROW_AHEAD $(GPU_FP8GEMM_TEST) --spec-of 512,8,4,1 --expect "row_ahead=0"
+	env AIEN_OMEGA_FP8GEMM_ROW_AHEAD=1 $(GPU_FP8GEMM_TEST) --spec-of 512,64,4,1 --expect "row_ahead=1 rowmap=1 mt=4 ctas=2 x_ahead=0"
+	env AIEN_OMEGA_FP8GEMM_ROW_AHEAD=1 $(GPU_FP8GEMM_TEST) --spec-of 512,8,4,1 --expect "row_ahead=1 ctas=12"
+	env AIEN_OMEGA_FP8GEMM_ROW_AHEAD=1 AIEN_OMEGA_FP8GEMM_X_AHEAD=1 AIEN_OMEGA_FP8GEMM_CTA_BUDGET=512:4 $(GPU_FP8GEMM_TEST) --spec-of 512,64,4,1 --expect "row_ahead=1 x_ahead=1 ctas=4"
+	env AIEN_OMEGA_FP8GEMM_ROW_AHEAD=1 $(GPU_FP8GEMM_TEST) --spec-of 2048,64,4,1 --expect "row_ahead=0"
+	env AIEN_OMEGA_FP8GEMM_ROW_AHEAD=1 $(GPU_FP8GEMM_TEST) --spec-of 2048,1,0,0 --expect "row_ahead=0"
+	for v in "" 0 yes 2 " 1" "1 " 11; do \
+	  env AIEN_OMEGA_FP8GEMM_ROW_AHEAD="$$v" $(GPU_FP8GEMM_TEST) --spec-of 512,64,4,1 --expect "row_ahead=0" || exit 1; done
 
 # OWN-30B (2026-10-13): host-only audit that every launcher declares peak + 2 registers (the chip hung at peak + 1).
 .PHONY: test-gpu-gpr-boundary

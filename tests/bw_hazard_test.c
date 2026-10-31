@@ -266,7 +266,7 @@ static void test_controls(void) {
     war[1].dst_vreg = 5; war[1].control = FIX; n = enc(war, 3, c);
     CHECK(n && omega_bw_hazard_check(c, n, &g_rep) == 0 && g_rep.count == 0, "control: a register the store does not read passes");
     /* WAR released by the load's completion: waiting on the write barrier also frees the address */
-    BlackwellIRInsn warc[] = { mk(BW_IR_LDG_E, 4, 2, -1, -1, 4, LD), mk(BW_IR_MOV_RZ, 2, -1, -1, -1, -1, CW(6, 7, 7, 0x1)), mk(BW_IR_EXIT, -1, -1, -1, -1, -1, ENDW) };
+    BlackwellIRInsn warc[] = { mk(BW_IR_LDG_E, 4, 2, -1, -1, 4, LD), mk(BW_IR_MOV_RZ, 2, -1, -1, -1, -1, CW(6, 7, 7, 0x1)), mk(BW_IR_EXIT, -1, -1, -1, -1, -1, CW(5, 7, 7, 0x1)) };
     n = enc(warc, 3, c);
     CHECK(n && omega_bw_hazard_check(c, n, &g_rep) == 0 && g_rep.count == 0, "control: address overwrite after the load completed passes");
     warc[1].control = FIX; n = enc(warc, 3, c);
@@ -275,6 +275,12 @@ static void test_controls(void) {
     BlackwellIRInsn waw[] = { mk(BW_IR_LDG_E, 4, 2, -1, -1, 4, LD), mk(BW_IR_MOV_RZ, 4, -1, -1, -1, -1, CW(6, 7, 7, 0x2)), mk(BW_IR_EXIT, -1, -1, -1, -1, -1, ENDW) };
     n = enc(waw, 3, c);
     CHECK(n && omega_bw_hazard_check(c, n, &g_rep) == 0 && g_rep.count == 1 && finding(&g_rep, 1, OMEGA_BW_HZ_WAW, 4), "control WAW caught");
+    /* EXIT with the load still in flight (P-DRA-4 DRA-79 row_ahead L_end wait) / with the wait on the EXIT */
+    BlackwellIRInsn ex[] = { mk(BW_IR_LDG_E, 4, 2, -1, -1, 4, LD), mk(BW_IR_EXIT, -1, -1, -1, -1, -1, ENDW) };
+    n = enc(ex, 2, c);
+    CHECK(n && omega_bw_hazard_check(c, n, &g_rep) == 0 && g_rep.count == 1 && finding(&g_rep, 1, OMEGA_BW_HZ_EXIT, 4), "control EXIT with a pending load caught");
+    ex[1].control = CW(5, 7, 7, 0x1); n = enc(ex, 2, c);
+    CHECK(n && omega_bw_hazard_check(c, n, &g_rep) == 0 && g_rep.count == 0, "control EXIT behind the wait passes");
     /* a variable-latency result with no write barrier at all: nothing can release it */
     BlackwellIRInsn nob[] = { mk(BW_IR_S2R, 4, -1, -1, -1, -1, CW(4, 7, 7, 0)), mk(BW_IR_FADD, 6, 4, 4, -1, -1, CW(6, 7, 7, 0x3f)), mk(BW_IR_EXIT, -1, -1, -1, -1, -1, ENDW) };
     nob[0].imm = BW_SR_TID_X; n = enc(nob, 3, c);
@@ -366,8 +372,15 @@ static void sweep_bytes(const char *family, const char *variant, const uint8_t *
         CHECK(0, "%s %s: not checked (instruction %lld, word 0 %08x, decode %d)", family, variant, pc, w0, pc >= 0 ? omega_bw_decode(code + pc * 16, &d) : -9);
         return;
     }
+    size_t exit_open = 0;
     for (size_t i = 0; i < g_rep.count && i < OMEGA_BW_HAZARD_MAX; i++) {
         const OmegaBwHazard *f = &g_rep.f[i]; int known = 0;
+        /* EXIT-pending gates fp8gemm only (DRA-79). Older families (fp8_gemv2 1059, matmul_frag_block 75, matmul_frag 9 at
+         * 2026-10-31) exit with prefetches in flight; listed as EXITPEND, kept out of the findings total, not gated yet. */
+        if (f->kind == OMEGA_BW_HZ_EXIT && strcmp(family, "fp8gemm")) {
+            printf("EXITPEND %s %s: IR %u R%u (producer IR %u) [not gated]\n", family, variant, f->pc, f->reg, f->src_pc);
+            exit_open++; continue;
+        }
         for (size_t k = 0; g_known[k].family; k++)
             if (!strcmp(g_known[k].family, family) && (g_known[k].pc == ANY_PC || g_known[k].pc == f->pc) && g_known[k].kind == f->kind &&
                 g_known[k].reg == f->reg && g_known[k].uniform == f->uniform) { g_known[k].seen = 1; known = g_known[k].cls; }
@@ -375,7 +388,7 @@ static void sweep_bytes(const char *family, const char *variant, const uint8_t *
                f->uniform ? "U" : "", f->reg, f->release, f->src_pc, known ? "triaged" : "UNTRIAGED", known ? known : '-');
         CHECK(known, "%s %s: untriaged %s at IR %u", family, variant, omega_bw_hazard_kind(f->kind), f->pc);
     }
-    g_findings_total += g_rep.count;
+    g_findings_total += g_rep.count - exit_open;
     if (g_dump_dir && g_rep.count) {
         char path[512]; snprintf(path, sizeof path, "%s/%s-%zu.bin", g_dump_dir, family, g_nseen - 1);
         /* 0644, not fopen's 0666 & ~umask: a dump is never world-writable */
@@ -416,12 +429,13 @@ static void sweep(void) {
           snprintf(v, sizeof v, "k%u rows%u warps%u depth%u", ks[a], rows, w, dp);
           if (BUILD(omega_blackwell_codegen_bf16_gemv_prog(&s, &g_prog))) sweep_prog("bf16_gemv", v, P_NONE);
       } }
-    /* fp8 grouped GEMM: the incumbent, rowmap (the stroke's expert form) and x_ahead (L312 lever 3, scoreboard 5) */
-    { unsigned ks[] = { 512, 768, 2048, 4096 };
-      for (unsigned a = 0; a < 4; a++) for (unsigned lb = 8; lb <= 16; lb += 8) for (unsigned mt = 1; mt <= 16; mt *= 2) for (unsigned w = 1; w <= 32; w *= 2)
-      for (unsigned rm = 0; rm <= 1; rm++) for (unsigned xa = 0; xa <= 1; xa++) {
-          OmegaFp8GemmSpec s = { .k = ks[a], .lane_bytes = lb, .mt = mt, .warps = w, .rowmap = rm, .x_ahead = xa };
-          snprintf(v, sizeof v, "k%u lane%u mt%u warps%u%s%s", ks[a], lb, mt, w, rm ? " rowmap" : "", xa ? " x_ahead" : "");
+    /* fp8 grouped GEMM: the incumbent, rowmap (the stroke's expert form), x_ahead (L312 lever 3, scoreboard 5) and row_ahead
+     * (DRA-79, scoreboard 4 held across the row loop; one K step only: k 256 at lane 8, k 512 at lane 16) */
+    { unsigned ks[] = { 512, 768, 2048, 4096, 256 };
+      for (unsigned a = 0; a < 5; a++) for (unsigned lb = 8; lb <= 16; lb += 8) for (unsigned mt = 1; mt <= 16; mt *= 2) for (unsigned w = 1; w <= 32; w *= 2)
+      for (unsigned rm = 0; rm <= 1; rm++) for (unsigned xa = 0; xa <= 1; xa++) for (unsigned ra = 0; ra <= 1; ra++) {
+          OmegaFp8GemmSpec s = { .k = ks[a], .lane_bytes = lb, .mt = mt, .warps = w, .rowmap = rm, .x_ahead = xa, .row_ahead = ra };
+          snprintf(v, sizeof v, "k%u lane%u mt%u warps%u%s%s%s", ks[a], lb, mt, w, rm ? " rowmap" : "", xa ? " x_ahead" : "", ra ? " row_ahead" : "");
           if (BUILD(omega_blackwell_codegen_fp8gemm_prog(&s, &g_prog))) sweep_prog("fp8gemm", v, P_NONE);
       } }
     /* ternary GEMV */

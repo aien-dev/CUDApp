@@ -119,35 +119,50 @@ static void host_only(void) {
       CHECK(p[(1 * 32 + 5) * 4 + 2] / 18446744073709551616.0f == x[86], "column 86 sits at lane 5 word 1 element 2"); }
     struct { uint32_t k, lb, mt, w; } shp[] = { { 2048, 16, 8, 16 }, { 4096, 16, 8, 16 }, { 1024, 16, 8, 16 }, { 768, 8, 8, 16 }, { 768, 8, 8, 8 }, { 2048, 8, 8, 16 }, { 2048, 16, 4, 16 }, { 2048, 16, 8, 32 }, { 2048, 16, 8, 8 }, { 2048, 16, 4, 8 }, { 4096, 16, 4, 8 } };
     for (unsigned i = 0; i < sizeof shp / sizeof shp[0]; i++) for (int m = 0; m <= 3; m++) {
-        OmegaFp8GemmSpec s = { shp[i].k, shp[i].lb, shp[i].mt, shp[i].w, m, 0, 0 }; uint32_t n = 0, gp = 0;
+        OmegaFp8GemmSpec s = { shp[i].k, shp[i].lb, shp[i].mt, shp[i].w, m, 0, 0, 0 }; uint32_t n = 0, gp = 0;
         int rc = omega_fp8gemm_prog_stats(&s, &n, &gp);
         uint32_t decl = ((gp + 1 + 7) / 8) * 8;
         CHECK(rc == 0 && n <= 1024, "codegen k %u lb %u mt %u warps %u mutant %d: rc %d insns %u gprs %u", s.k, s.lane_bytes, s.mt, s.warps, m, rc, n, gp);
         if (m == 0 && rc == 0) printf("codegen k %4u lane %2u mt %2u warps %2u: %u instructions, %u registers (declared %u, register file %u of 65536)%s, shared %u B\n", s.k, s.lane_bytes, s.mt, s.warps, n, gp, decl, 32u * s.warps * decl, 32u * s.warps * decl <= 65536u ? "" : " DOES NOT FIT", omega_fp8gemm_shared_bytes(&s));
     }
-    { OmegaFp8GemmSpec s = { 2048, 16, 16, 16, 0, 0, 0 }; CHECK(omega_fp8gemm_prog_stats(&s, NULL, NULL) != 0, "mt 16 at lane 16 refused (32 KB of shared memory)"); }
-    { OmegaFp8GemmSpec s = { 2048, 16, 6, 16, 0, 0, 0 }; CHECK(omega_fp8gemm_prog_stats(&s, NULL, NULL) != 0, "mt 6 refused"); }
-    { OmegaFp8GemmSpec s = { 2048, 16, 8, 16, 5, 0, 0 }; CHECK(omega_fp8gemm_prog_stats(&s, NULL, NULL) != 0, "mutant 5 refused"); }
-    { OmegaFp8GemmSpec s = { 2048, 16, 8, 16, 0, 2, 0 }; CHECK(omega_fp8gemm_prog_stats(&s, NULL, NULL) != 0, "rowmap 2 refused"); }
-    { OmegaFp8GemmSpec s = { 2048, 16, 8, 16, 0, 1, 0 }; CHECK(omega_fp8gemm_prog_stats(&s, NULL, NULL) != 0, "rowmap at mt 8 refused (registers)"); }
+    { OmegaFp8GemmSpec s = { 2048, 16, 16, 16, 0, 0, 0, 0 }; CHECK(omega_fp8gemm_prog_stats(&s, NULL, NULL) != 0, "mt 16 at lane 16 refused (32 KB of shared memory)"); }
+    { OmegaFp8GemmSpec s = { 2048, 16, 6, 16, 0, 0, 0, 0 }; CHECK(omega_fp8gemm_prog_stats(&s, NULL, NULL) != 0, "mt 6 refused"); }
+    { OmegaFp8GemmSpec s = { 2048, 16, 8, 16, 7, 0, 0, 0 }; CHECK(omega_fp8gemm_prog_stats(&s, NULL, NULL) != 0, "mutant 7 refused"); }
+    /* DRA-79 row_ahead: KS 1 only (k == 32 * lane_bytes), 0/1 only; mutants 5 and 6 only with it */
+    { OmegaFp8GemmSpec s = { 2048, 16, 8, 16, 0, 0, 0, 1 }; CHECK(omega_fp8gemm_prog_stats(&s, NULL, NULL) != 0, "row_ahead at KS 4 refused"); }
+    { OmegaFp8GemmSpec s = { 1024, 16, 8, 16, 0, 0, 0, 1 }; CHECK(omega_fp8gemm_prog_stats(&s, NULL, NULL) != 0, "row_ahead at KS 2 refused"); }
+    { OmegaFp8GemmSpec s = { 512, 16, 4, 16, 0, 0, 0, 2 }; CHECK(omega_fp8gemm_prog_stats(&s, NULL, NULL) != 0, "row_ahead 2 refused"); }
+    for (int m = 5; m <= 6; m++) { OmegaFp8GemmSpec s = { 512, 16, 4, 16, m, 0, 0, 0 }; CHECK(omega_fp8gemm_prog_stats(&s, NULL, NULL) != 0, "mutant %d without row_ahead refused", m);
+      s.row_ahead = 1; CHECK(omega_fp8gemm_prog_stats(&s, NULL, NULL) == 0, "mutant %d with row_ahead accepted", m); }
+    { struct { uint32_t k, lb, mt, w, rm, xa; } ra[] = { { 512, 16, 4, 16, 0, 0 }, { 512, 16, 8, 16, 0, 0 }, { 512, 16, 4, 8, 0, 0 }, { 512, 16, 4, 16, 1, 0 },
+                                                       { 512, 16, 4, 16, 1, 1 }, { 512, 16, 8, 16, 0, 1 }, { 256, 8, 4, 8, 0, 0 }, { 256, 8, 4, 8, 1, 1 } };
+      for (unsigned i = 0; i < sizeof ra / sizeof ra[0]; i++) {
+        OmegaFp8GemmSpec s = { ra[i].k, ra[i].lb, ra[i].mt, ra[i].w, 0, ra[i].rm, ra[i].xa, 1 }; uint32_t n = 0, gp = 0;
+        int rc = omega_fp8gemm_prog_stats(&s, &n, &gp);
+        uint32_t decl = ((gp + 1 + 7) / 8) * 8;
+        CHECK(rc == 0 && n <= 1024 && 32u * s.warps * decl <= 65536u, "row_ahead codegen k %u lb %u mt %u warps %u rowmap %u x_ahead %u: rc %d insns %u gprs %u", s.k, s.lane_bytes, s.mt, s.warps, s.rowmap, s.x_ahead, rc, n, gp);
+        printf("row_ahead codegen k %4u lane %2u mt %2u warps %2u%s%s: %u instructions, %u registers (declared %u, register file %u of 65536)\n", s.k, s.lane_bytes, s.mt, s.warps, s.rowmap ? " rowmap" : "", s.x_ahead ? " x_ahead" : "", n, gp, decl, 32u * s.warps * decl);
+      } }
+    { OmegaFp8GemmSpec s = { 2048, 16, 8, 16, 0, 2, 0, 0 }; CHECK(omega_fp8gemm_prog_stats(&s, NULL, NULL) != 0, "rowmap 2 refused"); }
+    { OmegaFp8GemmSpec s = { 2048, 16, 8, 16, 0, 1, 0, 0 }; CHECK(omega_fp8gemm_prog_stats(&s, NULL, NULL) != 0, "rowmap at mt 8 refused (registers)"); }
     /* L312 lever 3 (x_ahead): every shape above and the rowmap form at mt 4 build with the NJ prefetch registers (fit is
      * printed as above: warps 32 does not fit either way); NJ > 16 and x_ahead 2 are refused */
     for (unsigned i = 0; i < sizeof shp / sizeof shp[0]; i++) {
-        OmegaFp8GemmSpec s = { shp[i].k, shp[i].lb, shp[i].mt, shp[i].w, 0, 0, 1 }; uint32_t n = 0, gp = 0;
+        OmegaFp8GemmSpec s = { shp[i].k, shp[i].lb, shp[i].mt, shp[i].w, 0, 0, 1, 0 }; uint32_t n = 0, gp = 0;
         int rc = omega_fp8gemm_prog_stats(&s, &n, &gp);
         uint32_t decl = ((gp + 1 + 7) / 8) * 8;
         CHECK(rc == 0 && n <= 1024, "x_ahead codegen k %u lb %u mt %u warps %u: rc %d insns %u gprs %u", s.k, s.lane_bytes, s.mt, s.warps, rc, n, gp);
         if (rc == 0) printf("x_ahead codegen k %4u lane %2u mt %2u warps %2u: %u instructions, %u registers (declared %u)%s\n", s.k, s.lane_bytes, s.mt, s.warps, n, gp, decl, 32u * s.warps * decl <= 65536u ? "" : " DOES NOT FIT");
     }
-    { OmegaFp8GemmSpec s = { 2048, 16, 4, 16, 0, 1, 1 }; uint32_t n = 0, gp = 0; int rc = omega_fp8gemm_prog_stats(&s, &n, &gp);
+    { OmegaFp8GemmSpec s = { 2048, 16, 4, 16, 0, 1, 1, 0 }; uint32_t n = 0, gp = 0; int rc = omega_fp8gemm_prog_stats(&s, &n, &gp);
       uint32_t decl = ((gp + 1 + 7) / 8) * 8;
       CHECK(rc == 0 && 32u * s.warps * decl <= 65536u, "x_ahead rowmap mt 4: rc %d gprs %u", rc, gp);
       printf("x_ahead codegen k 2048 lane 16 mt  4 warps 16 rowmap: %u instructions, %u registers (declared %u)\n", n, gp, decl); }
-    { OmegaFp8GemmSpec s = { 2048, 16, 8, 4, 0, 0, 1 }; CHECK(omega_fp8gemm_prog_stats(&s, NULL, NULL) != 0, "x_ahead at NJ 32 refused (registers)");
+    { OmegaFp8GemmSpec s = { 2048, 16, 8, 4, 0, 0, 1, 0 }; CHECK(omega_fp8gemm_prog_stats(&s, NULL, NULL) != 0, "x_ahead at NJ 32 refused (registers)");
       s.x_ahead = 0; CHECK(omega_fp8gemm_prog_stats(&s, NULL, NULL) == 0, "the same shape without x_ahead is accepted"); }
-    { OmegaFp8GemmSpec s = { 2048, 16, 8, 16, 0, 0, 2 }; CHECK(omega_fp8gemm_prog_stats(&s, NULL, NULL) != 0, "x_ahead 2 refused"); }
+    { OmegaFp8GemmSpec s = { 2048, 16, 8, 16, 0, 0, 2, 0 }; CHECK(omega_fp8gemm_prog_stats(&s, NULL, NULL) != 0, "x_ahead 2 refused"); }
     { uint32_t ks[] = { 2048, 4096, 512, 768 }; for (unsigned i = 0; i < 4; i++) {
-        OmegaFp8GemmSpec s = { ks[i], ks[i] % 512 ? 8u : 16u, 4, 16, 0, 1, 0 }; uint32_t n = 0, gp = 0;
+        OmegaFp8GemmSpec s = { ks[i], ks[i] % 512 ? 8u : 16u, 4, 16, 0, 1, 0, 0 }; uint32_t n = 0, gp = 0;
         int rc = omega_fp8gemm_prog_stats(&s, &n, &gp);
         uint32_t decl = ((gp + 1 + 7) / 8) * 8;
         CHECK(rc == 0 && n <= 1024 && 32u * s.warps * decl <= 65536u, "codegen k %u mt 4 rowmap: rc %d insns %u gprs %u", ks[i], rc, n, gp);
@@ -161,10 +176,11 @@ static void host_only(void) {
 /* ------------------------------------------------------------- simulator */
 static uint64_t g_sim_issues;
 static uint32_t g_xa; /* the battery runs once with x_ahead 0 (the incumbent) and once with x_ahead 1 (L312 lever 3) */
+static uint32_t g_ra; /* 1: the row_ahead battery (DRA-79, KS 1 shapes only) */
 typedef struct { uint32_t k, n, lb, mt, w, grid; uint32_t counts[4]; uint32_t nseg; } SimPt;
 static int sim_point(const SimPt *p, int mutant, uint32_t seed, char *msg, size_t msgn, size_t *bad) {
     static BlackwellIRProgram prog;
-    OmegaFp8GemmSpec spec = { p->k, p->lb, p->mt, p->w, mutant, 0, g_xa };
+    OmegaFp8GemmSpec spec = { p->k, p->lb, p->mt, p->w, mutant, 0, g_xa, g_ra };
     if (omega_blackwell_codegen_fp8gemm_prog(&spec, &prog) != 0) { snprintf(msg, msgn, "codegen refused"); return -1; }
     uint32_t M = 0; for (uint32_t g = 0; g < p->nseg; g++) M += p->counts[g];
     Weights W; weights_make(&W, p->nseg, p->n, p->k, seed);
@@ -216,7 +232,7 @@ static int sim_point(const SimPt *p, int mutant, uint32_t seed, char *msg, size_
  * result must equal the emulation moved through YMAP and differ from the unmoved one. budget: the simulator's step budget. */
 static int sim_point2(const SimPt *p, int mutant, uint32_t seed, int rowmap, int empty_at, uint64_t budget, char *msg, size_t msgn, size_t *bad, int *moved) {
     static BlackwellIRProgram prog;
-    OmegaFp8GemmSpec spec = { p->k, p->lb, p->mt, p->w, mutant, (uint32_t)rowmap, g_xa };
+    OmegaFp8GemmSpec spec = { p->k, p->lb, p->mt, p->w, mutant, (uint32_t)rowmap, g_xa, g_ra };
     if (omega_blackwell_codegen_fp8gemm_prog(&spec, &prog) != 0) { snprintf(msg, msgn, "codegen refused"); return -1; }
     uint32_t M = 0; for (uint32_t g = 0; g < p->nseg; g++) M += p->counts[g];
     Weights W; weights_make(&W, p->nseg, p->n, p->k, seed);
@@ -344,7 +360,48 @@ static void sim_battery_one(void) {
     }
     printf("sim: %" PRIu64 " warp issues in total\n", g_sim_issues);
 }
-static void sim_battery(void) { for (g_xa = 0; g_xa <= 1; g_xa++) sim_battery_one(); }
+/* DRA-79 row_ahead: KS 1 shapes only (the decode down projection). Many rows per warp (the next-row prefetch crosses the row loop
+ * several times), more than one pass per row (passes before the last re-load the current row), clamped rows past n, more than one
+ * 128-row scale block, an empty segment, the row-mapped form; mutants 1, 3 (the incumbent's), 5 (wrong next row) and 6 (next row
+ * at every pass) must be caught, mutant 4 (guard dropped) must run out of steps */
+static void sim_battery_ra(void) {
+    printf("sim battery, row_ahead 1, x_ahead %u\n", g_xa);
+    const SimPt pts[] = {
+        { 512, 200, 16, 4, 16, 1, { 1, 5, 9 }, 3 },   /* 13 rows per warp, up to 3 passes, rows past n clamped, 2 scale blocks */
+        { 512, 300, 16, 4, 16, 2, { 3, 2 }, 2 },      /* 2 CTAs: stride 32, 3 scale blocks (2 segments, so the mapped form moves rows) */
+        { 512, 40, 16, 8, 16, 2, { 1, 5, 9 }, 3 },    /* mt 8: 2 rows per warp, clamping */
+        { 512, 150, 16, 4, 8, 1, { 2, 7 }, 2 },       /* 8 warps */
+        { 256, 150, 8, 4, 8, 1, { 2, 7 }, 2 },        /* lane 8: k 256 is one step */
+    };
+    char msg[300]; size_t bad = 1; int moved = 0, err;
+    for (size_t i = 0; i < sizeof pts / sizeof pts[0]; i++) {
+        err = sim_point(&pts[i], 0, 131 + (uint32_t)i, msg, sizeof msg, &bad);
+        CHECK(!err && bad == 0, "sim row_ahead k %u n %u lane %u mt %u warps %u grid %u: %s", pts[i].k, pts[i].n, pts[i].lb, pts[i].mt, pts[i].w, pts[i].grid, msg);
+        printf("sim row_ahead k %u n %u lane %u mt %u warps %u grid %u: %s %s\n", pts[i].k, pts[i].n, pts[i].lb, pts[i].mt, pts[i].w, pts[i].grid, err ? "ERROR" : bad ? "MISMATCH" : "ok", msg);
+        bad = 1; SimPt q = pts[i]; if (q.mt > 4u) q.mt = 4u; /* the mapped form runs at mt <= 4 */
+        err = sim_point2(&q, 0, 151 + (uint32_t)i, 1, (int)(i % 3), 0, msg, sizeof msg, &bad, &moved);
+        CHECK(!err && bad == 0 && moved, "sim row_ahead rowmap k %u n %u mt %u + empty segment at %zu: %s", q.k, q.n, q.mt, i % 3, msg);
+        printf("sim row_ahead rowmap k %u n %u mt %u warps %u + empty segment at %zu: %s %s\n", q.k, q.n, q.mt, q.w, i % 3, err ? "ERROR" : bad ? "MISMATCH" : "ok", msg);
+    }
+    const int ms[] = { 1, 3, 5, 6 };
+    for (unsigned j = 0; j < 4; j++) {
+        bad = 0; err = sim_point(&pts[0], ms[j], 77, msg, sizeof msg, &bad);
+        CHECK(!err && bad != 0, "sim row_ahead mutant %d must be caught: %s", ms[j], msg);
+        printf("sim row_ahead mutant %d: %s %s\n", ms[j], err ? "ERROR" : bad ? "caught" : "NOT CAUGHT", msg);
+        bad = 0; err = sim_point2(&pts[0], ms[j], 78, 1, -1, 0, msg, sizeof msg, &bad, NULL);
+        CHECK(!err && bad != 0, "sim row_ahead rowmap mutant %d must be caught: %s", ms[j], msg);
+        printf("sim row_ahead rowmap mutant %d: %s %s\n", ms[j], err ? "ERROR" : bad ? "caught" : "NOT CAUGHT", msg);
+    }
+    err = sim_point2(&pts[0], 4, 99, 0, 1, 2000000ull, msg, sizeof msg, &bad, NULL);
+    CHECK(err != 0 && (strstr(msg, "step budget") || strstr(msg, "outside the declared buffers")), "sim row_ahead mutant 4 (no empty-segment guard) must be caught: %s", msg);
+    printf("sim row_ahead empty segment, mutant 4 (guard dropped): %s %s\n", err ? "caught" : "NOT CAUGHT", msg);
+    printf("sim: %" PRIu64 " warp issues in total\n", g_sim_issues);
+}
+static void sim_battery(void) {
+    for (g_xa = 0; g_xa <= 1; g_xa++) sim_battery_one();
+    for (g_ra = 1, g_xa = 0; g_xa <= 1; g_xa++) sim_battery_ra();
+    g_ra = 0;
+}
 
 /* ------------------------------------------------------------- chip */
 static int g_evict = 1;
@@ -373,8 +430,9 @@ static void run_shape(const Shape *S, uint32_t reps, uint32_t seed) {
     uint32_t *ids = malloc(M * 4), *trow = malloc(M * 4);
     uint32_t *picks = malloc((size_t)M * 4);
     make_table(S->tokens, S->topk, S->experts, seed + 7, ids, trow, picks);
-    uint32_t xrows = S->experts > 1 ? (S->k == 768 ? M : S->tokens) : S->tokens;
-    if (S->experts > 1 && S->k == 768) for (uint32_t i = 0; i < M; i++) trow[i] = i; /* down: one activation row per routed row */
+    const int per_row_x = S->experts > 1 && (S->k == 768 || S->k == 512); /* down: one activation row per routed row (k 768 the 30B's, k 512 the 35B's) */
+    uint32_t xrows = S->experts > 1 ? (per_row_x ? M : S->tokens) : S->tokens;
+    if (per_row_x) for (uint32_t i = 0; i < M; i++) trow[i] = i;
     float *x = make_x(xrows, S->k, seed + 3);
     float *y = malloc((size_t)M * S->n * 4), *yref = malloc((size_t)M * S->n * 4), *y2 = malloc((size_t)M * S->n * 4);
     OmegaGpuFp8GemmInfo info;
@@ -407,7 +465,9 @@ static void run_shape(const Shape *S, uint32_t reps, uint32_t seed) {
         CHECK(rc == 0 && memcmp(y, y2, (size_t)M * S->n * 4) == 0, "%s: second call bit-identical", S->name);
         printf("second call: %s\n", rc == 0 && memcmp(y, y2, (size_t)M * S->n * 4) == 0 ? "bit-identical" : "DIFFERS");
         /* mutants */
-        for (int m = 1; m <= 3; m++) {
+        OmegaFp8GemmSpec rs; omega_gpu_fp8gemm_stroke_spec(S->k, 64, 0, 0, &rs); /* row_ahead (DRA-79) adds mutants 5 and 6 */
+        for (int m = 1; m <= (rs.row_ahead ? 6 : 3); m++) {
+            if (m == 4) continue; /* the empty-segment guard: no empty segment on this path (the simulator catches it) */
             omega_gpu_fp8gemm_test_set_mutant(m);
             rc = omega_gpu_fp8gemm_f32(t, M, ids, trow, x, xrows, y2, NULL);
             size_t b = 0; if (rc == 0) for (size_t i = 0; i < (size_t)M * S->n; i++) if (memcmp(&y[i], &y2[i], 4) != 0) b++;
@@ -415,6 +475,7 @@ static void run_shape(const Shape *S, uint32_t reps, uint32_t seed) {
             int caught = rc == 0 && b != 0;
             if (m == 2 && info.k / (32u * info.lane_bytes) < 2) caught = 1; /* single-step k: mutant 2 has no effect by construction */
             if (m == 3 && info.mt < 2) caught = 1;                           /* one row per pass (--mt 1): mutant 3 has no neighbour row */
+            if (m == 6 && info.passes_max < 2) caught = 1;                   /* one pass per row: every pass is the last */
             CHECK(caught, "%s: chip mutant %d must be caught", S->name, m);
             printf("chip mutant %d: %s (%zu of %zu outputs differ)\n", m, caught ? "caught" : "NOT CAUGHT", b, (size_t)M * S->n);
             if (g_out) fprintf(g_out, "%s{\"point\":\"%s mutant %d\",\"caught\":%d}", g_first ? "" : ",", S->name, m, caught), g_first = 0;
@@ -439,7 +500,7 @@ static void run_shape(const Shape *S, uint32_t reps, uint32_t seed) {
             for (uint32_t tk = 0; tk < S->tokens && ok; tk++) {
                 OmegaGpuFp8Info fi; int r2;
                 if (S->experts == 1) r2 = omega_gpu_fp8_gemv_f32(t, 0, x + (size_t)tk * S->k, yref, &fi);
-                else if (S->k == 768) r2 = omega_gpu_fp8_gemv_grouped_f32(t, S->topk, picks + (size_t)tk * S->topk, x + (size_t)tk * S->topk * S->k, S->topk, yref, &fi);
+                else if (per_row_x) r2 = omega_gpu_fp8_gemv_grouped_f32(t, S->topk, picks + (size_t)tk * S->topk, x + (size_t)tk * S->topk * S->k, S->topk, yref, &fi);
                 else r2 = omega_gpu_fp8_gemv_grouped_f32(t, S->topk, picks + (size_t)tk * S->topk, x + (size_t)tk * S->k, 1, yref, &fi);
                 if (r2) ok = 0; else { sum_e += fi.elapsed_ns; sum_c += fi.call_ns; }
             }
@@ -457,14 +518,16 @@ static void run_shape(const Shape *S, uint32_t reps, uint32_t seed) {
     free(ids); free(trow); free(picks); free(x); free(y); free(yref); free(y2); weights_free(&W);
 }
 
-/* --spec-of K,SEGS,MT,ROWMAP: the spec the stroke path resolves under this process's environment, printed as one line;
- * with --expect "f=v ...", every listed field must hold (the env-gate checks of the decode levers: default off). */
+/* --spec-of K,SEGS,MT,ROWMAP: the spec the stroke path resolves under this process's environment, printed as one line with
+ * ctas = the CTA budget per segment it records with (DRA-78); with --expect "f=v ...", every listed field must hold (the
+ * env-gate checks of the decode levers: default off; the knob checks a chip slice runs before it measures). */
 static int spec_of(const char *arg, const char *expect) {
     unsigned k = 0, segs = 0, mt = 0, rowmap = 0;
     if (sscanf(arg, "%u,%u,%u,%u", &k, &segs, &mt, &rowmap) != 4) { printf("spec-of: bad argument %s\n", arg); return 2; }
     OmegaFp8GemmSpec s; omega_gpu_fp8gemm_stroke_spec(k, segs, mt, (int)rowmap, &s);
     char line[256];
-    snprintf(line, sizeof line, " k=%u lane_bytes=%u mt=%u warps=%u mutant=%d rowmap=%u x_ahead=%u ", s.k, s.lane_bytes, s.mt, s.warps, s.mutant, s.rowmap, s.x_ahead);
+    snprintf(line, sizeof line, " k=%u lane_bytes=%u mt=%u warps=%u mutant=%d rowmap=%u x_ahead=%u ctas=%u row_ahead=%u ", s.k, s.lane_bytes, s.mt, s.warps, s.mutant, s.rowmap, s.x_ahead,
+             omega_gpu_fp8gemm_stroke_cta_budget(k, segs), s.row_ahead);
     printf("spec-of %s:%s\n", arg, line);
     if (!expect) return 0;
     char want[64]; const char *p = expect; int n = 0, bad = 0;
@@ -496,14 +559,17 @@ int main(int argc, char **argv) {
     }
     if (spec_arg) {
         if (mt || warps) omega_gpu_fp8gemm_set_shape(mt, warps);
+        if (ctas) omega_gpu_fp8gemm_set_cta_budget(ctas);
         int rc = spec_of(spec_arg, expect);
         if (rc == 2 || !expect) return rc;
         printf("gpu_fp8gemm_test: %d checks, %d failed: %s\n", g_checks, g_failed, g_failed ? "FAIL" : "PASS");
         return g_failed ? 1 : 0;
     }
-    Shape shapes[] = { { "gateup", 128, 1536, 2048, tokens, 8 }, { "down", 128, 2048, 768, tokens, 8 }, { "qkv", 1, 5120, 2048, tokens, 1 }, { "o", 1, 2048, 4096, tokens, 1 }, { "d768", 1, 2048, 768, tokens, 1 }, { "mix", 1, 12288, 2048, tokens, 1 } };
+    Shape shapes[] = { { "gateup", 128, 1536, 2048, tokens, 8 }, { "down", 128, 2048, 768, tokens, 8 }, { "qkv", 1, 5120, 2048, tokens, 1 }, { "o", 1, 2048, 4096, tokens, 1 }, { "d768", 1, 2048, 768, tokens, 1 }, { "mix", 1, 12288, 2048, tokens, 1 },
+                       { "d512", 128, 2048, 512, tokens, 8 } }; /* d512: the 35B's down projection (k 512: one K step, DRA-79 row_ahead) */
+    const unsigned nshapes = sizeof shapes / sizeof shapes[0];
     unsigned selected = 0;
-    for (unsigned i = 0; i < 6; i++) if ((!strcmp(shape, "all") && i < 4) || !strcmp(shape, shapes[i].name)) selected++;
+    for (unsigned i = 0; i < nshapes; i++) if ((!strcmp(shape, "all") && i < 4) || !strcmp(shape, shapes[i].name)) selected++;
     if (!selected) { fprintf(stderr, "gpu_fp8gemm_test: INVALID shape '%s'\n", shape); return 2; }
     if (host) host_only();
     if (sim) sim_battery();
@@ -512,7 +578,7 @@ int main(int argc, char **argv) {
         if (ctas) omega_gpu_fp8gemm_set_cta_budget(ctas);
         (void)omega_gpu_session_set_spin_us(spin);
         if (out_path) { g_out = test_out_open(out_path); if (g_out) fprintf(g_out, "{\"receipt\":\"OMEGA_GPU_FP8GEMM_V1\",\"reps\":%u,\"evict\":%d,\"tokens\":%u,\"spin_us\":%u,\"points\":[", reps ? reps : 1, g_evict, tokens, omega_gpu_session_spin_us()); }
-        for (unsigned i = 0; i < 6; i++) if ((!strcmp(shape, "all") && i < 4) || !strcmp(shape, shapes[i].name)) run_shape(&shapes[i], reps ? reps : 1, 1000 + i);
+        for (unsigned i = 0; i < nshapes; i++) if ((!strcmp(shape, "all") && i < 4) || !strcmp(shape, shapes[i].name)) run_shape(&shapes[i], reps ? reps : 1, 1000 + i);
         if (g_out) { fprintf(g_out, "],\"checks\":%d,\"failed\":%d,\"verdict\":\"%s\"}\n", g_checks, g_failed, !g_checks ? "NOT_RUN" : g_failed ? "FAIL" : "PASS"); fclose(g_out); }
         omega_gpu_session_close();
     }
