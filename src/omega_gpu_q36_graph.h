@@ -90,7 +90,9 @@ int omega_gpu_q36_graph_set_layer(OmegaGpuQ36Graph *g, uint32_t layer, const Ome
                                   const OmegaGpuFp8Tensor *o, const OmegaGpuFp8Tensor *gate_up, const OmegaGpuFp8Tensor *down,
                                   const float *in_norm);
 int omega_gpu_q36_graph_set_final_norm(OmegaGpuQ36Graph *g, const float *final_norm); /* f32 [2048] as (1 + w) */
-/* Optional FP8 lm_head: as omega_gpu_q38_graph_set_lm_head_fp8 ([vocab][2048]). */
+/* Optional FP8 lm_head: as omega_gpu_q38_graph_set_lm_head_fp8 ([vocab][2048]). A batched stroke (set_batch) with an FP8 head
+ * runs the head per head unless AIEN_OMEGA_Q36_FP8_HEAD=1 (read at create, default off; DRA-69): then one
+ * omega_gpu_fp8_head launch serves every head of the stroke, row h bit-identical to the per-head logits. */
 int omega_gpu_q36_graph_set_lm_head_fp8(OmegaGpuQ36Graph *g, const OmegaGpuFp8Tensor *head);
 /* Strokes: N heads (conversations) through ONE command list, one submit. create_heads lays out N slots of x, hidden, logits
  * and token; head 0 uses cfg.gdn / cfg.attn, every head (0 included) can be pointed at other state objects by set_head_state (same shapes;
@@ -189,7 +191,8 @@ void omega_gpu_q36_graph_set_flush_each(OmegaGpuQ36Graph *g, int on);
 /* TEST ONLY: 1 SWIGLU up half off by one, 2 GATHER index + 1, 3 GATE dropped, 4 COMBINE skips the shared expert,
  * 5 the exact head's MASK keeps the rows it should drop and drops the candidates (the greedy gate must catch it),
  * 6 the exact head's XBOUND drops the c|h| bound (too weak to change most tokens: the host gate saw one golden of five
- * diverge at its full scale x0). 0 none. */
+ * diverge at its full scale x0), 7 (AIEN_OMEGA_Q36_FP8_HEAD batch only) the hidden -> xq copy leaves the stroke's last head
+ * out, so its FP8 logits come from a stale x'. 0 none. */
 void omega_gpu_q36_graph_test_set_mutant(OmegaGpuQ36Graph *g, int mutant);
 
 #ifdef __cplusplus
