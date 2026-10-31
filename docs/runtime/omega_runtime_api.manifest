@@ -12,7 +12,7 @@
 # After a deliberate header change: edit the line here, run `tools/runtime_api_check.sh --bless` to refresh numbers, review the diff,
 # and bump the version (MAJOR/MINOR/PATCH, rule in API.md section 2; tools/runtime_api_semver.sh checks the bump against the base).
 # Names a manifest header declares that are NOT API go in omega_runtime_api.internal, each with a reason (the check fails otherwise).
-abi omega_runtime 0.7.0
+abi omega_runtime 0.8.0
 header src/omega_runtime_api.h
 header src/omega_gpu_platform.h
 header src/omega_gpu_session.h
@@ -35,11 +35,12 @@ header src/omega_gpu_moe_api.h
 header src/omega_gpu_decode_graph.h
 header src/omega_gpu_prefill.h
 header src/omega_gpu_pfhost.h
+header src/omega_gpu_gemm_ex.h
 # ---- version ----
 const OMEGA_RUNTIME_API_VERSION_MAJOR 0
-const OMEGA_RUNTIME_API_VERSION_MINOR 7
+const OMEGA_RUNTIME_API_VERSION_MINOR 8
 const OMEGA_RUNTIME_API_VERSION_PATCH 0
-const OMEGA_RUNTIME_API_VERSION 7
+const OMEGA_RUNTIME_API_VERSION 8
 # ---- platform contract (src/omega_gpu_platform.h, ABI 1.2) ----
 struct OmegaGpuDeviceHandle 8 4 # STABLE
 field OmegaGpuDeviceHandle index 0 4 u32 1
@@ -656,7 +657,8 @@ field OmegaGpuFp8Info completion_marker 80 4 u32 1
 field OmegaGpuFp8Info kernel_cache_hit 84 1 bool 1
 field OmegaGpuFp8Info target_chip 85 64 c_char 64
 field OmegaGpuFp8Info sm_architecture 152 4 u32 1
-struct OmegaGpuFp8GemmInfo 80 8 # EXPERIMENTAL
+field OmegaGpuFp8Info general 156 4 u32 1
+struct OmegaGpuFp8GemmInfo 88 8 # EXPERIMENTAL
 field OmegaGpuFp8GemmInfo rows 0 4 u32 1
 field OmegaGpuFp8GemmInfo segments 4 4 u32 1
 field OmegaGpuFp8GemmInfo n 8 4 u32 1
@@ -673,6 +675,7 @@ field OmegaGpuFp8GemmInfo elapsed_ns 56 8 u64 1
 field OmegaGpuFp8GemmInfo call_ns 64 8 u64 1
 field OmegaGpuFp8GemmInfo completion_marker 72 4 u32 1
 field OmegaGpuFp8GemmInfo kernel_cache_hit 76 1 bool 1
+field OmegaGpuFp8GemmInfo general 80 4 u32 1
 struct OmegaPfWeights 96 8 # EXPERIMENTAL
 field OmegaPfWeights w 0 40 struct:OmegaGpuMem 1
 field OmegaPfWeights r 40 40 struct:OmegaGpuMem 1
@@ -1026,3 +1029,63 @@ const OMEGA_GPU_ATTN_GENERAL_MAX_HEAD_DIM 256 # EXPERIMENTAL
 const OMEGA_GPU_ATTN_GENERAL_MAX_Q_HEADS 1024 # EXPERIMENTAL
 const OMEGA_GPU_ATTN_WINDOW_NONE -1 # EXPERIMENTAL
 fn omega_gpu_attention_general fn(*const OmegaGpuAttnGeneralDesc, *const f32, *const c_void, *const c_void, *mut f32, *mut OmegaGpuAttnInfo) -> i32 # EXPERIMENTAL
+# ---- general matrix multiply (src/omega_gpu_gemm_ex.h, added in 0.8.0; EXPERIMENTAL: one chip, migration-pending C) ----
+struct OmegaGemmExInfo 24 8 # EXPERIMENTAL
+field OmegaGemmExInfo route 0 4 u32 1
+field OmegaGemmExInfo core_type 4 4 u32 1
+field OmegaGemmExInfo core_calls 8 8 u64 1
+field OmegaGemmExInfo host_fixed 16 8 u64 1
+struct OmegaGemmExArgs 200 8 # EXPERIMENTAL
+field OmegaGemmExArgs op_a 0 4 enum 1
+field OmegaGemmExArgs op_b 4 4 enum 1
+field OmegaGemmExArgs m 8 8 u64 1
+field OmegaGemmExArgs n 16 8 u64 1
+field OmegaGemmExArgs k 24 8 u64 1
+field OmegaGemmExArgs batch 32 8 u64 1
+field OmegaGemmExArgs a_type 40 4 enum 1
+field OmegaGemmExArgs b_type 44 4 enum 1
+field OmegaGemmExArgs c_type 48 4 enum 1
+field OmegaGemmExArgs a 56 8 ptr 1
+field OmegaGemmExArgs lda 64 8 u64 1
+field OmegaGemmExArgs stride_a 72 8 u64 1
+field OmegaGemmExArgs b 80 8 ptr 1
+field OmegaGemmExArgs ldb 88 8 u64 1
+field OmegaGemmExArgs stride_b 96 8 u64 1
+field OmegaGemmExArgs c 104 8 ptr 1
+field OmegaGemmExArgs ldc 112 8 u64 1
+field OmegaGemmExArgs stride_c 120 8 u64 1
+field OmegaGemmExArgs alpha 128 4 f32 1
+field OmegaGemmExArgs beta 132 4 f32 1
+field OmegaGemmExArgs compute 136 4 enum 1
+field OmegaGemmExArgs scale 140 4 enum 1
+field OmegaGemmExArgs scale_a 144 8 ptr 1
+field OmegaGemmExArgs scale_b 152 8 ptr 1
+field OmegaGemmExArgs scale_stride_a 160 8 u64 1
+field OmegaGemmExArgs scale_stride_b 168 8 u64 1
+field OmegaGemmExArgs block_m 176 4 u32 1
+field OmegaGemmExArgs block_n 180 4 u32 1
+field OmegaGemmExArgs block_k 184 4 u32 1
+field OmegaGemmExArgs info 192 8 ptr 1
+fn omega_gpu_gemm_ex fn(*const OmegaGemmExArgs) -> i32 # EXPERIMENTAL
+fn omega_gpu_gemm_ex_fp8_block_rows fn(*const u8, *const f32, f64, u32, u32, u32, *const f32, *const u16, u32, *mut f32, u64, *mut OmegaGemmExInfo) -> i32 # EXPERIMENTAL
+const OMEGA_GPU_GEMM_EX_MAX_DIM 2147483647 # EXPERIMENTAL
+const OMEGA_GPU_GEMM_EX_MAX_BATCH 2147483647 # EXPERIMENTAL
+const OMEGA_GEMM_OP_N 0 # EXPERIMENTAL
+const OMEGA_GEMM_OP_T 1 # EXPERIMENTAL
+const OMEGA_GEMM_DT_F32 0 # EXPERIMENTAL
+const OMEGA_GEMM_DT_BF16 1 # EXPERIMENTAL
+const OMEGA_GEMM_DT_F16 2 # EXPERIMENTAL
+const OMEGA_GEMM_DT_E4M3 3 # EXPERIMENTAL
+const OMEGA_GEMM_DT_E5M2 4 # EXPERIMENTAL
+const OMEGA_GEMM_EX_DEFAULT 0 # EXPERIMENTAL
+const OMEGA_GEMM_EX_F32_FAST_BF16 1 # EXPERIMENTAL
+const OMEGA_GEMM_EX_F32_FFMA_REF 2 # EXPERIMENTAL
+const OMEGA_GEMM_SCALE_NONE 0 # EXPERIMENTAL
+const OMEGA_GEMM_SCALE_TENSOR 1 # EXPERIMENTAL
+const OMEGA_GEMM_SCALE_BLOCK 2 # EXPERIMENTAL
+const OMEGA_GEMM_ROUTE_NONE 0 # EXPERIMENTAL
+const OMEGA_GEMM_ROUTE_NATIVE 1 # EXPERIMENTAL
+const OMEGA_GEMM_ROUTE_WIDEN 2 # EXPERIMENTAL
+const OMEGA_GEMM_ROUTE_BF16X3 3 # EXPERIMENTAL
+const OMEGA_GEMM_ROUTE_FAST_BF16 4 # EXPERIMENTAL
+const OMEGA_GEMM_ROUTE_FFMA 5 # EXPERIMENTAL

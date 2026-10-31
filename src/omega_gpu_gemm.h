@@ -3,8 +3,14 @@
  *
  *   C = A * B     A is M x K, B is K x N, C is M x N f32 (row-major), every M, N, K from 1 to OMEGA_GPU_GEMM_MAX_DIM
  *   BF16: A and B hold bf16 values, the product runs on HMMA.16816.F32.BF16
+ *   F16:  A and B hold IEEE fp16 values, the product runs on HMMA.16816.F32 (GemmGeneral, 2026-10-27)
  *   E4M3: A and B hold FP8 e4m3 bytes, the product runs on QMMA.16832.F32.E4M3.E4M3
+ *   F32_FFMA: A and B hold f32, one thread per C element runs IEEE FFMA in k order from +0 (bit-exact with a host fmaf
+ *         loop); no tensor cores, no packs, dense row-major A and B only (layout 0). The independent comparator for the
+ *         fp32-input bf16x3 path of omega_gpu_gemm_ex (GemmGeneral, 2026-10-27); slow by design.
  * Layouts: A row-major (M rows of K) or column-major (K rows of M); B row-major (K rows of N) or column-major (N rows of K).
+ * Leading dimensions (omega_gpu_gemm_ld, _drive_ld): the distance in elements between consecutive stored rows, at least the
+ * stored row length (0: dense); the span an operand covers must stay below 2^32 elements (the packs index in 32 bits).
  *
  * The arithmetic is fixed by the shape alone: every C[m][n] starts at +0 and takes one tensor-core step per 16 (BF16) or
  * 32 (E4M3) values of k, in increasing k, k past K counting as zero. The rounding of one step is the chip-measured model
@@ -35,13 +41,15 @@ extern "C" {
 
 enum {
     OMEGA_GPU_GEMM_OK = 0,
-    OMEGA_GPU_GEMM_BAD_ARGS = -1,     /* NULL pointer, a zero dimension, unknown type or layout bits, a bad configuration */
+    OMEGA_GPU_GEMM_BAD_ARGS = -1,     /* NULL pointer, a zero dimension, unknown type or layout bits, a bad configuration,
+                                         a leading dimension below the stored row length or a span past 2^32 elements */
     OMEGA_GPU_GEMM_TOO_LARGE = -2,    /* a dimension past OMEGA_GPU_GEMM_MAX_DIM */
     OMEGA_GPU_GEMM_CODEGEN_FAIL = -3, /* our codegen refused a kernel */
-    OMEGA_GPU_GEMM_CHIP_FAIL = -4     /* device, allocation, launch, or an output word the chip never wrote */
+    OMEGA_GPU_GEMM_CHIP_FAIL = -4,    /* device, allocation, launch, or an output word the chip never wrote */
+    OMEGA_GPU_GEMM_UNSUPPORTED = -5   /* omega_gpu_gemm_ex: a well-formed request outside the domain (e.g. fp8 output) */
 };
 
-typedef enum { OMEGA_GPU_GEMM_BF16 = 0, OMEGA_GPU_GEMM_E4M3 = 1 } OmegaGpuGemmType;
+typedef enum { OMEGA_GPU_GEMM_BF16 = 0, OMEGA_GPU_GEMM_E4M3 = 1, OMEGA_GPU_GEMM_F16 = 2, OMEGA_GPU_GEMM_F32_FFMA = 3 } OmegaGpuGemmType;
 #define OMEGA_GPU_GEMM_A_COL 1u /* A is column-major: K rows of M */
 #define OMEGA_GPU_GEMM_B_COL 2u /* B is column-major: N rows of K */
 
@@ -78,6 +86,12 @@ typedef int (*OmegaGemmLaunchFn)(void *ctx, OmegaGemmKind kind, const uint32_t a
                                  uint32_t grid_x, uint32_t grid_y, uint32_t threads);
 int omega_gpu_gemm_drive(const OmegaGemmCfg *cfg, unsigned layout, uint32_t M, uint32_t N, uint32_t K, uint64_t a_va,
                          uint64_t b_va, uint64_t ap_va, uint64_t bp_va, uint64_t c_va, OmegaGemmLaunchFn launch, void *ctx);
+/* the same with leading dimensions lda, ldb in elements (0: dense) */
+int omega_gpu_gemm_drive_ld(const OmegaGemmCfg *cfg, unsigned layout, uint32_t M, uint32_t N, uint32_t K, uint64_t a_va, uint64_t lda,
+                            uint64_t b_va, uint64_t ldb, uint64_t ap_va, uint64_t bp_va, uint64_t c_va, OmegaGemmLaunchFn launch, void *ctx);
+/* elements A and B span with those leading dimensions; OMEGA_GPU_GEMM_BAD_ARGS when a leading dimension is short or a span
+ * passes 2^32 elements */
+int omega_gpu_gemm_span(unsigned layout, uint32_t M, uint32_t N, uint32_t K, uint64_t lda, uint64_t ldb, uint64_t *a_elems, uint64_t *b_elems);
 
 typedef struct {
     uint64_t pack_ns;   /* the two pack kernels, launch to completion */
@@ -89,6 +103,9 @@ typedef struct {
 /* On the chip, with the configuration set by omega_gpu_gemm_test_set_cfg (default: omega_gpu_gemm_default_cfg). */
 int omega_gpu_gemm(OmegaGpuGemmType type, unsigned layout, uint32_t M, uint32_t N, uint32_t K, const void *A, const void *B,
                    float *C, OmegaGpuGemmInfo *info);
+/* the same with leading dimensions (elements, 0: dense); C stays dense M x N */
+int omega_gpu_gemm_ld(OmegaGpuGemmType type, unsigned layout, uint32_t M, uint32_t N, uint32_t K, const void *A, uint64_t lda,
+                      const void *B, uint64_t ldb, float *C, OmegaGpuGemmInfo *info);
 /* Tests and tuning: later calls of that type use cfg (NULL: back to the default); clears the kernel cache. */
 int omega_gpu_gemm_test_set_cfg(OmegaGpuGemmType type, const OmegaGemmCfg *cfg);
 const char *omega_gpu_gemm_rc_name(int rc);

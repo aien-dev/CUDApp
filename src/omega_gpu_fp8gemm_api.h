@@ -19,8 +19,13 @@
  *     values). expert_ids must be non-decreasing (sorted by expert; equal ids form one segment, the weights of a segment
  *     are streamed once per pass of MT rows). Output y: M * n f32 in ROW-TABLE order: y[i][r] = sum_c W[expert_ids[i]][r][c]
  *     * x[token_rows[i]][c] * scale, f32 accumulate, the same summation order as omega_gpu_fp8_gemv_f32 (the result is
- *     bit-identical to calling the GEMV once per row). M <= 1024, at most 256 segments, k and n as the tensor.
- *     One launch. info may be NULL.
+ *     bit-identical to calling the GEMV once per row). Kernel domain: M <= 1024, at most 256 segments, a k the codegen
+ *     accepts (k <= 16384, k % (32 * lane_bytes) == 0); n as the tensor. One launch. info may be NULL.
+ *     General fallback (GemmGeneral, 2026-10-27): any other M, segment count or k the tensor holds runs each segment
+ *     through omega_gpu_fp8_general_rows (weights dequantized exactly, fp32-input GEMM via bf16x3; info->general = 1).
+ *     Those rows are NOT bit-identical to the GEMV; they carry the bf16x3 tolerance (tests/gpu_gemm_ex_test.c). Not when a
+ *     test override (mt, warps, ctas) or a kernel mutant is set, and not on the record path; with the build switch
+ *     CUDAPP_MIGRATION_PENDING_GEMM_EX off the refusal codes come back as before.
  *
  *   int omega_gpu_fp8gemm_prepare(uint32_t k);   build and pin the kernel for width k now (serving).
  *   const char *omega_gpu_fp8gemm_rc_name(int rc);  const char *omega_gpu_fp8gemm_last_error(void);
@@ -57,6 +62,7 @@ typedef struct {
     uint64_t call_ns;        /* whole API call (host permute, launch, copy back) */
     uint32_t completion_marker;
     bool kernel_cache_hit;
+    uint32_t general;        /* 1: the call ran the general fallback, not the grouped GEMM kernel */
 } OmegaGpuFp8GemmInfo;
 
 int omega_gpu_fp8gemm_f32(const OmegaGpuFp8Tensor *t, uint32_t M, const uint32_t *expert_ids, const uint32_t *token_rows,

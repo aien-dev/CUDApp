@@ -1,0 +1,915 @@
+subnormal probe bf16 2^-133 x 2^100: core 0x1p-33 (OK), model 0x1p-33, exact 0x1p-33: the tensor core KEEPS the subnormal input
+subnormal probe f16 2^-24 x 2^10: core 0x1p-14 (OK), model 0x1p-14, exact 0x1p-14: the tensor core KEEPS the subnormal input
+ok: f32 x f32 -> f32 33x17x70 batch 1 pad 0/0/0 alpha 1 beta 0 edge 1: OK route bf16x3 core calls 1 host-fixed 0, 561 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0024
+ok: f32 x f32 -> f32 33x17x70 batch 1 pad 0/0/0 alpha 1 beta 0 FFMA_REF edge 1: OK route ffma core calls 1 host-fixed 0, 561 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0025
+ok: f32 x f32 -> f32 20x19x40 batch 1 pad 0/0/0 alpha 1 beta 1 edge 2: OK route bf16x3 core calls 1 host-fixed 108, 380 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0074
+ok: bf16^T x bf16 -> f32 20x19x40 batch 1 pad 0/0/0 alpha 1 beta 0 edge 2: OK route native core calls 1 host-fixed 108, 380 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0392
+ok: f16 x f16 -> f16 20x19x40 batch 1 pad 0/0/0 alpha 0.000244141 beta 0 edge 2: OK route native core calls 1 host-fixed 108, 380 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8817
+ok: f32 x f32 -> f32 16x16x24 batch 1 pad 0/0/0 alpha 1 beta 0 edge 3: OK route bf16x3 core calls 1 host-fixed 0, 256 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0016
+ok: f32 x f32 -> f32 16x16x24 batch 1 pad 0/0/0 alpha 1 beta 0 FAST_BF16 edge 3: OK route fast_bf16 core calls 1 host-fixed 0, 256 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.1620
+ok: e4m3 x e4m3 -> f32 18x21x70 batch 1 pad 0/0/0 alpha 1 beta 0 edge 4: OK route native core calls 1 host-fixed 38, 378 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0185
+ok: e5m2 x e5m2 -> f32 18x21x70 batch 1 pad 0/0/0 alpha 1 beta 0 edge 4: OK route widen core calls 1 host-fixed 38, 378 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0331
+ok: bf16 x bf16 -> f32 9x9x9 batch 1 pad 0/0/0 alpha 0 beta 2 edge 0: OK route none core calls 0 host-fixed 0, 81 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: bf16 x bf16 -> bf16 9x9x9 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 81 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9497
+ok: bf16 x bf16 -> f32 7x5x3 batch 3 A-bcast pad 0/0/2 alpha 1 beta 0 edge 0: OK route native core calls 3 host-fixed 0, 105 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0215
+ok: e4m3 x e4m3 -> f32 40x30x100 batch 1 pad 0/0/0 alpha 1 beta 0 block-scale edge 0 blocks 7/16/32: OK route native core calls 4 host-fixed 0, 1200 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0081
+ok: e4m3 x e5m2 -> bf16 40x30x100 batch 2 pad 0/0/0 alpha 1 beta 0 tensor-scale edge 0: OK route widen core calls 2 host-fixed 0, 2400 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9778
+ok: bf16 x bf16 -> f32 3x5x16385 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route native core calls 2 host-fixed 0, 15 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0027
+ok: f32 x f32 -> f32 3x5x1809 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 15 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0010
+ok: f16^T x f16^T -> f32 33x31x47 batch 1 pad 3/5/1 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 1023 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0443
+bf16 x bf16 -> f32 24x24x24 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 576 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0465
+bf16 x bf16 -> f32 24x24x24 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 576 checked, 335 wrong, 0 untouched changed, max |err| / bound 0.9991; first batch 0 C[0][0] = 7081.37842, ref 5232.62904, bound 0.0513
+chip red check: gemm_ex mutant 1 is caught (335 wrong; 0 without the mutant)
+bf16 x bf16^T -> f32 24x24x24 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 576 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0397
+bf16 x bf16^T -> f32 24x24x24 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 576 checked, 576 wrong, 0 untouched changed, max |err| / bound 0.0000; first batch 0 C[0][0] = 5232.62842, ref 55513.7324, bound 0.789
+chip red check: gemm_ex mutant 2 is caught (576 wrong; 0 without the mutant)
+e4m3 x e4m3 -> f32 24x24x96 batch 1 pad 0/0/0 alpha 1 beta 0 block-scale edge 0 blocks 8/8/32: OK route native core calls 3 host-fixed 0, 576 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0073
+e4m3 x e4m3 -> f32 24x24x96 batch 1 pad 0/0/0 alpha 1 beta 0 block-scale edge 0 blocks 8/8/32: OK route native core calls 3 host-fixed 0, 576 checked, 576 wrong, 0 untouched changed, max |err| / bound 0.0000; first batch 0 C[0][0] = -373200.438, ref -964138.249, bound 16.9
+chip red check: gemm_ex mutant 3 is caught (576 wrong; 0 without the mutant)
+bf16 x bf16 -> f32 24x24x24 batch 1 pad 0/0/0 alpha 1 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 576 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0572
+bf16 x bf16 -> f32 24x24x24 batch 1 pad 0/0/0 alpha 1 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 576 checked, 401 wrong, 0 untouched changed, max |err| / bound 0.9969; first batch 0 C[0][1] = -496.112549, ref -496.026018, bound 0.0247
+chip red check: gemm_ex mutant 4 is caught (401 wrong; 0 without the mutant)
+chip fp8 block rows n=130 k=200 block=128 m=3 x f32: rc OK, 0 wrong, worst 5.31 x 2^-24 sum|t|, 3/3 rows equal to the m=1 call, route bf16x3
+chip red check: gemm_ex mutant 5 (fp8 block rows, next k block's scale) is caught (390 wrong)
+chip fp8 block rows n=128 k=128 block=128 m=1 x bf16: rc OK, 0 wrong, worst 2.16 x 2^-24 sum|t|, 1/1 rows equal to the m=1 call, route bf16x3
+chip fp8 block rows n=64 k=384 block=128 m=2 x f32: rc OK, 0 wrong, worst 5.42 x 2^-24 sum|t|, 2/2 rows equal to the m=1 call, route bf16x3
+chip fp8 block rows n=33 k=640 block=128 m=2 x bf16: rc OK, 0 wrong, worst 4.17 x 2^-24 sum|t|, 2/2 rows equal to the m=1 call, route bf16x3
+chip fp8 block rows n=17 k=1280 block=128 m=2 x f32: rc OK, 0 wrong, worst 7.66 x 2^-24 sum|t|, 2/2 rows equal to the m=1 call, route bf16x3
+chip fp8 block rows n=9 k=1792 block=128 m=1 x bf16: rc OK, 0 wrong, worst 3.76 x 2^-24 sum|t|, 1/1 rows equal to the m=1 call, route bf16x3
+chip fp8 block rows n=8 k=2304 block=128 m=2 x f32: rc OK, 0 wrong, worst 3.63 x 2^-24 sum|t|, 2/2 rows equal to the m=1 call, route bf16x3
+chip fp8 block rows n=5 k=2560 block=128 m=1 x bf16: rc OK, 0 wrong, worst 2.23 x 2^-24 sum|t|, 1/1 rows equal to the m=1 call, route bf16x3
+chip fp8 block rows n=4 k=3584 block=128 m=2 x f32: rc OK, 0 wrong, worst 3.07 x 2^-24 sum|t|, 2/2 rows equal to the m=1 call, route bf16x3
+chip fp8 block rows n=2 k=16512 block=128 m=1 x bf16: rc OK, 0 wrong, worst 0.75 x 2^-24 sum|t|, 1/1 rows equal to the m=1 call, route bf16x3
+chip fp8 block rows n=3 k=3 block=1 m=2 x f32: rc OK, 0 wrong, worst 0.00 x 2^-24 sum|t|, 2/2 rows equal to the m=1 call, route bf16x3
+chip fp8 block rows n=20 k=50 block=7 m=3 x bf16: rc OK, 0 wrong, worst 2.60 x 2^-24 sum|t|, 3/3 rows equal to the m=1 call, route bf16x3
+chip fp8 block rows n=1 k=1 block=128 m=1 x f32: rc OK, 0 wrong, worst 0.00 x 2^-24 sum|t|, 1/1 rows equal to the m=1 call, route bf16x3
+chip adversarial bf16 K=1808 (DnnGpu): rc OK, got 0x1p+0 (want 0x1p+0), err 5.343e-05, old flat bound 2.837e-05 (must be exceeded), bound 7.454e-05
+chip fp8 gemv n=256 k=128: rc OK, general 1 (want 1), 0 wrong
+chip fp8 grouped gemv groups=65 n=256 k=128: rc OK, general 1 (want 1), 0 wrong
+chip fp8 grouped gemm M=1030 n=256 k=128: rc OK, general 1 (want 1), 0 wrong
+chip fp8 gemv n=128 k=384: rc OK, general 1 (want 1), 0 wrong
+chip fp8 grouped gemv groups=65 n=128 k=384: rc OK, general 1 (want 1), 0 wrong
+chip fp8 grouped gemm M=1030 n=128 k=384: rc OK, general 1 (want 1), 0 wrong
+chip red check: gemm_ex mutant 5 through omega_gpu_fp8gemm_f32 (k=384) is caught (rc OK, 131744 wrong)
+chip fp8 gemv n=256 k=2048: rc OK, general 0 (want 0), 0 wrong
+chip fp8 grouped gemv groups=8 n=256 k=2048: rc OK, general 0 (want 0), 0 wrong
+chip fp8 grouped gemm M=8 n=256 k=2048: rc OK, general 0 (want 0), 0 wrong, every row == the GEMV
+f32 x f32 -> f32 65x130x33 batch 1 pad 0/0/0 alpha 1 beta 0 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 8450 checked, 8450 wrong, 0 untouched changed, max |err| / bound 0.0000; first batch 0 C[0][0] = 5.80595398, ref -111066.351, bound 3.27
+chip red check: kernel ffma mutant 1 is caught (8450 wrong)
+f16 x f16 -> f32 65x63x100 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 4095 checked, 4095 wrong, 0 untouched changed, max |err| / bound 0.0000; first batch 0 C[0][0] = -91154.5859, ref 203003.501, bound 3.91
+chip red check: kernel f16 mutant 1 is caught (4095 wrong)
+f16 x f16 -> f32 65x63x100 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 4095 checked, 4095 wrong, 0 untouched changed, max |err| / bound 0.0000; first batch 0 C[0][0] = 42214.4531, ref 108299.125, bound 1.73
+chip red check: kernel f16 mutant 2 is caught (4095 wrong)
+f16 x f16 -> f32 65x63x100 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 4095 checked, 4095 wrong, 0 untouched changed, max |err| / bound 0.0000; first batch 0 C[0][0] = 64419.0547, ref 129662.555, bound 1.39
+chip red check: kernel f16 mutant 3 is caught (4095 wrong)
+ok: bf16 x bf16^T -> f16 64x1x31 batch 1 pad 5/4/0 alpha 3.27826e-07 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 64 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9448
+ok: chip core == host-model core, bit for bit: bf16 x bf16^T -> f16 64x1x31 batch 1 pad 5/4/0 alpha 3.27826e-07 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16 x f16^T -> f16 128x64x255 batch 1 pad 0/3/3 alpha 1.49012e-08 beta -1.5 edge 0: OK route native core calls 1 host-fixed 0, 8192 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9905
+ok: e4m3 x e4m3^T -> bf16 256x1000x1 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 256000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3^T -> bf16 256x1000x1 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: e5m2 x e5m2 -> f32 509x31x32 batch 1 pad 0/3/0 alpha -0.5 beta -1.5 edge 0: OK route widen core calls 1 host-fixed 0, 15779 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0411
+ok: bf16 x e4m3 -> f16 1021x257x256 batch 1 pad 0/5/4 alpha -7.45058e-09 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8354
+ok: f16 x e5m2 -> f16 1025x13x3 batch 1 pad 0/7/0 alpha -4.76837e-07 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 13325 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9754
+ok: f32 x f32 -> f16 5x127x33 batch 1 pad 0/0/0 alpha 1.63913e-07 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 635 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8864
+ok: chip core == host-model core, bit for bit: f32 x f32 -> f16 5x127x33 batch 1 pad 0/0/0 alpha 1.63913e-07 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32^T -> f32 8x1x257 batch 1 pad 0/0/0 alpha 2.75 beta 1 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 8 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0903
+ok: f32 x bf16^T -> f16 17x63x5 batch 1 pad 7/0/2 alpha 4.76837e-07 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 1071 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9411
+ok: chip core == host-model core, bit for bit: f32 x bf16^T -> f16 17x63x5 batch 1 pad 7/0/2 alpha 4.76837e-07 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x f16^T -> f32 63x513x64 batch 1 pad 0/0/7 alpha -0.5 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 32319 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0095
+ok: f32 x f32 -> f32 65x17x511 batch 1 pad 0/0/0 alpha 2.75 beta 0 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 1105 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0016
+ok: chip core == host-model core, bit for bit: f32 x f32 -> f32 65x17x511 batch 1 pad 0/0/0 alpha 2.75 beta 0 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3 -> f16 129x256x7 batch 1 pad 0/4/2 alpha 1.86265e-09 beta 1 block-scale edge 0 blocks 7/100/128: OK route native core calls 1 host-fixed 0, 33024 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9795
+ok: e4m3 x e5m2 -> f16 255x8x65 batch 1 pad 3/4/0 alpha 2.98023e-08 beta 0 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 2040 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9627
+ok: chip core == host-model core, bit for bit: e4m3 x e5m2 -> f16 255x8x65 batch 1 pad 3/4/0 alpha 2.98023e-08 beta 0 tensor-scale edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x bf16^T -> f32 511x128x513 batch 1 pad 7/0/0 alpha -0.5 beta -1.5 edge 0: OK route native core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0221
+ok: f16 x f16^T -> f32 1023x2x13 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 2046 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0314
+ok: chip core == host-model core, bit for bit: f16 x f16^T -> f32 1023x2x13 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3^T -> f32 1x64x127 batch 1 pad 0/0/1 alpha -0.5 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 64 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0128
+ok: e5m2^T x e5m2 -> f32 7x1021x1023 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0153
+ok: chip core == host-model core, bit for bit: e5m2^T x e5m2 -> f32 7x1021x1023 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x e4m3 -> f32 13x31x17 batch 1 pad 2/4/6 alpha 1 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 403 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0283
+ok: f16^T x e5m2 -> f16 31x509x251 batch 1 pad 0/0/3 alpha 1.49012e-08 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 15779 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9149
+ok: chip core == host-model core, bit for bit: f16^T x e5m2 -> f16 31x509x251 batch 1 pad 0/0/3 alpha 1.49012e-08 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32^T -> f32 64x13x1 batch 1 pad 0/0/0 alpha 1 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 832 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8380
+ok: f32^T x f32^T -> bf16 97x251x31 batch 1 pad 0/7/0 alpha 1 beta 1 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 24347 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.6841
+ok: chip core == host-model core, bit for bit: f32^T x f32^T -> bf16 97x251x31 batch 1 pad 0/7/0 alpha 1 beta 1 FAST_BF16 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x bf16^T -> f32 251x3x255 batch 1 pad 3/0/1 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 753 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0055
+ok: bf16^T x f16^T -> f16 256x97x2 batch 1 pad 0/7/4 alpha 1.90735e-06 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 24832 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9995
+ok: chip core == host-model core, bit for bit: bf16^T x f16^T -> f16 256x97x2 batch 1 pad 0/7/4 alpha 1.90735e-06 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32 -> bf16 513x1023x33 batch 1 pad 0/0/0 alpha 1 beta 1 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9754
+ok: e4m3^T x e4m3 -> bf16 1025x33x257 batch 1 pad 0/0/0 alpha 1 beta 0 block-scale edge 0 blocks 1/16/128: OK route native core calls 3 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9340
+ok: chip core == host-model core, bit for bit: e4m3^T x e4m3 -> bf16 1025x33x257 batch 1 pad 0/0/0 alpha 1 beta 0 block-scale edge 0 blocks 1/16/128: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e5m2 -> f32 2x511x3 batch 1 pad 5/0/7 alpha 1 beta 0 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 1022 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0231
+ok: bf16^T x bf16^T -> f16 8x16x63 batch 1 pad 4/0/3 alpha 1.63913e-07 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 128 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9826
+ok: chip core == host-model core, bit for bit: bf16^T x bf16^T -> f16 8x16x63 batch 1 pad 4/0/3 alpha 1.63913e-07 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16^T x f16^T -> f32 15x255x509 batch 3 pad 0/0/7 alpha 1 beta 1 edge 0: OK route native core calls 3 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0313
+ok: e4m3^T x e4m3^T -> f16 32x5x7 batch 1 pad 0/0/0 alpha 4.76837e-07 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 160 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.7958
+ok: chip core == host-model core, bit for bit: e4m3^T x e4m3^T -> f16 32x5x7 batch 1 pad 0/0/0 alpha 4.76837e-07 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: e5m2^T x e5m2 -> f32 65x65x65 batch 2 pad 0/4/3 alpha 2.75 beta 0 edge 0: OK route widen core calls 2 host-fixed 0, 8450 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0447
+ok: bf16^T x e4m3 -> f16 127x1021x511 batch 1 pad 4/4/0 alpha -3.72529e-09 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9731
+ok: f16^T x e5m2 -> f32 255x32x8 batch 2 A-bcast pad 4/0/0 alpha 1 beta 0 edge 0: OK route widen core calls 2 host-fixed 0, 16320 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0314
+ok: f32^T x f32^T -> f32 257x509x97 batch 1 pad 0/6/5 alpha 2.75 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0068
+ok: f32^T x f32^T -> f32 1000x15x1000 batch 1 pad 0/0/0 alpha -0.5 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.1491
+ok: f32^T x bf16^T -> f32 1023x251x13 batch 1 pad 0/0/0 alpha -0.5 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 256773 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.3647
+ok: bf16^T x f16 -> f32 3x5x127 batch 1 pad 0/0/4 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 15 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0030
+ok: f32^T x f32 -> f32 13x97x1021 batch 1 pad 0/0/0 alpha -0.5 beta -1.5 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 1261 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0010
+ok: chip core == host-model core, bit for bit: f32^T x f32 -> f32 13x97x1021 batch 1 pad 0/0/0 alpha -0.5 beta -1.5 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e4m3 -> f32 16x1025x16 batch 1 pad 0/0/0 alpha -0.5 beta 0 block-scale edge 0 blocks 100/7/128: OK route native core calls 1 host-fixed 0, 16400 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0183
+ok: e4m3^T x e5m2 -> f16 33x33x129 batch 1 pad 0/0/1 alpha 4.09782e-08 beta 0 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 1089 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8102
+ok: chip core == host-model core, bit for bit: e4m3^T x e5m2 -> f16 33x33x129 batch 1 pad 0/0/1 alpha 4.09782e-08 beta 0 tensor-scale edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x bf16^T -> bf16 64x513x1023 batch 2 pad 6/0/2 alpha 1 beta -1.5 edge 0: OK route native core calls 2 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8620
+ok: f16^T x f16^T -> f32 128x16x17 batch 1 pad 0/7/0 alpha 2.75 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 2048 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0449
+ok: chip core == host-model core, bit for bit: f16^T x f16^T -> f32 128x16x17 batch 1 pad 0/7/0 alpha 2.75 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e4m3^T -> f32 256x256x251 batch 1 pad 0/2/0 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0174
+ok: e5m2^T x e5m2 -> f32 509x7x1 batch 1 pad 2/0/4 alpha 2.75 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 3563 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: chip core == host-model core, bit for bit: e5m2^T x e5m2 -> f32 509x7x1 batch 1 pad 2/0/4 alpha 2.75 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x e4m3 -> bf16 1021x128x32 batch 1 pad 1/0/0 alpha 1 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 130688 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9930
+ok: f16^T x e5m2 -> bf16 1025x1x255 batch 1 pad 6/7/0 alpha 1 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 1025 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9714
+ok: chip core == host-model core, bit for bit: f16^T x e5m2 -> bf16 1025x1x255 batch 1 pad 6/7/0 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32^T -> f16 5x64x2 batch 1 pad 0/0/0 alpha 5.24521e-06 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 320 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8366
+ok: f32 x f32^T -> f32 15x1000x33 batch 1 pad 0/0/5 alpha 2.75 beta 1 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 15000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8082
+ok: chip core == host-model core, bit for bit: f32 x f32^T -> f32 15x1000x33 batch 1 pad 0/0/5 alpha 2.75 beta 1 FAST_BF16 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x bf16^T -> f32 31x17x257 batch 2 B-bcast pad 2/4/0 alpha -0.5 beta 1 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 1054 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0047
+ok: bf16 x f16 -> f16 64x257x3 batch 1 pad 1/0/0 alpha 2.6226e-06 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 16448 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9539
+ok: chip core == host-model core, bit for bit: bf16 x f16 -> f16 64x257x3 batch 1 pad 1/0/0 alpha 2.6226e-06 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32 -> f32 97x8x63 batch 2 pad 0/4/3 alpha 2.75 beta 1 FFMA_REF edge 0: OK route ffma core calls 2 host-fixed 0, 1552 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0108
+ok: e4m3 x e4m3 -> f32 251x129x509 batch 1 pad 0/6/0 alpha 2.75 beta 0 block-scale edge 0 blocks 16/16/128: OK route native core calls 4 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0049
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3 -> f32 251x129x509 batch 1 pad 0/6/0 alpha 2.75 beta 0 block-scale edge 0 blocks 16/16/128: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e5m2^T -> f16 509x2x7 batch 1 pad 0/0/0 alpha 1.3113e-06 beta 0 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 1018 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9255
+ok: bf16 x bf16^T -> f16 513x65x65 batch 1 pad 1/0/3 alpha 8.19564e-08 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 33345 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9590
+ok: chip core == host-model core, bit for bit: bf16 x bf16^T -> f16 513x65x65 batch 1 pad 1/0/3 alpha 8.19564e-08 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16 x f16^T -> f32 1025x513x511 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0281
+ok: e4m3 x e4m3^T -> f32 2x17x8 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0: OK route native core calls 1 host-fixed 0, 34 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0120
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3^T -> f32 2x17x8 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: e5m2 x e5m2 -> f32 8x256x97 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 2048 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0391
+ok: bf16 x e4m3 -> f32 17x8x1000 batch 1 pad 4/0/0 alpha 2.75 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 136 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0100
+ok: chip core == host-model core, bit for bit: bf16 x e4m3 -> f32 17x8x1000 batch 1 pad 4/0/0 alpha 2.75 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16 x e5m2 -> f32 32x128x15 batch 2 pad 3/0/3 alpha 1 beta 1 edge 0: OK route widen core calls 2 host-fixed 0, 8192 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0873
+ok: f32 x f32^T -> f32 65x2x127 batch 1 pad 0/7/0 alpha 2.75 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 130 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0051
+ok: chip core == host-model core, bit for bit: f32 x f32^T -> f32 65x2x127 batch 1 pad 0/7/0 alpha 2.75 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32^T -> f16 127x64x1021 batch 1 pad 0/0/5 alpha 3.72529e-09 beta 1 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.7945
+ok: f32 x bf16^T -> f32 255x1021x16 batch 1 pad 4/0/5 alpha 1 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 260355 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0650
+ok: bf16 x f16 -> f32 257x31x129 batch 3 A-bcast B-bcast pad 3/3/0 alpha -0.5 beta 0 edge 0: OK route bf16x3 core calls 3 host-fixed 0, 23901 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0084
+ok: f32 x f32 -> f32 1000x509x1023 batch 1 pad 2/0/0 alpha 2.75 beta -1.5 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0006
+ok: e4m3 x e4m3 -> bf16 1x13x17 batch 1 pad 0/0/0 alpha 1 beta 0 block-scale edge 0 blocks 128/7/100: OK route native core calls 1 host-fixed 0, 13 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.5632
+ok: e4m3 x e5m2^T -> f32 3x129x251 batch 2 pad 0/0/5 alpha 1 beta 0 tensor-scale edge 0: OK route widen core calls 2 host-fixed 0, 774 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0317
+ok: chip core == host-model core, bit for bit: e4m3 x e5m2^T -> f32 3x129x251 batch 2 pad 0/0/5 alpha 1 beta 0 tensor-scale edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x bf16^T -> f32 13x3x1 batch 2 B-bcast pad 5/0/0 alpha -0.5 beta 0 edge 0: OK route native core calls 2 host-fixed 0, 78 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: f16 x f16^T -> f32 16x65x32 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0: OK route native core calls 1 host-fixed 0, 1040 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0378
+ok: chip core == host-model core, bit for bit: f16 x f16^T -> f32 16x65x32 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3 -> bf16 33x1023x255 batch 2 A-bcast pad 0/6/4 alpha -0.5 beta 0 edge 0: OK route native core calls 2 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9122
+ok: e5m2 x e5m2 -> bf16 97x32x2 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0: OK route widen core calls 1 host-fixed 0, 3104 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9960
+ok: chip core == host-model core, bit for bit: e5m2 x e5m2 -> bf16 97x32x2 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x e4m3 -> f32 128x511x33 batch 2 B-bcast pad 6/0/0 alpha 2.75 beta -1.5 edge 0: OK route widen core calls 2 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0388
+ok: f16 x e5m2 -> bf16 256x15x257 batch 1 pad 5/6/0 alpha 1 beta -1.5 edge 0: OK route widen core calls 1 host-fixed 0, 3840 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9559
+ok: chip core == host-model core, bit for bit: f16 x e5m2 -> bf16 256x15x257 batch 1 pad 5/6/0 alpha 1 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32^T -> f32 509x255x8 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 129795 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0083
+ok: f32 x f32^T -> f32 1021x5x65 batch 1 pad 0/0/0 alpha 1 beta -1.5 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 5105 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.6500
+ok: chip core == host-model core, bit for bit: f32 x f32^T -> f32 1021x5x65 batch 1 pad 0/0/0 alpha 1 beta -1.5 FAST_BF16 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x bf16^T -> f32 2x127x513 batch 2 pad 1/1/0 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 508 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0033
+ok: bf16 x f16 -> f16 5x1025x13 batch 1 pad 5/0/1 alpha 2.38419e-07 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 5125 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9762
+ok: chip core == host-model core, bit for bit: bf16 x f16 -> f16 5x1025x13 batch 1 pad 5/0/1 alpha 2.38419e-07 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32 -> f16 15x63x127 batch 1 pad 5/0/0 alpha 2.98023e-08 beta -1.5 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 945 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9603
+ok: e4m3^T x e4m3 -> bf16 17x509x1000 batch 1 pad 0/2/0 alpha 2.75 beta 1 block-scale edge 0 blocks 128/16/32: OK route native core calls 32 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8922
+ok: chip core == host-model core, bit for bit: e4m3^T x e4m3 -> bf16 17x509x1000 batch 1 pad 0/2/0 alpha 2.75 beta 1 block-scale edge 0 blocks 128/16/32: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e5m2^T -> f16 63x15x15 batch 3 B-bcast pad 0/4/3 alpha 2.38419e-07 beta 0 tensor-scale edge 0: OK route widen core calls 3 host-fixed 0, 2835 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9346
+ok: bf16^T x bf16^T -> f32 127x251x128 batch 1 pad 7/3/0 alpha 2.75 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 31877 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0682
+ok: chip core == host-model core, bit for bit: bf16^T x bf16^T -> f32 127x251x128 batch 1 pad 7/3/0 alpha 2.75 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16^T x f16^T -> f32 129x5x1023 batch 1 pad 7/7/5 alpha 1 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 645 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0186
+ok: e4m3^T x e4m3 -> f32 257x97x17 batch 1 pad 0/0/0 alpha -0.5 beta -1.5 edge 0: OK route native core calls 1 host-fixed 0, 24929 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0557
+ok: chip core == host-model core, bit for bit: e4m3^T x e4m3 -> f32 257x97x17 batch 1 pad 0/0/0 alpha -0.5 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: e5m2^T x e5m2 -> f32 511x1025x129 batch 1 pad 0/0/5 alpha 1 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0310
+ok: bf16^T x e4m3 -> f32 1023x33x1025 batch 1 pad 0/0/0 alpha -0.5 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0159
+ok: f16^T x e5m2^T -> f32 3x511x31 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 1533 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0429
+ok: f32^T x f32^T -> bf16 7x16x255 batch 1 pad 0/3/2 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 112 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.7858
+ok: chip core == host-model core, bit for bit: f32^T x f32^T -> bf16 7x16x255 batch 1 pad 0/3/2 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32^T -> f32 16x255x2 batch 1 pad 0/6/0 alpha 1 beta -1.5 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 4080 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8619
+ok: f32^T x bf16^T -> bf16 31x7x32 batch 1 pad 0/1/0 alpha -0.5 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 217 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9130
+ok: chip core == host-model core, bit for bit: f32^T x bf16^T -> bf16 31x7x32 batch 1 pad 0/1/0 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x f16 -> f32 64x127x256 batch 1 pad 2/0/0 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 8128 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0075
+ok: f32^T x f32 -> f16 97x1x3 batch 1 pad 0/1/0 alpha -4.76837e-07 beta -1.5 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 97 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9258
+ok: chip core == host-model core, bit for bit: f32^T x f32 -> f16 97x1x3 batch 1 pad 0/1/0 alpha -4.76837e-07 beta -1.5 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e4m3 -> f16 251x63x63 batch 2 pad 0/0/0 alpha 6.40284e-10 beta 0 block-scale edge 0 blocks 7/1/128: OK route native core calls 2 host-fixed 0, 31626 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9354
+ok: e4m3^T x e5m2^T -> bf16 509x1000x257 batch 1 pad 0/0/2 alpha -0.5 beta 0 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9866
+ok: bf16^T x bf16^T -> bf16 513x17x5 batch 1 pad 3/1/0 alpha 2.75 beta -1.5 edge 0: OK route native core calls 1 host-fixed 0, 8721 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9848
+ok: f16^T x f16^T -> bf16 1025x257x64 batch 1 pad 2/0/1 alpha -0.5 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9357
+ok: e4m3^T x e4m3 -> f32 2x8x511 batch 2 B-bcast pad 1/6/5 alpha 2.75 beta 1 edge 0: OK route native core calls 2 host-fixed 0, 32 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0077
+ok: e5m2^T x e5m2 -> f32 8x129x8 batch 3 pad 0/0/0 alpha 1 beta 0 edge 0: OK route widen core calls 3 host-fixed 0, 3096 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0250
+ok: chip core == host-model core, bit for bit: e5m2^T x e5m2 -> f32 8x129x8 batch 3 pad 0/0/0 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x e4m3 -> bf16 17x2x65 batch 1 pad 0/6/4 alpha -0.5 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 34 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8441
+ok: f16^T x e5m2^T -> f32 32x65x513 batch 1 pad 4/3/0 alpha 1 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 2080 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0334
+ok: chip core == host-model core, bit for bit: f16^T x e5m2^T -> f32 32x65x513 batch 1 pad 4/3/0 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32^T -> f16 65x1021x13 batch 3 pad 0/0/0 alpha -1.19209e-07 beta -1.5 edge 0: OK route bf16x3 core calls 3 host-fixed 0, 199095 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9995
+ok: f32^T x f32^T -> bf16 127x32x127 batch 3 pad 0/0/0 alpha 1 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 3 host-fixed 0, 12192 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.4860
+ok: chip core == host-model core, bit for bit: f32^T x f32^T -> bf16 127x32x127 batch 3 pad 0/0/0 alpha 1 beta 0 FAST_BF16 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x bf16 -> f32 255x256x1021 batch 1 pad 0/0/5 alpha 1 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0019
+ok: bf16^T x f16 -> f32 511x8x15 batch 1 pad 4/0/0 alpha -0.5 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 4088 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0079
+ok: chip core == host-model core, bit for bit: bf16^T x f16 -> f32 511x8x15 batch 1 pad 4/0/0 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32 -> f32 1000x128x128 batch 3 pad 0/0/0 alpha -0.5 beta 0 FFMA_REF edge 0: OK route ffma core calls 3 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0056
+ok: e4m3^T x e4m3 -> f16 1x1x1023 batch 1 pad 0/0/2 alpha -7.27596e-12 beta 1 block-scale edge 0 blocks 128/100/16: OK route native core calls 64 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0006
+ok: chip core == host-model core, bit for bit: e4m3^T x e4m3 -> f16 1x1x1023 batch 1 pad 0/0/2 alpha -7.27596e-12 beta 1 block-scale edge 0 blocks 128/100/16: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e5m2^T -> bf16 3x64x17 batch 1 pad 0/1/0 alpha 1 beta 0 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 192 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8970
+ok: bf16 x bf16^T -> f32 13x1000x129 batch 3 pad 7/0/0 alpha 2.75 beta 0 edge 0: OK route native core calls 3 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0575
+ok: chip core == host-model core, bit for bit: bf16 x bf16^T -> f32 13x1000x129 batch 3 pad 7/0/0 alpha 2.75 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16 x f16^T -> bf16 31x31x1025 batch 1 pad 4/6/0 alpha -0.5 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 961 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8750
+ok: e4m3 x e4m3 -> bf16 33x257x31 batch 2 B-bcast pad 0/0/0 alpha 2.75 beta -1.5 edge 0: OK route native core calls 2 host-fixed 0, 16962 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9873
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3 -> bf16 33x257x31 batch 2 B-bcast pad 0/0/0 alpha 2.75 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: e5m2 x e5m2 -> bf16 97x13x255 batch 2 pad 0/0/0 alpha 1 beta 0 edge 0: OK route widen core calls 2 host-fixed 0, 2522 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9623
+ok: bf16 x e4m3 -> bf16 128x129x2 batch 3 pad 0/0/1 alpha 1 beta 1 edge 0: OK route widen core calls 3 host-fixed 0, 49536 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9958
+ok: chip core == host-model core, bit for bit: bf16 x e4m3 -> bf16 128x129x2 batch 3 pad 0/0/1 alpha 1 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16 x e5m2^T -> bf16 256x3x32 batch 1 pad 6/0/6 alpha 1 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 768 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9690
+ok: f32 x f32^T -> bf16 513x65x256 batch 1 pad 6/6/0 alpha 1 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9103
+ok: f32 x f32^T -> f32 1021x1023x3 batch 3 B-bcast pad 0/0/5 alpha -0.5 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 3 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9023
+ok: f32 x bf16 -> f32 2x32x63 batch 1 pad 0/4/1 alpha -0.5 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 64 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0058
+ok: chip core == host-model core, bit for bit: f32 x bf16 -> f32 2x32x63 batch 1 pad 0/4/1 alpha -0.5 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x f16 -> f16 5x511x509 batch 3 B-bcast pad 0/0/3 alpha 2.04891e-08 beta 0 edge 0: OK route bf16x3 core calls 3 host-fixed 0, 7665 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.5922
+ok: f32 x f32 -> f32 1x1x1 batch 1 pad 0/2/0 alpha -0.5 beta -1.5 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0001
+ok: chip core == host-model core, bit for bit: f32 x f32 -> f32 1x1x1 batch 1 pad 0/2/0 alpha -0.5 beta -1.5 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3^T -> f32 17x255x64 batch 3 pad 0/0/0 alpha 1 beta 0 block-scale edge 0 blocks 128/1/32: OK route native core calls 6 host-fixed 0, 13005 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0140
+ok: e4m3 x e5m2^T -> f32 63x5x511 batch 3 B-bcast pad 0/0/0 alpha 2.75 beta 1 tensor-scale edge 0: OK route widen core calls 3 host-fixed 0, 945 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0203
+ok: chip core == host-model core, bit for bit: e4m3 x e5m2^T -> f32 63x5x511 batch 3 B-bcast pad 0/0/0 alpha 2.75 beta 1 tensor-scale edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x bf16^T -> f32 127x127x8 batch 3 pad 0/0/0 alpha 1 beta 0 edge 0: OK route native core calls 3 host-fixed 0, 48387 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0325
+ok: f16 x f16^T -> f32 129x1025x65 batch 1 pad 1/0/0 alpha -0.5 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0437
+ok: chip core == host-model core, bit for bit: f16 x f16^T -> f32 129x1025x65 batch 1 pad 1/0/0 alpha -0.5 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3 -> f32 257x33x513 batch 3 B-bcast pad 0/0/0 alpha 1 beta 0 edge 0: OK route native core calls 3 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0155
+ok: e5m2 x e5m2 -> f16 511x513x13 batch 1 pad 0/0/0 alpha -1.19209e-07 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 262143 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9991
+ok: chip core == host-model core, bit for bit: e5m2 x e5m2 -> f16 511x513x13 batch 1 pad 0/0/0 alpha -1.19209e-07 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x e4m3 -> f16 1023x16x127 batch 1 pad 0/1/0 alpha 2.98023e-08 beta -1.5 edge 0: OK route widen core calls 1 host-fixed 0, 16368 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9983
+ok: f16 x e5m2^T -> f32 3x251x1021 batch 1 pad 1/7/0 alpha 1 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 753 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0209
+ok: chip core == host-model core, bit for bit: f16 x e5m2^T -> f32 3x251x1021 batch 1 pad 1/7/0 alpha 1 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32^T -> f32 7x3x15 batch 1 pad 1/6/0 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 21 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0049
+ok: f32 x f32^T -> f32 16x97x128 batch 1 pad 0/0/0 alpha 2.75 beta 1 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 1552 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.4537
+ok: chip core == host-model core, bit for bit: f32 x f32^T -> f32 16x97x128 batch 1 pad 0/0/0 alpha 2.75 beta 1 FAST_BF16 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x bf16 -> f16 31x1023x1 batch 1 pad 0/0/2 alpha 3.8147e-06 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 31713 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9923
+ok: bf16 x f16 -> f32 64x33x32 batch 1 pad 0/0/0 alpha 2.75 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 2112 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0104
+ok: chip core == host-model core, bit for bit: bf16 x f16 -> f32 64x33x32 batch 1 pad 0/0/0 alpha 2.75 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32 -> bf16 128x511x256 batch 1 pad 3/0/7 alpha 2.75 beta 0 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8759
+ok: e4m3 x e4m3^T -> f32 251x16x2 batch 1 pad 0/0/6 alpha -0.5 beta 1 block-scale edge 0 blocks 128/1/100: OK route native core calls 1 host-fixed 0, 4016 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.6342
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3^T -> f32 251x16x2 batch 1 pad 0/0/6 alpha -0.5 beta 1 block-scale edge 0 blocks 128/1/100: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e5m2^T -> f32 509x255x33 batch 1 pad 0/0/0 alpha 2.75 beta 0 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0355
+ok: bf16 x bf16^T -> bf16 513x7x257 batch 1 pad 0/0/0 alpha 2.75 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 3591 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9540
+ok: chip core == host-model core, bit for bit: bf16 x bf16^T -> bf16 513x7x257 batch 1 pad 0/0/0 alpha 2.75 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16 x f16 -> f16 1x1x1 batch 1 pad 3/3/2 alpha 1.04904e-05 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.1903
+ok: e4m3 x e4m3 -> f32 5x1x63 batch 1 pad 0/0/0 alpha 2.75 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 5 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0077
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3 -> f32 5x1x63 batch 1 pad 0/0/0 alpha 2.75 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: e5m2 x e5m2 -> f32 8x63x509 batch 1 pad 0/6/0 alpha 1 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 504 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0220
+ok: bf16^T x e4m3 -> f32 17x1000x7 batch 1 pad 0/0/5 alpha -0.5 beta -1.5 edge 0: OK route widen core calls 1 host-fixed 0, 17000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.5941
+ok: chip core == host-model core, bit for bit: bf16^T x e4m3 -> f32 17x1000x7 batch 1 pad 0/0/5 alpha -0.5 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16^T x e5m2^T -> f16 32x17x65 batch 1 pad 5/0/0 alpha 8.19564e-08 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 544 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9029
+ok: f32^T x f32^T -> bf16 65x257x513 batch 1 pad 3/0/0 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.7690
+ok: f32^T x f32^T -> f32 127x8x8 batch 1 pad 0/0/2 alpha 2.75 beta -1.5 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 1016 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.7427
+ok: f32^T x bf16 -> f32 1x1x1 batch 1 pad 0/6/0 alpha 1 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.3304
+ok: chip core == host-model core, bit for bit: f32^T x bf16 -> f32 1x1x1 batch 1 pad 0/6/0 alpha 1 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x f16 -> f32 511x2x1000 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 1022 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0024
+ok: f32^T x f32 -> bf16 1000x64x15 batch 1 pad 5/6/6 alpha 1 beta 0 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 64000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9881
+ok: chip core == host-model core, bit for bit: f32^T x f32 -> bf16 1000x64x15 batch 1 pad 5/6/6 alpha 1 beta 0 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e4m3^T -> f16 1x1021x128 batch 1 pad 4/0/0 alpha 3.20142e-10 beta 1 block-scale edge 0 blocks 16/128/128: OK route native core calls 1 host-fixed 0, 1021 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9400
+ok: e4m3^T x e5m2^T -> bf16 3x31x1021 batch 1 pad 0/3/0 alpha 1 beta 0 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 93 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.7890
+ok: chip core == host-model core, bit for bit: e4m3^T x e5m2^T -> bf16 3x31x1021 batch 1 pad 0/3/0 alpha 1 beta 0 tensor-scale edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x bf16^T -> f32 13x509x16 batch 1 pad 0/0/1 alpha 2.75 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 6617 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0415
+ok: f16^T x f16 -> f32 31x13x129 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 403 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0412
+ok: chip core == host-model core, bit for bit: f16^T x f16 -> f32 31x13x129 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e4m3 -> f32 33x251x1025 batch 2 A-bcast pad 0/0/6 alpha 1 beta 0 edge 0: OK route native core calls 2 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0108
+ok: e5m2^T x e5m2 -> f32 97x1x17 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 97 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0205
+ok: chip core == host-model core, bit for bit: e5m2^T x e5m2 -> f32 97x1x17 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x e4m3^T -> f32 128x64x251 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0: OK route widen core calls 1 host-fixed 0, 8192 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0420
+ok: f16^T x e5m2^T -> f16 1x1x1 batch 2 pad 0/6/0 alpha -1.90735e-06 beta 1 edge 0: OK route widen core calls 2 host-fixed 0, 2 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.6576
+ok: chip core == host-model core, bit for bit: f16^T x e5m2^T -> f16 1x1x1 batch 2 pad 0/6/0 alpha -1.90735e-06 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32^T -> f32 513x31x32 batch 2 pad 7/0/0 alpha 1 beta -1.5 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 31806 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0120
+ok: f32^T x f32^T -> bf16 1021x257x256 batch 2 pad 0/4/7 alpha 2.75 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 2 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.3907
+ok: f32^T x bf16 -> f32 2x13x2 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 26 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.6053
+ok: bf16^T x f16 -> f32 5x129x33 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 645 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0095
+ok: chip core == host-model core, bit for bit: bf16^T x f16 -> f32 5x129x33 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32 -> f16 15x3x257 batch 2 B-bcast pad 7/0/0 alpha -3.72529e-09 beta 0 FFMA_REF edge 0: OK route ffma core calls 2 host-fixed 0, 90 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.4133
+ok: e4m3^T x e4m3^T -> f32 32x65x5 batch 3 pad 6/3/0 alpha -0.5 beta 0 block-scale edge 0 blocks 1/100/128: OK route native core calls 3 host-fixed 0, 6240 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0163
+ok: chip core == host-model core, bit for bit: e4m3^T x e4m3^T -> f32 32x65x5 batch 3 pad 6/3/0 alpha -0.5 beta 0 block-scale edge 0 blocks 1/100/128: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e5m2^T -> f32 1x1x1 batch 1 pad 0/0/2 alpha 2.75 beta 0 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: bf16^T x bf16^T -> f32 127x32x509 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 4064 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0364
+ok: chip core == host-model core, bit for bit: bf16^T x bf16^T -> f32 127x32x509 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16^T x f16 -> f32 129x509x7 batch 1 pad 0/3/0 alpha 2.75 beta -1.5 edge 0: OK route native core calls 1 host-fixed 0, 65661 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.5749
+ok: e4m3^T x e4m3 -> f16 257x15x65 batch 2 B-bcast pad 2/0/2 alpha 2.98023e-08 beta 0 edge 0: OK route native core calls 2 host-fixed 0, 7710 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9593
+ok: chip core == host-model core, bit for bit: e4m3^T x e4m3 -> f16 257x15x65 batch 2 B-bcast pad 2/0/2 alpha 2.98023e-08 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: e5m2^T x e5m2 -> f32 1000x251x513 batch 1 pad 0/3/5 alpha 1 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0202
+ok: bf16^T x e4m3^T -> bf16 1023x5x8 batch 1 pad 0/0/2 alpha 1 beta -1.5 edge 0: OK route widen core calls 1 host-fixed 0, 5115 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9810
+ok: chip core == host-model core, bit for bit: bf16^T x e4m3^T -> bf16 1023x5x8 batch 1 pad 0/0/2 alpha 1 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16^T x e5m2^T -> f32 3x97x97 batch 1 pad 0/7/0 alpha 2.75 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 291 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0367
+ok: f32^T x f32^T -> f16 1x1x1 batch 2 pad 2/0/5 alpha -1.90735e-06 beta 0 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 2 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.1909
+ok: chip core == host-model core, bit for bit: f32^T x f32^T -> f16 1x1x1 batch 2 pad 2/0/5 alpha -1.90735e-06 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32 -> f32 16x33x15 batch 1 pad 0/0/6 alpha 2.75 beta -1.5 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 528 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.6762
+ok: f32 x bf16 -> f16 31x513x128 batch 1 pad 0/0/0 alpha -1.49012e-08 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 15903 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8372
+ok: bf16 x f16 -> f16 1x1x1 batch 1 pad 0/0/0 alpha 1.04904e-05 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.4396
+ok: f32 x f32 -> f16 128x256x16 batch 1 pad 4/3/5 alpha -1.19209e-07 beta -1.5 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 32768 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9995
+ok: chip core == host-model core, bit for bit: f32 x f32 -> f16 128x256x16 batch 1 pad 4/3/5 alpha -1.19209e-07 beta -1.5 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3^T -> f32 251x7x129 batch 1 pad 1/0/0 alpha 2.75 beta 1 block-scale edge 0 blocks 100/128/32: OK route native core calls 5 host-fixed 0, 1757 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0073
+ok: e4m3 x e5m2^T -> f16 509x128x1025 batch 1 pad 0/6/0 alpha 1.86265e-09 beta 0 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.6876
+ok: bf16 x bf16^T -> f32 513x1023x31 batch 1 pad 0/0/5 alpha 2.75 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0384
+ok: f16 x f16 -> f32 1025x33x251 batch 1 pad 4/0/0 alpha 1 beta -1.5 edge 0: OK route native core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0368
+ok: chip core == host-model core, bit for bit: f16 x f16 -> f32 1025x33x251 batch 1 pad 4/0/0 alpha 1 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3 -> f32 5x511x1 batch 1 pad 4/0/0 alpha 2.75 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 2555 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8932
+ok: e5m2 x e5m2 -> f16 1x1x1 batch 3 B-bcast pad 3/2/0 alpha 3.8147e-06 beta 0 edge 0: OK route widen core calls 3 host-fixed 0, 3 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.2495
+ok: chip core == host-model core, bit for bit: e5m2 x e5m2 -> f16 1x1x1 batch 3 B-bcast pad 3/2/0 alpha 3.8147e-06 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x e4m3^T -> f32 17x255x256 batch 1 pad 0/0/0 alpha 2.75 beta -1.5 edge 0: OK route widen core calls 1 host-fixed 0, 4335 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0354
+ok: f16 x e5m2^T -> f16 32x7x2 batch 1 pad 0/0/7 alpha 1.90735e-06 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 224 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8920
+ok: chip core == host-model core, bit for bit: f16 x e5m2^T -> f16 32x7x2 batch 1 pad 0/0/7 alpha 1.90735e-06 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32^T -> f32 65x127x33 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 8255 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0114
+ok: f32 x f32 -> f32 129x1025x257 batch 1 pad 0/7/0 alpha 1 beta -1.5 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.3344
+ok: f32 x bf16 -> f32 255x63x5 batch 1 pad 0/3/0 alpha 2.75 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 16065 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.3003
+ok: bf16 x f16 -> f16 511x513x64 batch 1 pad 0/5/0 alpha 5.96046e-08 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8617
+ok: f32 x f32^T -> f32 1x1x1 batch 1 pad 0/0/0 alpha 1 beta -1.5 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.2706
+ok: e4m3 x e4m3^T -> f32 1x256x13 batch 1 pad 6/0/0 alpha 1 beta -1.5 block-scale edge 0 blocks 1/16/100: OK route native core calls 1 host-fixed 0, 256 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0387
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3^T -> f32 1x256x13 batch 1 pad 6/0/0 alpha 1 beta -1.5 block-scale edge 0 blocks 1/16/100: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e5m2^T -> bf16 7x8x127 batch 1 pad 0/0/0 alpha 1 beta -1.5 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 56 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8937
+ok: bf16 x bf16^T -> bf16 1x1x1 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.1766
+ok: chip core == host-model core, bit for bit: bf16 x bf16^T -> bf16 1x1x1 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16 x f16 -> bf16 31x2x16 batch 1 pad 1/3/6 alpha 2.75 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 62 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8524
+ok: e4m3 x e4m3 -> f32 33x64x128 batch 1 pad 6/0/0 alpha 1 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 2112 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0200
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3 -> f32 33x64x128 batch 1 pad 6/0/0 alpha 1 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: e5m2 x e5m2 -> f32 97x1021x1023 batch 2 pad 5/0/0 alpha -0.5 beta 0 edge 0: OK route widen core calls 2 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0193
+ok: bf16 x e4m3^T -> f32 251x31x17 batch 2 pad 0/0/6 alpha 1 beta 0 edge 0: OK route widen core calls 2 host-fixed 0, 15562 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0454
+ok: chip core == host-model core, bit for bit: bf16 x e4m3^T -> f32 251x31x17 batch 2 pad 0/0/6 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16 x e5m2^T -> f32 256x509x251 batch 1 pad 0/1/5 alpha -0.5 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0286
+ok: f32 x f32^T -> f16 513x13x1025 batch 2 A-bcast pad 1/0/0 alpha 1.86265e-09 beta 1 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9594
+ok: f32 x f32 -> f32 1x1x1 batch 1 pad 5/3/0 alpha 1 beta 1 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.2352
+ok: f32 x bf16 -> f32 2x3x255 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 6 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0024
+ok: chip core == host-model core, bit for bit: f32 x bf16 -> f32 2x3x255 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x f16 -> f32 5x97x2 batch 3 A-bcast pad 0/0/1 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 3 host-fixed 0, 1455 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0063
+ok: f32^T x f32^T -> f32 15x1000x33 batch 3 pad 0/0/7 alpha -0.5 beta 0 FFMA_REF edge 0: OK route ffma core calls 3 host-fixed 0, 45000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0198
+ok: chip core == host-model core, bit for bit: f32^T x f32^T -> f32 15x1000x33 batch 3 pad 0/0/7 alpha -0.5 beta 0 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e4m3^T -> f32 32x17x256 batch 1 pad 1/0/7 alpha 2.75 beta 1 block-scale edge 0 blocks 100/1/100: OK route native core calls 3 host-fixed 0, 544 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0089
+ok: e4m3^T x e5m2^T -> bf16 63x257x3 batch 3 A-bcast pad 0/7/0 alpha 2.75 beta 0 tensor-scale edge 0: OK route widen core calls 3 host-fixed 0, 48573 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9823
+ok: chip core == host-model core, bit for bit: e4m3^T x e5m2^T -> bf16 63x257x3 batch 3 A-bcast pad 0/7/0 alpha 2.75 beta 0 tensor-scale edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x bf16 -> bf16 127x8x63 batch 3 pad 0/3/0 alpha 1 beta 1 edge 0: OK route native core calls 3 host-fixed 0, 3048 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9792
+ok: f16^T x f16 -> f32 1x1x1 batch 1 pad 0/7/0 alpha 1 beta -1.5 edge 0: OK route native core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0031
+ok: chip core == host-model core, bit for bit: f16^T x f16 -> f32 1x1x1 batch 1 pad 0/7/0 alpha 1 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e4m3 -> bf16 257x2x7 batch 1 pad 3/0/4 alpha -0.5 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 514 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9449
+ok: e5m2^T x e5m2 -> f32 1000x65x64 batch 1 pad 7/6/0 alpha 1 beta -1.5 edge 0: OK route widen core calls 1 host-fixed 0, 65000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0532
+ok: chip core == host-model core, bit for bit: e5m2^T x e5m2 -> f32 1000x65x64 batch 1 pad 7/6/0 alpha 1 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x e4m3^T -> f32 1x1x1 batch 1 pad 0/0/0 alpha -0.5 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0029
+ok: f16^T x e5m2^T -> f32 3x32x8 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 96 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0213
+ok: chip core == host-model core, bit for bit: f16^T x e5m2^T -> f32 3x32x8 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32^T -> f32 7x509x97 batch 1 pad 3/3/0 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 3563 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0080
+ok: f32^T x f32 -> f32 16x15x513 batch 1 pad 2/0/0 alpha 1 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 240 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.1703
+ok: chip core == host-model core, bit for bit: f32^T x f32 -> f32 16x15x513 batch 1 pad 2/0/0 alpha 1 beta 0 FAST_BF16 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x bf16 -> f32 1x1x1 batch 1 pad 7/1/0 alpha -0.5 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0021
+ok: bf16^T x f16 -> f32 64x5x127 batch 1 pad 0/1/2 alpha 1 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 320 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0057
+ok: chip core == host-model core, bit for bit: bf16^T x f16 -> f32 64x5x127 batch 1 pad 0/1/2 alpha 1 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32^T -> bf16 128x97x1021 batch 1 pad 0/0/0 alpha -0.5 beta 1 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.5671
+ok: e4m3^T x e4m3^T -> f32 1x1x1 batch 1 pad 3/3/4 alpha 2.75 beta 1 block-scale edge 0 blocks 128/16/100: OK route native core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0023
+ok: chip core == host-model core, bit for bit: e4m3^T x e4m3^T -> f32 1x1x1 batch 1 pad 3/3/4 alpha 2.75 beta 1 block-scale edge 0 blocks 128/16/100: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e5m2^T -> bf16 509x33x128 batch 1 pad 0/0/0 alpha 2.75 beta 1 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 16797 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9899
+ok: bf16^T x bf16 -> f16 1021x513x1023 batch 1 pad 0/0/0 alpha 1.02445e-08 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.7164
+ok: f16^T x f16 -> f32 1025x16x17 batch 1 pad 0/0/7 alpha -0.5 beta -1.5 edge 0: OK route native core calls 1 host-fixed 0, 16400 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0887
+ok: e4m3^T x e4m3 -> f16 5x256x251 batch 1 pad 0/0/0 alpha 4.09782e-08 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 1280 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9000
+ok: chip core == host-model core, bit for bit: e4m3^T x e4m3 -> f16 5x256x251 batch 1 pad 0/0/0 alpha 4.09782e-08 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: e5m2^T x e5m2^T -> f16 8x7x1 batch 1 pad 4/0/0 alpha -1.90735e-06 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 56 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.4996
+ok: bf16^T x e4m3^T -> f32 17x127x31 batch 1 pad 0/0/0 alpha 2.75 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 2159 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0398
+ok: chip core == host-model core, bit for bit: bf16^T x e4m3^T -> f32 17x127x31 batch 1 pad 0/0/0 alpha 2.75 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16^T x e5m2^T -> f32 1x1x1 batch 1 pad 0/5/0 alpha -0.5 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: f32^T x f32^T -> f32 65x63x2 batch 1 pad 7/0/3 alpha 1 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 4095 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.7082
+ok: chip core == host-model core, bit for bit: f32^T x f32^T -> f32 65x63x2 batch 1 pad 7/0/3 alpha 1 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32 -> f32 129x511x33 batch 1 pad 5/6/0 alpha 1 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 65919 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.7736
+ok: f32^T x bf16 -> bf16 1x1x1 batch 1 pad 4/0/0 alpha 1 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.5872
+ok: chip core == host-model core, bit for bit: f32^T x bf16 -> bf16 1x1x1 batch 1 pad 4/0/0 alpha 1 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x f16 -> bf16 511x255x3 batch 3 B-bcast pad 0/0/0 alpha 1 beta -1.5 edge 0: OK route bf16x3 core calls 3 host-fixed 0, 390915 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9958
+ok: f32^T x f32^T -> f16 1000x5x63 batch 1 pad 0/0/4 alpha 5.96046e-08 beta 0 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 5000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8846
+ok: chip core == host-model core, bit for bit: f32^T x f32^T -> f16 1000x5x63 batch 1 pad 0/0/4 alpha 5.96046e-08 beta 0 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e4m3^T -> f32 1x127x509 batch 1 pad 7/0/0 alpha -0.5 beta -1.5 block-scale edge 0 blocks 100/100/100: OK route native core calls 6 host-fixed 0, 127 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0034
+ok: e4m3^T x e5m2^T -> f32 1x1x1 batch 1 pad 4/0/0 alpha 1 beta 1 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0111
+ok: chip core == host-model core, bit for bit: e4m3^T x e5m2^T -> f32 1x1x1 batch 1 pad 4/0/0 alpha 1 beta 1 tensor-scale edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x bf16 -> f32 13x63x64 batch 1 pad 0/6/7 alpha 1 beta -1.5 edge 0: OK route native core calls 1 host-fixed 0, 819 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0403
+ok: f16 x f16 -> f32 31x513x511 batch 1 pad 0/1/3 alpha 2.75 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0216
+ok: chip core == host-model core, bit for bit: f16 x f16 -> f32 31x513x511 batch 1 pad 0/1/3 alpha 2.75 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3 -> f32 1x1x1 batch 1 pad 0/4/0 alpha -0.5 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: e5m2 x e5m2^T -> f16 97x256x97 batch 1 pad 0/0/3 alpha 2.98023e-08 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 24832 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9417
+ok: chip core == host-model core, bit for bit: e5m2 x e5m2^T -> f16 97x256x97 batch 1 pad 0/0/3 alpha 2.98023e-08 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x e4m3^T -> f32 251x8x1000 batch 3 pad 0/0/0 alpha 2.75 beta 0 edge 0: OK route widen core calls 3 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0217
+ok: f16 x e5m2^T -> f16 256x128x13 batch 2 pad 0/0/0 alpha 2.38419e-07 beta -1.5 edge 0: OK route widen core calls 2 host-fixed 0, 65536 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9994
+ok: chip core == host-model core, bit for bit: f16 x e5m2^T -> f16 256x128x13 batch 2 pad 0/0/0 alpha 2.38419e-07 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32 -> f32 1x1x1 batch 2 B-bcast pad 0/0/0 alpha 2.75 beta 1 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 2 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0562
+ok: f32 x f32 -> f32 1021x64x1021 batch 1 pad 2/0/6 alpha 1 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.1611
+ok: f32 x bf16 -> f32 2x1021x16 batch 2 pad 0/0/0 alpha 2.75 beta 1 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 4084 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0093
+ok: bf16 x f16 -> bf16 1x1x1 batch 3 A-bcast B-bcast pad 0/2/0 alpha 1 beta -1.5 edge 0: OK route bf16x3 core calls 3 host-fixed 0, 3 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.7593
+ok: chip core == host-model core, bit for bit: bf16 x f16 -> bf16 1x1x1 batch 3 A-bcast B-bcast pad 0/2/0 alpha 1 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32^T -> f32 15x257x1023 batch 2 pad 0/0/0 alpha 2.75 beta -1.5 FFMA_REF edge 0: OK route ffma core calls 2 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0009
+ok: e4m3 x e4m3^T -> f32 32x13x17 batch 1 pad 2/0/2 alpha 2.75 beta 0 block-scale edge 0 blocks 1/100/16: OK route native core calls 2 host-fixed 0, 416 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0123
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3^T -> f32 32x13x17 batch 1 pad 2/0/2 alpha 2.75 beta 0 block-scale edge 0 blocks 1/100/16: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e5m2^T -> f16 3x4096x32 batch 1 pad 0/0/7 alpha 3.27826e-07 beta 0 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 12288 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9802
+ok: bf16 x bf16 -> f32 127x3x3 batch 3 A-bcast pad 6/0/0 alpha 1 beta 0 edge 0: OK route native core calls 3 host-fixed 0, 1143 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0250
+ok: chip core == host-model core, bit for bit: bf16 x bf16 -> f32 127x3x3 batch 3 A-bcast pad 6/0/0 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16 x f16 -> f16 255x65x33 batch 3 pad 0/0/4 alpha 5.96046e-08 beta 1 edge 0: OK route native core calls 3 host-fixed 0, 49725 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9943
+ok: e4m3 x e4m3 -> f32 257x1023x257 batch 1 pad 0/0/3 alpha 1 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0149
+ok: e5m2 x e5m2^T -> f32 1x1x1 batch 1 pad 1/0/0 alpha -0.5 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: bf16 x e4m3^T -> f16 1023x511x64 batch 1 pad 0/0/1 alpha 5.96046e-08 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8281
+ok: f16 x e5m2^T -> f32 3x8x511 batch 1 pad 0/6/1 alpha -0.5 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 24 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0384
+ok: f32 x f32 -> f32 1x1x1 batch 1 pad 0/3/0 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0041
+ok: chip core == host-model core, bit for bit: f32 x f32 -> f32 1x1x1 batch 1 pad 0/3/0 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32 -> f32 16x2x65 batch 1 pad 0/6/0 alpha -0.5 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 32 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.3608
+ok: f32 x bf16 -> f16 33x65x513 batch 3 pad 0/0/0 alpha 3.72529e-09 beta 0 edge 0: OK route bf16x3 core calls 3 host-fixed 0, 6435 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.5307
+ok: bf16 x f16^T -> f16 64x1021x13 batch 3 A-bcast pad 0/0/0 alpha 2.38419e-07 beta 1 edge 0: OK route bf16x3 core calls 3 host-fixed 0, 196032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9958
+ok: f32 x f32^T -> bf16 1x1x1 batch 3 pad 0/0/0 alpha 2.75 beta 0 FFMA_REF edge 0: OK route ffma core calls 3 host-fixed 0, 3 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.3064
+ok: chip core == host-model core, bit for bit: f32 x f32^T -> bf16 1x1x1 batch 3 pad 0/0/0 alpha 2.75 beta 0 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3^T -> bf16 251x509x1000 batch 2 A-bcast pad 4/0/3 alpha 1 beta 0 block-scale edge 0 blocks 1/7/16: OK route native core calls 126 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9174
+ok: e4m3 x e5m2^T -> f32 509x15x15 batch 1 pad 3/0/0 alpha 2.75 beta 1 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 7635 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0327
+ok: chip core == host-model core, bit for bit: e4m3 x e5m2^T -> f32 509x15x15 batch 1 pad 3/0/0 alpha 2.75 beta 1 tensor-scale edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x bf16 -> f32 1x1x1 batch 1 pad 0/0/4 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: f16 x f16 -> f32 1025x5x1023 batch 2 pad 0/0/0 alpha 2.75 beta 0 edge 0: OK route native core calls 2 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0194
+ok: chip core == host-model core, bit for bit: f16 x f16 -> f32 1025x5x1023 batch 2 pad 0/0/0 alpha 2.75 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3 -> f32 5x97x16 batch 3 A-bcast pad 0/7/2 alpha -0.5 beta 0 edge 0: OK route native core calls 3 host-fixed 0, 1455 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0153
+ok: e5m2 x e5m2 -> f32 5x4096x65 batch 1 pad 0/0/4 alpha 1 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 20480 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0460
+ok: chip core == host-model core, bit for bit: e5m2 x e5m2 -> f32 5x4096x65 batch 1 pad 0/0/4 alpha 1 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x e4m3^T -> f16 1x1x1 batch 1 pad 3/0/0 alpha 3.8147e-06 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: f16^T x e5m2^T -> bf16 63x511x31 batch 1 pad 0/0/0 alpha 2.75 beta -1.5 edge 0: OK route widen core calls 1 host-fixed 0, 32193 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9912
+ok: chip core == host-model core, bit for bit: f16^T x e5m2^T -> bf16 63x511x31 batch 1 pad 0/0/0 alpha 2.75 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32 -> bf16 65x16x255 batch 1 pad 0/0/4 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 1040 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9029
+ok: f32^T x f32 -> f16 1x1x1 batch 1 pad 0/0/0 alpha 1.04904e-05 beta -1.5 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.1682
+ok: chip core == host-model core, bit for bit: f32^T x f32 -> f16 1x1x1 batch 1 pad 0/0/0 alpha 1.04904e-05 beta -1.5 FAST_BF16 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x bf16 -> bf16 255x7x32 batch 1 pad 0/0/2 alpha 1 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 1785 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9721
+ok: bf16^T x f16^T -> f16 511x127x256 batch 1 pad 0/6/5 alpha -7.45058e-09 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9257
+ok: f32 x f32^T -> f32 4096x17x2 batch 1 pad 0/0/0 alpha -0.5 beta -1.5 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 69632 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9877
+ok: e4m3^T x e4m3^T -> f32 1x63x63 batch 1 pad 0/3/0 alpha 2.75 beta -1.5 block-scale edge 0 blocks 100/16/32: OK route native core calls 2 host-fixed 0, 63 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0077
+ok: chip core == host-model core, bit for bit: e4m3^T x e4m3^T -> f32 1x63x63 batch 1 pad 0/3/0 alpha 2.75 beta -1.5 block-scale edge 0 blocks 100/16/32: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e5m2 -> bf16 7x1000x257 batch 1 pad 5/0/0 alpha 1 beta 1 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 7000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9819
+ok: bf16^T x bf16 -> f16 13x17x5 batch 1 pad 0/3/4 alpha 4.76837e-07 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 221 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8601
+ok: chip core == host-model core, bit for bit: bf16^T x bf16 -> f16 13x17x5 batch 1 pad 0/3/4 alpha 4.76837e-07 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16^T x f16 -> f32 1x1x1 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: e4m3^T x e4m3 -> f32 64x5x511 batch 1 pad 0/0/7 alpha 2.75 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 320 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0158
+ok: chip core == host-model core, bit for bit: e4m3^T x e4m3 -> f32 64x5x511 batch 1 pad 0/0/7 alpha 2.75 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: e5m2^T x e5m2^T -> f32 97x127x7 batch 2 pad 1/0/4 alpha 2.75 beta 0 edge 0: OK route widen core calls 2 host-fixed 0, 24638 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0334
+ok: bf16^T x e4m3^T -> f32 1x1x1 batch 1 pad 7/0/0 alpha 2.75 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: chip core == host-model core, bit for bit: bf16^T x e4m3^T -> f32 1x1x1 batch 1 pad 7/0/0 alpha 2.75 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16^T x e5m2^T -> f16 256x63x513 batch 1 pad 0/0/4 alpha 3.72529e-09 beta -1.5 edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9910
+ok: f32^T x f32 -> f32 513x513x13 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 263169 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.2219
+ok: f32^T x f32^T -> f32 4095x15x257 batch 1 pad 6/0/0 alpha 1 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.3503
+ok: f32^T x bf16 -> f32 1x1x1 batch 1 pad 7/6/0 alpha 2.75 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0026
+ok: chip core == host-model core, bit for bit: f32^T x bf16 -> f32 1x1x1 batch 1 pad 7/6/0 alpha 2.75 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x f16^T -> f32 8x7x15 batch 2 pad 0/6/0 alpha 1 beta 1 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 112 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0091
+ok: f32^T x f32^T -> bf16 15x128x128 batch 2 A-bcast B-bcast pad 0/0/4 alpha 2.75 beta -1.5 FFMA_REF edge 0: OK route ffma core calls 2 host-fixed 0, 3840 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9395
+ok: chip core == host-model core, bit for bit: f32^T x f32^T -> bf16 15x128x128 batch 2 A-bcast B-bcast pad 0/0/4 alpha 2.75 beta -1.5 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e4m3^T -> bf16 1x1x1 batch 1 pad 0/0/0 alpha 1 beta 0 block-scale edge 0 blocks 7/7/100: OK route native core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.7277
+ok: e4m3^T x e5m2 -> bf16 63x64x17 batch 1 pad 0/0/0 alpha 1 beta -1.5 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 4032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9834
+ok: chip core == host-model core, bit for bit: e4m3^T x e5m2 -> bf16 63x64x17 batch 1 pad 0/0/0 alpha 1 beta -1.5 tensor-scale edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x bf16 -> f32 127x1000x129 batch 2 A-bcast pad 0/0/1 alpha -0.5 beta 0 edge 0: OK route native core calls 2 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0396
+ok: f16^T x f16 -> bf16 4095x17x8 batch 3 A-bcast pad 0/5/0 alpha 1 beta -1.5 edge 0: OK route native core calls 3 host-fixed 0, 208845 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9937
+ok: chip core == host-model core, bit for bit: f16^T x f16 -> bf16 4095x17x8 batch 3 A-bcast pad 0/5/0 alpha 1 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e4m3^T -> f16 257x257x31 batch 2 pad 0/1/0 alpha -5.96046e-08 beta 1 edge 0: OK route native core calls 2 host-fixed 0, 132098 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9969
+ok: e5m2^T x e5m2^T -> f32 1000x13x255 batch 2 A-bcast B-bcast pad 3/0/0 alpha 1 beta 1 edge 0: OK route widen core calls 2 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0314
+ok: chip core == host-model core, bit for bit: e5m2^T x e5m2^T -> f32 1000x13x255 batch 2 A-bcast B-bcast pad 3/0/0 alpha 1 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x e4m3^T -> f32 1023x129x1 batch 3 pad 2/0/2 alpha 2.75 beta -1.5 edge 0: OK route widen core calls 3 host-fixed 0, 395901 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9998
+ok: f16^T x e5m2^T -> f16 1x1x1 batch 1 pad 0/0/0 alpha -1.90735e-06 beta -1.5 edge 0: OK route widen core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.3356
+ok: chip core == host-model core, bit for bit: f16^T x e5m2^T -> f16 1x1x1 batch 1 pad 0/0/0 alpha -1.90735e-06 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32 -> f32 13x65x256 batch 1 pad 0/5/0 alpha 1 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 845 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0050
+ok: f32^T x f32 -> bf16 16x1023x3 batch 1 pad 0/0/0 alpha -0.5 beta -1.5 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 16368 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9895
+ok: chip core == host-model core, bit for bit: f32^T x f32 -> bf16 16x1023x3 batch 1 pad 0/0/0 alpha -0.5 beta -1.5 FAST_BF16 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x bf16 -> f16 1x1x1 batch 1 pad 4/0/0 alpha 3.8147e-06 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.6410
+ok: bf16 x f16^T -> f32 64x511x257 batch 1 pad 2/5/4 alpha 1 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0043
+ok: f32 x f32^T -> f32 128x15x5 batch 1 pad 0/0/0 alpha -0.5 beta 0 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 1920 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0245
+ok: e4m3 x e4m3^T -> f32 33x5000x33 batch 1 pad 0/0/0 alpha 2.75 beta 0 block-scale edge 0 blocks 128/7/32: OK route native core calls 4 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0102
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3^T -> f32 33x5000x33 batch 1 pad 0/0/0 alpha 2.75 beta 0 block-scale edge 0 blocks 128/7/32: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e5m2 -> f32 1x1x1 batch 1 pad 0/0/7 alpha 1 beta 1 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9828
+ok: bf16 x bf16 -> bf16 1021x64x8 batch 1 pad 0/4/0 alpha 2.75 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 65344 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9937
+ok: chip core == host-model core, bit for bit: bf16 x bf16 -> bf16 1021x64x8 batch 1 pad 0/4/0 alpha 2.75 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16 x f16 -> f32 1025x1021x65 batch 1 pad 0/7/0 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0565
+ok: e4m3 x e4m3^T -> f16 1x1x1 batch 1 pad 0/4/4 alpha 1.04904e-05 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3^T -> f16 1x1x1 batch 1 pad 0/4/4 alpha 1.04904e-05 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: e5m2 x e5m2^T -> f32 15x509x16 batch 1 pad 0/0/0 alpha 2.75 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 7635 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0352
+ok: bf16 x e4m3^T -> f32 17x13x129 batch 1 pad 4/0/0 alpha 2.75 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 221 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0287
+ok: chip core == host-model core, bit for bit: bf16 x e4m3^T -> f32 17x13x129 batch 1 pad 4/0/0 alpha 2.75 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16 x e5m2 -> f32 31x4095x5 batch 1 pad 7/0/0 alpha -0.5 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 126945 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0305
+ok: f32 x f32 -> f32 1x1x1 batch 1 pad 0/0/0 alpha 2.75 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0019
+ok: chip core == host-model core, bit for bit: f32 x f32 -> f32 1x1x1 batch 1 pad 0/0/0 alpha 2.75 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32 -> f32 129x97x251 batch 1 pad 0/0/0 alpha 2.75 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 12513 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.3490
+ok: f32 x bf16 -> f16 255x1023x1 batch 1 pad 6/0/0 alpha 1.04904e-05 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 260865 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9995
+ok: chip core == host-model core, bit for bit: f32 x bf16 -> f16 255x1023x1 batch 1 pad 6/0/0 alpha 1.04904e-05 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x f16^T -> bf16 1x1x1 batch 3 A-bcast pad 6/0/2 alpha -0.5 beta 1 edge 0: OK route bf16x3 core calls 3 host-fixed 0, 3 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.4539
+ok: f32 x f32^T -> bf16 1023x511x255 batch 1 pad 0/5/0 alpha -0.5 beta 0 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.7791
+ok: e4m3 x e4m3^T -> f32 1x16x2 batch 1 pad 0/0/7 alpha 1 beta 0 block-scale edge 0 blocks 16/100/32: OK route native core calls 1 host-fixed 0, 16 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0037
+ok: e4m3^T x e5m2^T -> f32 32x4095x256 batch 1 pad 3/1/0 alpha 1 beta -1.5 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0277
+ok: bf16 x bf16 -> f16 13x7x257 batch 1 pad 6/5/0 alpha 7.45058e-09 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 91 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.6975
+ok: f16 x f16 -> f32 31x127x5 batch 1 pad 0/0/4 alpha -0.5 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 3937 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0310
+ok: chip core == host-model core, bit for bit: f16 x f16 -> f32 31x127x5 batch 1 pad 0/0/4 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3^T -> bf16 1x5000x129 batch 2 pad 3/0/0 alpha 1 beta -1.5 edge 0: OK route native core calls 4 host-fixed 0, 10000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9899
+ok: e5m2 x e5m2^T -> bf16 1x1x1 batch 1 pad 0/0/7 alpha -0.5 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: chip core == host-model core, bit for bit: e5m2 x e5m2^T -> bf16 1x1x1 batch 1 pad 0/0/7 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x e4m3^T -> f32 251x1000x7 batch 1 pad 0/2/0 alpha 1 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 251000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0313
+ok: f16 x e5m2 -> f32 256x17x65 batch 1 pad 0/0/0 alpha 1 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 4352 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0709
+ok: chip core == host-model core, bit for bit: f16 x e5m2 -> f32 256x17x65 batch 1 pad 0/0/0 alpha 1 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32 -> f32 1x1x1 batch 1 pad 0/2/1 alpha -0.5 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0009
+ok: f32 x f32 -> f32 1025x8x8 batch 1 pad 0/0/0 alpha 1 beta 1 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 8200 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8039
+ok: chip core == host-model core, bit for bit: f32 x f32 -> f32 1025x8x8 batch 1 pad 0/0/0 alpha 1 beta 1 FAST_BF16 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x bf16^T -> f32 2x128x97 batch 3 pad 1/0/0 alpha 2.75 beta 0 edge 0: OK route bf16x3 core calls 3 host-fixed 0, 768 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0073
+ok: bf16^T x f16 -> f16 32x5000x1 batch 2 pad 0/0/3 alpha 3.8147e-06 beta -1.5 edge 0: OK route bf16x3 core calls 4 host-fixed 0, 320000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9995
+ok: chip core == host-model core, bit for bit: bf16^T x f16 -> f16 32x5000x1 batch 2 pad 0/0/3 alpha 3.8147e-06 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32^T -> f32 1x1x1 batch 1 pad 0/0/0 alpha 1 beta 0 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0083
+ok: e4m3^T x e4m3^T -> f32 32x513x127 batch 1 pad 0/0/0 alpha 1 beta 1 block-scale edge 0 blocks 1/7/100: OK route native core calls 2 host-fixed 0, 16416 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0183
+ok: chip core == host-model core, bit for bit: e4m3^T x e4m3^T -> f32 32x513x127 batch 1 pad 0/0/0 alpha 1 beta 1 block-scale edge 0 blocks 1/7/100: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e5m2 -> f16 65x16x1021 batch 1 pad 4/3/0 alpha -1.86265e-09 beta 0 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 1040 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.7009
+ok: bf16^T x bf16 -> f32 1x1x1 batch 1 pad 3/0/7 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: chip core == host-model core, bit for bit: bf16^T x bf16 -> f32 1x1x1 batch 1 pad 3/0/7 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16^T x f16 -> f32 255x7x129 batch 3 pad 7/0/0 alpha 1 beta 0 edge 0: OK route native core calls 3 host-fixed 0, 5355 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0616
+ok: e4m3^T x e4m3^T -> f32 257x128x1025 batch 3 B-bcast pad 0/5/0 alpha 2.75 beta 0 edge 0: OK route native core calls 3 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0095
+ok: e5m2^T x e5m2 -> bf16 5000x5x5 batch 3 pad 0/0/0 alpha 1 beta 0 edge 0: OK route widen core calls 6 host-fixed 0, 75000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9950
+ok: bf16^T x e4m3^T -> f32 1x1x1 batch 3 B-bcast pad 0/0/6 alpha 2.75 beta 1 edge 0: OK route widen core calls 3 host-fixed 0, 3 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0050
+ok: chip core == host-model core, bit for bit: bf16^T x e4m3^T -> f32 1x1x1 batch 3 B-bcast pad 0/0/6 alpha 2.75 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16^T x e5m2 -> f32 3x1000x1 batch 1 pad 0/0/5 alpha 1 beta -1.5 edge 0: OK route widen core calls 1 host-fixed 0, 3000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9630
+ok: f32 x f32^T -> f32 4097x17x251 batch 3 pad 0/0/0 alpha 2.75 beta 0 edge 0: OK route bf16x3 core calls 6 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0056
+ok: f32^T x f32 -> bf16 1x1x1 batch 1 pad 0/0/3 alpha 1 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: f32^T x bf16^T -> f32 33x13x2 batch 1 pad 0/0/0 alpha -0.5 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 429 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9509
+ok: chip core == host-model core, bit for bit: f32^T x bf16^T -> f32 33x13x2 batch 1 pad 0/0/0 alpha -0.5 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x f16^T -> f16 64x129x33 batch 1 pad 3/0/0 alpha 5.96046e-08 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 8256 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9657
+ok: f32 x f32 -> bf16 5000x13x257 batch 1 pad 0/0/0 alpha 2.75 beta -1.5 FFMA_REF edge 0: OK route ffma core calls 2 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8553
+ok: chip core == host-model core, bit for bit: f32 x f32 -> bf16 5000x13x257 batch 1 pad 0/0/0 alpha 2.75 beta -1.5 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e4m3 -> f32 256x65x5 batch 1 pad 0/2/2 alpha 1 beta 1 block-scale edge 0 blocks 100/100/32: OK route native core calls 1 host-fixed 0, 16640 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8212
+ok: e4m3^T x e5m2 -> f32 509x1021x63 batch 1 pad 6/0/0 alpha -0.5 beta -1.5 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0453
+ok: bf16^T x bf16^T -> f16 4097x2x251 batch 1 pad 1/3/0 alpha 1.49012e-08 beta 0 edge 0: OK route native core calls 2 host-fixed 0, 8194 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8900
+ok: f16^T x f16 -> f32 1x1x1 batch 1 pad 4/0/2 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: chip core == host-model core, bit for bit: f16^T x f16 -> f32 1x1x1 batch 1 pad 4/0/2 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e4m3^T -> f32 5x15x65 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 75 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0176
+ok: e5m2^T x e5m2^T -> f32 15x251x513 batch 1 pad 0/0/4 alpha -0.5 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 3765 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0259
+ok: chip core == host-model core, bit for bit: e5m2^T x e5m2^T -> f32 15x251x513 batch 1 pad 0/0/4 alpha -0.5 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x e4m3^T -> bf16 1x1x1 batch 1 pad 5/3/5 alpha -0.5 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.5316
+ok: f16^T x e5m2 -> f32 63x97x97 batch 1 pad 5/0/1 alpha 2.75 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 6111 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0479
+ok: chip core == host-model core, bit for bit: f16^T x e5m2 -> f32 63x97x97 batch 1 pad 5/0/1 alpha 2.75 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32 -> f16 65x1025x1000 batch 1 pad 0/3/0 alpha 3.72529e-09 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9009
+ok: f32 x f32^T -> f16 4097x32x97 batch 2 pad 6/0/0 alpha 2.98023e-08 beta -1.5 FAST_BF16 edge 0: OK route fast_bf16 core calls 4 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9813
+ok: f32^T x bf16^T -> f16 1x1x1 batch 1 pad 0/2/1 alpha 3.8147e-06 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: bf16^T x f16^T -> f32 511x13x1021 batch 1 pad 7/5/1 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0024
+ok: f32^T x f32 -> f32 4096x17x7 batch 2 A-bcast B-bcast pad 0/3/0 alpha -0.5 beta 1 FFMA_REF edge 0: OK route ffma core calls 2 host-fixed 0, 139264 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.6536
+ok: e4m3^T x e4m3 -> f32 1x1x1 batch 1 pad 0/0/0 alpha 2.75 beta 1 block-scale edge 0 blocks 100/7/32: OK route native core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0121
+ok: chip core == host-model core, bit for bit: e4m3^T x e4m3 -> f32 1x1x1 batch 1 pad 0/0/0 alpha 2.75 beta 1 block-scale edge 0 blocks 100/7/32: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e5m2 -> f16 7x97x1025 batch 1 pad 0/0/7 alpha 1.86265e-09 beta -1.5 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 679 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9948
+ok: bf16^T x bf16 -> f32 16x1023x17 batch 1 pad 7/0/0 alpha -0.5 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 16368 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0454
+ok: chip core == host-model core, bit for bit: bf16^T x bf16 -> f32 16x1023x17 batch 1 pad 7/0/0 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16^T x f16^T -> f32 5000x7x13 batch 1 pad 0/0/2 alpha -0.5 beta 0 edge 0: OK route native core calls 2 host-fixed 0, 35000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0395
+ok: e4m3 x e4m3^T -> f16 1x1x1 batch 1 pad 0/6/7 alpha 1.04904e-05 beta -1.5 edge 0: OK route native core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0222
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3^T -> f16 1x1x1 batch 1 pad 0/6/7 alpha 1.04904e-05 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: e5m2 x e5m2^T -> f16 97x15x32 batch 1 pad 0/4/0 alpha 1.19209e-07 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 1455 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9515
+ok: bf16^T x e4m3^T -> bf16 17x4096x15 batch 1 pad 0/0/0 alpha 1 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 69632 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9940
+ok: chip core == host-model core, bit for bit: bf16^T x e4m3^T -> bf16 17x4096x15 batch 1 pad 0/0/0 alpha 1 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16 x e5m2 -> f16 1x1x1 batch 1 pad 7/1/0 alpha 1.04904e-05 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0790
+ok: f32 x f32 -> f32 513x127x64 batch 1 pad 6/0/0 alpha -0.5 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 65151 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0133
+ok: f32 x f32 -> f16 1025x1025x511 batch 1 pad 0/0/0 alpha 7.45058e-09 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.1945
+ok: f32 x bf16^T -> f32 1x1x1 batch 1 pad 0/0/3 alpha -0.5 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0031
+ok: chip core == host-model core, bit for bit: f32 x bf16^T -> f32 1x1x1 batch 1 pad 0/0/3 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x f16^T -> f16 8x513x65 batch 1 pad 2/0/0 alpha 2.98023e-08 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 4104 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9765
+ok: f32 x f32^T -> f32 15x17x513 batch 1 pad 0/1/2 alpha 1 beta 1 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 255 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0013
+ok: chip core == host-model core, bit for bit: f32 x f32^T -> f32 15x17x513 batch 1 pad 0/1/2 alpha 1 beta 1 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3 -> f32 16x4097x255 batch 1 pad 0/0/0 alpha -0.5 beta 1 block-scale edge 0 blocks 128/100/16: OK route native core calls 32 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0032
+ok: e4m3 x e5m2 -> f16 1x1x1 batch 2 pad 0/7/0 alpha 3.8147e-06 beta 1 tensor-scale edge 0: OK route widen core calls 2 host-fixed 0, 2 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.5513
+ok: chip core == host-model core, bit for bit: e4m3 x e5m2 -> f16 1x1x1 batch 2 pad 0/7/0 alpha 3.8147e-06 beta 1 tensor-scale edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x bf16 -> f32 127x128x1021 batch 2 pad 0/0/6 alpha 2.75 beta -1.5 edge 0: OK route native core calls 2 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0202
+ok: f16 x f16^T -> f32 33x4096x31 batch 1 pad 0/0/0 alpha 2.75 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 135168 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0697
+ok: chip core == host-model core, bit for bit: f16 x f16^T -> f32 33x4096x31 batch 1 pad 0/0/0 alpha 2.75 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3^T -> f16 1x1x1 batch 2 pad 0/0/0 alpha 3.8147e-06 beta -1.5 edge 0: OK route native core calls 2 host-fixed 0, 2 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.6116
+ok: e5m2 x e5m2^T -> f16 1000x1021x1023 batch 1 pad 0/0/0 alpha 3.72529e-09 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9083
+ok: bf16 x e4m3 -> f32 1x16x17 batch 1 pad 5/0/5 alpha 1 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 16 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0242
+ok: f16^T x e5m2 -> f32 15x4097x16 batch 1 pad 0/5/0 alpha -0.5 beta 0 edge 0: OK route widen core calls 2 host-fixed 0, 61455 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0343
+ok: chip core == host-model core, bit for bit: f16^T x e5m2 -> f32 15x4097x16 batch 1 pad 0/5/0 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32 -> f16 1x1x1 batch 2 pad 1/0/0 alpha 3.8147e-06 beta -1.5 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 2 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.6047
+ok: f32 x f32 -> f32 16x128x31 batch 3 A-bcast B-bcast pad 0/0/0 alpha 1 beta -1.5 FAST_BF16 edge 0: OK route fast_bf16 core calls 3 host-fixed 0, 6144 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.6412
+ok: chip core == host-model core, bit for bit: f32 x f32 -> f32 16x128x31 batch 3 A-bcast B-bcast pad 0/0/0 alpha 1 beta -1.5 FAST_BF16 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x bf16 -> f16 8x4096x251 batch 1 pad 6/5/0 alpha 1.49012e-08 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9326
+ok: bf16 x f16^T -> f32 1x1x1 batch 1 pad 4/2/6 alpha 1 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: chip core == host-model core, bit for bit: bf16 x f16^T -> f32 1x1x1 batch 1 pad 4/2/6 alpha 1 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32^T -> f16 128x1000x32 batch 1 pad 3/1/0 alpha 1.19209e-07 beta -1.5 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 128000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9994
+ok: e4m3 x e4m3 -> f16 256x17x256 batch 3 A-bcast pad 0/0/0 alpha 5.82077e-11 beta 0 block-scale edge 0 blocks 7/1/16: OK route native core calls 48 host-fixed 0, 13056 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8608
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3 -> f16 256x17x256 batch 3 A-bcast pad 0/0/0 alpha 5.82077e-11 beta 0 block-scale edge 0 blocks 7/1/16: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e5m2^T -> f32 13x4097x8 batch 1 pad 7/0/0 alpha 1 beta 0 tensor-scale edge 0: OK route widen core calls 2 host-fixed 0, 53261 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0374
+ok: bf16 x bf16 -> bf16 1021x8x63 batch 3 A-bcast pad 0/0/0 alpha 1 beta 0 edge 0: OK route native core calls 3 host-fixed 0, 24504 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9939
+ok: chip core == host-model core, bit for bit: bf16 x bf16 -> bf16 1021x8x63 batch 3 A-bcast pad 0/0/0 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16 x f16^T -> f32 2x129x509 batch 3 pad 0/0/0 alpha 2.75 beta -1.5 edge 0: OK route native core calls 3 host-fixed 0, 774 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0253
+ok: e4m3^T x e4m3 -> bf16 8x4096x31 batch 1 pad 0/0/0 alpha 2.75 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 32768 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9892
+ok: chip core == host-model core, bit for bit: e4m3^T x e4m3 -> bf16 8x4096x31 batch 1 pad 0/0/0 alpha 2.75 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: e5m2 x e5m2^T -> f32 1x1x1 batch 1 pad 0/5/0 alpha 2.75 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: bf16 x e4m3 -> f32 17x1021x511 batch 2 A-bcast B-bcast pad 0/7/7 alpha 1 beta -1.5 edge 0: OK route widen core calls 2 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0346
+ok: f16 x e5m2 -> f32 32x32x20000 batch 2 pad 0/0/4 alpha 1 beta 0 edge 0: OK route widen core calls 4 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0030
+ok: f32^T x f32 -> f32 1x1x1 batch 2 A-bcast pad 0/0/0 alpha 1 beta 1 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 2 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0695
+ok: chip core == host-model core, bit for bit: f32^T x f32 -> f32 1x1x1 batch 2 A-bcast pad 0/0/0 alpha 1 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32^T -> f32 129x15x513 batch 1 pad 0/2/2 alpha 1 beta 1 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 1935 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.2313
+ok: f32^T x bf16^T -> f32 257x251x13 batch 1 pad 0/0/2 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 64507 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0082
+ok: chip core == host-model core, bit for bit: f32^T x bf16^T -> f32 257x251x13 batch 1 pad 0/0/2 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x f16^T -> f16 4096x1x255 batch 1 pad 0/0/0 alpha 4.09782e-08 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 4096 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9583
+ok: f32^T x f32^T -> f16 1x1x1 batch 1 pad 6/0/0 alpha 3.8147e-06 beta 0 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.3144
+ok: chip core == host-model core, bit for bit: f32^T x f32^T -> f16 1x1x1 batch 1 pad 6/0/0 alpha 3.8147e-06 beta 0 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e4m3 -> bf16 2x1025x15 batch 1 pad 5/4/0 alpha 1 beta 1 block-scale edge 0 blocks 16/100/16: OK route native core calls 1 host-fixed 0, 2050 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9707
+ok: e4m3^T x e5m2 -> f32 4095x5x129 batch 1 pad 0/2/0 alpha -0.5 beta 1 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 20475 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0517
+ok: chip core == host-model core, bit for bit: e4m3^T x e5m2 -> f32 4095x5x129 batch 1 pad 0/2/0 alpha -0.5 beta 1 tensor-scale edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x bf16 -> f32 1x1x1 batch 1 pad 0/6/0 alpha 2.75 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: f16^T x f16^T -> bf16 32x13x17 batch 2 pad 1/1/0 alpha 2.75 beta 1 edge 0: OK route native core calls 2 host-fixed 0, 832 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9522
+ok: chip core == host-model core, bit for bit: f16^T x f16^T -> bf16 32x13x17 batch 2 pad 1/1/0 alpha 2.75 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e4m3^T -> f32 65x129x251 batch 3 pad 0/0/0 alpha -0.5 beta 1 edge 0: OK route native core calls 3 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0182
+ok: e5m2^T x e5m2 -> f32 4096x13x257 batch 1 pad 0/0/0 alpha 2.75 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0291
+ok: chip core == host-model core, bit for bit: e5m2^T x e5m2 -> f32 4096x13x257 batch 1 pad 0/0/0 alpha 2.75 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x e4m3 -> bf16 255x65x31 batch 1 pad 0/0/6 alpha 2.75 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 16575 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9878
+ok: f16^T x e5m2 -> f32 511x1023x255 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0445
+ok: f32^T x f32 -> f16 4095x13x257 batch 1 pad 0/0/0 alpha 7.45058e-09 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9839
+ok: f32^T x f32^T -> f32 1x1x1 batch 1 pad 0/0/0 alpha 1 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.1082
+ok: chip core == host-model core, bit for bit: f32^T x f32^T -> f32 1x1x1 batch 1 pad 0/0/0 alpha 1 beta 0 FAST_BF16 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x bf16^T -> bf16 3x15x256 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 45 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8657
+ok: bf16^T x f16^T -> f32 1x2x3617 batch 1 pad 7/0/7 alpha 1 beta 1 edge 0: OK route bf16x3 core calls 3 host-fixed 0, 2 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0001
+ok: chip core == host-model core, bit for bit: bf16^T x f16^T -> f32 1x2x3617 batch 1 pad 7/0/7 alpha 1 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32 -> f16 4097x13x64 batch 1 pad 0/7/0 alpha 5.96046e-08 beta 1 FFMA_REF edge 0: OK route ffma core calls 2 host-fixed 0, 53261 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9869
+ok: e4m3^T x e4m3 -> f32 33x127x509 batch 1 pad 0/7/0 alpha 1 beta 0 block-scale edge 0 blocks 16/7/16: OK route native core calls 32 host-fixed 0, 4191 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0020
+ok: chip core == host-model core, bit for bit: e4m3^T x e4m3 -> f32 33x127x509 batch 1 pad 0/7/0 alpha 1 beta 0 block-scale edge 0 blocks 16/7/16: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e5m2 -> f32 97x1025x5 batch 1 pad 0/0/0 alpha 1 beta -1.5 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 99425 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9543
+ok: bf16 x bf16 -> f32 4095x15x1 batch 1 pad 4/0/0 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 61425 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: chip core == host-model core, bit for bit: bf16 x bf16 -> f32 4095x15x1 batch 1 pad 4/0/0 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16^T x f16^T -> f32 1x1x1 batch 2 A-bcast B-bcast pad 3/0/0 alpha -0.5 beta -1.5 edge 0: OK route native core calls 2 host-fixed 0, 2 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0049
+ok: e4m3^T x e4m3^T -> bf16 513x17x8 batch 2 pad 2/5/0 alpha 2.75 beta 0 edge 0: OK route native core calls 2 host-fixed 0, 17442 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9903
+ok: chip core == host-model core, bit for bit: e4m3^T x e4m3^T -> bf16 513x17x8 batch 2 pad 2/5/0 alpha 2.75 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: e5m2 x e5m2^T -> f16 64x17x20000 batch 1 pad 7/0/0 alpha 1.16415e-10 beta -1.5 edge 0: OK route widen core calls 2 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9590
+ok: bf16^T x e4m3 -> f32 1x1x1 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: chip core == host-model core, bit for bit: bf16^T x e4m3 -> f32 1x1x1 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16^T x e5m2 -> f32 5x128x13 batch 2 pad 0/6/0 alpha 2.75 beta 0 edge 0: OK route widen core calls 2 host-fixed 0, 1280 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0320
+ok: f32^T x f32 -> f32 15x2x127 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 30 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0045
+ok: chip core == host-model core, bit for bit: f32^T x f32 -> f32 15x2x127 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32^T -> bf16 4096x32x97 batch 1 pad 0/0/5 alpha -0.5 beta -1.5 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.4332
+ok: f32^T x bf16^T -> f32 63x1000x31 batch 2 pad 0/0/6 alpha 1 beta -1.5 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 126000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0129
+ok: bf16 x f16^T -> f32 127x31x251 batch 1 pad 0/0/0 alpha -0.5 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 3937 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0059
+ok: f32^T x f32^T -> f16 15x4095x63 batch 1 pad 3/0/0 alpha 5.96046e-08 beta 0 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 61425 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8942
+ok: chip core == host-model core, bit for bit: f32^T x f32^T -> f16 15x4095x63 batch 1 pad 3/0/0 alpha 5.96046e-08 beta 0 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3 -> f16 1x1x1 batch 1 pad 0/0/1 alpha 4.09782e-08 beta 0 block-scale edge 0 blocks 128/100/100: OK route native core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.3342
+ok: e4m3 x e5m2 -> f32 511x127x256 batch 1 pad 0/0/0 alpha -0.5 beta 0 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0314
+ok: chip core == host-model core, bit for bit: e4m3 x e5m2 -> f32 511x127x256 batch 1 pad 0/0/0 alpha -0.5 beta 0 tensor-scale edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x bf16^T -> f32 13x8x16383 batch 3 pad 0/1/3 alpha 2.75 beta -1.5 edge 0: OK route native core calls 3 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0046
+ok: f16 x f16^T -> bf16 5x4096x97 batch 1 pad 0/0/7 alpha 2.75 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 20480 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9855
+ok: chip core == host-model core, bit for bit: f16 x f16^T -> bf16 5x4096x97 batch 1 pad 0/0/7 alpha 2.75 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3^T -> bf16 7x1000x257 batch 1 pad 4/0/0 alpha -0.5 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 7000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9662
+ok: e5m2 x e5m2^T -> f32 16x17x5 batch 1 pad 0/2/7 alpha -0.5 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 272 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0197
+ok: chip core == host-model core, bit for bit: e5m2 x e5m2^T -> f32 16x17x5 batch 1 pad 0/2/7 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x e4m3^T -> f32 17x4095x15 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 69615 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0404
+ok: f16 x e5m2 -> bf16 1x1x1 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.7285
+ok: chip core == host-model core, bit for bit: f16 x e5m2 -> bf16 1x1x1 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32 -> f32 128x129x7 batch 1 pad 7/0/0 alpha -0.5 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 16512 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.4896
+ok: f32 x f32 -> f32 65x13x1807 batch 3 A-bcast pad 4/1/0 alpha 1 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 3 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.1312
+ok: chip core == host-model core, bit for bit: f32 x f32 -> f32 65x13x1807 batch 3 A-bcast pad 4/1/0 alpha 1 beta 0 FAST_BF16 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x bf16^T -> f32 13x4096x97 batch 1 pad 0/4/0 alpha 2.75 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0077
+ok: bf16 x f16^T -> bf16 513x1021x13 batch 1 pad 0/4/0 alpha 1 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9433
+ok: f32 x f32 -> f32 1025x32x97 batch 1 pad 0/0/2 alpha -0.5 beta 1 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 32800 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0103
+ok: e4m3^T x e4m3 -> f16 2x4095x8 batch 1 pad 4/0/0 alpha 1.86265e-09 beta 0 block-scale edge 0 blocks 16/7/16: OK route native core calls 1 host-fixed 0, 8190 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8944
+ok: chip core == host-model core, bit for bit: e4m3^T x e4m3 -> f16 2x4095x8 batch 1 pad 4/0/0 alpha 1.86265e-09 beta 0 block-scale edge 0 blocks 16/7/16: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e5m2 -> f32 8x13x15 batch 1 pad 0/0/7 alpha -0.5 beta -1.5 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 104 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0276
+ok: bf16 x bf16^T -> f32 17x251x128 batch 1 pad 0/1/0 alpha 1 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 4267 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0648
+ok: chip core == host-model core, bit for bit: bf16 x bf16^T -> f32 17x251x128 batch 1 pad 0/1/0 alpha 1 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16^T x f16^T -> f32 32x15x16383 batch 1 pad 0/4/0 alpha 1 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0049
+ok: e4m3 x e4m3^T -> f32 1x1x1 batch 1 pad 1/0/5 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3^T -> f32 1x1x1 batch 1 pad 1/0/5 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: e5m2 x e5m2 -> f16 129x1023x129 batch 1 pad 0/0/0 alpha 1.49012e-08 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8742
+ok: bf16 x e4m3^T -> f16 1x32x16383 batch 3 pad 0/0/0 alpha 6.40284e-10 beta -1.5 edge 0: OK route widen core calls 3 host-fixed 0, 96 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9542
+ok: chip core == host-model core, bit for bit: bf16 x e4m3^T -> f16 1x32x16383 batch 3 pad 0/0/0 alpha 6.40284e-10 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16 x e5m2^T -> f32 8x4095x257 batch 2 B-bcast pad 0/1/0 alpha -0.5 beta 0 edge 0: OK route widen core calls 2 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0404
+ok: f32 x f32 -> bf16 1000x16x251 batch 1 pad 2/0/0 alpha 1 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 16000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9434
+ok: f32 x f32^T -> f32 1x255x1 batch 1 pad 1/0/0 alpha -0.5 beta 1 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 255 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.6259
+ok: f32^T x bf16^T -> f32 17x5000x2 batch 1 pad 0/0/0 alpha 1 beta 1 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 85000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9468
+ok: chip core == host-model core, bit for bit: f32^T x bf16^T -> f32 17x5000x2 batch 1 pad 0/0/0 alpha 1 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x f16^T -> f32 1x1x1 batch 1 pad 0/6/0 alpha -0.5 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: f32 x f32 -> f32 31x1023x3 batch 1 pad 0/0/0 alpha 1 beta 0 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 31713 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0299
+ok: chip core == host-model core, bit for bit: f32 x f32 -> f32 31x1023x3 batch 1 pad 0/0/0 alpha 1 beta 0 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3 -> f32 64x8x16383 batch 2 pad 0/0/0 alpha 1 beta 0 block-scale edge 0 blocks 100/100/32: OK route native core calls 1024 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: e4m3 x e5m2^T -> f32 4095x7x64 batch 2 A-bcast B-bcast pad 0/0/3 alpha 1 beta 0 tensor-scale edge 0: OK route widen core calls 2 host-fixed 0, 57330 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0545
+ok: chip core == host-model core, bit for bit: e4m3 x e5m2^T -> f32 4095x7x64 batch 2 A-bcast B-bcast pad 0/0/3 alpha 1 beta 0 tensor-scale edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x bf16^T -> f32 128x15x5 batch 1 pad 0/0/0 alpha 1 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 1920 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.5343
+ok: f16^T x f16^T -> bf16 256x255x64 batch 3 A-bcast pad 0/0/2 alpha -0.5 beta 1 edge 0: OK route native core calls 3 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9678
+ok: chip core == host-model core, bit for bit: f16^T x f16^T -> bf16 256x255x64 batch 3 A-bcast pad 0/0/2 alpha -0.5 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e4m3^T -> f32 5000x15x97 batch 2 pad 0/0/0 alpha -0.5 beta 0 edge 0: OK route native core calls 4 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0166
+ok: e5m2^T x e5m2 -> bf16 1021x127x7 batch 3 pad 0/3/0 alpha 2.75 beta -1.5 edge 0: OK route widen core calls 3 host-fixed 0, 389001 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9942
+ok: chip core == host-model core, bit for bit: e5m2^T x e5m2 -> bf16 1021x127x7 batch 3 pad 0/3/0 alpha 2.75 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x e4m3 -> f16 2x1025x65 batch 3 A-bcast B-bcast pad 0/1/0 alpha 2.98023e-08 beta 0 edge 0: OK route widen core calls 3 host-fixed 0, 6150 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8821
+ok: f16 x e5m2^T -> f32 1x1x16384 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0015
+ok: chip core == host-model core, bit for bit: f16 x e5m2^T -> f32 1x1x16384 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32^T -> f32 1x1x1 batch 1 pad 6/0/3 alpha 2.75 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0011
+ok: f32^T x f32^T -> f32 32x16x97 batch 1 pad 3/1/6 alpha 2.75 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 512 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.5712
+ok: chip core == host-model core, bit for bit: f32^T x f32^T -> f32 32x16x97 batch 1 pad 3/1/6 alpha 2.75 beta 0 FAST_BF16 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x bf16^T -> f32 65x2x1808 batch 1 pad 0/0/0 alpha 1 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 130 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0013
+ok: bf16 x f16^T -> f32 5000x1x251 batch 1 pad 0/7/0 alpha -0.5 beta 0 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 5000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0054
+ok: chip core == host-model core, bit for bit: bf16 x f16^T -> f32 5000x1x251 batch 1 pad 0/7/0 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32 -> f32 129x128x128 batch 1 pad 0/0/5 alpha -0.5 beta 1 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 16512 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0070
+ok: e4m3^T x e4m3 -> f16 257x1x1023 batch 1 pad 5/0/0 alpha 1.45519e-11 beta 0 block-scale edge 0 blocks 128/1/32: OK route native core calls 32 host-fixed 0, 257 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.5456
+ok: chip core == host-model core, bit for bit: e4m3^T x e4m3 -> f16 257x1x1023 batch 1 pad 5/0/0 alpha 1.45519e-11 beta 0 block-scale edge 0 blocks 128/1/32: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e5m2^T -> bf16 4097x32x65 batch 1 pad 0/0/2 alpha 1 beta 0 tensor-scale edge 0: OK route widen core calls 2 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9658
+ok: bf16^T x bf16^T -> f32 1x1x1 batch 1 pad 0/4/0 alpha 1 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 1 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: chip core == host-model core, bit for bit: bf16^T x bf16^T -> f32 1x1x1 batch 1 pad 0/4/0 alpha 1 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16^T x f16^T -> f16 3x31x1025 batch 1 pad 0/0/0 alpha -9.31323e-10 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 93 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9460
+ok: e4m3 x e4m3^T -> f32 13x65x16384 batch 1 pad 0/0/0 alpha -0.5 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0031
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3^T -> f32 13x65x16384 batch 1 pad 0/0/0 alpha -0.5 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: e5m2^T x e5m2^T -> f32 4095x15x256 batch 1 pad 0/0/0 alpha 2.75 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0283
+ok: bf16^T x e4m3 -> f32 33x129x1 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 4257 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0000
+ok: chip core == host-model core, bit for bit: bf16^T x e4m3 -> f32 33x129x1 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16^T x e5m2 -> f32 64x3x32 batch 1 pad 0/0/3 alpha -0.5 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 192 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0414
+ok: f32^T x f32 -> f32 5000x33x16 batch 1 pad 0/3/0 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 165000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0112
+ok: f32^T x f32^T -> f32 251x1000x3 batch 1 pad 7/0/5 alpha -0.5 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 251000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9153
+ok: f32^T x bf16^T -> f16 509x17x33 batch 1 pad 0/5/0 alpha 5.96046e-08 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 8653 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8983
+ok: chip core == host-model core, bit for bit: f32^T x bf16^T -> f16 509x17x33 batch 1 pad 0/5/0 alpha 5.96046e-08 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x f16^T -> f32 32x13x1808 batch 1 pad 0/3/0 alpha 2.75 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 416 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0016
+ok: f32^T x f32^T -> f32 4095x5x7 batch 1 pad 2/0/0 alpha 1 beta 0 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 20475 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0342
+ok: chip core == host-model core, bit for bit: f32^T x f32^T -> f32 4095x5x7 batch 1 pad 2/0/0 alpha 1 beta 0 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e4m3 -> f32 5x128x97 batch 1 pad 7/2/0 alpha 1 beta -1.5 block-scale edge 0 blocks 16/100/16: OK route native core calls 7 host-fixed 0, 640 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0069
+ok: e4m3 x e5m2^T -> f32 2x33x16384 batch 3 B-bcast pad 0/1/0 alpha -0.5 beta 1 tensor-scale edge 0: OK route widen core calls 3 host-fixed 0, 198 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0038
+ok: chip core == host-model core, bit for bit: e4m3 x e5m2^T -> f32 2x33x16384 batch 3 B-bcast pad 0/1/0 alpha -0.5 beta 1 tensor-scale edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x bf16^T -> f32 5000x8x63 batch 1 pad 0/5/0 alpha 1 beta -1.5 edge 0: OK route native core calls 2 host-fixed 0, 40000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0691
+ok: f16^T x f16^T -> f32 32x1021x127 batch 1 pad 0/0/6 alpha 2.75 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 32672 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0666
+ok: chip core == host-model core, bit for bit: f16^T x f16^T -> f32 32x1021x127 batch 1 pad 0/0/6 alpha 2.75 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e4m3^T -> f32 65x31x1021 batch 1 pad 0/0/0 alpha 2.75 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 2015 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0115
+ok: e5m2 x e5m2^T -> f32 32x7x16385 batch 1 pad 0/0/2 alpha 2.75 beta 0 edge 0: OK route widen core calls 2 host-fixed 0, 224 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0030
+ok: chip core == host-model core, bit for bit: e5m2 x e5m2^T -> f32 32x7x16385 batch 1 pad 0/0/2 alpha 2.75 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x e4m3 -> f32 1x1x1 batch 3 pad 0/2/6 alpha 2.75 beta -1.5 edge 0: OK route widen core calls 3 host-fixed 0, 3 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0228
+ok: f16 x e5m2 -> f32 511x251x1023 batch 1 pad 0/4/0 alpha 2.75 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0193
+ok: f32^T x f32 -> f32 33x65x1809 batch 1 pad 0/5/0 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 2145 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0015
+ok: f32^T x f32 -> bf16 2x5000x257 batch 1 pad 0/5/0 alpha 1 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 2 host-fixed 0, 10000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.4326
+ok: chip core == host-model core, bit for bit: f32^T x f32 -> bf16 2x5000x257 batch 1 pad 0/5/0 alpha 1 beta 0 FAST_BF16 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x bf16^T -> f32 7x1023x1 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 7161 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0056
+ok: bf16 x f16 -> f16 13x33x31 batch 1 pad 0/0/0 alpha 1.19209e-07 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 429 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9414
+ok: chip core == host-model core, bit for bit: bf16 x f16 -> f16 13x33x31 batch 1 pad 0/0/0 alpha 1.19209e-07 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32^T -> f32 5x4097x7 batch 1 pad 0/0/0 alpha 1 beta -1.5 FFMA_REF edge 0: OK route ffma core calls 2 host-fixed 0, 20485 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.4002
+ok: e4m3 x e4m3 -> bf16 33x16x2 batch 1 pad 4/0/5 alpha 1 beta 0 block-scale edge 0 blocks 7/1/32: OK route native core calls 1 host-fixed 0, 528 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9504
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3 -> bf16 33x16x2 batch 1 pad 4/0/5 alpha 1 beta 0 block-scale edge 0 blocks 7/1/32: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e5m2^T -> f16 97x255x33 batch 1 pad 2/0/0 alpha 5.96046e-08 beta 0 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 24735 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9762
+ok: bf16^T x bf16^T -> f32 15x65x16385 batch 1 pad 1/0/1 alpha 1 beta 1 edge 0: OK route native core calls 2 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0045
+ok: chip core == host-model core, bit for bit: bf16^T x bf16^T -> f32 15x65x16385 batch 1 pad 1/0/1 alpha 1 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16^T x f16^T -> f32 32x5000x257 batch 1 pad 0/7/5 alpha -0.5 beta 0 edge 0: OK route native core calls 2 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0444
+ok: e4m3 x e4m3^T -> bf16 513x1025x63 batch 2 pad 5/0/0 alpha 1 beta 1 edge 0: OK route native core calls 2 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9476
+ok: e5m2 x e5m2 -> f32 65x63x16385 batch 1 pad 0/2/0 alpha 2.75 beta -1.5 edge 0: OK route widen core calls 2 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0046
+ok: bf16^T x e4m3 -> f32 3x4097x97 batch 1 pad 3/0/0 alpha 1 beta 1 edge 0: OK route widen core calls 2 host-fixed 0, 12291 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0506
+ok: chip core == host-model core, bit for bit: bf16^T x e4m3 -> f32 3x4097x97 batch 1 pad 3/0/0 alpha 1 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16 x e5m2 -> f32 8x15x65 batch 2 B-bcast pad 0/0/6 alpha 1 beta 0 edge 0: OK route widen core calls 2 host-fixed 0, 240 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0319
+ok: f32 x f32^T -> bf16 15x251x511 batch 2 pad 0/0/5 alpha -0.5 beta 0 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 7530 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8688
+ok: f32^T x f32^T -> bf16 17x1x1809 batch 1 pad 0/0/0 alpha 1 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 17 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0869
+ok: f32^T x bf16 -> f16 33x5000x97 batch 1 pad 5/1/0 alpha 8.19564e-08 beta -1.5 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9795
+ok: bf16 x f16 -> f32 127x1025x1000 batch 3 A-bcast B-bcast pad 0/2/7 alpha -0.5 beta 0 edge 0: OK route bf16x3 core calls 3 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0028
+ok: f32^T x f32 -> f16 8x65x16385 batch 1 pad 6/7/0 alpha 3.20142e-10 beta 0 FFMA_REF edge 0: OK route ffma core calls 2 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0046
+ok: chip core == host-model core, bit for bit: f32^T x f32 -> f16 8x65x16385 batch 1 pad 6/7/0 alpha 3.20142e-10 beta 0 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3 -> f32 5x4097x17 batch 2 A-bcast pad 0/0/0 alpha 1 beta 1 block-scale edge 0 blocks 128/1/32: OK route native core calls 4 host-fixed 0, 40970 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.2974
+ok: e4m3 x e5m2^T -> f32 1000x16x1021 batch 1 pad 6/0/0 alpha 2.75 beta 0 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0167
+ok: chip core == host-model core, bit for bit: e4m3 x e5m2^T -> f32 1000x16x1021 batch 1 pad 6/0/0 alpha 2.75 beta 0 tensor-scale edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x bf16^T -> f32 1023x256x16 batch 3 A-bcast pad 0/0/0 alpha 1 beta 1 edge 0: OK route native core calls 3 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0530
+ok: f16^T x f16 -> f32 2x13x16385 batch 2 B-bcast pad 0/0/0 alpha 1 beta 0 edge 0: OK route native core calls 4 host-fixed 0, 52 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0037
+ok: chip core == host-model core, bit for bit: f16^T x f16 -> f32 2x13x16385 batch 2 B-bcast pad 0/0/0 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3 -> f32 7x128x1023 batch 1 pad 2/0/0 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 896 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0084
+ok: e5m2 x e5m2 -> bf16 16x1x17 batch 1 pad 6/0/4 alpha 2.75 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 16 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8666
+ok: chip core == host-model core, bit for bit: e5m2 x e5m2 -> bf16 16x1x17 batch 1 pad 6/0/4 alpha 2.75 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x e4m3 -> f32 31x65x16385 batch 1 pad 3/2/0 alpha 1 beta 1 edge 0: OK route widen core calls 2 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0045
+ok: f16 x e5m2 -> bf16 32x4097x2 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0: OK route widen core calls 2 host-fixed 0, 131104 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9947
+ok: chip core == host-model core, bit for bit: f16 x e5m2 -> bf16 32x4097x2 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32^T -> bf16 128x31x32 batch 2 pad 0/3/6 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 7936 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9738
+ok: f32^T x f32^T -> f32 251x257x255 batch 1 pad 1/2/3 alpha -0.5 beta 1 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.3497
+ok: chip core == host-model core, bit for bit: f32^T x f32^T -> f32 251x257x255 batch 1 pad 1/2/3 alpha -0.5 beta 1 FAST_BF16 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x bf16^T -> bf16 4096x13x257 batch 1 pad 3/0/0 alpha 2.75 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8822
+ok: bf16^T x f16 -> f32 1021x129x33 batch 2 pad 0/0/0 alpha -0.5 beta 1 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0109
+ok: f32^T x f32 -> f32 1025x2x257 batch 1 pad 0/0/6 alpha 1 beta 1 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 2050 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0036
+ok: e4m3 x e4m3^T -> f32 64x16x20000 batch 2 pad 0/0/2 alpha 1 beta -1.5 block-scale edge 0 blocks 1/100/100: OK route native core calls 400 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0001
+ok: e4m3^T x e5m2 -> f32 5000x5x2 batch 3 B-bcast pad 0/4/0 alpha 2.75 beta 1 tensor-scale edge 0: OK route widen core calls 6 host-fixed 0, 75000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9324
+ok: bf16^T x bf16^T -> f32 17x17x509 batch 1 pad 0/2/5 alpha 2.75 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 289 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0201
+ok: chip core == host-model core, bit for bit: bf16^T x bf16^T -> f32 17x17x509 batch 1 pad 0/2/5 alpha 2.75 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16^T x f16 -> bf16 32x8x20000 batch 2 pad 5/0/0 alpha -0.5 beta 0 edge 0: OK route native core calls 4 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.1973
+ok: e4m3 x e4m3 -> f32 4097x17x257 batch 1 pad 0/0/7 alpha 1 beta 1 edge 0: OK route native core calls 2 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0139
+ok: e5m2^T x e5m2 -> f32 129x128x511 batch 1 pad 3/0/0 alpha 1 beta -1.5 edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0254
+ok: bf16^T x e4m3 -> f32 255x2x8 batch 1 pad 1/0/1 alpha -0.5 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 510 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0281
+ok: chip core == host-model core, bit for bit: bf16^T x e4m3 -> f32 255x2x8 batch 1 pad 1/0/1 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16^T x e5m2 -> f16 13x63x20000 batch 2 pad 0/0/0 alpha 1.16415e-10 beta 0 edge 0: OK route widen core calls 4 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0488
+ok: f32^T x f32^T -> f16 1000x1021x1000 batch 1 pad 0/0/2 alpha 1.02445e-08 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9716
+ok: f32^T x f32^T -> bf16 1x31x15 batch 3 pad 3/0/4 alpha 1 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 3 host-fixed 0, 93 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.5395
+ok: f32 x bf16^T -> bf16 8x3x3617 batch 3 B-bcast pad 0/3/0 alpha -0.5 beta 0 edge 0: OK route bf16x3 core calls 9 host-fixed 0, 72 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.2843
+ok: chip core == host-model core, bit for bit: f32 x bf16^T -> bf16 8x3x3617 batch 3 B-bcast pad 0/3/0 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x f16 -> f16 4097x3x255 batch 1 pad 0/0/0 alpha 1.49012e-08 beta 1 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 12291 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9676
+ok: f32^T x f32 -> f32 31x251x16 batch 1 pad 0/1/4 alpha 2.75 beta 0 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 7781 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0244
+ok: chip core == host-model core, bit for bit: f32^T x f32 -> f32 31x251x16 batch 1 pad 0/1/4 alpha 2.75 beta 0 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e4m3 -> f32 33x3x129 batch 1 pad 0/3/0 alpha 1 beta 0 block-scale edge 0 blocks 1/100/128: OK route native core calls 2 host-fixed 0, 99 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0131
+ok: e4m3^T x e5m2 -> f16 8x33x20000 batch 3 B-bcast pad 0/0/0 alpha 1.16415e-10 beta 0 tensor-scale edge 0: OK route widen core calls 6 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0437
+ok: chip core == host-model core, bit for bit: e4m3^T x e5m2 -> f16 8x33x20000 batch 3 B-bcast pad 0/0/0 alpha 1.16415e-10 beta 0 tensor-scale edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x bf16^T -> f32 251x1023x32 batch 3 A-bcast pad 0/0/0 alpha -0.5 beta 0 edge 0: OK route native core calls 3 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0478
+ok: f16^T x f16^T -> bf16 256x32x256 batch 1 pad 0/0/6 alpha 2.75 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 8192 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9633
+ok: chip core == host-model core, bit for bit: f16^T x f16^T -> bf16 256x32x256 batch 1 pad 0/0/6 alpha 2.75 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3^T -> f32 17x32x20000 batch 1 pad 0/5/0 alpha 1 beta 0 edge 0: OK route native core calls 2 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0014
+ok: e5m2^T x e5m2^T -> f32 4097x3x1 batch 2 pad 0/4/0 alpha 1 beta 1 edge 0: OK route widen core calls 4 host-fixed 0, 24582 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9846
+ok: chip core == host-model core, bit for bit: e5m2^T x e5m2^T -> f32 4097x3x1 batch 2 pad 0/4/0 alpha 1 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x e4m3 -> f32 2x255x257 batch 3 pad 0/0/4 alpha -0.5 beta 1 edge 0: OK route widen core calls 3 host-fixed 0, 1530 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0361
+ok: f16^T x e5m2 -> bf16 32x15x20000 batch 1 pad 3/6/0 alpha -0.5 beta 1 edge 0: OK route widen core calls 2 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.2966
+ok: chip core == host-model core, bit for bit: f16^T x e5m2 -> bf16 32x15x20000 batch 1 pad 3/6/0 alpha -0.5 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32^T -> f32 4096x1x33 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 4096 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0079
+ok: f32^T x f32^T -> bf16 32x1025x511 batch 3 pad 6/0/0 alpha 1 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 3 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.2863
+ok: f32^T x bf16 -> f16 63x63x8 batch 3 A-bcast pad 5/0/0 alpha 1.3113e-06 beta 0 edge 0: OK route bf16x3 core calls 3 host-fixed 0, 11907 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9335
+ok: bf16 x f16^T -> f32 7x5x3617 batch 2 A-bcast pad 2/0/0 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 6 host-fixed 0, 70 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0004
+ok: chip core == host-model core, bit for bit: bf16 x f16^T -> f32 7x5x3617 batch 2 A-bcast pad 2/0/0 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32 -> bf16 255x15x513 batch 3 pad 0/1/0 alpha 2.75 beta 1 FFMA_REF edge 0: OK route ffma core calls 3 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.7980
+ok: e4m3 x e4m3 -> f32 257x251x13 batch 1 pad 0/0/0 alpha 1 beta 1 block-scale edge 0 blocks 1/1/100: OK route native core calls 1 host-fixed 0, 64507 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.3174
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3 -> f32 257x251x13 batch 1 pad 0/0/0 alpha 1 beta 1 block-scale edge 0 blocks 1/1/100: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e5m2 -> f32 31x17x16383 batch 1 pad 2/1/0 alpha 2.75 beta -1.5 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0037
+ok: bf16^T x bf16 -> f32 31x4096x127 batch 1 pad 0/5/0 alpha 1 beta -1.5 edge 0: OK route native core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0425
+ok: chip core == host-model core, bit for bit: bf16^T x bf16 -> f32 31x4096x127 batch 1 pad 0/5/0 alpha 1 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16 x f16^T -> f32 3x1025x15 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 3075 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0360
+ok: e4m3 x e4m3 -> f32 13x33x128 batch 1 pad 0/3/5 alpha 1 beta -1.5 edge 0: OK route native core calls 1 host-fixed 0, 429 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0162
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3 -> f32 13x33x128 batch 1 pad 0/3/5 alpha 1 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: e5m2^T x e5m2^T -> f32 7x2x16383 batch 1 pad 6/3/0 alpha -0.5 beta -1.5 edge 0: OK route widen core calls 1 host-fixed 0, 14 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0025
+ok: bf16 x e4m3 -> f32 33x16x17 batch 1 pad 0/7/0 alpha -0.5 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 528 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0406
+ok: chip core == host-model core, bit for bit: bf16 x e4m3 -> f32 33x16x17 batch 1 pad 0/7/0 alpha -0.5 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16 x e5m2^T -> bf16 64x256x129 batch 1 pad 0/0/7 alpha 1 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 16384 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9914
+ok: f32^T x f32^T -> f32 3x5x1807 batch 1 pad 0/0/0 alpha 2.75 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 15 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0010
+ok: chip core == host-model core, bit for bit: f32^T x f32^T -> f32 3x5x1807 batch 1 pad 0/0/0 alpha 2.75 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32^T -> f32 32x4096x31 batch 1 pad 5/0/2 alpha 1 beta 1 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 131072 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8096
+ok: f32 x bf16 -> f32 509x1x255 batch 1 pad 7/0/0 alpha -0.5 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 509 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0045
+ok: chip core == host-model core, bit for bit: f32 x bf16 -> f32 509x1x255 batch 1 pad 7/0/0 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x f16 -> bf16 1021x63x2 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 64323 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9896
+ok: f32^T x f32^T -> bf16 3x4095x5 batch 3 pad 0/0/0 alpha 2.75 beta 0 FFMA_REF edge 0: OK route ffma core calls 3 host-fixed 0, 36855 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9936
+ok: chip core == host-model core, bit for bit: f32^T x f32^T -> bf16 3x4095x5 batch 3 pad 0/0/0 alpha 2.75 beta 0 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3^T -> f32 5x17x256 batch 1 pad 0/0/0 alpha 2.75 beta 0 block-scale edge 0 blocks 128/100/32: OK route native core calls 8 host-fixed 0, 85 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0049
+ok: e4m3 x e5m2^T -> f32 8x257x3 batch 1 pad 2/7/4 alpha -0.5 beta 0 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 2056 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0312
+ok: chip core == host-model core, bit for bit: e4m3 x e5m2^T -> f32 8x257x3 batch 1 pad 2/7/4 alpha -0.5 beta 0 tensor-scale edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x bf16^T -> f32 8x33x16383 batch 1 pad 0/0/0 alpha -0.5 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0037
+ok: f16 x f16^T -> f32 63x129x257 batch 1 pad 0/1/0 alpha -0.5 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 8127 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0493
+ok: chip core == host-model core, bit for bit: f16 x f16^T -> f32 63x129x257 batch 1 pad 0/1/0 alpha -0.5 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3 -> bf16 65x2x5 batch 1 pad 0/0/2 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 130 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9162
+ok: e5m2 x e5m2^T -> f16 1x64x16383 batch 1 pad 0/0/0 alpha -1.16415e-10 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 64 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0341
+ok: chip core == host-model core, bit for bit: e5m2 x e5m2^T -> f16 1x64x16383 batch 1 pad 0/0/0 alpha -1.16415e-10 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x e4m3^T -> f32 32x4095x1 batch 3 A-bcast B-bcast pad 5/0/0 alpha -0.5 beta -1.5 edge 0: OK route widen core calls 3 host-fixed 0, 393120 checked, 0 wrong, 0 untouched changed, max |err| / bound 1.0000
+ok: f16 x e5m2^T -> f32 511x32x8 batch 1 pad 0/0/6 alpha -0.5 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 16352 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0283
+ok: chip core == host-model core, bit for bit: f16 x e5m2^T -> f32 511x32x8 batch 1 pad 0/0/6 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32^T -> f32 1023x509x65 batch 1 pad 0/7/2 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0074
+ok: f32^T x f32 -> f32 7x17x1807 batch 2 B-bcast pad 0/1/0 alpha 1 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 2 host-fixed 0, 238 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.1083
+ok: chip core == host-model core, bit for bit: f32^T x f32 -> f32 7x17x1807 batch 2 B-bcast pad 0/1/0 alpha 1 beta 0 FAST_BF16 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x bf16 -> bf16 7x128x13 batch 1 pad 4/0/0 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 896 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9428
+ok: bf16 x f16 -> f32 13x2x127 batch 1 pad 0/2/0 alpha -0.5 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 26 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0030
+ok: chip core == host-model core, bit for bit: bf16 x f16 -> f32 13x2x127 batch 1 pad 0/2/0 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32 -> f32 16x63x16383 batch 1 pad 0/2/0 alpha 1 beta 0 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0001
+ok: e4m3 x e4m3 -> f16 13x4096x1 batch 1 pad 2/0/6 alpha 4.09782e-08 beta 1 block-scale edge 0 blocks 16/1/128: OK route native core calls 1 host-fixed 0, 53248 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9619
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3 -> f16 13x4096x1 batch 1 pad 2/0/6 alpha 4.09782e-08 beta 1 block-scale edge 0 blocks 16/1/128: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e5m2^T -> f32 97x31x128 batch 1 pad 4/0/0 alpha 1 beta 0 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 3007 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0443
+ok: bf16^T x bf16^T -> f32 251x257x1023 batch 1 pad 4/0/0 alpha -0.5 beta -1.5 edge 0: OK route native core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0179
+ok: f16 x f16 -> f32 5x17x16384 batch 1 pad 4/4/0 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 85 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0035
+ok: e4m3^T x e4m3 -> f32 513x129x129 batch 1 pad 0/0/0 alpha 1 beta 1 edge 0: OK route native core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0185
+ok: chip core == host-model core, bit for bit: e4m3^T x e4m3 -> f32 513x129x129 batch 1 pad 0/0/0 alpha 1 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: e5m2^T x e5m2 -> f32 1025x3x1025 batch 1 pad 0/0/1 alpha 1 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 3075 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0195
+ok: bf16 x e4m3 -> f32 65x63x16384 batch 1 pad 0/0/4 alpha -0.5 beta -1.5 edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0037
+ok: f16^T x e5m2^T -> f16 8x1023x255 batch 1 pad 0/6/1 alpha 1.49012e-08 beta -1.5 edge 0: OK route widen core calls 1 host-fixed 0, 8184 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9970
+ok: f32^T x f32^T -> f32 15x32x2 batch 3 B-bcast pad 0/1/0 alpha 2.75 beta -1.5 edge 0: OK route bf16x3 core calls 3 host-fixed 0, 1440 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.7446
+ok: chip core == host-model core, bit for bit: f32^T x f32^T -> f32 15x32x2 batch 3 B-bcast pad 0/1/0 alpha 2.75 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32^T -> bf16 32x511x32 batch 1 pad 0/0/0 alpha 1 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 16352 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.7143
+ok: f32^T x bf16 -> bf16 4095x3x251 batch 1 pad 6/0/0 alpha 1 beta 1 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 12285 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9299
+ok: bf16^T x f16 -> f16 127x255x3 batch 3 pad 0/0/7 alpha -4.76837e-07 beta 0 edge 0: OK route bf16x3 core calls 3 host-fixed 0, 97155 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9452
+ok: f32^T x f32 -> f16 255x5x63 batch 1 pad 0/0/0 alpha 5.96046e-08 beta 1 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 1275 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9450
+ok: chip core == host-model core, bit for bit: f32^T x f32 -> f16 255x5x63 batch 1 pad 0/0/0 alpha 5.96046e-08 beta 1 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e4m3^T -> bf16 7x16x16384 batch 1 pad 3/0/0 alpha -0.5 beta 1 block-scale edge 0 blocks 16/7/128: OK route native core calls 128 host-fixed 0, 112 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.4321
+ok: e4m3^T x e5m2^T -> f16 1000x1025x5 batch 1 pad 1/4/0 alpha 4.76837e-07 beta 0 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.7196
+ok: chip core == host-model core, bit for bit: e4m3^T x e5m2^T -> f16 1000x1025x5 batch 1 pad 1/4/0 alpha 4.76837e-07 beta 0 tensor-scale edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x bf16^T -> f16 1023x63x64 batch 3 pad 6/0/0 alpha 1.63913e-07 beta -1.5 edge 0: OK route native core calls 3 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9758
+ok: f16 x f16 -> f16 63x3x16384 batch 1 pad 0/6/7 alpha -1.16415e-10 beta -1.5 edge 0: OK route native core calls 1 host-fixed 0, 189 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9440
+ok: chip core == host-model core, bit for bit: f16 x f16 -> f16 63x3x16384 batch 1 pad 0/6/7 alpha -1.16415e-10 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3^T x e4m3 -> bf16 4095x13x129 batch 1 pad 6/0/0 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9732
+ok: e5m2^T x e5m2 -> bf16 16x256x127 batch 1 pad 0/2/0 alpha -0.5 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 4096 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9725
+ok: chip core == host-model core, bit for bit: e5m2^T x e5m2 -> bf16 16x256x127 batch 1 pad 0/2/0 alpha -0.5 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x e4m3^T -> f32 33x7x1021 batch 1 pad 1/0/0 alpha 2.75 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 231 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0140
+ok: f16 x e5m2 -> f32 1x32x16384 batch 1 pad 0/0/0 alpha -0.5 beta 1 edge 0: OK route widen core calls 1 host-fixed 0, 32 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0032
+ok: chip core == host-model core, bit for bit: f16 x e5m2 -> f32 1x32x16384 batch 1 pad 0/0/0 alpha -0.5 beta 1 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32^T -> f32 128x1023x129 batch 1 pad 0/0/0 alpha -0.5 beta -1.5 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0065
+ok: f32^T x f32^T -> f32 256x33x1025 batch 1 pad 0/0/0 alpha -0.5 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.1813
+ok: chip core == host-model core, bit for bit: f32^T x f32^T -> f32 256x33x1025 batch 1 pad 0/0/0 alpha -0.5 beta 0 FAST_BF16 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x bf16^T -> f16 8x13x1808 batch 2 pad 2/0/0 alpha 1.86265e-09 beta -1.5 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 208 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9651
+ok: bf16^T x f16 -> bf16 1021x16x251 batch 3 pad 1/0/5 alpha 1 beta 0 edge 0: OK route bf16x3 core calls 3 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8964
+ok: f32^T x f32 -> f32 1025x255x1 batch 1 pad 0/6/0 alpha 2.75 beta -1.5 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 261375 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9999
+ok: e4m3^T x e4m3^T -> f16 5x7x32 batch 1 pad 0/3/0 alpha 4.65661e-10 beta 1 block-scale edge 0 blocks 1/7/16: OK route native core calls 2 host-fixed 0, 35 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.5230
+ok: chip core == host-model core, bit for bit: e4m3^T x e4m3^T -> f16 5x7x32 batch 1 pad 0/3/0 alpha 4.65661e-10 beta 1 block-scale edge 0 blocks 1/7/16: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e5m2 -> bf16 17x32x16384 batch 1 pad 0/2/0 alpha 2.75 beta 0 tensor-scale edge 0: OK route widen core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.4009
+ok: bf16^T x bf16^T -> bf16 17x1x2 batch 1 pad 3/7/3 alpha 2.75 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 17 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.6990
+ok: chip core == host-model core, bit for bit: bf16^T x bf16^T -> bf16 17x1x2 batch 1 pad 3/7/3 alpha 2.75 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16^T x f16 -> bf16 63x63x33 batch 1 pad 0/0/0 alpha 2.75 beta -1.5 edge 0: OK route native core calls 1 host-fixed 0, 3969 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9597
+ok: e4m3 x e4m3 -> f32 1x3x16384 batch 1 pad 0/7/0 alpha 1 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 3 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0004
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3 -> f32 1x3x16384 batch 1 pad 0/7/0 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: e5m2^T x e5m2 -> f32 129x17x5 batch 1 pad 6/5/3 alpha 1 beta -1.5 edge 0: OK route widen core calls 1 host-fixed 0, 2193 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.8133
+ok: bf16 x e4m3^T -> f16 257x257x63 batch 1 pad 3/0/0 alpha 5.96046e-08 beta -1.5 edge 0: OK route widen core calls 1 host-fixed 0, 66049 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9987
+ok: chip core == host-model core, bit for bit: bf16 x e4m3^T -> f16 257x257x63 batch 1 pad 3/0/0 alpha 5.96046e-08 beta -1.5 edge 0: OK / OK, 0 differ (first element 0)
+ok: f16 x e5m2^T -> f32 511x8x509 batch 1 pad 2/0/0 alpha 2.75 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 4088 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0393
+ok: f32^T x f32 -> f16 31x5000x3 batch 1 pad 0/0/0 alpha -4.76837e-07 beta 0 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 155000 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9492
+ok: chip core == host-model core, bit for bit: f32^T x f32 -> f16 31x5000x3 batch 1 pad 0/0/0 alpha -4.76837e-07 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x f32 -> f32 1x2x65 batch 1 pad 0/7/7 alpha 2.75 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 2 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.2025
+ok: f32 x bf16 -> f16 7x65x513 batch 1 pad 0/0/0 alpha 1.02445e-08 beta 0 edge 0: OK route bf16x3 core calls 1 host-fixed 0, 455 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.4478
+ok: chip core == host-model core, bit for bit: f32 x bf16 -> f16 7x65x513 batch 1 pad 0/0/0 alpha 1.02445e-08 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16^T x f16^T -> f32 3x2x1809 batch 3 pad 0/5/0 alpha -0.5 beta 0 edge 0: OK route bf16x3 core calls 6 host-fixed 0, 18 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0013
+ok: f32 x f32 -> f32 31x31x97 batch 1 pad 0/0/0 alpha 1 beta 0 FFMA_REF edge 0: OK route ffma core calls 1 host-fixed 0, 961 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0067
+ok: chip core == host-model core, bit for bit: f32 x f32 -> f32 31x31x97 batch 1 pad 0/0/0 alpha 1 beta 0 FFMA_REF edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3^T -> f32 64x509x1000 batch 1 pad 0/0/0 alpha 1 beta -1.5 block-scale edge 0 blocks 100/100/16: OK route native core calls 63 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0007
+ok: e4m3 x e5m2^T -> bf16 16x17x16385 batch 1 pad 0/0/0 alpha 1 beta 1 tensor-scale edge 0: OK route widen core calls 2 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.2822
+ok: chip core == host-model core, bit for bit: e4m3 x e5m2^T -> bf16 16x17x16385 batch 1 pad 0/0/0 alpha 1 beta 1 tensor-scale edge 0: OK / OK, 0 differ (first element 0)
+ok: bf16 x bf16^T -> f32 251x251x128 batch 1 pad 0/0/0 alpha 1 beta -1.5 edge 0: OK route native core calls 1 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0484
+ok: f16 x f16 -> f32 256x3x1021 batch 3 pad 0/4/6 alpha 2.75 beta 0 edge 0: OK route native core calls 3 host-fixed 0, 2304 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0216
+ok: chip core == host-model core, bit for bit: f16 x f16 -> f32 256x3x1021 batch 3 pad 0/4/6 alpha 2.75 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e4m3 -> bf16 513x64x16 batch 1 pad 0/0/3 alpha 2.75 beta 0 edge 0: OK route native core calls 1 host-fixed 0, 32832 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9925
+ok: e5m2^T x e5m2 -> f32 64x63x16385 batch 1 pad 0/0/0 alpha 1 beta 0 edge 0: OK route widen core calls 2 host-fixed 0, 516 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0044
+ok: bf16 x e4m3^T -> f32 2x31x1025 batch 1 pad 7/1/0 alpha 2.75 beta -1.5 edge 0: OK route widen core calls 1 host-fixed 0, 62 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0124
+ok: f16 x e5m2^T -> f32 8x257x17 batch 1 pad 4/0/0 alpha 1 beta 0 edge 0: OK route widen core calls 1 host-fixed 0, 2056 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0393
+ok: chip core == host-model core, bit for bit: f16 x e5m2^T -> f32 8x257x17 batch 1 pad 4/0/0 alpha 1 beta 0 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32^T x f32^T -> bf16 5x33x1809 batch 1 pad 0/0/0 alpha -0.5 beta 1 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 165 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.4594
+ok: f32 x f32 -> f32 32x129x1 batch 1 pad 0/0/0 alpha 1 beta 0 FAST_BF16 edge 0: OK route fast_bf16 core calls 1 host-fixed 0, 4128 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.7966
+ok: chip core == host-model core, bit for bit: f32 x f32 -> f32 32x129x1 batch 1 pad 0/0/0 alpha 1 beta 0 FAST_BF16 edge 0: OK / OK, 0 differ (first element 0)
+ok: f32 x bf16 -> f32 65x3x32 batch 2 pad 7/0/0 alpha 1 beta -1.5 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 390 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0074
+ok: bf16 x f16 -> f32 127x65x256 batch 2 A-bcast B-bcast pad 7/0/0 alpha -0.5 beta 0 edge 0: OK route bf16x3 core calls 2 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0072
+ok: f32^T x f32 -> f16 13x5000x33 batch 3 A-bcast pad 0/5/4 alpha 1.63913e-07 beta -1.5 FFMA_REF edge 0: OK route ffma core calls 6 host-fixed 0, 1548 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9928
+ok: e4m3 x e4m3^T -> bf16 257x32x33 batch 3 A-bcast pad 0/5/5 alpha 1 beta -1.5 block-scale edge 0 blocks 100/128/100: OK route native core calls 3 host-fixed 0, 24672 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9925
+ok: chip core == host-model core, bit for bit: e4m3 x e4m3^T -> bf16 257x32x33 batch 3 A-bcast pad 0/5/5 alpha 1 beta -1.5 block-scale edge 0 blocks 100/128/100: OK / OK, 0 differ (first element 0)
+ok: e4m3 x e5m2^T -> bf16 1000x511x257 batch 2 A-bcast pad 0/7/0 alpha 1 beta 1 tensor-scale edge 0: OK route widen core calls 2 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9580
+ok: bf16 x bf16^T -> f16 65x33x16385 batch 2 pad 0/0/5 alpha 1.16415e-10 beta 1 edge 0: OK route native core calls 4 host-fixed 0, 1032 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.9334
+ok: f16 x f16 -> f32 3x255x64 batch 2 pad 0/0/3 alpha 1 beta -1.5 edge 0: OK route native core calls 2 host-fixed 0, 1530 checked, 0 wrong, 0 untouched changed, max |err| / bound 0.0560
+sweep part 0/1: 600 cases (244 also bit for bit against the model core): PASS
+route native: largest |got - ref| / bound = 0.9969 (passing elements)
+route widen: largest |got - ref| / bound = 1.0000 (passing elements)
+route bf16x3: largest |got - ref| / bound = 0.9995 (passing elements)
+route fast_bf16: largest |got - ref| / bound = 0.9895 (passing elements)
+route ffma: largest |got - ref| / bound = 0.9999 (passing elements)
+gemm_ex chip: PASS (902 checks)

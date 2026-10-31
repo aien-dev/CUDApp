@@ -143,6 +143,13 @@ static uint32_t ws_rds(const WsLane *l, int v, unsigned sub, const BlackwellIRPr
 static void ws_wrs(WsLane *l, int v, unsigned sub, uint32_t x, const BlackwellIRProgram *p) { if (v < 0) return; int ph = p->regalloc.vreg_to_phys[v]; if (ph >= 0) l->r[(ph + sub) & 0xff] = x; }
 static float ws_u2f(uint32_t u) { float f; memcpy(&f, &u, 4); return f; }
 static uint32_t ws_f2u(float f) { uint32_t u; memcpy(&u, &f, 4); return u; }
+/* IEEE fp16 bits -> f32 (exact: every fp16 value, subnormals included, is an f32) */
+static float ws_h2f(uint16_t h) {
+    const uint32_t s = (uint32_t)(h >> 15) << 31, e = (h >> 10) & 0x1fu, m = h & 0x3ffu;
+    if (e == 0x1fu) return ws_u2f(s | 0x7f800000u | m << 13);
+    if (e == 0) { float f = (float)m * 0x1p-24f; return s ? -f : f; }
+    return ws_u2f(s | (e + 112u) << 23 | m << 13);
+}
 static uint32_t ws_bf16_rn(uint32_t u) { if ((u & 0x7fffffffu) > 0x7f800000u) return 0x7fc0u; return (u + 0x7fffu + ((u >> 16) & 1u)) >> 16; } /* f32 bits -> bf16 bits, round to nearest even */
 /* MUFU EX2 / RCP / RSQ: the flush rule and its evidence live in bw_mufu_ftz.h (shared by every simulator, omega #462). */
 static uint32_t ws_lut3(uint32_t lut, uint32_t a, uint32_t b, uint32_t c) {
@@ -323,6 +330,7 @@ static int ws_run_warp(WsSim *s, WsWarp *w, uint32_t warp, uint32_t cx, uint32_t
             f->pc = pc + 1;
             break;
         }
+        case BW_IR_HMMA_F16:
         case BW_IR_HMMA_BF16: {
             if (w->exited) { ws_fail(s, WS_E_SHFL_EXITED, pc, "HMMA on a warp with exited lanes"); return -1; }
             if (mask != live) { ws_fail(s, WS_E_SHFL_SPLIT, pc, "HMMA on a split warp"); return -1; }
@@ -354,8 +362,11 @@ static int ws_run_warp(WsSim *s, WsWarp *w, uint32_t warp, uint32_t cx, uint32_t
                 for (unsigned q = 0; q < 4; q++) { a4[q] = ws_rds(ln, in->src1_vreg, in->src1_subreg + q, p); c4[q] = in->src3_vreg >= 0 ? ws_rds(ln, in->src3_vreg, in->src3_subreg + q, p) : 0u; }
                 for (unsigned q = 0; q < 2; q++) b2[q] = ws_rds(ln, in->src2_vreg, in->src2_subreg + q, p); /* operands may start at a subregister (the encoder adds it) */
                 const int ar[4] = { gg, gg + 8, gg, gg + 8 }, ac[4] = { 2 * tt, 2 * tt, 2 * tt + 8, 2 * tt + 8 };
-                for (unsigned q = 0; q < 4; q++) { A[ar[q]][ac[q]] = ws_u2f(a4[q] << 16); A[ar[q]][ac[q] + 1] = ws_u2f(a4[q] & 0xffff0000u); }
-                for (unsigned q = 0; q < 2; q++) { B[2 * tt + 8 * q][gg] = ws_u2f(b2[q] << 16); B[2 * tt + 8 * q + 1][gg] = ws_u2f(b2[q] & 0xffff0000u); }
+                /* operand halves: bf16 (the high 16 bits of an f32) or IEEE fp16 (HMMA.16816.F32 without .BF16, GemmGeneral) */
+                #define WS_HV(h) (in->op == BW_IR_HMMA_F16 ? ws_h2f((uint16_t)(h)) : ws_u2f((uint32_t)(h) << 16))
+                for (unsigned q = 0; q < 4; q++) { A[ar[q]][ac[q]] = WS_HV(a4[q] & 0xffffu); A[ar[q]][ac[q] + 1] = WS_HV(a4[q] >> 16); }
+                for (unsigned q = 0; q < 2; q++) { B[2 * tt + 8 * q][gg] = WS_HV(b2[q] & 0xffffu); B[2 * tt + 8 * q + 1][gg] = WS_HV(b2[q] >> 16); }
+                #undef WS_HV
                 C[gg][2 * tt] = ws_u2f(c4[0]); C[gg][2 * tt + 1] = ws_u2f(c4[1]); C[gg + 8][2 * tt] = ws_u2f(c4[2]); C[gg + 8][2 * tt + 1] = ws_u2f(c4[3]);
             }
             for (int L = 0; L < WS_WARP; L++) {
