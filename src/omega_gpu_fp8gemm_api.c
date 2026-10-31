@@ -225,19 +225,44 @@ int omega_gpu_fp8gemm_prepare(uint32_t k) {
     return rc;
 }
 
+/* P-DRA-4 DRA-80 / DRA-81: the stage-x-once form (spec.x_resident, omega_blackwell_codegen_gemm.h) for the mapped calls,
+ * OFF unless the env says exactly "1" (read once; decode changes are env-gated, default off, until a chip gate passes).
+ *   AIEN_OMEGA_FP8GEMM_X_RESIDENT=1 (DRA-80): every mapped call at its own mt where the x' block fits shared memory.
+ *   AIEN_OMEGA_FP8GEMM_SHARED_ONE_PASS=1 (DRA-81): a decode stroke call (caller mt 0) with segs > 36 runs mt 8 in the
+ *   resident form where it fits. The stroke records segs = 9 N (N heads x (8 routed + the shared expert)), so this is
+ *   N >= 5: the shared expert's segment holds N rows, one pass at mt 8 instead of ceil(N / 4) at mt 4; a routed expert
+ *   picked by fewer than 8 heads pays only padding rows of the staged block. Prefill (caller mt 4) is never touched.
+ * The dense (unmapped) calls are DRA-89's: they reuse the same field, selected by their own gate. */
+#define ONE_PASS_MIN_SEGS 37u
+static int env_exact_1(const char *name) { const char *e = getenv(name); return e && e[0] == '1' && e[1] == 0; }
+static void x_resident_for(OmegaFp8GemmSpec *spec, uint32_t segs, uint32_t caller_mt) {
+    static int on = -1, one_pass = -1;
+    if (on < 0) on = env_exact_1("AIEN_OMEGA_FP8GEMM_X_RESIDENT");
+    if (one_pass < 0) one_pass = env_exact_1("AIEN_OMEGA_FP8GEMM_SHARED_ONE_PASS");
+    if (!spec->rowmap) return;
+    OmegaFp8GemmSpec r = *spec; r.x_ahead = 0; r.row_ahead = 0; r.x_resident = 1; /* the resident form replaces both prefetch levers */
+    if (one_pass && caller_mt == 0 && segs >= ONE_PASS_MIN_SEGS) {
+        r.mt = 8u;
+        if (omega_fp8gemm_steps(&r)) { *spec = r; return; }
+        r.mt = spec->mt;
+    }
+    if (on && omega_fp8gemm_steps(&r)) *spec = r;
+}
+
 /* ---- the stroke's record path (L312 v2): one launch appended to a command list, every buffer the caller's ---- */
 static void spec_for_stroke(uint32_t k, uint32_t segs, uint32_t mt, int rowmap, OmegaFp8GemmSpec *spec) {
     spec_for(k, segs, spec);
     if (mt) spec->mt = mt;
     spec->rowmap = rowmap ? 1u : 0u;
     x_ahead_for(spec);
+    x_resident_for(spec, segs, mt);
 }
 void omega_gpu_fp8gemm_stroke_spec(uint32_t k, uint32_t segs, uint32_t mt, int rowmap, OmegaFp8GemmSpec *spec) {
     spec_for_stroke(k, segs, mt, rowmap, spec);
 }
 int omega_gpu_fp8gemm_prepare_shape(uint32_t k, uint32_t segs, uint32_t mt, int rowmap) {
     OmegaFp8GemmSpec spec; spec_for_stroke(k, segs, mt, rowmap, &spec);
-    if (omega_fp8gemm_shared_bytes(&spec) == 0) { omega_gpu_session_set_error("fp8 gemm prepare: shape refused (rowmap needs mt <= 4)"); return OMEGA_GPU_FP8GEMM_BAD_ARGS; }
+    if (omega_fp8gemm_shared_bytes(&spec) == 0) { omega_gpu_session_set_error("fp8 gemm prepare: shape refused (rowmap needs mt <= 4 outside the x_resident form)"); return OMEGA_GPU_FP8GEMM_BAD_ARGS; }
     omega_gpu_session_lock();
     int rc = OMEGA_GPU_FP8GEMM_OK;
     if (!dev_open_locked()) rc = OMEGA_GPU_FP8GEMM_CHIP_FAIL;
@@ -317,7 +342,7 @@ int omega_gpu_fp8gemm_record(OmegaGpuCmdList *cl, const OmegaGpuFp8Tensor *t, ui
     if (!cl || !t || !experts || !seg_va || !xp_va || !y_va || rows == 0 || segs == 0 || (!xmap_va) != (!ymap_va)) return OMEGA_GPU_FP8GEMM_BAD_ARGS;
     if (rows > OMEGA_GPU_FP8GEMM_MAX_ROWS || segs > OMEGA_GPU_FP8GEMM_MAX_SEGMENTS) return OMEGA_GPU_FP8GEMM_TOO_LARGE;
     OmegaFp8GemmSpec spec; spec_for_stroke(k, segs, mt, xmap_va != 0, &spec);
-    if (omega_fp8gemm_shared_bytes(&spec) == 0) { omega_gpu_session_set_error("fp8 gemm record: shape refused (rowmap needs mt <= 4)"); return OMEGA_GPU_FP8GEMM_BAD_ARGS; }
+    if (omega_fp8gemm_shared_bytes(&spec) == 0) { omega_gpu_session_set_error("fp8 gemm record: shape refused (rowmap needs mt <= 4 outside the x_resident form)"); return OMEGA_GPU_FP8GEMM_BAD_ARGS; }
     const uint32_t W = spec.warps;
     uint32_t grid_x = (n + W - 1) / W;
     const uint32_t budget = cta_budget ? cta_budget : budget_for(k, segs);

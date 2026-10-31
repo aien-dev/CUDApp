@@ -5,6 +5,7 @@
  * and are waited for only by the step that decodes them, so the next step's weights stream while this step computes; the
  * staging words of x' are loaded one step ahead the same way on scoreboard 5 (L312 lever 3, 2026-10-21). */
 #include "omega_blackwell_codegen_gemm.h"
+#include "omega_blackwell_qmd.h"
 #ifndef OMEGA_GPU_NO_POSIX
 #include <stdlib.h>
 #endif
@@ -150,21 +151,31 @@ static int log2u(uint32_t v) { int l = 0; while ((1u << l) < v) l++; return (1u 
 
 static int spec_ok(const OmegaFp8GemmSpec *s) {
     if (!s) return 0;
+    if (s->x_resident > 1u) return 0;
+    const int XR = s->x_resident != 0;
     if (s->lane_bytes != 8 && s->lane_bytes != 16) return 0;
-    if (s->mt == 0 || (s->mt & (s->mt - 1)) || s->mt * 128u * s->lane_bytes > OMEGA_GEMM_MAX_SHARED) return 0;
-    if (s->warps < 1 || s->warps > 32 || (s->warps & (s->warps - 1)) || (s->mt * s->lane_bytes) % s->warps) return 0; /* power-of-two warps: the staging words per thread are whole */
+    if (s->mt == 0 || (s->mt & (s->mt - 1))) return 0;
+    if (XR) { if (s->mt > 8u || (uint64_t)s->mt * s->k * 4u > OMEGA_BW_QMD_MAX_SHARED_BYTES) return 0; } /* the x' block of a pass */
+    else if (s->mt * 128u * s->lane_bytes > OMEGA_GEMM_MAX_SHARED) return 0;
+    if (s->warps < 1 || s->warps > 32 || (s->warps & (s->warps - 1))) return 0;
+    if (!XR && (s->mt * s->lane_bytes) % s->warps) return 0; /* power-of-two warps: the staging words per thread are whole */
     if (s->k == 0 || s->k > 16384u || s->k % 128u || s->k % (32u * s->lane_bytes)) return 0;
+    if (XR && s->k % (32u * s->warps)) return 0; /* a staging word's row is (j * threads) / k, one per word index j */
     uint32_t ks = s->k / (32u * s->lane_bytes);
     if (ks % 2u && ks > 3u) return 0; /* odd step counts are fully unrolled: at most 3 */
-    if (s->mutant < 0 || s->mutant > 6) return 0;
-    if (s->rowmap > 1u || (s->rowmap && s->mt > 4u)) return 0; /* the mapped form keeps NJ row bases and MT y rows in registers: mt 8 needs 135 at 16 warps, past the file */
-    if (s->x_ahead > 1u || (s->x_ahead && s->mt * s->lane_bytes / s->warps > 16u)) return 0; /* lever 3 holds NJ staging words in registers: NJ > 16 (under 8 warps at mt * lane_bytes 128) is not a served shape */
-    if (s->row_ahead > 1u || (s->row_ahead && ks != 1u)) return 0; /* DRA-79: the next row's weights fill the second register set, which only the one-step K loop leaves free */
+    if (s->mutant < 0 || s->mutant > 9) return 0;
+    if (s->rowmap > 1u || (s->rowmap && s->mt > 4u && !XR)) return 0; /* the mapped form keeps NJ row bases and MT y rows in registers: mt 8 needs 135 at 16 warps, past the file */
+    if (s->x_ahead > 1u || (s->x_ahead && (XR || s->mt * s->lane_bytes / s->warps > 16u))) return 0; /* lever 3 holds NJ staging words in registers: NJ > 16 (under 8 warps at mt * lane_bytes 128) is not a served shape */
+    if (s->row_ahead > 1u || (s->row_ahead && (XR || ks != 1u))) return 0; /* DRA-79: the next row's weights fill the second register set, which only the one-step K loop leaves free; x_resident has its own cross-row prefetch */
     if ((s->mutant == 5 || s->mutant == 6) && !s->row_ahead) return 0;
+    if (s->mutant >= 7 && !XR) return 0;
     return 1;
 }
 uint32_t omega_fp8gemm_steps(const OmegaFp8GemmSpec *spec) { return spec_ok(spec) ? spec->k / (32u * spec->lane_bytes) : 0; }
-uint32_t omega_fp8gemm_shared_bytes(const OmegaFp8GemmSpec *spec) { return spec_ok(spec) ? spec->mt * 128u * spec->lane_bytes : 0u; }
+uint32_t omega_fp8gemm_shared_bytes(const OmegaFp8GemmSpec *spec) {
+    if (!spec_ok(spec)) return 0u;
+    return spec->x_resident ? spec->mt * spec->k * 4u : spec->mt * 128u * spec->lane_bytes;
+}
 
 /* e4m3 byte i of word w -> f32 bits (value * 2^-120): ((b & 0x7F) << 20) | ((b & 0x80) << 24) */
 static void decode_byte(Em *e, int f, int wq, unsigned word, unsigned i, int u, int a, int s) {
@@ -177,8 +188,10 @@ static void decode_byte(Em *e, int f, int wq, unsigned word, unsigned i, int u, 
     else imadi(e, f, s, 0, 1u, a);
 }
 
+static int prog_resident(const OmegaFp8GemmSpec *spec, BlackwellIRProgram *prog);
 int omega_blackwell_codegen_fp8gemm_prog(const OmegaFp8GemmSpec *spec, BlackwellIRProgram *prog) {
     if (!spec_ok(spec) || !prog) return -1;
+    if (spec->x_resident) return prog_resident(spec, prog); /* x_resident 0: the program below, byte for byte */
     const uint32_t K = spec->k, LB = spec->lane_bytes, MT = spec->mt, W = spec->warps;
     const uint32_t KS = K / (32u * LB), BPS = 32u * LB / 128u, LPB = 128u / LB, KB = K / 128u, WORDS = LB / 4u;
     const uint32_t U = KS % 2u == 0 ? 2u : KS; /* K steps per loop iteration (the A/B register sets alternate) */
@@ -448,6 +461,237 @@ int omega_blackwell_codegen_fp8gemm_prog(const OmegaFp8GemmSpec *spec, Blackwell
     patch_bra(e, bra_end, L_end);
     if (bra_empty >= 0) patch_bra(e, bra_empty, L_end);
     if (RA) consume(e, 4); /* the last prefetched row lands before EXIT */
+    tail(e);
+    if (e->err) return -1;
+    return omega_bw_regalloc_solve(prog);
+}
+
+/* x_resident 1 (DRA-80): stage the pass's MT x' rows whole, then stream weight rows with no barrier and a cross-row
+ * weight prefetch (header). Same per-row arithmetic as above (decode, dot per 128-block, acc = fma(dot, S', acc), SHFL tree),
+ * so the result is bit-identical; the loop nest is pass (outer) then weight row (inner). */
+static int prog_resident(const OmegaFp8GemmSpec *spec, BlackwellIRProgram *prog) {
+    const uint32_t K = spec->k, LB = spec->lane_bytes, MT = spec->mt, W = spec->warps;
+    const uint32_t KS = K / (32u * LB), BPS = 32u * LB / 128u, LPB = 128u / LB, KB = K / 128u, WORDS = LB / 4u;
+    const uint32_t U = KS % 2u == 0 ? 2u : KS;
+    const uint32_t ROWW = 32u * LB, T = 32u * W, NR = MT * K / T; /* words per row step, threads, staging words per thread per pass */
+    const uint32_t WINC = U * 32u * LB, SINC = spec->mutant == 2 ? 0u : U * BPS * 4u; /* per K-loop iteration: weight bytes, scale bytes */
+    const int log2lpb = log2u(LPB), log2mt = log2u(MT);
+    const BlackwellIROpcode ldw = LB == 16 ? BW_IR_LDG_E_128 : BW_IR_LDG_E_64;
+    if (log2lpb < 0 || log2mt < 0 || MT > 8u || K % T) return -1;
+    omega_bw_ir_init(prog);
+    Em em; memset(&em, 0, sizeof em); em.p = prog;
+    Em *e = &em;
+    const int RM = spec->rowmap ? 1 : 0;
+
+    /* ---- prologue (as above) ---- */
+    int udesc = UV64(e), pseg = V64(e), px = V64(e), py = V64(e), nreg = V(e), stride = V(e);
+    int tid = V(e), cx = V(e), cy = V(e), warp = V(e), lane = V(e), one = V(e), tent = V64(e);
+    int wbase = V64(e), sbase = V64(e), rc = V64(e), row0 = V(e), cnt = V(e), tpass = V(e), passes = V(e);
+    int wlane = V(e), slane = V(e), xl = V(e), nm1 = V(e), ysn = V(e), sa0 = V(e), b0 = V(e), z = V(e);
+    int pxm = RM ? V64(e) : NOREG, pym = RM ? V64(e) : NOREG;
+    if (e->err) return -1;
+    ldcu64(e, udesc, 0x358);
+    ldc64(e, pseg, OMEGA_GEMM_ARG_SEG); ldc64(e, px, OMEGA_GEMM_ARG_X); ldc64(e, py, OMEGA_GEMM_ARG_Y);
+    ldc32(e, nreg, OMEGA_GEMM_ARG_N); ldc32(e, stride, OMEGA_GEMM_ARG_STRIDE);
+    if (RM) { ldc64(e, pxm, OMEGA_GEMM_ARG_XMAP); ldc64(e, pym, OMEGA_GEMM_ARG_YMAP); }
+    s2r(e, tid, BW_SR_TID_X); s2r(e, cx, BW_SR_CTAID_X); s2r(e, cy, BW_SR_CTAID_Y);
+    movi(e, one, 1);
+    shr(e, warp, tid, 0, 5);
+    andi(e, lane, tid, 0, 31);
+    imadw(e, tent, cy, OMEGA_GEMM_SEG_BYTES, pseg);
+    ldg_wide(e, BW_IR_LDG_E_64, wbase, tent, 0, udesc, 1);
+    ldg_wide(e, BW_IR_LDG_E_64, sbase, tent, 8, udesc, 0);
+    ldg_wide(e, BW_IR_LDG_E_64, rc, tent, 16, udesc, 0);
+    imadi(e, row0, rc, 0, 1, NOREG); imadi(e, cnt, rc, 1, 1, NOREG);
+    imadi(e, tpass, one, 0, MT - 1u, cnt); shr(e, passes, tpass, 0, (uint32_t)log2mt);
+    int bra_empty = -1;
+    if (spec->mutant != 4) {
+        imadi(e, z, one, 0, 0xffffffffu, cnt); shr(e, z, z, 0, 31); /* 1 iff cnt == 0 */
+        isetp_ge_u32(e, z, one);
+        bra_empty = bra_if_p0_fwd(e);
+    }
+    imadi(e, wlane, lane, 0, LB, NOREG);
+    shr(e, slane, lane, 0, (uint32_t)log2lpb); imadi(e, slane, slane, 0, 4, NOREG);
+    imadi(e, xl, lane, 0, 16, NOREG);
+    imadi(e, nm1, one, 0, 0xffffffffu, nreg);
+    imadi(e, ysn, nreg, 0, 4, NOREG);
+    imadi(e, sa0, tid, 0, 4, NOREG);
+    imadi(e, b0, cx, 0, W, NOREG);
+
+    /* loop-wide registers */
+    int base = V(e), nb = V(e), rg = V(e), over = V(e), t1 = V(e), d = V(e), tmp = V(e), rgc = V(e), lo = V(e), rgn = V(e);
+    int woff = V(e), soff = V(e), woffn = V(e), soffn = V(e), rowp = V(e), rem = V(e), pc = V(e), xo = V(e), cntk = V(e);
+    int pyrg = V64(e), pyr = V64(e), pya = V64(e), xs = V64(e), pwn = V64(e), psn = V64(e), t = V(e), tq = V(e), fl = V(e), sv = V(e);
+    int yi[8], ma = NOREG;
+    if (RM) { for (uint32_t m = 0; m < MT; m++) yi[m] = V(e); ma = V64(e); }
+    int acc[8], dot[8], xq[4], wq[2], sc[2], fr[4], u = V(e), a = V(e), sg = V(e), onef = V(e), dum = V(e);
+    for (uint32_t m = 0; m < MT; m++) { acc[m] = V(e); dot[m] = V(e); }
+    for (int q = 0; q < 4; q++) xq[q] = V128(e);
+    for (int b = 0; b < 2; b++) { wq[b] = LB == 16 ? V128(e) : V64(e); sc[b] = V(e); }
+    for (int i = 0; i < 4; i++) fr[i] = V(e);
+    if (e->err) return -1;
+
+    /* rgc = row r (= rbase + warp) clamped to n - 1, over = (r > n - 1); then the row's weight and scale byte offsets */
+#define ROW_OFFSETS(rbase, rr, wo, so)                                                                                  \
+    do {                                                                                                                \
+        imadi(e, rr, rbase, 0, 1, warp);                                                                                \
+        imadi(e, t1, rr, 0, 0xffffffffu, nm1); shr(e, over, t1, 0, 31);                                                \
+        imadi(e, d, nm1, 0, 0xffffffffu, rr);                                                                           \
+        imadr(e, tmp, over, d, NOREG); imadi(e, rgc, tmp, 0, 0xffffffffu, rr);                                         \
+        imadi(e, wo, rgc, 0, K, wlane);                                                                                 \
+        shr(e, tmp, rgc, 0, 7); imadi(e, so, tmp, 0, KB * 4u, slane);                                                  \
+    } while (0)
+
+    /* the first row's step 0, before the first pass stages (held on scoreboard 3 like every row's step 0 below) */
+    ROW_OFFSETS(b0, rgn, woffn, soffn);
+    imadw(e, pwn, woffn, 1, wbase); imadw(e, psn, soffn, 1, sbase);
+    ldw_pf(e, ldw, wq[0], pwn, 0, udesc, 3);
+    ldw_pf(e, BW_IR_LDG_E, sc[0], psn, 0, udesc, 3);
+    imadi(e, rowp, row0, 0, 1, NOREG); imadi(e, rem, cnt, 0, 1, NOREG); imadi(e, pc, passes, 0, 1, NOREG);
+
+    /* ---- pass loop: stage MT whole x' rows, one barrier ---- */
+    const int L_pass = here(e);
+    loop_begin(e);
+    {
+        int xr[8];
+        if (RM) {
+            /* x' row of sorted row rowp + m: XMAP[rowp + m] (mutant 8: XMAP[rowp] for every m), loads back to back */
+            for (uint32_t m = 0; m < MT; m++) xr[m] = V64(e);
+            if (e->err) return -1;
+            for (uint32_t m = 0; m < MT; m++) { imadi(e, tq, one, 0, spec->mutant == 8 ? 0u : m, rowp); imadw(e, ma, tq, 4u, pxm); ldg32(e, xr[m], ma, udesc, m == 0); }
+            for (uint32_t m = 0; m < MT; m++) { imadw(e, xr[m], xr[m], K * 4u, px); imadw(e, xr[m], sa0, 1, xr[m]); }
+        } else { imadw(e, xs, rowp, K * 4u, px); imadw(e, xs, sa0, 1, xs); }
+        /* word j of this thread: shared word j * T + tid = row (j * T) / K, column (j * T) % K + tid; rounds of 4 */
+        for (uint32_t j0 = 0; j0 < NR; j0 += 4) {
+            const uint32_t nj = NR - j0 < 4 ? NR - j0 : 4;
+            int xw[4], xa[4];
+            for (uint32_t q = 0; q < nj; q++) { xw[q] = V(e); xa[q] = V64(e); }
+            if (e->err) return -1;
+            for (uint32_t q = 0; q < nj; q++) {
+                const uint32_t j = j0 + q;
+                if (RM) imadw(e, xa[q], one, ((j * T) % K) * 4u, xr[(j * T) / K]); else imadw(e, xa[q], one, j * T * 4u, xs);
+            }
+            for (uint32_t q = 0; q < nj; q++) ldg32(e, xw[q], xa[q], udesc, q == 0);
+            for (uint32_t q = 0; q < nj; q++) { imadi(e, t, one, 0, (j0 + q) * T * 4u, sa0); sts32(e, t, xw[q]); }
+        }
+    }
+    bar_sync(e);
+    /* y rows of the pass: plain, row rowp + m at pyr + m * n * 4; mapped, YMAP[rowp + m] (uniform loads, once per pass) */
+    if (RM) for (uint32_t m = 0; m < MT; m++) { imadi(e, tq, one, 0, m, rowp); imadw(e, ma, tq, 4u, pym); ldg32(e, yi[m], ma, udesc, m == 0); }
+    else { imadr(e, tq, rowp, ysn, NOREG); imadw(e, pyr, tq, 1, py); }
+    imadi(e, base, b0, 0, 1, NOREG);
+
+    /* ---- weight-row loop (uniform per CTA): no barrier inside ---- */
+    const int L_rg = here(e);
+    loop_begin(e);
+    isetp_ge_u32(e, base, nreg);
+    const int bra_rows_done = bra_if_p0_fwd(e);
+    ROW_OFFSETS(base, rg, woff, soff);
+    imadi(e, lo, over, 0, 1, lane);
+    if (RM) imadw(e, pyrg, rg, 4, py); else imadw(e, pyrg, rg, 4, pyr);
+    /* the next row this warp runs: base + stride, or after this pass's last row the next pass's first row (b0) */
+    imadi(e, nb, stride, 0, 1, base);
+    if (spec->mutant == 9) imadi(e, t, base, 0, 1, NOREG); /* mutant 9: the current row again */
+    else {
+        imadi(e, t1, nb, 0, 0xffffffffu, nm1); shr(e, t1, t1, 0, 31); /* 1 iff nb > n - 1 */
+        imadi(e, d, b0, 0, 0xffffffffu, nb);                          /* nb - b0 */
+        imadr(e, tmp, t1, d, NOREG); imadi(e, t, tmp, 0, 0xffffffffu, nb);
+    }
+    ROW_OFFSETS(t, rgn, woffn, soffn);
+    for (uint32_t m = 0; m < MT; m++) movrz(e, acc[m]);
+    imadi(e, xo, xl, 0, 1, NOREG);
+    movi(e, cntk, KS / U);
+
+    /* ---- K loop: U steps per iteration, no barrier; step 0 of this row is already in flight on scoreboard 3 ---- */
+    const int L_k = here(e);
+    loop_begin(e);
+    for (uint32_t us = 0; us < U; us++) {
+        const int cur = (int)(us & 1u), nxt = 1 - cur;
+        const unsigned sbc = cur ? 4u : 3u, sbn = nxt ? 4u : 3u;
+        const int last = us + 1 == U;
+        int wa = V(e), sa = V(e);
+        if (e->err) return -1;
+        if (!last) { /* step us + 1 of this iteration */
+            imadi(e, wa, one, 0, (us + 1) * 32u * LB, woff); imadi(e, sa, one, 0, spec->mutant == 2 ? 0u : (us + 1) * BPS * 4u, soff);
+            imadw(e, pwn, wa, 1, wbase); imadw(e, psn, sa, 1, sbase);
+            ldw_pf(e, ldw, wq[nxt], pwn, 0, udesc, sbn);
+            ldw_pf(e, BW_IR_LDG_E, sc[nxt], psn, 0, udesc, sbn);
+        } else if (U == 2u) { /* even step count: step 0 of the next iteration, or of the next row after the last iteration */
+            if (KS > U) {
+                int nf = V(e);
+                if (e->err) return -1;
+                imadi(e, nf, one, 0, 0xfffffffeu, cntk); shr(e, nf, nf, 0, 31); imadi(e, nf, nf, 0, 0xffffffffu, one); /* 1 iff another iteration */
+                imadi(e, wa, woffn, 0, 0xffffffffu, woff); imadi(e, wa, one, 0, WINC, wa); imadr(e, wa, nf, wa, woffn);
+                imadi(e, sa, soffn, 0, 0xffffffffu, soff); imadi(e, sa, one, 0, SINC, sa); imadr(e, sa, nf, sa, soffn);
+            } else { imadi(e, wa, woffn, 0, 1, NOREG); imadi(e, sa, soffn, 0, 1, NOREG); }
+            imadw(e, pwn, wa, 1, wbase); imadw(e, psn, sa, 1, sbase);
+            ldw_pf(e, ldw, wq[0], pwn, 0, udesc, 3);
+            ldw_pf(e, BW_IR_LDG_E, sc[0], psn, 0, udesc, 3);
+        }
+        consume(e, sbc);
+        for (uint32_t m = 0; m < MT; m++) movrz(e, dot[m]);
+        for (uint32_t word = 0; word < WORDS; word++) {
+            for (unsigned i = 0; i < 4; i++) decode_byte(e, fr[i], wq[cur], word, i, u, a, sg);
+            for (uint32_t m0 = 0; m0 < MT; m0 += 4) {
+                const uint32_t nq = MT - m0 < 4 ? MT - m0 : 4;
+                for (uint32_t q = 0; q < nq; q++) {
+                    const uint32_t m = m0 + q, mm = spec->mutant == 3 ? (m ^ 1u) % MT : m;
+                    lds128(e, xq[q], xo, mm * (spec->mutant == 7 ? ROWW : K) * 4u + us * ROWW * 4u + word * 512u, q == 0);
+                }
+                for (uint32_t q = 0; q < nq; q++) for (unsigned i = 0; i < 4; i++) ffma(e, dot[m0 + q], fr[i], xq[q], i, dot[m0 + q]);
+            }
+        }
+        if (spec->mutant == 1) { movi(e, onef, 0x3f800000u); ffma(e, dum, sc[cur], onef, 0, onef); }
+        for (uint32_t m = 0; m < MT; m++) {
+            if (spec->mutant == 1) ffma(e, acc[m], dot[m], onef, 0, acc[m]);
+            else ffma(e, acc[m], dot[m], sc[cur], 0, acc[m]);
+        }
+        if (last && U != 2u) { /* odd step count (one iteration): the next row's step 0 into buffer A, now that this step has read it */
+            imadw(e, pwn, woffn, 1, wbase); imadw(e, psn, soffn, 1, sbase);
+            ldw_pf(e, ldw, wq[0], pwn, 0, udesc, 3);
+            ldw_pf(e, BW_IR_LDG_E, sc[0], psn, 0, udesc, 3);
+        }
+    }
+    imadi(e, woff, one, 0, WINC, woff);
+    imadi(e, soff, one, 0, SINC, soff);
+    imadi(e, xo, one, 0, U * ROWW * 4u, xo);
+    imadi(e, cntk, one, 0, 0xffffffffu, cntk);
+    isetp_ge_u32(e, cntk, one);
+    bra_if_p0(e, L_k);
+    loop_end(e);
+    /* scoreboard 3 stays held: the next row's step 0 streams through the reduce, the stores and the back-edges */
+
+    /* ---- reduce and store this row for the pass's MT x' rows ---- */
+    for (uint32_t m = 0; m < MT; m++)
+        for (uint32_t o = 16; o >= 1; o /= 2) { shfl_down(e, t, acc[m], o); fadd(e, acc[m], acc[m], t); }
+    for (uint32_t m = 0; m < MT; m++) {
+        imadi(e, tq, one, 0, (uint32_t)(0u - 1u - m), rem); shr(e, fl, tq, 0, 31); /* 1 iff m >= rem: past this segment's rows */
+        imadi(e, sv, fl, 0, 1, lo);
+        isetp_ge_u32(e, sv, one);
+        const int at_bssy = bssy_fwd(e);
+        const int bra_skip = bra_if_p0_fwd(e);
+        if (RM) { imadr(e, tq, yi[m], ysn, NOREG); imadw(e, pya, tq, 1, pyrg); } else imadw(e, pya, ysn, m, pyrg);
+        stg(e, pya, 0, acc[m], udesc);
+        const int at_bsync = here(e);
+        bsync(e);
+        patch_bra(e, bra_skip, at_bsync);
+        patch_bra(e, at_bssy, at_bsync + 1);
+    }
+    imadi(e, base, nb, 0, 1, NOREG);
+    bra(e, L_rg);
+    loop_end(e);
+    patch_bra(e, bra_rows_done, here(e));
+#undef ROW_OFFSETS
+
+    bar_sync(e); /* every warp has read the pass's x' block before the next pass overwrites it */
+    imadi(e, rowp, one, 0, MT, rowp); imadi(e, rem, one, 0, (uint32_t)(0u - MT), rem);
+    imadi(e, pc, one, 0, 0xffffffffu, pc);
+    isetp_ge_u32(e, pc, one);
+    bra_if_p0(e, L_pass);
+    loop_end(e);
+    consume(e, 3); /* the prefetch past the last row (a valid, clamped row) lands before exit */
+    const int L_end = here(e);
+    if (bra_empty >= 0) patch_bra(e, bra_empty, L_end);
     tail(e);
     if (e->err) return -1;
     return omega_bw_regalloc_solve(prog);
