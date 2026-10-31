@@ -10,9 +10,10 @@
 # Blobs omega changed through 6d7b883844a0f17a7a3ceb427108be7e01e4c677 (#984 C6 hazard cross-check through the sm_121 disassembler) are that commit's; the omega deltas were applied to the CUDA++ copies, which keep their SPDX lines and CUDA++ corpus scope (CUDApp sync/drift-omega-6d7b883). tests/bw_hazard_test.c is a byte copy.
 # src/omega_blackwell_codegen_tern.h is omega 613765d2b75383212c50520ff7a7295bff01f1bb's blob (#985 comment: QMD shared cap 32 KiB, as in this tree's omega_blackwell_qmd.h); the comment delta was applied here.
 # mk/sm121dis.mk and tools/sm121dis/check.sh are omega d9461717721856602626c3202751d7653e1aa5f7's blobs (#986 decoder exit status checked); the deltas were applied here. tools/sm121dis/check_selftest.sh is a byte copy.
+# Makefile and src/omega_blackwell_gates.c are omega 0243e4aff88937b4e616d8e211d47084aca2befe's blobs (#579 clean clones: gate 16 in a private folder, no shell). Both changes are Omega-side only: omega_blackwell_gates.c is a stay.txt bridge that CUDA++ does not carry, and the Makefile delta only adds the new Omega bridge src/omega_clean_clone.c (not a GPU path) to Omega's build and keeps it out of libomega_gpu.a; no bytes to sync (CUDApp sync/drift-omega-0243e4af).
 # Still differ at 4376c21 on purpose: Makefile (CUDA++ build); src/omega_gpu_fp8_api.c (CUDA++ owner-generation upload kept, omega#456 lock-held fill already there);
 # tests/gpu_fp8gemm_test.c (CUDA++ test_out_open 0600 receipt kept over omega's 0644 open); licence headers.
-Makefile	bf39ac9c767da1c0e37500f4568492cb4d6e17b9
+Makefile	6011dfa5d7d883b01ac3671f630499ef5f9d1fcc
 evidence/C3-GEMM/01-host-only.log	c581c5126718bc24ef10ed1b1637528018a260e5
 evidence/C3-GEMM/02-sim.log	fd97da9f29871abfc16fb2ed938c38a4d3c2314f
 evidence/C3-GEMM/README.md	0e730a9bf2072f34d59d9cdc1961f4112a7ff90e
@@ -200,7 +201,7 @@ src/omega_blackwell_encoder.c	373a98cdac7c8bdbf3921579f013eac4cafe6647
 src/omega_blackwell_encoder.h	9050a2f03dcf7b072775d1182cc558b8d8e5b623
 src/omega_blackwell_engine.c	436de40edfab6b760ebaefe65840d10803497d98
 src/omega_blackwell_engine.h	b2e931f2418f5fde839c95027bc007d433da7669
-src/omega_blackwell_gates.c	54ec7f76917c88306effbcb868d2954ba7d53be8
+src/omega_blackwell_gates.c	3c248417e031c4e19ebe4ac56b8e56efdae09399
 src/omega_blackwell_gates.h	438131d832b09ced66519da9a462e3e16cba23d4
 src/omega_blackwell_matmul.c	28805cfe482265828c6ca6b7b1b583f60852df71
 src/omega_blackwell_matmul.h	2b612e6798ba47a57768e7c02342015455ab17e2
