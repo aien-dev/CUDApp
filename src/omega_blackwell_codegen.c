@@ -1143,9 +1143,12 @@ void omega_kernel_dump(const uint8_t *code, size_t len) {
     int fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
     if (fd < 0) return;
     FILE *f = fdopen(fd, "wb");
-    if (!f) { close(fd); return; }
-    if (fwrite(code, 1, len, f) != len) BW_DIAG("omega_kernel_dump: short write %s\n", path);
-    if (fclose(f) != 0) BW_DIAG("omega_kernel_dump: close failed %s\n", path);
+    if (!f) { close(fd); unlink(path); BW_DIAG("omega_kernel_dump: write failed, removed %s\n", path); return; }
+    /* A body cut short (a full disk) must not stay under its full-content name: it would be compared as a smaller kernel
+     * and, created O_EXCL, never rewritten. tools/sm121dis/corpus.sh fails on these diagnostics. */
+    int bad = fwrite(code, 1, len, f) != len;
+    if (fclose(f) != 0) bad = 1;
+    if (bad) { unlink(path); BW_DIAG("omega_kernel_dump: write failed, removed %s\n", path); }
 #else
     (void)code; (void)len;
 #endif

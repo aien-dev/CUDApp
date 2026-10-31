@@ -32,7 +32,8 @@
  * per word to an int32 total T; a SHFL.DOWN tree (8, 4, 2, 1) sums its half; y = T - KSC * 2^18 (mod 2^32, exact
  * because |y| <= 128 * k < 2^31).
  *
- * Shared memory: the launch descriptor allows at most OMEGA_BW_QMD_MAX_SHARED_BYTES (16 KiB) per CTA, so x is staged
+ * Shared memory: the launch descriptor allows at most OMEGA_BW_QMD_MAX_SHARED_BYTES (32 KiB, omega_blackwell_qmd.h) per CTA.
+ * x takes 2 bytes per column in shared memory, so one chunk of OMEGA_TERN_CHUNK_MAX columns uses 16 KiB, and x is staged
  * in chunks of at most OMEGA_TERN_CHUNK_MAX = 8192 columns (k <= 8192: one chunk; 8192 < k <= 16384: two equal chunks,
  * k % 512 == 0). With two chunks each lane l == 0 adds the earlier chunk's int32 y it stored itself (same thread, same
  * address, program order); the f32 epilogue is refused there.
