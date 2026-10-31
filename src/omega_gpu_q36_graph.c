@@ -605,11 +605,18 @@ _Static_assert(sizeof(Seg32) == OMEGA_GEMM_SEG_BYTES, "segment entry layout");
 int omega_gpu_q36_graph_set_batch(OmegaGpuQ36Graph *g, int on) {
     if (!g || g->in_token) return OMEGA_GPU_DGRAPH_BAD_ARGS;
     if (!on) { g->batch = 0; return OMEGA_GPU_DGRAPH_OK; }
-    /* pin the four GEMM shapes the batch records (a kernel cache miss while recording is refused): the dense trunk at 8 rows
-     * per pass without maps, the expert blocks at 4 rows per pass with the row maps */
+    /* pin the GEMM shapes the batch records (a kernel cache miss while recording is refused): the dense trunk at 8 rows
+     * per pass without maps (or, row-aware, DRA-89, every mt omega_gpu_fp8gemm_dense_mt gives for 1..heads rows), the expert
+     * blocks at 4 rows per pass with the row maps */
     const uint32_t R = g->heads * NG;
-    int rc = omega_gpu_fp8gemm_prepare_shape(H, 1, 0, 0);
-    if (rc == 0) rc = omega_gpu_fp8gemm_prepare_shape(OMEGA_GPU_Q36_MIXER_OUT, 1, 0, 0);
+    int rc = 0;
+    for (uint32_t r = 1, last = UINT32_MAX; r <= g->heads && rc == 0; r++) {
+        const uint32_t mt = omega_gpu_fp8gemm_dense_mt(r);
+        if (mt == last) continue;
+        last = mt;
+        rc = omega_gpu_fp8gemm_prepare_shape(H, 1, mt, 0);
+        if (rc == 0) rc = omega_gpu_fp8gemm_prepare_shape(OMEGA_GPU_Q36_MIXER_OUT, 1, mt, 0);
+    }
     if (rc == 0) rc = omega_gpu_fp8gemm_prepare_shape(H, R, 0, 1);
     if (rc == 0) rc = omega_gpu_fp8gemm_prepare_shape(EI, R, 0, 1);
     if (rc != 0) return OMEGA_GPU_DGRAPH_CHIP_FAIL;
@@ -707,7 +714,7 @@ int omega_gpu_q36_graph_record_layer_heads(OmegaGpuQ36Graph *g, uint32_t l, cons
     if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_perm(g, K_PERM_XQ, xq0, pt2048, xp, H, N);
     if (!g->layer[l].attn) {
         if (rc == OMEGA_GPU_DGRAPH_OK) rc = after_op(g, OMEGA_GPU_Q36_K_AB, omega_gpu_bf16_gemv_rows_record(g->cl, g->layer[l].ab, N, xq0, abN));
-        if (rc == OMEGA_GPU_DGRAPH_OK) rc = native_record_gemm(g, OMEGA_GPU_Q36_K_MIX, g->layer[l].mix, N, 1, segd, xp, mixN, 0, 0, 0);
+        if (rc == OMEGA_GPU_DGRAPH_OK) rc = native_record_gemm(g, OMEGA_GPU_Q36_K_MIX, g->layer[l].mix, N, 1, segd, xp, mixN, 0, 0, omega_gpu_fp8gemm_dense_mt(N));
         for (uint32_t h = 0; h < N && rc == OMEGA_GPU_DGRAPH_OK; h++) {
             const uint64_t mix_h = mixN + (uint64_t)h * OMEGA_GPU_Q36_GDN_MIX * 4u;
             uint64_t mo = 0;
@@ -716,7 +723,7 @@ int omega_gpu_q36_graph_record_layer_heads(OmegaGpuQ36Graph *g, uint32_t l, cons
             if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_perm(g, K_PERM_O, mo, pt4096, op + h * MOS, OMEGA_GPU_Q36_MIXER_OUT, 1);
         }
     } else {
-        if (rc == OMEGA_GPU_DGRAPH_OK) rc = native_record_gemm(g, OMEGA_GPU_Q36_K_MIX, g->layer[l].mix, N, 1, segd, xp, mixN, 0, 0, 0); /* n 9216: the rows are 9216 apart */
+        if (rc == OMEGA_GPU_DGRAPH_OK) rc = native_record_gemm(g, OMEGA_GPU_Q36_K_MIX, g->layer[l].mix, N, 1, segd, xp, mixN, 0, 0, omega_gpu_fp8gemm_dense_mt(N)); /* n 9216: the rows are 9216 apart */
         uint32_t w[OMEGA_DEC_GA_WORDS]; memset(w, 0, sizeof w);
         put64(w, OMEGA_DEC_GA_IN, mixN); put64(w, OMEGA_DEC_GA_TAB, va_of(g, L->gtab)); put64(w, OMEGA_DEC_GA_OUT, aggN);
         if (rc == OMEGA_GPU_DGRAPH_OK)
@@ -734,7 +741,7 @@ int omega_gpu_q36_graph_record_layer_heads(OmegaGpuQ36Graph *g, uint32_t l, cons
         }
         if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_perm(g, K_PERM_O, attN, pt4096, op, OMEGA_GPU_Q36_MIXER_OUT, N);
     }
-    if (rc == OMEGA_GPU_DGRAPH_OK) rc = native_record_gemm(g, OMEGA_GPU_Q36_K_O, g->layer[l].o, N, 1, segd + OMEGA_GEMM_SEG_BYTES, op, oN, 0, 0, 0);
+    if (rc == OMEGA_GPU_DGRAPH_OK) rc = native_record_gemm(g, OMEGA_GPU_Q36_K_O, g->layer[l].o, N, 1, segd + OMEGA_GEMM_SEG_BYTES, op, oN, 0, 0, omega_gpu_fp8gemm_dense_mt(N));
     if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_res_rows(g, K_ADD_R, x0, oN, 0, 0, 1.0f, N);
     /* the sparse block: one router launch for the N heads (lever 2: the gate table read once; head h's buffer at rlb + h * lb_stride),
      * GROUP sorts their picks into one segment table, two grouped GEMMs */

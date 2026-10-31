@@ -105,6 +105,9 @@ int omega_gpu_fp8gemm_record(struct OmegaGpuCmdList *cl, const OmegaGpuFp8Tensor
                              OmegaGpuFp8GemmInfo *info);
 int omega_gpu_fp8gemm_prepare_shape(uint32_t k, uint32_t segs, uint32_t mt, int rowmap);
 uint32_t omega_gpu_fp8gemm_cta_budget_for(uint32_t segs);
+/* DRA-89: the mt a one-segment (dense) stroke call of `rows` rows records with: 0 (the incumbent dense 8) unless
+ * AIEN_OMEGA_FP8GEMM_ROWAWARE=1, then rows rounded up to 1, 2, 4, 8. Prepare every value the stroke can pass. */
+uint32_t omega_gpu_fp8gemm_dense_mt(uint32_t rows);
 
 /* host helper: the permuted, 2^64-scaled x' row the kernel reads (k values in, k out) */
 void omega_fp8gemm_permute_x(const float *x, uint32_t k, uint32_t lane_bytes, float *out);

@@ -402,6 +402,24 @@ static void sim_battery(void) {
     for (g_ra = 1, g_xa = 0; g_xa <= 1; g_xa++) sim_battery_ra();
     g_ra = 0;
 }
+/* DRA-89: the dense stroke calls as the stroke resolves them under this process's environment (AIEN_OMEGA_FP8GEMM_ROWAWARE,
+ * AIEN_OMEGA_FP8GEMM_X_AHEAD): MIX (n 12288 GDN, 9216 attention; k 2048) and O (n 2048, k 4096), one segment of 1..8 rows,
+ * mt = omega_gpu_fp8gemm_dense_mt(rows) (0: the incumbent dense 8); every output bit-identical to the emulation. */
+static void sim_dense(void) {
+    static const uint32_t nk[3][2] = { { 12288, 2048 }, { 9216, 2048 }, { 2048, 4096 } };
+    for (unsigned i = 0; i < 3; i++)
+        for (uint32_t rows = 1; rows <= 8; rows++) {
+            OmegaFp8GemmSpec s; omega_gpu_fp8gemm_stroke_spec(nk[i][1], 1, omega_gpu_fp8gemm_dense_mt(rows), 0, &s);
+            const SimPt p = { s.k, nk[i][0], s.lane_bytes, s.mt, s.warps, 2, { rows }, 1 };
+            char msg[300]; size_t bad = 1;
+            g_xa = s.x_ahead; g_ra = s.row_ahead;
+            int err = sim_point(&p, 0, 500 + 16 * i + rows, msg, sizeof msg, &bad);
+            CHECK(!err && bad == 0, "sim dense k %u n %u rows %u mt %u x_ahead %u: %s", p.k, p.n, rows, p.mt, g_xa, msg);
+            printf("sim dense k %u n %u rows %u mt %u warps %u x_ahead %u: %s %s\n", p.k, p.n, rows, p.mt, p.w, g_xa, err ? "ERROR" : bad ? "MISMATCH" : "ok", msg);
+        }
+    g_xa = 0; g_ra = 0;
+    printf("sim dense: %" PRIu64 " warp issues in total\n", g_sim_issues);
+}
 
 /* ------------------------------------------------------------- chip */
 static int g_evict = 1;
@@ -540,10 +558,12 @@ static int spec_of(const char *arg, const char *expect) {
 }
 
 int main(int argc, char **argv) {
-    int host = 0, sim = 0; const char *out_path = NULL, *shape = "all", *spec_arg = NULL, *expect = NULL; uint32_t reps = 0, mt = 0, warps = 0, ctas = 0, spin = 2000, tokens = 64;
+    int host = 0, sim = 0, simd = 0; const char *out_path = NULL, *shape = "all", *spec_arg = NULL, *expect = NULL, *dense_arg = NULL; uint32_t reps = 0, mt = 0, warps = 0, ctas = 0, spin = 2000, tokens = 64;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--host-only") == 0) host = 1;
         else if (strcmp(argv[i], "--sim") == 0) sim = 1;
+        else if (strcmp(argv[i], "--sim-dense") == 0) simd = 1;
+        else if (strcmp(argv[i], "--dense-of") == 0 && i + 1 < argc) dense_arg = argv[++i];
         else if (strcmp(argv[i], "--out") == 0 && i + 1 < argc) out_path = argv[++i];
         else if (strcmp(argv[i], "--shape") == 0 && i + 1 < argc) shape = argv[++i];
         else if (strcmp(argv[i], "--reps") == 0 && i + 1 < argc) reps = (uint32_t)atoi(argv[++i]);
@@ -556,6 +576,14 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--spec-of") == 0 && i + 1 < argc) spec_arg = argv[++i];
         else if (strcmp(argv[i], "--expect") == 0 && i + 1 < argc) expect = argv[++i];
         else { printf("unknown argument %s\n", argv[i]); return 2; }
+    }
+    if (dense_arg) { /* --dense-of K,ROWS: the spec a dense stroke call of ROWS rows records with (--spec-of K,1,dense_mt(ROWS),0) */
+        unsigned k = 0, rows = 0; static char sa[64];
+        if (sscanf(dense_arg, "%u,%u", &k, &rows) != 2) { printf("dense-of: bad argument %s\n", dense_arg); return 2; }
+        if (mt || warps) omega_gpu_fp8gemm_set_shape(mt, warps);
+        snprintf(sa, sizeof sa, "%u,1,%u,0", k, omega_gpu_fp8gemm_dense_mt(rows));
+        printf("dense-of %s: rows %u -> mt arg %u\n", dense_arg, rows, omega_gpu_fp8gemm_dense_mt(rows));
+        spec_arg = sa;
     }
     if (spec_arg) {
         if (mt || warps) omega_gpu_fp8gemm_set_shape(mt, warps);
@@ -573,7 +601,8 @@ int main(int argc, char **argv) {
     if (!selected) { fprintf(stderr, "gpu_fp8gemm_test: INVALID shape '%s'\n", shape); return 2; }
     if (host) host_only();
     if (sim) sim_battery();
-    if (!host && !sim) {
+    if (simd) sim_dense();
+    if (!host && !sim && !simd) {
         if (mt || warps) omega_gpu_fp8gemm_set_shape(mt, warps);
         if (ctas) omega_gpu_fp8gemm_set_cta_budget(ctas);
         (void)omega_gpu_session_set_spin_us(spin);
