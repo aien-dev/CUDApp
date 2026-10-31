@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define CACHE_SLOTS 8
+#define CACHE_SLOTS 16 /* DRA-89: the row-aware stroke pins 8 dense shapes (mt 1/2/4/8 at k 2048, 4096) + 2 expert shapes; the native cache holds 16 (omega_gpu_fp8_api.c) */
 #define MARKER_TIMEOUT_MS 20000ull
 #define POISON_F32 (-999.0f)
 
@@ -225,6 +225,16 @@ int omega_gpu_fp8gemm_prepare(uint32_t k) {
     return rc;
 }
 
+/* DRA-89 (P-DRA-4): the row-aware dense decode shape, OFF unless AIEN_OMEGA_FP8GEMM_ROWAWARE=1 (read once; decode changes are
+ * env-gated, default off, until the stroke gate passes). The stroke's dense calls (one segment: MIX, O) record with mt = the
+ * live rows rounded up to 1, 2, 4 or 8 instead of spec_for's dense 8, so a stroke of N < 8 conversations does not stage and
+ * multiply 8 - N padding rows per pass. 0 = the incumbent choice (knob off, a set_shape mt, or no rows). */
+uint32_t omega_gpu_fp8gemm_dense_mt(uint32_t rows) {
+    static int on = -1;
+    if (on < 0) { const char *e = getenv("AIEN_OMEGA_FP8GEMM_ROWAWARE"); on = (e && e[0] == '1' && e[1] == 0) ? 1 : 0; }
+    if (!on || g.mt || rows == 0) return 0;
+    return rows <= 1u ? 1u : rows <= 2u ? 2u : rows <= 4u ? 4u : 8u;
+}
 /* ---- the stroke's record path (L312 v2): one launch appended to a command list, every buffer the caller's ---- */
 static void spec_for_stroke(uint32_t k, uint32_t segs, uint32_t mt, int rowmap, OmegaFp8GemmSpec *spec) {
     spec_for(k, segs, spec);

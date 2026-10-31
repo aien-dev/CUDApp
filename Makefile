@@ -371,6 +371,16 @@ test-gpu-fp8gemm: $(GPU_FP8GEMM_TEST)
 	env AIEN_OMEGA_FP8GEMM_ROW_AHEAD=1 $(GPU_FP8GEMM_TEST) --spec-of 2048,1,0,0 --expect "row_ahead=0"
 	for v in "" 0 yes 2 " 1" "1 " 11; do \
 	  env AIEN_OMEGA_FP8GEMM_ROW_AHEAD="$$v" $(GPU_FP8GEMM_TEST) --spec-of 512,64,4,1 --expect "row_ahead=0" || exit 1; done
+	@# DRA-89: AIEN_OMEGA_FP8GEMM_ROWAWARE; unset or anything but "1" = the incumbent dense mt 8 for every row count;
+	@# "1" = the live rows rounded up to 1/2/4/8 (MIX k 2048, O k 4096); a set_shape mt (--mt) keeps its pin
+	for r in 1 2 3 4 5 8; do for k in 2048 4096; do \
+	  env -u AIEN_OMEGA_FP8GEMM_ROWAWARE $(GPU_FP8GEMM_TEST) --dense-of $$k,$$r --expect "mt=8 warps=16 mutant=0 rowmap=0 x_ahead=0 ctas=96" || exit 1; \
+	  for v in 0 yes " 1" "1 " 11 2; do env AIEN_OMEGA_FP8GEMM_ROWAWARE="$$v" $(GPU_FP8GEMM_TEST) --dense-of $$k,$$r --expect "mt=8" || exit 1; done; done; done
+	for rm in 1:1 2:2 3:4 4:4 5:8 6:8 7:8 8:8; do r=$${rm%:*}; m=$${rm#*:}; for k in 2048 4096; do \
+	  env AIEN_OMEGA_FP8GEMM_ROWAWARE=1 $(GPU_FP8GEMM_TEST) --dense-of $$k,$$r --expect "mt=$$m warps=16 mutant=0 rowmap=0 x_ahead=0 ctas=96" || exit 1; done; done
+	env AIEN_OMEGA_FP8GEMM_ROWAWARE=1 $(GPU_FP8GEMM_TEST) --dense-of 2048,1 --mt 4 --expect "mt=4"
+	env -u AIEN_OMEGA_FP8GEMM_ROWAWARE $(GPU_FP8GEMM_TEST) --sim-dense
+	env AIEN_OMEGA_FP8GEMM_ROWAWARE=1 $(GPU_FP8GEMM_TEST) --sim-dense
 
 # OWN-30B (2026-10-13): host-only audit that every launcher declares peak + 2 registers (the chip hung at peak + 1).
 .PHONY: test-gpu-gpr-boundary
