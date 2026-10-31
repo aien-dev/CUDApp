@@ -1,0 +1,957 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note DRA-72 judge (P-DRA-4): reads the cpubw and GPU bench logs and decides G2, G3 and G4.
+note   g2  CPU_LOG [LOAD_LOG]            median CPU GB/s over WIN windows (first and last dropped; with LOAD_LOG
+note                                     only windows inside the GPU load interval). PASS >= 70 GB/s.
+note   g3  ALONE_LOAD WITH_LOAD CPU_LOG  GPU FP8 GEMV slowdown under CPU load from two gpu_dra72_load_test logs.
+note   g3s ALONE_GATE WITH_GATE CPU_LOG  35B stroke-gate per-stroke median slowdown under CPU load.
+note                                     G3 thresholds: slowdown <= 5 % (PROPOSED, Drake confirms).
+note   g4  HANDOFF_LOG                   CPU->GPU->CPU round trip p99 <= 10000 ns on a mode=chip log.
+note Exit: 0 PASS, 1 FAIL, 2 usage, 4 MALFORMED or INCONCLUSIVE, 5 a log cannot be read.
+note Every log line must carry a known tag and numeric fields; anything else is MALFORMED (exit 4).
+text TAGS "CPUBW CORE WIN TOTAL SUMMARY HANDOFF NEG S W END LOAD READY L QWEN36_STROKE_GATE "
+text WORDS "mode=chip~median~PASS~"
+text MSG "G2 ~G3 ~G4 ~PASS~FAIL~INCONCLUSIVE~MALFORMED~ cpu_gbs=~ windows=~ threshold_gbs=70~ under_gpu_load=~\n~ line ~ gpu_alone_gbs=~ gpu_with_gbs=~ slowdown_pct=~ threshold_pct=5(PROPOSED)~ p50_ns=~ p99_ns=~ max_ns=~ samples=~ threshold_p99_ns=10000~ overflow=~usage: dra72_judge g2 CPU_LOG [LOAD_LOG] | g3 ALONE_LOAD WITH_LOAD CPU_LOG | g3s ALONE_GATE WITH_GATE CPU_LOG | g4 HANDOFF_LOG\n~cannot read argument ~ (sim log, not a chip measurement)~ (negative control failed: NEG ok=0)~ (bench reported failure: END ok=0)~ (too few windows, need 5)~ (too few samples, need 1000)~ (END count does not match the S lines)~ (load log failed: END ok=0 or not bit-identical)~G3S ~ (header line)~ (END or TOTAL line missing)~ gate_alone_ms=~ gate_with_ms=~ (gate summary missing or the gate did not PASS)~ submits=~ (too few submissions, need 5)~"
+global fb uchar 16777216
+global fbn ulong 1
+global cur ulong 4
+global bad ulong 1
+global ab uchar 4096
+global ob uchar 8192
+global obn ulong 1
+global sv ulong 262144
+global wst ulong 262144
+global wby ulong 262144
+global wn ulong 1
+global lel ulong 262144
+global hist ulong 999999
+global st ulong 32
+note st: 0 window_ns, 3 load lo ns, 4 load hi ns, 5 load END ok, 6 load identical, 7 L lines, 8 bytes per submit,
+note     12 selected count, 13 hover (samples >= len hist), 14 handoff chip, 15 NEG ok, 16 END ok, 17 END samples,
+note     18 S lines, 19 max ns, 20 END submits
+fn pc b uchar to void
+n = get obn 0
+if lt n len ob
+put ob n b
+put obn 0 add n 1
+end
+end
+fn flush to void
+w = write 1 ob 0 get obn 0
+put obn 0 0
+end
+fn ps k ulong to void
+j = ulong 0
+for i ulong len MSG
+b = get MSG i
+if eq b 126
+j = add j 1
+else
+if eq j k
+pc b
+end
+end
+end
+end
+fn pn v ulong to void
+d = new uchar 24 0
+k = ulong 0
+x = v
+while true bound 24
+put d k uchar add 48 rem x 10
+k = add k 1
+x = div x 10
+if eq x 0
+break
+end
+end
+while gt k 0 bound 24
+k = sub k 1
+pc get d k
+end
+end
+fn pf v f64 to void
+x = v
+if lt x 0.0f64
+pc 45
+x = sub 0.0f64 x
+end
+m = ulong add mul x 1000.0f64 0.5f64
+pn div m 1000
+pc 46
+f = rem m 1000
+pc uchar add 48 div f 100
+pc uchar add 48 rem div f 10 10
+pc uchar add 48 rem f 10
+end
+fn verdict code ulong to void
+if eq code 0
+ps 3
+end
+if eq code 1
+ps 4
+end
+if eq code 4
+ps 5
+end
+end
+fn loadarg a ulong to bool
+n = argread a ab 0 4095
+if le n 0
+ret false
+end
+fd = fopen ab 0 ulong n 0 0
+if lt fd 0
+ret false
+end
+t = ulong 0
+while true bound 999999
+r = read int fd fb t sub len fb t
+if le r 0
+break
+end
+t = add t ulong r
+if ge t len fb
+break
+end
+end
+c = fclose int fd
+put fbn 0 t
+put cur 0 0
+put cur 3 0
+put bad 0 0
+ret lt t len fb
+end
+fn cantread a ulong to int
+ps 24
+pn a
+ps 11
+flush
+ret 5
+end
+fn malformed g ulong ln ulong why ulong to int
+ps g
+ps 6
+ps 12
+pn ln
+if lt why 100
+ps why
+end
+ps 11
+flush
+ret 4
+end
+fn nextline to bool
+p = get cur 0
+n = get fbn 0
+if ge p n
+ret false
+end
+put cur 1 p
+e = p
+while lt e n bound 999999
+if eq get fb e 10
+break
+end
+e = add e 1
+end
+put cur 2 e
+put cur 0 add e 1
+put cur 3 add get cur 3 1
+ret true
+end
+fn taglen to ulong
+p = get cur 1
+t = p
+while lt t get cur 2 bound 999999
+if eq get fb t 32
+break
+end
+t = add t 1
+end
+ret sub t p
+end
+fn tagmatch s ulong tl ulong to bool
+p = get cur 1
+m = ulong 0
+while lt m tl bound 64
+if ne get TAGS add s m get fb add p m
+ret false
+end
+m = add m 1
+end
+ret true
+end
+fn tagid to ulong
+tl = taglen
+j = ulong 1
+s = ulong 0
+while lt s len TAGS bound 64
+q = s
+while ne get TAGS q 32 bound 64
+q = add q 1
+end
+if eq sub q s tl
+if tagmatch s tl
+ret j
+end
+end
+s = add q 1
+j = add j 1
+end
+ret 0
+end
+fn tokstart k ulong to ulong
+p = get cur 1
+e = get cur 2
+i = ulong 0
+while lt p e bound 999999
+if eq i k
+ret p
+end
+while lt p e bound 999999
+if eq get fb p 32
+break
+end
+p = add p 1
+end
+while lt p e bound 999999
+if ne get fb p 32
+break
+end
+p = add p 1
+end
+i = add i 1
+end
+ret e
+end
+fn tokcount to ulong
+k = ulong 0
+while lt tokstart k get cur 2 bound 999999
+k = add k 1
+end
+ret k
+end
+note num: the decimal value of token k (0 is the tag); a key=value token yields the value. Sets bad otherwise.
+fn num k ulong to ulong
+p = tokstart k
+e = get cur 2
+if ge p e
+put bad 0 1
+ret 0
+end
+q = p
+while lt q e bound 999999
+b = get fb q
+if eq b 32
+break
+end
+if eq b 61
+p = add q 1
+end
+q = add q 1
+end
+if or ge p q gt sub q p 19
+put bad 0 1
+ret 0
+end
+v = ulong 0
+while lt p q bound 20
+c = get fb p
+if or lt c 48 gt c 57
+put bad 0 1
+ret 0
+end
+v = add mul v 10 ulong sub c 48
+p = add p 1
+end
+ret v
+end
+note fnum: token k as a decimal fraction (digits, an optional point, digits).
+fn fnum k ulong to f64
+p = tokstart k
+e = get cur 2
+ip = ulong 0
+fr = ulong 0
+sc = ulong 1
+dot = false
+dig = ulong 0
+while lt p e bound 999999
+b = get fb p
+if eq b 32
+break
+end
+if gt dig 17
+put bad 0 1
+break
+end
+if eq b 46
+if dot
+put bad 0 1
+end
+dot = true
+else
+if or lt b 48 gt b 57
+put bad 0 1
+break
+end
+if dot
+fr = add mul fr 10 ulong sub b 48
+sc = mul sc 10
+else
+ip = add mul ip 10 ulong sub b 48
+end
+dig = add dig 1
+end
+p = add p 1
+end
+if eq dig 0
+put bad 0 1
+end
+ret add f64 ip div f64 fr f64 sc
+end
+fn segoff w ulong to ulong
+j = ulong 0
+i = ulong 0
+while lt j w bound 999
+if eq get WORDS i 126
+j = add j 1
+end
+i = add i 1
+end
+ret i
+end
+fn tokis k ulong w ulong to bool
+o = segoff w
+p = tokstart k
+e = get cur 2
+i = ulong 0
+while lt i 999 bound 999
+q = add o i
+r = add p i
+if eq get WORDS q 126
+if ge r e
+ret true
+end
+ret eq get fb r 32
+end
+if ge r e
+ret false
+end
+if ne get fb r get WORDS q
+ret false
+end
+i = add i 1
+end
+ret false
+end
+fn sift s ulong n ulong to void
+r = s
+while true bound 64
+c = add mul r 2 1
+if ge c n
+ret
+end
+if lt add c 1 n
+if lt get sv c get sv add c 1
+c = add c 1
+end
+end
+if ge get sv r get sv c
+ret
+end
+x = get sv r
+put sv r get sv c
+put sv c x
+r = c
+end
+end
+fn hsort n ulong to void
+i = div n 2
+while gt i 0 bound 999999
+i = sub i 1
+sift i n
+end
+e = n
+while gt e 1 bound 999999
+e = sub e 1
+x = get sv 0
+put sv 0 get sv e
+put sv e x
+sift 0 e
+end
+end
+note median of sv[0..n): the lower middle for an even n (n >= 1)
+fn median n ulong to ulong
+hsort n
+ret get sv div sub n 1 2
+end
+note parsecpu: cpubw log. 0 = well formed; else the line number that is wrong (last line + 1 when one is missing).
+fn parsecpu to ulong
+put wn 0 0
+hdr = false
+tot = false
+while true bound 999999
+if not nextline
+break
+end
+t = tagid
+ln = get cur 3
+ok = false
+if eq t 1
+if or hdr ne num 1 1
+ret ln
+end
+put st 0 num 5
+if eq get st 0 0
+ret ln
+end
+hdr = true
+ok = true
+end
+if eq t 2
+x = add num 1 add num 2 num 3
+ok = true
+end
+if eq t 3
+n = get wn 0
+if or not hdr or ge n len wst ne num 1 n
+ret ln
+end
+put wst n num 2
+put wby n num 3
+put wn 0 add n 1
+ok = true
+end
+if eq t 4
+x = add num 1 num 2
+tot = true
+ok = true
+end
+if eq t 5
+ok = true
+end
+if or not ok ne get bad 0 0
+ret ln
+end
+end
+if not and hdr tot
+ret add get cur 3 1
+end
+ret 0
+end
+note parseload: gpu_dra72_load_test log; L elapsed values into lel. Same return as parsecpu.
+fn parseload to ulong
+hdr = false
+fin = false
+n = ulong 0
+put st 3 18446744073709551615
+put st 4 0
+while true bound 999999
+if not nextline
+break
+end
+t = tagid
+ok = false
+if eq t 11
+if or hdr ne num 1 1
+ret get cur 3
+end
+put st 8 num 6
+hdr = true
+ok = true
+end
+if eq t 12
+ok = true
+end
+if eq t 13
+if or or not hdr fin or ge n len lel ne num 1 n
+ret get cur 3
+end
+if ne num 4 get st 8
+ret get cur 3
+end
+s = num 2
+el = num 3
+put lel n el
+put st 3 fmin2 get st 3 s
+put st 4 fmax2 get st 4 add s el
+n = add n 1
+ok = true
+end
+if eq t 10
+put st 5 num 1
+put st 6 num 2
+put st 20 num 3
+fin = true
+ok = true
+end
+if or not ok ne get bad 0 0
+ret get cur 3
+end
+end
+if not and hdr fin
+ret add get cur 3 1
+end
+put st 7 n
+ret 0
+end
+fn fmin2 a ulong b ulong to ulong
+if lt a b
+ret a
+end
+ret b
+end
+fn fmax2 a ulong b ulong to ulong
+if gt a b
+ret a
+end
+ret b
+end
+note medwin: median WIN bytes over windows 1 .. wn-2; inside [st3, st4] when inside. Count in st 12.
+fn inwin s ulong to bool
+if lt s get st 3
+ret false
+end
+ret le add s get st 0 get st 4
+end
+fn medwin inside bool to ulong
+c = ulong 0
+i = ulong 1
+while lt add i 1 get wn 0 bound 262144
+if or not inside inwin get wst i
+put sv c get wby i
+c = add c 1
+end
+i = add i 1
+end
+put st 12 c
+if eq c 0
+ret 0
+end
+ret median c
+end
+note loadmed: median L elapsed after the first two submissions. Count in st 12.
+fn loadmed to ulong
+n = get st 7
+c = ulong 0
+i = ulong 2
+while lt i n bound 262144
+put sv c get lel i
+c = add c 1
+i = add i 1
+end
+put st 12 c
+if eq c 0
+ret 0
+end
+ret median c
+end
+fn cpu_gbs inside bool to f64
+m = medwin inside
+ret div f64 m f64 get st 0
+end
+fn g2 to int
+if not loadarg 2
+ret cantread 2
+end
+r = parsecpu
+if ne r 0
+ret malformed 0 r 999
+end
+inside = false
+if gt ulong argcnt 3
+if not loadarg 3
+ret cantread 3
+end
+r = parseload
+if ne r 0
+ret malformed 0 r 999
+end
+if or ne get st 5 1 ne get st 6 1
+ps 0
+ps 5
+ps 31
+ps 11
+flush
+ret 4
+end
+inside = true
+end
+g = cpu_gbs inside
+c = get st 12
+code = ulong 1
+if ge g 70.0f64
+code = 0
+end
+if lt c 5
+code = 4
+end
+ps 0
+verdict code
+ps 7
+pf g
+ps 8
+pn c
+ps 9
+ps 10
+if inside
+pc 49
+else
+pc 48
+end
+if eq code 4
+ps 28
+end
+ps 11
+flush
+ret int code
+end
+note loadside: parse load log argument a; median elapsed, or 0 after printing why (rc in st 21).
+fn loadside a ulong to ulong
+put st 21 0
+if not loadarg a
+put st 21 ulong cantread a
+ret 0
+end
+r = parseload
+if ne r 0
+put st 21 ulong malformed 1 r 999
+ret 0
+end
+if or ne get st 5 1 ne get st 6 1
+ps 1
+ps 5
+ps 31
+ps 11
+flush
+put st 21 4
+ret 0
+end
+m = loadmed
+if lt get st 12 5
+ps 1
+ps 5
+ps 39
+ps 11
+flush
+put st 21 4
+ret 0
+end
+ret m
+end
+fn g3 to int
+ma = loadside 2
+if eq ma 0
+ret int get st 21
+end
+bps = get st 8
+mw = loadside 3
+if eq mw 0
+ret int get st 21
+end
+if not loadarg 4
+ret cantread 4
+end
+r = parsecpu
+if ne r 0
+ret malformed 1 r 999
+end
+g = cpu_gbs true
+sl = mul sub div f64 mw f64 ma 1.0f64 100.0f64
+code = ulong 1
+if le sl 5.0f64
+code = 0
+end
+if lt get st 12 5
+code = 4
+end
+ps 1
+verdict code
+ps 13
+pf div f64 bps f64 ma
+ps 14
+pf div f64 bps f64 mw
+ps 15
+pf sl
+ps 16
+ps 7
+pf g
+ps 8
+pn get st 12
+if eq code 4
+ps 28
+end
+ps 11
+flush
+ret int code
+end
+note gatems: per-stroke median ms of the last QWEN36_STROKE_GATE line that ends in PASS; negative when none.
+fn gatems a ulong to f64
+v = -1.0f64
+if not loadarg a
+ret -2.0f64
+end
+while true bound 999999
+if not nextline
+break
+end
+if ne tagid 14
+continue
+end
+n = tokcount
+k = ulong 1
+while lt k n bound 999
+if tokis k 1
+break
+end
+k = add k 1
+end
+put bad 0 0
+if and lt add k 1 n tokis sub n 1 2
+x = fnum add k 1
+if eq get bad 0 0
+v = x
+end
+end
+end
+ret v
+end
+fn g3s to int
+ga = gatems 2
+if lt ga -1.5f64
+ret cantread 2
+end
+gw = gatems 3
+if lt gw -1.5f64
+ret cantread 3
+end
+if or le ga 0.0f64 le gw 0.0f64
+ps 32
+ps 5
+ps 37
+ps 11
+flush
+ret 4
+end
+if not loadarg 4
+ret cantread 4
+end
+r = parsecpu
+if ne r 0
+ret malformed 32 r 999
+end
+g = cpu_gbs false
+sl = mul sub div gw ga 1.0f64 100.0f64
+code = ulong 1
+if le sl 5.0f64
+code = 0
+end
+if lt get st 12 5
+code = 4
+end
+ps 32
+verdict code
+ps 35
+pf ga
+ps 36
+pf gw
+ps 15
+pf sl
+ps 16
+ps 7
+pf g
+ps 8
+pn get st 12
+if eq code 4
+ps 28
+end
+ps 11
+flush
+ret int code
+end
+note parsehand: hand-off log into hist. Same return as parsecpu.
+fn parsehand to ulong
+for i ulong len hist
+put hist i 0
+end
+hdr = false
+fin = false
+seen = false
+while true bound 999999
+if not nextline
+break
+end
+t = tagid
+ln = get cur 3
+ok = false
+if eq t 6
+if or hdr ne num 1 1
+ret ln
+end
+x = num 5
+put st 14 0
+if tokis 4 0
+put st 14 1
+end
+hdr = true
+ok = true
+end
+if eq t 7
+if or not hdr seen
+ret ln
+end
+put st 15 num 1
+x = add num 2 num 3
+seen = true
+ok = true
+end
+if eq t 8
+v = num 1
+if or not hdr fin
+ret ln
+end
+if lt v len hist
+put hist v add get hist v 1
+else
+put st 13 add get st 13 1
+end
+put st 19 fmax2 get st 19 v
+put st 18 add get st 18 1
+ok = true
+end
+if eq t 9
+x = num 1
+ok = true
+end
+if eq t 10
+if or not hdr fin
+ret ln
+end
+put st 16 num 1
+put st 17 num 2
+x = num 3
+fin = true
+ok = true
+end
+if or not ok ne get bad 0 0
+ret ln
+end
+end
+if not and and hdr fin seen
+ret add get cur 3 1
+end
+ret 0
+end
+fn pct r ulong to ulong
+c = ulong 0
+for i ulong len hist
+c = add c get hist i
+if ge c r
+ret i
+end
+end
+ret len hist
+end
+fn g4 to int
+if not loadarg 2
+ret cantread 2
+end
+r = parsehand
+if ne r 0
+ret malformed 2 r 999
+end
+n = get st 18
+if ne n get st 17
+ret malformed 2 get cur 3 30
+end
+code = ulong 4
+why = ulong 999
+p50 = ulong 0
+p99 = ulong 0
+if ge n 1
+p50 = pct div add n 1 2
+p99 = pct div add mul n 99 99 100
+end
+if lt n 1000
+why = 29
+end
+if eq get st 14 0
+why = 25
+end
+if eq get st 16 0
+code = 1
+why = 27
+end
+if eq get st 15 0
+code = 1
+why = 26
+end
+if eq why 999
+code = 1
+if le p99 10000
+code = 0
+end
+end
+ps 2
+verdict code
+ps 17
+pn p50
+ps 18
+pn p99
+ps 19
+pn get st 19
+ps 20
+pn n
+ps 22
+pn get st 13
+ps 21
+if lt why 100
+ps why
+end
+ps 11
+flush
+ret int code
+end
+fn main to int
+c = ulong argcnt
+if lt c 3
+ps 23
+flush
+ret 2
+end
+n = argread 1 ab 0 16
+m = ulong 0
+if and eq n 2 eq get ab 0 103
+if eq get ab 1 50
+m = 2
+end
+if eq get ab 1 51
+m = 3
+end
+if eq get ab 1 52
+m = 4
+end
+end
+if and eq n 3 eq m 0
+if eq get ab 0 103
+if and eq get ab 1 51 eq get ab 2 115
+m = 5
+end
+end
+end
+if and eq m 2 or eq c 3 eq c 4
+ret g2
+end
+if and eq m 3 eq c 5
+ret g3
+end
+if and eq m 5 eq c 5
+ret g3s
+end
+if and eq m 4 eq c 3
+ret g4
+end
+ps 23
+flush
+ret 2
+end

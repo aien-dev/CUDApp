@@ -31,6 +31,7 @@
 #include <math.h>
 #include <pthread.h>
 #include <sched.h>
+#include <signal.h>
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -273,6 +274,10 @@ int main(int argc, char **argv) {
     Worker w[MAX_THREADS]; pthread_t th[MAX_THREADS];
     memset(w, 0, sizeof w);
     for (int i = 0; i < n; i++) { w[i].core = cores[i]; w[i].mode = mode; w[i].mib = mib; w[i].bar = &bar; w[i].win_ns = win_ns; }
+    /* --seconds is the cap; SIGTERM or SIGINT ends the run early and the log is still written (a chip slice stops cpubw
+     * when the GPU job it overlaps exits). Blocked here so every worker inherits the mask and main alone takes them. */
+    sigset_t sigs; sigemptyset(&sigs); sigaddset(&sigs, SIGTERM); sigaddset(&sigs, SIGINT);
+    pthread_sigmask(SIG_BLOCK, &sigs, NULL);
     for (int i = 0; i < n; i++) if (pthread_create(&th[i], NULL, worker, &w[i]) != 0) { fprintf(stderr, "cpubw: pthread_create\n"); return 1; }
     pthread_barrier_wait(&bar); /* round 1: all threads pinned and their memory touched */
     struct timespec rt; clock_gettime(CLOCK_REALTIME, &rt);
@@ -280,8 +285,13 @@ int main(int argc, char **argv) {
     const uint64_t t0_real = (uint64_t)rt.tv_sec * 1000000000ull + (uint64_t)rt.tv_nsec; /* aligns WIN lines with shell $EPOCHREALTIME stamps */
     pthread_barrier_wait(&bar); /* round 2: go (the barrier orders the g_t0 store before every worker's read) */
     const uint64_t t_end = g_t0 + (uint64_t)(seconds * 1e9);
-    struct timespec ts = { (time_t)(t_end / 1000000000ull), (long)(t_end % 1000000000ull) };
-    while (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &ts, NULL) == EINTR) {}
+    for (;;) {
+        const uint64_t now = mono_ns();
+        if (now >= t_end) break;
+        const struct timespec left = { (time_t)((t_end - now) / 1000000000ull), (long)((t_end - now) % 1000000000ull) };
+        const int sig = sigtimedwait(&sigs, NULL, &left);
+        if (sig == SIGTERM || sig == SIGINT) break;
+    }
     atomic_store(&g_stop, 1);
     const uint64_t t_stop = mono_ns();
     for (int i = 0; i < n; i++) pthread_join(th[i], NULL);

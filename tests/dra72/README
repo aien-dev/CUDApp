@@ -1,0 +1,2 @@
+Synthetic DRA-72 judge fixtures (generated, not measurements). judge_fixtures.sh runs the judge on each and
+checks its exit status: pass 0, fail 1, malformed or inconclusive 4.
