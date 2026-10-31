@@ -342,6 +342,8 @@ test-gpu-fp8gemm: $(GPU_FP8GEMM_TEST)
 	env AIEN_OMEGA_FP8GEMM_X_AHEAD=yes $(GPU_FP8GEMM_TEST) $(FP8GEMM_STROKE_GU) --expect "x_ahead=0"
 	env AIEN_OMEGA_FP8GEMM_X_AHEAD=1 $(GPU_FP8GEMM_TEST) $(FP8GEMM_STROKE_GU) --expect "rowmap=1 mt=4 x_ahead=1"
 	env AIEN_OMEGA_FP8GEMM_X_AHEAD=1 $(GPU_FP8GEMM_TEST) --spec-of 2048,16,8,0 --warps 4 --expect "x_ahead=0"
+	for v in "" 0 yes 2 " 1" "1 " 11; do \
+	  env AIEN_OMEGA_FP8GEMM_X_AHEAD="$$v" $(GPU_FP8GEMM_TEST) $(FP8GEMM_STROKE_GU) --expect "x_ahead=0" || exit 1; done
 	@# DRA-78: AIEN_OMEGA_FP8GEMM_CTA_BUDGET; unset = the incumbent rule exactly (segs >= 64: 2, >= 8: 12, else 96)
 	env -u AIEN_OMEGA_FP8GEMM_CTA_BUDGET $(GPU_FP8GEMM_TEST) --spec-of 512,64,4,1 --expect "ctas=2 x_ahead=0"
 	env -u AIEN_OMEGA_FP8GEMM_CTA_BUDGET $(GPU_FP8GEMM_TEST) --spec-of 2048,64,4,1 --expect "ctas=2"

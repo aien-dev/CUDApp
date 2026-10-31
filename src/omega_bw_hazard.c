@@ -115,7 +115,7 @@ int omega_bw_decode(const uint8_t b[16], OmegaBwInsn *d) {
 }
 
 const char *omega_bw_hazard_kind(uint8_t kind) {
-    return kind == OMEGA_BW_HZ_RAW ? "RAW" : kind == OMEGA_BW_HZ_WAR ? "WAR" : kind == OMEGA_BW_HZ_WAW ? "WAW" : "?";
+    return kind == OMEGA_BW_HZ_RAW ? "RAW" : kind == OMEGA_BW_HZ_WAR ? "WAR" : kind == OMEGA_BW_HZ_WAW ? "WAW" : kind == OMEGA_BW_HZ_EXIT ? "EXIT" : "?";
 }
 
 /* ---- the walk ---------------------------------------------------------------------------------------------------
@@ -175,6 +175,11 @@ static void step(const OmegaBwInsn *d, uint32_t pc, State *s, OmegaBwHazardRepor
             int has_w = d->wbar != OMEGA_BW_NOBAR;
             if (has_w || d->var) { s->w[i] |= 1ull << (has_w ? (1u << d->wbar) : 0u); s->wpc[i] = pc; }
         }
+    /* EXIT (unconditional) with a register write still in flight: the program never waited for a load it issued (P-DRA-4
+     * DRA-79: a prefetch past the last use). Reported once per register, against the producer. */
+    if (d->flow == OMEGA_BW_FLOW_EXIT && d->guard == 7u)
+        for (unsigned i = 0; i < NREG; i++)
+            if (s->w[i]) { if (rep) note(rep, pc, s->wpc[i], OMEGA_BW_HZ_EXIT, i, s->w[i]); s->w[i] = 0; }
     /* late source reads: held until a wait on the read barrier or on the write barrier (completion) */
     if (d->late || d->rbar != OMEGA_BW_NOBAR) {
         unsigned m = (d->rbar != OMEGA_BW_NOBAR ? 1u << d->rbar : 0u) | (d->wbar != OMEGA_BW_NOBAR ? 1u << d->wbar : 0u);

@@ -55,7 +55,8 @@ typedef struct {
  * reported as not checked, never as clean). */
 int omega_bw_decode(const uint8_t b[16], OmegaBwInsn *d);
 
-enum { OMEGA_BW_HZ_RAW = 1, OMEGA_BW_HZ_WAR = 2, OMEGA_BW_HZ_WAW = 3 };
+/* OMEGA_BW_HZ_EXIT: an unconditional EXIT reached with a register write (a load) still pending on some path. */
+enum { OMEGA_BW_HZ_RAW = 1, OMEGA_BW_HZ_WAR = 2, OMEGA_BW_HZ_WAW = 3, OMEGA_BW_HZ_EXIT = 4 };
 
 typedef struct {
     uint32_t pc;       /* instruction index of the offending reader / writer */
