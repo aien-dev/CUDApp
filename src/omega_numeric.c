@@ -28,11 +28,16 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/auxv.h>
+#if defined(__x86_64__)
+#include <fenv.h>
+#include <math.h>
+#include <xmmintrin.h>
+#endif
 
 atomic_int omega_numeric_native_state = ATOMIC_VAR_INIT(OMEGA_NUMERIC_NATIVE_IDLE);
 
-#if !defined(__aarch64__)
-#error "OMEGA-NUMERIC-0 host tiers use AArch64 FP instructions (fmadd, fdiv, fsqrt, fminnm, scvtf, fcvtzs)"
+#if !defined(__aarch64__) && !defined(__x86_64__)
+#error "OMEGA-NUMERIC-0 supports AArch64 and x86-64 host tiers"
 #endif
 
 bool omega_numeric_bits_equal(float a, float b) {
@@ -45,9 +50,20 @@ bool omega_numeric_bits_equal(float a, float b) {
 /* ---- Required FP environment ----------------------------------------------- */
 
 uint64_t omega_numeric_read_fpcr(void) {
+#if defined(__aarch64__)
     uint64_t v;
     __asm__ volatile("mrs %0, fpcr" : "=r"(v) : : "memory");
     return v;
+#else
+    /* Preserve the public normalized FPCR-shaped report, not a raw MXCSR.
+     * MXCSR: RC[14:13], FTZ[15], DAZ[6]. x87 rounding must agree too. */
+    unsigned mxcsr = _mm_getcsr();
+    uint64_t report = ((uint64_t)((mxcsr >> 13) & 3u)) << 22;
+    if (mxcsr & (1u << 15)) report |= 1ULL << 24;
+    if (mxcsr & (1u << 6)) report |= 1ULL;
+    if (fegetround() != FE_TONEAREST) report |= 1ULL << 22;
+    return report;
+#endif
 }
 
 bool omega_numeric_fpenv_ok(void) {
@@ -61,9 +77,14 @@ float omega_ref_fsub(float a, float b) { return a - b; }
 float omega_ref_fmul(float a, float b) { return a * b; }
 
 float omega_ref_ffma(float a, float b, float c) {
+#if defined(__aarch64__)
     float r;
     __asm__("fmadd %s0, %s1, %s2, %s3" : "=w"(r) : "w"(a), "w"(b), "w"(c));
     return r;
+#else
+    /* C fmaf requires one rounding, including on x86 CPUs without FMA3. */
+    return fmaf(a, b, c);
+#endif
 }
 
 float omega_ref_fmin(float a, float b) {
@@ -300,7 +321,12 @@ float omega_ref_ffma_int(float a, float b, float c) {
 #define HWCAP2_BF16 (1UL << 14)
 #endif
 bool omega_numeric_cpu_has_bf16(void) {
+#if defined(__aarch64__)
     return (getauxval(AT_HWCAP2) & HWCAP2_BF16) != 0;
+#else
+    /* The x86 tier uses the exact integer conversion, not an optional ISA. */
+    return false;
+#endif
 }
 
 /* Predicate truth per comparison outcome: bit 0 less, bit 1 equal, bit 2
@@ -345,15 +371,23 @@ int omega_ref_fsetp_pred(int op, float a, float b) {
 }
 
 float omega_ieee_div(float x, float y) {
+#if defined(__aarch64__)
     float r;
     __asm__("fdiv %s0, %s1, %s2" : "=w"(r) : "w"(x), "w"(y));
     return r;
+#else
+    return _mm_cvtss_f32(_mm_div_ss(_mm_set_ss(x), _mm_set_ss(y)));
+#endif
 }
 
 float omega_ieee_sqrt(float x) {
+#if defined(__aarch64__)
     float r;
     __asm__("fsqrt %s0, %s1" : "=w"(r) : "w"(x));
     return r;
+#else
+    return _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(x)));
+#endif
 }
 
 /* ---- Host seed used only by the raw-seed negative test ------------------- */
@@ -1339,6 +1373,40 @@ int omega_numeric_cpu_realize(OmegaNumericOp op, const float *a, const float *b,
     if ((op == OMEGA_NOP_SHFL_DOWN || op == OMEGA_NOP_REDUCE_SUM) && (count % 32u) != 0)
         return OMEGA_NUMERIC_ERR_OPERANDS;
     if (op == OMEGA_NOP_LDS_STS && (count % OMEGA_NUMERIC_CTA_THREADS) != 0) return OMEGA_NUMERIC_ERR_OPERANDS;
+#if defined(__x86_64__)
+    /* Integer-defined conversions and warp permutations are shared with the
+     * bit-model. They are not an independent hardware conversion oracle.
+     * Arithmetic below is independently realized by scalar SSE / fused libm. */
+    switch (op) {
+    case OMEGA_NOP_FADD: case OMEGA_NOP_FSUB: case OMEGA_NOP_FMUL:
+    case OMEGA_NOP_FFMA: case OMEGA_NOP_FFMA_V: case OMEGA_NOP_I2FP:
+    case OMEGA_NOP_MUFU_RCP: case OMEGA_NOP_MUFU_RSQ: case OMEGA_NOP_REDUCE_SUM:
+        break;
+    default:
+        return omega_numeric_reference(op, a, b, c, out, count);
+    }
+    for (size_t i = 0; i < count; ++i) {
+        float x = a[i], y = b ? b[i] : 0.0f;
+        __m128 vx = _mm_set_ss(x), vy = _mm_set_ss(y);
+        switch (op) {
+        case OMEGA_NOP_FADD: out[i] = _mm_cvtss_f32(_mm_add_ss(vx, vy)); break;
+        case OMEGA_NOP_FSUB: out[i] = _mm_cvtss_f32(_mm_sub_ss(vx, vy)); break;
+        case OMEGA_NOP_FMUL: out[i] = _mm_cvtss_f32(_mm_mul_ss(vx, vy)); break;
+        case OMEGA_NOP_FFMA:
+        case OMEGA_NOP_FFMA_V: out[i] = fmaf(x, y, c[i]); break;
+        case OMEGA_NOP_I2FP:
+            out[i] = _mm_cvtss_f32(_mm_cvtsi32_ss(_mm_setzero_ps(), (int32_t)omega_float_to_bits(x)));
+            break;
+        case OMEGA_NOP_MUFU_RCP: out[i] = omega_ieee_div(1.0f, x); break;
+        case OMEGA_NOP_MUFU_RSQ: out[i] = omega_ieee_div(1.0f, omega_ieee_sqrt(x)); break;
+        case OMEGA_NOP_REDUCE_SUM:
+            out[i] = ((i & 31u) == 0) ? cpu_tree_sum32(&a[i]) : 0.0f;
+            break;
+        default: break;
+        }
+    }
+    return OMEGA_NUMERIC_OK;
+#else
     const bool bf16 = op == OMEGA_NOP_F32_TO_BF16 && omega_numeric_cpu_has_bf16();
     for (size_t i = 0; i < count; i++) {
         float r = 0.0f;
@@ -1487,6 +1555,7 @@ int omega_numeric_cpu_realize(OmegaNumericOp op, const float *a, const float *b,
         }
         out[i] = r;
     }
+#endif
     return OMEGA_NUMERIC_OK;
 }
 

@@ -1,6 +1,6 @@
 # Omega Runtime API v0
 
-Omega Runtime API version: 0.8.0
+Omega Runtime API version: 0.9.0
 
 Status: first written version, 2026-10-19 (slice R1, omega-mv#594, tracking #593). Source of truth is the C headers in
 `src/`. This file describes them; `docs/runtime/omega_runtime_api.manifest` lists them; `make test-runtime-api` checks the
@@ -13,8 +13,8 @@ The version number lives in one header, `src/omega_runtime_api.h` (`OMEGA_RUNTIM
 
 Omega is a GPU compute runtime that does not use CUDA. This file is the written contract for the part a program calls
 directly: find and open the GPU, get memory, copy data in and out, run a kernel, run many kernels in one submission, run a
-packaged job, and read errors. It covers what exists on the main branch today, on one machine type (GB10, the DGX Spark),
-through the Linux open-driver backend. Nothing here claims more than that.
+packaged job, and read errors. GB10 is the historical device target. The Linux reference now also has
+an experimental sm_86 direct-driver path for GA102/GA104; both Ampere devices remain NOT_RUN.
 
 Compatibility preflight is **wrapper-only**: `make doctor` checks the kernel-module
 version and PCI target, and `make hello-gpu` runs it first. Direct binaries and
@@ -36,8 +36,14 @@ signature against the headers on every run.
 
 ## 2. Version and compatibility rule
 
-The version is MAJOR.MINOR.PATCH (semantic versioning), currently **0.8.0**. It is a property of the list of entries and
+The version is MAJOR.MINOR.PATCH (semantic versioning), currently **0.9.0**. It is a property of the list of entries and
 their behaviour, not of the library build. Changes so far:
+- 0.9.0 (AmperePort, CUDApp#170): grows STABLE `OmegaGpuLaunch` with `target_sm` (a MAJOR-class change
+  taken as MINOR under the major-version-zero rule); adds EXPERIMENTAL
+  `omega_gpu_session_target_sm`. Zero-initialized legacy launches still mean sm_121, not auto-detect.
+  An explicit sm_86 launch must match the opened device and use sm_86 code and argument layout.
+  Adds discrete VRAM allocation/BAR-mapped visibility and a VRAM-based D1 reserve;
+  no Ampere hardware qualification is claimed. See `docs/PORT-AMPERE.md`.
 - 0.8.0 (CUDApp#139): adds the EXPERIMENTAL general matrix multiply of section 9.8 (`src/omega_gpu_gemm_ex.h`:
   `omega_gpu_gemm_ex`, `omega_gpu_gemm_ex_fp8_block_rows`, `OmegaGemmExArgs`, `OmegaGemmExInfo` and their constants),
   and two of its test hooks to the INTERNAL list. **Layout change:** `OmegaGpuFp8GemmInfo` (EXPERIMENTAL, section 9.7)
@@ -131,6 +137,11 @@ grow, such as staging space, can be an `OmegaGpuScratch`. For read-only weights 
 **Launch.** One kernel launch is an `OmegaGpuLaunch`: where the code is, how many registers, the block and grid size, the
 argument words, shared memory, and a timeout. `omega_gpu_session_launch` submits it and waits for the chip to finish (it
 is synchronous). The wait is by polling a completion word, never by an interrupt.
+For sm_86, set `OmegaGpuLaunch.target_sm = 86` and use the target-aware encoder in
+`omega_ampere_codegen.h`. `target_sm = 0` preserves legacy sm_121 behavior; it is
+not permission to run Blackwell code on Ampere. A target mismatch refuses before
+submission. Existing Blackwell library kernels and command-list packets are not
+silently retargeted; unsupported Ampere packets are refused.
 
 **Command lists.** `omega_gpu_cmdlist_*` records many launches and submits them as one unit with one completion wait. By
 default each launch is preceded by a barrier so dependent launches cannot overlap; a launch can be marked independent.
@@ -215,6 +226,14 @@ OmegaGpuSession *omega_gpu_session_open(void);
 ```
 Caller holds the lock. Opens the device on first use. Returns NULL when the process is latched, no platform is installed or the
 open failed; the stage is in `omega_gpu_session_last_error()`.
+
+#### `omega_gpu_session_target_sm`
+EXPERIMENTAL: physical target selection for the prepared Ampere path; device qualification is NOT_RUN.
+```c
+uint32_t omega_gpu_session_target_sm(void);
+```
+Caller holds the lock. Returns the opened device's exact target (`86` or `121`),
+or zero with no open device. It does not open a device.
 
 #### `omega_gpu_session_is_open`
 STABLE: simple state query.
@@ -626,7 +645,7 @@ are TEST ONLY (INTERNAL list).
 ## 10. INTERNAL (not part of the API)
 
 Not in the manifest; may change or vanish without notice. The complete list of such names in the manifest headers, each
-with its reason, is `docs/runtime/omega_runtime_api.internal` (195 names in 0.8.0: test hooks, kernel builders, encoder
+with its reason, is `docs/runtime/omega_runtime_api.internal` (195 names in 0.9.0: test hooks, kernel builders, encoder
 probes, serving-daemon internals and launch limits; the 25 serving internals and launch limits are marked "candidate
 EXPERIMENTAL", the ones a caller is most likely to want promoted). `make test-runtime-api` fails on a name in a manifest header that is in neither file. Notable ones:
 - `omega_gpu_session_set_error` (library code names its failure stage through it).

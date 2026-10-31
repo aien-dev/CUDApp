@@ -5,6 +5,9 @@
 #include <stdlib.h>
 #endif
 #include <string.h>
+#ifdef OMEGA_GPU_NO_POSIX
+#include "cudapp_native.h"
+#endif
 
 int omega_matmul_spec_init(OmegaMatMulSpec *spec, uint32_t m, uint32_t k, uint32_t n, OmegaMatMulPrecision precision) {
     if (!spec || m == 0 || k == 0 || n == 0) return -1;
@@ -92,10 +95,14 @@ float omega_bf16_to_fp32(uint16_t b) {
 }
 
 uint16_t omega_fp32_to_fp16(float f) {
-#if defined(OMEGA_GPU_NO_POSIX) && !defined(__aarch64__)
-    /* x86-64 freestanding: the _Float16 cast is libgcc __truncsfhf2, which the
-     * freestanding allowlist rejects. The integer form is the same rounding. */
-    return omega_fp32_to_fp16_rne(f);
+#ifdef OMEGA_GPU_NO_POSIX
+    /* The host cast can import libgcc __truncsfhf2 on x86. Keep the
+     * freestanding conversion in checked, import-free Omega instead. */
+    uint32_t bits;
+    uint64_t out;
+    memcpy(&bits, &f, sizeof(bits));
+    if (omega_native_f16(&out, bits) != OMEGA_OK) __builtin_trap();
+    return (uint16_t)out;
 #else
     _Float16 h = (_Float16)f;
     uint16_t u;

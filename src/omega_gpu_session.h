@@ -105,7 +105,9 @@ typedef struct {
     uint32_t spin_us;            /* poll the marker without sleeping for up to this long, then the platform's
                                     poll_word (Linux reference: 50 us sleep-poll) until timeout_ms; 0 = the process-wide setting
                                     (omega_gpu_session_set_spin_us) */
+    uint32_t target_sm;           /* exact target; 0 retains legacy SM121 */
 } OmegaGpuLaunch;
+uint32_t omega_gpu_session_target_sm(void); /* 0 when closed */
 #define OMEGA_GPU_SESSION_MAX_SPIN_US 1000000u
 #define OMEGA_GPU_SESSION_MAX_ARGS 32u
 /* poll_word is called in slices of at most this many ms so a cancel request is seen within one slice */

@@ -82,7 +82,7 @@ printf 'int value = 2;\n' > "$c/src/omega_gpu_case.c"
 printf 'int same = 1;\n' > "$o/src/omega_gpu_same.c"
 cp "$o/src/omega_gpu_same.c" "$c/src/omega_gpu_same.c"
 commit_pair
-run 'built-in negative controls' 0 'SELF-TEST: PASS (both controls red, real check green)' \
+run 'built-in negative controls' 0 'SELF-TEST: PASS (all controls red, real check green)' \
     bash "$c/tools/extract/drift.sh" --self-test "$o" HEAD "$base"
 run 'invalid ref in direct mode' 2 'DRIFT-GATE: NOT_RUN (map failed)' \
     bash "$c/tools/extract/drift.sh" "$o" invalid-ref "$base"

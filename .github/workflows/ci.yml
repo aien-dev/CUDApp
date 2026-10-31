@@ -49,6 +49,7 @@ jobs:
           git clone -q https://github.com/aien-dev/omega-bridge "$RUNNER_TEMP/omega-bridge"
           git -C "$RUNNER_TEMP/omega-bridge" checkout -q "$(grep -v '^#' om/omega-bridge.lock)"
           git -C "$RUNNER_TEMP/omega-bridge" rev-parse HEAD
+          (cd "$RUNNER_TEMP/omega-bridge" && sh tools/bootstrap.sh && sh tools/build.sh)
       - name: Host-only tests
         # The runner's bash uses -e -o pipefail, so make's status is captured with `||`.
         env:
@@ -64,7 +65,7 @@ jobs:
             *) echo "make test exited 0 without the final CUDA++ HOST TESTS PASS line"; exit 1 ;;
           esac
   om-units:
-    # The committed Omega bindings (src/cudapp_om_units.c) regenerate byte for byte from the pinned omc and
+    # The committed portable Omega bindings (src/cudapp_om_*.c) regenerate byte for byte from the pinned omc and
     # omega-bridge, and every mutant .om unit goes red. omega-mv e5b32567 carries the pinned seed/out/omc.
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
@@ -78,6 +79,7 @@ jobs:
           git -C "$RUNNER_TEMP/omega-mv" checkout -q e5b32567a7aff3ce594e3254a622a846a6cd190b
           git clone -q https://github.com/aien-dev/omega-bridge "$RUNNER_TEMP/omega-bridge"
           git -C "$RUNNER_TEMP/omega-bridge" checkout -q "$(grep -v '^#' om/omega-bridge.lock)"
+          (cd "$RUNNER_TEMP/omega-bridge" && sh tools/bootstrap.sh && sh tools/build.sh)
       - name: Pinned offline NVIDIA instruction oracle
         run: |
           package=cuda_nvdisasm-linux-sbsa-13.0.85-archive

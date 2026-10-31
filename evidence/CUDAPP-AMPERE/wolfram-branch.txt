@@ -1,0 +1,12 @@
+Purpose: signed SM86 BRA field constants used by om/encoder/ampere_enc_sm86.om.
+Arithmetic is MODELED; this is not device execution evidence.
+
+WolframLanguageEvaluator query:
+{FromDigits["3FFF0",16],BitOr[FromDigits["03800000",16],FromDigits["3FFF0",16]],Table[{d,BitAnd[16 Mod[d-1,2^32],2^32-1],BitAnd[Floor[If[Mod[d-1,2^32]>=2^31,Mod[d-1,2^32]-2^32,Mod[d-1,2^32]]/2^28],2^18-1]},{d,{2,-2,0,1,2147483647,-2147483648}}]}
+
+Observed evaluator result:
+{262128, 58982384, {{2, 16, 0}, {-2, 4294967248, 262143}, {0, 4294967280, 262143}, {1, 0, 0}, {2147483647, 4294967264, 7}, {-2147483648, 4294967280, 7}}}
+
+The byte displacement is in word 1; its sign extension occupies low 18 bits of word 2.
+SM121's split displacement encoding is not reused for SM86.
+The independent nvdisasm corpus gate compares branch destinations and requires a wrong-target mutant to fail.

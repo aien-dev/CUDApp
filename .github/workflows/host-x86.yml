@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # x86-64 host CI (issue #196). Runs the portable suite from docs/OMEGA_HOST_TESTS.md
-# and builds the x86 freestanding link (mk/omega-gpu-engine.mk, CUDAPP_PORTABLE_DEFS
-# on cudapp_binding_portable.o). Does not install nvdisasm, clone Omega, or open a GPU.
+# and builds the x86 freestanding link (mk/omega-gpu-engine.mk) from the generated
+# Omega units (src/cudapp_freest_*.c, om/units.sh) with no migration-pending C switch.
+# Does not install nvdisasm, clone Omega, or open a GPU.
 # The AArch64 host-tests job stays in ci.yml. make test-runtime-api's version bump
 # stays in runtime-api.yml (#189). Further host gates for #90 belong in their own
 # change, not in this file. GB10 chip tests stay NOT_RUN.
@@ -36,7 +37,12 @@ jobs:
           make CC=gcc gpu-engine-freestanding > "$RUNNER_TEMP/freestanding.log" 2>&1 || rc=$?
           cat "$RUNNER_TEMP/freestanding.log"
           [ "$rc" -eq 0 ] || exit "$rc"
-          grep -F 'cudapp_binding_portable.o' "$RUNNER_TEMP/freestanding.log" | grep -F -- '-DCUDAPP_MIGRATION_PENDING_C_ENCODER' | grep -F -- '-DCUDAPP_MIGRATION_PENDING_C_CUBIN'
+          for u in revision epoch f16; do
+            grep -E "/cudapp_freest_$u\.o src/cudapp_freest_$u\.c\$" "$RUNNER_TEMP/freestanding.log"
+          done
+          if grep -F -- '-DCUDAPP_MIGRATION_PENDING_C_' "$RUNNER_TEMP/freestanding.log"; then
+            echo "freestanding link compiled a migration-pending C switch"; exit 1
+          fi
           line=$(grep -E '^freestanding GPU link \([0-9]+ files\): only .*undefined$' "$RUNNER_TEMP/freestanding.log")
           echo "$line"
       - name: Portable host suite

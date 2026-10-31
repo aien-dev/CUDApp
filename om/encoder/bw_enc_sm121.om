@@ -45,6 +45,11 @@ end
 ret 1
 end
 
+note Only constant loads have uniform destinations; IMAD uses is_uniform for its source.
+fn isuld op ulong to bool
+ret or eq op 6 eq op 7
+end
+
 fn opnds ins view ulong 8192 i ulong phys view ulong 288 o edit ulong 16 to void
 b = mul i 8
 f = get ins add b 7
@@ -69,7 +74,7 @@ put o 11 and shr f 8 255
 put o 12 pres get ins add b 2
 put o 13 pres get ins add b 3
 d = get ins add b 1
-if and eq and f 1 1 lt d NEG
+if and isuld get o 0 lt d NEG
 put o 1 get phys add d 256
 end
 end

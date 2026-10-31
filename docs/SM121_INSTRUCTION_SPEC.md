@@ -151,3 +151,8 @@ This command proves a host function binding, not physical GPU qualification or
 the downstream `bc_encode` consumer; that consumer requires its own native
 runtime fixture at its exact integrated source pin. Physical qualification is
 NOT_RUN. Historical audit and device receipts are not rewritten.
+
+The native probe executes AArch64 function bytes, so it runs only with an
+AArch64 C target. Elsewhere the script prints NOT_RUN for it and exits 3,
+unless `BW_SPEC_NATIVE_PROBE_NOT_RUN_OK=1` accepts that row as NOT_RUN;
+`make test-om-spec-encoder` sets it on non-AArch64 hosts only.

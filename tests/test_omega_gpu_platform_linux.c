@@ -28,8 +28,12 @@
 
 /* The three driver symbols the session path needs that the fake (written for the vector engine) lacks. */
 static int g_open_fail;
+static int g_discrete;
+extern uint64_t fake_vram_free, fake_vram_total;
+extern int fake_vram_query_fail, fake_vram_allocs;
 int nvrm_open(Nvrm *rm) {
     if (g_open_fail) { snprintf(rm->err, sizeof rm->err, "fake RM: open refused"); return -1; }
+    rm->target_sm = g_discrete ? 86 : 121; rm->discrete = (uint8_t)g_discrete;
     fk.device_open = 1; return 0;
 }
 int nvrm_close(Nvrm *rm) { (void)rm; return 0; }
@@ -444,6 +448,63 @@ static void c_reserve_overflow(void) {
     unlink(path);
 }
 
+static void c_discrete_vram_reserve(void) {
+    fake_reset(); g_discrete = 1;
+    setenv("CUDAPP_MEM_RESERVE_MIB", "0", 1);
+    setenv("CUDAPP_GPU_MIN_FREE_BYTES", "8192", 1);
+    EXPECT(omega_gpu_platform_linux_test_set_meminfo("/nonexistent/host-memory-must-not-be-used") == 0);
+    fake_vram_free = 4096; fake_vram_total = 8ull << 30;
+    const OmegaGpuPlatform *p = omega_gpu_platform_linux(NULL);
+    OmegaGpuDeviceHandle d;
+    EXPECT(p->device_open(p->ctx, 0, &d) == 0);
+    EXPECT(omega_gpu_platform_linux_target_sm() == 86);
+    OmegaGpuBufferDesc desc = {.kind = OMEGA_GPU_HANDLE_BUF_DATA,
+        .rights = OMEGA_GPU_RIGHT_CPU_READ | OMEGA_GPU_RIGHT_GPU_WRITE,
+        .gpu_cache = OMEGA_GPU_CACHE_GPU_UNCACHED, .bytes = 4096};
+    OmegaGpuBufferHandle h; OmegaCpuView cpu; OmegaGpuVa va;
+    const int before = fk.alloc_calls;
+    EXPECT(p->dma_alloc(p->ctx, d, &desc, &h, &cpu, &va, NULL) == OMEGA_GPU_PLAT_REFUSED_LIMIT);
+    EXPECT(fk.alloc_calls == before && fake_vram_allocs == 0 && fake_vram_free == 4096);
+    EXPECT(strstr(p->diag_text(p->ctx), "host RAM is not VRAM") != NULL);
+    /* Exact byte override is read again, not cached at open. */
+    setenv("CUDAPP_GPU_MIN_FREE_BYTES", "0", 1);
+    EXPECT(p->dma_alloc(p->ctx, d, &desc, &h, &cpu, &va, NULL) == 0);
+    EXPECT(fake_vram_allocs == 1);
+    fk.free_fail_nth = fk.free_calls + 1;
+    EXPECT(p->dma_free(p->ctx, h) == OMEGA_GPU_PLAT_REFUSED_DEVICE);
+    fk.free_fail_nth = 0;
+    EXPECT(p->dma_free(p->ctx, h) == 0); /* handle survived failed driver cleanup */
+    fake_vram_query_fail = 1;
+    setenv("CUDAPP_GPU_MIN_FREE_BYTES", "1", 1);
+    const int allocated = fk.alloc_calls;
+    EXPECT(p->dma_alloc(p->ctx, d, &desc, &h, &cpu, &va, NULL) == OMEGA_GPU_PLAT_REFUSED_LIMIT);
+    EXPECT(fk.alloc_calls == allocated);
+    fake_vram_query_fail = 0;
+    setenv("CUDAPP_GPU_MIN_FREE_BYTES", "18446744073709551616", 1);
+    EXPECT(p->dma_alloc(p->ctx, d, &desc, &h, &cpu, &va, NULL) == OMEGA_GPU_PLAT_REFUSED_LIMIT);
+    EXPECT(fk.alloc_calls == allocated);
+    EXPECT(p->device_close(p->ctx, d) == 0);
+    EXPECT(omega_gpu_platform_linux_test_set_meminfo(NULL) == 0);
+}
+
+static void c_ampere_target_refusal(void) {
+    fake_reset(); g_discrete = 1;
+    setenv("CUDAPP_MEM_RESERVE_MIB", "0", 1);
+    setenv("CUDAPP_GPU_MIN_FREE_BYTES", "0", 1);
+    omega_gpu_session_lock();
+    EXPECT(omega_gpu_session_open() != NULL);
+    EXPECT(omega_gpu_session_target_sm() == 86);
+    const int before = fk.submit_calls;
+    OmegaGpuLaunch L = launch_desc(1000);
+    EXPECT(omega_gpu_session_launch(&L, NULL, NULL) != 0);
+    L.target_sm = 121;
+    EXPECT(omega_gpu_session_launch(&L, NULL, NULL) != 0);
+    L.target_sm = 999;
+    EXPECT(omega_gpu_session_launch(&L, NULL, NULL) != 0);
+    EXPECT(fk.submit_calls == before && !omega_gpu_session_is_blocked());
+    omega_gpu_session_unlock();
+}
+
 /* CodeQL cpp/path-injection #40: the meminfo file is set by code (omega_gpu_platform_linux_test_set_meminfo), never by
  * the environment, and is honoured only when it opens, without following a final symlink and without blocking, to a
  * regular file; anything else falls back to the real /proc/meminfo. The reserve is 2^30 MiB (1 PiB), which the real
@@ -525,6 +586,8 @@ static const Case CASES[] = {
     {"CMDLIST_TIMEOUT_LATCHES_WITHOUT_LAUNCH_BEHIND_IT", c_cmdlist_timeout_latches_without_launch},
     {"ZERO_TIMEOUT_REFUSED_BEFORE_SUBMIT", c_zero_timeout_refused},
     {"D1_RESERVE_AND_MEMINFO_OVERFLOW_SATURATE", c_reserve_overflow},
+    {"AMPERE_D1_USES_VRAM_REFUSES_BEFORE_RM_ALLOC", c_discrete_vram_reserve},
+    {"AMPERE_REJECTS_IMPLICIT_OR_MISMATCHED_LAUNCH_TARGET", c_ampere_target_refusal},
     {"D1_MEMINFO_TEST_PATH_REGULAR_ENV_IGNORED", c_meminfo_test_path},
 };
 

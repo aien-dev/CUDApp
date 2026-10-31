@@ -230,7 +230,8 @@ static int check_loop_invariant(const Em *e) {
             for (size_t i = (size_t)e->loop_end[L] + 1; i < e->p->count; i++) {
                 const BlackwellIRInsn *in = &e->p->insns[i];
                 if (in->src1_vreg == v || in->src2_vreg == v || in->src3_vreg == v) return -1;
-                if (in->dst_vreg == v && !in->is_uniform) break;
+                /* only LDCU/LDCU64 write a uniform register; any other dst (also a uniform-source IMAD) is GPR v */
+                if (in->dst_vreg == v && in->op != BW_IR_LDCU && in->op != BW_IR_LDCU64) break;
             }
         }
     return 0;

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
- * omega_cubin: package Omega-generated sm_121 machine code into the NVIDIA
- * cubin ELF container that the CUDA driver (and MAX's device layer) can load.
+ * omega_cubin: package Omega-generated sm_86 or sm_121 machine code into the
+ * NVIDIA cubin ELF container. Device loading is separately qualified.
  *
  * This is a container writer, not a GPU driver, compiler or verifier. It does
  * not know a device address, open a device, allocate memory or launch work. It
@@ -28,9 +28,9 @@
  * host as an oracle only; see PROVENANCE.md).
  *
  * Limits, deliberate and recorded:
- *   - e_phoff/e_phnum are 0: this is a section-based container. The ptxas
- *     reference also carries PT_LOAD program headers; whether cuModuleLoadData
- *     needs them is exactly what the NOT_RUN device probe must decide.
+ *   - PT_LOAD headers describe text, constant bank and reserved shared memory.
+ *   - sm_86 has no Blackwell capmerc dependency. sm_121 output is preserved;
+ *     this writer does not synthesize capmerc or assert driver loadability.
  *   - EIATTR_EXIT_INSTR_OFFSETS is omitted because this writer does not decode
  *     SASS and will not fabricate the EXIT byte offset. ptxas emits it; the
  *     driver treats it as optional metadata until a device load proves else.
@@ -46,6 +46,9 @@
 #define OMEGA_CUBIN_ABI_VERSION 8u
 #define OMEGA_CUBIN_EFLAGS_SM121 0x6007902u
 #define OMEGA_CUBIN_SM_121 121u
+#define OMEGA_CUBIN_SM_86 86u
+#define OMEGA_CUBIN_EFLAGS_SM86 ((86u << 16) | 0x500u | 86u)
+#define OMEGA_CUBIN_PARAM_BASE_SM86 0x160u
 #define OMEGA_CUBIN_PARAM_BASE 0x380u
 #define OMEGA_CUBIN_CBANK_MAX 1024u
 #define OMEGA_CUBIN_MAX_PARAMS 32u
@@ -60,7 +63,8 @@ enum {
     OMEGA_CUBIN_E_CBANK = 4,      /* parameter area exceeds the 1024-byte bank */
     OMEGA_CUBIN_E_GPR = 5,        /* register count above 255 */
     OMEGA_CUBIN_E_SHARED = 6,     /* reserved shared size not a multiple of 4 */
-    OMEGA_CUBIN_E_MEM = 7         /* allocation failure */
+    OMEGA_CUBIN_E_MEM = 7,        /* allocation failure */
+    OMEGA_CUBIN_E_TARGET = 8      /* unsupported explicit SM target */
 };
 
 /* One kernel parameter: its byte offset in constant bank 0, its size (8 for a
@@ -83,6 +87,17 @@ int omega_cubin_pack(const char *fn_name,
                      uint32_t cbank_size, uint32_t gpr_count,
                      uint32_t shared_reserved,
                      uint8_t **out, size_t *out_len, char *err, size_t err_cap);
+
+/* Explicit target; no auto-detection or architecture fallback. Parameters use
+ * the selected target's constant-bank ABI (sm_86: 0x160; sm_121: 0x380).
+ * The legacy entry above remains exactly the sm_121 contract.
+ * This only packages bytes: callers must select the matching encoder too. */
+int omega_cubin_pack_target(uint32_t target_sm, const char *fn_name,
+                            const uint8_t *text, size_t text_len,
+                            const OmegaCubinParam *params, size_t nparams,
+                            uint32_t cbank_size, uint32_t gpr_count,
+                            uint32_t shared_reserved,
+                            uint8_t **out, size_t *out_len, char *err, size_t err_cap);
 
 void omega_cubin_free(uint8_t *p);
 

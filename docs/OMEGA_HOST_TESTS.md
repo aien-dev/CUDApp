@@ -78,32 +78,26 @@ contract still runs.
 
 ## Seeded binding on a non-AArch64 host
 
-`src/cudapp_om_units.c` and `src/cudapp_freest_units.c` are generated AArch64
-machine code (`om/units.sh`). They are not edited. A host that is not AArch64
-does not assemble them.
+`om/units.sh` emits every seeded unit as checked portable C through the pinned
+omega-bridge (`om/omega-bridge.lock`): `src/cudapp_om_<unit>.c` for the hosted
+units and `src/cudapp_freest_<unit>.c` for the import-free scalar units. They
+are generated and not edited. Every host compiles the same files, so x86-64
+runs `bw_enc_sm121.om`, `cubin_elf.om` and the native units through the same C
+that AArch64 links. `make test-om-encoder`, `make test-om-cubin`,
+`make test-codegen-freestanding` and `make test-gpu-native-runtime` run on
+x86-64.
 
-That host links `src/cudapp_binding_portable.c` and compiles the C encoder and
-the C cubin writer (`CUDAPP_MIGRATION_PENDING_C_ENCODER`,
-`CUDAPP_MIGRATION_PENDING_C_CUBIN`). `make` says so. This is how the portable
-suite produces instruction words and cubin images. It is not a run of
-`bw_enc_sm121.om` or `cubin_elf.om`, and it is not a pass of the `.om` versus C
-differential.
+`make test-omega-binding-portable` checks the revision and epoch vectors
+against the generated `src/cudapp_freest_revision.c` and
+`src/cudapp_freest_epoch.c` on every host.
 
-`omega_native_revision` and `omega_native_epoch` in the portable file follow
-the committed freestanding units. The vectors were taken by executing
-`src/cudapp_freest_units.c` under `qemu-aarch64` 8.2.2 on an x86-64 host
-(cross compile with `aarch64-linux-gnu-gcc`). That qemu run is not a GB10
-result. `make test-omega-binding-portable` checks the same vectors against
-whichever file this host links. Every other seeded entry returns status 34
-(`OMEGA_BAD_RT`) and does not write its result.
-
-These commands exit 2 on x86-64. They run for real on AArch64 when their other
-tools are present:
+The pinned compiler omc is an AArch64 binary. These commands execute it, so on
+x86-64 they exit 2 unless `OMEGA_OMC` is given explicitly and executes there
+(`.github/workflows/ampere-x86.yml` registers the pinned QEMU provenance oracle
+for that job). They run for real on AArch64 when their other tools are
+present:
 
 ```sh
-make test-om-encoder
-make test-om-cubin
-make test-gpu-native-runtime
 make test-om-spec-encoder
 make test-portable-receipts
 make test-model-capacity
