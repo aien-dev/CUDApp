@@ -25,7 +25,7 @@ jobs:
       - name: Manifest, surface and negative controls
         # the same command the CUDAPP-RUNTIME-API gate runs (tests/gates/cudapp-runtime-api.gate): make
         # test-runtime-api, then a final RESULT: PASS line from the negative controls and one from the real tree
-        run: tests/gates/run.sh runtime-api
+        run: tests/gates/cudapp-run.sh runtime-api
       - name: GB10 sm_121 chip execution (NOT_RUN)
         run: |
           printf '%s\n' "GB10 sm_121 chip execution: NOT_RUN (host manifest check only; /dev/nvidia0, /dev/nvidia-uvm and /dev/aien-gpu stay closed)" | tee -a "$GITHUB_STEP_SUMMARY"
