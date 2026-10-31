@@ -371,7 +371,9 @@ int omega_gpu_gdn_state_view(const OmegaGpuGdn *g, OmegaGpuGdnStateView *v) {
 }
 
 int omega_gpu_gdn_dev_copy(uint64_t src_va, uint64_t dst_va, size_t bytes) {
-    if (!src_va || !dst_va) return OMEGA_GPU_GDN_BAD_ARGS;
+    const size_t per = (size_t)OMEGA_GDN_COPY_WORDS_PER_CTA * 4u;
+    /* refused before the device opens: a bad call never touches the chip */
+    if (!src_va || !dst_va || bytes == 0 || bytes % per || bytes / per > 0x7fffffffu) return OMEGA_GPU_GDN_BAD_ARGS;
     omega_gpu_session_lock();
     int rc = dev_open_locked() ? move_locked(KK_COPY, src_va, dst_va, bytes) : OMEGA_GPU_GDN_CHIP_FAIL;
     omega_gpu_session_unlock();
