@@ -3,6 +3,7 @@
  * See the header. Submission path and buffer policy are the FP8 GEMV API's: every buffer both sides touch is
  * GPU-uncached (nvos.h NVOS32_ATTR2_GPU_CACHEABLE), one launch = omega_gpu_session_launch. */
 #include "omega_gpu_fp8gemm_api.h"
+#include "omega_gpu_fp8gemm_internal.h"
 #include "omega_gpu_session.h"
 #include "omega_gpu_cmdlist.h"
 #include "omega_gpu_fmt.h"
@@ -96,6 +97,14 @@ void omega_gpu_fp8gemm_shape_for(uint32_t k, uint32_t *mt, uint32_t *warps, uint
     if (mt) *mt = g.mt ? g.mt : 4u;
     if (warps) *warps = g.warps ? g.warps : 16u;
 }
+/* L312 lever 3: x' staging words one K step ahead, OFF unless AIEN_OMEGA_FP8GEMM_X_AHEAD=1 (read once; P-DRA-4 DRA-67:
+ * decode changes are env-gated, default off, until the stroke gate passes), and only where the NJ = mt * lane_bytes /
+ * warps staging words fit the registers the program holds for them (NJ <= 16); call after mt is final */
+static void x_ahead_for(OmegaFp8GemmSpec *spec) {
+    static int on = -1;
+    if (on < 0) { const char *e = getenv("AIEN_OMEGA_FP8GEMM_X_AHEAD"); on = (e && e[0] == '1' && e[1] == 0) ? 1 : 0; }
+    spec->x_ahead = on && spec->mt * spec->lane_bytes / spec->warps <= 16u ? 1u : 0u;
+}
 /* dense = a few distinct experts with many rows each (qkv, o): 8 rows per pass measured best there */
 static void spec_for(uint32_t k, uint32_t segs, OmegaFp8GemmSpec *spec) {
     memset(spec, 0, sizeof *spec);
@@ -103,6 +112,7 @@ static void spec_for(uint32_t k, uint32_t segs, OmegaFp8GemmSpec *spec) {
     omega_gpu_fp8gemm_shape_for(k, &spec->mt, &spec->warps, &spec->lane_bytes);
     if (!g.mt && segs < 8u) spec->mt = 8u;
     spec->mutant = g.mutant;
+    x_ahead_for(spec);
 }
 
 static int g_rec; /* 1 while a record call runs (lock held): kernel_for must not evict */
@@ -210,6 +220,10 @@ static void spec_for_stroke(uint32_t k, uint32_t segs, uint32_t mt, int rowmap, 
     spec_for(k, segs, spec);
     if (mt) spec->mt = mt;
     spec->rowmap = rowmap ? 1u : 0u;
+    x_ahead_for(spec);
+}
+void omega_gpu_fp8gemm_stroke_spec(uint32_t k, uint32_t segs, uint32_t mt, int rowmap, OmegaFp8GemmSpec *spec) {
+    spec_for_stroke(k, segs, mt, rowmap, spec);
 }
 int omega_gpu_fp8gemm_prepare_shape(uint32_t k, uint32_t segs, uint32_t mt, int rowmap) {
     OmegaFp8GemmSpec spec; spec_for_stroke(k, segs, mt, rowmap, &spec);
