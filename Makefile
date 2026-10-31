@@ -343,6 +343,28 @@ test-gpu-fp8gemm: $(GPU_FP8GEMM_TEST)
 	env AIEN_OMEGA_FP8GEMM_X_AHEAD=1 $(GPU_FP8GEMM_TEST) $(FP8GEMM_STROKE_GU) --expect "rowmap=1 mt=4 x_ahead=1"
 	env AIEN_OMEGA_FP8GEMM_X_AHEAD=1 $(GPU_FP8GEMM_TEST) --spec-of 2048,16,8,0 --warps 4 --expect "x_ahead=0"
 
+# P-DRA-4 DRA-67 (Qwen3.6-35B, sc L306 / L312, ported from omega-mv 6de999da): host-only simulator checks of the decode
+# glue kernels, and the codegen hash pin. q36_codegen_hash prints one sha256 line per kernel program (or "refused" where the
+# spec rules reject the enumerated combination). test-q36-codegen-hash requires every line of the listing at CUDApp main
+# 4bbccf08 (tests/fixtures/q36_codegen_hash/main-4bbccf08.txt) to appear verbatim: levers may add programs, never change one.
+.PHONY: test-q36-dec-sim test-q36-codegen-hash
+Q36_DEC_SIM_TEST = $(OUT_DIR)/q36_dec_sim_test
+$(Q36_DEC_SIM_TEST): tests/q36_dec_sim_test.c tests/bw_warp_sim_k.h src/omega_blackwell_codegen_dec.h $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -ffp-contract=off -DWS_MAX_THREADS=512 -Itests -o $@ tests/q36_dec_sim_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+test-q36-dec-sim: $(Q36_DEC_SIM_TEST)
+	$(Q36_DEC_SIM_TEST)
+Q36_CODEGEN_HASH = $(OUT_DIR)/q36_codegen_hash
+Q36_CODEGEN_BASE = tests/fixtures/q36_codegen_hash/main-4bbccf08.txt
+$(Q36_CODEGEN_HASH): tests/q36_codegen_hash.c $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -Itests -o $@ tests/q36_codegen_hash.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+test-q36-codegen-hash: $(Q36_CODEGEN_HASH)
+	$(Q36_CODEGEN_HASH) > $(OUT_DIR)/q36_codegen_hash.txt
+	@grep -vxFf $(OUT_DIR)/q36_codegen_hash.txt $(Q36_CODEGEN_BASE) > $(OUT_DIR)/q36_codegen_hash.changed || true
+	@printf 'q36_codegen_hash: %s lines (digest %s); base %s lines (digest %s); %s base lines changed or missing\n' \
+	  "$$(wc -l < $(OUT_DIR)/q36_codegen_hash.txt)" "$$(sha256sum < $(OUT_DIR)/q36_codegen_hash.txt | cut -c1-16)" \
+	  "$$(wc -l < $(Q36_CODEGEN_BASE))" "$$(sha256sum < $(Q36_CODEGEN_BASE) | cut -c1-16)" "$$(wc -l < $(OUT_DIR)/q36_codegen_hash.changed)"
+	@test ! -s $(OUT_DIR)/q36_codegen_hash.changed || { head -5 $(OUT_DIR)/q36_codegen_hash.changed; echo 'q36_codegen_hash: FAIL'; exit 1; }
+
 # OWN-30B (2026-10-13): host-only audit that every launcher declares peak + 2 registers (the chip hung at peak + 1).
 .PHONY: test-gpu-gpr-boundary
 GPU_GPR_BOUNDARY_TEST = $(OUT_DIR)/gpu_gpr_boundary_test
@@ -556,7 +578,8 @@ HOST_TESTS = test-drift test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv
 	test-native-artifact zero-cuda-gate verify-vendored test-swap-cli test-om-encoder test-om-spec-encoder test-om-cubin \
 	test-portable-receipts test-gpu-qmd-shared test-model-capacity test-gpu-qmd-shared-clean-build \
 	test-omega-slice-runner test-omega-arch-guard test-omega-barrier-contract test-omega-binding-portable \
-	test-gpu-imadhi-rc test-dagsim test-costmodel test-gpu-fp8-slots test-bw-hazard test-mufu-ftz $(CARRIED_HOST_TESTS)
+	test-gpu-imadhi-rc test-dagsim test-costmodel test-gpu-fp8-slots test-bw-hazard test-mufu-ftz test-q36-dec-sim \
+	test-q36-codegen-hash $(CARRIED_HOST_TESTS)
 ifneq ($(CUDAPP_TARGET_ONLY_TESTS),)
 HOST_TESTS := $(filter-out $(CUDAPP_TARGET_ONLY_TESTS),$(HOST_TESTS)) test-omega-target-only
 endif
