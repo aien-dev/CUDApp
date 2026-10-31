@@ -158,7 +158,9 @@ int omega_gpu_q36_graph_read_buf(OmegaGpuQ36Graph *g, int which, float *out, uin
  * DRA-85: AIEN_OMEGA_Q36_PF_FATTN=1 (read by prefill_alloc; default off; ignored with AIEN_OMEGA_Q36_PF_ATTN=0) runs each
  * attention layer's attend as the flash-style tensor-core kernel (omega_gpu_prefill_fattn256_api.h, grid ceil(n / 16) x
  * kv heads, bf16 HMMA with an online softmax). Not bit-identical to the steps (P rounded to bf16, another summation order):
- * the tolerance and the golden tokens are its gate. TEST mutant 8 (with FATTN=1): its attend kernel without the rescale. */
+ * the tolerance and the golden tokens are its gate. AIEN_OMEGA_Q36_PF_FATTN=2: the same with the kernel's variant 2 (the
+ * next 16-key block's K / V lines touched into L1 during softmax + PV; same arithmetic, same output bits as variant 1 in
+ * the simulator). TEST mutant 8 (with FATTN=1 or 2): its attend kernel without the rescale. */
 #define OMEGA_GPU_Q36_PREFILL_MAX_ROWS 128u /* x 8 routed expert rows <= the fp8 gemm's 1024 (the shared expert is its own GEMM) */
 int omega_gpu_q36_graph_prefill_alloc(OmegaGpuQ36Graph *g, uint32_t cap);
 uint32_t omega_gpu_q36_graph_prefill_cap(const OmegaGpuQ36Graph *g);

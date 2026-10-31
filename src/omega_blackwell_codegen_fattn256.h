@@ -46,6 +46,12 @@
  * The tile of an odd m's last pair reads tokA + 1's QF slot, which the prep never wrote: rows g + 8 of that tile may
  * be anything (NaN included); HMMA rows are independent and those rows are never stored.
  * Registers: the program opts into BW_PHYS_GPR_HW_LIMIT; 256 threads x the declared count must stay <= 65536.
+ * Variant 2 (spec.variant = 2, AIEN_OMEGA_Q36_PF_FATTN=2): after a block's QK^T each lane issues 12 LDG.64 touches of
+ * the next 16-key block (K rows g, g + 8 at their 4 lines, V rows 2t, 2t + 1, 2t + 8, 2t + 9 at line g >> 1: every
+ * 128-byte line of both 8 KiB blocks) into the dead S quad on held scoreboard 5, waited at the loop end, so the next
+ * QK^T loads find their lines in L1 rather than paying a first-touch L2 round trip (DRA-85 PLAN model C). It moves
+ * lines into L1, not K into registers (no room beside Q / O / S). Skipped on the warp's last block. Variants 0 and 1
+ * are the same kernel, byte for byte the kernel before variant 2 existed.
  * The host simulator (tests/bw_warp_sim_pa.h) runs it; a simulator pass is never a chip result.
  */
 #include "omega_blackwell_codegen.h"
@@ -72,6 +78,7 @@
 typedef struct {
     int mutant;      /* TEST ONLY. 0 none; 1 no causal mask; 2 O is never rescaled by alpha. Each must be caught. */
     uint32_t q_heads, kv_heads; /* 0, 0 = Qwen3.6-35B-A3B (16, 2). q_heads / kv_heads must be 1..8 (grid y = kv_heads). */
+    int variant;     /* 0 or 1: the base kernel; 2: next-block L1 touch prefetch (see above). Others refused. */
 } OmegaPrefillFattn256Spec;
 
 typedef struct { uint32_t qh, kvh, group, out_words, qf_pair_bytes; } OmegaFattn256Shape;

@@ -27,7 +27,7 @@ typedef struct {
 static struct {
     bool hooked;
     Slot slot[KK_N];
-    int prep_mut, att_mut;
+    int prep_mut, att_mut, att_variant;
     OmegaGpuMem qf; size_t qf_size; bool have_qf;             /* q' scratch */
     OmegaGpuMem qkv, out; size_t qkv_size, out_size; bool have_bufs; /* host-entry staging */
 } g;
@@ -44,6 +44,11 @@ static void slots_clear_locked(void) {
 void omega_gpu_prefill_fattn256_test_set_mutant(int prep_mutant, int attend_mutant) {
     omega_gpu_session_lock(); g.prep_mut = prep_mutant; g.att_mut = attend_mutant; slots_clear_locked(); omega_gpu_session_unlock();
 }
+int omega_gpu_prefill_fattn256_set_variant(int variant) {
+    if (variant < 0 || variant > 2) return OMEGA_GPU_DATTN_BAD_ARGS;
+    omega_gpu_session_lock(); g.att_variant = variant; slots_clear_locked(); omega_gpu_session_unlock();
+    return OMEGA_GPU_DATTN_OK;
+}
 void omega_gpu_prefill_fattn256_release(void) {
     omega_gpu_session_lock();
     if (g.have_qf) omega_gpu_session_free(&g.qf);
@@ -59,7 +64,7 @@ static void spec_of(unsigned kind, const uint32_t *sh, Slot *tmp) {
         tmp->spec.prep.depth = OMEGA_GPU_DATTN256_DEPTH; tmp->spec.prep.mutant = g.prep_mut; tmp->spec.prep.prep = 1;
         if (sh) { tmp->spec.prep.q_heads = sh[0]; tmp->spec.prep.kv_heads = sh[1]; tmp->spec.prep.q_per_cta = sh[2]; tmp->spec.prep.prep_xstride = sh[3]; }
     } else {
-        tmp->spec.att.mutant = g.att_mut;
+        tmp->spec.att.mutant = g.att_mut; tmp->spec.att.variant = g.att_variant;
         if (sh) { tmp->spec.att.q_heads = sh[0]; tmp->spec.att.kv_heads = sh[1]; }
     }
 }
@@ -171,7 +176,7 @@ static int core(OmegaGpuDecodeAttn256Cache *c, uint32_t layer, uint32_t pos0, ui
     const uint32_t QKVW = v.qkv_words, OUTW = v.out_words;
     /* the prep refuses a stride below a q|k|v row or off 16 bytes; the attend stores rows of out_words f32 */
     if (xstride < QKVW * 4u || (xstride & 15u) || ostride < OUTW * 4u || (ostride & 15u)) return OMEGA_GPU_DATTN_BAD_ARGS;
-    const OmegaPrefillFattn256Spec as = { 0, v.q_heads, v.kv_heads };
+    const OmegaPrefillFattn256Spec as = { .q_heads = v.q_heads, .kv_heads = v.kv_heads };
     if (!omega_fattn256_spec_ok(&as)) return OMEGA_GPU_DATTN_BAD_ARGS;
     const uint32_t sh[4] = { v.q_heads, v.kv_heads, v.q_per_cta, xstride == QKVW * 4u ? 0u : xstride };
     if (!rec) omega_gpu_session_lock();

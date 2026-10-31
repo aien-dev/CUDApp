@@ -103,7 +103,7 @@ struct OmegaGpuQ36Graph {
              size_t xq, xp, mixN, abN, aggN, attN, op, oN, xp2, guN, actN, actp, dnN; int mutant;
              uint64_t streamed; /* fp8 GEMM weight bytes every prefill call so far streamed (one pass per mt rows) */
              int attn_multi; /* 1 (default): each attention layer in one prep + attend launch pair; AIEN_OMEGA_Q36_PF_ATTN=0: one decode step per token */
-             int fattn; /* DRA-85, AIEN_OMEGA_Q36_PF_FATTN=1 (default 0, needs attn_multi): each attention layer's chunk through the flash-style tensor-core attention */
+             int fattn; /* DRA-85, AIEN_OMEGA_Q36_PF_FATTN=1 or 2 (default 0, needs attn_multi): each attention layer's chunk through the flash-style tensor-core attention, kernel variant 1 or 2 */
              int gdn_multi; /* 1 (default): the GDN layers in one multi-token launch; AIEN_OMEGA_Q36_PF_GDN=0: one decode step per token */
              /* DRA-82, AIEN_OMEGA_Q36_PF_QMMA=1 (default 0): the prefill GEMMs on the tensor cores (omega_gpu_pfq_api.h): pq quantises
               * natural rows into q8|qs, qg reads the weights in place through 64-row tiles; qxm|qym the combined routed+shared
@@ -1040,10 +1040,11 @@ int omega_gpu_q36_graph_prefill_alloc(OmegaGpuQ36Graph *g, uint32_t cap) {
         if (g->attn_h[h] && omega_gpu_decode_attn256_multi_prepare(g->attn_h[h]) != OMEGA_GPU_DATTN_OK) return OMEGA_GPU_DGRAPH_CHIP_FAIL;
     omega_gpu_decode_attn256_test_set_multi_mutant(g->pf.mutant == 6 ? 1 : 0); /* TEST mutant 6: the attention prep launch dropped */
     /* DRA-85: AIEN_OMEGA_Q36_PF_FATTN=1 swaps the attend launch for the flash attention (omega_gpu_prefill_fattn256_api.h; not
-     * bit-identical to the steps: the tolerance and the golden tokens are its gate). TEST mutant 8: its kernel without the rescale */
+     * bit-identical to the steps: the tolerance and the golden tokens are its gate); =2 the same with its variant 2 (next-block
+     * L1 touch prefetch, same arithmetic). TEST mutant 8: its kernel without the rescale */
     const char *fe = getenv("AIEN_OMEGA_Q36_PF_FATTN");
-    g->pf.fattn = g->pf.attn_multi && fe && fe[0] == '1' && fe[1] == 0;
-    if (g->pf.fattn) omega_gpu_prefill_fattn256_test_set_mutant(0, g->pf.mutant == 8 ? 2 : 0);
+    g->pf.fattn = g->pf.attn_multi && fe && (fe[0] == '1' || fe[0] == '2') && fe[1] == 0 ? fe[0] - '0' : 0;
+    if (g->pf.fattn) { omega_gpu_prefill_fattn256_test_set_mutant(0, g->pf.mutant == 8 ? 2 : 0); (void)omega_gpu_prefill_fattn256_set_variant(g->pf.fattn); }
     for (uint32_t h = 0; h < g->heads && g->pf.fattn; h++)
         if (g->attn_h[h] && omega_gpu_prefill_fattn256_reserve_for(g->attn_h[h], cap, OMEGA_GPU_Q36_ATT_MIX * 4u) != OMEGA_GPU_DATTN_OK)
             return OMEGA_GPU_DGRAPH_CHIP_FAIL;

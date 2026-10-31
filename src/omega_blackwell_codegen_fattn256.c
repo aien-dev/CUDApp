@@ -152,6 +152,14 @@ static void ldg64s(Em *e, Op d, int addr64, uint32_t imm, int udesc, int first) 
     BlackwellIRInsn i = I0(BW_IR_LDG_E_64); i.dst_vreg = d.v; i.dst_subreg = (uint8_t)d.s; i.src1_vreg = addr64; i.imm = imm; i.ureg = udesc;
     emit(e, i, first ? K_VAR : K_VAR_MORE);
 }
+/* variant 2: an LDG.64 into a sub-register pair whose value is never read (it pulls the line into L1); scoreboard 5 is
+ * held until consume(5) */
+static void ldg_touch(Em *e, Op d, int addr64, uint32_t imm, int udesc) {
+    BlackwellIRInsn in = I0(BW_IR_LDG_E_64); in.dst_vreg = d.v; in.dst_subreg = (uint8_t)d.s; in.src1_vreg = addr64; in.imm = imm; in.ureg = udesc;
+    in.control = CW(4, 5u, SB_RD, (e->pending & (1u << SB_RD))) | CW_YIELD;
+    e->pending |= 1u << SB_RD; e->held |= 1u << 5;
+    if (omega_bw_ir_append(e->p, &in) < 0) e->err = -1;
+}
 
 static const uint32_t NEG_BIG = 0xF149F2CAu; /* -1e30f */
 
@@ -164,7 +172,7 @@ int omega_fattn256_shape(const OmegaPrefillFattn256Spec *spec, OmegaFattn256Shap
 
 int omega_fattn256_spec_ok(const OmegaPrefillFattn256Spec *spec) {
     OmegaFattn256Shape s;
-    return spec && spec->mutant >= 0 && spec->mutant <= 2 && omega_fattn256_shape(spec, &s) == 0;
+    return spec && spec->mutant >= 0 && spec->mutant <= 2 && spec->variant >= 0 && spec->variant <= 2 && omega_fattn256_shape(spec, &s) == 0;
 }
 
 int omega_blackwell_codegen_prefill_fattn256_prog(const OmegaPrefillFattn256Spec *spec, BlackwellIRProgram *prog) {
@@ -172,7 +180,7 @@ int omega_blackwell_codegen_prefill_fattn256_prog(const OmegaPrefillFattn256Spec
     omega_bw_ir_init(prog);
     if (omega_bw_ir_set_gpr_limit(prog, BW_PHYS_GPR_HW_LIMIT) != 0) return -1;
     Em em; memset(&em, 0, sizeof em); em.p = prog; Em *e = &em;
-    const int MUT = spec->mutant;
+    const int MUT = spec->mutant, V2 = spec->variant == 2;
     OmegaFattn256Shape SH;
     if (omega_fattn256_shape(spec, &SH) != 0) return -1;
 
@@ -267,6 +275,21 @@ int omega_blackwell_codegen_prefill_fattn256_prog(const OmegaPrefillFattn256Spec
     nop(e, 15); nop(e, 14);
     for (unsigned k = 0; k < 4; k++) { fadd(e, S(sc[0], k), S(sc[0], k), S(sc[2], k)); fadd(e, S(sc[1], k), S(sc[1], k), S(sc[3], k)); }
 
+    /* ---- variant 2: the next block's 128-byte K and V lines into L1 while this block's softmax and PV run, so its
+     *      QK^T loads hit L1 instead of a first-touch L2 round trip. Each lane touches rows g, g + 8 of K at lines
+     *      0..3 (8 LDG.64 from gK; lanes t share a line) and V rows 2t, 2t + 1, 2t + 8, 2t + 9 at line g >> 1 (4 from gV):
+     *      all 64 + 64 lines. The data lands in sc[3], dead from here to the next QK^T (its value is never read);
+     *      scoreboard 5 is held to the loop end. Skipped on the warp's last block (no next block: no rows past it are
+     *      read). Not register-resident K: Q 64 + O 128 + S 16 leave no room for 64 more registers per lane. ---- */
+    if (V2) {
+        static const uint32_t TV[4] = { 0u, 512u, 4096u, 4608u };
+        isetp_ge_u32(e, one, cnt);                       /* cnt <= 1: the last block */
+        const int b = bra_if_p0_fwd(e);
+        for (unsigned i = 0; i < 12; i++)
+            ldg_touch(e, S(sc[3], (i & 1u) * 2u), i < 8 ? gK : gV, i < 8 ? 16u * 512u + (i >> 2) * 4096u + (i & 3u) * 128u : 16u * 512u + TV[i - 8u], udesc);
+        patch_bra(e, b, here(e));
+    }
+
     /* ---- causal mask: key kb + 8j + 2t + (k&1) > row position (row A for k < 2, A + 1 for k >= 2) ---- */
     if (MUT != 1) {
         imadi(e, R(t1), R(one), 0xfffffff1u, dqa); shr(e, t1, t1, 31);      /* 1 when kb + 15 > row-A position */
@@ -324,6 +347,7 @@ int omega_blackwell_codegen_prefill_fattn256_prog(const OmegaPrefillFattn256Spec
         }
         if (st < 7) consume(e, sbn);
     }
+    if (V2) { consume(e, 5); imadi(e, S(sc[3], 0), S(sc[3], 0), 1u, NOREG); } /* the touches landed; keeps sc[3] live to here */
     imadw(e, gK, one, 16u * 512u, gK); imadw(e, gV, one, 16u * 512u, gV);
     imadi(e, R(dqa), R(one), 0xfffffff0u, dqa);
     imadi(e, R(cnt), R(one), 0xffffffffu, cnt);

@@ -21,6 +21,9 @@
  *   int omega_gpu_prefill_fattn256_reserve_for(c, max_m, xstride): allocates the q' scratch (ceil(max_m / 2) * q_heads *
  *     1024 bytes) and builds both kernels for c's head shape and the q|k|v row stride xstride (0 = packed rows).
  *   void omega_gpu_prefill_fattn256_release(void).
+ *   int omega_gpu_prefill_fattn256_set_variant(variant): the attend kernel variant for later calls (0 or 1: the base
+ *     kernel, the default; 2: next-block L1 touch prefetch, omega_blackwell_codegen_fattn256.h); drops the kernel cache,
+ *     so a record caller warms up again (reserve_for). BAD_ARGS outside 0..2.
  * Returns OMEGA_GPU_DATTN_OK or an OMEGA_GPU_DATTN_* code; the text is in omega_gpu_decode_attn_last_error().
  */
 #include "omega_gpu_decode_attn256_api.h"
@@ -48,6 +51,7 @@ int omega_gpu_prefill_fattn256_record(struct OmegaGpuCmdList *cl, OmegaGpuDecode
                                       uint64_t qkv_va, uint32_t xstride, float eps, float out_scale, uint64_t out_va, uint32_t ostride);
 int omega_gpu_prefill_fattn256_reserve_for(const OmegaGpuDecodeAttn256Cache *c, uint32_t max_m, uint32_t xstride);
 void omega_gpu_prefill_fattn256_release(void);
+int omega_gpu_prefill_fattn256_set_variant(int variant);
 
 /* ---- tests ---- */
 void omega_gpu_prefill_fattn256_test_set_mutant(int prep_mutant, int attend_mutant); /* OmegaDecodeAttn256Spec / OmegaPrefillFattn256Spec .mutant */

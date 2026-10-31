@@ -13,12 +13,18 @@
  *                 every register as junk. Gates: appended K/V rows bit-equal to m runs of the DECODE program on a twin
  *                 cache (the same simulator), outputs within the tolerance of a double reference, the padding words of
  *                 every output row untouched, prep mutants 1 and 3 and attend mutants 1 (no causal mask) and 2 (no
- *                 rescale) caught. The q' scratch starts as NaN so a slot the prep never wrote shows up.
+ *                 rescale) caught. The q' scratch starts as NaN so a slot the prep never wrote shows up. Then the attend
+ *                 kernel's variant 2 (next-block L1 touch prefetch) at the same nine points: the same gates, outputs
+ *                 bit-identical to variant 1 (the touches never feed arithmetic), attend mutants 1 and 2 caught.
+ *   --variant N   the attend kernel variant of the chip run and of a later --sim-point (1 = the base kernel, the default;
+ *                 2); without it AIEN_OMEGA_Q36_PF_FATTN=1 or 2 picks it (as in the q36 graph). --sim runs both.
  *   (default)     the chip: parity (every token up to 512, 8 sampled tokens above), rows bit-identical to m decode calls
  *                 on a twin cache and the next decode step bit-identical on both caches, second call identical, out_scale
  *                 2^20 exact, device entry == host entry, mutants caught, timing medians of 2048-token chunks at contexts
  *                 2k, 8k, 32k (and 128k with --max-pos 131072) and with --long the 8192-token chunks ending at 8k and 32k;
- *                 JSON receipt with --out. Chip runs belong to the DRA-85 slices (P-DRA-4 hive chip/DRA-85/).
+ *                 JSON receipt (with the variant) with --out. Chip runs belong to the DRA-85 slices (P-DRA-4 hive chip/DRA-85/).
+ * --host-only also pins the base kernel's bytes: variant 1's attend encodes to 14976 bytes with FNV-1a64
+ * 8700843075116262202, the kernel of 475b72b2 (before variants existed); a change to them must be deliberate.
  * Reference and tolerance as gpu_prefill_attn256_test.c: model dim order (zero-centred RMSNorm, RoPE pairs (j, j +
  * rotary/2), q.k / 16, causal softmax), q' rounded to bf16 as the prep does, its own bf16 K/V rows;
  * |out - ref| <= 5e-3 * max|v| * out_scale per element (P rounded to bf16 for the tensor cores, <= 2^-9 * max|v|).
@@ -44,6 +50,8 @@ static uint32_t lcg(uint32_t *s) { *s = *s * 1664525u + 1013904223u; return *s; 
 static float frand(uint32_t *s, float lo, float hi) { return lo + (hi - lo) * ((float)(lcg(s) >> 8) / 16777216.0f); }
 static double now_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec * 1e3 + t.tv_nsec / 1e6; }
 static int cmp_u64(const void *a, const void *b) { uint64_t x = *(const uint64_t *)a, y = *(const uint64_t *)b; return x < y ? -1 : x > y; }
+static uint64_t fnv1a64(const void *p, size_t n) { const uint8_t *b = p; uint64_t h = 14695981039346656037ull; for (size_t i = 0; i < n; i++) { h ^= b[i]; h *= 1099511628211ull; } return h; }
+static int g_variant = 1;   /* attend kernel variant: sim_point's spec, the chip API (--variant) */
 static const double THETA = 10000000.0; /* rope_theta */
 static const float EPS = 1e-6f;
 #define HD 256u
@@ -218,9 +226,31 @@ static void host_only(void) {
               "attend codegen mutant %d: rc %d insns %u gprs %u (declared %u) placeholders %u", m, rc, n, gp, dec, ph);
         if (rc == 0 && m == 0) { att_ph = ph; printf("attend: %u instructions, %u registers (declared %u, 256 threads -> %u of 65536), %u placeholders\n", n, gp, dec, 256 * dec, ph); }
     }
+    for (int m = 0; m <= 2; m++) {   /* variant 2 within the same budgets */
+        OmegaPrefillFattn256Spec s = { .mutant = m ATT_SHAPE, .variant = 2 }; uint32_t n = 0, gp = 0, ph = 0;
+        int rc = omega_prefill_fattn256_prog_stats(&s, &n, &gp, &ph);
+        const uint32_t dec = omega_bw_gpr_declared(gp);
+        CHECK(rc == 0 && n <= BW_MAX_IR_INSNS && gp <= BW_PHYS_GPR_HW_LIMIT && 256u * dec <= 65536u && ph == att_ph,
+              "attend variant 2 codegen mutant %d: rc %d insns %u gprs %u (declared %u) placeholders %u", m, rc, n, gp, dec, ph);
+        if (rc == 0 && m == 0) printf("attend variant 2: %u instructions, %u registers (declared %u, 256 threads -> %u of 65536), %u placeholders\n", n, gp, dec, 256 * dec, ph);
+    }
+    { OmegaPrefillFattn256Spec s = { .variant = 3 ATT_SHAPE }; CHECK(!omega_fattn256_spec_ok(&s) && omega_prefill_fattn256_prog_stats(&s, NULL, NULL, NULL) != 0, "attend variant 3 refused");
+      s.variant = -1; CHECK(!omega_fattn256_spec_ok(&s) && omega_prefill_fattn256_prog_stats(&s, NULL, NULL, NULL) != 0, "attend variant -1 refused");
+      CHECK(omega_gpu_prefill_fattn256_set_variant(3) == OMEGA_GPU_DATTN_BAD_ARGS && omega_gpu_prefill_fattn256_set_variant(-1) == OMEGA_GPU_DATTN_BAD_ARGS, "API variant 3 and -1 refused"); }
+    { static uint8_t vc[1 << 17]; uint32_t gp1 = 0, gp2 = 0; int np = -1;
+      omega_gpu_prefill_fattn256_set_variant(1);
+      size_t n1 = omega_gpu_prefill_fattn256_encode(1, QH, KVH, QPC, 0, vc, sizeof vc, &gp1, &np);
+      const uint64_t h1 = n1 ? fnv1a64(vc, n1) : 0;
+      CHECK(n1 == 14976 && h1 == 8700843075116262202ull, "variant 1 attend bytes are the 475b72b2 kernel: %zu bytes fnv1a64 %" PRIu64 " (expect 14976, 8700843075116262202)", n1, h1);
+      omega_gpu_prefill_fattn256_set_variant(2);
+      size_t n2 = omega_gpu_prefill_fattn256_encode(1, QH, KVH, QPC, 0, vc, sizeof vc, &gp2, &np);
+      const uint64_t h2 = n2 ? fnv1a64(vc, n2) : 0;
+      CHECK(n2 > 0 && h2 != h1 && omega_bw_gpr_declared(gp2) == omega_bw_gpr_declared(gp1), "variant 2 attend encodes (%zu bytes, gprs %u, declared %u as variant 1's %u) and differs", n2, gp2, omega_bw_gpr_declared(gp2), omega_bw_gpr_declared(gp1));
+      printf("attend bytes: variant 1 %zu fnv1a64 %" PRIu64 " (gprs %u); variant 2 %zu fnv1a64 %" PRIu64 " (gprs %u)\n", n1, h1, gp1, n2, h2, gp2);
+      omega_gpu_prefill_fattn256_set_variant(g_variant); }
     { OmegaPrefillFattn256Spec s = { .mutant = 3 ATT_SHAPE }; CHECK(omega_prefill_fattn256_prog_stats(&s, NULL, NULL, NULL) != 0, "attend mutant 3 refused");
       s.mutant = -1; CHECK(omega_prefill_fattn256_prog_stats(&s, NULL, NULL, NULL) != 0, "attend mutant -1 refused");
-      OmegaPrefillFattn256Spec b1 = { .q_heads = 16, .kv_heads = 3 }, b2 = { .q_heads = 18, .kv_heads = 2 }, ok27 = { .q_heads = 24, .kv_heads = 4 }, dflt = { 0, 0, 0 };
+      OmegaPrefillFattn256Spec b1 = { .q_heads = 16, .kv_heads = 3 }, b2 = { .q_heads = 18, .kv_heads = 2 }, ok27 = { .q_heads = 24, .kv_heads = 4 }, dflt = { .mutant = 0 };
       CHECK(!omega_fattn256_spec_ok(&b1) && !omega_fattn256_spec_ok(&b2), "attend shapes 16/3 (not a multiple) and 18/2 (group 9 > 8) refused");
       OmegaFattn256Shape sh; uint32_t n27 = 0, n36 = 0;
       CHECK(omega_fattn256_spec_ok(&ok27) && omega_fattn256_shape(&dflt, &sh) == 0 && sh.qh == 16 && sh.kvh == 2 && sh.group == 8 && sh.out_words == OW && sh.qf_pair_bytes == QFP,
@@ -296,6 +326,7 @@ static int sim_decode_launch(const BlackwellIRProgram *prog, const SimBufs *b, u
     return 0;
 }
 /* the fattn attend: grid (ceil(m / 16), KVH), no shared memory (smem NULL: any shared access faults) */
+static uint64_t g_att_issues;   /* the attend launches' share of g_sim_issues */
 static int sim_attend_launch(const BlackwellIRProgram *prog, const SimBufs *b, const uint8_t *qf, size_t qf_bytes, float *out, size_t osw, int order, char *msg, size_t n) {
     const Case *c = b->c;
     WsSim s; memset(&s, 0, sizeof s);
@@ -310,16 +341,17 @@ static int sim_attend_launch(const BlackwellIRProgram *prog, const SimBufs *b, c
     s.ranges[2].lo = (uintptr_t)out; s.ranges[2].hi = (uintptr_t)out + (size_t)c->m * osw * 4;
     int err = ws_run(&s, (c->m + OMEGA_FATTN256_TOKENS - 1) / OMEGA_FATTN256_TOKENS, KVH);
     if (err) { snprintf(msg, n, "attend: %s (pc %d)", s.msg, s.err_pc); return -1; }
-    g_sim_issues += s.warp_issues;
+    g_sim_issues += s.warp_issues; g_att_issues += s.warp_issues;
     return 0;
 }
 /* output rows OSW_SIM f32 apart: 16 padding words per row that the attend must leave alone */
 #define OSW_SIM (OW + 16u)
+static uint64_t g_sim_out_fnv;   /* FNV-1a64 of the last sim_point's output rows (padding included) */
 static int sim_point(uint32_t max_pos, uint32_t pos0, uint32_t m, uint32_t rotary, float qscale, uint32_t seed, int orders, int prep_mut, int att_mut,
                      char *msg, size_t n, double *worst, size_t *bad) {
     static BlackwellIRProgram pprog, aprog, dprog;
     OmegaDecodeAttn256Spec ps = { .depth = OMEGA_GPU_DATTN256_DEPTH, .mutant = prep_mut, .prep = 1, .prep_xstride = XS SPEC_SHAPE }, ds = { .depth = OMEGA_GPU_DATTN256_DEPTH SPEC_SHAPE };
-    OmegaPrefillFattn256Spec as = { .mutant = att_mut ATT_SHAPE };
+    OmegaPrefillFattn256Spec as = { .mutant = att_mut ATT_SHAPE, .variant = g_variant };
     if (omega_blackwell_codegen_decode_attn256_prog(&ps, &pprog) != 0 || omega_blackwell_codegen_prefill_fattn256_prog(&as, &aprog) != 0 ||
         omega_blackwell_codegen_decode_attn256_prog(&ds, &dprog) != 0) { snprintf(msg, n, "codegen refused"); return -1; }
     Case c; case_make(&c, max_pos, pos0, m, rotary, seed, qscale);
@@ -349,6 +381,7 @@ static int sim_point(uint32_t max_pos, uint32_t pos0, uint32_t m, uint32_t rotar
         else if (memcmp(copy, out, ob) != 0) { err = -1; snprintf(msg, n, "the fragment order changed the result"); }
     }
     if (!err) {
+        g_sim_out_fnv = fnv1a64(out, ob);
         /* twin: m decode steps of the decode program from the same history */
         memset(twin, 0, 2 * b.plane); case_history_into(&c, twin, b.plane);
         SimBufs tb = b; tb.kv = twin;
@@ -386,8 +419,12 @@ static int sim_point(uint32_t max_pos, uint32_t pos0, uint32_t m, uint32_t rotar
     free(b.kv); free(twin); free(b.rope); free(b.norms); free(b.qkv_k); free(qf); free(out); free(copy); case_free(&c);
     return err;
 }
-static void sim_battery(void) {
+/* variant 1: the nine points (output hashes kept) and all four mutants; variant 2: the same points, each output
+ * bit-identical to variant 1's, and the attend mutants (the prep does not depend on the attend variant) */
+static void sim_battery(int variant) {
     char msg[400]; double worst; size_t bad;
+    static uint64_t v1_fnv[16];
+    g_variant = variant;
     struct { uint32_t max_pos, pos0, m, rot; float qs; int orders; const char *name; } pts[] = {
         { 256, 0, 1, 64, 1.0f, 2, "one token at position 0" },
         { 256, 0, 16, 64, 1.0f, 2, "16 tokens from 0 (one full CTA)" },
@@ -402,19 +439,24 @@ static void sim_battery(void) {
     for (size_t i = 0; i < sizeof pts / sizeof pts[0]; i++) {
         double t0 = now_ms();
         int err = sim_point(pts[i].max_pos, pts[i].pos0, pts[i].m, pts[i].rot, pts[i].qs, 100 + (uint32_t)i, pts[i].orders, 0, 0, msg, sizeof msg, &worst, &bad);
-        CHECK(err == 0 && bad == 0, "sim %s: %s", pts[i].name, msg);
-        printf("sim %-48s %s %s (%.1f s)\n", pts[i].name, err ? "ERROR" : bad ? "MISMATCH" : "ok", msg, (now_ms() - t0) / 1e3);
+        CHECK(err == 0 && bad == 0, "sim variant %d %s: %s", variant, pts[i].name, msg);
+        int same = 1;
+        if (variant == 1) v1_fnv[i] = err ? 0 : g_sim_out_fnv;
+        else { same = !err && v1_fnv[i] != 0 && g_sim_out_fnv == v1_fnv[i]; CHECK(same, "sim variant %d %s: output differs from variant 1's", variant, pts[i].name); }
+        printf("sim v%d %-48s %s %s%s (%.1f s)\n", variant, pts[i].name, err ? "ERROR" : bad ? "MISMATCH" : "ok", msg, variant == 1 ? "" : same ? "; output == variant 1" : "; output DIFFERS from variant 1",
+               (now_ms() - t0) / 1e3);
         fflush(stdout);
     }
     static const struct { int pm, am; } mut[] = { { 1, 0 }, { 3, 0 }, { 0, 1 }, { 0, 2 } };
     for (size_t i = 0; i < sizeof mut / sizeof mut[0]; i++) {
+        if (variant != 1 && mut[i].pm) continue;
         int err = sim_point(256, 40, 24, 64, 1.0f, 200, 1, mut[i].pm, mut[i].am, msg, sizeof msg, &worst, &bad);
         int caught = err != 0 || bad > 0;
-        CHECK(caught, "sim %s mutant %d NOT caught (%s)", mut[i].pm ? "prep" : "attend", mut[i].pm ? mut[i].pm : mut[i].am, msg);
-        printf("sim %s mutant %d at 24 tokens from 40: %s (%s)\n", mut[i].pm ? "prep" : "attend", mut[i].pm ? mut[i].pm : mut[i].am, caught ? "caught" : "MISSED", msg);
+        CHECK(caught, "sim variant %d %s mutant %d NOT caught (%s)", variant, mut[i].pm ? "prep" : "attend", mut[i].pm ? mut[i].pm : mut[i].am, msg);
+        printf("sim v%d %s mutant %d at 24 tokens from 40: %s (%s)\n", variant, mut[i].pm ? "prep" : "attend", mut[i].pm ? mut[i].pm : mut[i].am, caught ? "caught" : "MISSED", msg);
         fflush(stdout);
     }
-    printf("sim: %" PRIu64 " warp issues in total\n", g_sim_issues);
+    printf("sim v%d: %" PRIu64 " warp issues in total so far\n", variant, g_sim_issues);
 }
 
 /* ------------------------------------------------------------- chip */
@@ -585,16 +627,23 @@ static void chip_mutants(void) {
 
 int main(int argc, char **argv) {
     int host = 0, sim = 0, reps = 9, quick = 0, timing_only = 0, longp = 0; const char *json = NULL; uint32_t maxp = 32768;
+    const char *ve = getenv("AIEN_OMEGA_Q36_PF_FATTN");   /* the slices' variant switch; --variant overrides */
+    if (ve && (ve[0] == '1' || ve[0] == '2') && ve[1] == 0) g_variant = ve[0] - '0';
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--host-only")) host = 1;
         else if (!strcmp(argv[i], "--sim")) sim = 1;
         else if (!strcmp(argv[i], "--poison") && i + 1 < argc) g_poison = (uint32_t)strtoul(argv[++i], NULL, 0);
-        else if (!strcmp(argv[i], "--sim-point") && i + 3 < argc) {   /* one simulator point: MAX_POS POS0 M */
+        else if (!strcmp(argv[i], "--variant") && i + 1 < argc) {
+            g_variant = atoi(argv[++i]);
+            if (g_variant < 1 || g_variant > 2) { fprintf(stderr, "--variant: 1 or 2\n"); return 2; } }
+        else if (!strcmp(argv[i], "--sim-point") && i + 3 < argc) {   /* one simulator point: MAX_POS POS0 M (the --variant given before it) */
             uint32_t a = (uint32_t)atoi(argv[i + 1]), b = (uint32_t)atoi(argv[i + 2]), m = (uint32_t)atoi(argv[i + 3]); i += 3;
             char msg[400]; double worst = 0; size_t bad = 0; double t0 = now_ms();
+            const uint64_t a0 = g_att_issues;
             int err = sim_point(a, b, m, 64, 1.0f, 77, 1, 0, 0, msg, sizeof msg, &worst, &bad);
-            CHECK(err == 0 && bad == 0, "sim point %u+%u (max_pos %u): %s", b, m, a, msg);
-            printf("sim point %u tokens from %u (max_pos %u): %s %s (%.1f s)\n", m, b, a, err ? "ERROR" : bad ? "MISMATCH" : "ok", msg, (now_ms() - t0) / 1e3);
+            CHECK(err == 0 && bad == 0, "sim point %u+%u (max_pos %u) variant %d: %s", b, m, a, g_variant, msg);
+            printf("sim point %u tokens from %u (max_pos %u) variant %d: %s %s; attend %" PRIu64 " warp issues (%.1f s)\n", m, b, a, g_variant,
+                   err ? "ERROR" : bad ? "MISMATCH" : "ok", msg, g_att_issues - a0, (now_ms() - t0) / 1e3);
             host = 1; }
         else if (!strcmp(argv[i], "--quick")) quick = 1;
         else if (!strcmp(argv[i], "--timing-only")) timing_only = 1;
@@ -602,13 +651,14 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--reps") && i + 1 < argc) reps = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--max-pos") && i + 1 < argc) maxp = (uint32_t)atoi(argv[++i]);
         else if (!strcmp(argv[i], "--out") && i + 1 < argc) json = argv[++i];
-        else { fprintf(stderr, "usage: %s [--host-only | --sim | [--quick] [--timing-only] [--long] [--reps N] [--max-pos 32768|131072] [--out receipt.json]]\n", argv[0]); return 2; }
+        else { fprintf(stderr, "usage: %s [--variant 1|2] [--host-only | --sim | --sim-point MAX_POS POS0 M | [--quick] [--timing-only] [--long] [--reps N] [--max-pos 32768|131072] [--out receipt.json]]\n", argv[0]); return 2; }
     }
     if (reps < 1) reps = 1;
-    host_only();
-    if (sim) sim_battery();
+    host_only();   /* leaves the API on g_variant */
+    if (sim) { const int keep = g_variant; sim_battery(1); sim_battery(2); g_variant = keep; }
     if (!host && !sim) {
-        if (json) { g_json = test_out_open(json); if (g_json) fprintf(g_json, "{\"test\": \"gpu_prefill_fattn256\", \"shape\": \"q36 16/2\", \"xstride\": %u, \"rotary_dim\": 64, \"points\": [\n", XS); }
+        printf("chip: attend kernel variant %d\n", g_variant);
+        if (json) { g_json = test_out_open(json); if (g_json) fprintf(g_json, "{\"test\": \"gpu_prefill_fattn256\", \"shape\": \"q36 16/2\", \"variant\": %d, \"xstride\": %u, \"rotary_dim\": 64, \"points\": [\n", g_variant, XS); }
         if (!timing_only) {
             chip_point(256, 0, 1, 1.0f, 1, 1, 0, OW);
             chip_point(256, 0, 37, 1.0f, 2, 1, 0, OW + 16u);
