@@ -14,7 +14,7 @@ The workflow is `.github/workflows/host-gates.yml`. It composes with the jobs th
 | --- | --- | --- |
 | `make -j4` | `host-gates` / `fresh-checkout`, `ubuntu-24.04-arm`, 30 minute limit | Exit 0. `build/libomega_gpu.a` and `build/libcudapp.a` exist. Their sha256 is uploaded. |
 | `make test` | `ci.yml` / `host-tests`, same arm runner | Exit 0 and the final `CUDA++ HOST TESTS PASS` line. Needs the pinned `nvdisasm` 13.0.85, full git history, and the pinned Omega tools named in that workflow. |
-| `make test-native-artifact` | `host-gates` / `fresh-checkout` | Exit 0 and a last summary `test_gpu_artifact_export: <n> checks, 0 failed`. |
+| `make test-native-artifact` | `host-gates` / `fresh-checkout` | Exit 0, `ARTIFACT EXPORT SHAPES PASS` from `tools/artifact_export_shapes.sh`, and a last summary `test_gpu_artifact_export: <n> checks, 0 failed`. |
 | `make zero-cuda-gate` | `host-gates` / `fresh-checkout` | Exit 0. The log still shows `ZERO_CUDA FAIL` for the stub `libcudart` probe, then `ZERO_CUDA SELF-TEST PASS`, then `ZERO_CUDA PASS` for `build/hello_gpu` and `build/gpu_matmul_api_test`. |
 | `build/hello_gpu --sim` | `host-gates` / `fresh-checkout` | Exit 0, the host-simulator sentence, the 1048576-element check, the work line, the pinned output sha256, and the same hashes on a second run. This is the warp simulator. |
 | `make doctor` | `host-gates` / `fresh-checkout` | The runner has no NVIDIA module and no GPU node, so `make` exits 2 and the log contains `NOT READY:` plus the five refusal lines and `NOT_RUN` for the seeded target table. A line `READY. Next: make hello-gpu` fails the job. Chip qualification stays `NOT_RUN`. |
