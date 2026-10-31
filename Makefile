@@ -336,6 +336,18 @@ test-gpu-fp8gemm: $(GPU_FP8GEMM_TEST)
 	$(GPU_FP8GEMM_TEST) --host-only
 	$(GPU_FP8GEMM_TEST) --sim
 
+# P-DRA-4 DRA-71: NVFP4 W4A16 grouped GEMV/GEMM generator (omega_blackwell_codegen_w4.h). Host-only plus the warp simulator;
+# test-gpu-w4gemm-real replays the .w4ref fixtures dumped from the real NVFP4 checkpoint (W4REF_DIR). Chip: NOT_RUN.
+.PHONY: test-gpu-w4gemm test-gpu-w4gemm-real
+GPU_W4GEMM_TEST = $(OUT_DIR)/gpu_w4gemm_test
+$(GPU_W4GEMM_TEST): tests/gpu_w4gemm_test.c tests/bw_warp_sim_k.h src/omega_blackwell_codegen_w4.h src/omega_blackwell_codegen_gemm.h $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -ffp-contract=off -DWS_MAX_THREADS=512 -Itests -o $@ tests/gpu_w4gemm_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+test-gpu-w4gemm: $(GPU_W4GEMM_TEST)
+	$(GPU_W4GEMM_TEST) --host-only
+	$(GPU_W4GEMM_TEST) --sim
+test-gpu-w4gemm-real: $(GPU_W4GEMM_TEST)
+	$(GPU_W4GEMM_TEST) --real $(sort $(wildcard $(W4REF_DIR)/*.w4ref))
+
 # OWN-30B (2026-10-13): host-only audit that every launcher declares peak + 2 registers (the chip hung at peak + 1).
 .PHONY: test-gpu-gpr-boundary
 GPU_GPR_BOUNDARY_TEST = $(OUT_DIR)/gpu_gpr_boundary_test
@@ -540,7 +552,7 @@ test-omega-slices:
 # Every host-only check: no GPU, no device opened. The chip gates are listed in README.md.
 # Portable commands and the AArch64-only rows are separated in docs/OMEGA_HOST_TESTS.md.
 HOST_TESTS = test-drift test-gpu-matmul-api test-gpu-elementwise test-gpu-reconv test-gpu-attention test-gpu-moe-window \
-	test-gpu-fp8 test-gpu-decode-attn test-gpu-router test-gpu-bf16-gemv test-gpu-fp8gemm test-gpu-tern-sched test-gpu-gpr-boundary \
+	test-gpu-fp8 test-gpu-decode-attn test-gpu-router test-gpu-bf16-gemv test-gpu-fp8gemm test-gpu-w4gemm test-gpu-tern-sched test-gpu-gpr-boundary \
 	test-gpu-cmdlist test-gpu-decode-graph test-gpu-code-alloc test-gpu-engine-compile test-gpu-engine \
 	test-gpu-engine-mutants test-gpu-engine-backend-compile test-gpu-engine-prod-build test-gpu-engine-sim \
 	test-gpu-engine-backend-mutants test-gpu-engine-gb10-compile test-gpu-serving-alloc test-gpu-engine-freestanding \
