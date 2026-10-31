@@ -24,6 +24,12 @@ $(GPU_GDN_TEST): tests/gpu_gdn_test.c tests/bw_warp_sim_k.h src/omega_gpu_gdn_ap
 GPU_GDN_MULTI_TEST = $(OUT_DIR)/gpu_gdn_multi_test
 $(GPU_GDN_MULTI_TEST): tests/gpu_gdn_multi_test.c tests/bw_warp_sim_k.h src/omega_gpu_gdn_api.h src/omega_blackwell_codegen_gdn.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -Itests -o $@ tests/gpu_gdn_multi_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+# DRA-84 chunked tensor-core GDN prefill scan against the multi-token kernel (warp sim; T 8192 runs ~minutes).
+GPU_GDNC_TEST = $(OUT_DIR)/gpu_gdnc_test
+$(GPU_GDNC_TEST): tests/gpu_gdnc_test.c tests/bw_warp_sim_tc.h tests/bw_hmma_model.h src/omega_blackwell_codegen_gdnc.h src/omega_blackwell_codegen_gdn.h src/omega_gpu_gdn_api.h $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -ffp-contract=off -Itests -o $@ tests/gpu_gdnc_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+test-gpu-gdnc: $(GPU_GDNC_TEST)
+	./$(GPU_GDNC_TEST) --sim
 
 # Qwen3.8-27B prefill attention, head_dim 256 (omega-mv#545).
 GPU_PATTN256_TEST = $(OUT_DIR)/gpu_prefill_attn256_test
@@ -63,7 +69,7 @@ test-gpu-streams: $(GPU_STREAMS_TEST)
 test-gpu-isolation: $(GPU_ISOLATION_TEST)
 	./$(GPU_ISOLATION_TEST) --host-only
 # Chip-only binaries: built here so the host suite at least compiles them.
-test-carried-bins: $(GPU_DATTN256_MULTI_TEST) $(GPU_GDN_MULTI_TEST) $(GPU_PATTN256_TEST) $(GPU_EXACT_HEAD_TEST)
+test-carried-bins: $(GPU_DATTN256_MULTI_TEST) $(GPU_GDN_MULTI_TEST) $(GPU_PATTN256_TEST) $(GPU_EXACT_HEAD_TEST) $(GPU_GDNC_TEST)
 
 CARRIED_HOST_TESTS = test-bw-encode-control test-gpu-decode-attn256 test-gpu-gdn test-gpu-q38-graph-host \
 	test-gpu-streams test-gpu-isolation test-carried-bins
