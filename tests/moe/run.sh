@@ -14,7 +14,8 @@ trap 'rm -rf "$T"' EXIT HUP INT TERM
 OMEGA_UNITS="om/moe/moe_plan.om om/moe/moe_group.om om/moe/moe_ids32.om om/moe/moe_maps32.om om/moe/moe_segs32.om om/moe/moe_windows.om tests/moe/moe_verify.om" OMEGA_UNITS_DEST="$T" sh "$ROOT/om/units.sh"
 # The included canonical graph uses the same GNU/POSIX interfaces as the main build.
 ${CC:-cc} -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I"$ROOT/src" -c "$ROOT/tests/moe/incumbent.c" -o "$T/incumbent.o"
-${CC:-cc} -std=c11 -O2 -Wall -Wextra -Werror -I"$T" "$ROOT/tests/moe/caller.c" "$T/cudapp_om_units.c" "$T/incumbent.o" -Wl,--gc-sections -o "$T/moe-test"
+${CC:-cc} -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I"$ROOT/src" -c "$ROOT/src/omega_gpu_pfq_api.c" -o "$T/pfq_api.o"
+${CC:-cc} -std=c11 -O2 -Wall -Wextra -Werror -I"$T" "$ROOT/tests/moe/caller.c" "$T/cudapp_om_units.c" "$T/incumbent.o" "$T/pfq_api.o" -Wl,--gc-sections -o "$T/moe-test"
 "$T/moe-test"
 cat "$QUANT_ROOT/om/quant/quant.om" "$COMPOSE_ROOT/om/components/realize.om" "$CACHE_ROOT/om/cache/digest.om" "$CACHE_ROOT/om/cache/residency.om" "$PIPELINE_ROOT/om/pipeline/select.om" "$PIPELINE_ROOT/om/pipeline/graph.om" "$ROOT/om/moe/moe_group.om" "$ROOT/om/moe/moe_admit.om" "$PIPELINE_ROOT/tests/pipeline/fixture.om" "$ROOT/tests/moe/admit-caller.om" > "$T/admit.om"
 "$OMEGA_OMC" < "$T/admit.om" > "$T/admit"; chmod +x "$T/admit"
