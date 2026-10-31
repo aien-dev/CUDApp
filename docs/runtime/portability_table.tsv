@@ -1,8 +1,12 @@
 # Omega portability table (omega-mv#596, slice R3). Checked by: make test-runtime-portability (tools/runtime_portability_check.sh).
 # Columns, tab separated: file, class, reason, os_binding. Explained in docs/runtime/PORTABILITY.md.
-# class: CHIP_SPECIFIC carries knowledge of the GB10 / Blackwell chip or of the driver interface that exposes it; PORTABLE carries neither.
+# class: CHIP_SPECIFIC carries knowledge of the GB10 / Blackwell or sm_86 / Ampere chip, or of its driver interface; PORTABLE carries neither.
 # os_binding: FREESTANDING_PROVEN (a .c file in GPU_FS_SRCS, mk/omega-gpu-engine.mk, built by make gpu-engine-freestanding), NO_HOSTED_INCLUDE (no hosted header by include scan only; not linked freestanding), HOSTED_LIBC (includes stdio, stdlib, time, errno, math or pthread), LINUX_DRIVER (includes nvrm.h, m16_native.h or omega_gpu_platform_linux.h).
 file	class	reason	os_binding
+src/omega_ampere_codegen.c	CHIP_SPECIFIC	Target-explicit sm_86/sm_121 host ABI marshaling; encoding is generated from om/encoder/ampere_enc_sm86.om.	NO_HOSTED_INCLUDE
+src/omega_ampere_codegen.h	CHIP_SPECIFIC	Target selector uses the existing chip-specific Blackwell IR as its input representation.	NO_HOSTED_INCLUDE
+src/omega_ampere_qmd.c	CHIP_SPECIFIC	Host ABI marshaling for checked Ampere QMD, class admission, reserve and packet policy implemented in Omega.	NO_HOSTED_INCLUDE
+src/omega_ampere_qmd.h	CHIP_SPECIFIC	Ampere COMPUTE_A/B and FIFO constants and QMD policy interface; device NOT_RUN.	NO_HOSTED_INCLUDE
 src/omega_blackwell_codegen.c	CHIP_SPECIFIC	Instruction generators for the sm_121 kernels (vector add, matmul, the Qwen decode set); emits Blackwell machine code through the encoder. In the freestanding closure; the allocating generators and the printing self-test are hosted-only (docs/numeric/OMEGA_GPU_NATIVE_BOUNDARY.md section 3).	FREESTANDING_PROVEN
 src/omega_blackwell_codegen.h	CHIP_SPECIFIC	Blackwell IR opcodes and kernel-generator API; includes omega_blackwell_matmul.h.	NO_HOSTED_INCLUDE
 src/omega_blackwell_codegen_attn.c	CHIP_SPECIFIC	Generates the single-launch decode attention kernel (sm_121 machine code, 8 query heads per KV head, head_dim 128).	NO_HOSTED_INCLUDE

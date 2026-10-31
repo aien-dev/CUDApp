@@ -241,8 +241,21 @@ chmod 755 "$WORK/native-gen"
 { cat "$WORK/function.om"; printf '\0'; printf '%08d' "$(wc -c < "$WORK/function.bin")"; cat "$WORK/function.bin"; } > "$WORK/native.in"
 "$WORK/native-gen" c < "$WORK/native.in" > "$WORK/omega_native.c"
 "$WORK/native-gen" h < "$WORK/native.in" > "$WORK/omega_native.h"
-${CC:-cc} -std=gnu11 -O2 -Wall -Wextra -Werror -DBW_SPEC_NATIVE_PROBE -I"$WORK" \
-  -include "$WORK/omega_native.h" tests/bw_encode_control_test.c "$WORK/omega_native.c" -o "$WORK/native-probe"
-"$WORK/native-probe"
-
-log "ALL SPEC-DRIVEN ENCODER/DECODER VERIFICATIONS PASSED (HOST_TESTED)!"
+# The emitted wrapper calls AArch64 function bytes; other C targets use the
+# portable checked units and cannot execute this native ABI probe.
+target=$(${CC:-cc} -dumpmachine)
+case "$target" in
+  aarch64-*)
+    ${CC:-cc} -std=gnu11 -O2 -Wall -Wextra -Werror -DBW_SPEC_NATIVE_PROBE -I"$WORK" \
+      -include "$WORK/omega_native.h" tests/bw_encode_control_test.c "$WORK/omega_native.c" -o "$WORK/native-probe"
+    "$WORK/native-probe"
+    log "ALL SPEC-DRIVEN ENCODER/DECODER VERIFICATIONS PASSED (HOST_TESTED)!"
+    ;;
+  *)
+    log "NOT_RUN: native AArch64 function-byte probe needs an AArch64 C target (got $target)"
+    # A skipped probe is not a pass: exit 3 (NOT_RUN, as above) unless the caller
+    # states it accepts this row as NOT_RUN (make test-om-spec-encoder on non-AArch64 hosts).
+    [ "${BW_SPEC_NATIVE_PROBE_NOT_RUN_OK:-}" = 1 ] || exit 3
+    log "SPEC-DRIVEN ENCODER/DECODER VERIFICATIONS PASSED (HOST_TESTED); native AArch64 binding NOT_RUN (accepted by BW_SPEC_NATIVE_PROBE_NOT_RUN_OK=1)"
+    ;;
+esac

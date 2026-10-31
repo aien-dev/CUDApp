@@ -1,0 +1,126 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# Native x86 execution of checked Omega-to-C units. Only pinned AArch64
+# compiler/converter provenance runs under QEMU; no driver submission or GPU.
+name: Ampere native x86 host
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  provenance-baseline:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Source-bootstrap exact baseline on AArch64
+        run: |
+          git clone -q https://github.com/aien-dev/omega-bridge "$RUNNER_TEMP/omega-bridge"
+          git -C "$RUNNER_TEMP/omega-bridge" checkout -q "$(grep -v '^#' om/omega-bridge.lock)"
+          (cd "$RUNNER_TEMP/omega-bridge" && sh tools/bootstrap.sh)
+          cp "$RUNNER_TEMP/omega-bridge/build/bootstrap/omc" "$RUNNER_TEMP/baseline-omc"
+          printf '%s  %s\n' 191b776ef98821597c3e30655da6d680a9b66edbc9ceaca3c39c61ea6df098e9 "$RUNNER_TEMP/baseline-omc" | sha256sum --check --strict
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ampere-baseline-${{ github.sha }}
+          path: ${{ runner.temp }}/baseline-omc
+          retention-days: 7
+  native-x86-host:
+    needs: provenance-baseline
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # Immutable original blobs are required by portable_receipts.
+      - name: Native scalar numeric portability (no bridge or GPU)
+        run: make test-ampere-numeric-host
+      - name: Pinned offline x86 instruction oracle
+        # Vendor manifest: https://developer.download.nvidia.com/compute/cuda/redist/redistrib_13.0.2.json
+        # cuda_nvdisasm.linux-x86_64, version 13.0.85. Verification only.
+        run: |
+          package=cuda_nvdisasm-linux-x86_64-13.0.85-archive
+          archive="$RUNNER_TEMP/$package.tar.xz"
+          curl --fail --location --silent --show-error --proto '=https' --tlsv1.2 \
+            "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvdisasm/linux-x86_64/$package.tar.xz" \
+            --output "$archive"
+          printf '%s  %s\n' 0541e0230f724a43d67288ef882c63351d0c302bf567591b7620d40f93c2c93c "$archive" | sha256sum --check --strict
+          tar -xJf "$archive" -C "$RUNNER_TEMP" "$package/bin/nvdisasm"
+          sudo install -D -m755 "$RUNNER_TEMP/$package/bin/nvdisasm" /usr/local/cuda/bin/nvdisasm
+          /usr/local/cuda/bin/nvdisasm --version
+          printf '%s\n' /usr/local/cuda/bin >> "$GITHUB_PATH"
+          git clone -q https://github.com/aien-dev/omega-bridge "$RUNNER_TEMP/omega-bridge"
+          git -C "$RUNNER_TEMP/omega-bridge" checkout -q "$(grep -v '^#' om/omega-bridge.lock)"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ampere-baseline-${{ github.sha }}
+          path: ${{ runner.temp }}/baseline
+      - name: EMULATED provenance oracle, NATIVE x86 consumers
+        # Bare ARM compiler/converter/checker executions are required by the
+        # unchanged gate. Register only AArch64 ELF, only on this disposable VM.
+        # QEMU is a verification oracle, never linked into shipped artifacts.
+        env:
+          OMEGA_SEED: ${{ runner.temp }}/baseline/baseline-omc
+        run: |
+          package=qemu-user-static_8.2.2+ds-0ubuntu1.19_amd64.deb
+          curl --fail --location --silent --show-error --proto '=https' --tlsv1.2 \
+            "https://archive.ubuntu.com/ubuntu/pool/universe/q/qemu/$package" \
+            --output "$RUNNER_TEMP/$package"
+          printf '%s  %s\n' ec80ee896fe8f57f7420f4d4076164cb0fa613df6848568cdf5d1a2dbe2347cb "$RUNNER_TEMP/$package" | sha256sum --check --strict
+          mkdir -p "$RUNNER_TEMP/qemu"
+          dpkg-deb --fsys-tarfile "$RUNNER_TEMP/$package" | tar -x -C "$RUNNER_TEMP/qemu" \
+            ./usr/bin/qemu-aarch64-static ./usr/lib/binfmt.d/qemu-aarch64.conf
+          printf '%s  %s\n' 1152646a17920a81c618d62574ee8ae8b63243349957095d40212c2245f20aab "$RUNNER_TEMP/qemu/usr/bin/qemu-aarch64-static" | sha256sum --check --strict
+          interpreter="$RUNNER_TEMP/qemu/aarch64-binfmt-P"
+          ln -s "$RUNNER_TEMP/qemu/usr/bin/qemu-aarch64-static" "$interpreter"
+          "$RUNNER_TEMP/qemu/usr/bin/qemu-aarch64-static" --version
+          line=$(cat "$RUNNER_TEMP/qemu/usr/lib/binfmt.d/qemu-aarch64.conf")
+          packaged_interpreter=/usr/libexec/qemu-binfmt/aarch64-binfmt-P
+          line=${line/"$packaged_interpreter"/"$interpreter"}
+          printf '%s\n' "${line/:qemu-aarch64:/:cudapp-seed-aarch64:}" | sudo tee /proc/sys/fs/binfmt_misc/register
+          handler=/proc/sys/fs/binfmt_misc/cudapp-seed-aarch64
+          cat "$handler"
+          grep -Fx 'enabled' "$handler"
+          grep -Fx "interpreter $interpreter" "$handler"
+          grep -Fx 'flags: POF' "$handler"
+          grep -Fx 'offset 0' "$handler"
+          grep -Fx 'magic 7f454c460201010000000000000000000200b700' "$handler"
+          grep -Fx 'mask ffffffffffffff00fffffffffffffffffeffffff' "$handler"
+          printf '%s  %s\n' 191b776ef98821597c3e30655da6d680a9b66edbc9ceaca3c39c61ea6df098e9 "$OMEGA_SEED" | sha256sum --check --strict
+          chmod +x "$OMEGA_SEED"
+          git clone -q https://github.com/aien-dev/omega-mv "$RUNNER_TEMP/omega-mv"
+          git -C "$RUNNER_TEMP/omega-mv" checkout -q e5b32567a7aff3ce594e3254a622a846a6cd190b
+          printf '%s  %s\n' 2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f "$RUNNER_TEMP/omega-mv/seed/out/omc" | sha256sum --check --strict
+          (cd "$RUNNER_TEMP/omega-bridge" && sh tools/build.sh)
+          {
+            echo "OMEGA_SEED=$OMEGA_SEED"
+            echo "OMEGA_OMC=$RUNNER_TEMP/omega-mv/seed/out/omc"
+            echo "OMEGA_MV=$RUNNER_TEMP/omega-mv"
+            echo "OMEGA_BRIDGE=$RUNNER_TEMP/omega-bridge"
+            echo "OMEGA_BRIDGE_DIR=$RUNNER_TEMP/omega-bridge"
+          } >> "$GITHUB_ENV"
+      - name: Native host build and tests (no GPU)
+        env:
+          OMEGA_BRIDGE: ${{ runner.temp }}/omega-bridge
+        run: |
+          make -j2 all
+          test "$(uname -m)" = x86_64
+          make build/test_codegen_hosted build/test_codegen_freestanding build/ampere-cubin/f16-host
+          for consumer in build/test_codegen_hosted build/test_codegen_freestanding build/ampere-cubin/f16-host; do
+            LC_ALL=C readelf -h "$consumer" | grep -F 'Advanced Micro Devices X86-64'
+          done
+          make test test-native-artifact zero-cuda-gate test-ampere-cubin-disasm
+          make OUT_DIR=build-ampere-oracle CUDAPP_AMPERE_CORPUS=1 test-ampere-encoder-oracle
+      - name: Remove only this run's ARM provenance handler
+        if: always()
+        run: |
+          handler=/proc/sys/fs/binfmt_misc/cudapp-seed-aarch64
+          if test -e "$handler"; then
+            printf '%s\n' -1 | sudo tee "$handler"
+            test ! -e "$handler"
+          fi

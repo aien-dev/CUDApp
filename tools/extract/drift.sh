@@ -17,11 +17,12 @@
 # (blob compare; `differs` split into license-header-only and code), then "DRIFT-GATE: PASS|FAIL (...)".
 # Exit 0 on PASS, 1 on drift, 2 on a broken setup.
 #
-# --self-test runs two negative controls that must both come out red, then the real check:
+# --self-test runs negative controls that must all come out red, then the real check:
 #   1. baseline control: the baseline blob of one cutover-time `differs` path is replaced; the gate must name it.
 #   2. edit control: in a scratch clone of OMEGA_DIR a commit appends one line to a GPU source whose Omega blob
 #      is still the baseline one (preferring one `same` in both repos); the gate must name that file (other DRIFT
 #      lines, from real drift at OMEGA_REF, may appear too; the real check below fails on those).
+#   3. each Ampere numeric cutover source/header is changed in a scratch Omega commit and must be named.
 # A gate that stays green under either control is broken and the self-test exits 1.
 set -euo pipefail
 export LC_ALL=C
@@ -121,7 +122,29 @@ else
     else echo "control 2: BROKEN, gate stayed green after an Omega edit to $target"; echo "$out"; fail=1; fi
 fi
 
+# Control 3: pinning an intentional x86 fork must not hide subsequent edits to
+# any retained Omega numeric CPU-oracle source or public header.
+for numeric in src/omega_numeric.c src/omega_numeric.h src/omega_numeric_reduce.c src/omega_numeric_reduce.h; do
+    if [[ ! -d $scratch/om/.git ]]; then
+        git clone -q --shared --no-checkout "$omega" "$scratch/om"
+        git -C "$scratch/om" checkout -q --detach "$(git -C "$omega" rev-parse "$oref^{commit}")"
+    fi
+    if ! git -C "$omega" cat-file -e "$oref:$numeric" 2>/dev/null; then
+        echo "control 3: $numeric is not in $oref (fixture Omega); this row is not exercised"; continue
+    fi
+    echo "/* Ampere numeric drift mutant */" >> "$scratch/om/$numeric"
+    git -C "$scratch/om" -c user.name=drift-selftest -c user.email=drift@selftest.invalid commit -q -am "numeric cutover drift self-test"
+    out=$(check "$scratch/om" HEAD "$baseline" || true)
+    blob=$(git -C "$scratch/om" rev-parse "HEAD:$numeric")
+    if grep -qxF "DRIFT	$numeric	differs	$blob" <<< "$out" && grep -q '^DRIFT-GATE: FAIL' <<< "$out"; then
+        echo "control 3: red as required ($numeric changed beyond its explicit cutover pin)"
+    else
+        echo "control 3: BROKEN, gate hid a numeric source/header change: $numeric"
+        echo "$out"; fail=1
+    fi
+done
+
 echo "real check:"
 check "$omega" "$oref" "$baseline" || { rc=$?; [[ $rc -ne 2 ]] || exit 2; fail=1; }
-[[ $fail -eq 0 ]] && echo "SELF-TEST: PASS (both controls red, real check green)" || echo "SELF-TEST: FAIL"
+[[ $fail -eq 0 ]] && echo "SELF-TEST: PASS (all controls red, real check green)" || echo "SELF-TEST: FAIL"
 exit "$fail"

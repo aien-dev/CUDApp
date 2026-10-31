@@ -39,6 +39,9 @@ const OmegaGpuPlatform *omega_gpu_platform_linux(OmegaGpuPlatformCaps *caps);
  * anything not 2..4) is today's single channel exactly; 2..4 adds that many minus one channels in the same channel group
  * (nvrm_channel_n). Queue i (0-based, in queue_open order) submits on channel i. Read at every device_open. */
 uint32_t omega_gpu_platform_linux_channels_env(void);
+/* Exact target of the open Linux device, or 0 while closed. */
+uint32_t omega_gpu_platform_linux_target_sm(void);
+int omega_gpu_platform_linux_vram_info(uint64_t *free_bytes, uint64_t *total_bytes);
 
 /* TEST ONLY. The D1 memory reserve check reads MemAvailable from path instead of /proc/meminfo; NULL or "" restores
  * /proc/meminfo. A path that does not open, without following a final symlink and without blocking, to a regular file

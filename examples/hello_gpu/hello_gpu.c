@@ -43,6 +43,7 @@
 #define CUDAPP_MIGRATION_PENDING_HELLO_CONTROL 0 /* migration-pending switch, OFF by default (see above) */
 #endif
 #include "omega_blackwell_codegen.h"
+#include "omega_ampere_codegen.h"
 #include "omega_blackwell_qmd.h"
 #include "omega_gpu_session.h"
 #include "sha256.h"
@@ -58,6 +59,7 @@
 #define CHUNK       (THREADS * MAX_CTAS) /* elements per launch: 131072, so N_TOTAL is 8 launches */
 #define POISON      0xFFC0FFEEu         /* a NaN pattern c starts out as: an element the GPU never wrote stays this */
 #define READ_CEILING_GBPS 195.1         /* GB10 global reads, measured: evidence/OWN30B-T3-TC-PEAK-BW-5faa0f70-20261013T2236Z/ */
+static uint32_t target_sm = 121; /* explicit --target=sm_86; never infer from the build host */
 
 /* ---- Step 1: the kernel, as IR instructions -------------------------------------------------------------
  * Each instruction carries a "control word" that tells the chip how long to wait before the next one.
@@ -144,12 +146,14 @@ static void print_sha(const char *what, const void *data, size_t len) {
     printf("\n");
 }
 static void print_work(uint64_t read, uint64_t written, uint64_t fp_ops, double measured_us) {
-    double floor_us = (double)(read + written) / (READ_CEILING_GBPS * 1e3);
+    double floor_us = target_sm == 121 ? (double)(read + written) / (READ_CEILING_GBPS * 1e3) : 0;
     printf("work: %llu bytes moved (%llu read, %llu written), %llu floating-point operations\n",
            (unsigned long long)(read + written), (unsigned long long)read, (unsigned long long)written, (unsigned long long)fp_ops);
-    printf("      at the GB10's measured %.1f GB/s read ceiling this needs at least %.1f us", READ_CEILING_GBPS, floor_us);
-    if (measured_us > 0) printf("; the GPU took %.1f us (%.0f%% of the ceiling)", measured_us, 100.0 * floor_us / measured_us);
-    printf("\n");
+    if (target_sm == 121) {
+        printf("      at the GB10's measured %.1f GB/s read ceiling this needs at least %.1f us", READ_CEILING_GBPS, floor_us);
+        if (measured_us > 0) printf("; the GPU took %.1f us (%.0f%% of the ceiling)", measured_us, 100.0 * floor_us / measured_us);
+        printf("\n");
+    } else if (measured_us > 0) printf("      sm_86 device time %.1f us (no GB10 bandwidth claim)\n", measured_us);
 }
 static void inputs(float *fa, float *fb, uint32_t *wc) {
     for (uint32_t i = 0; i < N_TOTAL; i++) { fa[i] = (float)i * 0.25f; fb[i] = 1.0f / (float)(1 + i % 7); wc[i] = POISON; }
@@ -270,12 +274,14 @@ int main(int argc, char **argv) {
     int sim = 0, bug = 0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--sim")) sim = 1;
+        else if (!strcmp(argv[i], "--target=sm_86")) target_sm = 86;
+        else if (!strcmp(argv[i], "--target=sm_121")) target_sm = 121;
         else if (!strcmp(argv[i], "--bug=past-end")) bug = 1;
 #if CUDAPP_MIGRATION_PENDING_HELLO_CONTROL
         else if (!strcmp(argv[i], "--bug=short")) bug = 2;
         else { printf("usage: hello_gpu [--sim] [--bug=short] | hello_gpu --sim --bug=past-end\n"); return 2; }
 #else
-        else { printf("usage: hello_gpu [--sim [--bug=past-end]]\n"); return 2; }
+        else { printf("usage: hello_gpu [--target=sm_86|--target=sm_121] [--sim [--bug=past-end]]\n"); return 2; }
 #endif
     }
     if (bug == 1 && !sim) { printf("--bug=past-end is only for --sim: on the GPU it would write past a buffer\n"); return 2; }
@@ -290,11 +296,11 @@ int main(int argc, char **argv) {
     {   /* the machine code, encoded once here so its hash and build time can be printed (D10) */
         size_t need = omega_bw_program_code_bytes(&prog);
         void *words = calloc(1, need);
-        OmegaBlackwellKernel k;
-        if (!words || omega_blackwell_kernel_encode_into(&prog, words, need, &k) != 0) { printf("FAIL: the kernel did not encode\n"); free(words); return 1; }
+        size_t written = 0;
+        if (!words || omega_gpu_encode_program_target(&prog, target_sm, words, need, &written) != 0) { printf("FAIL: the kernel did not encode\n"); free(words); return 1; }
         double t1 = now_us();
-        printf("kernel built in %.0f us: %zu instructions, %u registers, no compiler run, no cache\n", t1 - t0, k.insn_count, prog.regalloc.peak_gpr_usage);
-        print_sha("machine code", words, k.insn_count * 16u);
+        printf("kernel built in %.0f us: %zu instructions, %u registers, sm_%u, no compiler run, no cache\n", t1 - t0, written / 16u, prog.regalloc.peak_gpr_usage, target_sm);
+        print_sha("machine code", words, written);
         free(words);
     }
     if (sim) return run_sim(&prog, bug);
@@ -306,16 +312,20 @@ int main(int argc, char **argv) {
         omega_gpu_session_unlock();
         return 2;
     }
+    if (omega_gpu_session_target_sm() != target_sm) {
+        printf("NOT_RUN: requested sm_%u does not match opened device sm_%u\n", target_sm, omega_gpu_session_target_sm());
+        rc = 2; goto done;
+    }
 
     /* ---- Step 3: upload. The code buffer is written by the CPU and executed by the GPU. */
     size_t bytes = (size_t)N_TOTAL * sizeof(float), need = omega_bw_program_code_bytes(&prog);
-    OmegaBlackwellKernel kernel;
-    if (omega_gpu_session_alloc_code(need, &code) != 0 || omega_blackwell_kernel_encode_into(&prog, code.cpu, need, &kernel) != 0 ||
+    size_t written = 0;
+    if (omega_gpu_session_alloc_code(need, &code) != 0 || omega_gpu_encode_program_target(&prog, target_sm, code.cpu, need, &written) != 0 ||
         omega_gpu_session_alloc(bytes, &a) != 0 || omega_gpu_session_alloc(bytes, &b) != 0 || omega_gpu_session_alloc(bytes, &c) != 0) {
         printf("FAIL: could not set up buffers (stage: %s)\n", omega_gpu_session_last_error());
         goto done;
     }
-    printf("kernel: %zu instructions, %u registers\n", kernel.insn_count, prog.regalloc.peak_gpr_usage);
+    printf("kernel: %zu instructions, %u registers\n", written / 16u, prog.regalloc.peak_gpr_usage);
     float *fa = a.cpu, *fb = b.cpu;
     uint32_t *wc = c.cpu;
     inputs(fa, fb, wc);
@@ -336,7 +346,7 @@ int main(int argc, char **argv) {
             (uint32_t)(b.va + off), (uint32_t)((b.va + off) >> 32), (uint32_t)(c.va + off), (uint32_t)((c.va + off) >> 32), n };
         OmegaGpuLaunch L = { .code_va = code.va, .gpr_count = declared < 64 ? 64 : declared, .threads_x = THREADS, .threads_y = 1,
                              .grid_x = (n + THREADS - 1) / THREADS, .grid_y = 1, .num_elements = n,
-                             .args = args, .n_args = OMEGA_BW_CBANK_MATMUL_ARGS_WORDS, .timeout_ms = 10000 };
+                             .args = args, .n_args = OMEGA_BW_CBANK_MATMUL_ARGS_WORDS, .timeout_ms = 10000, .target_sm = target_sm };
         uint64_t el = 0;
         if (omega_gpu_session_launch(&L, &el, NULL) != 0) { printf("FAIL: launch at element %u (stage: %s)\n", base, omega_gpu_session_last_error()); goto done; }
         gpu_ns += el;

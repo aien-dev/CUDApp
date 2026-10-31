@@ -12,10 +12,7 @@
  * ADR 0043 missing feature: seeded Omega has no host CPU publication barrier
  * that is `dsb sy` on AArch64 and a real fence on every other host. This
  * header is that barrier in C. The non-AArch64 fence is migration-pending C.
- * The portable library compiles the callers with the existing
- * CUDAPP_MIGRATION_PENDING_C_ENCODER and CUDAPP_MIGRATION_PENDING_C_CUBIN
- * switches, which select the C encoder and the C cubin writer. Extension
- * proposal: https://github.com/aien-dev/omega-mv/issues/939
+ * Extension proposal: https://github.com/aien-dev/omega-mv/issues/939
  * evidence/HOST-X86-20261030/proposal-cpu-barrier.md
  */
 static inline void nvrm_cpu_barrier(void)

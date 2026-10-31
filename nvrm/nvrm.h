@@ -93,6 +93,8 @@ typedef struct {
     uint32_t gpu_id, minor;
     uint32_t compute_class, gpfifo_class, usermode_class;
     uint32_t sm_version;            /* NV2080_CTRL_GR_INFO_INDEX_SM_VERSION */
+    uint32_t target_sm;             /* exact execution target: 86 or 121 */
+    uint8_t discrete;               /* local framebuffer, not GB10 coherent system memory */
     void    *usermode_cpu;          /* HOPPER_USERMODE_A MMIO mapping (RM-provided, BAR0-relative) */
     volatile uint32_t *doorbell;    /* usermode MMIO + NVC361_NOTIFY_CHANNEL_PENDING */
     NvrmMem  fifo;                  /* GPFIFO ring, then USERD at userd_off */
@@ -132,6 +134,15 @@ typedef struct {
 
 int  nvrm_open(Nvrm *rm);
 int  nvrm_alloc(Nvrm *rm, uint64_t size, NvrmMem *out);
+/* Local framebuffer on discrete SM86, CPU BAR mapped by RM_MAP_MEMORY. The
+ * CPU and GPU views share a VA but not a cache. No system-memory fallback. */
+int nvrm_alloc_vram(Nvrm *rm, uint64_t size, NvrmMem *out);
+/* Fresh driver framebuffer heap query. Never substitutes /proc/meminfo. */
+int nvrm_vram_info(Nvrm *rm, uint64_t *free_bytes, uint64_t *total_bytes);
+/* Bounds/live-identity checked CPU BAR transfers. Caller proves GPU idle before
+ * readback or overwrite; the fence orders mapped PCIe writes before submission. */
+int nvrm_copy_to(Nvrm *rm, const NvrmMem *m, uint64_t off, const void *src, size_t bytes);
+int nvrm_copy_from(Nvrm *rm, const NvrmMem *m, uint64_t off, void *dst, size_t bytes);
 /* Reverse of nvrm_alloc: drops the UVM external range, frees the RM memory
  * object, unmaps the CPU range, and returns the VA range for reuse by a
  * later nvrm_alloc. Idempotent on an already-zeroed NvrmMem (returns 0,
@@ -169,7 +180,7 @@ static inline uint32_t nvrm_mthd(uint32_t subc, uint32_t mthd, uint32_t count) {
     return (2u << 28) | (count << 16) | (subc << 13) | (mthd >> 2);
 }
 
-#endif
 /* As nvrm_alloc, but the graphics chip does not cache it in L2. For memory
  * that a resident chip program polls while the CPU writes it. */
 int nvrm_alloc_gpu_uncached(Nvrm *rm, uint64_t size, NvrmMem *out);
+#endif

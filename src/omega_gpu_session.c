@@ -17,6 +17,7 @@
 #include "cudapp_native.h"
 #include "omega_gpu_fmt.h"
 #include "omega_blackwell_qmd.h"
+#include "omega_ampere_qmd.h"
 #include "omega_blackwell_submit.h" /* launch constants only (macros); the vector executor itself stays Linux-private */
 #include <string.h>
 
@@ -43,6 +44,7 @@ static const OmegaGpuPlatform *g_p; /* installed platform (atomic load / store) 
 static OmegaGpuPlatformCaps g_caps;
 static OmegaGpuSession g_s;
 static bool g_open;
+static uint32_t g_target_sm;
 static uint64_t g_epoch = 1; /* changes only after confirmed device teardown */
 static uint32_t g_blocked;  /* latched (atomic) */
 static uint32_t g_locked;   /* session lock held (atomic) */
@@ -370,6 +372,10 @@ OmegaGpuSession *omega_gpu_session_open(void) {
     g_s.opens = opens;
     int rc = p->device_open(p->ctx, 0, &g_s.dev);
     if (rc != OMEGA_GPU_PLAT_OK) { fail_plat("device_open", rc); memset(&g_s.dev, 0, sizeof g_s.dev); return NULL; }
+    g_target_sm = 121; /* custom/freestanding platforms retain the SM121 contract */
+#ifndef OMEGA_GPU_NO_POSIX
+    if (p == omega_gpu_platform_linux(NULL)) g_target_sm = omega_gpu_platform_linux_target_sm();
+#endif
     g_open = true; /* so alloc / free work during the rest of the open */
     /* same four buffers, same sizes, same order as before cut C; every one GPU-uncached */
     if (mem_alloc(OMEGA_GPU_HANDLE_BUF_QUEUE, RIGHTS_RING, 0x10000, &g_s.pb) ||
@@ -551,14 +557,23 @@ int omega_gpu_session_launch(const OmegaGpuLaunch *L, uint64_t *elapsed_ns, uint
         L->spin_us > OMEGA_GPU_SESSION_MAX_SPIN_US || L->timeout_ms == 0) {
         omega_gpu_session_set_error("launch arguments"); return -1;
     }
+    const uint32_t requested = L->target_sm ? L->target_sm : 121u;
+    if (requested != g_target_sm || (requested != 86 && requested != 121)) {
+        omega_gpu_session_set_error("launch target does not match selected GPU; SM86 requires target_sm=86");
+        return -1;
+    }
+    const int ampere = requested == 86;
     if (take_cancel()) { omega_gpu_session_set_error("launch cancelled before submit"); return OMEGA_GPU_SESSION_CANCELLED; }
     const uint32_t threads_y = L->threads_y ? L->threads_y : 1;
     uint32_t cbank_data[OMEGA_BW_CBANK_DRIVER_WORDS];
-    omega_blackwell_build_cbank_driver_2d(cbank_data, g_s.cbank.va, L->threads_x, threads_y, L->grid_x, L->grid_y);
+    if (ampere) memset(cbank_data, 0, sizeof cbank_data);
+    else omega_blackwell_build_cbank_driver_2d(cbank_data, g_s.cbank.va, L->threads_x, threads_y, L->grid_x, L->grid_y);
     memcpy(g_s.cbank.cpu, cbank_data, sizeof cbank_data);
-    memcpy((uint8_t *)g_s.cbank.cpu + 0x380, L->args, (size_t)L->n_args * 4u);
+    const uint32_t args_offset = ampere ? 0x160u : 0x380u;
+    memcpy((uint8_t *)g_s.cbank.cpu + args_offset, L->args, (size_t)L->n_args * 4u);
 
-    const uint64_t qmd0_va = g_s.qmd.va, qmd1_va = g_s.qmd.va + 0x1000, sem_va = g_s.qmd.va + 0x2000, scratch_va = g_s.qmd.va + 0x4000;
+    const uint64_t qmd0_va = g_s.qmd.va, qmd1_va = g_s.qmd.va + 0x1000,
+        sem_va = ampere ? g_s.marker.va + 0x20 : g_s.qmd.va + 0x2000, scratch_va = g_s.qmd.va + 0x4000;
     uint32_t gpr = L->gpr_count > 64u ? round_up(L->gpr_count, 8u) : 64u;
     OmegaBlackwellQmdConfig cfg = {
         .code_va = L->code_va, .cbank_va = g_s.cbank.va, .scratch_va = scratch_va, .sem_va = sem_va,
@@ -568,24 +583,54 @@ int omega_gpu_session_launch(const OmegaGpuLaunch *L, uint64_t *elapsed_ns, uint
         .shared_bytes = L->shared_bytes,
     };
     uint32_t qmd0_words[OMEGA_BW_QMD_WORDS], qmd1_words[OMEGA_BW_QMD_WORDS];
-    omega_blackwell_build_qmd0(qmd0_words, qmd0_va, qmd1_va);
-    if (omega_blackwell_build_qmd1(qmd1_words, &cfg) != 0) { omega_gpu_session_set_error("qmd build (shared_bytes)"); return -1; }
-    if (omega_blackwell_verify_qmd_invariants(qmd1_words) != 0) { omega_gpu_session_set_error("qmd invariants"); return -1; }
-    memcpy(g_s.qmd.cpu, qmd0_words, sizeof qmd0_words);
-    memcpy((uint8_t *)g_s.qmd.cpu + 0x1000, qmd1_words, sizeof qmd1_words);
+    if (ampere) {
+#ifndef OMEGA_GPU_NO_POSIX
+        if (qmd1_va >> 40) {
+            omega_gpu_session_set_error("Ampere PCAS QMD address exceeds 40-bit launch aperture");
+            return -1;
+        }
+        if (omega_ampere_build_qmd(qmd1_words, L->code_va, g_s.cbank.va, sem_va,
+                L->threads_x, threads_y, L->grid_x, L->grid_y, gpr, L->shared_bytes)) {
+            omega_gpu_session_set_error("Ampere QMD3 build: unsupported dimensions, registers, shared memory or VA");
+            return -1;
+        }
+        memcpy((uint8_t *)g_s.qmd.cpu + 0x1000, qmd1_words, OMEGA_AMPERE_QMD_WORDS * sizeof(uint32_t));
+#else
+        omega_gpu_session_set_error("Ampere requires the Linux native Omega runtime");
+        return -1;
+#endif
+    } else {
+        omega_blackwell_build_qmd0(qmd0_words, qmd0_va, qmd1_va);
+        if (omega_blackwell_build_qmd1(qmd1_words, &cfg) != 0) { omega_gpu_session_set_error("qmd build (shared_bytes)"); return -1; }
+        if (omega_blackwell_verify_qmd_invariants(qmd1_words) != 0) { omega_gpu_session_set_error("qmd invariants"); return -1; }
+        memcpy(g_s.qmd.cpu, qmd0_words, sizeof qmd0_words);
+        memcpy((uint8_t *)g_s.qmd.cpu + 0x1000, qmd1_words, sizeof qmd1_words);
+    }
 
-    volatile uint32_t *hsem = (volatile uint32_t *)((uint8_t *)g_s.qmd.cpu + 0x2000);
+    volatile uint32_t *hsem = ampere ? (volatile uint32_t *)((uint8_t *)g_s.marker.cpu + 0x20) :
+        (volatile uint32_t *)((uint8_t *)g_s.qmd.cpu + 0x2000);
     volatile uint32_t *hmarker = (volatile uint32_t *)g_s.marker.cpu;
     volatile uint32_t *hmarker2 = (volatile uint32_t *)((uint8_t *)g_s.marker.cpu + 0x10);
     *hsem = 0; *hmarker = 0; *hmarker2 = 0;
     /* explicit visibility of everything the CPU just wrote (Linux reference: dsb sy, the barrier issued here before) */
     int rc = p->sync_cpu_to_gpu(p->ctx, g_s.cbank.handle, 0, PAGE);
     if (rc == OMEGA_GPU_PLAT_OK) rc = p->sync_cpu_to_gpu(p->ctx, g_s.qmd.handle, 0, 0x3000);
-    if (rc == OMEGA_GPU_PLAT_OK) rc = p->sync_cpu_to_gpu(p->ctx, g_s.marker.handle, 0, 0x20);
+    if (rc == OMEGA_GPU_PLAT_OK) rc = p->sync_cpu_to_gpu(p->ctx, g_s.marker.handle, 0, ampere ? 0x40 : 0x20);
     if (rc != OMEGA_GPU_PLAT_OK) { fail_plat("sync_cpu_to_gpu", rc); return -1; }
 
     uint32_t pb[1024];
     size_t n = 0;
+    if (ampere) {
+        /* Vendor clc7c0.h SET_OBJECT, SEND_PCAS_A and SEND_SIGNALING_PCAS2_B.
+         * QMD3 is already BAR-written and ordered by sync above. No Blackwell
+         * inline QMD5 packet, null-grid dependency or class-specific setup. */
+        pb[n++] = bw_mthd(1, 0x0000, 1); pb[n++] = OMEGA_AMPERE_COMPUTE_B;
+        /* clc7c0.h INVALIDATE_SHADER_CACHES: instruction/data/constant. */
+        pb[n++] = bw_mthd(1, 0x021c, 1);
+        pb[n++] = (1u << 0) | (1u << 4) | (1u << 12);
+        pb[n++] = bw_mthd(1, 0x02b4, 1); pb[n++] = (uint32_t)(qmd1_va >> 8);
+        pb[n++] = bw_mthd(1, 0x02c0, 1); pb[n++] = 3;
+    } else {
     memcpy(&pb[n], SETUP_WORDS, sizeof SETUP_WORDS); n += sizeof SETUP_WORDS / 4;
     /* Invalidate the SM instruction, constant and data caches before this launch
      * (cut 1b finding: a reused code address served stale instructions; clcec0.h
@@ -616,6 +661,7 @@ int omega_gpu_session_launch(const OmegaGpuLaunch *L, uint64_t *elapsed_ns, uint
     pb[n++] = (98u << 16) | (1u << 13) | (0x0318 >> 2) | (2u << 28);
     pb[n++] = (1u << 30) | (uint32_t)((qmd1_va >> 40) & 0x1ff); pb[n++] = (uint32_t)(qmd1_va >> 8);
     memcpy(&pb[n], qmd1_words, 96 * 4); n += 96;
+    }
     /* first marker */
     pb[n++] = bw_mthd(0, 0x005c, 5);
     pb[n++] = (uint32_t)g_s.marker.va; pb[n++] = (uint32_t)(g_s.marker.va >> 32);
@@ -652,10 +698,11 @@ int omega_gpu_session_launch(const OmegaGpuLaunch *L, uint64_t *elapsed_ns, uint
         return -1;
     }
     (void)p->sync_gpu_to_cpu(p->ctx, g_s.marker.handle, 0, 0x20);
-    (void)p->sync_gpu_to_cpu(p->ctx, g_s.qmd.handle, 0x2000, 4);
+    if (ampere) (void)p->sync_gpu_to_cpu(p->ctx, g_s.marker.handle, 0x20, 4);
+    else (void)p->sync_gpu_to_cpu(p->ctx, g_s.qmd.handle, 0x2000, 4);
     uint64_t t1 = p->time_now_ns(p->ctx);
     (void)p->queue_retire(p->ctx, g_s.queue); /* both releases landed: the GPFIFO entry is consumed */
-    if (*hsem != OMEGA_BW_SEMAPHORE_INTERMEDIATE_DONE) { omega_gpu_session_set_error("intermediate semaphore not DONE"); return -1; }
+    if (*hsem != (ampere ? 1u : OMEGA_BW_SEMAPHORE_INTERMEDIATE_DONE)) { omega_gpu_session_set_error("intermediate semaphore not DONE"); return -1; }
     if (elapsed_ns) *elapsed_ns += t1 - t0;
     if (marker_out) *marker_out = *hmarker;
     (void)hmarker2;
@@ -663,3 +710,4 @@ int omega_gpu_session_launch(const OmegaGpuLaunch *L, uint64_t *elapsed_ns, uint
 }
 
 uint32_t omega_gpu_session_open_count(void) { return g_s.opens; }
+uint32_t omega_gpu_session_target_sm(void) { return g_open ? g_target_sm : 0; }

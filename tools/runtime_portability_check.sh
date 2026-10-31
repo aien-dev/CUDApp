@@ -5,7 +5,7 @@
 # Host only, no compiler, no device. POSIX sh + awk.
 #
 # Fails (exit 1, one line per problem) when:
-#   1. a src/omega_gpu_*, src/omega_blackwell_* or src/omega_bw_* file has no row in the table
+#   1. a src/omega_gpu_*, src/omega_blackwell_*, src/omega_bw_* or src/omega_ampere_* file has no row in the table
 #   2. a row names a file that does not exist, or is duplicated, or has a bad class / binding / empty reason
 #   3. a PORTABLE row's file includes a Linux or NVRM header (nvrm.h, m16_native.h, omega_gpu_platform_linux.h,
 #      pthread.h, unistd.h, fcntl.h, sys/*, linux/*) or a Blackwell chip header (omega_blackwell_*, omega_bw_*)
@@ -82,7 +82,7 @@ while IFS='	' read -r f class reason bind extra; do
 done < "$tmp_rows"
 
 # --- every file has a row ----------------------------------------------------------------------
-for p in "$root"/src/omega_gpu_* "$root"/src/omega_blackwell_* "$root"/src/omega_bw_*; do
+for p in "$root"/src/omega_gpu_* "$root"/src/omega_blackwell_* "$root"/src/omega_bw_* "$root"/src/omega_ampere_*; do
 	[ -f "$p" ] || continue
 	f=src/$(basename "$p")
 	cut -f1 "$tmp_rows" | grep -qx "$f" || bad "no row in the table for $f"
@@ -90,5 +90,5 @@ done
 
 n=$(wc -l < "$tmp_rows" | tr -d ' ')
 rm -f "$tmp_rows"
-if [ "$fail" = 0 ]; then echo "PASS: $n rows, every omega_gpu_* / omega_blackwell_* / omega_bw_* file in src/ has one and the rows agree with the includes"; exit 0; fi
+if [ "$fail" = 0 ]; then echo "PASS: $n rows, every omega_gpu_* / omega_blackwell_* / omega_bw_* / omega_ampere_* file in src/ has one and the rows agree with the includes"; exit 0; fi
 echo "FAIL: portability table does not match the tree"; exit 1

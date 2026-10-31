@@ -1,0 +1,140 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Dedicated behavior fixture for native_f16 scalar binary32 to binary16 RNE conversion.
+
+fn f16_sub exp ulong m ulong to ulong
+if eq exp 112
+lsb = and shr m 14 1
+r = add add m 8191 lsb
+ret shr r 14
+end
+if eq exp 111
+lsb = and shr m 15 1
+r = add add m 16383 lsb
+ret shr r 15
+end
+if eq exp 110
+lsb = and shr m 16 1
+r = add add m 32767 lsb
+ret shr r 16
+end
+if eq exp 109
+lsb = and shr m 17 1
+r = add add m 65535 lsb
+ret shr r 17
+end
+if eq exp 108
+lsb = and shr m 18 1
+r = add add m 131071 lsb
+ret shr r 18
+end
+if eq exp 107
+lsb = and shr m 19 1
+r = add add m 262143 lsb
+ret shr r 19
+end
+if eq exp 106
+lsb = and shr m 20 1
+r = add add m 524287 lsb
+ret shr r 20
+end
+if eq exp 105
+lsb = and shr m 21 1
+r = add add m 1048575 lsb
+ret shr r 21
+end
+if eq exp 104
+lsb = and shr m 22 1
+r = add add m 2097151 lsb
+ret shr r 22
+end
+if eq exp 103
+lsb = and shr m 23 1
+r = add add m 4194303 lsb
+ret shr r 23
+end
+if eq exp 102
+lsb = and shr m 24 1
+r = add add m 8388607 lsb
+ret shr r 24
+end
+ret 0
+end
+
+fn native_f16 bits ulong to ulong
+sign = and shr bits 16 32768
+u = and bits 2147483647
+if ge u 2139095040
+if gt u 2139095040
+payload = and shr u 13 1023
+res = or 32256 payload
+ret or sign res
+end
+ret or sign 31744
+end
+if ge u 1199566848
+ret or sign 31744
+end
+if ge u 947912704
+lsb = and shr u 13 1
+rounded = add add u 4095 lsb
+val = sub rounded 939524096
+ret or sign shr val 13
+end
+if gt u 855638016
+exp = shr u 23
+m = or 8388608 and u 8388607
+res = f16_sub exp m
+ret or sign res
+end
+ret sign
+end
+
+fn check eq_val ulong exp_val ulong to ulong
+if ne eq_val exp_val
+ret 1
+end
+ret 0
+end
+
+fn main to int
+fails = ulong 0
+
+note Zero
+fails = add fails check native_f16 0 0
+fails = add fails check native_f16 2147483648 32768
+note Subnormal boundary and underflow
+fails = add fails check native_f16 855638016 0
+fails = add fails check native_f16 855638017 1
+fails = add fails check native_f16 947904511 1023
+fails = add fails check native_f16 947904512 1024
+fails = add fails check native_f16 947912703 1024
+
+note Normal min and 1.0f
+fails = add fails check native_f16 947912704 1024
+fails = add fails check native_f16 1065353216 15360
+
+note RNE ties to even
+fails = add fails check native_f16 1065357312 15360
+fails = add fails check native_f16 1065365504 15362
+
+note Normal max and overflow boundary
+fails = add fails check native_f16 1199562752 31743
+fails = add fails check native_f16 1199566847 31743
+fails = add fails check native_f16 1199566848 31744
+fails = add fails check native_f16 3347050496 64512
+
+note Infinities
+fails = add fails check native_f16 2139095040 31744
+fails = add fails check native_f16 4286578688 64512
+
+note NaNs
+fails = add fails check native_f16 2143289344 32256
+fails = add fails check native_f16 2139095041 32256
+fails = add fails check native_f16 4290773024 65024
+fails = add fails check native_f16 2147483647 32767
+
+if ne fails 0
+ret 1
+end
+ret 0
+end

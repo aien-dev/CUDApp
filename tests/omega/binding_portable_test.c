@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
-/* Same revision and epoch vectors on the freestanding seeded units and on the
- * portable stand-in. With BINDING_PORTABLE, one seeded entry must refuse
- * without writing the result. */
+/* Revision and epoch vectors on the generated freestanding units. */
 #include "cudapp_native.h"
 
 #include <stdint.h>
@@ -49,13 +47,6 @@ int main(void)
         fprintf(stderr, "FAIL epnull\n");
         bad = 1;
     }
-#ifdef BINDING_PORTABLE
-    r = 99;
-    if (omega_bw_enc_sm121(&r, 0, 0, 0, 0, 0, 0, 0, 0) != OMEGA_BAD_RT || r != 99) {
-        fprintf(stderr, "FAIL encoder refusal wrote a result or returned another status\n");
-        bad = 1;
-    }
-#endif
     if (bad)
         return 1;
     puts("binding-portable: PASS");

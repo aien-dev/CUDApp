@@ -1,0 +1,608 @@
+note Explicit SM86 encoder; SM121 uses its separate bw_enc_sm121.om unit.
+note Input layout matches bw_enc_sm121.om. Global addresses are plain 64-bit registers,
+note not Blackwell descriptors. Parameter constants move from byte 896 to byte 352.
+note The final preflight validates every operand and instruction before storing any output.
+note Native binding compiler SHA256 2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f.
+note New opcode constants: Wolfram FromDigits hexadecimal conversion, parent AmperePort receipt.
+note SM86 words independently researched with nvdisasm -b SM86, never submitted to a GPU.
+
+const NEG ulong 9223372036854775808
+const NOPW ulong 31000
+const NOPC ulong 1032192
+
+fn put4 w edit ulong 4 a ulong b ulong c ulong d ulong to void
+put w 0 a
+put w 1 b
+put w 2 c
+put w 3 d
+end
+
+note the physical register of one operand field: phys + subreg, or dflt when the vreg is negative
+fn preg phys view ulong 288 v ulong sb ulong dflt ulong to ulong
+if ge v NEG
+ret dflt
+end
+ret add get phys v sb
+end
+
+note 1 when a vreg field is given (not negative), else 0
+fn pres v ulong to ulong
+if ge v NEG
+ret 0
+end
+ret 1
+end
+
+fn isuld op ulong to bool
+ret or eq op 6 eq op 7
+end
+
+fn param op ulong imm ulong to ulong
+if and ge op 4 le op 7
+if ge imm 896
+ret add sub imm 896 352
+end
+end
+ret imm
+end
+
+fn opnds ins view ulong 8192 i ulong phys view ulong 288 o edit ulong 16 to void
+b = mul i 8
+f = get ins add b 7
+put o 0 get ins b
+put o 1 preg phys get ins add b 1 and shr f 16 255 0
+put o 2 preg phys get ins add b 2 and shr f 24 255 0
+put o 3 preg phys get ins add b 3 and shr f 32 255 0
+put o 4 preg phys get ins add b 4 and shr f 40 255 255
+u = get ins add b 5
+put o 5 0
+if lt u NEG
+put o 5 get phys add u 256
+end
+put o 14 pres u
+x = get ins add b 6
+put o 6 param get o 0 and x 4294967295
+put o 7 shr x 32
+put o 8 and f 1
+put o 9 and shr f 1 1
+put o 10 and shr f 2 1
+put o 11 and shr f 8 255
+put o 12 pres get ins add b 2
+put o 13 pres get ins add b 3
+d = get ins add b 1
+if and isuld get o 0 lt d NEG
+put o 1 get phys add d 256
+end
+end
+
+note the control word: the instruction's own, else the op's default
+fn ctl o view ulong 16 dflt ulong to ulong
+c = get o 7
+if ne c 0
+ret c
+end
+ret dflt
+end
+
+note low 8 bits of operand slot k
+fn rb o view ulong 16 k ulong to ulong
+ret and get o k 255
+end
+
+note slot k when its vreg (presence slot h) is given, else RZ
+fn rz o view ulong 16 k ulong h ulong to ulong
+if ne get o h 0
+ret rb o k
+end
+ret 255
+end
+
+fn wd o view ulong 16 base ulong to ulong
+ret or base shl rb o 1 16
+end
+
+fn wa o view ulong 16 base ulong to ulong
+ret or base shl rb o 2 24
+end
+
+fn wda o view ulong 16 base ulong to ulong
+ret or wd o base shl rb o 2 24
+end
+
+note the 4-bit guard predicate field: 7 always, 0 @P0, 8 @!P0
+fn pred o view ulong 16 to ulong
+if eq get o 9 0
+ret 7
+end
+if eq get o 10 0
+ret 0
+end
+ret 8
+end
+
+note a signed 24-bit byte offset (imm read as int32) fits
+fn off24 imm ulong to bool
+ret or lt imm 8388608 ge imm 4286578688
+end
+
+note ops 0..14: moves, constants, integer multiply-add, compares and global memory
+fn enc_a o view ulong 16 w edit ulong 4 to ulong
+op = get o 0
+imm = get o 6
+if eq op 0
+put4 w NOPW 0 0 ctl o NOPC
+ret 0
+end
+if eq op 1
+put4 w wd o 29186 255 3840 ctl o 1040896
+ret 0
+end
+if eq op 2
+put4 w wd o 30722 imm 3840 ctl o 1040896
+ret 0
+end
+if eq op 3
+put4 w wd o 31001 0 shl and imm 255 8 ctl o 926208
+ret 0
+end
+if eq op 4
+put4 w wd o 4278221698 and shl imm 6 16776960 2048 ctl o 1040896
+ret 0
+end
+if eq op 5
+put4 w wd o 4278221698 and shl imm 6 16776960 2560 ctl o 926208
+ret 0
+end
+if eq op 6
+put4 w wd o 31417 and shl imm 6 16776960 2048 ctl o 926208
+ret 0
+end
+if eq op 7
+put4 w wd o 31417 and shl imm 6 16776960 2560 ctl o 945664
+ret 0
+end
+if eq op 8
+if ne get o 13 0
+put4 w wda o 29220 rb o 3 or 126747136 rb o 4 ctl o 2083328
+ret 0
+end
+if and ne get o 8 0 ne get o 14 0
+put4 w wda o 31780 rb o 5 or 260964864 rb o 4 ctl o 2083328
+ret 0
+end
+put4 w wda o 30756 imm or 126747136 rb o 4 ctl o 2083328
+ret 0
+end
+if eq op 9
+put4 w wda o 30757 imm or 126746624 rb o 4 ctl o 2083840
+ret 0
+end
+if eq op 10
+if and ne get o 8 0 ne get o 14 0
+put4 w wda o 31756 rb o 5 200302704 ctl o 3136000
+ret 0
+end
+put4 w wda o 30732 imm 66085488 ctl o 2087424
+ret 0
+end
+if eq op 11
+put4 w wda o 31105 0 203299072 ctl o 991744
+ret 0
+end
+if eq op 12
+if not off24 imm
+ret 1
+end
+put4 w wa o 31110 or rb o 3 shl and imm 16777215 8 202381568 ctl o 1040896
+ret 0
+end
+if eq op 13
+put4 w wa o 31110 rb o 3 202447104 ctl o 1040896
+ret 0
+end
+if eq op 14
+put4 w wda o 29200 rb o 3 134209791 ctl o 17811968
+ret 0
+end
+ret 1
+end
+
+note ops 15..29: tensor core, shifts, wide and strong loads, stores, fences, atomics
+fn enc_b o view ulong 16 w edit ulong 4 to ulong
+op = get o 0
+imm = get o 6
+if or eq op 15 eq op 16
+p = ulong 0
+if eq op 16
+p = 262144
+end
+put4 w wda o 29244 rb o 3 or or rb o 4 6144 p ctl o 1040896
+ret 0
+end
+if eq op 17
+put4 w or wd o 30745 4278190080 imm or 71168 rb o 2 ctl o 2083328
+ret 0
+end
+if eq op 18
+put4 w wda o 30738 imm 126796031 ctl o 2083328
+ret 0
+end
+if eq op 19
+put4 w wda o 31105 0 203298048 ctl o 991744
+ret 0
+end
+if eq op 20
+put4 w wda o 31105 0 203380992 ctl o 991744
+ret 0
+end
+if eq op 21
+put4 w wda o 31105 0 203364608 ctl o 991744
+ret 0
+end
+if eq op 22
+a = wa o 31110
+if ne get o 9 0
+a = or wa o 2438 shl pred o 12
+end
+put4 w a rb o 3 202463488 ctl o 1040896
+ret 0
+end
+if eq op 23
+put4 w 31122 0 45056 ctl o 1043456
+ret 0
+end
+if eq op 24
+put4 w 31122 0 12288 ctl o 1043456
+ret 0
+end
+if eq op 25
+put4 w 4278221199 0 33554432 ctl o 1042432
+ret 0
+end
+if eq op 26
+put4 w wda o 31144 rb o 3 136266111 ctl o 3284480
+ret 0
+end
+if eq op 27
+put4 w wda o 31144 rb o 3 203374975 ctl o 3284480
+ret 0
+end
+if eq op 28
+put4 w wa o 29196 rb o 3 66084976 ctl o 2087424
+ret 0
+end
+if eq op 29
+put4 w wda o 29202 rb o 3 126762239 ctl o 2083328
+ret 0
+end
+ret 1
+end
+
+note ops 30..45: floating point, special functions, shuffles, shared memory, exit
+fn enc_c o view ulong 16 w edit ulong 4 to ulong
+op = get o 0
+imm = get o 6
+if eq op 30
+put4 w wda o 29217 rb o 3 0 ctl o 5227520
+ret 0
+end
+if eq op 31
+put4 w wda o 29217 or rb o 3 2147483648 0 ctl o 5227520
+ret 0
+end
+if eq op 32
+put4 w wda o 29216 rb o 3 4194304 ctl o 5227520
+ret 0
+end
+if eq op 33
+put4 w wda o 29219 rb o 3 rb o 4 ctl o 5227520
+ret 0
+end
+if eq op 34
+c = ulong 66084864
+if ne imm 0
+c = imm
+end
+a = or or 29195 shl and get o 1 7 16 shl rb o 2 24
+put4 w a rb o 3 c ctl o 5227520
+ret 0
+end
+if eq op 35
+put4 w wda o 29192 rb o 3 and get o 4 7 ctl o 1034752
+ret 0
+end
+if eq op 36
+put4 w wda o 29193 rb o 3 58720256 ctl o 5227520
+ret 0
+end
+if eq op 37
+if eq imm 1177681920
+put4 w wda o 29246 rb o 3 4351 ctl o 5227520
+ret 0
+end
+put4 w wda o 29193 rb o 3 125829120 ctl o 5227520
+ret 0
+end
+if eq op 38
+put4 w wd o 29253 rb o 2 2102272 ctl o 5235200
+ret 0
+end
+if eq op 39
+put4 w wd o 29445 rb o 2 2158848 ctl o 5120512
+ret 0
+end
+if eq op 40
+put4 w wd o 29448 rb o 2 4096 ctl o 926720
+ret 0
+end
+if eq op 41
+put4 w wd o 29448 rb o 2 5120 ctl o 926720
+ret 0
+end
+if eq op 42
+a = or 134225664 shl and imm 31 21
+if ne and imm 2147483648 0
+a = or a shl ulong 1 26
+end
+put4 w wda o 32649 a 917504 ctl o 926720
+ret 0
+end
+if eq op 43
+put4 w wda o 31108 0 and imm 65535 ctl o 1040896
+ret 0
+end
+if eq op 44
+put4 w wa o 29576 rb o 3 and imm 65535 ctl o 1040896
+ret 0
+end
+if eq op 45
+a = ulong 31053
+if ne get o 9 0
+a = 2381
+end
+put4 w a 0 58720256 ctl o 1042944
+ret 0
+end
+ret 1
+end
+
+note SM86 BRA stores the signed byte displacement in w1 and low 18 bits of w2, not the SM121 split field.
+fn enc_bra o view ulong 16 w edit ulong 4 to ulong
+imm = get o 6
+rel = and sub imm 1 4294967295
+s = and shl rel 4 4294967295
+c = or 58720256 shr rel 28
+if ge rel 2147483648
+c = or 58982384 shr rel 28
+end
+d = get o 7
+if eq d 0
+d = 1042944
+if and eq imm 0 eq get o 9 0
+d = NOPC
+end
+end
+a = or 2375 shl pred o 12
+put4 w a s c d
+ret 0
+end
+
+note ops 46..59: branches, reconvergence, barriers, wide shared loads, three-source integer ops
+fn enc_d o view ulong 16 w edit ulong 4 to ulong
+op = get o 0
+imm = get o 6
+bar = get o 11
+if eq op 46
+ret enc_bra o w
+end
+if eq op 47
+put4 w wd o 29448 rb o 2 2048 ctl o 926720
+ret 0
+end
+if eq op 48
+put4 w 31517 0 65536 ctl o 1043456
+ret 0
+end
+if eq op 49
+put4 w wda o 31108 255 134219776 ctl o 927744
+ret 0
+end
+if eq op 50
+put4 w wa o 31112 rb o 3 134220031 ctl o 1040896
+ret 0
+end
+if eq op 51
+a = or or 29202 shl rb o 1 16 shl rz o 2 12 24
+put4 w a rz o 3 13 or or 126746624 shl and imm 255 8 rb o 4 ctl o 2083328
+ret 0
+end
+if eq op 52
+a = or or 29209 shl rb o 1 16 shl rz o 2 12 24
+put4 w a rz o 3 13 or 1536 rb o 4 ctl o 2083328
+ret 0
+end
+if eq op 53
+a = or or 29223 shl rb o 1 16 shl rz o 2 12 24
+put4 w a rz o 3 13 or 126746624 rb o 4 ctl o 2083328
+ret 0
+end
+if eq op 54
+if or or lt imm 2 ge imm 2147483648 ge bar 16
+ret 1
+end
+a = or or 2373 shl pred o 12 shl bar 16
+put4 w a and mul sub imm 1 16 4294967295 58720768 ctl o 1040896
+ret 0
+end
+if eq op 55
+if ge bar 16
+ret 1
+end
+a = or or 2369 shl pred o 12 shl bar 16
+put4 w a 0 58720768 ctl o 1042944
+ret 0
+end
+if eq op 56
+if not off24 imm
+ret 1
+end
+put4 w wda o 31105 shl and imm 16777215 8 203299584 ctl o 991744
+ret 0
+end
+if eq op 57
+if not off24 imm
+ret 1
+end
+put4 w wda o 31105 shl and imm 16777215 8 203300096 ctl o 991744
+ret 0
+end
+if eq op 58
+if ge imm 8388608
+ret 1
+end
+put4 w wda o 31108 shl and imm 16777215 8 3072 ctl o 1042432
+ret 0
+end
+if eq op 59
+put4 w wd o 29448 rb o 2 3072 ctl o 926720
+ret 0
+end
+ret 1
+end
+
+fn enc1 o view ulong 16 w edit ulong 4 to ulong
+op = get o 0
+if lt op 15
+ret enc_a o w
+end
+if lt op 30
+ret enc_b o w
+end
+if lt op 46
+ret enc_c o w
+end
+ret enc_d o w
+end
+
+note the 16 bytes of instruction i, each word little-endian
+fn store code edit uchar 16384 i ulong w view ulong 4 to void
+for k ulong 4
+x = get w k
+q = add mul i 16 mul k 4
+for j ulong 4
+put code add q j uchar and shr x mul j 8 255
+end
+end
+end
+
+note Full preflight: no destination byte changes on any refusal, including a late opcode.
+fn valid ins view ulong 8192 phys view ulong 288 i ulong to bool
+b = mul i 8
+op = get ins b
+f = get ins add b 7
+imm = and get ins add b 6 4294967295
+if gt op 59
+ret false
+end
+note Blackwell native FP8 QMMA and FP8 pack have no SM86 instruction.
+if and eq op 16 eq imm 1362114610
+ret false
+end
+if and eq op 37 eq imm 1178940467
+ret false
+end
+if and ge op 4 le op 7
+if or ge imm 65536 ne rem imm 4 0
+ret false
+end
+end
+if or or eq op 12 eq op 56 eq op 57
+if not off24 imm
+ret false
+end
+end
+if and eq op 58 ge imm 8388608
+ret false
+end
+if and eq op 54 or lt imm 2 ge imm 2147483648
+ret false
+end
+if and or eq op 54 eq op 55 ge and shr f 8 255 16
+ret false
+end
+for j ulong 4
+v = get ins add add b 1 j
+if lt v NEG
+sb = and shr f add 16 mul j 8 255
+if and eq j 0 or eq op 6 eq op 7
+if ge v 32
+ret false
+end
+p = get phys add v 256
+if or ge p 64 ge add p sb 64
+ret false
+end
+else
+if ge v 256
+ret false
+end
+p = get phys v
+if or ge p 255 ge add p sb 255
+ret false
+end
+end
+end
+end
+u = get ins add b 5
+if lt u NEG
+if ge u 32
+ret false
+end
+if ge get phys add u 256 64
+ret false
+end
+end
+ret true
+end
+
+fn isdesc o view ulong 16 to bool
+ret and eq get o 0 7 eq get o 6 856
+end
+
+fn ampere_enc_sm86 ins view ulong 8192 phys view ulong 288 n ulong pad ulong code edit uchar 16384 to ulong
+o = new ulong 16 0
+w = new ulong 4 0
+if gt n 1024
+ret 0
+end
+for i ulong n
+if not valid ins phys i
+ret 0
+end
+end
+cnt = n
+if ne pad 0
+cnt = mul div add n 7 8 8
+if lt cnt 32
+cnt = 32
+end
+end
+for i ulong cnt
+if lt i n
+opnds ins i phys edit o
+note Blackwell descriptor preamble is unused by Ampere memory instructions
+note Keep its slot for branch deltas but do not read beyond CB0
+if isdesc view o
+put4 edit w NOPW 0 0 NOPC
+else
+if ne enc1 view o edit w 0
+ret 0
+end
+end
+else
+put4 edit w NOPW 0 0 NOPC
+end
+store code i view w
+end
+ret mul cnt 16
+end

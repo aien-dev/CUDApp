@@ -7,6 +7,7 @@
  */
 
 #include "nvrm.h"
+#include "omega_ampere_qmd.h"
 #include "cpu_barrier.h"
 
 #include <errno.h>
@@ -17,6 +18,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <time.h>
@@ -50,6 +52,31 @@
 #include "ctrl/ctrla06c.h"
 #include "ctrl/ctrlc36f.h"
 
+static int fail(Nvrm *rm, const char *fmt, ...);
+
+/* Pure class admission lives in seeded Omega. Class IDs are vendor constants:
+ * open-gpu-doc clc7c0.h, clc56f.h, and vendored clc361.h / clc661.h. */
+static int select_classes(Nvrm *rm, const uint32_t *classes, uint32_t count) {
+    rm->compute_class = rm->gpfifo_class = rm->usermode_class = 0;
+    rm->target_sm = 0; rm->discrete = 0;
+    uint64_t m[16] = {1, rm->sm_version,
+        NV2080_CTRL_GR_INFO_SM_VERSION_8_06, NV2080_CTRL_GR_INFO_SM_VERSION_12_01,
+        OMEGA_AMPERE_COMPUTE_B, OMEGA_AMPERE_GPFIFO_A, VOLTA_USERMODE_A,
+        BLACKWELL_COMPUTE_B, BLACKWELL_CHANNEL_GPFIFO_A, HOPPER_USERMODE_A};
+    /* Marshal the vendor's class-list presence, without selecting a target. */
+    for (uint32_t i = 0; i < count; i++) {
+        for (uint32_t k = 0; k < 3; k++) {
+            if (classes[i] == m[4 + k]) m[10] |= 1u << k;
+            if (classes[i] == m[7 + k]) m[11] |= 1u << k;
+        }
+    }
+    uint32_t selected[64];
+    if (omega_ampere_policy(m, selected) != 0)
+        return fail(rm, "unsupported SM 0x%x or missing target classes", rm->sm_version);
+    rm->target_sm = selected[0]; rm->discrete = (uint8_t)selected[1];
+    rm->compute_class = selected[2]; rm->gpfifo_class = selected[3]; rm->usermode_class = selected[4];
+    return 0;
+}
 #define NV_IOWR(nr, sz) _IOC(_IOC_READ | _IOC_WRITE, NV_IOCTL_MAGIC, (nr), (sz))
 
 static int fail(Nvrm *rm, const char *fmt, ...) {
@@ -316,6 +343,23 @@ static int va_slot_cover(Nvrm *rm, uint64_t end) {
                                                    memory_order_relaxed, memory_order_relaxed) ? 1 : 0;
 }
 
+static int card_index(const nv_ioctl_card_info_t cards[64], const char *bdf) {
+    if (bdf) {
+        unsigned domain, bus, slot, function;
+        char end, canonical[32];
+        if (sscanf(bdf, "%x:%x:%x.%x%c", &domain, &bus, &slot, &function, &end) != 4 ||
+            domain > 0xffff || bus > 0xff || slot > 0x1f || function > 7) return -1;
+        snprintf(canonical, sizeof canonical, "%04x:%02x:%02x.%x", domain, bus, slot, function);
+        if (strcmp(bdf, canonical) != 0) return -1;
+        for (int i = 0; i < 64; i++)
+            if (cards[i].valid && cards[i].pci_info.domain == domain &&
+                cards[i].pci_info.bus == bus && cards[i].pci_info.slot == slot &&
+                cards[i].pci_info.function == function) return i;
+        return -1;
+    }
+    for (int i = 0; i < 64; i++) if (cards[i].valid) return i;
+    return -1;
+}
 int nvrm_open(Nvrm *rm) {
     memset(rm, 0, sizeof *rm);
     rm->next_handle = 0xcf000001u;
@@ -340,9 +384,9 @@ int nvrm_open(Nvrm *rm) {
     nv_ioctl_card_info_t cards[64];
     memset(cards, 0, sizeof cards);
     if (nv_ioctl(rm->fd_ctl, NV_ESC_CARD_INFO, cards, sizeof cards) != 0) return fail(rm, "CARD_INFO errno %d", errno);
-    int found = -1;
-    for (int i = 0; i < 64; i++) if (cards[i].valid) { found = i; break; }
-    if (found < 0) return fail(rm, "no GPU");
+    const char *bdf = getenv("CUDAPP_GPU_BDF");
+    int found = card_index(cards, bdf);
+    if (found < 0) return fail(rm, "no GPU matches CUDAPP_GPU_BDF=%s (canonical dddd:bb:ss.f required)", bdf ? bdf : "");
     rm->gpu_id = cards[found].gpu_id;
     rm->minor = cards[found].minor_number;
 
@@ -368,29 +412,6 @@ int nvrm_open(Nvrm *rm) {
     vp.limit = 0x1ffffffffffffull;
     if (rm_alloc(rm, rm->device, NV01_MEMORY_VIRTUAL, &vp, sizeof vp, &rm->virtmem)) return -1;
 
-    /* Class list: pick the Blackwell classes that this RM exposes. */
-    NV0080_CTRL_GPU_GET_CLASSLIST_PARAMS cl;
-    memset(&cl, 0, sizeof cl);
-    if (rm_control(rm, rm->device, NV0080_CTRL_CMD_GPU_GET_CLASSLIST, &cl, sizeof cl)) return -1;
-    uint32_t classes[512];
-    if (cl.numClasses > 512) return fail(rm, "too many classes");
-    cl.classList = NV_PTR_TO_NvP64(classes);
-    if (rm_control(rm, rm->device, NV0080_CTRL_CMD_GPU_GET_CLASSLIST, &cl, sizeof cl)) return -1;
-    for (uint32_t i = 0; i < cl.numClasses; i++) {
-        if (classes[i] == BLACKWELL_COMPUTE_B) rm->compute_class = classes[i];
-        if (classes[i] == BLACKWELL_CHANNEL_GPFIFO_A) rm->gpfifo_class = classes[i];
-        if (classes[i] == HOPPER_USERMODE_A) rm->usermode_class = classes[i];
-    }
-    if (!rm->compute_class || !rm->gpfifo_class || !rm->usermode_class)
-        return fail(rm, "missing class: compute 0x%x gpfifo 0x%x usermode 0x%x",
-                    rm->compute_class, rm->gpfifo_class, rm->usermode_class);
-
-    if (rm_alloc(rm, rm->subdevice, rm->usermode_class, NULL, 0, &rm->usermode)) return -1;
-    void *mmio = map_to_cpu(rm, rm->usermode, 0x10000, NULL, 0, 0);
-    if (mmio == MAP_FAILED) return -1;
-    rm->usermode_cpu = mmio;
-    rm->doorbell = (volatile uint32_t *)((uint8_t *)mmio + NVC361_NOTIFY_CHANNEL_PENDING);
-
     NV2080_CTRL_GR_INFO gi = { .index = NV2080_CTRL_GR_INFO_INDEX_SM_VERSION };
     NV2080_CTRL_GR_GET_INFO_PARAMS gp;
     memset(&gp, 0, sizeof gp);
@@ -398,6 +419,20 @@ int nvrm_open(Nvrm *rm) {
     gp.grInfoList = NV_PTR_TO_NvP64(&gi);
     if (rm_control(rm, rm->subdevice, NV2080_CTRL_CMD_GR_GET_INFO, &gp, sizeof gp)) return -1;
     rm->sm_version = gi.data;
+
+    NV0080_CTRL_GPU_GET_CLASSLIST_PARAMS cl;
+    memset(&cl, 0, sizeof cl);
+    if (rm_control(rm, rm->device, NV0080_CTRL_CMD_GPU_GET_CLASSLIST, &cl, sizeof cl)) return -1;
+    uint32_t classes[512];
+    if (cl.numClasses > 512) return fail(rm, "too many classes");
+    cl.classList = NV_PTR_TO_NvP64(classes);
+    if (rm_control(rm, rm->device, NV0080_CTRL_CMD_GPU_GET_CLASSLIST, &cl, sizeof cl)) return -1;
+    if (cl.numClasses > 512 || select_classes(rm, classes, cl.numClasses)) return -1;
+    if (rm_alloc(rm, rm->subdevice, rm->usermode_class, NULL, 0, &rm->usermode)) return -1;
+    void *mmio = map_to_cpu(rm, rm->usermode, 0x10000, NULL, 0, 0);
+    if (mmio == MAP_FAILED) return -1;
+    rm->usermode_cpu = mmio;
+    rm->doorbell = (volatile uint32_t *)((uint8_t *)mmio + NVC361_NOTIFY_CHANNEL_PENDING);
 
     NV_VASPACE_ALLOCATION_PARAMETERS vap;
     memset(&vap, 0, sizeof vap);
@@ -568,11 +603,11 @@ static void quarantine_allocation(Nvrm *rm, uint32_t h, uint64_t va, uint64_t si
     rm->faulted = 1;
 }
 
-static int alloc_with_cacheability(Nvrm *rm, uint64_t size, NvrmMem *out, uint32_t gpu_cacheable);
+static int alloc_with_cacheability(Nvrm *rm, uint64_t size, NvrmMem *out, uint32_t gpu_cacheable, int local);
 
 /* Coherent, CPU-mapped, GPU-mapped buffer at one shared virtual address. */
 int nvrm_alloc(Nvrm *rm, uint64_t size, NvrmMem *out) {
-    return alloc_with_cacheability(rm, size, out, NVOS32_ATTR2_GPU_CACHEABLE_YES);
+    return alloc_with_cacheability(rm, size, out, NVOS32_ATTR2_GPU_CACHEABLE_YES, 0);
 }
 
 /* Same buffer, but the graphics chip does not keep it in its L2. The CPU
@@ -580,10 +615,34 @@ int nvrm_alloc(Nvrm *rm, uint64_t size, NvrmMem *out) {
  * resident chip program polling the buffer keeps reading its own L2 copy and
  * never sees the store. For memory both sides poll, not for bulk data. */
 int nvrm_alloc_gpu_uncached(Nvrm *rm, uint64_t size, NvrmMem *out) {
-    return alloc_with_cacheability(rm, size, out, NVOS32_ATTR2_GPU_CACHEABLE_NO);
+    return alloc_with_cacheability(rm, size, out, NVOS32_ATTR2_GPU_CACHEABLE_NO, 0);
 }
 
-static int alloc_with_cacheability(Nvrm *rm, uint64_t size, NvrmMem *out, uint32_t gpu_cacheable) {
+int nvrm_alloc_vram(Nvrm *rm, uint64_t size, NvrmMem *out) {
+    if (!rm || !rm->discrete || rm->target_sm != 86)
+        return rm ? fail(rm, "local framebuffer requires SM86") : -1;
+    return alloc_with_cacheability(rm, size, out, NVOS32_ATTR2_GPU_CACHEABLE_NO, 1);
+}
+
+int nvrm_vram_info(Nvrm *rm, uint64_t *free_bytes, uint64_t *total_bytes) {
+    if (!rm || !free_bytes || !total_bytes || !rm->discrete) return -1;
+    /* NVIDIA nvos.h NVOS32_FUNCTION_INFO, Info.attr LOCATION_VIDMEM.
+     * This ioctl queries the selected device's framebuffer heap, not host RAM. */
+    NVOS32_PARAMETERS p;
+    memset(&p, 0, sizeof p);
+    p.hRoot = rm->root;
+    p.hObjectParent = rm->device;
+    p.function = NVOS32_FUNCTION_INFO;
+    p.data.Info.attr = NVOS32_ATTR_LOCATION_VIDMEM << 25;
+    if (nv_ioctl(rm->fd_ctl, NV_ESC_RM_VID_HEAP_CONTROL, &p, sizeof p) != 0 || p.status)
+        return fail(rm, "VID_HEAP_INFO errno %d status 0x%x", errno, p.status);
+    if (!p.total || p.free > p.total) return fail(rm, "invalid framebuffer heap information");
+    *free_bytes = p.free;
+    *total_bytes = p.total;
+    return 0;
+}
+
+static int alloc_with_cacheability(Nvrm *rm, uint64_t size, NvrmMem *out, uint32_t gpu_cacheable, int local) {
     if (!rm || !out || !size || rm->faulted || size > SIZE_MAX - 0xfffULL)
         return rm ? fail(rm, "invalid or overflowed allocation size") : -1;
     size = (size + 0xfff) & ~0xfffull;
@@ -604,29 +663,46 @@ static int alloc_with_cacheability(Nvrm *rm, uint64_t size, NvrmMem *out, uint32
     mp.type = NVOS32_TYPE_IMAGE;
     mp.flags = NVOS32_ALLOC_FLAGS_MAP_NOT_REQUIRED | NVOS32_ALLOC_FLAGS_MEMORY_HANDLE_PROVIDED |
                NVOS32_ALLOC_FLAGS_ALIGNMENT_FORCE | NVOS32_ALLOC_FLAGS_IGNORE_BANK_PLACEMENT;
-    /* GB10 has no local video memory: everything is coherent system memory. */
-    mp.attr = (NVOS32_ATTR_PHYSICALITY_ALLOW_NONCONTIGUOUS << 27) | (NVOS32_ATTR_LOCATION_PCI << 25);
+    /* GB10 stays coherent system memory. Discrete payloads explicitly request
+     * LOCAL_USER / VIDMEM; failure must never fall back into host RAM. */
+    mp.attr = (NVOS32_ATTR_PHYSICALITY_ALLOW_NONCONTIGUOUS << 27) |
+              ((local ? NVOS32_ATTR_LOCATION_VIDMEM : NVOS32_ATTR_LOCATION_PCI) << 25);
     mp.attr2 = (gpu_cacheable << 2) | NVOS32_ATTR2_ZBC_PREFER_NO_ZBC;
     mp.format = 6;
     mp.size = size;
     mp.alignment = 0x1000;
     mp.limit = size - 1;
     uint32_t h;
-    if (rm_alloc(rm, rm->device, NV01_MEMORY_SYSTEM, &mp, sizeof mp, &h)) {
+    if (rm_alloc(rm, rm->device, local ? NV01_MEMORY_LOCAL_USER : NV01_MEMORY_SYSTEM, &mp, sizeof mp, &h)) {
         if (munmap(res, size) != 0) rm->faulted = 1;
+        if (local && !rm->faulted && rm->last_rm_status != 0) {
+            (void)va_release(rm, va, size);
+            return -1;
+        }
         rm->faulted = 1; /* unknown driver state: do not recycle this VA */
         return fail_alloc_context(rm, size);
     }
-    void *cpu = map_to_cpu(rm, h, size, (void *)va, 0, 1);
+    void *cpu = map_to_cpu(rm, h, size, (void *)va, 0, !local);
     if (cpu != (void *)va) {
         char why[sizeof rm->err];
         memcpy(why, rm->err, sizeof why);
         quarantine_allocation(rm, h, va, size, (void *)va, 0, 0);
+        if (local) {
+            NvrmMem failed = {.handle = h, .va = va, .size = size, .cpu = (void *)va};
+            if (nvrm_free(rm, &failed) == 0) rm->faulted = 0;
+        }
         return fail(rm, "cpu map at 0x%lx failed: %s", (unsigned long)va, why);
     }
     uint8_t uvm_created = 0, dma_mapped = 0;
     if (uvm_map(rm, va, size, h, &uvm_created, &dma_mapped)) {
         quarantine_allocation(rm, h, va, size, cpu, uvm_created, dma_mapped);
+        if (local) {
+            char why[sizeof rm->err];
+            memcpy(why, rm->err, sizeof why);
+            NvrmMem failed = {.handle = h, .va = va, .size = size, .cpu = cpu};
+            if (nvrm_free(rm, &failed) == 0) rm->faulted = 0;
+            memcpy(rm->err, why, sizeof rm->err);
+        }
         return -1;
     }
     out->handle = h;
@@ -644,6 +720,35 @@ static int alloc_with_cacheability(Nvrm *rm, uint64_t size, NvrmMem *out, uint32
     rm->live[rm->live_count].rm_live = 1;
     rm->live[rm->live_count].cpu_live = 1;
     rm->live_count++;
+    return 0;
+}
+
+static int copy_live(Nvrm *rm, const NvrmMem *m, uint64_t off, size_t bytes) {
+    if (!rm || !m || rm->faulted || !bytes || off > m->size || bytes > m->size - off) return -1;
+    for (uint32_t i = 0; i < rm->live_count; i++) {
+        const NvrmLiveAlloc *a = &rm->live[i];
+        if (a->handle == m->handle && a->va == m->va && a->size == m->size &&
+            a->cpu == m->cpu && a->cpu_live && a->rm_live && !a->quarantined) return 0;
+    }
+    return fail(rm, "copy requires a live allocation and an in-bounds span");
+}
+
+int nvrm_copy_to(Nvrm *rm, const NvrmMem *m, uint64_t off, const void *src, size_t bytes) {
+    if (!src || copy_live(rm, m, off, bytes)) return -1;
+    volatile uint8_t *dst = (volatile uint8_t *)m->cpu + off;
+    const uint8_t *in = src;
+    for (size_t i = 0; i < bytes; i++) dst[i] = in[i];
+    nvrm_cpu_barrier();
+    return 0;
+}
+
+int nvrm_copy_from(Nvrm *rm, const NvrmMem *m, uint64_t off, void *dst, size_t bytes) {
+    if (!dst || copy_live(rm, m, off, bytes)) return -1;
+    nvrm_cpu_barrier();
+    const volatile uint8_t *src = (const volatile uint8_t *)m->cpu + off;
+    uint8_t *out = dst;
+    for (size_t i = 0; i < bytes; i++) out[i] = src[i];
+    nvrm_cpu_barrier();
     return 0;
 }
 
@@ -935,11 +1040,31 @@ volatile uint32_t *nvrm_userd_gpput(Nvrm *rm) {
     return (volatile uint32_t *)((uint8_t *)rm->fifo.cpu + rm->userd_off + offsetof(Nvc96fControl, GPPut));
 }
 
+/* Ampere admits only its implemented launch protocol, below both m16 and the
+ * platform queue. Decode the wire envelope here; method/class policy is Omega. */
+static int validate_ampere_push(Nvrm *rm, const NvrmMem *pb, uint32_t off, uint32_t nwords) {
+    if (!rm->discrete) return 0;
+    if (!pb->cpu) return fail(rm, "Ampere pushbuffer has no CPU mapping");
+    const uint32_t *w = (const uint32_t *)((const uint8_t *)pb->cpu + off);
+    for (uint32_t i = 0; i < nwords;) {
+        const uint32_t h = w[i++], count = (h >> 16) & 0x1fffu;
+        if ((h >> 28) != 2 || !count || count > nwords - i)
+            return fail(rm, "Ampere push packet envelope refused");
+        const uint64_t m[16] = {4, (h & 0x1fffu) << 2, count, (h >> 13) & 7u,
+            w[i], OMEGA_AMPERE_COMPUTE_B, 0x02b4, 0x02c0, 0x005c, 0x0028,
+            0x021c, (1u << 0) | (1u << 4) | (1u << 12)};
+        if (omega_ampere_policy(m, NULL)) return fail(rm, "Ampere method/class refused before submission");
+        i += count;
+    }
+    return 0;
+}
+
 int nvrm_enqueue(Nvrm *rm, const NvrmMem *pb, uint32_t off, uint32_t nwords) {
     if (!rm || !pb || rm->faulted || !rm->gpfifo || !rm->fifo.cpu || rm->entries < 2)
         return rm ? fail(rm, "channel not ready") : -1;
     if ((off & 3u) || nwords == 0 || nwords > 0x1fffff || (uint64_t)off + (uint64_t)nwords * 4u > pb->size)
         return fail(rm, "bad pushbuffer span");
+    if (validate_ampere_push(rm, pb, off, nwords)) return -1;
     if (pb->va > UINT64_MAX - off) return fail(rm, "pushbuffer VA overflow");
     /* Blackwell USERD documents no GPGet (clc96f.h), so consumption is tracked by the
      * caller via nvrm_retire() after it observes completion. Never overrun unretired entries. */
@@ -975,6 +1100,7 @@ int nvrm_chan_submit(Nvrm *rm, uint32_t ch, const NvrmMem *pb, uint32_t off, uin
     if ((off & 3u) || nwords == 0 || nwords > 0x1fffff || (uint64_t)off + (uint64_t)nwords * 4u > pb->size)
         return fail(rm, "bad pushbuffer span");
     if (pb->va > UINT64_MAX - off) return fail(rm, "pushbuffer VA overflow");
+    if (validate_ampere_push(rm, pb, off, nwords)) return -1;
     if (c->put - c->retired >= c->entries - 1) return fail(rm, "GPFIFO full (channel %u): %u entries unretired", ch, c->put - c->retired);
     volatile uint64_t *ring = (volatile uint64_t *)c->fifo.cpu;
     ring[c->put % c->entries] = nvrm_gp_entry(pb->va + off, nwords);

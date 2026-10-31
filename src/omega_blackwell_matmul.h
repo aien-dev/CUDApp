@@ -71,50 +71,6 @@ static inline uint16_t omega_fp32_to_bf16_rne(float f) {
     return (uint16_t)((u + 0x7fffu + ((u >> 16) & 1u)) >> 16);
 }
 
-/* Integer form of a default-rounding fp32 to fp16 cast. The freestanding x86-64
- * build uses it so the link does not call libgcc __truncsfhf2. AArch64 keeps the
- * hardware cast. Compared with gcc's _Float16 cast on all 2^32 inputs on an
- * x86-64 host (0 mismatches). That comparison is not a GB10 result. */
-static inline uint16_t omega_fp32_to_fp16_rne(float f) {
-    union { float f; uint32_t u; } v = {f};
-    const uint32_t x = v.u;
-    const uint32_t sign = (x >> 16) & 0x8000u;
-    const uint32_t mant = x & 0x7fffffu;
-    const int32_t exp = (int32_t)((x >> 23) & 0xffu) - 127 + 15;
-    uint32_t half;
-    if ((x & 0x7f800000u) == 0x7f800000u) {
-        if (mant) {
-            half = 0x7e00u | (mant >> 13);
-            if ((half & 0x03ffu) == 0u)
-                half |= 0x0200u;
-            return (uint16_t)(sign | half);
-        }
-        return (uint16_t)(sign | 0x7c00u);
-    }
-    if (exp >= 0x1f)
-        return (uint16_t)(sign | 0x7c00u);
-    if (exp <= 0) {
-        uint32_t shift, rem, cut;
-        if (exp < -10)
-            return (uint16_t)sign;
-        half = mant | 0x800000u;
-        shift = (uint32_t)(14 - exp);
-        rem = half & ((1u << shift) - 1u);
-        cut = 1u << (shift - 1);
-        half >>= shift;
-        if (rem > cut || (rem == cut && (half & 1u)))
-            half++;
-        return (uint16_t)(sign | half);
-    }
-    half = ((uint32_t)exp << 10) | (mant >> 13);
-    {
-        const uint32_t rem = mant & 0x1fffu;
-        if (rem > 0x1000u || (rem == 0x1000u && (half & 1u)))
-            half++;
-    }
-    return (uint16_t)(sign | (half & 0x7fffu));
-}
-
 /* Dynamic sm_121 code generator: transforms G_S semantic spec into machine code */
 int omega_blackwell_codegen_matmul(const OmegaMatMulSpec *spec, OmegaBlackwellKernel *kernel);
 
