@@ -219,6 +219,8 @@ static void ws_lane_exec(WsSim *s, WsLane *l, const BlackwellIRInsn *in, int pc,
     case BW_IR_MUFU_EX2: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_mufu_ex2(ws_u2f(a))), p); break;
     case BW_IR_MUFU_RCP: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_mufu_rcp(ws_u2f(a))), p); break;
     case BW_IR_MUFU_RSQ: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_mufu_rsq(ws_u2f(a))), p); break;
+    case BW_IR_MUFU_LG2: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(log2f(ws_u2f(a))), p); break; /* as bw_warp_sim_k.h (GDN softplus, DRA-84 chunk scan) */
+    case BW_IR_I2FP: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u((float)(int32_t)a), p); break; /* I2FP.F32.S32, as bw_warp_sim_k.h */
     case BW_IR_LDG_STRONG_SYS: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; uint32_t x; memcpy(&x, (const void *)(uintptr_t)ad, 4); ws_wrs(l, in->dst_vreg, in->dst_subreg, x, p); break; }
     case BW_IR_STG_STRONG_SYS: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; memcpy((void *)(uintptr_t)ad, &b, 4); break; }
     case BW_IR_ATOMG_ADD_STRONG_SYS: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; uint32_t old; memcpy(&old, (const void *)(uintptr_t)ad, 4); uint32_t nw = old + b; memcpy((void *)(uintptr_t)ad, &nw, 4); ws_wrs(l, in->dst_vreg, in->dst_subreg, old, p); break; }

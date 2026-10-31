@@ -51,11 +51,15 @@ int omega_blackwell_codegen_pq_prog(const OmegaPqSpec *s, BlackwellIRProgram *pr
  * mutant (tests only): 1 drops sa (uses sw only), 2 never advances the sw pointer, 3 row tile i reads tile i^1, 4 drops step 1
  * of every odd chunk.
  * DRA-82 (each 0 = programs unchanged):
- *   ymap 1 (F32 only): row r of a tile is stored to y row ymap[row0 + r] (u32 table, u64 pointer at cbank 0x3b0;
+ *   ymap 1 (F32 or BF16): row r of a tile is stored to y row ymap[row0 + r] (u32 table, u64 pointer at cbank 0x3b0;
  *          OMEGA_QG_ARGS_WORDS_YMAP argument words), read only for rows below cnt. Without ymap y row = row0 + r.
  *   x64 1: the activations carry an extra 2^64 (the q36 graph's x' and act rows): the scale fold uses 2^-120 instead of
- *          2^-56, so y is the true product; exact, since 2^64 moves only exponents of the power-of-two pq scales. */
-enum { OMEGA_QG_EPI_F32 = 0, OMEGA_QG_EPI_SWIGLU = 1 };
+ *          2^-56, so y is the true product; exact, since 2^64 moves only exponents of the power-of-two pq scales.
+ * DRA-84: epi BF16 = the F32 epilogue's values stored as bf16_rn (f32 accumulator -> bf16, one F2FP per column pair), y bf16
+ *   rows of n (row stride 2n bytes), ymap allowed. No scale is applied in the epilogue: x64 alone decides whether y is the
+ *   true product (x64 1 on 2^64 rows, the q36 GDN qkv|z rows) or keeps an input 2^64. mutant 5 (BF16 only, tests): the two
+ *   bf16 halves of each stored word swapped (columns 2t and 2t+1 exchanged). */
+enum { OMEGA_QG_EPI_F32 = 0, OMEGA_QG_EPI_SWIGLU = 1, OMEGA_QG_EPI_BF16 = 2 };
 typedef struct {
     uint32_t k;      /* multiple of 128, 128 .. 32768 */
     uint32_t rt;     /* row tiles of 16: 4 (8 exceeds 128 registers and the 16384-byte QMD shared cap) */
@@ -65,7 +69,7 @@ typedef struct {
     uint32_t n;      /* output width (weight rows), multiple of warps * 16 */
     uint32_t wait;   /* stall cycles between a row tile's last QMMA and the first FFMA reading its result */
     int mutant;
-    uint32_t ymap;   /* DRA-82: 1 scatters rows through the y map (F32 only) */
+    uint32_t ymap;   /* DRA-82: 1 scatters rows through the y map (F32 or BF16) */
     uint32_t x64;    /* DRA-82: 1 removes a 2^64 activation scale in the fold */
 } OmegaQgSpec;
 #define OMEGA_QG_ARGS_WORDS 11u

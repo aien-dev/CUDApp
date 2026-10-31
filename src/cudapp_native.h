@@ -15,7 +15,7 @@ extern "C" {
 #define OMEGA_REENTRY 33u
 #define OMEGA_BAD_RT 34u
 #define OMEGA_NO_STACK 35u
-/* fn bw_enc_sm121 ins view ulong 8192 phys view ulong 288 n ulong pad ulong code edit uchar 16384 to ulong */
+/* fn bw_enc_sm121 ins view ulong 16384 phys view ulong 544 n ulong pad ulong code edit uchar 32768 to ulong */
 uint32_t omega_bw_enc_sm121(uint64_t *result, const void *o_ins, uint64_t o_ins_len, const void *o_phys, uint64_t o_phys_len, uint64_t o_n, uint64_t o_pad, void *o_code, uint64_t o_code_len);
 /* fn cubin_elf m view ulong 104 nm view uchar 64 tx view uchar 16777216 o edit ulong 16777216 to ulong */
 uint32_t omega_cubin_elf(uint64_t *result, const void *o_m, uint64_t o_m_len, const void *o_nm, uint64_t o_nm_len, const void *o_tx, uint64_t o_tx_len, void *o_o, uint64_t o_o_len);

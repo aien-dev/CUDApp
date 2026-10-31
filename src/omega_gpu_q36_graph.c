@@ -1013,15 +1013,15 @@ int omega_gpu_q36_graph_prefill_alloc(OmegaGpuQ36Graph *g, uint32_t cap) {
         if (r == 0) r = omega_gpu_fp8gemm_prepare_shape(EI, 64, 4, 1);
         if (r == 0 && omega_gpu_router_prepare_rows(g->cfg.router, H * 4u, g->lo.lb_stride) != OMEGA_GPU_ROUTER_OK) r = -1;
         if (r == 0 && qmma) { /* the pq/qg programs of every prefill shape, x64 1 (the q36 activations carry 2^64) */
-            r = omega_gpu_pfq_quant_prepare(H, 0);
-            if (r == 0) r = omega_gpu_pfq_quant_prepare(H, (uint32_t)(lbs / 4u));
-            if (r == 0) r = omega_gpu_pfq_quant_prepare(OMEGA_GPU_Q36_MIXER_OUT, 0);
-            if (r == 0) r = omega_gpu_pfq_quant_prepare(EI, 0);
-            if (r == 0) r = omega_gpu_pfq_gemm_prepare(OMEGA_GPU_Q36_GDN_MIX, H, 1, 0, 0);
-            if (r == 0) r = omega_gpu_pfq_gemm_prepare(OMEGA_GPU_Q36_ATT_MIX, H, 1, 0, 0);
-            if (r == 0) r = omega_gpu_pfq_gemm_prepare(H, OMEGA_GPU_Q36_MIXER_OUT, 1, 0, 0);
-            if (r == 0) r = omega_gpu_pfq_gemm_prepare(2u * EI, H, 1, 1, 1);
-            if (r == 0) r = omega_gpu_pfq_gemm_prepare(H, EI, 1, 1, 1);
+            r = omega_gpu_pfq_quant_prepare(H, 0, OMEGA_QG_IN_F32);
+            if (r == 0) r = omega_gpu_pfq_quant_prepare(H, (uint32_t)(lbs / 4u), OMEGA_QG_IN_F32);
+            if (r == 0) r = omega_gpu_pfq_quant_prepare(OMEGA_GPU_Q36_MIXER_OUT, 0, OMEGA_QG_IN_F32);
+            if (r == 0) r = omega_gpu_pfq_quant_prepare(EI, 0, OMEGA_QG_IN_F32);
+            if (r == 0) r = omega_gpu_pfq_gemm_prepare(OMEGA_GPU_Q36_GDN_MIX, H, 1, 0, 0, OMEGA_QG_EPI_F32);
+            if (r == 0) r = omega_gpu_pfq_gemm_prepare(OMEGA_GPU_Q36_ATT_MIX, H, 1, 0, 0, OMEGA_QG_EPI_F32);
+            if (r == 0) r = omega_gpu_pfq_gemm_prepare(H, OMEGA_GPU_Q36_MIXER_OUT, 1, 0, 0, OMEGA_QG_EPI_F32);
+            if (r == 0) r = omega_gpu_pfq_gemm_prepare(2u * EI, H, 1, 1, 1, OMEGA_QG_EPI_F32);
+            if (r == 0) r = omega_gpu_pfq_gemm_prepare(H, EI, 1, 1, 1, OMEGA_QG_EPI_F32);
         }
         if (r != 0) rc = OMEGA_GPU_DGRAPH_CHIP_FAIL;
     }

@@ -23,16 +23,9 @@ jobs:
       - name: Toolchain record
         run: gcc --version | head -n 1 && make --version | head -n 1 && perl -v | sed -n 2p
       - name: Manifest, surface and negative controls
-        run: |
-          rc=0
-          make test-runtime-api > "$RUNNER_TEMP/runtime-api.log" 2>&1 || rc=$?
-          cat "$RUNNER_TEMP/runtime-api.log"
-          [ "$rc" -eq 0 ] || exit "$rc"
-          last=$(tail -n 1 "$RUNNER_TEMP/runtime-api.log")
-          case $last in
-            "RESULT: PASS ("*")") ;;
-            *) echo "make test-runtime-api exited 0 without a final RESULT: PASS line: $last"; exit 1 ;;
-          esac
+        # the same command the CUDAPP-RUNTIME-API gate runs (tests/gates/cudapp-runtime-api.gate): make
+        # test-runtime-api, then a final RESULT: PASS line from the negative controls and one from the real tree
+        run: tests/gates/cudapp-run.sh runtime-api
       - name: GB10 sm_121 chip execution (NOT_RUN)
         run: |
           printf '%s\n' "GB10 sm_121 chip execution: NOT_RUN (host manifest check only; /dev/nvidia0, /dev/nvidia-uvm and /dev/aien-gpu stay closed)" | tee -a "$GITHUB_STEP_SUMMARY"
