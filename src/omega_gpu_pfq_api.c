@@ -15,11 +15,11 @@ int omega_gpu_pfq_mutant(void) {
     if (mutant < 0) {
         const char *v = getenv("AIEN_OMEGA_PFQ_MUTANT");
         const long m = v && *v ? strtol(v, NULL, 10) : 0;
-        mutant = m >= 1 && m <= 4 ? (int)m : 0;
+        mutant = m >= 1 && m <= 5 ? (int)m : 0;
     }
     return mutant;
 }
-void omega_gpu_pfq_test_set_mutant(int m) { mutant = m >= 1 && m <= 4 ? m : 0; }
+void omega_gpu_pfq_test_set_mutant(int m) { mutant = m >= 1 && m <= 5 ? m : 0; }
 
 static uint32_t pfq_wait(void) {
     static int w = -1;
@@ -53,9 +53,9 @@ uint32_t omega_pfq_tiles(const OmegaPfqTile *segs, uint32_t nsegs, OmegaPfqTile 
 static void put64(uint32_t *a, uint64_t v) { a[0] = (uint32_t)v; a[1] = (uint32_t)(v >> 32); }
 
 int omega_pfq_quant_plan(const OmegaPfqQuant *q, OmegaPqSpec *spec, OmegaPfqLaunch *L) {
-    if (!q || !spec || !L || !q->x_va || !q->q_va || !q->s_va) return OMEGA_GPU_PF_BAD_ARGS;
+    if (!q || !spec || !L || !q->x_va || !q->q_va || !q->s_va || q->in_type > OMEGA_QG_IN_BF16) return OMEGA_GPU_PF_BAD_ARGS;
     memset(spec, 0, sizeof *spec); memset(L, 0, sizeof *L);
-    spec->k = q->k; spec->in_type = OMEGA_QG_IN_F32; spec->stride = q->stride;
+    spec->k = q->k; spec->in_type = q->in_type; spec->stride = q->stride;
     spec->mutant = omega_gpu_pfq_mutant() == 4 ? 2 : 0;
     const uint32_t kb = q->k / 128u;
     if (q->k % 128u == 0 && kb > 32u) for (spec->groups = 32u; kb % spec->groups; spec->groups--) {} /* wide row: split over ctaid.y */
@@ -69,11 +69,12 @@ int omega_pfq_quant_plan(const OmegaPfqQuant *q, OmegaPqSpec *spec, OmegaPfqLaun
 }
 
 int omega_pfq_gemm_plan(const OmegaPfqGemm *c, OmegaQgSpec *spec, OmegaPfqLaunch *L) {
-    if (!c || !spec || !L || !c->tiles_va || !c->xq_va || !c->xs_va || !c->y_va || c->x64 > 1u) return OMEGA_GPU_PF_BAD_ARGS;
+    if (!c || !spec || !L || !c->tiles_va || !c->xq_va || !c->xs_va || !c->y_va || c->x64 > 1u || (c->epi != OMEGA_QG_EPI_F32 && c->epi != OMEGA_QG_EPI_BF16))
+        return OMEGA_GPU_PF_BAD_ARGS;
     memset(spec, 0, sizeof *spec); memset(L, 0, sizeof *L);
     const int m = omega_gpu_pfq_mutant();
-    spec->k = c->k; spec->rt = 4u; spec->warps = 8u; spec->wait = pfq_wait(); spec->epi = OMEGA_QG_EPI_F32;
-    spec->direct = c->rowidx_va == 0; spec->n = c->n; spec->mutant = m == 2 || m == 3 ? m : 0;
+    spec->k = c->k; spec->rt = 4u; spec->warps = 8u; spec->wait = pfq_wait(); spec->epi = c->epi;
+    spec->direct = c->rowidx_va == 0; spec->n = c->n; spec->mutant = m == 2 || m == 3 || (m == 5 && c->epi == OMEGA_QG_EPI_BF16) ? m : 0;
     spec->ymap = c->ymap_va != 0; spec->x64 = c->x64;
     if (!omega_qg_spec_ok(spec)) return OMEGA_GPU_PF_BAD_ARGS;
     if (c->ntiles > 65535u) return OMEGA_GPU_PF_TOO_LARGE;
@@ -117,8 +118,8 @@ int omega_gpu_pfq_gemm_record_locked(OmegaGpuCmdList *cl, const OmegaPfqGemm *c)
     return run_locked(cl, OMEGA_PFQ_KIND_GEMM, &s, sizeof s, gen_gemm, &L);
 }
 
-int omega_gpu_pfq_quant_prepare(uint32_t k, uint32_t stride) {
-    const OmegaPfqQuant q = { .k = k, .rows = 0, .stride = stride, .x_va = 1, .q_va = 1, .s_va = 1 };
+int omega_gpu_pfq_quant_prepare(uint32_t k, uint32_t stride, uint32_t in_type) {
+    const OmegaPfqQuant q = { .k = k, .rows = 0, .stride = stride, .in_type = in_type, .x_va = 1, .q_va = 1, .s_va = 1 };
     OmegaPqSpec s; OmegaPfqLaunch L;
     int rc = omega_pfq_quant_plan(&q, &s, &L);
     if (rc != OMEGA_GPU_PF_OK) return rc;
@@ -128,9 +129,9 @@ int omega_gpu_pfq_quant_prepare(uint32_t k, uint32_t stride) {
     return rc;
 }
 
-int omega_gpu_pfq_gemm_prepare(uint32_t n, uint32_t k, uint32_t x64, int indexed, int ymap) {
+int omega_gpu_pfq_gemm_prepare(uint32_t n, uint32_t k, uint32_t x64, int indexed, int ymap, uint32_t epi) {
     const OmegaPfqGemm c = { .n = n, .k = k, .x64 = x64, .ntiles = 0, .tiles_va = 1, .rowidx_va = indexed ? 1u : 0u, .xq_va = 1,
-                             .xs_va = 1, .ymap_va = ymap ? 1u : 0u, .y_va = 1 };
+                             .xs_va = 1, .ymap_va = ymap ? 1u : 0u, .y_va = 1, .epi = epi };
     OmegaQgSpec s; OmegaPfqLaunch L;
     int rc = omega_pfq_gemm_plan(&c, &s, &L);
     if (rc != OMEGA_GPU_PF_OK) return rc;

@@ -21,7 +21,8 @@
  * Shape: 4 row tiles of 16, 8 warps; QMMA read distance AIEN_OMEGA_PFQ_WAIT (0 .. 120, default 45).
  * AIEN_OMEGA_PFQ_MUTANT (tests and chip gates only; read once, omega_gpu_pfq_test_set_mutant overrides):
  *   1 the tiler starts tile p >= 1 of a segment one row early, 2 the gemm never advances the weight scale pointer (the
- *   wrong-scale-block mutant), 3 gemm row tile i reads tile i^1, 4 the quantiser uses c = 0.
+ *   wrong-scale-block mutant), 3 gemm row tile i reads tile i^1, 4 the quantiser uses c = 0, 5 (DRA-84) a BF16-epilogue gemm
+ *   swaps the two bf16 halves of every stored word (other gemms run clean).
  * Locking: the *_record_locked calls run with the session lock held (as omega_gpu_fp8gemm_record); prepare takes it.
  */
 #include <stdint.h>
@@ -42,10 +43,16 @@ uint32_t omega_pfq_tile_cap(uint32_t rows, uint32_t segs);
  * (a table of empty segments also returns 0: nothing to launch) */
 uint32_t omega_pfq_tiles(const OmegaPfqTile *segs, uint32_t nsegs, OmegaPfqTile *tiles, uint32_t cap);
 
-typedef struct { uint32_t k, rows, stride; uint64_t x_va, q_va, s_va; } OmegaPfqQuant;
+/* in_type (DRA-84): OMEGA_QG_IN_F32 (0, the default: f32 rows) or OMEGA_QG_IN_BF16 (bf16 rows, stride in bf16 elements; the
+ * quantiser widens each bf16 exactly to f32, so its codes and scales are those of the widened rows; 2^64 rows stay exact
+ * as with f32, x64 on the gemm removes it) */
+typedef struct { uint32_t k, rows, stride, in_type; uint64_t x_va, q_va, s_va; } OmegaPfqQuant;
+/* epi (DRA-84): OMEGA_QG_EPI_F32 (0, the default: y f32 rows of n) or OMEGA_QG_EPI_BF16 (y bf16_rn rows of n, the same
+ * values rounded; no scale in the epilogue: x64 1 stores the true product, x64 0 keeps an input 2^64). ymap works with both. */
 typedef struct {
     uint32_t n, k, x64, ntiles;
     uint64_t tiles_va, rowidx_va, xq_va, xs_va, ymap_va, y_va;
+    uint32_t epi;
 } OmegaPfqGemm;
 /* the launch a record call makes (host-checkable: tests run these programs, arguments and grids in the warp simulator) */
 typedef struct {
@@ -60,8 +67,8 @@ struct OmegaGpuCmdList;
 int omega_gpu_pfq_quant_record_locked(struct OmegaGpuCmdList *cl, const OmegaPfqQuant *q);
 int omega_gpu_pfq_gemm_record_locked(struct OmegaGpuCmdList *cl, const OmegaPfqGemm *c);
 /* generates and uploads the kernels a later record of this shape uses (a record never has to generate code) */
-int omega_gpu_pfq_quant_prepare(uint32_t k, uint32_t stride);
-int omega_gpu_pfq_gemm_prepare(uint32_t n, uint32_t k, uint32_t x64, int indexed, int ymap);
+int omega_gpu_pfq_quant_prepare(uint32_t k, uint32_t stride, uint32_t in_type);
+int omega_gpu_pfq_gemm_prepare(uint32_t n, uint32_t k, uint32_t x64, int indexed, int ymap, uint32_t epi);
 
 int omega_gpu_pfq_mutant(void);
 void omega_gpu_pfq_test_set_mutant(int m);
