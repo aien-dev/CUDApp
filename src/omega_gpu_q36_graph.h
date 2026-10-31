@@ -154,7 +154,11 @@ int omega_gpu_q36_graph_read_buf(OmegaGpuQ36Graph *g, int which, float *out, uin
  * DRA-82: AIEN_OMEGA_Q36_PF_QMMA=1 (read by prefill_alloc, which reallocates when it changed; default off) moves the mix,
  * o, gate_up and down GEMMs onto the tensor cores (omega_gpu_pfq_api.h: per-row e4m3 quantiser + QMMA tiles of 64 rows,
  * the routed and shared experts in one launch, no PERM launches). Not bit-identical to the GEMV: the activations are
- * quantised to e4m3 per 128-wide block. o stays on the GEMV where the GDN runs per token. Refused with native artifacts. */
+ * quantised to e4m3 per 128-wide block. o stays on the GEMV where the GDN runs per token. Refused with native artifacts.
+ * DRA-85: AIEN_OMEGA_Q36_PF_FATTN=1 (read by prefill_alloc; default off; ignored with AIEN_OMEGA_Q36_PF_ATTN=0) runs each
+ * attention layer's attend as the flash-style tensor-core kernel (omega_gpu_prefill_fattn256_api.h, grid ceil(n / 16) x
+ * kv heads, bf16 HMMA with an online softmax). Not bit-identical to the steps (P rounded to bf16, another summation order):
+ * the tolerance and the golden tokens are its gate. TEST mutant 8 (with FATTN=1): its attend kernel without the rescale. */
 #define OMEGA_GPU_Q36_PREFILL_MAX_ROWS 128u /* x 8 routed expert rows <= the fp8 gemm's 1024 (the shared expert is its own GEMM) */
 int omega_gpu_q36_graph_prefill_alloc(OmegaGpuQ36Graph *g, uint32_t cap);
 uint32_t omega_gpu_q36_graph_prefill_cap(const OmegaGpuQ36Graph *g);

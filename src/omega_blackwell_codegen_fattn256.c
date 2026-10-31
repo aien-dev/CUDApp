@@ -252,8 +252,9 @@ int omega_blackwell_codegen_prefill_fattn256_prog(const OmegaPrefillFattn256Spec
     const int L_m = here(e);
     loop_begin(e);
     /* ---- S = Q K^T: 8 dim groups x (2 key tiles x 2 k-steps), even / odd k-steps into separate accumulators.
-     *      One K quad pair per group (Q 64 + O 128 + S 16 registers leave no room for a second); the 7 other warps
-     *      of the CTA cover the load latency ---- */
+     *      One K quad pair per group (Q 64 + O 128 + S 16 registers leave no room for a second). The other warp of
+     *      the sub-partition (8 warps on 4) covers an L1 hit with its 4 HMMAs; the first touch of a new 128-byte
+     *      line goes to L2 and is not covered (MODELED, DRA-85 PLAN: 45-115 TFLOPS by how much of it shows) ---- */
     for (unsigned u = 0; u < 8; u++) {
         ldg_pf(e, BW_IR_LDG_E_128, kA[0], gK, u * 64u, udesc, 3);
         ldg_pf(e, BW_IR_LDG_E_128, kB[0], gK, 8u * 512u + u * 64u, udesc, 3);

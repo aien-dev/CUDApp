@@ -29,6 +29,10 @@ $(GPU_GDN_MULTI_TEST): tests/gpu_gdn_multi_test.c tests/bw_warp_sim_k.h src/omeg
 GPU_PATTN256_TEST = $(OUT_DIR)/gpu_prefill_attn256_test
 $(GPU_PATTN256_TEST): tests/gpu_prefill_attn256_test.c tests/bw_hmma_model.h tests/bw_warp_sim_pa.h src/omega_gpu_prefill_attn256_api.h src/omega_blackwell_codegen_pattn256.h src/omega_blackwell_codegen_attn256.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -DWS_MAX_THREADS=256 -Itests -o $@ tests/gpu_prefill_attn256_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+# Qwen3.6-35B-A3B flash-style tensor-core prefill attention (Linear DRA-85, P-DRA-4).
+GPU_FATTN256_TEST = $(OUT_DIR)/gpu_prefill_fattn256_test
+$(GPU_FATTN256_TEST): tests/gpu_prefill_fattn256_test.c tests/bw_hmma_model.h tests/bw_warp_sim_pa.h src/omega_gpu_prefill_fattn256_api.h src/omega_blackwell_codegen_fattn256.h src/omega_blackwell_codegen_attn256.h $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -ffp-contract=off -DWS_MAX_THREADS=256 -Itests -o $@ tests/gpu_prefill_fattn256_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
 
 # Qwen3.8-27B decode graph (sc #642) and the exact two-pass lm_head (HUM L314).
 GPU_Q38_GRAPH_TEST = $(OUT_DIR)/gpu_q38_graph_test
@@ -47,7 +51,7 @@ $(GPU_ISOLATION_TEST): tests/gpu_isolation_test.c tests/bw_warp_sim.h src/omega_
 	$(CC) $(CFLAGS) -ffp-contract=off -Itests -o $@ tests/gpu_isolation_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
 
 .PHONY: test-bw-encode-control test-gpu-decode-attn256 test-gpu-gdn test-gpu-q38-graph-host test-gpu-streams \
-	test-gpu-isolation test-carried-bins
+	test-gpu-isolation test-gpu-prefill-fattn256 test-carried-bins
 test-bw-encode-control: $(BW_ENCODE_CONTROL_TEST)
 	./$(BW_ENCODE_CONTROL_TEST)
 test-gpu-decode-attn256: $(GPU_DATTN256_TEST)
@@ -62,8 +66,10 @@ test-gpu-streams: $(GPU_STREAMS_TEST)
 	./$(GPU_STREAMS_TEST) --sim
 test-gpu-isolation: $(GPU_ISOLATION_TEST)
 	./$(GPU_ISOLATION_TEST) --host-only
+test-gpu-prefill-fattn256: $(GPU_FATTN256_TEST)
+	./$(GPU_FATTN256_TEST) --sim
 # Chip-only binaries: built here so the host suite at least compiles them.
-test-carried-bins: $(GPU_DATTN256_MULTI_TEST) $(GPU_GDN_MULTI_TEST) $(GPU_PATTN256_TEST) $(GPU_EXACT_HEAD_TEST)
+test-carried-bins: $(GPU_DATTN256_MULTI_TEST) $(GPU_GDN_MULTI_TEST) $(GPU_PATTN256_TEST) $(GPU_FATTN256_TEST) $(GPU_EXACT_HEAD_TEST)
 
 CARRIED_HOST_TESTS = test-bw-encode-control test-gpu-decode-attn256 test-gpu-gdn test-gpu-q38-graph-host \
-	test-gpu-streams test-gpu-isolation test-carried-bins
+	test-gpu-streams test-gpu-isolation test-gpu-prefill-fattn256 test-carried-bins
