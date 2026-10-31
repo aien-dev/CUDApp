@@ -174,6 +174,13 @@ int omega_gpu_q36_pf_gdn_route(const char *gdn_env, const char *chunk_env, int m
  * layer's launch wrote. Ignored off the chunked route. */
 int omega_gpu_q36_graph_prefill_set_gdn_snap(OmegaGpuQ36Graph *g, const OmegaGdncSnapOut *s);
 uint32_t omega_gpu_q36_graph_prefill_gdn_snaps(const OmegaGpuQ36Graph *g);
+/* Host, pure (the prefill hook's own plumbing, exported for tests/gpu_q36_gdnc_hook_test.c). snap_slots: the slots a chunk at
+ * pos0 writes of `all` (1, *s set: va advanced to slot pos0 / span, count reduced) or 0 (none: off a span boundary, every slot
+ * behind pos0, or no snapshots). gdnc_rows: the chunked launch rows of an n-token chunk (bf16 mix rows at mix_va, f32 a|b rows
+ * at ab_va, bf16 out rows at out_va; TEST mutant 5: every token reads row 0's a|b). */
+int omega_gpu_q36_pf_gdn_snap_slots(const OmegaGdncSnapOut *all, uint32_t pos0, OmegaGdncSnapOut *s);
+void omega_gpu_q36_pf_gdnc_rows(uint32_t n, uint64_t mix_va, uint64_t ab_va, uint64_t out_va, int mutant, float eps_l2, float eps_norm,
+                                OmegaGdncRows *io);
 /* fp8 GEMM weight bytes every prefill call on g so far streamed (a running count: take the difference around a call): every expert once per 4 of its rows, the dense mix/o once per 8
  * rows, on the QMMA path (AIEN_OMEGA_Q36_PF_QMMA=1) both once per 64-row tile (the ceiling receipt: these bytes over the
  * call time against the memory bandwidth). The bf16 a|b, router and head

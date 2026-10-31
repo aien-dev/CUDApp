@@ -30,6 +30,13 @@ $(GPU_GDNC_TEST): tests/gpu_gdnc_test.c tests/bw_warp_sim_tc.h tests/bw_hmma_mod
 	$(CC) $(CFLAGS) -ffp-contract=off -Itests -o $@ tests/gpu_gdnc_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
 test-gpu-gdnc: $(GPU_GDNC_TEST)
 	./$(GPU_GDNC_TEST) --sim
+# DRA-84 the q36 prefill hook of the chunked GDN scan: default off, refusals, the arg block, snapshot slots (host only).
+GPU_Q36_GDNC_HOOK_TEST = $(OUT_DIR)/gpu_q36_gdnc_hook_test
+$(GPU_Q36_GDNC_HOOK_TEST): tests/gpu_q36_gdnc_hook_test.c src/omega_gpu_q36_graph.h src/omega_gpu_gdnc_api.h src/omega_blackwell_codegen_gdnc.h src/omega_blackwell_codegen_gdn.h $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -Itests -o $@ tests/gpu_q36_gdnc_hook_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+.PHONY: test-gpu-q36-gdnc-hook
+test-gpu-q36-gdnc-hook: $(GPU_Q36_GDNC_HOOK_TEST)
+	./$(GPU_Q36_GDNC_HOOK_TEST)
 
 # Qwen3.8-27B prefill attention, head_dim 256 (omega-mv#545).
 GPU_PATTN256_TEST = $(OUT_DIR)/gpu_prefill_attn256_test

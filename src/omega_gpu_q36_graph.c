@@ -1140,7 +1140,8 @@ static int pf_qmma_dense(OmegaGpuQ36Graph *g, uint8_t kind, uint32_t l, uint32_t
 /* DRA-84 (snapshots for DRA-86): slot j of a GDN layer holds the state after absolute token (j + 1) * span (span = 64 x
  * every_chunks), so a chunk at pos0 writes from slot pos0 / span on. None when pos0 is off a span boundary (the chunk's
  * spans would not end on slot positions) or every slot lies behind pos0. */
-static int pf_gdn_snap_slots(const OmegaGdncSnapOut *all, uint32_t pos0, OmegaGdncSnapOut *s) {
+int omega_gpu_q36_pf_gdn_snap_slots(const OmegaGdncSnapOut *all, uint32_t pos0, OmegaGdncSnapOut *s) {
+    if (!all || !s) return 0;
     if (!all->va || !all->every_chunks || !all->count) return 0;
     const uint64_t span = (uint64_t)OMEGA_GDNC_SNAP_CHUNK * all->every_chunks, base = pos0 / span;
     if (pos0 % span || base >= all->count) return 0;
@@ -1148,6 +1149,15 @@ static int pf_gdn_snap_slots(const OmegaGdncSnapOut *all, uint32_t pos0, OmegaGd
     s->va = all->va + base * all->snap_stride_bytes;
     s->count = all->count - (uint32_t)base;
     return 1;
+}
+
+void omega_gpu_q36_pf_gdnc_rows(uint32_t n, uint64_t mix_va, uint64_t ab_va, uint64_t out_va, int mutant, float eps_l2, float eps_norm,
+                                OmegaGdncRows *io) {
+    const OmegaGdncRows r = { .tokens = n, .qkvz_va = mix_va, .xstride = OMEGA_GPU_Q36_GDN_MIX * 2u, .ab_va = ab_va,
+                              .abstride = mutant == 5 ? 0u : OMEGA_GPU_Q36_AB * 4u, .out_va = out_va,
+                              .ostride = OMEGA_GPU_Q36_MIXER_OUT * 2u, .eps_l2 = eps_l2, .eps_norm = eps_norm,
+                              .in_scale = 1.0f, .out_scale = SCALE_2P64 };
+    *io = r;
 }
 
 /* part (a) of layer l: the mixer of every row and the router; ends with the router outputs in pf.rlb */
@@ -1177,12 +1187,10 @@ static int pf_record_mixer(OmegaGpuQ36Graph *g, uint32_t head, uint32_t l, uint3
              * multi-token launch, not bit-equal): bf16 mix rows in place in mixN, bf16 out rows in attN for the QMMA o GEMM.
              * TEST mutant 5: every token reads token 0's a|b; mutant 9: the decay dropped (prefill_alloc set it). */
             if (rc == OMEGA_GPU_DGRAPH_OK) {
-                const OmegaGdncRows io = { .tokens = n, .qkvz_va = mixN, .xstride = OMEGA_GPU_Q36_GDN_MIX * 2u, .ab_va = abN,
-                                           .abstride = g->pf.mutant == 5 ? 0u : OMEGA_GPU_Q36_AB * 4u, .out_va = attN,
-                                           .ostride = OMEGA_GPU_Q36_MIXER_OUT * 2u, .eps_l2 = g->cfg.eps_l2, .eps_norm = g->cfg.eps,
-                                           .in_scale = 1.0f, .out_scale = SCALE_2P64 };
+                OmegaGdncRows io;
+                omega_gpu_q36_pf_gdnc_rows(n, mixN, abN, attN, g->pf.mutant, g->cfg.eps_l2, g->cfg.eps, &io);
                 OmegaGdncSnapOut s; uint32_t wr = 0;
-                const int snap = pf_gdn_snap_slots(&g->pf.gsnap, pos0, &s);
+                const int snap = omega_gpu_q36_pf_gdn_snap_slots(&g->pf.gsnap, pos0, &s);
                 rc = after_op(g, OMEGA_GPU_Q36_K_GDN, omega_gpu_gdnc_record(g->cl, g->gdn_h[head], ki, &io, snap ? &s : NULL, &wr));
                 g->pf.gsnap_written = wr;
             }
