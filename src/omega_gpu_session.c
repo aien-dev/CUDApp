@@ -14,6 +14,7 @@
  */
 #include "omega_gpu_session.h"
 #include "omega_gpu_code_alloc.h"
+#include "cudapp_native.h"
 #include "omega_gpu_fmt.h"
 #include "omega_blackwell_qmd.h"
 #include "omega_blackwell_submit.h" /* launch constants only (macros); the vector executor itself stays Linux-private */
@@ -42,6 +43,7 @@ static const OmegaGpuPlatform *g_p; /* installed platform (atomic load / store) 
 static OmegaGpuPlatformCaps g_caps;
 static OmegaGpuSession g_s;
 static bool g_open;
+static uint64_t g_epoch = 1; /* changes only after confirmed device teardown */
 static uint32_t g_blocked;  /* latched (atomic) */
 static uint32_t g_locked;   /* session lock held (atomic) */
 static uint32_t g_cancel;   /* cancel requested (atomic) */
@@ -56,6 +58,14 @@ static OmegaGpuParkStats g_park;
 #define LOAD(x) __atomic_load_n(&(x), __ATOMIC_ACQUIRE)
 #define STORE(x, v) __atomic_store_n(&(x), (v), __ATOMIC_RELEASE)
 #define BUMP(x, by) STORE((x), LOAD(x) + (by)) /* lock held: one writer */
+
+/* The generated pure-scalar root owns saturation. Called only after the
+ * platform confirms teardown; refusal preserves the exhausted sentinel. */
+static void advance_device_epoch(void) {
+    uint64_t next = UINT64_MAX;
+    (void)omega_native_epoch(&next, LOAD(g_epoch));
+    STORE(g_epoch, next);
+}
 
 /* ---- platform ---- */
 
@@ -351,6 +361,7 @@ static void free_session_buffers(void) {
 OmegaGpuSession *omega_gpu_session_open(void) {
     if (LOAD(g_blocked)) { omega_gpu_session_set_error("process latched"); return NULL; }
     if (g_open) return &g_s;
+    if (LOAD(g_epoch) == UINT64_MAX) { omega_gpu_session_set_error("device epoch exhausted"); return NULL; }
     const OmegaGpuPlatform *p = platform();
     if (!p) { omega_gpu_session_set_error("no GPU platform installed (omega_gpu_session_set_platform)"); return NULL; }
     uint64_t t0 = p->time_now_ns(p->ctx);
@@ -370,9 +381,14 @@ OmegaGpuSession *omega_gpu_session_open(void) {
         if (rc != OMEGA_GPU_PLAT_OK) fail_plat("queue_open", rc);
         memcpy(keep, g_err, sizeof keep);
         free_session_buffers();
-        g_open = false;
-        (void)p->device_close(p->ctx, g_s.dev);
-        memset(&g_s.dev, 0, sizeof g_s.dev);
+        rc = p->device_close(p->ctx, g_s.dev);
+        if (rc == OMEGA_GPU_PLAT_OK) {
+            advance_device_epoch();
+            g_open = false;
+            memset(&g_s.dev, 0, sizeof g_s.dev);
+        } else {
+            STORE(g_blocked, 1u); /* preserve the device handle until recovery confirms teardown */
+        }
         omega_gpu_fmt(g_err, sizeof g_err, "session scratch alloc (%s)", keep);
         return NULL;
     }
@@ -423,9 +439,15 @@ void omega_gpu_session_close(void) {
             (void)p->queue_close(p->ctx, g_s.queue);
             memset(&g_s.queue, 0, sizeof g_s.queue);
             free_session_buffers();
-            (void)p->device_close(p->ctx, g_s.dev); /* every handle of this device is stale from here */
-            memset(&g_s.dev, 0, sizeof g_s.dev);
-            g_open = false;
+            int rc = p->device_close(p->ctx, g_s.dev);
+            if (rc == OMEGA_GPU_PLAT_OK) {
+                advance_device_epoch();
+                memset(&g_s.dev, 0, sizeof g_s.dev);
+                g_open = false;
+            } else {
+                fail_plat("close: device teardown fault (still latched)", rc);
+                STORE(g_blocked, 1u);
+            }
         }
     }
     omega_gpu_session_unlock();
@@ -463,6 +485,7 @@ int omega_gpu_session_recover(void) {
     memset(g_parked, 0, sizeof g_parked);
     memset(&g_park, 0, sizeof g_park);
     BUMP(g_recoveries, 1u);
+    advance_device_epoch();
     STORE(g_module_latched, 0u);
     STORE(g_blocked, 0u);
     omega_gpu_session_set_error("");
@@ -473,6 +496,7 @@ out:
 }
 
 uint32_t omega_gpu_session_recoveries(void) { return LOAD(g_recoveries); }
+uint64_t omega_gpu_session_epoch(void) { return LOAD(g_epoch); }
 /* ---- launch ---- */
 
 static uint32_t round_up(uint32_t v, uint32_t q) { return (v + q - 1) / q * q; }

@@ -1,0 +1,523 @@
+note cubin_elf.om: the sm_121 cubin ELF packer of CUDApp (OM-GPU-RETIRE, lane CudappOm).
+note It replaces the body of omega_cubin_pack in src/omega_cubin.c, which stays compiled only behind
+note CUDAPP_MIGRATION_PENDING_C_CUBIN as the differential oracle (make CUDAPP_CUBIN=c|diff).
+note
+note Input (omega_cubin.c packs it):
+note m: 0 strlen of the name   1 text_len   2 nparams   3 cbank_size   4 gpr_count   5 shared_reserved
+note    6 7 unused; from 8 three per parameter: offset, size, is_pointer (only when nparams <= 32)
+note nm: the name's first 64 bytes; tx: the text (16777216 bytes, the C limit 1 shl 24)
+note o: the output image, little-endian words; byte p is bits 8 (p rem 8) of word p / 8
+note Result: the image's byte count, or the refusal 1..7 of OMEGA_CUBIN_E_* (an image is never below 8
+note bytes). On a refusal o 0 holds the detail (PARAMS 0 count, 1 overlap, 2 size, 3 pointer size,
+note 4 alignment; CBANK 5 end, 6 range; MEM 7 over the output bound), o 1 the parameter, o 2 the end
+note or the image size, so the C caller prints the oracle's exact message.
+note Bound: the output view holds 134217728 bytes; an image above it (the in-file shared reservation plus the
+note text plus a few KiB of headers over 128 MiB)
+note is refused with 7 where the C oracle would allocate it. Arrays stop at 16777216 elements (error 23).
+note Every constant is the decimal form of the C writer's hex or text (conversions by Wolfram,
+note evidence/CUDAPP-OM-CUBIN/wolfram-constants.txt).
+
+const TXN ulong 16777216
+const OWN ulong 16777216
+const OBYTES ulong 134217728
+const MLEN ulong 104
+const PBASE ulong 896
+
+note one byte into the word image
+fn pb o edit ulong OWN p ulong v ulong to void
+k = shr p 3
+s = shl and p 7 3
+w = and get o k not shl 255 s
+put o k or w shl and v 255 s
+end
+
+fn p16 o edit ulong OWN p ulong v ulong to void
+pb o p v
+pb o add p 1 shr v 8
+end
+
+fn p32 o edit ulong OWN p ulong v ulong to void
+p16 o p v
+p16 o add p 2 shr v 16
+end
+
+fn p64 o edit ulong OWN p ulong v ulong to void
+p32 o p v
+p32 o add p 4 shr v 32
+end
+
+note the k low bytes of v at p; gives p + k
+fn ps o edit ulong OWN p ulong v ulong k ulong to ulong
+for i ulong k
+pb o add p i shr v mul i 8
+end
+ret add p k
+end
+
+note the n name bytes at p; gives p + n
+fn pn o edit ulong OWN p ulong nm view uchar 64 n ulong to ulong
+for i ulong n
+pb o add p i ulong get nm i
+end
+ret add p n
+end
+
+fn al x ulong a ulong to ulong
+ret mul div add x sub a 1 a a
+end
+
+fn isal c uchar to ulong
+if or or and ge c 65 le c 90 and ge c 97 le c 122 eq c 95
+ret 1
+end
+ret 0
+end
+
+fn isan c uchar to ulong
+if or ne isal c 0 and ge c 48 le c 57
+ret 1
+end
+ret 0
+end
+
+note name_ok of the C writer: 1..64 bytes, [A-Za-z_][A-Za-z0-9_]*
+fn nmok nm view uchar 64 n ulong to ulong
+if or eq n 0 gt n 64
+ret 0
+end
+if eq isal get nm 0 0
+ret 0
+end
+for i ulong n
+if eq isan get nm i 0
+ret 0
+end
+end
+ret 1
+end
+
+fn pfail o edit ulong OWN d ulong i ulong to ulong
+put o 0 d
+put o 1 i
+ret 3
+end
+
+note one parameter against the running end e: 0 good, else the detail 1..4 of the C order
+fn pbad of ulong sz ulong pt ulong e ulong to ulong
+if lt of e
+ret 1
+end
+if not or or or eq sz 8 eq sz 4 eq sz 2 eq sz 1
+ret 2
+end
+if and ne pt 0 ne sz 8
+ret 3
+end
+if and eq sz 8 ne and of 7 0
+ret 4
+end
+if and eq sz 4 ne and of 3 0
+ret 4
+end
+if and eq sz 2 ne and of 1 0
+ret 4
+end
+ret 0
+end
+
+note the parameter walk and the bank checks, in the C order
+fn pchk m view ulong MLEN o edit ulong OWN to ulong
+e = PBASE
+np = get m 2
+for i ulong np
+b = add 8 mul i 3
+d = pbad get m b get m add b 1 get m add b 2 e
+if ne d 0
+ret pfail o d i
+end
+e = add get m b get m add b 1
+end
+cb = get m 3
+if gt e cb
+put o 0 5
+put o 2 e
+ret 4
+end
+if or gt cb 1024 lt cb PBASE
+put o 0 6
+ret 4
+end
+ret 0
+end
+
+fn chk m view ulong MLEN nm view uchar 64 o edit ulong OWN to ulong
+if eq nmok nm get m 0 0
+ret 1
+end
+tl = get m 1
+if or or eq tl 0 ne and tl 15 0 gt tl TXN
+ret 2
+end
+if gt get m 2 32
+ret pfail o 0 0
+end
+if gt get m 4 255
+ret 5
+end
+if ne and get m 5 3 0
+ret 6
+end
+ret pchk m o
+end
+
+note L: 1..10 section offsets, 11 shoff, 12 phoff, 13 total, 14 .nv.info.<fn> size
+fn lay m view ulong MLEN l edit ulong 16 to void
+n = get m 0
+f = ulong 64
+put l 1 f
+f = add f add 117 mul 3 n
+put l 2 f
+f = add f add n 2
+f = al f 8
+put l 3 f
+f = add f 96
+f = al f 128
+put l 4 f
+f = add f get m 1
+f = al f 16
+put l 5 f
+f = add f get m 3
+f = al f 4
+put l 6 f
+f = add f 36
+f = al f 4
+put l 7 f
+f = add f 36
+il = add 48 mul 16 get m 2
+put l 14 il
+f = al f 4
+put l 8 f
+f = add f il
+put l 9 f
+f = add f get m 5
+f = al f 4
+put l 10 f
+f = add f 32
+f = al f 8
+put l 11 f
+put l 12 add f 704
+put l 13 add f 984
+end
+
+note zero words 0 .. ceil(total / 8) - 1, in parts of 4096 (a loop stops at 1000000 passes)
+fn wzero o edit ulong OWN total ulong to void
+nw = shr add total 7 3
+nc = shr add nw 4095 12
+for c ulong nc
+for j ulong 4096
+k = add shl c 12 j
+if lt k nw
+put o k 0
+end
+end
+end
+end
+
+fn txw tx view uchar TXN q ulong to ulong
+w = ulong 0
+for i ulong 8
+w = or w shl ulong get tx add q i mul i 8
+end
+ret w
+end
+
+note the text at p (a multiple of 128), whole words: text_len is a multiple of 16
+fn wtext o edit ulong OWN tx view uchar TXN p ulong tl ulong to void
+nw = shr tl 3
+nc = shr add nw 4095 12
+b = shr p 3
+for c ulong nc
+for j ulong 4096
+k = add shl c 12 j
+if lt k nw
+put o add b k txw tx shl k 3
+end
+end
+end
+end
+
+note ELF header: 0x7f E L F, ELFCLASS64, LSB, version 1, ELFOSABI_NV 0x41 as one word; ABI version 8
+fn whdr o edit ulong OWN l view ulong 16 to void
+p64 o 0 4684026196722992511
+pb o 8 8
+p16 o 16 2
+p16 o 18 190
+p32 o 20 1
+p64 o 32 get l 12
+p64 o 40 get l 11
+p32 o 48 100694274
+p16 o 52 64
+p16 o 54 56
+p16 o 56 5
+p16 o 58 64
+p16 o 60 11
+p16 o 62 1
+end
+
+note .shstrtab from p (its first byte is the 0 already there)
+fn wshs o edit ulong OWN p ulong nm view uchar 64 n ulong to void
+q = add p 1
+q = ps o q 7022363563455443758 8
+q = add ps o q 98 1 1
+q = add ps o q 27691700481979182 7 1
+q = add ps o q 27691700398420782 7 1
+q = ps o q 51077770998830 6
+q = add pn o q nm n 1
+q = ps o q 8317708033571843630 8
+q = ps o q 50785646698868 6
+q = add pn o q nm n 1
+q = add ps o q 8027224783864622638 8 1
+q = ps o q 8101253776481349166 8
+q = add ps o q 29793 2 1
+q = ps o q 8027224783864622638 8
+q = ps o q 46 1
+q = add pn o q nm n 1
+q = ps o q 8241983636974759470 8
+q = ps o q 8243121572516095077 8
+q = add ps o q 206936761718 5 1
+q = ps o q 8533809357193702958 8
+q = ps o q 31356346816619310 7
+end
+
+note .symtab: null, the .text section symbol, the function, the .nv.constant0 section symbol
+fn wsym o edit ulong OWN p ulong tl ulong to void
+pb o add p 28 3
+p16 o add p 30 4
+p32 o add p 48 1
+pb o add p 52 18
+pb o add p 53 16
+p16 o add p 54 4
+p64 o add p 64 tl
+pb o add p 76 3
+p16 o add p 78 5
+end
+
+note .nv.info: attributes 0x2f (registers), 0x11, 0x12
+fn wginfo o edit ulong OWN p ulong gpr ulong to void
+p16 o p 12036
+p16 o add p 2 8
+p32 o add p 4 2
+p32 o add p 8 gpr
+p16 o add p 12 4356
+p16 o add p 14 8
+p32 o add p 16 2
+p16 o add p 24 4612
+p16 o add p 26 8
+p32 o add p 28 2
+end
+
+note .nv.compat: nine little-endian words of the reference container
+fn wcompat o edit ulong OWN p ulong to void
+p32 o p 2306
+p32 o add p 4 131586
+p32 o add p 8 328962
+p32 o add p 12 16844547
+p32 o add p 16 770
+p32 o add p 20 67074
+p32 o add p 24 527108
+end
+
+note attribute 0x37 then one 0x17 per parameter from p; gives the parameter end
+fn wpar o edit ulong OWN p ulong m view ulong MLEN to ulong
+p16 o p 14084
+p16 o add p 2 4
+p32 o add p 4 130
+q = add p 8
+e = PBASE
+np = get m 2
+for i ulong np
+b = add 8 mul i 3
+of = get m b
+p16 o q 5892
+p16 o add q 2 12
+p32 o add q 8 or i shl sub of PBASE 16
+ty = ulong 1175552
+if ne get m add b 2 0
+ty = 2225408
+end
+p32 o add q 12 ty
+q = add q 16
+if gt add of get m add b 1 e
+e = add of get m add b 1
+end
+end
+ret e
+end
+
+note the attributes after the parameters, from q
+fn wtail o edit ulong OWN q ulong e ulong gpr ulong to void
+p16 o q 6403
+p16 o add q 2 sub e PBASE
+p16 o add q 4 2564
+p16 o add q 6 8
+p32 o add q 8 3
+p32 o add q 12 or PBASE shl sub e PBASE 16
+p16 o add q 16 20483
+p16 o add q 20 6915
+p16 o add q 22 gpr
+p16 o add q 24 24323
+p16 o add q 26 257
+p16 o add q 28 18946
+p16 o add q 32 13828
+p16 o add q 34 4
+end
+
+note .note.nv.cuinfo: namesz 12, descsz 8, type 0x3e8, "NVIDIA Corp", 2, sm 121, 130
+fn wnote o edit ulong OWN p ulong to void
+p32 o p 12
+p32 o add p 4 8
+p32 o add p 8 1000
+q = ps o add p 12 4836937782729987662 8
+q = ps o q 7369327 3
+p16 o add p 24 2
+p16 o add p 26 121
+p32 o add p 28 130
+end
+
+fn sh1 o edit ulong OWN b ulong nm ulong ty ulong fl ulong to void
+p32 o b nm
+p32 o add b 4 ty
+p64 o add b 8 fl
+end
+
+fn sh2 o edit ulong OWN b ulong of ulong sz ulong lk ulong inf ulong to void
+p64 o add b 24 of
+p64 o add b 32 sz
+p32 o add b 40 lk
+p32 o add b 44 inf
+end
+
+fn sh3 o edit ulong OWN b ulong a ulong es ulong to void
+p64 o add b 48 a
+p64 o add b 56 es
+end
+
+note section headers 1..5
+fn wsha o edit ulong OWN l view ulong 16 m view ulong MLEN to void
+n = get m 0
+b = add get l 11 64
+sh1 o b 1 3 0
+sh2 o b get l 1 add 117 mul 3 n 0 0
+sh3 o b 1 0
+b = add b 64
+sh1 o b 11 3 0
+sh2 o b get l 2 add n 2 0 0
+sh3 o b 1 0
+b = add b 64
+sh1 o b 19 2 0
+sh2 o b get l 3 96 2 2
+sh3 o b 8 24
+b = add b 64
+sh1 o b 27 1 6
+sh2 o b get l 4 get m 1 3 2
+sh3 o b 128 0
+b = add b 64
+sh1 o b add 34 n 1 66
+sh2 o b get l 5 get m 3 3 4
+sh3 o b 16 0
+end
+
+note section headers 6..10
+fn wshb o edit ulong OWN l view ulong 16 m view ulong MLEN to void
+n = get m 0
+b = add get l 11 384
+sh1 o b add 49 mul 2 n 1879048192 0
+sh2 o b get l 6 36 3 0
+sh3 o b 4 0
+b = add b 64
+sh1 o b add 58 mul 2 n 1879048326 0
+sh2 o b get l 7 36 0 0
+sh3 o b 4 0
+b = add b 64
+sh1 o b add 69 mul 2 n 1879048192 64
+sh2 o b get l 8 get l 14 3 4
+sh3 o b 4 0
+b = add b 64
+sh1 o b add 79 mul 3 n 8 3
+sh2 o b get l 9 get m 5 0 0
+sh3 o b 1 0
+b = add b 64
+sh1 o b add 101 mul 3 n 7 16777280
+sh2 o b get l 10 32 0 2
+sh3 o b 4 0
+end
+
+fn ph1 o edit ulong OWN b ulong ty ulong fl ulong of ulong to void
+p32 o b ty
+p32 o add b 4 fl
+p64 o add b 8 of
+p64 o add b 48 8
+end
+
+fn ph2 o edit ulong OWN b ulong fs ulong ms ulong to void
+p64 o add b 32 fs
+p64 o add b 40 ms
+end
+
+note program headers: PHDR, LOAD R (the table), LOAD R|E (text), LOAD R|W (shared), LOAD R (bank)
+fn wph o edit ulong OWN l view ulong 16 m view ulong MLEN to void
+b = get l 12
+ph1 o b 6 4 b
+ph2 o b 280 280
+ph1 o add b 56 1 4 b
+ph2 o add b 56 280 280
+ph1 o add b 112 1 5 get l 4
+ph2 o add b 112 get m 1 get m 1
+ph1 o add b 168 1 6 get l 9
+ph2 o add b 168 0 get m 5
+ph1 o add b 224 1 4 get l 5
+ph2 o add b 224 get m 3 get m 3
+end
+
+note .nv.info.<fn>: attribute 0x37, the parameters, then the tail
+fn winfo o edit ulong OWN l view ulong 16 m view ulong MLEN to void
+p = get l 8
+e = wpar o p m
+q = add add p 8 mul 16 get m 2
+wtail o q e get m 4
+end
+
+note every section payload and both header tables into the zeroed image
+fn wbody o edit ulong OWN l view ulong 16 m view ulong MLEN nm view uchar 64 tx view uchar TXN to void
+whdr o l
+n = get m 0
+wshs o get l 1 nm n
+q = pn o add get l 2 1 nm n
+wsym o get l 3 get m 1
+wtext o tx get l 4 get m 1
+wginfo o get l 6 get m 4
+wcompat o get l 7
+winfo o l m
+wnote o get l 10
+wsha o l m
+wshb o l m
+wph o l m
+end
+
+fn cubin_elf m view ulong 104 nm view uchar 64 tx view uchar 16777216 o edit ulong 16777216 to ulong
+l = new ulong 16 0
+rc = chk m nm o
+if ne rc 0
+ret rc
+end
+lay m edit l
+t = get l 13
+if gt t OBYTES
+put o 0 7
+put o 2 t
+ret 7
+end
+wzero o t
+wbody o view l m nm tx
+ret t
+end

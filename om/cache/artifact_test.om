@@ -1,0 +1,196 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Host-only serializer/hash fixture. Payload and digest sentinels are NOT a device artifact or qualification.
+fn kc_fixture rec edit uchar 4096 code edit uchar 16384 launch edit uchar 4096 key edit uchar 32 to int
+l = new ulong 32 0
+h = new uchar 32 0
+if ne compose_fixture rec l 0
+ret 1
+end
+compose_launchwrite l launch
+if ne kc_codesha code 16 h 0
+ret 3
+end
+compose_setid rec 5 h
+if ne kc_sha launch 256 h 0
+ret 4
+end
+compose_setid rec 6 h
+ret kc_key rec 1152 key
+end
+fn kc_scalechange rec edit uchar 4096 to int
+q = new uchar 384 0
+d = new ulong 48 0
+compose_quant rec q
+if ne quant_read q d 0
+ret 1
+end
+note A single scale row may have a larger valid declared row stride.
+put d 26 6
+if ne quant_check d 0
+ret 2
+end
+if ne quant_write d q 0
+ret 3
+end
+compose_setquant rec q
+ret 0
+end
+fn kc_launchdrift rec edit uchar 4096 launch edit uchar 4096 key edit uchar 32 to int
+h = new uchar 32 0
+note Re-sign a structurally inconsistent launch: hashes alone must not admit it.
+put launch 32 128
+put launch 33 0
+if ne kc_sha launch 256 h 0
+ret 1
+end
+compose_setid rec 6 h
+ret kc_key rec 1152 key
+end
+fn kc_requestcheck rec edit uchar 4096 to int
+p = new ulong 528 0
+r = new ulong 16 0
+put r 0 5
+put r 1 121
+put r 2 16
+put r 7 1
+if ne kc_request rec 1152 r 0
+ret 1
+end
+if or ne get r 0 5 ne get r 1 121
+ret 2
+end
+if or ne get r 2 16 ne get r 7 1
+ret 3
+end
+if ne kc_init p 5 121 32 1 0
+ret 4
+end
+if ne kc_prepare p r 1
+ret 5
+end
+if ne kc_commit p 0 1 5 0
+ret 6
+end
+if ne kc_find p r 1
+ret 7
+end
+if ne kc_scalechange rec 0
+ret 8
+end
+if ne kc_request rec 1152 r 0
+ret 9
+end
+if ne kc_find p r 0
+ret 10
+end
+ret 0
+end
+fn main to int
+rec = new uchar 4096 0
+code = new uchar 16384 0
+launch = new uchar 4096 0
+key = new uchar 32 0
+out = new uchar 32 0
+sizes = new ulong 4 0
+put sizes 0 1152
+put sizes 1 16
+put sizes 2 256
+if ne kc_fixture rec code launch key 0
+ret 1
+end
+if ne kc_validate rec sizes code launch key out 0
+ret 2
+end
+if not kc_equal key out
+ret 3
+end
+put code 0 1
+if ne kc_validate rec sizes code launch key out -11
+ret 4
+end
+put code 0 0
+put launch 8 2
+if ne kc_validate rec sizes code launch key out -12
+ret 5
+end
+put launch 8 1
+compose_put rec 15 2
+if ne kc_validate rec sizes code launch key out -13
+ret 6
+end
+compose_put rec 15 1
+compose_setid rec 3 key
+if ne kc_validate rec sizes code launch key out -13
+ret 7
+end
+if ne kc_fixture rec code launch key 0
+ret 8
+end
+compose_put rec 2 120
+if ne kc_validate rec sizes code launch key out -10
+ret 9
+end
+compose_put rec 2 121
+compose_put rec 11 2
+if ne kc_validate rec sizes code launch key out -10
+ret 10
+end
+compose_put rec 11 1
+if ne kc_scalechange rec 0
+ret 11
+end
+if ne kc_validate rec sizes code launch key out -13
+ret 12
+end
+if ne kc_fixture rec code launch key 0
+ret 13
+end
+put rec 1152 1
+if ne kc_validate rec sizes code launch key out -10
+ret 14
+end
+put rec 1152 0
+put key 0 xor get key 0 uchar 1
+if ne kc_validate rec sizes code launch key out -13
+ret 15
+end
+put key 0 xor get key 0 uchar 1
+put sizes 1 16385
+if ne kc_validate rec sizes code launch key out -1
+ret 16
+end
+put sizes 1 16
+put sizes 2 255
+if ne kc_validate rec sizes code launch key out -12
+ret 17
+end
+put sizes 2 256
+put sizes 3 1
+if ne kc_validate rec sizes code launch key out -1
+ret 18
+end
+put sizes 3 0
+put launch 256 1
+if ne kc_validate rec sizes code launch key out -12
+ret 19
+end
+if not kc_equal key out
+ret 20
+end
+if ne kc_fixture rec code launch key 0
+ret 21
+end
+if ne kc_launchdrift rec launch key 0
+ret 22
+end
+if ne kc_validate rec sizes code launch key out -12
+ret 23
+end
+if ne kc_fixture rec code launch key 0
+ret 24
+end
+if ne kc_requestcheck rec 0
+ret 25
+end
+ret 0
+end

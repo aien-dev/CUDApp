@@ -1,0 +1,9 @@
+loadavg 12.71 8.28 6.84 2/3495 1566865
+cmd build/c5_matrix /home/drakestapleton/workspace/c5s-cudapp/build/gpu_isolation_test /home/drakestapleton/.venv/bin/python r
+[matrix] start pid 1566868
+[cuda] READY pid=1566868 hold_gib=0 expect_offset=1
+[matrix] CUDA process ready after ms 853
+[cuda] pid=1566868 launches=1370 wrong=1436549120 secs=3.0
+ exit status 1
+C5 matrix: PASS case r
+exit 0

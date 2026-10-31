@@ -12,7 +12,7 @@
 # After a deliberate header change: edit the line here, run `tools/runtime_api_check.sh --bless` to refresh numbers, review the diff,
 # and bump the version (MAJOR/MINOR/PATCH, rule in API.md section 2; tools/runtime_api_semver.sh checks the bump against the base).
 # Names a manifest header declares that are NOT API go in omega_runtime_api.internal, each with a reason (the check fails otherwise).
-abi omega_runtime 0.5.0
+abi omega_runtime 0.7.0
 header src/omega_runtime_api.h
 header src/omega_gpu_platform.h
 header src/omega_gpu_session.h
@@ -37,9 +37,9 @@ header src/omega_gpu_prefill.h
 header src/omega_gpu_pfhost.h
 # ---- version ----
 const OMEGA_RUNTIME_API_VERSION_MAJOR 0
-const OMEGA_RUNTIME_API_VERSION_MINOR 5
+const OMEGA_RUNTIME_API_VERSION_MINOR 7
 const OMEGA_RUNTIME_API_VERSION_PATCH 0
-const OMEGA_RUNTIME_API_VERSION 5
+const OMEGA_RUNTIME_API_VERSION 7
 # ---- platform contract (src/omega_gpu_platform.h, ABI 1.2) ----
 struct OmegaGpuDeviceHandle 8 4 # STABLE
 field OmegaGpuDeviceHandle index 0 4 u32 1
@@ -913,6 +913,7 @@ fn omega_gpu_decode_graph_begin_token fn(*mut OmegaGpuDecodeGraph, *const f32) -
 fn omega_gpu_decode_graph_record_layer fn(*mut OmegaGpuDecodeGraph, u32, u32) -> i32 # EXPERIMENTAL
 fn omega_gpu_decode_graph_record_final fn(*mut OmegaGpuDecodeGraph) -> i32 # EXPERIMENTAL
 fn omega_gpu_decode_graph_end_token fn(*mut OmegaGpuDecodeGraph, *mut u32, *mut OmegaGpuDecodeGraphStats) -> i32 # EXPERIMENTAL
+fn omega_gpu_decode_graph_abort_token fn(*mut OmegaGpuDecodeGraph) -> i32 # EXPERIMENTAL
 fn omega_gpu_decode_graph_record_res fn(*mut OmegaGpuDecodeGraph, u32, u64, u64, u64, u64, u64, f32, f32) -> i32 # EXPERIMENTAL
 fn omega_gpu_decode_graph_record_swiglu fn(*mut OmegaGpuDecodeGraph, u64, u64, f32) -> i32 # EXPERIMENTAL
 fn omega_gpu_decode_graph_list fn(*mut OmegaGpuDecodeGraph) -> *mut OmegaGpuCmdList # EXPERIMENTAL
@@ -1005,3 +1006,23 @@ const OMEGA_GPU_TERN_CHIP_FAIL -4 # EXPERIMENTAL
 const OMEGA_GPU_TERN_CODEGEN_FAIL -3 # EXPERIMENTAL
 const OMEGA_GPU_TERN_OK 0 # EXPERIMENTAL
 const OMEGA_GPU_TERN_TOO_LARGE -2 # EXPERIMENTAL
+# ---- general attention (0.6.0, AttnGeneral): any head_dim 1..256, MHA / GQA / MQA, causal / windowed, strided KV ----
+# Not carried over from aien-sovereign-core (added here). Offsets filled by hand and checked by tools/runtime_api_check.sh.
+struct OmegaGpuAttnGeneralDesc 64 8 # EXPERIMENTAL
+field OmegaGpuAttnGeneralDesc num_rows 0 4 u32 1
+field OmegaGpuAttnGeneralDesc num_q_heads 4 4 u32 1
+field OmegaGpuAttnGeneralDesc num_kv_heads 8 4 u32 1
+field OmegaGpuAttnGeneralDesc head_dim 12 4 u32 1
+field OmegaGpuAttnGeneralDesc kv_len 16 4 u32 1
+field OmegaGpuAttnGeneralDesc q_pos0 20 4 u32 1
+field OmegaGpuAttnGeneralDesc causal 24 4 u32 1
+field OmegaGpuAttnGeneralDesc window_left 28 4 i32 1
+field OmegaGpuAttnGeneralDesc window_right 32 4 i32 1
+field OmegaGpuAttnGeneralDesc scale 36 4 f32 1
+field OmegaGpuAttnGeneralDesc kv_bf16 40 4 u32 1
+field OmegaGpuAttnGeneralDesc kv_token_stride 48 8 u64 1
+field OmegaGpuAttnGeneralDesc kv_head_stride 56 8 u64 1
+const OMEGA_GPU_ATTN_GENERAL_MAX_HEAD_DIM 256 # EXPERIMENTAL
+const OMEGA_GPU_ATTN_GENERAL_MAX_Q_HEADS 1024 # EXPERIMENTAL
+const OMEGA_GPU_ATTN_WINDOW_NONE -1 # EXPERIMENTAL
+fn omega_gpu_attention_general fn(*const OmegaGpuAttnGeneralDesc, *const f32, *const c_void, *const c_void, *mut f32, *mut OmegaGpuAttnInfo) -> i32 # EXPERIMENTAL

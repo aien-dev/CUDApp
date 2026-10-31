@@ -1,0 +1,142 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Validate the existing IR, never translate to a second representation.
+fn bc_width m view ulong 2048 reg ulong width ulong to bool
+if ge reg 256
+ret false
+end
+ret eq get m reg width
+end
+fn bc_regcheck ins view ulong 8192 base ulong m view ulong 2048 to uint
+op = get ins base
+flags = get ins add base 7
+if gt op 59
+ret 1
+end
+if ne shr flags 48 0
+ret 1
+end
+for k ulong 4
+v = get ins add add base 1 k
+if ne v BCNONE
+if and eq k 0 ne and flags 1 0
+if ge v 32
+ret 2
+end
+v = add v 256
+else
+if ge v 256
+ret 2
+end
+end
+width = get m v
+if eq width 0
+ret 2
+end
+subreg = and shr flags add ulong 16 mul k 8 255
+if ge subreg width
+ret 2
+end
+end
+end
+u = get ins add base 5
+if ne u BCNONE
+if ge u 32
+ret 2
+end
+if eq get m add u 256 0
+ret 2
+end
+end
+ret 0
+end
+fn bc_type ins view ulong 8192 base ulong m view ulong 2048 to uint
+op = get ins base
+d = get ins add base 1
+a = get ins add base 2
+b = get ins add base 3
+c = get ins add base 4
+if or eq op 56 eq op 57
+width = ulong 2
+if eq op 57
+width = 4
+end
+if or eq bc_width m d width false eq bc_width m a 2 false
+ret 3
+end
+if eq d a
+ret 3
+end
+end
+if eq op 11
+note Scalar loads/stores may select one lane of a live pair/quad; bc_regcheck checks subreg bounds.
+if or eq d BCNONE eq bc_width m a 2 false
+ret 3
+end
+end
+if eq op 12
+if or eq bc_width m a 2 false eq b BCNONE
+ret 3
+end
+end
+if eq op 16
+if or eq bc_width m d 4 false eq bc_width m a 4 false
+ret 3
+end
+if eq bc_width m b 2 false
+ret 3
+end
+if and ne c BCNONE eq bc_width m c 4 false
+ret 3
+end
+end
+ret 0
+end
+fn bc_ctrlcheck ins view ulong 8192 i ulong n ulong to uint
+base = mul i 8
+op = get ins base
+if or eq op 46 eq op 54
+raw = and get ins add base 6 4294967295
+target = add i raw
+if ge raw 2147483648
+target = sub i sub ulong 4294967296 raw
+end
+if ge target n
+ret 4
+end
+if and eq op 54 le target i
+ret 4
+end
+end
+if or eq op 11 or eq op 56 eq op 57
+ctrl = shr get ins add base 6 32
+if ne and shr ctrl 17 7 1
+ret 5
+end
+wb = and shr ctrl 14 7
+if and ne wb 0 and ne wb 3 ne wb 4
+ret 5
+end
+end
+ret 0
+end
+fn bc_ircheck ins view ulong 8192 n ulong m view ulong 2048 to uint
+if or eq n 0 gt n 1024
+ret 1
+end
+for i ulong n
+base = mul i 8
+rc = bc_regcheck ins base m
+if ne rc 0
+ret rc
+end
+rc = bc_type ins base m
+if ne rc 0
+ret rc
+end
+rc = bc_ctrlcheck ins i n
+if ne rc 0
+ret rc
+end
+end
+ret 0
+end

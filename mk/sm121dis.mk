@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # C6 of docs/OMEGA.md: Omega's own sm_121 disassembler (src/omega_sm121_disasm.c, tools/sm121dis/).
 #   make test-sm121dis   collect every kernel the library builds (no GPU), compare our text with nvdisasm's, word by word;
 #                        then the red check: a decoder built with one deliberate fault must FAIL the same comparison.
@@ -18,17 +19,22 @@ sm121dis-corpus-bins: $(addprefix $(OUT_DIR)/,gpu_matmul_api_test gpu_elementwis
 	gpu_moe_window_test gpu_fp8_api_test gpu_decode_attn_test gpu_router_test gpu_bf16_gemv_test gpu_fp8gemm_test \
 	gpu_tc_probe_test gpu_tc_peak_test gpu_pf_mem_test gpu_qmma_probe_test gpu_cmdlist_test gpu_decode_graph_test gpu_tcgemm_test \
 	gpu_prefill_attn_test gpu_pfgemm_test gpu_qgemm_test gpu_pfhost_test gpu_gpr_boundary_test \
-	gpu_scan_test gpu_gemm_test gpu_streams_test gpu_isolation_test)
+	gpu_scan_test gpu_gemm_test gpu_streams_test gpu_isolation_test bw_hazard_test)
 
-.PHONY: test-sm121dis sm121dis-corpus-bins test-sm121dis-corpus-controls
+.PHONY: test-sm121dis sm121dis-corpus-bins test-sm121dis-corpus-controls test-sm121dis-check-controls
 test-sm121dis-corpus-controls:
 	sh tools/sm121dis/corpus_selftest.sh
 
-test-sm121dis: $(SM121DIS) $(SM121DIS_RED) sm121dis-corpus-bins test-sm121dis-corpus-controls
+test-sm121dis-check-controls:
+	sh tools/sm121dis/check_selftest.sh
+
+test-sm121dis: $(SM121DIS) $(SM121DIS_RED) sm121dis-corpus-bins test-sm121dis-corpus-controls test-sm121dis-check-controls
 	rm -rf $(SM121DIS_K) && sh tools/sm121dis/corpus.sh $(OUT_DIR) $(SM121DIS_K)
 	sh tools/sm121dis/check.sh $(SM121DIS) $(SM121DIS_K) $(OUT_DIR)/sm121dis-work
 	@if sh tools/sm121dis/check.sh $(SM121DIS_RED) $(SM121DIS_K) $(OUT_DIR)/sm121dis-red > $(OUT_DIR)/sm121dis-red.log 2>&1; then \
 		echo "RED CHECK BROKEN: the faulty decoder passed"; exit 1; \
+	elif ! grep -q '^VERDICT FAIL' $(OUT_DIR)/sm121dis-red.log; then \
+		echo "RED CHECK BROKEN: the faulty decoder's run did not reach a verdict"; tail -3 $(OUT_DIR)/sm121dis-red.log; exit 1; \
 	else echo "red check: the faulty decoder FAILS the comparison, as it must ($$(grep -c '^\[FAIL\]' $(OUT_DIR)/sm121dis-red.log) kernels)"; fi
 
 # The provenance checks (tools/divsqrt_nvdisasm_check.sh, tools/ldst_nvdisasm_check.sh, test-numeric-reduce-nvdisasm)
@@ -43,8 +49,34 @@ endif
 # provenance check with a decoy nvdisasm first on PATH, the CUDA directories removed from PATH, and strace on execve;
 # then its own red check plants two calls to nvdisasm and must see the gate FAIL.
 .PHONY: test-zero-nvdisasm
-test-zero-nvdisasm: $(SM121DIS) build/sm121dis $(addprefix $(OUT_DIR)/,gpu_attention_test gpu_elementwise_test gpu_fp8_api_test gpu_reconv_test)
+test-zero-nvdisasm: $(SM121DIS) build/sm121dis $(addprefix $(OUT_DIR)/,gpu_attention_test gpu_elementwise_test gpu_fp8_api_test gpu_reconv_test bw_hazard_test)
 	PHYSICS_DIR="$(PHYSICS_DIR)" sh tools/sm121dis/zero_nvdisasm.sh $(OUT_DIR)
 	@if PHYSICS_DIR="$(PHYSICS_DIR)" sh tools/sm121dis/zero_nvdisasm.sh $(OUT_DIR) --red > $(OUT_DIR)/zero-nvdisasm-red.log 2>&1; then \
 		echo "RED CHECK BROKEN: the planted nvdisasm calls passed the gate"; exit 1; \
 	else echo "red check: the planted nvdisasm calls FAIL the gate, as they must ($$(grep -c 'FAIL$$' $(OUT_DIR)/zero-nvdisasm-red.log) lines)"; fi
+
+# Issue #171: the semantic fixture and expectation live in Omega. NVIDIA's
+# pinned offline decoder is read-only; neither output nor the mutant enters a kernel.
+NVDISASM ?= /usr/local/cuda/bin/nvdisasm
+SM121_MMIO = $(OUT_DIR)/sm121-mmio
+$(SM121_MMIO): om/encoder/bw_enc_sm121.om om/encoder/mmio_test.om
+	@mkdir -p $(OUT_DIR)
+	@test "$$(sha256sum < $(OMEGA_MV)/seed/out/omc | cut -c1-64)" = 2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f || { echo "NOT_RUN: wrong seeded compiler"; exit 3; }
+	cat $^ > $@.om
+	$(OMEGA_MV)/seed/out/omc < $@.om > $@
+	chmod +x $@
+
+.PHONY: test-sm121-mmio
+test-sm121-mmio: $(SM121_MMIO)
+	@$(NVDISASM) --version > $(SM121_MMIO).version
+	@case "$$(cat $(SM121_MMIO).version)" in *V13.0.85*) ;; *) echo "NOT_RUN: nvdisasm version must be 13.0.85"; exit 3;; esac
+	@sha256sum $(NVDISASM)
+	$(SM121_MMIO) > $(SM121_MMIO).bin
+	$(NVDISASM) -b SM121 -hex $(SM121_MMIO).bin > $(SM121_MMIO).nv
+	$(SM121_MMIO) check oracle < $(SM121_MMIO).nv
+	$(SM121_MMIO) wrong-cache-policy > $(SM121_MMIO)-ef.bin
+	$(NVDISASM) -b SM121 -hex $(SM121_MMIO)-ef.bin > $(SM121_MMIO)-ef.nv
+	@if $(SM121_MMIO) check oracle < $(SM121_MMIO)-ef.nv; then \
+		echo "FAIL: EF satisfied the MMIO.GPU contract"; exit 1; \
+	else rc=$$?; test "$$rc" = 4 || exit "$$rc"; \
+		echo "PASS: exact MMIO.GPU op and operands; wrong-EF negative refused. GB10 DEVICE NOT_RUN"; fi

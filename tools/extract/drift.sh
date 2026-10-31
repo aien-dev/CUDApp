@@ -31,7 +31,7 @@ if [[ ${1:-} == --self-test ]]; then selftest=1; shift; fi
 omega=${1:?omega dir}; oref=${2:?omega ref}
 here=$(cd "$(dirname "$0")" && pwd)
 baseline=${3:-$here/drift-baseline.tsv}
-[[ -s $baseline ]] || { echo "DRIFT-GATE: NOT_RUN (baseline $baseline missing)"; exit 2; }
+[[ -f $baseline && -r $baseline && -s $baseline ]] || { echo "DRIFT-GATE: NOT_RUN (baseline $baseline is not a readable nonempty file)"; exit 2; }
 
 scratch=$(mktemp -d); trap 'rm -rf "$scratch"' EXIT
 cudapp=$(git -C "$here" rev-parse --show-toplevel)
@@ -39,28 +39,41 @@ cudapp=$(git -C "$here" rev-parse --show-toplevel)
 # summary MAP OMEGA_DIR: one DIVERGENCE line. Shared = path present in both repos. A `differs` file is
 # header-only when every changed line is a licence-header line (the SPDX/Apache boilerplate).
 summary() {
-    local map=$1 dir=$2 hdr=0 code=0 op cp st ob cb
+    local map=$1 dir=$2 hdr=0 code=0 op cp st ob cb rc kind
     while IFS=$'\t' read -r op cp st ob cb; do
         [[ $st == differs ]] || continue
-        if diff <(git -C "$dir" cat-file -p "$ob") <(git -C "$cudapp" cat-file -p "$cb") | grep '^[<>]' \
-            | grep -qviE 'SPDX|copyright|licen[cs]e|apache|LLVM|applicable law|AS IS|you may not use|obtain a copy|distributed under|WITHOUT WARRANTIES|limitations under|^[<>] *(//|#|/?\*|\*/)? *$'
-        then code=$((code + 1)); else hdr=$((hdr + 1)); fi
-    done < <(tail -n +2 "$map")
+        # Process substitutions hide cat-file failures. Materialize both blobs and
+        # the whole diff: status 1 means different, not a pipeline failure, and no
+        # early-exit consumer can give diff a broken pipe.
+        git -C "$dir" cat-file blob "$ob" > "$scratch/omega-blob" || return 2
+        git -C "$cudapp" cat-file blob "$cb" > "$scratch/cudapp-blob" || return 2
+        rc=0
+        diff "$scratch/omega-blob" "$scratch/cudapp-blob" > "$scratch/changes" || rc=$?
+        if [[ $rc -ne 1 ]]; then
+            echo "summary: expected differing blobs for $op, diff returned $rc" >&2
+            return 2
+        fi
+        kind=$(awk '/^[<>]/ { changed=1
+                if (tolower($0) !~ /spdx|copyright|licen[cs]e|apache|llvm|applicable law|as is|you may not use|obtain a copy|distributed under|without warranties|limitations under|^[<>] *(\/\/|#|\/?\*|\*\/)? *$/) code=1 }
+            END { print (changed && !code ? "header" : "code") }' "$scratch/changes") || return 2
+        if [[ $kind == code ]]; then code=$((code + 1)); else hdr=$((hdr + 1)); fi
+    done < "$map"
     awk -F'\t' -v hdr="$hdr" -v code="$code" 'FNR > 1 { n[$3]++ }
         END { sh = n["same"] + n["differs"]
               printf "DIVERGENCE: %d shared, %d same, %d differ (%d licence-header only, %d code); %d cudapp-only, %d omega-only\n",
                      sh, n["same"], n["differs"], hdr, code, n["cudapp-only"], n["omega-only"] }' "$map"
 }
-# check OMEGA_DIR OMEGA_REF BASELINE: prints DRIFT lines and the verdict; returns 0 PASS / 1 FAIL.
+# check OMEGA_DIR OMEGA_REF BASELINE: returns 0 PASS / 1 FAIL / 2 broken setup.
 check() {
     local dir=$1 ref=$2 base=$3 map=$scratch/map.$RANDOM
-    "$here/map.sh" "$dir" "$ref" HEAD > "$map"
+    "$here/map.sh" "$dir" "$ref" HEAD > "$map" || { echo "DRIFT-GATE: NOT_RUN (map failed)"; return 2; }
     awk -F'\t' 'NR==FNR { if ($1 !~ /^#/) b[$1]=$2; next }
         FNR==1 { next }
         $4 != "-" && ($3 == "differs" || $3 == "omega-only") && b[$1] != $4 {
-            printf "DRIFT\t%s\t%s\t%s\n", $1, $3, $4 }' "$base" "$map" > "$map.drift"
+            printf "DRIFT\t%s\t%s\t%s\n", $1, $3, $4 }' "$base" "$map" > "$map.drift" \
+        || { echo "DRIFT-GATE: NOT_RUN (baseline comparison failed)"; return 2; }
     cat "$map.drift"
-    summary "$map" "$dir"
+    summary "$map" "$dir" || { echo "DRIFT-GATE: NOT_RUN (summary failed)"; return 2; }
     local n rows
     n=$(wc -l < "$map.drift"); rows=$(($(wc -l < "$map") - 1))
     if [[ $n -eq 0 ]]; then
@@ -72,11 +85,11 @@ check() {
 }
 
 if [[ $selftest -eq 0 ]]; then
-    check "$omega" "$oref" "$baseline" && exit 0 || exit 1
+    if check "$omega" "$oref" "$baseline"; then exit 0; else exit $?; fi
 fi
 
 fail=0
-"$here/map.sh" "$omega" "$oref" HEAD > "$scratch/now"
+"$here/map.sh" "$omega" "$oref" HEAD > "$scratch/now" || { echo "DRIFT-GATE: NOT_RUN (map failed)"; exit 2; }
 
 # Control 1: baseline blob of one cutover-time `differs` path replaced.
 victim=$(awk -F'\t' 'NR==FNR { if ($1 !~ /^#/) b[$1]=$2; next } FNR>1 && $3=="differs" && b[$1]==$4 { print $1; exit }' \
@@ -84,7 +97,8 @@ victim=$(awk -F'\t' 'NR==FNR { if ($1 !~ /^#/) b[$1]=$2; next } FNR>1 && $3=="di
 if [[ -z $victim ]]; then echo "control 1: NOT_RUN (no differs path recorded in the baseline)"; fail=1
 else
     awk -F'\t' -v OFS='\t' -v v="$victim" '$1==v { $2="0000000000000000000000000000000000000000" } 1' "$baseline" > "$scratch/base1"
-    out=$(check "$omega" "$oref" "$scratch/base1" || true)
+    rc=0; out=$(check "$omega" "$oref" "$scratch/base1") || rc=$?
+    if [[ $rc -eq 2 ]]; then echo "$out"; exit 2; fi
     if grep -qxF "DRIFT	$victim	differs	$(awk -F'\t' -v v="$victim" '$1==v {print $4}' "$scratch/now")" <<< "$out" \
         && grep -q '^DRIFT-GATE: FAIL' <<< "$out"; then echo "control 1: red as required ($victim)"
     else echo "control 1: BROKEN, gate stayed green with a tampered baseline for $victim"; echo "$out"; fail=1; fi
@@ -100,13 +114,14 @@ else
     git -C "$scratch/om" checkout -q --detach "$(git -C "$omega" rev-parse "$oref^{commit}")"
     echo "/* drift.sh self-test edit */" >> "$scratch/om/$target"
     git -C "$scratch/om" -c user.name=drift-selftest -c user.email=drift@selftest.invalid commit -q -am "drift self-test"
-    out=$(check "$scratch/om" HEAD "$baseline" || true)
+    rc=0; out=$(check "$scratch/om" HEAD "$baseline") || rc=$?
+    if [[ $rc -eq 2 ]]; then echo "$out"; exit 2; fi
     if [[ $(grep -c '^DRIFT	' <<< "$out" || true) -ge 1 ]] && grep -q "^DRIFT	$target	differs	" <<< "$out" \
         && grep -q '^DRIFT-GATE: FAIL' <<< "$out"; then echo "control 2: red as required ($target edited in a scratch Omega commit)"
     else echo "control 2: BROKEN, gate stayed green after an Omega edit to $target"; echo "$out"; fail=1; fi
 fi
 
 echo "real check:"
-check "$omega" "$oref" "$baseline" || fail=1
+check "$omega" "$oref" "$baseline" || { rc=$?; [[ $rc -ne 2 ]] || exit 2; fail=1; }
 [[ $fail -eq 0 ]] && echo "SELF-TEST: PASS (both controls red, real check green)" || echo "SELF-TEST: FAIL"
 exit "$fail"

@@ -1,0 +1,213 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note #57 pure deterministic policy over trusted #35/#53/#54/#17 records.
+note This predicate does not authenticate receipts or authorize graph activation.
+note Exact field contract and trust boundary: docs/pipeline/CONTRACT.md.
+note Candidate capacity 16. Every row has 64 cells. All times integer ns.
+fn pl_nonzero a view ulong 1024 b ulong to bool
+v = ulong 0
+for j ulong 4
+v = or v get a add b j
+end
+ret ne v 0
+end
+fn pl_equal a view ulong 1024 b ulong q view ulong 64 p ulong to bool
+for j ulong 4
+if ne get a add b j get q add p j
+ret false
+end
+end
+ret pl_nonzero a b
+end
+fn pl_cost a view ulong 1024 b ulong to bool
+if ne get a add b 2 63
+ret false
+end
+total = ulong 0
+for j ulong 6
+v = get a add add b 4 j
+if gt v sub ulong 18446744073709551615 total
+ret false
+end
+total = add total v
+end
+if eq get a add b 3 0
+ret false
+end
+ret le total get a add b 3
+end
+fn pl_row a view ulong 1024 b ulong q view ulong 64 to bool
+fam = get a b
+if or lt fam 1 gt fam 3
+ret false
+end
+note Required independent semantic/byte/physical/full-workload/quality gates.
+if ne get a add b 1 31
+ret false
+end
+if not pl_cost a b
+ret false
+end
+for j ulong 4
+if ne get a add add b 17 j get q add 3 j
+ret false
+end
+end
+for j ulong 4
+if gt get a add add b 11 j get q add 7 j
+ret false
+end
+end
+if or eq get a add b 12 0 or eq get a add b 14 0 eq get a add b 16 0
+ret false
+end
+features = get a add b 15
+if ne and features get q 11 features
+ret false
+end
+note Target feature bits are supplied by exact admitted profile, never SM inference.
+if not pl_equal a add b 33 q 14
+ret false
+end
+if not pl_equal a add b 37 q 18
+ret false
+end
+if not pl_equal a add b 41 q 22
+ret false
+end
+if not pl_equal a add b 45 q 26
+ret false
+end
+if not pl_equal a add b 49 q 30
+ret false
+end
+if not pl_equal a add b 53 q 34
+ret false
+end
+if not pl_nonzero a add b 21
+ret false
+end
+if not pl_nonzero a add b 25
+ret false
+end
+if not pl_nonzero a add b 29
+ret false
+end
+if not pl_nonzero a add b 57
+ret false
+end
+for j ulong 3
+if ne get a add add b 61 j 0
+ret false
+end
+end
+ret true
+end
+fn pl_same a view ulong 1024 x ulong y ulong to bool
+for k ulong 4
+if ne get a add x k get a add y k
+ret false
+end
+end
+ret true
+end
+fn pl_unique a view ulong 1024 count ulong to bool
+for i ulong count
+for j ulong i
+if pl_same a add mul i 64 21 add mul j 64 21
+ret false
+end
+end
+end
+ret true
+end
+fn pl_before a view ulong 1024 x ulong y ulong to bool
+for j ulong 4
+v = get a add add x 21 j
+w = get a add add y 21 j
+if lt v w
+ret true
+end
+if gt v w
+ret false
+end
+end
+ret false
+end
+fn pl_select q view ulong 64 a view ulong 1024 o edit ulong 16 to int
+note Clear all output on every refusal; result is advisory, never a launch handle.
+for j ulong 16
+put o j 0
+end
+if ne get q 0 1
+ret 65
+end
+count = get q 1
+if or eq count 0 gt count 16
+ret 65
+end
+if not pl_unique a count
+ret 65
+end
+inc = get q 2
+if ge inc count
+ret 65
+end
+note Session recovery generation begins at zero; exact zero epochs are valid.
+if eq get q 4 0
+ret 65
+end
+for j ulong 26
+if ne get q add 38 j 0
+ret 65
+end
+end
+base = mul inc 64
+if not pl_row a base q
+ret 69
+end
+if not pl_equal a add base 21 q 30
+ret 69
+end
+if gt get a add base 3 get q 13
+ret 69
+end
+best = inc
+cost = get a add base 3
+for i ulong count
+b = mul i 64
+if pl_row a b q
+v = get a add b 3
+if le v get q 13
+if le v get a add base 3
+benefit = sub get a add base 3 v
+if ge benefit get q 12
+if lt v cost
+best = i
+cost = v
+else
+if and eq v cost ne best inc
+if pl_before a b mul best 64
+best = i
+end
+end
+end
+end
+end
+end
+end
+end
+note Incumbent is retained even if an alternative fails any admission obligation.
+put o 0 1
+put o 1 best
+put o 2 get a mul best 64
+put o 3 cost
+for j ulong 4
+put o add 4 j get a add add mul best 64 21 j
+put o add 8 j get a add add mul best 64 29 j
+end
+put o 12 get q 3
+put o 13 get q 4
+put o 14 get q 5
+put o 15 get q 6
+ret 0
+end

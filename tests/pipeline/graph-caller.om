@@ -1,0 +1,152 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Reuses exact Composer+Quant fixture. Synthetic identities do not qualify code.
+fn pl_hword h view uchar 32 i ulong to ulong
+v = ulong 0
+for j ulong 8
+v = or v shl ulong get h add mul i 8 j mul j 8
+end
+ret v
+end
+fn pl_zero out view ulong 32 to bool
+for j ulong 32
+if ne get out j 0
+ret false
+end
+end
+ret true
+end
+fn pl_bind q edit ulong 64 a edit ulong 1024 real view uchar 4096 to int
+h = new uchar 32 0
+if ne kc_sha real 1152 h 0
+ret 1
+end
+put a 0 compose_word real 19
+put a 12 compose_word real 22
+put a 13 compose_word real 21
+put a 14 compose_word real 25
+put a 15 compose_word real 3
+for i ulong 4
+v = pl_hword h i
+put a add 21 i v
+put a add 49 i v
+put q add 30 i v
+put a add 57 i compose_word real add 84 i
+put a add 25 i compose_word real add 88 i
+end
+ret 0
+end
+fn pl_make want edit uchar 4096 real edit uchar 4096 to int
+launch = new ulong 32 0
+if ne compose_fixture want launch 0
+ret 1
+end
+for j ulong 4096
+put real j get want j
+end
+ret int compose_launch real launch
+end
+fn pl_resident q edit ulong 64 a edit ulong 1024 p edit ulong 528 real view uchar 4096 to int
+req = new ulong 16 0
+pl_fixture q a
+put q 1 1
+put q 10 256
+put q 11 0
+if ne pl_bind q a real 0
+ret 3
+end
+if ne kc_init p 1 1 128 1 0
+ret 4
+end
+put req 0 1
+put req 1 1
+put req 2 1
+put req 7 1
+for j ulong 4
+put req add 3 j get a add 21 j
+end
+if ne kc_prepare p req 1
+ret 5
+end
+ret kc_commit p 0 1 1
+end
+fn main to int
+q = new ulong 64 0
+a = new ulong 1024 0
+p = new ulong 528 0
+want = new uchar 4096 0
+real = new uchar 4096 0
+out = new ulong 32 0
+if ne pl_make want real 0
+ret 1
+end
+if ne pl_resident q a p real 0
+ret 2
+end
+if ne pl_graph q a p want real out 0
+ret 7
+end
+if ne get out 16 1
+ret 8
+end
+if ne kc_unpin p get out 17 get out 18 get out 19 0
+ret 9
+end
+note Target, shape, tail, alias and pin mutations cannot reuse original artifact.
+old = get real 16
+put real 16 xor old uchar 1
+if ne pl_graph q a p want real out 69
+ret 10
+end
+if not pl_zero out
+ret 11
+end
+put real 16 old
+old = get real 32
+put real 32 xor old uchar 1
+if ne pl_graph q a p want real out 69
+ret 10
+end
+if not pl_zero out
+ret 11
+end
+put real 32 old
+old = get real 96
+put real 96 xor old uchar 1
+if ne pl_graph q a p want real out 69
+ret 10
+end
+if not pl_zero out
+ret 11
+end
+put real 96 old
+old = get real 104
+put real 104 xor old uchar 1
+if ne pl_graph q a p want real out 69
+ret 10
+end
+if not pl_zero out
+ret 11
+end
+put real 104 old
+old = get real 544
+put real 544 xor old uchar 1
+if ne pl_graph q a p want real out 69
+ret 10
+end
+if not pl_zero out
+ret 11
+end
+put real 544 old
+note Resource declarations must match exact canonical metadata, not only fit ceiling.
+put a 12 1
+if ne pl_graph q a p want real out 69
+ret 12
+end
+put a 12 compose_word real 22
+note Missing native staged composer is an explicit refusal, never shape-based inference.
+compose_put real 19 3
+if ne pl_graph q a p want real out 69
+ret 13
+end
+ret 0
+end

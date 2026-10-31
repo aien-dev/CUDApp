@@ -7,6 +7,7 @@
  */
 
 #include "nvrm.h"
+#include "cpu_barrier.h"
 
 #include <errno.h>
 #include <stddef.h>
@@ -946,9 +947,9 @@ int nvrm_enqueue(Nvrm *rm, const NvrmMem *pb, uint32_t off, uint32_t nwords) {
     volatile uint64_t *ring = (volatile uint64_t *)rm->fifo.cpu;
     ring[rm->put % rm->entries] = nvrm_gp_entry(pb->va + off, nwords);
     rm->put++;
-    __asm__ volatile("dsb sy" ::: "memory");
+    nvrm_cpu_barrier();
     *nvrm_userd_gpput(rm) = rm->put % rm->entries;
-    __asm__ volatile("dsb sy" ::: "memory");
+    nvrm_cpu_barrier();
     return 0;
 }
 
@@ -978,9 +979,9 @@ int nvrm_chan_submit(Nvrm *rm, uint32_t ch, const NvrmMem *pb, uint32_t off, uin
     volatile uint64_t *ring = (volatile uint64_t *)c->fifo.cpu;
     ring[c->put % c->entries] = nvrm_gp_entry(pb->va + off, nwords);
     c->put++;
-    __asm__ volatile("dsb sy" ::: "memory");
+    nvrm_cpu_barrier();
     *(volatile uint32_t *)((uint8_t *)c->fifo.cpu + c->userd_off + offsetof(Nvc96fControl, GPPut)) = c->put % c->entries;
-    __asm__ volatile("dsb sy" ::: "memory");
+    nvrm_cpu_barrier();
     *rm->doorbell = c->token; /* NVC361_NOTIFY_CHANNEL_PENDING: one doorbell page, the token names the channel */
     return 0;
 }

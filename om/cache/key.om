@@ -1,0 +1,5 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Incumbent shape keys are scoped to a private physical cache; not portable artifacts or qualification.
+fn native_key data view uchar 4096 n ulong out edit uchar 32 to long
+ret long kc_sha data n out
+end

@@ -1,0 +1,15 @@
+tested head: 865c4d22c01d4af9ce6e2108268557e23db7ff22
+$ python3 tools/figures/test_stack_legend.py -v
+test_overlapping_swatch_is_rejected (__main__.StackLegendTest.test_overlapping_swatch_is_rejected) ... ok
+test_rendered_labels_and_swatches_do_not_overlap (__main__.StackLegendTest.test_rendered_labels_and_swatches_do_not_overlap) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 2.081s
+
+OK
+exit=0
+$ python3 tools/figures/make_figures.py --check
+figures current: 10
+exit=0
+$ git diff origin/main...HEAD --check
+exit=0

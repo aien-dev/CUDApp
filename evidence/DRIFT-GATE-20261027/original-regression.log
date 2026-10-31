@@ -1,0 +1,143 @@
+production_source=67f3135ef88d8f520dfc15a2b2bc3264f53f0d6a:tools/extract/drift.sh
+test_source=54fac045b90f441d627240de8fb3156cf9997ea7:tools/extract/test-drift.sh
+command=bash test-drift.sh (original drift/map scripts in isolated fixture)
+=== code classification at baseline (exit 0, expected 0) ===
+DIVERGENCE: 1 shared, 0 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (1 GPU paths, omega 7964183fddbe, none moved away from CUDA++ since the baseline)
+FAIL: code classification at baseline
+=== code blob gate (exit 1, expected 1) ===
+DRIFT	src/omega_gpu_case.c	differs	af31bb5a4f0ffbf774b821f31926a4db3b038383
+DIVERGENCE: 1 shared, 0 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: FAIL (1 of 1 GPU paths changed in omega 7964183fddbe and not in CUDA++)
+FAIL: code blob gate
+=== header classification at baseline (exit 0, expected 0) ===
+DIVERGENCE: 1 shared, 0 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (1 GPU paths, omega 4bcde41408b1, none moved away from CUDA++ since the baseline)
+PASS: header classification at baseline
+=== header blob gate (exit 1, expected 1) ===
+DRIFT	src/omega_gpu_case.c	differs	2f88238630d9fd6a4c438013745aedc1550f5081
+DIVERGENCE: 1 shared, 0 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: FAIL (1 of 1 GPU paths changed in omega 4bcde41408b1 and not in CUDA++)
+PASS: header blob gate
+=== mixed classification at baseline (exit 0, expected 0) ===
+DIVERGENCE: 1 shared, 0 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (1 GPU paths, omega 4bcde41408b1, none moved away from CUDA++ since the baseline)
+FAIL: mixed classification at baseline
+=== mixed blob gate (exit 1, expected 1) ===
+DRIFT	src/omega_gpu_case.c	differs	2f88238630d9fd6a4c438013745aedc1550f5081
+DIVERGENCE: 1 shared, 0 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: FAIL (1 of 1 GPU paths changed in omega 4bcde41408b1 and not in CUDA++)
+FAIL: mixed blob gate
+=== identical classification at baseline (exit 0, expected 0) ===
+DIVERGENCE: 1 shared, 1 same, 0 differ (0 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (1 GPU paths, omega 46e4d695dcba, none moved away from CUDA++ since the baseline)
+PASS: identical classification at baseline
+=== identical blob gate (exit 0, expected 0) ===
+DIVERGENCE: 1 shared, 1 same, 0 differ (0 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (1 GPU paths, omega 46e4d695dcba, none moved away from CUDA++ since the baseline)
+PASS: identical blob gate
+=== large classification at baseline (exit 0, expected 0) ===
+grep: write error: Broken pipe
+diff: standard output: Broken pipe
+DIVERGENCE: 1 shared, 0 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (1 GPU paths, omega 7cbae68b4341, none moved away from CUDA++ since the baseline)
+FAIL: large classification at baseline
+=== large blob gate (exit 1, expected 1) ===
+DRIFT	src/omega_gpu_case.c	differs	57f675cc176344229de1fd23ce49c67b50b4a2ef
+grep: write error: Broken pipe
+diff: standard output: Broken pipe
+DIVERGENCE: 1 shared, 0 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: FAIL (1 of 1 GPU paths changed in omega 7cbae68b4341 and not in CUDA++)
+FAIL: large blob gate
+=== binary classification at baseline (exit 0, expected 0) ===
+DIVERGENCE: 1 shared, 0 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (1 GPU paths, omega 41ecffcfc459, none moved away from CUDA++ since the baseline)
+FAIL: binary classification at baseline
+=== binary blob gate (exit 1, expected 1) ===
+DRIFT	src/omega_gpu_case.c	differs	1d5e8a9f97214c0a726e2762d65c08ce9339ab1a
+DIVERGENCE: 1 shared, 0 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: FAIL (1 of 1 GPU paths changed in omega 41ecffcfc459 and not in CUDA++)
+FAIL: binary blob gate
+=== built-in negative controls (exit 0, expected 0) ===
+control 1: red as required (src/omega_gpu_case.c)
+control 2: red as required (src/omega_gpu_same.c edited in a scratch Omega commit)
+real check:
+DIVERGENCE: 2 shared, 1 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (2 GPU paths, omega 797167745d95, none moved away from CUDA++ since the baseline)
+SELF-TEST: PASS (both controls red, real check green)
+PASS: built-in negative controls
+=== invalid ref in direct mode (exit 0, expected 2) ===
+fatal: Needed a single revision
+DIVERGENCE: 0 shared, 0 same, 0 differ (0 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+fatal: Needed a single revision
+DRIFT-GATE: PASS (-1 GPU paths, omega , none moved away from CUDA++ since the baseline)
+FAIL: invalid ref in direct mode
+=== invalid ref in self-test mode (exit 128, expected 2) ===
+fatal: Needed a single revision
+FAIL: invalid ref in self-test mode
+=== baseline is a directory (exit 0, expected 2) ===
+awk: cannot open "/tmp/tmp.TfUhbT482U/baseline-directory" (Is a directory)
+DIVERGENCE: 2 shared, 1 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (2 GPU paths, omega 797167745d95, none moved away from CUDA++ since the baseline)
+FAIL: baseline is a directory
+=== baseline is unreadable (exit 0, expected 2) ===
+awk: cannot open "/tmp/tmp.TfUhbT482U/baseline" (Permission denied)
+DIVERGENCE: 2 shared, 1 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (2 GPU paths, omega 797167745d95, none moved away from CUDA++ since the baseline)
+FAIL: baseline is unreadable
+=== baseline comparison read error (exit 0, expected 2) ===
+injected awk read error
+DIVERGENCE: 2 shared, 1 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (2 GPU paths, omega 797167745d95, none moved away from CUDA++ since the baseline)
+FAIL: baseline comparison read error
+=== missing blob (exit 0, expected 2) ===
+fatal: Not a valid object name af31bb5a4f0ffbf774b821f31926a4db3b038383
+DIVERGENCE: 2 shared, 1 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (2 GPU paths, omega 797167745d95, none moved away from CUDA++ since the baseline)
+FAIL: missing blob
+=== missing blob (exit 0, expected 2) ===
+fatal: Not a valid object name 2721fea320e0429c40f26e27b873ef11f778eda5
+DIVERGENCE: 2 shared, 1 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (2 GPU paths, omega 797167745d95, none moved away from CUDA++ since the baseline)
+FAIL: missing blob
+=== diff error (exit 0, expected 2) ===
+injected diff error
+DIVERGENCE: 2 shared, 1 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (2 GPU paths, omega 797167745d95, none moved away from CUDA++ since the baseline)
+FAIL: diff error
+=== diff error in self-test mode (exit 0, expected 2) ===
+injected diff error
+control 1: red as required (src/omega_gpu_case.c)
+injected diff error
+injected diff error
+control 2: red as required (src/omega_gpu_same.c edited in a scratch Omega commit)
+real check:
+injected diff error
+DIVERGENCE: 2 shared, 1 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (2 GPU paths, omega 797167745d95, none moved away from CUDA++ since the baseline)
+SELF-TEST: PASS (both controls red, real check green)
+FAIL: diff error in self-test mode
+=== diff reports identical for distinct blobs (exit 0, expected 2) ===
+DIVERGENCE: 2 shared, 1 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (2 GPU paths, omega 797167745d95, none moved away from CUDA++ since the baseline)
+FAIL: diff reports identical for distinct blobs
+=== one-time diff error in control 1 (exit 0, expected 2) ===
+injected one-time diff error
+control 1: red as required (src/omega_gpu_case.c)
+control 2: red as required (src/omega_gpu_same.c edited in a scratch Omega commit)
+real check:
+DIVERGENCE: 2 shared, 1 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (2 GPU paths, omega 797167745d95, none moved away from CUDA++ since the baseline)
+SELF-TEST: PASS (both controls red, real check green)
+FAIL: one-time diff error in control 1
+=== one-time diff error in control 2 (exit 0, expected 2) ===
+control 1: red as required (src/omega_gpu_case.c)
+injected one-time diff error
+control 2: red as required (src/omega_gpu_same.c edited in a scratch Omega commit)
+real check:
+DIVERGENCE: 2 shared, 1 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (2 GPU paths, omega 797167745d95, none moved away from CUDA++ since the baseline)
+SELF-TEST: PASS (both controls red, real check green)
+FAIL: one-time diff error in control 2
+DRIFT REGRESSION TESTS FAIL
+exit=1

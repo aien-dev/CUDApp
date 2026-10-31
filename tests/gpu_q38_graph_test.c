@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * gpu_q38_graph_test: one Qwen3.8-27B decode token as ONE command list (omega_gpu_q38_graph.h, sc #642).
  *   --host-only   the gather table against the attention API's permutation, and the create / set_layer refusals that

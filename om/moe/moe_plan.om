@@ -1,0 +1,159 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note MOE-INDEX-1: bounded stable counting scatter. No device effects.
+note cfg version,tokens,slots,experts,shared_id,work_cap,segment_cap,map_cap.
+note Capacities count records or entries PER map, including eight padding entries.
+note ids uses dense token*slots; 4294967295 is an absent route, never renumbered.
+note work fields expert,source_row,token,route,weight,segment_offset,count,destination,order.
+note Logical segments expert,offset,count,shared flag are NOT address-bearing Seg32.
+note maps X at 0, Y at 1160. meta work_count,segment_count,routed_count,shared_count.
+note Refusals 1 cfg,2 id,3 capacity preserve ALL output bytes.
+fn moe_work w edit ulong 10368 p ulong e ulong t ulong s ulong a view ulong 780 to void
+b = mul p 9
+put w b e
+put w add b 1 t
+put w add b 2 t
+put w add b 3 s
+put w add b 4 s
+put w add b 5 get a add 257 e
+put w add b 6 get a e
+put w add b 7 add mul t add get a 771 1 s
+put w add b 8 s
+end
+fn moe_valid c view ulong 8 to ulong
+if ne get c 0 1
+ret 1
+end
+if or gt get c 1 128 gt get c 2 8
+ret 1
+end
+if or eq get c 3 0 gt get c 3 256
+ret 1
+end
+if ne get c 4 get c 3
+ret 1
+end
+if or gt get c 5 1152 gt get c 6 257
+ret 1
+end
+if gt get c 7 1160
+ret 1
+end
+ret 0
+end
+fn moe_counts c view ulong 8 ids view ulong 1024 a edit ulong 780 to ulong
+nr = ulong 0
+for i ulong mul get c 1 get c 2
+v = ulong get ids i
+if ne v 4294967295
+if ge v get c 3
+ret 2
+end
+put a v add get a v 1
+nr = add nr 1
+end
+end
+put a get c 3 get c 1
+put a 771 get c 2
+put a 772 nr
+ret 0
+end
+fn moe_bounds c view ulong 8 a edit ulong 780 to ulong
+ns = ulong 0
+nw = ulong 0
+for e ulong add get c 3 1
+put a add 257 e nw
+put a add 514 e nw
+if ne get a e 0
+ns = add ns 1
+nw = add nw get a e
+end
+end
+if or gt nw get c 5 gt ns get c 6
+ret 3
+end
+if gt add nw 8 get c 7
+ret 3
+end
+put a 773 ns
+put a 774 nw
+ret 0
+end
+fn moe_segs c view ulong 8 a view ulong 780 sg edit ulong 1028 to void
+ns = ulong 0
+for e ulong add get c 3 1
+if ne get a e 0
+b = mul ns 4
+put sg b e
+put sg add b 1 get a add 257 e
+put sg add b 2 get a e
+put sg add b 3 0
+if eq e get c 3
+put sg add b 3 1
+end
+ns = add ns 1
+end
+end
+end
+fn moe_row a edit ulong 780 w edit ulong 10368 i ulong v ulong to void
+p = get a add 514 v
+t = div i get a 771
+s = rem i get a 771
+moe_work w p v t s a
+put a add 514 v add p 1
+end
+fn moe_rows c view ulong 8 ids view ulong 1024 a edit ulong 780 w edit ulong 10368 to void
+for i ulong mul get c 1 get c 2
+v = ulong get ids i
+if ne v 4294967295
+moe_row a w i v
+end
+end
+end
+fn moe_shared c view ulong 8 a view ulong 780 w edit ulong 10368 to void
+for t ulong get c 1
+p = add get a 772 t
+moe_work edit w p get c 3 t get c 2 view a
+end
+end
+fn moe_maps a view ulong 780 w view ulong 10368 mp edit ulong 2320 to void
+nw = get a 774
+for p ulong nw
+put mp p get w add mul p 9 1
+put mp add 1160 p get w add mul p 9 7
+end
+for p ulong 8
+put mp add nw p 0
+put mp add add 1160 nw p 0
+end
+end
+fn moe_meta c view ulong 8 a view ulong 780 m edit ulong 8 to void
+put m 0 get a 774
+put m 1 get a 773
+put m 2 get a 772
+put m 3 get c 1
+put m 4 1
+put m 5 0
+put m 6 0
+put m 7 0
+end
+fn moe_plan c view ulong 8 ids view ulong 1024 w edit ulong 10368 sg edit ulong 1028 mp edit ulong 2320 m edit ulong 8 to ulong
+a = new ulong 780 0
+rc = moe_valid c
+if ne rc 0
+ret rc
+end
+rc = moe_counts c ids edit a
+if ne rc 0
+ret rc
+end
+rc = moe_bounds c edit a
+if ne rc 0
+ret rc
+end
+moe_segs c view a sg
+moe_rows c ids edit a w
+moe_shared c view a w
+moe_maps view a w mp
+moe_meta c view a m
+ret 0
+end

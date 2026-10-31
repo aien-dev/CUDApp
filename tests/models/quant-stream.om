@@ -1,0 +1,105 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Verification caller input384 wire +65536 source +1024 scales, exact records.
+note Output384 canonical +65536 packed +1024 packed scales. No output on refusal.
+fn qs_io384 b edit uchar 384 emit bool to bool
+p = ulong 0
+while lt p 384 bound 384
+n = long 0
+if emit
+n = write 1 b p sub ulong 384 p
+else
+n = read 0 b p sub ulong 384 p
+end
+if le n 0
+ret false
+end
+p = add p ulong n
+end
+ret true
+end
+fn qs_io65536 b edit uchar 65536 emit bool to bool
+p = ulong 0
+while lt p 65536 bound 65536
+n = long 0
+if emit
+n = write 1 b p sub ulong 65536 p
+else
+n = read 0 b p sub ulong 65536 p
+end
+if le n 0
+ret false
+end
+p = add p ulong n
+end
+ret true
+end
+fn qs_io1024 b edit uchar 1024 emit bool to bool
+p = ulong 0
+while lt p 1024 bound 1024
+n = long 0
+if emit
+n = write 1 b p sub ulong 1024 p
+else
+n = read 0 b p sub ulong 1024 p
+end
+if le n 0
+ret false
+end
+p = add p ulong n
+end
+ret true
+end
+fn qs_equal a view uchar 384 b view uchar 384 to bool
+for i ulong 384
+if ne get a i get b i
+ret false
+end
+end
+ret true
+end
+fn main to int
+b = new uchar 384 0
+a = new uchar 384 0
+d = new ulong 48 0
+src = new uchar 65536 0
+sc = new uchar 1024 0
+dst = new uchar 65536 0
+ds = new uchar 1024 0
+if not qs_io384 b false
+ret 80
+end
+if not qs_io65536 src false
+ret 80
+end
+if not qs_io1024 sc false
+ret 80
+end
+r = quant_read b d
+if ne r 0
+ret int r
+end
+r = quant_write d a
+if ne r 0
+ret int r
+end
+if ne quant_hash b quant_hash a
+ret 81
+end
+if not qs_equal a b
+ret 81
+end
+r = quant_repack d src sc dst ds
+if ne r 0
+ret int r
+end
+if not qs_io384 a true
+ret 82
+end
+if not qs_io65536 dst true
+ret 82
+end
+if not qs_io1024 ds true
+ret 82
+end
+ret 0
+end

@@ -1,0 +1,185 @@
+{
+  "schema": "pipeline-context32-host-v1",
+  "recorded_at": "2026-10-28T14:58:07.285579+00:00",
+  "status": "EXERCISED_HOST_ONLY",
+  "contract": "native_context(keys view ulong128,count ulong,actual view ulong4)->long; exact opaque4word tuples; unique1based ordinal1..32;0absent;-1count>32 or duplicate match; count0normal absent; unusedcellsignored",
+  "reason": "Actual graph caller needs more than16 private tuples; use the full preexisting keys128 stride4 capacity without a new wire schema.",
+  "source_identities": {
+    "om/pipeline/context.om": "fd1e4c192a21f9a2c54aa90c3d4f4831d2cdf31ad7d9bbb2d2d70b849c559535",
+    "tests/pipeline/context.om": "162cc2eac6af3a6434a2ea88e22b7cd9d46b79368f722496c2c77a7864c58113",
+    "docs/pipeline/CONTRACT.md": "ff65c7e5250679b015d9cdae81ec4da568b19cb0b964a2951a093e05c9639003"
+  },
+  "compiler_input_sha256": "4b33d83d1d3f998ae9167ddaf80881795805368e07eed7f501099025f6bbdfe8",
+  "oracle": "Independent explicit registry-index expectations in the focused Omega fixture, not performance or qualification. All32 tuple lookups, including ordinals31/32, are checked against their inserted identities; count33 refuses before access. No numeric model or hardware assertion.",
+  "controls": [
+    "count0 absent",
+    "count32 returns all32 unique ordinals",
+    "count33 and maximum unsigned count refuse",
+    "count31 excludes final tuple",
+    "all4tuple fields participate",
+    "finalslot duplicate refuses",
+    "unrelated duplicate and absent context do not select",
+    "registry order is opaque identity, not tuning",
+    "raw operationkind matching is not qualification"
+  ],
+  "tools_used": [
+    "mcp__omega_run (compile plus sandbox execute)"
+  ],
+  "runs": {
+    "control": {
+      "compile": {
+        "ok": true,
+        "binary_bytes": 2080,
+        "sha256": "e39544096927c285a291cb2e04725608da35a5457af1128a2fbec15c26a03e42",
+        "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"
+      },
+      "exit": {
+        "kind": "normal",
+        "code": 0
+      },
+      "stdout": "",
+      "stdout_bytes": 0,
+      "stdout_truncated": false,
+      "stderr": "",
+      "stderr_bytes": 0,
+      "stderr_truncated": false,
+      "limits": {
+        "timeout_ms": 5000,
+        "cpu_seconds": 10,
+        "address_space_bytes": 268435456,
+        "file_size_bytes": 1048576,
+        "processes": 5
+      },
+      "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+    },
+    "old_cap16": {
+      "compile": {
+        "ok": true,
+        "binary_bytes": 2080,
+        "sha256": "be7d497ea90f71bfef456880706d03b4044ea2c5c8935ce80b150376d9d05bc8",
+        "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"
+      },
+      "exit": {
+        "kind": "normal",
+        "code": 4
+      },
+      "stdout": "",
+      "stdout_bytes": 0,
+      "stdout_truncated": false,
+      "stderr": "",
+      "stderr_bytes": 0,
+      "stderr_truncated": false,
+      "limits": {
+        "timeout_ms": 5000,
+        "cpu_seconds": 10,
+        "address_space_bytes": 268435456,
+        "file_size_bytes": 1048576,
+        "processes": 5
+      },
+      "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+    },
+    "ignore_window_rows": {
+      "compile": {
+        "ok": true,
+        "binary_bytes": 2080,
+        "sha256": "b0bb3bfe65bab8a9076631b9506c90ac0ad54047551960bec1f9df921ed329c1",
+        "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"
+      },
+      "exit": {
+        "kind": "normal",
+        "code": 7
+      },
+      "stdout": "",
+      "stdout_bytes": 0,
+      "stdout_truncated": false,
+      "stderr": "",
+      "stderr_bytes": 0,
+      "stderr_truncated": false,
+      "limits": {
+        "timeout_ms": 5000,
+        "cpu_seconds": 10,
+        "address_space_bytes": 268435456,
+        "file_size_bytes": 1048576,
+        "processes": 5
+      },
+      "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+    },
+    "ignore_duplicate_match": {
+      "compile": {
+        "ok": true,
+        "binary_bytes": 2064,
+        "sha256": "e6962759572d9f3e64eb4a5ed03c971f43829dc1f0f8dcba33e64b152d3eee18",
+        "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"
+      },
+      "exit": {
+        "kind": "normal",
+        "code": 8
+      },
+      "stdout": "",
+      "stdout_bytes": 0,
+      "stdout_truncated": false,
+      "stderr": "",
+      "stderr_bytes": 0,
+      "stderr_truncated": false,
+      "limits": {
+        "timeout_ms": 5000,
+        "cpu_seconds": 10,
+        "address_space_bytes": 268435456,
+        "file_size_bytes": 1048576,
+        "processes": 5
+      },
+      "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+    },
+    "remove_count_guard": {
+      "compile": {
+        "ok": true,
+        "binary_bytes": 2064,
+        "sha256": "2f2151c2aeb358a1bff72aefc0fb936e2c51ed9a7ff4241f9e71eea84cabb111",
+        "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f"
+      },
+      "exit": {
+        "kind": "trap",
+        "trap": 3,
+        "exit_code": 103,
+        "meaning": "index or slice out of bounds",
+        "note": "an explicit exit status 101..114 looks the same as this trap"
+      },
+      "stdout": "",
+      "stdout_bytes": 0,
+      "stdout_truncated": false,
+      "stderr": "",
+      "stderr_bytes": 0,
+      "stderr_truncated": false,
+      "limits": {
+        "timeout_ms": 5000,
+        "cpu_seconds": 10,
+        "address_space_bytes": 268435456,
+        "file_size_bytes": 1048576,
+        "processes": 5
+      },
+      "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+    }
+  },
+  "mutant_input_sha256": {
+    "old_cap16": "82d3e16105e03ee6a8666ab4b6442ae7e1f995d7245a1415e9d7e196c3c710c4",
+    "ignore_window_rows": "67c432baf4607d90cf67bd9bcf56444cdaf2724204bd3fcee14a4b1e727a4fad",
+    "ignore_duplicate_match": "bbed42ea199b695a17bf4c8a99b65d48f1ddee498515e1d5ec7a9b6eb0506b51",
+    "remove_count_guard": "6f6a50db0de761cbc6b7c75a34073770f96408e102915a4a6110c7690c3d25cb"
+  },
+  "expected": {
+    "control": "normal exit0",
+    "old_cap16": "normal exit4",
+    "ignore_window_rows": "normal exit7",
+    "ignore_duplicate_match": "normal exit8",
+    "remove_count_guard": "bounds trap3, exit103"
+  },
+  "historical_receipt": "tests/pipeline/context-evidence.json unchanged; it qualifies only its recorded16-context source.",
+  "not_run": [
+    "shared bridge regeneration and actual Q36 graph caller integration (NativeIntegrate/Q36Graph-owned)",
+    "accepted evaluator receipt-authority construction",
+    "GB10 execution",
+    "whole-model numerical/quality/performance qualification",
+    "activation"
+  ],
+  "scope": "Private bounded lookup only; no artifact schema, evaluator, trust grant, arena allocation implementation or model-wide context organization."
+}

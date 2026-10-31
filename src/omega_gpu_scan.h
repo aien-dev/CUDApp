@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_gpu_scan.h -- reductions and prefix sums of any length on the GB10 (row C3 of docs/OMEGA.md).
  *
  * The sum, the maximum and the minimum of n float values, and the inclusive prefix sum (the running total

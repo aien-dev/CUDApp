@@ -21,6 +21,7 @@
 #include "omega_gpu_prefill_attn_api.h"
 #include "omega_gpu_session.h"
 #include "omega_blackwell_codegen_tc.h"
+#include "omega_blackwell_qmd.h"
 #include "bw_warp_sim_pa.h"
 #if defined(__has_include)
 #if __has_include("omega_gpu_prefill.h")
@@ -37,6 +38,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "test_out_file.h"
 
 static int g_checks, g_failed;
 #define CHECK(cond, ...) do { g_checks++; if (!(cond)) { g_failed++; printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -79,7 +81,7 @@ static void emu_rows(const float *qkv_row, const float *kn, float eps, uint32_t 
         for (unsigned i = 0; i < 128; i++) x[i] = qkv_row[4096 + gk * 128 + i];
         for (unsigned L = 0; L < 32; L++) { float a = x[4 * L] * x[4 * L]; for (unsigned i = 1; i < 4; i++) a = fmaf(x[4 * L + i], x[4 * L + i], a); sq[L] = a; }
         for (unsigned o = 16; o >= 1; o /= 2) { float nx[32]; for (unsigned L = 0; L < 32; L++) nx[L] = sq[L] + (L + o < 32 ? sq[L + o] : sq[L]); memcpy(sq, nx, sizeof sq); }
-        float rs = 1.0f / sqrtf(fmaf(sq[0], u2f(0x3c000000u), eps));
+        float rs = ws_mufu_rsq(fmaf(sq[0], u2f(0x3c000000u), eps)); /* MUFU.RSQ, bw_mufu_ftz.h (#462); eps > 0 keeps it normal */
         for (unsigned i = 0; i < 128; i++) { x[i] = x[i] * rs; x[i] = x[i] * kn[i]; }
         float y[128];
         for (unsigned i = 0; i < 128; i++) {
@@ -169,7 +171,7 @@ static void host_only(void) {
       CHECK(omega_prefill_attn_prog_stats(&s, &n, &gp, &ph) == 0 && n <= 1024 && omega_bw_gpr_declared(gp) <= 128, "APPEND + mirror in budget: %u insns %u gprs", n, gp);
       printf("codegen warps 8 APPEND + mirror: %u instructions, %u registers\n", n, gp); }
     CHECK(omega_gpu_prefill_attn(NULL, 0, 0, 1, NULL, EPS, 1.0f, NULL, NULL) == OMEGA_GPU_DATTN_BAD_ARGS, "NULL cache refused");
-    CHECK(OMEGA_PATTN_SHARED_BYTES <= 16384u, "shared memory within the QMD cap");
+    CHECK(OMEGA_PATTN_SHARED_BYTES <= OMEGA_BW_QMD_MAX_SHARED_BYTES, "shared memory within the QMD cap (%u of %u)", OMEGA_PATTN_SHARED_BYTES, OMEGA_BW_QMD_MAX_SHARED_BYTES);
     /* reference sanity: a single token at position 0 returns its own v row (rounded) */
     { Case c; case_make(&c, 256, 0, 1, 5, 1.0f); uint16_t kr[512], vr[512];
       emu_rows(c.qkv, c.kn, EPS, 0, THETA, kr, vr);
@@ -620,7 +622,7 @@ int main(int argc, char **argv) {
     host_only();
     if (sim) sim_battery();
     if (!host && !sim) {
-        if (json) { g_json = fopen(json, "w"); if (g_json) fprintf(g_json, "{\"test\": \"gpu_prefill_attn\", \"points\": [\n"); }
+        if (json) { g_json = test_out_open(json); if (g_json) fprintf(g_json, "{\"test\": \"gpu_prefill_attn\", \"points\": [\n"); }
         if (warps) omega_gpu_prefill_attn_set_warps(warps);
         int ok = 1;
         if (fused) omega_gpu_prefill_attn_set_fused(1);

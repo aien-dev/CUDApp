@@ -1,0 +1,18 @@
+loadavg 29.20 29.82 25.06 29/2062 258899
+ok: the second queue opens (AIEN_OMEGA_GPU_CHANNELS = 2)
+calibration: 2^16 turns took 1.637 ms; using 2402491 turns
+overlap (default barrier): solo A 55.095 ms, solo B 55.086 ms, pair 55.086 ms (medians of 5, values right): pair / (A + B) = 0.500
+overlap (first_barrier_none): solo A 55.062 ms, solo B 55.037 ms, pair 55.091 ms (medians of 5, values right): pair / (A + B) = 0.500
+serial control: solo 55.020 ms, both in one list on one queue 110.064 ms: ratio 1.000
+ok: C4 overlap: two queues of the same work finish in under 0.75 of the solo sum (default 0.500, first_barrier_none 0.500)
+ok: red check: the same two spins in order on one queue do NOT pass the 0.75 bar (ratio 1.000)
+ok: event refusals: a list with a wait is refused alone, and cannot wait on a second list
+  event (wait, default barrier): X 0 wrong, Y 0 wrong of 3072, pair 55.112 ms
+ok: C4 event: B's copy waited for A's spin on the other queue; every Y right (0 wrong)
+  event (NO wait, default barrier): X 0 wrong, Y 3072 wrong of 3072, pair 55.147 ms
+ok: negative control: without the wait B ran early and Y is wrong (default barrier 3072 wrong, first_barrier_none 3072 wrong)
+ok: event refusals: a list with a wait is refused alone, and cannot wait on a second list
+  event (wait, first_barrier_none): X 0 wrong, Y 0 wrong of 3072, pair 55.120 ms
+ok: C4 event with first_barrier_none: every Y right (0 wrong)
+C4 streams chip: PASS (8 checks)
+exit 0

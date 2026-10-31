@@ -35,7 +35,7 @@ a human reviewer** in the owning group, in addition to section 1. The groups are
   disagree (`docs/HOW_I_DID_IT.md`, steps 1-2); those fields keep that record until each gets a NAK
   citation or a chip test. `nvdisasm` may be used only as a
   read-only checker of words we produced.
-- **No HOLD material.** Nothing derived from omega-mv #864 (`cubin.om`) while it is on HOLD.
+- **No material from omega-mv #864.** Nothing derived from `seed/sm80/cubin.om` (branch `ck/cubin-om` at `76639738`, closed unmerged 2026-10-27) enters this repository. See `docs/CUBIN_WRITERS.md`.
 - **Negative control.** A deliberately broken kernel or input is refused or detected by the change's own
   test.
 - **Cache and coherence.** Anything the CPU polls for a GPU write is GPU-uncached; flush and invalidate

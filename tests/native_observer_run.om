@@ -1,0 +1,55 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note HOST_ONLY real cmdlist projection oracle; no GPU, admission or qualification claim.
+note Compose locked MC dependencies, canonical moe-closure.om, cases.om, then this file.
+note stdin exactly: frozen independent C SHA256 root32, meta32 LE64, submit16 LE64,
+note actual owner bank1024, actual owner QMD slot1024. No header or trailing bytes.
+note Expected preimage is frozen before mutation; observed bytes come from same-list post-add state.
+text NOPass "NATIVE_OBSERVER HOST_ONLY PASS\n"
+fn no_word b view uchar 2464 off ulong to ulong
+v = ulong 0
+for j ulong 8
+v = or v shl ulong get b add off j mul j 8
+end
+ret v
+end
+fn main to int
+wire = new uchar 2464 0
+want = new uchar 32 0
+m = new ulong 32 0
+s = new ulong 16 0
+bank = new uchar 1024 0
+qmd = new uchar 1024 0
+extra = new uchar 1 0
+pos = ulong 0
+while lt pos 2464 bound 2464
+n = read 0 wire pos sub ulong 2464 pos
+if le n 0
+ret 30
+end
+pos = add pos ulong n
+end
+n = read 0 extra 0 1
+if ne n 0
+ret 31
+end
+for i ulong 32
+put want i get wire i
+put m i no_word wire add 32 mul i 8
+end
+for i ulong 16
+put s i no_word wire add 288 mul i 8
+end
+for i ulong 1024
+put bank i get wire add 416 i
+put qmd i get wire add 1440 i
+end
+rc = no_cases edit m edit bank edit qmd edit s want
+if ne rc 0
+ret int rc
+end
+n = write 1 NOPass 0 len NOPass
+if ne n long len NOPass
+ret 32
+end
+ret 0
+end

@@ -1,0 +1,324 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note conform.om: host reference and bit-exact compare for the emit.om kernels (seeded Omega, AArch64).
+note vadd uses hello_gpu's inputs and operation exactly (examples/hello_gpu/hello_gpu.c inputs/check):
+note   a[i] = f32(i) * 0.25, b[i] = 1.0 / f32(1 + i % 7), c[i] = a[i] + b[i], n = 1048576 (N_TOTAL).
+note fsum16 is the frozen left-to-right row sum of 16 floats over 65536 rows; its inputs mix
+note magnitudes (every fifth column scaled by 65536) so that a different summation order changes bits:
+note   x[16r+k] = f32((31r + 17k) % 101) * 0.37 - 18.0, times 65536.0 when k % 5 == 0
+note   o[r] = (((x[16r] + x[16r+1]) + x[16r+2]) ... ) + x[16r+15]
+note Every operation is one IEEE binary32 operation rounded to nearest (omc f32, OMEGESE 9.9), so the
+note reference is the exact bit pattern a conforming FP32 device must produce for these kernels.
+note
+note Usage:
+note   conform in vadd A.bin B.bin       write the two vadd inputs (little-endian binary32)
+note   conform in fsum16 X.bin           write the fsum16 input
+note   conform ref vadd|fsum16 OUT.bin   write the reference output
+note   conform check vadd|fsum16 OUT.bin compare OUT.bin with the reference bit for bit
+note check prints one line: CONFORM <kernel> n=<n> wrong=<w> unwritten=<u> first=<index or none>
+note Loops run in blocks of 4096 because a for count above 1000000 traps 4 (OMEGESE 9.1).
+note (unwritten counts the launcher's poison 0xFFC0FFEE). Exit: 0 every element equal; 1 a mismatch;
+note 2 usage; 3 I/O or wrong file size. Traps exit 100 + code.
+om2
+
+text tuse "usage: conform in vadd A B | in fsum16 X | ref K OUT | check K OUT\n"
+text tio "conform: I/O error or wrong file size\n"
+text tin "in"
+text tref "ref"
+text tchk "check"
+text tvadd "vadd"
+text tfsum "fsum16"
+text tcf "CONFORM "
+text tn " n="
+text twr " wrong="
+text tun " unwritten="
+text tfi " first="
+text tnone "none"
+text tnl "\n"
+
+const NVADD ulong 1048576
+const NROWS ulong 65536
+const POISON uint 4290838510
+
+global gio uchar 4194304
+global gpath uchar 4096
+global garg uchar 16
+global gob uchar 256
+note gst: 0 kernel (0 vadd, 1 fsum16), 1 output fill
+global gst ulong 4
+
+fn fail code int msg view uchar * to void
+n = write 2 msg 0 len msg
+exit code
+end
+
+fn argis i ulong t view uchar * to bool
+n = argread i garg 0 len garg
+if ne n long len t
+ret false
+end
+for k ulong len t
+if ne get garg k get t k
+ret false
+end
+end
+ret true
+end
+
+fn oc b uchar to void
+f = get gst 1
+put gob f b
+put gst 1 add f 1
+end
+
+fn ot t view uchar * to void
+for i ulong len t
+oc get t i
+end
+end
+
+fn odec v ulong to void
+d = new uchar 20 0
+k = ulong 0
+x = v
+while true bound 21
+put d k uchar add rem x 10 48
+k = add k 1
+x = div x 10
+if eq x 0
+break
+end
+end
+for i ulong k
+oc get d sub sub k i 1
+end
+end
+
+fn oflush to void
+n = write 1 gob 0 get gst 1
+put gst 1 0
+end
+
+fn va i ulong to f32
+ret mul f32 i 0.25f32
+end
+
+fn vb i ulong to f32
+ret div 1.0f32 f32 add 1 rem i 7
+end
+
+fn vx i ulong to f32
+r = div i 16
+k = rem i 16
+v = sub mul f32 rem add mul r 31 mul k 17 101 0.37f32 18.0f32
+if eq rem k 5 0
+v = mul v 65536.0f32
+end
+ret v
+end
+
+fn rsum r ulong to f32
+b = mul r 16
+acc = vx b
+for k ulong 15
+acc = add acc vx add b add k 1
+end
+ret acc
+end
+
+fn count to ulong
+if eq get gst 0 0
+ret NVADD
+end
+ret NROWS
+end
+
+fn refv i ulong to f32
+if eq get gst 0 0
+ret add va i vb i
+end
+ret rsum i
+end
+
+fn putu i ulong v uint to void
+o = mul i 4
+for k ulong 4
+put gio add o k uchar and shr v mul uint k 8 255
+end
+end
+
+fn getu i ulong to uint
+o = mul i 4
+v = uint 0
+for k ulong 4
+v = or v shl uint get gio add o k mul uint k 8
+end
+ret v
+end
+
+fn wfile ai ulong nb ulong to void
+n = argread ai gpath 0 len gpath
+if le n 0
+fail 2 tuse
+end
+fd = fopen gpath 0 ulong n 577 420
+if lt fd 0
+fail 3 tio
+end
+r = write int fd gio 0 nb
+if ne r long nb
+fail 3 tio
+end
+c = fclose int fd
+end
+
+fn rfile ai ulong nb ulong to void
+n = argread ai gpath 0 len gpath
+if le n 0
+fail 2 tuse
+end
+fd = fopen gpath 0 ulong n 0 0
+if lt fd 0
+fail 3 tio
+end
+sz = fseek int fd 0 2
+if ne sz long nb
+fail 3 tio
+end
+r = pread int fd gio 0 nb 0
+if ne r long nb
+fail 3 tio
+end
+c = fclose int fd
+end
+
+fn kind ai ulong to void
+put gst 0 9
+if argis ai tvadd
+put gst 0 0
+end
+if argis ai tfsum
+put gst 0 1
+end
+if eq get gst 0 9
+fail 2 tuse
+end
+end
+
+fn doin to void
+ac = argcnt
+if eq get gst 0 0
+if ne ac 5
+fail 2 tuse
+end
+for h ulong div NVADD 4096
+for l ulong 4096
+i = add mul h 4096 l
+putu i bitcast uint va i
+end
+end
+wfile 3 mul NVADD 4
+for h ulong div NVADD 4096
+for l ulong 4096
+i = add mul h 4096 l
+putu i bitcast uint vb i
+end
+end
+wfile 4 mul NVADD 4
+ret
+end
+if ne ac 4
+fail 2 tuse
+end
+n = mul NROWS 16
+for h ulong div n 4096
+for l ulong 4096
+i = add mul h 4096 l
+putu i bitcast uint vx i
+end
+end
+wfile 3 mul n 4
+end
+
+fn doref to void
+n = count
+for h ulong div n 4096
+for l ulong 4096
+i = add mul h 4096 l
+putu i bitcast uint refv i
+end
+end
+wfile 3 mul n 4
+end
+
+fn docheck to int
+n = count
+rfile 3 mul n 4
+wr = ulong 0
+un = ulong 0
+fi = ulong 0
+for h ulong div n 4096
+for l ulong 4096
+i = add mul h 4096 l
+g = getu i
+if eq g POISON
+un = add un 1
+end
+if ne g bitcast uint refv i
+if eq wr 0
+fi = i
+end
+wr = add wr 1
+end
+end
+end
+ot tcf
+if eq get gst 0 0
+ot tvadd
+end
+if eq get gst 0 1
+ot tfsum
+end
+ot tn
+odec n
+ot twr
+odec wr
+ot tun
+odec un
+ot tfi
+if eq wr 0
+ot tnone
+end
+if gt wr 0
+odec fi
+end
+ot tnl
+oflush
+if gt wr 0
+ret 1
+end
+ret 0
+end
+
+fn main to int
+ac = argcnt
+if lt ac 4
+fail 2 tuse
+end
+kind 2
+if argis 1 tin
+doin
+ret 0
+end
+if ne ac 4
+fail 2 tuse
+end
+if argis 1 tref
+doref
+ret 0
+end
+if argis 1 tchk
+ret docheck
+end
+fail 2 tuse
+ret 2
+end

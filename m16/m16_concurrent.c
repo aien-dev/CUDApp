@@ -41,6 +41,7 @@
  * shows up as no_progress.
  */
 #include "m16_native.h"
+#include "cpu_barrier.h"
 #include "m16_gpu_wait.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,7 +55,7 @@
 #define WAIT_TOTAL_MS 2000u  /* hard deadline: same 2 s window as the old wait */
 #define WAIT_STALL_MS 2000u  /* >= hard bound so the pass window is not narrower than the old wait */
 
-static void fence(void) { __asm__ volatile("dsb sy" ::: "memory"); }
+static void fence(void) { nvrm_cpu_barrier(); }
 
 /* Marker stream: bind class, WFI release of payload at marker_va, L2_FLUSH_DIRTY
  * mem-op (NVC96F_MEM_OP_A..D = 0x28..0x34, D bits 31:27 = 0x10), then a second WFI

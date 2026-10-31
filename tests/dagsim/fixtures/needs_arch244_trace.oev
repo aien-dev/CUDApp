@@ -1,0 +1,24 @@
+# OEV1 fixture: Spark M1 hardware passport subset (omega-mv#578), pinned 2026-10-19.
+# Every number below is a loaded-machine measurement (load1 15 to 29) or a datasheet
+# ceiling, and says which. Nothing here was produced by running a GPU in this harness.
+oev version=1
+machine id=spark-b87b soc=GB10 cores=20 mem_bytes=137438953472 prov=specified src=nvidia-dgx-spark-datasheet
+build repo=omega-mv sha=f4a9849f00000000000000000000000000000000 physics=6d7cf0d4
+calibration id=M1-20261019 taken=2026-10-19 valid_days=30 load1=24.2 src=~/yardsticks/aien-model/M1/
+
+# Resources. One capacity ledger for CPU and GPU (unified memory).
+resource id=cpu kind=compute slots=20 prov=specified src=nproc
+resource id=gpu kind=compute slots=1 prov=specified src=one-job-at-a-time-engine
+resource id=dram_spec kind=bandwidth cap=273e9 prov=specified src=nvidia-dgx-spark-datasheet
+resource id=dram_gpu kind=bandwidth cap=218.6e9 lo=218.6e9 hi=219e9 prov=measured src=handoff-2026-10-19-qwen38-decode-speed.md:calc:e726ff77
+resource id=dram_cpu kind=bandwidth cap=65.4e9 lo=60.8e9 hi=69.8e9 prov=measured src=M1/block4.csv:gb=1,threads=8
+resource id=unified_mem kind=capacity cap=137438953472 prov=specified src=nvidia-dgx-spark-datasheet
+resource id=gpu_launch kind=launch prov=measured src=M1/block2.csv
+
+# Ops. The second op needs the aien-architecture#244 objective trace, which was
+# NOT_RUN on 2026-10-19. Unknown stays unknown: this fixture must be refused.
+op id=realize kind=compute engine=cpu t_ns=20000 lo=19400 hi=22800 prov=measured src=M1/block1.csv:path_ns_per_call
+op id=objective_replay kind=compute engine=cpu prov=unknown src=aien-architecture#244:NOT_RUN
+dep realize objective_replay
+
+energy instrument=none

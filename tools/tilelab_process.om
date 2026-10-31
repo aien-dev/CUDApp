@@ -1,0 +1,77 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Shared bounded argument packing and direct child execution. No shell or GPU calls.
+global ta uchar 4096
+global tb uchar 4096
+global tp ulong 2
+global tw uchar 4096
+global tn ulong 1
+global ts uchar 4
+fn tl_clear to void
+put tp 0 2
+put tp 1 0
+end
+fn tl_add to void
+n = get tn 0
+p = get tp 0
+if or ge get tp 1 64 gt add add p n 2 4096
+exit 90
+end
+put ta p uchar and n 255
+put ta add p 1 uchar shr n 8
+for i ulong n
+put ta add add p 2 i get tb i
+end
+put tp 0 add add p 2 n
+put tp 1 add get tp 1 1
+end
+fn tl_arg idx ulong to void
+n = argread idx tb 0 4095
+if lt n 0
+exit 90
+end
+put tn 0 ulong n
+end
+fn tl_word idx ulong to void
+note Both scans advance p once per pass through the fixed 4096-byte word pool.
+p = ulong 0
+k = ulong 0
+while lt k idx bound 4096
+if ge p len tw
+exit 90
+end
+if eq get tw p 10
+k = add k 1
+end
+p = add p 1
+end
+n = ulong 0
+while lt p len tw bound 4096
+if eq get tw p 10
+break
+end
+put tb n get tw p
+n = add n 1
+p = add p 1
+end
+put tn 0 n
+end
+fn tl_run to int
+put ta 0 uchar get tp 1
+put ta 1 0
+pid = fork
+if lt pid 0
+ret 91
+end
+if eq pid 0
+r = execprog ta 0 get tp 0
+exit 127
+end
+r = waitpid int pid ts 0 4 0
+if ne r pid
+ret 91
+end
+if ne get ts 0 0
+ret 92
+end
+ret int get ts 1
+end

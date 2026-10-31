@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "test_out_file.h"
 
 static int g_checks, g_failed;
 #define CHECK(cond, ...) do { g_checks++; if (!(cond)) { g_failed++; printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -48,7 +49,10 @@ static void weights_free(Weights *W) { free(W->w); free(W->s); }
  * bytes (word, byte), acc = fma(dot, S', acc), then the SHFL.DOWN tree 16..1. w: the row's k bytes, s: its k/128 scale words
  * (bf16 bits of one 128-row block), x: natural-order activation row. */
 static float emu_row(const uint8_t *w, const uint16_t *s, const float *x, uint32_t k, uint32_t lb) {
-    float xp[16384]; omega_fp8_pack_x_f32(x, k, xp);
+    /* static, not 64 KB of stack (omega#456); this test runs one thread. k is bounded by OMEGA_FP8_MAX_K (16384). */
+    static float xp[16384];
+    if (k > sizeof xp / sizeof xp[0]) { fprintf(stderr, "emu_row: k=%u exceeds %zu\n", k, sizeof xp / sizeof xp[0]); exit(2); }
+    omega_fp8_pack_x_f32(x, k, xp);
     float a[32]; const uint32_t steps = k / (32u * lb);
     for (unsigned lane = 0; lane < 32; lane++) {
         float acc = 0.0f;
@@ -458,7 +462,7 @@ int main(int argc, char **argv) {
         if (mt || warps) omega_gpu_fp8gemm_set_shape(mt, warps);
         if (ctas) omega_gpu_fp8gemm_set_cta_budget(ctas);
         (void)omega_gpu_session_set_spin_us(spin);
-        if (out_path) { g_out = fopen(out_path, "w"); if (g_out) fprintf(g_out, "{\"receipt\":\"OMEGA_GPU_FP8GEMM_V1\",\"reps\":%u,\"evict\":%d,\"tokens\":%u,\"spin_us\":%u,\"points\":[", reps ? reps : 1, g_evict, tokens, omega_gpu_session_spin_us()); }
+        if (out_path) { g_out = test_out_open(out_path); if (g_out) fprintf(g_out, "{\"receipt\":\"OMEGA_GPU_FP8GEMM_V1\",\"reps\":%u,\"evict\":%d,\"tokens\":%u,\"spin_us\":%u,\"points\":[", reps ? reps : 1, g_evict, tokens, omega_gpu_session_spin_us()); }
         for (unsigned i = 0; i < 5; i++) if ((!strcmp(shape, "all") && i < 4) || !strcmp(shape, shapes[i].name)) run_shape(&shapes[i], reps ? reps : 1, 1000 + i);
         if (g_out) { fprintf(g_out, "],\"checks\":%d,\"failed\":%d,\"verdict\":\"%s\"}\n", g_checks, g_failed, !g_checks ? "NOT_RUN" : g_failed ? "FAIL" : "PASS"); fclose(g_out); }
         omega_gpu_session_close();

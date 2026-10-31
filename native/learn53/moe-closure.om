@@ -1,0 +1,935 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note #35/#53/#159 joint operation instance binding, NOT qualification or authentication.
+note Dependencies: authoritative moe_windows/moe_alias, compose_check/launchread and kc SHA.
+note Canonical LE64 scalar128, SHA256 groups64, ordered window LE64 cells1024.
+note Exact active11264 in capacity16384; all reserved/inactive/capacity bytes zero.
+fn mc_word b view uchar 16384 i ulong to ulong
+v = ulong 0
+for j ulong 8
+v = or v shl ulong get b add mul i 8 j mul j 8
+end
+ret v
+end
+fn mc_put b edit uchar 16384 i ulong v ulong to void
+for j ulong 8
+put b add mul i 8 j uchar and shr v mul j 8 255
+end
+end
+fn mc_hash b view uchar 16384 i ulong h view uchar 32 to bool
+if ge i 64
+ret false
+end
+for j ulong 32
+if ne get b add add 1024 mul i 32 j get h j
+ret false
+end
+end
+ret true
+end
+fn mc_base i ulong to ulong
+if lt i 8
+ret add 32 mul i 4
+end
+ret add 80 mul sub i 8 4
+end
+fn mc_need b view uchar 16384 i ulong to ulong
+n = mc_word b 5
+if lt i 4
+width = ulong 144
+if lt i 2
+width = 32
+end
+ret add mul sub n 1 mc_word b 16 width
+end
+if lt i 6
+ret mul mc_word b 74 32
+end
+if lt i 8
+ret mul mc_word b 73 4
+end
+if eq i 8
+ret mul mul n mc_word b 9 4
+end
+if eq i 9
+ret mul mul mul n 9 mc_word b 10 8
+end
+if lt i 12
+ret mul mul mul n 9 mc_word b 10 4
+end
+if eq i 12
+ret mul mul mul n 9 mc_word b 9 4
+end
+if eq i 13
+ret mul mul n mc_word b 9 4
+end
+note Tensor extents come from immutable tensor/directory owner, not a guessed packing.
+ret 1
+end
+fn mc_ranges b view uchar 16384 to long
+r = new ulong 16 0
+for i ulong 16
+p = mc_base i
+va = mc_word b p
+size = mc_word b add p 1
+if or eq va 0 ne rem va 8 0
+ret 3
+end
+if lt size mc_need b i
+ret 3
+end
+if gt va sub ulong 18446744073709551615 size
+ret 3
+end
+wantgen = mc_word b 19
+if ge i 14
+wantgen = mc_word b 22
+end
+if ne mc_word b add p 2 wantgen
+ret 3
+end
+if eq mc_word b add p 3 0
+ret 3
+end
+end
+note GROUP's existing span/alias checker is authoritative; no alternate overlap algorithm.
+put r 0 add mc_word b 32 mul mc_word b 6 mc_word b 16
+put r 1 add mc_word b 40 mul mc_word b 6 mc_word b 16
+put r 2 add mc_word b 44 mul mc_word b 6 mc_word b 16
+put r 3 mc_word b 48
+put r 4 mc_word b 52
+put r 5 mc_word b 56
+put r 6 mc_word b 60
+put r 7 mc_word b 16
+put r 8 mc_word b 7
+if moe_alias r
+ret 3
+end
+for i ulong 4
+if ne mc_word b add mc_base i 3 mc_word b 16
+ret 3
+end
+end
+for i ulong 2
+if ne mc_word b add mc_base add i 4 3 32
+ret 3
+end
+if ne mc_word b add mc_base add i 6 3 4
+ret 3
+end
+end
+if ne mc_word b 83 mul mc_word b 9 4
+ret 3
+end
+if ne mc_word b 87 mul mul ulong 9 mc_word b 10 8
+ret 3
+end
+for i ulong 2
+if ne mc_word b add 91 mul i 4 mul mul ulong 9 mc_word b 10 4
+ret 3
+end
+end
+if ne mc_word b 99 mul mul ulong 9 mc_word b 9 4
+ret 3
+end
+if ne mc_word b 103 mul mc_word b 9 4
+ret 3
+end
+ret 0
+end
+fn mc_windows b view uchar 16384 to long
+cfg = new ulong 8 0
+rows = new ulong 1024 0
+meta = new ulong 4 0
+put cfg 0 1
+put cfg 1 mc_word b 5
+put cfg 2 mc_word b 9
+put cfg 3 mc_word b 10
+put cfg 4 mc_word b 13
+put cfg 5 mc_word b 16
+put cfg 6 mc_word b 15
+put cfg 7 mc_word b 75
+if ne moe_windows cfg edit rows edit meta 0
+ret 2
+end
+if ne get meta 0 mc_word b 3
+ret 2
+end
+for i ulong 1024
+if ne mc_word b add 384 i get rows i
+ret 2
+end
+end
+p = mul mc_word b 4 8
+for i ulong 3
+if ne mc_word b add 6 i get rows add p i
+ret 2
+end
+end
+ret 0
+end
+fn mc_valid b view uchar 16384 n ulong to long
+if ne n 11264
+ret 1
+end
+if or ne mc_word b 0 2 ne mc_word b 1 159
+ret 1
+end
+if ne mc_word b 2 n
+ret 1
+end
+if or eq mc_word b 3 0 gt mc_word b 3 128
+ret 1
+end
+if ge mc_word b 4 mc_word b 3
+ret 1
+end
+if or eq mc_word b 5 0 gt mc_word b 5 128
+ret 1
+end
+if or ne mc_word b 9 2048 ne mc_word b 10 512
+ret 2
+end
+if or ne mc_word b 11 256 ne mc_word b 12 8
+ret 2
+end
+if or ne mc_word b 13 9 ne mc_word b 14 256
+ret 2
+end
+if ne mc_word b 15 128
+ret 2
+end
+if or lt mc_word b 16 144 gt mc_word b 16 4294967295
+ret 2
+end
+if ne rem mc_word b 16 16 0
+ret 2
+end
+note Epoch0 is valid; identities match owner context separately.
+if ne mc_word b 18 121
+ret 2
+end
+if eq mc_word b 20 0
+ret 1
+end
+if or eq mc_word b 77 0 ge mc_word b 21 mc_word b 77
+ret 1
+end
+lastly = ulong 0
+if eq add mc_word b 21 1 mc_word b 77
+lastly = 1
+end
+if ne mc_word b 78 lastly
+ret 2
+end
+if ne mc_word b 23 0
+ret 2
+end
+for i ulong 8
+if ne mc_word b add 24 i 1
+ret 2
+end
+end
+for i ulong 9
+if ne mc_word b add 64 i i
+ret 2
+end
+end
+if or ne mc_word b 73 add mul mc_word b 5 9 8 ne mc_word b 74 128
+ret 2
+end
+if or ne mc_word b 75 0 gt mc_word b 76 1
+ret 2
+end
+if ne mc_word b 79 1
+ret 2
+end
+note Window-local X/Y, GU X/Y, DN Y/Y, padding8, duplicate-preserving sort.
+if or ne mc_word b 112 1 ne mc_word b 113 2
+ret 2
+end
+if or ne mc_word b 114 2 ne mc_word b 115 2
+ret 2
+end
+if ne mc_word b 116 8
+ret 2
+end
+for i ulong 5
+if ne mc_word b add 117 i 1
+ret 2
+end
+end
+for i ulong 2
+v = mc_word b add 122 i
+if or eq v 0 gt v 16384
+ret 1
+end
+if ne rem v 16 0
+ret 1
+end
+end
+for i ulong 4
+if ne mc_word b add 124 i 0
+ret 1
+end
+end
+for i ulong 64
+nz = uchar 0
+for j ulong 32
+nz = or nz get b add add 1024 mul i 32 j
+end
+if eq nz 0
+ret 1
+end
+end
+for i ulong 5120
+if ne get b add 11264 i 0
+ret 1
+end
+end
+s = mc_windows b
+if ne s 0
+ret s
+end
+ret mc_ranges b
+end
+fn mc_bind want view uchar 16384 got view uchar 16384 n ulong out edit uchar 32 to long
+for i ulong 32
+put out i 0
+end
+s = mc_valid want n
+if ne s 0
+ret s
+end
+s = mc_valid got n
+if ne s 0
+ret s
+end
+for i ulong 11264
+if ne get want i get got i
+ret 4
+end
+end
+if ne kc_codesha got n edit out 0
+ret 1
+end
+ret 0
+end
+fn mc_limb b view uchar 16384 group ulong limb ulong to ulong
+ret mc_word b add add 128 mul group 4 limb
+end
+fn mc_context b view uchar 16384 q view ulong 64 row view ulong 64 role ulong to long
+if ne mc_valid b 11264 0
+ret 1
+end
+if or gt role 1 ne get q 0 1
+ret 5
+end
+if ne get row 0 3
+ret 5
+end
+for i ulong 4
+if ne get q add i 3 mc_word b add i 17
+ret 5
+end
+if ne get row add i 17 get q add i 3
+ret 5
+end
+end
+for i ulong 6
+group = add i 38
+if and eq role 1 ge i 4
+group = add i 49
+end
+for j ulong 4
+v = mc_limb b group j
+if ne get q add add 14 mul i 4 j v
+ret 5
+end
+if ne get row add add 33 mul i 4 j v
+ret 5
+end
+end
+end
+for i ulong 4
+if ne get row add 21 i mc_limb b add 22 mul role 8 i
+ret 5
+end
+if ne get row add 25 i mc_limb b add 24 mul role 8 i
+ret 5
+end
+if ne get row add 29 i mc_limb b 44 i
+ret 5
+end
+if ne get row add 57 i mc_limb b add 23 mul role 8 i
+ret 5
+end
+end
+ret 0
+end
+fn mc_bindctx want view uchar 16384 got view uchar 16384 q view ulong 64 row view ulong 64 role ulong out edit uchar 32 to long
+for i ulong 32
+put out i 0
+end
+s = mc_context got q row role
+if ne s 0
+ret s
+end
+ret mc_bind want got 11264 edit out
+end
+fn mc_chashes b view uchar 16384 c view uchar 4096 role ulong to long
+h = new uchar 32 0
+q = new uchar 4096 0
+for k ulong 3
+pos = add 544 mul k 32
+for i ulong 32
+put h i get c add pos i
+end
+if not mc_hash b add k 4 h
+ret 6
+end
+end
+for i ulong 32
+put h i get c add 512 i
+end
+if not mc_hash b add 61 role h
+ret 6
+end
+if ne kc_sha c 1152 edit h 0
+ret 6
+end
+if not mc_hash b add 22 mul role 8 h
+ret 6
+end
+for i ulong 384
+put q i get c add 768 i
+end
+if ne kc_sha q 384 edit h 0
+ret 6
+end
+if not mc_hash b add 29 mul role 8 h
+ret 6
+end
+ret 0
+end
+fn mc_codeblob b view uchar 16384 c view uchar 4096 code view uchar 16384 n ulong role ulong to long
+h = new uchar 32 0
+if ne kc_codesha code n edit h 0
+ret 6
+end
+if not compose_codeid c h
+ret 6
+end
+if not mc_hash b add 23 mul role 8 h
+ret 6
+end
+ret 0
+end
+fn mc_launchblob b view uchar 16384 c view uchar 4096 l view uchar 256 role ulong to long
+h = new uchar 32 0
+lw = new uchar 4096 0
+for i ulong 256
+put lw i get l i
+end
+if ne compose_launchread c lw 256 0
+ret 6
+end
+if ne kc_sha lw 256 edit h 0
+ret 6
+end
+if not compose_launchid c h
+ret 6
+end
+if not mc_hash b add 24 mul role 8 h
+ret 6
+end
+for k ulong 3
+pos = add 120 mul k 32
+for i ulong 32
+put h i get l add pos i
+end
+group = add add 26 mul role 8 k
+if not mc_hash b group h
+ret 6
+end
+end
+ret 0
+end
+fn mc_blob b view uchar 16384 c view uchar 4096 code view uchar 16384 n ulong l view uchar 256 role ulong to long
+if gt role 1
+ret 1
+end
+if ne mc_valid b 11264 0
+ret 1
+end
+note Preserve canonical family3 refusal. No host result can replace that gate.
+if ne compose_word c 19 3
+ret 6
+end
+if ne compose_check c 1152 0
+ret 6
+end
+if or eq n 0 gt n 16384
+ret 6
+end
+if ne rem n 16 0
+ret 6
+end
+if ne n mc_word b add 122 role
+ret 6
+end
+if ne compose_word c 4 mc_word b 8
+ret 6
+end
+if eq role 0
+if or ne compose_word c 5 mul mc_word b 10 2 ne compose_word c 6 mc_word b 9
+ret 6
+end
+else
+if or ne compose_word c 5 mc_word b 9 ne compose_word c 6 mc_word b 10
+ret 6
+end
+end
+if ne mc_chashes b c role 0
+ret 6
+end
+if ne mc_codeblob b c code n role 0
+ret 6
+end
+ret mc_launchblob b c l role
+end
+note Custody identities are frozen executor metadata, not candidate claims or signed receipts.
+note ctx/got32: version1,class1HOST_ONLY,instance4,evaluator4,source4,resultprotocol4,
+note approved subject4,independently frozen qualification-context4,reserved6zero.
+note No device class accepted here; existing independent owner handles actual qualification.
+fn mc_custody b view uchar 16384 held view uchar 32 ctx view ulong 32 got view ulong 32 to long
+h = new uchar 32 0
+if ne mc_valid b 11264 0
+ret 1
+end
+if ne kc_codesha b 11264 edit h 0
+ret 1
+end
+for i ulong 32
+if ne get held i get h i
+ret 5
+end
+end
+if or ne get ctx 0 1 ne get ctx 1 1
+ret 5
+end
+for i ulong 32
+if ne get ctx i get got i
+ret 5
+end
+end
+for i ulong 4
+v = ulong 0
+for j ulong 8
+v = or v shl ulong get h add mul i 8 j mul j 8
+end
+if ne get ctx add i 2 v
+ret 5
+end
+if ne get ctx add i 6 mc_limb b 7 i
+ret 5
+end
+if ne get ctx add i 10 mc_limb b 3 i
+ret 5
+end
+end
+for i ulong 4
+if ne get ctx add i 14 mc_limb b 63 i
+ret 5
+end
+if ne get ctx add i 18 mc_limb b 39 i
+ret 5
+end
+if ne get ctx add i 22 mc_limb b 44 i
+ret 5
+end
+end
+for i ulong 6
+if ne get ctx add i 26 0
+ret 5
+end
+end
+ret 0
+end
+fn mc_pack scalars view ulong 128 hashes view uchar 2048 windows view ulong 1024 out edit uchar 16384 to long
+for i ulong 16384
+put out i 0
+end
+for i ulong 128
+mc_put edit out i get scalars i
+end
+for i ulong 2048
+put out add 1024 i get hashes i
+end
+for i ulong 1024
+mc_put edit out add 384 i get windows i
+end
+s = mc_valid out 11264
+if ne s 0
+for i ulong 16384
+put out i 0
+end
+end
+ret s
+end
+note Nested live-instance preimages, not admitted native artifact template identities.
+note All input arrays and out32 MUST be disjoint; existing owner supplies actual retained snapshots.
+fn mc_clear out edit uchar 32 to void
+for i ulong 32
+put out i 0
+end
+end
+fn mc_code code view uchar 16384 n ulong out edit uchar 32 to long
+mc_clear edit out
+if or eq n 0 or gt n 16384 ne rem n 16 0
+ret 1
+end
+if ne kc_codesha code n edit out 0
+ret 6
+end
+ret 0
+end
+fn mc_submit m view ulong 32 s view ulong 16 to long
+if or ne get s 0 1 or ne get s 1 159 ne get s 2 4
+ret 1
+end
+if or eq get s 3 0 ne get s 3 get m 7
+ret 1
+end
+if or gt get s 4 1 gt get s 5 4
+ret 2
+end
+if or eq get s 6 0 gt get s 7 1000000
+ret 1
+end
+if or gt get s 8 1 or ne get s 9 0 gt get s 10 1
+ret 2
+end
+if or eq get s 11 0 or gt get s 11 4096 ge get m 6 get s 11
+ret 1
+end
+for i ulong 4
+if ne get s add 12 i 0
+ret 1
+end
+end
+ret 0
+end
+fn mc_qword q view uchar 1024 off ulong to ulong
+v = ulong 0
+for i ulong 4
+v = or v shl ulong get q add off i mul i 8
+end
+ret v
+end
+fn mc_qcode q view uchar 1024 to ulong
+low = shl mc_qword q 128 4
+high = and mc_qword q 132 sub shl ulong 1 21 1
+ret or low shl high 36
+end
+fn mc_lmeta m view ulong 32 qmd view uchar 1024 to long
+if or ne get m 0 1 or ne get m 1 159 ne get m 2 1
+ret 1
+end
+if or gt get m 3 5 or eq get m 4 0 gt get m 4 32
+ret 1
+end
+n = get m 5
+if eq n 0
+ret 1
+end
+if gt n 16384
+ret 1
+end
+if ne rem n 16 0
+ret 1
+end
+if or eq get m 7 0 gt get m 8 1
+ret 1
+end
+if ne rem get m 9 8 0
+ret 3
+end
+if eq get m 10 0
+ret 3
+end
+if ne rem get m 10 16 0
+ret 3
+end
+if ne mc_qcode qmd get m 10
+ret 3
+end
+for i ulong 21
+if ne get m add 11 i 0
+ret 1
+end
+end
+ret 0
+end
+fn mc_lbytes bank view uchar 1024 qmd view uchar 1024 n ulong b edit uchar 16384 to ulong
+off = ulong 384
+for i ulong add 896 mul n 4
+put b add off i get bank i
+end
+off = add off add 896 mul n 4
+for i ulong 384
+put b add off i get qmd i
+end
+off = add off 384
+for i ulong 384
+put b add off i get qmd add 512 i
+end
+ret add off 384
+end
+fn mc_launch m view ulong 32 bank view uchar 1024 qmd view uchar 1024 s view ulong 16 out edit uchar 32 to long
+mc_clear edit out
+st = mc_lmeta m qmd
+if ne st 0
+ret st
+end
+st = mc_submit m s
+if ne st 0
+ret st
+end
+b = new uchar 16384 0
+for i ulong 32
+mc_put edit b i get m i
+end
+for i ulong 16
+mc_put edit b add 32 i get s i
+end
+n = mc_lbytes bank qmd get m 4 edit b
+if ne kc_codesha b n edit out 0
+ret 6
+end
+ret 0
+end
+fn mc_dir m view ulong 8 entries view ulong 1024 out edit uchar 32 to long
+mc_clear edit out
+if or ne get m 0 1 or ne get m 1 159 ne get m 2 2
+ret 1
+end
+if or gt get m 3 1 or ne get m 4 257 eq get m 5 0
+ret 1
+end
+if or gt get m 6 4294967295 ne get m 7 0
+ret 1
+end
+b = new uchar 16384 0
+for i ulong 8
+mc_put edit b i get m i
+end
+for i ulong 1024
+if lt i 514
+if or eq get entries i 0 ne rem get entries i 8 0
+ret 3
+end
+mc_put edit b add 8 i get entries i
+else
+if ne get entries i 0
+ret 1
+end
+end
+end
+if ne kc_codesha b 4176 edit out 0
+ret 6
+end
+ret 0
+end
+fn mc_record r view ulong 1024 i ulong to long
+p = mul i 16
+if ge get r p 64
+ret 1
+end
+if ne i 0
+if le get r p get r sub p 16
+ret 1
+end
+end
+if or gt get r add p 1 4294967295 or eq get r add p 2 0 gt get r add p 2 4294967295
+ret 1
+end
+if or lt get r add p 3 2 gt get r add p 3 4
+ret 1
+end
+va = get r add p 4
+size = get r add p 5
+rv = get r add p 6
+avail = get r add p 7
+if or eq va 0 ne rem va 8 0
+ret 3
+end
+if or eq size 0 gt va sub ulong 18446744073709551615 size
+ret 3
+end
+if or lt rv va ge rv add va size
+ret 3
+end
+if or eq avail 0 gt avail sub add va size rv
+ret 3
+end
+if or ne rem rv 8 0 eq get r add p 8 0
+ret 3
+end
+for j ulong 7
+if ne get r add add p 9 j 0
+ret 1
+end
+end
+ret 0
+end
+fn mc_backing r view ulong 1024 i ulong to long
+p = mul i 16
+for j ulong i
+q = mul j 16
+if eq get r add p 1 get r add q 1
+if ne get r add p 2 get r add q 2
+ret 3
+end
+for k ulong 3
+if ne get r add add p 3 k get r add add q 3 k
+ret 3
+end
+end
+end
+end
+ret 0
+end
+fn mc_alloc m view ulong 8 r view ulong 1024 out edit uchar 32 to long
+mc_clear edit out
+if or ne get m 0 1 or ne get m 1 159 ne get m 2 3
+ret 1
+end
+if or eq get m 3 0 gt get m 3 64
+ret 1
+end
+for i ulong 3
+if eq get m add 4 i 0
+ret 1
+end
+end
+if ne get m 7 0
+ret 1
+end
+for i ulong get m 3
+st = mc_record r i
+if ne st 0
+ret st
+end
+st = mc_backing r i
+if ne st 0
+ret st
+end
+end
+base = mul get m 3 16
+for i ulong sub ulong 1024 base
+if ne get r add base i 0
+ret 1
+end
+end
+b = new uchar 16384 0
+for i ulong 8
+mc_put edit b i get m i
+end
+for i ulong 1024
+mc_put edit b add 8 i get r i
+end
+if ne kc_codesha b 8256 edit out 0
+ret 6
+end
+ret 0
+end
+note Every occurrence is retained; code and launch series share the owner's actual-entry order.
+fn mc_smeta m view ulong 8 ord view ulong 128 to long
+if or ne get m 0 1 or ne get m 1 159 ne get m 2 5
+ret 1
+end
+if or gt get m 3 5 gt get m 4 1
+ret 1
+end
+if or eq get m 5 0 gt get m 5 128
+ret 1
+end
+if eq get m 4 0
+if or ne get m 6 0 ne get m 7 0
+ret 1
+end
+for i ulong 128
+if ne get ord i 0
+ret 1
+end
+end
+ret 0
+end
+if or eq get m 6 0 or eq get m 7 0 gt get m 7 4096
+ret 1
+end
+for i ulong 128
+if lt i get m 5
+if ge get ord i get m 7
+ret 1
+end
+if gt i 0
+if le get ord i get ord sub i 1
+ret 1
+end
+end
+else
+if ne get ord i 0
+ret 1
+end
+end
+end
+ret 0
+end
+fn mc_sdigs hashes view uchar 4096 n ulong to long
+for i ulong 128
+v = uchar 0
+for j ulong 32
+if lt i n
+v = or v get hashes add mul i 32 j
+else
+if ne get hashes add mul i 32 j 0
+ret 1
+end
+end
+end
+if and lt i n eq v 0
+ret 3
+end
+end
+ret 0
+end
+fn mc_series m view ulong 8 hashes view uchar 4096 ord view ulong 128 out edit uchar 32 to long
+mc_clear edit out
+if ne mc_smeta m ord 0
+ret 1
+end
+st = mc_sdigs hashes get m 5
+if ne st 0
+ret st
+end
+b = new uchar 16384 0
+for i ulong 8
+mc_put edit b i get m i
+end
+off = ulong 64
+if eq get m 4 1
+for i ulong 128
+mc_put edit b add 8 i get ord i
+end
+off = ulong 1088
+end
+for i ulong 4096
+put b add off i get hashes i
+end
+if ne kc_codesha b add off 4096 edit out 0
+mc_clear edit out
+ret 6
+end
+ret 0
+end

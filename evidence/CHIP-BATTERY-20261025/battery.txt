@@ -1,0 +1,12 @@
+elementwise      rc=0   PASS: 35 checks, 0 failed
+matmul_api       rc=0   PASS: 97 checks, 0 failed
+attention        rc=0   PASS: 219 checks, 0 failed
+decode_attn      rc=0   gpu_decode_attn_test: 29 checks, 0 failed: PASS
+router           rc=0   gpu_router_test: 17 checks, 0 failed: PASS
+bf16_gemv        rc=0   gpu_bf16_gemv_test: 12 checks, 0 failed: PASS
+fp8gemm          rc=0   gpu_fp8gemm_test: 36 checks, 0 failed: PASS
+moe_window       rc=0   PASS: 143 checks, 0 failed
+cmdlist          rc=0   chip: 31 checks, 0 failed: PASS
+decode_graph     rc=0   chip: 13 checks, 0 failed: PASS
+tcgemm           rc=0   GPU_TCGEMM: PASS
+prefill_attn     rc=0   gpu_prefill_attn_test: 164 checks, 0 failed: PASS

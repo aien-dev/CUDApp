@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "test_out_file.h"
 
 static int g_checks, g_failed;
 #define CHECK(cond, ...) do { g_checks++; if (!(cond)) { g_failed++; printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -95,7 +96,7 @@ static void host_only(void) {
 typedef struct { uint32_t k, n, m, cols, nwin; const char *name; int big; } Case;
 
 static int chip(const char *out_path, int calls, int small) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
     if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_MOE_WINDOW_V1\",\"cta_budget\":%u,\"spin_us\":%u,\"calls\":%d,\"cases\":[",
                      omega_gpu_moe_cta_budget(), omega_gpu_session_spin_us(), calls);

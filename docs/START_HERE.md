@@ -6,7 +6,7 @@ This is the shortest route for someone who has not worked on AIEN. The repositor
 
 | Path | What it establishes | Current boundary |
 | --- | --- | --- |
-| Build and host tests | Compiles the library and checks host references, simulators, negative controls and API contracts. | Linux is the documented build environment. The full suite has previously passed on the DGX Spark host; fresh x86-64 portability remains tracked in [#15](https://github.com/aien-dev/CUDApp/issues/15). |
+| Build and host tests | Compiles the library and checks host references, simulators, negative controls and API contracts. | Linux with gcc. `make test` is the portable suite on x86-64 and on AArch64. It needs no NVIDIA tool and no sibling checkout. Target-only checks name their requirement (`docs/OMEGA_HOST_TESTS.md`, [#15](https://github.com/aien-dev/CUDApp/issues/15)). |
 | `build/hello_gpu --sim` | Runs the example through the **host simulator** and checks its answers. | No GPU is opened; this is **not** hardware qualification or a performance result. |
 | `make doctor` | Reports whether the current Linux host matches the supported native GPU path. | Read-only diagnostic; a non-GB10 host is expected to report NOT READY. |
 | `make hello-gpu` | Runs the vector-add example on the actual GPU and checks output against the CPU. | Qualified target: NVIDIA GB10 (DGX Spark, sm_121), Linux, kernel driver 580.173.02. Requires safe, authorized GPU access. |
@@ -32,9 +32,72 @@ build/hello_gpu --sim
 
 `make test` is the host-only suite. Its success marker is `CUDA++ HOST TESTS PASS (<count> targets)`; `<count>` is computed from the current `HOST_TESTS` manifest in `Makefile`, not a fixed historical count. The suite contains intentional failure/mutation cases: judge the **exit code and final result**, not the presence of the words FAIL/ERROR in intermediate logs. It can take several minutes. `make zero-cuda-gate` inspects ELF metadata and runs its own negative control; it is **not** a proof that kernel drivers or firmware have disappeared.
 
-If an x86-64 checkout fails on an architecture-specific instruction, record the full error and compare with [the existing reproducibility issue #15](https://github.com/aien-dev/CUDApp/issues/15). Do not suppress the memory-ordering instruction or call a partial host run a passing full suite.
+The code-allocation source scan inside `make test` expands only existing source files and refuses an empty readset, a missing/unreadable input, or any scanner error. Its negative controls also require the intended refusal diagnostic, so a setup failure cannot count as detecting forbidden allocation sizing. A clean scan is only a check of the selected source idioms, not GPU execution evidence.
 
-Optional: `python3 tools/figures/make_figures.py --check` verifies that README diagrams match the generator. Check it on your exact commit.
+On x86-64, `make test-gpu-native-runtime` is outside `make test` and exits 2.
+On AArch64 it extends the existing session-platform fixture
+with generated native Quant, Composer, encoder, residency and selector calls,
+then the actual FP8 cache and command-list integration. Platform handles are
+synthetic host fixtures, not live GPU handles. Recorded/inflight references
+remain pinned on timeout; only observed completion or confirmed session
+teardown permits their retirement. This does not qualify or activate native
+candidates: production graph state remains absent until the existing
+independent receipt/admission path accepts exact artifacts.
+
+The same host fixture executes the actual graph recording and incumbent
+nonempty-submit adapters. It checks that successful command-list ordinals are
+not mistaken for error status. Paired submission has independent per-buffer
+QMD-publication controls: omission for either queue must refuse. No synthetic
+completion or handle is hardware or full-model evidence.
+
+`make test-portable-receipts` is part of `make test` on AArch64 and needs full Git
+history, `OMEGA_OMC`, and `OMEGA_BRIDGE`. Public derived receipts substitute
+`$AIEN_RECEIPT_HOME` for the producer's HOME prefix. Their metadata states the
+original Git blob, original SHA-256, exact substitution rule, and scrubbed
+payload SHA-256. The scrubbed hash domain is the document with exactly its
+inserted metadata line removed; `tests/portable_receipts.tsv` also pins the
+complete derived-file SHA-256. The `.om` checker reconstructs original bytes
+from each derivative and compares both hashes and the immutable original Git
+blob, with refusal controls. Originals and historical commits are unchanged.
+On x86-64 the same target is outside `make test` and exits 2, because the
+pinned compiler is not part of the portable suite.
+
+Canonical consumer integration is meant to use one single-commit `cudapp.lock`
+in Omega, not a second artifact or qualification registry. That lock does not
+exist on omega-mv main yet: `cudapp.lock`, the `check-cudapp` make target and
+`tools/cudapp-stage.sh` are proposed in the open draft
+[omega-mv#924](https://github.com/aien-dev/omega-mv/pull/924). That isolated
+Omega consumer cutover builds an authenticated committed source archive and
+links its actual callers to that canonical library; with #924 checked out:
+
+```sh
+OMEGA_OMC=/absolute/path/to/pinned/omc \
+OMEGA_BRIDGE=/absolute/path/to/pinned/omega-bridge \
+make -C /absolute/path/to/Omega check-cudapp \
+  CUDAPP_DIR=/absolute/path/to/committed/CUDApp
+```
+
+`tools/cudapp-stage.sh` verifies the exact lock, exports committed source,
+requires native-unit regeneration agreement, and builds the canonical archive.
+Fresh compiled Omega guards authenticate the staged source and emit its
+source/archive/library provenance. Working checkout edits are not archived.
+Consumer headers resolve from `stage/source`; the library is
+`stage/build/libcudapp.a`, linked after the Omega CPU/evidence adapter companion.
+Wrong/missing pins and changed staged source refuse; `LOCK_CHECK` is not a
+bypass. No merge, deployment, live serving consumption, chip qualification or
+default native activation follows from this development cutover.
+
+The acceptance boundaries remain [#5](https://github.com/aien-dev/CUDApp/issues/5)
+and [#106](https://github.com/aien-dev/CUDApp/issues/106). Historical extraction
+maps and receipts remain unchanged. The obsolete
+[consumer PR #618](https://github.com/aien-dev/omega-mv/pull/618) used an older
+pin and different source-check contract; it is not the canonical cutover base.
+
+On x86-64, `make test` is the portable host suite. Production `dsb sy` stays on AArch64 (`nvrm/cpu_barrier.h`). The x86-64 publication barrier is a real sequentially consistent fence. A target-only check that names its requirement and exits 2 is not a pass of that check. The two lists are in [docs/OMEGA_HOST_TESTS.md](OMEGA_HOST_TESTS.md) ([#15](https://github.com/aien-dev/CUDApp/issues/15)). The x86-64 device path returns `ENOTSUP` and the text `requires AArch64 Linux`. That path is not a supported GPU run.
+
+`python3 tools/figures/make_figures.py --check` verifies that the README diagrams, including `docs/img/stack.svg`, match `tools/figures/make_figures.py`. It must print `figures current:` and exit 0. Pull requests run that check. When the generator changes, commit the regenerated SVG in the same change. A diagram that disagrees with the generator fails the check.
+
+Pull requests also run `make -j4`, `make test-native-artifact`, `make zero-cuda-gate`, `build/hello_gpu --sim` and read-only `make doctor` on `ubuntu-24.04-arm`. `make test` runs as the `host-tests` job. None of those jobs open a GPU. What a green check means is [docs/CI_ACCEPTANCE.md](CI_ACCEPTANCE.md).
 
 ## 3. Diagnose a native GPU machine
 

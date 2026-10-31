@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* gpu_scan_test.c -- row C3 of docs/OMEGA.md: reductions and prefix sums of any length, bit-exact against the
  * frozen-order host reference (src/omega_gpu_scan.h).
  *

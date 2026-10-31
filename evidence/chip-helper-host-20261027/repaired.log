@@ -1,0 +1,14 @@
+test_c4_keeps_the_default_count_when_omitted (__main__.ChipHelperTests.test_c4_keeps_the_default_count_when_omitted) ... ok
+test_c4_refuses_malformed_or_unrepresentable_counts (__main__.ChipHelperTests.test_c4_refuses_malformed_or_unrepresentable_counts) ... ok
+test_c4_refuses_zero_without_running_a_child (__main__.ChipHelperTests.test_c4_refuses_zero_without_running_a_child) ... ok
+test_c4_rejects_child_failure_and_missing_verdict (__main__.ChipHelperTests.test_c4_rejects_child_failure_and_missing_verdict) ... ok
+test_c4_runs_the_requested_number_under_the_lock (__main__.ChipHelperTests.test_c4_runs_the_requested_number_under_the_lock) ... ok
+test_contended_lock_prevents_any_child (__main__.ChipHelperTests.test_contended_lock_prevents_any_child) ... ok
+test_l136_holds_the_lock_for_every_child (__main__.ChipHelperTests.test_l136_holds_the_lock_for_every_child) ... ok
+test_l136_propagates_a_late_channel_child_failure (__main__.ChipHelperTests.test_l136_propagates_a_late_channel_child_failure) ... ok
+test_l136_records_failure_and_stops_with_the_child_status (__main__.ChipHelperTests.test_l136_records_failure_and_stops_with_the_child_status) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.678s
+
+OK
