@@ -226,7 +226,7 @@ build/test_omega_gpu_session_platform: tests/test_omega_gpu_session_platform.c $
 # consumers. No Linux platform is linked, so this target cannot open a GPU.
 GPU_NATIVE_RUNTIME_SRCS = src/omega_gpu_cmdlist.c src/omega_gpu_fp8_api.c \
 	src/omega_gpu_fp8gemm_api.c src/omega_blackwell_codegen_moe.c src/omega_blackwell_codegen_moe2.c \
-	src/omega_blackwell_codegen_gemm.c src/omega_gpu_fp8_pack.c src/omega_gpu_mem_cached.c \
+	src/omega_blackwell_codegen_gemm.c src/omega_blackwell_codegen_w4.c src/omega_gpu_fp8_pack.c src/omega_gpu_mem_cached.c \
 	src/omega_gpu_hostmath.c src/omega_native_artifact.c src/omega_cubin.c $(CUDAPP_HOST_BINDING) \
 	src/omega_gpu_q36_graph.c src/omega_gpu_decode_graph.c src/omega_gpu_router_api.c \
 	src/omega_gpu_gemm_ex.c src/omega_gpu_gemm.c src/omega_blackwell_codegen_qmma.c
