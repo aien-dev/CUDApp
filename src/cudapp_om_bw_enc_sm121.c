@@ -556,7 +556,7 @@ v7=32ULL;
 uint64_t v8=0;
 uint64_t c1=0;
 for(;o_op(8,5, v8, v7);v8=o_op(1,5, v8,1)){
-if(c1++>=16777216)o_trap(4);
+if(c1++>=1000000)o_trap(4);
 if(({uint64_t _a=v8;uint64_t _b=v2;o_op(8, 5, _a,_b);})){
 ({uint64_t p1=v8;f4(v0, v0_n, p1, v1, v1_n, v5, v5_n);});
 if(({uint64_t _a=({f18(v5, v5_n, v6, v6_n);});uint64_t _b=0ULL;o_op(7, 5, _a,_b);})){

@@ -72,7 +72,7 @@ uint64_t __attribute__((unused)) v3=0ULL;
 uint64_t v4=0;
 uint64_t c1=0;
 for(;o_op(8,5, v4, v1);v4=o_op(1,5, v4,1)){
-if(c1++>=16777216)o_trap(4);
+if(c1++>=1000000)o_trap(4);
 if(({uint64_t p1=({uint64_t _a=v4;uint64_t _b=4ULL;o_op(3, 5, _a,_b);});f0(v0, v0_n, p1, v2, v2_n);})){
 if(({uint64_t _a=v3;uint64_t _b=0ULL;o_op(7, 9, _a,_b);})){
 return o_leave(18446744073709551615ULL);

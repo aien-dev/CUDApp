@@ -56,7 +56,7 @@ return o_leave(1ULL);
 uint64_t v3=0;
 uint64_t c1=0;
 for(;o_op(8,5, v3, v1);v3=o_op(1,5, v3,1)){
-if(c1++>=16777216)o_trap(4);
+if(c1++>=1000000)o_trap(4);
 uint64_t __attribute__((unused)) v4=0ULL;
 {
 uint64_t v5=0;
