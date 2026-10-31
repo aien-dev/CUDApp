@@ -382,6 +382,32 @@ test-gemm-selectors: $(GPU_PFGEMM_TEST) $(GPU_QGEMM_TEST) $(GPU_FP8GEMM_TEST)
 GPU_PFHOST_TEST = $(OUT_DIR)/gpu_pfhost_test
 $(GPU_PFHOST_TEST): tests/gpu_pfhost_test.c tests/bw_warp_sim_tc.h src/omega_gpu_pfhost.h src/omega_blackwell_codegen_pfhost.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -DWS_MAX_THREADS=1024 -Itests -o $@ tests/gpu_pfhost_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+# omega#456: the prefill tests above, host model and warp simulator only. Every run names --host-only or --sim, the two
+# modes that never open the device (each test's main returns before its chip part); chip runs stay under the GB10 lock.
+.PHONY: test-gpu-prefill-host
+test-gpu-prefill-host: $(GPU_TC_PROBE_TEST) $(GPU_TCGEMM_TEST) $(GPU_PATTN_TEST) $(GPU_PF_MEM_TEST) $(GPU_PFGEMM_TEST) \
+                       $(GPU_QMMA_PROBE_TEST) $(GPU_QGEMM_TEST) $(GPU_PFHOST_TEST)
+	./$(GPU_TC_PROBE_TEST) --host-only
+	./$(GPU_QMMA_PROBE_TEST) --host-only
+	./$(GPU_PF_MEM_TEST) --host-only
+	./$(GPU_TCGEMM_TEST) --host-only
+	./$(GPU_TCGEMM_TEST) --sim
+	./$(GPU_PATTN_TEST) --host-only
+	./$(GPU_PATTN_TEST) --sim
+	./$(GPU_PFGEMM_TEST) --host-only
+	./$(GPU_PFGEMM_TEST) --sim
+	./$(GPU_QGEMM_TEST) --host-only
+	./$(GPU_QGEMM_TEST) --sim
+	./$(GPU_PFHOST_TEST) --host-only
+	./$(GPU_PFHOST_TEST) --sim
+	@echo "test-gpu-prefill-host: PASS (8 prefill tests, host model + warp simulator, no device)"
+# omega#456: tools/own30b_decode_profile.c is a link-only recorder built by hand on the Spark; compile it with the
+# project's -Werror flags so a warning cannot land unseen.
+.PHONY: check-own30b-decode-profile
+check-own30b-decode-profile: tools/own30b_decode_profile.c
+	@mkdir -p $(OUT_DIR)
+	$(CC) $(CFLAGS) -c -o $(OUT_DIR)/own30b_decode_profile.o tools/own30b_decode_profile.c
+	@echo "check-own30b-decode-profile: PASS (compiles with -Werror)"
 # OWN-30B W-L2 (2026-10-13): command list (many launches, one submission) + decode glue kernels. test-gpu-cmdlist is
 # host-only + warp simulator; the chip gate is tools/run_gpu_cmdlist_chip.sh under the GB10 lock.
 .PHONY: test-gpu-cmdlist
@@ -399,7 +425,7 @@ GPU_DECODE_GRAPH_TEST = $(OUT_DIR)/gpu_decode_graph_test
 GPU_DGRAPH_ABORT_TEST = $(OUT_DIR)/test_omega_gpu_decode_graph_abort
 $(GPU_DECODE_GRAPH_TEST): tests/gpu_decode_graph_test.c src/omega_gpu_decode_graph.h src/omega_gpu_cmdlist.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -o $@ tests/gpu_decode_graph_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
-test-gpu-decode-graph: $(GPU_DECODE_GRAPH_TEST) $(GPU_DGRAPH_ABORT_TEST) test-gpu-decode-graph-abort-mutants
+test-gpu-decode-graph: $(GPU_DECODE_GRAPH_TEST) $(GPU_DGRAPH_ABORT_TEST) test-gpu-decode-graph-abort-mutants test-gpu-decode-graph-timeline
 	./$(GPU_DECODE_GRAPH_TEST) --host-only
 	./$(GPU_DGRAPH_ABORT_TEST)
 
@@ -429,6 +455,32 @@ test-gpu-decode-graph-abort-mutants: $(OUT_DIR)/libomega_gpu.a
 	dmut abort-keeps-lock 's|g->n_stamp = 0; /\* no timeline for an abandoned token \*/|&\n    return OMEGA_GPU_DGRAPH_OK;|'; \
 	dmut abort-submits 's|^int omega_gpu_decode_graph_abort_token(OmegaGpuDecodeGraph \*g) {$$|&\n    if (g \&\& g->in_token) return omega_gpu_decode_graph_end_token(g, NULL, NULL);|'; \
 	echo "test-gpu-decode-graph-abort-mutants: $$killed of 5 mutants killed"
+
+# omega #456: the per-token timeline (set_stamps) never writes past stamp[]: 4096 stamped launches fill it, the 4097th
+# (flush_each, one submission per launch) fails the token and leaves no timeline. Fake platform that completes every
+# submission; no device. Each mutant breaks one rule in a copy of omega_gpu_decode_graph.c linked ahead of the library;
+# the overflow case must FAIL on it.
+.PHONY: test-gpu-decode-graph-timeline
+GPU_DGRAPH_TL_TEST = $(OUT_DIR)/test_omega_gpu_decode_graph_timeline
+GPU_DGRAPH_TL_MUT = $(OUT_DIR)/dgraph_tl_mut
+$(GPU_DGRAPH_TL_TEST): tests/test_omega_gpu_decode_graph_timeline.c src/omega_gpu_decode_graph.h src/omega_gpu_platform.h $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -o $@ tests/test_omega_gpu_decode_graph_timeline.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+test-gpu-decode-graph-timeline: $(GPU_DGRAPH_TL_TEST)
+	./$(GPU_DGRAPH_TL_TEST)
+	@mkdir -p $(GPU_DGRAPH_TL_MUT)
+	@set -e; \
+	tmut() { name=$$1; script=$$2; \
+	  sed -e "$$script" src/omega_gpu_decode_graph.c > $(GPU_DGRAPH_TL_MUT)/$$name.c; \
+	  if cmp -s src/omega_gpu_decode_graph.c $(GPU_DGRAPH_TL_MUT)/$$name.c; then echo "mutant $$name: pattern not found"; exit 1; fi; \
+	  $(CC) $(filter-out -MMD -MP,$(CFLAGS)) -o $(GPU_DGRAPH_TL_MUT)/$$name tests/test_omega_gpu_decode_graph_timeline.c \
+	    $(GPU_DGRAPH_TL_MUT)/$$name.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm; \
+	  if ./$(GPU_DGRAPH_TL_MUT)/$$name > $(GPU_DGRAPH_TL_MUT)/$$name.log 2>&1; then echo "mutant $$name SURVIVED"; exit 1; fi; \
+	  if ! grep -q '^FAIL one launch past the timeline' $(GPU_DGRAPH_TL_MUT)/$$name.log; then \
+	    echo "mutant $$name: no FAIL case (did not run?)"; cat $(GPU_DGRAPH_TL_MUT)/$$name.log; exit 1; fi; \
+	  echo "mutant $$name killed"; }; \
+	tmut room-off-by-one 's|(uint32_t)(cnt - from) > room) {|(uint32_t)(cnt - from) > room + 1u) {|'; \
+	tmut timeline-after-failure 's#if (!g->stamps || g->failed || #if (!g->stamps || #'; \
+	echo "test-gpu-decode-graph-timeline: 2 of 2 mutants killed"
 
 # OWN-30B W-L2c (2026-10-14): per-launch fixed cost inside a command list (tests/gpu_launch_cost_test.c, chip only, GB10 lock).
 GPU_LAUNCH_COST_TEST = $(OUT_DIR)/gpu_launch_cost_test
