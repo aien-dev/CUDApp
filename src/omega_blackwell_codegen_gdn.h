@@ -66,6 +66,22 @@
 #define OMEGA_GDN_ARG_IN_SCALE 0x3c0u   /* f32: qkv and z are multiplied by it on read */
 #define OMEGA_GDN_ARG_OUT_SCALE 0x3c4u  /* f32: y is multiplied by it */
 #define OMEGA_GDN_ARGS_WORDS 18u
+/* The heads form (L312 lever 4, 2026-10-21): N <= OMEGA_GDN_MAX_HEADS conversations in ONE launch, grid (r, 16 N). CTA (cx, cy)
+ * does value head (cy & 15) * r + cx of conversation cy >> 4 exactly as the plain launch does it; its seven pointers come from
+ * a 64-byte table entry (TAB + 64 * conversation: eight u64 in the order of the plain args QKV, Z, AB, PAR, TAIL, STATE, OUT, 0)
+ * instead of the constant bank, because every conversation's tail, state and parameters are their own allocation. One program
+ * serves any N (nothing in the code depends on N). Arg words 0..13 are unused (zero); the scalars keep their offsets. */
+#define OMEGA_GDN_ARG_TAB 0x3c8u
+#define OMEGA_GDN_HEADS_ARGS_WORDS 20u
+#define OMEGA_GDN_MAX_HEADS 8u
+#define OMEGA_GDN_TAB_ENTRY_BYTES 64u
+#define OMEGA_GDN_TAB_QKV 0u
+#define OMEGA_GDN_TAB_Z 8u
+#define OMEGA_GDN_TAB_AB 16u
+#define OMEGA_GDN_TAB_PAR 24u
+#define OMEGA_GDN_TAB_TAIL 32u
+#define OMEGA_GDN_TAB_STATE 40u
+#define OMEGA_GDN_TAB_OUT 48u
 
 /* shared memory map (bytes) */
 #define OMEGA_GDN_SM_Q 0u               /* q[128] f32, normalised and / sqrt(128) */
@@ -88,6 +104,8 @@ typedef struct {
                      * this field existed); 2 = Qwen3.6-35B-A3B (32 value heads, conv 8192). Appended last. */
     uint32_t state_bf16; /* L313: 1 = the state is stored bf16 (round to nearest even on store, exact widen on load), half the
                           * bytes; compute stays f32. 0 = f32 (the program before this field existed). Appended last. */
+    uint32_t heads; /* 0: the plain decode kernel (pointers in the constant bank). 1: the heads form (OMEGA_GDN_ARG_TAB), decode
+                     * only (refused with copy; the prefill and multi-token programs ignore it). Appended last (L312 lever 4). */
 } OmegaGdnSpec;
 
 /* The shape a spec selects (Q36, sc L306). The 27B constants above are the ratio-3 values. */

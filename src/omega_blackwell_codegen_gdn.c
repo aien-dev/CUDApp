@@ -217,12 +217,16 @@ int omega_gdn_shape(const OmegaGdnSpec *spec, OmegaGdnShape *s) {
 }
 
 int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog) {
-    if (!spec || !prog || spec->copy || spec->mutant < 0 || spec->mutant > 4) return -1;
+    if (!spec || !prog || spec->copy || spec->mutant < 0 || spec->mutant > 4 || spec->heads > 1u) return -1;
     OmegaGdnShape G;
     if (omega_gdn_shape(spec, &G)) return -1;
     const uint32_t RR = G.r, NC = 2u + G.r;
     (void)RR; (void)NC;
     const int MUT = spec->mutant;
+    /* HF: the heads form (header, OMEGA_GDN_ARG_TAB). Every difference from the plain kernel sits behind this flag, so the plain
+     * program stays byte-identical: the key head is cy & 15 instead of cy, and the seven pointers are LDG.E.64 from the
+     * conversation's table entry (atab) where the plain kernel does LDC64. */
+    const int HF = spec->heads != 0;
     const uint32_t C_LOG2E = fbits(1.44269504f), C_NLOG2E = fbits(-1.44269504f), C_LN2 = fbits(0.693147181f);
     const uint32_t C_ONE = fbits(1.0f), C_M1 = fbits(-1.0f), C_INV128 = fbits(1.0f / 128.0f);
     const float qs = 0.0883883476f; /* 1 / sqrt(128) */
@@ -233,13 +237,28 @@ int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgra
     int udesc = UV64(e);
     int tid = V(e), cx = V(e), cy = V(e), h = V(e), warp = V(e), lane = V(e), one = V(e);
     int ps = V64(e), sa = V64(e), toff = V(e), sq[16];
+    int hk = cy, atab = -1, pqkv = -1, ppar = -1, ptail = -1, pout = -1; /* heads form: fresh registers, loaded here */
+    if (HF) { hk = V(e); atab = V64(e); pqkv = V64(e); ppar = V64(e); ptail = V64(e); }
     for (unsigned r = 0; r < 16; r++) sq[r] = V128(e);
     if (e->err) return -1;
     ldcu64(e, udesc, 0x358);
-    ldc64(e, ps, OMEGA_GDN_ARG_STATE);
+    if (!HF) ldc64(e, ps, OMEGA_GDN_ARG_STATE);
     s2r(e, tid, BW_SR_TID_X); s2r(e, cx, BW_SR_CTAID_X); s2r(e, cy, BW_SR_CTAID_Y);
     movi(e, one, 1);
-    imadi(e, R(h), R(cy), RR, cx);
+    if (HF) {
+        /* conversation cy >> 4, key head cy & 15; the entry's four prologue pointers in one chain (one cache line) */
+        int ptab = V64(e), hd = V(e);
+        if (e->err) return -1;
+        ldc64(e, ptab, OMEGA_GDN_ARG_TAB);
+        shr(e, hd, cy, 4);
+        andi(e, R(hk), R(cy), 15u);
+        imadw(e, atab, hd, OMEGA_GDN_TAB_ENTRY_BYTES, ptab);
+        ldg_wide(e, BW_IR_LDG_E_64, ps, atab, OMEGA_GDN_TAB_STATE, udesc, 1);
+        ldg_wide(e, BW_IR_LDG_E_64, pqkv, atab, OMEGA_GDN_TAB_QKV, udesc, 0);
+        ldg_wide(e, BW_IR_LDG_E_64, ppar, atab, OMEGA_GDN_TAB_PAR, udesc, 0);
+        ldg_wide(e, BW_IR_LDG_E_64, ptail, atab, OMEGA_GDN_TAB_TAIL, udesc, 0);
+    }
+    imadi(e, R(h), R(hk), RR, cx);
     shr(e, warp, tid, 5);
     andi(e, R(lane), R(tid), 31u);
     /* the state element size: 4 (f32) or 2 (bf16, L313); this thread holds rows 16 warp .. +15, columns 4 lane .. +3 */
@@ -251,16 +270,16 @@ int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgra
 
     /* ---- phase A: conv + SiLU of channel A (q or k) and channel V ---- */
     int half = V(e), c = V(e), gi = V(e), slv = V(e);
-    int pqkv = V64(e), ppar = V64(e), ptail = V64(e);
+    if (!HF) { pqkv = V64(e); ppar = V64(e); ptail = V64(e); }
     int axA = V64(e), awA = V64(e), atA = V64(e), axV = V64(e), awV = V64(e), atV = V64(e);
     int xA = V(e), xV = V(e), wA = V128(e), wV = V128(e), tA = V128(e), tV = V128(e);
     int insc = V(e), accA = V(e), accV = V(e), t1 = V(e), cnl2e = V(e), fone = V(e);
     if (e->err) return -1;
-    ldc64(e, pqkv, OMEGA_GDN_ARG_QKV); ldc64(e, ppar, OMEGA_GDN_ARG_PAR); ldc64(e, ptail, OMEGA_GDN_ARG_TAIL);
+    if (!HF) { ldc64(e, pqkv, OMEGA_GDN_ARG_QKV); ldc64(e, ppar, OMEGA_GDN_ARG_PAR); ldc64(e, ptail, OMEGA_GDN_ARG_TAIL); }
     ldc32(e, insc, OMEGA_GDN_ARG_IN_SCALE);
     shr(e, half, tid, 7);
     andi(e, R(c), R(tid), 127u);
-    imadi(e, R(gi), R(cy), OMEGA_GDN_HEAD_DIM, tid);              /* q channel hk*128 + t; k channel 2048 + hk*128 + (t - 128) */
+    imadi(e, R(gi), R(hk), OMEGA_GDN_HEAD_DIM, tid);              /* q channel hk*128 + t; k channel 2048 + hk*128 + (t - 128) */
     imadi(e, R(gi), R(half), 2048u - 128u, gi);
     imadw(e, axA, gi, 4u, pqkv); imadw(e, awA, gi, 16u, ppar);
     imadi(e, R(gi), R(h), OMEGA_GDN_HEAD_DIM, c);                 /* v channel 4096 + h*128 + c */
@@ -330,7 +349,8 @@ int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgra
     int pab = V64(e), aab = V64(e), asc = V64(e), abq = V64(e), scq = V64(e);
     int xs = V(e), mn = V(e), sp = V(e), dec = V(e), beta = V(e), cl2e = V(e);
     if (e->err) return -1;
-    ldc64(e, pab, OMEGA_GDN_ARG_AB);
+    if (HF) ldg_wide(e, BW_IR_LDG_E_64, pab, atab, OMEGA_GDN_TAB_AB, udesc, 1);
+    else ldc64(e, pab, OMEGA_GDN_ARG_AB);
     imadw(e, aab, h, 8u, pab); imadw(e, asc, h, 8u, ppar);
     ldg_wide(e, BW_IR_LDG_E_64, abq, aab, 0, udesc, 1);
     ldg_wide(e, BW_IR_LDG_E_64, scq, asc, G.par_scal, udesc, 0);
@@ -390,8 +410,13 @@ int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgra
     }
     /* the gate prefetch: z[h] and the norm weight, consumed in phase E */
     int pz = V64(e), ppar2 = V64(e), az = V64(e), an = V64(e), zq = V128(e), nq = V128(e);
+    if (HF) pout = V64(e);
     if (e->err) return -1;
-    ldc64(e, pz, OMEGA_GDN_ARG_Z); ldc64(e, ppar2, OMEGA_GDN_ARG_PAR);
+    if (HF) { /* the entry's last three pointers (out is kept for phase E: after the register peak) */
+        ldg_wide(e, BW_IR_LDG_E_64, pz, atab, OMEGA_GDN_TAB_Z, udesc, 1);
+        ldg_wide(e, BW_IR_LDG_E_64, ppar2, atab, OMEGA_GDN_TAB_PAR, udesc, 0);
+        ldg_wide(e, BW_IR_LDG_E_64, pout, atab, OMEGA_GDN_TAB_OUT, udesc, 0);
+    } else { ldc64(e, pz, OMEGA_GDN_ARG_Z); ldc64(e, ppar2, OMEGA_GDN_ARG_PAR); }
     imadw(e, az, lane, 16u, pz); imadw(e, az, h, OMEGA_GDN_HEAD_DIM * 4u, az);
     imadw(e, an, lane, 16u, ppar2);
     ldg_pf(e, zq, az, 0, udesc, SB_GATE);
@@ -410,7 +435,9 @@ int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgra
     cross_warp_sum(e, p, pa, one, la);
 
     /* ---- phase E: gated RMSNorm, the output ---- */
-    int ss = V(e), en = V(e), osc = V(e), pout = V64(e), ao = V64(e), g = V(e);
+    int ss = V(e), en = V(e), osc = V(e);
+    if (!HF) pout = V64(e);
+    int ao = V64(e), g = V(e);
     if (e->err) return -1;
     fmul(e, R(ss), R(p[0]), R(p[0]));
     for (unsigned j = 1; j < 4; j++) ffma(e, R(ss), R(p[j]), R(p[j]), R(ss));
@@ -418,7 +445,8 @@ int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgra
     imadi(e, R(ra), R(warp), 4u, NOREG); imadi(e, R(ra), R(one), OMEGA_GDN_SM_RED2, ra);
     lane0_sts(e, lane, one, ra, R(ss));
     bar_sync(e);
-    ldc32(e, en, OMEGA_GDN_ARG_EPS_NORM); ldc32(e, osc, OMEGA_GDN_ARG_OUT_SCALE); ldc64(e, pout, OMEGA_GDN_ARG_OUT);
+    ldc32(e, en, OMEGA_GDN_ARG_EPS_NORM); ldc32(e, osc, OMEGA_GDN_ARG_OUT_SCALE);
+    if (!HF) ldc64(e, pout, OMEGA_GDN_ARG_OUT);
     lds32(e, R(ss), ra, 0);
     movi(e, t1, C_INV128);
     ffma(e, R(ss), R(ss), R(t1), R(en));
@@ -447,7 +475,7 @@ int omega_gdn_prog_stats(const OmegaGdnSpec *spec, uint32_t *insns, uint32_t *gp
 
 /* ======== state copy / zero (see the header) ======== */
 int omega_blackwell_codegen_gdn_copy_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog) {
-    if (!spec || !prog || spec->mutant || (spec->copy != OMEGA_GDN_COPY && spec->copy != OMEGA_GDN_ZERO)) return -1;
+    if (!spec || !prog || spec->mutant || spec->heads || (spec->copy != OMEGA_GDN_COPY && spec->copy != OMEGA_GDN_ZERO)) return -1;
     omega_bw_ir_init(prog);
     Em em; memset(&em, 0, sizeof em); em.p = prog; Em *e = &em;
     int udesc = UV64(e), tid = V(e), cx = V(e), w = V(e), pd = V64(e), ad = V64(e), v[4];

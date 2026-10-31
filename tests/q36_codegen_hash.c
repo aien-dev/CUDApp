@@ -39,6 +39,8 @@ int main(void) {
         snprintf(n, sizeof n, "gdn.prep.m%d", m); omega_bw_ir_init(prog); emit(n, omega_blackwell_codegen_gdn_prep_prog(&s, prog));
         snprintf(n, sizeof n, "gdn.scan.m%d", m); omega_bw_ir_init(prog); emit(n, omega_blackwell_codegen_gdn_scan_prog(&s, prog));
         snprintf(n, sizeof n, "gdn.post.m%d", m); omega_bw_ir_init(prog); emit(n, omega_blackwell_codegen_gdn_post_prog(&s, prog));
+        OmegaGdnSpec sh = {.mutant = m, .heads = 1}; /* L312 lever 4: the heads form */
+        snprintf(n, sizeof n, "gdn.heads.m%d", m); omega_bw_ir_init(prog); emit(n, omega_blackwell_codegen_gdn_prog(&sh, prog));
     }
     for (int c = 1; c <= 2; c++) {
         OmegaGdnSpec s = {.copy = c};

@@ -76,6 +76,19 @@ int omega_gpu_gdn_step(OmegaGpuGdn *g, uint32_t layer, const float *qkv, const f
 struct OmegaGpuCmdList;
 int omega_gpu_gdn_record(struct OmegaGpuCmdList *cl, OmegaGpuGdn *g, uint32_t layer, uint64_t qkv_va, uint64_t z_va,
                          uint64_t ab_va, float eps_l2, float eps_norm, float in_scale, float out_scale, uint64_t *out_va);
+/* The heads form (L312 lever 4, 2026-10-21; omega_blackwell_codegen_gdn.h OMEGA_GDN_ARG_TAB): ONE launch steps layer `layer`
+ * of n <= OMEGA_GDN_MAX_HEADS conversations on grid (r, 16 n), each exactly as omega_gpu_gdn_record steps it alone (the same
+ * per-thread code: bit-identical). heads[i].g is conversation i's object (all of one ratio and layer count; each carries its
+ * own parameters, tail and state); its qkv, z, ab and out rows are device addresses of the caller's choosing (out: [vdim]
+ * f32 per conversation, so the caller can lay the n rows out contiguously). The pointer table row lives in heads[0].g
+ * ([layers][OMEGA_GDN_MAX_HEADS] entries, written and synced here): a recorded launch stays valid until the next
+ * record_heads of that object and layer. The heads kernel has its own cache slot; omega_gpu_gdn_prepare_heads makes it
+ * resident ahead of recording (a cache miss while recording that would evict is refused, as for the plain kernel).
+ * Caller of record_heads holds omega_gpu_session_lock(). */
+typedef struct { OmegaGpuGdn *g; uint64_t qkv_va, z_va, ab_va, out_va; } OmegaGpuGdnHead;
+int omega_gpu_gdn_prepare_heads(OmegaGpuGdn *g);
+int omega_gpu_gdn_record_heads(struct OmegaGpuCmdList *cl, const OmegaGpuGdnHead *heads, uint32_t n, uint32_t layer, float eps_l2,
+                               float eps_norm, float in_scale, float out_scale);
 /* Test helper: the out row the last launch wrote to the launch buffer (after a record + submit, for example). */
 int omega_gpu_gdn_read_out(OmegaGpuGdn *g, float *out);
 const char *omega_gpu_gdn_last_error(void);
