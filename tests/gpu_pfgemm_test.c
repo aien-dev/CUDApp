@@ -80,11 +80,11 @@ static float emu_phys(const Prob *p, uint32_t i, uint32_t c) {
     return acc * R(KB);
 #undef R
 }
-/* the kernel's epilogue arithmetic: MUFU.EX2, FADD, MUFU.RCP, FMUL x 3, F2FP. The two MUFU results pass through ws_mufu_ftz
- * (bw_warp_sim_tc.h): the chip's MUFU flushes a subnormal result to a sign-preserving zero, so for t = -g log2 e in (126, 128)
+/* the kernel's epilogue arithmetic: MUFU.EX2, FADD, MUFU.RCP, FMUL x 3, F2FP. The two MUFU ops go through ws_mufu_ex2 / ws_mufu_rcp
+ * (bw_mufu_ftz.h, omega #462): the chip's MUFU flushes a subnormal result to a sign-preserving zero, so for t = -g log2 e in (126, 128)
  * (g in (-88.72, -87.34)) the reciprocal is +-0 and the activation is +-0, not the 2^-56-ish product an IEEE 1/d would give. */
 static uint16_t swiglu_bits(float g, float u) {
-    float t = g * u2f(0xbfb8aa3bu), ex = ws_mufu_ftz(exp2f(ws_mufu_ftz(t))), d = ex + 1.0f, r = ws_mufu_ftz(1.0f / ws_mufu_ftz(d)), o = g * r;
+    float t = g * u2f(0xbfb8aa3bu), ex = ws_mufu_ex2(t), d = ex + 1.0f, r = ws_mufu_rcp(d), o = g * r;
     o = o * u; o = o * u2f(0x5f800000u);
     return bf16_rn(o);
 }

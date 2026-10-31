@@ -1,6 +1,6 @@
 # Omega Runtime API v0
 
-Omega Runtime API version: 0.7.0
+Omega Runtime API version: 0.8.0
 
 Status: first written version, 2026-10-19 (slice R1, omega-mv#594, tracking #593). Source of truth is the C headers in
 `src/`. This file describes them; `docs/runtime/omega_runtime_api.manifest` lists them; `make test-runtime-api` checks the
@@ -36,14 +36,18 @@ signature against the headers on every run.
 
 ## 2. Version and compatibility rule
 
-The version is MAJOR.MINOR.PATCH (semantic versioning), currently **0.7.0**. It is a property of the list of entries and
+The version is MAJOR.MINOR.PATCH (semantic versioning), currently **0.8.0**. It is a property of the list of entries and
 their behaviour, not of the library build. Changes so far:
-- 0.7.0 (AmperePort): grows STABLE `OmegaGpuLaunch` with `target_sm` (a MAJOR-class change
+- 0.8.0 (AmperePort): grows STABLE `OmegaGpuLaunch` with `target_sm` (a MAJOR-class change
   taken as MINOR under the major-version-zero rule); adds EXPERIMENTAL
   `omega_gpu_session_target_sm`. Zero-initialized legacy launches still mean sm_121, not auto-detect.
   An explicit sm_86 launch must match the opened device and use sm_86 code and argument layout.
   Adds discrete VRAM allocation/BAR-mapped visibility and a VRAM-based D1 reserve;
   no Ampere hardware qualification is claimed. See `docs/PORT-AMPERE.md`.
+- 0.7.0 (omega #588, carried with the b5ab3fe sync): adds EXPERIMENTAL `omega_gpu_decode_graph_abort_token`, which
+  releases the session lock and leaves the token without submitting what was recorded. A failed `begin_token` now
+  releases the lock itself, and `omega_gpu_decode_graph_token` answers every begin failure (not only BAD_ARGS) without
+  holding the lock (`tests/test_omega_gpu_decode_graph_abort.c`, 5 mutants in `make test-gpu-decode-graph`).
 - 0.6.0 (AttnGeneral): adds EXPERIMENTAL `omega_gpu_attention_general`, `OmegaGpuAttnGeneralDesc`,
   `OMEGA_GPU_ATTN_GENERAL_MAX_HEAD_DIM` (256), `OMEGA_GPU_ATTN_GENERAL_MAX_Q_HEADS` (1024) and `OMEGA_GPU_ATTN_WINDOW_NONE`:
   one attention kernel for every head_dim 1..256, any query-head count with any kv-head count dividing it (MHA, GQA,
@@ -392,7 +396,7 @@ R2 (`examples/hello_gpu`, README "Run your first kernel").
 | `num_elements` | QMD config num_elements (kept per API for identical words) |
 | `args`, `n_args` | `n_args` words written at constant bank + 0x380; `n_args` at most `OMEGA_GPU_SESSION_MAX_ARGS` (32) |
 | `timeout_ms` | completion poll limit, applied to each of the launch's two markers in turn (so a launch can wait up to twice this); past it the completion is uncertain and **the process latches**. 0 is refused with "launch arguments" before anything is written or submitted |
-| `shared_bytes` | shared memory per block; 0 = the default (1024) |
+| `shared_bytes` | shared memory per block, rounded up to 128 bytes; 0 = the default (1024). At most `OMEGA_BW_QMD_MAX_SHARED_BYTES` (32768: the SM-config target the QMD declares); one byte more is refused before any device work |
 | `spin_us` | spin-poll window before the platform's sleep-poll; 0 = the process-wide setting |
 
 #### `omega_gpu_session_launch`
@@ -581,7 +585,7 @@ values, poison patterns) are in the INTERNAL list.
 | `src/omega_gpu_tcgemm_api.h` | `OmegaGpuTcGemmInfo`, `omega_gpu_tcgemm_f32`, `omega_gpu_tcgemm_prepare`, `omega_gpu_tcgemm_rc_name`, `omega_gpu_tcgemm_last_error`, `omega_gpu_tcgemm_cache_clear`, `omega_gpu_tcgemm_set_shape` | OWN-30B T3 cut 1: FP8 grouped GEMM on the tensor cores; one model's shapes. |
 | `src/omega_gpu_prefill_attn_api.h` | `OmegaGpuPrefillAttnInfo`, `OmegaGpuPrefillAttnMirrorView`, `omega_gpu_prefill_attn`, `omega_gpu_prefill_attn_release`, `omega_gpu_prefill_attn_dev`, `omega_gpu_prefill_attn_set_warps`, `omega_gpu_prefill_attn_set_fused`, `omega_gpu_prefill_attn_set_kv_mirror`, `omega_gpu_prefill_attn_kv_mirror_view`, `omega_gpu_prefill_attn_kv_mirror_invalidate`, `omega_gpu_prefill_attn_kv_mirror_forget`, `omega_gpu_prefill_attn_kv_mirror_available` | Causal prefill attention for Qwen3-30B-A3B, with an optional KV mirror; one model. |
 | `src/omega_gpu_moe_api.h` | `omega_gpu_moe_tensor_upload_bf16`, `omega_gpu_moe_tensor_upload_f32`, `omega_gpu_moe_tensor_free`, `omega_gpu_moe_tensor_shape`, `omega_gpu_matmul_resident_window_f32`, `omega_gpu_matmul_resident_window_bf16`, `omega_gpu_matmul_resident_windows_f32`, `omega_gpu_moe_reserve`, `omega_gpu_moe_prepare`, `omega_gpu_moe_seal`, `omega_gpu_moe_unreserve`, `omega_gpu_moe_cache_clear`, `omega_gpu_moe_set_cta_budget`, `omega_gpu_moe_cta_budget`, `omega_gpu_moe_window_byte_offset` | Column windows over a resident bf16 expert tensor (OWN-30B); tied to the serving pool. |
-| `src/omega_gpu_decode_graph.h` | `OmegaGpuDecodeGraphConfig`, `OmegaGpuDecodeGraphStats`, `OmegaGpuDecodeGraphVas`, `omega_gpu_decode_graph_create`, `omega_gpu_decode_graph_free`, `omega_gpu_decode_graph_set_layer`, `omega_gpu_decode_graph_set_final_norm`, `omega_gpu_decode_graph_token`, `omega_gpu_decode_graph_begin_token`, `omega_gpu_decode_graph_record_layer`, `omega_gpu_decode_graph_record_final`, `omega_gpu_decode_graph_end_token`, `omega_gpu_decode_graph_record_res`, `omega_gpu_decode_graph_record_swiglu`, `omega_gpu_decode_graph_list`, `omega_gpu_decode_graph_vas`, `omega_gpu_decode_graph_read`, `omega_gpu_decode_graph_set_stamps`, `omega_gpu_decode_graph_set_barrier`, `omega_gpu_decode_graph_barrier`, `omega_gpu_decode_graph_stamps`, `omega_gpu_decode_graph_kind_name`, `omega_gpu_decode_graph_set_flush_each`, `omega_gpu_decode_graph_set_prefetch`, `omega_gpu_decode_graph_prefetch` | One Qwen3-30B-A3B decode token as one command list; scheduling, barrier and prefetch modes are still measured. |
+| `src/omega_gpu_decode_graph.h` | `OmegaGpuDecodeGraphConfig`, `OmegaGpuDecodeGraphStats`, `OmegaGpuDecodeGraphVas`, `omega_gpu_decode_graph_create`, `omega_gpu_decode_graph_free`, `omega_gpu_decode_graph_set_layer`, `omega_gpu_decode_graph_set_final_norm`, `omega_gpu_decode_graph_token`, `omega_gpu_decode_graph_begin_token`, `omega_gpu_decode_graph_record_layer`, `omega_gpu_decode_graph_record_final`, `omega_gpu_decode_graph_end_token`, `omega_gpu_decode_graph_abort_token`, `omega_gpu_decode_graph_record_res`, `omega_gpu_decode_graph_record_swiglu`, `omega_gpu_decode_graph_list`, `omega_gpu_decode_graph_vas`, `omega_gpu_decode_graph_read`, `omega_gpu_decode_graph_set_stamps`, `omega_gpu_decode_graph_set_barrier`, `omega_gpu_decode_graph_barrier`, `omega_gpu_decode_graph_stamps`, `omega_gpu_decode_graph_kind_name`, `omega_gpu_decode_graph_set_flush_each`, `omega_gpu_decode_graph_set_prefetch`, `omega_gpu_decode_graph_prefetch` | One Qwen3-30B-A3B decode token as one command list; scheduling, barrier and prefetch modes are still measured. |
 | `src/omega_gpu_prefill.h` | `OmegaPfWeights`, `omega_gpu_pf_rc_name`, `omega_gpu_pf_alloc_dev`, `omega_gpu_pf_alloc_host`, `omega_gpu_pf_free`, `omega_gpu_pf_upload`, `omega_gpu_pf_download`, `omega_gpu_pf_copy_va`, `omega_gpu_pf_stats`, `omega_gpu_pf_stats_reset`, `omega_gpu_pf_weights_upload`, `omega_gpu_pf_weights_free`, `omega_gpu_pf_weights_host_form`, `omega_gpu_pf_gemm_bm`, `omega_gpu_pf_gemm_tiles`, `omega_gpu_pf_gemm`, `omega_gpu_pf_gemm_set_shape`, `omega_gpu_pf_quant`, `omega_gpu_pf_qgemm_bm`, `omega_gpu_pf_qgemm_tiles`, `omega_gpu_pf_qgemm_tiles_va`, `omega_gpu_pf_qgemm`, `omega_gpu_pf_qgemm_set_shape`, `omega_gpu_pf_quant_record`, `omega_gpu_pf_qgemm_record` | Device-resident one-pass prefill for OWN-30B; arguments carry raw device addresses. |
 | `src/omega_gpu_pfhost.h` | `omega_gpu_pf_router_rows`, `omega_gpu_pf_router_packed_bytes`, `omega_gpu_pf_router_pack`, `omega_gpu_pf_router_logits`, `omega_gpu_pf_moe_combine`, `omega_gpu_pf_router_set_rows` | Whole-prompt prefill router logits and MoE combine for OWN-30B; arguments carry raw device addresses. |
 

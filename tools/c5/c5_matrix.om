@@ -1,3 +1,4 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 note tools/c5/c5_matrix.om -- bar C5 multi-process matrix on one GPU, orchestrated in seeded Omega (no C).
 note Usage: c5_matrix ISO PY CASE
 note   ISO  the gpu_isolation_test binary (CUDA++ tests/gpu_isolation_test.c, built unchanged)

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_gpu_scan.c -- see omega_gpu_scan.h. Kernels from Omega's IR (emitter helpers of omega_bw_em.h, the
  * chip-proven scheduling rules of the tensor-core generators), host references, the level driver, the chip calls. */
 #include "omega_gpu_scan.h"

@@ -8,6 +8,7 @@
  * modify m16_requalify.c / m16_concurrent.c or any existing test.
  */
 #include "nvrm.h"
+#include "cpu_barrier.h"
 #include "m16_native.h"
 
 #include <errno.h>
@@ -291,7 +292,7 @@ static int gate_gpu_submit_after_churn(Nvrm *rm) {
         return -1;
     }
     memcpy(pb.cpu, methods, (size_t)nwords * sizeof(uint32_t));
-    __asm__ volatile("dsb sy" ::: "memory");
+    nvrm_cpu_barrier();
 
     if (nvrm_submit(rm, &pb, 0, (uint32_t)nwords) != 0) {
         fprintf(stderr, "  submit: nvrm_submit failed: %s\n", rm->err);

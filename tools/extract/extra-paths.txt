@@ -6,6 +6,7 @@ mk/omega-gpu-code-alloc.mk
 mk/omega-gpu-wait.mk
 tools/gpu_engine_mutations.sh
 tools/gpu_engine_backend_mutations.sh
+tools/dagsim
 evidence/E1-CLOSURE
 evidence/FB1-CUT5-HD128-7dd92dc
 evidence/OWN30B-FP8-GEMV-7ce5dd4b-20261013T1744Z

@@ -1,0 +1,19 @@
+{
+  "extensions": {
+    "generated": {
+      "children": [],
+      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiled_at": "2026-10-31T12:27:32Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:d3dd862d4e646c66f48b0719207e81fca92ca469ec5b3cf39bcd5f705a90a81c",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 34,
+      "generated_at_commit": "3b6ca6fda726a6b2eb01100ae155fbcb890d00af",
+      "source_tree": "sha256:80ac9d2d274be6ad965865c699fe017b17bf11f58c45160a887513ea7270c49f"
+    }
+  },
+  "name": "extract",
+  "purpose": "Publication scanner and extraction verification tools; scan errors must never establish clean results.",
+  "schema_version": "1.0.0"
+}

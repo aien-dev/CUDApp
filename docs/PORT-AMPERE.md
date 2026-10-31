@@ -157,9 +157,9 @@ not a build, generation or acceptance prerequisite here. Portable C is generated
 by the seeded AArch64 compiler and compiled normally for the selected host.
 
 The x86 numeric source/header divergence from Omega's retained CPU oracles is
-intentional. Main authorized four explicit cutover blob pins, each with a
-rationale, in `tools/extract/drift-baseline.tsv:2`; no wildcard exclusion is
-used. `tools/extract/drift.sh:110` mutates each retained source/header and
+intentional. Main authorized four explicit cutover blob pins, with their
+rationale, in `tools/extract/drift-baseline.tsv:289`; no wildcard exclusion is
+used. `tools/extract/drift.sh:127` mutates each retained source/header and
 requires a named drift failure, preserving future change detection.
 
 The Ampere oracle also exposed the historical sm_121 `BW_IR_LDG_MMIO` mismatch:

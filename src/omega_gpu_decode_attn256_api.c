@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * omega_gpu_decode_attn256_api.c: resident KV cache, RoPE table and launch for the head_dim 256 decode attention
  * (omega-mv#544). A derivative of omega_gpu_decode_attn_api.c (see the header); the double-precision host reference

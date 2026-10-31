@@ -3,7 +3,7 @@
 # portable TUs with om/units.sh after changing om/cubin/cubin_elf.om.
 AMPERE_CUBIN_DIR = $(OUT_DIR)/ampere-cubin
 AMPERE_NVDISASM ?= /usr/local/cuda/bin/nvdisasm
-AMPERE_CUBIN_SOURCES = tests/ampere_cubin_test.c src/omega_cubin.c $(CUDAPP_OM_UNIT_SRCS)
+AMPERE_CUBIN_SOURCES = tests/ampere_cubin_test.c src/omega_cubin.c $(CUDAPP_BINDING_SRCS)
 AMPERE_CUBIN_DEPS = $(AMPERE_CUBIN_SOURCES) src/omega_cubin.h src/cudapp_native.h
 
 .PHONY: test-ampere-cubin test-ampere-cubin-disasm

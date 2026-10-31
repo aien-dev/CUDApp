@@ -1,0 +1,43 @@
+{
+  "above": {
+    "name": "tests",
+    "path": ".."
+  },
+  "extensions": {
+    "generated": {
+      "children": [],
+      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiled_at": "2026-10-29T02:06:46Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:c6a12d0cfe936dbb8e44bbd1186c26aee9641b30ff6f7a33842e845ecae96eb6",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 13,
+      "generated_at_commit": "89ebe1b11fb0d40346322fa6a7165a28a3a701d4",
+      "source_tree": "sha256:30c81680e97e4a95d46a47f5c237e56c66ea42f0dd368d239669972e8539eda6"
+    },
+    "owner_lane": "",
+    "seed": {
+      "files": [
+        "capacity.sh",
+        "fmt-driver.om",
+        "mxdot-capacity.om",
+        "mxdot-driver.om",
+        "mxfmt-check.py",
+        "mxfp4-check.py",
+        "mxfp4-driver.om",
+        "nvblk-driver.om",
+        "quant-caller.om",
+        "quant-consumer.om",
+        "quant-host-receipt.json",
+        "quant-scales.om",
+        "quant-stream.om"
+      ],
+      "purpose_auto": "Directory tests/models. Purpose not yet described by a human."
+    }
+  },
+  "layer": "tests/models",
+  "name": "tests/models",
+  "purpose": "Model format, numerical and capacity verification fixtures, including full-width dimension refusals.",
+  "schema_version": "1.0.0"
+}

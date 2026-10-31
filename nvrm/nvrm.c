@@ -8,6 +8,7 @@
 
 #include "nvrm.h"
 #include "omega_ampere_qmd.h"
+#include "cpu_barrier.h"
 
 #include <errno.h>
 #include <stddef.h>
@@ -52,17 +53,6 @@
 #include "ctrl/ctrlc36f.h"
 
 static int fail(Nvrm *rm, const char *fmt, ...);
-
-/* MMIO / PCIe publication fence, also used for the coherent GB10 path. */
-static void nvrm_fence(void) {
-#if defined(__aarch64__)
-    __asm__ volatile("dsb sy" ::: "memory");
-#elif defined(__x86_64__)
-    __asm__ volatile("mfence" ::: "memory");
-#else
-    atomic_thread_fence(memory_order_seq_cst);
-#endif
-}
 
 /* Pure class admission lives in seeded Omega. Class IDs are vendor constants:
  * open-gpu-doc clc7c0.h, clc56f.h, and vendored clc361.h / clc661.h. */
@@ -748,17 +738,17 @@ int nvrm_copy_to(Nvrm *rm, const NvrmMem *m, uint64_t off, const void *src, size
     volatile uint8_t *dst = (volatile uint8_t *)m->cpu + off;
     const uint8_t *in = src;
     for (size_t i = 0; i < bytes; i++) dst[i] = in[i];
-    nvrm_fence();
+    nvrm_cpu_barrier();
     return 0;
 }
 
 int nvrm_copy_from(Nvrm *rm, const NvrmMem *m, uint64_t off, void *dst, size_t bytes) {
     if (!dst || copy_live(rm, m, off, bytes)) return -1;
-    nvrm_fence();
+    nvrm_cpu_barrier();
     const volatile uint8_t *src = (const volatile uint8_t *)m->cpu + off;
     uint8_t *out = dst;
     for (size_t i = 0; i < bytes; i++) out[i] = src[i];
-    nvrm_fence();
+    nvrm_cpu_barrier();
     return 0;
 }
 
@@ -1082,9 +1072,9 @@ int nvrm_enqueue(Nvrm *rm, const NvrmMem *pb, uint32_t off, uint32_t nwords) {
     volatile uint64_t *ring = (volatile uint64_t *)rm->fifo.cpu;
     ring[rm->put % rm->entries] = nvrm_gp_entry(pb->va + off, nwords);
     rm->put++;
-    nvrm_fence();
+    nvrm_cpu_barrier();
     *nvrm_userd_gpput(rm) = rm->put % rm->entries;
-    nvrm_fence();
+    nvrm_cpu_barrier();
     return 0;
 }
 
@@ -1115,9 +1105,9 @@ int nvrm_chan_submit(Nvrm *rm, uint32_t ch, const NvrmMem *pb, uint32_t off, uin
     volatile uint64_t *ring = (volatile uint64_t *)c->fifo.cpu;
     ring[c->put % c->entries] = nvrm_gp_entry(pb->va + off, nwords);
     c->put++;
-    nvrm_fence();
+    nvrm_cpu_barrier();
     *(volatile uint32_t *)((uint8_t *)c->fifo.cpu + c->userd_off + offsetof(Nvc96fControl, GPPut)) = c->put % c->entries;
-    nvrm_fence();
+    nvrm_cpu_barrier();
     *rm->doorbell = c->token; /* NVC361_NOTIFY_CHANNEL_PENDING: one doorbell page, the token names the channel */
     return 0;
 }

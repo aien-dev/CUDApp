@@ -1,0 +1,28 @@
+CUDA++ host x86_64: seeded AArch64 binding is not assembled; C encoder and C cubin writer are the portable bodies; other seeded units refuse with status 34
+build/cudapp-doctor; rc=$?; sh tools/multitarget/targets-doctor.sh '' build/multitarget || rc=1; exit $rc
+cudapp doctor: is this machine ready for CUDA++?
+Diagnostic only: direct library use has no driver-version or PCI-ID admission guard.
+  info  system: Linux 6.12.94+ x86_64
+  FAIL  NVIDIA kernel module: not loaded (/proc/driver/nvidia/version does not exist)
+        CUDA++ uses no NVIDIA user-space software, but it talks to NVIDIA's kernel module.
+        Do this: sudo modprobe nvidia && sudo modprobe nvidia-uvm
+        If modprobe finds no module, install NVIDIA's open kernel module 580.173.02 (the open-gpu-kernel-modules release of that number), then run make doctor again.
+  FAIL  device files: /dev/nvidiactl is missing
+        Do this: sudo modprobe nvidia   (or run nvidia-modprobe once, which creates the device files)
+  FAIL  device files: /dev/nvidia0 is missing
+        Do this: sudo modprobe nvidia   (or run nvidia-modprobe once, which creates the device files)
+  FAIL  device files: /dev/nvidia-uvm is missing
+        Do this: sudo modprobe nvidia-uvm   (creates /dev/nvidia-uvm; CUDA++ maps GPU memory through it)
+  FAIL  GPU: no NVIDIA GPU found in /sys/bus/pci/devices
+        Do this: check the GPU is seated and powered (lspci | grep -i nvidia).
+  info  memory: 15.6 GiB system memory, 4.8 GiB available now
+  info  CUDA toolkit: not needed and not used by CUDA++ (none installed)
+  info  compiler: this doctor was built by 13.3.0; CUDA++ needs only make and a C compiler
+NOT READY: 5 problems above. Fix the first FAIL line and run make doctor again.
+
+GPU targets (backend/targets.om):
+  NOT_RUN: the target table is seeded Omega and needs the pinned omc.
+  Fix: make doctor OMC=/absolute/path/to/omega-mv/seed/out/omc  (omega-mv 369dbc96, sha256 2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f)
+make: *** [mk/dx-doctor.mk:14: doctor] Error 1
+
+exit 1 (make reported Error 1; NOT READY is the expected result on this machine)

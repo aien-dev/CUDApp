@@ -1,9 +1,10 @@
 #!/bin/sh
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # zero_nvdisasm.sh: the second half of bar C6 in docs/OMEGA.md, "nothing calls nvdisasm" (L386).
 #
 # Two checks, both must pass:
 #   1. Static. No file under src/ tests/ tools/ mk/ or the Makefile names the CUDA toolkit directory or looks
-#      up an nvdisasm binary. The one declared exception is the oracle harness of the 331-kernel comparison,
+#      up an nvdisasm binary. The one declared exception is the oracle harness of the nvdisasm comparison,
 #      tools/sm121dis/check.sh and oracle_pairs.sh, which exists to compare Omega's decoder WITH nvdisasm.
 #   2. Dynamic. Every listing check and provenance check runs (a) with a DECOY nvdisasm first on PATH that records
 #      each call and fails, (b) with every CUDA directory removed from PATH, and (c) under strace -f tracing execve.
@@ -12,15 +13,19 @@
 #
 # Usage: PHYSICS_DIR=<pinned physics checkout> sh tools/sm121dis/zero_nvdisasm.sh [build-dir]
 #        after: make PHYSICS_DIR=... build/sm121dis build/gpu_attention_test build/gpu_elementwise_test \
-#                    build/gpu_fp8_api_test build/gpu_reconv_test
+#                    build/gpu_fp8_api_test build/gpu_reconv_test build/bw_hazard_test
 #        (CUDA++: the numeric provenance checks, divsqrt/ldst/reduce, stay in omega-mv with the numeric encoder.)
 # Last line: "ZERO-NVDISASM: PASS (...)" or "ZERO-NVDISASM: FAIL (...)". Exit 0 only on PASS.
 set -u
 OUT=${1:-build}
-WORK=$(mktemp -d "${TMPDIR:-/tmp}/zero_nvdisasm.XXXXXX")
-fail=0
-
 command -v strace > /dev/null 2>&1 || { echo "ZERO-NVDISASM: NOT_RUN (strace missing)"; exit 2; }
+# The work dir holds the decoy, which is first on PATH, so every PATH lookup (make, gcc's as and ld, ...) tries it and
+# appears in the trace; its path therefore must not contain "nvdisasm", or those lookups would match the execve check.
+# The same holds for the checkout: any execve of a repo binary by absolute path would name it.
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/zero_nvd.XXXXXX") || { echo "ZERO-NVDISASM: NOT_RUN (no work dir under ${TMPDIR:-/tmp})"; exit 2; }
+case $WORK in *nvdisasm*) echo "ZERO-NVDISASM: NOT_RUN (the work dir $WORK names nvdisasm; set TMPDIR elsewhere)"; rmdir "$WORK"; exit 2;; esac
+case $PWD in *nvdisasm*) echo "ZERO-NVDISASM: NOT_RUN (the checkout $PWD names nvdisasm; run it from another path)"; rmdir "$WORK"; exit 2;; esac
+fail=0
 
 # 1. static
 hits=$(grep -rnE '/usr/local/cuda|command -v nvdisasm|which nvdisasm|cuda/bin/nvdisasm' src tests tools mk Makefile 2>/dev/null \
@@ -56,6 +61,7 @@ run attention_hd128 "$OUT/gpu_attention_test" --hd 128 --host-only
 run elementwise     "$OUT/gpu_elementwise_test" --host-only
 run fp8             "$OUT/gpu_fp8_api_test" --host-only
 run reconv          "$OUT/gpu_reconv_test" --host-only
+run hazard          "$OUT/bw_hazard_test" --disasm
 if [ "${2:-}" = "--red" ]; then
     # Red check of the gate itself: two planted shell-outs, one by name (the decoy must catch it) and one by the
     # toolkit's absolute path (strace must catch it). The gate must then say FAIL; a gate that stays green here is broken.

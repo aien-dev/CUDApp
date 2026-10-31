@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Regenerate checked portable Omega C and declarations for all canonical roots.
 # Seeded e5b32567 validates exactly the composed bytes lowered by bridge36.
 # No native x86 compiler or executable-code trampoline participates.

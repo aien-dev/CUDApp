@@ -59,6 +59,8 @@ src/omega_blackwell_submit.c	CHIP_SPECIFIC	The vector executor: allocates and su
 src/omega_blackwell_submit.h	CHIP_SPECIFIC	Launch constants and executor interface for GB10; includes the realize and matmul headers.	NO_HOSTED_INCLUDE
 src/omega_bw_em.h	CHIP_SPECIFIC	Private IR emitter helpers for the sm_121 tensor-core generators (scheduling rules proven on the chip).	NO_HOSTED_INCLUDE
 src/omega_bw_em_q.h	CHIP_SPECIFIC	Private emitters for the FP8 QMMA placeholders (sm_121).	NO_HOSTED_INCLUDE
+src/omega_bw_hazard.c	CHIP_SPECIFIC	Static scoreboard hazard checker over encoded sm_121 kernel bytes (RAW, WAR, WAW against the Blackwell write and read barriers); decodes the operand positions the encoder writes. Includes stdlib.h.	HOSTED_LIBC
+src/omega_bw_hazard.h	CHIP_SPECIFIC	Interface of the sm_121 scoreboard hazard checker; includes only stddef.h and stdint.h.	NO_HOSTED_INCLUDE
 src/omega_bw_reconv.h	CHIP_SPECIFIC	Warp reconvergence regions (BSSY, BSYNC) for the Blackwell IR emitters.	NO_HOSTED_INCLUDE
 src/omega_gpu_attention_api.c	CHIP_SPECIFIC	Builds and launches its own sm_121 attention kernels (stall counts as nvcc writes them for sm_121) through the session: the tuned head_dim 64/128 kernels and, since runtime API 0.6.0, the general fallback kernel (head_dim 1..256, any GQA ratio). In the freestanding closure.	FREESTANDING_PROVEN
 src/omega_gpu_attention_api.h	CHIP_SPECIFIC	Attention API; its kernel type OmegaBlackwellKernel comes from omega_blackwell_matmul.h.	NO_HOSTED_INCLUDE
@@ -80,23 +82,26 @@ src/omega_gpu_fmt.c	PORTABLE	Bounded text formatter that replaces snprintf in th
 src/omega_gpu_fmt.h	PORTABLE	Formatter interface; includes only stddef.h.	NO_HOSTED_INCLUDE
 src/omega_gpu_fp8_api.c	CHIP_SPECIFIC	Launches the FP8 GEMV through Blackwell generators and command lists, with GPU-cached weight buffers.	HOSTED_LIBC
 src/omega_gpu_fp8_api.h	CHIP_SPECIFIC	FP8 GEMV API; includes omega_blackwell_codegen_moe.h.	NO_HOSTED_INCLUDE
+src/omega_gpu_fp8_internal.h	CHIP_SPECIFIC	Library-internal helpers of omega_gpu_fp8_api.c for the slot pool (GPU-UNCACHED FP8 tensor allocation, CPU views of one expert); includes omega_gpu_fp8_api.h.	NO_HOSTED_INCLUDE
+src/omega_gpu_fp8_slots.c	CHIP_SPECIFIC	Versioned replaceable FP8 expert slots backed by one OmegaGpuFp8Tensor; uses the session's platform SYNC and the grouped FP8 GEMV launch. Includes stdlib.h.	HOSTED_LIBC
+src/omega_gpu_fp8_slots.h	CHIP_SPECIFIC	FP8 expert slot pool API (load, pin, entry, evict, grouped GEMV); includes omega_gpu_fp8_api.h.	NO_HOSTED_INCLUDE
 src/omega_gpu_fp8gemm_api.c	CHIP_SPECIFIC	Launches the FP8 prefill GEMM through the session.	HOSTED_LIBC
 src/omega_gpu_fp8gemm_api.h	CHIP_SPECIFIC	FP8 GEMM API; includes omega_blackwell_codegen_gemm.h.	NO_HOSTED_INCLUDE
 src/omega_gpu_fp8_pack.c	CHIP_SPECIFIC	Packs FP8 weights into the layout the sm_121 GEMV kernels read; host side.	HOSTED_LIBC
 src/omega_gpu_hostmath.c	PORTABLE	libm-free double-precision log, exp and pow for host-side tables; plain arithmetic, no chip or OS call.	NO_HOSTED_INCLUDE
 src/omega_gpu_hostmath.h	PORTABLE	Interface of the libm-free host math; no includes.	NO_HOSTED_INCLUDE
 src/omega_gpu_matmul_api.c	CHIP_SPECIFIC	Builds Blackwell matmul kernels, fills the QMD and launches; reports target_chip GB10. In the freestanding closure.	FREESTANDING_PROVEN
-src/omega_gpu_matmul_api.h	PORTABLE	Public matmul entry point: bf16 in, f32 out, plain integer and pointer types; includes only stdbool.h, stddef.h and stdint.h.	NO_HOSTED_INCLUDE
+src/omega_gpu_matmul_api.h	CHIP_SPECIFIC	Public contract exposes Blackwell tile macros TILE_M=16, TILE_N=8, TILE_K=16, chip CTA envelope and GPU-uncached resident storage; plain C types do not make these semantics chip-neutral.	NO_HOSTED_INCLUDE
 src/omega_gpu_mem_cached.c	CHIP_SPECIFIC	Allocates GPU-cached weight buffers; relies on the GB10 rule that a write-once buffer the CPU never reads cannot hold a stale L2 line.	NO_HOSTED_INCLUDE
 src/omega_gpu_mem_cached.h	CHIP_SPECIFIC	Documents the GPU-cached read-only weight invariant (nvos.h GPU_CACHEABLE: not coherent with CPU mappings).	NO_HOSTED_INCLUDE
 src/omega_gpu_moe_api.c	CHIP_SPECIFIC	Launches MoE matmul kernels from the Blackwell generators and the QMD builder.	NO_HOSTED_INCLUDE
-src/omega_gpu_moe_api.h	PORTABLE	MoE API surface over omega_gpu_matmul_api.h; no chip type in the header.	NO_HOSTED_INCLUDE
+src/omega_gpu_moe_api.h	CHIP_SPECIFIC	Public packing contract is Blackwell tile-major B with col0 modulo 8 alignment and OMEGA_BW_MATMUL_MAX limits; includes omega_gpu_matmul_api.h.	NO_HOSTED_INCLUDE
 src/omega_gpu_native_runtime.h	CHIP_SPECIFIC	Private binding of exact admitted GB10 artifacts to existing code allocations and generated native lease policy; includes the code-prefetch allocation contract.	NO_HOSTED_INCLUDE
 src/omega_gpu_pfgemm.c	CHIP_SPECIFIC	Prefill GEMM driver over the Blackwell tensor-core generators.	HOSTED_LIBC
 src/omega_gpu_pfhost.c	CHIP_SPECIFIC	Prefill router and combine launcher over the Blackwell pfhost generators.	NO_HOSTED_INCLUDE
 src/omega_gpu_pfhost.h	CHIP_SPECIFIC	Prefill router and combine API; documents bit-exact sm_121 kernel semantics.	NO_HOSTED_INCLUDE
 src/omega_gpu_platform.c	PORTABLE	Platform contract checks, negotiation and handle table. Builds in make gpu-engine-freestanding.	FREESTANDING_PROVEN
-src/omega_gpu_platform.h	PORTABLE	The platform contract ABI 1.2: handles, buffers, services, refusals. Includes only stddef.h and stdint.h.	NO_HOSTED_INCLUDE
+src/omega_gpu_platform.h	CHIP_SPECIFIC	ABI 1.2 has reusable typed handles but its current queue_submit contract specifies one GPFIFO entry and its HOST_POLLED rights require the NVIDIA GPU-uncached visibility policy. Device ordinal 0 is documented as the GB10; review this contract on another chip.	NO_HOSTED_INCLUDE
 src/omega_gpu_platform_linux.c	CHIP_SPECIFIC	The Linux reference platform: nvrm_open and m16_native_create_channel on the NVIDIA open driver. Hosted only, outside the freestanding closure.	LINUX_DRIVER
 src/omega_gpu_platform_linux.h	CHIP_SPECIFIC	Declares the Linux driver platform; the implementation behind it is the Linux binding.	NO_HOSTED_INCLUDE
 src/omega_gpu_prefill_attn_api.c	CHIP_SPECIFIC	Launches the prefill attention kernel from the Blackwell generator on the session.	NO_HOSTED_INCLUDE
@@ -105,10 +110,10 @@ src/omega_gpu_prefill.c	CHIP_SPECIFIC	Device-resident prefill: GPU-cached device
 src/omega_gpu_prefill.h	CHIP_SPECIFIC	Documents the prefill memory policy: GPU-cached device-private buffers and L2_FLUSH_DIRTY.	NO_HOSTED_INCLUDE
 src/omega_gpu_router_api.c	CHIP_SPECIFIC	Launches the router kernel through a command list.	NO_HOSTED_INCLUDE
 src/omega_gpu_router_api.h	CHIP_SPECIFIC	Router API; includes omega_blackwell_codegen_router.h.	NO_HOSTED_INCLUDE
-src/omega_gpu_serving.c	PORTABLE	Serving reservation: counts and bounds what a session may allocate. Builds in make gpu-engine-freestanding.	FREESTANDING_PROVEN
-src/omega_gpu_serving.h	PORTABLE	Serving reservation interface; includes only stdint.h.	NO_HOSTED_INCLUDE
+src/omega_gpu_serving.c	CHIP_SPECIFIC	Thin wrapper calls omega_gpu_matmul_reserve and the current attention reservation APIs with their chip-specific contracts; it does not implement an independent generic accounting layer. OS-free in make gpu-engine-freestanding.	FREESTANDING_PROVEN
+src/omega_gpu_serving.h	CHIP_SPECIFIC	Current GB10 serving contract delegates to chip-specific matmul/attention reservations and documents at-most-16-row handling and fixed kernel-cache defaults/limits; absence of hosted includes is not a chip-neutral contract.	NO_HOSTED_INCLUDE
 src/omega_gpu_session.c	CHIP_SPECIFIC	The persistent session over OmegaGpuPlatform. OS-free (in the freestanding closure) but carries GB10 constants: the compute-class setup words (class 0xcec0), the cache-invalidate method 0x021c, launch constants from omega_blackwell_submit.h.	FREESTANDING_PROVEN
-src/omega_gpu_session.h	PORTABLE	Session interface in platform terms (OmegaGpuMem, handles); includes only omega_gpu_platform.h.	NO_HOSTED_INCLUDE
+src/omega_gpu_session.h	CHIP_SPECIFIC	Session exposes QMD scratch, register-count rules and QMD shared-memory default 1024, plus the GB10 two-marker/L2 flush launch protocol; platform handles remove OS types, not chip assumptions.	NO_HOSTED_INCLUDE
 src/omega_gpu_tcgemm_api.c	CHIP_SPECIFIC	Launches the tensor-core GEMM through the session.	HOSTED_LIBC
 src/omega_gpu_tcgemm_api.h	CHIP_SPECIFIC	Tensor-core GEMM API; includes omega_blackwell_codegen_tc.h.	NO_HOSTED_INCLUDE
 src/omega_gpu_tern_api.c	CHIP_SPECIFIC	Launches the ternary GEMV with GPU-cached weights through a command list.	HOSTED_LIBC
@@ -132,4 +137,4 @@ src/omega_gpu_q38_graph.c	CHIP_SPECIFIC	Chains a whole Qwen3.8-27B decode token 
 src/omega_gpu_q38_graph.h	CHIP_SPECIFIC	Qwen3.8 decode graph interface over the decode graph, attention and Gated DeltaNet APIs.	NO_HOSTED_INCLUDE
 src/omega_gpu_scan.c	CHIP_SPECIFIC	Builds and launches the reduction and prefix-sum kernels for the GB10 from Omega's IR emitters.	HOSTED_LIBC
 src/omega_gpu_scan.h	CHIP_SPECIFIC	Reduction and prefix-sum API; includes omega_blackwell_codegen.h.	NO_HOSTED_INCLUDE
-src/omega_gpu_scan_ref.c	CHIP_SPECIFIC	Host references of the scan order; includes omega_gpu_scan.h, which includes omega_blackwell_codegen.h.	HOSTED_LIBC
+src/omega_gpu_scan_ref.c	PORTABLE	Host references of the frozen reduction and prefix-sum order, which depends only on n and the element index (docs/numeric/E1_REDUCTION_CONTRACT.md); plain C additions, no chip or OS call. Its own header omega_gpu_scan.h still pulls in omega_blackwell_codegen.h, so reusing it off this tree needs the declarations split out.	HOSTED_LIBC

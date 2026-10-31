@@ -1,5 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # CUDApp#79: the sm_121 instruction encoder in seeded Omega (om/encoder/bw_enc_sm121.om), linked through the
-# portable generated C units $(CUDAPP_OM_UNIT_SRCS) that om/units.sh generates. The C encoder in
+# portable generated C units $(CUDAPP_BINDING_SRCS) that om/units.sh generates. The C encoder in
 # src/omega_blackwell_codegen.c is migration-pending: the freestanding build and the oracle builds only.
 #   make test-om-encoder          (in `make test`, no Omega tools needed)
 #       1. the golden-word fixture verifiers (nvcc/nvdisasm oracles) through the .om encoder;
@@ -22,17 +23,17 @@ OM_ENC_SRCS = src/omega_blackwell_codegen.c src/omega_blackwell_matmul.c src/sha
 OM_ENC_BUILD = gcc -std=gnu11 -O2 -Wall -Wextra -Werror -pthread -Isrc
 
 .PHONY: test-om-encoder test-om-encoder-corpus test-om-units test-om-encoder-mutants
-$(OM_ENC_DIR)/codegen_om: $(OM_ENC_TEST_DEPS) $(OM_ENC_SRCS) $(CUDAPP_OM_UNIT_SRCS) src/cudapp_native.h
+$(OM_ENC_DIR)/codegen_om: $(OM_ENC_TEST_DEPS) $(OM_ENC_SRCS) $(CUDAPP_BINDING_SRCS) src/cudapp_native.h
 	@mkdir -p $(OM_ENC_DIR)
-	$(OM_ENC_BUILD) -o $@ tests/test_omega_codegen_freestanding.c $(OM_ENC_SRCS) $(CUDAPP_OM_UNIT_SRCS)
-$(OM_ENC_DIR)/codegen_diff: $(OM_ENC_TEST_DEPS) $(OM_ENC_SRCS) $(CUDAPP_OM_UNIT_SRCS) src/cudapp_native.h
+	$(OM_ENC_BUILD) -o $@ tests/test_omega_codegen_freestanding.c $(OM_ENC_SRCS) $(CUDAPP_BINDING_SRCS)
+$(OM_ENC_DIR)/codegen_diff: $(OM_ENC_TEST_DEPS) $(OM_ENC_SRCS) $(CUDAPP_BINDING_SRCS) src/cudapp_native.h
 	@mkdir -p $(OM_ENC_DIR)
 	$(OM_ENC_BUILD) -DCUDAPP_MIGRATION_PENDING_ENCODER_DIFF -o $@ tests/test_omega_codegen_freestanding.c \
-		$(OM_ENC_SRCS) $(CUDAPP_OM_UNIT_SRCS)
-$(OM_ENC_DIR)/codegen_diff_red: $(OM_ENC_TEST_DEPS) $(OM_ENC_SRCS) $(CUDAPP_OM_UNIT_SRCS) src/cudapp_native.h
+		$(OM_ENC_SRCS) $(CUDAPP_BINDING_SRCS)
+$(OM_ENC_DIR)/codegen_diff_red: $(OM_ENC_TEST_DEPS) $(OM_ENC_SRCS) $(CUDAPP_BINDING_SRCS) src/cudapp_native.h
 	@mkdir -p $(OM_ENC_DIR)
 	$(OM_ENC_BUILD) -DCUDAPP_MIGRATION_PENDING_ENCODER_DIFF -DCUDAPP_ENCODER_DIFF_SELFTEST -o $@ \
-		tests/test_omega_codegen_freestanding.c $(OM_ENC_SRCS) $(CUDAPP_OM_UNIT_SRCS)
+		tests/test_omega_codegen_freestanding.c $(OM_ENC_SRCS) $(CUDAPP_BINDING_SRCS)
 
 test-om-encoder: $(OM_ENC_DIR)/codegen_om $(OM_ENC_DIR)/codegen_diff $(OM_ENC_DIR)/codegen_diff_red
 	$(OM_ENC_DIR)/codegen_om --golden
@@ -61,8 +62,14 @@ test-om-encoder-corpus:
 	@echo "encoder corpus: $$(ls $(OM_ENC_DIR)/k-om/*.bin | wc -l) distinct kernels identical .om vs C; diff build $$(grep -c '^program ' $(OM_ENC_DIR)/corpus-diff.log) program encodes and $$(grep -c '^insn ' $(OM_ENC_DIR)/corpus-diff.log) single-instruction encodes, all SAME"
 
 .PHONY: test-om-spec-encoder
+ifeq ($(CUDAPP_OMC_HOST),1)
 test-om-spec-encoder:
-	sh tools/test_bw_spec_encoder.sh
+	OMEGA_BRIDGE="$(OMEGA_BRIDGE)" sh tools/test_bw_spec_encoder.sh
+else
+test-om-spec-encoder:
+	@echo "test-om-spec-encoder: NOT_RUN (requires the pinned AArch64 omc and nvdisasm; set OMEGA_OMC to a pin that executes on this host; not part of the portable host suite)"
+	@exit 2
+endif
 
 test-om-units:
 	OMEGA_OMC="$(OMEGA_OMC)" OMEGA_BRIDGE="$(OMEGA_BRIDGE)" sh om/units.sh --check

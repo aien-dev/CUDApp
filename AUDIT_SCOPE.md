@@ -54,7 +54,7 @@ research stage; current native qualification of this checkout is NOT_RUN.
 
 - Untrusted input: tensor shapes, sizes and buffers passed by callers of the library API
   (`docs/runtime/API.md`, `src/omega_runtime_api.h`); environment variables `CUDAPP_MEM_RESERVE_MIB`,
-  `CUDAPP_MEMINFO`, `CUDAPP_DOCTOR_ROOT`, `AIEN_OMEGA_DGRAPH_BARRIER`, `AIEN_OMEGA_DGRAPH_PREFETCH`;
+  `CUDAPP_DOCTOR_ROOT`, `AIEN_OMEGA_DGRAPH_BARRIER`, `AIEN_OMEGA_DGRAPH_PREFETCH`;
   `/proc` and `/sys` contents read by the doctor.
 - Trusted: NVIDIA's open kernel module 580.173.02, its headers in `third_party/`, and the
   signed GSP firmware. The kernel module enforces the privilege boundary between processes; this
@@ -89,7 +89,7 @@ make -j8
 ```
 
 Build variables: `CC`, `OUT_DIR` (default `build`), `PHYSICS_DIR` (default `.`). The host build
-needs no GPU. Fresh x86-64 portability is tracked in issue #15 (`docs/START_HERE.md`).
+needs no GPU. On x86-64, `make test` is the portable suite: it uses the C encoder and C cubin writer and does not assemble the seeded AArch64 binding. Target-only commands are in `docs/OMEGA_HOST_TESTS.md` (issue #15).
 
 ## Run every test
 
@@ -132,13 +132,18 @@ make hello-gpu
 ## Dependencies and provenance
 
 - No lockfile at the root; C with no external libraries beyond libc and libm for the library.
-  `native/learn53/omega653.lock` is a sub-component lock.
+  Sub-component pins: `om/omega-bridge.lock` (omega-bridge commit for the Omega bindings and CI),
+  `om/pipeline/dependencies.lock`, `native/learn53/omega653.lock`,
+  `native/learn53/moe-closure.lock` and `tools/c5/omc.pin`.
 - Vendored: `third_party/nvidia-open-580.173.02/` (67 NVIDIA headers, MIT, unchanged,
   `SHA256SUMS` in that folder). Mesa NVK/NAK is cited in comments for hardware facts, no code
   copied. Notices in `THIRD_PARTY.md` and `NOTICE`. History and licence audit in `docs/AUDIT.md`,
   `docs/LICENSE_PROVENANCE.md`, `docs/LICENSING_TRANSITION.md`.
 - AGENTS.md: no NVIDIA binary, cubin, PTX, firmware or NVIDIA tool listing goes in the repository.
-- Omega builds the same sources at a pinned commit (`cudapp.lock` in omega-mv).
+- Omega does not build these sources at a pin yet. omega-mv main has no `cudapp.lock`; it still
+  builds its own diverged copy of the GPU code (#106) and takes the driver client from physics-mv
+  (#107). The lock, with its `check-cudapp` target and `tools/cudapp-stage.sh`, is proposed in
+  the open draft omega-mv#924.
 - No network access at build or test time is documented. At the described revision the repository
   had no GitHub Actions workflow files; the audit-readiness change adds `.github/workflows/ci.yml`
   (item 10 above), whose only network use is fetching the pinned actions on the runner.

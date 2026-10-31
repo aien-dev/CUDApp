@@ -240,7 +240,7 @@ put4 w wda o 31105 rb o 5 203380992 ctl o 991744
 ret 0
 end
 if eq op 21
-put4 w wda o 31105 rb o 5 202250496 ctl o 991744
+put4 w wda o 31105 rb o 5 203364608 ctl o 991744
 ret 0
 end
 if eq op 22

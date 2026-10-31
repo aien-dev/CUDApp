@@ -43,6 +43,11 @@ uint32_t omega_gpu_platform_linux_channels_env(void);
 uint32_t omega_gpu_platform_linux_target_sm(void);
 int omega_gpu_platform_linux_vram_info(uint64_t *free_bytes, uint64_t *total_bytes);
 
+/* TEST ONLY. The D1 memory reserve check reads MemAvailable from path instead of /proc/meminfo; NULL or "" restores
+ * /proc/meminfo. A path that does not open, without following a final symlink and without blocking, to a regular file
+ * falls back to /proc/meminfo. Returns 0, or -1 (nothing changed) when path is 4096 bytes or longer. */
+int omega_gpu_platform_linux_test_set_meminfo(const char *path);
+
 #ifdef __cplusplus
 }
 #endif

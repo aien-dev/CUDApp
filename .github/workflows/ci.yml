@@ -11,11 +11,20 @@ on:
 permissions:
   contents: read
 jobs:
+  audit-scanner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Scanner detections and error refusal controls
+        run: bash tools/extract/audit-selftest.sh
   host-tests:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0 # Portable derived receipts verify immutable original Git blobs.
@@ -61,7 +70,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Pinned Omega tools
@@ -71,13 +80,25 @@ jobs:
           git clone -q https://github.com/aien-dev/omega-bridge "$RUNNER_TEMP/omega-bridge"
           git -C "$RUNNER_TEMP/omega-bridge" checkout -q "$(grep -v '^#' om/omega-bridge.lock)"
           (cd "$RUNNER_TEMP/omega-bridge" && sh tools/bootstrap.sh && sh tools/build.sh)
+      - name: Pinned offline NVIDIA instruction oracle
+        run: |
+          package=cuda_nvdisasm-linux-sbsa-13.0.85-archive
+          archive="$RUNNER_TEMP/$package.tar.xz"
+          curl --fail --location --silent --show-error --proto '=https' --tlsv1.2 \
+            "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvdisasm/linux-sbsa/$package.tar.xz" \
+            --output "$archive"
+          printf '%s  %s\n' 77e2ef1494270839829d5608352ba67a278e80fdaf4e3cc3c8ac9cb73e1c463c "$archive" | sha256sum --check --strict
+          tar -xJf "$archive" -C "$RUNNER_TEMP" "$package/bin/nvdisasm"
+          sudo install -D -m755 "$RUNNER_TEMP/$package/bin/nvdisasm" /usr/local/cuda/bin/nvdisasm
       - name: Bindings regenerate and mutants go red
         run: make test-om-units test-om-encoder-mutants test-om-cubin-mutants OMEGA_MV="$RUNNER_TEMP/omega-mv" OMEGA_BRIDGE_DIR="$RUNNER_TEMP/omega-bridge"
+      - name: Exact MMIO contract and wrong-cache-policy control
+        run: make test-sm121-mmio OMEGA_MV="$RUNNER_TEMP/omega-mv"
   sbom:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3

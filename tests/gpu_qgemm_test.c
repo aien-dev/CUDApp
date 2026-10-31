@@ -214,8 +214,12 @@ static float qemu_phys(const QProb *p, uint32_t i, uint32_t c) {
     }
     return acc;
 }
+/* the kernel's SwiGLU epilogue (omega_blackwell_codegen_qg.c: FMNMX t-cap, MUFU.EX2, MUFU.RCP). Both MUFU results go
+ * through the chip's flush rule (tests/bw_mufu_ftz.h, omega #462). Not observable with the t-cap: t <= 125 keeps
+ * 1 / (2^t + 1) >= 2^-125 normal, and an EX2 result below 2^-126 (t < -126) rounds to the same d = 1.0 after the +1 as
+ * its flushed zero; qg_host checks this bit for bit. Removing the cap (issue #462) is a separate chip-gated change. */
 static uint16_t qswiglu_bits(float g, float u) {
-    float t = fminf(g * u2f(0xbfb8aa3bu), 125.0f), ex = exp2f(t), d = ex + 1.0f, r = 1.0f / d, o = g * r;
+    float t = fminf(g * u2f(0xbfb8aa3bu), 125.0f), ex = ws_mufu_ex2(t), d = ex + 1.0f, r = ws_mufu_rcp(d), o = g * r;
     o = o * u;
     return bf16_rn(o);
 }
@@ -256,8 +260,26 @@ static size_t qcompare(const QProb *p, const void *y, const uint32_t *rows, uint
     return bad;
 }
 
+/* omega #462: with the t-cap the MUFU flush never changes a SwiGLU output bit. Compare qswiglu_bits against the IEEE
+ * form over every g in [80, 110] and [-110, -80] (the EX2-subnormal window t in (-150, -126] and the cap t = 125, both
+ * signs) plus a stride-65537 sample of all f32. Not a red test: there is no input for which the two differ. */
+static int qg_mufu_ftz_unobservable(void) {
+    uint64_t n = 0, diff = 0;
+    const float us[2] = { 1.0f, -3.0f };
+    for (int pass = 0; pass < 3; pass++) {
+        uint64_t lo = pass == 0 ? f2u(80.0f) : pass == 1 ? f2u(-80.0f) : 0, hi = pass == 0 ? f2u(110.0f) : pass == 1 ? f2u(-110.0f) : 0xffffffffull, step = pass == 2 ? 65537 : 1;
+        for (uint64_t b = lo; b <= hi; b += step) {
+            float g = u2f((uint32_t)b);
+            if (isnan(g)) continue;
+            float t = fminf(g * u2f(0xbfb8aa3bu), 125.0f), r = 1.0f / (exp2f(t) + 1.0f);
+            for (int k = 0; k < 2; k++) { n++; if (bf16_rn((g * r) * us[k]) != qswiglu_bits(g, us[k])) diff++; }
+        }
+    }
+    printf("%s qgemm SwiGLU: MUFU flush vs IEEE, %llu inputs, %llu differ (t-cap keeps it unobservable, #462)\n", diff ? "FAIL" : "PASS", (unsigned long long)n, (unsigned long long)diff);
+    return diff ? 1 : 0;
+}
 static int qg_host(void) {
-    int fail = 0;
+    int fail = qg_mufu_ftz_unobservable();
     for (uint32_t layout = 0; layout < 3; layout += 2) {
         QProb p; qprob_make(&p, 3, 256, 384, 40, 17, layout, 0, 0);
         double worst = 0;

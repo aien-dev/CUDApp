@@ -220,7 +220,8 @@ def fig_hero(words):
 def fig_stack():
     s = Svg(1200, 930, "CUDA and CUDA++, layer by layer",
             "Left: the NVIDIA CUDA stack. Right: CUDA++. The four closed layers above the kernel module are "
-            "replaced by my own code; the open kernel module and the signed GPU firmware are still NVIDIA's.")
+            "replaced by my own code; the open kernel module is NVIDIA's until my own GB10 driver replaces it, "
+            "and the signed GPU firmware stays NVIDIA's.")
     s.frame()
     s.kicker(48, 60, "the stack")
     s.text(48, 100, "What runs between your program and the GPU", size=30, weight=800, ls=-0.5)
@@ -239,12 +240,12 @@ def fig_stack():
         ("closed", ("libcuda", "driver API, closed"),
          ("Driver client: nvrm + m16", "nvrm/nvrm.c, m16/: ioctls from the open headers")),
         ("open", ("nvidia.ko · nvidia-uvm.ko", "NVIDIA's open kernel module"),
-         ("nvidia.ko · nvidia-uvm.ko", "stays; GB10 support goes upstream to Nova, nouveau")),
+         ("nvidia.ko · nvidia-uvm.ko, for now", "my own GB10 driver (L332) replaces it; not run on GB10 yet")),
         ("fw", ("GSP firmware", "runs inside the GPU, signed by NVIDIA"),
          ("GSP firmware", "stays NVIDIA's: the chip checks its signature")),
         ("hw", ("NVIDIA GB10 GPU", "DGX Spark, sm_121"), ("NVIDIA GB10 GPU", "DGX Spark, sm_121")),
     ]
-    marks = {"closed": ("replaced", GREEN), "open": ("stays", VIOLET), "fw": ("stays", AMBER)}
+    marks = {"closed": ("replaced", GREEN), "open": ("replacing", VIOLET), "fw": ("stays", AMBER)}
     y, rh, gap = 172, 72, 14
     for i, (kind, left, right) in enumerate(rows):
         if i == 5:
@@ -280,7 +281,7 @@ def fig_stack():
         y += rh + gap
     ly = y + 16
     for lab, col, x in (("closed, replaced by CUDA++", INK3, 48), ("first-party, Apache-2.0+LLVM", GREEN, 300),
-                        ("NVIDIA open source, stays", BLUE, 440), ("NVIDIA signed firmware, stays", AMBER, 740)):
+                        ("NVIDIA open source, being replaced", BLUE, 560), ("NVIDIA signed firmware, stays", AMBER, 840)):
         s.rect(x, ly - 11, 14, 14, stroke=col, fill="#0b1a17" if col == GREEN else CARD, rx=3, sw=1.5)
         s.text(x + 22, ly + 1, lab, size=14, fill=INK2)
     return s
@@ -564,8 +565,8 @@ def fig_driver():
     card(s, 48, by, 1104, 70, accent=INK3, fill=CARD2, dash="6 5")
     s.text(68, by + 30, "Below this line: NVIDIA's open kernel module (nvidia.ko, nvidia-uvm.ko) and the GSP "
                         "firmware inside the GPU.", size=15, fill=INK)
-    s.text(68, by + 53, "Both stay: GB10 support goes upstream to Nova and nouveau (L332 is a research harness); "
-                        "the signed firmware stays NVIDIA's.", size=14, fill=INK2)
+    s.text(68, by + 53, "My own GB10 driver (L332) replaces the module; it has not run on the GB10 yet. "
+                        "The signed firmware stays NVIDIA's.", size=14, fill=INK2)
     return s
 
 
@@ -672,8 +673,8 @@ def fig_status():
         ("cuobjdump · nvdisasm", "read machine code back", "my own sm_121 disassembler", "BUILDING", "Omega branch c6/disasm: 331 kernels agree"),
         ("Nsight", "measure", "ceiling probes", "PARTIAL", "115.14 TFLOPS, 195.1 GB/s"),
         ("cuFFT · cuRAND", "FFT, random numbers", "none yet", "MISSING", ""),
-        ("nvidia.ko", "kernel driver", "stays: NVIDIA's open kernel module", "STAYS", "GB10 support goes upstream: Nova, nouveau"),
-        ("nvidia-uvm.ko", "page tables, faults", "stays: NVIDIA's open kernel module", "STAYS", "L332 is a research harness only"),
+        ("nvidia.ko", "kernel driver", "my own GB10 driver (L332)", "BUILDING", "aien-gpu, omega-gpu-driver, aienux#441; not run on GB10"),
+        ("nvidia-uvm.ko", "page tables, faults", "my own GB10 driver (L332)", "BUILDING", "MMU simulator, 225 checks; not run on GB10"),
         ("nvidia-smi · NVML", "status, clocks, power", "not started", "MISSING", ""),
         ("GSP firmware", "runs inside the GPU", "stays NVIDIA's: signature-checked", "STAYS", "never shipped by CUDA++"),
     ]

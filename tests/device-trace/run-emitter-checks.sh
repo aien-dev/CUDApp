@@ -2,7 +2,7 @@
 # Offline checks for the device-side trace emitter (CUDApp #82 first slice).
 #
 # Two layers, deliberately separate:
-#   1. tests/device-trace/emitter-test.om  -- host checks compiled by the pinned seed compiler.
+#   1. emitter/address/guard/body-test.om -- host checks compiled by the pinned seed compiler.
 #   2. nvdisasm 13.0 on the emitted words   -- an outside oracle. It is not part of the
 #      delivered closure and no GPU is touched; it only confirms that the emitted words
 #      decode to the intended instructions. Its listing stays in the temporary work
@@ -24,15 +24,44 @@ trap 'rm -rf -- "$work"' EXIT HUP INT TERM
 
 echo "compiler $(sha256sum "$compiler" | cut -d' ' -f1)"
 
-# 1. host checks
-cat "$root/native/blackwell/trace-emit.om" "$root/tests/device-trace/emitter-test.om" > "$work/test.om"
-"$compiler" < "$work/test.om" > "$work/test.elf"
-chmod +x "$work/test.elf"
-"$work/test.elf" > "$work/test.out"
-fails=$(awk '$2 == 1 { n++ } END { print n + 0 }' "$work/test.out")
-checks=$(wc -l < "$work/test.out")
-echo "host checks: $checks, failures: $fails"
-[ "$fails" = 0 ] || { cat "$work/test.out" >&2; exit 1; }
+compile_unit() {
+  src=$1
+  out=$2
+  if "$compiler" < "$src" > "$out.elf" 2> "$out.compile.stderr"; then
+    :
+  else
+    rc=$?
+    cat "$out.compile.stderr" >&2
+    return "$rc"
+  fi
+  [ ! -s "$out.compile.stderr" ] || { cat "$out.compile.stderr" >&2; return 1; }
+  chmod +x "$out.elf"
+}
+
+# 1. All semantic units must pass before any external decode is attempted.
+for name in emitter address guard body; do
+  : > "$work/$name.om"
+  if [ "$name" = body ]; then
+    cat "$root/native/blackwell/vector.om" >> "$work/$name.om"
+  fi
+  cat "$root/native/blackwell/trace-emit.om" "$root/tests/device-trace/$name-test.om" >> "$work/$name.om"
+  compile_unit "$work/$name.om" "$work/$name"
+  if "$work/$name.elf" > "$work/$name.out"; then
+    :
+  else
+    rc=$?
+    cat "$work/$name.out" >&2
+    echo "host unit $name failed: exit $rc" >&2
+    exit "$rc"
+  fi
+  if [ "$name" = emitter ]; then
+    fails=$(awk '$2 == 1 { n++ } END { print n + 0 }' "$work/$name.out")
+    checks=$(wc -l < "$work/$name.out")
+    echo "host checks: $checks, failures: $fails"
+    [ "$fails" = 0 ] || { cat "$work/$name.out" >&2; exit 1; }
+  fi
+  echo "host unit $name: PASS"
+done
 
 # 2. instruction decode of the two marker blocks (no kernel words between them)
 cat > "$work/dump.om" <<'EOF'
@@ -55,8 +84,7 @@ ret 0
 end
 EOF
 cat "$root/native/blackwell/trace-emit.om" "$work/dump.om" > "$work/dump_full.om"
-"$compiler" < "$work/dump_full.om" > "$work/dump.elf"
-chmod +x "$work/dump.elf"
+compile_unit "$work/dump_full.om" "$work/dump"
 "$work/dump.elf" > "$work/words.bin"
 echo "words: $(wc -c < "$work/words.bin") bytes, $(( $(wc -c < "$work/words.bin") / 16 )) instructions"
 [ "$(wc -c < "$work/words.bin")" = 640 ] || { echo 'expected 40 instructions (640 bytes)' >&2; exit 1; }

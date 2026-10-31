@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* gpu_streams_test.c -- row C4 of docs/OMEGA.md: two independent queues and an event between them, on the GB10.
  *
  *   --host-only  codegen + encode of the two kernels (and their mutants), refusals of omega_gpu_cmdlist_wait_for

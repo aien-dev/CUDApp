@@ -7,6 +7,8 @@
 #include "omega_gpu_engine.h"
 #include "m16_native.h"
 #include "omega_gpu_wait.h"
+#include "cpu_barrier.h"
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,12 +31,25 @@ static uint64_t current_time_ns(void) {
     return (uint64_t)t.tv_sec * 1000000000ULL + (uint64_t)t.tv_nsec;
 }
 
+/* Production entry points run on AArch64. The host simulator defines
+ * OMEGA_BLACKWELL_HOST_SIMULATOR and keeps the argument checks below. */
+static int bw_refuse_non_aarch64(void)
+{
+#if !defined(__aarch64__) && !defined(OMEGA_BLACKWELL_HOST_SIMULATOR)
+    errno = ENOTSUP;
+    return -1;
+#else
+    return 0;
+#endif
+}
+
 int omega_blackwell_execute_vector(const OmegaVectorSpec *spec,
                                   const OmegaBlackwellRealization *real,
                                   const uint32_t *h_a,
                                   const uint32_t *h_b,
                                   uint32_t *h_c_out,
                                   OmegaBlackwellVectorExecution *exec_info) {
+    if (bw_refuse_non_aarch64() != 0) return -1;
     if (!spec || !real || !h_a || !h_b || !h_c_out) return -1;
     uint32_t n = spec->element_count;
     if (n == 0) return -1;
@@ -165,6 +180,7 @@ int omega_blackwell_execute_matmul(const OmegaMatMulSpec *spec,
                                   const uint32_t *h_b,
                                   uint32_t *h_c_out,
                                   OmegaBlackwellMatMulExecution *exec_info) {
+    if (bw_refuse_non_aarch64() != 0) return -1;
     if (!spec || !kernel || !h_a || !h_b || !h_c_out) return -1;
     if (!kernel->code || kernel->code_size == 0) return -1;
     if (spec->m == 0 || spec->k == 0 || spec->n == 0) return -1;
@@ -281,11 +297,7 @@ int omega_blackwell_execute_matmul(const OmegaMatMulSpec *spec,
     *hsem = 0;
     *hmarker = 0;
     *hmarker2 = 0;
-#if defined(__aarch64__)
-    __asm__ volatile("dsb sy" ::: "memory");
-#else
-    __atomic_thread_fence(__ATOMIC_SEQ_CST);
-#endif
+    nvrm_cpu_barrier();
 
     /* Assemble unified pushbuffer */
     uint32_t pb[1024];
@@ -378,11 +390,7 @@ int omega_blackwell_execute_matmul(const OmegaMatMulSpec *spec,
     /* Wait for hardware completion marker */
     /* CHIPWAIT-2: marker with marker2 required (C3: the second release lands only after the L2 flush). */
     if (bw_wait_one(__func__, "marker", hmarker, OMEGA_BW_MARKER_COMPLETION_PAYLOAD, hmarker2, OMEGA_BW_MARKER2_PAYLOAD) != 0) { m16_native_close(&ctx); return -1; }
-#if defined(__aarch64__)
-    __asm__ volatile("dsb sy" ::: "memory");
-#else
-    __atomic_thread_fence(__ATOMIC_SEQ_CST);
-#endif
+    nvrm_cpu_barrier();
     uint64_t t_end = current_time_ns();
 
     /* Validate intermediate semaphore updated to 6 */
@@ -428,6 +436,7 @@ int omega_blackwell_execute_matmul_tensor(const OmegaMatMulSpec *spec,
                                          OmegaBlackwellMatMulExecution *exec_info,
                                          float *out_max_abs_err,
                                          float *out_max_rel_err) {
+    if (bw_refuse_non_aarch64() != 0) return -1;
     if (!spec || !kernel || !h_a || !h_b || !h_c_out) return -1;
     if (!kernel->code || kernel->code_size == 0) return -1;
     if (spec->m == 0 || spec->k == 0 || spec->n == 0) return -1;
@@ -546,11 +555,7 @@ int omega_blackwell_execute_matmul_tensor(const OmegaMatMulSpec *spec,
     *hsem = 0;
     *hmarker = 0;
     *hmarker2 = 0;
-#if defined(__aarch64__)
-    __asm__ volatile("dsb sy" ::: "memory");
-#else
-    __atomic_thread_fence(__ATOMIC_SEQ_CST);
-#endif
+    nvrm_cpu_barrier();
 
     uint32_t pb[1024];
     size_t pb_len = 0;
@@ -631,11 +636,7 @@ int omega_blackwell_execute_matmul_tensor(const OmegaMatMulSpec *spec,
 
     /* CHIPWAIT-2: marker with marker2 required (C3: the second release lands only after the L2 flush). */
     if (bw_wait_one(__func__, "marker", hmarker, OMEGA_BW_MARKER_COMPLETION_PAYLOAD, hmarker2, OMEGA_BW_MARKER2_PAYLOAD) != 0) { m16_native_close(&ctx); return -1; }
-#if defined(__aarch64__)
-    __asm__ volatile("dsb sy" ::: "memory");
-#else
-    __atomic_thread_fence(__ATOMIC_SEQ_CST);
-#endif
+    nvrm_cpu_barrier();
     uint64_t t_end = current_time_ns();
 
     if (*hsem != OMEGA_BW_SEMAPHORE_INTERMEDIATE_DONE) { m16_native_close(&ctx); return -1; }

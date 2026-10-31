@@ -497,10 +497,10 @@ static int bw_c_encode_insn(const BlackwellIRInsn *insn, const OmegaRegAlloc *ra
             break;
 
         case BW_IR_LDG_MMIO:
-            /* LDG.E.EF. Drop the cached line, then load. */
+            /* LDG.E.MMIO.GPU, as required by BW_IR_LDG_MMIO. */
             w[0] = 0x7981 | ((uint32_t)(dst & 0xff) << 16) | ((uint32_t)(src1 & 0xff) << 24);
             w[1] = (uint32_t)(ureg & 0xff);
-            w[2] = 0x0c0e1900;
+            w[2] = 0x0c1f1900;
             w[3] = insn->control ? insn->control : 0x000f2200;
             break;
 
@@ -1143,9 +1143,12 @@ void omega_kernel_dump(const uint8_t *code, size_t len) {
     int fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
     if (fd < 0) return;
     FILE *f = fdopen(fd, "wb");
-    if (!f) { close(fd); return; }
-    if (fwrite(code, 1, len, f) != len) BW_DIAG("omega_kernel_dump: short write %s\n", path);
-    if (fclose(f) != 0) BW_DIAG("omega_kernel_dump: close failed %s\n", path);
+    if (!f) { close(fd); unlink(path); BW_DIAG("omega_kernel_dump: write failed, removed %s\n", path); return; }
+    /* A body cut short (a full disk) must not stay under its full-content name: it would be compared as a smaller kernel
+     * and, created O_EXCL, never rewritten. tools/sm121dis/corpus.sh fails on these diagnostics. */
+    int bad = fwrite(code, 1, len, f) != len;
+    if (fclose(f) != 0) bad = 1;
+    if (bad) { unlink(path); BW_DIAG("omega_kernel_dump: write failed, removed %s\n", path); }
 #else
     (void)code; (void)len;
 #endif

@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "test_out_file.h"
 
 #define CASES 2048u
 #define NCLS 7
@@ -241,7 +242,7 @@ int main(int argc, char **argv) {
         printf("replaying chip words from %s\n", replay); do_peak = 0;
     } else {
         if (run_probe(0, 8, out, in) || run_probe(1, 8, outm, in) || run_probe(0, 2, out2, in)) { printf("GPU_QMMA_PROBE: FAIL chip\n"); return 1; }
-        if (save) { FILE *sf = fopen(save, "wb"); if (sf) { fwrite(out, 4, ow, sf); fwrite(outm, 4, ow, sf); fwrite(out2, 4, ow, sf); fclose(sf); } }
+        if (save) { FILE *sf = test_out_open(save); if (sf) { fwrite(out, 4, ow, sf); fwrite(outm, 4, ow, sf); fwrite(out2, 4, ow, sf); fclose(sf); } }
     }
     size_t poison = 0, far = 0, exact_miss = 0, exact_n = 0, waitdiff = 0;
     for (unsigned i = 0; i < CASES; i++) for (int L = 0; L < 32; L++) for (int q = 0; q < 4; q++) {

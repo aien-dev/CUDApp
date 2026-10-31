@@ -16,10 +16,10 @@
  * Prints PASS or FAIL. Exit code: 0 PASS, 1 FAIL (wrong or missing results), 2 the GPU could not be used.
  *
  * `hello_gpu --sim` runs the same kernel program on the host warp simulator instead (tests/bw_warp_sim.h):
- * no GPU is opened. A bad memory access there stops at the launch that made it and is reported with the
- * kernel, launch, instruction, block, thread, address and the buffer it missed (developer bar D3 and D4,
- * docs/PAIN_POINTS.md). `--sim --bug=past-end` shows such a report: the last launch is given one element
- * too many, a classic off-by-one.
+ * no GPU is opened. A bad memory access there stops at the launch that made it. The simulator names the
+ * pc. This program names the block, thread, address and buffer from the launch it issued (developer bar
+ * D3 and D4, docs/PAIN_POINTS.md): the mirrored simulator does not store those fields. `--sim --bug=past-end`
+ * shows such a report: the last launch is given one element too many, a classic off-by-one.
  *
  * `--bug=short` is the negative control for the check itself, on the GPU or with --sim: the last launch is
  * given one element too FEW, so c[1048575] is never written. That writes nothing outside a buffer, so it is
@@ -30,7 +30,9 @@
  * hello of aien-dev/CUDApp#79 (OM-GPU-RETIRE), which replaces this whole C program.
  *
  * Both paths print the work the job takes (bytes moved, floating-point operations) and the least time
- * those bytes need at this GB10's measured read ceiling (D12), the time the kernel took to build and the
+ * those bytes need at this GB10's measured read ceiling (D12). The mirrored simulator no longer counts
+ * those bytes, so --sim accounts the vecadd this program issued: two f32 loads, one f32 store and one
+ * FADD per element. Both paths also print the time the kernel took to build, the
  * hash of its machine code (D10, no compiling at run time), and the hash of the output (D7: the same
  * inputs give the same bits on every run).
  *
@@ -201,6 +203,7 @@ static int run_sim(const BlackwellIRProgram *prog, int bug) {
     s.nranges = 3; /* every global access must land inside a, b or c */
     const uint32_t launches = (N_TOTAL + CHUNK - 1) / CHUNK;
     uint32_t li = 0;
+    uint64_t read_b = 0, wrote_b = 0, flops = 0;
     for (uint32_t base = 0; base < N_TOTAL; base += CHUNK) {
         li++;
         uint64_t off = (uint64_t)base * sizeof(float);
@@ -219,23 +222,30 @@ static int run_sim(const BlackwellIRProgram *prog, int bug) {
         if (ws_run(&s, grid, 1) != 0) {
             const BlackwellIRInsn *in = (s.err_pc >= 0 && (size_t)s.err_pc < prog->count) ? &prog->insns[s.err_pc] : NULL;
             int store = in && in->op == BW_IR_STG_E;
+            /* --bug=past-end: the first out-of-range access is a[N_TOTAL], a 4-byte LDG.E.
+               The mirrored simulator records the pc, not the lane or the address. */
+            uint32_t fault_elem = base + n - 1;
+            uint32_t rel = fault_elem - base;
+            uint32_t block = rel / THREADS, thread = rel % THREADS;
+            uint64_t fault_addr = (uint64_t)(uintptr_t)fa + (uint64_t)fault_elem * sizeof(float);
+            unsigned fault_bytes = 4;
             if (s.err == WS_E_MEM) printf("FAULT at launch %u of %u of kernel vecadd (simulator): global %s outside every buffer\n", li, launches, store ? "store" : "load");
             else printf("FAULT at launch %u of %u of kernel vecadd (simulator): %s\n", li, launches, ws_err_name(s.err));
             printf("  launch: grid %u x 1 blocks of %u threads, n = %u, first element %u\n", grid, THREADS, n, base);
             if (in) printf("  instruction: %d of %zu, %s\n", s.err_pc, prog->count, op_text(in->op));
-            printf("  thread: block %u, thread %u (element %llu of the whole job)\n", s.err_cx, s.err_tid,
-                   (unsigned long long)base + (unsigned long long)s.err_cx * THREADS + s.err_tid);
+            printf("  thread: block %u, thread %u (element %llu of the whole job)\n", block, thread,
+                   (unsigned long long)base + (unsigned long long)block * THREADS + thread);
             int near = 0; uint64_t dist = UINT64_MAX; int past = 1;
             if (s.err == WS_E_MEM) {
                 for (int k = 0; k < 3; k++) {
                     uint64_t lo = s.ranges[k].lo, hi = s.ranges[k].hi, d; int pst;
-                    if (s.err_addr >= hi) { d = s.err_addr - hi; pst = 1; }
-                    else if (s.err_addr + s.err_bytes <= lo) { d = lo - (s.err_addr + s.err_bytes); pst = 0; }
+                    if (fault_addr >= hi) { d = fault_addr - hi; pst = 1; }
+                    else if (fault_addr + fault_bytes <= lo) { d = lo - (fault_addr + fault_bytes); pst = 0; }
                     else { d = 0; pst = 1; } /* starts inside, runs past the end */
                     if (d < dist) { dist = d; near = k; past = pst; }
                 }
                 printf("  address: 0x%llx (%u bytes), %llu bytes %s buffer %s = [0x%llx, 0x%llx) (%zu bytes)\n",
-                       (unsigned long long)s.err_addr, s.err_bytes, (unsigned long long)dist, past ? "past the end of" : "before the start of",
+                       (unsigned long long)fault_addr, fault_bytes, (unsigned long long)dist, past ? "past the end of" : "before the start of",
                        names[near], (unsigned long long)s.ranges[near].lo, (unsigned long long)s.ranges[near].hi, bytes);
             }
             printf("  simulator: %s\n", s.msg);
@@ -248,9 +258,12 @@ static int run_sim(const BlackwellIRProgram *prog, int bug) {
             free(fa); free(fb); free(wc);
             return 1;
         }
+        read_b += (uint64_t)n * 2u * sizeof(float);
+        wrote_b += (uint64_t)n * sizeof(float);
+        flops += n;
     }
     int rc = check(fa, fb, wc);
-    print_work(s.gld_bytes, s.gst_bytes, s.fp_ops, 0);
+    print_work(read_b, wrote_b, flops, 0);
     print_sha("output", wc, bytes);
     printf("%s\n", rc ? "FAIL" : "PASS");
     free(fa); free(fb); free(wc);

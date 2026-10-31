@@ -4,4 +4,5 @@
 # line and that two runs give the same bits. Host only: --sim never opens a device.
 .PHONY: test-hello-sim
 test-hello-sim: $(OUT_DIR)/hello_gpu $(OUT_DIR)/hello_gpu_control
+	bash tests/dx/clean_user_cleanup_test.sh
 	sh tests/dx/hello_sim_test.sh $(OUT_DIR)/hello_gpu $(OUT_DIR)/hello_gpu_control

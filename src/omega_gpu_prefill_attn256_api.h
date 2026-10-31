@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 #ifndef OMEGA_GPU_PREFILL_ATTN256_API_H
 #define OMEGA_GPU_PREFILL_ATTN256_API_H
 /*

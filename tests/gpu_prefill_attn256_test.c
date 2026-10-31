@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * gpu_prefill_attn256_test: the head_dim 256 causal prefill attention for Qwen3.8-27B (omega-mv#545,
  * omega_gpu_prefill_attn256_api.h), on the decode attention's cache (omega_gpu_decode_attn256_api.h).
@@ -33,6 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "test_out_file.h"
 
 static int g_checks, g_failed;
 #define CHECK(cond, ...) do { g_checks++; if (!(cond)) { g_failed++; printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -584,7 +586,7 @@ int main(int argc, char **argv) {
     host_only();
     if (sim) sim_battery();
     if (!host && !sim) {
-        if (json) { g_json = fopen(json, "w"); if (g_json) fprintf(g_json, "{\"test\": \"gpu_prefill_attn256\", \"rotary_dim\": 64, \"points\": [\n"); }
+        if (json) { g_json = test_out_open(json); if (g_json) fprintf(g_json, "{\"test\": \"gpu_prefill_attn256\", \"rotary_dim\": 64, \"points\": [\n"); }
         if (!timing_only) {
             chip_point(256, 0, 1, 1.0f, 1, 1, 0);
             chip_point(256, 0, 37, 1.0f, 2, 1, 0);

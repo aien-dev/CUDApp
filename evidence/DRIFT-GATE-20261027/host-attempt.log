@@ -1,0 +1,145 @@
+source_commit=54fac045b90f441d627240de8fb3156cf9997ea7
+command=make test
+Linux x86_64
+cc (Debian 14.2.0-19) 14.2.0
+bash tools/extract/test-drift.sh
+=== code classification at baseline (exit 0, expected 0) ===
+DIVERGENCE: 1 shared, 0 same, 1 differ (0 licence-header only, 1 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (1 GPU paths, omega adfe9767c3e8, none moved away from CUDA++ since the baseline)
+PASS: code classification at baseline
+=== code blob gate (exit 1, expected 1) ===
+DRIFT	src/omega_gpu_case.c	differs	af31bb5a4f0ffbf774b821f31926a4db3b038383
+DIVERGENCE: 1 shared, 0 same, 1 differ (0 licence-header only, 1 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: FAIL (1 of 1 GPU paths changed in omega adfe9767c3e8 and not in CUDA++)
+PASS: code blob gate
+=== header classification at baseline (exit 0, expected 0) ===
+DIVERGENCE: 1 shared, 0 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (1 GPU paths, omega 3ea63dfb837d, none moved away from CUDA++ since the baseline)
+PASS: header classification at baseline
+=== header blob gate (exit 1, expected 1) ===
+DRIFT	src/omega_gpu_case.c	differs	2f88238630d9fd6a4c438013745aedc1550f5081
+DIVERGENCE: 1 shared, 0 same, 1 differ (1 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: FAIL (1 of 1 GPU paths changed in omega 3ea63dfb837d and not in CUDA++)
+PASS: header blob gate
+=== mixed classification at baseline (exit 0, expected 0) ===
+DIVERGENCE: 1 shared, 0 same, 1 differ (0 licence-header only, 1 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (1 GPU paths, omega 1b8c3fabd8a5, none moved away from CUDA++ since the baseline)
+PASS: mixed classification at baseline
+=== mixed blob gate (exit 1, expected 1) ===
+DRIFT	src/omega_gpu_case.c	differs	2f88238630d9fd6a4c438013745aedc1550f5081
+DIVERGENCE: 1 shared, 0 same, 1 differ (0 licence-header only, 1 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: FAIL (1 of 1 GPU paths changed in omega 1b8c3fabd8a5 and not in CUDA++)
+PASS: mixed blob gate
+=== identical classification at baseline (exit 0, expected 0) ===
+DIVERGENCE: 1 shared, 1 same, 0 differ (0 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (1 GPU paths, omega 785a67892ccc, none moved away from CUDA++ since the baseline)
+PASS: identical classification at baseline
+=== identical blob gate (exit 0, expected 0) ===
+DIVERGENCE: 1 shared, 1 same, 0 differ (0 licence-header only, 0 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (1 GPU paths, omega 785a67892ccc, none moved away from CUDA++ since the baseline)
+PASS: identical blob gate
+=== large classification at baseline (exit 0, expected 0) ===
+DIVERGENCE: 1 shared, 0 same, 1 differ (0 licence-header only, 1 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (1 GPU paths, omega 3bc591d23b79, none moved away from CUDA++ since the baseline)
+PASS: large classification at baseline
+=== large blob gate (exit 1, expected 1) ===
+DRIFT	src/omega_gpu_case.c	differs	57f675cc176344229de1fd23ce49c67b50b4a2ef
+DIVERGENCE: 1 shared, 0 same, 1 differ (0 licence-header only, 1 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: FAIL (1 of 1 GPU paths changed in omega 3bc591d23b79 and not in CUDA++)
+PASS: large blob gate
+=== binary classification at baseline (exit 0, expected 0) ===
+DIVERGENCE: 1 shared, 0 same, 1 differ (0 licence-header only, 1 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (1 GPU paths, omega e2abc1188b7b, none moved away from CUDA++ since the baseline)
+PASS: binary classification at baseline
+=== binary blob gate (exit 1, expected 1) ===
+DRIFT	src/omega_gpu_case.c	differs	1d5e8a9f97214c0a726e2762d65c08ce9339ab1a
+DIVERGENCE: 1 shared, 0 same, 1 differ (0 licence-header only, 1 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: FAIL (1 of 1 GPU paths changed in omega e2abc1188b7b and not in CUDA++)
+PASS: binary blob gate
+=== built-in negative controls (exit 0, expected 0) ===
+control 1: red as required (src/omega_gpu_case.c)
+control 2: red as required (src/omega_gpu_same.c edited in a scratch Omega commit)
+real check:
+DIVERGENCE: 2 shared, 1 same, 1 differ (0 licence-header only, 1 code); 0 cudapp-only, 0 omega-only
+DRIFT-GATE: PASS (2 GPU paths, omega 83f4251157e5, none moved away from CUDA++ since the baseline)
+SELF-TEST: PASS (both controls red, real check green)
+PASS: built-in negative controls
+=== invalid ref in direct mode (exit 2, expected 2) ===
+fatal: Needed a single revision
+DRIFT-GATE: NOT_RUN (map failed)
+PASS: invalid ref in direct mode
+=== invalid ref in self-test mode (exit 2, expected 2) ===
+fatal: Needed a single revision
+DRIFT-GATE: NOT_RUN (map failed)
+PASS: invalid ref in self-test mode
+=== baseline is a directory (exit 2, expected 2) ===
+DRIFT-GATE: NOT_RUN (baseline /tmp/tmp.KvXY84u1pi/baseline-directory is not a readable nonempty file)
+PASS: baseline is a directory
+=== baseline is unreadable (exit 2, expected 2) ===
+DRIFT-GATE: NOT_RUN (baseline /tmp/tmp.KvXY84u1pi/baseline is not a readable nonempty file)
+PASS: baseline is unreadable
+=== baseline comparison read error (exit 2, expected 2) ===
+injected awk read error
+DRIFT-GATE: NOT_RUN (baseline comparison failed)
+PASS: baseline comparison read error
+=== missing blob (exit 2, expected 2) ===
+fatal: git cat-file af31bb5a4f0ffbf774b821f31926a4db3b038383: bad file
+DRIFT-GATE: NOT_RUN (summary failed)
+PASS: missing blob
+=== missing blob (exit 2, expected 2) ===
+fatal: git cat-file 2721fea320e0429c40f26e27b873ef11f778eda5: bad file
+DRIFT-GATE: NOT_RUN (summary failed)
+PASS: missing blob
+=== diff error (exit 2, expected 2) ===
+injected diff error
+summary: expected differing blobs for src/omega_gpu_case.c, diff returned 2
+DRIFT-GATE: NOT_RUN (summary failed)
+PASS: diff error
+=== diff error in self-test mode (exit 2, expected 2) ===
+injected diff error
+summary: expected differing blobs for src/omega_gpu_case.c, diff returned 2
+DRIFT	src/omega_gpu_case.c	differs	af31bb5a4f0ffbf774b821f31926a4db3b038383
+DRIFT-GATE: NOT_RUN (summary failed)
+PASS: diff error in self-test mode
+=== diff reports identical for distinct blobs (exit 2, expected 2) ===
+summary: expected differing blobs for src/omega_gpu_case.c, diff returned 0
+DRIFT-GATE: NOT_RUN (summary failed)
+PASS: diff reports identical for distinct blobs
+=== one-time diff error in control 1 (exit 2, expected 2) ===
+injected one-time diff error
+summary: expected differing blobs for src/omega_gpu_case.c, diff returned 2
+DRIFT	src/omega_gpu_case.c	differs	af31bb5a4f0ffbf774b821f31926a4db3b038383
+DRIFT-GATE: NOT_RUN (summary failed)
+PASS: one-time diff error in control 1
+=== one-time diff error in control 2 (exit 2, expected 2) ===
+control 1: red as required (src/omega_gpu_case.c)
+injected one-time diff error
+summary: expected differing blobs for src/omega_gpu_case.c, diff returned 2
+DRIFT	src/omega_gpu_same.c	differs	4d2b7f7850fa3bfa95740f2668a893b707e59eb4
+DRIFT-GATE: NOT_RUN (summary failed)
+PASS: one-time diff error in control 2
+DRIFT REGRESSION TESTS PASS
+mkdir -p build
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen.c -o build/omega_blackwell_codegen.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_attn.c -o build/omega_blackwell_codegen_attn.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_bf16.c -o build/omega_blackwell_codegen_bf16.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_dec.c -o build/omega_blackwell_codegen_dec.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_gemm.c -o build/omega_blackwell_codegen_gemm.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_moe.c -o build/omega_blackwell_codegen_moe.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_moe2.c -o build/omega_blackwell_codegen_moe2.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_pattn.c -o build/omega_blackwell_codegen_pattn.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_pf.c -o build/omega_blackwell_codegen_pf.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_pfhost.c -o build/omega_blackwell_codegen_pfhost.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_qg.c -o build/omega_blackwell_codegen_qg.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_qmma.c -o build/omega_blackwell_codegen_qmma.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_router.c -o build/omega_blackwell_codegen_router.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_tc.c -o build/omega_blackwell_codegen_tc.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_tc2.c -o build/omega_blackwell_codegen_tc2.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_codegen_tern.c -o build/omega_blackwell_codegen_tern.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_encoder.c -o build/omega_blackwell_encoder.o
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_engine.c -o build/omega_blackwell_engine.o
+src/omega_blackwell_engine.c: Assembler messages:
+src/omega_blackwell_engine.c:558: Error: number of operands mismatch for `ds'
+src/omega_blackwell_engine.c:393: Error: number of operands mismatch for `ds'
+make: *** [Makefile:40: build/omega_blackwell_engine.o] Error 1
+exit=2

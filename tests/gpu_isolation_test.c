@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* gpu_isolation_test.c -- row C5 of docs/OMEGA.md: two processes on one GPU, and a never-ending kernel, on the GB10.
  *
  *   --host-only  codegen + encode of the work kernel, its mutant and the never-ending kernel; the simulator runs the work

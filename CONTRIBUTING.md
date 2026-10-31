@@ -10,7 +10,7 @@ A failing test means the work is wrong. Find the cause; do not skip the test, lo
 
 ## What you need
 
-For a host-only start, use Linux with `git`, `make`, a C compiler and the build tools described in [START_HERE.md](docs/START_HERE.md). The documented, fully qualified native GPU path is Linux on the GB10 (DGX Spark, sm_121) with NVIDIA's 580.173.02 kernel module. The CUDA toolkit is not needed for the normal runtime or host tests. A fresh x86-64 host checkout is not yet a validated target for the entire suite (see [#15](https://github.com/aien-dev/CUDApp/issues/15)).
+For a host-only start, use Linux with `git`, `make`, a C compiler and the build tools described in [START_HERE.md](docs/START_HERE.md). The documented, fully qualified native GPU path is Linux on the GB10 (DGX Spark, sm_121) with NVIDIA's 580.173.02 kernel module. The CUDA toolkit is not needed for the normal runtime or host tests. A fresh x86-64 checkout runs the portable host suite (`make test`) with gcc, no NVIDIA tools and no sibling checkout. Target-only checks name their requirement (`docs/OMEGA_HOST_TESTS.md`, [#15](https://github.com/aien-dev/CUDApp/issues/15)). The GB10 device path and the eight-slice OSC gate stay outside that suite.
 
 ```sh
 git clone https://github.com/aien-dev/CUDApp.git
@@ -20,6 +20,8 @@ make test               # host checks; no GPU device opened
 build/hello_gpu --sim   # simulator, not a hardware result
 make doctor             # diagnostic; may report NOT READY on other hosts
 ```
+
+Pull requests run those host commands. The acceptance rules are [docs/CI_ACCEPTANCE.md](docs/CI_ACCEPTANCE.md). A green check is a host or simulator result for that commit. It is not a GB10 result.
 
 Only on a qualified GB10 when it is safe to use the GPU (never interrupt a live service):
 
@@ -58,7 +60,7 @@ CUDA++'s libraries (matrix multiply, attention, elementwise, mixture-of-experts 
 
 The current first-party license is Apache-2.0 WITH LLVM-exception. You may read, disassemble, reverse engineer and translate CUDA++ output, including its machine code, and port CUDA++ to any hardware, subject to the applicable license and retained third-party notices. This is deliberate: CUDA's license restricts reverse engineering its output to target other hardware (`docs/PAIN_POINTS.md`, section 2.8); CUDA++ does not impose that restriction on its own output.
 
-Do not send us NVIDIA's code or binaries. CUDA++ stores no NVIDIA binary, cubin, PTX or firmware. The only listing printed by an NVIDIA tool is a test pin of our own words, recorded in `PROVENANCE.md` section 6 (`docs/AUDIT.md`). If you used NVIDIA's compiler or disassembler on your own small kernels to learn an encoding, say so in the code comment, as the existing code does (`docs/HOW_I_DID_IT.md`, step 2).
+Do not send us NVIDIA's code or binaries. CUDA++ stores no NVIDIA binary, cubin, PTX, firmware or NVIDIA-tool listing in the current tree. The former trace-emitter test pin of our own words was removed in #93; its history is recorded in `PROVENANCE.md` section 6 (`docs/AUDIT.md`). If you used NVIDIA's compiler or disassembler on your own small kernels to learn an encoding, say so in the code comment, as the existing code does (`docs/HOW_I_DID_IT.md`, step 2).
 
 ## How a change gets in
 
