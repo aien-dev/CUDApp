@@ -110,7 +110,7 @@ void omega_gpu_fp8_set_depth(int set, uint32_t depth) { omega_gpu_session_lock()
 void omega_gpu_fp8_set_gpr_pad(uint32_t pad) { omega_gpu_session_lock(); g.gpr_pad = pad; omega_gpu_session_unlock(); }
 void omega_gpu_fp8_set_cta_budget(uint32_t ctas) { omega_gpu_session_lock(); g.cta_budget_set = ctas != 0; g.cta_budget = ctas ? ctas : OMEGA_GPU_FP8_MAX_CTAS; cache_clear_locked(); omega_gpu_session_unlock(); }
 void omega_gpu_fp8_test_set_mutant(int m) { omega_gpu_session_lock(); g.mutant = m; cache_clear_locked(); omega_gpu_session_unlock(); }
-void omega_gpu_fp8_test_set_no_fold(int on) { g.no_fold = on ? 1 : 0; }
+void omega_gpu_fp8_test_set_no_fold(int on) { omega_gpu_session_lock(); g.no_fold = on ? 1 : 0; omega_gpu_session_unlock(); }
 void omega_gpu_fp8_seal(int on) { omega_gpu_session_lock(); g.sealed = on ? 1 : 0; omega_gpu_session_unlock(); }
 
 /* ---- GEMV variant (W-L2c): 1 = omega_blackwell_codegen_moe.c (default), 2 = omega_blackwell_codegen_moe2.c (row-pipelined) ---- */
@@ -456,6 +456,9 @@ int omega_gpu_fp8_tensor_upload(uint32_t experts, uint32_t n, uint32_t k, const 
         t->owner_generation = next_owner;
         t->allocation_epoch = omega_gpu_session_epoch();
     }
+    /* Fill and sync under the lock (omega#456): t is not shared yet, but its CPU views belong to the open device, and a
+     * device close on another thread between unlock and memcpy would unmap them; sync_to_gpu also reads the open state.
+     * g.no_fold is read under the lock, as its setter now writes it. The cost is holding the lock for one weight copy. */
     if (rc == OMEGA_GPU_FP8_OK) {
         memcpy(t->w.cpu, w, wbytes);
         if (omega_fp8_pack_scales(scale, scount, t->s.cpu, g.no_fold) != 0) { omega_gpu_session_set_error("fp8 upload: NaN, inf or overflowing scale"); rc = OMEGA_GPU_FP8_BAD_ARGS; }

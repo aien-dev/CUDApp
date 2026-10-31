@@ -6,7 +6,10 @@
 # src/omega_blackwell_codegen.c (cudapp_om_units.c / cudapp_native.h names only); mk/runtime-r1.mk, mk/runtime-r3.mk, docs/runtime/API.md, omega_runtime_api.manifest, src/omega_runtime_api.h (CUDA++ runtime API 0.6.0 supersedes the omega #955 backport);
 # docs/runtime/PORTABILITY.md, portability_table.tsv (#954 rows and reclassifications carried; CUDA++ rows and its sha256 build differ); tests/dagsim/mutant_{lifetime,predict}.sh (link src/sha256.c);
 # the merged src/ and tests/ files keep the CUDA++ licence header and CUDA++-ahead code with the omega change applied.
-Makefile	5527cafecd0cee9f87a7907b9065b8a8479ba057
+# Blobs omega changed through 4376c2112d7469b6908c6403720c9001de4622b5 (train r3 #979, omega#456 OWN-30B follow-ups) are that commit's (CUDApp sync/drift-omega-4376c21).
+# Still differ at 4376c21 on purpose: Makefile (CUDA++ build); src/omega_gpu_fp8_api.c (CUDA++ owner-generation upload kept, omega#456 lock-held fill already there);
+# tests/gpu_fp8gemm_test.c (CUDA++ test_out_open 0600 receipt kept over omega's 0644 open); licence headers.
+Makefile	b6ceafb7625f3a974efce405e2bd79393045f8f8
 evidence/C3-GEMM/01-host-only.log	c581c5126718bc24ef10ed1b1637528018a260e5
 evidence/C3-GEMM/02-sim.log	fd97da9f29871abfc16fb2ed938c38a4d3c2314f
 evidence/C3-GEMM/README.md	0e730a9bf2072f34d59d9cdc1961f4112a7ff90e
@@ -222,7 +225,7 @@ src/omega_gpu_decode_attn256_api.c	77fc4ba1fd9df0939a57df3aa669e18fd9be2785
 src/omega_gpu_decode_attn256_api.h	d0212c2cbac34dcd69b8e50b298a94c715039a7f
 src/omega_gpu_decode_attn_api.c	ac6542487249e5571684e00dc115d4e00c1462a1
 src/omega_gpu_decode_attn_api.h	c3e88b2eb4b94a9abaad04770cad4a93ff8cca1e
-src/omega_gpu_decode_graph.c	43717c2a400b1517a0db3d21c90b2700bc873b1c
+src/omega_gpu_decode_graph.c	211a08ec35f70025287683d8c565b77c791e6114
 src/omega_gpu_decode_graph.h	bb8a78b320d677cce2905b1f75868993caf022da
 src/omega_gpu_elementwise_api.c	7871035b91175ed90cb2c384c9c757236a41ff5a
 src/omega_gpu_elementwise_api.h	243b1ed9ca99c563fa2ad5c7fe95be01d63f1f58
@@ -230,7 +233,7 @@ src/omega_gpu_engine.c	9965ca19a345fa8fc441102146bf99d0706dc045
 src/omega_gpu_engine.h	3733d534aaab756e0bfaff361021fe695d248f20
 src/omega_gpu_fmt.c	270f3fe3e6d9715650867cbb04afdde88c63adec
 src/omega_gpu_fmt.h	8a308f4b22f43c340c03ffe7acff43319c58fed2
-src/omega_gpu_fp8_api.c	c1dcc83246942c6e5f2f986d6c4d5f14a58557ac
+src/omega_gpu_fp8_api.c	b9b9b52960daa4bb95d25900353774ec5b9d19a9
 src/omega_gpu_fp8_api.h	9c7caf2d269947e80554d029a1ed01a6c04f279b
 src/omega_gpu_fp8_pack.c	77bd62063fb3b6641221466e813760282cb3b81c
 src/omega_gpu_fp8gemm_api.c	5605a6ea823d9b41db741f249523cf38e75818ff
@@ -321,7 +324,7 @@ tests/gpu_decode_graph_test.c	8af07f1e423f3db54438749eb4a76a1c9f09443c
 tests/gpu_elementwise_test.c	7a270eb5f45e96aa89d2e6fed6963b2ee044d05b
 tests/gpu_exact_head_test.c	5258f3d84f5bc44eca597666f146bb2cc54bcdf0
 tests/gpu_fp8_api_test.c	8fcf839dce9575af4b0abde499eb809e64ad36f7
-tests/gpu_fp8gemm_test.c	1a9669f47793fe77f75da31aff8321834a439199
+tests/gpu_fp8gemm_test.c	d44d35a68da5358868820aed5f5ab423d513d112
 tests/gpu_gdn_multi_test.c	108578a8fc7dbb8b95db323e5ea1752da767601b
 tests/gpu_gdn_test.c	655875a653860259e3d93f80fb54bded048b26af
 tests/gpu_gemm_test.c	b60f70964f40113d59931993e1c9eaa046008cfa
@@ -386,3 +389,4 @@ mk/runtime-r3.mk	9c541fbb2574df1e91d291dd7b365cfce9fd471b
 src/omega_runtime_api.h	89e2acbee00c0fee71c0fa78913726ccc8e2f708
 tests/dagsim/mutant_lifetime.sh	b3641225446bc7750b9f49d2e62050a7fadf316a
 tests/dagsim/mutant_predict.sh	89df5266df444b0a91d4d4c6f120d69ad52c61ef
+tests/test_omega_gpu_decode_graph_timeline.c	619eac986fb47f17e76d8e5c9bad137237146d6d
