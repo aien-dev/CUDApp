@@ -227,7 +227,16 @@ static int submit_now(OmegaGpuDecodeGraph *g) {
         uint64_t tmp[OMEGA_GPU_CMDLIST_MAX_LAUNCHES + 1];
         int cnt = omega_gpu_cmdlist_stamps(g->cl, tmp, OMEGA_GPU_CMDLIST_MAX_LAUNCHES + 1);
         if (cnt < 0) rc = -1;
-        else { const int from = g->n_stamp == 0 ? 0 : 1; for (int i = from; i < cnt; i++) g->stamp[g->n_stamp++] = tmp[i]; }
+        else {
+            const int from = g->n_stamp == 0 ? 0 : 1;
+            const uint32_t room = (uint32_t)(sizeof g->stamp / sizeof g->stamp[0]) - g->n_stamp;
+            if (cnt > from && (uint32_t)(cnt - from) > room) { /* more launches this token than the timeline holds */
+                omega_gpu_session_set_error("decode graph: timeline full (more launches per token than OMEGA_GPU_CMDLIST_MAX_LAUNCHES)");
+                rc = -1;
+            } else {
+                for (int i = from; i < cnt; i++) g->stamp[g->n_stamp++] = tmp[i];
+            }
+        }
     }
     g->tagged_in_list = 0;
     omega_gpu_cmdlist_reset(g->cl);
@@ -417,7 +426,7 @@ void omega_gpu_decode_graph_set_stamps(OmegaGpuDecodeGraph *g, int on) { if (g &
 
 int omega_gpu_decode_graph_stamps(const OmegaGpuDecodeGraph *g, uint64_t *stamps, uint8_t *kinds, uint32_t cap) {
     if (!g || g->in_token || !stamps || !kinds) return OMEGA_GPU_DGRAPH_BAD_ARGS;
-    if (!g->stamps || g->n_stamp != g->n_kind + 1u) { omega_gpu_session_set_error("decode graph: no timeline for the last token (stamps off or it failed)"); return OMEGA_GPU_DGRAPH_BAD_ARGS; }
+    if (!g->stamps || g->failed || g->n_stamp != g->n_kind + 1u) { omega_gpu_session_set_error("decode graph: no timeline for the last token (stamps off or it failed)"); return OMEGA_GPU_DGRAPH_BAD_ARGS; }
     if (cap < g->n_stamp) { omega_gpu_session_set_error("decode graph: timeline buffers too small"); return OMEGA_GPU_DGRAPH_BAD_ARGS; }
     memcpy(stamps, g->stamp, (size_t)g->n_stamp * sizeof stamps[0]);
     memcpy(kinds, g->kind, (size_t)g->n_kind);
