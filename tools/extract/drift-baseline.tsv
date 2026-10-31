@@ -9,6 +9,7 @@
 # Blobs omega changed through 4376c2112d7469b6908c6403720c9001de4622b5 (train r3 #979, omega#456 OWN-30B follow-ups) are that commit's (CUDApp sync/drift-omega-4376c21).
 # Blobs omega changed through 6d7b883844a0f17a7a3ceb427108be7e01e4c677 (#984 C6 hazard cross-check through the sm_121 disassembler) are that commit's; the omega deltas were applied to the CUDA++ copies, which keep their SPDX lines and CUDA++ corpus scope (CUDApp sync/drift-omega-6d7b883). tests/bw_hazard_test.c is a byte copy.
 # src/omega_blackwell_codegen_tern.h is omega 613765d2b75383212c50520ff7a7295bff01f1bb's blob (#985 comment: QMD shared cap 32 KiB, as in this tree's omega_blackwell_qmd.h); the comment delta was applied here.
+# mk/sm121dis.mk and tools/sm121dis/check.sh are omega d9461717721856602626c3202751d7653e1aa5f7's blobs (#986 decoder exit status checked); the deltas were applied here. tools/sm121dis/check_selftest.sh is a byte copy.
 # Still differ at 4376c21 on purpose: Makefile (CUDA++ build); src/omega_gpu_fp8_api.c (CUDA++ owner-generation upload kept, omega#456 lock-held fill already there);
 # tests/gpu_fp8gemm_test.c (CUDA++ test_out_open 0600 receipt kept over omega's 0644 open); licence headers.
 Makefile	bf39ac9c767da1c0e37500f4568492cb4d6e17b9
@@ -156,7 +157,7 @@ evidence/R4-MATMUL-CTA-ffc3176a/smoke-1661fc72/sweep.log	14ea4d447540f2d875b0562
 mk/omega-gpu-code-alloc.mk	3b217c32d9cc063c8b83d18ede48afcc24a594ae
 mk/omega-gpu-engine.mk	f3f5dd632c6a42c806ccdb687c8df6e7e5c35ffa
 mk/omega-gpu-wait.mk	42e5ed25b232b7ae67f922e9a4a948e3ef942159
-mk/sm121dis.mk	b82fc54d30aebadd8a74be30dc84d390e7312f05
+mk/sm121dis.mk	c9440caa7c5b1f956c4fdd55d93e1eb631a2e768
 src/omega_blackwell_codegen.c	a0520f4c9f4c796fd1f4c1fd3eb670bb434e0753
 src/omega_blackwell_codegen.h	1f0b70eecd3860da68bbe013860f27ca01da0d2f
 src/omega_blackwell_codegen_attn.c	060e25cff987ff43fdb234aee39497253cf25c3a
@@ -375,7 +376,7 @@ tools/gpu_engine_backend_mutations.sh	443b3585a8748715ea63b9e2a3ed848aae8ecc89
 tools/gpu_engine_mutations.sh	a909493d166084c94546a182eddb0e6ed441caca
 tools/mutation_runner.sh	ab60143c8fd705a6293d4c7f935d928554ed5d1f
 tools/sm121dis/README.md	590f48f3834e30872785570e4bc3cf052b44bdca
-tools/sm121dis/check.sh	7091e0a5d5ee0b1359140f7d0134299b4a70d074
+tools/sm121dis/check.sh	45b94a6109bac81688ef172c056c2e5ef2e0b5d4
 tools/sm121dis/corpus.sh	03e3df762518d9746963ca7c72d8edb9a2423210
 tools/sm121dis/corpus_selftest.sh	d3ffdb11a566f2358f461ce266808923b05911f2
 tools/sm121dis/oracle_pairs.sh	ae532a96225a9e5f40f7a2fe42ab7f0fd82b304d

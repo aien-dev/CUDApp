@@ -20,9 +20,15 @@ if [ "${1:-}" = --one ]; then
         { echo "FAIL 0"; echo "[FAIL] $b: nvdisasm refused it"; head -3 "$WORK/$b.nv"; } > "$WORK/$b.res.tmp"
     else
         sh "$HERE/oracle_pairs.sh" "$WORK/$b.nv" > "$WORK/$b.want"
-        "$DIS" --pairs "$f" | sed 's/[[:space:]]\{1,\}/ /g' > "$WORK/$b.got"
         n=$(wc -l < "$WORK/$b.want")
-        if [ "$n" -gt 0 ] && cmp -s "$WORK/$b.want" "$WORK/$b.got"; then
+        # Capture the decoder directly: a pipeline would hide its exit status behind sed.
+        rc=0
+        "$DIS" --pairs "$f" > "$WORK/$b.raw" 2> "$WORK/$b.err" || rc=$?
+        if [ "$rc" -ne 0 ]; then
+            { echo "FAIL $n"; echo "[FAIL] $b: decoder exited $rc"; head -3 "$WORK/$b.err"; } > "$WORK/$b.res.tmp"
+        elif ! sed 's/[[:space:]]\{1,\}/ /g' "$WORK/$b.raw" > "$WORK/$b.got"; then
+            { echo "FAIL $n"; echo "[FAIL] $b: decoder output normalization failed"; } > "$WORK/$b.res.tmp"
+        elif [ "$n" -gt 0 ] && cmp -s "$WORK/$b.want" "$WORK/$b.got"; then
             { echo "PASS $n"; echo "[PASS] $b: $n words"; } > "$WORK/$b.res.tmp"
         else
             { echo "FAIL $n"; echo "[FAIL] $b: $(diff "$WORK/$b.want" "$WORK/$b.got" | grep -c '^<') of $n words differ"
