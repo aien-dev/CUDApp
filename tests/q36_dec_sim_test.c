@@ -9,6 +9,8 @@
  *   unwritten) caught.
  *   COMBINE|NORM in the rows form (L356, one launch for N heads): bit-identical to the one-head program per head (1, 3,
  *   8 heads); mutant 3 caught.
+ *   GATE in the rows form (L312 lever 7, the attention gate of N heads in one launch): bit-identical to the one-row program
+ *   per head (1, 3, 8 heads); mutants 1 (gate dropped) and 2 (row 0's gate for every row) caught.
  * Host only (no device). Verdict line last: "q36_dec_sim_test: N checks, F failed: PASS|FAIL".
  */
 #include "omega_blackwell_codegen_dec.h"
@@ -112,6 +114,43 @@ static long rows_point(int mutant, uint32_t heads, uint32_t seed, char *msg, siz
         snprintf(msg, n, "%u heads: %ld of %zu x and y floats differ from the one-head program", heads, bad, 2 * NX);
     }
     free(x0); free(x1); free(xr); free(d); free(w); free(nw); free(y1); free(yr);
+    return bad;
+}
+
+/* L312 lever 7: GATE in the rows form (one launch for N heads) against the one-row program run on each head's slice: out must
+ * be bit-identical per row; a and out move by width (= count) floats per row, g by the attention mix row (9216 floats). Returns the
+ * number of differing floats, or -1 on a simulator error. */
+static long gate_rows_point(int mutant, uint32_t heads, uint32_t seed, char *msg, size_t n) {
+    static BlackwellIRProgram p1, pr;
+    const uint32_t C = 4096u, GS = 9216u; /* MIXER_OUT, ATT_MIX */
+    OmegaDecSpec s1 = { .kind = OMEGA_DEC_GATE };
+    OmegaDecSpec sr = { .kind = OMEGA_DEC_GATE, .mode = 1, .width = C, .stride = GS, .mutant = mutant }; /* L369's rows layout */
+    if (omega_blackwell_codegen_dec_prog(&s1, &p1) != 0 || omega_blackwell_codegen_dec_prog(&sr, &pr) != 0) { snprintf(msg, n, "codegen refused"); return -1; }
+    const size_t NA = (size_t)heads * C, NG = (size_t)heads * GS;
+    float *a = aligned_alloc(16, NA * 4), *o1 = aligned_alloc(16, NA * 4), *orr = aligned_alloc(16, NA * 4), *gg = aligned_alloc(16, NG * 4);
+    uint32_t s = seed;
+    for (size_t i = 0; i < NA; i++) { a[i] = frand(&s, -2.0f, 2.0f); o1[i] = orr[i] = -999.0f; }
+    for (size_t i = 0; i < NG; i++) gg[i] = frand(&s, -4.0f, 4.0f);
+    static uint8_t smem[OMEGA_DEC_SHARED_BYTES];
+    long bad = 0;
+    for (uint32_t h = 0; h <= heads && bad >= 0; h++) { /* h < heads: the one-row program on head h; h == heads: the rows program */
+        WsSim sim; memset(&sim, 0, sizeof sim);
+        const int rows = h == heads;
+        sim.p = rows ? &pr : &p1; sim.threads = 256; sim.smem = smem; sim.smem_bytes = OMEGA_DEC_SHARED_BYTES;
+        float *aa = rows ? a : a + (size_t)h * C, *oo = rows ? orr : o1 + (size_t)h * C, *g0 = rows ? gg : gg + (size_t)h * GS;
+        put64(&sim, OMEGA_DEC_GT_A, aa); put64(&sim, OMEGA_DEC_GT_G, g0 + 5120u); put64(&sim, OMEGA_DEC_GT_OUT, oo);
+        sim.cbank[OMEGA_DEC_GT_N / 4] = C;
+        sim.nranges = 3;
+        sim.ranges[0] = (WsRange){ (uintptr_t)aa, (uintptr_t)aa + (rows ? NA : C) * 4 };
+        sim.ranges[1] = (WsRange){ (uintptr_t)gg, (uintptr_t)gg + NG * 4 };
+        sim.ranges[2] = (WsRange){ (uintptr_t)oo, (uintptr_t)oo + (rows ? NA : C) * 4 };
+        if (ws_run(&sim, C / 256u, rows ? heads : 1) != 0) { snprintf(msg, n, "sim (%s): %.150s (pc %d)", rows ? "rows" : "one row", sim.msg, sim.err_pc); bad = -1; }
+    }
+    if (bad == 0) {
+        for (size_t i = 0; i < NA; i++) bad += memcmp(&o1[i], &orr[i], 4) != 0;
+        snprintf(msg, n, "%u heads: %ld of %zu gate outputs differ from the one-row program", heads, bad, NA);
+    }
+    free(a); free(o1); free(orr); free(gg);
     return bad;
 }
 
@@ -250,6 +289,14 @@ int main(void) {
         printf("COMBINE|NORM rows (L356): %s\n", msg);
     }
     { long b = rows_point(3, 8, 49, msg, sizeof msg); CHECK(b > 0, "COMBINE rows mutant 3 must be caught: %s", msg); printf("COMBINE rows mutant 3: %s (%s)\n", b > 0 ? "caught" : "NOT CAUGHT", msg); }
+    { OmegaDecSpec sp = { .kind = OMEGA_DEC_GATE, .mode = 1 }; CHECK(omega_dec_prog_stats(&sp, NULL, NULL) != 0, "GATE rows without a g stride refused"); }
+    { OmegaDecSpec sp = { .kind = OMEGA_DEC_GATE, .mode = 2, .stride = 9216 }; CHECK(omega_dec_prog_stats(&sp, NULL, NULL) != 0, "GATE mode 2 refused"); }
+    for (uint32_t hh = 1; hh <= 8; hh += hh < 3 ? 2 : 5) {
+        long b = gate_rows_point(0, hh, 60 + hh, msg, sizeof msg);
+        CHECK(b == 0, "GATE rows: %s", msg);
+        printf("GATE rows (L312 lever 7): %s\n", msg);
+    }
+    for (int m = 1; m <= 2; m++) { long b = gate_rows_point(m, 3, 70 + m, msg, sizeof msg); CHECK(b > 0, "GATE rows mutant %d must be caught: %s", m, msg); printf("GATE rows mutant %d: %s (%s)\n", m, b > 0 ? "caught" : "NOT CAUGHT", msg); }
     printf("q36_dec_sim_test: %d checks, %d failed: %s\n", g_checks, g_failed, g_failed ? "FAIL" : "PASS");
     return g_failed ? 1 : 0;
 }

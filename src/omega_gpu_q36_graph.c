@@ -30,7 +30,8 @@
 /* glue kernels */
 enum { K_NORM, K_ADD, K_CN, K_SW, K_GATHER, K_GATE, K_AM0, K_AM1, K_SW_M1, K_GATHER_M1, K_GATE_M1, K_CN_M3, K_COPY,
        K_NORM_R, K_ADD_R, K_PERM_XQ, K_PERM_O, K_PERM_XO, K_PERM_ACT, K_GROUP, K_XS, K_XB, K_XB_M1,
-       K_CN_R, K_CN_R_M3, K_GATE_R, K_COUNT }; /* K_NORM_R .. K_GROUP: the batch (v2) kernels; K_XS .. K_XB_M1: the exact head; K_CN_R: COMBINE|NORM of every head in one launch (L356) */
+       K_CN_R, K_CN_R_M3, K_GATE_R, K_GATE_M1_R, K_COUNT }; /* K_NORM_R .. K_GROUP: the batch (v2) kernels; K_XS .. K_XB_M1: the exact head; K_CN_R: COMBINE|NORM of every head in one launch (L356) */
+                                                 /* K_GATE_R: every row's attention gate in one launch (L369 prefill tokens, L312 lever 7 stroke heads) */
 #define SEGD_ROWS 2u /* dense segment entries per layer in the batch: mix, o */
 #define COPY_ROW 256u /* K_COPY: GATHER rows of 256 floats through the identity table */
 
@@ -272,6 +273,7 @@ int omega_gpu_q36_graph_create_heads(const OmegaGpuQ36GraphConfig *cfg, uint32_t
         [K_CN_R] = { .kind = OMEGA_DEC_RES, .mode = OMEGA_DEC_RES_COMBINE | OMEGA_DEC_RES_NORM | OMEGA_DEC_RES_ROWS, .groups = NG }, /* stride set below */
         [K_CN_R_M3] = { .kind = OMEGA_DEC_RES, .mode = OMEGA_DEC_RES_COMBINE | OMEGA_DEC_RES_NORM | OMEGA_DEC_RES_ROWS, .groups = NG, .mutant = 3 },
         [K_GATE_R] = { .kind = OMEGA_DEC_GATE, .mode = 1, .width = OMEGA_GPU_Q36_MIXER_OUT, .stride = OMEGA_GPU_Q36_ATT_MIX }, /* L369 prefill: every token's gate */
+        [K_GATE_M1_R] = { .kind = OMEGA_DEC_GATE, .mode = 1, .width = OMEGA_GPU_Q36_MIXER_OUT, .stride = OMEGA_GPU_Q36_ATT_MIX, .mutant = 1 },
     };
     spec[K_PERM_XO].stride = L->lb_stride / 4u;
     spec[K_CN_R].stride = L->lb_stride; spec[K_CN_R_M3].stride = L->lb_stride; /* head h's routing weights: wts_va + h * lb_stride */
@@ -623,6 +625,13 @@ static uint32_t q36_head_xbatch(void) {
     if (!g_head_xbatch) { const char *e = getenv("AIEN_OMEGA_Q36_HEAD_XBATCH8"); g_head_xbatch = (e && e[0] == '1' && e[1] == 0) ? 8 : 4; }
     return (uint32_t)g_head_xbatch;
 }
+/* lever 7 (L312): the attention gate of every head in ONE launch (K_GATE_R, the rows form, grid MIXER_OUT / 256 x N) instead of
+ * one launch per head. OFF unless AIEN_OMEGA_Q36_GATE_ROWS=1 (chip-unqualified: the per-head launches stay the default). */
+static int g_gate_rows = -1;
+static int q36_gate_rows(void) {
+    if (g_gate_rows < 0) { const char *e = getenv("AIEN_OMEGA_Q36_GATE_ROWS"); g_gate_rows = (e && e[0] == '1' && e[1] == 0) ? 1 : 0; }
+    return g_gate_rows;
+}
 
 int omega_gpu_q36_graph_set_batch(OmegaGpuQ36Graph *g, int on) {
     if (!g || g->in_token) return OMEGA_GPU_DGRAPH_BAD_ARGS;
@@ -773,16 +782,25 @@ int omega_gpu_q36_graph_record_layer_heads(OmegaGpuQ36Graph *g, uint32_t l, cons
             if (rc == OMEGA_GPU_DGRAPH_OK)
                 rc = after_op(g, OMEGA_GPU_Q36_K_ATTN, omega_gpu_decode_attn256_record_heads(g->cl, hs, N, ki, g->cfg.eps, SCALE_2P64));
         }
-        for (uint32_t h = 0; h < N && rc == OMEGA_GPU_DGRAPH_OK; h++) {
-            const uint64_t agg_h = aggN + (uint64_t)h * OMEGA_GPU_Q36_ATT_MIX * 4u, att_h = attN + h * MOS;
-            if (!q36_attn_heads())
-                rc = after_op(g, OMEGA_GPU_Q36_K_ATTN, omega_gpu_decode_attn256_record(g->cl, g->attn_h[h], ki, pos[h], agg_h, g->cfg.eps, SCALE_2P64, att_h));
+        if (!q36_gate_rows() || !q36_attn_heads())
+            for (uint32_t h = 0; h < N && rc == OMEGA_GPU_DGRAPH_OK; h++) {
+                const uint64_t agg_h = aggN + (uint64_t)h * OMEGA_GPU_Q36_ATT_MIX * 4u, att_h = attN + h * MOS;
+                if (!q36_attn_heads())
+                    rc = after_op(g, OMEGA_GPU_Q36_K_ATTN, omega_gpu_decode_attn256_record(g->cl, g->attn_h[h], ki, pos[h], agg_h, g->cfg.eps, SCALE_2P64, att_h));
+                if (q36_gate_rows()) continue; /* lever 7: the gate of every head below, after the last attention */
+                uint32_t w2[OMEGA_DEC_GT_WORDS]; memset(w2, 0, sizeof w2);
+                put64(w2, OMEGA_DEC_GT_A, att_h); put64(w2, OMEGA_DEC_GT_G, agg_h + OMEGA_GPU_Q36_ATT_QKV * 4u); put64(w2, OMEGA_DEC_GT_OUT, att_h);
+                w2[(OMEGA_DEC_GT_N - 0x380) / 4] = OMEGA_GPU_Q36_MIXER_OUT;
+                if (rc == OMEGA_GPU_DGRAPH_OK)
+                    rc = add_glue(g, OMEGA_GPU_Q36_K_GATE, g->mutant == 3 ? K_GATE_M1 : K_GATE, OMEGA_GPU_Q36_MIXER_OUT / OMEGA_DEC_THREADS, 1,
+                                  OMEGA_GPU_Q36_MIXER_OUT, w2, OMEGA_DEC_GT_WORDS);
+            }
+        if (q36_gate_rows() && rc == OMEGA_GPU_DGRAPH_OK) { /* lever 7: ONE gate launch for the N heads (a/out move by MIXER_OUT, g by ATT_MIX) */
             uint32_t w2[OMEGA_DEC_GT_WORDS]; memset(w2, 0, sizeof w2);
-            put64(w2, OMEGA_DEC_GT_A, att_h); put64(w2, OMEGA_DEC_GT_G, agg_h + OMEGA_GPU_Q36_ATT_QKV * 4u); put64(w2, OMEGA_DEC_GT_OUT, att_h);
+            put64(w2, OMEGA_DEC_GT_A, attN); put64(w2, OMEGA_DEC_GT_G, aggN + OMEGA_GPU_Q36_ATT_QKV * 4u); put64(w2, OMEGA_DEC_GT_OUT, attN);
             w2[(OMEGA_DEC_GT_N - 0x380) / 4] = OMEGA_GPU_Q36_MIXER_OUT;
-            if (rc == OMEGA_GPU_DGRAPH_OK)
-                rc = add_glue(g, OMEGA_GPU_Q36_K_GATE, g->mutant == 3 ? K_GATE_M1 : K_GATE, OMEGA_GPU_Q36_MIXER_OUT / OMEGA_DEC_THREADS, 1,
-                              OMEGA_GPU_Q36_MIXER_OUT, w2, OMEGA_DEC_GT_WORDS);
+            rc = add_glue(g, OMEGA_GPU_Q36_K_GATE, g->mutant == 3 ? K_GATE_M1_R : K_GATE_R, OMEGA_GPU_Q36_MIXER_OUT / OMEGA_DEC_THREADS, N,
+                          (size_t)OMEGA_GPU_Q36_MIXER_OUT * N, w2, OMEGA_DEC_GT_WORDS);
         }
         if (rc == OMEGA_GPU_DGRAPH_OK) rc = rec_perm(g, K_PERM_O, attN, pt4096, op, OMEGA_GPU_Q36_MIXER_OUT, N);
     }

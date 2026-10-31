@@ -90,7 +90,8 @@ int main(void) {
             for (int m = 0; m <= 2; m++)
                 for (int wi = 0; wi < 3; wi++)
                     for (int si = 0; si < 3; si++) {
-                        if ((k != OMEGA_DEC_RES && k != OMEGA_DEC_ARGMAX && mode) || (k != OMEGA_DEC_AXPY && k != OMEGA_DEC_GATHER && si)) continue;
+                        const int gr = k == OMEGA_DEC_GATE && mode == 1, cr = k == OMEGA_DEC_RES && (mode & 10u) == 10u; /* rows forms with a stride (L356, L312 lever 7) */
+                        if ((k != OMEGA_DEC_RES && k != OMEGA_DEC_ARGMAX && !gr && mode) || (k != OMEGA_DEC_AXPY && k != OMEGA_DEC_GATHER && !gr && !cr && si)) continue;
                         OmegaDecSpec s = {.kind = (OmegaDecKind)k, .mode = mode, .stride = strides[si], .mutant = m, .width = widths[wi]};
                         snprintf(n, sizeof n, "dec.k%d.mode%u.m%d.w%u.s%u", k, mode, m, widths[wi], strides[si]); omega_bw_ir_init(prog);
                         emit(n, omega_blackwell_codegen_dec_prog(&s, prog));

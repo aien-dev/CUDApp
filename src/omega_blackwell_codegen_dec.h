@@ -21,6 +21,9 @@
  *           attention: the fused q|gate|k|v GEMV row to the attention kernel's permuted q|k|v plus the gate (sc #642;
  *           the permutation crosses the FP8 weights' 128-row scale blocks, so it cannot be folded into the weights).
  *   GATE    out[n] = a[n] * sigmoid(g[n]) for n < count, sigmoid(v) = RCP(1 + EX2(-v * log2 e)): the attention output gate.
+ *           mode 1 (rows, L369; L312 lever 7 records every head's gate with it): row r = ctaid.y, a and out at
+ *           + r * width floats, g at + r * stride floats; mode 1 without a width or a stride, and mode 2+, are refused.
+ *           Mutant 1 skips the sigmoid; mutant 2 (rows) makes every row read row 0's gate.
  *   XBOUND  (HUM L314 exact two-pass head) every CTA computes t = sum h^2 + 2^-100 over the 2048 plain hidden values and
  *           hn = t * RSQ(t) * (1 + 2^-10) >= |h| (the widening covers the f32 sum, RSQ and the products); then row r
  *           (r = ctaid * 256 + tid < count) writes B = c[r] * hn + |s[r]| * 2^-20 + 2^-100, lo = s + (-B), hi = s + B, so
@@ -133,7 +136,7 @@ typedef struct {
                            the routing weights row stride (bytes, a multiple of 16) */
     int mutant;         /* TEST ONLY. RES: 1 = norm without the weight; 2 = COMBINE skips expert 7.
                            SWIGLU: 1 = up half read at +767. ARGMAX: 1 = last equal index instead of first.
-                           GATHER: 1 = source index + 1. GATE: 1 = the gate dropped (out = a).
+                           GATHER: 1 = source index + 1. GATE: 1 = the gate dropped (out = a); 2 (mode 1) = every row reads row 0's gate.
                            GROUP: 1 = sort key without the row tie-break; 2 = segment cnt one short; 3 = the trailing
                            empty segments left unwritten. 0 none */
     uint32_t width;     /* RES: the row width (0 = OMEGA_DEC_HIDDEN; a multiple of 1024 up to 8192, COMBINE only at 2048).
