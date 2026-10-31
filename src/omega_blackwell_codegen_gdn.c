@@ -118,6 +118,15 @@ static void bf16x4_pack(Em *e, int w, int q) {
     f2fp(e, S(w, 0), S(q, 1), S(q, 0));
     f2fp(e, S(w, 1), S(q, 3), S(q, 2));
 }
+/* Four f32 (q) to bf16 at addr64 + imm (two STG.E). Mutant OMEGA_GDN_MUT_BF16_TRUNC (DRA-76, test only) clears the low 4
+ * of each bf16's 7 mantissa bits after the rounding: the stored state keeps 3 bits, rounded toward zero. */
+static void bf16x4_store(Em *e, int w, int q, int addr64, uint32_t imm, int udesc, int mut) {
+    bf16x4_pack(e, w, q);
+    for (unsigned k = 0; k < 2; k++) {
+        if (mut == OMEGA_GDN_MUT_BF16_TRUNC) andi(e, S(w, k), S(w, k), 0xfff0fff0u);
+        stg(e, addr64, imm + k * 4u, S(w, k), udesc);
+    }
+}
 static void lds128(Em *e, int d128, int addr, uint32_t imm, int first) { BlackwellIRInsn i = I0(BW_IR_LDS128); i.dst_vreg = d128; i.src1_vreg = addr; i.imm = imm; emit(e, i, first ? K_VAR : K_VAR_MORE); }
 static void lds32(Em *e, Op d, int addr, int first) { BlackwellIRInsn i = I0(BW_IR_LDS32); i.dst_vreg = d.v; i.dst_subreg = (uint8_t)d.s; i.src1_vreg = addr; emit(e, i, first ? K_VAR : K_VAR_MORE); }
 static void sts32(Em *e, int addr, Op val) { BlackwellIRInsn i = I0(BW_IR_STS32); i.src1_vreg = addr; i.src2_vreg = val.v; i.src2_subreg = (uint8_t)val.s; emit(e, i, K_STORE); }
@@ -216,8 +225,14 @@ int omega_gdn_shape(const OmegaGdnSpec *spec, OmegaGdnShape *s) {
     return 0;
 }
 
+/* The mutants a GDN program accepts: 0..4 everywhere, OMEGA_GDN_MUT_BF16_TRUNC only with the bf16 state (the programs
+ * that do not store the state ignore it). */
+static int mutant_ok(const OmegaGdnSpec *spec) {
+    return spec->mutant >= 0 && (spec->mutant <= 4 || (spec->mutant == OMEGA_GDN_MUT_BF16_TRUNC && spec->state_bf16));
+}
+
 int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog) {
-    if (!spec || !prog || spec->copy || spec->mutant < 0 || spec->mutant > 4) return -1;
+    if (!spec || !prog || spec->copy || !mutant_ok(spec)) return -1;
     OmegaGdnShape G;
     if (omega_gdn_shape(spec, &G)) return -1;
     const uint32_t RR = G.r, NC = 2u + G.r;
@@ -381,10 +396,7 @@ int omega_blackwell_codegen_gdn_prog(const OmegaGdnSpec *spec, BlackwellIRProgra
         int pk[16];
         for (unsigned r = 0; r < 16; r++) pk[r] = V64(e);
         if (e->err) return -1;
-        for (unsigned r = 0; r < 16; r++) {
-            bf16x4_pack(e, pk[r], sq[r]);
-            for (unsigned w = 0; w < 2; w++) stg(e, sa, r * OMEGA_GDN_HEAD_DIM * 2u + w * 4u, S(pk[r], w), udesc);
-        }
+        for (unsigned r = 0; r < 16; r++) bf16x4_store(e, pk[r], sq[r], sa, r * OMEGA_GDN_HEAD_DIM * 2u, udesc, MUT);
     } else {
         for (unsigned r = 0; r < 16; r++) for (unsigned j = 0; j < 4; j++) stg(e, sa, r * OMEGA_GDN_HEAD_DIM * 4u + j * 4u, S(sq[r], j), udesc);
     }
@@ -499,7 +511,7 @@ static void gdn_scalars(Em *e, int MUT, int abq, int scq, int dec, int beta, int
 }
 
 int omega_blackwell_codegen_gdn_prep_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog) {
-    if (!spec || !prog || spec->copy || spec->mutant < 0 || spec->mutant > 4) return -1;
+    if (!spec || !prog || spec->copy || !mutant_ok(spec)) return -1;
     OmegaGdnShape G;
     if (omega_gdn_shape(spec, &G)) return -1;
     const uint32_t RR = G.r, NC = 2u + G.r;
@@ -662,7 +674,7 @@ int omega_blackwell_codegen_gdn_prep_prog(const OmegaGdnSpec *spec, BlackwellIRP
 }
 
 int omega_blackwell_codegen_gdn_scan_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog) {
-    if (!spec || !prog || spec->copy || spec->mutant < 0 || spec->mutant > 4) return -1;
+    if (!spec || !prog || spec->copy || !mutant_ok(spec)) return -1;
     OmegaGdnShape G;
     if (omega_gdn_shape(spec, &G)) return -1;
     const uint32_t RR = G.r, NC = 2u + G.r;
@@ -791,10 +803,7 @@ int omega_blackwell_codegen_gdn_scan_prog(const OmegaGdnSpec *spec, BlackwellIRP
         int pk[16];
         for (unsigned r = 0; r < 16; r++) pk[r] = V64(e);
         if (e->err) return -1;
-        for (unsigned r = 0; r < 16; r++) {
-            bf16x4_pack(e, pk[r], sq[r]);
-            for (unsigned w = 0; w < 2; w++) stg(e, sa, r * OMEGA_GDN_HEAD_DIM * 2u + w * 4u, S(pk[r], w), udesc);
-        }
+        for (unsigned r = 0; r < 16; r++) bf16x4_store(e, pk[r], sq[r], sa, r * OMEGA_GDN_HEAD_DIM * 2u, udesc, MUT);
     } else {
         for (unsigned r = 0; r < 16; r++) for (unsigned j = 0; j < 4; j++) stg(e, sa, r * OMEGA_GDN_HEAD_DIM * 4u + j * 4u, S(sq[r], j), udesc);
     }
@@ -827,7 +836,7 @@ int omega_blackwell_codegen_gdn_scan_prog(const OmegaGdnSpec *spec, BlackwellIRP
 }
 
 int omega_blackwell_codegen_gdn_post_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog) {
-    if (!spec || !prog || spec->copy || spec->mutant < 0 || spec->mutant > 4) return -1;
+    if (!spec || !prog || spec->copy || !mutant_ok(spec)) return -1;
     OmegaGdnShape G;
     if (omega_gdn_shape(spec, &G)) return -1;
     const uint32_t RR = G.r, NC = 2u + G.r;
@@ -904,7 +913,7 @@ int omega_gdn_pf_prog_stats(unsigned kind, const OmegaGdnSpec *spec, uint32_t *i
  * it), the conv tails are shifted in registers (one load, one store), and the loop-invariant loads (conv taps, negA and
  * dt_bias, the norm weight) are issued once. */
 int omega_blackwell_codegen_gdn_multi_prog(const OmegaGdnSpec *spec, BlackwellIRProgram *prog) {
-    if (!spec || !prog || spec->copy || spec->mutant < 0 || spec->mutant > 4) return -1;
+    if (!spec || !prog || spec->copy || !mutant_ok(spec)) return -1;
     OmegaGdnShape G;
     if (omega_gdn_shape(spec, &G)) return -1;
     const uint32_t RR = G.r;
@@ -930,9 +939,12 @@ int omega_blackwell_codegen_gdn_multi_prog(const OmegaGdnSpec *spec, BlackwellIR
     imadi(e, R(h), R(cy), RR, cx);
     shr(e, warp, tid, 5);
     andi(e, R(lane), R(tid), 31u);
-    imadi(e, R(toff), R(h), OMEGA_GDN_STATE_HEAD_BYTES, NOREG);
-    imadi(e, R(toff), R(warp), 16u * OMEGA_GDN_HEAD_DIM * 4u, toff);
-    imadi(e, R(toff), R(lane), 16u, toff);
+    /* the state element size: 4 (f32) or 2 (bf16, L313), as the decode program; this thread holds rows 16 warp .. +15,
+     * columns 4 lane .. +3 */
+    const unsigned sel = spec->state_bf16 ? 2u : 4u;
+    imadi(e, R(toff), R(h), OMEGA_GDN_HEAD_DIM * OMEGA_GDN_HEAD_DIM * sel, NOREG);
+    imadi(e, R(toff), R(warp), 16u * OMEGA_GDN_HEAD_DIM * sel, toff);
+    imadi(e, R(toff), R(lane), 4u * sel, toff);
     imadw(e, sa, toff, 1u, ps);
     ldc32(e, T, OMEGA_GDN_MULTI_ARG_T); ldc32(e, xs, OMEGA_GDN_MULTI_ARG_XSTRIDE);
     ldc32(e, abs_, OMEGA_GDN_MULTI_ARG_ABSTRIDE); ldc32(e, os, OMEGA_GDN_MULTI_ARG_OSTRIDE);
@@ -975,9 +987,17 @@ int omega_blackwell_codegen_gdn_multi_prog(const OmegaGdnSpec *spec, BlackwellIR
     ldg_wide(e, BW_IR_LDG_E_128, tV, atV, 0, udesc, 0);
     ldg_wide(e, BW_IR_LDG_E_64, scq, asc, G.par_scal, udesc, 0);
     ldg_wide(e, BW_IR_LDG_E_128, nq, an, G.par_norm, udesc, 0);
-    for (unsigned r = 0; r < 16; r++) ldg_pf(e, sq[r], sa, r * OMEGA_GDN_HEAD_DIM * 4u, udesc, SB_STATE);
+    int sw[16];
+    if (spec->state_bf16) {
+        for (unsigned r = 0; r < 16; r++) sw[r] = V64(e);
+        if (e->err) return -1;
+        for (unsigned r = 0; r < 16; r++) ldg_pf64(e, sw[r], sa, r * OMEGA_GDN_HEAD_DIM * 2u, udesc, SB_STATE);
+    } else {
+        for (unsigned r = 0; r < 16; r++) ldg_pf(e, sq[r], sa, r * OMEGA_GDN_HEAD_DIM * 4u, udesc, SB_STATE);
+    }
     movi(e, cnl2e, C_NLOG2E); movi(e, fone, C_ONE); movi(e, cl2e, C_LOG2E);
     consume(e, SB_STATE);
+    if (spec->state_bf16) for (unsigned r = 0; r < 16; r++) bf16x4_widen(e, sq[r], sw[r]); /* exact; S stays f32 in the loop */
     movrz(e, R(t)); /* waits for every load above: the loop is entered with nothing pending */
 
     const int L = here(e);
@@ -1110,8 +1130,15 @@ int omega_blackwell_codegen_gdn_multi_prog(const OmegaGdnSpec *spec, BlackwellIR
     }
     loop_end(e);
 
-    /* ---- the state and the tails back to memory, once ---- */
-    for (unsigned r = 0; r < 16; r++) for (unsigned j = 0; j < 4; j++) stg(e, sa, r * OMEGA_GDN_HEAD_DIM * 4u + j * 4u, S(sq[r], j), udesc);
+    /* ---- the state and the tails back to memory, once (bf16: one round to nearest even for the T tokens, as the scan) ---- */
+    if (spec->state_bf16) {
+        int pk[16];
+        for (unsigned r = 0; r < 16; r++) pk[r] = V64(e);
+        if (e->err) return -1;
+        for (unsigned r = 0; r < 16; r++) bf16x4_store(e, pk[r], sq[r], sa, r * OMEGA_GDN_HEAD_DIM * 2u, udesc, MUT);
+    } else {
+        for (unsigned r = 0; r < 16; r++) for (unsigned j = 0; j < 4; j++) stg(e, sa, r * OMEGA_GDN_HEAD_DIM * 4u + j * 4u, S(sq[r], j), udesc);
+    }
     if (MUT != 4) {
         stg(e, atA, 0, S(tA, 0), udesc); stg(e, atA, 4, S(tA, 1), udesc); stg(e, atA, 8, S(tA, 2), udesc);
         stg(e, atV, 0, S(tV, 0), udesc); stg(e, atV, 4, S(tV, 1), udesc); stg(e, atV, 8, S(tV, 2), udesc);

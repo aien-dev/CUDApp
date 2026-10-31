@@ -36,6 +36,8 @@ struct OmegaGpuGdn {
     OmegaGpuMem lb;    /* launch buffer */
     int cached;        /* tail and state GPU-cached: the host reaches them only through the chip (reset, stage) */
     int bf16;          /* L313: the state is stored bf16 (AIEN_OMEGA_GDN_STATE_BF16=1 at alloc); set/get_state keep the f32 layout */
+    int state_mutant;  /* DRA-76, TEST ONLY: AIEN_OMEGA_GDN_STATE_MUTANT at alloc (0 off; 1 no decay; 5 OMEGA_GDN_MUT_BF16_TRUNC),
+                        * bf16 state only; a process-wide omega_gpu_gdn_test_set_mutant takes precedence */
     OmegaGpuMem stage; /* cached: uncached staging for set_state / get_state, [state of one layer][tail of one layer] */
     OmegaGpuScratch pf; /* prefill scratch (see pf_layout) */
 };
@@ -146,17 +148,35 @@ static int zero_ts_locked(OmegaGpuGdn *g);
 static int move_locked(unsigned kind, uint64_t src, uint64_t dst, size_t bytes);
 int omega_gpu_gdn_alloc(uint32_t layers, OmegaGpuGdn **out) { return omega_gpu_gdn_alloc_ratio(layers, 0, out); }
 
+/* The state mode alloc takes from the environment (no device): see the header. */
+int omega_gpu_gdn_state_env(int *bf16, int *state_mutant) {
+    if (!bf16 || !state_mutant) return OMEGA_GPU_GDN_BAD_ARGS;
+    /* L313: AIEN_OMEGA_GDN_STATE_BF16=1 stores the state bf16 (half the bytes per conversation; compute stays f32) */
+    const char *pb = getenv("AIEN_OMEGA_GDN_STATE_BF16");
+    *bf16 = pb && pb[0] == '1' && pb[1] == 0;
+    /* DRA-76: AIEN_OMEGA_GDN_STATE_MUTANT=1 (no decay) or 5 (bf16 store keeps 3 mantissa bits), the negative controls of
+     * the bf16-state agreement gate. Unset or empty = off. Any other value, or a mutant without the bf16 state, refuses. */
+    const char *pm = getenv("AIEN_OMEGA_GDN_STATE_MUTANT");
+    *state_mutant = 0;
+    if (!pm || !pm[0] || (pm[0] == '0' && pm[1] == 0)) return OMEGA_GPU_GDN_OK;
+    if (pm[1] == 0 && pm[0] == '1') *state_mutant = 1;
+    else if (pm[1] == 0 && pm[0] == '5') *state_mutant = OMEGA_GDN_MUT_BF16_TRUNC;
+    else { omega_gpu_session_set_error("gdn: AIEN_OMEGA_GDN_STATE_MUTANT must be 1 or 5"); return OMEGA_GPU_GDN_BAD_ARGS; }
+    if (!*bf16) { *state_mutant = 0; omega_gpu_session_set_error("gdn: AIEN_OMEGA_GDN_STATE_MUTANT needs AIEN_OMEGA_GDN_STATE_BF16=1"); return OMEGA_GPU_GDN_BAD_ARGS; }
+    return OMEGA_GPU_GDN_OK;
+}
+
 int omega_gpu_gdn_alloc_ratio(uint32_t layers, uint32_t ratio, OmegaGpuGdn **out) {
     OmegaGdnShape S;
     if (!out || layers == 0 || layers > OMEGA_GPU_GDN_MAX_LAYERS || shape_of(ratio, &S)) return OMEGA_GPU_GDN_BAD_ARGS;
-    /* L313: AIEN_OMEGA_GDN_STATE_BF16=1 stores the state bf16 (half the bytes per conversation; compute stays f32) */
-    const char *pb = getenv("AIEN_OMEGA_GDN_STATE_BF16");
-    const int bf16 = pb && pb[0] == '1' && pb[1] == 0;
+    int bf16 = 0, state_mutant = 0;
+    if (omega_gpu_gdn_state_env(&bf16, &state_mutant) != OMEGA_GPU_GDN_OK) return OMEGA_GPU_GDN_BAD_ARGS;
     if (bf16) { OmegaGdnSpec sp; memset(&sp, 0, sizeof sp); sp.ratio = ratio; sp.state_bf16 = 1; if (omega_gdn_shape(&sp, &S)) return OMEGA_GPU_GDN_BAD_ARGS; }
     *out = NULL;
     OmegaGpuGdn *g = omega_gpu_host_calloc(1, sizeof *g);
     if (!g) return OMEGA_GPU_GDN_BAD_ARGS;
     g->bf16 = bf16;
+    g->state_mutant = state_mutant;
     g->layers = layers;
     g->ratio = ratio;
     g->sh = S;
@@ -360,6 +380,8 @@ static int zero_ts_locked(OmegaGpuGdn *g) {
     int rc = move_locked(KK_ZERO, 0, g->tail.va, tb);
     return rc == OMEGA_GPU_GDN_OK ? move_locked(KK_ZERO, 0, g->state.va, sb) : rc;
 }
+/* The spec's mutant: the process-wide test mutant, else this allocation's AIEN_OMEGA_GDN_STATE_MUTANT (DRA-76). */
+static int spec_mutant(const OmegaGpuGdn *g) { return g_k.mutant ? g_k.mutant : g->state_mutant; }
 /* rec non-NULL (record path, caller holds the session lock): the inputs are the device rows dev_*, the launch is
  * appended to rec instead of submitted, nothing is staged, poisoned or read back. */
 static int gdn_core(OmegaGpuGdn *g, uint32_t layer, const float *qkv, const float *z, const float *ab, float eps_l2,
@@ -370,7 +392,7 @@ static int gdn_core(OmegaGpuGdn *g, uint32_t layer, const float *qkv, const floa
     if (!g || layer >= g->layers || (rec ? (!dev_qkv || !dev_z || !dev_ab) : (!qkv || !z || !ab || !out))) return OMEGA_GPU_GDN_BAD_ARGS;
     if (!isfinite(eps_l2) || !isfinite(eps_norm) || !isfinite(in_scale) || !isfinite(out_scale)) return OMEGA_GPU_GDN_BAD_ARGS;
     OmegaGdnSpec spec; memset(&spec, 0, sizeof spec);
-    spec.mutant = g_k.mutant;
+    spec.mutant = spec_mutant(g);
     spec.ratio = g->ratio;
     spec.state_bf16 = (uint32_t)g->bf16;
 
@@ -449,7 +471,7 @@ int omega_gpu_gdn_record(OmegaGpuCmdList *cl, OmegaGpuGdn *g, uint32_t layer, ui
 int omega_gpu_gdn_multi_prepare(OmegaGpuGdn *g) {
     if (!g) return OMEGA_GPU_GDN_BAD_ARGS;
     OmegaGdnSpec spec; memset(&spec, 0, sizeof spec);
-    spec.mutant = g_k.mutant; spec.ratio = g->ratio;
+    spec.mutant = spec_mutant(g); spec.ratio = g->ratio; spec.state_bf16 = (uint32_t)g->bf16;
     omega_gpu_session_lock();
     int rc = dev_open_locked() ? OMEGA_GPU_GDN_OK : OMEGA_GPU_GDN_CHIP_FAIL;
     Slot *ks = NULL; bool hit = false;
@@ -465,7 +487,7 @@ int omega_gpu_gdn_multi_record(OmegaGpuCmdList *cl, OmegaGpuGdn *g, uint32_t lay
     if (!isfinite(eps_l2) || !isfinite(eps_norm) || !isfinite(in_scale) || !isfinite(out_scale)) return OMEGA_GPU_GDN_BAD_ARGS;
     if (((qkv_va | z_va | out_va | xstride | ostride) & 15u) || ((ab_va | abstride) & 7u)) return OMEGA_GPU_GDN_BAD_ARGS;
     OmegaGdnSpec spec; memset(&spec, 0, sizeof spec);
-    spec.mutant = g_k.mutant; spec.ratio = g->ratio;
+    spec.mutant = spec_mutant(g); spec.ratio = g->ratio; spec.state_bf16 = (uint32_t)g->bf16;
     /* caller holds the session lock */
     if (!dev_open_locked()) return OMEGA_GPU_GDN_CHIP_FAIL;
     Slot *ks = NULL; bool hit = false;
@@ -540,7 +562,7 @@ static int pf_core(OmegaGpuGdn *g, uint32_t layer, uint32_t T, const float *qkv,
     if (rec ? (!dev_qkv || !dev_z || !dev_ab) : (!qkv || !z || !ab || !out)) return OMEGA_GPU_GDN_BAD_ARGS;
     if (!isfinite(eps_l2) || !isfinite(eps_norm) || !isfinite(in_scale) || !isfinite(out_scale)) return OMEGA_GPU_GDN_BAD_ARGS;
     OmegaGdnSpec spec; memset(&spec, 0, sizeof spec);
-    spec.mutant = g_k.mutant;
+    spec.mutant = spec_mutant(g);
     spec.ratio = g->ratio;
     spec.state_bf16 = (uint32_t)g->bf16;
     size_t off[PF_N];

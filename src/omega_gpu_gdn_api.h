@@ -10,6 +10,11 @@
  *        The tails and states are GPU-cached (2026-10-19; AIEN_OMEGA_GDN_STATE_CACHED=0 keeps them uncached): the host
  *        never touches them directly, reset zeroes them with a chip launch and set_state / get_state copy one layer through
  *        an uncached staging buffer with chip launches (omega_blackwell_codegen_gdn.h, state copy / zero).
+ *        AIEN_OMEGA_GDN_STATE_BF16=1 (read here, L313) stores the states bf16 (half the bytes; compute stays f32; set/get_state
+ *        keep the f32 layout) for every kernel: decode, prefill scan and multi-token decode (the last since DRA-76).
+ *        AIEN_OMEGA_GDN_STATE_MUTANT (read here, DRA-76, TEST ONLY, needs the bf16 state; unset, empty or 0 = off) corrupts it on
+ *        purpose for the agreement gate's negative control: 1 drops the decay, 5 keeps 3 mantissa bits at every state
+ *        store (OMEGA_GDN_MUT_BF16_TRUNC). Another value, or a mutant without the bf16 state, is BAD_ARGS.
  *   int  omega_gpu_gdn_set_layer(OmegaGpuGdn *g, uint32_t layer, const float *conv_w, const float *a_log,
  *                                const float *dt_bias, const float *norm_w);
  *        conv_w: linear_attn.conv1d.weight [10240][1][4] widened to f32 ([10240][4]); a_log, dt_bias: [48];
@@ -134,5 +139,8 @@ int omega_gdn_pack_tail_r(uint32_t ratio, const float *tail, float *dev);
 int omega_gdn_unpack_tail_r(uint32_t ratio, const float *dev, float *tail);
 
 void omega_gpu_gdn_test_set_mutant(int mutant); /* TEST ONLY: OmegaGdnSpec.mutant; clears the kernel cache */
+/* DRA-76: the state mode omega_gpu_gdn_alloc_ratio takes from AIEN_OMEGA_GDN_STATE_BF16 / AIEN_OMEGA_GDN_STATE_MUTANT
+ * (see the alloc notes above), without the device. OK, or BAD_ARGS (with the session error) on a refused mutant. */
+int omega_gpu_gdn_state_env(int *bf16, int *state_mutant);
 
 #endif

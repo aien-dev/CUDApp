@@ -79,15 +79,21 @@
 #define OMEGA_GDN_THREADS 256u
 #define OMEGA_GDN_GRID_X 3u
 #define OMEGA_GDN_GRID_Y 16u
+/* DRA-76 test mutant: the bf16 state store keeps 3 of the 7 mantissa bits (the low 4 cleared after the rounding). Only
+ * with state_bf16 = 1; the programs that store the state (decode, scan, multi) apply it, prep and post ignore it. */
+#define OMEGA_GDN_MUT_BF16_TRUNC 5
 
 typedef struct {
     int mutant; /* TEST ONLY. 0 none; 1 no decay (decay = 1); 2 beta = 1; 3 the output gate is z, not silu(z);
-                 * 4 the conv tail is not shifted (the next step convolves stale history). */
+                 * 4 the conv tail is not shifted (the next step convolves stale history); OMEGA_GDN_MUT_BF16_TRUNC (5). */
     int copy;   /* 0: the GDN kernels. OMEGA_GDN_COPY / OMEGA_GDN_ZERO: omega_blackwell_codegen_gdn_copy_prog */
     uint32_t ratio; /* value heads per key head (16 key heads): 0 = 3 (Qwen3.8-27B, 48 value heads, the program before
                      * this field existed); 2 = Qwen3.6-35B-A3B (32 value heads, conv 8192). Appended last. */
     uint32_t state_bf16; /* L313: 1 = the state is stored bf16 (round to nearest even on store, exact widen on load), half the
-                          * bytes; compute stays f32. 0 = f32 (the program before this field existed). Appended last. */
+                          * bytes; compute stays f32. 0 = f32 (the program before this field existed). Appended last. The
+                          * decode program rounds after every token; scan and multi widen once, run their T tokens in f32
+                          * registers and round once at the end (multi: DRA-76; before it the multi program read and wrote
+                          * the bf16 state as f32). */
 } OmegaGdnSpec;
 
 /* The shape a spec selects (Q36, sc L306). The 27B constants above are the ratio-3 values. */
@@ -109,7 +115,9 @@ int omega_gdn_prog_stats(const OmegaGdnSpec *spec, uint32_t *insns, uint32_t *gp
  * T times (omega_blackwell_codegen_gdn.c). Same grid, threads, shared memory and argument block as the decode step plus
  * the four words below; token t reads qkv + t * xstride, z + t * xstride, ab + t * abstride and writes out + t * ostride
  * (bytes). Per CTA the state S stays in the 64 registers and the conv tails in registers for the whole loop (one load
- * before it, one store after it); the per-token arithmetic is the decode step's, instruction for instruction. T >= 1. */
+ * before it, one store after it); the per-token arithmetic is the decode step's, instruction for instruction. T >= 1.
+ * With state_bf16 the state is widened once and rounded once (DRA-76), so a bf16 multi launch equals the f32 multi launch
+ * from the widened state with the final state rounded, not T bf16 decode steps (those round after every token). */
 #define OMEGA_GDN_MULTI_ARG_T 0x3c8u        /* u32 tokens */
 #define OMEGA_GDN_MULTI_ARG_XSTRIDE 0x3ccu  /* u32 bytes between the qkv rows (and the z rows) of consecutive tokens */
 #define OMEGA_GDN_MULTI_ARG_ABSTRIDE 0x3d0u /* u32 bytes between the ab rows */
