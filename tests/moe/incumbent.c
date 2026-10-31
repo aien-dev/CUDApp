@@ -15,7 +15,7 @@ uint32_t moe_incumbent(uint32_t n, const uint32_t *ids, uint32_t *x, uint32_t *y
     g.pf.xmap = 20544; g.pf.ymap = 24672;
     g.pf.xmap2 = 28800; g.pf.ymap2 = 29344;
     memcpy(mem, ids, n * 8 * sizeof *ids);
-    uint32_t ns = pf_group(&g, 0, n, 0);
+    uint32_t ns = pf_group(&g, 0, n, 0, 0);
     memcpy(x, mem + g.pf.xmap, n * 8 * sizeof *x);
     memcpy(y, mem + g.pf.ymap, n * 8 * sizeof *y);
     memcpy(x + n * 8, mem + g.pf.xmap2, n * sizeof *x);
