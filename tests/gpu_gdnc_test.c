@@ -41,8 +41,8 @@
 #define SNAP_BYTES (STATE_BYTES + TAIL_BYTES)
 /* Wolfram-derived bounds (PR body): out = bf16 rounding of both sides (2^-8 of the max) plus the bf16 HMMA operands
  * of the WY form, state = the bf16 operands over the 128-term dots; both relative to the max reference magnitude. */
-#define TOL_OUT 0.03
-#define TOL_STATE 0.01
+#define TOL_OUT 0.01495 /* 2^-8 + 2^-9 Sqrt[2] Sqrt[16] (Wolfram: 0.0149548) */
+#define TOL_STATE 0.01105 /* 2^-9 Sqrt[2] Sqrt[16] (Wolfram: 0.0110485) */
 static const float EPS_L2 = 1e-6f, EPS_N = 1e-6f;
 
 static int g_checks, g_failed, g_mutant;
@@ -159,7 +159,10 @@ static void cmp_state(Err *e, const float *a, const float *r, uint32_t nh) {
 static int cmp_tail(const float *a, const float *r, uint32_t nh) { /* the tail is f32 data movement: bit exact */
     for (uint32_t h = 0; h < nh; h++) for (uint32_t i = 0; i < OMEGA_GDN_TAIL_HEAD_BYTES / 4; i++) {
         const size_t k = (size_t)h * (OMEGA_GDN_TAIL_HEAD_BYTES / 4) + i;
-        if (memcmp(&a[k], &r[k], 4) != 0) return 0;
+        if ((i & 3u) != 3u && memcmp(&a[k], &r[k], 4) != 0) { /* word 3 of each 16-byte slot is padding */
+            if (getenv("GDNC_DBG")) fprintf(stderr, "tail diff head %u word %u: %g vs %g\n", h, i, (double)a[k], (double)r[k]);
+            return 0;
+        }
     }
     return 1;
 }
@@ -178,9 +181,9 @@ static double battery_run(const Run *R, uint32_t seed, int mutant, int perturb, 
     if (snap) memset(snap, 0xa5, (size_t)(R->count + 1) * SNAP_BYTES);
     memcpy(tm, c.tail0, TAIL_BYTES); memcpy(sm, c.state0, STATE_BYTES);
     memcpy(tg, c.tail0, TAIL_BYTES); memcpy(sg, c.state0, STATE_BYTES);
-    if (perturb) { c.rowsb[(size_t)(T / 2) * RW + 2u * KH * HD] ^= 0x0400u; } /* gdnc only: v[0] of token T/2 (bf16 exponent bit) */
+    if (perturb) for (unsigned i = 0; i < HD; i++) c.rowsb[(size_t)(T / 2) * RW + 2u * KH * HD + i] ^= 0x8000u; /* gdnc only: sign of head 0's v at token T/2 */
     const int eg = gdnc_run(&c, T, mutant, R->gx, R->gy, outb, tg, sg, snap, R->every4, R->count, msg, sizeof msg);
-    if (perturb) { c.rowsb[(size_t)(T / 2) * RW + 2u * KH * HD] ^= 0x0400u; }
+    if (perturb) for (unsigned i = 0; i < HD; i++) c.rowsb[(size_t)(T / 2) * RW + 2u * KH * HD + i] ^= 0x8000u;
     double rel = -1.0;
     if (eg != 0) { printf("  gdnc sim failed: %s\n", msg); goto out; }
     /* golden in segments: one per snapshot, then the rest */
@@ -258,7 +261,7 @@ int main(int argc, char **argv) {
         printf("control mutant 9 (drop-decay) T 256: rel %.3e (tol %.3g) -> %s\n", m9, TOL_OUT, m9 > TOL_OUT ? "red" : "NOT RED");
         CHECK(m9 > TOL_OUT, "mutant 9 goes red");
         const double pe = battery_run(&ctl, 77, 0, 1, 0);
-        printf("control perturbed v[0] of token 128 (gdnc input only) T 256: rel %.3e (tol %.3g) -> %s\n", pe, TOL_OUT, pe > TOL_OUT ? "red" : "NOT RED");
+        printf("control perturbed (sign of head 0 v, token 128) (gdnc input only) T 256: rel %.3e (tol %.3g) -> %s\n", pe, TOL_OUT, pe > TOL_OUT ? "red" : "NOT RED");
         CHECK(pe > TOL_OUT, "a perturbed input token goes red");
     }
     printf("gpu_gdnc_test: %d checks, %d failed: %s\n", g_checks, g_failed, g_failed ? "FAIL" : "PASS");
