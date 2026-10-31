@@ -124,7 +124,9 @@ $(OUT_DIR)/cubin_probe: tools/interop/cubin_probe.c $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -I$(CUDA_INC) -o $@ tools/interop/cubin_probe.c $(OUT_DIR)/libomega_gpu.a -L$(CUDA_LIB) -lcuda -lpthread -lm
 cubin-probe: $(OUT_DIR)/cubin_probe
 # Artifacts are immutable (export refuses an existing file), so each run starts from an empty directory.
+# The shape checks run first so the C test's summary stays the last line (docs/CI_ACCEPTANCE.md).
 test-native-artifact: $(ARTIFACT_EXPORT) $(ARTIFACT_TEST)
+	sh tools/artifact_export_shapes.sh ./$(ARTIFACT_EXPORT) $(OUT_DIR)/artifact-shapes
 	rm -rf $(OUT_DIR)/artifact-test
 	./$(ARTIFACT_TEST) $(OUT_DIR)/artifact-test
 # Pure artifact-format boundary: portable host test, no driver or device objects.

@@ -13,9 +13,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "omega_blackwell_codegen.h"
 #include "omega_blackwell_matmul.h"
 #include "omega_blackwell_qmd.h"
 #include "omega_gpu_attention_api.h"
+#include "omega_gpu_matmul_api.h"
 #include "omega_native_artifact.h"
 #include "sha256.h"
 
@@ -96,12 +98,33 @@ int main(int argc, char **argv) {
         OmegaMatMulSpec spec;
         memset(&spec, 0, sizeof spec);
         if (!m || !k || !n) { usage(); return 2; }
+        /* Both kernels below tile C in 16 x 8 blocks and step K by 16; they have no edge handling. */
+        if (m % 16u || n % 8u || k % 16u) {
+            fprintf(stderr, "matmul-bf16-v1 export needs m%%16 == 0, n%%8 == 0, k%%16 == 0 (got %ux%ux%u)\n", m, k, n);
+            return 3;
+        }
         if (omega_matmul_spec_init(&spec, m, k, n, OMEGA_MATMUL_PRECISION_BF16) != 0) { fprintf(stderr, "spec refused\n"); return 3; }
-        if (omega_blackwell_codegen_matmul(&spec, &kern) != 0) { fprintf(stderr, "codegen refused\n"); return 3; }
+        /* K = 16: the single-tile kernel (the G2 W1 artifact, evidence/MAX-INTEROP/G2). Its CTA (x, y) computes
+         * exactly the 16 x 8 tile at row 16y, column 8x and has no column loop, so grid_x must be n / 8; the
+         * exporter used to write grid_x = 1, which leaves columns 8..n-1 of C unwritten whenever n > 8.
+         * K > 16: the looped kernel (omega-mv 5e29b826, FB-1 cut 1b, chip parity 18/18), which accumulates the
+         * whole K on the chip; its CTA (x, y) owns row tile y and column tiles x, x + grid_x, ... The single-tile
+         * kernel refuses K != 16, so without the looped kernel every export above K = 16 inside the contract's
+         * k <= 16384 was refused. Both read row-major A (m x k bf16) and B (k x n bf16) and write row-major
+         * C (m x n f32) through the same three pointer words. The looped grid_x follows the matmul API's CTA
+         * budget (launch_shape). */
+        uint32_t gx = n / 8u;
+        if (k == 16u) {
+            if (omega_blackwell_codegen_matmul(&spec, &kern) != 0) { fprintf(stderr, "codegen refused\n"); return 3; }
+        } else {
+            uint32_t budget = OMEGA_GPU_MATMUL_MAX_CTAS / (m / 16u);
+            if (budget == 0) budget = 1;
+            if (gx > budget) gx = budget;
+            if (omega_blackwell_codegen_matmul_tensor_loop(&spec, gx, 0, &kern) != 0) { fprintf(stderr, "codegen refused\n"); return 3; }
+        }
         hex32(spec.spec_id, spec_hex);
-        cfg.gpr_count = kern.gpr_count;
         cfg.threads_per_block = 32; cfg.threads_x = 32;
-        cfg.grid_x = 1; cfg.grid_y = (m + 15u) / 16u;
+        cfg.grid_x = gx; cfg.grid_y = m / 16u;
         cfg.num_elements = m * n; cfg.shared_bytes = 1024;
         omega_blackwell_build_cbank_args_matmul(cbank, 0, 0, 0, m, k, n);
         params[0] = (OmegaCubinParam){ 0x380, 8, 1 };
@@ -111,7 +134,7 @@ int main(int argc, char **argv) {
         a.op = "matmul"; a.contract_name = "matmul-bf16-v1";
         a.precision = "bf16"; a.accumulation = "fp32";
         a.tolerance = "abs<=1e-5*max(1,abs(ref))";
-        a.grid_x = 1; a.grid_y = cfg.grid_y; a.block_x = 32; a.block_y = 1; a.block_z = 1;
+        a.grid_x = gx; a.grid_y = cfg.grid_y; a.block_x = 32; a.block_y = 1; a.block_z = 1;
         a.shared_bytes = 1024; a.cbank_words = 10;
     } else if (strcmp(mode, "attention") == 0) {
         if (!hq || !hkv || hq % hkv != 0) { usage(); return 2; }
@@ -133,7 +156,6 @@ int main(int argc, char **argv) {
         (void)spec_hexp;
         uint32_t hpc = omega_gpu_attention_heads_per_cta(128, log2gqa);
         uint32_t shared = (3u * hpc + 1u) * 128u * 4u;
-        cfg.gpr_count = kern.gpr_count;
         cfg.threads_per_block = 128; cfg.threads_x = 128;
         cfg.grid_x = hq / hpc; cfg.grid_y = 1;
         cfg.num_elements = hq * 128u; cfg.shared_bytes = shared;
@@ -154,6 +176,11 @@ int main(int argc, char **argv) {
     } else {
         usage(); return 2;
     }
+    /* Declare peak + 2 rounded up to 8, as every launcher does. A cubin whose REGCOUNT is the allocator
+     * peak loads but faults at run (GB10, G2 window 20261030T235858Z-10fa8c: E5 at peak 32 gave 715,
+     * H1/H2 at 40 and H4 at 34 ran bit-exact; evidence/MAX-INTEROP/G2). */
+    cfg.gpr_count = omega_bw_gpr_declared(kern.gpr_count);
+    if (!omega_bw_gpr_declared_ok(cfg.gpr_count, kern.gpr_count)) { fprintf(stderr, "declared registers refused\n"); return 3; }
     if (omega_blackwell_build_qmd0(q0, 0, 0) != 0 || omega_blackwell_build_qmd1(q1, &cfg) != 0) {
         fprintf(stderr, "QMD template refused\n"); return 3;
     }
@@ -172,7 +199,7 @@ int main(int argc, char **argv) {
     a.kernel_function = (strcmp(mode, "matmul") == 0) ? "omega_matmul_bf16" : "omega_gqa_attention_causal";
     a.text = kern.code; a.text_len = kern.code_size;
     a.params = params; a.nparams = nparams;
-    a.gpr_count = kern.gpr_count;
+    a.gpr_count = cfg.gpr_count;
     a.cbank_offset = 0x380;
     a.cbank_args = cbank;
     a.qmd0 = q0; a.qmd1 = q1;

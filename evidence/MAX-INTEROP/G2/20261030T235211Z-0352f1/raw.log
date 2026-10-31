@@ -1,0 +1,260 @@
+# window=20261030T235211Z-0352f1 start=2026-10-30T23:52:16Z host=spark-b87b
+# driver: NVRM version: NVIDIA UNIX Open Kernel Module for aarch64  580.173.02  Release Build  (dvs-builder@U22-A24-5-4)  Tue Jun 23 08:34:19 UTC 2026
+# MemAvailable: 71689108 kB
+627b0e9ce0a79716c3cdae219bda092400242e77ca3320df93ca8694409509bc  /home/drakestapleton/handoffs/max-g2/cubin_probe
+59fbb68643d4a62f2cd41563226127d6ead4f662cdf8811181d8970df43241fb  /home/drakestapleton/handoffs/max-g2/max_cubin_probe
+528692b2658827d2959660d6e1eb525f349e15f8c7bc963852818b56d1b94c3d  /home/drakestapleton/handoffs/max-g2/variants/MATRIX.tsv
+85a1c54ef2ad781dd03db92503c46ac1138a05aca255986ab70626d7608d2041  /home/drakestapleton/handoffs/max-g2/run_matrix.sh
+## A-ctl fn=omega_matmul_bf16 mode=run expect=[PASS] sha=d95a489211830f58b93f092bab94ed4174c56cc4ae49779da3091aea2bf581d2 ok=yes isolates=[probe+driver+ABI known-good]
+### A-ctl C load-only: /home/drakestapleton/handoffs/max-g2/cubin_probe --load-only /home/drakestapleton/handoffs/max-g2/variants/A-ctl.cubin omega_matmul_bf16 16 16 8
+LOAD cuModuleLoadDataEx -> 0 no error
+LOAD error_log=""
+LOAD info_log=""
+LOAD cuModuleGetFunction(omega_matmul_bf16) -> 0 no error
+LOAD-PASS cubin=/home/drakestapleton/handoffs/max-g2/variants/A-ctl.cubin fn=omega_matmul_bf16 window=20261030T235211Z-0352f1
+### rc=0
+### A-ctl MAX loadonly: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/A-ctl.cubin omega_matmul_bf16 loadonly
+[tid 783674 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16)
+mode=loadonly file=/home/drakestapleton/handoffs/max-g2/variants/A-ctl.cubin fn=omega_matmul_bf16 accepted=True window=20261030T235211Z-0352f1
+### rc=0
+### A-ctl C run: /home/drakestapleton/handoffs/max-g2/cubin_probe /home/drakestapleton/handoffs/max-g2/variants/A-ctl.cubin omega_matmul_bf16 16 16 8
+LOAD cuModuleLoadDataEx -> 0 no error
+LOAD error_log=""
+LOAD info_log=""
+LOAD cuModuleGetFunction(omega_matmul_bf16) -> 0 no error
+cubin=/home/drakestapleton/handoffs/max-g2/variants/A-ctl.cubin fn=omega_matmul_bf16 M=16 K=16 N=8 worst_abs=0 bad=0 untouched=0 window=20261030T235211Z-0352f1
+### rc=0
+### A-ctl MAX run: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/A-ctl.cubin omega_matmul_bf16 run
+[tid 785109 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16)
+mode=run file=/home/drakestapleton/handoffs/max-g2/variants/A-ctl.cubin fn=omega_matmul_bf16 M=16 K=16 N=8 worst_abs=0.0 bad=0 window=20261030T235211Z-0352f1
+### rc=0
+## B-ctl-nomerc fn=omega_matmul_bf16 mode=run expect=[PASS if capmerc not required] sha=2d2516305d8bcba5273af73e72e135473ec20f73ef83dd12f74d832406cb414a ok=yes isolates=[capmerc/merc sections]
+### B-ctl-nomerc C load-only: /home/drakestapleton/handoffs/max-g2/cubin_probe --load-only /home/drakestapleton/handoffs/max-g2/variants/B-ctl-nomerc.cubin omega_matmul_bf16 16 16 8
+LOAD cuModuleLoadDataEx -> 0 no error
+LOAD error_log=""
+LOAD info_log=""
+LOAD cuModuleGetFunction(omega_matmul_bf16) -> 0 no error
+LOAD-PASS cubin=/home/drakestapleton/handoffs/max-g2/variants/B-ctl-nomerc.cubin fn=omega_matmul_bf16 window=20261030T235211Z-0352f1
+### rc=0
+### B-ctl-nomerc MAX loadonly: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/B-ctl-nomerc.cubin omega_matmul_bf16 loadonly
+[tid 790207 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16)
+mode=loadonly file=/home/drakestapleton/handoffs/max-g2/variants/B-ctl-nomerc.cubin fn=omega_matmul_bf16 accepted=True window=20261030T235211Z-0352f1
+### rc=0
+### B-ctl-nomerc C run: /home/drakestapleton/handoffs/max-g2/cubin_probe /home/drakestapleton/handoffs/max-g2/variants/B-ctl-nomerc.cubin omega_matmul_bf16 16 16 8
+LOAD cuModuleLoadDataEx -> 0 no error
+LOAD error_log=""
+LOAD info_log=""
+LOAD cuModuleGetFunction(omega_matmul_bf16) -> 0 no error
+cubin=/home/drakestapleton/handoffs/max-g2/variants/B-ctl-nomerc.cubin fn=omega_matmul_bf16 M=16 K=16 N=8 worst_abs=0 bad=0 untouched=0 window=20261030T235211Z-0352f1
+### rc=0
+### B-ctl-nomerc MAX run: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/B-ctl-nomerc.cubin omega_matmul_bf16 run
+[tid 791504 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16)
+mode=run file=/home/drakestapleton/handoffs/max-g2/variants/B-ctl-nomerc.cubin fn=omega_matmul_bf16 M=16 K=16 N=8 worst_abs=0.0 bad=0 window=20261030T235211Z-0352f1
+### rc=0
+## C-omega-stale-nophdr fn=omega_matmul_bf16 mode=reject expect=[REJECT 200 (seen 10-24, no receipt)] sha=7d1306933b67fa24a20dba59d39bf48fbd4aa5cec37e046e3b664e5e0c4b34eb ok=yes isolates=[program headers absent]
+### C-omega-stale-nophdr C expect-reject: /home/drakestapleton/handoffs/max-g2/cubin_probe --expect-reject /home/drakestapleton/handoffs/max-g2/variants/C-omega-stale-nophdr.cubin omega_matmul_bf16 16 16 8
+LOAD cuModuleLoadDataEx -> 200 device kernel image is invalid
+LOAD error_log=""
+LOAD info_log=""
+REJECT-PASS cubin=/home/drakestapleton/handoffs/max-g2/variants/C-omega-stale-nophdr.cubin fn=omega_matmul_bf16 window=20261030T235211Z-0352f1
+### rc=0
+### C-omega-stale-nophdr MAX reject: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/C-omega-stale-nophdr.cubin omega_matmul_bf16 reject
+[tid 794029 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16)
+mode=reject file=/home/drakestapleton/handoffs/max-g2/variants/C-omega-stale-nophdr.cubin fn=omega_matmul_bf16 raised=True err=At max/mojo/max/gpu/host/device_context.mojo:4410:17: CUDA call failed: CUDA_ERROR_INVALID_IMAGE (device kernel image is invalid) window=20261030T235211Z-0352f1
+### rc=0
+## D-omega-main fn=omega_matmul_bf16 mode=run expect=[REJECT 200 expected (10-24 phdr-mat)] sha=c4de09ece9f92d762c91eac0ca7af635618538697f90654dc76da2497e492e48 ok=yes isolates=[current CUDApp writer]
+### D-omega-main C load-only: /home/drakestapleton/handoffs/max-g2/cubin_probe --load-only /home/drakestapleton/handoffs/max-g2/variants/D-omega-main.cubin omega_matmul_bf16 16 16 8
+LOAD cuModuleLoadDataEx -> 200 device kernel image is invalid
+LOAD error_log=""
+LOAD info_log=""
+### rc=4
+### D-omega-main MAX loadonly: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/D-omega-main.cubin omega_matmul_bf16 loadonly
+[tid 794802 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16)
+FAIL load file=/home/drakestapleton/handoffs/max-g2/variants/D-omega-main.cubin fn=omega_matmul_bf16 err=At max/mojo/max/gpu/host/device_context.mojo:4410:17: CUDA call failed: CUDA_ERROR_INVALID_IMAGE (device kernel image is invalid) window=20261030T235211Z-0352f1
+### rc=4
+## E1-omega-symfix fn=omega_matmul_bf16 mode=run expect=[UNKNOWN] sha=7721f9566b8246437b3dc3f55c8ada057a49f3cc9b16fc6d395faa73bee5caed ok=yes isolates=[symtab sh_info]
+### E1-omega-symfix C load-only: /home/drakestapleton/handoffs/max-g2/cubin_probe --load-only /home/drakestapleton/handoffs/max-g2/variants/E1-omega-symfix.cubin omega_matmul_bf16 16 16 8
+LOAD cuModuleLoadDataEx -> 200 device kernel image is invalid
+LOAD error_log=""
+LOAD info_log=""
+### rc=4
+### E1-omega-symfix MAX loadonly: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/E1-omega-symfix.cubin omega_matmul_bf16 loadonly
+[tid 795807 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16)
+FAIL load file=/home/drakestapleton/handoffs/max-g2/variants/E1-omega-symfix.cubin fn=omega_matmul_bf16 err=At max/mojo/max/gpu/host/device_context.mojo:4410:17: CUDA call failed: CUDA_ERROR_INVALID_IMAGE (device kernel image is invalid) window=20261030T235211Z-0352f1
+### rc=4
+## E2-omega-tkinfo-ptxas fn=omega_matmul_bf16 mode=run expect=[UNKNOWN] sha=62acfe37b66a7f58db311b5ba3dcf2ccdd42220b56386a8bbcfc8e4178a992a2 ok=yes isolates=[.note.nv.tkinfo (ptxas bytes)]
+### E2-omega-tkinfo-ptxas C load-only: /home/drakestapleton/handoffs/max-g2/cubin_probe --load-only /home/drakestapleton/handoffs/max-g2/variants/E2-omega-tkinfo-ptxas.cubin omega_matmul_bf16 16 16 8
+LOAD cuModuleLoadDataEx -> 0 no error
+LOAD error_log=""
+LOAD info_log=""
+LOAD cuModuleGetFunction(omega_matmul_bf16) -> 0 no error
+LOAD-PASS cubin=/home/drakestapleton/handoffs/max-g2/variants/E2-omega-tkinfo-ptxas.cubin fn=omega_matmul_bf16 window=20261030T235211Z-0352f1
+### rc=0
+### E2-omega-tkinfo-ptxas MAX loadonly: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/E2-omega-tkinfo-ptxas.cubin omega_matmul_bf16 loadonly
+[tid 796478 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16)
+mode=loadonly file=/home/drakestapleton/handoffs/max-g2/variants/E2-omega-tkinfo-ptxas.cubin fn=omega_matmul_bf16 accepted=True window=20261030T235211Z-0352f1
+### rc=0
+### E2-omega-tkinfo-ptxas C run: /home/drakestapleton/handoffs/max-g2/cubin_probe /home/drakestapleton/handoffs/max-g2/variants/E2-omega-tkinfo-ptxas.cubin omega_matmul_bf16 16 16 8
+FAIL cuCtxSynchronize() -> 715 an illegal instruction was encountered
+LOAD cuModuleLoadDataEx -> 0 no error
+LOAD error_log=""
+LOAD info_log=""
+LOAD cuModuleGetFunction(omega_matmul_bf16) -> 0 no error
+### rc=4
+### E2-omega-tkinfo-ptxas MAX run: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/E2-omega-tkinfo-ptxas.cubin omega_matmul_bf16 run
+[tid 796887 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16)
+stack trace was not collected. Enable stack trace collection with environment variable `MODULAR_DEBUG=stack-trace-on-error`
+Unhandled exception caught during execution: At /dev/shm/max-g2/max_cubin_probe.mojo:91:29: CUDA call failed: CUDA_ERROR_ILLEGAL_INSTRUCTION (an illegal instruction was encountered)
+### rc=1
+## E3-omega-tkinfo-own fn=omega_matmul_bf16 mode=run expect=[UNKNOWN] sha=67bd97401061daf1d798dfc1032066c3ef9f3579c9bc49883200a1d48f16a99e ok=yes isolates=[.note.nv.tkinfo (own strings)]
+### E3-omega-tkinfo-own C load-only: /home/drakestapleton/handoffs/max-g2/cubin_probe --load-only /home/drakestapleton/handoffs/max-g2/variants/E3-omega-tkinfo-own.cubin omega_matmul_bf16 16 16 8
+LOAD cuModuleLoadDataEx -> 0 no error
+LOAD error_log=""
+LOAD info_log=""
+LOAD cuModuleGetFunction(omega_matmul_bf16) -> 0 no error
+LOAD-PASS cubin=/home/drakestapleton/handoffs/max-g2/variants/E3-omega-tkinfo-own.cubin fn=omega_matmul_bf16 window=20261030T235211Z-0352f1
+### rc=0
+### E3-omega-tkinfo-own MAX loadonly: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/E3-omega-tkinfo-own.cubin omega_matmul_bf16 loadonly
+[tid 798088 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16)
+mode=loadonly file=/home/drakestapleton/handoffs/max-g2/variants/E3-omega-tkinfo-own.cubin fn=omega_matmul_bf16 accepted=True window=20261030T235211Z-0352f1
+### rc=0
+### E3-omega-tkinfo-own C run: /home/drakestapleton/handoffs/max-g2/cubin_probe /home/drakestapleton/handoffs/max-g2/variants/E3-omega-tkinfo-own.cubin omega_matmul_bf16 16 16 8
+FAIL cuCtxSynchronize() -> 715 an illegal instruction was encountered
+LOAD cuModuleLoadDataEx -> 0 no error
+LOAD error_log=""
+LOAD info_log=""
+LOAD cuModuleGetFunction(omega_matmul_bf16) -> 0 no error
+### rc=4
+### E3-omega-tkinfo-own MAX run: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/E3-omega-tkinfo-own.cubin omega_matmul_bf16 run
+[tid 798373 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16)
+stack trace was not collected. Enable stack trace collection with environment variable `MODULAR_DEBUG=stack-trace-on-error`
+Unhandled exception caught during execution: At /dev/shm/max-g2/max_cubin_probe.mojo:91:29: CUDA call failed: CUDA_ERROR_ILLEGAL_INSTRUCTION (an illegal instruction was encountered)
+### rc=1
+## E4-omega-tkinfo-cg-symfix fn=omega_matmul_bf16 mode=run expect=[UNKNOWN] sha=e4dad818f5fa68452e90a9a6807cf02ae055c6c2284889fd803c645789778c3e ok=yes isolates=[all three metadata gaps]
+### E4-omega-tkinfo-cg-symfix C load-only: /home/drakestapleton/handoffs/max-g2/cubin_probe --load-only /home/drakestapleton/handoffs/max-g2/variants/E4-omega-tkinfo-cg-symfix.cubin omega_matmul_bf16 16 16 8
+LOAD cuModuleLoadDataEx -> 0 no error
+LOAD error_log=""
+LOAD info_log=""
+LOAD cuModuleGetFunction(omega_matmul_bf16) -> 0 no error
+LOAD-PASS cubin=/home/drakestapleton/handoffs/max-g2/variants/E4-omega-tkinfo-cg-symfix.cubin fn=omega_matmul_bf16 window=20261030T235211Z-0352f1
+### rc=0
+### E4-omega-tkinfo-cg-symfix MAX loadonly: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/E4-omega-tkinfo-cg-symfix.cubin omega_matmul_bf16 loadonly
+[tid 799807 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16)
+mode=loadonly file=/home/drakestapleton/handoffs/max-g2/variants/E4-omega-tkinfo-cg-symfix.cubin fn=omega_matmul_bf16 accepted=True window=20261030T235211Z-0352f1
+### rc=0
+### E4-omega-tkinfo-cg-symfix C run: /home/drakestapleton/handoffs/max-g2/cubin_probe /home/drakestapleton/handoffs/max-g2/variants/E4-omega-tkinfo-cg-symfix.cubin omega_matmul_bf16 16 16 8
+FAIL cuCtxSynchronize() -> 715 an illegal instruction was encountered
+LOAD cuModuleLoadDataEx -> 0 no error
+LOAD error_log=""
+LOAD info_log=""
+LOAD cuModuleGetFunction(omega_matmul_bf16) -> 0 no error
+### rc=4
+### E4-omega-tkinfo-cg-symfix MAX run: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/E4-omega-tkinfo-cg-symfix.cubin omega_matmul_bf16 run
+[tid 800036 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16)
+stack trace was not collected. Enable stack trace collection with environment variable `MODULAR_DEBUG=stack-trace-on-error`
+Unhandled exception caught during execution: At /dev/shm/max-g2/max_cubin_probe.mojo:91:29: CUDA call failed: CUDA_ERROR_ILLEGAL_INSTRUCTION (an illegal instruction was encountered)
+### rc=1
+## E5-omega-allmeta fn=omega_matmul_bf16 mode=run expect=[UNKNOWN] sha=6cb0c73d96b995e05560ab94370c7c66883ef888064d804aaeda40abb21d2e2b ok=yes isolates=[E4 + exit offsets, crs, smem syms, cbank0 link/align]
+### E5-omega-allmeta C load-only: /home/drakestapleton/handoffs/max-g2/cubin_probe --load-only /home/drakestapleton/handoffs/max-g2/variants/E5-omega-allmeta.cubin omega_matmul_bf16 16 16 8
+LOAD cuModuleLoadDataEx -> 0 no error
+LOAD error_log=""
+LOAD info_log=""
+LOAD cuModuleGetFunction(omega_matmul_bf16) -> 0 no error
+LOAD-PASS cubin=/home/drakestapleton/handoffs/max-g2/variants/E5-omega-allmeta.cubin fn=omega_matmul_bf16 window=20261030T235211Z-0352f1
+### rc=0
+### E5-omega-allmeta MAX loadonly: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/E5-omega-allmeta.cubin omega_matmul_bf16 loadonly
+[tid 800949 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16)
+mode=loadonly file=/home/drakestapleton/handoffs/max-g2/variants/E5-omega-allmeta.cubin fn=omega_matmul_bf16 accepted=True window=20261030T235211Z-0352f1
+### rc=0
+### E5-omega-allmeta C run: /home/drakestapleton/handoffs/max-g2/cubin_probe /home/drakestapleton/handoffs/max-g2/variants/E5-omega-allmeta.cubin omega_matmul_bf16 16 16 8
+FAIL cuCtxSynchronize() -> 715 an illegal instruction was encountered
+LOAD cuModuleLoadDataEx -> 0 no error
+LOAD error_log=""
+LOAD info_log=""
+LOAD cuModuleGetFunction(omega_matmul_bf16) -> 0 no error
+### rc=4
+### E5-omega-allmeta MAX run: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/E5-omega-allmeta.cubin omega_matmul_bf16 run
+[tid 801432 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16)
+stack trace was not collected. Enable stack trace collection with environment variable `MODULAR_DEBUG=stack-trace-on-error`
+Unhandled exception caught during execution: At /dev/shm/max-g2/max_cubin_probe.mojo:91:29: CUDA call failed: CUDA_ERROR_ILLEGAL_INSTRUCTION (an illegal instruction was encountered)
+### rc=1
+## F-ctlcontainer-omega-sass fn=omega_matmul_bf16 mode=run expect=[UNKNOWN: load => Omega SASS accepted] sha=83b133fd53fb1df50c427ae1f8f62b84f3bc0fdb9a2392bd69d9ab2f5ac6a773 ok=yes isolates=[machine code vs container (ptxas container)]
+### F-ctlcontainer-omega-sass C load-only: /home/drakestapleton/handoffs/max-g2/cubin_probe --load-only /home/drakestapleton/handoffs/max-g2/variants/F-ctlcontainer-omega-sass.cubin omega_matmul_bf16 16 16 8
+LOAD cuModuleLoadDataEx -> 0 no error
+LOAD error_log=""
+LOAD info_log=""
+LOAD cuModuleGetFunction(omega_matmul_bf16) -> 0 no error
+LOAD-PASS cubin=/home/drakestapleton/handoffs/max-g2/variants/F-ctlcontainer-omega-sass.cubin fn=omega_matmul_bf16 window=20261030T235211Z-0352f1
+### rc=0
+### F-ctlcontainer-omega-sass MAX loadonly: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/F-ctlcontainer-omega-sass.cubin omega_matmul_bf16 loadonly
+[tid 802356 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16)
+mode=loadonly file=/home/drakestapleton/handoffs/max-g2/variants/F-ctlcontainer-omega-sass.cubin fn=omega_matmul_bf16 accepted=True window=20261030T235211Z-0352f1
+### rc=0
+### F-ctlcontainer-omega-sass C run: /home/drakestapleton/handoffs/max-g2/cubin_probe /home/drakestapleton/handoffs/max-g2/variants/F-ctlcontainer-omega-sass.cubin omega_matmul_bf16 16 16 8
+LOAD cuModuleLoadDataEx -> 0 no error
+LOAD error_log=""
+LOAD info_log=""
+LOAD cuModuleGetFunction(omega_matmul_bf16) -> 0 no error
+cubin=/home/drakestapleton/handoffs/max-g2/variants/F-ctlcontainer-omega-sass.cubin fn=omega_matmul_bf16 M=16 K=16 N=8 worst_abs=0 bad=0 untouched=0 window=20261030T235211Z-0352f1
+### rc=0
+### F-ctlcontainer-omega-sass MAX run: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/F-ctlcontainer-omega-sass.cubin omega_matmul_bf16 run
+[tid 802481 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16)
+mode=run file=/home/drakestapleton/handoffs/max-g2/variants/F-ctlcontainer-omega-sass.cubin fn=omega_matmul_bf16 M=16 K=16 N=8 worst_abs=0.0 bad=0 window=20261030T235211Z-0352f1
+### rc=0
+## G-omegacontainer-ctl-sass fn=omega_matmul_bf16 mode=run expect=[UNKNOWN: load => CUDApp container accepted] sha=25f162490ac9b2b138d88be53a292f254ab06d3412bc85f8f0267730a83c30a5 ok=yes isolates=[machine code vs container (CUDApp container)]
+### G-omegacontainer-ctl-sass C load-only: /home/drakestapleton/handoffs/max-g2/cubin_probe --load-only /home/drakestapleton/handoffs/max-g2/variants/G-omegacontainer-ctl-sass.cubin omega_matmul_bf16 16 16 8
+LOAD cuModuleLoadDataEx -> 200 device kernel image is invalid
+LOAD error_log=""
+LOAD info_log=""
+### rc=4
+### G-omegacontainer-ctl-sass MAX loadonly: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/G-omegacontainer-ctl-sass.cubin omega_matmul_bf16 loadonly
+[tid 803601 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16)
+FAIL load file=/home/drakestapleton/handoffs/max-g2/variants/G-omegacontainer-ctl-sass.cubin fn=omega_matmul_bf16 err=At max/mojo/max/gpu/host/device_context.mojo:4410:17: CUDA call failed: CUDA_ERROR_INVALID_IMAGE (device kernel image is invalid) window=20261030T235211Z-0352f1
+### rc=4
+## N1-ctl-truncated fn=omega_matmul_bf16 mode=reject expect=[REJECT] sha=e059683df43d9a2a6e8fc5fbcc831378dbd5d7d75d2e32e4accf9ca79d43387d ok=yes isolates=[truncated image]
+### N1-ctl-truncated C expect-reject: /home/drakestapleton/handoffs/max-g2/cubin_probe --expect-reject /home/drakestapleton/handoffs/max-g2/variants/N1-ctl-truncated.cubin omega_matmul_bf16 16 16 8
+fatal   : Memory allocation failure
+LOAD cuModuleLoadDataEx -> 999 unknown error
+LOAD error_log=""
+LOAD info_log=""
+REJECT-PASS cubin=/home/drakestapleton/handoffs/max-g2/variants/N1-ctl-truncated.cubin fn=omega_matmul_bf16 window=20261030T235211Z-0352f1
+### rc=0
+### N1-ctl-truncated MAX reject: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/N1-ctl-truncated.cubin omega_matmul_bf16 reject
+[tid 803756 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16)
+mode=reject file=/home/drakestapleton/handoffs/max-g2/variants/N1-ctl-truncated.cubin fn=omega_matmul_bf16 raised=True err=At max/mojo/max/gpu/host/device_context.mojo:4410:17: CUDA call failed: CUDA_ERROR_INVALID_IMAGE (device kernel image is invalid) window=20261030T235211Z-0352f1
+### rc=0
+## N2-ctl-wrong-entry fn=omega_matmul_bf16_missing mode=reject expect=[REJECT (500 NOT_FOUND)] sha=d95a489211830f58b93f092bab94ed4174c56cc4ae49779da3091aea2bf581d2 ok=yes isolates=[entry name]
+### N2-ctl-wrong-entry C expect-reject: /home/drakestapleton/handoffs/max-g2/cubin_probe --expect-reject /home/drakestapleton/handoffs/max-g2/variants/N2-ctl-wrong-entry.cubin omega_matmul_bf16_missing 16 16 8
+LOAD cuModuleLoadDataEx -> 0 no error
+LOAD error_log=""
+LOAD info_log=""
+LOAD cuModuleGetFunction(omega_matmul_bf16_missing) -> 500 named symbol not found
+REJECT-PASS cubin=/home/drakestapleton/handoffs/max-g2/variants/N2-ctl-wrong-entry.cubin fn=omega_matmul_bf16_missing window=20261030T235211Z-0352f1
+### rc=0
+### N2-ctl-wrong-entry MAX reject: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/N2-ctl-wrong-entry.cubin omega_matmul_bf16_missing reject
+[tid 804110 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16_missing)
+mode=reject file=/home/drakestapleton/handoffs/max-g2/variants/N2-ctl-wrong-entry.cubin fn=omega_matmul_bf16_missing raised=True err=At max/mojo/max/gpu/host/device_context.mojo:4410:17: CUDA call failed: CUDA_ERROR_NOT_FOUND (named symbol not found) - function name: omega_matmul_bf16_missing window=20261030T235211Z-0352f1
+### rc=0
+## N3-ctl-eflags-sm80 fn=omega_matmul_bf16 mode=reject expect=[REJECT] sha=194a48dce16bcef34faadb233a46b9d9370a80d43326d62c2cdfd9819e5f84be ok=yes isolates=[e_flags arch field]
+### N3-ctl-eflags-sm80 C expect-reject: /home/drakestapleton/handoffs/max-g2/cubin_probe --expect-reject /home/drakestapleton/handoffs/max-g2/variants/N3-ctl-eflags-sm80.cubin omega_matmul_bf16 16 16 8
+LOAD cuModuleLoadDataEx -> 209 no kernel image is available for execution on the device
+LOAD error_log=""
+LOAD info_log=""
+REJECT-PASS cubin=/home/drakestapleton/handoffs/max-g2/variants/N3-ctl-eflags-sm80.cubin fn=omega_matmul_bf16 window=20261030T235211Z-0352f1
+### rc=0
+### N3-ctl-eflags-sm80 MAX reject: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/N3-ctl-eflags-sm80.cubin omega_matmul_bf16 reject
+[tid 804356 device 0] CUDADeviceContext::loadFunction(omega_matmul_bf16)
+mode=reject file=/home/drakestapleton/handoffs/max-g2/variants/N3-ctl-eflags-sm80.cubin fn=omega_matmul_bf16 raised=True err=At max/mojo/max/gpu/host/device_context.mojo:4410:17: CUDA call failed: CUDA_ERROR_NO_BINARY_FOR_GPU (no kernel image is available for execution on the device) window=20261030T235211Z-0352f1
+### rc=0
+## N4-max-vecadd-sm80 fn=vec_add mode=reject expect=[REJECT (209 NO_BINARY_FOR_GPU)] sha=b0a171991dc9a2c456b70d3221b6353d2e671159f94e5eca292986ff5bcf21e8 ok=yes isolates=[wrong-arch real cubin]
+### N4-max-vecadd-sm80 C expect-reject: /home/drakestapleton/handoffs/max-g2/cubin_probe --expect-reject /home/drakestapleton/handoffs/max-g2/variants/N4-max-vecadd-sm80.cubin vec_add 16 16 8
+LOAD cuModuleLoadDataEx -> 209 no kernel image is available for execution on the device
+LOAD error_log=""
+LOAD info_log=""
+REJECT-PASS cubin=/home/drakestapleton/handoffs/max-g2/variants/N4-max-vecadd-sm80.cubin fn=vec_add window=20261030T235211Z-0352f1
+### rc=0
+### N4-max-vecadd-sm80 MAX reject: /home/drakestapleton/handoffs/max-g2/max_cubin_probe /home/drakestapleton/handoffs/max-g2/variants/N4-max-vecadd-sm80.cubin vec_add reject
+[tid 804798 device 0] CUDADeviceContext::loadFunction(vec_add)
+mode=reject file=/home/drakestapleton/handoffs/max-g2/variants/N4-max-vecadd-sm80.cubin fn=vec_add raised=True err=At max/mojo/max/gpu/host/device_context.mojo:4410:17: CUDA call failed: CUDA_ERROR_NO_BINARY_FOR_GPU (no kernel image is available for execution on the device) window=20261030T235211Z-0352f1
+### rc=0
+# end=2026-10-30T23:53:01Z MemAvailable: 72005516 kB

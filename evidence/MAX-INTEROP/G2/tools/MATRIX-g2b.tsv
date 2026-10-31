@@ -1,0 +1,23 @@
+name	fn	mode	expect	sha256	isolates
+A-ctl	omega_matmul_bf16	run	PASS	d95a489211830f58b93f092bab94ed4174c56cc4ae49779da3091aea2bf581d2	probe+driver+ABI known-good
+B-ctl-nomerc	omega_matmul_bf16	run	PASS if capmerc not required	2d2516305d8bcba5273af73e72e135473ec20f73ef83dd12f74d832406cb414a	capmerc/merc sections
+C-omega-stale-nophdr	omega_matmul_bf16	reject	REJECT 200 (seen 10-24, no receipt)	7d1306933b67fa24a20dba59d39bf48fbd4aa5cec37e046e3b664e5e0c4b34eb	program headers absent
+D-omega-main	omega_matmul_bf16	run	REJECT 200 expected (10-24 phdr-mat)	c4de09ece9f92d762c91eac0ca7af635618538697f90654dc76da2497e492e48	current CUDApp writer
+E1-omega-symfix	omega_matmul_bf16	run	UNKNOWN	7721f9566b8246437b3dc3f55c8ada057a49f3cc9b16fc6d395faa73bee5caed	symtab sh_info
+E2-omega-tkinfo-ptxas	omega_matmul_bf16	run	UNKNOWN	62acfe37b66a7f58db311b5ba3dcf2ccdd42220b56386a8bbcfc8e4178a992a2	.note.nv.tkinfo (ptxas bytes)
+E3-omega-tkinfo-own	omega_matmul_bf16	run	UNKNOWN	67bd97401061daf1d798dfc1032066c3ef9f3579c9bc49883200a1d48f16a99e	.note.nv.tkinfo (own strings)
+E4-omega-tkinfo-cg-symfix	omega_matmul_bf16	run	UNKNOWN	e4dad818f5fa68452e90a9a6807cf02ae055c6c2284889fd803c645789778c3e	all three metadata gaps
+E5-omega-allmeta	omega_matmul_bf16	run	UNKNOWN	6cb0c73d96b995e05560ab94370c7c66883ef888064d804aaeda40abb21d2e2b	E4 + exit offsets, crs, smem syms, cbank0 link/align
+F-ctlcontainer-omega-sass	omega_matmul_bf16	run	UNKNOWN: load => Omega SASS accepted	83b133fd53fb1df50c427ae1f8f62b84f3bc0fdb9a2392bd69d9ab2f5ac6a773	machine code vs container (ptxas container)
+G-omegacontainer-ctl-sass	omega_matmul_bf16	run	UNKNOWN: load => CUDApp container accepted	25f162490ac9b2b138d88be53a292f254ab06d3412bc85f8f0267730a83c30a5	machine code vs container (CUDApp container)
+H1-e5-reg40	omega_matmul_bf16	run	PASS if register count	629803d0f3643b7a9b92b38abc843bc8dac6395c5579ddcb4f174e3ad72e7c77	REGCOUNT+MAXREG 40 (peak+2 rounded to 8)
+H2-e5-regcount40	omega_matmul_bf16	run	UNKNOWN	a849a4ace4acc113a0dd716dc61e5d5077328b2ae2352f43dfbc0e52c2a07f5c	REGCOUNT 0x2f only
+H3-e5-maxreg40	omega_matmul_bf16	run	UNKNOWN	b4bc06565bfa0ff5b446dabf15001b514cdcf2ddbb2ae1827591c8b02943d655	MAXREG 0x1b only
+H4-e5-reg34	omega_matmul_bf16	run	UNKNOWN	88531f937c017be0c7df7733ac50d30786b5c7abcd9b6e0cf34bf781969cf3e8	REGCOUNT+MAXREG 34 (peak+2, ptxas rule)
+H5-e5-isa1	omega_matmul_bf16	run	715 if register count	6211cb1320905e117ee6ea000e2c42b16f87b30373d9171205e84e0ef29c2d44	nv.compat ISA_CLASS 1 (ptxas value)
+H6-e3-reg40	omega_matmul_bf16	run	PASS if tkinfo+regs suffice	f8ea88ef3ce51f6f57738da5bae1957dc59c4344ef3213fe4b4c42a8442083d7	minimal writer fix: own tkinfo + regs 40
+H7-d-reg40	omega_matmul_bf16	reject	REJECT 200 (no tkinfo)	62d11f4ff521a5fb55350ca7fa986ed52530b63505f7497b8cffc60304dc5c5f	regs alone do not fix the load
+N1-ctl-truncated	omega_matmul_bf16	reject	REJECT	e059683df43d9a2a6e8fc5fbcc831378dbd5d7d75d2e32e4accf9ca79d43387d	truncated image
+N2-ctl-wrong-entry	omega_matmul_bf16_missing	reject	REJECT (500 NOT_FOUND)	d95a489211830f58b93f092bab94ed4174c56cc4ae49779da3091aea2bf581d2	entry name
+N3-ctl-eflags-sm80	omega_matmul_bf16	reject	REJECT	194a48dce16bcef34faadb233a46b9d9370a80d43326d62c2cdfd9819e5f84be	e_flags arch field
+N4-max-vecadd-sm80	vec_add	reject	REJECT (209 NO_BINARY_FOR_GPU)	b0a171991dc9a2c456b70d3221b6353d2e671159f94e5eca292986ff5bcf21e8	wrong-arch real cubin
