@@ -19,6 +19,8 @@
  * CTA y covers groups yG .. yG+G-1 (thread index offset by 32 G y). groups 0 is the one-CTA form (programs unchanged).
  * Arguments (cbank 0x380): x u64, q u64, s u64.
  * mutant (tests only): 1 skips the butterfly (lane-local amax), 2 uses c = 0, 3 drops the ctaid.y offset (groups form).
+ * stride (DRA-82): input row stride in elements, 0 = k (programs unchanged); a nonzero stride (>= k, multiple of 4) lets
+ * the quantiser read rows of a wider buffer in place (the q36 router rows, lb_stride / 4). q and s stay dense.
  */
 #include <stdint.h>
 #include "omega_blackwell_codegen.h"
@@ -27,7 +29,7 @@
 extern "C" {
 #endif
 enum { OMEGA_QG_IN_F32 = 0, OMEGA_QG_IN_BF16 = 1 };
-typedef struct { uint32_t k, in_type; int mutant; uint32_t groups; } OmegaPqSpec;
+typedef struct { uint32_t k, in_type; int mutant; uint32_t groups; uint32_t stride; } OmegaPqSpec;
 #define OMEGA_PQ_ARGS_WORDS 6u
 int omega_pq_spec_ok(const OmegaPqSpec *s);
 int omega_blackwell_codegen_pq_prog(const OmegaPqSpec *s, BlackwellIRProgram *prog);
@@ -47,7 +49,12 @@ int omega_blackwell_codegen_pq_prog(const OmegaPqSpec *s, BlackwellIRProgram *pr
  * Constant bank 0x380: tiles, rowidx (ignored when direct), xq, y, xs (u64 each), n u32 at 0x3a8.
  * Grid: n / (warps * 16) x tiles; 32 * warps threads; shared 2 * (16 rt * 64 + 16 rt * 4) bytes.
  * mutant (tests only): 1 drops sa (uses sw only), 2 never advances the sw pointer, 3 row tile i reads tile i^1, 4 drops step 1
- * of every odd chunk. */
+ * of every odd chunk.
+ * DRA-82 (each 0 = programs unchanged):
+ *   ymap 1 (F32 only): row r of a tile is stored to y row ymap[row0 + r] (u32 table, u64 pointer at cbank 0x3b0;
+ *          OMEGA_QG_ARGS_WORDS_YMAP argument words), read only for rows below cnt. Without ymap y row = row0 + r.
+ *   x64 1: the activations carry an extra 2^64 (the q36 graph's x' and act rows): the scale fold uses 2^-120 instead of
+ *          2^-56, so y is the true product; exact, since 2^64 moves only exponents of the power-of-two pq scales. */
 enum { OMEGA_QG_EPI_F32 = 0, OMEGA_QG_EPI_SWIGLU = 1 };
 typedef struct {
     uint32_t k;      /* multiple of 128, 128 .. 32768 */
@@ -58,8 +65,11 @@ typedef struct {
     uint32_t n;      /* output width (weight rows), multiple of warps * 16 */
     uint32_t wait;   /* stall cycles between a row tile's last QMMA and the first FFMA reading its result */
     int mutant;
+    uint32_t ymap;   /* DRA-82: 1 scatters rows through the y map (F32 only) */
+    uint32_t x64;    /* DRA-82: 1 removes a 2^64 activation scale in the fold */
 } OmegaQgSpec;
 #define OMEGA_QG_ARGS_WORDS 11u
+#define OMEGA_QG_ARGS_WORDS_YMAP 14u
 #define OMEGA_QG_TILE_BYTES 32u
 int omega_qg_spec_ok(const OmegaQgSpec *s);
 uint32_t omega_qg_shared_bytes(const OmegaQgSpec *s);
