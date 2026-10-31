@@ -234,6 +234,24 @@ static int host_ref(void) {
     const int x64ok = P.x64_mismatch == 0;
     printf("%s x64 quantiser identity: q(2^64 x) == q(x), s(2^64 x) == 2^64 s(x) on %u rows x %u blocks (%u differ; all-zero blocks keep the floor scale, q 0)\n",
            x64ok ? "PASS" : "FAIL", P.XR + PAD, P.KB, P.x64_mismatch);
+    /* INFO (no gate): what the activation quantiser costs against the incumbent GEMV's unquantised f32 activations, on these
+     * synthetic rows (uniform +-1 with 1/32 x300 outliers, 1/32 x1e-3, 1/32 zeros; NOT model activations) */
+    double wa = 0, se = 0, sy = 0;
+    for (uint32_t p = 0; p < P.M; p += 3)
+        for (uint32_t c = 0; c < P.n; c++) {
+            const uint32_t e = P.eid[p], s = P.ridx[p];
+            double a = 0, m = 0;
+            for (uint32_t j = 0; j < P.k; j++) {
+                const double sw = u2f((uint32_t)P.sbf[((size_t)e * (P.n / 128) + c / 128) * P.KB + j / 128] << 16);
+                const double t = (double)qm_e4m3(P.w[((size_t)e * P.n + c) * P.k + j]) * sw * P.x[(size_t)s * P.k + j];
+                a += t; m += fabs(t);
+            }
+            const double d = fabs((double)qref(&P, p, c) - a);
+            if (m > 0 && d / m > wa) wa = d / m;
+            se += d * d; sy += a * a;
+        }
+    printf("INFO activation e4m3 (per row, per 128-col block, power-of-two scale) vs f32 activations, synthetic rows k %u: worst |dy| %.3g of the sum of |terms|, rms |dy|/rms |y| %.3g\n",
+           P.k, wa, sy > 0 ? sqrt(se / sy) : 0.0);
     prob_free(&P);
     return (ok ? 0 : 1) + (x64ok ? 0 : 1);
 }
@@ -308,9 +326,30 @@ static int sim_gemm(const Prob *P, int x64, int order, uint32_t *y, char *msg, s
     free(t);
     return rc;
 }
+/* the q36 prefill's expert GEMMs as omega_gpu_q36_graph.c pf_group lays them out: T tokens x 8 routed picks (distinct experts
+ * of E-1) sorted by expert, then the shared expert (segment E-1) at rows T*8 .. with x' row t and y row t*9+8. gate_up reads
+ * x' row = token through rowidx; down reads act row = its own y row (rowidx == ymap). */
+static void q36_layout(Prob *P, uint32_t T, uint32_t E, uint32_t n, uint32_t k, int down) {
+    uint32_t *pick = malloc((size_t)T * 8 * 4), *cnt = calloc(E, 4);
+    for (uint32_t t = 0; t < T; t++)
+        for (uint32_t s = 0; s < 8; s++) {
+            uint32_t e; int dup;
+            do { e = rnd() % (E - 1); dup = 0; for (uint32_t j = 0; j < s; j++) dup |= pick[t * 8 + j] == e; } while (dup);
+            pick[t * 8 + s] = e; cnt[e]++;
+        }
+    cnt[E - 1] = T;
+    prob_make(P, E, n, k, cnt, down ? T * 9 : T, 1, 1, T * 9);
+    uint32_t *start = calloc(E, 4); for (uint32_t e = 1; e < E; e++) start[e] = start[e - 1] + cnt[e - 1];
+    for (uint32_t t = 0; t < T; t++)
+        for (uint32_t s = 0; s < 8; s++) { const uint32_t p = start[pick[t * 8 + s]]++; P->ymap[p] = t * 9 + s; P->ridx[p] = t; }
+    for (uint32_t t = 0; t < T; t++) { P->ymap[T * 8 + t] = t * 9 + 8; P->ridx[T * 8 + t] = t; }
+    if (down) for (uint32_t p = 0; p < P->M; p++) P->ridx[p] = P->ymap[p];
+    free(pick); free(cnt); free(start);
+}
 static int sim(void) {
     int fail = 0; char msg[200];
-    static const struct { uint32_t k, stride, rows; int x64; } qc[] = { { 2048, 2048 + 68, 9, 1 }, { 2048, 0, 9, 0 }, { 512, 512, 11, 1 }, { 5120, 5120 + 128, 5, 1 } };
+    static const struct { uint32_t k, stride, rows; int x64; } qc[] = { { 2048, 2048 + 68, 9, 1 }, { 2048, 0, 9, 0 }, { 512, 512, 11, 1 }, { 5120, 5120 + 128, 5, 1 },
+                                                                        { 4096, 0, 9, 1 } /* the q36 o input */ };
     for (size_t i = 0; i < sizeof qc / sizeof qc[0]; i++) {
         size_t bad = 0; const int rc = sim_quant(qc[i].k, qc[i].stride, qc[i].rows, qc[i].x64, &bad, msg, sizeof msg);
         printf("sim quant k %u stride %u rows %u %s: %s, %zu differ\n", qc[i].k, qc[i].stride, qc[i].rows, qc[i].x64 ? "2^64 x" : "x", rc ? msg : "ran", bad);
@@ -354,6 +393,39 @@ static int sim(void) {
             if (rc || !bad) fail++;
         }
         free(want); free(y); free(y0); prob_free(&P);
+    }
+    /* the q36 shapes: gate_up (n 1024, k 2048) and down (n 2048, k 512) over 12 tokens x (8 routed of 10 + shared); the dense
+     * mix|o (direct rows, x64) at k 2048 and k 4096 with n cut to 256 (n only multiplies the grid) */
+    static const struct { const char *name; uint32_t T, E, n, k; int down; } q36[] = {
+        { "q36 gate_up routed+shared", 12, 11, 1024, 2048, 0 }, { "q36 down routed+shared", 12, 11, 2048, 512, 1 },
+        { "q36 down 72 tokens (segments > 64 rows, n cut to 256)", 72, 11, 256, 512, 1 },
+    };
+    for (size_t i = 0; i < sizeof q36 / sizeof q36[0]; i++) {
+        Prob P; q36_layout(&P, q36[i].T, q36[i].E, q36[i].n, q36[i].k, q36[i].down);
+        uint32_t *want = expect_y(&P), *y = malloc((size_t)P.YR * P.n * 4);
+        const int rc = sim_gemm(&P, 1, 0, y, msg, sizeof msg);
+        const size_t bad = rc ? 0 : ydiff(&P, y, want);
+        printf("sim gemm %s (M %u n %u k %u, %u y rows): %s, %zu words differ\n", q36[i].name, P.M, P.n, P.k, P.YR, rc ? msg : "ran", bad);
+        if (rc || bad) fail++;
+        if (i == 0) { /* negative control: the shared expert's y rows dropped from the map (pointed at routed row 0's slot) */
+            for (uint32_t t = 0; t < q36[i].T; t++) P.ymap[q36[i].T * 8 + t] = P.ymap[0];
+            const int rc2 = sim_gemm(&P, 1, 0, y, msg, sizeof msg);
+            const size_t bad2 = rc2 ? 0 : ydiff(&P, y, want);
+            printf("sim gemm %s negative control (shared rows mis-mapped): %s\n", q36[i].name, rc2 ? msg : bad2 ? "caught" : "NOT CAUGHT");
+            if (rc2 || !bad2) fail++;
+        }
+        free(want); free(y); prob_free(&P);
+    }
+    static const uint32_t cd[] = { 9 };
+    static const uint32_t dk[] = { 2048, 4096 };
+    for (size_t i = 0; i < 2; i++) {
+        Prob P; prob_make(&P, 1, 256, dk[i], cd, 0, 0, 0, 0);
+        uint32_t *want = expect_y(&P), *y = malloc((size_t)P.YR * P.n * 4);
+        const int rc = sim_gemm(&P, 1, 0, y, msg, sizeof msg);
+        const size_t bad = rc ? 0 : ydiff(&P, y, want);
+        printf("sim gemm q36 dense (M %u n %u k %u): %s, %zu words differ\n", P.M, P.n, P.k, rc ? msg : "ran", bad);
+        if (rc || bad) fail++;
+        free(want); free(y); prob_free(&P);
     }
     return fail;
 }
