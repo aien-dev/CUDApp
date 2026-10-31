@@ -2,7 +2,8 @@
 /* omega_blackwell_codegen_gemm.c: FP8 e4m3 block-scaled grouped GEMM for prefill (OWN-30B builder F item 26). See the
  * header for the contract. The emitter helpers are copies of omega_blackwell_codegen_moe.c's (same chip-learned
  * scheduling rules) plus one addition: weight and scale prefetch loads use scoreboards 3 (buffer A) and 4 (buffer B)
- * and are waited for only by the step that decodes them, so the next step's weights stream while this step computes. */
+ * and are waited for only by the step that decodes them, so the next step's weights stream while this step computes; the
+ * staging words of x' are loaded one step ahead the same way on scoreboard 5 (L312 lever 3, 2026-10-21). */
 #include "omega_blackwell_codegen_gemm.h"
 #ifndef OMEGA_GPU_NO_POSIX
 #include <stdlib.h>
@@ -128,6 +129,22 @@ static void ldw_pf(Em *e, BlackwellIROpcode op, int d, int addr64, uint32_t imm,
 }
 static void consume(Em *e, unsigned sb) { e->pending |= e->held & (1u << sb); e->held &= ~(1u << sb); }
 
+/* The staging words of one K step (NJ per thread) into xv[], loaded one step AHEAD on scoreboard 5 (L312 lever 3): the
+ * STS of the step that reads them waits for them (consume(5)), so the x' latency hides behind the previous step's
+ * compute instead of sitting between its barriers. Addresses in rounds of 4 so the temporaries stay few; every load
+ * sets SB_RD and the next waits on it (the address read), as every load batch of this file does. xs (plain) or xso (rowmap)
+ * already point at the step to load. */
+static void x_prefetch(Em *e, uint32_t NJ, uint32_t T, uint32_t ROWW, uint32_t K, int RM, int one, int xs, int xso, const int *xb, const int *xv, int udesc) {
+    for (uint32_t j0 = 0; j0 < NJ; j0 += 4) {
+        const uint32_t nj = NJ - j0 < 4 ? NJ - j0 : 4;
+        int xa[4];
+        for (uint32_t q = 0; q < nj; q++) xa[q] = V64(e);
+        if (e->err) return;
+        for (uint32_t q = 0; q < nj; q++) { const uint32_t pos = (j0 + q) * T; if (RM) imadw(e, xa[q], xso, 1u, xb[j0 + q]); else imadw(e, xa[q], one, ((pos / ROWW) * K + pos % ROWW) * 4u, xs); }
+        for (uint32_t q = 0; q < nj; q++) ldw_pf(e, BW_IR_LDG_E, xv[j0 + q], xa[q], 0, udesc, 5);
+    }
+}
+
 static int log2u(uint32_t v) { int l = 0; while ((1u << l) < v) l++; return (1u << l) == v ? l : -1; }
 
 static int spec_ok(const OmegaFp8GemmSpec *s) {
@@ -140,6 +157,7 @@ static int spec_ok(const OmegaFp8GemmSpec *s) {
     if (ks % 2u && ks > 3u) return 0; /* odd step counts are fully unrolled: at most 3 */
     if (s->mutant < 0 || s->mutant > 4) return 0;
     if (s->rowmap > 1u || (s->rowmap && s->mt > 4u)) return 0; /* the mapped form keeps NJ row bases and MT y rows in registers: mt 8 needs 135 at 16 warps, past the file */
+    if (s->x_ahead > 1u || (s->x_ahead && s->mt * s->lane_bytes / s->warps > 16u)) return 0; /* lever 3 holds NJ staging words in registers: NJ > 16 (under 8 warps at mt * lane_bytes 128) is not a served shape */
     return 1;
 }
 uint32_t omega_fp8gemm_steps(const OmegaFp8GemmSpec *spec) { return spec_ok(spec) ? spec->k / (32u * spec->lane_bytes) : 0; }
@@ -220,6 +238,11 @@ int omega_blackwell_codegen_fp8gemm_prog(const OmegaFp8GemmSpec *spec, Blackwell
     for (int q = 0; q < 4; q++) xq[q] = V128(e);
     for (int b = 0; b < 2; b++) { wq[b] = LB == 16 ? V128(e) : V64(e); sc[b] = V(e); }
     for (int i = 0; i < 4; i++) fr[i] = V(e);
+    /* x_ahead (L312 lever 3): the next K step's staging words, loaded one step ahead (x_prefetch) into NJ registers held
+     * across the step; x_ahead 0 keeps the incumbent program byte for byte (the staging words loaded inside the step) */
+    const int XA = spec->x_ahead != 0;
+    int xv[16];
+    if (XA) for (uint32_t j = 0; j < NJ; j++) xv[j] = V(e);
     if (e->err) return -1;
 
     /* ---- weight-row loop (uniform per CTA) ---- */
@@ -259,6 +282,7 @@ int omega_blackwell_codegen_fp8gemm_prog(const OmegaFp8GemmSpec *spec, Blackwell
     for (uint32_t m = 0; m < MT; m++) movrz(e, acc[m]);
     ldw_pf(e, ldw, wq[0], pwc, 0, udesc, 3);
     ldw_pf(e, BW_IR_LDG_E, sc[0], psc, 0, udesc, 3);
+    if (XA) x_prefetch(e, NJ, T, ROWW, K, RM, one, xs, xso, xb, xv, udesc); /* step 0's x' words */
     movi(e, cntk, KS / U);
 
     /* ---- K loop: U steps per iteration ---- */
@@ -267,17 +291,18 @@ int omega_blackwell_codegen_fp8gemm_prog(const OmegaFp8GemmSpec *spec, Blackwell
     for (uint32_t us = 0; us < U; us++) {
         const int cur = (int)(us & 1u), nxt = 1 - cur;
         const unsigned sbc = cur ? 4u : 3u, sbn = nxt ? 4u : 3u;
-        /* addresses first (fixed-latency ops would otherwise wait for the loads below), then loads back to back; the
-         * staging words go in rounds of 4 so the temporaries stay few */
+        /* addresses first (fixed-latency ops would otherwise wait for the loads below), then loads back to back */
         const int last = us + 1 == U, prefetch = !last || KS > U;
-        int pwn = -1, psn = -1;
+        int pwn = -1, psn = -1, nf = -1;
         if (prefetch) { pwn = V64(e); psn = V64(e); }
         int sa = V(e);
         if (e->err) return -1;
         if (prefetch && !last) {
             imadw(e, pwn, one, (us + 1) * 32u * LB, pwc); imadw(e, psn, one, spec->mutant == 2 ? 0u : (us + 1) * BPS * 4u, psc);
         } else if (prefetch) { /* the next iteration's step 0; the last iteration re-reads its own step (harmless, drained after the loop) */
-            int nf = V(e), inc = V(e), inc2 = V(e);
+            int inc, inc2;
+            if (XA) { inc = V(e); inc2 = V(e); nf = V(e); }
+            else { nf = V(e); inc = V(e); inc2 = V(e); }
             if (e->err) return -1;
             imadi(e, nf, one, 0, 0xfffffffeu, cntk);     /* cntk - 2 */
             shr(e, nf, nf, 0, 31);                       /* 1 iff cntk == 1 (the last iteration) */
@@ -285,18 +310,34 @@ int omega_blackwell_codegen_fp8gemm_prog(const OmegaFp8GemmSpec *spec, Blackwell
             imadi(e, inc, nf, 0, U * 32u * LB, NOREG); imadi(e, inc2, nf, 0, spec->mutant == 2 ? 0u : U * BPS * 4u, NOREG);
             imadw(e, pwn, inc, 1, pwc); imadw(e, psn, inc2, 1, psc);
         }
-        for (uint32_t j0 = 0; j0 < NJ; j0 += 4) {
-            const uint32_t nj = NJ - j0 < 4 ? NJ - j0 : 4;
-            int xv[4], xa[4];
-            for (uint32_t q = 0; q < nj; q++) { xv[q] = V(e); xa[q] = V64(e); }
-            if (e->err) return -1;
-            for (uint32_t q = 0; q < nj; q++) { const uint32_t pos = (j0 + q) * T; if (RM) imadw(e, xa[q], xso, 1u, xb[j0 + q]); else imadw(e, xa[q], one, ((pos / ROWW) * K + pos % ROWW) * 4u, xs); }
-            for (uint32_t q = 0; q < nj; q++) ldg32(e, xv[q], xa[q], udesc, q == 0);
-            if (prefetch && j0 == 0) {
+        if (XA) {
+            /* stage this step's x' words: they were loaded one step ago (the pass prologue for step 0), scoreboard 5 */
+            consume(e, 5);
+            for (uint32_t j = 0; j < NJ; j++) { imadi(e, sa, one, 0, j * T * 4u, sa0); sts32(e, sa, xv[j]); }
+            if (prefetch) {
                 ldw_pf(e, ldw, wq[nxt], pwn, 0, udesc, sbn);
                 ldw_pf(e, BW_IR_LDG_E, sc[nxt], psn, 0, udesc, sbn);
+                /* the next step's x' words, into the registers the STS above has read (its SB_RD wait orders the two); the
+                 * last step of the last iteration re-reads its own step (nf 0), never past the rows */
+                if (!last) { if (RM) imadi(e, xso, one, 0, ROWW * 4u, xso); else imadw(e, xs, one, ROWW * 4u, xs); }
+                else { if (RM) imadi(e, xso, nf, 0, ROWW * 4u, xso); else imadw(e, xs, nf, ROWW * 4u, xs); }
+                x_prefetch(e, NJ, T, ROWW, K, RM, one, xs, xso, xb, xv, udesc);
             }
-            for (uint32_t q = 0; q < nj; q++) { imadi(e, sa, one, 0, (j0 + q) * T * 4u, sa0); sts32(e, sa, xv[q]); }
+        } else {
+            /* the incumbent: this step's staging words loaded and stored inside the step, in rounds of 4 */
+            for (uint32_t j0 = 0; j0 < NJ; j0 += 4) {
+                const uint32_t nj = NJ - j0 < 4 ? NJ - j0 : 4;
+                int xw[4], xa[4];
+                for (uint32_t q = 0; q < nj; q++) { xw[q] = V(e); xa[q] = V64(e); }
+                if (e->err) return -1;
+                for (uint32_t q = 0; q < nj; q++) { const uint32_t pos = (j0 + q) * T; if (RM) imadw(e, xa[q], xso, 1u, xb[j0 + q]); else imadw(e, xa[q], one, ((pos / ROWW) * K + pos % ROWW) * 4u, xs); }
+                for (uint32_t q = 0; q < nj; q++) ldg32(e, xw[q], xa[q], udesc, q == 0);
+                if (prefetch && j0 == 0) {
+                    ldw_pf(e, ldw, wq[nxt], pwn, 0, udesc, sbn);
+                    ldw_pf(e, BW_IR_LDG_E, sc[nxt], psn, 0, udesc, sbn);
+                }
+                for (uint32_t q = 0; q < nj; q++) { imadi(e, sa, one, 0, (j0 + q) * T * 4u, sa0); sts32(e, sa, xw[q]); }
+            }
         }
         bar_sync(e);
         consume(e, sbc);
@@ -319,7 +360,7 @@ int omega_blackwell_codegen_fp8gemm_prog(const OmegaFp8GemmSpec *spec, Blackwell
             else ffma(e, acc[m], dot[m], sc[cur], 0, acc[m]);
         }
         bar_sync(e);
-        if (RM) imadi(e, xso, one, 0, ROWW * 4u, xso); else imadw(e, xs, one, ROWW * 4u, xs);
+        if (!XA) { if (RM) imadi(e, xso, one, 0, ROWW * 4u, xso); else imadw(e, xs, one, ROWW * 4u, xs); }
     }
     imadw(e, pwc, one, U * 32u * LB, pwc);
     imadw(e, psc, one, spec->mutant == 2 ? 0u : U * BPS * 4u, psc);
@@ -328,6 +369,7 @@ int omega_blackwell_codegen_fp8gemm_prog(const OmegaFp8GemmSpec *spec, Blackwell
     bra_if_p0(e, L_k);
     loop_end(e);
     consume(e, 3); consume(e, 4);
+    if (XA) consume(e, 5); /* the last step's re-read x' words land before their registers go out of scope */
 
     /* ---- reduce and store, per row of the pass ---- */
     for (uint32_t m = 0; m < MT; m++)

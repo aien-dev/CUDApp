@@ -330,11 +330,18 @@ $(OUT_DIR)/gpu_lmhead_fp8_study: tests/gpu_lmhead_fp8_study.c src/omega_gpu_bf16
 # permutation, budgets) plus the warp simulator (512 threads); the chip gate is tools/run_gpu_fp8gemm_chip.sh under the GB10 lock.
 .PHONY: test-gpu-fp8gemm
 GPU_FP8GEMM_TEST = $(OUT_DIR)/gpu_fp8gemm_test
-$(GPU_FP8GEMM_TEST): tests/gpu_fp8gemm_test.c tests/bw_warp_sim_k.h src/omega_gpu_fp8gemm_api.h src/omega_blackwell_codegen_gemm.h src/omega_gpu_fp8_api.h $(OUT_DIR)/libomega_gpu.a
+$(GPU_FP8GEMM_TEST): tests/gpu_fp8gemm_test.c tests/bw_warp_sim_k.h src/omega_gpu_fp8gemm_api.h src/omega_gpu_fp8gemm_internal.h src/omega_blackwell_codegen_gemm.h src/omega_gpu_fp8_api.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -DWS_MAX_THREADS=512 -Itests -o $@ tests/gpu_fp8gemm_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+# P-DRA-4 DRA-67: the decode levers are env-gated and OFF by default; --spec-of checks the spec the stroke path resolves.
+FP8GEMM_STROKE_GU = --spec-of 2048,16,4,1
 test-gpu-fp8gemm: $(GPU_FP8GEMM_TEST)
 	$(GPU_FP8GEMM_TEST) --host-only
 	$(GPU_FP8GEMM_TEST) --sim
+	env -u AIEN_OMEGA_FP8GEMM_X_AHEAD $(GPU_FP8GEMM_TEST) $(FP8GEMM_STROKE_GU) --expect "rowmap=1 mt=4 x_ahead=0"
+	env AIEN_OMEGA_FP8GEMM_X_AHEAD=0 $(GPU_FP8GEMM_TEST) $(FP8GEMM_STROKE_GU) --expect "x_ahead=0"
+	env AIEN_OMEGA_FP8GEMM_X_AHEAD=yes $(GPU_FP8GEMM_TEST) $(FP8GEMM_STROKE_GU) --expect "x_ahead=0"
+	env AIEN_OMEGA_FP8GEMM_X_AHEAD=1 $(GPU_FP8GEMM_TEST) $(FP8GEMM_STROKE_GU) --expect "rowmap=1 mt=4 x_ahead=1"
+	env AIEN_OMEGA_FP8GEMM_X_AHEAD=1 $(GPU_FP8GEMM_TEST) --spec-of 2048,16,8,0 --warps 4 --expect "x_ahead=0"
 
 # OWN-30B (2026-10-13): host-only audit that every launcher declares peak + 2 registers (the chip hung at peak + 1).
 .PHONY: test-gpu-gpr-boundary

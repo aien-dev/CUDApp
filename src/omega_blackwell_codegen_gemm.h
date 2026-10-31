@@ -18,7 +18,8 @@
  * stages one K step of MT rows (MT*32*LB*4 <= 16384 bytes: the QMD shared-memory limit of omega_blackwell_qmd.h) in
  * shared memory, so every lane reads its 4 columns of every row with one conflict-free LDS.128. Per step: stage,
  * BAR.SYNC, compute, BAR.SYNC. The weights and scales of step s+1 are loaded before step s computes (two register
- * sets, scoreboards 3 and 4 held until the step that uses them).
+ * sets, scoreboards 3 and 4 held until the step that uses them); with x_ahead 1 (L312 lever 3) so are the staging words
+ * of x' for step s+1 (scoreboard 5, stored at the start of the step that reads them): neither latency sits between the barriers.
  *
  * Segment table (device, 32 bytes per segment, ctaid.y = segment): { w_va u64, s_va u64, row0 u32, cnt u32, pad[8] }.
  * Constant bank 0 argument words (cbank + 0x380):
@@ -66,6 +67,9 @@ typedef struct {
                           * expert on the chip; the x' buffer holds one permuted row per head, the outputs land in head order). 0: the
                           * prefill form, x' row i and y row i are sorted row i. mt <= 4 (registers); the dense trunk of a stroke (one
                           * segment, the heads' rows in head order) needs no map and runs at mt 8. */
+    uint32_t x_ahead;    /* 1 (L312 lever 3): the staging words of x' for step s+1 are loaded during step s on scoreboard 5 and
+                          * stored at the start of the step that reads them; NJ = mt * lane_bytes / warps <= 16 (registers). 0: the
+                          * incumbent program, byte for byte (the staging words loaded inside the step that stores them). */
 } OmegaFp8GemmSpec;
 
 int omega_blackwell_codegen_fp8gemm_prog(const OmegaFp8GemmSpec *spec, BlackwellIRProgram *prog);
