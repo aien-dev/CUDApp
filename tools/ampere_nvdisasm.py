@@ -5,6 +5,7 @@ reference, with the explicit documented target ABI/ISA spelling differences.
 NVIDIA output is ephemeral; no driver is loaded and no oracle listings committed.
 """
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import os
 from pathlib import Path
 import re
@@ -98,6 +99,10 @@ def main():
     sync_barrier_mutation = None
     carry_mutation = None
     mismatches = []
+    # compare() is a pure function of (reference, code, ops); kernels that several producers
+    # emit identically are decoded once, and the distinct ones run concurrently (nvdisasm is
+    # a separate process per call). Every pair is still checked and reported by its own name.
+    loaded = []
     for actual in pairs:
         prefix = str(actual)[:-len("sm86.bin")]
         reference = Path(prefix + "sm121.bin").read_bytes()
@@ -105,13 +110,26 @@ def main():
         metadata = Path(prefix + "ir").read_bytes()
         if len(metadata) % 8:
             raise RuntimeError("malformed IR metadata")
+        loaded.append((actual, reference, code, metadata))
+
+    def check(key):
+        reference, code, metadata = key
         ops = [op for op, _ in struct.iter_unpack("=II", metadata)]
         try:
-            decoded = compare(args.nvdisasm, reference, code, ops)
+            return compare(args.nvdisasm, reference, code, ops), None
         except RuntimeError as error:
+            return None, error
+
+    unique = list(dict.fromkeys((reference, code, metadata) for _, reference, code, metadata in loaded))
+    with ThreadPoolExecutor(max_workers=os.cpu_count() or 1) as pool:
+        results = dict(zip(unique, pool.map(check, unique)))
+    for actual, reference, code, metadata in loaded:
+        ops = [op for op, _ in struct.iter_unpack("=II", metadata)]
+        decoded, error = results[(reference, code, metadata)]
+        if error is not None:
             mismatches.append(f"{actual.name}: {error}")
             continue
-        coverage.update(op for op, _ in struct.iter_unpack("=II", metadata))
+        coverage.update(ops)
         if mutation is None:
             for i, text in enumerate(decoded):
                 if re.search(r"^(?:@!?P\d+ )?[A-Z0-9_.]+ R\d+,", text):
