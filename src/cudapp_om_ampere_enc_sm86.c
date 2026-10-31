@@ -644,7 +644,7 @@ return o_leave(0ULL);
 uint64_t v7=0;
 uint64_t c1=0;
 for(;o_op(8,5, v7, v2);v7=o_op(1,5, v7,1)){
-if(c1++>=16777216)o_trap(4);
+if(c1++>=1000000)o_trap(4);
 if(({uint64_t _a=({uint64_t p2=v7;f21(v0, v0_n, v1, v1_n, p2);});uint64_t _b=0;o_op(18, 1, _a,_b);})){
 return o_leave(0ULL);
 }
@@ -661,7 +661,7 @@ v7=32ULL;
 uint64_t v8=0;
 uint64_t c1=0;
 for(;o_op(8,5, v8, v7);v8=o_op(1,5, v8,1)){
-if(c1++>=16777216)o_trap(4);
+if(c1++>=1000000)o_trap(4);
 if(({uint64_t _a=v8;uint64_t _b=v2;o_op(8, 5, _a,_b);})){
 ({uint64_t p1=v8;f5(v0, v0_n, p1, v1, v1_n, v5, v5_n);});
 if(({f22(v5, v5_n);})){

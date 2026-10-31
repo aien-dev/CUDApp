@@ -104,7 +104,7 @@ uint64_t __attribute__((unused)) v5=0ULL;
 uint64_t v6=0;
 uint64_t c1=0;
 for(;o_op(8,5, v6, v4);v6=o_op(1,5, v6,1)){
-if(c1++>=16777216)o_trap(4);
+if(c1++>=1000000)o_trap(4);
 uint64_t __attribute__((unused)) v7=({uint64_t _a=o_get(v0, v0_n, 1ULL, 5);uint64_t _b=v5;o_op(2, 5, _a,_b);});
 if(({uint64_t _a=v7;uint64_t _b=v3;o_op(10, 5, _a,_b);})){
 v7=v3;

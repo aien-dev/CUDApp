@@ -584,7 +584,7 @@ v7=32ULL;
 uint64_t v8=0;
 uint64_t c1=0;
 for(;o_op(8,5, v8, v7);v8=o_op(1,5, v8,1)){
-if(c1++>=16777216)o_trap(4);
+if(c1++>=1000000)o_trap(4);
 if(({uint64_t _a=v8;uint64_t _b=v2;o_op(8, 5, _a,_b);})){
 ({uint64_t p1=v8;f4(v0, v0_n, p1, v1, v1_n, v5, v5_n);});
 if(({uint64_t _a=({f18(v5, v5_n, v6, v6_n);});uint64_t _b=0ULL;o_op(7, 5, _a,_b);})){
@@ -1683,7 +1683,7 @@ uint64_t __attribute__((unused)) v6=o_get(v0, v0_n, ({uint64_t _a=v4;uint64_t _b
 uint64_t v7=0;
 uint64_t c1=0;
 for(;o_op(8,5, v7, v6);v7=o_op(1,5, v7,1)){
-if(c1++>=16777216)o_trap(4);
+if(c1++>=1000000)o_trap(4);
 uint64_t __attribute__((unused)) v8=({uint64_t _a=({uint64_t _a=v4;uint64_t _b=10ULL;o_op(1, 5, _a,_b);});uint64_t _b=({uint64_t _a=v7;uint64_t _b=7ULL;o_op(3, 5, _a,_b);});o_op(1, 5, _a,_b);});
 uint64_t __attribute__((unused)) v9=({uint64_t p1=v8;f41(v0, v0_n, p1, v1, v1_n, v2, v2_n);});
 if(({uint64_t _a=v9;uint64_t _b=0ULL;o_op(7, 5, _a,_b);})){
@@ -1866,7 +1866,7 @@ uint64_t __attribute__((unused)) v5=o_get(v0, v0_n, ({uint64_t _a=v4;uint64_t _b
 uint64_t v6=0;
 uint64_t c1=0;
 for(;o_op(8,5, v6, v5);v6=o_op(1,5, v6,1)){
-if(c1++>=16777216)o_trap(4);
+if(c1++>=1000000)o_trap(4);
 uint64_t __attribute__((unused)) v7=({uint64_t _a=({uint64_t _a=v4;uint64_t _b=10ULL;o_op(1, 5, _a,_b);});uint64_t _b=({uint64_t _a=v6;uint64_t _b=7ULL;o_op(3, 5, _a,_b);});o_op(1, 5, _a,_b);});
 ({uint64_t p1=v7;f46(v0, v0_n, p1, v1, v1_n, v2, v2_n);});
 }
@@ -1898,7 +1898,7 @@ v8=32ULL;
 uint64_t v9=0;
 uint64_t c1=0;
 for(;o_op(8,5, v9, v2);v9=o_op(1,5, v9,1)){
-if(c1++>=16777216)o_trap(4);
+if(c1++>=1000000)o_trap(4);
 ({uint64_t p1=v9;f4(v0, v0_n, p1, v1, v1_n, v6, v6_n);});
 if(({uint64_t _a=({f42(v5, v5_n, v6, v6_n, v7, v7_n);});uint64_t _b=0ULL;o_op(7, 5, _a,_b);})){
 return o_leave(0ULL);
@@ -1922,7 +1922,7 @@ uint64_t v9=0;
 uint64_t k2=({uint64_t _a=v8;uint64_t _b=v2;o_op(2, 5, _a,_b);});
 uint64_t c2=0;
 for(;o_op(8,5, v9, k2);v9=o_op(1,5, v9,1)){
-if(c2++>=16777216)o_trap(4);
+if(c2++>=1000000)o_trap(4);
 ({uint64_t p1=({uint64_t _a=v2;uint64_t _b=v9;o_op(1, 5, _a,_b);});f19(v4, v4_n, p1, v7, v7_n);});
 }
 }

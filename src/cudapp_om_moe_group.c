@@ -111,7 +111,7 @@ uint64_t v2=0;
 uint64_t k2=({uint64_t _a=v1;uint64_t _b=3ULL;o_op(1, 5, _a,_b);});
 uint64_t c2=0;
 for(;o_op(8,5, v2, k2);v2=o_op(1,5, v2,1)){
-if(c2++>=16777216)o_trap(4);
+if(c2++>=1000000)o_trap(4);
 uint64_t __attribute__((unused)) v3=({uint64_t p1=v2;f2(v0, v0_n, p1);});
 uint64_t __attribute__((unused)) v4=({uint64_t p1=({uint64_t _a=v1;uint64_t _b=3ULL;o_op(1, 5, _a,_b);});f2(v0, v0_n, p1);});
 if(({uint64_t p0=o_get(v0, v0_n, v2, 5);uint64_t p1=v3;uint64_t p2=o_get(v0, v0_n, ({uint64_t _a=v1;uint64_t _b=3ULL;o_op(1, 5, _a,_b);}), 5);uint64_t p3=v4;f3(p0, p1, p2, p3);})){
