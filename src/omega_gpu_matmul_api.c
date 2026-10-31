@@ -1,4 +1,19 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2026 Drake Stapleton (AIEN / aien-dev)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 /*
  * omega_gpu_matmul_api.c: FB-1 cut 1b, on the shared session since cut 4b.
  * See the header for the contract.
@@ -307,12 +322,18 @@ static int launch(const CacheSlot *ks, uint64_t a_va, uint64_t b_va, uint64_t c_
                   uint32_t grid_x, uint32_t grid_y, uint64_t *elapsed_ns, uint32_t *marker_out) {
     uint32_t cbank_args[OMEGA_BW_CBANK_MATMUL_ARGS_WORDS];
     omega_blackwell_build_cbank_args_matmul(cbank_args, a_va, b_va, c_va, grid_y * 16u * ks->rt, ks->kp, ks->np);
+    /* Declare peak + 2 rounded up to 8 (omega_blackwell_codegen.h: peak + 0 faulted, peak + 1 hung the chip);
+     * the raw peak left rt=4 ct=2 unroll=1 (peak 72) at QMD 72. */
     OmegaGpuLaunch L = {
-        .code_va = ks->code.va, .gpr_count = ks->kernel.gpr_count,
+        .code_va = ks->code.va, .gpr_count = omega_bw_gpr_declared(ks->kernel.gpr_count),
         .threads_x = 32, .threads_y = 1, .grid_x = grid_x, .grid_y = grid_y,
         .num_elements = (size_t)grid_x * grid_y * 128u,
         .args = cbank_args, .n_args = OMEGA_BW_CBANK_MATMUL_ARGS_WORDS, .timeout_ms = MARKER_TIMEOUT_MS,
     };
+    if (!omega_bw_gpr_declared_ok(L.gpr_count, ks->kernel.gpr_count)) {
+        omega_gpu_session_set_error("declared registers below peak + 2: refusing to launch");
+        return OMEGA_GPU_MATMUL_CHIP_FAIL;
+    }
     return omega_gpu_session_launch(&L, elapsed_ns, marker_out) == 0 ? OMEGA_GPU_MATMUL_OK : OMEGA_GPU_MATMUL_CHIP_FAIL;
 }
 
