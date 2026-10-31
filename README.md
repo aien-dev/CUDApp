@@ -5,7 +5,6 @@
 # CUDA++ for the NVIDIA DGX Spark
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23578452.svg)](https://doi.org/10.5281/zenodo.23578452) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23614483.svg)](https://doi.org/10.5281/zenodo.23614483)
-Papers: [Reverse Engineering the CUDA Software Stack](https://doi.org/10.5281/zenodo.23578452), [A Call to Humanity](https://doi.org/10.5281/zenodo.23614483) · Author: Drake Stapleton <a href="https://orcid.org/0009-0002-6890-7111"><img src="https://orcid.org/assets/vectors/orcid.logo.icon.svg" alt="ORCID iD" width="16" height="16"></a>
 
 **CUDA++ for the NVIDIA DGX Spark (GB10, sm_121). It is the GPU half of the Omega runtime. First-party CUDA++ material in this revision is licensed under Apache-2.0 WITH LLVM-exception.** You write a GPU program, CUDA++ turns it into the GB10's own machine code and runs it on the Spark's GPU with no CUDA user-space software at build or run time: no CUDA toolkit, no `nvcc`, no PTX, no `libcuda`, no cuBLAS. NVIDIA's compiler and disassembler were used offline as references while the encoding was worked out ([how I did it](#how-i-did-it)). NVIDIA's open kernel module (580.173.02) and the GPU's signed GSP firmware are still in the path. It's a research-stage toolchain and runtime, not a drop-in replacement for all of CUDA.
 
@@ -426,12 +425,25 @@ On a shared machine, hold the GPU lock your operator uses around these commands 
 
 ```bash
 make          # build/libomega_gpu.a (also as build/libcudapp.a)
-make test     # every host-only check: encoder goldens, simulators, refusals, mutation tests
+make test     # portable host suite: x86-64 and AArch64, no NVIDIA tools, no sibling checkout
 python3 tools/figures/make_figures.py --check   # the figures on this page match the code they are drawn from
 make doctor   # is this machine ready? one line per check, each problem with its fix; opens no device
 ```
 
-`make test` opens no device. The chip gates (`./build/gpu_*_test --out receipt.json`) need a GB10; each test's comment in the `Makefile` says how it is run.
+`make test` opens no device. It is the portable suite: the same command is the
+x86-64 host gate and the AArch64 host gate. On the x86-64 VM in
+`evidence/HOST-X86-20261030`, that command exits 2 at the default
+`CUDAPP_MEM_RESERVE_MIB` of 4096 and passes only with
+`CUDAPP_MEM_RESERVE_MIB=0`. The default is unchanged. Production ordering on AArch64
+stays `dsb sy` (`nvrm/cpu_barrier.h`). On x86-64 the Blackwell device open
+returns `ENOTSUP` and names AArch64; the fake-driver simulator is a separate
+compile. `docs/OMEGA_HOST_TESTS.md` lists the portable commands and the
+target-only ones.
+
+The chip gates (`./build/gpu_*_test --out receipt.json`) and `make hello-gpu`
+need a GB10. `make test-omega-slices` needs `OMEGA_OSC_COMPILER_DIR` pointing
+at the pinned OSC compiler checkout. None of those are inside `make test`.
+Each chip test's comment in the `Makefile` says how it is run.
 
 `make test-gemm-selectors` is the focused host-only CLI regression for PFGEMM,
 QGEMM and FP8GEMM. Each validates `--shape` before host/simulator/chip work or

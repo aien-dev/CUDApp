@@ -52,24 +52,25 @@ test-gpu-engine-prod-build:
 
 # A3b2: simulated-driver host test. Links the sources of the Makefile RX_COMPOSE_GPU_SRCS list (plus the
 # three core files the vector builder needs) with tests/fake_m16_native.c in place of the physics
-# m16_native.c and nvrm.c. Opens no device.
+# m16_native.c and nvrm.c. Opens no device. OMEGA_BLACKWELL_HOST_SIMULATOR opts this
+# binary into the fake driver. The production library build does not set it.
 GPU_ENGINE_SIM_SRCS = src/omega_blackwell_submit.c src/omega_blackwell_engine.c src/omega_gpu_engine.c \
-	src/omega_blackwell_matmul.c src/omega_blackwell_codegen.c src/cudapp_om_units.c src/omega_blackwell_encoder.c \
+	src/omega_blackwell_matmul.c src/omega_blackwell_codegen.c $(CUDAPP_HOST_BINDING) src/omega_blackwell_encoder.c \
 	src/omega_blackwell_qmd.c src/omega_blackwell_realize.c src/omega_vector.c \
 	src/omega_core.c src/omega_canonical.c src/sha256.c
 
 build/test_omega_blackwell_engine: tests/test_omega_blackwell_engine.c tests/fake_m16_native.c tests/fake_m16_native.h \
 	$(GPU_ENGINE_SIM_SRCS) src/omega_gpu_engine.h src/omega_blackwell_engine.h
 	@mkdir -p build
-	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -ffunction-sections -fdata-sections \
-		-Isrc -Itests $(GPU_ENGINE_PHYS_INC) -o $@ tests/test_omega_blackwell_engine.c tests/fake_m16_native.c \
+	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -DOMEGA_BLACKWELL_HOST_SIMULATOR -pthread -ffunction-sections -fdata-sections \
+		$(CUDAPP_PORTABLE_DEFS) -Isrc -Itests $(GPU_ENGINE_PHYS_INC) -o $@ tests/test_omega_blackwell_engine.c tests/fake_m16_native.c \
 		$(GPU_ENGINE_SIM_SRCS) -Wl,--gc-sections -lm
 # The matmul wrappers' dimension and code-size refusals (they also need the fixed-deadline wait).
 build/test_omega_blackwell_matmul_bounds: tests/test_omega_blackwell_matmul_bounds.c tests/fake_m16_native.c \
 	tests/fake_m16_native.h $(GPU_ENGINE_SIM_SRCS) src/omega_gpu_wait.c src/omega_blackwell_submit.h
 	@mkdir -p build
-	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -ffunction-sections -fdata-sections \
-		-Isrc -Itests $(GPU_ENGINE_PHYS_INC) -o $@ tests/test_omega_blackwell_matmul_bounds.c tests/fake_m16_native.c \
+	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -DOMEGA_BLACKWELL_HOST_SIMULATOR -pthread -ffunction-sections -fdata-sections \
+		$(CUDAPP_PORTABLE_DEFS) -Isrc -Itests $(GPU_ENGINE_PHYS_INC) -o $@ tests/test_omega_blackwell_matmul_bounds.c tests/fake_m16_native.c \
 		$(GPU_ENGINE_SIM_SRCS) src/omega_gpu_wait.c -Wl,--gc-sections -lm
 test-gpu-engine-sim: build/test_omega_blackwell_engine build/test_omega_blackwell_matmul_bounds
 	./build/test_omega_blackwell_engine
@@ -89,11 +90,11 @@ test-gpu-engine-gb10-compile: build/test_omega_gpu_engine_gb10.o
 # APIs while serving a Qwen3-4B-shaped sequence, against the simulated driver. Host only, no device.
 # Prints MEASURE lines; asserts only bookkeeping. Links no physics C sources, only its headers.
 GPU_SERVE_ALLOC_SRCS = src/omega_gpu_session.c src/omega_gpu_platform.c src/omega_gpu_platform_linux.c src/omega_gpu_fmt.c src/omega_gpu_matmul_api.c src/omega_gpu_attention_api.c src/omega_gpu_serving.c \
-	src/omega_gpu_wait.c src/omega_blackwell_codegen.c src/cudapp_om_units.c src/omega_blackwell_encoder.c src/omega_blackwell_qmd.c \
-	src/omega_blackwell_matmul.c src/sha256.c src/cudapp_freest_units.c
+	src/omega_gpu_wait.c src/omega_blackwell_codegen.c $(CUDAPP_HOST_BINDING) src/omega_blackwell_encoder.c src/omega_blackwell_qmd.c \
+	src/omega_blackwell_matmul.c src/sha256.c $(CUDAPP_HOST_FREEST_BINDING)
 build/gpu_serving_alloc_count_test: tests/gpu_serving_alloc_count_test.c tests/fake_m16_native.c tests/fake_m16_native.h $(GPU_SERVE_ALLOC_SRCS)
 	@mkdir -p build
-	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -ffp-contract=off -Isrc -Itests $(GPU_ENGINE_PHYS_INC) \
+	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -ffp-contract=off $(CUDAPP_PORTABLE_DEFS) -Isrc -Itests $(GPU_ENGINE_PHYS_INC) \
 		-o $@ tests/gpu_serving_alloc_count_test.c tests/fake_m16_native.c $(GPU_SERVE_ALLOC_SRCS) -lm
 .PHONY: test-gpu-serving-alloc
 test-gpu-serving-alloc: build/gpu_serving_alloc_count_test
@@ -129,7 +130,7 @@ GPU_FS_CFLAGS = -std=gnu11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-builtin
 GPU_FS_SRCS = src/omega_gpu_engine.c src/omega_gpu_platform.c src/omega_blackwell_encoder.c src/omega_blackwell_codegen.c \
 	src/omega_blackwell_matmul.c src/omega_blackwell_qmd.c src/omega_blackwell_realize.c src/sha256.c \
 	src/omega_gpu_session.c src/omega_gpu_fmt.c src/omega_gpu_matmul_api.c src/omega_gpu_attention_api.c \
-	src/omega_gpu_serving.c src/omega_gpu_wait.c src/cudapp_freest_units.c
+	src/omega_gpu_serving.c src/omega_gpu_wait.c $(CUDAPP_FS_BINDING)
 GPU_FS_HDRS = src/omega_gpu_engine.h src/omega_gpu_platform.h src/omega_blackwell_codegen.h src/omega_blackwell_matmul.h \
 	src/omega_gpu_session.h src/omega_gpu_fmt.h src/omega_gpu_matmul_api.h src/omega_gpu_attention_api.h \
 	src/omega_gpu_serving.h src/omega_gpu_wait.h
@@ -140,6 +141,13 @@ GPU_FS_ALLOWED = memcpy|memmove|memset|memcmp|strlen|strcmp
 $(GPU_FS_DIR)/%.o: src/%.c $(GPU_FS_HDRS)
 	@mkdir -p $(GPU_FS_DIR)
 	gcc $(GPU_FS_CFLAGS) -c -o $@ $<
+
+# src/cudapp_binding_portable.c is migration-pending C. The freestanding x86-64
+# link uses it as $(CUDAPP_FS_BINDING) and must pass the same switches as the
+# library. AArch64 links src/cudapp_freest_units.c, so this rule is unused there.
+$(GPU_FS_DIR)/cudapp_binding_portable.o: src/cudapp_binding_portable.c $(GPU_FS_HDRS)
+	@mkdir -p $(GPU_FS_DIR)
+	gcc $(GPU_FS_CFLAGS) $(CUDAPP_PORTABLE_DEFS) -c -o $@ $<
 
 $(GPU_FS_LINK): $(GPU_FS_OBJS)
 	gcc -r -nostdlib -o $@ $(GPU_FS_OBJS)
@@ -179,12 +187,18 @@ build/test_codegen_freestanding: $(CODEGEN_FS_TEST_DEPS) $(GPU_FS_LINK)
 	@mkdir -p build
 	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Isrc -DOMEGA_GPU_NO_POSIX -o $@ tests/test_omega_codegen_freestanding.c \
 		$(GPU_FS_DIR)/omega_blackwell_codegen.o $(GPU_FS_DIR)/omega_blackwell_matmul.o $(GPU_FS_DIR)/sha256.o
+ifeq ($(CUDAPP_HOST_IS_AARCH64),1)
 test-codegen-freestanding: build/test_codegen_hosted build/test_codegen_freestanding test-gpu-fs-allowlist-control
 	./build/test_codegen_hosted --dump > build/codegen_dump_hosted.txt
 	./build/test_codegen_freestanding --dump > build/codegen_dump_freestanding.txt
 	cmp build/codegen_dump_hosted.txt build/codegen_dump_freestanding.txt
 	@echo "codegen dumps byte-identical: $$(grep -c '^fixture ' build/codegen_dump_hosted.txt) fixtures, $$(grep -v -E '^(fixture|digest) ' build/codegen_dump_hosted.txt | tr -d '\n' | wc -c | awk '{print $$1/2}') code bytes"
 	./build/test_codegen_freestanding
+else
+test-codegen-freestanding: build/test_codegen_freestanding test-gpu-fs-allowlist-control
+	@echo "test-codegen-freestanding hosted comparison: NOT_RUN (requires AArch64 Linux; the .om versus C differential was not run)"
+	./build/test_codegen_freestanding
+endif
 
 test-gpu-fs-allowlist-control: $(GPU_FS_LINK)
 	@mkdir -p $(GPU_FS_DIR)/control
@@ -213,7 +227,7 @@ build/test_omega_gpu_session_platform: tests/test_omega_gpu_session_platform.c $
 GPU_NATIVE_RUNTIME_SRCS = src/omega_gpu_cmdlist.c src/omega_gpu_fp8_api.c \
 	src/omega_gpu_fp8gemm_api.c src/omega_blackwell_codegen_moe.c src/omega_blackwell_codegen_moe2.c \
 	src/omega_blackwell_codegen_gemm.c src/omega_gpu_fp8_pack.c src/omega_gpu_mem_cached.c \
-	src/omega_gpu_hostmath.c src/omega_native_artifact.c src/omega_cubin.c src/cudapp_om_units.c \
+	src/omega_gpu_hostmath.c src/omega_native_artifact.c src/omega_cubin.c $(CUDAPP_HOST_BINDING) \
 	src/omega_gpu_q36_graph.c src/omega_gpu_decode_graph.c src/omega_gpu_router_api.c
 .PHONY: test-gpu-native-runtime
 build/test_omega_gpu_native_runtime: tests/test_omega_gpu_session_platform.c tests/native_runtime_controls.h \
@@ -223,17 +237,25 @@ build/test_omega_gpu_native_runtime: tests/test_omega_gpu_session_platform.c tes
 	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Isrc -DOMEGA_GPU_NO_POSIX -DOMEGA_NATIVE_RUNTIME_TEST \
 		-DCUDAPP_NATIVE_RUNTIME_TEST -ffunction-sections -fdata-sections -Wl,--gc-sections \
 		-o $@ tests/test_omega_gpu_session_platform.c $(GPU_FS_LINK) $(GPU_NATIVE_RUNTIME_SRCS) -lpthread -lm
+ifeq ($(CUDAPP_HOST_IS_AARCH64),1)
 test-gpu-native-runtime: build/test_omega_gpu_native_runtime
 	./build/test_omega_gpu_native_runtime
-GPU_LINUX_REF_SRCS = src/omega_gpu_session.c src/omega_gpu_platform.c src/omega_gpu_platform_linux.c src/omega_gpu_fmt.c src/omega_blackwell_qmd.c src/cudapp_freest_units.c
+else
+test-gpu-native-runtime:
+	@echo "test-gpu-native-runtime: NOT_RUN (requires AArch64 Linux; the seeded native units were not executed)"
+	@exit 2
+endif
+# On a non-AArch64 host the command-list list already links the portable binding,
+# which defines the scalar counters. Linking it twice would duplicate symbols.
+GPU_LINUX_REF_SRCS = src/omega_gpu_session.c src/omega_gpu_platform.c src/omega_gpu_platform_linux.c src/omega_gpu_fmt.c src/omega_blackwell_qmd.c $(if $(CUDAPP_HOST_IS_AARCH64),$(CUDAPP_FS_BINDING),)
 # omega #459: the command list over the reference (near-full ring with the #457 L2 invalidate prefix pending) needs the
 # cached allocation, the command list and the codegen behind its nop kernel.
-GPU_LINUX_REF_CMDLIST_SRCS = src/omega_gpu_mem_cached.c src/omega_gpu_cmdlist.c src/omega_blackwell_codegen.c src/cudapp_om_units.c src/omega_blackwell_encoder.c \
+GPU_LINUX_REF_CMDLIST_SRCS = src/omega_gpu_mem_cached.c src/omega_gpu_cmdlist.c src/omega_blackwell_codegen.c $(CUDAPP_HOST_BINDING) src/omega_blackwell_encoder.c \
 	src/omega_blackwell_matmul.c src/omega_blackwell_realize.c src/sha256.c
 build/test_omega_gpu_platform_linux: tests/test_omega_gpu_platform_linux.c tests/fake_m16_native.c tests/fake_m16_native.h $(GPU_LINUX_REF_SRCS) $(GPU_FS_HDRS) src/omega_gpu_platform_linux.h \
 		src/omega_gpu_cmdlist.h src/omega_gpu_mem_cached.h $(GPU_LINUX_REF_CMDLIST_SRCS)
 	@mkdir -p build
-	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread -Isrc -Itests $(GPU_ENGINE_PHYS_INC) \
+	gcc -std=gnu11 -O2 -Wall -Wextra -Werror -D_GNU_SOURCE -pthread $(CUDAPP_PORTABLE_DEFS) -Isrc -Itests $(GPU_ENGINE_PHYS_INC) \
 		-o $@ tests/test_omega_gpu_platform_linux.c tests/fake_m16_native.c $(GPU_LINUX_REF_SRCS) $(GPU_LINUX_REF_CMDLIST_SRCS) -lm
 # The driver client's VA slots and close path on the host (no device opened, nvrm_open never called).
 build/test_nvrm_va_slots: tests/test_nvrm_va_slots.c $(PHYSICS_DIR)/nvrm/nvrm.c $(PHYSICS_DIR)/nvrm/nvrm.h

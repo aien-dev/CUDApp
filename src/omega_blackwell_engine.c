@@ -38,12 +38,14 @@
 #include "omega_blackwell_qmd.h"
 #include "omega_blackwell_submit.h"
 #include "m16_native.h"
+#include "cpu_barrier.h"
 
 #include <errno.h>
 #include <stdatomic.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -78,6 +80,27 @@ typedef struct {
 
 static BeCtx g_be;
 static atomic_flag g_busy = ATOMIC_FLAG_INIT;
+
+/* Persistent device (omega-mv#575, measured 2026-10-19 on the Spark): of 38.8 ms per
+ * omega_gpu_execute job, open_device took 7.5 ms, create_channel 19.2 ms and close
+ * 11.3 ms; the work itself (alloc, copy, submit, wait, readback, free) under 1 ms.
+ * So the RM client, device and channel stay open between jobs. Per-job buffers and
+ * the scratch are still allocated and freed per job (the engine's state machine is
+ * unchanged). A full close happens when the driver reports a fault, when
+ * omega_blackwell_engine_shutdown() is called, or when OMEGA_GPU_ENGINE_NO_PERSIST=1
+ * is set in the environment (the old one-open-per-job behaviour, for A/B runs).
+ * A retained run (uncertain completion) never reaches be_close, as before. */
+/* nvrm_retire lives in physics/nvrm/nvrm.c; the simulated-driver host build
+ * (tests/fake_m16_native.c) links no nvrm, so the reference is weak there. */
+extern void nvrm_retire(Nvrm *rm, uint32_t upto) __attribute__((weak));
+static int g_dev_open;      /* m16_native_open succeeded and was not closed */
+static int g_chan_open;     /* m16_native_create_channel succeeded on that device */
+
+static int persist_enabled(void)
+{
+    const char *e = getenv("OMEGA_GPU_ENGINE_NO_PERSIST");
+    return !(e && e[0] == '1');
+}
 
 static uint64_t now_ns(void)
 {
@@ -209,16 +232,40 @@ static const uint32_t BE_SETUP_WORDS[18] = {
 static int be_open_device(void *ctx)
 {
     BeCtx *c = (BeCtx *)ctx;
+    M16NativeContext keep;
+    int reuse;
     int rc;
+#if !defined(__aarch64__) && !defined(OMEGA_BLACKWELL_HOST_SIMULATOR)
+    /* The production device is the GB10 on AArch64 Linux. A portable host
+     * compiles this file and refuses to open it. The fake-driver tests define
+     * OMEGA_BLACKWELL_HOST_SIMULATOR. That define does not create an x86 GPU. */
+    c->last_rc = -1;
+    note(c, "Blackwell GPU backend requires AArch64 Linux");
+    errno = ENOTSUP;
+    return -1;
+#endif
     if (atomic_flag_test_and_set(&g_busy)) return -1; /* another run is active; touch nothing */
+    reuse = g_dev_open && persist_enabled() && !c->m.rm.faulted;
+    if (g_dev_open && !reuse) {
+        /* persistence off, or the driver faulted: close the old device first */
+        (void)m16_native_close(&c->m);
+        g_dev_open = 0;
+        g_chan_open = 0;
+    }
+    keep = c->m;
     memset(c, 0, sizeof *c);
     c->native_open = 1;
+    if (reuse) {
+        c->m = keep; /* the open device and channel carry over; every per-job field is fresh */
+        return 0;
+    }
     rc = m16_native_open(&c->m); /* SUB@676f16f line 45 */
     if (rc != 0) {
         c->last_rc = rc;
         atomic_flag_clear(&g_busy); /* native open already cleaned up after itself (m16_native.c:15-21) */
         return rc;
     }
+    g_dev_open = 1;
     return 0;
 }
 
@@ -227,8 +274,10 @@ static int be_create_channel(void *ctx)
     BeCtx *c = (BeCtx *)ctx;
     int rc;
     begin(c);
+    if (g_chan_open) return 0; /* persistent channel from an earlier job */
     rc = m16_native_create_channel(&c->m); /* SUB@676f16f line 46 */
     c->last_rc = rc;
+    if (rc == 0) g_chan_open = 1;
     return rc;
 }
 
@@ -390,7 +439,7 @@ static int be_build(void *ctx, const OmegaGpuJob *job)
     *c->hmarker = 0;
     *c->hmarker2 = 0;
     if (!c->c3) c->hmarker2 = NULL; /* never waited for, never reported */
-    __asm__ volatile("dsb sy" ::: "memory");
+    nvrm_cpu_barrier(); /* AArch64: dsb sy. See nvrm/cpu_barrier.h. */
 
     /* ---- unified pushbuffer, SUB@676f16f lines 130-195 ---- */
     c->pb_len = 0;
@@ -398,6 +447,16 @@ static int be_build(void *ctx, const OmegaGpuJob *job)
 
     /* 1. setup words (18) */
     pb_copy(c, BE_SETUP_WORDS, 18u);
+
+    /* 1b. invalidate the shader instruction, data and constant caches (clcec0.h
+     * NVCEC0_INVALIDATE_SHADER_CACHES 0x021c). With the device kept open between
+     * jobs (omega-mv#575) the PROGRAM buffer of the next job can land at the
+     * address of the last one, and the chip then ran the OLD code from its
+     * instruction cache: the no-store control in tests/test_omega_gpu_engine_gb10.c
+     * caught it on the Spark 2026-10-19 (unchanged=0). The session path has done
+     * this every launch since cut 1b (src/omega_gpu_session.c). */
+    pb_put(c, nvrm_mthd(1, OMEGA_BW_MTHD_INVALIDATE_SHADER_CACHES, 1));
+    pb_put(c, OMEGA_BW_INVALIDATE_SHADER_CACHES_ALL);
 
     /* 2. driver constant bank upload (224 words by DMA) */
     pb_put(c, nvrm_mthd(1, 0x0188, 2));
@@ -555,7 +614,7 @@ static int be_barrier(void *ctx, uint64_t timeout_ms)
     BeCtx *c = (BeCtx *)ctx;
     (void)timeout_ms;
     begin(c);
-    __asm__ volatile("dsb sy" ::: "memory");
+    nvrm_cpu_barrier(); /* AArch64: dsb sy before readback. */
     return 0;
 }
 
@@ -623,15 +682,45 @@ static int be_free_buf(void *ctx, int role)
 static int be_close(void *ctx)
 {
     BeCtx *c = (BeCtx *)ctx;
-    int rc;
+    int rc = 0;
     begin(c);
     c->hmarker = NULL;
     c->hmarker2 = NULL;
     c->hsem = NULL;
+    if (g_dev_open && persist_enabled() && !c->m.rm.faulted) {
+        /* Keep the device and channel. The job's GPFIFO entries are complete (the
+         * engine only reaches close after the completion waits or on a failure before
+         * submit), so retire them; the ring never fills across jobs. */
+        if (nvrm_retire) nvrm_retire(&c->m.rm, c->m.rm.put);
+        atomic_flag_clear(&g_busy);
+        return 0;
+    }
     rc = m16_native_close(&c->m); /* SUB@676f16f line 225 */
     c->last_rc = rc;
+    g_dev_open = 0;
+    g_chan_open = 0;
     atomic_flag_clear(&g_busy);
     return rc;
+}
+
+int omega_blackwell_engine_shutdown(void)
+{
+    BeCtx *c = &g_be;
+    int rc;
+    if (atomic_flag_test_and_set(&g_busy))
+        return -1; /* a run is active (or retained): leave it */
+    if (!g_dev_open) { atomic_flag_clear(&g_busy); return 0; }
+    rc = m16_native_close(&g_be.m);
+    g_dev_open = 0;
+    g_chan_open = 0;
+    memset(c, 0, sizeof(BeCtx));
+    atomic_flag_clear(&g_busy);
+    return rc;
+}
+
+int omega_blackwell_engine_device_is_open(void)
+{
+    return g_dev_open;
 }
 
 static const OmegaGpuBackend g_backend = {

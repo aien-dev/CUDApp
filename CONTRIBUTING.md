@@ -10,7 +10,7 @@ A failing test means the work is wrong. Find the cause; do not skip the test, lo
 
 ## What you need
 
-For a host-only start, use Linux with `git`, `make`, a C compiler and the build tools described in [START_HERE.md](docs/START_HERE.md). The documented, fully qualified native GPU path is Linux on the GB10 (DGX Spark, sm_121) with NVIDIA's 580.173.02 kernel module. The CUDA toolkit is not needed for the normal runtime or host tests. A fresh x86-64 host checkout is not yet a validated target for the entire suite (see [#15](https://github.com/aien-dev/CUDApp/issues/15)).
+For a host-only start, use Linux with `git`, `make`, a C compiler and the build tools described in [START_HERE.md](docs/START_HERE.md). The documented, fully qualified native GPU path is Linux on the GB10 (DGX Spark, sm_121) with NVIDIA's 580.173.02 kernel module. The CUDA toolkit is not needed for the normal runtime or host tests. A fresh x86-64 checkout runs the portable host suite (`make test`) with gcc, no NVIDIA tools and no sibling checkout. Target-only checks name their requirement (`docs/OMEGA_HOST_TESTS.md`, [#15](https://github.com/aien-dev/CUDApp/issues/15)). The GB10 device path and the eight-slice OSC gate stay outside that suite.
 
 ```sh
 git clone https://github.com/aien-dev/CUDApp.git
@@ -20,6 +20,8 @@ make test               # host checks; no GPU device opened
 build/hello_gpu --sim   # simulator, not a hardware result
 make doctor             # diagnostic; may report NOT READY on other hosts
 ```
+
+Pull requests run those host commands. The acceptance rules are [docs/CI_ACCEPTANCE.md](docs/CI_ACCEPTANCE.md). A green check is a host or simulator result for that commit. It is not a GB10 result.
 
 Only on a qualified GB10 when it is safe to use the GPU (never interrupt a live service):
 

@@ -1,4 +1,19 @@
-/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2026 Drake Stapleton (AIEN / aien-dev)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 /* bw_warp_sim.h: host SIMT simulator for the Blackwell IR (omega #308).
  *
  * Models what the earlier per-thread simulators could not: a warp of 32 lanes with an
@@ -29,13 +44,15 @@
  *                      an exit jumped past it, or a target was corrupted)
  *   WS_E_NEVER_JOINED  the warp finished with a barrier still armed
  *   WS_E_SELF_BRANCH, WS_E_PC, WS_E_OP, WS_E_SHIFT, WS_E_MEM, WS_E_SMEM, WS_E_FRAGS
+ *   WS_E_IMADHI_RC     IMAD.HI.U32 with an odd register Rc. An even Rc is modelled as the 64-bit pair
+ *                      Rc+1:Rc the chip reads (omega #492, nvcc oracle, chip probe pending); odd has no evidence
  * Every error names the pc. Memory: global addresses are host pointers (optionally range
  * checked); shared memory is a per-CTA buffer poisoned at CTA start so a read of a word
  * nobody wrote shows up in the oracle comparison.
  *
  * Per-lane ALU semantics are those of the two earlier simulators (tests/gpu_attention_test.c,
- * bench/prime_race/tests/gb10_sieve_host_test.c). EX2 and RCP are exact here; the chip's
- * are approximate. LDCU64 (memory descriptor) is not modelled. */
+ * bench/prime_race/tests/gb10_sieve_host_test.c). MUFU EX2 / RCP / RSQ are the correctly
+ * rounded IEEE value with the chip's subnormal flush (bw_mufu_ftz.h); the chip's are approximate. LDCU64 (memory descriptor) is not modelled. */
 #ifndef BW_WARP_SIM_K_H
 #define BW_WARP_SIM_K_H
 /* bw_warp_sim_k.h (OWN-30B cut 8, 2026-10-13): tests/bw_warp_sim.h plus the system-scope opcodes the decode attention
@@ -43,6 +60,7 @@
  * The simulator runs CTAs one after another, so an atomic counter sees every earlier CTA's add. */
 
 #include "omega_blackwell_codegen.h"
+#include "bw_mufu_ftz.h" /* MUFU EX2 / RCP / RSQ: the chip's flush of subnormal inputs and results (omega #462) */
 #include "omega_blackwell_codegen_tc.h"
 #include <math.h>
 #include <stdint.h>
@@ -62,12 +80,12 @@
 enum {
     WS_OK = 0, WS_E_SHFL_SPLIT, WS_E_SHFL_EXITED, WS_E_BAR_SPLIT, WS_E_BSYNC_UNARMED, WS_E_BSSY_REARM,
     WS_E_JOIN_MISMATCH, WS_E_NONMEMBER, WS_E_STUCK, WS_E_NEVER_JOINED, WS_E_SELF_BRANCH, WS_E_PC,
-    WS_E_OP, WS_E_SHIFT, WS_E_MEM, WS_E_SMEM, WS_E_FRAGS, WS_E_BAR_TIMEOUT, WS_E_STEPS
+    WS_E_OP, WS_E_SHIFT, WS_E_MEM, WS_E_SMEM, WS_E_FRAGS, WS_E_BAR_TIMEOUT, WS_E_STEPS, WS_E_IMADHI_RC
 };
 static const char *ws_err_name(int e) {
     static const char *const n[] = { "OK", "SHFL_SPLIT", "SHFL_EXITED", "BAR_SPLIT", "BSYNC_UNARMED", "BSSY_REARM",
         "JOIN_MISMATCH", "NONMEMBER", "STUCK", "NEVER_JOINED", "SELF_BRANCH", "PC", "OP", "SHIFT", "MEM", "SMEM",
-        "FRAGS", "BAR_TIMEOUT", "STEPS" };
+        "FRAGS", "BAR_TIMEOUT", "STEPS", "IMADHI_RC" };
     return (e >= 0 && e < (int)(sizeof n / sizeof n[0])) ? n[e] : "?";
 }
 
@@ -149,7 +167,16 @@ static void ws_lane_exec(WsSim *s, WsLane *l, const BlackwellIRInsn *in, int pc,
     case BW_IR_MOV_RZ: ws_wrs(l, in->dst_vreg, in->dst_subreg, 0, p); break;
     case BW_IR_IMAD: ws_wrs(l, in->dst_vreg, in->dst_subreg, in->src2_vreg >= 0 ? a * b + c : a * in->imm + c, p); break;
     case BW_IR_IMAD_WIDE: ws_wr64(l, in->dst_vreg, (uint64_t)a * in->imm + ws_rd64(l, in->src3_vreg, p), p); break;
-    case BW_IR_IMAD_HI_U32: ws_wrs(l, in->dst_vreg, in->dst_subreg, (uint32_t)(((uint64_t)a * b) >> 32) + c, p); break;
+    case BW_IR_IMAD_HI_U32: { /* Rd = hi32(Ra * Rb + Rc+1:Rc). A register Rc is a 64-bit pair, low word Rc (omega #492, nvcc 13.0
+                               * oracle evidence/IMADHI-RC-ORACLE-nvcc13.0-20261016, not chip-probed); an odd Rc has no evidence: refused */
+        uint64_t c64 = 0;
+        int rc = in->src3_vreg >= 0 ? p->regalloc.vreg_to_phys[in->src3_vreg] : -1;
+        if (rc >= 0) {
+            rc = (rc + in->src3_subreg) & 0xff;
+            if (rc & 1) { ws_fail(s, WS_E_IMADHI_RC, pc, "IMAD.HI.U32 with an odd register Rc (the chip reads a 64-bit pair; nvcc emits only even bases, odd not chip-probed): use RZ or an even pair"); return; }
+            c64 = (uint64_t)l->r[rc] | ((uint64_t)l->r[rc + 1] << 32);
+        }
+        ws_wrs(l, in->dst_vreg, in->dst_subreg, (uint32_t)(((uint64_t)a * b + c64) >> 32), p); break; }
     case BW_IR_IADD3: ws_wrs(l, in->dst_vreg, in->dst_subreg, a + b, p); break; /* the encoder's IADD3 has Rc = RZ */
     case BW_IR_SHF_R: ws_wrs(l, in->dst_vreg, in->dst_subreg, a >> (in->imm & 31), p); break;
     case BW_IR_SHF_L_U32: if (b >= 32) { ws_fail(s, WS_E_SHIFT, pc, "SHF.L.U32 amount >= 32 (not chip-verified)"); return; } ws_wrs(l, in->dst_vreg, in->dst_subreg, a << b, p); break;
@@ -174,9 +201,9 @@ static void ws_lane_exec(WsSim *s, WsLane *l, const BlackwellIRInsn *in, int pc,
         if (in->imm == OMEGA_TC_MARK_F2FP) { ws_wrs(l, in->dst_vreg, in->dst_subreg, (ws_k_bf16_rn(a) << 16) | ws_k_bf16_rn(b), p); break; } /* F2FP.BF16.F32.PACK_AB placeholder (L313 bf16 state) */
         ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fmaxf(ws_u2f(a), ws_u2f(b))), p); break;
     case BW_IR_FMNMX_MIN: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fminf(ws_u2f(a), ws_u2f(b))), p); break;
-    case BW_IR_MUFU_EX2: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(exp2f(ws_u2f(a))), p); break;
-    case BW_IR_MUFU_RCP: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(1.0f / ws_u2f(a)), p); break;
-    case BW_IR_MUFU_RSQ: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(1.0f / sqrtf(ws_u2f(a))), p); break;
+    case BW_IR_MUFU_EX2: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_mufu_ex2(ws_u2f(a))), p); break;
+    case BW_IR_MUFU_RCP: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_mufu_rcp(ws_u2f(a))), p); break;
+    case BW_IR_MUFU_RSQ: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_mufu_rsq(ws_u2f(a))), p); break;
     case BW_IR_MUFU_LG2: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(log2f(ws_u2f(a))), p); break;
     case BW_IR_LDG_STRONG_SYS: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; uint32_t x; memcpy(&x, (const void *)(uintptr_t)ad, 4); ws_wrs(l, in->dst_vreg, in->dst_subreg, x, p); break; }
     case BW_IR_STG_STRONG_SYS: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; memcpy((void *)(uintptr_t)ad, &b, 4); break; }
