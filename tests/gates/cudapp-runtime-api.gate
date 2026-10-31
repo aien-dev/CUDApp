@@ -1,0 +1,25 @@
+# tests/gates/cudapp-runtime-api.gate
+# Mirrors hosted: .github/workflows/runtime-api.yml step 'Manifest, surface and negative controls'. CUDApp owns the
+# Omega Runtime API (docs/runtime/API.md, docs/runtime/omega_runtime_api.manifest and .internal, the 22 manifest
+# headers under src/); this gate replaces omega-mv's OMEGA-RUNTIME-API copy and carries every control that copy had.
+gate: CUDAPP-RUNTIME-API
+manifest_version: 2
+owner: cudapp
+requires:
+  - portable
+inputs:
+  - docs/runtime/
+  - mk/runtime-r1.mk
+  - src/
+  - tools/runtime_api_check.sh
+  - tools/runtime_api_negative.sh
+  - tools/runtime_api_semver.sh
+  - tests/gates/
+run:
+  exec: tests/gates/cudapp-run.sh
+  args: ["runtime-api"]
+expects:
+  exit: 0
+  verdict: PASS
+timeout: 20m
+cache_scope: portable
