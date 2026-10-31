@@ -621,17 +621,17 @@ test-gpu-imadhi-rc: $(GPU_IMADHI_TESTS)
 
 # omega-mv#554: static scoreboard hazard checker (RAW / WAR / WAW) over the encoded bytes of every kernel the generators
 # build, after the launchers' patch steps. Host only: decoder vs encoder, the pre-#553 attend red receipt
-# (tests/fixtures/bw_hazard), negative controls, then the sweep. test-bw-hazard-nvdisasm adds the decoder cross-check
-# against nvdisasm (offline oracle, /usr/local/cuda/bin) on every distinct kernel: one nvdisasm call per kernel, over
-# ten minutes on the Spark (2026-10-19: 2360 kernels, 1028064 instructions, 0 mismatched).
+# (tests/fixtures/bw_hazard), negative controls, then the sweep. test-bw-hazard-nvdisasm (the name it had when it
+# called nvdisasm) adds the decoder cross-check against Omega's own sm_121 disassembler, in process, on every distinct
+# kernel (bar C6: every check that called nvdisasm calls ours; test-sm121dis checks that disassembler against the oracle).
 .PHONY: test-bw-hazard test-bw-hazard-nvdisasm
 BW_HAZARD_TEST = $(OUT_DIR)/bw_hazard_test
-$(BW_HAZARD_TEST): tests/bw_hazard_test.c src/omega_bw_hazard.c src/omega_bw_hazard.h $(OUT_DIR)/libomega_gpu.a
+$(BW_HAZARD_TEST): tests/bw_hazard_test.c src/omega_bw_hazard.c src/omega_bw_hazard.h src/omega_sm121_disasm.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -o $@ tests/bw_hazard_test.c src/omega_bw_hazard.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
 test-bw-hazard: $(BW_HAZARD_TEST)
 	$(BW_HAZARD_TEST)
 test-bw-hazard-nvdisasm: $(BW_HAZARD_TEST)
-	$(BW_HAZARD_TEST) --nvdisasm
+	$(BW_HAZARD_TEST) --disasm
 
 # Offline resource-DAG evaluator, imported verbatim from closed PR #590
 # (commit 3bd56731). Host arithmetic on the numbers written in the fixtures.

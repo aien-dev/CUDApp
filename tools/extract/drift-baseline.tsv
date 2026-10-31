@@ -7,9 +7,12 @@
 # docs/runtime/PORTABILITY.md, portability_table.tsv (#954 rows and reclassifications carried; CUDA++ rows and its sha256 build differ); tests/dagsim/mutant_{lifetime,predict}.sh (link src/sha256.c);
 # the merged src/ and tests/ files keep the CUDA++ licence header and CUDA++-ahead code with the omega change applied.
 # Blobs omega changed through 4376c2112d7469b6908c6403720c9001de4622b5 (train r3 #979, omega#456 OWN-30B follow-ups) are that commit's (CUDApp sync/drift-omega-4376c21).
+# Blobs omega changed through 6d7b883844a0f17a7a3ceb427108be7e01e4c677 (#984 C6 hazard cross-check through the sm_121 disassembler) are that commit's; the omega deltas were applied to the CUDA++ copies, which keep their SPDX lines and CUDA++ corpus scope (CUDApp sync/drift-omega-6d7b883). tests/bw_hazard_test.c is a byte copy.
+# src/omega_blackwell_codegen_tern.h is omega 613765d2b75383212c50520ff7a7295bff01f1bb's blob (#985 comment: QMD shared cap 32 KiB, as in this tree's omega_blackwell_qmd.h); the comment delta was applied here.
+# mk/sm121dis.mk and tools/sm121dis/check.sh are omega d9461717721856602626c3202751d7653e1aa5f7's blobs (#986 decoder exit status checked); the deltas were applied here. tools/sm121dis/check_selftest.sh is a byte copy.
 # Still differ at 4376c21 on purpose: Makefile (CUDA++ build); src/omega_gpu_fp8_api.c (CUDA++ owner-generation upload kept, omega#456 lock-held fill already there);
 # tests/gpu_fp8gemm_test.c (CUDA++ test_out_open 0600 receipt kept over omega's 0644 open); licence headers.
-Makefile	b6ceafb7625f3a974efce405e2bd79393045f8f8
+Makefile	bf39ac9c767da1c0e37500f4568492cb4d6e17b9
 evidence/C3-GEMM/01-host-only.log	c581c5126718bc24ef10ed1b1637528018a260e5
 evidence/C3-GEMM/02-sim.log	fd97da9f29871abfc16fb2ed938c38a4d3c2314f
 evidence/C3-GEMM/README.md	0e730a9bf2072f34d59d9cdc1961f4112a7ff90e
@@ -154,8 +157,8 @@ evidence/R4-MATMUL-CTA-ffc3176a/smoke-1661fc72/sweep.log	14ea4d447540f2d875b0562
 mk/omega-gpu-code-alloc.mk	3b217c32d9cc063c8b83d18ede48afcc24a594ae
 mk/omega-gpu-engine.mk	f3f5dd632c6a42c806ccdb687c8df6e7e5c35ffa
 mk/omega-gpu-wait.mk	42e5ed25b232b7ae67f922e9a4a948e3ef942159
-mk/sm121dis.mk	d29fcba32384d80b1fd4897b4ed1fb2eb865d631
-src/omega_blackwell_codegen.c	48c4e3e2e9ab15fff2a89c765096c21ae7654fe0
+mk/sm121dis.mk	c9440caa7c5b1f956c4fdd55d93e1eb631a2e768
+src/omega_blackwell_codegen.c	a0520f4c9f4c796fd1f4c1fd3eb670bb434e0753
 src/omega_blackwell_codegen.h	1f0b70eecd3860da68bbe013860f27ca01da0d2f
 src/omega_blackwell_codegen_attn.c	060e25cff987ff43fdb234aee39497253cf25c3a
 src/omega_blackwell_codegen_attn.h	4f84bba33c4cf4dfca8834335b6900aba01b677b
@@ -192,7 +195,7 @@ src/omega_blackwell_codegen_tc.h	a27f71f81774f9ee0e9be521ac57b1e935083f71
 src/omega_blackwell_codegen_tc2.c	4feb021fb579af433ac37d0fc37e060a96ac0533
 src/omega_blackwell_codegen_tc2.h	38d17fdd1667afe82ced90d4702b44445fba5058
 src/omega_blackwell_codegen_tern.c	6177d45ad13dc53cdb8cb4b3f7a133240ef3c3c6
-src/omega_blackwell_codegen_tern.h	a9a7472cc5606fc285c330231c2a54a9f6e82490
+src/omega_blackwell_codegen_tern.h	12465d8b6aabcf5bb37de3d86cdaf5935a6abc3b
 src/omega_blackwell_encoder.c	373a98cdac7c8bdbf3921579f013eac4cafe6647
 src/omega_blackwell_encoder.h	9050a2f03dcf7b072775d1182cc558b8d8e5b623
 src/omega_blackwell_engine.c	436de40edfab6b760ebaefe65840d10803497d98
@@ -287,7 +290,7 @@ src/omega_numeric.h	b3548189a5d0101bfa1d3f9e83abb3595528004b
 src/omega_numeric_lifecycle.h	a90a359306f98420a3189a488fe413319b4fad38
 src/omega_numeric_reduce.c	3dffadfe031a774191d07bddacd203fadee6a4b2
 src/omega_numeric_reduce.h	ac9cf9c9b636b292ab23d5a25309cf2669496a17
-src/omega_sm121_disasm.c	796db0339247b998fa37c60a15aeac6105705774
+src/omega_sm121_disasm.c	17a1ef14b13abf0c0d4dc2367ed2728893c299a2
 src/omega_sm121_disasm.h	aaf815d6387018ff0ac2598c23dac1398672cb60
 src/omega_types.h	433c3e8113c154e2c12e1cb508841319d29d1b7d
 src/omega_vector.c	a3add41a0d77a484d4357e913fb9e7c0c9b4cc23
@@ -372,13 +375,13 @@ tools/dagsim/dagsim_cli.c	fb279f9040cb33d051bebf8f9d1288b9be325230
 tools/gpu_engine_backend_mutations.sh	443b3585a8748715ea63b9e2a3ed848aae8ecc89
 tools/gpu_engine_mutations.sh	a909493d166084c94546a182eddb0e6ed441caca
 tools/mutation_runner.sh	ab60143c8fd705a6293d4c7f935d928554ed5d1f
-tools/sm121dis/README.md	c10aeb97861b339ce1974cef0c56034300313b3b
-tools/sm121dis/check.sh	da0f27c4af1d17dc088f19c1f3b58b7e43d0a183
-tools/sm121dis/corpus.sh	4a3cf792a02c4d6772714db921427f6d493f130c
-tools/sm121dis/corpus_selftest.sh	061c618cdd4d4f898fa6a964821ab9dca1b4016e
+tools/sm121dis/README.md	590f48f3834e30872785570e4bc3cf052b44bdca
+tools/sm121dis/check.sh	45b94a6109bac81688ef172c056c2e5ef2e0b5d4
+tools/sm121dis/corpus.sh	03e3df762518d9746963ca7c72d8edb9a2423210
+tools/sm121dis/corpus_selftest.sh	d3ffdb11a566f2358f461ce266808923b05911f2
 tools/sm121dis/oracle_pairs.sh	ae532a96225a9e5f40f7a2fe42ab7f0fd82b304d
 tools/sm121dis/sm121dis.c	b9d3e631cce1d45f60eb0f519f22e5e481bfe066
-tools/sm121dis/zero_nvdisasm.sh	54fc36fa658f9c3094b39e1aca639f711852a496
+tools/sm121dis/zero_nvdisasm.sh	f70960870af2d69a446a210db07465aab93baf25
 docs/runtime/API.md	9f5f34321bfb3f8623623ca9a174b68e3ff3c3ed
 docs/runtime/PORTABILITY.md	7b923a91e12f7f2e5c5954d80293517e19e8c959
 docs/runtime/omega_runtime_api.manifest	d02c0ebe0b6df7d4d8f52b51942dccd76cc8ec2d
