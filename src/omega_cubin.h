@@ -20,9 +20,18 @@
  *   - .nv.info.<fn> carries EIATTR_KPARAM_INFO entries (format 0x1704), the
  *     parameter constant-bank size (0x1903), and the index of the function's
  *     constant-bank section symbol (0x0a04);
- *   - the module-level .nv.info names the first function symbol and the symbol
- *     count (0x2f04); .nv.compat and .note.nv.cuinfo are required by the
- *     offline tools.
+ *   - the module-level .nv.info names the first function symbol and its
+ *     register count (0x2f04), and .nv.info.<fn> repeats that count as the
+ *     maximum (0x1b03). Both come from gpr_count, which must be the declared
+ *     count (>= allocator peak + 2): REGCOUNT equal to the peak loads but
+ *     faults with 715 ILLEGAL_INSTRUCTION on GB10 (G2 window
+ *     20261030T235858Z-10fa8c, H matrix). .nv.compat and .note.nv.cuinfo are
+ *     required by the offline tools;
+ *   - .note.nv.tkinfo (note type 2000, owner "NVIDIA Corp", linked from
+ *     .note.nv.cuinfo) is required by the driver: without it cuModuleLoadData
+ *     returns 200 INVALID_IMAGE on GB10, with it the same image loads (G2
+ *     windows 20261030T235211Z-0352f1 and 20261030T235858Z-10fa8c,
+ *     evidence/MAX-INTEROP/G2). Its strings are this writer's own.
  * Nothing here is copied from an NVIDIA binary; these are ABI facts checked
  * against the output of NVIDIA's ptxas (a proprietary SDK tool, used on this
  * host as an oracle only; see PROVENANCE.md).
@@ -30,12 +39,13 @@
  * Limits, deliberate and recorded:
  *   - The writer emits five program headers (PT_PHDR, PT_LOAD for the header
  *     table, text, shared and constant), matching the ptxas reference layout.
- *     They are not sufficient for cuModuleLoadData: an image with them still
- *     returned error 200 on GB10 (window 20261024T044814Z-4dc098, transcript
- *     only; see evidence/MAX-INTEROP/G2). Whether they are necessary is open.
+ *     The 200 an image with them returned (window 20261024T044814Z-4dc098)
+ *     was the missing .note.nv.tkinfo (H7 refused, H6 ran); whether the
+ *     headers are necessary is open.
  *   - EIATTR_EXIT_INSTR_OFFSETS is omitted because this writer does not decode
  *     SASS and will not fabricate the EXIT byte offset. ptxas emits it; the
- *     driver treats it as optional metadata until a device load proves else.
+ *     driver does not need it: the tkinfo + declared-register image ran
+ *     bit-exact without it (G2 window 20261030T235858Z-10fa8c, H6).
  *   - sh_info of the .nv.* sections uses this writer's section indices, which
  *     cuobjdump accepts; it does not reproduce ptxas's symbol indices.
  */
@@ -82,7 +92,7 @@ const char *omega_cubin_rc_name(int rc);
 int omega_cubin_pack(const char *fn_name,
                      const uint8_t *text, size_t text_len,
                      const OmegaCubinParam *params, size_t nparams,
-                     uint32_t cbank_size, uint32_t gpr_count,
+                     uint32_t cbank_size, uint32_t gpr_count, /* declared registers (omega_bw_gpr_declared), not the allocator peak */
                      uint32_t shared_reserved,
                      uint8_t **out, size_t *out_len, char *err, size_t err_cap);
 

@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "omega_blackwell_codegen.h"
 #include "omega_blackwell_matmul.h"
 #include "omega_blackwell_qmd.h"
 #include "omega_cubin.h"
@@ -168,7 +169,7 @@ static void build_matmul(OmegaBlackwellKernel *k, uint32_t q0[96], uint32_t q1[9
     hex32(spec.spec_id, spec_hex);
     omega_blackwell_build_qmd0(q0, 0, 0);
     memset(cfg, 0, sizeof *cfg);
-    cfg->gpr_count = k->gpr_count; cfg->threads_per_block = 32; cfg->threads_x = 32;
+    cfg->gpr_count = omega_bw_gpr_declared(k->gpr_count); cfg->threads_per_block = 32; cfg->threads_x = 32;
     cfg->grid_x = 1; cfg->grid_y = 1; cfg->num_elements = 16 * 8; cfg->shared_bytes = 1024;
     omega_blackwell_build_qmd1(q1, cfg);
     omega_blackwell_build_cbank_args_matmul(cb, 0, 0, 0, 16, 16, 8);
@@ -190,7 +191,7 @@ static void fill_artifact(OmegaNativeArtifact *a, const char *contract, const ch
     a->tolerance = "abs<=1e-5*max(1,abs(ref))";
     a->text = k->code; a->text_len = k->code_size;
     a->params = ps; a->nparams = nps;
-    a->gpr_count = k->gpr_count;
+    a->gpr_count = omega_bw_gpr_declared(k->gpr_count); /* declared, as tools/artifact_export.c */
     a->grid_x = gx; a->grid_y = gy; a->block_x = bx; a->block_y = 1; a->block_z = 1;
     a->shared_bytes = shared; a->cbank_offset = 0x380;
     a->cbank_args = cb; a->cbank_words = cbn;
@@ -341,7 +342,7 @@ int main(int argc, char **argv) {
             memset(&acfg, 0, sizeof acfg);
             memset(aspec, 'b', 64); aspec[64] = 0;
             omega_blackwell_build_qmd0(aq0, 0, 0);
-            acfg.gpr_count = ak.gpr_count; acfg.threads_per_block = 128; acfg.threads_x = 128;
+            acfg.gpr_count = omega_bw_gpr_declared(ak.gpr_count); acfg.threads_per_block = 128; acfg.threads_x = 128;
             acfg.grid_x = 2; acfg.grid_y = 1; acfg.num_elements = 8 * 128; acfg.shared_bytes = 6656;
             omega_blackwell_build_qmd1(aq1, &acfg);
             for (int i = 0; i < 4; i++) aps[i] = (OmegaCubinParam){ (uint32_t)(0x380 + 8 * i), 8, 1 };

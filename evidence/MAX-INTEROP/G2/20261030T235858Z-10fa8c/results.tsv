@@ -1,0 +1,23 @@
+name	fn	mode	expect	sha_ok	c_load	c_run	max_load	max_run
+A-ctl	omega_matmul_bf16	run	PASS	yes	0	0	0	0
+B-ctl-nomerc	omega_matmul_bf16	run	PASS if capmerc not required	yes	0	0	0	0
+C-omega-stale-nophdr	omega_matmul_bf16	reject	REJECT 200 (seen 10-24, no receipt)	yes	0	-	0	-
+D-omega-main	omega_matmul_bf16	run	REJECT 200 expected (10-24 phdr-mat)	yes	4	-	4	-
+E1-omega-symfix	omega_matmul_bf16	run	UNKNOWN	yes	4	-	4	-
+E2-omega-tkinfo-ptxas	omega_matmul_bf16	run	UNKNOWN	yes	0	4	0	1
+E3-omega-tkinfo-own	omega_matmul_bf16	run	UNKNOWN	yes	0	4	0	1
+E4-omega-tkinfo-cg-symfix	omega_matmul_bf16	run	UNKNOWN	yes	0	4	0	1
+E5-omega-allmeta	omega_matmul_bf16	run	UNKNOWN	yes	0	4	0	1
+F-ctlcontainer-omega-sass	omega_matmul_bf16	run	UNKNOWN: load => Omega SASS accepted	yes	0	0	0	0
+G-omegacontainer-ctl-sass	omega_matmul_bf16	run	UNKNOWN: load => CUDApp container accepted	yes	4	-	4	-
+H1-e5-reg40	omega_matmul_bf16	run	PASS if register count	yes	0	0	0	0
+H2-e5-regcount40	omega_matmul_bf16	run	UNKNOWN	yes	0	0	0	0
+H3-e5-maxreg40	omega_matmul_bf16	run	UNKNOWN	yes	0	4	0	1
+H4-e5-reg34	omega_matmul_bf16	run	UNKNOWN	yes	0	0	0	0
+H5-e5-isa1	omega_matmul_bf16	run	715 if register count	yes	0	4	0	1
+H6-e3-reg40	omega_matmul_bf16	run	PASS if tkinfo+regs suffice	yes	0	0	0	0
+H7-d-reg40	omega_matmul_bf16	reject	REJECT 200 (no tkinfo)	yes	0	-	0	-
+N1-ctl-truncated	omega_matmul_bf16	reject	REJECT	yes	0	-	0	-
+N2-ctl-wrong-entry	omega_matmul_bf16_missing	reject	REJECT (500 NOT_FOUND)	yes	0	-	0	-
+N3-ctl-eflags-sm80	omega_matmul_bf16	reject	REJECT	yes	0	-	0	-
+N4-max-vecadd-sm80	vec_add	reject	REJECT (209 NO_BINARY_FOR_GPU)	yes	0	-	0	-

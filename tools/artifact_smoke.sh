@@ -37,7 +37,9 @@ for c in "$dir"/*.cubin; do
             echo "parameter cbank metadata missing"; fail=1
         fi
         shnum=$(readelf -h "$c" 2>/dev/null | sed -n 's/.*Number of section headers:[[:space:]]*//p')
-        [ "$shnum" = "11" ] || { echo "unexpected section count: $shnum"; fail=1; }
+        [ "$shnum" = "12" ] || { echo "unexpected section count: $shnum"; fail=1; }
+        # The driver refuses an sm_121 image without the toolkit note (200 INVALID_IMAGE on GB10, evidence/MAX-INTEROP/G2).
+        readelf -S "$c" 2>/dev/null | grep -q '\.note\.nv\.tkinfo' || { echo ".note.nv.tkinfo missing"; fail=1; }
     else
         echo "cuobjdump: NOT_RUN (not installed)"
     fi

@@ -69,10 +69,10 @@ static void put64(uint8_t *p, uint64_t v) { put32(p, (uint32_t)v); put32(p + 4, 
 static size_t align_up(size_t n, size_t a) { return a ? (n + a - 1) / a * a : n; }
 
 /* One Elf64_Phdr, laid out like the ptxas reference (PT_LOAD for text,
- * constant and shared). REVIEW C-22 assumed the loader needs them. On GB10 an
- * image carrying them still returned error 200 (window 20261024T044814Z-4dc098,
- * transcript only), so they are not sufficient; necessity is unproven. The
- * load matrix in evidence/MAX-INTEROP/G2 isolates the remaining causes. */
+ * constant and shared). REVIEW C-22 assumed the loader needs them. The 200 an
+ * image carrying them returned on GB10 (window 20261024T044814Z-4dc098) was the
+ * missing .note.nv.tkinfo: the G2 load matrix (evidence/MAX-INTEROP/G2, H6 ran,
+ * H7 refused) isolates it. Whether the headers are necessary is unproven. */
 static void put_phdr(uint8_t *p, uint32_t type, uint32_t flags, uint64_t off,
                      uint64_t filesz, uint64_t memsz) {
     put32(p + 0, type);
@@ -239,6 +239,21 @@ static int c_cubin_pack(const char *fn_name,
         put16(note + 24, 2); put16(note + 26, OMEGA_CUBIN_SM_121);
         put32(note + 28, 130);
     }
+    /* .note.nv.tkinfo: the sm_121 driver refuses an image without it
+     * (cuModuleLoadData -> CUDA_ERROR_INVALID_IMAGE, CUDApp#68; chip windows
+     * 20261030T235211Z-0352f1 and 20261030T235858Z-10fa8c). Same note header as
+     * .note.nv.cuinfo with type 2000; the descriptor is version 2, 0, then the
+     * offsets of the tool, version, build and option strings in a zero-padded
+     * string blob. The strings are this writer's own. */
+    static const char tk_str[72] = "\0cudapp\0CUDApp omega_cubin sm_121\0Build omega_cubin\0-arch sm_121";
+    uint8_t tk[120];
+    {
+        put32(tk, 12); put32(tk + 4, 96); put32(tk + 8, 2000);
+        memcpy(tk + 12, "NVIDIA Corp\0", 12);
+        put32(tk + 24, 2); put32(tk + 28, 0);
+        put32(tk + 32, 1); put32(tk + 36, 8); put32(tk + 40, 34); put32(tk + 44, 52);
+        memcpy(tk + 48, tk_str, sizeof tk_str);
+    }
     uint8_t *info = malloc(4096), *text_copy = malloc(text_len), *cbank = calloc(1, cbank_size);
     if (!info || !text_copy || !cbank) {
         free(info); free(text_copy); free(cbank);
@@ -263,12 +278,13 @@ static int c_cubin_pack(const char *fn_name,
 
     /* Names. */
     const char *snames[] = { ".shstrtab", ".strtab", ".symtab", text_name, cbank_name,
-                             ".nv.info", ".nv.compat", info_name, ".nv.shared.reserved.0", ".note.nv.cuinfo" };
+                             ".nv.info", ".nv.compat", info_name, ".nv.shared.reserved.0", ".note.nv.cuinfo",
+                             ".note.nv.tkinfo" };
     uint8_t shstr[512], strtab[128];
     size_t shstr_len = 1, strtab_len = 1;
-    uint32_t shname[10], strname = 0;
+    uint32_t shname[11], strname = 0;
     shstr[0] = 0; strtab[0] = 0;
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 11; i++) {
         size_t n = strlen(snames[i]);
         shname[i] = (uint32_t)shstr_len;
         memcpy(shstr + shstr_len, snames[i], n + 1);
@@ -293,7 +309,7 @@ static int c_cubin_pack(const char *fn_name,
     symtab[3 * SYM_ENT + 4] = 0x03;
     put16(symtab + 3 * SYM_ENT + 6, 5);          /* .nv.constant0 section index */
 
-    Sec secs[11];
+    Sec secs[12];
     memset(secs, 0, sizeof secs);
     int s = 1;
     secs[s++] = (Sec){ ".shstrtab", 3, 0, shstr, shstr_len, 0, 0, 1, 0 };
@@ -305,12 +321,13 @@ static int c_cubin_pack(const char *fn_name,
     secs[s++] = (Sec){ ".nv.compat", 0x70000086u, 0, compat, sizeof compat, 0, 0, 4, 0 };
     secs[s++] = (Sec){ info_name, 0x70000000u, 0x40, info, info_len, 3, 4, 4, 0 };
     secs[s++] = (Sec){ ".nv.shared.reserved.0", 8, 0x3, NULL, shared_reserved, 0, 0, 1, 0 };
-    secs[s++] = (Sec){ ".note.nv.cuinfo", 7, 0x1000040u, note, sizeof note, 0, 2, 4, 0 };
+    secs[s++] = (Sec){ ".note.nv.cuinfo", 7, 0x1000040u, note, sizeof note, 11, 2, 4, 0 }; /* link: tkinfo */
+    secs[s++] = (Sec){ ".note.nv.tkinfo", 7, 0x2000000u, tk, sizeof tk, 0, 0, 4, 0 };
     size_t nsec = (size_t)s;
 
     /* Layout: ELF header, section payloads (aligned), section header table. */
     size_t off = ELF_HDR;
-    uint64_t sec_off[11];
+    uint64_t sec_off[12];
     memset(sec_off, 0, sizeof sec_off);
     for (size_t i = 1; i < nsec; i++) {
         off = align_up(off, (size_t)secs[i].align);

@@ -4,9 +4,12 @@ Goal: get the smallest Omega kernel (`matmul` 16x16x8, sm_121) to load and run
 through MAX's `DeviceExternalFunction` path, with a known-good control and the
 C/libcuda probe as an independent oracle.
 
-Status: host preparation is IMPLEMENTED and the host refusals are EXERCISED.
-Every device row is **NOT_RUN** because no authorized window has been opened
-for this gate. The device results will be added under `G2/<window-id>/`.
+Status: Gate 2 **EXERCISED on GB10** (three shared value-only windows under
+ledger L881, results below). The current main writer's image is refused with
+200 by both loaders. The fixed writer in this change (tkinfo note plus
+declared registers) loads and runs through libcuda and through MAX
+`DeviceExternalFunction`, exact against the fp32 oracle. Not QUALIFIED: one
+shape, one chip, no timing.
 
 ## Earlier device runs (2026-10-24, transcript only, no receipt)
 
@@ -59,7 +62,37 @@ deterministic: two runs give identical images.
 | N3-ctl-eflags-sm80 | omega_matmul_bf16 | REJECT | `194a48dce16bcef34faadb233a46b9d9370a80d43326d62c2cdfd9819e5f84be` | e_flags arch field |
 | N4-max-vecadd-sm80 | vec_add | REJECT (209 NO_BINARY_FOR_GPU) | `b0a171991dc9a2c456b70d3221b6353d2e671159f94e5eca292986ff5bcf21e8` | wrong-arch real cubin |
 
-The same table is `~/handoffs/max-g2/variants/MATRIX.tsv`. All images
+Bisection images for the 715 (window 2, `tools/MATRIX-g2b.tsv`), each one
+field changed from E5, E3 or D:
+
+| name | fn | expect | sha256 | isolates |
+|---|---|---|---|---|
+| H1-e5-reg40 | omega_matmul_bf16 | PASS if register count | `629803d0f3643b7a9b92b38abc843bc8dac6395c5579ddcb4f174e3ad72e7c77` | REGCOUNT+MAXREG 40 (peak+2 rounded to 8) |
+| H2-e5-regcount40 | omega_matmul_bf16 | UNKNOWN | `a849a4ace4acc113a0dd716dc61e5d5077328b2ae2352f43dfbc0e52c2a07f5c` | REGCOUNT 0x2f only |
+| H3-e5-maxreg40 | omega_matmul_bf16 | UNKNOWN | `b4bc06565bfa0ff5b446dabf15001b514cdcf2ddbb2ae1827591c8b02943d655` | MAXREG 0x1b only |
+| H4-e5-reg34 | omega_matmul_bf16 | UNKNOWN | `88531f937c017be0c7df7733ac50d30786b5c7abcd9b6e0cf34bf781969cf3e8` | REGCOUNT+MAXREG 34 (peak+2, ptxas rule) |
+| H5-e5-isa1 | omega_matmul_bf16 | 715 if register count | `6211cb1320905e117ee6ea000e2c42b16f87b30373d9171205e84e0ef29c2d44` | nv.compat ISA_CLASS 1 (ptxas value) |
+| H6-e3-reg40 | omega_matmul_bf16 | PASS if tkinfo+regs suffice | `f8ea88ef3ce51f6f57738da5bae1957dc59c4344ef3213fe4b4c42a8442083d7` | minimal writer fix: own tkinfo + regs 40 |
+| H7-d-reg40 | omega_matmul_bf16 | REJECT 200 (no tkinfo) | `62d11f4ff521a5fb55350ca7fa986ed52530b63505f7497b8cffc60304dc5c5f` | regs alone do not fix the load |
+
+Writer-output images (window 3, `tools/MATRIX-g2c.tsv`), no edits after
+export. W1 and W2 come from `build/artifact-export` on this change's tree
+(manifests in `20261031T003009Z-0b0fa9/`); X is the attention artifact the
+main writer produced (`68/attention-hd128-gqa8.cubin`). Window 3 reruns A,
+D and N1-N4 from the table above as controls.
+
+| name | fn | expect | sha256 | isolates |
+|---|---|---|---|---|
+| W1-writer-matmul | omega_matmul_bf16 | PASS | `1dac563e82ff3523681261d9fb79d89db74f4081ca0a6328049940fc1c4c007b` | fixed writer, matmul 16x16x8, REGCOUNT 40 |
+| W2-writer-attention | omega_gqa_attention_causal | LOAD | `90b5c752f793d1187485f7dcec0921001443498584075d13cfb47bf9236d2169` | fixed writer, attention hq=8 hkv=1 hd=128, REGCOUNT 80 |
+| X-attn-main | omega_gqa_attention_causal | REJECT 200 | `4d8ab7ae60f3550ab90710b2bc87af71e9ffeec91ad0190eb72f004b9d997ab7` | main writer, no tkinfo |
+
+W1 differs from H6 only in file layout (section and header offsets) and in
+the tkinfo tool string (`Build omega_cubin` instead of `Build b5746b94`):
+`readelf -x` of sections 1-10 and 12 is identical, section 11 is the note.
+
+The tables are `tools/MATRIX-g2b.tsv` and `tools/MATRIX-g2c.tsv` (copies
+of `~/handoffs/max-g2/variants/`). All images
 pass `readelf`. All except N1 pass `cuobjdump -elf`. `nvdisasm -c` rejects N1
 ("invalid ELF file"), reports illegal instructions for N3 and an old-format
 warning for N4, and disassembles every Omega image (C, D, E1-E5, F, G) without
@@ -105,10 +138,11 @@ EXIT at 0x400, followed by a BRA self-loop.
   `DeviceExternalFunction` with MAX-owned buffers and stream. Same sentinel,
   oracle and exit codes. Modes: `run|loadonly|reject`.
 - `tools/run_matrix.sh`: loads each image with both probes first,
-  and launches an image only if both loaders accepted it. Writes `raw.log` and
-  `results.tsv` to `$SPARK_WINDOW_DIR/max-g2/`. Disables MAX's pooled memory
-  manager, so a shared window does not reserve chip memory next to the
-  resident servers.
+  and launches an image only if both loaders accepted it. Mode `load`
+  (kernels without the probe's matmul ABI) loads and resolves only. Writes
+  `raw.log` and `results.tsv` to `$SPARK_WINDOW_DIR/max-g2/`. Disables MAX's
+  pooled memory manager, so a shared window does not reserve chip memory
+  next to the resident servers.
 
 ## Host results (EXERCISED)
 
@@ -122,10 +156,65 @@ run_matrix.sh (no window)               -> refused, rc=3
 run_matrix.sh with stub probes          -> 15 rows; launch rows skipped when a load fails
 ```
 
-## Device run (NOT_RUN; needs a ledger grant)
+## Device results (EXERCISED on GB10)
 
-```
-spark-window open maxinterop-g2 --ledger <ID> --gb10 shared --quiet none --lease 10
-spark-window run ~/handoffs/max-g2/run_matrix.sh
-spark-window close <window-id>
-```
+Driver 580.173.02, MAX 26.7.0 (`max/v26.7.0` 527d069e), mojo 1.2.0. Every
+window was `--gb10 shared --quiet none` under ledger L881, value-only, with a
+BOARD START/CLOSED line. Cells are probe exit codes (0 pass or expected
+refusal, 1 MAX raised at launch, 4 load/CUDA failure, `-` not attempted).
+
+| window | images | wall |
+|---|---|---|
+| `20261030T235211Z-0352f1` | A-N4 (15) | ~70 s |
+| `20261030T235858Z-10fa8c` | A-N4 + H1-H7 (22) | ~73 s |
+| `20261031T003009Z-0b0fa9` | A, D, W1, W2, X, N1-N4 (9) | ~17 s |
+
+Window 1 and window 2 agree on all 15 shared rows. Window 2:
+
+| name | C load | C run | MAX load | MAX run | observed |
+|---|---|---|---|---|---|
+| A-ctl | 0 | 0 | 0 | 0 | worst_abs 0 |
+| B-ctl-nomerc | 0 | 0 | 0 | 0 | capmerc/merc not required |
+| C-omega-stale-nophdr | 0 | - | 0 | - | refused, 200 |
+| D-omega-main | 4 | - | 4 | - | `cuModuleLoadDataEx -> 200`; MAX `CUDA_ERROR_INVALID_IMAGE` (#68) |
+| E1-omega-symfix | 4 | - | 4 | - | 200 |
+| E2-E5 | 0 | 4 | 0 | 1 | load; launch `715 an illegal instruction` / `CUDA_ERROR_ILLEGAL_INSTRUCTION` |
+| F-ctlcontainer-omega-sass | 0 | 0 | 0 | 0 | Omega machine code runs in the control container |
+| G-omegacontainer-ctl-sass | 4 | - | 4 | - | 200: the container is the load cause |
+| H1-e5-reg40 | 0 | 0 | 0 | 0 | 715 gone |
+| H2-e5-regcount40 | 0 | 0 | 0 | 0 | REGCOUNT alone fixes the launch |
+| H3-e5-maxreg40 | 0 | 4 | 0 | 1 | MAXREG alone does not |
+| H4-e5-reg34 | 0 | 0 | 0 | 0 | peak+2 suffices |
+| H5-e5-isa1 | 0 | 4 | 0 | 1 | ISA_CLASS is not the cause |
+| H6-e3-reg40 | 0 | 0 | 0 | 0 | own tkinfo + regs 40 = minimal fix |
+| H7-d-reg40 | 0 | - | 0 | - | refused, 200: tkinfo is required |
+| N1-N4 | 0 | - | 0 | - | refused as expected |
+
+Window 3 (the fixed writer's own output):
+
+| name | C load | C run | MAX load | MAX run | observed |
+|---|---|---|---|---|---|
+| A-ctl | 0 | 0 | 0 | 0 | worst_abs 0, bad 0 |
+| D-omega-main | 4 | - | 4 | - | 200 (regression control) |
+| W1-writer-matmul | 0 | 0 | 0 | 0 | worst_abs 0, bad 0, sentinel untouched 0, C and MAX |
+| W2-writer-attention | 0 | - | 0 | - | `cuModuleLoadDataEx -> 0`, `cuModuleGetFunction -> 0`; not launched |
+| X-attn-main | 0 | - | 0 | - | refused, 200 |
+| N1-ctl-truncated | 0 | - | 0 | - | refused, 999 / `CUDA_ERROR_INVALID_IMAGE` |
+| N2-ctl-wrong-entry | 0 | - | 0 | - | refused, 500 / `CUDA_ERROR_NOT_FOUND` |
+| N3-ctl-eflags-sm80 | 0 | - | 0 | - | refused, 209 / `CUDA_ERROR_NO_BINARY_FOR_GPU` |
+| N4-max-vecadd-sm80 | 0 | - | 0 | - | refused, 209 / `CUDA_ERROR_NO_BINARY_FOR_GPU` |
+
+Verdict. The CUDApp writer had two defects on sm_121:
+1. No `.note.nv.tkinfo` → `cuModuleLoadData` 200 (#68). Evidence: D, E1, G,
+   H7 refused; E2-E4, H6 loaded.
+2. `.nv.info` REGCOUNT equal to the codegen peak (32) → launch 715. Evidence:
+   H1, H2, H4 run; H3, H5 still 715.
+
+This change writes a tkinfo note in both packers and makes `artifact-export`
+declare `omega_bw_gpr_declared(peak)` registers. W1 is that output, unedited,
+and passes Gate 2 through MAX. Attention launch is Gate 3. The live
+`omega_gpu_matmul_api.c` path still stores the peak and needs a paired
+omega-mv + CUDApp change (drift baseline).
+
+Raw: `<window>/raw.log` and `results.tsv` here; the window directories under
+`~/yardsticks/windows/` hold `open.json`/`close.json`.

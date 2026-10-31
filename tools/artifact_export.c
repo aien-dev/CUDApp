@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "omega_blackwell_codegen.h"
 #include "omega_blackwell_matmul.h"
 #include "omega_blackwell_qmd.h"
 #include "omega_gpu_attention_api.h"
@@ -99,7 +100,6 @@ int main(int argc, char **argv) {
         if (omega_matmul_spec_init(&spec, m, k, n, OMEGA_MATMUL_PRECISION_BF16) != 0) { fprintf(stderr, "spec refused\n"); return 3; }
         if (omega_blackwell_codegen_matmul(&spec, &kern) != 0) { fprintf(stderr, "codegen refused\n"); return 3; }
         hex32(spec.spec_id, spec_hex);
-        cfg.gpr_count = kern.gpr_count;
         cfg.threads_per_block = 32; cfg.threads_x = 32;
         cfg.grid_x = 1; cfg.grid_y = (m + 15u) / 16u;
         cfg.num_elements = m * n; cfg.shared_bytes = 1024;
@@ -133,7 +133,6 @@ int main(int argc, char **argv) {
         (void)spec_hexp;
         uint32_t hpc = omega_gpu_attention_heads_per_cta(128, log2gqa);
         uint32_t shared = (3u * hpc + 1u) * 128u * 4u;
-        cfg.gpr_count = kern.gpr_count;
         cfg.threads_per_block = 128; cfg.threads_x = 128;
         cfg.grid_x = hq / hpc; cfg.grid_y = 1;
         cfg.num_elements = hq * 128u; cfg.shared_bytes = shared;
@@ -154,6 +153,11 @@ int main(int argc, char **argv) {
     } else {
         usage(); return 2;
     }
+    /* Declare peak + 2 rounded up to 8, as every launcher does. A cubin whose REGCOUNT is the allocator
+     * peak loads but faults at run (GB10, G2 window 20261030T235858Z-10fa8c: E5 at peak 32 gave 715,
+     * H1/H2 at 40 and H4 at 34 ran bit-exact; evidence/MAX-INTEROP/G2). */
+    cfg.gpr_count = omega_bw_gpr_declared(kern.gpr_count);
+    if (!omega_bw_gpr_declared_ok(cfg.gpr_count, kern.gpr_count)) { fprintf(stderr, "declared registers refused\n"); return 3; }
     if (omega_blackwell_build_qmd0(q0, 0, 0) != 0 || omega_blackwell_build_qmd1(q1, &cfg) != 0) {
         fprintf(stderr, "QMD template refused\n"); return 3;
     }
@@ -172,7 +176,7 @@ int main(int argc, char **argv) {
     a.kernel_function = (strcmp(mode, "matmul") == 0) ? "omega_matmul_bf16" : "omega_gqa_attention_causal";
     a.text = kern.code; a.text_len = kern.code_size;
     a.params = params; a.nparams = nparams;
-    a.gpr_count = kern.gpr_count;
+    a.gpr_count = cfg.gpr_count;
     a.cbank_offset = 0x380;
     a.cbank_args = cbank;
     a.qmd0 = q0; a.qmd1 = q1;

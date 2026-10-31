@@ -53,6 +53,11 @@ tail -n +2 "$MATRIX" | while IFS=$'\t' read -r name fn mode expect sha isolates;
   elif [ "$mode" = reject ]; then
     cl=$(step "$name C expect-reject" "$CPROBE" --expect-reject "$img" "$fn" $M $K $N)
     ml=$(step "$name MAX reject" "$MPROBE" "$img" "$fn" reject)
+  elif [ "$mode" = load ]; then
+    # A kernel whose ABI is not the probe's 16x16x8 matmul: container and
+    # entry acceptance only, never launched.
+    cl=$(step "$name C load-only" "$CPROBE" --load-only "$img" "$fn" $M $K $N)
+    ml=$(step "$name MAX loadonly" "$MPROBE" "$img" "$fn" loadonly)
   else
     cl=$(step "$name C load-only" "$CPROBE" --load-only "$img" "$fn" $M $K $N)
     ml=$(step "$name MAX loadonly" "$MPROBE" "$img" "$fn" loadonly)

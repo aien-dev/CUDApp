@@ -1,0 +1,10 @@
+name	fn	mode	expect	sha_ok	c_load	c_run	max_load	max_run
+A-ctl	omega_matmul_bf16	run	PASS	yes	0	0	0	0
+D-omega-main	omega_matmul_bf16	run	REJECT 200 expected (10-24 phdr-mat)	yes	4	-	4	-
+W1-writer-matmul	omega_matmul_bf16	run	PASS (writer fix: tkinfo + declared regs 40)	yes	0	0	0	0
+W2-writer-attention	omega_gqa_attention_causal	load	LOAD (writer fix, regs 80)	yes	0	-	0	-
+X-attn-main	omega_gqa_attention_causal	reject	REJECT 200 (main writer, no tkinfo)	yes	0	-	0	-
+N1-ctl-truncated	omega_matmul_bf16	reject	REJECT	yes	0	-	0	-
+N2-ctl-wrong-entry	omega_matmul_bf16_missing	reject	REJECT (500 NOT_FOUND)	yes	0	-	0	-
+N3-ctl-eflags-sm80	omega_matmul_bf16	reject	REJECT	yes	0	-	0	-
+N4-max-vecadd-sm80	vec_add	reject	REJECT (209 NO_BINARY_FOR_GPU)	yes	0	-	0	-

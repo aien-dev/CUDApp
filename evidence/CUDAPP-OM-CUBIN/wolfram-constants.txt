@@ -30,3 +30,22 @@ Query 2 (the .nv.compat payload as little-endian 32-bit words):
 FromDigits[Reverse[#], 256] & /@ Partition[{16^^02,16^^09,0,0, 2,2,2,0, 2,5,5,0, 3,7,1,1, 2,3,0,0, 2,6,1,0,
   4,16^^0b,8,0, 0,0,0,0, 0,0,0,0}, 4]
 Out[1]= {2306, 131586, 328962, 16844547, 770, 67074, 527108, 0, 0}
+
+Query 3 (2026-10-31, the .note.nv.tkinfo section the sm_121 driver requires, CUDApp#68; chip evidence
+evidence/MAX-INTEROP/G2/):
+le[s_] := FromDigits[Reverse[ToCharacterCode[s]], 256];
+blob = FromCharacterCode[Join[{0}, ToCharacterCode["cudapp"], {0}, ToCharacterCode["CUDApp omega_cubin sm_121"], {0},
+  ToCharacterCode["Build omega_cubin"], {0}, ToCharacterCode["-arch sm_121"], {0}]]; bl = ToCharacterCode[blob];
+<|"blobLen" -> Length[bl], "byte64" -> bl[[65]], "words" -> (FromDigits[Reverse[#], 256] & /@ Partition[Take[bl, 64], 8]),
+  "offs" -> {1, 1 + 7, 1 + 7 + 26, 1 + 7 + 26 + 18}, "descRaw" -> 24 + Length[bl], "descsz" -> 8*Ceiling[(24 + Length[bl])/8],
+  "noteSize" -> 24 + 8*Ceiling[(24 + Length[bl])/8], "flags" -> FromDigits["2000000", 16], "dotnotenv" -> le[".note.nv"],
+  "dottkinfo7" -> le[".tkinfo"], "shstrBase" -> 117 + 16, "shtab12" -> 12*64, "total12" -> 12*64 + 5*56|>
+Out[1]= <|"blobLen" -> 65, "byte64" -> 0, "words" -> {31648760991146752, 8007523764898387267, 7094686049299293549,
+ 3616776899442798185, 2334109707079385137, 8458709397083090287, 7165896803008538978, 3544950142621917288},
+ "offs" -> {1, 8, 34, 52}, "descRaw" -> 89, "descsz" -> 96, "noteSize" -> 120, "flags" -> 33554432,
+ "dotnotenv" -> 8533809357193702958, "dottkinfo7" -> 31356346815968302, "shstrBase" -> 133, "shtab12" -> 768,
+ "total12" -> 1048|>
+Reading: the eight blob words written by wtk from p + 48 (byte 64, the last terminator, stays 0); the string
+offsets 1 8 34 52; descsz 96 (89 bytes zero-padded to 8, as ptxas pads its own); section 120 bytes, flags
+0x2000000; ".note.nv" + ".tkinfo" appended to .shstrtab (now 133+3n bytes, the new name at 117+3n); twelve
+section headers (768 bytes) and the image total shoff + 1048.

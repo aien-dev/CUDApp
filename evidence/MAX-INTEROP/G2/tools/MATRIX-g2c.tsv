@@ -1,0 +1,10 @@
+name	fn	mode	expect	sha256	isolates
+A-ctl	omega_matmul_bf16	run	PASS	d95a489211830f58b93f092bab94ed4174c56cc4ae49779da3091aea2bf581d2	probe+driver+ABI known-good
+D-omega-main	omega_matmul_bf16	run	REJECT 200 expected (10-24 phdr-mat)	c4de09ece9f92d762c91eac0ca7af635618538697f90654dc76da2497e492e48	current CUDApp writer
+W1-writer-matmul	omega_matmul_bf16	run	PASS (writer fix: tkinfo + declared regs 40)	1dac563e82ff3523681261d9fb79d89db74f4081ca0a6328049940fc1c4c007b	CUDApp#202 artifact-export output, uncommitted tree on a43cab19
+W2-writer-attention	omega_gqa_attention_causal	load	LOAD (writer fix, regs 80)	90b5c752f793d1187485f7dcec0921001443498584075d13cfb47bf9236d2169	CUDApp#202 artifact-export attention hq=8 hkv=1 hd=128
+X-attn-main	omega_gqa_attention_causal	reject	REJECT 200 (main writer, no tkinfo)	4d8ab7ae60f3550ab90710b2bc87af71e9ffeec91ad0190eb72f004b9d997ab7	evidence/MAX-INTEROP/68 attention artifact (main writer)
+N1-ctl-truncated	omega_matmul_bf16	reject	REJECT	e059683df43d9a2a6e8fc5fbcc831378dbd5d7d75d2e32e4accf9ca79d43387d	truncated image
+N2-ctl-wrong-entry	omega_matmul_bf16_missing	reject	REJECT (500 NOT_FOUND)	d95a489211830f58b93f092bab94ed4174c56cc4ae49779da3091aea2bf581d2	entry name
+N3-ctl-eflags-sm80	omega_matmul_bf16	reject	REJECT	194a48dce16bcef34faadb233a46b9d9370a80d43326d62c2cdfd9819e5f84be	e_flags arch field
+N4-max-vecadd-sm80	vec_add	reject	REJECT (209 NO_BINARY_FOR_GPU)	b0a171991dc9a2c456b70d3221b6353d2e671159f94e5eca292986ff5bcf21e8	wrong-arch real cubin

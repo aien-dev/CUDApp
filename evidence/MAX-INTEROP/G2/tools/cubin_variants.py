@@ -26,6 +26,7 @@ SH = struct.Struct("<IIQQQQIIQQ")  # name type flags addr off size link info ali
 PH = struct.Struct("<IIQQQQQQ")  # type flags off vaddr paddr filesz memsz align
 SYM = struct.Struct("<IBBHQQ")  # name info other shndx value size
 EXIT_OFFS, CRS_STACK, MAXREG, REGCOUNT = 0x1C, 0x1E, 0x1B, 0x2F  # EIATTR codes (cuobjdump 13.0 names)
+ISA_CLASS = 0x02  # EICOMPAT_ATTR_ISA_CLASS in .nv.compat (cuobjdump 13.0); ptxas 13.0 sm_121/a/f writes 1, CUDApp 2
 
 
 class Elf:
@@ -244,9 +245,11 @@ def main():
     e.set_sh(c0, 6, 0)
     e.set_sh(c0, 8, 4)
     emit("E5-omega-allmeta", bytes(e.b), FN, "run", "UNKNOWN", "E4 + exit offsets, crs, smem syms, cbank0 link/align")
+    e5 = bytes(e.b)
     # F: the control's container without merc (B) carrying Omega's machine code.
     # The text shrinks in place (0x880 -> 0x480); its segment, symbol size and
-    # EXIT offsets follow. REGCOUNT stays 40 (Omega needs 32). cbank0 is all zero in both.
+    # EXIT offsets follow. REGCOUNT stays the control's 40: Omega's code writes R0..R31
+    # (peak 32), ptxas declares max register + 3 (control R37 -> 40, mma R15 -> 18). cbank0 is all zero in both.
     f = Elf(bytes(nomerc.b))
     ti = f.index(".text." + FN)
     th = f.shdrs()[ti]
@@ -285,6 +288,33 @@ def main():
     ki = g.index(".nv.info." + FN)
     g.replace(ki, nvinfo_pack(set_attr(nvinfo(g.data(ki)), MAXREG, b"\xff\0")), 4)
     emit("G-omegacontainer-ctl-sass", bytes(g.b), FN, "run", "UNKNOWN: load => CUDApp container accepted", "machine code vs container (CUDApp container)")
+    # H: register count and ISA class, the only E5-vs-F metadata differences left
+    # (static diff 2026-10-31: same text, tkinfo, cuinfo, cbank0, e_flags).
+    def with_meta(base, regs=None, maxreg=None, isa=None):
+        v = Elf(base)
+        def put(name, ents):
+            i = v.index(name)
+            h = v.shdrs()[i]
+            new = nvinfo_pack(ents)
+            assert len(new) == h[5]
+            v.b[h[4] : h[4] + h[5]] = new
+        if regs is not None:
+            ents = nvinfo(v.data(v.index(".nv.info")))
+            sym = struct.unpack_from("<I", next(x for x in ents if x[1] == REGCOUNT)[2])[0]
+            put(".nv.info", set_attr(ents, REGCOUNT, struct.pack("<II", sym, regs)))
+        if maxreg is not None:
+            put(".nv.info." + FN, set_attr(nvinfo(v.data(v.index(".nv.info." + FN))), MAXREG, struct.pack("<H", maxreg)))
+        if isa is not None:
+            put(".nv.compat", set_attr(nvinfo(v.data(v.index(".nv.compat"))), ISA_CLASS, struct.pack("<H", isa)))
+        return bytes(v.b)
+    e3 = (OUT / "E3-omega-tkinfo-own.cubin").read_bytes()
+    emit("H1-e5-reg40", with_meta(e5, regs=40, maxreg=40), FN, "run", "PASS if register count", "REGCOUNT+MAXREG 40 (peak+2 rounded to 8)")
+    emit("H2-e5-regcount40", with_meta(e5, regs=40), FN, "run", "UNKNOWN", "REGCOUNT 0x2f only")
+    emit("H3-e5-maxreg40", with_meta(e5, maxreg=40), FN, "run", "UNKNOWN", "MAXREG 0x1b only")
+    emit("H4-e5-reg34", with_meta(e5, regs=34, maxreg=34), FN, "run", "UNKNOWN", "REGCOUNT+MAXREG 34 (peak+2, ptxas rule)")
+    emit("H5-e5-isa1", with_meta(e5, isa=1), FN, "run", "715 if register count", "nv.compat ISA_CLASS 1 (ptxas value)")
+    emit("H6-e3-reg40", with_meta(e3, regs=40, maxreg=40), FN, "run", "PASS if tkinfo+regs suffice", "minimal writer fix: own tkinfo + regs 40")
+    emit("H7-d-reg40", with_meta(main_raw, regs=40, maxreg=40), FN, "reject", "REJECT 200 (no tkinfo)", "regs alone do not fix the load")
     # Negative controls: each must be rejected.
     emit("N1-ctl-truncated", bytes(ctl.b[:1500]), FN, "reject", "REJECT", "truncated image")
     emit("N2-ctl-wrong-entry", bytes(ctl.b), "omega_matmul_bf16_missing", "reject", "REJECT (500 NOT_FOUND)", "entry name")
