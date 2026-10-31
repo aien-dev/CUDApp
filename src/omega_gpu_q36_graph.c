@@ -13,6 +13,7 @@
 #include "omega_gpu_fmt.h"
 #include "omega_gpu_mem_cached.h"
 #include "omega_gpu_fp8gemm_api.h"
+#include "omega_gpu_fp8_head_api.h"
 #include "omega_gpu_q36_native.h"
 #include "omega_gpu_cmdlist_native.h"
 #include <stdlib.h>
@@ -75,6 +76,8 @@ struct OmegaGpuQ36Graph {
     struct { const OmegaGpuFp8Tensor *mix, *o, *gu, *dn; const OmegaGpuBf16Tensor *ab; uint32_t kind_index; int attn, set; } layer[OMEGA_GPU_Q36_MAX_LAYERS];
     int final_set;
     const OmegaGpuFp8Tensor *head8;      /* set_lm_head_fp8: FP8 lm_head (hidden is then written x 2^64, read() undoes it) */
+    int fp8head;                         /* AIEN_OMEGA_Q36_FP8_HEAD=1 (default off, DRA-69): the batch reads head8 once per stroke
+                                          * (omega_gpu_fp8_head_api.h) instead of per head (record_head_final) */
     /* heads (strokes): slot h of x, hidden, logits and token; head 0's state objects are cfg.gdn / cfg.attn */
     uint32_t heads;                      /* slots laid out (create_heads); 1 = the plain graph */
     OmegaGpuGdn *gdn_h[OMEGA_GPU_Q36_MAX_HEADS];
@@ -294,6 +297,7 @@ int omega_gpu_q36_graph_create_heads(const OmegaGpuQ36GraphConfig *cfg, uint32_t
     }
     omega_gpu_session_unlock();
     if (rc != OMEGA_GPU_DGRAPH_OK) { omega_gpu_q36_graph_free(g); return rc; }
+    { const char *e = getenv("AIEN_OMEGA_Q36_FP8_HEAD"); g->fp8head = e && e[0] == '1' && e[1] == 0; }
     { const char *e = getenv("AIEN_OMEGA_Q36_BATCH"); if (e && e[0] == '1' && e[1] == 0 && omega_gpu_q36_graph_set_batch(g, 1) != OMEGA_GPU_DGRAPH_OK) { omega_gpu_q36_graph_free(g); return OMEGA_GPU_DGRAPH_CHIP_FAIL; } }
     *out = g;
     return OMEGA_GPU_DGRAPH_OK;
@@ -348,6 +352,12 @@ int omega_gpu_q36_graph_set_final_norm(OmegaGpuQ36Graph *g, const float *final_n
     return rc;
 }
 
+/* pin the fp8head kernel for every stroke width 1..heads (record_final_heads_fp8; a cache miss while recording is refused) */
+static int fp8head_prepare(uint32_t heads) {
+    for (uint32_t xb = 1; xb <= heads; xb++) if (omega_gpu_fp8_head_prepare(H, xb) != OMEGA_GPU_FP8_OK) return -1;
+    return 0;
+}
+
 int omega_gpu_q36_graph_set_lm_head_fp8(OmegaGpuQ36Graph *g, const OmegaGpuFp8Tensor *head) {
     if (!g || g->in_token) return OMEGA_GPU_DGRAPH_BAD_ARGS;
     if (!head) { g->head8 = NULL; return OMEGA_GPU_DGRAPH_OK; }
@@ -357,6 +367,7 @@ int omega_gpu_q36_graph_set_lm_head_fp8(OmegaGpuQ36Graph *g, const OmegaGpuFp8Te
     memcpy((uint8_t *)cpu_of(g, g->lo.tabs) + (size_t)g->cfg.layers * 64u, t, sizeof t);
     int rc = omega_gpu_session_sync_to_gpu(&g->buf) == 0 ? OMEGA_GPU_DGRAPH_OK : OMEGA_GPU_DGRAPH_CHIP_FAIL;
     omega_gpu_session_unlock();
+    if (rc == OMEGA_GPU_DGRAPH_OK && g->batch && g->fp8head && fp8head_prepare(g->heads) != 0) rc = OMEGA_GPU_DGRAPH_CHIP_FAIL;
     if (rc == OMEGA_GPU_DGRAPH_OK) g->head8 = head;
     return rc;
 }
@@ -621,6 +632,7 @@ int omega_gpu_q36_graph_set_batch(OmegaGpuQ36Graph *g, int on) {
         for (uint32_t xb = 2; xb <= OMEGA_BF16_MAX_XBATCH && xb <= g->heads; xb++)
             if (omega_gpu_bf16_prepare_xbatch(k, xb, g->am_ctas * OMEGA_DEC_ARGMAX_SPAN) != OMEGA_GPU_BF16_OK) return OMEGA_GPU_DGRAPH_CHIP_FAIL;
     }
+    if (g->head8 && g->fp8head && fp8head_prepare(g->heads) != 0) return OMEGA_GPU_DGRAPH_CHIP_FAIL;
     g->batch = 1;
     return OMEGA_GPU_DGRAPH_OK;
 }
@@ -819,15 +831,33 @@ int omega_gpu_q36_graph_record_head_final(OmegaGpuQ36Graph *g, uint32_t h) {
     return rc == OMEGA_GPU_DGRAPH_OK ? rc : fail(g, NULL, rc);
 }
 
+/* DRA-69 (AIEN_OMEGA_Q36_FP8_HEAD=1): the FP8 head once per stroke. hidden (already x 2^64, GPU-uncached) is copied into
+ * the cached xq slots (K_COPY: N * 2048 / 256 rows; xq is free after the last layer, begin_stroke resets xq_layer), one
+ * fp8head launch for every head (row h of the output bit-identical to head h's record_head_final logits, see
+ * omega_gpu_fp8_head_api.h), then the argmax per head. TEST mutant 7: the copy leaves the last head out, so that head's
+ * logits come from its stale layer x'. */
+static int record_final_heads_fp8(OmegaGpuQ36Graph *g, uint32_t N) {
+    uint32_t w[OMEGA_DEC_GA_WORDS]; memset(w, 0, sizeof w);
+    const uint64_t xq0 = va_of(g, xq_of(g, 0));
+    const uint32_t copy_rows = (g->mutant == 7 ? N - 1u : N) * (H / COPY_ROW);
+    put64(w, OMEGA_DEC_GA_IN, va_of(g, hidden_of(g, 0))); put64(w, OMEGA_DEC_GA_TAB, va_of(g, g->lo.idtab)); put64(w, OMEGA_DEC_GA_OUT, xq0);
+    int rc = copy_rows ? add_glue(g, OMEGA_GPU_Q36_K_LM_HEAD, K_COPY, 1, copy_rows, (size_t)copy_rows * COPY_ROW, w, OMEGA_DEC_GA_WORDS) : OMEGA_GPU_DGRAPH_OK;
+    if (rc == OMEGA_GPU_DGRAPH_OK)
+        rc = after_op(g, OMEGA_GPU_Q36_K_LM_HEAD, omega_gpu_fp8_head_record(g->cl, g->head8, N, xq0, va_of(g, logits_of(g, 0)), g->am_ctas * OMEGA_DEC_ARGMAX_SPAN));
+    for (uint32_t h = 0; h < N && rc == OMEGA_GPU_DGRAPH_OK; h++) rc = rec_argmax(g, va_of(g, logits_of(g, h)), va_of(g, token_of(g, h)));
+    return rc == OMEGA_GPU_DGRAPH_OK ? rc : fail(g, NULL, rc);
+}
+
 /* The batch's final head (v2 lever 1, L312): every head's hidden is ready after the last layer (record_layer_heads), so
  * the bf16 lm_head runs once per group of up to OMEGA_BF16_MAX_XBATCH heads (the XBATCH form: x rows hidden_of(h0..),
  * y rows logits_of(h0..), ystride the logits slot; each row bit-identical to its own one-head launch), then the argmax
- * per head. The FP8 head keeps the per-head path (stroke() calls record_head_final). */
+ * per head. The FP8 head takes record_final_heads_fp8 (stroke() sends it here only with AIEN_OMEGA_Q36_FP8_HEAD=1). */
 static int record_final_heads(OmegaGpuQ36Graph *g) {
     const uint32_t N = g->stroke_heads;
     if (!g->final_set) return fail(g, "q36 graph: final norm not set", OMEGA_GPU_DGRAPH_BAD_ARGS);
     for (uint32_t h = 0; h < N; h++)
         if (!g->hidden_ready[h]) return fail(g, "q36 graph: batch final before the last layer", OMEGA_GPU_DGRAPH_BAD_ARGS);
+    if (g->head8) return record_final_heads_fp8(g, N);
     int rc = OMEGA_GPU_DGRAPH_OK;
     for (uint32_t h0 = 0; h0 < N && rc == OMEGA_GPU_DGRAPH_OK; h0 += OMEGA_BF16_MAX_XBATCH) {
         const uint32_t xb = N - h0 < OMEGA_BF16_MAX_XBATCH ? N - h0 : OMEGA_BF16_MAX_XBATCH;
@@ -881,7 +911,7 @@ int omega_gpu_q36_graph_stroke(OmegaGpuQ36Graph *g, const float *x_embed, const 
         if (g->batch) (void)omega_gpu_q36_graph_record_layer_heads(g, l, pos);
         else for (uint32_t h = 0; h < heads && !g->failed; h++) (void)omega_gpu_q36_graph_record_head_layer(g, h, l, pos[h]);
     }
-    if (g->batch && !g->head8) { if (!g->failed) (void)record_final_heads(g); }
+    if (g->batch && (!g->head8 || g->fp8head)) { if (!g->failed) (void)record_final_heads(g); }
     else for (uint32_t h = 0; h < heads && !g->failed; h++) (void)omega_gpu_q36_graph_record_head_final(g, h);
     return omega_gpu_q36_graph_end_stroke(g, tokens, st);
 }
