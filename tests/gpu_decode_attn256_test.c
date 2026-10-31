@@ -21,6 +21,7 @@
  */
 #include "omega_gpu_decode_attn256_api.h"
 #include "omega_gpu_session.h"
+#include "omega_gpu_cmdlist.h"
 #include "omega_gpu_hostmath.h"
 #include "bw_warp_sim_k.h"
 #include <inttypes.h>
@@ -247,6 +248,18 @@ static void host_only(void) {
       CHECK(omega_gpu_decode_attn256_cache_alloc_shape(1, 131072 + 256, THETA, 64, QH, KVH, QPC, &c) == OMEGA_GPU_DATTN_BAD_ARGS && c == NULL, "max_pos > 131072 refused"); }
     CHECK(OMEGA_DATTN256_SHARED_BYTES <= 16384u, "shared memory within the QMD cap (%u)", OMEGA_DATTN256_SHARED_BYTES);
     CHECK(OMEGA_DATTN256_SM_FLAG + 16u == OMEGA_DATTN256_SHARED_BYTES && OMEGA_DATTN256_SM_S + 8192u <= OMEGA_DATTN256_SM_M && OMEGA_DATTN256_SM_M + 288u <= OMEGA_DATTN256_SM_L && OMEGA_DATTN256_SM_L + 256u <= OMEGA_DATTN256_SM_FLAG, "shared map does not overlap");
+    /* L312 lever 5: the heads form (one launch for N conversations) builds for every mutant within the budget, and its refusals hold */
+    for (int m = 0; m <= 5; m++) {
+        OmegaDecodeAttn256Spec p = { .depth = 4, .mutant = m SPEC_SHAPE }, h = p; h.heads = 1;
+        uint32_t np = 0, gp = 0, nh = 0, gh = 0;
+        int rp = omega_decode_attn256_prog_stats(&p, &np, &gp), rh = omega_decode_attn256_prog_stats(&h, &nh, &gh);
+        CHECK(rp == 0 && rh == 0 && nh <= np + 24 && gh <= 126, "heads form mutant %d: rc %d insns %u (plain %u) gprs %u (plain %u)", m, rh, nh, np, gh, gp);
+        if (m == 0 && rh == 0) printf("heads form: %u instructions, %u registers (plain %u, %u)\n", nh, gh, np, gp);
+    }
+    { OmegaDecodeAttn256Spec s = { .depth = 4, .heads = 2 SPEC_SHAPE }; CHECK(omega_decode_attn256_prog_stats(&s, NULL, NULL) != 0, "heads 2 refused");
+      s.heads = 1; s.prep = 1; CHECK(omega_decode_attn256_prog_stats(&s, NULL, NULL) != 0, "the prep form with heads refused"); }
+    CHECK(OMEGA_DATTN256_TAB_KV_STRIDE + 4u <= OMEGA_DATTN256_TAB_ENTRY_BYTES && OMEGA_DATTN256_ARG_TAB + 8u == 0x380u + 4u * OMEGA_DATTN256_HEADS_ARGS_WORDS && OMEGA_DATTN256_TAB_POS % 16u == 0u,
+          "heads form: table entry and argument layout");
 }
 
 /* ------------------------------------------------------------- simulator */
@@ -332,6 +345,115 @@ static void sim_battery(void) {
         printf("sim mutant %d at context 301: %s (%s)\n", m, caught ? "caught" : "MISSED", msg);
     }
     printf("sim: %" PRIu64 " warp issues in total\n", g_sim_issues);
+}
+
+/* L312 lever 5: the heads form in the simulator. HN conversations with histories, positions (contexts 7 and 301: 1 and 2 splits, so
+ * conversation 0's second CTA column exits empty), norms and buffers of their own run in ONE launch of the heads program on grid
+ * (2, VY * HN); each must be bit-identical (out row, appended K/V rows) to its own plain launch, with its counters back to zero.
+ * control: entry 1's qkv is pointed at conversation 0's row, so conversation 1 must differ from its plain result. */
+#define HN 2u
+static int sim_heads_run(int mutant, int control, char *msg, size_t n) {
+    static BlackwellIRProgram prog, hprog;
+    OmegaDecodeAttn256Spec spec = { .depth = 2, .mutant = mutant SPEC_SHAPE }, hspec = spec; hspec.heads = 1;
+    if (omega_blackwell_codegen_decode_attn256_prog(&spec, &prog) != 0 || omega_blackwell_codegen_decode_attn256_prog(&hspec, &hprog) != 0) { snprintf(msg, n, "codegen refused"); return -1; }
+    const uint32_t max_pos = 512, per = 256, posv[HN] = { 6, 300 };
+    const size_t plane = (size_t)KVH * max_pos * OMEGA_DATTN256_ROW_BYTES + OMEGA_DATTN256_PLANE_SLACK, hist = (size_t)KVH * max_pos * OMEGA_DATTN256_ROW_BYTES;
+    const size_t rows = (size_t)KVH * OMEGA_DATTN256_ROW_BYTES;
+    float *rope = aligned_alloc(16, (size_t)max_pos * OMEGA_DATTN256_ROPE_ROW_BYTES);
+    for (uint32_t p = 0; p < max_pos; p++) omega_dattn256_rope_row(p, THETA, 64, rope + (size_t)p * 256);
+    Case c[HN]; uint16_t *kcp[HN]; uint8_t *kv[HN], *prow[HN]; float *norms[HN], *qkv[HN], *out[HN], *plain[HN], *part[HN]; uint32_t *cnt[HN], splits[HN], gx = 0;
+    for (unsigned i = 0; i < HN; i++) {
+        case_make(&c[i], max_pos, posv[i], 64, 300 + i, 1.0f); kcp[i] = case_kc_perm(&c[i]);
+        splits[i] = (posv[i] + per) / per; if (splits[i] > gx) gx = splits[i];
+        kv[i] = aligned_alloc(16, 2 * plane); norms[i] = aligned_alloc(16, 2048); qkv[i] = aligned_alloc(16, sizeof c[i].qkv);
+        case_kernel_inputs(&c[i], qkv[i], norms[i], norms[i] + HD);
+        out[i] = aligned_alloc(16, OW * 4); plain[i] = malloc(OW * 4); prow[i] = malloc(2 * rows);
+        part[i] = aligned_alloc(16, (size_t)VY * splits[i] * OMEGA_DATTN256_PARTIAL_WORDS * 4); cnt[i] = aligned_alloc(16, 16);
+    }
+    uint8_t *tab = aligned_alloc(16, HN * OMEGA_DATTN256_TAB_ENTRY_BYTES); memset(tab, 0, HN * OMEGA_DATTN256_TAB_ENTRY_BYTES);
+    float fe = EPS, fo = 1.0f, fq = (float)((1.0 / 16.0) * 1.4426950408889634);
+    static uint8_t smem[OMEGA_DATTN256_SHARED_BYTES];
+    int err = 0;
+#define FRESH(i) do { memset(cnt[i], 0, 16); for (unsigned k = 0; k < OW; k++) out[i][k] = -999.0f; memset(kv[i], 0, 2 * plane); memcpy(kv[i], kcp[i], hist); memcpy(kv[i] + plane, c[i].vc, hist); } while (0)
+#define ROWS_OF(i, dst) do { for (unsigned g = 0; g < KVH; g++) { \
+        memcpy((dst) + g * OMEGA_DATTN256_ROW_BYTES, kv[i] + ((size_t)g * max_pos + posv[i]) * OMEGA_DATTN256_ROW_BYTES, OMEGA_DATTN256_ROW_BYTES); \
+        memcpy((dst) + rows + g * OMEGA_DATTN256_ROW_BYTES, kv[i] + plane + ((size_t)g * max_pos + posv[i]) * OMEGA_DATTN256_ROW_BYTES, OMEGA_DATTN256_ROW_BYTES); } } while (0)
+    for (unsigned i = 0; i < HN && !err; i++) {             /* each conversation alone, the plain program */
+        WsSim s; memset(&s, 0, sizeof s); s.p = &prog; s.threads = 256; s.smem = smem; s.smem_bytes = OMEGA_DATTN256_SHARED_BYTES;
+        FRESH(i);
+        uint64_t A[9] = { (uintptr_t)qkv[i], (uintptr_t)kv[i], (uintptr_t)(kv[i] + plane), (uintptr_t)rope, (uintptr_t)norms[i], (uintptr_t)(norms[i] + HD), (uintptr_t)out[i], (uintptr_t)part[i], (uintptr_t)cnt[i] };
+        for (unsigned k = 0; k < 9; k++) { s.cbank[(0x380 + 8 * k) / 4] = (uint32_t)A[k]; s.cbank[(0x380 + 8 * k) / 4 + 1] = (uint32_t)(A[k] >> 32); }
+        memcpy(&s.cbank[OMEGA_DATTN256_ARG_EPS / 4], &fe, 4); memcpy(&s.cbank[OMEGA_DATTN256_ARG_OUT_SCALE / 4], &fo, 4); memcpy(&s.cbank[OMEGA_DATTN256_ARG_QK_SCALE / 4], &fq, 4);
+        s.cbank[OMEGA_DATTN256_ARG_POS / 4] = posv[i]; s.cbank[OMEGA_DATTN256_ARG_PER_SPLIT / 4] = per; s.cbank[OMEGA_DATTN256_ARG_SPLITS / 4] = splits[i]; s.cbank[OMEGA_DATTN256_ARG_KV_STRIDE / 4] = max_pos * OMEGA_DATTN256_ROW_BYTES;
+        s.nranges = 7;
+        s.ranges[0].lo = (uintptr_t)qkv[i]; s.ranges[0].hi = (uintptr_t)qkv[i] + sizeof c[i].qkv;
+        s.ranges[1].lo = (uintptr_t)kv[i]; s.ranges[1].hi = (uintptr_t)kv[i] + 2 * plane;
+        s.ranges[2].lo = (uintptr_t)rope; s.ranges[2].hi = (uintptr_t)rope + (size_t)max_pos * OMEGA_DATTN256_ROPE_ROW_BYTES;
+        s.ranges[3].lo = (uintptr_t)norms[i]; s.ranges[3].hi = (uintptr_t)norms[i] + 2048;
+        s.ranges[4].lo = (uintptr_t)out[i]; s.ranges[4].hi = (uintptr_t)out[i] + OW * 4;
+        s.ranges[5].lo = (uintptr_t)part[i]; s.ranges[5].hi = (uintptr_t)part[i] + (size_t)VY * splits[i] * OMEGA_DATTN256_PARTIAL_WORDS * 4;
+        s.ranges[6].lo = (uintptr_t)cnt[i]; s.ranges[6].hi = (uintptr_t)cnt[i] + 16;
+        err = ws_run(&s, splits[i], VY);
+        if (err) { snprintf(msg, n, "plain %u: %s (pc %d)", i, s.msg, s.err_pc); break; }
+        memcpy(plain[i], out[i], OW * 4); ROWS_OF(i, prow[i]);
+    }
+    if (!err) {                                               /* the HN conversations in one launch of the heads program */
+        WsSim s; memset(&s, 0, sizeof s); s.p = &hprog; s.threads = 256; s.smem = smem; s.smem_bytes = OMEGA_DATTN256_SHARED_BYTES;
+        for (unsigned i = 0; i < HN; i++) {
+            FRESH(i);
+            uint8_t *en = tab + i * OMEGA_DATTN256_TAB_ENTRY_BYTES;
+            const float *q = control && i == 1 ? qkv[0] : qkv[i];
+            uint64_t p64[8] = { (uintptr_t)q, (uintptr_t)kv[i], (uintptr_t)(kv[i] + plane), (uintptr_t)rope, (uintptr_t)norms[i], (uintptr_t)out[i], (uintptr_t)part[i], (uintptr_t)cnt[i] };
+            uint32_t p32[3] = { posv[i], splits[i], max_pos * OMEGA_DATTN256_ROW_BYTES };
+            memcpy(en + OMEGA_DATTN256_TAB_QKV, p64, sizeof p64); memcpy(en + OMEGA_DATTN256_TAB_POS, p32, sizeof p32);
+            const unsigned r = 2 + 6 * i;
+            s.ranges[r + 0].lo = (uintptr_t)qkv[i]; s.ranges[r + 0].hi = (uintptr_t)qkv[i] + sizeof c[i].qkv;
+            s.ranges[r + 1].lo = (uintptr_t)kv[i]; s.ranges[r + 1].hi = (uintptr_t)kv[i] + 2 * plane;
+            s.ranges[r + 2].lo = (uintptr_t)norms[i]; s.ranges[r + 2].hi = (uintptr_t)norms[i] + 2048;
+            s.ranges[r + 3].lo = (uintptr_t)out[i]; s.ranges[r + 3].hi = (uintptr_t)out[i] + OW * 4;
+            s.ranges[r + 4].lo = (uintptr_t)part[i]; s.ranges[r + 4].hi = (uintptr_t)part[i] + (size_t)VY * splits[i] * OMEGA_DATTN256_PARTIAL_WORDS * 4;
+            s.ranges[r + 5].lo = (uintptr_t)cnt[i]; s.ranges[r + 5].hi = (uintptr_t)cnt[i] + 16;
+        }
+        s.ranges[0].lo = (uintptr_t)tab; s.ranges[0].hi = (uintptr_t)tab + HN * OMEGA_DATTN256_TAB_ENTRY_BYTES;
+        s.ranges[1].lo = (uintptr_t)rope; s.ranges[1].hi = (uintptr_t)rope + (size_t)max_pos * OMEGA_DATTN256_ROPE_ROW_BYTES;
+        s.nranges = 2 + 6 * HN;
+        memcpy(&s.cbank[OMEGA_DATTN256_ARG_EPS / 4], &fe, 4); memcpy(&s.cbank[OMEGA_DATTN256_ARG_OUT_SCALE / 4], &fo, 4); memcpy(&s.cbank[OMEGA_DATTN256_ARG_QK_SCALE / 4], &fq, 4);
+        s.cbank[OMEGA_DATTN256_ARG_PER_SPLIT / 4] = per;
+        s.cbank[OMEGA_DATTN256_ARG_TAB / 4] = (uint32_t)(uintptr_t)tab; s.cbank[OMEGA_DATTN256_ARG_TAB / 4 + 1] = (uint32_t)((uintptr_t)tab >> 32);
+        err = ws_run(&s, gx, VY * HN);
+        if (err) snprintf(msg, n, "heads launch: %s (pc %d)", s.msg, s.err_pc);
+        else {
+            g_sim_issues += s.warp_issues;
+            uint8_t *hrow = malloc(2 * rows);
+            for (unsigned i = 0; i < HN && !err; i++) {
+                size_t unwritten = 0; for (unsigned k = 0; k < OW; k++) if (out[i][k] == -999.0f) unwritten++;
+                ROWS_OF(i, hrow);
+                const int same_out = memcmp(plain[i], out[i], OW * 4) == 0, same_rows = memcmp(prow[i], hrow, 2 * rows) == 0;
+                const int same = unwritten == 0 && same_out && same_rows, cz = (cnt[i][0] | cnt[i][1] | cnt[i][2] | cnt[i][3]) == 0;
+                if (control && i == 1) { if (same) { err = -1; snprintf(msg, n, "control NOT caught: conversation 1 equals its plain result with conversation 0's qkv"); } }
+                else if (!same || !cz) { err = -1; snprintf(msg, n, "conversation %u: %zu unwritten, out %s, rows %s, counters %s", i, unwritten, same_out ? "same" : "DIFFER", same_rows ? "same" : "DIFFER", cz ? "zero" : "NOT zero"); }
+            }
+            free(hrow);
+            if (!err && control) snprintf(msg, n, "control caught (conversation 0 identical, conversation 1 differs)");
+            else if (!err) snprintf(msg, n, "%u conversations bit-identical to their plain launches (grid %ux%u)", HN, gx, VY * HN);
+        }
+    }
+#undef FRESH
+#undef ROWS_OF
+    for (unsigned i = 0; i < HN; i++) { free(kv[i]); free(norms[i]); free(qkv[i]); free(out[i]); free(plain[i]); free(prow[i]); free(part[i]); free(cnt[i]); free(kcp[i]); case_free(&c[i]); }
+    free(rope); free(tab);
+    return err;
+}
+static void sim_heads_battery(void) {
+    char msg[300];
+    for (int m = 0; m <= 5; m++) {
+        int err = sim_heads_run(m, 0, msg, sizeof msg);
+        CHECK(err == 0, "sim heads form mutant %d: %s", m, msg);
+        printf("sim heads form mutant %d: %s %s\n", m, err ? "ERROR" : "ok", msg);
+    }
+    int err = sim_heads_run(0, 1, msg, sizeof msg);
+    CHECK(err == 0, "sim heads form control: %s", msg);
+    printf("sim heads form control: %s %s\n", err ? "ERROR" : "ok", msg);
 }
 
 /* ------------------------------------------------------------- chip */
@@ -431,6 +553,62 @@ static int chip_run(const char *out_path, uint32_t reps) {
         free(y); free(y2); free(qkv_k); free(kcp); case_free(&c);
         if (omega_gpu_session_is_blocked()) { printf("session latched: stopping\n"); break; }
     }
+    /* L312 lever 5: the heads form on the chip. HCN caches (2 layers; histories, positions and norms of their own) step layer 1 on
+     * the host path one by one; their appended rows are then zeroed and ONE heads launch steps all of them (qkv rows and out rows
+     * in one session buffer): out rows, appended K/V rows and counters must match the plain steps bit for bit. */
+    if (!g_only && !omega_gpu_session_is_blocked()) {
+#define HCN 3u
+        const uint32_t hmax = 1024, hpos[HCN] = { 6, 300, 700 }; /* 1, 2 and 3 splits: grid (3, VY * 3) with three empty CTAs */
+        OmegaGpuDecodeAttn256Cache *hc[HCN] = { NULL, NULL, NULL }; Case cc[HCN]; uint16_t *hk[HCN] = { NULL, NULL, NULL };
+        float *hq[HCN] = { NULL, NULL, NULL }, *hy[HCN] = { NULL, NULL, NULL };
+        static uint16_t prow[HCN][2][KVH * HD], hrow[2][KVH * HD], zk[HD], zv[HD];
+        int hrc = OMEGA_GPU_DATTN_OK;
+        for (unsigned i = 0; i < HCN; i++) {
+            case_make(&cc[i], hmax, hpos[i], 64, 900 + i, 1.0f); hk[i] = case_kc_perm(&cc[i]);
+            hq[i] = malloc(QW * 4); hy[i] = malloc(OW * 4); float qn[HD], kn[HD]; case_kernel_inputs(&cc[i], hq[i], qn, kn);
+            if (hrc == OMEGA_GPU_DATTN_OK) hrc = omega_gpu_decode_attn256_cache_alloc_shape(2, hmax, THETA, 64, QH, KVH, QPC, &hc[i]);
+            if (hrc == OMEGA_GPU_DATTN_OK) hrc = omega_gpu_decode_attn256_set_norms(hc[i], 1, qn, kn);
+            for (unsigned g = 0; g < KVH && hrc == OMEGA_GPU_DATTN_OK && hpos[i]; g++)
+                hrc = omega_gpu_decode_attn256_cache_write(hc[i], 1, g, 0, hpos[i], hk[i] + (size_t)g * hmax * HD, cc[i].vc + (size_t)g * hmax * HD);
+            if (hrc == OMEGA_GPU_DATTN_OK) hrc = omega_gpu_decode_attn256(hc[i], 1, hpos[i], hq[i], EPS, 1.0f, hy[i], NULL);
+            for (unsigned g = 0; g < KVH && hrc == OMEGA_GPU_DATTN_OK; g++) hrc = omega_gpu_decode_attn256_cache_read(hc[i], 1, g, hpos[i], prow[i][0] + g * HD, prow[i][1] + g * HD);
+            for (unsigned g = 0; g < KVH && hrc == OMEGA_GPU_DATTN_OK; g++) hrc = omega_gpu_decode_attn256_cache_write(hc[i], 1, g, hpos[i], 1, zk, zv); /* the heads launch must append them itself */
+        }
+        CHECK(hrc == OMEGA_GPU_DATTN_OK, "chip heads form: caches, histories and plain steps (%s)", omega_gpu_decode_attn_last_error());
+        if (hrc == OMEGA_GPU_DATTN_OK) hrc = omega_gpu_decode_attn256_prepare_heads(hc[0]);
+        CHECK(hrc == OMEGA_GPU_DATTN_OK, "chip heads form: prepare (%s)", omega_gpu_decode_attn_last_error());
+        if (hrc == OMEGA_GPU_DATTN_OK) {
+            OmegaGpuCmdList *cl = NULL; OmegaGpuMem buf; memset(&buf, 0, sizeof buf);
+            const int cl_ok = omega_gpu_cmdlist_create(4, &cl) == 0;
+            omega_gpu_session_lock();
+            int ok = cl_ok && omega_gpu_session_alloc((size_t)HCN * (QW + OW) * 4, &buf) == 0;
+            float *b = ok ? buf.cpu : NULL;
+            if (ok) {
+                for (unsigned i = 0; i < HCN; i++) { memcpy(b + (size_t)i * QW, hq[i], QW * 4); for (unsigned k = 0; k < OW; k++) b[(size_t)HCN * QW + (size_t)i * OW + k] = -999.0f; }
+                ok = omega_gpu_session_sync_to_gpu(&buf) == 0;
+            }
+            OmegaGpuDecodeAttn256Head hs[HCN];
+            for (unsigned i = 0; i < HCN; i++) { hs[i].c = hc[i]; hs[i].pos = hpos[i]; hs[i].qkv_va = buf.va + (uint64_t)i * QW * 4; hs[i].out_va = buf.va + ((uint64_t)HCN * QW + (uint64_t)i * OW) * 4; }
+            if (ok) ok = omega_gpu_decode_attn256_record_heads(cl, hs, HCN, 1, EPS, 1.0f) == OMEGA_GPU_DATTN_OK;
+            OmegaGpuCmdListOpts opts; memset(&opts, 0, sizeof opts); OmegaGpuCmdListStats stc; memset(&stc, 0, sizeof stc);
+            if (ok) ok = omega_gpu_cmdlist_submit(cl, &opts, &stc) == 0;
+            if (ok) ok = omega_gpu_session_sync_to_cpu(&buf) == 0;
+            int cz = 1; for (unsigned i = 0; i < HCN && ok; i++) cz &= omega_gpu_decode_attn256_counters_check(hc[i]) == OMEGA_GPU_DATTN_OK;
+            omega_gpu_session_unlock();
+            CHECK(ok, "chip heads form: record and submit (%s)", omega_gpu_decode_attn_last_error());
+            for (unsigned i = 0; i < HCN && ok; i++) {
+                int rr = OMEGA_GPU_DATTN_OK;
+                for (unsigned g = 0; g < KVH && rr == OMEGA_GPU_DATTN_OK; g++) rr = omega_gpu_decode_attn256_cache_read(hc[i], 1, g, hpos[i], hrow[0] + g * HD, hrow[1] + g * HD);
+                const int same_out = memcmp(b + (size_t)HCN * QW + (size_t)i * OW, hy[i], OW * 4) == 0, same_rows = rr == OMEGA_GPU_DATTN_OK && memcmp(prow[i], hrow, sizeof hrow) == 0;
+                CHECK(same_out && same_rows, "chip heads form: conversation %u (context %u) out %s, appended rows %s", i, hpos[i] + 1, same_out ? "identical" : "DIFFERS", same_rows ? "identical" : "DIFFER");
+            }
+            CHECK(cz, "chip heads form: every conversation's split counters back to zero");
+            if (ok) printf("chip heads form: %u conversations (contexts %u, %u, %u) in one launch, out rows and appended K/V rows bit-identical to their plain steps\n", HCN, hpos[0] + 1, hpos[1] + 1, hpos[2] + 1);
+            omega_gpu_session_lock(); if (buf.cpu) omega_gpu_session_free(&buf); omega_gpu_session_unlock();
+            if (cl) omega_gpu_cmdlist_free(cl);
+        }
+        for (unsigned i = 0; i < HCN; i++) { omega_gpu_decode_attn256_cache_free(hc[i]); free(hk[i]); free(hq[i]); free(hy[i]); case_free(&cc[i]); }
+    }
     omega_gpu_decode_attn256_cache_free(cache);
     if (out) { fprintf(out, "],\"checks\":%d,\"failed\":%d,\"device_opens\":%u,\"verdict\":\"%s\"}\n", g_checks, g_failed, omega_gpu_session_open_count(), g_failed == 0 ? "OMEGA_GPU_DECODE_ATTN256_PASS" : "OMEGA_GPU_DECODE_ATTN256_FAIL"); fclose(out); }
     return 0;
@@ -469,7 +647,7 @@ int main(int argc, char **argv) {
     if (host) host_only();
     if (sim && sim_pos >= 0 && sim_max <= (uint32_t)sim_pos) sim_max = (uint32_t)sim_pos + 1u;
     if (sim && sim_pos >= 0) { char msg[300], rows[160]; double worst; size_t bad; int err = sim_point(sim_max, (uint32_t)sim_pos, 64, depth ? depth : 2, 0, per ? per : 256, 1.0f, 777, msg, sizeof msg, &worst, &bad, rows, sizeof rows); printf("sim pos %d: %s %s\n", sim_pos, err ? "ERROR" : bad ? "MISMATCH" : "ok", msg); return err || bad; }
-    if (sim) sim_battery();
+    if (sim) { sim_battery(); sim_heads_battery(); }
     if (!host && !sim) {
         if (depth) omega_gpu_decode_attn256_set_depth(depth);
         if (per) omega_gpu_decode_attn256_set_per_split(per);

@@ -85,6 +85,11 @@ static void glue_fill(Glue *g, uint32_t seed, int tie) {
 /* ---- kernels ---- */
 typedef struct { BlackwellIRProgram prog; OmegaGpuMem code; uint32_t gpr; int built; } Kern;
 static Kern K_axpy, K_res_an, K_res_cn, K_sw, K_am0, K_am1, K_res_m1, K_res_m2, K_res_cn_m1, K_sw_m1, K_am_m1, K_axpy_big;
+#define ROWS_N 3u      /* heads in the rows chip check */
+#define ROWS_WS 256u   /* bytes between one head's routing weights and the next */
+#define ROWS_GS 9216u  /* floats between one head's attention mix row and the next (the gate at + 5120) */
+#define ROWS_GC 4096u  /* gate outputs per head */
+static Kern K_cn9, K_cn9r, K_cn9r_m3, K_gate, K_gate_r, K_gate_r_m2; /* the rows forms (L356 combine+norm, L312 lever 7 gate) */
 
 static int kern_prog(Kern *k, const OmegaDecSpec *sp) { k->built = 0; return omega_blackwell_codegen_dec_prog(sp, &k->prog); }
 static int kern_upload(Kern *k) {
@@ -118,6 +123,12 @@ static int specs_build(void) {
     memset(&s, 0, sizeof s); s.kind = OMEGA_DEC_ARGMAX; s.mode = 0; if (kern_prog(&K_am0, &s)) return -1;
     memset(&s, 0, sizeof s); s.kind = OMEGA_DEC_ARGMAX; s.mode = 1; if (kern_prog(&K_am1, &s)) return -1;
     memset(&s, 0, sizeof s); s.kind = OMEGA_DEC_ARGMAX; s.mode = 0; s.mutant = 1; if (kern_prog(&K_am_m1, &s)) return -1;
+    memset(&s, 0, sizeof s); s.kind = OMEGA_DEC_RES; s.mode = OMEGA_DEC_RES_COMBINE | OMEGA_DEC_RES_NORM; s.groups = 9; if (kern_prog(&K_cn9, &s)) return -1;
+    s.mode |= OMEGA_DEC_RES_ROWS; s.stride = ROWS_WS; if (kern_prog(&K_cn9r, &s)) return -1;
+    s.mutant = 3; if (kern_prog(&K_cn9r_m3, &s)) return -1;
+    memset(&s, 0, sizeof s); s.kind = OMEGA_DEC_GATE; if (kern_prog(&K_gate, &s)) return -1;
+    s.mode = 1; s.width = ROWS_GC; s.stride = ROWS_GS; if (kern_prog(&K_gate_r, &s)) return -1;
+    s.mutant = 2; if (kern_prog(&K_gate_r_m2, &s)) return -1;
     return 0;
 }
 
@@ -389,7 +400,8 @@ static int chip_run(const char *out_path, uint32_t reps) {
     OmegaGpuCmdList *cl = NULL;
     if (omega_gpu_cmdlist_create(OMEGA_GPU_CMDLIST_MAX_LAUNCHES, &cl) != 0) return chip_fail("cmdlist create");
     omega_gpu_session_lock();
-    Kern *ks[] = { &K_axpy, &K_axpy_big, &K_res_an, &K_res_cn, &K_res_m1, &K_res_m2, &K_res_cn_m1, &K_sw, &K_sw_m1, &K_am0, &K_am1, &K_am_m1 };
+    Kern *ks[] = { &K_axpy, &K_axpy_big, &K_res_an, &K_res_cn, &K_res_m1, &K_res_m2, &K_res_cn_m1, &K_sw, &K_sw_m1, &K_am0, &K_am1, &K_am_m1,
+                  &K_cn9, &K_cn9r, &K_cn9r_m3, &K_gate, &K_gate_r, &K_gate_r_m2 };
     for (unsigned i = 0; i < sizeof ks / sizeof ks[0]; i++) if (kern_upload(ks[i])) { omega_gpu_session_unlock(); return chip_fail("kernel upload"); }
     OmegaGpuMem bx, ba, bx0;
     const size_t big = (size_t)AXPY_BIG_STRIDE * AXPY_BIG_ITERS * 4u;
@@ -591,6 +603,68 @@ static int chip_run(const char *out_path, uint32_t reps) {
                 if (omega_gpu_cmdlist_is_latched()) break;
             }
             if (omega_gpu_cmdlist_is_latched()) break;
+        }
+#undef VA
+        omega_gpu_session_free(&m);
+    }
+    /* the rows forms (L356 COMBINE|NORM 9 groups, L312 lever 7 GATE): ROWS_N heads as ROWS_N one-row launches and as ONE rows
+     * launch in the same list; x, y and the gate outputs must be bit-identical. Pass 1: the rows mutants (combine skips the
+     * shared slot; every row reads row 0's gate) must differ (gate: rows 1.. only). */
+    if (!omega_gpu_cmdlist_is_latched()) {
+        const size_t NX = (size_t)ROWS_N * H, ND = NX * 9u, NW = ROWS_N * ROWS_WS / 4u, NA = (size_t)ROWS_N * ROWS_GC, NG = (size_t)ROWS_N * ROWS_GS;
+        OmegaGpuMem m; if (omega_gpu_session_alloc(4u * (2 * NX + ND + NW + H + 2 * NX + 2 * NA + NG), &m)) { omega_gpu_session_unlock(); return chip_fail("alloc rows"); }
+        float *p = m.cpu; uint64_t va = m.va;
+        float *xp = p, *xr = xp + NX, *d = xr + NX, *w = d + ND, *nw = w + NW, *yp = nw + H, *yr = yp + NX, *ap = yr + NX, *ar = ap + NA, *gg = ar + NA;
+#define VA(ptr) (va + (uint64_t)((const uint8_t *)(ptr) - (const uint8_t *)p))
+        for (int mut = 0; mut < 2 && !omega_gpu_cmdlist_is_latched(); mut++) {
+            uint32_t s = 700 + (uint32_t)mut;
+            for (size_t i = 0; i < NX; i++) { xp[i] = xr[i] = frand(&s, -2, 2); yp[i] = yr[i] = -999.0f; }
+            for (size_t i = 0; i < ND; i++) d[i] = frand(&s, -1, 1);
+            for (size_t i = 0; i < NW; i++) w[i] = (i % (ROWS_WS / 4u)) < 9u ? frand(&s, 0.05f, 0.4f) : 0.0f;
+            for (unsigned i = 0; i < H; i++) nw[i] = frand(&s, 0.8f, 1.2f);
+            for (size_t i = 0; i < NA; i++) ap[i] = ar[i] = frand(&s, -2, 2);
+            for (size_t i = 0; i < NG; i++) gg[i] = frand(&s, -4, 4);
+            omega_gpu_session_sync_to_gpu(&m);
+            static uint32_t wa[ROWS_N + 1][OMEGA_DEC_RES_WORDS], wg[ROWS_N + 1][OMEGA_DEC_GT_WORDS];
+            OmegaGpuLaunch l[2 * ROWS_N + 2]; memset(l, 0, sizeof l); memset(wa, 0, sizeof wa); memset(wg, 0, sizeof wg);
+            for (unsigned r = 0; r <= ROWS_N; r++) { /* r < ROWS_N: head r alone; r == ROWS_N: the rows launch */
+                const int rows = r == ROWS_N; const size_t o = rows ? 0 : r;
+                Kern *kc = rows ? (mut ? &K_cn9r_m3 : &K_cn9r) : &K_cn9, *kg = rows ? (mut ? &K_gate_r_m2 : &K_gate_r) : &K_gate;
+                put64(wa[r], OMEGA_DEC_RES_X, VA((rows ? xr : xp) + o * H)); put64(wa[r], OMEGA_DEC_RES_A, VA(d + o * 9u * H));
+                put64(wa[r], OMEGA_DEC_RES_W, VA(w + o * (ROWS_WS / 4u))); put64(wa[r], OMEGA_DEC_RES_NW, VA(nw));
+                put64(wa[r], OMEGA_DEC_RES_Y, VA((rows ? yr : yp) + o * H)); putf(wa[r], OMEGA_DEC_RES_EPS, EPS); putf(wa[r], OMEGA_DEC_RES_SCALE, SCALE_2P64);
+                float *aa = (rows ? ar : ap) + o * ROWS_GC;
+                put64(wg[r], OMEGA_DEC_GT_A, VA(aa)); put64(wg[r], OMEGA_DEC_GT_G, VA(gg + o * ROWS_GS + 5120u)); put64(wg[r], OMEGA_DEC_GT_OUT, VA(aa));
+                wg[r][(OMEGA_DEC_GT_N - 0x380) / 4] = ROWS_GC;
+                OmegaGpuLaunch *lc = &l[2 * r], *lg = &l[2 * r + 1];
+                lc->code_va = kc->code.va; lc->gpr_count = kc->gpr; lc->grid_x = 1; lc->grid_y = rows ? ROWS_N : 1; lc->num_elements = rows ? NX : H; lc->args = wa[r]; lc->n_args = OMEGA_DEC_RES_WORDS;
+                lg->code_va = kg->code.va; lg->gpr_count = kg->gpr; lg->grid_x = ROWS_GC / OMEGA_DEC_THREADS; lg->grid_y = rows ? ROWS_N : 1; lg->num_elements = rows ? NA : ROWS_GC; lg->args = wg[r]; lg->n_args = OMEGA_DEC_GT_WORDS;
+            }
+            for (unsigned i = 0; i < 2 * ROWS_N + 2; i++) { l[i].threads_x = OMEGA_DEC_THREADS; l[i].threads_y = 1; l[i].timeout_ms = 20000; }
+            omega_gpu_cmdlist_reset(cl);
+            int ok = 1; for (unsigned i = 0; i < 2 * ROWS_N + 2; i++) if (omega_gpu_cmdlist_add(cl, &l[i]) < 0) { ok = 0; chip_fail("rows add"); }
+            if (!ok) break;
+            OmegaGpuCmdListOpts o; memset(&o, 0, sizeof o); o.mode = OMEGA_GPU_CMDLIST_PCAS; o.timeout_ms = 20000;
+            OmegaGpuCmdListStats st; int rc = omega_gpu_cmdlist_submit(cl, &o, &st);
+            omega_gpu_session_sync_to_cpu(&m);
+            unsigned xmask = 0, ymask = 0, gmask = 0, ybad = 0;
+            for (unsigned r = 0; r < ROWS_N; r++) {
+                if (memcmp(xp + (size_t)r * H, xr + (size_t)r * H, H * 4u)) xmask |= 1u << r;
+                if (memcmp(yp + (size_t)r * H, yr + (size_t)r * H, H * 4u)) ymask |= 1u << r;
+                if (memcmp(ap + (size_t)r * ROWS_GC, ar + (size_t)r * ROWS_GC, ROWS_GC * 4u)) gmask |= 1u << r;
+            }
+            for (size_t i = 0; i < NX; i++) ybad += yp[i] == -999.0f; /* the one-row launches must have written every y */
+            const unsigned all = (1u << ROWS_N) - 1u;
+            if (mut == 0) {
+                CHECK(rc == 0, "rows list rc %d (%s)", rc, rc ? omega_gpu_session_last_error() : "");
+                CHECK(ybad == 0, "rows: the one-row combine+norm wrote every y (%u unwritten)", ybad);
+                CHECK(xmask == 0 && ymask == 0, "rows: COMBINE|NORM rows (9 groups) bit-identical to %u one-row launches (x rows differ %#x, y %#x)", ROWS_N, xmask, ymask);
+                CHECK(gmask == 0, "rows: GATE rows bit-identical to %u one-row launches (rows differ %#x)", ROWS_N, gmask);
+            } else {
+                CHECK(rc == 0 && (ymask == all) && gmask == (all & ~1u), "rows mutants caught: combine mutant 3 y rows differ %#x (want %#x), gate mutant 2 rows differ %#x (want %#x)", ymask, all, gmask, all & ~1u);
+            }
+            printf("rows %s: rc %d, %u launches %.1f us chip; combine+norm x differ %#x y differ %#x, gate differ %#x\n", mut ? "mutants" : "real", rc, 2 * ROWS_N + 2, st.elapsed_ns / 1e3, xmask, ymask, gmask);
+            if (out) fprintf(out, "\"rows_%s\":{\"rc\":%d,\"heads\":%u,\"chip_ns\":%" PRIu64 ",\"cn_x_differ\":%u,\"cn_y_differ\":%u,\"gate_differ\":%u},", mut ? "mutants" : "real", rc, ROWS_N, st.elapsed_ns, xmask, ymask, gmask);
         }
 #undef VA
         omega_gpu_session_free(&m);

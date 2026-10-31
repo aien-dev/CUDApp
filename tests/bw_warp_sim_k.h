@@ -75,7 +75,7 @@
 #define WS_MAX_WARPS (WS_MAX_THREADS / WS_WARP)
 #define WS_MAX_FRAGS 64
 #define WS_NBAR BW_RECONV_MAX_BAR
-#define WS_MAX_RANGES 8
+#define WS_MAX_RANGES 16 /* the GDN heads form test declares a table and two conversations x 7 buffers (L312 lever 4) */
 
 enum {
     WS_OK = 0, WS_E_SHFL_SPLIT, WS_E_SHFL_EXITED, WS_E_BAR_SPLIT, WS_E_BSYNC_UNARMED, WS_E_BSSY_REARM,

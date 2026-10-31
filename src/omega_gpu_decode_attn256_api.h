@@ -80,6 +80,18 @@ int omega_gpu_decode_attn256(OmegaGpuDecodeAttn256Cache *c, uint32_t layer, uint
 struct OmegaGpuCmdList;
 int omega_gpu_decode_attn256_record(struct OmegaGpuCmdList *cl, OmegaGpuDecodeAttn256Cache *c, uint32_t layer, uint32_t pos, uint64_t qkv_va,
                                     float eps, float out_scale, uint64_t out_va);
+/* The heads form (L312 lever 5, 2026-10-21; omega_blackwell_codegen_attn256.h OMEGA_DATTN256_ARG_TAB): ONE launch steps layer
+ * `layer` of n <= OMEGA_DATTN256_MAX_HEADS conversations on grid (max splits, vy n), each exactly as omega_gpu_decode_attn256_record
+ * steps it alone (the same per-thread code: bit-identical out rows and appended K/V rows). heads[i].c is conversation i's cache
+ * (all of one shape, max_pos and layer count; each with its own history, norms, partials and counters); pos its position; qkv_va
+ * and out_va device rows of the caller's choosing. The table row of the layer lives in heads[0].c ([layers][8] entries, written and
+ * synced here): a recorded launch stays valid until the next record_heads of that cache and layer. The heads kernel has its own
+ * slot (the plain kernel stays resident); omega_gpu_decode_attn256_prepare_heads makes it resident ahead of recording (a miss while
+ * recording is refused). record_heads: caller holds omega_gpu_session_lock(); prepare_heads takes it. */
+typedef struct { OmegaGpuDecodeAttn256Cache *c; uint32_t pos; uint64_t qkv_va, out_va; } OmegaGpuDecodeAttn256Head;
+int omega_gpu_decode_attn256_prepare_heads(OmegaGpuDecodeAttn256Cache *c);
+int omega_gpu_decode_attn256_record_heads(struct OmegaGpuCmdList *cl, const OmegaGpuDecodeAttn256Head *heads, uint32_t n, uint32_t layer,
+                                          float eps, float out_scale);
 /* Caller holds the lock, after the list ran: OK when the four split counters are zero, else CHIP_FAIL. */
 int omega_gpu_decode_attn256_counters_check(OmegaGpuDecodeAttn256Cache *c);
 /* L369 multi-token prompt attention: tokens prompt tokens of one conversation at positions pos0 .. pos0 + tokens - 1 (qkv rows

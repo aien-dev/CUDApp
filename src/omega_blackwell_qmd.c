@@ -112,11 +112,15 @@ int omega_blackwell_build_qmd1(uint32_t *qmd1_words, const OmegaBlackwellQmdConf
     if (gpr < 16) gpr = 16;
     qmd1_words[35] = (tz & 0xff) | ((gpr & 0x1ff) << 8) | (1u << 17);
 
-    /* Word 36: SHARED_MEMORY_SIZE_SHIFTED7 in bits 10:0 (default 8 = 1024 bytes), then the
-     * MIN/MAX/TARGET_SM_CONFIG_SHARED_MEM_SIZE fields (9, 26, 9) kept as they were. */
+    /* Word 36: SHARED_MEMORY_SIZE_SHIFTED7 in bits 10:0 (default 8 = 1024 bytes), then MIN_ (bits 16:11), MAX_ (22:17)
+     * and TARGET_SM_CONFIG_SHARED_MEM_SIZE (28:23), clcec0qmd.h MW(1168:1163) / MW(1174:1169) / MW(1180:1175). Up to
+     * 32 KiB the word is the long-standing 0x04b44808 (9, 26, 9: the 32 KB configuration, size_kb / 4 + 1 per mesa nak
+     * gv100_smem_size_to_hw); above it MIN and TARGET name the 64 KB configuration (17), the smallest SM 12.x configuration
+     * (0, 8, 16, 32, 64, 100 KB, nouveau_device.c) the CTA fits. MAX stays 26 (100 KB). */
     if (cfg->shared_bytes > OMEGA_BW_QMD_MAX_SHARED_BYTES) return -1;
     uint32_t smem7 = cfg->shared_bytes ? (cfg->shared_bytes + 127u) / 128u : 8u;
-    qmd1_words[36] = (0x04b44808u & ~0x7ffu) | smem7;
+    const uint32_t sm_cfg = cfg->shared_bytes <= OMEGA_BW_QMD_SHARED_32K_BYTES ? 32u / 4u + 1u : 64u / 4u + 1u;
+    qmd1_words[36] = (0x04b44808u & ~0x7ffu & ~(0x3fu << 11) & ~(0x3fu << 23)) | smem7 | (sm_cfg << 11) | (sm_cfg << 23);
 
     /* Word 37: SHADER_LOCAL_MEMORY_HIGH_SIZE_SHIFTED4 = 0 (SKEDCHECK05 compliance) */
     qmd1_words[37] = 0x00000000;

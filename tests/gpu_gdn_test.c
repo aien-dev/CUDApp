@@ -178,6 +178,21 @@ static void host_only(void) {
     }
     OmegaGdnSpec bad = { .mutant = 5, .ratio = GDN_TEST_RATIO };
     CHECK(omega_gdn_prog_stats(&bad, NULL, NULL) == -1, "mutant 5 refused");
+    /* the heads form (L312 lever 4): builds for every mutant within the budgets; refused as a copy spec or with heads > 1 */
+    for (int m = 0; m <= 4; m++) {
+        OmegaGdnSpec sp = { .mutant = m, .ratio = GDN_TEST_RATIO, .heads = 1 }, pl = { .mutant = m, .ratio = GDN_TEST_RATIO };
+        uint32_t ni = 0, ng = 0, pi = 0, pg = 0;
+        int rc = omega_gdn_prog_stats(&sp, &ni, &ng), rp = omega_gdn_prog_stats(&pl, &pi, &pg);
+        CHECK(rc == 0 && rp == 0 && ni <= BW_MAX_IR_INSNS && ng + 2 <= BW_PHYS_GPR_MAX && ng <= pg + 8,
+              "heads form mutant %d codegen: rc %d, %u insns, %u registers (plain %u insns, %u registers)", m, rc, ni, ng, pi, pg);
+        if (m == 0) printf("heads form: %u instructions, peak %u registers (plain %u, %u)\n", ni, ng, pi, pg);
+    }
+    {
+        OmegaGdnSpec h2 = { .ratio = GDN_TEST_RATIO, .heads = 2 }, hc = { .copy = OMEGA_GDN_COPY, .heads = 1 };
+        static BlackwellIRProgram cp;
+        CHECK(omega_gdn_prog_stats(&h2, NULL, NULL) == -1, "heads 2 refused (the flag is 0 or 1)");
+        CHECK(omega_blackwell_codegen_gdn_copy_prog(&hc, &cp) == -1, "copy codegen refuses the heads flag");
+    }
     /* the state copy / zero programs (cached tail and state) */
     {
         static BlackwellIRProgram cp;
@@ -397,6 +412,113 @@ static void sim_bf16_battery(void) {
     CHECK(rounded > NS, "sim bf16 really rounds (%u of %u values changed)", rounded, 3u * NS);
     for (int i = 0; i < SB_N; i++) { free(a[i]); free(b[i]); }
     layer_free(&L);
+}
+
+/* ---- the heads form on the simulator (L312 lever 4): HN conversations in one grid (RT, 16 HN), every pointer from the table;
+ * each conversation's out, tail and state must equal its own plain launch bit for bit. Negative control: conversation 1's
+ * table entry pointed at conversation 0's buffers makes conversation 1 compute conversation 0's step (and leaves its own
+ * buffers untouched), so the table is really what the kernel reads. ---- */
+#define HN 2u
+static int sim_heads_run(int mutant, int control, int bf16, char *msg, size_t n) {
+    static BlackwellIRProgram plain, heads;
+    OmegaGdnSpec sp = { .mutant = mutant, .ratio = GDN_TEST_RATIO, .state_bf16 = (uint32_t)bf16 }, sh = { .mutant = mutant, .ratio = GDN_TEST_RATIO, .state_bf16 = (uint32_t)bf16, .heads = 1 };
+    if (omega_blackwell_codegen_gdn_prog(&sp, &plain) != 0 || omega_blackwell_codegen_gdn_prog(&sh, &heads) != 0) { snprintf(msg, n, "codegen refused"); return -1; }
+    const size_t SS = bf16 ? T_STATE_BYTES / 2u : T_STATE_BYTES; /* L313 bf16 state: half the bytes */
+    const size_t sz[SB_N] = { CD * 4u, VD * 4u, VH * 8u, T_PAR_BYTES, T_TAIL_BYTES, SS, VD * 4u };
+    uint8_t *buf[HN][SB_N], *want[HN][3]; /* want: out, tail, state of the plain launch */
+    uint64_t *tab = aligned_alloc(256, 4096);
+    memset(tab, 0, 4096);
+    for (unsigned c = 0; c < HN; c++) {
+        Layer L; layer_make(&L, 41 + c);
+        Inp in; inp_make(&in, 2000 + c, 1.0f);
+        for (int i = 0; i < SB_N; i++) buf[c][i] = aligned_alloc(256, (sz[i] + 255) & ~(size_t)255);
+        memcpy(buf[c][SB_QKV], in.qkv, sz[SB_QKV]); memcpy(buf[c][SB_Z], in.z, sz[SB_Z]); memcpy(buf[c][SB_AB], in.ab, sz[SB_AB]);
+        omega_gdn_pack_params_r(GDN_TEST_RATIO, L.conv_w, L.a_log, L.dtb, L.nw, buf[c][SB_PAR]);
+        omega_gdn_pack_tail_r(GDN_TEST_RATIO, L.tail0, (float *)buf[c][SB_TAIL]);
+        if (bf16) for (size_t i = 0; i < NS; i++) ((uint16_t *)buf[c][SB_STATE])[i] = t_bf16_rn(L.state0[i]);
+        else memcpy(buf[c][SB_STATE], L.state0, SS);
+        want[c][0] = malloc(VD * 4u); want[c][1] = malloc(T_TAIL_BYTES); want[c][2] = malloc(SS);
+        inp_free(&in); layer_free(&L);
+    }
+    int err = 0;
+    /* the plain launch per conversation (its own grid), from the same inputs and states */
+    for (unsigned c = 0; c < HN && !err; c++) {
+        uint8_t *tail_save = malloc(T_TAIL_BYTES), *state_save = malloc(SS);
+        memcpy(tail_save, buf[c][SB_TAIL], T_TAIL_BYTES); memcpy(state_save, buf[c][SB_STATE], SS);
+        float *yo = (float *)buf[c][SB_OUT];
+        for (unsigned i = 0; i < VD; i++) yo[i] = -999.0f;
+        WsSim s; memset(&s, 0, sizeof s);
+        s.p = &plain; s.threads = OMEGA_GDN_THREADS; s.order = 0;
+        static uint8_t smem[OMEGA_GDN_SHARED_BYTES]; s.smem = smem; s.smem_bytes = OMEGA_GDN_SHARED_BYTES;
+        for (int i = 0; i < SB_N; i++) {
+            const uint64_t a = (uintptr_t)buf[c][i];
+            s.cbank[(0x380 + 8 * i) / 4] = (uint32_t)a; s.cbank[(0x380 + 8 * i) / 4 + 1] = (uint32_t)(a >> 32);
+            s.ranges[i].lo = a; s.ranges[i].hi = a + sz[i];
+        }
+        s.nranges = SB_N;
+        memcpy(&s.cbank[OMEGA_GDN_ARG_EPS_L2 / 4], &EPS_L2, 4); memcpy(&s.cbank[OMEGA_GDN_ARG_EPS_NORM / 4], &EPS_N, 4);
+        const float one = 1.0f;
+        memcpy(&s.cbank[OMEGA_GDN_ARG_IN_SCALE / 4], &one, 4); memcpy(&s.cbank[OMEGA_GDN_ARG_OUT_SCALE / 4], &one, 4);
+        err = ws_run(&s, RT, OMEGA_GDN_GRID_Y);
+        if (err) snprintf(msg, n, "plain conversation %u: %s (pc %d)", c, s.msg, s.err_pc);
+        memcpy(want[c][0], buf[c][SB_OUT], VD * 4u); memcpy(want[c][1], buf[c][SB_TAIL], T_TAIL_BYTES); memcpy(want[c][2], buf[c][SB_STATE], SS);
+        memcpy(buf[c][SB_TAIL], tail_save, T_TAIL_BYTES); memcpy(buf[c][SB_STATE], state_save, SS);
+        for (unsigned i = 0; i < VD; i++) yo[i] = -999.0f;
+        free(tail_save); free(state_save);
+    }
+    /* the heads launch: one grid, the table; conversation 1 keeps its own buffers but (control) its entry names conversation 0's */
+    if (!err) {
+        for (unsigned c = 0; c < HN; c++)
+            for (int i = 0; i < SB_N; i++) tab[c * (OMEGA_GDN_TAB_ENTRY_BYTES / 8u) + i] = (uintptr_t)buf[control && c == 1 ? 0 : c][i];
+        WsSim s; memset(&s, 0, sizeof s);
+        s.p = &heads; s.threads = OMEGA_GDN_THREADS; s.order = 1;
+        static uint8_t smem[OMEGA_GDN_SHARED_BYTES]; s.smem = smem; s.smem_bytes = OMEGA_GDN_SHARED_BYTES;
+        const uint64_t ta = (uintptr_t)tab;
+        s.cbank[OMEGA_GDN_ARG_TAB / 4] = (uint32_t)ta; s.cbank[OMEGA_GDN_ARG_TAB / 4 + 1] = (uint32_t)(ta >> 32);
+        s.ranges[0].lo = ta; s.ranges[0].hi = ta + HN * OMEGA_GDN_TAB_ENTRY_BYTES;
+        s.nranges = 1; /* the table and every conversation's seven buffers: every global access must land in one */
+        for (unsigned c = 0; c < HN; c++)
+            for (int i = 0; i < SB_N; i++) {
+                const uint64_t a = (uintptr_t)buf[c][i];
+                s.ranges[s.nranges].lo = a; s.ranges[s.nranges].hi = a + sz[i]; s.nranges++;
+            }
+        memcpy(&s.cbank[OMEGA_GDN_ARG_EPS_L2 / 4], &EPS_L2, 4); memcpy(&s.cbank[OMEGA_GDN_ARG_EPS_NORM / 4], &EPS_N, 4);
+        const float one = 1.0f;
+        memcpy(&s.cbank[OMEGA_GDN_ARG_IN_SCALE / 4], &one, 4); memcpy(&s.cbank[OMEGA_GDN_ARG_OUT_SCALE / 4], &one, 4);
+        err = ws_run(&s, RT, OMEGA_GDN_GRID_Y * HN);
+        if (err) snprintf(msg, n, "heads launch: %s (pc %d)", s.msg, s.err_pc);
+        g_sim_issues += s.warp_issues;
+    }
+    if (!err) {
+        for (unsigned c = 0; c < HN; c++) {
+            const int same = memcmp(want[c][0], buf[c][SB_OUT], VD * 4u) == 0 && memcmp(want[c][1], buf[c][SB_TAIL], T_TAIL_BYTES) == 0 &&
+                             memcmp(want[c][2], buf[c][SB_STATE], SS) == 0;
+            if (!control && !same) { err = -1; snprintf(msg, n, "conversation %u differs from its plain launch", c); }
+            if (control && c == 1 && same) { err = -1; snprintf(msg, n, "control: conversation 1 still got its own result"); }
+            if (control && c == 1) { /* its own buffers untouched, conversation 0's stepped twice (both CTAs wrote the same words) */
+                size_t unwritten = 0; const float *yo = (const float *)buf[1][SB_OUT];
+                for (unsigned i = 0; i < VD; i++) if (yo[i] == -999.0f) unwritten++;
+                if (unwritten != VD) { err = -1; snprintf(msg, n, "control: conversation 1's out row was written (%zu of %u words)", VD - unwritten, VD); }
+            }
+        }
+    }
+    for (unsigned c = 0; c < HN; c++) { for (int i = 0; i < SB_N; i++) free(buf[c][i]); for (int i = 0; i < 3; i++) free(want[c][i]); }
+    free(tab);
+    return err;
+}
+static void sim_heads_battery(void) {
+    for (int bf = 0; bf <= 1; bf++) /* f32 state, and the L313 bf16 state (the merge of lever 4 with L313) */
+        for (int m = 0; m <= 4; m++) {
+            char msg[300] = "";
+            double t0 = now_ms();
+            int err = sim_heads_run(m, 0, bf, msg, sizeof msg);
+            printf("sim heads form %s state mutant %d: %u conversations bit-identical to their plain launches (%.0f ms)%s%s\n", bf ? "bf16" : "f32", m, HN, now_ms() - t0, err ? " ERROR " : "", msg);
+            CHECK(err == 0, "sim heads form %s state mutant %d (%s)", bf ? "bf16" : "f32", m, msg);
+        }
+    char msg[300] = "";
+    int err = sim_heads_run(0, 1, 0, msg, sizeof msg);
+    printf("sim heads form negative control (entry 1 -> conversation 0)%s%s\n", err ? " ERROR " : ": caught", msg);
+    CHECK(err == 0, "sim heads form negative control (%s)", msg);
 }
 
 /* ---- prefill on the simulator (omega#543): prep, scan, post over T tokens against T oracle steps ---- */
@@ -963,6 +1085,68 @@ static int chip_run(const char *out_path, uint32_t reps) {
         }
         free(tmp); free(y); dstate_free(&d); inp_free(&in[0]); inp_free(&in[1]);
     }
+    /* the heads form (L312 lever 4): three objects with their own parameters and states; one launch steps all three on layer 1
+     * and must leave every out row, tail and state bit-identical to the object's own plain step from the same start */
+    {
+#define HCN 3u
+        OmegaGpuGdn *hg[HCN] = { NULL, NULL, NULL };
+        Layer HL[HCN];
+        Inp hin[HCN];
+        int ok = 1;
+        for (unsigned c = 0; c < HCN; c++) { layer_make(&HL[c], 61 + c); inp_make(&hin[c], 1100 + c, 1.0f); }
+        for (unsigned c = 0; c < HCN && ok; c++)
+            ok = omega_gpu_gdn_alloc_ratio(2, GDN_TEST_RATIO, &hg[c]) == 0 && omega_gpu_gdn_set_layer(hg[c], 1, HL[c].conv_w, HL[c].a_log, HL[c].dtb, HL[c].nw) == 0 &&
+                 omega_gpu_gdn_set_state(hg[c], 1, HL[c].tail0, HL[c].state0) == 0;
+        CHECK(ok, "heads form: three objects allocated and set (%s)", ok ? "" : omega_gpu_gdn_last_error());
+        float *po = malloc((size_t)HCN * VD * 4), *pt = malloc((size_t)HCN * NT * 4), *ps = malloc((size_t)HCN * NS * 4);
+        for (unsigned c = 0; c < HCN && ok; c++) /* the plain step (host path), its results kept, the state put back */
+            ok = omega_gpu_gdn_step(hg[c], 1, hin[c].qkv, hin[c].z, hin[c].ab, EPS_L2, EPS_N, 1.0f, 1.0f, po + (size_t)c * VD, NULL) == 0 &&
+                 omega_gpu_gdn_get_state(hg[c], 1, pt + (size_t)c * NT, ps + (size_t)c * NS) == 0 &&
+                 omega_gpu_gdn_set_state(hg[c], 1, HL[c].tail0, HL[c].state0) == 0;
+        CHECK(ok, "heads form: the three plain steps ran (%s)", ok ? "" : omega_gpu_gdn_last_error());
+        if (ok) ok = omega_gpu_gdn_prepare_heads(hg[0]) == 0;
+        CHECK(ok, "heads form: the heads kernel is resident (%s)", ok ? "" : omega_gpu_gdn_last_error());
+        OmegaGpuCmdList *cl = NULL;
+        const int cl_ok = ok && omega_gpu_cmdlist_create(4, &cl) == 0;
+        omega_gpu_session_lock();
+        OmegaGpuMem hb; memset(&hb, 0, sizeof hb);
+        const size_t cb = (size_t)CD * 4 + (size_t)VD * 4 + VH * 8, ob = (size_t)VD * 4;
+        ok = cl_ok && omega_gpu_session_open() != NULL && omega_gpu_session_alloc(HCN * (cb + ob), &hb) == 0;
+        OmegaGpuGdnHead hs[HCN];
+        for (unsigned c = 0; ok && c < HCN; c++) {
+            uint8_t *p = (uint8_t *)hb.cpu + c * cb;
+            memcpy(p, hin[c].qkv, (size_t)CD * 4); memcpy(p + CD * 4, hin[c].z, (size_t)VD * 4); memcpy(p + CD * 4 + VD * 4, hin[c].ab, VH * 8);
+            float *yo = (float *)((uint8_t *)hb.cpu + HCN * cb + c * ob);
+            for (unsigned i = 0; i < VD; i++) yo[i] = -999.0f;
+            hs[c].g = hg[c]; hs[c].qkv_va = hb.va + c * cb; hs[c].z_va = hs[c].qkv_va + CD * 4; hs[c].ab_va = hs[c].z_va + VD * 4;
+            hs[c].out_va = hb.va + HCN * cb + c * ob;
+        }
+        if (ok) ok = omega_gpu_session_sync_to_gpu(&hb) == 0;
+        if (ok) ok = omega_gpu_gdn_record_heads(cl, hs, HCN, 1, EPS_L2, EPS_N, 1.0f, 1.0f) == 0;
+        OmegaGpuCmdListOpts opts; memset(&opts, 0, sizeof opts);
+        OmegaGpuCmdListStats stc; memset(&stc, 0, sizeof stc);
+        if (ok) ok = omega_gpu_cmdlist_submit(cl, &opts, &stc) == 0;
+        if (ok) ok = omega_gpu_session_sync_to_cpu(&hb) == 0;
+        omega_gpu_session_unlock();
+        if (cl) omega_gpu_cmdlist_free(cl);
+        CHECK(ok, "heads form: one launch for three conversations recorded and submitted (%s)", ok ? "" : omega_gpu_gdn_last_error());
+        if (ok) {
+            float *t = malloc((size_t)NT * 4), *s = malloc((size_t)NS * 4);
+            for (unsigned c = 0; c < HCN; c++) {
+                const float *yo = (const float *)((const uint8_t *)hb.cpu + HCN * cb + c * ob);
+                const int st = omega_gpu_gdn_get_state(hg[c], 1, t, s) == 0;
+                CHECK(st && memcmp(yo, po + (size_t)c * VD, (size_t)VD * 4) == 0, "heads form: conversation %u's out row is bit-identical to its plain step", c);
+                CHECK(st && memcmp(t, pt + (size_t)c * NT, (size_t)NT * 4) == 0 && memcmp(s, ps + (size_t)c * NS, (size_t)NS * 4) == 0,
+                      "heads form: conversation %u's tail and state are bit-identical to its plain step", c);
+            }
+            printf("chip heads form: 3 conversations in one launch, compared with their plain steps bit for bit\n");
+            free(t); free(s);
+        }
+        omega_gpu_session_lock(); if (hb.cpu) omega_gpu_session_free(&hb); omega_gpu_session_unlock();
+        for (unsigned c = 0; c < HCN; c++) { if (hg[c]) omega_gpu_gdn_free(hg[c]); inp_free(&hin[c]); layer_free(&HL[c]); }
+        free(po); free(pt); free(ps);
+#undef HCN
+    }
     chip_prefill(g, L, out, &first, reps);
     /* timing */
     {
@@ -1008,7 +1192,7 @@ int main(int argc, char **argv) {
         else { printf("unknown argument %s\n", argv[i]); return 2; }
     }
     if (host) host_only();
-    if (sim) { sim_battery(); sim_bf16_battery(); sim_prefill_battery(); sim_prefill_bf16(3); sim_prefill_bf16(37); sim_copy_battery(); }
+    if (sim) { sim_battery(); sim_bf16_battery(); sim_heads_battery(); sim_prefill_battery(); sim_prefill_bf16(3); sim_prefill_bf16(37); sim_copy_battery(); }
     if (!host && !sim) {
         (void)omega_gpu_session_set_spin_us(spin);
         if (bf16) chip_bf16(out_path, reps ? reps : 50); else chip_run(out_path, reps ? reps : 50);

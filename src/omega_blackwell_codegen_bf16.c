@@ -137,7 +137,7 @@ static int spec_ok(const OmegaBf16GemvSpec *s) {
     const uint32_t xb = s->xbatch ? s->xbatch : 1u;
     if (xb > OMEGA_BF16_MAX_XBATCH) return 0;
     if (xb > 1u && (s->ystride == 0 || s->rows * xb > 16u || (uint64_t)xb * s->k * 4u > OMEGA_BW_QMD_MAX_SHARED_BYTES)) return 0;
-    if (xb > 1u && ((uint64_t)xb * s->k > 512u * s->warps || (uint64_t)(xb - 1u) * s->ystride * 4u >= (1ull << 31))) return 0; /* 16 staging rounds; y row offsets as immediates */
+    if (xb > 1u && ((uint64_t)xb * s->k > 1024u * s->warps || (uint64_t)(xb - 1u) * s->ystride * 4u >= (1ull << 31))) return 0; /* 32 staging rounds; y row offsets as immediates */
     /* mutant 4: MASK inverts the skip, XBATCH reads row 0's x for every row (the forms never mix) */
     if (s->mutant < 0 || s->mutant > 4 || (s->mutant == 4 && !s->mask && xb < 2u)) return 0;
     if (s->ystride > (1u << 28)) return 0; /* ystride * 4 fits the 32-bit IMAD.WIDE immediate */
@@ -181,7 +181,7 @@ int omega_blackwell_codegen_bf16_gemv_prog(const OmegaBf16GemvSpec *spec, Blackw
     /* ---- stage x (k floats, XB rows back to back) in shared memory: one 32-bit word per thread per round ---- */
     {
         const uint32_t rounds = XB * K / (32u * W);
-        int pxt = V64(e), sa0 = V(e), sa = V(e), pxs[16], xst[16];
+        int pxt = V64(e), sa0 = V(e), sa = V(e), pxs[32], xst[32];
         for (uint32_t j = 0; j < rounds; j++) { pxs[j] = V64(e); xst[j] = V(e); }
         if (e->err) return -1;
         imadw(e, pxt, tid, 4, px);
@@ -193,9 +193,14 @@ int omega_blackwell_codegen_bf16_gemv_prog(const OmegaBf16GemvSpec *spec, Blackw
     }
 
     int pw = V64(e), pwr = V64(e), xl = V(e), cnt = V(e), pyr = V64(e), pya = V64(e), t = V(e), f = V(e);
-    int acc[4][4], wq[4][16], xq[4][2];
+    /* XB > 4 (L312 lever 6, the lm_head for all 8 heads in one read): the x rows of a step are read one at a time into one
+     * quad pair and the eight weight halves of the step are extracted once (fx) instead of once per x row, so 16 warps
+     * still fit the register file; per (r, m) the FMA order is the one of the one-row kernel, every row stays bit-identical. */
+    const int XSEQ = XB > 4u;
+    int acc[4][8], wq[4][16], xq[8][2], fx[4][8];
     for (uint32_t r = 0; r < R; r++) { for (uint32_t m = 0; m < XB; m++) acc[r][m] = V(e); for (uint32_t s = 0; s < D; s++) wq[r][s] = V128(e); }
-    for (uint32_t m = 0; m < XB; m++) { xq[m][0] = V128(e); xq[m][1] = V128(e); }
+    if (XSEQ) { xq[0][0] = V128(e); xq[0][1] = V128(e); for (uint32_t r = 0; r < R; r++) for (unsigned i = 0; i < 8; i++) fx[r][i] = V(e); }
+    else for (uint32_t m = 0; m < XB; m++) { xq[m][0] = V128(e); xq[m][1] = V128(e); }
     if (e->err) return -1;
     /* ---- MASK form: tau once, normalized (-0 -> +0); -inf for the skipped rows ---- */
     int phi = NOREG, tn = NOREG, zero = NOREG, ninf = NOREG, phr = NOREG, hv = NOREG, mv = NOREG;
@@ -239,6 +244,22 @@ int omega_blackwell_codegen_bf16_gemv_prog(const OmegaBf16GemvSpec *spec, Blackw
     }
     for (uint32_t s = 0; s < D; s++) {
         const uint32_t xoff = spec->mutant == 2 ? 0u : s * 1024u;
+        if (XSEQ) {
+            const uint32_t words = spec->mutant == 3 ? 3u : 4u;
+            for (uint32_t r = 0; r < R; r++)
+                for (uint32_t word = 0; word < words; word++) { imadi(e, fx[r][2u * word], wq[r][s], word, 65536u, NOREG); andi(e, fx[r][2u * word + 1u], wq[r][s], word, 0xffff0000u); }
+            for (uint32_t m = 0; m < XB; m++) { /* x row m of this step (mutant 4: every row reads row 0), then its FMAs in the one-row order */
+                const uint32_t moff = spec->mutant == 4 ? 0u : m * K * 4u;
+                lds128(e, xq[0][0], xl, xoff + moff, 1); lds128(e, xq[0][1], xl, xoff + moff + 16u, 0);
+                for (uint32_t r = 0; r < R; r++)
+                    for (uint32_t word = 0; word < words; word++) {
+                        const unsigned sub = (word & 1u) * 2u;
+                        ffma(e, acc[r][m], fx[r][2u * word], xq[0][word >> 1], spec->mutant == 1 ? sub + 1u : sub, acc[r][m]);
+                        ffma(e, acc[r][m], fx[r][2u * word + 1u], xq[0][word >> 1], spec->mutant == 1 ? sub : sub + 1u, acc[r][m]);
+                    }
+            }
+            continue;
+        }
         for (uint32_t m = 0; m < XB; m++) { /* x row m of this step (mutant 4: every row reads row 0) */
             const uint32_t moff = spec->mutant == 4 ? 0u : m * K * 4u;
             lds128(e, xq[m][0], xl, xoff + moff, m == 0); lds128(e, xq[m][1], xl, xoff + moff + 16u, 0);

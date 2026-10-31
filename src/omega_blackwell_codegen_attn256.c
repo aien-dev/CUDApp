@@ -178,11 +178,16 @@ static void rms_scale(Em *e, int qa, int qb, int sq, int ts, int rs, int addr, i
 
 int omega_blackwell_codegen_decode_attn256_prog(const OmegaDecodeAttn256Spec *spec, BlackwellIRProgram *prog) {
     if (!spec || !prog || spec->depth < 1 || spec->depth > OMEGA_DATTN256_MAX_DEPTH || spec->mutant < 0 || spec->mutant > 5 || spec->prep > 1 || spec->multi > 1) return -1;
+    if (spec->heads > 1u || (spec->heads && (spec->prep || spec->multi))) return -1; /* the heads form is decode only (L312 lever 5) */
     omega_bw_ir_init(prog);
     Em em; memset(&em, 0, sizeof em); em.p = prog; Em *e = &em;
     const uint32_t D = spec->depth;
     OmegaDattn256Shape SH;
     if (omega_dattn256_shape(spec, &SH)) return -1;
+    const int HF = spec->heads != 0;                 /* the heads form (L312 lever 5): conversation cy >> log2(vy), CTA row cy & (vy - 1) */
+    uint32_t vysh = 0;
+    while ((1u << vysh) < SH.vy) vysh++;
+    if (HF && (1u << vysh) != SH.vy) return -1;
     const uint32_t H = SH.h;                         /* q heads per CTA row */
     const int OLD = SH.qh == OMEGA_DATTN256_Q_HEADS && SH.kvh == OMEGA_DATTN256_KV_HEADS && H == OMEGA_DATTN256_Q_PER_KV;
     const int MUT = spec->mutant;
@@ -194,12 +199,32 @@ int omega_blackwell_codegen_decode_attn256_prog(const OmegaDecodeAttn256Spec *sp
     int tid = V(e), cx = V(e), cy = V(e), warp = V(e), lane = V(e), one = V(e), zero = V(e), c7fff = V(e), c16 = V(e);
     if (e->err) return -1;
     ldcu64(e, udesc, 0x358);
-    ldc64(e, pqkv, OMEGA_DATTN256_ARG_QKV); ldc64(e, pkc, OMEGA_DATTN256_ARG_KC); ldc64(e, pvc, OMEGA_DATTN256_ARG_VC);
-    ldc64(e, prope, OMEGA_DATTN256_ARG_ROPE); ldc64(e, pqn, OMEGA_DATTN256_ARG_QN); /* k_norm is read at q_norm + 1024 bytes (ARG_KN is informational) */
-    ldc32(e, pos, OMEGA_DATTN256_ARG_POS); ldc32(e, per, OMEGA_DATTN256_ARG_PER_SPLIT); ldc32(e, splits, OMEGA_DATTN256_ARG_SPLITS);
-    ldc32(e, kvs, OMEGA_DATTN256_ARG_KV_STRIDE); ldc32(e, eps, OMEGA_DATTN256_ARG_EPS);
-    ldc32(e, qks, OMEGA_DATTN256_ARG_QK_SCALE);
+    if (!HF) {
+        ldc64(e, pqkv, OMEGA_DATTN256_ARG_QKV); ldc64(e, pkc, OMEGA_DATTN256_ARG_KC); ldc64(e, pvc, OMEGA_DATTN256_ARG_VC);
+        ldc64(e, prope, OMEGA_DATTN256_ARG_ROPE); ldc64(e, pqn, OMEGA_DATTN256_ARG_QN); /* k_norm is read at q_norm + 1024 bytes (ARG_KN is informational) */
+        ldc32(e, pos, OMEGA_DATTN256_ARG_POS); ldc32(e, per, OMEGA_DATTN256_ARG_PER_SPLIT); ldc32(e, splits, OMEGA_DATTN256_ARG_SPLITS);
+        ldc32(e, kvs, OMEGA_DATTN256_ARG_KV_STRIDE); ldc32(e, eps, OMEGA_DATTN256_ARG_EPS);
+        ldc32(e, qks, OMEGA_DATTN256_ARG_QK_SCALE);
+    }
     s2r(e, tid, BW_SR_TID_X); s2r(e, cx, BW_SR_CTAID_X); s2r(e, cy, BW_SR_CTAID_Y);
+    int atab = -1, bra_empty = -1;
+    if (HF) {                                        /* the entry of conversation cy >> log2(vy); cy becomes the CTA row within it */
+        int ptab = V64(e), hd = V(e); atab = V64(e);
+        if (e->err) return -1;
+        ldc64(e, ptab, OMEGA_DATTN256_ARG_TAB);
+        shr(e, hd, cy, vysh); andi(e, R(cy), R(cy), SH.vy - 1u);
+        imadw(e, atab, hd, OMEGA_DATTN256_TAB_ENTRY_BYTES, ptab);
+        int sc = V128(e);                            /* {pos, splits, kv_stride, 0} in one 16-byte load (LDG.E carries no offset) */
+        if (e->err) return -1;
+        ldg_wide(e, BW_IR_LDG_E_128, sc, atab, OMEGA_DATTN256_TAB_POS, udesc, 1);
+        ldg_wide(e, BW_IR_LDG_E_64, pqkv, atab, OMEGA_DATTN256_TAB_QKV, udesc, 0); ldg_wide(e, BW_IR_LDG_E_64, pkc, atab, OMEGA_DATTN256_TAB_KC, udesc, 0);
+        ldg_wide(e, BW_IR_LDG_E_64, pvc, atab, OMEGA_DATTN256_TAB_VC, udesc, 0); ldg_wide(e, BW_IR_LDG_E_64, prope, atab, OMEGA_DATTN256_TAB_ROPE, udesc, 0);
+        ldg_wide(e, BW_IR_LDG_E_64, pqn, atab, OMEGA_DATTN256_TAB_QN, udesc, 0);
+        ldc32(e, per, OMEGA_DATTN256_ARG_PER_SPLIT); ldc32(e, eps, OMEGA_DATTN256_ARG_EPS); ldc32(e, qks, OMEGA_DATTN256_ARG_QK_SCALE);
+        mov(e, R(pos), S(sc, 0)); mov(e, R(splits), S(sc, 1)); mov(e, R(kvs), S(sc, 2));
+        isetp_ge_u32(e, cx, splits);                 /* an empty CTA of a shorter conversation leaves before it touches anything */
+        bra_empty = bra_if_p0_fwd(e);
+    }
     if (spec->prep && !spec->multi) {                /* prefill prep (#545): CTA cx = token cx at position pos0 + cx, its qkv row */
         iadd(e, pos, pos, cx);
         { int rowoff = V(e); if (e->err) return -1; imadi(e, R(rowoff), R(cx), SH.qkv_words * 4u, NOREG); imadw(e, pqkv, rowoff, 1u, pqkv); }
@@ -485,7 +510,11 @@ int omega_blackwell_codegen_decode_attn256_prog(const OmegaDecodeAttn256Spec *sp
     for (unsigned h = 0; h < 8; h++) { ep[h] = V(e); ea[h] = V(e); eb[h] = V(e); }
     int pout = V64(e), ppart = V64(e), pcnt = V64(e), oscale = V(e);
     if (e->err) return -1;
-    ldc64(e, pout, OMEGA_DATTN256_ARG_OUT); ldc64(e, ppart, OMEGA_DATTN256_ARG_PART); ldc64(e, pcnt, OMEGA_DATTN256_ARG_CNT); ldc32(e, oscale, OMEGA_DATTN256_ARG_OUT_SCALE);
+    if (HF) {                                        /* the conversation's out row, partials and counters from its entry */
+        ldg_wide(e, BW_IR_LDG_E_64, pout, atab, OMEGA_DATTN256_TAB_OUT, udesc, 1); ldg_wide(e, BW_IR_LDG_E_64, ppart, atab, OMEGA_DATTN256_TAB_PART, udesc, 0);
+        ldg_wide(e, BW_IR_LDG_E_64, pcnt, atab, OMEGA_DATTN256_TAB_CNT, udesc, 0);
+    } else { ldc64(e, pout, OMEGA_DATTN256_ARG_OUT); ldc64(e, ppart, OMEGA_DATTN256_ARG_PART); ldc64(e, pcnt, OMEGA_DATTN256_ARG_CNT); }
+    ldc32(e, oscale, OMEGA_DATTN256_ARG_OUT_SCALE);
     if (spec->multi) {                               /* the token's output row, partials block and counters (ctaid.y re-read: no live register) */
         int tk = V(e), so = V(e); if (e->err) return -1;
         uint32_t lg = 0; while ((1u << lg) < SH.vy) lg++;
@@ -633,6 +662,7 @@ int omega_blackwell_codegen_decode_attn256_prog(const OmegaDecodeAttn256Spec *sp
     /* thread 0 resets the counter for the next launch (every other CTA of this head has already added) */
     isetp_ge_u32(e, tid, one);
     { Region r = region_skip_if_p0(e); imadw(e, pb64, cy, 4u, pcnt); stg(e, BW_IR_STG_STRONG_SYS, pb64, R(zero), udesc); region_end(e, r); }
+    if (HF) patch_bra(e, bra_empty, here(e));        /* the empty CTAs of the heads form land on the EXIT */
     tail(e);
     if (e->err) return -1;
     return omega_bw_regalloc_solve(prog);

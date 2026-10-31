@@ -38,11 +38,14 @@ typedef struct {
      * 0 keeps the long-standing 1024. At most OMEGA_BW_QMD_MAX_SHARED_BYTES: word 36 declares
      * MIN_ and TARGET_SM_CONFIG_SHARED_MEM_SIZE 9 = 32 KB (mesa nak qmd.rs gv100_smem_size_to_hw:
      * size_kb / 4 + 1; SM >= 120 configs 0, 8, 16, 32, 64, 100 KB, nouveau_device.c), and a CTA must fit
-     * the MIN config. Raised from 16 KiB for the bf16 GEMV at k 5120 (20 KiB of x, sc #642); above
-     * 32 KiB the MIN / TARGET fields must follow the size (not done yet: every launch keeps one word 36). */
+     * the MIN config. Raised from 16 KiB for the bf16 GEMV at k 5120 (20 KiB of x, sc #642). Up to 32 KiB the
+     * word stays the long-standing one (configs 9 / 26 / 9); above it (L312 lever 6: the bf16 lm_head XBATCH form
+     * at 8 x rows, 64 KiB of x) MIN and TARGET follow the size: the 64 KB configuration, encoded 64 / 4 + 1 = 17
+     * (clcec0qmd.h MIN_SM_CONFIG_SHARED_MEM_SIZE MW(1168:1163), TARGET MW(1180:1175); SM 12.x: 99 KB per block). */
     uint32_t shared_bytes;
 } OmegaBlackwellQmdConfig;
-#define OMEGA_BW_QMD_MAX_SHARED_BYTES 32768u
+#define OMEGA_BW_QMD_MAX_SHARED_BYTES 65536u
+#define OMEGA_BW_QMD_SHARED_32K_BYTES 32768u /* the long-standing 32 KB configuration (word 36 unchanged up to here) */
 
 /* Build QMD 0: GRID_NULL null-barrier grid with dependence counter 2 */
 int omega_blackwell_build_qmd0(uint32_t *qmd0_words, uint64_t qmd0_va, uint64_t qmd1_va);
