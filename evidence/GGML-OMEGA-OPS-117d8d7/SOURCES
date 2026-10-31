@@ -1,0 +1,11 @@
+ggml-omega test-backend-ops on GB10 against the merged omega_gpu_gemm_ex (CUDApp#139 head)
+run: 2026-10-31, spark-window 20261031T115524Z-7a14f4 (--gb10 shared, value check, no model weights), lane CudaChain
+cudapp: aien-dev/CUDApp 117d8d7114ab641bdb31c57a4066abd0de86e4e4 (src identical to 00c9cf9affdcdedccf9900ce3e5fee997f494d69), libomega_gpu.a built with: make -j2 OUT_DIR=build-pic CC="gcc -fPIC" build-pic/libomega_gpu.a, sha256 8220235ad2718d8af8ee7f9ae9368cd3830c43db79793a45f5a778919916b52f
+ggml-omega: aien-dev/ggml-omega 9b1d3d517e7840aff05e6cc32c74f3dbda7d5e5a (PR #2), build.sh with OMEGA_GGML_GB10=1; mutant build adds OMEGA_GGML_MUTANT=gbmm-k
+  libggml-omega.so sha256 d8f0c3e8533d90a9b630d7ead588614524d70799c81cc7ae6b2156eafc09059c
+  mutant libggml-omega.so sha256 f0f07dd6e7da162657c529124a082cf8fa81e627cddcf6cae4c9aa5b344a4525
+omega-bridge: d06ec80 (native.om matches the ggml-omega NATIVE_PIN); omc sha256 2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f
+llama.cpp: 7aca0d2e, Release, test-backend-ops sha256 5a8df75b307c55c19d87afa39167b9e40e9d69c1ca781059b9c0c6ec99206a5d
+command: OMEGA_GGML_DEVICES=gb10 OUT=bo-gb10 DEV=OmegaGB10 OPS="MUL_MAT RMS_NORM SWIGLU" MOP=MUL_MAT MNAME=mutant-gbmm-k sh tests/backend-ops.sh test-backend-ops build-gb10/libggml-omega.so build-gb10-mut/libggml-omega.so (exit 0)
+result: MUL_MAT 871/871, RMS_NORM 7/7, SWIGLU 12/12 against the CPU backend; mutant gbmm-k CAUGHT (301 failing cases)
+earlier receipt: ggml-omega 9b1d3d51 evidence/gb10-20261027T0726Z (same counts, taken against CUDApp#139 fba0384 before its main merge; mutant 385 failing cases)
