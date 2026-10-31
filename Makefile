@@ -375,6 +375,9 @@ $(GPU_QMMA_PROBE_TEST): tests/gpu_qmma_probe_test.c tests/bw_qmma_model.h src/om
 GPU_QGEMM_TEST = $(OUT_DIR)/gpu_qgemm_test
 $(GPU_QGEMM_TEST): tests/gpu_qgemm_test.c tests/bw_qmma_model.h tests/bw_warp_sim_tc.h src/omega_gpu_prefill.h src/omega_blackwell_codegen_qg.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -DWS_MAX_THREADS=1024 -Itests -o $@ tests/gpu_qgemm_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+GPU_PFQ_TEST = $(OUT_DIR)/gpu_pfq_test
+$(GPU_PFQ_TEST): tests/gpu_pfq_test.c tests/pfq_legacy_words.h tests/bw_qmma_model.h tests/bw_warp_sim_tc.h src/omega_gpu_pfq_api.h src/omega_blackwell_codegen_qg.h $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -ffp-contract=off -DWS_MAX_THREADS=1024 -Itests -o $@ tests/gpu_pfq_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
 .PHONY: test-gemm-selectors
 test-gemm-selectors: $(GPU_PFGEMM_TEST) $(GPU_QGEMM_TEST) $(GPU_FP8GEMM_TEST)
 	python3 tests/gemm_selectors.py $(OUT_DIR)
@@ -386,7 +389,7 @@ $(GPU_PFHOST_TEST): tests/gpu_pfhost_test.c tests/bw_warp_sim_tc.h src/omega_gpu
 # modes that never open the device (each test's main returns before its chip part); chip runs stay under the GB10 lock.
 .PHONY: test-gpu-prefill-host
 test-gpu-prefill-host: $(GPU_TC_PROBE_TEST) $(GPU_TCGEMM_TEST) $(GPU_PATTN_TEST) $(GPU_PF_MEM_TEST) $(GPU_PFGEMM_TEST) \
-                       $(GPU_QMMA_PROBE_TEST) $(GPU_QGEMM_TEST) $(GPU_PFHOST_TEST)
+                       $(GPU_QMMA_PROBE_TEST) $(GPU_QGEMM_TEST) $(GPU_PFHOST_TEST) $(GPU_PFQ_TEST)
 	./$(GPU_TC_PROBE_TEST) --host-only
 	./$(GPU_QMMA_PROBE_TEST) --host-only
 	./$(GPU_PF_MEM_TEST) --host-only
@@ -400,7 +403,9 @@ test-gpu-prefill-host: $(GPU_TC_PROBE_TEST) $(GPU_TCGEMM_TEST) $(GPU_PATTN_TEST)
 	./$(GPU_QGEMM_TEST) --sim
 	./$(GPU_PFHOST_TEST) --host-only
 	./$(GPU_PFHOST_TEST) --sim
-	@echo "test-gpu-prefill-host: PASS (8 prefill tests, host model + warp simulator, no device)"
+	./$(GPU_PFQ_TEST) --host-only
+	./$(GPU_PFQ_TEST) --sim
+	@echo "test-gpu-prefill-host: PASS (9 prefill tests, host model + warp simulator, no device)"
 # omega#456: tools/own30b_decode_profile.c is a link-only recorder built by hand on the Spark; compile it with the
 # project's -Werror flags so a warning cannot land unseen.
 .PHONY: check-own30b-decode-profile

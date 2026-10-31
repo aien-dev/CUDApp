@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* Verification oracle only: compile the actual incumbent pf_group unchanged.
- * Function sections + linker GC exclude the rest of the graph; no GPU object is linked. */
+ * Function sections + linker GC exclude the rest of the graph; no GPU object is linked.
+ * pf_group's QMMA branch calls the real host tiler omega_pfq_tiles; run.sh links src/omega_gpu_pfq_api.c for it. */
 #include "../../src/omega_gpu_q36_graph.c"
 int omega_gpu_fp8_tensor_entry(const OmegaGpuFp8Tensor *t, uint32_t expert, uint64_t *w, uint64_t *s) {
     (void)t; *w = (uint64_t)expert * 256 + 4096; *s = *w + 128; return 0;

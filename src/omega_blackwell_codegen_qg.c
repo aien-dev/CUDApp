@@ -14,12 +14,13 @@ static void fmax_r(Em *e, int d, int a, unsigned asub, int b, unsigned bsub) {
 int omega_pq_spec_ok(const OmegaPqSpec *s) {
     if (!s || s->k < 128u || s->k > 32768u || s->k % 128u) return 0;
     const uint32_t kb = s->k / 128u, g = s->groups ? s->groups : kb;
+    if (s->stride && (s->stride < s->k || s->stride % 4u || s->stride > (1u << 24))) return 0;
     return g <= 32u && kb % g == 0 && s->in_type <= OMEGA_QG_IN_BF16 && s->mutant >= 0 && s->mutant <= 3;
 }
 
 int omega_blackwell_codegen_pq_prog(const OmegaPqSpec *spec, BlackwellIRProgram *prog) {
     if (!omega_pq_spec_ok(spec) || !prog) return -1;
-    const uint32_t K = spec->k, KB = K / 128u;
+    const uint32_t K = spec->k, KB = K / 128u, XS = spec->stride ? spec->stride : K;
     omega_bw_ir_init(prog);
     Em em; memset(&em, 0, sizeof em); em.p = prog; Em *e = &em;
     int udesc = UV64(e), px = V64(e), pq = V64(e), ps = V64(e), tid = V(e), row = V(e), warp = V(e);
@@ -33,8 +34,8 @@ int omega_blackwell_codegen_pq_prog(const OmegaPqSpec *spec, BlackwellIRProgram 
         s2r(e, cy, BW_SR_CTAID_Y); if (spec->mutant != 3) imadi(e, tid, cy, 0, 32u * spec->groups, tid);
     }
     shr(e, warp, tid, 0, 5);
-    if (spec->in_type == OMEGA_QG_IN_F32) { imadw(e, px, row, K * 4u, px); imadw(e, px, tid, 16u, px); ldg_wide(e, BW_IR_LDG_E_128, v, px, 0, udesc, 1); }
-    else { imadw(e, px, row, K * 2u, px); imadw(e, px, tid, 8u, px); ldg_wide(e, BW_IR_LDG_E_64, w, px, 0, udesc, 1); }
+    if (spec->in_type == OMEGA_QG_IN_F32) { imadw(e, px, row, XS * 4u, px); imadw(e, px, tid, 16u, px); ldg_wide(e, BW_IR_LDG_E_128, v, px, 0, udesc, 1); }
+    else { imadw(e, px, row, XS * 2u, px); imadw(e, px, tid, 8u, px); ldg_wide(e, BW_IR_LDG_E_64, w, px, 0, udesc, 1); }
     imadw(e, pq, row, K, pq); imadw(e, pq, tid, 4u, pq);
     imadw(e, ps, row, KB * 4u, ps); imadw(e, ps, warp, 4u, ps);
     movi(e, fl, 0x0d800000u);   /* 2^-100 */
@@ -79,6 +80,7 @@ int omega_qg_spec_ok(const OmegaQgSpec *s) {
     if (s->n == 0 || s->n % (s->warps * 16u) || (uint64_t)(s->epi == OMEGA_QG_EPI_F32 ? 4u : 1u) * s->n * 16u * s->rt >= (1u << 23)) return 0; /* row stride (n f32, or n / 2 bf16 = n bytes) x 16 rt: the store offsets fit the signed 24-bit field */
     if ((16u * s->rt * 4u) % (32u * s->warps)) return 0; /* whole 16-byte staging slots per thread */
     if (s->mutant < 0 || s->mutant > 4) return 0;
+    if (s->ymap > 1u || s->x64 > 1u || (s->ymap && s->epi != OMEGA_QG_EPI_F32)) return 0;
     return 1;
 }
 uint32_t omega_qg_shared_bytes(const OmegaQgSpec *s) { return omega_qg_spec_ok(s) ? 2u * (16u * s->rt * 64u + 16u * s->rt * 4u) : 0u; }
@@ -152,7 +154,8 @@ int omega_blackwell_codegen_qgemm_prog(const OmegaQgSpec *spec, BlackwellIRProgr
     for (uint32_t jj = 0; jj < NJ; jj++) { stgr[jj] = V128(e); scv[jj] = V(e); }
     if (e->err) return -1;
     movi(e, onef1, 0x3f800000u);
-    movi(e, c2m56, 0x23800000u); /* 2^-56: undoes the GEMV tensor's scale fold exactly (sw * 2^-56 is the checkpoint bf16 scale) */
+    movi(e, c2m56, spec->x64 ? 0x03800000u : 0x23800000u); /* 2^-56 undoes the GEMV tensor's scale fold exactly (sw * 2^-56 is the
+                                                              checkpoint bf16 scale); x64 also removes the activations' 2^64: 2^-120 */
 
     #define ISSUE(wset, sb, xoff, woff, with_scale) do { \
         for (uint32_t jj = 0; jj < NJ; jj++) { ldw_pf(e, BW_IR_LDG_E_128, stgr[jj], gx[jj], (xoff), udesc, (sb)); ldw_pf(e, BW_IR_LDG_E, scv[jj], gs[jj], 0u, udesc, (sb)); } \
@@ -216,6 +219,8 @@ int omega_blackwell_codegen_qgemm_prog(const OmegaQgSpec *spec, BlackwellIRProgr
 
     /* ---- epilogue (as omega_blackwell_codegen_tc2.c, natural SwiGLU order, no extra scale) ---- */
     int g2 = V(e), cnt2 = V(e), rrow = V(e), onee = V(e), pyr = V64(e);
+    int pym = spec->ymap ? V64(e) : NOREG, colb = spec->ymap ? V(e) : NOREG, py0 = spec->ymap ? V64(e) : NOREG, ysx = spec->ymap ? V64(e) : NOREG;
+    int yrow = spec->ymap ? V(e) : NOREG, r0y = spec->ymap ? V(e) : NOREG, n2y = spec->ymap ? V(e) : NOREG;
     {
         int tid2 = V(e), cx2 = V(e), cy2 = V(e), lane2 = V(e), tq3 = V(e), tab2 = V64(e), ten2 = V64(e), rc2 = V64(e), py2 = V64(e), n2 = V(e), nw2 = V(e), r02 = V(e);
         if (e->err) return -1;
@@ -226,7 +231,10 @@ int omega_blackwell_codegen_qgemm_prog(const OmegaQgSpec *spec, BlackwellIRProgr
         andi(e, lane2, tid2, 0, 31); shr(e, g2, lane2, 0, 2); andi(e, tq3, lane2, 0, 3);
         imadi(e, r02, rc2, 0, 1, NOREG); imadi(e, cnt2, rc2, 1, 1, NOREG); movi(e, onee, 1);
         shr(e, tmp, tid2, 0, 5); imadi(e, tmp, tmp, 0, 16u, NOREG); imadi(e, nw2, cx2, 0, SPAN, tmp);
-        if (spec->epi == OMEGA_QG_EPI_F32) {
+        if (spec->ymap) { /* DRA-82: row r goes to y row ymap[row0 + r]; the column part is shared by every row */
+            ldc64(e, pym, 0x3b0); imadi(e, tmp2, tq3, 0, 2u, nw2); imadi(e, colb, tmp2, 0, 1u, NOREG);
+            imadw(e, py0, onee, 0, py2); imadi(e, r0y, r02, 0, 1u, NOREG); imadi(e, n2y, n2, 0, 1u, NOREG);
+        } else if (spec->epi == OMEGA_QG_EPI_F32) {
             iadd(e, tmp, r02, g2); imadr(e, tmp, tmp, n2, nw2); imadi(e, tmp2, tq3, 0, 2u, NOREG); iadd(e, tmp, tmp, tmp2); imadw(e, pyr, tmp, 4u, py2);
         } else {
             iadd(e, tmp, r02, g2); imadr(e, tmp, tmp, n2, NOREG); imadw(e, pyr, tmp, 1u, py2);
@@ -245,10 +253,14 @@ int omega_blackwell_codegen_qgemm_prog(const OmegaQgSpec *spec, BlackwellIRProgr
     int skips[16]; uint32_t nskip = 0;
     const int at_bssy = bssy_fwd(e);
     for (uint32_t i = 0; i < RT; i++) for (uint32_t h = 0; h < 2; h++) {
-        const uint32_t roff = (16u * i + 8u * h) * ystride;
+        const uint32_t roff = spec->ymap ? 0u : (16u * i + 8u * h) * ystride;
         imadi(e, rrow, onee, 0, 16u * i + 8u * h, g2);
         isetp_ge_u32(e, rrow, cnt2);
         skips[nskip++] = bra_if_p0_fwd(e);
+        if (spec->ymap) {
+            iadd(e, yrow, r0y, rrow); imadw(e, ysx, yrow, 4u, pym); ldg32(e, yrow, ysx, udesc, 1);
+            imadr(e, yrow, yrow, n2y, colb); imadw(e, pyr, yrow, 4u, py0);
+        }
         if (spec->epi == OMEGA_QG_EPI_F32) {
             for (uint32_t j = 0; j < 2; j++) for (unsigned q = 0; q < 2; q++) { BlackwellIRInsn st = I0(BW_IR_STG_E); st.src1_vreg = pyr; st.src2_vreg = acc[i * 2 + j]; st.src2_subreg = (uint8_t)(2u * h + q); st.imm = roff + j * 32u + 4u * q; st.ureg = udesc; emit(e, st, K_STORE); }
         } else {

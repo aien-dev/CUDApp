@@ -150,12 +150,17 @@ int omega_gpu_q36_graph_read_buf(OmegaGpuQ36Graph *g, int which, float *out, uin
  * as ONE multi-token launch per layer (the decode step's arithmetic in a loop, bit-identical to the per-token launches;
  * mutants 1 and 3 use the per-token form); AIEN_OMEGA_Q36_PF_GDN=0 forces the per-token launches. Each attention layer is
  * one prep launch (every token's K/V rows) and one attend launch (grid (splits, tokens x rows), the decode kernel per
- * token, bit-identical; omega_gpu_decode_attn256_multi_record); AIEN_OMEGA_Q36_PF_ATTN=0 forces the per-token launches. */
+ * token, bit-identical; omega_gpu_decode_attn256_multi_record); AIEN_OMEGA_Q36_PF_ATTN=0 forces the per-token launches.
+ * DRA-82: AIEN_OMEGA_Q36_PF_QMMA=1 (read by prefill_alloc, which reallocates when it changed; default off) moves the mix,
+ * o, gate_up and down GEMMs onto the tensor cores (omega_gpu_pfq_api.h: per-row e4m3 quantiser + QMMA tiles of 64 rows,
+ * the routed and shared experts in one launch, no PERM launches). Not bit-identical to the GEMV: the activations are
+ * quantised to e4m3 per 128-wide block. o stays on the GEMV where the GDN runs per token. Refused with native artifacts. */
 #define OMEGA_GPU_Q36_PREFILL_MAX_ROWS 128u /* x 8 routed expert rows <= the fp8 gemm's 1024 (the shared expert is its own GEMM) */
 int omega_gpu_q36_graph_prefill_alloc(OmegaGpuQ36Graph *g, uint32_t cap);
 uint32_t omega_gpu_q36_graph_prefill_cap(const OmegaGpuQ36Graph *g);
 /* fp8 GEMM weight bytes every prefill call on g so far streamed (a running count: take the difference around a call): every expert once per 4 of its rows, the dense mix/o once per 8
- * rows (the ceiling receipt: these bytes over the call time against the memory bandwidth). The bf16 a|b, router and head
+ * rows, on the QMMA path (AIEN_OMEGA_Q36_PF_QMMA=1) both once per 64-row tile (the ceiling receipt: these bytes over the
+ * call time against the memory bandwidth). The bf16 a|b, router and head
  * reads are not counted. */
 uint64_t omega_gpu_q36_graph_prefill_streamed(const OmegaGpuQ36Graph *g);
 int omega_gpu_q36_graph_prefill(OmegaGpuQ36Graph *g, uint32_t head, const float *x_embed, uint32_t n, uint32_t pos0, int want_token,

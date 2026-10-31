@@ -487,7 +487,7 @@ static void sweep(void) {
       }
       for (unsigned a = 0; a < 5; a++) for (unsigned w = 8; w <= 16; w *= 2) for (unsigned epi = 0; epi <= 1; epi++) for (unsigned dir = 0; dir <= 1; dir++)
       for (unsigned wt = 0; wt <= 120; wt += 60) {
-          OmegaQgSpec s = { ks[a], 4, w, epi, dir, 512, wt, 0 };
+          OmegaQgSpec s = { ks[a], 4, w, epi, dir, 512, wt, 0, 0, 0 };
           snprintf(v, sizeof v, "k%u warps%u epi%u direct%u n512 wait%u", ks[a], w, epi, dir, wt);
           if (BUILD(omega_blackwell_codegen_qgemm_prog(&s, &g_prog))) sweep_prog("qgemm", v, P_TC | P_QMMA);
       }
