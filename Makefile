@@ -229,6 +229,16 @@ test-gpu-fp8: $(GPU_FP8_TEST)
 	./$(GPU_FP8_TEST) --host-only
 	./$(GPU_FP8_TEST) --sim
 
+# aien-dev/CUDApp#217 (P-DRA-4 DRA-69): all-heads FP8 lm_head kernel. Host + warp simulator only (bitwise parity with
+# the legacy lane_bytes-16 FP8 GEMV for xb 1-8, rows 1-2; double-oracle tolerance; mutants 1-3 caught). No chip path.
+.PHONY: test-gpu-fp8-head
+GPU_FP8_HEAD_TEST = $(OUT_DIR)/gpu_fp8_head_test
+$(GPU_FP8_HEAD_TEST): tests/gpu_fp8_head_test.c tests/bw_warp_sim.h src/omega_blackwell_codegen_fp8head.h src/omega_gpu_fp8_api.h src/omega_blackwell_codegen_moe.h $(OUT_DIR)/libomega_gpu.a
+	$(CC) $(CFLAGS) -ffp-contract=off -Itests -o $@ tests/gpu_fp8_head_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
+test-gpu-fp8-head: $(GPU_FP8_HEAD_TEST)
+	./$(GPU_FP8_HEAD_TEST) --host-only
+	./$(GPU_FP8_HEAD_TEST) --sim
+
 # omega #457 (2026-10-15): host rewrite of a GPU-cached buffer must be visible to the next launch. Chip only; the gate
 # is tools/run_gpu_l2_stale_chip.sh.
 GPU_L2_STALE_TEST = $(OUT_DIR)/gpu_l2_stale_test
