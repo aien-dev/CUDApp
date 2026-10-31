@@ -23,7 +23,7 @@ It runs on the NVIDIA GB10 (the DGX Spark, compute capability sm_121) today. On 
 
 CUDA++ keeps growing to cover the jobs of NVIDIA's user-space software on the Spark, and then do things CUDA does not:
 
-- NVIDIA's open kernel modules `nvidia.ko` and `nvidia-uvm.ko` stay. GB10 support belongs in the upstream Linux drivers Nova and nouveau, not in a third driver; Aien's own driver branch (L332, aienux#441) is a research harness, not a product;
+- my own GB10 kernel driver replaces NVIDIA's open kernel modules `nvidia.ko` and `nvidia-uvm.ko`. It is being built in three repositories, and none of them has run on the GB10 yet: aien-dev/aien-gpu (Omega units inside a Linux module; host and QEMU tests pass), aien-dev/omega-gpu-driver (seeded Omega over `vfio-pci`; step W0 exercised in QEMU only) and aienux#441 (ledger L332: the C reference driver and the GB10 simulator that aien-gpu's boot steps are checked against). Until one passes on the chip, CUDA++ runs on `nvidia.ko` 580.173.02. GB10 facts measured on the way (chip id, boot sequence) still go upstream to the Linux drivers Nova and nouveau as findings;
 - my own disassembler replaces `nvdisasm`;
 - the GSP firmware stays NVIDIA's too, for a physical reason: the GPU checks its signature and boots nothing else;
 - beyond CUDA: owning the whole path from program to chip, so one submission per generated word, whole-model kernels that stay resident on the GPU, and zero-copy use of the memory the CPU and GPU share.
@@ -76,9 +76,9 @@ current replay for new runs; do not rewrite the historical scripts or receipts.
 
 ## The stack
 
-<p align="center"><img src="docs/img/stack.svg" width="100%" alt="CUDA and CUDA++ layer by layer. The compiler, maths libraries, runtime and driver library of CUDA are closed and CUDA++ has its own code for their jobs. NVIDIA's open kernel module stays; the signed GSP firmware stays."></p>
+<p align="center"><img src="docs/img/stack.svg" width="100%" alt="CUDA and CUDA++ layer by layer. The compiler, maths libraries, runtime and driver library of CUDA are closed and CUDA++ has its own code for their jobs. NVIDIA's open kernel module is still in the path and my own GB10 driver is being built to replace it; the signed GSP firmware stays."></p>
 
-Between a CUDA program and the GPU sit four closed NVIDIA layers: the compiler, the maths libraries, the runtime and the driver library. CUDA++ does their jobs with its own code, at research stage. Under them are NVIDIA's kernel module, whose source NVIDIA publishes, and the firmware inside the GPU. CUDA++ talks to the kernel module directly, and it stays; GB10 support goes upstream to Nova and nouveau.
+Between a CUDA program and the GPU sit four closed NVIDIA layers: the compiler, the maths libraries, the runtime and the driver library. CUDA++ does their jobs with its own code, at research stage. Under them are NVIDIA's kernel module, whose source NVIDIA publishes, and the firmware inside the GPU. CUDA++ talks to the kernel module directly today. My own GB10 driver replaces that module; it has not run on the GB10 yet. The firmware stays NVIDIA's.
 
 ## How I did it
 
@@ -133,7 +133,7 @@ What the headers do not say, I learned on the chip and wrote down as rules, each
 - **Blackwell's control page reports no read pointer.** The client counts completed ring entries itself and never overruns entries that have not been seen to finish.
 - **Creating the compute object needs one free, physically contiguous 2 MiB block** for its context buffer. On a busy host it is briefly missing, so that one allocation is retried, bounded (omega#523).
 
-Under the client: NVIDIA's open kernel module (`nvidia.ko`, `nvidia-uvm.ko`) and the GSP firmware inside the GPU. Both stay: GB10 support goes upstream to Nova and nouveau, Aien's own driver branch (L332) is a research harness only, and the firmware is NVIDIA's because the chip checks its signature. Every object and call in order, with line references: [docs/DRIVER.md](docs/DRIVER.md).
+Under the client: NVIDIA's open kernel module (`nvidia.ko`, `nvidia-uvm.ko`) and the GSP firmware inside the GPU. My own GB10 driver replaces the kernel module (aien-dev/aien-gpu, aien-dev/omega-gpu-driver and aienux#441, L332; none has run on the GB10 yet). The client speaks NVIDIA's ioctl interface, so moving it onto my driver is part of the replacement; that move is PROPOSED and not started. The firmware stays NVIDIA's because the chip checks its signature. Every object and call in order, with line references: [docs/DRIVER.md](docs/DRIVER.md).
 
 ## One launch, start to finish
 
@@ -158,7 +158,7 @@ The CPU does five things, all of them plain memory writes except the last, which
 | cuobjdump, nvdisasm | Read machine code back | My own sm_121 disassembler | BUILDING: on Omega branch `c6/disasm` (19eebe0e) it agrees with `nvdisasm` on 331 kernels; not in CUDA++ yet. Some host tests here still call `nvdisasm` as a cross-check when it is installed |
 | Nsight | Measure | Ceiling probes: 115.14 TFLOPS tensor-core peak, 195.1 GB/s reads (`evidence/OWN30B-T3-TC-PEAK-BW-5faa0f70-20261013T2236Z/`) | PARTIAL: probes, no single tool |
 | CUDA samples, docs | Your first kernel | `examples/hello_gpu`, `docs/runtime/` | PARTIAL: one example |
-| `nvidia.ko`, `nvidia-uvm.ko` | Kernel driver | stays NVIDIA's open kernel module; GB10 support goes upstream to Nova and nouveau (L332 is a research harness) | stays |
+| `nvidia.ko`, `nvidia-uvm.ko` | Kernel driver | My own GB10 driver: aien-dev/aien-gpu, aien-dev/omega-gpu-driver, aienux#441 (L332) | BUILDING: host, QEMU and simulator results only; nothing has run on the GB10, and the `nvrm` client still speaks NVIDIA's ioctls. Receipts per track in `ROADMAP.md` |
 | GSP firmware | Runs inside the GPU | stays NVIDIA's (signature-checked by the chip) | not replaceable |
 
 PASS means a receipt exists on a named commit. Status words come from Omega's `docs/OMEGA.md`, section 2. `ROADMAP.md` lists every NVIDIA piece on the Spark with its receipt, and the bars CUDA++ must pass before it says "replaces CUDA".
