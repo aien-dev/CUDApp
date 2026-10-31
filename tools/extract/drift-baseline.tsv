@@ -13,6 +13,7 @@
 # Makefile and src/omega_blackwell_gates.c are omega 0243e4aff88937b4e616d8e211d47084aca2befe's blobs (#579 clean clones: gate 16 in a private folder, no shell). Both changes are Omega-side only: omega_blackwell_gates.c is a stay.txt bridge that CUDA++ does not carry, and the Makefile delta only adds the new Omega bridge src/omega_clean_clone.c (not a GPU path) to Omega's build and keeps it out of libomega_gpu.a; no bytes to sync (CUDApp sync/drift-omega-0243e4af).
 # Still differ at 4376c21 on purpose: Makefile (CUDA++ build); src/omega_gpu_fp8_api.c (CUDA++ owner-generation upload kept, omega#456 lock-held fill already there);
 # tests/gpu_fp8gemm_test.c (CUDA++ test_out_open 0600 receipt kept over omega's 0644 open); licence headers.
+# tests/bw_hazard_test.c is omega 6d7b883844a0f17a7a3ceb427108be7e01e4c677's blob (#984, unchanged through omega 2638a49b); CUDA++ is ahead there with the sm_86 uniform-destination cases (#170), so any later omega edit to it must still fail.
 Makefile	6011dfa5d7d883b01ac3671f630499ef5f9d1fcc
 evidence/C3-GEMM/01-host-only.log	c581c5126718bc24ef10ed1b1637528018a260e5
 evidence/C3-GEMM/02-sim.log	fd97da9f29871abfc16fb2ed938c38a4d3c2314f
@@ -301,6 +302,7 @@ src/runtime/rx_costmodel.c	d8ddf956d88d4d9164682d2223a277cd04fc37dd
 src/runtime/rx_costmodel.h	6e2c0db52fafe3548e9161bc96ea9c07292dcd36
 src/sha256.h	7db16bcacfbe68623fc2a042dd4cca5a388e41f9
 tests/bw_encode_control_test.c	46a67b11dfc65bf7d6fab711312b6368a8814f87
+tests/bw_hazard_test.c	e052b0904db6ad5eac33effaaf9111245bbdb9dc
 tests/bw_hmma_model.h	f019912d90dd2f5b1b3634473abdc8f767c32c25
 tests/bw_qmma_model.h	8429ad2cbf5031f435b13f3bcb332dbdbfac1d58
 tests/bw_warp_sim.h	6d93828f3979b3a7223ebe0f1952b53e1d414764
