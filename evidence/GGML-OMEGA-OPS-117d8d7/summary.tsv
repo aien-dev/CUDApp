@@ -1,0 +1,6 @@
+op	pass	fail	not_supported	verdict
+MUL_MAT	871	0	1994	PASS
+RMS_NORM	7	0	54	PASS
+SWIGLU	12	0	24	PASS
+mutant-gbmm-k	-	301	-	CAUGHT
+backend-ops rc=0

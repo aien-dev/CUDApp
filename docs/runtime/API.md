@@ -1,6 +1,6 @@
 # Omega Runtime API v0
 
-Omega Runtime API version: 0.8.0
+Omega Runtime API version: 0.9.0
 
 Status: first written version, 2026-10-19 (slice R1, omega-mv#594, tracking #593). Source of truth is the C headers in
 `src/`. This file describes them; `docs/runtime/omega_runtime_api.manifest` lists them; `make test-runtime-api` checks the
@@ -36,14 +36,21 @@ signature against the headers on every run.
 
 ## 2. Version and compatibility rule
 
-The version is MAJOR.MINOR.PATCH (semantic versioning), currently **0.8.0**. It is a property of the list of entries and
+The version is MAJOR.MINOR.PATCH (semantic versioning), currently **0.9.0**. It is a property of the list of entries and
 their behaviour, not of the library build. Changes so far:
-- 0.8.0 (AmperePort): grows STABLE `OmegaGpuLaunch` with `target_sm` (a MAJOR-class change
+- 0.9.0 (AmperePort, CUDApp#170): grows STABLE `OmegaGpuLaunch` with `target_sm` (a MAJOR-class change
   taken as MINOR under the major-version-zero rule); adds EXPERIMENTAL
   `omega_gpu_session_target_sm`. Zero-initialized legacy launches still mean sm_121, not auto-detect.
   An explicit sm_86 launch must match the opened device and use sm_86 code and argument layout.
   Adds discrete VRAM allocation/BAR-mapped visibility and a VRAM-based D1 reserve;
   no Ampere hardware qualification is claimed. See `docs/PORT-AMPERE.md`.
+- 0.8.0 (CUDApp#139): adds the EXPERIMENTAL general matrix multiply of section 9.8 (`src/omega_gpu_gemm_ex.h`:
+  `omega_gpu_gemm_ex`, `omega_gpu_gemm_ex_fp8_block_rows`, `OmegaGemmExArgs`, `OmegaGemmExInfo` and their constants),
+  and two of its test hooks to the INTERNAL list. **Layout change:** `OmegaGpuFp8GemmInfo` (EXPERIMENTAL, section 9.7)
+  grows from 80 to 88 bytes with the new field `general` at offset 80 (1 when the call took the general fallback for a
+  shape the tuned kernel refuses); a caller built against the 0.7.0 layout must be rebuilt. `OmegaGpuFp8Info` gains the
+  same field at offset 156, inside existing padding, so it stays 160 bytes. `omega_gpu_fp8_general_rows` goes on the
+  INTERNAL list. The struct is EXPERIMENTAL, so the size change is MINOR under the rule below.
 - 0.7.0 (omega #588, carried with the b5ab3fe sync): adds EXPERIMENTAL `omega_gpu_decode_graph_abort_token`, which
   releases the session lock and leaves the token without submitting what was recorded. A failed `begin_token` now
   releases the lock itself, and `omega_gpu_decode_graph_token` answers every begin failure (not only BAD_ARGS) without
@@ -446,7 +453,7 @@ Each line is a gap named in `docs/runtime/ROADMAP.md` section 1 (on branch `runt
 - More than one device in a process (a second channel in the same group is `omega_gpu_session_extra_queue`, EXPERIMENTAL); sharing the GPU between processes (a second channel failed under load: omega-mv#523).
 - Recovery after a latch beyond `omega_gpu_session_recover` (EXPERIMENTAL since 0.5.0: throw the device away and open a
   new one in the same process; a driver teardown fault still ends GPU use for the process).
-- Async copy, stream and event objects, host callbacks (0.5.0 has only two-queue submission and cross-queue waits on command lists, EXPERIMENTAL).
+- Async copy, stream and event objects, host callbacks (0.6.0 has only two-queue submission and cross-queue waits on command lists, EXPERIMENTAL).
 - Cached read-write buffers; unified memory.
 - Launches with more than the 32 argument words, or an asynchronous single launch.
 - A second real backend (WSL2 `/dev/dxg` is on branch `rig/gb20x`; native AIENOS is planned), so the platform contract has only been exercised by one.
@@ -513,8 +520,8 @@ paragraph is out of date (whether it is chip-qualified on main is UNVERIFIED her
 
 The entries carried over from aien-sovereign-core's manifest: `src/omega_gpu_matmul_api.h`, `omega_gpu_elementwise_api.h`,
 `omega_gpu_attention_api.h`, `omega_gpu_serving.h` (the functions and structs after the `libraries` comment in the
-manifest). Reason: shapes and formats follow one model (Qwen3-30B); there is no general any-shape GEMM yet
-(`docs/runtime/ROADMAP.md` 1.3, branch `runtime/roadmap`). Attention is the exception since 0.6.0: `omega_gpu_attention_general` (declared after the carried block) takes every head_dim 1..256 and any MHA / GQA / MQA head split, and the carried attention entries fall back to it for the shapes their tuned kernels refuse. They are the surface sovereign-core's Rust binding uses today. They are not described entry by entry in v0;
+manifest). Reason: shapes and formats follow one model (Qwen3-30B); the general any-shape GEMM is the separate entry of
+section 9.8. Attention is the exception since 0.6.0: `omega_gpu_attention_general` (declared after the carried block) takes every head_dim 1..256 and any MHA / GQA / MQA head split, and the carried attention entries fall back to it for the shapes their tuned kernels refuse. They are the surface sovereign-core's Rust binding uses today. They are not described entry by entry in v0;
 their headers are the description. One value differs from sovereign-core's pinned copy: `OMEGA_GPU_MATMUL_MAX_CTAS` is 1024 in
 the header (changed by omega #473, commit 98cecadc), 64 in their manifest. Omega's manifest is canonical; R12 brings theirs level.
 
@@ -589,10 +596,56 @@ values, poison patterns) are in the INTERNAL list.
 | `src/omega_gpu_prefill.h` | `OmegaPfWeights`, `omega_gpu_pf_rc_name`, `omega_gpu_pf_alloc_dev`, `omega_gpu_pf_alloc_host`, `omega_gpu_pf_free`, `omega_gpu_pf_upload`, `omega_gpu_pf_download`, `omega_gpu_pf_copy_va`, `omega_gpu_pf_stats`, `omega_gpu_pf_stats_reset`, `omega_gpu_pf_weights_upload`, `omega_gpu_pf_weights_free`, `omega_gpu_pf_weights_host_form`, `omega_gpu_pf_gemm_bm`, `omega_gpu_pf_gemm_tiles`, `omega_gpu_pf_gemm`, `omega_gpu_pf_gemm_set_shape`, `omega_gpu_pf_quant`, `omega_gpu_pf_qgemm_bm`, `omega_gpu_pf_qgemm_tiles`, `omega_gpu_pf_qgemm_tiles_va`, `omega_gpu_pf_qgemm`, `omega_gpu_pf_qgemm_set_shape`, `omega_gpu_pf_quant_record`, `omega_gpu_pf_qgemm_record` | Device-resident one-pass prefill for OWN-30B; arguments carry raw device addresses. |
 | `src/omega_gpu_pfhost.h` | `omega_gpu_pf_router_rows`, `omega_gpu_pf_router_packed_bytes`, `omega_gpu_pf_router_pack`, `omega_gpu_pf_router_logits`, `omega_gpu_pf_moe_combine`, `omega_gpu_pf_router_set_rows` | Whole-prompt prefill router logits and MoE combine for OWN-30B; arguments carry raw device addresses. |
 
+### 9.8 General matrix multiply (`src/omega_gpu_gemm_ex.h`, added in 0.8.0)
+
+One entry with the shape contract of `cblas_?gemm` (RowMajor): `C_b = alpha * s * op(A_b) op(B_b) + beta * C_b` for any
+M, N, K >= 1 (up to `OMEGA_GPU_GEMM_EX_MAX_DIM`), op N or T for each input, any leading dimension, strided batches,
+alpha/beta, A and B each f32, bf16, f16, e4m3 or e5m2, C f32, bf16 or f16, and per-tensor or block fp8 scales. The header
+comment is the full contract (which input pairs run natively on HMMA/QMMA, which are widened exactly, which go through
+bf16x3, how inf and NaN propagate, how block scales cut k). Result codes are the `OMEGA_GPU_GEMM_*` codes of
+`src/omega_gpu_gemm.h`, which is not a manifest header.
+
+It is EXPERIMENTAL for four reasons, each one a stated limit rather than a defect:
+- **Host memory, host orchestration.** A, B and C are host pointers, and every call with alpha != 0 scans A and B on the
+  host for inf and NaN (one read of each). The common case, the native route with one k part, alpha s 1, beta 0, C f32
+  with ldc n, n <= 16384 and finite inputs, is one call of the C3 kernels (`omega_gpu_gemm_ld`, which copies its operands
+  to the GPU) per 16384 rows of C, writing C in place. Every other call cuts C into host tiles of at most 4096 x 4096 and
+  k into parts of at most 16384 (1808 on the bf16x3 route), runs every part as one C3 call, and sums the parts and
+  applies alpha, beta and the scales on the host in double. There is no device-resident form and no
+  record-into-command-list form, so it is not a serving path: the tuned per-model kernels of sections 9.5 and 9.7 stay
+  the fast path for the shapes they take.
+  Measured cost at the nine served 35B shapes, bf16 and e4m3 (GB10, predeclared A/B against `omega_gpu_gemm_ld`,
+  `evidence/GEMM-GENERAL-AB-20261027/`): after the 0d2b14a host-overhead fix the median ratio is 0.94-1.24
+  (ab-2), over the plan's 1.10 limit in five small cells: e4m3 64x1024x2048 1.24, e4m3 64x2048x512 1.20, bf16
+  64x1024x2048 1.17, e4m3 16x12288x2048 1.10, e4m3 1x8192x2048 1.10 (about 0.1-0.35 ms per call; not yet attributed).
+  Before the fix it was 2.17-3.25 (ab-1).
+- **f32 is not IEEE fp32.** f32 inputs run as bf16x3 (three bf16 planes, nine plane products); accuracy is stated
+  against a double reference in `tests/gpu_gemm_ex_test.c`, and parts of a value below 2^-133 are dropped.
+  `OMEGA_GEMM_EX_F32_FFMA_REF` is the slow per-k FFMA comparator, not a fast path.
+- **fp8 output is refused** (`OMEGA_GPU_GEMM_UNSUPPORTED`).
+- **Migration-pending C, one chip.** `src/omega_gpu_gemm_ex.c` is new C behind the build switch
+  `CUDAPP_MIGRATION_PENDING_GEMM_EX` (`mk/gemm-ex.mk`, default 1; 0 refuses every call with `OMEGA_GPU_GEMM_UNSUPPORTED`).
+  Its named successor is `src/omega_gpu_gemm_ex.om` (CUDApp#144). Exercised on sm_121 (GB10) only.
+
+The fp8 GEMV and grouped GEMM of section 9.7 call `omega_gpu_gemm_ex_fp8_block_rows` for shapes their tuned kernels
+refuse, and report it in `OmegaGpuFp8Info.general` / `OmegaGpuFp8GemmInfo.general`; those rows carry the bf16x3
+accuracy, not the tuned kernels' bit pattern. Shapes the tuned kernels take never reach the fallback.
+
+| Entry | Signature (manifest spelling) |
+| --- | --- |
+| `OmegaGemmExArgs` | struct, 200 bytes (fields in the manifest) |
+| `OmegaGemmExInfo` | struct, 24 bytes: `route`, `core_type`, `core_calls`, `host_fixed` |
+| `omega_gpu_gemm_ex` | `fn(*const OmegaGemmExArgs) -> i32` |
+| `omega_gpu_gemm_ex_fp8_block_rows` | `fn(*const u8, *const f32, f64, u32, u32, u32, *const f32, *const u16, u32, *mut f32, u64, *mut OmegaGemmExInfo) -> i32` |
+
+The enumerators of `OmegaGemmOp`, `OmegaGemmDtype`, `OmegaGemmExCompute`, `OmegaGemmScale` and `OmegaGemmRoute` and the two
+maxima are EXPERIMENTAL constants in the manifest. `omega_gpu_gemm_ex_set_backend` and `omega_gpu_gemm_ex_test_set_mutant`
+are TEST ONLY (INTERNAL list).
+
 ## 10. INTERNAL (not part of the API)
 
 Not in the manifest; may change or vanish without notice. The complete list of such names in the manifest headers, each
-with its reason, is `docs/runtime/omega_runtime_api.internal` (192 names in 0.6.0: test hooks, kernel builders, encoder
+with its reason, is `docs/runtime/omega_runtime_api.internal` (195 names in 0.9.0: test hooks, kernel builders, encoder
 probes, serving-daemon internals and launch limits; the 25 serving internals and launch limits are marked "candidate
 EXPERIMENTAL", the ones a caller is most likely to want promoted). `make test-runtime-api` fails on a name in a manifest header that is in neither file. Notable ones:
 - `omega_gpu_session_set_error` (library code names its failure stage through it).
@@ -600,6 +653,7 @@ EXPERIMENTAL", the ones a caller is most likely to want promoted). `make test-ru
 - `omega_gpu_engine_test_reset_block`, `omega_gpu_engine_test_force_block`, `omega_gpu_engine_test_set_clock`: TEST ONLY. A blocked process must stay blocked because the GPU may still be running.
 - Take or return a kernel-generator type, which is backend (ADR 0043): `omega_gpu_fp8_depth_for`, `omega_gpu_fp8_kernel_fits`, `omega_gpu_fp8gemm_kernel_fits`, `omega_gpu_bf16_kernel_fits`, `omega_gpu_tern_kernel_fits`, `omega_gpu_tcgemm_spec_for`, `omega_gpu_prefill_attn_encode`.
 - TEST ONLY (mutant and fault-injection setters in the decode-path headers): `omega_gpu_fp8_test_set_mutant`, `omega_gpu_fp8_test_set_no_fold`, `omega_gpu_fp8gemm_test_set_mutant`, `omega_gpu_bf16_test_set_mutant`, `omega_gpu_decode_attn_test_set_mutant`, `omega_gpu_router_test_set_mutant`, `omega_gpu_tern_test_set_mutant`, `omega_gpu_tcgemm_test_set_mutant`, `omega_gpu_prefill_attn_test_set_mutant`, `omega_gpu_prefill_attn_test_set_mirror_per_call`, `omega_gpu_prefill_attn_test_launch_ns`, `omega_gpu_moe_test_set_mutant`, `omega_gpu_moe_test_set_window_skew`, `omega_gpu_moe_test_a_row0_hits`, `omega_gpu_decode_graph_test_set_mutant`, `omega_gpu_decode_graph_test_set_barrier_none`, `omega_gpu_decode_graph_test_set_prefetch_red`, `omega_gpu_pf_gemm_test_set_mutant`, `omega_gpu_pf_quant_test_set_mutant`, `omega_gpu_pf_qgemm_test_set_mutant`, `omega_gpu_pf_router_test_set_mutant`, `omega_gpu_pf_combine_test_set_mutant`.
+- General GEMM (section 9.8): `omega_gpu_gemm_ex_set_backend` (TEST ONLY: swaps the C3 core for the simulator or a host model), `omega_gpu_gemm_ex_test_set_mutant` (TEST ONLY), and `omega_gpu_fp8_general_rows`, the fp8 GEMV and grouped GEMM bridge to `omega_gpu_gemm_ex_fp8_block_rows`.
 - Host reference and packing helpers in the decode-path headers (not `omega_gpu_` entries): `omega_fp8_e4m3_ref`, `omega_fp8_e4m3_kernel_bits`, `omega_fp8_e4m3_is_nan`, `omega_fp8_pack_scan_nan`, `omega_fp8_pack_scales`, `omega_fp8_pack_x_f32`, `omega_fp8_pack_x_bf16`, `omega_fp8_gemv_oracle`, `omega_fp8gemm_permute_x`, `omega_dattn_bf16_rne`, `omega_dattn_bf16_f32`, `omega_dattn_rope_row`.
 - Launch helpers whose caller already holds the session lock: `omega_gpu_pf_kernel_locked`, `omega_gpu_pf_launch_locked`, `omega_gpu_pf_open_locked`.
 - Everything under `src/omega_gpu_*` and `src/omega_blackwell_*` in headers the manifest does not name (kernel builder, encoder, per-model APIs, launch helpers).
