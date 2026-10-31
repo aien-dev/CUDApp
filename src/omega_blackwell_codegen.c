@@ -855,12 +855,12 @@ static int encode_single_insn(const BlackwellIRInsn *insn, const OmegaRegAlloc *
 }
 #else
 #include "cudapp_native.h"
-/* The .om unit reads the IR as 8 ulongs per instruction and the allocation as one 288-entry table; these are the
+/* The .om unit reads the IR as 8 ulongs per instruction and the allocation as one 544-entry table; these are the
  * layouts its source documents (om/encoder/bw_enc_sm121.om), so the enum values and sizes are pinned here. */
-#define BW_OM_INS_LEN 8192u  /* BW_MAX_IR_INSNS * 8 */
-#define BW_OM_PHYS_LEN 288u  /* BW_MAX_VREGS + BW_MAX_UVREGS */
-#define BW_OM_CODE_LEN 16384u /* BW_MAX_IR_INSNS * 16 */
-_Static_assert(BW_MAX_IR_INSNS == 1024 && BW_MAX_VREGS == 256 && BW_MAX_UVREGS == 32, "bw_enc_sm121.om array sizes");
+#define BW_OM_INS_LEN 16384u  /* BW_MAX_IR_INSNS * 8 */
+#define BW_OM_PHYS_LEN 544u   /* BW_MAX_VREGS + BW_MAX_UVREGS */
+#define BW_OM_CODE_LEN 32768u /* BW_MAX_IR_INSNS * 16 */
+_Static_assert(BW_MAX_IR_INSNS == 2048 && BW_MAX_VREGS == 512 && BW_MAX_UVREGS == 32, "bw_enc_sm121.om array sizes");
 _Static_assert(BW_IR_NOP == 0 && BW_IR_MOV_RZ == 1 && BW_IR_MOV_IMM == 2 && BW_IR_S2R == 3 && BW_IR_LDC == 4 &&
                BW_IR_LDC64 == 5 && BW_IR_LDCU == 6 && BW_IR_LDCU64 == 7 && BW_IR_IMAD == 8 && BW_IR_IMAD_WIDE == 9 &&
                BW_IR_ISETP_GE == 10 && BW_IR_LDG_E == 11 && BW_IR_STG_E == 12 && BW_IR_STG_EF == 13 &&
@@ -878,11 +878,17 @@ _Static_assert(BW_IR_FADD == 30 && BW_IR_FSUB == 31 && BW_IR_FMUL == 32 && BW_IR
                BW_IR_LDG_E_64 == 56 && BW_IR_LDG_E_128 == 57 && BW_IR_LDS128 == 58 && BW_IR_MUFU_LG2 == 59,
                "bw_enc_sm121.om opcode numbers 30-59");
 
-/* Encodes n instructions through the .om unit into code (BW_OM_CODE_LEN bytes). pad != 0 is program mode (NOP
- * padding to a multiple of 8, at least 32). Returns the bytes written; 0 = refused. */
-static size_t bw_om_encode(const BlackwellIRInsn *insns, size_t n, const OmegaRegAlloc *ra, int pad, uint8_t *code) {
+/* Encodes n instructions through the .om unit and copies the bytes it wrote into out (out_cap bytes). pad != 0 is
+ * program mode (NOP padding to a multiple of 8, at least 32). Returns the bytes written; 0 = refused (also when they
+ * do not fit out_cap). The unit's exact-length arrays (128 KiB of IR, 32 KiB of code at the 2048-instruction cap)
+ * live on the heap, not on the caller's stack. */
+static size_t bw_om_encode(const BlackwellIRInsn *insns, size_t n, const OmegaRegAlloc *ra, int pad, uint8_t *out,
+                           size_t out_cap) {
     if (n > BW_MAX_IR_INSNS) return 0;
-    uint64_t ins[BW_OM_INS_LEN], phys[BW_OM_PHYS_LEN];
+    uint64_t *ins = (uint64_t *)calloc(BW_OM_INS_LEN + BW_OM_PHYS_LEN, sizeof(uint64_t));
+    uint8_t *code = (uint8_t *)malloc(BW_OM_CODE_LEN);
+    if (!ins || !code) { free(ins); free(code); return 0; }
+    uint64_t *phys = ins + BW_OM_INS_LEN;
     for (size_t i = 0; i < n; i++) {
         const BlackwellIRInsn *in = &insns[i];
         uint64_t *r = &ins[i * 8];
@@ -897,13 +903,15 @@ static size_t bw_om_encode(const BlackwellIRInsn *insns, size_t n, const OmegaRe
                (uint64_t)in->bar_reg << 8 | (uint64_t)in->dst_subreg << 16 | (uint64_t)in->src1_subreg << 24 |
                (uint64_t)in->src2_subreg << 32 | (uint64_t)in->src3_subreg << 40;
     }
-    for (size_t i = n * 8; i < BW_OM_INS_LEN; i++) ins[i] = 0;
     for (int i = 0; i < BW_MAX_VREGS; i++) phys[i] = (uint64_t)(int64_t)ra->vreg_to_phys[i];
     for (int i = 0; i < BW_MAX_UVREGS; i++) phys[BW_MAX_VREGS + i] = (uint64_t)(int64_t)ra->uvreg_to_phys[i];
     uint64_t bytes = 0;
     if (omega_bw_enc_sm121(&bytes, ins, BW_OM_INS_LEN, phys, BW_OM_PHYS_LEN, (uint64_t)n, pad ? 1u : 0u, code,
-                           BW_OM_CODE_LEN) != OMEGA_OK)
-        return 0;
+                           BW_OM_CODE_LEN) != OMEGA_OK || bytes > out_cap)
+        bytes = 0;
+    if (bytes) memcpy(out, code, (size_t)bytes);
+    free(ins);
+    free(code);
     return (size_t)bytes;
 }
 
@@ -934,8 +942,8 @@ static void bw_enc_diff_note(const char *what, size_t insns, const uint8_t *code
 #endif
 
 static int encode_single_insn(const BlackwellIRInsn *insn, const OmegaRegAlloc *ra, uint32_t w[4]) {
-    uint8_t code[BW_OM_CODE_LEN];
-    int rc = bw_om_encode(insn, 1, ra, 0, code) == 16 ? 0 : -1;
+    uint8_t code[16];
+    int rc = bw_om_encode(insn, 1, ra, 0, code, sizeof code) == 16 ? 0 : -1;
     memset(w, 0, 16);
     if (rc == 0)
         for (int k = 0; k < 4; k++)
@@ -1183,15 +1191,17 @@ static int bw_encode_program_bytes(const BlackwellIRProgram *prog, uint8_t *code
 }
 #else
 static int bw_encode_program_bytes(const BlackwellIRProgram *prog, uint8_t *code_buf, size_t req_bytes) {
-    uint8_t code[BW_OM_CODE_LEN];
-    size_t got = bw_om_encode(prog->insns, prog->count, &prog->regalloc, 1, code);
+    uint8_t *code = (uint8_t *)malloc(req_bytes);
+    if (!code) return -1;
+    size_t got = bw_om_encode(prog->insns, prog->count, &prog->regalloc, 1, code, req_bytes);
     int rc = (got == req_bytes && got != 0) ? 0 : -1;
 #ifdef CUDAPP_MIGRATION_PENDING_ENCODER_DIFF
     /* The C oracle encodes the same program, instruction by instruction, NOP-padded the same way. */
 #ifdef CUDAPP_ENCODER_DIFF_SELFTEST
     if (rc == 0) code[0] ^= 1; /* red check of the comparison itself: one flipped bit must abort */
 #endif
-    uint8_t ref[BW_OM_CODE_LEN];
+    uint8_t *ref = (uint8_t *)malloc(req_bytes);
+    if (!ref) { free(code); return -1; }
     int crc = 0;
     for (size_t i = 0; i < req_bytes / 16 && crc == 0; i++) {
         uint32_t w[4] = { 0x00007918, 0, 0, 0x000fc000 };
@@ -1200,8 +1210,10 @@ static int bw_encode_program_bytes(const BlackwellIRProgram *prog, uint8_t *code
     }
     bw_enc_diff_note("program", prog->count, rc == 0 ? code : NULL, rc == 0 ? req_bytes : 0,
                      crc == rc && (rc != 0 || memcmp(code, ref, req_bytes) == 0));
+    free(ref);
 #endif
     if (rc == 0) memcpy(code_buf, code, req_bytes);
+    free(code);
     return rc;
 }
 #endif

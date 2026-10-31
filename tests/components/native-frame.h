@@ -17,7 +17,9 @@ static int frame_load(const char *path,int staged) {
     memset(&native_program,0,sizeof native_program);
     if(staged && (!frame_word(f,&v)||v)) goto done;
     for(unsigned j=0;j<6;j++) if(!frame_word(f,&h[j])) goto done;
-    if(!h[0]||h[0]>BW_MAX_IR_INSNS||h[1]>BW_MAX_VREGS||h[2]>BW_MAX_UVREGS||h[4]>256||h[5]>64) goto done;
+    /* the component frame contract (om/components: at most 1024 instructions, 256 virtual GPRs, 16384 code bytes),
+     * not BW_MAX_IR_INSNS / BW_MAX_VREGS, which DRA-84 raised to 2048 / 512 */
+    if(!h[0]||h[0]>1024||h[1]>256||h[2]>BW_MAX_UVREGS||h[4]>256||h[5]>64) goto done;
     native_program.count=(size_t)h[0];
     OmegaRegAlloc *r=&native_program.regalloc;
     r->num_vregs=(int)h[1];r->num_uvregs=(int)h[2];r->peak_gpr_usage=(uint32_t)h[4];r->peak_ugpr_usage=(uint32_t)h[5];

@@ -20,9 +20,9 @@ n = add n ulong k
 end
 ret true
 end
-fn rp_bytes b view uchar 16384 n ulong to int
+fn rp_bytes b view uchar 32768 n ulong to int
 sent = ulong 0
-while lt sent n bound 16384
+while lt sent n bound 32768
 k = write 1 b sent sub n sent
 if le k 0
 ret 74
@@ -31,7 +31,19 @@ sent = add sent ulong k
 end
 ret 0
 end
-fn rp_admit ins view ulong 8192 phys view ulong 288 n ulong to uint
+note the component layout (phys 0..255 + uvreg 256..287) in the encoder's (phys 0..511 + uvreg 512..543)
+fn rp_wide ins view ulong 8192 phys view ulong 288 n ulong wide edit ulong 16384 wphys edit ulong 544 to void
+for j ulong mul n 8
+put wide j get ins j
+end
+for j ulong 256
+put wphys j get phys j
+end
+for j ulong 32
+put wphys add 512 j get phys add 256 j
+end
+end
+fn rp_admit ins view ulong 16384 phys view ulong 544 n ulong to uint
 state = new ulong 3001 0
 o = new ulong 16 0
 w = new ulong 4 0
@@ -108,7 +120,9 @@ m = new ulong 2048 1
 stats = new ulong 4 1
 astats = new ulong 4 0
 phys = new ulong 288 0
-code = new uchar 16384 0
+wide = new ulong 16384 0
+wphys = new ulong 544 0
+code = new uchar 32768 0
 if ne rp_input spec 0
 ret 65
 end
@@ -134,10 +148,11 @@ end
 if ne bc_regalloc ins get stats 0 m phys astats 128 0
 ret 67
 end
-if ne rp_admit ins phys get stats 0 0
+rp_wide ins phys get stats 0 wide wphys
+if ne rp_admit wide wphys get stats 0 0
 ret 68
 end
-size = bw_enc_sm121 ins phys get stats 0 0 code
+size = bw_enc_sm121 wide wphys get stats 0 0 code
 if eq size 0
 ret 68
 end
