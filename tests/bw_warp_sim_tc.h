@@ -44,15 +44,15 @@
  *                      an exit jumped past it, or a target was corrupted)
  *   WS_E_NEVER_JOINED  the warp finished with a barrier still armed
  *   WS_E_SELF_BRANCH, WS_E_PC, WS_E_OP, WS_E_SHIFT, WS_E_MEM, WS_E_SMEM, WS_E_FRAGS
- *   WS_E_IMADHI_RC     IMAD.HI.U32 with a register Rc: the chip reads Rc as a 64-bit pair (omega #492,
- *                      nvcc oracle, chip probe pending), so a non-RZ Rc is refused, not modelled
+ *   WS_E_IMADHI_RC     IMAD.HI.U32 with an odd register Rc. An even Rc is modelled as the 64-bit pair
+ *                      Rc+1:Rc the chip reads (omega #492, nvcc oracle, chip probe pending); odd has no evidence
  * Every error names the pc. Memory: global addresses are host pointers (optionally range
  * checked); shared memory is a per-CTA buffer poisoned at CTA start so a read of a word
  * nobody wrote shows up in the oracle comparison.
  *
  * Per-lane ALU semantics are those of the two earlier simulators (tests/gpu_attention_test.c,
- * bench/prime_race/tests/gb10_sieve_host_test.c). EX2 and RCP are exact here; the chip's
- * are approximate. LDCU64 (memory descriptor) is not modelled. */
+ * bench/prime_race/tests/gb10_sieve_host_test.c). MUFU EX2 / RCP / RSQ are the correctly
+ * rounded IEEE value with the chip's subnormal flush (bw_mufu_ftz.h); the chip's are approximate. LDCU64 (memory descriptor) is not modelled. */
 #ifndef BW_WARP_SIM_TC_H
 #define BW_WARP_SIM_TC_H
 /* bw_warp_sim_k.h (OWN-30B cut 8, 2026-10-13): tests/bw_warp_sim.h plus the system-scope opcodes the decode attention
@@ -64,6 +64,7 @@
  * encoder emits and bw_warp_sim_k.h ignored. Timing (stall counts, scoreboards) is not modelled. */
 
 #include "omega_blackwell_codegen.h"
+#include "bw_mufu_ftz.h" /* MUFU EX2 / RCP / RSQ: the chip's flush of subnormal inputs and results (omega #462) */
 #include "bw_hmma_model.h"
 #include "omega_blackwell_codegen_tc.h"
 #include "omega_blackwell_codegen_qmma.h"
@@ -143,16 +144,7 @@ static void ws_wrs(WsLane *l, int v, unsigned sub, uint32_t x, const BlackwellIR
 static float ws_u2f(uint32_t u) { float f; memcpy(&f, &u, 4); return f; }
 static uint32_t ws_f2u(float f) { uint32_t u; memcpy(&u, &f, 4); return u; }
 static uint32_t ws_bf16_rn(uint32_t u) { if ((u & 0x7fffffffu) > 0x7f800000u) return 0x7fc0u; return (u + 0x7fffu + ((u >> 16) & 1u)) >> 16; } /* f32 bits -> bf16 bits, round to nearest even */
-/* MUFU (the SASS EX2 / RCP / RSQ unit) flushes a subnormal result to a sign-preserving zero. Chip-observed on GB10: the SwiGLU
- * reciprocal 1 / (2^t + 1) for t in (126, 128) came back as +-0 on all 101 of 101 differing elements (evidence
- * OWN30B-L1G-PFGEMM-SWIGLU-FTZ-df9bd9c4, gpu_pfgemm_test host red test). Doc-inferred, not separately chip-observed: the input flush
- * and the EX2 / RSQ cases follow the same rule, PTX ISA 9.7.3.13 (rcp) and 9.7.3.21 (ex2) "flushes subnormal inputs and results to
- * sign-preserving zero" for the .ftz form, which is what the bare MUFU we emit is (the non-ftz PTX variants are ptxas sequences around
- * MUFU; NVIDIA publishes no SASS semantics). Limit: the chip's MUFU is approximate (RCP 1 ulp, EX2 2 ulp), the model flushes a correctly
- * rounded IEEE result, so right at the subnormal boundary the two can disagree 0 versus nonzero. This simulator and the pfgemm reference
- * go through this helper; bw_warp_sim.h, bw_warp_sim_k.h, bw_warp_sim_pa.h and gpu_attention_test.c still model MUFU as IEEE (issue filed
- * with PR #461). omega_numeric.c has its own ftz() on the library side. */
-static float ws_mufu_ftz(float f) { uint32_t u = ws_f2u(f); if ((u & 0x7f800000u) == 0u) u &= 0x80000000u; return ws_u2f(u); }
+/* MUFU EX2 / RCP / RSQ: the flush rule and its evidence live in bw_mufu_ftz.h (shared by every simulator, omega #462). */
 static uint32_t ws_lut3(uint32_t lut, uint32_t a, uint32_t b, uint32_t c) {
     uint32_t r = 0;
     for (int i = 0; i < 8; i++) if (lut >> i & 1) r |= ((i & 4) ? a : ~a) & ((i & 2) ? b : ~b) & ((i & 1) ? c : ~c);
@@ -184,9 +176,16 @@ static void ws_lane_exec(WsSim *s, WsLane *l, const BlackwellIRInsn *in, int pc,
     case BW_IR_MOV_RZ: ws_wrs(l, in->dst_vreg, in->dst_subreg, 0, p); break;
     case BW_IR_IMAD: ws_wrs(l, in->dst_vreg, in->dst_subreg, in->src2_vreg >= 0 ? a * b + c : a * in->imm + c, p); break;
     case BW_IR_IMAD_WIDE: ws_wr64(l, in->dst_vreg, (uint64_t)a * in->imm + ws_rd64(l, in->src3_vreg, p), p); break;
-    case BW_IR_IMAD_HI_U32: /* Rd = hi32(Ra * Rb) with Rc = RZ. The chip reads a register Rc as a 64-bit pair (omega #492): refused until a chip probe pins the model */
-        if (in->src3_vreg >= 0) { ws_fail(s, WS_E_IMADHI_RC, pc, "IMAD.HI.U32 with a register Rc (the chip reads Rc as a 64-bit pair, not chip-probed): use RZ, or SHF.R + IADD3"); return; }
-        ws_wrs(l, in->dst_vreg, in->dst_subreg, (uint32_t)(((uint64_t)a * b) >> 32), p); break;
+    case BW_IR_IMAD_HI_U32: { /* Rd = hi32(Ra * Rb + Rc+1:Rc). A register Rc is a 64-bit pair, low word Rc (omega #492, nvcc 13.0
+                               * oracle evidence/IMADHI-RC-ORACLE-nvcc13.0-20261016, not chip-probed); an odd Rc has no evidence: refused */
+        uint64_t c64 = 0;
+        int rc = in->src3_vreg >= 0 ? p->regalloc.vreg_to_phys[in->src3_vreg] : -1;
+        if (rc >= 0) {
+            rc = (rc + in->src3_subreg) & 0xff;
+            if (rc & 1) { ws_fail(s, WS_E_IMADHI_RC, pc, "IMAD.HI.U32 with an odd register Rc (the chip reads a 64-bit pair; nvcc emits only even bases, odd not chip-probed): use RZ or an even pair"); return; }
+            c64 = (uint64_t)l->r[rc] | ((uint64_t)l->r[rc + 1] << 32);
+        }
+        ws_wrs(l, in->dst_vreg, in->dst_subreg, (uint32_t)(((uint64_t)a * b + c64) >> 32), p); break; }
     case BW_IR_IADD3: ws_wrs(l, in->dst_vreg, in->dst_subreg, a + b, p); break; /* the encoder's IADD3 has Rc = RZ */
     case BW_IR_SHF_R: ws_wrs(l, in->dst_vreg, in->dst_subreg, a >> (in->imm & 31), p); break;
     case BW_IR_SHF_L_U32: if (b >= 32) { ws_fail(s, WS_E_SHIFT, pc, "SHF.L.U32 amount >= 32 (not chip-verified)"); return; } ws_wrs(l, in->dst_vreg, in->dst_subreg, a << b, p); break;
@@ -210,9 +209,9 @@ static void ws_lane_exec(WsSim *s, WsLane *l, const BlackwellIRInsn *in, int pc,
         if (in->imm == OMEGA_QMMA_MARK_F2E4) { ws_wrs(l, in->dst_vreg, in->dst_subreg, (uint32_t)qm_e4m3_rne_sat(ws_u2f(a)) << 8 | qm_e4m3_rne_sat(ws_u2f(b)), p); break; } /* F2FP.SATFINITE.E4M3 placeholder (NaN not modelled) */
         ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fmaxf(ws_u2f(a), ws_u2f(b))), p); break;
     case BW_IR_FMNMX_MIN: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(fminf(ws_u2f(a), ws_u2f(b))), p); break;
-    case BW_IR_MUFU_EX2: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_mufu_ftz(exp2f(ws_mufu_ftz(ws_u2f(a))))), p); break;
-    case BW_IR_MUFU_RCP: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_mufu_ftz(1.0f / ws_mufu_ftz(ws_u2f(a)))), p); break;
-    case BW_IR_MUFU_RSQ: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_mufu_ftz(1.0f / sqrtf(ws_mufu_ftz(ws_u2f(a))))), p); break;
+    case BW_IR_MUFU_EX2: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_mufu_ex2(ws_u2f(a))), p); break;
+    case BW_IR_MUFU_RCP: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_mufu_rcp(ws_u2f(a))), p); break;
+    case BW_IR_MUFU_RSQ: ws_wrs(l, in->dst_vreg, in->dst_subreg, ws_f2u(ws_mufu_rsq(ws_u2f(a))), p); break;
     case BW_IR_LDG_STRONG_SYS: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; uint32_t x; memcpy(&x, (const void *)(uintptr_t)ad, 4); ws_wrs(l, in->dst_vreg, in->dst_subreg, x, p); break; }
     case BW_IR_STG_STRONG_SYS: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; memcpy((void *)(uintptr_t)ad, &b, 4); break; }
     case BW_IR_ATOMG_ADD_STRONG_SYS: { uint64_t ad = ws_rd64(l, in->src1_vreg, p); if (!ws_mem_ok(s, ad, 4, pc)) return; uint32_t old; memcpy(&old, (const void *)(uintptr_t)ad, 4); uint32_t nw = old + b; memcpy((void *)(uintptr_t)ad, &nw, 4); ws_wrs(l, in->dst_vreg, in->dst_subreg, old, p); break; }

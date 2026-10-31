@@ -46,7 +46,7 @@ enum {
 #define OMEGA_GPU_DATTN_QKV_WORDS (32u * 128u + 2u * 4u * 128u)
 #define OMEGA_GPU_DATTN_PER_SPLIT 256u
 #define OMEGA_GPU_DATTN_MAX_LAYERS 64u
-#define OMEGA_GPU_DATTN_MAX_POS 65536u
+#define OMEGA_GPU_DATTN_MAX_POS 131072u
 
 typedef struct OmegaGpuDecodeAttnCache OmegaGpuDecodeAttnCache;
 

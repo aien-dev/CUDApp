@@ -399,6 +399,7 @@ int m16_native_submit_methods(M16NativeContext *ctx, const uint32_t *methods, si
     if (!ctx || !methods || count == 0) return -1;
     fk.submit_calls++;
     logev(FK_EV_SUBMIT, count, 0, 0);
+    if (fk.submit_fail && fk.submit_faults_device) ctx->rm.faulted = 1;
     if (!fk.channel_up || fk.submit_fail) return inject(&ctx->rm, -1);
     /* Like m16_native_enqueue_methods: the words must fit the ring buffer. */
     if (count > ctx->pb_mem.size / sizeof(uint32_t) || count > FK_PB_MAX) return inject(&ctx->rm, -1);

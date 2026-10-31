@@ -27,6 +27,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+_Static_assert(RX_CM_CELL_NONE >= RX_CM_CELLS,
+               "unsupported-op sentinel must not be a cell index");
+
 #define PRIOR_A     1.0
 #define PRIOR_B     0.01     /* prior noise variance ~0.01 log2^2 (about 7%) */
 #define NOISE_FLOOR 0.0009   /* never claim better than ~2% sd per call */
@@ -53,9 +56,12 @@ void rx_cm_init(RxCostModel *m, uint32_t n_arms) {
 }
 
 uint32_t rx_cm_cell(const RxCmFeatures *f) {
-    uint32_t op = f->op < RX_CM_OPS ? f->op : RX_CM_OPS - 1;
+    /* An unknown semantic operation is not the last supported family.
+     * The restore-op-clamp mutant rewrites the next line. */
+    uint32_t op = f && f->op < RX_CM_OPS ? f->op : RX_CM_CELL_NONE; /* CM704:refuse-unsupported-op */
+    if (op >= RX_CM_OPS) return RX_CM_CELL_NONE;
     uint32_t core = f->core < RX_CM_CORES ? f->core : RX_CM_CORE_OTHER;
-    uint32_t pr = f->pressure < RX_CM_PRESSURE ? f->pressure : RX_CM_PRESSURE - 1;
+    uint32_t pr = f->pressure < RX_CM_PRESSURE ? f->pressure : RX_CM_PRESSURE - 1u;
     return (op * RX_CM_CORES + core) * RX_CM_PRESSURE + pr;
 }
 
@@ -168,7 +174,9 @@ static int quiet_predict(const RxCostModel *m, const RxCmFeatures *f, uint32_t a
                          double *sd, double *dof, uint64_t *n) {
     RxCmFeatures g = *f;
     g.pressure = 0;
-    const RxCmArmStats *b = &m->cell[rx_cm_cell(&g)][arm];
+    uint32_t cell = rx_cm_cell(&g);
+    if (cell >= RX_CM_CELLS) return 0;
+    const RxCmArmStats *b = &m->cell[cell][arm];
     double phi[RX_CM_D];
     rx_cm_basis(f, phi);
     if (b->n < RX_CM_MIN_OBS || !fit_predict(b, phi, mean, sd, dof)) return 0;
@@ -180,18 +188,24 @@ static uint32_t bucket(const RxCmFeatures *f) {
     return f->pressure < RX_CM_PRESSURE ? f->pressure : RX_CM_PRESSURE - 1;
 }
 
-void rx_cm_predict(const RxCostModel *m, const RxCmFeatures *f, uint32_t arm,
-                   RxCmPrediction *out) {
+int rx_cm_predict(const RxCostModel *m, const RxCmFeatures *f, uint32_t arm,
+                  RxCmPrediction *out) {
+    if (!out) return RX_CM_ERR_ARG;
     memset(out, 0, sizeof *out);
-    if (arm >= m->n_arms) return;
+    if (!m || !f || arm >= m->n_arms) return RX_CM_ERR_ARG;
+    uint32_t cell = rx_cm_cell(f);
+    if (cell >= RX_CM_CELLS) {
+        out->refused = 1;
+        return RX_CM_ERR_UNSUPPORTED;
+    }
     double mean = 0, sd = 0, dof = 0;
     uint64_t n = 0;
     out->fail_p = fail_p(m, arm);
-    if (!quiet_predict(m, f, arm, &mean, &sd, &dof, &n)) return;
+    if (!quiet_predict(m, f, arm, &mean, &sd, &dof, &n)) return RX_CM_OK;
     if (bucket(f) == 0) {
         out->known = 1;
     } else {
-        const RxCmArmStats *r = &m->cell[rx_cm_cell(f)][arm];
+        const RxCmArmStats *r = &m->cell[cell][arm];
         double phi[RX_CM_D], rm = 0, rsd = 0, rdof = 0;
         residual_basis(f, phi);
         if (r->n >= RX_CM_RES_MIN_OBS && fit_predict(r, phi, &rm, &rsd, &rdof)) {
@@ -214,11 +228,14 @@ void rx_cm_predict(const RxCostModel *m, const RxCmFeatures *f, uint32_t arm,
     uint32_t core = f->core < RX_CM_CORES ? f->core : RX_CM_CORE_OTHER;
     double mw = m->power_mw[core][arm];
     if (mw > 0.0) out->energy_pj = exp2(mean) * mw * 1e-3;   /* ps * mW = 1e-3 pJ */
+    return RX_CM_OK;
 }
 
 int rx_cm_observe(RxCostModel *m, const RxCmFeatures *f, uint32_t arm, const RxCmObservation *o) {
     if (!m || !f || !o || arm >= m->n_arms) return RX_CM_ERR_ARG;
-    RxCmArmStats *s = &m->cell[rx_cm_cell(f)][arm];
+    uint32_t cell = rx_cm_cell(f);
+    if (cell >= RX_CM_CELLS) return RX_CM_ERR_UNSUPPORTED;
+    RxCmArmStats *s = &m->cell[cell][arm];
     s->trials++;
     if (o->failed) {
         s->failures++;
@@ -302,6 +319,16 @@ static double expected_improvement(double d, double s) {
 void rx_cm_decide(const RxCostModel *m, const RxCmPolicy *p, const RxCmFeatures *f,
                   int allow_measure, RxCmDecision *out) {
     memset(out, 0, sizeof *out);
+    if (m && f && rx_cm_cell(f) >= RX_CM_CELLS) {
+        uint32_t na = m->n_arms;
+        out->action = RX_CM_REFUSE;
+        out->why = RX_CM_WHY_UNSUPPORTED_OP;
+        out->arm = na;
+        out->measure[0] = na;
+        out->measure[1] = na;
+        for (uint32_t a = 0; a < RX_CM_ARMS; a++) out->pred[a].refused = 1;
+        return;
+    }
     uint32_t fb = p->fallback_arm < m->n_arms ? p->fallback_arm : 0;
     uint32_t elig = (f->eligible | (1u << fb)) & ((1u << m->n_arms) - 1u);
     int have[RX_CM_ARMS] = { 0 };
@@ -436,6 +463,10 @@ void rx_cm_charge(RxCostModel *m, uint64_t work_ps, uint64_t explore_ps) {
 /* ---- canonical bytes ---- */
 
 #define MAGIC   0x4d43474fu   /* "OGCM" little-endian */
+/* VERSION binds the feature basis and the cell layout. RX_CM_CELLS already
+ * includes RX_CM_OPS, so a new operation family changes the blob length and
+ * this header's cells field. Bump VERSION in that same change. Deserialize
+ * refuses a different version, basis size, cell count, arm cap or core count. */
 #define VERSION 1u
 
 typedef struct {
