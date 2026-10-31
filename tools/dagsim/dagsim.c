@@ -31,6 +31,7 @@ const char *ds_status_name(int s) {
     case DS_REFUSED_CYCLE: return "REFUSED_CYCLE";
     case DS_REFUSED_UNSUPPORTED: return "REFUSED_UNSUPPORTED";
     case DS_REFUSED_REMOVED_REQUIRED: return "REFUSED_REMOVED_REQUIRED";
+    case DS_REFUSED_LIFETIME: return "REFUSED_LIFETIME";
     case DS_PARSE_ERROR: return "PARSE_ERROR";
     default: return "?";
     }
@@ -279,7 +280,8 @@ int ds_parse_text(const char *text, ds_model *m, char *err, size_t errcap) {
             const char *v;
             if (!(v = get(kvs, n, "id"))) PERR("buffer needs id=");
             sset(b->id, sizeof b->id, v);
-            if (!parse_real(get(kvs, n, "bytes"), &b->bytes)) PERR("buffer needs bytes=");
+            if (!parse_real(get(kvs, n, "bytes"), &b->bytes) || !isfinite(b->bytes))
+                PERR("buffer bytes must be a finite number >= 0");
             if (!(v = get(kvs, n, "cap")) || (b->cap = ds_find_res(m, v)) < 0 || m->res[b->cap].kind != DS_RES_CAPACITY) PERR("buffer needs cap=<capacity resource>");
             if ((v = get(kvs, n, "first")) && (b->first = ds_find_op(m, v)) < 0) PERR("first=%s not an op", v);
             if ((v = get(kvs, n, "last")) && (b->last = ds_find_op(m, v)) < 0) PERR("last=%s not an op", v);
@@ -387,6 +389,19 @@ static int refuse(ds_result *r, int status, const char *fmt, const char *a, cons
     return status;
 }
 
+static int refuse_msg(ds_result *r, int status, const char *msg) {
+    memset(r, 0, sizeof *r);
+    r->status = status;
+    snprintf(r->reason, sizeof r->reason, "%s", msg ? msg : "");
+    return status;
+}
+
+/* An unsupported operation and a refused prediction are the same as an
+ * unknown cell: no certificate. known alone is not enough. */
+static int predict_unusable(int st, const RxCmPrediction *p) {
+    return st == RX_CM_ERR_UNSUPPORTED || p->refused || !p->known || p->n == 0; /* PREDICT_REFUSAL_CHECK */
+}
+
 static int resolve(const ds_model *m, const ds_opts *o, ds_num *num, ds_result *r) {
     int any_cal = 0;
     for (int i = 0; i < m->n_res; i++) {
@@ -408,8 +423,9 @@ static int resolve(const ds_model *m, const ds_opts *o, ds_num *num, ds_result *
             f.op = RX_CM_OP_MATVEC; f.M = op->M; f.N = op->N;
             f.state_bytes = ((uint64_t)op->M * op->N + op->M + op->N) * 8u;
             f.cache_bytes = 1u << 20; f.core = op->core; f.eligible = 1u << op->arm; f.current_arm = op->arm;
-            RxCmPrediction p; rx_cm_predict(cm, &f, op->arm, &p);
-            if (!p.known || p.n == 0) return refuse(r, DS_REFUSED_UNKNOWN, "op %s: rx_costmodel has no known cell for this (op, core, pressure) and arm; measure it first%s", op->id, "");
+            RxCmPrediction p;
+            int st = rx_cm_predict(cm, &f, op->arm, &p);
+            if (predict_unusable(st, &p)) return refuse(r, DS_REFUSED_UNKNOWN, "op %s: rx_costmodel has no known cell for this (op, core, pressure) and arm; measure it first%s", op->id, "");
             double q = o->interval_q > 0 && o->interval_q < 1 ? o->interval_q : 0.9;
             double k = rx_cm_t_quantile(q, p.dof);
             double l2 = p.mean_log2_ps + (o->mode < 0 ? k * p.sd_log2 : o->mode > 0 ? -k * p.sd_log2 : 0);
@@ -451,6 +467,33 @@ static int topo(const ds_model *m, int *order) {
 
 enum { ST_WAIT = 0, ST_READY, ST_LAUNCH, ST_RUN, ST_DONE };
 enum { BLK_NONE = 0, BLK_SLOT, BLK_LAUNCHER };
+
+/* Half-open [start, end). Missing first -> 0; missing last -> makespan. */
+static void buffer_window(const ds_model *m, const ds_result *r, int b, double *s, double *e) {
+    *s = m->buf[b].first >= 0 ? r->start_ns[m->buf[b].first] : 0.0;
+    *e = m->buf[b].last >= 0 ? r->end_ns[m->buf[b].last] : r->makespan_ns;
+}
+
+static const char *endpoint_name(const ds_model *m, int op) {
+    return op >= 0 ? m->ops[op].id : "omitted";
+}
+
+/* Resolved end earlier than start is not an interval. Refuse before the ledger. */
+static int reject_inverted_lifetimes(const ds_model *m, ds_result *r) {
+    for (int b = 0; b < m->n_buf; b++) {
+        double s, e;
+        buffer_window(m, r, b, &s, &e);
+        if (e + 1e-9 < s) {
+            char msg[256];
+            snprintf(msg, sizeof msg,
+                     "inverted lifetime for buffer %s: first=%s start_ns=%.9g last=%s end_ns=%.9g",
+                     m->buf[b].id, endpoint_name(m, m->buf[b].first), s,
+                     endpoint_name(m, m->buf[b].last), e);
+            return refuse_msg(r, DS_REFUSED_LIFETIME, msg);
+        }
+    }
+    return DS_OK;
+}
 
 int ds_eval(const ds_model *m, const ds_opts *o, ds_result *r) {
     memset(r, 0, sizeof *r);
@@ -578,7 +621,14 @@ int ds_eval(const ds_model *m, const ds_opts *o, ds_result *r) {
         if (w > r->bound_ns) r->bound_ns = w;
     }
 
-    /* ---- capacity ledger: frees before allocations at the same instant ---- */
+    /* Inverted lifetimes never enter the ledger (and never rank). */
+    if ((rc = reject_inverted_lifetimes(m, r)) != DS_OK) return rc; /* LIFETIME_ORDER_CHECK */
+
+    /* ---- capacity ledger: frees before allocations at the same instant ----
+     * Positive intervals only. A zero-duration [s, e) is empty and emits no
+     * event, so a same-time free cannot pull the ledger negative or offset
+     * another buffer. Frees of earlier intervals still precede allocs, which
+     * is the completion/allocation tie. */
     for (int c = 0; c < m->n_res; c++) {
         if (m->res[c].kind != DS_RES_CAPACITY) continue;
         double live = 0, peak = 0, peak_at = 0;
@@ -586,8 +636,9 @@ int ds_eval(const ds_model *m, const ds_opts *o, ds_result *r) {
         double et[2 * DS_MAX_BUF]; double ev[2 * DS_MAX_BUF]; int en = 0;
         for (int b = 0; b < m->n_buf; b++) {
             if (m->buf[b].cap != c) continue;
-            double s = m->buf[b].first >= 0 ? r->start_ns[m->buf[b].first] : 0;
-            double e = m->buf[b].last >= 0 ? r->end_ns[m->buf[b].last] : r->makespan_ns;
+            double s, e;
+            buffer_window(m, r, b, &s, &e);
+            if (!(s + 1e-9 < e)) continue;
             et[en] = s; ev[en] = m->buf[b].bytes; en++;
             et[en] = e; ev[en] = -m->buf[b].bytes; en++;
         }
@@ -597,14 +648,26 @@ int ds_eval(const ds_model *m, const ds_opts *o, ds_result *r) {
             while (j >= 0 && (et[j] > kt || (et[j] == kt && ev[j] > 0 && kv_ < 0))) { et[j + 1] = et[j]; ev[j + 1] = ev[j]; j--; }
             et[j + 1] = kt; ev[j + 1] = kv_;
         }
-        for (int i = 0; i < en; i++) { live += ev[i]; if (live > peak) { peak = live; peak_at = et[i]; } }
+        for (int i = 0; i < en; i++) {
+            live += ev[i];
+            /* Reachable by rounding: 1e20 + 1 sums to 1e20, so the later
+             * frees overshoot (dagsim_unit rounding_drives_live_negative). */
+            if (live < -1e-6) {
+                char msg[256];
+                snprintf(msg, sizeof msg,
+                         "capacity %s live bytes went negative (%.9g at t=%.9g); refusing the certificate",
+                         m->res[c].id, live, et[i]);
+                return refuse_msg(r, DS_REFUSED_LIFETIME, msg);
+            }
+            if (live > peak) { peak = live; peak_at = et[i]; }
+        }
         r->peak_live_bytes[c] = peak; r->peak_live_at_ns[c] = peak_at;
         if (peak > m->res[c].cap + 1e-9) {
             char names[160] = ""; size_t L = 0;
             for (int b = 0; b < m->n_buf && L < sizeof names - 8; b++) {
                 if (m->buf[b].cap != c) continue;
-                double s = m->buf[b].first >= 0 ? r->start_ns[m->buf[b].first] : 0;
-                double e = m->buf[b].last >= 0 ? r->end_ns[m->buf[b].last] : r->makespan_ns;
+                double s, e;
+                buffer_window(m, r, b, &s, &e);
                 if (s <= peak_at && e > peak_at) { snprintf(names + L, sizeof names - L, "%s%s", L ? "," : "", m->buf[b].id); L = strlen(names); }
             }
             char what[200]; snprintf(what, sizeof what, "%.0f B live at t=%.0f ns (%s) exceeds", peak, peak_at, names);

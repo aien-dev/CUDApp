@@ -57,5 +57,31 @@ grep -q '"status": "REFUSED_REMOVED_REQUIRED"' "$OUT/diff_bad.json"; check $? "u
 "$BIN" diff $F/mw_baseline.oev $F/mw_baseline.oev --asof $ASOF > "$OUT/diff_same.json"
 grep -q '"kept": 4, "added": 0, "removed": 0' "$OUT/diff_same.json"; check $? "no-change fixture adds no nodes"
 
+# omega-mv#705: inverted lifetime must not come back as an OK capacity certificate.
+"$BIN" eval $F/inverted_masks_overflow.oev --asof 2026-10-24 > "$OUT/inverted.json"; rc=$?
+[ $rc -eq 1 ]; check $? "inverted lifetime exits 1"
+grep -q '"status": "REFUSED_LIFETIME"' "$OUT/inverted.json"; check $? "inverted lifetime status"
+grep -q 'first=C' "$OUT/inverted.json"; check $? "inverted reason names first=C"
+grep -q 'last=A' "$OUT/inverted.json"; check $? "inverted reason names last=A"
+grep -q 'makespan' "$OUT/inverted.json"; [ $? -ne 0 ]; check $? "no makespan on inverted refusal"
+"$BIN" eval $F/inverted_lone.oev --asof 2026-10-24 > "$OUT/inverted_lone.json"; rc=$?
+[ $rc -eq 1 ]; check $? "lone inverted lifetime exits 1"
+grep -q '"status": "REFUSED_LIFETIME"' "$OUT/inverted_lone.json"; check $? "lone inverted is not peak 0"
+"$BIN" eval $F/capacity_two_80.oev --asof 2026-10-24 > "$OUT/cap80.json"; rc=$?
+[ $rc -eq 1 ]; check $? "two overlapping 80 B buffers exit 1"
+grep -q '"status": "REFUSED_CAPACITY"' "$OUT/cap80.json"; check $? "overlap is REFUSED_CAPACITY"
+"$BIN" eval $F/valid_disjoint_80.oev --asof 2026-10-24 > "$OUT/disjoint80.json"; rc=$?
+check $rc "disjoint 80 B pair exits 0"
+grep -q '"status": "OK"' "$OUT/disjoint80.json"; check $? "disjoint pair OK"
+grep -q '"bytes": 80' "$OUT/disjoint80.json"; check $? "disjoint peak 80"
+"$BIN" eval $F/valid_tie_80.oev --asof 2026-10-24 > "$OUT/tie80.json"; rc=$?
+check $rc "completion/allocation tie exits 0"
+grep -q '"status": "OK"' "$OUT/tie80.json"; check $? "tie OK"
+grep -q '"bytes": 80' "$OUT/tie80.json"; check $? "tie peak 80"
+"$BIN" pareto $F/inverted_masks_overflow.oev $F/valid_disjoint_80.oev --asof 2026-10-24 > "$OUT/pareto_life.txt"; rc=$?
+check $rc "pareto with a refused lifetime exits 0"
+grep -q 'inverted_masks_overflow.oev *REFUSED_LIFETIME' "$OUT/pareto_life.txt"; check $? "inverted row is refused, not ranked OK"
+grep -q 'valid_disjoint_80.oev *OK' "$OUT/pareto_life.txt"; check $? "valid row still ranked"
+
 say "outputs in $OUT"
 exit $fail

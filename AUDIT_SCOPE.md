@@ -132,13 +132,18 @@ make hello-gpu
 ## Dependencies and provenance
 
 - No lockfile at the root; C with no external libraries beyond libc and libm for the library.
-  `native/learn53/omega653.lock` is a sub-component lock.
+  Sub-component pins: `om/omega-bridge.lock` (omega-bridge commit for the Omega bindings and CI),
+  `om/pipeline/dependencies.lock`, `native/learn53/omega653.lock`,
+  `native/learn53/moe-closure.lock` and `tools/c5/omc.pin`.
 - Vendored: `third_party/nvidia-open-580.173.02/` (67 NVIDIA headers, MIT, unchanged,
   `SHA256SUMS` in that folder). Mesa NVK/NAK is cited in comments for hardware facts, no code
   copied. Notices in `THIRD_PARTY.md` and `NOTICE`. History and licence audit in `docs/AUDIT.md`,
   `docs/LICENSE_PROVENANCE.md`, `docs/LICENSING_TRANSITION.md`.
 - AGENTS.md: no NVIDIA binary, cubin, PTX, firmware or NVIDIA tool listing goes in the repository.
-- Omega builds the same sources at a pinned commit (`cudapp.lock` in omega-mv).
+- Omega does not build these sources at a pin yet. omega-mv main has no `cudapp.lock`; it still
+  builds its own diverged copy of the GPU code (#106) and takes the driver client from physics-mv
+  (#107). The lock, with its `check-cudapp` target and `tools/cudapp-stage.sh`, is proposed in
+  the open draft omega-mv#924.
 - No network access at build or test time is documented. At the described revision the repository
   had no GitHub Actions workflow files; the audit-readiness change adds `.github/workflows/ci.yml`
   (item 10 above), whose only network use is fetching the pinned actions on the runner.

@@ -12,6 +12,7 @@
 #include "omega_gpu_fmt.h"
 #include "omega_gpu_cmdlist.h"
 #include "omega_blackwell_qmd.h" /* OMEGA_BW_QMD_MAX_SHARED_BYTES: the deep kernel's x stage must fit the launch descriptor */
+#include "omega_gpu_fp8_internal.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -109,7 +110,7 @@ void omega_gpu_fp8_set_depth(int set, uint32_t depth) { omega_gpu_session_lock()
 void omega_gpu_fp8_set_gpr_pad(uint32_t pad) { omega_gpu_session_lock(); g.gpr_pad = pad; omega_gpu_session_unlock(); }
 void omega_gpu_fp8_set_cta_budget(uint32_t ctas) { omega_gpu_session_lock(); g.cta_budget_set = ctas != 0; g.cta_budget = ctas ? ctas : OMEGA_GPU_FP8_MAX_CTAS; cache_clear_locked(); omega_gpu_session_unlock(); }
 void omega_gpu_fp8_test_set_mutant(int m) { omega_gpu_session_lock(); g.mutant = m; cache_clear_locked(); omega_gpu_session_unlock(); }
-void omega_gpu_fp8_test_set_no_fold(int on) { g.no_fold = on ? 1 : 0; }
+void omega_gpu_fp8_test_set_no_fold(int on) { omega_gpu_session_lock(); g.no_fold = on ? 1 : 0; omega_gpu_session_unlock(); }
 void omega_gpu_fp8_seal(int on) { omega_gpu_session_lock(); g.sealed = on ? 1 : 0; omega_gpu_session_unlock(); }
 
 /* ---- GEMV variant (W-L2c): 1 = omega_blackwell_codegen_moe.c (default), 2 = omega_blackwell_codegen_moe2.c (row-pipelined) ---- */
@@ -455,6 +456,9 @@ int omega_gpu_fp8_tensor_upload(uint32_t experts, uint32_t n, uint32_t k, const 
         t->owner_generation = next_owner;
         t->allocation_epoch = omega_gpu_session_epoch();
     }
+    /* Fill and sync under the lock (omega#456): t is not shared yet, but its CPU views belong to the open device, and a
+     * device close on another thread between unlock and memcpy would unmap them; sync_to_gpu also reads the open state.
+     * g.no_fold is read under the lock, as its setter now writes it. The cost is holding the lock for one weight copy. */
     if (rc == OMEGA_GPU_FP8_OK) {
         memcpy(t->w.cpu, w, wbytes);
         if (omega_fp8_pack_scales(scale, scount, t->s.cpu, g.no_fold) != 0) { omega_gpu_session_set_error("fp8 upload: NaN, inf or overflowing scale"); rc = OMEGA_GPU_FP8_BAD_ARGS; }
@@ -697,4 +701,37 @@ int omega_gpu_fp8_quantize_bf16(uint32_t n, uint32_t k, const uint16_t *w, uint8
             }
         }
     return OMEGA_GPU_FP8_OK;
+}
+
+/* ---- slot pool support (omega_gpu_fp8_internal.h, Expert Ribbon omega#533) ---- */
+int omega_gpu_fp8_tensor_alloc_uncached(uint32_t experts, uint32_t n, uint32_t k, OmegaGpuFp8Tensor **out) {
+    if (out) *out = NULL;
+    if (!out || experts == 0 || n == 0 || k == 0 || n % OMEGA_FP8_BLOCK || k % OMEGA_FP8_BLOCK) return OMEGA_GPU_FP8_BAD_ARGS;
+    if (k > OMEGA_FP8_MAX_K) return OMEGA_GPU_FP8_TOO_LARGE;
+    const size_t wbytes = (size_t)experts * n * k, scount = (size_t)experts * (n / OMEGA_FP8_BLOCK) * (k / OMEGA_FP8_BLOCK);
+    OmegaGpuFp8Tensor *t = omega_gpu_host_calloc(1, sizeof *t);
+    if (!t) return OMEGA_GPU_FP8_BAD_ARGS;
+    t->experts = experts; t->n = n; t->k = k;
+    int rc = OMEGA_GPU_FP8_OK;
+    omega_gpu_session_lock();
+    if (!dev_open_locked() || omega_gpu_session_alloc(wbytes, &t->w) != 0 || omega_gpu_session_alloc(scount * 4u, &t->s) != 0) rc = OMEGA_GPU_FP8_CHIP_FAIL;
+    omega_gpu_session_unlock();
+    if (rc == OMEGA_GPU_FP8_OK) {
+        memset(t->w.cpu, 0, wbytes);
+        memset(t->s.cpu, 0, scount * 4u);
+        if (omega_gpu_session_sync_to_gpu(&t->w) != 0 || omega_gpu_session_sync_to_gpu(&t->s) != 0) rc = OMEGA_GPU_FP8_CHIP_FAIL;
+    }
+    if (rc != OMEGA_GPU_FP8_OK) { omega_gpu_fp8_tensor_free(t); return rc; }
+    *out = t;
+    return OMEGA_GPU_FP8_OK;
+}
+int omega_gpu_fp8_tensor_cpu_view(const OmegaGpuFp8Tensor *t, uint32_t expert, uint8_t **w, float **s) {
+    if (!t || !t->w.cpu || !t->s.cpu || expert >= t->experts || !w || !s) return OMEGA_GPU_FP8_BAD_ARGS;
+    *w = (uint8_t *)t->w.cpu + (size_t)expert * t->n * t->k;
+    *s = (float *)t->s.cpu + (size_t)expert * (t->n / OMEGA_FP8_BLOCK) * (t->k / OMEGA_FP8_BLOCK);
+    return OMEGA_GPU_FP8_OK;
+}
+int omega_gpu_fp8_tensor_sync_to_gpu(const OmegaGpuFp8Tensor *t) {
+    if (!t) return -1;
+    return (omega_gpu_session_sync_to_gpu(&t->w) != 0 || omega_gpu_session_sync_to_gpu(&t->s) != 0) ? -1 : 0;
 }

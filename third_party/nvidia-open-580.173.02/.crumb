@@ -15,15 +15,40 @@
   ],
   "extensions": {
     "generated": {
-      "children": [],
-      "children_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "compiled_at": "2026-10-30T21:31:54Z",
+      "children": [
+        {
+          "digest": "3c8f8a28a8a1c7131b00c464b184f2cdb6b49711f0745683f30a0469d85fd73c",
+          "last_commit": "d6942f8",
+          "name": "kernel-open/common/inc",
+          "purpose": "Directory third_party/nvidia-open-580.173.02/kernel-open/common/inc. Purpose not yet described b"
+        },
+        {
+          "digest": "e2566ff34294493d9b4145bd222b1d01c52272135cdfb50ba28d4c1177163a59",
+          "last_commit": "d6942f8",
+          "name": "kernel-open/nvidia-uvm",
+          "purpose": "Directory third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm. Purpose not yet described b"
+        },
+        {
+          "digest": "e84ac08773c5f8c57312e87f637a58e633a267e56ab5d3e373cb9a24adb4d136",
+          "last_commit": "d6942f8",
+          "name": "src/common/sdk/nvidia/inc",
+          "purpose": "Directory third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc. Purpose not yet describe"
+        },
+        {
+          "digest": "d0cd262a404618e99d438baec39312b8fe718afde4c9546ebaab7dd5bf7ea258",
+          "last_commit": "d6942f8",
+          "name": "src/nvidia/arch/nvalloc/unix/include",
+          "purpose": "Directory third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include. Purpose not y"
+        }
+      ],
+      "children_root": "sha256:64b4899d26aab55aa5a654ebd4a5b2affd91476c65bbb450a2db47ba4b973ca6",
+      "compiled_at": "2026-10-31T10:59:32Z",
       "compiler": "crumb-compile/1",
-      "digest": "sha256:f868e96a89e9f5d71e6243a5ccbb0aa690e99feccb7ceddee5a40bbc412cbd58",
+      "digest": "sha256:d427f1c2d9fc5970faded9ef8a663654b810830aa604fb87b939cbd659ddac77",
       "evidence_files": 0,
       "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "files": 69,
-      "generated_at_commit": "f75a10b2ef5babc536e77365e924a9a716bcbbd3",
+      "generated_at_commit": "dee2810e46ac1363c3f3fdd9d89f40a738187f50",
       "source_tree": "sha256:a7cf927570805606944f84b683cc89e7ced0708fa4e3023ae6f844a082d32611"
     },
     "owner_lane": "",
