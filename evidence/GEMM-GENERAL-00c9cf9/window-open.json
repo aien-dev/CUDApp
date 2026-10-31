@@ -1,0 +1,7 @@
+{"window_id": "20261031T115238Z-0623b2", "name": "GemmEx", "owner": "drakestapleton@pid1486356", "lease_min": 90, "gb10": "shared", "waited_s": 1, "state": {"utc": "2026-10-31T11:52:39Z", "loadavg": "27.85 26.12 26.28 21/2201 2407099", "mem_avail_kB": 59472848, "gpu_util_pct": "92", "gpu_W": "48.03",
+ "gb10_lock_holders": "holds shared pid 2406110 (s) (set by a finished flock; processes with /tmp/aien-gb10.lock open now: pid 2406083 /bin/sh /home/drakestapleton/.local/bin/spark-window _hold 20261031T11); ",
+ "quiet_lock_holders": "",
+ "quiet_waiters": "",
+ "gpu_apps": "2489455, 30366 MiB, /app/llama-server;",
+ "sensors_row": "1793447557,2026-10-31T06:52:37-05:00,190,48.01,93,28.62,59728884,0,207", "sensors_row_age_s": 2}
+}
