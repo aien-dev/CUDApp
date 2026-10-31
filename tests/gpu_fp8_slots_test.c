@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 static int g_failed, g_checks;
 #define CHECK(c, ...) do { g_checks++; if (c) { printf("ok   "); } else { printf("FAIL "); g_failed++; } printf(__VA_ARGS__); printf("\n"); } while (0)
@@ -32,22 +33,55 @@ static uint32_t lcg(uint32_t *s) { *s = *s * 1664525u + 1013904223u; return *s; 
 
 /* ---------------- host-only: the state machine ---------------- */
 
-typedef struct { OmegaFp8SlotTable *t; uint64_t *shadow_version; volatile int stop; uint64_t observed_rewrites, pins_ok; } Race;
+/* The race must not depend on how the threads are scheduled (a 1-CPU taskset starved the writer; a loaded host hid the
+ * mutant). The writer publishes every reload attempt under m; a reader holds its pin until two attempts have finished
+ * after it pinned, so at least one begin_load runs entirely inside the pin, and pins again only after the writer
+ * published a reload, so pins always drain and the writer always gets through. Waits block on cv (no spinning or
+ * yielding), so a host with every CPU busy only slows the hand-offs, it cannot starve them. */
+typedef struct {
+    OmegaFp8SlotTable *t; uint64_t *shadow_version;
+    pthread_mutex_t m; pthread_cond_t cv; int stop; uint64_t attempts, reloads; /* guarded by m */
+    uint64_t observed_rewrites, pins_ok; /* atomic */
+} Race;
+
+/* waits until *ctr >= target or stop; returns the value of *ctr seen */
+static uint64_t race_wait(Race *r, const uint64_t *ctr, uint64_t target) {
+    pthread_mutex_lock(&r->m);
+    while (*ctr < target && !r->stop) pthread_cond_wait(&r->cv, &r->m);
+    const uint64_t v = *ctr;
+    pthread_mutex_unlock(&r->m);
+    return v;
+}
+
+static int race_stopped(Race *r) {
+    pthread_mutex_lock(&r->m); const int s = r->stop; pthread_mutex_unlock(&r->m);
+    return s;
+}
 
 static void *reader(void *arg) {
     Race *r = arg;
-    while (!r->stop) {
+    uint64_t after = 0; int pinned_once = 0;
+    while (!race_stopped(r)) {
+        if (pinned_once) race_wait(r, &r->reloads, after + 1);
         OmegaFp8SlotRec rec;
         if (omega_fp8_slot_query(r->t, 0, &rec) != 0) continue;
         if (rec.state != OMEGA_FP8_SLOT_READY) continue;
         if (omega_fp8_slot_pin(r->t, 0, rec.version) != 0) continue;
-        r->pins_ok++;
+        pinned_once = 1;
+        __atomic_fetch_add(&r->pins_ok, 1, __ATOMIC_RELAXED);
         /* while pinned, the shadow (the slot bytes) must keep holding the content of the pinned key */
-        for (int i = 0; i < 64; i++) if (__atomic_load_n(r->shadow_version, __ATOMIC_ACQUIRE) != rec.key) r->observed_rewrites++;
+        uint64_t seen = __atomic_load_n(r->shadow_version, __ATOMIC_ACQUIRE) != rec.key;
+        const uint64_t a0 = race_wait(r, &r->attempts, 0);
+        race_wait(r, &r->attempts, a0 + 2);
+        seen += __atomic_load_n(r->shadow_version, __ATOMIC_ACQUIRE) != rec.key;
+        if (seen) __atomic_fetch_add(&r->observed_rewrites, seen, __ATOMIC_RELAXED);
+        after = race_wait(r, &r->reloads, 0);
         (void)omega_fp8_slot_unpin(r->t, 0, rec.version);
     }
     return NULL;
 }
+
+static double now_s(void) { struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts); return (double)ts.tv_sec + ts.tv_nsec * 1e-9; }
 
 static int host_tests(void) {
     OmegaFp8SlotTable t;
@@ -88,35 +122,47 @@ static int host_tests(void) {
     omega_fp8_slot_table_fini(&t);
 
     /* threaded race: 4 readers pin slot 0 at its current version; one writer reloads it as fast as it can. The shadow
-     * stands for the slot's bytes: the writer bumps it between begin_load and finish_load (while the slot is hidden). */
+     * stands for the slot's bytes: the writer bumps it between begin_load and finish_load (while the slot is hidden).
+     * The writer runs until RELOADS reloads and PINS reader pins happened (60 s cap, which only a hung table reaches). */
+    enum { RELOADS = 10000, PINS = 1000 };
     for (int mutant = 0; mutant <= 1; mutant++) {
         OmegaFp8SlotTable rt; omega_fp8_slot_table_init(&rt, 1);
         omega_fp8_slot_table_set_mutant(&rt, mutant);
         uint64_t shadow = 0, v = 0;
         omega_fp8_slot_begin_load(&rt, 0); omega_fp8_slot_finish_load(&rt, 0, 0, 1, &v);
         __atomic_store_n(&shadow, 0, __ATOMIC_RELEASE);
-        Race r = { .t = &rt, .shadow_version = &shadow };
+        Race r = { .t = &rt, .shadow_version = &shadow, .m = PTHREAD_MUTEX_INITIALIZER, .cv = PTHREAD_COND_INITIALIZER };
         pthread_t th[4];
         for (int i = 0; i < 4; i++) pthread_create(&th[i], NULL, reader, &r);
         uint64_t reloads = 0, busy = 0;
-        for (int i = 0; i < 200000; i++) {
-            if (omega_fp8_slot_begin_load(&rt, 0) != 0) { busy++; continue; }
-            __atomic_store_n(&shadow, 0xDEADull << 32, __ATOMIC_RELEASE); /* "bytes" half-written */
-            __atomic_store_n(&shadow, (uint64_t)i + 1, __ATOMIC_RELEASE); /* "bytes" complete: the content of key i + 1 */
-            uint64_t nv = 0; omega_fp8_slot_finish_load(&rt, 0, (uint64_t)i + 1, 1, &nv);
-            reloads++;
+        const double t0 = now_s();
+        for (uint64_t i = 0; reloads < RELOADS || __atomic_load_n(&r.pins_ok, __ATOMIC_RELAXED) < PINS; i++) {
+            if ((i & 1023) == 0 && now_s() - t0 > 60.0) break;
+            const int rc = omega_fp8_slot_begin_load(&rt, 0);
+            if (rc == 0) {
+                __atomic_store_n(&shadow, 0xDEADull << 32, __ATOMIC_RELEASE); /* "bytes" half-written */
+                __atomic_store_n(&shadow, i + 1, __ATOMIC_RELEASE); /* "bytes" complete: the content of key i + 1 */
+                uint64_t nv = 0; omega_fp8_slot_finish_load(&rt, 0, i + 1, 1, &nv);
+                reloads++;
+            } else busy++;
+            pthread_mutex_lock(&r.m);
+            r.attempts = i + 1; r.reloads = reloads;
+            pthread_cond_broadcast(&r.cv);
+            pthread_mutex_unlock(&r.m);
         }
-        r.stop = 1;
+        pthread_mutex_lock(&r.m); r.stop = 1; pthread_cond_broadcast(&r.cv); pthread_mutex_unlock(&r.m);
         for (int i = 0; i < 4; i++) pthread_join(th[i], NULL);
+        const int ran = reloads >= RELOADS && r.pins_ok >= PINS;
         if (!mutant)
-            CHECK(r.observed_rewrites == 0 && reloads > 0 && r.pins_ok > 0,
+            CHECK(ran && r.observed_rewrites == 0,
                   "race: %" PRIu64 " reloads, %" PRIu64 " busy refusals, %" PRIu64 " reader pins, rewrites seen under a pin = %" PRIu64,
                   reloads, busy, r.pins_ok, r.observed_rewrites);
         else
-            printf("info negative control (mutant ignores pins): %" PRIu64 " reloads, %" PRIu64 " reader pins, rewrites seen under a pin = %" PRIu64 " (%s)\n",
-                   reloads, r.pins_ok, r.observed_rewrites, r.observed_rewrites ? "CAUGHT" : "not observed this run");
-        if (mutant) CHECK(r.observed_rewrites > 0, "mutant: readers observe rewrites under a pin (the race check has teeth)");
+            CHECK(ran && r.observed_rewrites > 0,
+                  "mutant (ignores pins): %" PRIu64 " reloads, %" PRIu64 " reader pins, rewrites seen under a pin = %" PRIu64 " (the race check has teeth)",
+                  reloads, r.pins_ok, r.observed_rewrites);
         omega_fp8_slot_table_fini(&rt);
+        pthread_cond_destroy(&r.cv); pthread_mutex_destroy(&r.m);
     }
     return 0;
 }
