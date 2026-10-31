@@ -106,6 +106,14 @@ static void x_ahead_for(OmegaFp8GemmSpec *spec) {
     if (on < 0) { const char *e = getenv("AIEN_OMEGA_FP8GEMM_X_AHEAD"); on = (e && e[0] == '1' && e[1] == 0) ? 1 : 0; }
     spec->x_ahead = on && spec->mt * spec->lane_bytes / spec->warps <= 16u ? 1u : 0u;
 }
+/* DRA-79 (P-DRA-4): the next weight row's weights and scale loaded during the current row (OmegaFp8GemmSpec.row_ahead), OFF
+ * unless AIEN_OMEGA_FP8GEMM_ROW_AHEAD=1 (read once), and only at one K step per row (k == 32 * lane_bytes: the 35B's down
+ * projection, k 512); every call that resolves its spec here (the stroke, prefill) takes it */
+static void row_ahead_for(OmegaFp8GemmSpec *spec) {
+    static int on = -1;
+    if (on < 0) { const char *e = getenv("AIEN_OMEGA_FP8GEMM_ROW_AHEAD"); on = (e && e[0] == '1' && e[1] == 0) ? 1 : 0; }
+    spec->row_ahead = on && spec->k == 32u * spec->lane_bytes ? 1u : 0u;
+}
 /* dense = a few distinct experts with many rows each (qkv, o): 8 rows per pass measured best there */
 static void spec_for(uint32_t k, uint32_t segs, OmegaFp8GemmSpec *spec) {
     memset(spec, 0, sizeof *spec);
@@ -114,6 +122,7 @@ static void spec_for(uint32_t k, uint32_t segs, OmegaFp8GemmSpec *spec) {
     if (!g.mt && segs < 8u) spec->mt = 8u;
     spec->mutant = g.mutant;
     x_ahead_for(spec);
+    row_ahead_for(spec);
 }
 
 static int g_rec; /* 1 while a record call runs (lock held): kernel_for must not evict */

@@ -416,12 +416,13 @@ static void sweep(void) {
           snprintf(v, sizeof v, "k%u rows%u warps%u depth%u", ks[a], rows, w, dp);
           if (BUILD(omega_blackwell_codegen_bf16_gemv_prog(&s, &g_prog))) sweep_prog("bf16_gemv", v, P_NONE);
       } }
-    /* fp8 grouped GEMM: the incumbent, rowmap (the stroke's expert form) and x_ahead (L312 lever 3, scoreboard 5) */
-    { unsigned ks[] = { 512, 768, 2048, 4096 };
-      for (unsigned a = 0; a < 4; a++) for (unsigned lb = 8; lb <= 16; lb += 8) for (unsigned mt = 1; mt <= 16; mt *= 2) for (unsigned w = 1; w <= 32; w *= 2)
-      for (unsigned rm = 0; rm <= 1; rm++) for (unsigned xa = 0; xa <= 1; xa++) {
-          OmegaFp8GemmSpec s = { .k = ks[a], .lane_bytes = lb, .mt = mt, .warps = w, .rowmap = rm, .x_ahead = xa };
-          snprintf(v, sizeof v, "k%u lane%u mt%u warps%u%s%s", ks[a], lb, mt, w, rm ? " rowmap" : "", xa ? " x_ahead" : "");
+    /* fp8 grouped GEMM: the incumbent, rowmap (the stroke's expert form), x_ahead (L312 lever 3, scoreboard 5) and row_ahead
+     * (DRA-79, scoreboard 4 held across the row loop; one K step only: k 256 at lane 8, k 512 at lane 16) */
+    { unsigned ks[] = { 512, 768, 2048, 4096, 256 };
+      for (unsigned a = 0; a < 5; a++) for (unsigned lb = 8; lb <= 16; lb += 8) for (unsigned mt = 1; mt <= 16; mt *= 2) for (unsigned w = 1; w <= 32; w *= 2)
+      for (unsigned rm = 0; rm <= 1; rm++) for (unsigned xa = 0; xa <= 1; xa++) for (unsigned ra = 0; ra <= 1; ra++) {
+          OmegaFp8GemmSpec s = { .k = ks[a], .lane_bytes = lb, .mt = mt, .warps = w, .rowmap = rm, .x_ahead = xa, .row_ahead = ra };
+          snprintf(v, sizeof v, "k%u lane%u mt%u warps%u%s%s%s", ks[a], lb, mt, w, rm ? " rowmap" : "", xa ? " x_ahead" : "", ra ? " row_ahead" : "");
           if (BUILD(omega_blackwell_codegen_fp8gemm_prog(&s, &g_prog))) sweep_prog("fp8gemm", v, P_NONE);
       } }
     /* ternary GEMV */

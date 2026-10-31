@@ -73,6 +73,7 @@ static void movi(Em *e, int d, uint32_t imm) { BlackwellIRInsn i = I0(BW_IR_MOV_
 static void movrz(Em *e, int d) { BlackwellIRInsn i = I0(BW_IR_MOV_RZ); i.dst_vreg = d; emit(e, i, K_FIXED); }
 /* d = a * imm + c (c NOREG = RZ); a may be a sub-register of a quad */
 static void imadi(Em *e, int d, int a, unsigned asub, uint32_t imm, int c) { BlackwellIRInsn i = I0(BW_IR_IMAD); i.dst_vreg = d; i.src1_vreg = a; i.src1_subreg = (uint8_t)asub; i.imm = imm; i.src3_vreg = c; emit(e, i, K_FIXED); }
+static void imadi_sub(Em *e, int d, unsigned dsub, int a, unsigned asub, uint32_t imm, int c) { BlackwellIRInsn i = I0(BW_IR_IMAD); i.dst_vreg = d; i.dst_subreg = (uint8_t)dsub; i.src1_vreg = a; i.src1_subreg = (uint8_t)asub; i.imm = imm; i.src3_vreg = c; emit(e, i, K_FIXED); }
 /* d = a * b + c (registers) */
 static void imadr(Em *e, int d, int a, int b, int c) { BlackwellIRInsn i = I0(BW_IR_IMAD); i.dst_vreg = d; i.src1_vreg = a; i.src2_vreg = b; i.src3_vreg = c; emit(e, i, K_FIXED); }
 /* d64 = a * imm + c64 */
@@ -155,9 +156,11 @@ static int spec_ok(const OmegaFp8GemmSpec *s) {
     if (s->k == 0 || s->k > 16384u || s->k % 128u || s->k % (32u * s->lane_bytes)) return 0;
     uint32_t ks = s->k / (32u * s->lane_bytes);
     if (ks % 2u && ks > 3u) return 0; /* odd step counts are fully unrolled: at most 3 */
-    if (s->mutant < 0 || s->mutant > 4) return 0;
+    if (s->mutant < 0 || s->mutant > 6) return 0;
     if (s->rowmap > 1u || (s->rowmap && s->mt > 4u)) return 0; /* the mapped form keeps NJ row bases and MT y rows in registers: mt 8 needs 135 at 16 warps, past the file */
     if (s->x_ahead > 1u || (s->x_ahead && s->mt * s->lane_bytes / s->warps > 16u)) return 0; /* lever 3 holds NJ staging words in registers: NJ > 16 (under 8 warps at mt * lane_bytes 128) is not a served shape */
+    if (s->row_ahead > 1u || (s->row_ahead && ks != 1u)) return 0; /* DRA-79: the next row's weights fill the second register set, which only the one-step K loop leaves free */
+    if ((s->mutant == 5 || s->mutant == 6) && !s->row_ahead) return 0;
     return 1;
 }
 uint32_t omega_fp8gemm_steps(const OmegaFp8GemmSpec *spec) { return spec_ok(spec) ? spec->k / (32u * spec->lane_bytes) : 0; }
@@ -243,7 +246,25 @@ int omega_blackwell_codegen_fp8gemm_prog(const OmegaFp8GemmSpec *spec, Blackwell
     const int XA = spec->x_ahead != 0;
     int xv[16];
     if (XA) for (uint32_t j = 0; j < NJ; j++) xv[j] = V(e);
+    /* row_ahead (DRA-79, KS 1): wq[1]/sc[1] hold the weights of the row the next pass computes, in flight on scoreboard 4. The
+     * row-loop head finds the warp's next row (rg + stride, clamped like rg) as a row delta dr and a scale-block delta dsb; the pass
+     * prologue waits, moves wq[1]/sc[1] into wq[0]/sc[0] and loads the next pass's row: the same row (sel 0) unless this is the
+     * row's last pass (sel 1). row_ahead 0 keeps the incumbent program byte for byte. */
+    const int RA = spec->row_ahead != 0;
+    int dr = NOREG, dsb = NOREG;
+    if (RA) { dr = V(e); dsb = V(e); }
     if (e->err) return -1;
+    if (RA) { /* the first row of the warp (the row-loop head's arithmetic), loaded before the loop */
+        imadi(e, rg, base, 0, 1, warp);
+        imadi(e, t1, rg, 0, 0xffffffffu, nm1); shr(e, over, t1, 0, 31);
+        imadi(e, d, nm1, 0, 0xffffffffu, rg);
+        imadr(e, tmp, over, d, NOREG); imadi(e, rgc, tmp, 0, 0xffffffffu, rg);
+        imadw(e, pw, rgc, K, wbase); imadw(e, pw, wlane, 1, pw);
+        shr(e, tmp, rgc, 0, 7);
+        imadw(e, ps, tmp, KB * 4u, sbase); imadw(e, ps, slane, 1, ps);
+        ldw_pf(e, ldw, wq[1], pw, 0, udesc, 4);
+        ldw_pf(e, BW_IR_LDG_E, sc[1], ps, 0, udesc, 4);
+    }
 
     /* ---- weight-row loop (uniform per CTA) ---- */
     const int L_rg = here(e);
@@ -260,6 +281,15 @@ int omega_blackwell_codegen_fp8gemm_prog(const OmegaFp8GemmSpec *spec, Blackwell
     imadw(e, pyrg, rg, 4, py);
     imadi(e, lo, over, 0, 1, lane);
     imadi(e, rowp, row0, 0, 1, NOREG); imadi(e, rem, cnt, 0, 1, NOREG); imadi(e, pc, passes, 0, 1, NOREG);
+    if (RA) { /* the warp's next row: rg + stride (mutant 5: + 1), clamped to n - 1; deltas from rgc (both >= 0) */
+        imadi(e, t, stride, 0, 1, rg);
+        if (spec->mutant == 5) imadi(e, t, one, 0, 1, t);
+        imadi(e, t1, t, 0, 0xffffffffu, nm1); shr(e, fl, t1, 0, 31);                /* (rg2 > n - 1) */
+        imadi(e, d, nm1, 0, 0xffffffffu, t);
+        imadr(e, tq, fl, d, NOREG); imadi(e, t, tq, 0, 0xffffffffu, t);              /* rg2 clamped */
+        imadi(e, dr, rgc, 0, 0xffffffffu, t);                                         /* dr = rgc2 - rgc */
+        shr(e, t, t, 0, 7); shr(e, tq, rgc, 0, 7); imadi(e, dsb, tq, 0, 0xffffffffu, t); /* dsb = rgc2/128 - rgc/128 */
+    }
 
     /* ---- pass loop: MT rows of x per pass ---- */
     const int L_pass = here(e);
@@ -280,8 +310,22 @@ int omega_blackwell_codegen_fp8gemm_prog(const OmegaFp8GemmSpec *spec, Blackwell
     }
     imadw(e, pwc, one, 0, pw); imadw(e, psc, one, 0, ps);
     for (uint32_t m = 0; m < MT; m++) movrz(e, acc[m]);
-    ldw_pf(e, ldw, wq[0], pwc, 0, udesc, 3);
-    ldw_pf(e, BW_IR_LDG_E, sc[0], psc, 0, udesc, 3);
+    if (RA) {
+        consume(e, 4);
+        for (uint32_t w = 0; w < (LB == 16 ? 4u : 2u); w++) imadi_sub(e, wq[0], w, wq[1], w, 1, NOREG);
+        imadi(e, sc[0], sc[1], 0, 1, NOREG);
+        int pa = V64(e), pb = V64(e), sel = V(e), sd = V(e);
+        if (e->err) return -1;
+        if (spec->mutant == 6) movi(e, sel, 1);
+        else { imadi(e, sel, one, 0, 0xfffffffeu, pc); shr(e, sel, sel, 0, 31); } /* 1 iff pc == 1: this row's last pass */
+        imadr(e, sd, sel, dr, NOREG); imadw(e, pa, sd, K, pw);
+        imadr(e, sd, sel, dsb, NOREG); imadw(e, pb, sd, KB * 4u, ps);
+        ldw_pf(e, ldw, wq[1], pa, 0, udesc, 4);
+        ldw_pf(e, BW_IR_LDG_E, sc[1], pb, 0, udesc, 4);
+    } else {
+        ldw_pf(e, ldw, wq[0], pwc, 0, udesc, 3);
+        ldw_pf(e, BW_IR_LDG_E, sc[0], psc, 0, udesc, 3);
+    }
     if (XA) x_prefetch(e, NJ, T, ROWW, K, RM, one, xs, xso, xb, xv, udesc); /* step 0's x' words */
     movi(e, cntk, KS / U);
 
@@ -368,7 +412,7 @@ int omega_blackwell_codegen_fp8gemm_prog(const OmegaFp8GemmSpec *spec, Blackwell
     isetp_ge_u32(e, cntk, one);
     bra_if_p0(e, L_k);
     loop_end(e);
-    consume(e, 3); consume(e, 4);
+    consume(e, 3); if (!RA) consume(e, 4); /* row_ahead: scoreboard 4 is the next row, waited for at the next pass prologue */
     if (XA) consume(e, 5); /* the last step's re-read x' words land before their registers go out of scope */
 
     /* ---- reduce and store, per row of the pass ---- */
@@ -403,6 +447,7 @@ int omega_blackwell_codegen_fp8gemm_prog(const OmegaFp8GemmSpec *spec, Blackwell
     const int L_end = here(e);
     patch_bra(e, bra_end, L_end);
     if (bra_empty >= 0) patch_bra(e, bra_empty, L_end);
+    if (RA) consume(e, 4); /* the last prefetched row lands before EXIT */
     tail(e);
     if (e->err) return -1;
     return omega_bw_regalloc_solve(prog);

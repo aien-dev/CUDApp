@@ -36,7 +36,9 @@
  *
  * mutant (tests only): 1 drops the block scale (acc += dot), 2 never advances the scale pointer (wrong when KS >= 2),
  * 3 reads the neighbouring row's x (m ^ 1) for every row, 4 drops the empty-segment guard (a cnt 0 segment then runs 2^32 passes: the
- * warp simulator's step budget catches it). Each must be caught.
+ * warp simulator's step budget catches it), 5 (row_ahead only) prefetches weight row rg + stride + 1 instead of rg + stride,
+ * 6 (row_ahead only) prefetches the next weight row at every pass instead of the last (wrong when a segment runs >= 2 passes).
+ * Each must be caught.
  */
 #include <stdint.h>
 #include "omega_blackwell_codegen.h"
@@ -70,6 +72,11 @@ typedef struct {
     uint32_t x_ahead;    /* 1 (L312 lever 3): the staging words of x' for step s+1 are loaded during step s on scoreboard 5 and
                           * stored at the start of the step that reads them; NJ = mt * lane_bytes / warps <= 16 (registers). 0: the
                           * incumbent program, byte for byte (the staging words loaded inside the step that stores them). */
+    uint32_t row_ahead;  /* 1 (P-DRA-4 DRA-79, KS = 1 only: k == 32 * lane_bytes, the decode down projection): the weights and scale
+                          * of the warp's NEXT weight row (rg + stride, clamped) are loaded during the last pass of the current row on
+                          * scoreboard 4 into the second register set, and moved into the first at the next pass prologue, so the
+                          * one-step K loop no longer waits a full load latency per row. Passes before the last re-load the current
+                          * row. 0: the incumbent program, byte for byte. */
 } OmegaFp8GemmSpec;
 
 int omega_blackwell_codegen_fp8gemm_prog(const OmegaFp8GemmSpec *spec, BlackwellIRProgram *prog);
