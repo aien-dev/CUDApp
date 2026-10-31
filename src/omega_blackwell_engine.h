@@ -50,6 +50,12 @@ typedef struct {
  * the backend's static context; callers must not touch it. */
 const OmegaGpuBackend *omega_blackwell_engine_backend(void);
 
+/* The device and channel stay open between jobs (omega-mv#575). This closes them
+ * when no run is active; returns 0 (closed or nothing open), -1 when a run is
+ * active or retained. OMEGA_GPU_ENGINE_NO_PERSIST=1 restores one open per job. */
+int omega_blackwell_engine_shutdown(void);
+int omega_blackwell_engine_device_is_open(void);
+
 /* Copies the snapshot of the most recent run into *out. Reset at every open. */
 void omega_blackwell_engine_run_info(OmegaBlackwellEngineRunInfo *out);
 

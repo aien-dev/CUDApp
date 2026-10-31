@@ -81,7 +81,7 @@ static void emu_rows(const float *qkv_row, const float *kn, float eps, uint32_t 
         for (unsigned i = 0; i < 128; i++) x[i] = qkv_row[4096 + gk * 128 + i];
         for (unsigned L = 0; L < 32; L++) { float a = x[4 * L] * x[4 * L]; for (unsigned i = 1; i < 4; i++) a = fmaf(x[4 * L + i], x[4 * L + i], a); sq[L] = a; }
         for (unsigned o = 16; o >= 1; o /= 2) { float nx[32]; for (unsigned L = 0; L < 32; L++) nx[L] = sq[L] + (L + o < 32 ? sq[L + o] : sq[L]); memcpy(sq, nx, sizeof sq); }
-        float rs = 1.0f / sqrtf(fmaf(sq[0], u2f(0x3c000000u), eps));
+        float rs = ws_mufu_rsq(fmaf(sq[0], u2f(0x3c000000u), eps)); /* MUFU.RSQ, bw_mufu_ftz.h (#462); eps > 0 keeps it normal */
         for (unsigned i = 0; i < 128; i++) { x[i] = x[i] * rs; x[i] = x[i] * kn[i]; }
         float y[128];
         for (unsigned i = 0; i < 128; i++) {

@@ -763,14 +763,38 @@ static int sim_step(SimThr *t, const BlackwellIRProgram *p, uint32_t tid, uint32
         case BW_IR_FMUL: wrs(t, in->dst_vreg, in->dst_subreg, f2u_(u2f(a) * u2f(b)), p); break;
         case BW_IR_FFMA: wrs(t, in->dst_vreg, in->dst_subreg, f2u_(fmaf(u2f(a), u2f(b), u2f(c))), p); break;
         case BW_IR_FMNMX_MAX: wrs(t, in->dst_vreg, in->dst_subreg, f2u_(fmaxf(u2f(a), u2f(b))), p); break;
-        case BW_IR_MUFU_EX2: wrs(t, in->dst_vreg, in->dst_subreg, f2u_(exp2f(u2f(a))), p); break;
-        case BW_IR_MUFU_RCP: wrs(t, in->dst_vreg, in->dst_subreg, f2u_(1.0f / u2f(a)), p); break;
+        case BW_IR_MUFU_EX2: wrs(t, in->dst_vreg, in->dst_subreg, f2u_(ws_mufu_ex2(u2f(a))), p); break; /* bw_mufu_ftz.h (#462) */
+        case BW_IR_MUFU_RCP: wrs(t, in->dst_vreg, in->dst_subreg, f2u_(ws_mufu_rcp(u2f(a))), p); break;
         default: g_sim_err = 100 + (int)in->op; t->done = 1; return 0;
         }
         if (g_trace && tid == 0 && cx == g_trace_cx && cy == 0 && g_trace_launch == 1) { uint32_t dv = rd(t, in->dst_vreg, p); printf("T pc=%d op=%d dst=v%d(r%d)=%08x f=%g p0=%d a=%08x b=%08x c=%08x\n", t->pc, (int)in->op, in->dst_vreg, in->dst_vreg >= 0 ? p->regalloc.vreg_to_phys[in->dst_vreg] : -1, dv, u2f(dv), t->p0, a, b, c); }
         t->pc++;
     }
     g_sim_err = 4; t->done = 1; return 0;
+}
+/* omega #462: this per-thread simulator's MUFU cases follow the chip's flush rule (tests/bw_mufu_ftz.h). One MUFU then
+ * EXIT through sim_step: a subnormal EX2 / RCP result is a zero of the same sign, a subnormal RCP input is a zero (so the
+ * result is an infinity), normals unchanged. Reachable in the kernel: softmax EX2 of a score more than 126 below the
+ * running max (log2 units) is subnormal in IEEE and 0 on the chip. */
+static void mufu_ftz_sim_check(void) {
+    static BlackwellIRProgram p;
+    static const struct { BlackwellIROpcode op; uint32_t in, want; } c[] = {
+        { BW_IR_MUFU_EX2, 0xc3020000u /* -130 */, 0x00000000u }, { BW_IR_MUFU_EX2, 0xc2fc0000u /* -126 */, 0x00800000u },
+        { BW_IR_MUFU_RCP, 0x7f400000u /* 1.5 * 2^127 */, 0x00000000u }, { BW_IR_MUFU_RCP, 0xff400000u, 0x80000000u },
+        { BW_IR_MUFU_RCP, 0x00400000u /* 2^-127 */, 0x7f800000u }, { BW_IR_MUFU_RCP, 0x7e800000u /* 2^126 */, 0x00800000u },
+    };
+    memset(&p, 0, sizeof p);
+    p.count = 2; p.regalloc.vreg_to_phys[0] = 0; p.regalloc.vreg_to_phys[1] = 1;
+    for (int i = 0; i < 2; i++) { p.insns[i].dst_vreg = p.insns[i].src1_vreg = p.insns[i].src2_vreg = p.insns[i].src3_vreg = p.insns[i].ureg = -1; }
+    p.insns[1].op = BW_IR_EXIT;
+    for (size_t i = 0; i < sizeof c / sizeof c[0]; i++) {
+        SimThr t; memset(&t, 0, sizeof t);
+        p.insns[0].op = c[i].op; p.insns[0].dst_vreg = 0; p.insns[0].src1_vreg = 1;
+        t.r[1] = c[i].in; t.r[0] = 0xdeadbeefu; g_sim_err = 0;
+        sim_step(&t, &p, 0, 0, 0);
+        CHECK(g_sim_err == 0 && t.r[0] == c[i].want, "attention sim MUFU %s(0x%08x) = 0x%08x, chip rule 0x%08x (omega #462)",
+              c[i].op == BW_IR_MUFU_EX2 ? "EX2" : "RCP", c[i].in, t.r[0], c[i].want);
+    }
 }
 static int sim_launch(const void *progv, const OmegaGpuAttnLaunch *L, OmegaGpuAttnInfo *info) {
     const BlackwellIRProgram *p = progv;
@@ -1481,7 +1505,7 @@ int main(int argc, char **argv) {
     if (g_divergent) omega_gpu_attention_test_set_divergent(1);
     if (sim) { g_sim_mode = 1; omega_gpu_attention_test_set_simulator(g_divergent ? ws_attn_launch : sim_launch); }
     if (sim && g_divergent && !host) divergent_negative_control();
-    if (host) { host_only(); hd_codegen_checks(); general_refusals(); }
+    if (host) { host_only(); hd_codegen_checks(); general_refusals(); mufu_ftz_sim_check(); }
     else if (general_mode) { if (general_sweep(out_path) != 0) return 2; }
     else if (split_timing_mode) { if (split_timing(out_path) != 0) return 2; }
     else if (timing_mode) { if (timing(out_path) != 0) return 2; }
