@@ -13,6 +13,7 @@
 #include "omega_blackwell_codegen_gdnc.h"
 #include "omega_blackwell_codegen_gdn.h"
 #include "omega_gpu_gdn_api.h"
+#include "omega_gpu_gdnc_api.h"
 #include "bw_warp_sim_tc.h"
 #include <math.h>
 #include <stdio.h>
@@ -59,10 +60,11 @@ static float bf16_f(uint16_t h) { uint32_t u = (uint32_t)h << 16; float f; memcp
 typedef struct {
     uint8_t *par; float *tail0, *state0;
     float *rowsf; uint16_t *rowsb; float *ab;
+    float *conv_w, *tailr, a_log[VH], dtb[VH], nw[HD]; /* the reference layouts (the chip arm loads them through the gdn API) */
 } Case;
 static void case_make(Case *c, uint32_t T, uint32_t seed) {
     uint32_t s = seed;
-    float *conv_w = malloc((size_t)CD * 16), a_log[VH], dtb[VH], nw[HD];
+    float *conv_w = malloc((size_t)CD * 16), *a_log = c->a_log, *dtb = c->dtb, *nw = c->nw;
     float *tail = malloc((size_t)NT * 4);
     for (size_t i = 0; i < (size_t)CD * 4; i++) conv_w[i] = frand(&s, -0.6f, 0.6f);
     for (unsigned h = 0; h < VH; h++) { a_log[h] = frand(&s, -1.5f, 1.0f); dtb[h] = frand(&s, -3.0f, 1.0f); }
@@ -85,9 +87,11 @@ static void case_make(Case *c, uint32_t T, uint32_t seed) {
         for (unsigned i = 0; i < 2 * VH; i++) a[i] = frand(&s, -4.0f, 4.0f);
         if (t % 7 == 3) { a[0] = 25.0f; a[2] = 19.9f; a[3] = 12.0f; a[5] = -12.0f; } /* softplus threshold, beta ~ 1 / 0 */
     }
-    free(conv_w); free(tail);
+    c->conv_w = conv_w; c->tailr = tail;
 }
-static void case_free(Case *c) { free(c->par); free(c->tail0); free(c->state0); free(c->rowsf); free(c->rowsb); free(c->ab); }
+static void case_free(Case *c) {
+    free(c->par); free(c->tail0); free(c->state0); free(c->rowsf); free(c->rowsb); free(c->ab); free(c->conv_w); free(c->tailr);
+}
 
 typedef struct { uint32_t off; void *p; size_t bytes; } SimBuf;
 static int sim_run(const BlackwellIRProgram *prog, uint32_t threads, uint32_t smem_bytes, const SimBuf *b, int nb,
@@ -136,17 +140,26 @@ static int gdnc_run(const Case *c, uint32_t T, int mutant, uint32_t gx, uint32_t
         if (omega_blackwell_codegen_gdnc_prog(&sp, &prog) != 0) { snprintf(msg, n, "gdnc codegen refused"); return -1; }
         built = mutant;
     }
+    /* the constant bank comes from the API's plan (omega_gpu_gdnc_api.h), the host addresses standing in for the VAs */
+    const OmegaGdncReq rq = {
+        .ratio = RT,
+        .io = { .tokens = T, .qkvz_va = (uintptr_t)c->rowsb, .xstride = ROWB, .ab_va = (uintptr_t)c->ab, .abstride = ABROW,
+                .out_va = (uintptr_t)outb, .ostride = OROWB, .eps_l2 = EPS_L2, .eps_norm = EPS_N, .in_scale = 1.0f, .out_scale = 1.0f },
+        .par_va = (uintptr_t)c->par, .tail_va = (uintptr_t)tail, .state_va = (uintptr_t)state,
+        .snap_va = (uintptr_t)snap, .snap_every4 = every4, .snap_count = snap ? count : 0, .snap_stride = SNAP_BYTES,
+    };
+    OmegaGdncLaunch L;
+    if (omega_gdnc_plan(&rq, &L) != 0) { snprintf(msg, n, "gdnc plan refused"); return -1; }
+    if (L.threads != OMEGA_GDNC_THREADS || L.grid_x != RT || L.grid_y != 16u || L.shared_bytes != OMEGA_GDNC_SHARED_BYTES) {
+        snprintf(msg, n, "gdnc plan geometry %ux(%u,%u) %u B", L.threads, L.grid_x, L.grid_y, L.shared_bytes); return -1;
+    }
     SimBuf b[7] = {
         { OMEGA_GDNC_ARG_QKVZ, c->rowsb, (size_t)T * ROWB }, { OMEGA_GDNC_ARG_AB, c->ab, (size_t)T * ABROW },
         { OMEGA_GDNC_ARG_PAR, c->par, P_BYTES }, { OMEGA_GDNC_ARG_TAIL, tail, TAIL_BYTES },
         { OMEGA_GDNC_ARG_STATE, state, STATE_BYTES }, { OMEGA_GDNC_ARG_OUT, outb, (size_t)T * OROWB },
         { OMEGA_GDNC_ARG_SNAP, snap, snap ? (size_t)count * SNAP_BYTES : 0 },
     };
-    const float one = 1.0f;
-    uint32_t w[11];
-    memcpy(&w[0], &EPS_L2, 4); memcpy(&w[1], &EPS_N, 4); memcpy(&w[2], &one, 4); memcpy(&w[3], &one, 4);
-    w[4] = T; w[5] = ROWB; w[6] = ABROW; w[7] = OROWB; w[8] = every4; w[9] = snap ? count : 0; w[10] = SNAP_BYTES;
-    return sim_run(&prog, OMEGA_GDNC_THREADS, OMEGA_GDNC_SHARED_BYTES, b, snap ? 7 : 6, OMEGA_GDNC_ARG_EPS_L2, w, 11, gx, gy, msg, n);
+    return sim_run(&prog, L.threads, L.shared_bytes, b, snap ? 7 : 6, OMEGA_GDNC_ARG_QKVZ, L.args, L.n_args, gx, gy, msg, n);
 }
 
 /* max |a - b| / max |ref| over the heads [0, nh) of a [rows][VH][HD] set */
