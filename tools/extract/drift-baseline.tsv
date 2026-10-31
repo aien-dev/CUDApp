@@ -389,3 +389,4 @@ mk/runtime-r3.mk	9c541fbb2574df1e91d291dd7b365cfce9fd471b
 src/omega_runtime_api.h	89e2acbee00c0fee71c0fa78913726ccc8e2f708
 tests/dagsim/mutant_lifetime.sh	b3641225446bc7750b9f49d2e62050a7fadf316a
 tests/dagsim/mutant_predict.sh	89df5266df444b0a91d4d4c6f120d69ad52c61ef
+tests/test_omega_gpu_decode_graph_timeline.c	619eac986fb47f17e76d8e5c9bad137237146d6d
