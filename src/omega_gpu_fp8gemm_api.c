@@ -290,6 +290,32 @@ void omega_fp8gemm_permute_x(const float *x, uint32_t k, uint32_t lb, float *out
 typedef struct { uint64_t w_va, s_va; uint32_t row0, cnt; uint32_t pad[2]; } SegEntry;
 _Static_assert(sizeof(SegEntry) == OMEGA_GEMM_SEG_BYTES, "segment entry layout");
 
+/* General fallback (GemmGeneral, 2026-10-27): a call the kernel refuses (rows past OMEGA_GPU_FP8GEMM_MAX_ROWS, segments
+ * past OMEGA_GPU_FP8GEMM_MAX_SEGMENTS, a k the codegen refuses) runs each segment through omega_gpu_fp8_general_rows:
+ * the segment's x rows gathered by token_rows into a host buffer, y rows row0..row0+cnt written directly. */
+static int general_gemm(const OmegaGpuFp8Tensor *t, uint32_t M, const uint32_t *ids, const uint32_t *trow, const float *x32,
+                        const uint16_t *x16, float *y, uint32_t n, uint32_t k, uint32_t segs, OmegaGpuFp8GemmInfo *info, int refused, uint64_t t0) {
+    int rc = OMEGA_GPU_FP8GEMM_OK;
+    for (uint32_t i = 0; i < M && rc == OMEGA_GPU_FP8GEMM_OK;) {
+        uint32_t j = i; while (j < M && ids[j] == ids[i]) j++;
+        const uint32_t cnt = j - i;
+        void *xs = omega_gpu_host_calloc((size_t)cnt * k, x32 ? 4u : 2u);
+        if (!xs) return OMEGA_GPU_FP8GEMM_BAD_ARGS;
+        for (uint32_t r = 0; r < cnt; r++) {
+            if (x32) memcpy((float *)xs + (size_t)r * k, x32 + (size_t)trow[i + r] * k, (size_t)k * 4u);
+            else memcpy((uint16_t *)xs + (size_t)r * k, x16 + (size_t)trow[i + r] * k, (size_t)k * 2u);
+        }
+        rc = omega_gpu_fp8_general_rows(t, ids[i], x32 ? xs : NULL, x32 ? NULL : xs, cnt, y + (size_t)i * n, refused);
+        omega_gpu_host_free(xs);
+        i = j;
+    }
+    if (info) {
+        info->rows = M; info->segments = segs; info->n = n; info->k = k; info->general = rc == OMEGA_GPU_FP8GEMM_OK;
+        info->call_ns = omega_gpu_session_now_ns() - t0;
+    }
+    return rc;
+}
+
 static int gemm_core(const OmegaGpuFp8Tensor *t, uint32_t M, const uint32_t *ids, const uint32_t *trow, const float *x32,
                      const uint16_t *x16, uint32_t x_rows, float *y, OmegaGpuFp8GemmInfo *info) {
     uint64_t t0 = omega_gpu_session_now_ns();
@@ -297,14 +323,18 @@ static int gemm_core(const OmegaGpuFp8Tensor *t, uint32_t M, const uint32_t *ids
     uint32_t experts = 0, n = 0, k = 0;
     omega_gpu_fp8_tensor_shape(t, &experts, &n, &k);
     if (!t || !experts || !ids || !trow || (!x32 && !x16) || !y || M == 0 || x_rows == 0) return OMEGA_GPU_FP8GEMM_BAD_ARGS;
-    if (M > OMEGA_GPU_FP8GEMM_MAX_ROWS) return OMEGA_GPU_FP8GEMM_TOO_LARGE;
+    /* a call with a test override of the kernel shape or a kernel mutant keeps the refusal: those calls test the kernel */
+    const int general_ok = !g.mt && !g.warps && !g.ctas && !g.mutant;
+    if (M > OMEGA_GPU_FP8GEMM_MAX_ROWS && !general_ok) return OMEGA_GPU_FP8GEMM_TOO_LARGE;
     uint32_t segs = 0;
     for (uint32_t i = 0; i < M; i++) {
         if (ids[i] >= experts || trow[i] >= x_rows || (i && ids[i] < ids[i - 1])) return OMEGA_GPU_FP8GEMM_BAD_ARGS;
         if (i == 0 || ids[i] != ids[i - 1]) segs++;
     }
-    if (segs > OMEGA_GPU_FP8GEMM_MAX_SEGMENTS) return OMEGA_GPU_FP8GEMM_TOO_LARGE;
+    if (M > OMEGA_GPU_FP8GEMM_MAX_ROWS || segs > OMEGA_GPU_FP8GEMM_MAX_SEGMENTS)
+        return general_ok ? general_gemm(t, M, ids, trow, x32, x16, y, n, k, segs, info, OMEGA_GPU_FP8GEMM_TOO_LARGE, t0) : OMEGA_GPU_FP8GEMM_TOO_LARGE;
     OmegaFp8GemmSpec spec; spec_for(k, segs, &spec);
+    if (general_ok && omega_fp8gemm_shared_bytes(&spec) == 0) return general_gemm(t, M, ids, trow, x32, x16, y, n, k, segs, info, OMEGA_GPU_FP8GEMM_CODEGEN_FAIL, t0);
     const uint32_t MT = spec.mt, W = spec.warps;
     uint32_t grid_x = (n + W - 1) / W;
     uint32_t budget = g.ctas ? g.ctas : (segs >= 64u ? 2u : segs >= 8u ? 12u : 96u);

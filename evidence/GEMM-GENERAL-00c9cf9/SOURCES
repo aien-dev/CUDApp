@@ -1,0 +1,4 @@
+CUDApp tree: aien-dev/CUDApp#139 head 00c9cf9affdcdedccf9900ce3e5fee997f494d69 (merge of main e7cc7d69), git status clean before build
+binary: build/gpu_gemm_ex_test sha256 15f9ec63539e294ded6990619c2df6374e3d123774064e89c1a2fd4562050425, built by: make -j2 build/gpu_gemm_ex_test (rm'd first)
+run: ~/.local/bin/spark-window open GemmEx --gb10 shared --quiet none --wait; spark-window run build/gpu_gemm_ex_test; spark-window close (window 20261031T115238Z-0623b2, rc 0, value checks only, beside Flint)
+result: gemm_ex chip: PASS (902 checks)

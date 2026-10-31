@@ -12,6 +12,7 @@
 #include "omega_gpu_fmt.h"
 #include "omega_gpu_cmdlist.h"
 #include "omega_blackwell_qmd.h" /* OMEGA_BW_QMD_MAX_SHARED_BYTES: the deep kernel's x stage must fit the launch descriptor */
+#include "omega_gpu_gemm_ex.h" /* the general fallback for shapes the tuned kernels refuse */
 #include "omega_gpu_fp8_internal.h"
 #include <stdlib.h>
 #include <string.h>
@@ -27,6 +28,7 @@ struct OmegaGpuFp8Tensor {
     uint64_t allocation_epoch, owner_generation;
     OmegaGpuMem w; /* experts * n * k e4m3 bytes, row-major */
     OmegaGpuMem s; /* experts * (n/128) * (k/128) f32 (scale * 2^56) */
+    double s_mul;  /* stored scale * s_mul = the scale (2^-56; 1 under the no-fold test mutant) */
 };
 
 /* Tensor identities outlive the device session's resettable cache state. */
@@ -441,7 +443,7 @@ int omega_gpu_fp8_tensor_upload(uint32_t experts, uint32_t n, uint32_t k, const 
     }
     OmegaGpuFp8Tensor *t = omega_gpu_host_calloc(1, sizeof *t);
     if (!t) return OMEGA_GPU_FP8_BAD_ARGS;
-    t->experts = experts; t->n = n; t->k = k;
+    t->experts = experts; t->n = n; t->k = k; t->s_mul = g.no_fold ? 1.0 : 1.0 / (double)(1ull << OMEGA_FP8_SCALE_EXP);
     int rc = OMEGA_GPU_FP8_OK;
     omega_gpu_session_lock();
     if (!g.weights_cached_set) { const char *v = getenv("AIEN_OMEGA_FP8_WEIGHT_CACHE"); g.weights_cached = (v && v[0] == '1' && v[1] == 0) ? 1 : 0; g.weights_cached_set = 1; }
@@ -511,10 +513,52 @@ uint32_t omega_gpu_fp8_grouped_ctas_auto(uint32_t groups) {
     return omega_gpu_fp8_grouped_ctas_rule(groups, forced, wave);
 }
 
+/* General fallback (GemmGeneral, 2026-10-27): a host-staged call (x and the expert ids on the host, y returned) whose shape
+ * the tuned kernels refuse runs through omega_gpu_gemm_ex_fp8_block_rows instead (dequantize, fp32-input GEMM via bf16x3).
+ * `refused` is what the call returned before the fallback existed; it comes back unchanged when the build switch
+ * CUDAPP_MIGRATION_PENDING_GEMM_EX is off. */
+int omega_gpu_fp8_general_rows(const OmegaGpuFp8Tensor *t, uint32_t expert, const float *x32, const uint16_t *x16, uint32_t m,
+                               float *y, int refused) {
+    if (!t || !t->w.cpu || !t->s.cpu || expert >= t->experts) return OMEGA_GPU_FP8_BAD_ARGS;
+    const size_t sc = (size_t)(t->n / OMEGA_FP8_BLOCK) * (t->k / OMEGA_FP8_BLOCK);
+    const int rc = omega_gpu_gemm_ex_fp8_block_rows((const uint8_t *)t->w.cpu + (size_t)expert * t->n * t->k, (const float *)t->s.cpu + expert * sc,
+                                                    t->s_mul, t->n, t->k, OMEGA_FP8_BLOCK, x32, x16, m, y, 0, NULL);
+    switch (rc) {
+    case OMEGA_GPU_GEMM_OK: return OMEGA_GPU_FP8_OK;
+    case OMEGA_GPU_GEMM_UNSUPPORTED: return refused;
+    case OMEGA_GPU_GEMM_BAD_ARGS: return OMEGA_GPU_FP8_BAD_ARGS;
+    case OMEGA_GPU_GEMM_TOO_LARGE: return OMEGA_GPU_FP8_TOO_LARGE;
+    case OMEGA_GPU_GEMM_CODEGEN_FAIL: return OMEGA_GPU_FP8_CODEGEN_FAIL;
+    default: return OMEGA_GPU_FP8_CHIP_FAIL;
+    }
+}
+
+/* the GEMV's own refusal of a spec, decided on the host without building the kernel */
+static int spec_refused(const OmegaFp8GemvSpec *spec, uint32_t n) {
+    if (n % spec->rows) return 1;
+    return variant_now() == 2 ? omega_fp8_gemv2_shared_bytes(spec) == 0u : omega_fp8_gemv_steps(spec) == 0u;
+}
+
+static int general_gemv(const OmegaGpuFp8Tensor *t, uint32_t groups, const uint32_t *ids, const float *x32, const uint16_t *x16,
+                        uint32_t x_rows, float *y, OmegaGpuFp8Info *info, int refused, uint64_t t0) {
+    int rc = OMEGA_GPU_FP8_OK;
+    for (uint32_t gi = 0; gi < groups && rc == OMEGA_GPU_FP8_OK; gi++) {
+        const uint32_t r = x_rows == 1 ? 0u : gi;
+        rc = omega_gpu_fp8_general_rows(t, ids[gi], x32 ? x32 + (size_t)r * t->k : NULL, x16 ? x16 + (size_t)r * t->k : NULL, 1,
+                                        y + (size_t)gi * t->n, refused);
+    }
+    if (info) {
+        info->experts = t->experts; info->n = t->n; info->k = t->k; info->groups = groups; info->general = rc == OMEGA_GPU_FP8_OK;
+        info->weight_bytes = (uint64_t)groups * t->n * t->k; info->call_ns = omega_gpu_session_now_ns() - t0;
+    }
+    return rc;
+}
+
 /* dev_tab / dev_x non-zero: the group table / the x' row already sit on the device (written by the router launch).
  * rec non-NULL (record path, caller holds the session lock): dev_tab, dev_x and dev_y are required, the launch is
  * appended to rec instead of submitted, and nothing is staged, poisoned or read back (the list's per-launch semaphore
- * and the caller's end-of-token checks replace the poison check). */
+ * and the caller's end-of-token checks replace the poison check). A host-staged call (no rec, dev_tab, dev_x, no test
+ * override) whose shape the kernels refuse (groups past the table, a spec the codegen refuses) takes the general fallback above. */
 static int gemv_core(const OmegaGpuFp8Tensor *t, uint32_t groups, const uint32_t *ids, const float *x32, const uint16_t *x16,
                      uint32_t x_rows, float *y, OmegaGpuFp8Info *info, uint64_t dev_tab, uint64_t dev_x,
                      OmegaGpuCmdList *rec, uint64_t dev_y) {
@@ -522,11 +566,17 @@ static int gemv_core(const OmegaGpuFp8Tensor *t, uint32_t groups, const uint32_t
     if (info) memset(info, 0, sizeof *info);
     if (rec && (!dev_tab || !dev_x || !dev_y)) return OMEGA_GPU_FP8_BAD_ARGS;
     if (!t || !t->w.cpu || (!ids && !dev_tab) || (!x32 && !x16 && !dev_x) || (!y && !rec) || groups == 0 || (x_rows != 1 && x_rows != groups)) return OMEGA_GPU_FP8_BAD_ARGS;
-    if (groups > OMEGA_GPU_FP8_MAX_GROUPS) return OMEGA_GPU_FP8_TOO_LARGE;
+    /* a call with a test override of the kernel shape or a kernel mutant keeps the refusal: those calls test the kernels */
+    const int host_staged = !rec && !dev_tab && !dev_x && !g.lane_bytes && !g.rows && !g.warps && !g.depth_set && !g.mutant;
     if (!dev_tab) for (uint32_t gi = 0; gi < groups; gi++) if (ids[gi] >= t->experts) return OMEGA_GPU_FP8_BAD_ARGS;
+    if (groups > OMEGA_GPU_FP8_MAX_GROUPS) return host_staged ? general_gemv(t, groups, ids, x32, x16, x_rows, y, info, OMEGA_GPU_FP8_TOO_LARGE, t0) : OMEGA_GPU_FP8_TOO_LARGE;
     const uint32_t n = t->n, k = t->k;
     OmegaFp8GemvSpec spec; spec_for(k, n, groups, &spec);
-    if (n % spec.rows) return OMEGA_GPU_FP8_CODEGEN_FAIL;
+    if (spec_refused(&spec, n)) {
+        if (host_staged) return general_gemv(t, groups, ids, x32, x16, x_rows, y, info, OMEGA_GPU_FP8_CODEGEN_FAIL, t0);
+        omega_gpu_session_set_error("fp8 codegen refused the shape");
+        return OMEGA_GPU_FP8_CODEGEN_FAIL;
+    }
     const uint32_t RG = n / spec.rows;
     uint32_t grid_x = (RG + spec.warps - 1) / spec.warps;
     const int variant = variant_now();
