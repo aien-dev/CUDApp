@@ -62,10 +62,13 @@ blob, with refusal controls. Originals and historical commits are unchanged.
 On x86-64 the same target is outside `make test` and exits 2, because the
 pinned compiler is not part of the portable suite.
 
-Canonical consumer integration uses the existing single-commit `cudapp.lock`,
-not a second artifact or qualification registry. The isolated Omega consumer
-cutover builds an authenticated committed source archive and links its actual
-callers to that canonical library:
+Canonical consumer integration is meant to use one single-commit `cudapp.lock`
+in Omega, not a second artifact or qualification registry. That lock does not
+exist on omega-mv main yet: `cudapp.lock`, the `check-cudapp` make target and
+`tools/cudapp-stage.sh` are proposed in the open draft
+[omega-mv#924](https://github.com/aien-dev/omega-mv/pull/924). That isolated
+Omega consumer cutover builds an authenticated committed source archive and
+links its actual callers to that canonical library; with #924 checked out:
 
 ```sh
 OMEGA_OMC=/absolute/path/to/pinned/omc \
