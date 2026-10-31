@@ -4,7 +4,8 @@
 #
 #   tools/runtime_api_negative.sh MANIFEST ROOT WORK_DIR API_MD
 #
-# Copies the headers to WORK_DIR, breaks the copy in one way at a time and runs the check on it. Each break must make
+# Copies the headers, API.md, the manifest and its INTERNAL list to WORK_DIR, breaks one copy in one way at a time and
+# runs the check on the copies. Each break must make
 # the check FAIL and say the expected thing; if the check still passes, this script fails (the check cannot see that
 # class of change). Then it breaks copies of the manifest and runs tools/runtime_api_semver.sh against the real one:
 # each too-small bump must FAIL, and one correct bump must PASS. The real headers and manifest are never touched.
@@ -13,12 +14,16 @@ set -u
 MANIFEST=$1; ROOT=$(cd "$2" && pwd) || exit 2; WORK=$3; APIMD=$4
 HERE=$(dirname "$0")
 bad=0
-# control NAME EXPECTED_TEXT SED_FILE-or-"" SED_EXPR
+# control NAME EXPECTED_TEXT FILE SED_EXPR   (FILE: a header under src/, API.md, manifest, or internal)
 control() {
   name=$1; expect=$2; file=$3; expr=$4
   d=$WORK/neg-$name; rm -rf "$d"; mkdir -p "$d/src"; cp "$ROOT"/src/omega_*.h "$d/src/"; cp "$APIMD" "$d/API.md"
+  # the check reads the INTERNAL list next to the manifest (.manifest -> .internal), so both copies keep that pairing
+  cp "$MANIFEST" "$d/api.manifest"; cp "${MANIFEST%.manifest}.internal" "$d/api.internal"
   case $file in
     API.md) target=$d/API.md ;;
+    manifest) target=$d/api.manifest ;;
+    internal) target=$d/api.internal ;;
     *) target=$d/src/$file ;;
   esac
   # POSIX sed has no -i. Generate a private replacement, then verify the mutation
@@ -32,7 +37,7 @@ control() {
   if ! mv "$d/edit.tmp" "$target"; then
     echo "NEGATIVE CONTROL $name: BROKEN (fixture replacement failed)"; bad=1; return
   fi
-  out=$("$HERE/runtime_api_check.sh" "$MANIFEST" "$d" "$d/work" "$d/API.md" 2>&1); rc=$?
+  out=$("$HERE/runtime_api_check.sh" "$d/api.manifest" "$d" "$d/work" "$d/API.md" 2>&1); rc=$?
   if [ $rc -ne 0 ] && printf '%s\n' "$out" | grep -qF "$expect"; then echo "NEGATIVE CONTROL $name: FAILED as it must ($expect)"
   else echo "NEGATIVE CONTROL $name: NOT CAUGHT (rc=$rc, wanted \"$expect\")"; printf '%s\n' "$out" | head -5; bad=1; fi
 }
@@ -54,6 +59,26 @@ control added-undeclared-enumerator "undeclared public entry (in a manifest head
   omega_gpu_cmdlist.h 's/OMEGA_GPU_CMDLIST_BARRIER_FLUSH_DATA = 4 }/OMEGA_GPU_CMDLIST_BARRIER_FLUSH_DATA = 4, OMEGA_GPU_CMDLIST_BARRIER_SNEAKY = 5 }/'
 control stale-internal-entry "stale INTERNAL entry (no manifest header declares it): fn omega_gpu_session_set_error" \
   omega_gpu_session.h '/^void omega_gpu_session_set_error(const char \*stage);/d'
+# the controls the omega-mv copy of this gate carried (omega-mv tests/gates/omega-runtime-api.gate, retired there when
+# the runtime API moved here) that the list above did not have yet
+control removed-recover      "header disagrees with manifest: fn omega_gpu_session_recover"     omega_gpu_session.h '/^int omega_gpu_session_recover(void);/d'
+control removed-padding-field "header disagrees with manifest: field OmegaGpuCmdListOpts first_barrier_none" omega_gpu_cmdlist.h '/int first_barrier_none;/,/\*\/$/d'
+control new-fnptr-function   "undeclared public entry (in a manifest header, not in the manifest or the INTERNAL list): fn omega_gpu_session_zzz_fp" \
+  omega_gpu_session.h '$a\
+int (*omega_gpu_session_zzz_fp(void))(int);'
+control manifest-fn-dropped  "undeclared public entry (in a manifest header, not in the manifest or the INTERNAL list): fn omega_gpu_serving_seal" \
+  manifest '/^fn omega_gpu_serving_seal /d'
+control internal-unlisted    "undeclared public entry (in a manifest header, not in the manifest or the INTERNAL list): fn omega_gpu_session_set_error" \
+  internal '/^fn omega_gpu_session_set_error /d'
+control internal-also-manifest "entry is both in the manifest and INTERNAL: fn omega_gpu_session_launch" \
+  internal '$a\
+fn omega_gpu_session_launch # control: a manifest fn also named INTERNAL'
+control internal-without-reason "INTERNAL entry fn omega_gpu_session_set_error gives no reason" \
+  internal 's/^fn omega_gpu_session_set_error #.*/fn omega_gpu_session_set_error/'
+# a stale API.md: a section for an entry the manifest no longer has
+control stale-doc-section    "stale API.md section (no manifest fn or struct): omega_gpu_session_retired" \
+  API.md '$a\
+#### `omega_gpu_session_retired`'
 
 # semver NAME WANT(FAIL|PASS) EXPECTED_TEXT SED_EXPR [BASE_EXPR] -- a manifest copy edited by SED_EXPR, checked against the
 # real manifest (or against a copy edited by BASE_EXPR, e.g. to stand in for a base already past 1.0)

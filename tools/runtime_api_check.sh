@@ -168,6 +168,11 @@ if [ -n "$APIMD" ]; then
   awk '/^```c$/ { f = 1; next } /^```/ { f = 0 } f && /\);[ \t]*$/ { print }' "$APIMD" | sed 's/[[:space:]][[:space:]]*/ /g; s/^ //; s/ $//' |
   while IFS= read -r sig; do grep -qF -- " $sig" "$WORK/headers.norm" || echo "FAIL: signature quoted in $APIMD but in no header: $sig"; done > "$WORK/sigs.txt"
   if [ -s "$WORK/sigs.txt" ]; then cat "$WORK/sigs.txt"; fail=1; fi
+  # and back: every "#### `name`" section names a manifest fn or struct, so a section left for a removed entry fails
+  awk '{ sub(/#.*/, ""); if ($1 == "fn" || $1 == "struct") print $2 }' "$MANIFEST" | LC_ALL=C sort -u > "$WORK/apimd-entries.txt"
+  sed -n 's/^#### `\([A-Za-z_][A-Za-z0-9_]*\)`.*/\1/p' "$APIMD" | LC_ALL=C sort -u | LC_ALL=C comm -23 - "$WORK/apimd-entries.txt" |
+    sed 's/^/FAIL: stale API.md section (no manifest fn or struct): /' > "$WORK/apimd-stale.txt"
+  if [ -s "$WORK/apimd-stale.txt" ]; then cat "$WORK/apimd-stale.txt"; fail=1; fi
 fi
 
 # ---- 5. surface: nothing in the manifest headers is public by accident ---------------------------------------
@@ -186,9 +191,10 @@ else
   elif ! $CC -std=gnu11 -D_GNU_SOURCE -I"$ROOT/src" -E -dD "$SURF/tu.c" > "$SURF/pp.txt" 2> "$SURF/pp.err"; then
     say_fail "surface: preprocessing the headers failed"
   else
-    # functions: aux-info lines from a manifest header; the name is the first identifier followed by " ("
+    # functions: aux-info lines from a manifest header; the name is the first identifier followed by " (" where that
+    # "(" does not open a declarator "(*" (a function returning a function pointer reads "int (*name (void)) (int)")
     perl -ne 'BEGIN { open(H, "<", shift) or die; while (<H>) { chomp; $h{$_} = 1 } }
-      next unless m{^/\* (\S+):\d+:\S+ \*/ (.*)$}; next unless $h{$1}; print "fn $1\n" if $2 =~ /(\w+) \(/' \
+      next unless m{^/\* (\S+):\d+:\S+ \*/ (.*)$}; next unless $h{$1}; print "fn $1\n" if $2 =~ /(\w+) \((?!\s*\*)/' \
       "$SURF/headers.txt" "$SURF/aux.txt" > "$SURF/fns.raw"
     # object-like macros with a value, and enumerators, from preprocessed text that came from a manifest header
     perl -e 'open(H, "<", $ARGV[0]) or die; while (<H>) { chomp; $h{$_} = 1 } close H;
