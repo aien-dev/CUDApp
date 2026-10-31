@@ -5,16 +5,16 @@ note It replaces encode_single_insn and omega_bw_encode_program of src/omega_bla
 note which stays compiled only behind CUDAPP_MIGRATION_PENDING_C_ENCODER as the differential oracle
 note (and in the freestanding build, which has no native binding yet).
 note
-note Input (bw_om_encode in src/omega_blackwell_codegen.c packs it; 8 ulong per instruction, at most 1024 instructions):
+note Input (bw_om_encode in src/omega_blackwell_codegen.c packs it; 8 ulong per instruction, at most 2048 instructions):
 note   0 op (the BlackwellIROpcode number)   1 dst_vreg   2 src1_vreg   3 src2_vreg   4 src3_vreg
 note   5 ureg   (the five vreg fields are C int, passed as 64-bit two's complement: negative = none)
 note   6 imm or control shl 32
 note   7 is_uniform or predicate_p0 shl 1 or predicate_not shl 2 or bar_reg shl 8
 note     or dst_subreg shl 16 or src1_subreg shl 24 or src2_subreg shl 32 or src3_subreg shl 40
-note phys: vreg_to_phys 0..255 then uvreg_to_phys at 256..287 (C int, two's complement).
+note phys: vreg_to_phys 0..511 then uvreg_to_phys at 512..543 (C int, two's complement).
 note pad 1: omega_bw_encode_program (pad to the multiple of 8, at least 32); pad 0: exactly n instructions.
 note Result: the bytes written, or 0 when an instruction is refused (unknown op, an offset outside its
-note field, a BSSY delta below 2, a barrier register above 15) or n is above 1024.
+note field, a BSSY delta below 2, a barrier register above 15) or n is above 2048.
 note Every constant is the decimal form of the C encoder's hex word (conversions by Wolfram,
 note evidence/CUDAPP-OM-ENCODER/wolfram-constants.txt).
 
@@ -30,7 +30,7 @@ put w 3 d
 end
 
 note the physical register of one operand field: phys + subreg, or dflt when the vreg is negative
-fn preg phys view ulong 288 v ulong sb ulong dflt ulong to ulong
+fn preg phys view ulong 544 v ulong sb ulong dflt ulong to ulong
 if ge v NEG
 ret dflt
 end
@@ -45,7 +45,7 @@ end
 ret 1
 end
 
-fn opnds ins view ulong 8192 i ulong phys view ulong 288 o edit ulong 16 to void
+fn opnds ins view ulong 16384 i ulong phys view ulong 544 o edit ulong 16 to void
 b = mul i 8
 f = get ins add b 7
 put o 0 get ins b
@@ -56,7 +56,7 @@ put o 4 preg phys get ins add b 4 and shr f 40 255 255
 u = get ins add b 5
 put o 5 0
 if lt u NEG
-put o 5 get phys add u 256
+put o 5 get phys add u 512
 end
 put o 14 pres u
 x = get ins add b 6
@@ -70,7 +70,7 @@ put o 12 pres get ins add b 2
 put o 13 pres get ins add b 3
 d = get ins add b 1
 if and eq and f 1 1 lt d NEG
-put o 1 get phys add d 256
+put o 1 get phys add d 512
 end
 end
 
@@ -477,7 +477,7 @@ ret enc_d o w
 end
 
 note the 16 bytes of instruction i, each word little-endian
-fn store code edit uchar 16384 i ulong w view ulong 4 to void
+fn store code edit uchar 32768 i ulong w view ulong 4 to void
 for k ulong 4
 x = get w k
 q = add mul i 16 mul k 4
@@ -487,10 +487,10 @@ end
 end
 end
 
-fn bw_enc_sm121 ins view ulong 8192 phys view ulong 288 n ulong pad ulong code edit uchar 16384 to ulong
+fn bw_enc_sm121 ins view ulong 16384 phys view ulong 544 n ulong pad ulong code edit uchar 32768 to ulong
 o = new ulong 16 0
 w = new ulong 4 0
-if gt n 1024
+if gt n 2048
 ret 0
 end
 cnt = n

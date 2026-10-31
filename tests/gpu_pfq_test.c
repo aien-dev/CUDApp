@@ -14,7 +14,7 @@
 #include "omega_gpu_fp8_api.h"
 #include "omega_gpu_cmdlist.h"
 #include "bw_warp_sim_tc.h"
-#include "pfq_legacy_words.h"
+#include "pfq_dra82_words.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,6 +23,10 @@
 /* printed by tests/pfq_legacy_words.h built against CUDApp main 4bbccf0 (evidence/DRA-82-pfq/golden-main-4bbccf0.txt) */
 #define PFQ_LEGACY_PROGRAMS 264
 #define PFQ_LEGACY_DIGEST 0x0dd37a9ee7562178ull
+/* printed by tests/pfq_dra82_words.h built against this branch's base before DRA-84 (#228 721826b merged with #238 61506fa) */
+#define PFQ_DRA82_PROGRAMS 122
+#define PFQ_DRA82_DIGEST 0x52d7c6b966037e41ull
+static uint16_t bf16_rn(float f) { uint32_t u; memcpy(&u, &f, 4); u += 0x7fffu + ((u >> 16) & 1u); return (uint16_t)(u >> 16); } /* finite inputs */
 #define PAD OMEGA_PFQ_MAP_PAD
 
 static uint64_t rng = 0x9e3779b97f4a7c15ull;
@@ -155,6 +159,17 @@ static size_t ydiff(const Prob *P, const uint32_t *got, const uint32_t *want) {
     for (size_t i = 0; i < (size_t)P->YR * P->n; i++) if (got[i] != want[i]) { if (getenv("PFDBG") && bad < 6) printf("  y[%zu][%zu] got %08x want %08x\n", i / P->n, i % P->n, got[i], want[i]); bad++; }
     return bad;
 }
+/* DRA-84 epi BF16: the same y as bf16_rn(qref) halves, untouched rows the 0xeeee fill */
+static uint16_t *expect_yb(const Prob *P) {
+    uint16_t *y = malloc((size_t)P->YR * P->n * 2); memset(y, 0xee, (size_t)P->YR * P->n * 2);
+    for (uint32_t p = 0; p < P->M; p++) for (uint32_t c = 0; c < P->n; c++) y[(size_t)P->ymap[p] * P->n + c] = bf16_rn(qref(P, p, c));
+    return y;
+}
+static size_t ydiffb(const Prob *P, const uint16_t *got, const uint16_t *want) {
+    size_t bad = 0;
+    for (size_t i = 0; i < (size_t)P->YR * P->n; i++) if (got[i] != want[i]) { if (getenv("PFDBG") && bad < 6) printf("  yb[%zu][%zu] got %04x want %04x\n", i / P->n, i % P->n, got[i], want[i]); bad++; }
+    return bad;
+}
 
 /* ---------------- host ---------------- */
 static int tiler_check(const OmegaPfqTile *seg, uint32_t nseg, uint32_t rows, const OmegaPfqTile *t, uint32_t nt) {
@@ -202,7 +217,17 @@ static int host_words(void) {
     const int ctl = hb && hy && hx && hp && hs && hb != hy && hb != hx && hy != hx && hp != hs;
     printf("%s negative control: qg ymap=1 / x64=1 and pq stride change the encoded words (%016llx %016llx %016llx | %016llx %016llx)\n", ctl ? "PASS" : "FAIL",
            (unsigned long long)hb, (unsigned long long)hy, (unsigned long long)hx, (unsigned long long)hp, (unsigned long long)hs);
-    return (same ? 0 : 1) + (ctl ? 0 : 1);
+    /* DRA-84: every DRA-82 spec (epi F32/SWIGLU, ymap, x64, in_type F32, the q36 shapes) still encodes as before */
+    uint64_t h2 = 0; const int n2 = pfq_dra82_digest(&h2);
+    const int same2 = n2 == PFQ_DRA82_PROGRAMS && h2 == PFQ_DRA82_DIGEST;
+    printf("%s DRA-82 qg/pq kernels: %d programs, digest 0x%016llx (pre-DRA-84 base: %d, 0x%016llx)\n", same2 ? "PASS" : "FAIL",
+           n2, (unsigned long long)h2, PFQ_DRA82_PROGRAMS, (unsigned long long)PFQ_DRA82_DIGEST);
+    OmegaQgSpec bb = b; bb.epi = OMEGA_QG_EPI_BF16; OmegaQgSpec bm = bb; bm.mutant = 5; OmegaPqSpec pb = p; pb.in_type = OMEGA_QG_IN_BF16;
+    const uint64_t hbb = words_hash(1, &bb), hbm = words_hash(1, &bm), hpb = words_hash(0, &pb);
+    const int ctl2 = hbb && hbm && hpb && hbb != hb && hbm != hbb && hpb != hp;
+    printf("%s negative control: qg epi BF16 / its mutant 5 and pq in_type BF16 change the encoded words (%016llx %016llx | %016llx)\n", ctl2 ? "PASS" : "FAIL",
+           (unsigned long long)hbb, (unsigned long long)hbm, (unsigned long long)hpb);
+    return (same ? 0 : 1) + (ctl ? 0 : 1) + (same2 ? 0 : 1) + (ctl2 ? 0 : 1);
 }
 static int host_plans(void) {
     int bad = 0; OmegaQgSpec s; OmegaPqSpec q; OmegaPfqLaunch L;
@@ -221,6 +246,17 @@ static int host_plans(void) {
     if (omega_pfq_quant_plan(&u, &q, &L) != OMEGA_GPU_PF_OK || q.groups != 20 || L.threads != 640 || L.grid_y != 2) { printf("  quant plan (split row) wrong\n"); bad++; }
     u.k = 2048; u.stride = 2040; if (omega_pfq_quant_plan(&u, &q, &L) != OMEGA_GPU_PF_BAD_ARGS) { printf("  stride < k accepted\n"); bad++; }
     u.stride = 2050; if (omega_pfq_quant_plan(&u, &q, &L) != OMEGA_GPU_PF_BAD_ARGS) { printf("  stride 2050 accepted\n"); bad++; }
+    /* DRA-84: bf16 rows in, bf16 y out */
+    u.stride = 0; u.in_type = OMEGA_QG_IN_BF16;
+    if (omega_pfq_quant_plan(&u, &q, &L) != OMEGA_GPU_PF_OK || q.in_type != OMEGA_QG_IN_BF16) { printf("  quant plan (bf16 in) wrong\n"); bad++; }
+    u.in_type = 2; if (omega_pfq_quant_plan(&u, &q, &L) != OMEGA_GPU_PF_BAD_ARGS) { printf("  in_type 2 accepted\n"); bad++; }
+    r = c; r.epi = OMEGA_QG_EPI_BF16; r.ymap_va = 0x60;
+    if (omega_pfq_gemm_plan(&r, &s, &L) != OMEGA_GPU_PF_OK || s.epi != OMEGA_QG_EPI_BF16 || !s.ymap || s.mutant) { printf("  gemm plan (bf16 out) wrong\n"); bad++; }
+    r.epi = OMEGA_QG_EPI_SWIGLU; if (omega_pfq_gemm_plan(&r, &s, &L) != OMEGA_GPU_PF_BAD_ARGS) { printf("  epi SWIGLU accepted through the pfq api\n"); bad++; }
+    r.epi = 3; if (omega_pfq_gemm_plan(&r, &s, &L) != OMEGA_GPU_PF_BAD_ARGS) { printf("  epi 3 accepted\n"); bad++; }
+    { OmegaQgSpec m5; memset(&m5, 0, sizeof m5); m5.k = 2048; m5.rt = 4; m5.warps = 8; m5.n = 1024; m5.wait = 45; m5.epi = OMEGA_QG_EPI_BF16; m5.mutant = 5;
+      const int okb = omega_qg_spec_ok(&m5); m5.epi = OMEGA_QG_EPI_F32;
+      if (!okb || omega_qg_spec_ok(&m5)) { printf("  mutant 5 not limited to epi BF16\n"); bad++; } }
     printf("%s launch plans: argument words, grids, refusals (%d wrong)\n", bad ? "FAIL" : "PASS", bad);
     return bad ? 1 : 0;
 }
@@ -257,15 +293,21 @@ static int host_ref(void) {
 }
 
 /* ---------------- warp simulator ---------------- */
-static int sim_quant(uint32_t k, uint32_t stride, uint32_t rows, int x64, size_t *bad, char *msg, size_t msgn) {
+/* in_type BF16 (DRA-84): the rows go in as bf16_rn of the f32 rows; the reference is pq_ref of those widened back to f32
+ * (bit-exact), and *tol gets the worst per-block sum |deq(bf16 in) - deq(f32 in)| / sum |x| against the f32-input quantiser */
+static int sim_quant(uint32_t k, uint32_t stride, uint32_t rows, int x64, uint32_t in_type, size_t *bad, double *tol, char *msg, size_t msgn) {
     const uint32_t XS = stride ? stride : k, KB = k / 128;
-    float *x = malloc((size_t)rows * XS * 4), *xin = malloc((size_t)rows * XS * 4);
-    for (size_t i = 0; i < (size_t)rows * XS; i++) x[i] = (i % XS) < k ? rand_act() : 1e30f; /* the gap columns must never be read */
+    const size_t NX = (size_t)rows * XS;
+    float *x = malloc(NX * 4), *xin = malloc(NX * 4), *xw = malloc(NX * 4); uint16_t *xb = malloc(NX * 2);
+    for (size_t i = 0; i < NX; i++) x[i] = (i % XS) < k ? rand_act() : 1e30f; /* the gap columns must never be read */
     if (rows > 3) for (uint32_t j = 0; j < k; j++) x[3 * (size_t)XS + j] = 0.0f;
-    for (size_t i = 0; i < (size_t)rows * XS; i++) xin[i] = (x64 && (i % XS) < k) ? ldexpf(x[i], 64) : x[i];
-    uint8_t *q = malloc((size_t)rows * k), *rq = malloc(k); float *s = malloc((size_t)rows * KB * 4), *rs = malloc(KB * 4);
+    for (size_t i = 0; i < NX; i++) xin[i] = (x64 && (i % XS) < k) ? ldexpf(x[i], 64) : x[i];
+    for (size_t i = 0; i < NX; i++) { xb[i] = bf16_rn(xin[i]); xw[i] = u2f((uint32_t)xb[i] << 16); }
+    const int bf = in_type == OMEGA_QG_IN_BF16;
+    const float *xref = bf ? xw : xin; const uintptr_t xva = bf ? (uintptr_t)xb : (uintptr_t)xin; const size_t xbytes = NX * (bf ? 2u : 4u);
+    uint8_t *q = malloc((size_t)rows * k), *rq = malloc(k), *fq = malloc(k); float *s = malloc((size_t)rows * KB * 4), *rs = malloc(KB * 4), *fs = malloc(KB * 4);
     memset(q, 0xee, (size_t)rows * k); memset(s, 0xee, (size_t)rows * KB * 4);
-    OmegaPfqQuant u = { .k = k, .rows = rows, .stride = stride, .x_va = (uintptr_t)xin, .q_va = (uintptr_t)q, .s_va = (uintptr_t)s };
+    OmegaPfqQuant u = { .k = k, .rows = rows, .stride = stride, .in_type = in_type, .x_va = xva, .q_va = (uintptr_t)q, .s_va = (uintptr_t)s };
     OmegaPqSpec sp; OmegaPfqLaunch L; int rc = -1;
     static BlackwellIRProgram prog;
     if (omega_pfq_quant_plan(&u, &sp, &L) != OMEGA_GPU_PF_OK) snprintf(msg, msgn, "plan refused");
@@ -274,31 +316,43 @@ static int sim_quant(uint32_t k, uint32_t stride, uint32_t rows, int x64, size_t
         static WsSim ws; memset(&ws, 0, sizeof ws);
         ws.p = &prog; ws.threads = L.threads;
         for (uint32_t i = 0; i < L.nargs; i++) ws.cbank[0x380 / 4 + i] = L.args[i];
-        ws.ranges[0].lo = (uintptr_t)xin; ws.ranges[0].hi = (uintptr_t)(xin + (size_t)rows * XS);
+        ws.ranges[0].lo = xva; ws.ranges[0].hi = xva + xbytes;
         ws.ranges[1].lo = (uintptr_t)q; ws.ranges[1].hi = (uintptr_t)(q + (size_t)rows * k);
         ws.ranges[2].lo = (uintptr_t)s; ws.ranges[2].hi = (uintptr_t)(s + (size_t)rows * KB);
         ws.nranges = 3;
         rc = ws_run(&ws, L.grid_x, L.grid_y) ? -1 : 0;
         if (rc) snprintf(msg, msgn, "simulator %.150s", ws.msg);
     }
-    *bad = 0;
+    *bad = 0; if (tol) *tol = 0;
     if (!rc) for (uint32_t r = 0; r < rows; r++) {
-        pq_ref(xin + (size_t)r * XS, k, rq, rs, 0);
+        pq_ref(xref + (size_t)r * XS, k, rq, rs, 0);
         for (uint32_t j = 0; j < k; j++) if (rq[j] != q[(size_t)r * k + j]) (*bad)++;
         for (uint32_t b = 0; b < KB; b++) if (f2u(rs[b]) != f2u(s[(size_t)r * KB + b])) (*bad)++;
+        if (bf && tol) {
+            pq_ref(xin + (size_t)r * XS, k, fq, fs, 0);
+            for (uint32_t b = 0; b < KB; b++) {
+                double d = 0, m = 0;
+                for (uint32_t j = 128 * b; j < 128 * b + 128; j++) {
+                    d += fabs((double)qm_e4m3(q[(size_t)r * k + j]) * s[(size_t)r * KB + b] - (double)qm_e4m3(fq[j]) * fs[b]);
+                    m += fabs((double)xin[(size_t)r * XS + j]);
+                }
+                if (m > 0 && d / m > *tol) *tol = d / m;
+            }
+        }
     }
-    free(x); free(xin); free(q); free(rq); free(s); free(rs);
+    free(x); free(xin); free(xw); free(xb); free(q); free(rq); free(fq); free(s); free(rs); free(fs);
     return rc;
 }
-/* plans, generates and simulates one gemm of P; y gets YR x n f32 */
-static int sim_gemm(const Prob *P, int x64, int order, uint32_t *y, char *msg, size_t msgn) {
+/* plans, generates and simulates one gemm of P; y gets YR x n f32 (epi F32) or bf16 (epi BF16) */
+static int sim_gemm(const Prob *P, int x64, int order, uint32_t epi, void *y, char *msg, size_t msgn) {
     const uint32_t cap = omega_pfq_tile_cap(P->M, P->E);
     OmegaPfqTile *t = calloc(cap + 1, sizeof *t);
     const uint32_t nt = omega_pfq_tiles(P->seg, P->E, t, cap);
     const float *xs = x64 ? P->xs64 : P->xs;
-    memset(y, 0xee, (size_t)P->YR * P->n * 4);
+    const size_t ybytes = (size_t)P->YR * P->n * (epi == OMEGA_QG_EPI_BF16 ? 2u : 4u);
+    memset(y, 0xee, ybytes);
     OmegaPfqGemm c = { .n = P->n, .k = P->k, .x64 = (uint32_t)x64, .ntiles = nt, .tiles_va = (uintptr_t)t, .rowidx_va = P->indexed ? (uintptr_t)P->ridx : 0,
-                       .xq_va = (uintptr_t)P->xq, .xs_va = (uintptr_t)xs, .ymap_va = P->ymapped ? (uintptr_t)P->ymap : 0, .y_va = (uintptr_t)y };
+                       .xq_va = (uintptr_t)P->xq, .xs_va = (uintptr_t)xs, .ymap_va = P->ymapped ? (uintptr_t)P->ymap : 0, .y_va = (uintptr_t)y, .epi = epi };
     OmegaQgSpec sp; OmegaPfqLaunch L; int rc = -1;
     static BlackwellIRProgram prog;
     if (!nt) snprintf(msg, msgn, "tiler refused");
@@ -313,7 +367,7 @@ static int sim_gemm(const Prob *P, int x64, int order, uint32_t *y, char *msg, s
         s.ranges[0].lo = (uintptr_t)t; s.ranges[0].hi = (uintptr_t)(t + nt);
         s.ranges[1].lo = (uintptr_t)P->ridx; s.ranges[1].hi = (uintptr_t)(P->ridx + P->M + PAD);
         s.ranges[2].lo = (uintptr_t)P->xq; s.ranges[2].hi = (uintptr_t)(P->xq + XA * P->k);
-        s.ranges[3].lo = (uintptr_t)y; s.ranges[3].hi = (uintptr_t)(y + (size_t)P->YR * P->n);
+        s.ranges[3].lo = (uintptr_t)y; s.ranges[3].hi = (uintptr_t)y + ybytes;
         s.ranges[4].lo = (uintptr_t)P->w; s.ranges[4].hi = (uintptr_t)(P->w + (size_t)P->E * P->n * P->k);
         s.ranges[5].lo = (uintptr_t)P->swf; s.ranges[5].hi = (uintptr_t)(P->swf + (size_t)P->E * (P->n / 128) * P->KB);
         s.ranges[6].lo = (uintptr_t)xs; s.ranges[6].hi = (uintptr_t)(xs + XA * P->KB);
@@ -351,13 +405,13 @@ static int sim(void) {
     static const struct { uint32_t k, stride, rows; int x64; } qc[] = { { 2048, 2048 + 68, 9, 1 }, { 2048, 0, 9, 0 }, { 512, 512, 11, 1 }, { 5120, 5120 + 128, 5, 1 },
                                                                         { 4096, 0, 9, 1 } /* the q36 o input */ };
     for (size_t i = 0; i < sizeof qc / sizeof qc[0]; i++) {
-        size_t bad = 0; const int rc = sim_quant(qc[i].k, qc[i].stride, qc[i].rows, qc[i].x64, &bad, msg, sizeof msg);
+        size_t bad = 0; const int rc = sim_quant(qc[i].k, qc[i].stride, qc[i].rows, qc[i].x64, OMEGA_QG_IN_F32, &bad, NULL, msg, sizeof msg);
         printf("sim quant k %u stride %u rows %u %s: %s, %zu differ\n", qc[i].k, qc[i].stride, qc[i].rows, qc[i].x64 ? "2^64 x" : "x", rc ? msg : "ran", bad);
         if (rc || bad) fail++;
     }
     {
         omega_gpu_pfq_test_set_mutant(4);
-        size_t bad = 0; const int rc = sim_quant(2048, 2048 + 68, 9, 1, &bad, msg, sizeof msg);
+        size_t bad = 0; const int rc = sim_quant(2048, 2048 + 68, 9, 1, OMEGA_QG_IN_F32, &bad, NULL, msg, sizeof msg);
         omega_gpu_pfq_test_set_mutant(env_mutant);
         printf("sim quant mutant 4 (c = 0): %s\n", rc ? msg : bad ? "caught" : "NOT CAUGHT");
         if (rc || !bad) fail++;
@@ -373,20 +427,20 @@ static int sim(void) {
         Prob P; prob_make(&P, gc[i].E, gc[i].n, gc[i].k, gc[i].cnt, gc[i].XR, gc[i].indexed, gc[i].ymapped, M + gc[i].extra);
         uint32_t *want = expect_y(&P), *y = malloc((size_t)P.YR * P.n * 4), *y0 = malloc((size_t)P.YR * P.n * 4);
         for (int order = 0; order < 2; order++) {
-            const int rc = sim_gemm(&P, gc[i].x64, order, y, msg, sizeof msg);
+            const int rc = sim_gemm(&P, gc[i].x64, order, OMEGA_QG_EPI_F32, y, msg, sizeof msg);
             const size_t bad = rc ? 0 : ydiff(&P, y, want);
             printf("sim gemm %s (M %u n %u k %u, %u y rows) order %d: %s, %zu words differ\n", gc[i].name, P.M, P.n, P.k, P.YR, order, rc ? msg : "ran", bad);
             if (rc || bad) fail++;
         }
         if (gc[i].x64) { /* the same problem with true scales and x64 0: the same bits */
-            const int rc = sim_gemm(&P, 0, 0, y0, msg, sizeof msg), rc1 = sim_gemm(&P, 1, 0, y, msg, sizeof msg);
+            const int rc = sim_gemm(&P, 0, 0, OMEGA_QG_EPI_F32, y0, msg, sizeof msg), rc1 = sim_gemm(&P, 1, 0, OMEGA_QG_EPI_F32, y, msg, sizeof msg);
             const int same = !rc && !rc1 && !memcmp(y0, y, (size_t)P.YR * P.n * 4);
             printf("sim gemm %s: x64 on 2^64 scales == x64 off on true scales: %s\n", gc[i].name, same ? "identical" : "DIFFER");
             if (!same) fail++;
         }
         if (i == 0) for (int m = 1; m <= 3; m++) {
             omega_gpu_pfq_test_set_mutant(m);
-            const int rc = sim_gemm(&P, 1, 0, y, msg, sizeof msg);
+            const int rc = sim_gemm(&P, 1, 0, OMEGA_QG_EPI_F32, y, msg, sizeof msg);
             omega_gpu_pfq_test_set_mutant(env_mutant);
             const size_t bad = rc ? 0 : ydiff(&P, y, want);
             printf("sim gemm mutant %d (%s): %s\n", m, m == 1 ? "tiler row skew" : m == 2 ? "wrong scale block" : "tile i^1", rc ? msg : bad ? "caught" : "NOT CAUGHT");
@@ -403,13 +457,13 @@ static int sim(void) {
     for (size_t i = 0; i < sizeof q36 / sizeof q36[0]; i++) {
         Prob P; q36_layout(&P, q36[i].T, q36[i].E, q36[i].n, q36[i].k, q36[i].down);
         uint32_t *want = expect_y(&P), *y = malloc((size_t)P.YR * P.n * 4);
-        const int rc = sim_gemm(&P, 1, 0, y, msg, sizeof msg);
+        const int rc = sim_gemm(&P, 1, 0, OMEGA_QG_EPI_F32, y, msg, sizeof msg);
         const size_t bad = rc ? 0 : ydiff(&P, y, want);
         printf("sim gemm %s (M %u n %u k %u, %u y rows): %s, %zu words differ\n", q36[i].name, P.M, P.n, P.k, P.YR, rc ? msg : "ran", bad);
         if (rc || bad) fail++;
         if (i == 0) { /* negative control: the shared expert's y rows dropped from the map (pointed at routed row 0's slot) */
             for (uint32_t t = 0; t < q36[i].T; t++) P.ymap[q36[i].T * 8 + t] = P.ymap[0];
-            const int rc2 = sim_gemm(&P, 1, 0, y, msg, sizeof msg);
+            const int rc2 = sim_gemm(&P, 1, 0, OMEGA_QG_EPI_F32, y, msg, sizeof msg);
             const size_t bad2 = rc2 ? 0 : ydiff(&P, y, want);
             printf("sim gemm %s negative control (shared rows mis-mapped): %s\n", q36[i].name, rc2 ? msg : bad2 ? "caught" : "NOT CAUGHT");
             if (rc2 || !bad2) fail++;
@@ -421,10 +475,46 @@ static int sim(void) {
     for (size_t i = 0; i < 2; i++) {
         Prob P; prob_make(&P, 1, 256, dk[i], cd, 0, 0, 0, 0);
         uint32_t *want = expect_y(&P), *y = malloc((size_t)P.YR * P.n * 4);
-        const int rc = sim_gemm(&P, 1, 0, y, msg, sizeof msg);
+        const int rc = sim_gemm(&P, 1, 0, OMEGA_QG_EPI_F32, y, msg, sizeof msg);
         const size_t bad = rc ? 0 : ydiff(&P, y, want);
         printf("sim gemm q36 dense (M %u n %u k %u): %s, %zu words differ\n", P.M, P.n, P.k, rc ? msg : "ran", bad);
         if (rc || bad) fail++;
+        free(want); free(y); prob_free(&P);
+    }
+    /* DRA-84: bf16 rows in (the GDN out-proj input: k 4096 bf16 carrying 2^64; a strided k 2048 row), bit-exact against pq_ref
+     * of the widened rows; the gate on the bf16-vs-f32-input quantiser is 2^-3 + 2^-8 of the block's L1 (Wolfram) */
+    static const struct { uint32_t k, stride, rows; int x64; } qb[] = { { 4096, 0, 9, 1 }, { 2048, 2048 + 64, 9, 1 }, { 512, 0, 11, 0 } };
+    for (size_t i = 0; i < sizeof qb / sizeof qb[0]; i++) {
+        size_t bad = 0; double tol = 0;
+        const int rc = sim_quant(qb[i].k, qb[i].stride, qb[i].rows, qb[i].x64, OMEGA_QG_IN_BF16, &bad, &tol, msg, sizeof msg);
+        const int tok = tol <= 0.125 + 0.00390625;
+        printf("sim quant bf16 in k %u stride %u rows %u %s: %s, %zu differ, worst block |deq - deq(f32 in)|/|x| %.6f (gate 0.128906) %s\n", qb[i].k, qb[i].stride,
+               qb[i].rows, qb[i].x64 ? "2^64 x" : "x", rc ? msg : "ran", bad, tol, tok ? "ok" : "OVER");
+        if (rc || bad || !tok) fail++;
+    }
+    /* DRA-84: bf16 y out (bf16_rn of the f32 product, bit-exact): the indexed+ymap+x64 problem A, then the GDN in-proj (direct
+     * rows, x64, n 12288 cut to 256, k 2048); mutant 5 (halves swapped) must be caught on A */
+    for (int g = 0; g < 2; g++) {
+        static const uint32_t ci[] = { 9 };
+        Prob P;
+        if (g == 0) { uint32_t M = 0; for (uint32_t e = 0; e < 6; e++) M += ca[e]; prob_make(&P, 6, 256, 384, ca, 90, 1, 1, M + 37); }
+        else prob_make(&P, 1, 256, 2048, ci, 0, 0, 0, 0);
+        uint16_t *want = expect_yb(&P), *y = malloc((size_t)P.YR * P.n * 2);
+        for (int order = 0; order < 2; order++) {
+            const int rc = sim_gemm(&P, 1, order, OMEGA_QG_EPI_BF16, y, msg, sizeof msg);
+            const size_t bad = rc ? 0 : ydiffb(&P, y, want);
+            printf("sim gemm bf16 out %s (M %u n %u k %u, %u y rows) order %d: %s, %zu halves differ\n", g ? "q36 GDN in-proj direct+x64" : "A indexed+ymap+x64",
+                   P.M, P.n, P.k, P.YR, order, rc ? msg : "ran", bad);
+            if (rc || bad) fail++;
+        }
+        if (g == 0) {
+            omega_gpu_pfq_test_set_mutant(5);
+            const int rc = sim_gemm(&P, 1, 0, OMEGA_QG_EPI_BF16, y, msg, sizeof msg);
+            omega_gpu_pfq_test_set_mutant(env_mutant);
+            const size_t bad = rc ? 0 : ydiffb(&P, y, want);
+            printf("sim gemm mutant 5 (bf16 halves swapped): %s\n", rc ? msg : bad ? "caught" : "NOT CAUGHT");
+            if (rc || !bad) fail++;
+        }
         free(want); free(y); prob_free(&P);
     }
     return fail;
@@ -534,8 +624,8 @@ static int chip(uint32_t tokens, int reps, int rows, uint32_t experts) {
     OmegaGpuCmdList *cl = NULL;
     if (!rc && omega_gpu_cmdlist_create(8, &cl) != 0) rc = OMEGA_GPU_PF_CHIP_FAIL;
     if (!rc) {
-        omega_gpu_pfq_quant_prepare(2048, 2048 + 64); omega_gpu_pfq_quant_prepare(512, 0);
-        omega_gpu_pfq_gemm_prepare(1024, 2048, 1, 1, 1); omega_gpu_pfq_gemm_prepare(2048, 512, 1, 1, 1);
+        omega_gpu_pfq_quant_prepare(2048, 2048 + 64, OMEGA_QG_IN_F32); omega_gpu_pfq_quant_prepare(512, 0, OMEGA_QG_IN_F32);
+        omega_gpu_pfq_gemm_prepare(1024, 2048, 1, 1, 1, OMEGA_QG_EPI_F32); omega_gpu_pfq_gemm_prepare(2048, 512, 1, 1, 1, OMEGA_QG_EPI_F32);
     }
     uint64_t ns[4][32]; if (reps > 32) reps = 32; if (reps < 1) reps = 1;
     for (int r = 0; r < reps && !rc; r++) { uint64_t t4[4]; rc = chip_run(cl, &P1, &d1, &P2, &d2, t4); for (int i = 0; i < 4; i++) ns[i][r] = t4[i]; }
