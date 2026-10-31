@@ -98,9 +98,12 @@ int omega_bw_ir_append(BlackwellIRProgram *prog, const BlackwellIRInsn *insn) {
     int idx = (int)prog->count++;
     prog->insns[idx] = *insn;
 
-    /* Update live-interval def/use tracking */
+    /* Live-interval def/use tracking. Only LDCU/LDCU64 write a uniform register (the encoder's rule,
+     * bw_c_encode_insn and om/encoder/bw_enc_sm121.om isuld); every other dst is a GPR, also when
+     * is_uniform marks a uniform SOURCE operand. */
+    const bool uniform_dst = insn->op == BW_IR_LDCU || insn->op == BW_IR_LDCU64;
     if (insn->dst_vreg >= 0 && insn->dst_vreg < prog->regalloc.num_vregs) {
-        if (!insn->is_uniform) {
+        if (!uniform_dst) {
             OmegaLiveInterval *iv = &prog->regalloc.intervals[insn->dst_vreg];
             if (iv->first_def < 0) iv->first_def = idx;
             if (idx > iv->last_use) iv->last_use = idx;
@@ -123,7 +126,7 @@ int omega_bw_ir_append(BlackwellIRProgram *prog, const BlackwellIRInsn *insn) {
     }
 
     /* Uniform register def/use tracking */
-    if (insn->is_uniform && insn->dst_vreg >= 0 && insn->dst_vreg < prog->regalloc.num_uvregs) {
+    if (uniform_dst && insn->dst_vreg >= 0 && insn->dst_vreg < prog->regalloc.num_uvregs) {
         OmegaLiveInterval *uiv = &prog->regalloc.uintervals[insn->dst_vreg];
         if (uiv->first_def < 0) uiv->first_def = idx;
         if (idx > uiv->last_use) uiv->last_use = idx;

@@ -6,7 +6,8 @@
  *      R22/R23 at IR 88/89; the same kernel after the encoder fix passes; the fixed kernel with the one lost wait
  *      cleared fails again;
  *   3. negative controls: small encoded programs with one hazard each are caught, the same programs with the wait
- *      in place pass, and an undecodable word is "not checked", never clean;
+ *      in place pass, and an undecodable word is "not checked", never clean; the allocator gives a uniform-source
+ *      IMAD's destination a GPR live from the IMAD (only LDCU/LDCU64 write a uniform register);
  *   4. sweep: every generator over its accepted shapes (production kernels, mutant 0), encoded and patched as the
  *      launchers do; every finding is printed and must be on the triaged list below.
  *
@@ -303,6 +304,38 @@ static void test_controls(void) {
     BlackwellIRInsn far[] = { mk(BW_IR_BRA, -1, -1, -1, -1, -1, CW(5, 7, 7, 0)) }; far[0].imm = 5; n = enc(far, 1, c);
     CHECK(omega_bw_hazard_check(c, n, &g_rep) == -1 && g_rep.bad_pc == 0, "control: a branch out of the buffer is refused");
     CHECK(omega_bw_hazard_check(c, 15, &g_rep) == -1 && omega_bw_hazard_check(NULL, 16, &g_rep) == -1, "control: bad length / NULL refused");
+}
+
+/* Only LDCU/LDCU64 write a uniform register (the encoder's rule). An IMAD R, R, UR, R carries is_uniform for its
+ * uniform SOURCE; its destination is a GPR whose live interval starts at the IMAD. The allocator must not hand that
+ * GPR to a value still live there (c below, read at IR 3), and must not count the IMAD as a def of the uniform
+ * vreg with the same index (u1, defined at IR 5). */
+static void test_uniform_source_dst(void) {
+    static BlackwellIRProgram p;
+    omega_bw_ir_init(&p);
+    const int u0 = omega_bw_ir_alloc_uvreg(&p), u1 = omega_bw_ir_alloc_uvreg(&p);
+    const int c = omega_bw_ir_alloc_vreg(&p), d = omega_bw_ir_alloc_vreg(&p), e = omega_bw_ir_alloc_vreg(&p);
+    const int f = omega_bw_ir_alloc_vreg(&p), g = omega_bw_ir_alloc_vreg(&p);
+    BlackwellIRInsn prog[] = {
+        mk(BW_IR_LDCU, u0, -1, -1, -1, -1, 0),     /* 0 */
+        mk(BW_IR_MOV_IMM, c, -1, -1, -1, -1, 0),   /* 1 */
+        mk(BW_IR_IMAD, d, c, -1, c, u0, 0),        /* 2: d = c * UR(u0) + c, the uniform-source form */
+        mk(BW_IR_IADD3, e, c, c, -1, -1, 0),       /* 3: last read of c */
+        mk(BW_IR_IADD3, f, d, e, -1, -1, 0),       /* 4: first read of d */
+        mk(BW_IR_LDCU, u1, -1, -1, -1, -1, 0),     /* 5 */
+        mk(BW_IR_IMAD, g, f, -1, f, u1, 0),        /* 6 */
+        mk(BW_IR_EXIT, -1, -1, -1, -1, -1, 0),     /* 7 */
+    };
+    prog[0].is_uniform = prog[2].is_uniform = prog[5].is_uniform = prog[6].is_uniform = true;
+    int ok = 1;
+    for (unsigned i = 0; i < sizeof prog / sizeof *prog; i++) ok &= omega_bw_ir_append(&p, &prog[i]) == (int)i;
+    CHECK(ok && omega_bw_regalloc_solve(&p) == 0, "uniform-source IMAD: program appends and allocates");
+    CHECK(p.regalloc.intervals[d].first_def == 2, "uniform-source IMAD: GPR dst interval starts at the IMAD (IR 2), got %d",
+          p.regalloc.intervals[d].first_def);
+    CHECK(p.regalloc.vreg_to_phys[d] != p.regalloc.vreg_to_phys[c],
+          "uniform-source IMAD: dst R%d must not reuse R%d of c, still live until IR 3", p.regalloc.vreg_to_phys[d], p.regalloc.vreg_to_phys[c]);
+    CHECK(p.regalloc.uintervals[u1].first_def == 5, "uniform-source IMAD: uniform vreg %d first def is its LDCU (IR 5), got %d", u1,
+          p.regalloc.uintervals[u1].first_def);
 }
 
 /* ------------------------------------------------------------------------------------------------------- 4. sweep */
@@ -618,6 +651,7 @@ int main(int argc, char **argv) {
     test_decoder_vs_encoder();
     test_red_receipt(dir);
     test_controls();
+    test_uniform_source_dst();
     sweep();
     size_t clean = 0;
     printf("sweep per generator (distinct kernels, clean, findings):\n");

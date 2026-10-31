@@ -63,8 +63,10 @@ test-om-encoder-corpus:
 
 .PHONY: test-om-spec-encoder
 ifeq ($(CUDAPP_OMC_HOST),1)
+# On a non-AArch64 host the native AArch64 function-byte probe cannot execute; the script exits 3 (NOT_RUN) for
+# it unless told the row is accepted as NOT_RUN, which this target does there and the log says so.
 test-om-spec-encoder:
-	OMEGA_BRIDGE="$(OMEGA_BRIDGE)" sh tools/test_bw_spec_encoder.sh
+	OMEGA_BRIDGE="$(OMEGA_BRIDGE)" $(if $(CUDAPP_HOST_IS_AARCH64),,BW_SPEC_NATIVE_PROBE_NOT_RUN_OK=1) sh tools/test_bw_spec_encoder.sh
 else
 test-om-spec-encoder:
 	@echo "test-om-spec-encoder: NOT_RUN (requires the pinned AArch64 omc and nvdisasm; set OMEGA_OMC to a pin that executes on this host; not part of the portable host suite)"

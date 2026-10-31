@@ -253,6 +253,9 @@ case "$target" in
     ;;
   *)
     log "NOT_RUN: native AArch64 function-byte probe needs an AArch64 C target (got $target)"
-    log "SPEC-DRIVEN ENCODER/DECODER VERIFICATIONS PASSED (HOST_TESTED); native AArch64 binding NOT_RUN"
+    # A skipped probe is not a pass: exit 3 (NOT_RUN, as above) unless the caller
+    # states it accepts this row as NOT_RUN (make test-om-spec-encoder on non-AArch64 hosts).
+    [ "${BW_SPEC_NATIVE_PROBE_NOT_RUN_OK:-}" = 1 ] || exit 3
+    log "SPEC-DRIVEN ENCODER/DECODER VERIFICATIONS PASSED (HOST_TESTED); native AArch64 binding NOT_RUN (accepted by BW_SPEC_NATIVE_PROBE_NOT_RUN_OK=1)"
     ;;
 esac
