@@ -58,15 +58,21 @@ int main(void) {
         CHECK(omega_bw_gpr_declared_ok(decl, peak), "bf16 gemv k%u: peak %u declared %u", ks[i], peak, decl); } }
     /* fp8 grouped GEMM (all shapes we launch, with and without the L312 lever 3 x' prefetch) */
     { unsigned ks[] = { 2048, 768, 4096 }, mts[] = { 4, 8 }; for (unsigned xa = 0; xa < 2; xa++) for (unsigned i = 0; i < 3; i++) for (unsigned j = 0; j < 2; j++) {
-        OmegaFp8GemmSpec s = { ks[i], ks[i] % 512 ? 8u : 16u, mts[j], 16, 0, 0, xa, 0 }; uint32_t peak = 0, decl = 0;
+        OmegaFp8GemmSpec s = { ks[i], ks[i] % 512 ? 8u : 16u, mts[j], 16, 0, 0, xa, 0, 0 }; uint32_t peak = 0, decl = 0;
         CHECK(omega_fp8gemm_prog_stats(&s, NULL, &peak) == 0, "gemm k%u mt%u x_ahead %u builds", ks[i], mts[j], xa); (void)omega_gpu_fp8gemm_kernel_fits(&s, &decl);
         CHECK(omega_bw_gpr_declared_ok(decl, peak), "gemm k%u mt%u x_ahead %u: peak %u declared %u", ks[i], mts[j], xa, peak, decl); } }
     /* DRA-79 row_ahead: the decode down projection (k 512, one K step), mapped and plain, with and without x_ahead */
     { unsigned mts[] = { 4, 8 }; for (unsigned xa = 0; xa < 2; xa++) for (unsigned rm = 0; rm < 2; rm++) for (unsigned j = 0; j < 2; j++) {
         if (rm && mts[j] > 4) continue;
-        OmegaFp8GemmSpec s = { 512, 16, mts[j], 16, 0, rm, xa, 1 }; uint32_t peak = 0, decl = 0;
+        OmegaFp8GemmSpec s = { 512, 16, mts[j], 16, 0, rm, xa, 1, 0 }; uint32_t peak = 0, decl = 0;
         CHECK(omega_fp8gemm_prog_stats(&s, NULL, &peak) == 0, "gemm k512 mt%u rowmap %u x_ahead %u row_ahead builds", mts[j], rm, xa); (void)omega_gpu_fp8gemm_kernel_fits(&s, &decl);
         CHECK(omega_bw_gpr_declared_ok(decl, peak), "gemm k512 mt%u rowmap %u x_ahead %u row_ahead: peak %u declared %u", mts[j], rm, xa, peak, decl); } }
+    /* DRA-80/81/89 x_resident: the served shapes (down k 512 mt 4/8 mapped, gate_up k 2048 mt 4 mapped, dense mix/o k 2048/4096 mt 1/2/4) */
+    { struct { unsigned k, mt, rm; } xr[] = { { 512, 4, 1 }, { 512, 8, 1 }, { 2048, 4, 1 }, { 2048, 1, 0 }, { 2048, 2, 0 }, { 2048, 4, 0 }, { 4096, 1, 0 }, { 4096, 2, 0 } };
+      for (unsigned i = 0; i < sizeof xr / sizeof xr[0]; i++) {
+        OmegaFp8GemmSpec s = { xr[i].k, 16, xr[i].mt, 16, 0, xr[i].rm, 0, 0, 1 }; uint32_t peak = 0, decl = 0;
+        CHECK(omega_fp8gemm_prog_stats(&s, NULL, &peak) == 0, "gemm k%u mt%u rowmap %u x_resident builds", xr[i].k, xr[i].mt, xr[i].rm); (void)omega_gpu_fp8gemm_kernel_fits(&s, &decl);
+        CHECK(omega_bw_gpr_declared_ok(decl, peak), "gemm k%u mt%u rowmap %u x_resident: peak %u declared %u", xr[i].k, xr[i].mt, xr[i].rm, peak, decl); } }
     /* router and decode attention: the launcher uses omega_bw_gpr_declared(peak) (static), so check the helper on the real peak */
     { OmegaRouterSpec s = { .warps = OMEGA_GPU_ROUTER_WARPS, .depth = OMEGA_GPU_ROUTER_DEPTH }; uint32_t peak = 0;
       CHECK(omega_router_prog_stats(&s, NULL, &peak) == 0 && omega_bw_gpr_declared_ok(omega_bw_gpr_declared(peak), peak), "router peak %u", peak); printf("router peak %u -> declared %u\n", peak, omega_bw_gpr_declared(peak)); }

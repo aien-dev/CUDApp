@@ -38,7 +38,18 @@
  * 3 reads the neighbouring row's x (m ^ 1) for every row, 4 drops the empty-segment guard (a cnt 0 segment then runs 2^32 passes: the
  * warp simulator's step budget catches it), 5 (row_ahead only) prefetches weight row rg + stride + 1 instead of rg + stride,
  * 6 (row_ahead only) prefetches the next weight row at every pass instead of the last (wrong when a segment runs >= 2 passes).
- * Each must be caught.
+ * x_resident only: 7 reads row m at m * 32 * LB words instead of m * k (wrong when
+ * KS >= 2 and mt >= 2), 8 stages every row of a mapped pass from XMAP[rowp] (DRA-81's mapped staging), 9 makes the cross-row
+ * prefetch fetch the current row's step 0 again instead of the next row's. Each must be caught.
+ *
+ * x_resident 1 (P-DRA-4 DRA-80, reused by DRA-81's single-pass shared expert and DRA-89's dense calls): ONE stage-x-once form.
+ * The loop nest turns over: per pass the CTA stages all k columns of its MT x' rows into shared memory (MT * k * 4 bytes
+ * <= OMEGA_BW_QMD_MAX_SHARED_BYTES, one BAR.SYNC), then its warps stream weight rows with no barrier inside a row or
+ * between rows; the last K step of a row prefetches the NEXT row's step 0 (the next pass's first row after the last
+ * row of a pass), so the weight stream crosses row boundaries without a gap. The same x' contract (MT padding rows,
+ * padding XMAP entries) and the same per-row arithmetic as x_resident 0, so the result is bit-identical to it. Needs
+ * k % (32 * warps) == 0, mt <= 8 (rowmap included: no staging-word registers), x_ahead 0, row_ahead 0. Weights are read once per
+ * pass as before; the gain is the barriers and the per-row pipeline restart that x_resident 0 pays per K step.
  */
 #include <stdint.h>
 #include "omega_blackwell_codegen.h"
@@ -62,7 +73,7 @@ extern "C" {
 typedef struct {
     uint32_t k;          /* multiple of 128 and of 32 * lane_bytes; <= 16384 */
     uint32_t lane_bytes; /* 8 or 16 (the GEMV's choice: 16 when k % 512 == 0, else 8) */
-    uint32_t mt;         /* rows per pass: a power of two, mt * 128 * lane_bytes <= 16384 */
+    uint32_t mt;         /* rows per pass: a power of two, mt * 128 * lane_bytes <= 16384 (x_resident: mt <= 8, mt * k * 4 <= the QMD shared limit) */
     uint32_t warps;      /* warps % lane_bytes == 0, (mt * lane_bytes) % warps == 0, 1 .. 32 (host simulator: build with -DWS_MAX_THREADS=512) */
     int mutant;
     uint32_t rowmap;     /* 1: x' rows and y rows are addressed through XMAP / YMAP (the decode stroke: N heads' rows grouped by
@@ -77,6 +88,7 @@ typedef struct {
                           * scoreboard 4 into the second register set, and moved into the first at the next pass prologue, so the
                           * one-step K loop no longer waits a full load latency per row. Passes before the last re-load the current
                           * row. 0: the incumbent program, byte for byte. */
+    uint32_t x_resident; /* 1 (DRA-80): the stage-x-once form above; 0: the forms above, byte for byte */
 } OmegaFp8GemmSpec;
 
 int omega_blackwell_codegen_fp8gemm_prog(const OmegaFp8GemmSpec *spec, BlackwellIRProgram *prog);

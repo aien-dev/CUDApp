@@ -373,6 +373,21 @@ test-gpu-fp8gemm: $(GPU_FP8GEMM_TEST)
 	env AIEN_OMEGA_FP8GEMM_ROW_AHEAD=1 $(GPU_FP8GEMM_TEST) --spec-of 2048,1,0,0 --expect "row_ahead=0"
 	for v in "" 0 yes 2 " 1" "1 " 11; do \
 	  env AIEN_OMEGA_FP8GEMM_ROW_AHEAD="$$v" $(GPU_FP8GEMM_TEST) --spec-of 512,64,4,1 --expect "row_ahead=0" || exit 1; done
+	@# DRA-80/81: AIEN_OMEGA_FP8GEMM_X_RESIDENT / _SHARED_ONE_PASS; only exactly "1"; mapped calls only (the dense calls are DRA-89's);
+	@# the decode stroke records segs = 9 N at caller mt 0, so 512,72,0,1 is the down projection at N 8 and 512,36,0,1 at N 4
+	env -u AIEN_OMEGA_FP8GEMM_X_RESIDENT -u AIEN_OMEGA_FP8GEMM_SHARED_ONE_PASS $(GPU_FP8GEMM_TEST) --spec-of 512,72,0,1 --expect "x_resident=0"
+	env -u AIEN_OMEGA_FP8GEMM_X_RESIDENT -u AIEN_OMEGA_FP8GEMM_SHARED_ONE_PASS $(GPU_FP8GEMM_TEST) --spec-of 2048,72,0,1 --expect "x_resident=0"
+	env AIEN_OMEGA_FP8GEMM_X_RESIDENT=1 $(GPU_FP8GEMM_TEST) --spec-of 512,72,0,1 --expect "x_resident=1 mt=4 rowmap=1"
+	env AIEN_OMEGA_FP8GEMM_X_RESIDENT=1 AIEN_OMEGA_FP8GEMM_X_AHEAD=1 AIEN_OMEGA_FP8GEMM_ROW_AHEAD=1 $(GPU_FP8GEMM_TEST) --spec-of 512,72,0,1 --expect "x_resident=1 x_ahead=0 row_ahead=0"
+	env AIEN_OMEGA_FP8GEMM_X_RESIDENT=1 $(GPU_FP8GEMM_TEST) --spec-of 2048,72,0,1 --expect "x_resident=1 mt=4"
+	env AIEN_OMEGA_FP8GEMM_X_RESIDENT=1 $(GPU_FP8GEMM_TEST) --spec-of 2048,1,0,0 --expect "x_resident=0"
+	env AIEN_OMEGA_FP8GEMM_SHARED_ONE_PASS=1 $(GPU_FP8GEMM_TEST) --spec-of 512,72,0,1 --expect "x_resident=1 mt=8"
+	env AIEN_OMEGA_FP8GEMM_SHARED_ONE_PASS=1 $(GPU_FP8GEMM_TEST) --spec-of 512,45,0,1 --expect "x_resident=1 mt=8"
+	env AIEN_OMEGA_FP8GEMM_SHARED_ONE_PASS=1 $(GPU_FP8GEMM_TEST) --spec-of 512,36,0,1 --expect "x_resident=0 mt=4"
+	env AIEN_OMEGA_FP8GEMM_SHARED_ONE_PASS=1 $(GPU_FP8GEMM_TEST) --spec-of 512,72,4,1 --expect "x_resident=0 mt=4"
+	env AIEN_OMEGA_FP8GEMM_SHARED_ONE_PASS=1 AIEN_OMEGA_FP8GEMM_X_RESIDENT=1 $(GPU_FP8GEMM_TEST) --spec-of 2048,72,0,1 --expect "x_resident=1"
+	for v in "" 0 yes 2 " 1" "1 " 11; do \
+	  env AIEN_OMEGA_FP8GEMM_X_RESIDENT="$$v" AIEN_OMEGA_FP8GEMM_SHARED_ONE_PASS="$$v" $(GPU_FP8GEMM_TEST) --spec-of 512,72,0,1 --expect "x_resident=0" || exit 1; done
 
 # OWN-30B (2026-10-13): host-only audit that every launcher declares peak + 2 registers (the chip hung at peak + 1).
 .PHONY: test-gpu-gpr-boundary
