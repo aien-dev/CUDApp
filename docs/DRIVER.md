@@ -75,6 +75,6 @@ Completion is a word in GPU-uncached memory that the GPU writes with a semaphore
 
 ## 7. Above and below the client
 
-Above it, `src/omega_gpu_platform.h` is the contract the runtime is written against: typed handles instead of file descriptors, explicit rights and kinds for every buffer, polling named as polling, and no silent fallback. `src/omega_gpu_platform_linux.c` implements it on this client. Aien's GB10 driver research harness (L332, aienux#441) implements the same contract in a simulator; it isn't a product, and GB10 support goes upstream to Nova and nouveau.
+Above it, `src/omega_gpu_platform.h` is the contract the runtime is written against: typed handles instead of file descriptors, explicit rights and kinds for every buffer, polling named as polling, and no silent fallback. `src/omega_gpu_platform_linux.c` implements it on this client. The C reference of Aien's own GB10 driver (L332, aienux#441) implements the same contract in a simulator.
 
-Below it, NVIDIA's open kernel module (`nvidia.ko`, `nvidia-uvm.ko`) does the rest: it boots the GPU's GSP firmware, builds page tables and schedules channels. The firmware stays NVIDIA's; the chip checks its signature.
+Below it, today, NVIDIA's open kernel module (`nvidia.ko`, `nvidia-uvm.ko`) does the rest: it boots the GPU's GSP firmware, builds page tables and schedules channels. Aien's own GB10 driver replaces that module (aien-dev/aien-gpu, aien-dev/omega-gpu-driver, aienux#441; BUILDING in `ROADMAP.md`, nothing run on the GB10 yet). This client speaks NVIDIA's ioctl interface, so it has to move onto that driver's interface; that move is PROPOSED. The firmware stays NVIDIA's; the chip checks its signature.
