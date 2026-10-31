@@ -1,0 +1,76 @@
+test_c4_keeps_the_default_count_when_omitted (__main__.ChipHelperTests.test_c4_keeps_the_default_count_when_omitted) ... ok
+test_c4_refuses_malformed_or_unrepresentable_counts (__main__.ChipHelperTests.test_c4_refuses_malformed_or_unrepresentable_counts) ...
+  test_c4_refuses_malformed_or_unrepresentable_counts (__main__.ChipHelperTests.test_c4_refuses_malformed_or_unrepresentable_counts) (count='') ... FAIL
+  test_c4_refuses_malformed_or_unrepresentable_counts (__main__.ChipHelperTests.test_c4_refuses_malformed_or_unrepresentable_counts) (count='00') ... FAIL
+test_c4_refuses_zero_without_running_a_child (__main__.ChipHelperTests.test_c4_refuses_zero_without_running_a_child) ... FAIL
+test_c4_rejects_child_failure_and_missing_verdict (__main__.ChipHelperTests.test_c4_rejects_child_failure_and_missing_verdict) ... ok
+test_c4_runs_the_requested_number_under_the_lock (__main__.ChipHelperTests.test_c4_runs_the_requested_number_under_the_lock) ... ok
+test_contended_lock_prevents_any_child (__main__.ChipHelperTests.test_contended_lock_prevents_any_child) ...
+  test_contended_lock_prevents_any_child (__main__.ChipHelperTests.test_contended_lock_prevents_any_child) (helper='l136_channel_gates.sh') ... FAIL
+test_l136_holds_the_lock_for_every_child (__main__.ChipHelperTests.test_l136_holds_the_lock_for_every_child) ... FAIL
+test_l136_propagates_a_late_channel_child_failure (__main__.ChipHelperTests.test_l136_propagates_a_late_channel_child_failure) ... FAIL
+test_l136_records_failure_and_stops_with_the_child_status (__main__.ChipHelperTests.test_l136_records_failure_and_stops_with_the_child_status) ... FAIL
+
+======================================================================
+FAIL: test_c4_refuses_malformed_or_unrepresentable_counts (__main__.ChipHelperTests.test_c4_refuses_malformed_or_unrepresentable_counts) (count='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<checkout>/tests/test_chip_helpers.py", line 77, in test_c4_refuses_malformed_or_unrepresentable_counts
+    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+AssertionError: 0 == 0 : runs passing: 10 of 10
+
+
+======================================================================
+FAIL: test_c4_refuses_malformed_or_unrepresentable_counts (__main__.ChipHelperTests.test_c4_refuses_malformed_or_unrepresentable_counts) (count='00')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<checkout>/tests/test_chip_helpers.py", line 77, in test_c4_refuses_malformed_or_unrepresentable_counts
+    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+AssertionError: 0 == 0 : runs passing: 0 of 00
+
+
+======================================================================
+FAIL: test_c4_refuses_zero_without_running_a_child (__main__.ChipHelperTests.test_c4_refuses_zero_without_running_a_child)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<checkout>/tests/test_chip_helpers.py", line 69, in test_c4_refuses_zero_without_running_a_child
+    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+AssertionError: 0 == 0 : runs passing: 0 of 0
+
+
+======================================================================
+FAIL: test_contended_lock_prevents_any_child (__main__.ChipHelperTests.test_contended_lock_prevents_any_child) (helper='l136_channel_gates.sh')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<checkout>/tests/test_chip_helpers.py", line 139, in test_contended_lock_prevents_any_child
+    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+AssertionError: 0 == 0 :
+
+======================================================================
+FAIL: test_l136_holds_the_lock_for_every_child (__main__.ChipHelperTests.test_l136_holds_the_lock_for_every_child)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<checkout>/tests/test_chip_helpers.py", line 101, in test_l136_holds_the_lock_for_every_child
+    self.assertTrue(all(line.endswith(" locked") for line in self.invocations()),
+AssertionError: False is not true : ['gpu_q38_graph_test unset unlocked', 'gpu_q38_graph_test unset unlocked', 'gpu_q38_graph_test unset unlocked', 'gpu_q38_graph_test unset unlocked', 'gpu_cmdlist_test unset unlocked', 'gpu_cmdlist_test unset unlocked', 'gpu_decode_graph_test unset unlocked', 'gpu_decode_graph_test unset unlocked', 'gpu_q38_channels_test unset unlocked', 'gpu_q38_channels_test 2 unlocked', 'gpu_q38_graph_test 2 unlocked']
+
+======================================================================
+FAIL: test_l136_propagates_a_late_channel_child_failure (__main__.ChipHelperTests.test_l136_propagates_a_late_channel_child_failure)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<checkout>/tests/test_chip_helpers.py", line 116, in test_l136_propagates_a_late_channel_child_failure
+    self.assertEqual(result.returncode, 37, result.stdout + result.stderr)
+AssertionError: 0 != 37 :
+
+======================================================================
+FAIL: test_l136_records_failure_and_stops_with_the_child_status (__main__.ChipHelperTests.test_l136_records_failure_and_stops_with_the_child_status)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<checkout>/tests/test_chip_helpers.py", line 108, in test_l136_records_failure_and_stops_with_the_child_status
+    self.assertEqual(result.returncode, 37, result.stdout + result.stderr)
+AssertionError: 0 != 37 :
+
+----------------------------------------------------------------------
+Ran 9 tests in 1.554s
+
+FAILED (failures=7)

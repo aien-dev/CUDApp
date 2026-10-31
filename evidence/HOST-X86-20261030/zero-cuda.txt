@@ -1,0 +1,9 @@
+CUDA++ host x86_64: seeded AArch64 binding is not assembled; C encoder and C cubin writer are the portable bodies; other seeded units refuse with status 34
+tools/zero-cuda-gate.sh --self-test
+ZERO_CUDA FAIL /tmp/tmp.2cbrpKemb7/probe.so needs: libcudart.so.13
+ZERO_CUDA FAIL /tmp/tmp.2cbrpKemb7/probe.so imports: cudaMalloc
+ZERO_CUDA SELF-TEST PASS (CUDA probe rejected, clean library accepted)
+tools/zero-cuda-gate.sh build/hello_gpu build/gpu_matmul_api_test
+ZERO_CUDA PASS build/hello_gpu needs=[libm.so.6 libc.so.6]
+ZERO_CUDA PASS build/gpu_matmul_api_test needs=[libc.so.6]
+EXIT:0

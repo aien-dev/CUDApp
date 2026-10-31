@@ -1,0 +1,6 @@
+# gemmtune-control-uncached start 2026-10-27T07:33:20Z load 30.65 29.48 26.11 35/2102 499415
+# health before: {"busy":false,"concurrency":8,"engine":"omega-qwen36-batch","in_flight":0,"model":"qwen3.6-35b-a3b-fp8","status":"ok","uptime_s":12972}
+# compute apps before: 79557, ./aien-serve-http;
+# exit 0 end 2026-10-27T07:34:23Z
+# health after: {"busy":false,"concurrency":8,"engine":"omega-qwen36-batch","in_flight":0,"model":"qwen3.6-35b-a3b-fp8","status":"ok","uptime_s":13035}
+# compute apps after: 79557, ./aien-serve-http;

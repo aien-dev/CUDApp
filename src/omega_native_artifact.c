@@ -2,6 +2,7 @@
 /* omega_native_artifact: offline digest-bound handoff for one GPU realization.
  * See the header. No device, no launch, no live address. */
 #include "omega_native_artifact.h"
+#include "omega_native_artifact_snapshot.h"
 
 #include <fcntl.h>
 #include <stdarg.h>
@@ -549,25 +550,30 @@ static int semver_ge(const char *have, const char *need) {
     return 1;
 }
 
-int omega_native_artifact_admit(const char *out_prefix, const char *current_driver,
-                                char out_id[OMEGA_ARTIFACT_ID_MAX], char *err, size_t err_cap) {
+static int artifact_admit(const char *out_prefix, const char *current_driver,
+                          char out_id[OMEGA_ARTIFACT_ID_MAX],
+                          OmegaNativeArtifactSnapshot *snapshot, char *err, size_t err_cap) {
     enum { A_MANIFEST, A_TEXT, A_CUBIN, A_QMD0, A_QMD1, A_CBANK, A_N };
     static const char *const suffix[A_N] = { ".manifest", ".text.bin", ".cubin", ".qmd0.bin", ".qmd1.bin",
                                              ".cbank_args.bin" };
-    char path[A_N][1024], id[65];
+    char path[A_N][1024], id[65], kernel[64] = {0};
     size_t mn = 0;
+    uint8_t *files[A_N] = {0};
+    size_t sizes[A_N] = {0};
     uint8_t *man;
     char *ident, *end, *p;
     int rc = OMEGA_ARTIFACT_OK;
     if (err && err_cap) err[0] = 0;
     if (out_id) out_id[0] = 0;
+    if (snapshot) memset(snapshot, 0, sizeof *snapshot);
     if (!out_prefix) return OMEGA_ARTIFACT_E_ARG;
     for (int i = 0; i < A_N; i++)
         if (join_path(path[i], sizeof path[i], out_prefix, suffix[i])) {
             if (err) snprintf(err, err_cap, "artifact prefix too long for '%s'", suffix[i]);
             return OMEGA_ARTIFACT_E_ARG;
         }
-    man = read_file(path[A_MANIFEST], &mn);
+    files[A_MANIFEST] = man = read_file(path[A_MANIFEST], &mn);
+    sizes[A_MANIFEST] = mn;
     if (!man) { if (err) snprintf(err, err_cap, "cannot read %s", path[A_MANIFEST]); return OMEGA_ARTIFACT_E_IO; }
     if (!manifest_layout_ok(man, mn)) {
         rc = OMEGA_ARTIFACT_E_FORMAT; goto done;
@@ -603,13 +609,14 @@ int omega_native_artifact_admit(const char *out_prefix, const char *current_driv
             const char *fn = path[checks[i].file];
             uint8_t *b, d[32];
             char got[65];
-            size_t n;
+            size_t n = 0;
             p = find_line(ident, checks[i].key);
             if (!p || copy_value(p, v, sizeof v) || !is_hex64(v)) { rc = OMEGA_ARTIFACT_E_FORMAT; goto done; }
-            b = read_file(fn, &n);
+            files[checks[i].file] = b = read_file(fn, &n);
+            sizes[checks[i].file] = n;
             if (!b) { if (err) snprintf(err, err_cap, "cannot read %s", fn); rc = OMEGA_ARTIFACT_E_IO; goto done; }
-            if (checks[i].fixed && n != checks[i].fixed) { free(b); rc = OMEGA_ARTIFACT_E_DIGEST; goto done; }
-            sha256_hash(b, n, d); free(b); hex64(d, got);
+            if (checks[i].fixed && n != checks[i].fixed) { rc = OMEGA_ARTIFACT_E_DIGEST; goto done; }
+            sha256_hash(b, n, d); hex64(d, got);
             if (strcmp(got, v) != 0) {
                 if (err) snprintf(err, err_cap, "%s digest mismatch for %s", checks[i].key, fn);
                 rc = OMEGA_ARTIFACT_E_DIGEST; goto done;
@@ -618,23 +625,22 @@ int omega_native_artifact_admit(const char *out_prefix, const char *current_driv
     }
     {
         char v[64];
-        uint8_t *t = NULL, *c = NULL, *q = NULL;
-        size_t tn = 0, cn = 0, qn = 0;
+        const uint8_t *t = files[A_TEXT], *c = files[A_CUBIN], *q = NULL;
+        size_t tn = sizes[A_TEXT], cn = sizes[A_CUBIN], qn = 0;
         int ok = 0;
         p = find_line(ident, "kernel_function=");
         if (!p || copy_value(p, v, sizeof v) || v[0] == 0) { rc = OMEGA_ARTIFACT_E_FORMAT; goto done; }
-        t = read_file(path[A_TEXT], &tn);
-        c = read_file(path[A_CUBIN], &cn);
+        memcpy(kernel, v, strlen(v) + 1);
         if (!t || !c) { rc = OMEGA_ARTIFACT_E_IO; goto cross_done; }
         ok = cubin_text_matches(c, cn, v, t, tn);
         if (!ok) { if (err) snprintf(err, err_cap, "cubin text does not match text.bin"); rc = OMEGA_ARTIFACT_E_DIGEST; goto cross_done; }
         {
             uint32_t a[OMEGA_ARTIFACT_QMD_WORDS], b[OMEGA_ARTIFACT_QMD_WORDS];
             uint32_t grid[3], block[3], shared, gpr;
-            q = read_file(path[A_QMD0], &qn);
+            q = files[A_QMD0]; qn = sizes[A_QMD0];
             if (!q || qn != sizeof a) { rc = OMEGA_ARTIFACT_E_FORMAT; goto cross_done; }
             memcpy(a, q, sizeof a);
-            free(q); q = read_file(path[A_QMD1], &qn);
+            q = files[A_QMD1]; qn = sizes[A_QMD1];
             if (!q || qn != sizeof b) { rc = OMEGA_ARTIFACT_E_FORMAT; goto cross_done; }
             memcpy(b, q, sizeof b);
             if (!qmd_template_ok(a, b)) { if (err) snprintf(err, err_cap, "QMD contains a live address"); rc = OMEGA_ARTIFACT_E_RELOC; goto cross_done; }
@@ -656,7 +662,7 @@ int omega_native_artifact_admit(const char *out_prefix, const char *current_driv
         if (!p || copy_value(p, v, sizeof v)) { rc = OMEGA_ARTIFACT_E_FORMAT; goto cross_done; }
         {
             uint32_t w;
-            free(q); q = read_file(path[A_CBANK], &qn);
+            q = files[A_CBANK]; qn = sizes[A_CBANK];
             if (!q || parse_u32(v, &w) || w == 0 || w > OMEGA_ARTIFACT_MAX_CBANK_WORDS || qn != (size_t)w * 4u) {
                 if (err) snprintf(err, err_cap, "cbank_words '%s' is not a decimal in 1..%u matching cbank_args.bin",
                                   v, OMEGA_ARTIFACT_MAX_CBANK_WORDS);
@@ -664,7 +670,6 @@ int omega_native_artifact_admit(const char *out_prefix, const char *current_driv
             }
         }
 cross_done:
-        free(t); free(c); free(q);
         if (rc) goto done;
     }
     {
@@ -704,6 +709,29 @@ cross_done:
     /* The id is reported only for an artifact that passed every check. */
     if (out_id) snprintf(out_id, OMEGA_ARTIFACT_ID_MAX, "%s", id);
 done:
-    free(man);
+    if (!rc && snapshot) {
+        memcpy(snapshot->bytes, files, sizeof files);
+        memcpy(snapshot->sizes, sizes, sizeof sizes);
+        memcpy(snapshot->kernel_function, kernel, sizeof kernel);
+        memcpy(snapshot->id, id, sizeof id);
+    } else {
+        for (int i = 0; i < A_N; ++i) free(files[i]);
+    }
     return rc;
+}
+
+int omega_native_artifact_admit(const char *prefix, const char *driver,
+                                char out_id[OMEGA_ARTIFACT_ID_MAX], char *err, size_t err_cap) {
+    return artifact_admit(prefix, driver, out_id, NULL, err, err_cap);
+}
+int omega_native_artifact_snapshot(const char *prefix, const char *driver,
+    char out_id[OMEGA_ARTIFACT_ID_MAX], OmegaNativeArtifactSnapshot *out,
+    char *err, size_t err_cap) {
+    if (!out) return OMEGA_ARTIFACT_E_ARG;
+    return artifact_admit(prefix, driver, out_id, out, err, err_cap);
+}
+void omega_native_artifact_snapshot_free(OmegaNativeArtifactSnapshot *snapshot) {
+    if (!snapshot) return;
+    for (unsigned i = 0; i < OMEGA_SNAPSHOT_FILES; ++i) free(snapshot->bytes[i]);
+    memset(snapshot, 0, sizeof *snapshot);
 }

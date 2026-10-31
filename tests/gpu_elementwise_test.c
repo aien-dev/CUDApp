@@ -22,6 +22,7 @@
 #include "omega_blackwell_codegen.h"
 #include "omega_gpu_session.h"
 #include "omega_sm121_disasm.h"
+#include "out_sha.h"
 #include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
@@ -29,6 +30,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include "test_out_file.h"
 
 static int g_checks, g_failed;
 #define CHECK(cond, ...) do { g_checks++; if (!(cond)) { g_failed++; printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -162,7 +164,7 @@ static void record(Case c, FILE *out) {
 }
 
 static int chip(const char *out_path) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
     if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_ELEMENTWISE_V1\",\"tolerances\":{\"ex2_rel\":1e-6,\"xchg\":\"exact\",\"rmsnorm_rel\":1e-5,\"rmsnorm_abs\":1e-6,\"rope\":\"exact\",\"swiglu_rel\":1e-5,\"swiglu_abs\":1e-6},\"cases\":[");
     uint32_t seed = 0xfb1c0004u;
@@ -211,6 +213,7 @@ static int chip(const char *out_path) {
         char name[64]; snprintf(name, sizeof name, "rmsnorm_%zux%zu", rows, dim);
         Case c = { .name = strdup(name), .n = n };
         c.rc = omega_gpu_rmsnorm_f32((uint32_t)rows, (uint32_t)dim, x, w, eps, got, &info);
+        if (c.rc == OMEGA_GPU_EW_OK) out_sha_buf(name, got, n * 4);
         c.bad = compare(got, want, n, 1e-5, 1e-6, &c.worst);
         c.pass = c.rc == OMEGA_GPU_EW_OK && c.bad == 0; c.chip_ns = info.elapsed_ns; c.calls = info.chip_calls; c.unwritten = info.unwritten_words;
         OmegaGpuEwInfo i2; int rc2 = omega_gpu_rmsnorm_f32((uint32_t)rows, (uint32_t)dim, x, w, eps, again, &i2);
@@ -331,7 +334,7 @@ static int chip(const char *out_path) {
 static int cmp_d(const void *a, const void *b) { double x = *(const double *)a, y = *(const double *)b; return x < y ? -1 : x > y; }
 static double now_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec * 1e3 + t.tv_nsec / 1e6; }
 static int timing(const char *out_path) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot open %s\n", out_path); return 2; }
     if (out) fprintf(out, "{\"schema\":\"OMEGA_GPU_ELEMENTWISE_TIMING_V1\",\"gate_median_ms\":0.5,\"calls\":100,\"cases\":[");
     uint32_t seed = 0xfb1c004bu;

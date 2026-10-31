@@ -22,3 +22,11 @@ This software is licensed under the Apache License, Version 2.0 with LLVM
 Exceptions. The exception permits compiled object code derived from this
 software to be distributed under terms of the recipient's choosing, and
 resolves the GPLv2 patent/indemnity conflict described in the exception text.
+
+THIRD-PARTY AND DIFFERENTLY LICENSED MATERIAL:
+third_party/nvidia-open-580.173.02/ holds NVIDIA open GPU kernel module
+headers, copied unchanged with NVIDIA Corporation's copyright and MIT notices;
+see third_party/nvidia-open-580.173.02/COPYING.
+Mesa citations and other third-party references are listed in THIRD_PARTY.md.
+Files carrying SPDX-License-Identifier: AGPL-3.0-only are under that licence,
+not the one above; docs/LICENSING_TRANSITION.md lists them.

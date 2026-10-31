@@ -1,0 +1,9 @@
+SAME dattn_pos0 e81b7427ea91d932b787c8b3aab785ebba891780039af46f87e57b557d31ecd8 in 10 of 10 runs
+SAME dattn_pos6 9f1969292c8226ec86e1d91ef5f2706bbc8b2034b831d44351c0b72e651d06fd in 10 of 10 runs
+SAME dattn_pos255 2a76c594bff6c41fbe33b90f5d4e5fa91c08c3b7945a757417170f301490c889 in 10 of 10 runs
+SAME dattn_pos300 7901e5e5c6499e531e16533afd9aa2e68cf0da8d0bc763b9feb7d62843ff60e8 in 10 of 10 runs
+SAME dattn_pos1023 c538767cf530fdc8495bfae1151c700e8a887cf5d1d4c6444a2ff38dffd41880 in 10 of 10 runs
+SAME dattn_pos4095 01db162e6a0fb8ae267b8dc1b2e97ffb48dc10b3094d015c86e6a6b5765c963c in 10 of 10 runs
+SAME dattn_pos8191 58fde3abe0308ba8aa23a51c9506595e29929eae3b7dc19462553af2f5acaff6 in 10 of 10 runs
+SAME dattn_pos32767 3741c568cb32da1310250b01feeb882cdcaaa8bf38c28a2247ad462aaca3b798 in 10 of 10 runs
+d7 same-bits: PASS (8 labels x 10 runs)

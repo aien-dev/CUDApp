@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* omega_sm121_disasm.h -- Omega's own sm_121 (GB10) disassembler (C6 of docs/OMEGA.md).
  *
  * Turns one 128-bit instruction word into the text nvdisasm prints for it, so no NVIDIA tool is needed to read

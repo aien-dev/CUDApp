@@ -1,0 +1,44 @@
+{
+  "schema": "pipeline57-source-dependencies/1",
+  "repository": "https://github.com/aien-dev/CUDApp",
+  "base": "b759afc3f5e46f152ffb06b39882ffa28cacaf96",
+  "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+  "pin_rule": "Exact source-content hashes are authoritative. No duplicated serializer, digest or cache implementation. Integrate owning peer commits and refuse content drift; peer branch names alone are not pins.",
+  "dependencies": [
+    {
+      "provider": "quant-schema",
+      "commit": "fe25929ce71b11703eafa72395df2dd495aa61f2",
+      "path": "om/quant/quant.om",
+      "sha256": "44bce96f3c274401e19a71b835814d69caf2bea8c2b1f4f43616c7c121232f09",
+      "test_only": false
+    },
+    {
+      "provider": "kernel-compose",
+      "commit": "2e93f998b70852abcd425f8865d842a05dad76ea",
+      "path": "om/components/realize.om",
+      "sha256": "2edff07a46c79c39a264dde9e5d6dfa02ed2f6dda677da8cc8a178f60c9a1c9d",
+      "test_only": false
+    },
+    {
+      "provider": "kernel-cache",
+      "commit": "693464cfcff678a9278fe4586f8a24b07ce45fb2",
+      "path": "om/cache/digest.om",
+      "sha256": "b0e49da9e6c146da0d040476d84bff8d93486c563e19ef8f1d731b1ffb15c051",
+      "test_only": false
+    },
+    {
+      "provider": "kernel-cache",
+      "commit": "693464cfcff678a9278fe4586f8a24b07ce45fb2",
+      "path": "om/cache/residency.om",
+      "sha256": "0da6b33438e98934425f1ea83d194298f390cc68029f0750ebfc70060f87bf61",
+      "test_only": false
+    },
+    {
+      "provider": "kernel-compose",
+      "commit": "2e93f998b70852abcd425f8865d842a05dad76ea",
+      "path": "om/components/fixture.om",
+      "sha256": "082e53cff85d139de60bb0bc9dd83b8fc3368b7c1c09397699db9f30883ed3ee",
+      "test_only": true
+    }
+  ]
+}

@@ -1,0 +1,217 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Verification entry: stdin is independent original-C staged frame; argv is K LB MT W rowmap.
+note Conductor compares complete native/C frames and disassembles all code before this test.
+text RUOk "PASS staged canonical/launch/cfg/out8 controls and independent C statistics\n"
+fn ru_word h view uchar 56 k ulong to ulong
+v = ulong 0
+for j ulong 8
+v = or v shl ulong get h add mul k 8 j mul j 8
+end
+ret v
+end
+fn ru_arg k ulong to ulong
+a = new uchar 8 0
+n = argread k a 0 8
+if or le n 0 gt n 5
+ret 0
+end
+v = ulong 0
+for j ulong ulong n
+c = get a j
+if or lt c 48 gt c 57
+ret 0
+end
+v = add mul v 10 sub ulong c 48
+end
+if gt v 16384
+ret 0
+end
+ret v
+end
+fn ru_bad b edit uchar 4096 field ulong value ulong to bool
+old = compose_word b field
+compose_put b field value
+rc = compose_check b 1152
+compose_put b field old
+ret ne rc 0
+end
+fn ru_input cfg edit ulong 16 out edit ulong 8 to int
+h = new uchar 56 0
+pos = ulong 0
+while lt pos 56 bound 56
+n = read 0 h pos sub ulong 56 pos
+if le n 0
+ret 11
+end
+pos = add pos ulong n
+end
+if ne ru_word h 0 0
+ret 12
+end
+put cfg 0 3
+for j ulong 5
+put cfg add j 1 ru_arg add j 1
+end
+put out 0 ru_word h 1
+put out 1 ru_word h 5
+put out 2 ru_word h 6
+put out 3 ru_word h 4
+put out 4 ru_word h 2
+put out 5 ru_word h 3
+ret 0
+end
+fn ru_build cfg view ulong 16 b edit uchar 4096 l edit ulong 32 out edit ulong 8 to int
+ins = new ulong 8192 0
+meta = new ulong 2048 0
+phys = new ulong 288 0
+fresh = new ulong 8 0
+if ne bc_compose cfg ins meta phys fresh 0
+ret 13
+end
+for j ulong 8
+if ne get fresh j get out j
+ret 14
+end
+put out j get fresh j
+end
+ret ru_fill cfg b l out
+end
+fn ru_fill cfg view ulong 16 b edit uchar 4096 l edit ulong 32 out view ulong 8 to int
+if ne compose_fixture b l 0
+ret 17
+end
+compose_put b 4 64
+compose_put b 6 get cfg 1
+compose_put b 14 get cfg 3
+compose_put b 16 mul get cfg 2 32
+compose_put b 17 get cfg 4
+ks = div get cfg 1 mul get cfg 2 32
+u = ks
+if eq rem ks 2 0
+u = 2
+end
+compose_put b 18 u
+compose_put b 19 3
+compose_put b 21 get out 3
+note Exact original-C omega_bw_gpr_declared expression, not a new launch policy.
+decl = add get out 1 2
+decl = add decl 7
+decl = div decl 8
+decl = mul decl 8
+compose_put b 22 decl
+compose_put b 25 mul get cfg 4 32
+put l 4 mul get cfg 4 32
+put l 7 get out 3
+put l 8 decl
+put l 12 add ulong 8 mul get cfg 5 4
+ret 0
+end
+fn ru_checks cfg edit ulong 16 b edit uchar 4096 l edit ulong 32 out edit ulong 8 to int
+if ne bc_record cfg b l out 0
+ret 18
+end
+decl = compose_word b 22
+peak = get out 1
+u = compose_word b 18
+note A removed +2 guard must be caught even when declaration remains eight-aligned.
+put out 1 sub decl 1
+if eq bc_record cfg b l out 0
+ret 70
+end
+put out 1 peak
+if not ru_bad b 14 3
+ret 20
+end
+if not ru_bad b 15 2
+ret 21
+end
+if not ru_bad b 16 128
+ret 22
+end
+if not ru_bad b 17 3
+ret 23
+end
+if not ru_bad b 18 add u 1
+ret 24
+end
+if not ru_bad b 21 sub get out 3 128
+ret 25
+end
+if not ru_bad b 22 add decl 1
+ret 26
+end
+if not ru_bad b 23 7
+ret 27
+end
+if not ru_bad b 24 0
+ret 28
+end
+if not ru_bad b 28 2
+ret 29
+end
+put l 11 904
+if eq compose_launch b l 0
+ret 30
+end
+put l 11 896
+put l 12 10
+if eq compose_launch b l 0
+ret 31
+end
+put l 12 add ulong 8 mul get cfg 5 4
+put cfg 5 sub ulong 1 get cfg 5
+if eq bc_record cfg b l out 0
+ret 32
+end
+put cfg 5 sub ulong 1 get cfg 5
+put cfg 6 1
+if eq bc_record cfg b l out 0
+ret 33
+end
+put cfg 6 0
+put out 6 1
+if eq bc_record cfg b l out 0
+ret 34
+end
+put out 6 0
+if lt get out 3 16384
+compose_put b 21 add get out 3 128
+put l 7 add get out 3 128
+if ne bc_record cfg b l out 0
+ret 35
+end
+compose_put b 21 get out 3
+put l 7 get out 3
+end
+if le mul get l 4 add decl 8 65536
+compose_put b 22 add decl 8
+put l 8 add decl 8
+if ne bc_record cfg b l out 0
+ret 36
+end
+end
+ret 0
+end
+fn main to int
+if ne argcnt 6
+ret 10
+end
+cfg = new ulong 16 0
+b = new uchar 4096 0
+l = new ulong 32 0
+out = new ulong 8 0
+rc = ru_input cfg out
+if ne rc 0
+ret rc
+end
+rc = ru_build cfg b l out
+if ne rc 0
+ret rc
+end
+rc = ru_checks cfg b l out
+if ne rc 0
+ret rc
+end
+z = write 1 RUOk 0 len RUOk
+ret 0
+end

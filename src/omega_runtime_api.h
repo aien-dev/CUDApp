@@ -14,7 +14,7 @@
  * tools/runtime_api_semver.sh fails when the manifest changed without the bump the rule asks for.
  */
 #define OMEGA_RUNTIME_API_VERSION_MAJOR 0
-#define OMEGA_RUNTIME_API_VERSION_MINOR 6
+#define OMEGA_RUNTIME_API_VERSION_MINOR 8
 #define OMEGA_RUNTIME_API_VERSION_PATCH 0
 /* One number for #if comparisons: (MAJOR << 16) | MINOR. PATCH is left out: it never changes the surface. */
 #define OMEGA_RUNTIME_API_VERSION ((OMEGA_RUNTIME_API_VERSION_MAJOR << 16) | OMEGA_RUNTIME_API_VERSION_MINOR)

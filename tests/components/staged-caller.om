@@ -1,0 +1,125 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Concat bw_alloc,bw_effect,bw_project,staged,bw_enc_sm121 then this caller.
+note stdin exact128 bytes LE64 spec16. stdout LE64 rc then successful payload.
+note Payload stats4,GPRpeak,UGPRpeak,(width,phys) GPRs then UGPRs,IR8cells,padded code.
+note Compare entire stdout with staged-oracle built against existing C generator.
+note Filed algorithm provenance src/omega_blackwell_codegen_gemm.c at b759afc3.
+note First/changed components:K2048,LB16,MT4,W16,RM0 then MT8; also RM1 MT4.
+note Exercise LB8 K768 MT4 W8 oddKS3 and K1024 LB16 MT4 W16 evenKS2.
+note Mutants1..4,reserved6..15,rowmap2,K0,oddKS5,MT3,W3,NJ>8 must refuse.
+global SGInput uchar 128
+global SGOutput uchar 8
+fn sg_word v ulong to void
+for j ulong 8
+put SGOutput j uchar and shr v mul j 8 255
+end
+pos = ulong 0
+while lt pos 8 bound 8
+n = write 1 SGOutput pos sub ulong 8 pos
+if le n 0
+exit 74
+end
+pos = add pos ulong n
+end
+end
+fn sg_input to bool
+pos = ulong 0
+while lt pos 128 bound 128
+n = read 0 SGInput pos sub ulong 128 pos
+if le n 0
+ret false
+end
+pos = add pos ulong n
+end
+ret true
+end
+fn sg_parse spec edit ulong 16 to void
+for k ulong 16
+v = ulong 0
+for j ulong 8
+v = or v shl ulong get SGInput add mul k 8 j mul j 8
+end
+put spec k v
+end
+end
+fn sg_stats st view ulong 4 rs view ulong 4 to void
+sg_word 0
+for k ulong 4
+sg_word get st k
+end
+sg_word get rs 1
+sg_word get rs 2
+end
+fn sg_regsout meta view ulong 2048 phys view ulong 288 nv ulong nu ulong to void
+for k ulong nv
+sg_word get meta k
+sg_word get phys k
+end
+for k ulong nu
+sg_word get meta add k 256
+sg_word get phys add k 256
+end
+end
+fn sg_irout ins view ulong 8192 n ulong to void
+for k ulong mul n 8
+sg_word get ins k
+end
+end
+fn sg_codeout code view uchar 16384 nbytes ulong to bool
+pos = ulong 0
+while lt pos nbytes bound 16384
+n = write 1 code pos sub nbytes pos
+if le n 0
+ret false
+end
+pos = add pos ulong n
+end
+ret true
+end
+fn main to int
+spec = new ulong 16 0
+ins = new ulong 8192 99
+meta = new ulong 2048 99
+phys = new ulong 288 0
+st = new ulong 4 99
+rs = new ulong 4 0
+code = new uchar 16384 0
+if not sg_input
+ret 65
+end
+sg_parse spec
+rc = bc_staged spec ins meta st
+if ne rc 0
+for k ulong 8192
+if ne get ins k 0
+ret 70
+end
+end
+for k ulong 2048
+if ne get meta k 0
+ret 71
+end
+end
+for k ulong 4
+if ne get st k 0
+ret 72
+end
+end
+sg_word ulong rc
+ret 0
+end
+if ne bc_regalloc ins get st 0 meta phys rs 128 0
+ret 67
+end
+nbytes = bc_encode ins phys get st 0 1 code
+if eq nbytes 0
+ret 68
+end
+sg_stats st rs
+sg_regsout meta phys get st 1 get st 2
+sg_irout ins get st 0
+if not sg_codeout code nbytes
+ret 74
+end
+ret 0
+end

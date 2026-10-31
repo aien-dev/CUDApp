@@ -1,0 +1,25 @@
+SUMMARY passed=334 failed=0
+SUMMARY passed=6 failed=0
+gpu_serving_alloc_count_test plain: PASS (0 failed checks)
+allowlist control: a malloc caller is refused by the nm -u check (as required)
+hello --sim tests: 12 passed, 0 failed
+test_gpu_artifact_export: 47 checks, 0 failed
+omega-runner-test: PASS (missing harness, missing slice, wrong source pin)
+Blackwell backend refusal: ENOTSUP, requires AArch64 Linux, driver not entered
+direct Blackwell entry points: ENOTSUP
+barrier codegen: PASS (x86_64 seq_cst fence, no dsb)
+barrier codegen: PASS (aarch64-linux-gnu-gcc cross compile emits dsb sy)
+barrier-contract: PASS
+binding-portable: PASS
+test-om-encoder: NOT_RUN (requires AArch64 Linux; src/cudapp_om_units.c is AArch64 machine code and was not executed)
+test-om-cubin: NOT_RUN (requires AArch64 Linux; the seeded cubin packer was not executed)
+test-codegen-freestanding hosted comparison: NOT_RUN (requires AArch64 Linux; the .om versus C differential was not run)
+test-gpu-native-runtime: NOT_RUN (requires AArch64 Linux; the seeded native units were not executed)
+test-om-spec-encoder: NOT_RUN (requires the pinned omc and nvdisasm; not part of the portable host suite)
+test-portable-receipts: NOT_RUN (requires the pinned omc; not part of the portable host suite)
+test-model-capacity: NOT_RUN (requires the pinned omc; not part of the portable host suite)
+target-only report: the lines above are refusals. make test-om-encoder and the other named targets exit 2. This report exiting 0 is not a pass of them.
+test-codegen-freestanding hosted comparison: NOT_RUN (requires AArch64 Linux; the .om versus C differential was not run)
+PASS: freestanding codegen contract (14 fixtures, 0 failing checks)
+mutants: 120 total, 107 killed, 13 survived as redundant, 0 survived as test gaps (receipt /tmp/mutrun.CyYB0c/out.json)
+CUDA++ HOST TESTS PASS (55 targets)

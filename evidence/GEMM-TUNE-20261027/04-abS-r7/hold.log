@@ -1,0 +1,6 @@
+# gemmtune-abS-r7 start 2026-10-27T08:07:13Z load 19.74 22.57 24.86 17/2148 2597244
+# health before: {"busy":false,"concurrency":8,"engine":"omega-qwen36-batch","in_flight":0,"model":"qwen3.6-35b-a3b-fp8","status":"ok","uptime_s":15004}
+# compute apps before: 79557, ./aien-serve-http;
+# exit 0 end 2026-10-27T08:08:04Z
+# health after: {"busy":false,"concurrency":8,"engine":"omega-qwen36-batch","in_flight":0,"model":"qwen3.6-35b-a3b-fp8","status":"ok","uptime_s":15056}
+# compute apps after: 79557, ./aien-serve-http;

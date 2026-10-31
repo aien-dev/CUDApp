@@ -1,0 +1,72 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Existing Seg32 exactly: weight VA,scale VA,row0 u32,count u32,reserved zero u64.
+note Directory is the existing 257 pairs (weight,scale); shared expert is index256.
+note Call once for gate/up, once for down; no quant descriptor format is defined here.
+fn moe_s64 out edit uchar 8224 p ulong v ulong to void
+for b ulong 8
+put out add p b uchar and shr v mul b 8 255
+end
+end
+fn moe_dir dir view ulong 514 e ulong to ulong
+for k ulong 2
+v = get dir add mul e 2 k
+if or eq v 0 ne rem v 8 0
+ret 3
+end
+end
+ret 0
+end
+fn moe_svalid sg view ulong 1028 m view ulong 8 dir view ulong 514 to ulong
+if or gt get m 1 257 gt get m 0 1152
+ret 1
+end
+pos = ulong 0
+for z ulong get m 1
+p = mul z 4
+e = get sg p
+if gt e 256
+ret 2
+end
+if ne get sg add p 1 pos
+ret 2
+end
+if eq get sg add p 2 0
+ret 2
+end
+if gt get sg add p 2 get m 0
+ret 2
+end
+pos = add pos get sg add p 2
+if gt pos get m 0
+ret 2
+end
+if ne moe_dir dir e 0
+ret 3
+end
+end
+if ne pos get m 0
+ret 2
+end
+ret 0
+end
+fn moe_srow sg view ulong 1028 dir view ulong 514 out edit uchar 8224 z ulong to void
+p = mul z 32
+e = get sg mul z 4
+moe_s64 out p get dir mul e 2
+moe_s64 out add p 8 get dir add mul e 2 1
+v = get sg add mul z 4 1
+cnt = get sg add mul z 4 2
+v = or v shl cnt 32
+moe_s64 out add p 16 v
+moe_s64 out add p 24 0
+end
+fn moe_segs32 sg view ulong 1028 m view ulong 8 dir view ulong 514 out edit uchar 8224 to ulong
+rc = moe_svalid sg m dir
+if ne rc 0
+ret rc
+end
+for z ulong get m 1
+moe_srow sg dir out z
+end
+ret 0
+end

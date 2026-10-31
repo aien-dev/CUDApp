@@ -1,0 +1,105 @@
+note SPDX-License-Identifier: AGPL-3.0-only
+note HOST_ONLY SYNTHETIC hash-preimage fixtures; not actual GPU QMDs or hardware receipts.
+fn mo_launch m edit ulong 32 s edit ulong 16 to void
+put m 0 1
+put m 1 159
+put m 2 1
+put m 3 2
+put m 4 6
+put m 5 16
+put m 7 7
+put m 10 16777216
+put s 0 1
+put s 1 159
+put s 2 4
+put s 3 7
+put s 6 20000
+put s 7 50
+put s 11 1
+end
+fn mo_dir m edit ulong 8 r edit ulong 1024 to void
+put m 0 1
+put m 1 159
+put m 2 2
+put m 4 257
+put m 5 11
+for i ulong 514
+put r i 16777216
+end
+end
+fn mo_alloc m edit ulong 8 r edit ulong 1024 to void
+put m 0 1
+put m 1 159
+put m 2 3
+put m 3 2
+put m 4 5
+put m 5 11
+put m 6 7
+for i ulong 2
+p = mul i 16
+put r p i
+put r add p 2 1
+put r add p 3 2
+put r add p 4 16777216
+put r add p 5 4096
+put r add p 6 add ulong 16777216 mul i 8
+put r add p 7 sub ulong 4096 mul i 8
+put r add p 8 5
+end
+end
+fn mo_equal a view uchar 32 b view uchar 32 to bool
+for i ulong 32
+if ne get a i get b i
+ret false
+end
+end
+ret true
+end
+fn mo_zero a view uchar 32 to bool
+for i ulong 32
+if ne get a i 0
+ret false
+end
+end
+ret true
+end
+fn mo_qmd m view ulong 32 q edit uchar 1024 to void
+low = shr get m 10 4
+high = or shr get m 10 36 shl ulong 10 21
+for i ulong 4
+put q add 128 i uchar and shr low mul i 8 255
+put q add 132 i uchar and shr high mul i 8 255
+end
+end
+fn mo_flip b edit uchar 1024 i ulong to void
+put b i xor get b i 1
+end
+fn ms_fill m edit ulong 8 hashes edit uchar 4096 ord edit ulong 128 n ulong kind ulong to void
+for i ulong 8
+put m i 0
+end
+for i ulong 4096
+put hashes i 0
+end
+for i ulong 128
+put ord i 0
+end
+put m 0 1
+put m 1 159
+put m 2 5
+put m 3 1
+put m 4 kind
+put m 5 n
+if eq kind 1
+put m 6 7
+put m 7 4096
+end
+for i ulong 128
+if lt i n
+put hashes mul i 32 uchar add i 1
+if eq kind 1
+put ord i add ulong 3968 i
+end
+end
+end
+end

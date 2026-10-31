@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * gpu_dattn256_multi_test (chip): the multi-token decode attention (L369, omega_gpu_decode_attn256_multi_record) must be
  * T decode steps (omega_gpu_decode_attn256 at positions pos0 .. pos0 + T - 1) bit for bit: every output row and every

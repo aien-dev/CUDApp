@@ -1,0 +1,14 @@
+# command: /home/drakestapleton/work/Determinism/CUDApp/build/gpu_bf16_gemv_test --reps 1 --no-evict
+# utc start: 2026-10-27T07:03:49.223948064Z
+upload 151936 x 2048 bf16 (622 MB): rc=OK 217 ms ()
+gemv_f32_151936x2048 output sha256 ed3805976ef5eb04a893ed9d3b9ad1cc8afa17e60a36b7d4dd9dd98e698f9e4b
+parity: 0 of 151936 rows differ from the f32 emulation (bit compare); worst error vs double oracle 2.36e-08 of the term scale (y -1.416); argmax chip 74730 oracle 74730
+second call: bit-identical
+bf16-x entry: bit-identical to the emulation
+timing (medians of 1, evict 0): rows 1 warps 16 depth 8 ctas 96: chip 2828.6 us = 220.0 GB/s on 622 MB; call 2940.3 us = 211.7 GB/s
+chip mutant 1: caught (4096 of 4096 rows differ)
+chip mutant 2: caught (4096 of 4096 rows differ)
+chip mutant 3: caught (4096 of 4096 rows differ)
+gpu_bf16_gemv_test: 12 checks, 0 failed: PASS
+# exit: 0
+# utc end: 2026-10-27T07:03:50.341450067Z

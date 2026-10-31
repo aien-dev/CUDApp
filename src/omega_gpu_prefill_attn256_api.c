@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /*
  * omega_gpu_prefill_attn256_api.c: the two launches of the head_dim 256 prefill attention (omega-mv#545; see the
  * header). The prep kernel is the decode kernel's own program in prep mode (omega_blackwell_codegen_attn256.h), the

@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include "omega_gpu_cmdlist.h"
+#include "omega_gpu_q36_native.h"
 
 #define MARKER_TIMEOUT_MS 20000ull
 #define POISON_F32 (-999.0f)
@@ -35,6 +36,7 @@ struct OmegaGpuRouter {
     uint32_t experts, shared;  /* routed experts (128 or 256) and the shared slot (0 or 1) */
     uint32_t rows, slots;      /* gate rows = experts + shared; output slots = 8 + shared */
     uint32_t lb_tab_dn, lb_bytes;
+    uint64_t owner_generation;
 };
 #define ROWB(r) ((size_t)(r)->rows * OMEGA_ROUTER_ROW_BYTES)  /* gate bytes per layer */
 #define DIRB(r) ((size_t)(r)->rows * 16u)                     /* one directory per layer */
@@ -44,6 +46,7 @@ typedef struct {
     OmegaRouterSpec spec;
     OmegaBlackwellKernel kernel;
     OmegaGpuMem code;
+    uint64_t owner_generation;
 } Slot;
 
 static struct {
@@ -54,6 +57,14 @@ static struct {
     int mutant;
 } g;
 static int g_rec; /* 1 while a record call runs (lock held): kernel_for must not evict */
+/* Persistent across device close and object recreation; zero is refusal. */
+static uint64_t router_owner_counter;
+static uint64_t router_owner_next(void) {
+    uint64_t next = 0;
+    if (omega_native_revision(&next, router_owner_counter) != OMEGA_OK || !next) return 0;
+    router_owner_counter = next;
+    return next;
+}
 
 static void slot_free(Slot *s) { if (s->valid) omega_gpu_session_free(&s->code); memset(s, 0, sizeof *s); }
 static void slot_clear_locked(void) { slot_free(&g.slot); slot_free(&g.rows); }
@@ -101,6 +112,8 @@ int omega_gpu_router_alloc_shape(uint32_t layers, uint32_t experts, uint32_t sha
         memset(r->lb.cpu, 0, r->lb_bytes);
         if (omega_gpu_session_sync_to_gpu(&r->dir) != 0 || omega_gpu_session_sync_to_gpu(&r->lb) != 0) rc = OMEGA_GPU_ROUTER_CHIP_FAIL;
     }
+    if (rc == OMEGA_GPU_ROUTER_OK && !(r->owner_generation = router_owner_next()))
+        rc = OMEGA_GPU_ROUTER_CHIP_FAIL;
     omega_gpu_session_unlock();
     if (rc != OMEGA_GPU_ROUTER_OK) { omega_gpu_router_free(r); return rc; }
     *out = r;
@@ -121,9 +134,12 @@ void omega_gpu_router_free(OmegaGpuRouter *r) {
 int omega_gpu_router_set_layer(OmegaGpuRouter *r, uint32_t layer, const uint16_t *gate_bf16, const float *norm_w) {
     if (!r || layer >= r->layers || !gate_bf16 || !norm_w) return OMEGA_GPU_ROUTER_BAD_ARGS;
     omega_gpu_session_lock();
+    r->owner_generation = 0;
     memcpy((uint8_t *)r->gate.cpu + (size_t)layer * ROWB(r), gate_bf16, ROWB(r));
     memcpy((uint8_t *)r->norm.cpu + (size_t)layer * OMEGA_ROUTER_HIDDEN * 4u, norm_w, (size_t)OMEGA_ROUTER_HIDDEN * 4u);
     int rc = (omega_gpu_session_sync_to_gpu(&r->gate) == 0 && omega_gpu_session_sync_to_gpu(&r->norm) == 0) ? OMEGA_GPU_ROUTER_OK : OMEGA_GPU_ROUTER_CHIP_FAIL;
+    if (rc == OMEGA_GPU_ROUTER_OK && !(r->owner_generation = router_owner_next()))
+        rc = OMEGA_GPU_ROUTER_CHIP_FAIL;
     omega_gpu_session_unlock();
     return rc;
 }
@@ -131,10 +147,13 @@ int omega_gpu_router_set_layer(OmegaGpuRouter *r, uint32_t layer, const uint16_t
 int omega_gpu_router_set_directory(OmegaGpuRouter *r, uint32_t layer, const uint64_t *gu, const uint64_t *dn) {
     if (!r || layer >= r->layers || !gu || !dn) return OMEGA_GPU_ROUTER_BAD_ARGS;
     omega_gpu_session_lock();
+    r->owner_generation = 0;
     uint8_t *d = (uint8_t *)r->dir.cpu + (size_t)layer * 2u * DIRB(r);
     memcpy(d, gu, DIRB(r));
     memcpy(d + DIRB(r), dn, DIRB(r));
     int rc = omega_gpu_session_sync_to_gpu(&r->dir) == 0 ? OMEGA_GPU_ROUTER_OK : OMEGA_GPU_ROUTER_CHIP_FAIL;
+    if (rc == OMEGA_GPU_ROUTER_OK && !(r->owner_generation = router_owner_next()))
+        rc = OMEGA_GPU_ROUTER_CHIP_FAIL;
     omega_gpu_session_unlock();
     return rc;
 }
@@ -188,8 +207,11 @@ static int kernel_for(const OmegaRouterSpec *spec, Slot **out, bool *hit) {
     omega_gpu_host_free(prog);
     if (cg != 0 || !kernel.code || kernel.code_size != need) { omega_gpu_session_free(&code); omega_gpu_session_set_error("router encode"); return OMEGA_GPU_ROUTER_CODEGEN_FAIL; }
     if (omega_gpu_session_sync_to_gpu(&code) != 0) { omega_gpu_session_free(&code); return OMEGA_GPU_ROUTER_CHIP_FAIL; }
+    uint64_t generation = router_owner_next();
+    if (!generation) { omega_gpu_session_free(&code); return OMEGA_GPU_ROUTER_CHIP_FAIL; }
     memset(s, 0, sizeof *s);
     s->valid = true; s->spec = *spec; s->kernel = kernel; s->code = code;
+    s->owner_generation = generation;
     *out = s; *hit = false;
     return OMEGA_GPU_ROUTER_OK;
 }
@@ -338,3 +360,28 @@ int omega_gpu_router_prepare_rows(OmegaGpuRouter *r, uint32_t xstride, uint32_t 
     return rc;
 }
 uint32_t omega_gpu_router_layout_bytes(const OmegaGpuRouter *r) { return r ? r->lb_bytes : 0u; }
+
+int omega_gpu_q36_router_observe(const OmegaGpuRouter *r, uint32_t layer,
+    uint64_t recorded_code_va, OmegaGpuQ36RouterObservation *out) {
+    const Slot *s = NULL;
+    if (!out) return -1;
+    memset(out, 0, sizeof *out);
+    if (!r || layer >= r->layers || !r->dir.cpu) return -1;
+    if (g.slot.valid && g.slot.code.va == recorded_code_va) s = &g.slot;
+    if (g.rows.valid && g.rows.code.va == recorded_code_va) {
+        if (s) return -1;
+        s = &g.rows;
+    }
+    if (!s || !s->code.cpu || !s->kernel.code_size ||
+        s->kernel.code_size > s->code.size) return -1;
+    out->code = s->code; out->code_bytes = s->kernel.code_size;
+    out->owner_generation = r->owner_generation;
+    out->code_generation = s->owner_generation;
+    out->gate = r->gate; out->norm = r->norm;
+    out->directory = r->dir; out->launch_buffer = r->lb;
+    out->entries = r->rows;
+    out->gu_directory = (const uint64_t *)((const uint8_t *)r->dir.cpu +
+        (size_t)layer * 2u * DIRB(r));
+    out->dn_directory = out->gu_directory + (size_t)r->rows * 2u;
+    return 0;
+}

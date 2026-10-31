@@ -1,0 +1,83 @@
+{
+  "scope": "HOST_EXERCISED only; no device submission, GPU/model launch, qualification or performance claim",
+  "prior_fixture_failures": [
+    {
+      "exit": 19,
+      "cause": "test incorrectly tried backwards invalidation from2 to0; replaced with fresh pool initialized at0"
+    },
+    {
+      "exit": 20,
+      "cause": "synthetic candidate generation remained1 while request moved0; bound all synthetic candidate generations to0"
+    }
+  ],
+  "final_run": {
+    "text": "wrote /tmp/tmp.FiGUXDkLcY/{cudapp_om_units.c,cudapp_native.h,cudapp_om_units.ident}\nMOE-INDEX HOST PASS: native ABI, incumbent pf_group, GROUP format, sparse rank, refusals, mutants\nMOE-ADMIT HOST PASS: actual selector/cache, metadata pin/acquire/retire/unpin, missing/stale/wrong-family refusals\n44bce96f3c274401e19a71b835814d69caf2bea8c2b1f4f43616c7c121232f09  /home/drakestapleton/fix/quant-schema/om/quant/quant.om\n2edff07a46c79c39a264dde9e5d6dfa02ed2f6dda677da8cc8a178f60c9a1c9d  /home/drakestapleton/fix/kernel-compose/om/components/realize.om\nb0e49da9e6c146da0d040476d84bff8d93486c563e19ef8f1d731b1ffb15c051  /home/drakestapleton/fix/kernel-cache/om/cache/digest.om\n0da6b33438e98934425f1ea83d194298f390cc68029f0750ebfc70060f87bf61  /home/drakestapleton/fix/kernel-cache/om/cache/residency.om\nddd114fe3bfc246014e4d6d72b7c5eacaf0173c790edac5fa30553ed7fd3acc5  /home/drakestapleton/fix/pipeline-select/om/pipeline/select.om\n560a0b8f89d6ef8f555b35d6e4e7e89ab423ba2ebad5c48b5a31362dddbe3546  /home/drakestapleton/fix/pipeline-select/om/pipeline/graph.om\nb8b108b7334721e89c83690d9ef0bbc435f5f481bde1445b10d38dfd4be5cf8c  /home/drakestapleton/fix/moe-index/om/moe/moe_admit.om\n969ed5b4a3ffad0c61953e910a4f081f39631ad1b93871515dd714d80cf9716f  /tmp/tmp.FiGUXDkLcY/admit\n2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f  /home/drakestapleton/workspace/c5s-omega/seed/out/omc\nb8b108b7334721e89c83690d9ef0bbc435f5f481bde1445b10d38dfd4be5cf8c  /home/drakestapleton/fix/moe-index/om/moe/moe_admit.om\n2296030f59ae8aabb4b1dd37e8c05fb09bf5e02e8ef5d71f408f4aef11966170  /home/drakestapleton/fix/moe-index/om/moe/moe_group.om\n1f32ad4bb57b968a05d78ad4884d58380ef69ead14b8f42f1e22716ed606d2c7  /home/drakestapleton/fix/moe-index/om/moe/moe_ids32.om\nf793f1743a08120fad5137cff01733661c8dcf1d137bd1311c3651324d8782b9  /home/drakestapleton/fix/moe-index/om/moe/moe_maps32.om\nef0c4aa5b679dc241c2bd000671bd5acd03a7194acfcaa478e9df2fac05c5053  /home/drakestapleton/fix/moe-index/om/moe/moe_plan.om\nb89091b4940744ffe4bd5703a9efd0361229bb586e744fc5f5cfcc17465c0706  /home/drakestapleton/fix/moe-index/om/moe/moe_segs32.om\nb7aef37b135a1ffbe5ba32fd54d9c619b0552c1b87885afbde71c9cc1c1293b7  /home/drakestapleton/fix/moe-index/om/moe/moe_windows.om\n0daec4cac237350c39d5d2370bc1fba8fb0b33a5d9145d21e41dbf68f5a87e21  /home/drakestapleton/fix/moe-index/tests/moe/moe_verify.om\ne37ac591d6f105ef8697f71584dc383e846280005812c7d5d38864105af844b7  /tmp/tmp.FiGUXDkLcY/moe-test\n",
+    "details": {
+      "wallTimeNoticeEmitted": false,
+      "timeoutSeconds": 300,
+      "wallTimeMs": 747.2014049999416
+    }
+  },
+  "dependency_commits": {
+    "quant": "fe25929ce71b11703eafa72395df2dd495aa61f2",
+    "cache": "693464cfcff678a9278fe4586f8a24b07ce45fb2",
+    "pipeline": "cee9a54d16ebe981a879d06bad6c988fc2417bc7"
+  },
+  "patch_gpu": "NOT_RUN",
+  "current_model_identity": "PENDING saved config only",
+  "source_baseline": "b759afc3f5e46f152ffb06b39882ffa28cacaf96",
+  "omega_baseline": "6999fa9e6dae4847c155ef4eacaece74f491d3ca",
+  "command": "env OMEGA_OMC=/home/drakestapleton/workspace/c5s-omega/seed/out/omc OMEGA_BRIDGE=/home/drakestapleton/fix/omega-bridge QUANT_ROOT=/home/drakestapleton/fix/quant-schema CACHE_ROOT=/home/drakestapleton/fix/kernel-cache COMPOSE_ROOT=/home/drakestapleton/fix/kernel-compose PIPELINE_ROOT=/home/drakestapleton/fix/pipeline-select sh tests/moe/run.sh",
+  "observed_process_success": true,
+  "source_sha256": {
+    "tests/moe/caller.c": "1db9c18aa784808346a12c271736f3459e70e5950eaf213ecd7f1c9db41a4c2b",
+    "tests/moe/incumbent.c": "c58087ed15d82346d1ff776ea153168859248215615eafbf81d00cfb5f8fd404",
+    "tests/moe/admit-caller.om": "6b54b9701a51f5b4c987bb92ee009e6ef7d90c39c02d716cfd1bda4a622b92b9",
+    "tests/moe/run.sh": "e2da577ccd1bcca332d410e631b2944ad3340aab95efc49d8db9de1b306322ec",
+    "pipeline_fixture": "2bbaca982cdb052864ceed1255b62e46de19beda8a7e5a5e50e3d1a01999adb4",
+    "native_bridge": "c77a5922f91d53d4a0bbd4e7b1c4703f7098263abc843be2918db1ece7496782",
+    "integration_patch": "7d3476975f1461bb95484c218910942058afef9cdda8c955441fa3a36b44cd89",
+    "unchanged_q36": "46b940b6310d6e18669693d411469c87c2e17e3b7538e6bd4eb1fb48f9705c99"
+  },
+  "omega_mcp_tools_used": [
+    "lookup(array)",
+    "compile",
+    "explain_error(error12)",
+    "run"
+  ],
+  "final_group_mcp_compile": {
+    "text": "{\"ok\":true,\"binary_bytes\":1784,\"sha256\":\"b0cf2960e7d74896c6bbf27d37b20119b97f51c3f8bcd8e14c1ab8d94ca848f7\",\"compiler_sha256\":\"2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f\",\"isolation\":\"bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock\"}",
+    "details": {
+      "serverName": "omega",
+      "mcpToolName": "compile",
+      "isError": false,
+      "rawContent": [
+        {
+          "type": "text",
+          "text": "{\"ok\":true,\"binary_bytes\":1784,\"sha256\":\"b0cf2960e7d74896c6bbf27d37b20119b97f51c3f8bcd8e14c1ab8d94ca848f7\",\"compiler_sha256\":\"2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f\",\"isolation\":\"bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock\"}"
+        }
+      ],
+      "provider": "native",
+      "providerName": "OMP",
+      "structuredContent": {
+        "ok": true,
+        "binary_bytes": 1784,
+        "sha256": "b0cf2960e7d74896c6bbf27d37b20119b97f51c3f8bcd8e14c1ab8d94ca848f7",
+        "compiler_sha256": "2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f",
+        "isolation": "bwrap+prlimit: no network, no host files, cleared environment, cpu/as/fsize/nproc limits, server wall clock"
+      }
+    }
+  },
+  "saved_config_sha256": "570ef7ea45a7e1d3de2b1d3c70c4ac3562d0e768acdc195778cb4f4d95025845",
+  "saved_provenance": "/home/drakestapleton/workspace/mission-fusion/receipts/baseline-20261025T021219Z/cached/provenance.txt",
+  "saved_binary_sha256": "186b4c4ec1798baf8c5ec2f1d7ff4f2b11e65030eaa3854f27c9e91f6a37d6f7",
+  "saved_library_sha256": "7079f95ee27b92116b439247e41f376e0dc61684e3ed456d8164acbb948cb6e0",
+  "wolfram_proxy_result": "WolframLanguageEvaluator: With[{routed=Flatten[Table[9 t+s,{t,0,127},{s,0,7}]],shared=Table[9 t+8,{t,0,127}]},{Length[routed],Length[Union[routed]],Length[Union[routed]]==Length[routed],Intersection[shared,routed]}] -> {1024,1024,True,{}}; finite mapping only",
+  "remaining_acceptance": [
+    "trusted graph registration and integrated resident consumer",
+    "independent repaired encoder/machine-code verification",
+    "authorized chip numerical and negative controls",
+    "B=1 decode, supported batch and prefill physical evidence",
+    "paired whole-model quality and latency versus saved cached-scratch incumbent"
+  ]
+}

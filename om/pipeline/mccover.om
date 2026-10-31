@@ -1,0 +1,252 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Private actual-operation occurrence policy; not admission or qualification.
+note Context16: version,domain,tag,tokens,windows,router_max,last_layer,combine_rows,
+note actual full record count,actual record generation,router stride,reserved5.
+note Roles4096 in actual ordinal order: GROUP0,router1,PERM_XO2,SW3,PERM_ACT4,
+note combine5,selected GU6,selected DN7,other8. Inactive tail must be other8.
+note Counts8 are independently counted from these actual records, never expectations.
+fn mcc_expect c view ulong 16 role ulong to ulong
+if eq role 1
+ret div add get c 3 63 64
+end
+if eq role 5
+if eq get c 6 1
+ret 1
+end
+if gt get c 3 1
+if eq get c 7 1
+ret 1
+end
+end
+ret get c 3
+end
+ret get c 4
+end
+fn mcc_card c view ulong 16 counts view ulong 8 to long
+cfg = new ulong 8 0
+rows = new ulong 1024 0
+meta = new ulong 4 0
+put cfg 0 1
+put cfg 1 get c 3
+put cfg 2 2048
+put cfg 3 512
+put cfg 4 9
+put cfg 5 get c 10
+put cfg 6 128
+r = moe_windows cfg edit rows edit meta
+if or ne r 0 ne get meta 0 get c 4
+ret -1
+end
+if eq get meta 0 0
+ret -1
+end
+for i ulong 8
+if ne get counts i mcc_expect c i
+ret -1
+end
+end
+ret 0
+end
+fn mcc_order c view ulong 16 roles view ulong 4096 counts view ulong 8 to long
+have = new ulong 8 0
+seq = new ulong 6 0
+put seq 1 2
+put seq 2 6
+put seq 3 3
+put seq 4 4
+put seq 5 7
+step = ulong 0
+win = ulong 0
+begun = ulong 0
+for i ulong 4096
+role = get roles i
+if ge i get c 8
+if ne role 8
+ret -1
+end
+else
+if gt role 8
+ret -1
+end
+if eq role 8
+if ne begun 0
+ret -1
+end
+else
+put have role add get have role 1
+if eq role 1
+if ne begun 0
+ret -1
+end
+else
+begun = 1
+if ne get have 1 get counts 1
+ret -1
+end
+if lt win get c 4
+if ne role get seq step
+ret -1
+end
+step = add step 1
+if eq step 6
+step = 0
+win = add win 1
+end
+else
+if ne role 5
+ret -1
+end
+end
+end
+end
+end
+end
+if or ne win get c 4 ne step 0
+ret -1
+end
+for i ulong 8
+if ne get have i get counts i
+ret -1
+end
+end
+ret 0
+end
+fn mcc_cover c view ulong 16 roles view ulong 4096 counts view ulong 8 owner view ulong 4 to long
+if or ne get c 0 1 or ne get c 1 159 ne get c 2 6
+ret -1
+end
+if or eq get c 3 0 gt get c 3 128
+ret -1
+end
+if or ne get c 5 64 or gt get c 6 1 gt get c 7 1
+ret -1
+end
+if or eq get c 8 0 or gt get c 8 4096 eq get c 9 0
+ret -1
+end
+if or ne get c 8 get owner 0 ne get c 9 get owner 1
+ret -1
+end
+if or gt get owner 0 get owner 2 ne get owner 3 0
+ret -1
+end
+for i ulong 5
+if ne get c add i 11 0
+ret -1
+end
+end
+if ne mcc_card c counts 0
+ret -1
+end
+ret mcc_order c roles counts
+end
+note Private successful-native-add intent seal, not a qualification identity.
+note Hash active bank prefix/args and both active QMDs in that exact order.
+note Only QMD1 words10/12 are normalized to PCAS zero for mode reuse.
+fn mcc_seal bank view uchar 1024 qmd view uchar 1024 n ulong out edit uchar 32 to long
+mc_clear edit out
+if or eq n 0 gt n 32
+ret -1
+end
+b = new uchar 16384 0
+off = add ulong 896 mul n 4
+for i ulong off
+put b i get bank i
+end
+for i ulong 384
+v = get qmd i
+if or and ge i 40 lt i 44 and ge i 48 lt i 52
+v = 0
+end
+put b add off i v
+end
+off = add off 384
+for i ulong 384
+put b add off i get qmd add 512 i
+end
+if ne kc_codesha b add off 384 edit out 0
+mc_clear edit out
+ret -1
+end
+ret 0
+end
+fn mcc_same bank view uchar 1024 qmd view uchar 1024 n ulong seal view uchar 32 to long
+have = new uchar 32 0
+if ne mcc_seal bank qmd n edit have 0
+ret -1
+end
+for i ulong 32
+if ne get have i get seal i
+ret -1
+end
+end
+ret 0
+end
+fn mcc_mode m view ulong 32 qmd view uchar 1024 s view ulong 16 to long
+if or eq get m 11 0 ne rem get m 11 256 0
+ret -1
+end
+if gt get m 11 sub ulong 18446744073709551615 512
+ret -1
+end
+if eq get s 4 0
+if or ne mc_qword qmd 40 0 ne mc_qword qmd 48 0
+ret -1
+end
+else
+if ne get s 4 1
+ret -1
+end
+if ne mc_qword qmd 40 1638400
+ret -1
+end
+want = and shr add get m 11 512 8 4294967295
+if ne mc_qword qmd 48 want
+ret -1
+end
+end
+ret 0
+end
+note Native GU/DN actual-QMD identity guard. Does not serialize or manufacture a
+note launch256 identity; immutable artifact launch identity remains mc_blob.
+fn native_mcintent m view ulong 32 bank view uchar 1024 qmd view uchar 1024 s view ulong 16 seal view uchar 32 to long
+if or ne get m 0 1 or ne get m 1 159 ne get m 2 1
+ret -1
+end
+if or lt get m 3 6 gt get m 3 7
+ret -1
+end
+if or eq get m 4 0 gt get m 4 32
+ret -1
+end
+if or eq get m 5 0 gt get m 5 16384
+ret -1
+end
+if ne rem get m 5 16 0
+ret -1
+end
+if or eq get m 7 0 gt get m 8 1
+ret -1
+end
+if ne rem get m 9 8 0
+ret -1
+end
+if or eq get m 10 0 ne rem get m 10 16 0
+ret -1
+end
+if ne mc_qcode qmd get m 10
+ret -1
+end
+for i ulong 20
+if ne get m add i 12 0
+ret -1
+end
+end
+if ne mc_submit m s 0
+ret -1
+end
+if ne mcc_mode m qmd s 0
+ret -1
+end
+ret mcc_same bank qmd get m 4 seal
+end

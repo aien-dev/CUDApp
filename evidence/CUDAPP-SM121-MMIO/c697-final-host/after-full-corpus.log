@@ -1,0 +1,38 @@
+build-c697-final/gpu_matmul_api_test --host-only: exit 0, 53 kernels so far
+build-c697-final/gpu_elementwise_test --host-only: exit 0, 63 kernels so far
+build-c697-final/gpu_reconv_test --host-only: exit 0, 86 kernels so far
+build-c697-final/gpu_attention_test --host-only: exit 0, 622 kernels so far
+build-c697-final/gpu_moe_window_test --host-only: exit 0, 622 kernels so far
+build-c697-final/gpu_fp8_api_test --host-only: exit 0, 626 kernels so far
+build-c697-final/gpu_decode_attn_test --host-only: exit 0, 626 kernels so far
+build-c697-final/gpu_router_test --host-only: exit 0, 626 kernels so far
+build-c697-final/gpu_bf16_gemv_test --host-only: exit 0, 626 kernels so far
+build-c697-final/gpu_fp8gemm_test --host-only: exit 0, 626 kernels so far
+build-c697-final/gpu_tc_probe_test --host-only: exit 0, 626 kernels so far
+build-c697-final/gpu_tc_peak_test --host-only: exit 0, 626 kernels so far
+build-c697-final/gpu_pf_mem_test --host-only: exit 0, 626 kernels so far
+build-c697-final/gpu_qmma_probe_test --host-only: exit 0, 628 kernels so far
+build-c697-final/gpu_cmdlist_test --host-only: exit 0, 628 kernels so far
+build-c697-final/gpu_decode_graph_test --host-only: exit 0, 628 kernels so far
+build-c697-final/gpu_attention_test --hd 128 --host-only: exit 0, 640 kernels so far
+build-c697-final/gpu_tcgemm_test --host-only: exit 0, 642 kernels so far
+build-c697-final/gpu_tcgemm_test --sim: exit 0, 642 kernels so far
+build-c697-final/gpu_prefill_attn_test --host-only: exit 0, 684 kernels so far
+build-c697-final/gpu_prefill_attn_test --sim: exit 0, 684 kernels so far
+build-c697-final/gpu_pfgemm_test --host-only: exit 0, 684 kernels so far
+build-c697-final/gpu_pfgemm_test --sim: exit 0, 684 kernels so far
+build-c697-final/gpu_qgemm_test --host-only: exit 0, 684 kernels so far
+build-c697-final/gpu_qgemm_test --sim: exit 0, 684 kernels so far
+build-c697-final/gpu_pfhost_test --host-only: exit 0, 684 kernels so far
+build-c697-final/gpu_pfhost_test --sim: exit 0, 684 kernels so far
+build-c697-final/gpu_cmdlist_test --host-only: exit 0, 684 kernels so far
+build-c697-final/gpu_cmdlist_test --sim: exit 0, 684 kernels so far
+build-c697-final/gpu_gpr_boundary_test: exit 0, 684 kernels so far
+build-c697-final/gpu_scan_test --host-only: exit 0, 694 kernels so far
+build-c697-final/gpu_scan_test --sim: exit 0, 694 kernels so far
+build-c697-final/gpu_gemm_test --host-only: exit 0, 766 kernels so far
+build-c697-final/gpu_gemm_test --sim: exit 0, 766 kernels so far
+build-c697-final/gpu_streams_test --host-only: exit 0, 770 kernels so far
+build-c697-final/gpu_streams_test --sim: exit 0, 770 kernels so far
+build-c697-final/gpu_isolation_test --host-only: exit 0, 773 kernels so far
+corpus: 773 kernels in <candidate>/build-c697-final/full-corpus

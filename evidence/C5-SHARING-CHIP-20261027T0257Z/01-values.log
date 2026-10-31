@@ -1,0 +1,8 @@
+loadavg 4.12 6.44 6.33 3/3379 1603825
+cmd build/gpu_isolation_test --values-only
+[1603828] ok: process 1: 19016 work launches over 3000 ms, own inputs: 0 wrong values, 0 failed launches, slowest 0.411 ms
+[1603829] ok: process 2: 18884 work launches over 3000 ms, own inputs: 0 wrong values, 0 failed launches, slowest 4.063 ms
+[1603827] ok: C5 two processes on one GPU: both right (ready R R, exits 0, 0), running side by side for 3000 ms
+C5 recovery: NOT_RUN (values-only; hang needs a separate reservation)
+C5 isolation values: PASS (1 checks)
+exit 0

@@ -1,0 +1,103 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Consume canonical launch; never reconstruct it from incumbent shape knobs.
+note call0kind1gemv2gemm,1M,2N,3K,4groups/segments,5argumentwords,6rowmap,7GEMVinputrows.
+note call8tensorallocationepoch,9currentsessionepoch,10immutableowner generation,11reservedzero.
+note out0..27 exact launch fields;28RG,29gridX*warps are private derived ABI metadata.
+note out is NOT canonical/hashable launch wire. This binding is NOT qualification.
+fn binding_owner call view ulong 12 to bool
+if ne get call 8 get call 9
+ret false
+end
+if eq get call 10 0
+ret false
+end
+ret eq get call 11 0
+end
+fn native_binding real view uchar 4096 launch view uchar 4096 call view ulong 12 out edit ulong 32 to long
+for i ulong 32
+put out i 0
+end
+if not binding_owner call
+ret 69
+end
+if ne compose_launchread real launch 256 0
+ret 69
+end
+if ne compose_word real 4 get call 1
+ret 69
+end
+if ne compose_word real 5 get call 2
+ret 69
+end
+if ne compose_word real 6 get call 3
+ret 69
+end
+if ne compose_word launch 12 get call 5
+ret 69
+end
+if ne compose_word launch 11 896
+ret 69
+end
+if ne compose_word launch 3 1
+ret 69
+end
+if ne compose_word launch 5 1
+ret 69
+end
+if ne compose_word launch 6 1
+ret 69
+end
+gpr = compose_word launch 8
+if or lt gpr 64 ne rem gpr 8 0
+ret 69
+end
+shared = compose_word launch 7
+if or lt shared 1024 ne rem shared 128 0
+ret 69
+end
+if ne compose_word launch 10 1
+ret 69
+end
+if eq get call 0 1
+if and ne get call 7 1 ne get call 7 get call 4
+ret 69
+end
+if or ne get call 1 1 ne get call 6 0
+ret 69
+end
+if ne compose_word launch 2 get call 4
+ret 69
+end
+if gt compose_word real 19 2
+ret 69
+end
+rows = compose_word real 15
+if eq rows 0
+ret 69
+end
+if or ne get call 5 10 ne rem get call 2 rows 0
+ret 69
+end
+else
+if eq get call 0 2
+if ne get call 7 0
+ret 65
+end
+if ne compose_word real 19 3
+ret 69
+end
+if ne compose_word launch 2 get call 4
+ret 69
+end
+else
+ret 69
+end
+end
+for i ulong 32
+put out i compose_word launch i
+end
+note Derived ABI scalars, not serialized launch fields: RG and gridX*warps.
+put out 28 div get call 2 compose_word real 15
+put out 29 mul compose_word launch 1 compose_word real 17
+ret 0
+end

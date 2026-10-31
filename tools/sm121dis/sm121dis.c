@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception */
 /* sm121dis -- Omega's sm_121 disassembler on the command line (C6 of docs/OMEGA.md; the decoder is
  * src/omega_sm121_disasm.c).
  *

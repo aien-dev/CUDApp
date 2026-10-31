@@ -1,0 +1,27 @@
+loadavg 3.87 6.31 6.29 5/3467 1604771
+cmd build/gpu_isolation_test
+[1604774] ok: hang part: a work launch before the hang is right (0 wrong, 0.210 ms)
+[1604774] ok: hang part: never-ending kernel uploaded
+[1604774] ok: hang part: a command list made before the hang
+[1604774] ok: the never-ending kernel times out after 2089 ms (rc -1: marker wait timed out (latched)), the process latches
+[1604774] ok: red check: while latched a work launch is refused (process latched)
+[1604774] ok: recover: the device closed with no driver teardown fault in 4065.8 ms (rc 0 )
+[1604774] ok: after recover, same process: work launches right (0, 0 wrong; 0.109, 0.104 ms vs 0.210 ms before the hang), device opens 2
+[1604774] ok: a command list from before the recovery is refused (cmdlist: made before a session recovery (its buffers are gone): create a new list)
+[1604773] ok: C5 hang: never-ending kernel timed out, recovered, correct launch in the same process (child exit 0)
+[1605449] ok: process 2: 18824 work launches over 3000 ms, own inputs: 0 wrong values, 0 failed launches, slowest 0.481 ms
+[1605448] ok: process 1: 18627 work launches over 3000 ms, own inputs: 0 wrong values, 0 failed launches, slowest 1.015 ms
+[1604773] ok: C5 two processes on one GPU: both right (ready R R, exits 0, 0), running side by side for 3000 ms
+[1605991] ok: hang part: a work launch before the hang is right (0 wrong, 0.107 ms)
+[1605991] ok: hang part: never-ending kernel uploaded
+[1605991] ok: hang part: a command list made before the hang
+[1605991] ok: the never-ending kernel times out after 2048 ms (rc -1: marker wait timed out (latched)), the process latches
+[1605991] ok: red check: while latched a work launch is refused (process latched)
+[1605991] ok: recover: the device closed with no driver teardown fault in 2275.5 ms (rc 0 )
+[1605991] ok: after recover, same process: work launches right (0, 0 wrong; 0.214, 0.103 ms vs 0.107 ms before the hang), device opens 2
+[1605991] ok: a command list from before the recovery is refused (cmdlist: made before a session recovery (its buffers are gone): create a new list)
+[1605990] ok: process 1 beside a hang: 603 work launches over 4375 ms, own inputs: 0 wrong values, 0 failed launches, slowest 4307.515 ms
+[1605990] ok: process 1 beside a hang: 603 of its launches ran while the other process's kernel was hung or being torn down
+[1604773] ok: C5 a hang in process 2 leaves process 1 unharmed, and process 2 recovers (exits 0, 0)
+C5 isolation chip: PASS (3 checks)
+exit 0

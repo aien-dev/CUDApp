@@ -1,0 +1,7 @@
+$ make test
+cc -std=gnu11 -Wall -Wextra -Werror -MMD -MP -D_GNU_SOURCE -O2 -Isrc -I./m16 -I./nvrm -I./third_party/nvidia-open-580.173.02/src/common/sdk/nvidia/inc -I./third_party/nvidia-open-580.173.02/kernel-open/common/inc -I./third_party/nvidia-open-580.173.02/kernel-open/nvidia-uvm -I./third_party/nvidia-open-580.173.02/src/nvidia/arch/nvalloc/unix/include -c src/omega_blackwell_engine.c -o build/omega_blackwell_engine.o
+src/omega_blackwell_engine.c: Assembler messages:
+src/omega_blackwell_engine.c:558: Error: number of operands mismatch for `ds'
+src/omega_blackwell_engine.c:393: Error: number of operands mismatch for `ds'
+make: *** [Makefile:40: build/omega_blackwell_engine.o] Error 1
+exit=2

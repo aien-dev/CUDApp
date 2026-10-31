@@ -1,0 +1,28 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Logical ABI ulong words to the existing GPU u32 maps. Unused output bytes untouched.
+note Validate every active value before writing; caller retains map capacity/generation lease.
+fn moe_m32 out edit uchar 9280 p ulong v ulong to void
+for b ulong 4
+put out add mul p 4 b uchar and shr v mul b 8 255
+end
+end
+fn moe_maps32 m view ulong 8 mp view ulong 2320 out edit uchar 9280 to ulong
+if gt get m 0 1152
+ret 1
+end
+n = add get m 0 8
+for z ulong 2
+for i ulong n
+if gt get mp add mul z 1160 i 4294967295
+ret 2
+end
+end
+end
+for z ulong 2
+for i ulong n
+p = add mul z 1160 i
+moe_m32 out p get mp p
+end
+end
+ret 0
+end

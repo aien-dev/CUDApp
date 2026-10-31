@@ -1,0 +1,22 @@
+omega HEAD
+089e5b05350ee61cc1439f17d3d3052a18a3e0a5
+
+=== this branch ===
+DRIFT	Makefile	differs	a42b2b1f4cd7ffb683d1f54cadbceebde45d5e15
+DRIFT	src/omega_blackwell_codegen.h	differs	1f0b70eecd3860da68bbe013860f27ca01da0d2f
+DRIFT	tests/bw_warp_sim.h	differs	6d93828f3979b3a7223ebe0f1952b53e1d414764
+DRIFT	tests/bw_warp_sim_k.h	differs	993875647985cc99ce27a78003df26df91fd18e1
+DRIFT	tests/bw_warp_sim_pa.h	differs	157e396cde9d942cc0bfff02fd057ed393c52a0a
+DRIFT	tests/bw_warp_sim_tc.h	differs	a08e38b6a05d815448fe8b4546d204aff6f3e166
+DRIFT	tests/gpu_imadhi_rc_test.c	omega-only	179596a27cd1c24e02ec8459a45f2e7216ca2424
+DRIFT-GATE: FAIL (7 of 739 GPU paths changed in omega 089e5b05350e and not in CUDA++)
+
+=== CUDA++ main 78fea51 ===
+DRIFT	Makefile	differs	a42b2b1f4cd7ffb683d1f54cadbceebde45d5e15
+DRIFT	src/omega_blackwell_codegen.h	differs	1f0b70eecd3860da68bbe013860f27ca01da0d2f
+DRIFT	tests/bw_warp_sim.h	differs	6d93828f3979b3a7223ebe0f1952b53e1d414764
+DRIFT	tests/bw_warp_sim_k.h	differs	993875647985cc99ce27a78003df26df91fd18e1
+DRIFT	tests/bw_warp_sim_pa.h	differs	157e396cde9d942cc0bfff02fd057ed393c52a0a
+DRIFT	tests/bw_warp_sim_tc.h	differs	a08e38b6a05d815448fe8b4546d204aff6f3e166
+DRIFT	tests/gpu_imadhi_rc_test.c	omega-only	179596a27cd1c24e02ec8459a45f2e7216ca2424
+DRIFT-GATE: FAIL (7 of 730 GPU paths changed in omega 089e5b05350e and not in CUDA++)

@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "test_out_file.h"
 
 #define H 2048u
 #define QKV 5120u
@@ -201,7 +202,7 @@ static int host_only(void) {
 }
 
 static int chip_run(uint32_t layers, uint32_t vocab, uint32_t reps, int red, int cached, const char *out_path) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out) fprintf(out, "{\"layers\":%u,\"vocab\":%u,\"pos\":%u,\"reps\":%u,\"red\":%d,\"cached_weights\":%d,", layers, vocab, POS, reps, red, cached);
     omega_gpu_fp8_set_weight_cache(cached); /* one variable: the FP8 tensors uploaded below live GPU-cached or not */
     Model m;

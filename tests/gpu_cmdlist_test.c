@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "test_out_file.h"
 
 static int g_checks, g_failed;
 #define CHECK(cond, ...) do { g_checks++; if (!(cond)) { g_failed++; printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -382,7 +383,7 @@ static int chip_fail(const char *what) { printf("FAIL: %s: %s\n", what, omega_gp
 typedef struct { uint32_t L; uint64_t base_ns, pcas_ns, inline_ns, base_wall_ns, pcas_wall_ns, pcas_submits, inline_submits; int pcas_ok, inline_ok; uint64_t stamps_span_ns, stamps_min_ns, stamps_max_ns, stamps_chip_ns; } Row;
 
 static int chip_run(const char *out_path, uint32_t reps) {
-    FILE *out = out_path ? fopen(out_path, "w") : NULL;
+    FILE *out = out_path ? test_out_open(out_path) : NULL;
     if (out_path && !out) { printf("cannot write %s\n", out_path); return 1; }
     if (specs_build()) { printf("FAIL: codegen\n"); return 1; }
     OmegaGpuCmdList *cl = NULL;

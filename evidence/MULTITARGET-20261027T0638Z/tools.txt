@@ -1,0 +1,16 @@
+CUDApp head: 0ec44766b54e09a4fa3f53943e52a50ec714f5df (fresh clone of backend/portable-interface)
+omc: omega-mv 369dbc96 seed/out/omc sha256 2c82480596bbdc50cda9626866209ef662d5834f278f839ff4ce0250c495029f
+host: Linux 7.0.0-1019-nvidia aarch64
+cc: cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+spirv-val: SPIRV-Tools v2025.1 unknown hash, 2026-05-13T06:03:38+00:00
+llvm-mc/llvm-readelf/llvm-objdump: /usr/lib/llvm-18 1:18.1.3-1ubuntu1
+ld.lld: Ubuntu LLD 18.1.3 (compatible with GNU linkers)
+PoCL: libpocl.so.2.16.0 sha256 38c77fcc44d9f572247d1aee1199607cd1ac7bf9fd46c8ff75ff39f3b873b7ee (user-space build, PoCL 7.2, LLVM 18.1.3)
+lavapipe: mesa-vulkan-drivers 25.2.8-0ubuntu0.24.04.4, libvulkan1 1.4.328.1-1~1, ocl-icd-libopencl1 2.3.2-1build1
+extracted (no root) .deb files:
+db75cefae57f25f83e1acbc5844af82b7b1ed99d336479ff82cd4d73382dbe31  liblld-18_1%3a18.1.3-1ubuntu1_arm64.deb
+bf9e51fb84d65857e8b49b4c32fc60b0e24c5ce62cb97d8b915ac2f8bb953638  libllvmspirvlib18.1_18.1.8-1~ubuntu0.24.04.1_arm64.deb
+0a56e9e45fa086fd5959d5fe3d55a32c959048a9ff92cb79a364aad43fdf1e7b  libvulkan-dev_1.3.275.0-1build1_arm64.deb
+c33a2e048536e6d902a9f209d114d049b5becbedb94d11eb77f313cad95a830c  lld-18_1%3a18.1.3-1ubuntu1_arm64.deb
+38f4696aa506640cb6d1dfd343f7ec15e4a7d26229d6e262351546b3e0f2f27b  opencl-c-headers_3.0~2023.12.14-1_all.deb
+b517115f549e7d8379ff2c7cfebffcdd2f48f3aa7791dc0107bc5f561137a96c  spirv-tools_2025.1~rc1-1~ubuntu0.24.04.2_arm64.deb

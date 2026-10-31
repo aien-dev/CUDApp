@@ -1,0 +1,207 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Concatenate after bw_alloc.om. No second IR: st16..23 is one existing8cell instruction.
+note st0 count,1pending,2held,3error,4nv,5nu; st8..15 temporary component args.
+fn bc_node s edit ulong 64 op ulong d ulong a ulong b ulong c ulong to void
+put s 16 op
+put s 17 d
+put s 18 a
+put s 19 b
+put s 20 c
+put s 21 BCNONE
+put s 22 0
+put s 23 0
+end
+fn bc_vreg s edit ulong 64 m edit ulong 2048 width ulong uniform bool to ulong
+k = ulong 4
+base = ulong 0
+cap = ulong 256
+if uniform
+k = 5
+base = 256
+cap = 32
+end
+v = get s k
+if ge v cap
+put s 3 1
+ret BCNONE
+end
+put s k add v 1
+put m add base v width
+ret v
+end
+fn bc_control stall ulong wb ulong rbar ulong wait ulong yield bool to ulong
+v = or or shl stall 9 shl wb 14 or shl rbar 17 shl wait 20
+if yield
+v = or v 8192
+end
+ret v
+end
+fn bc_append ins edit ulong 8192 s edit ulong 64 to void
+for k ulong 8
+put ins add mul get s 0 8 k get s add k 16
+end
+put s 0 add get s 0 1
+end
+fn bc_emit ins edit ulong 8192 s edit ulong 64 kind ulong to void
+if ge get s 0 1024
+put s 3 1
+ret
+end
+wait = get s 1
+stall = ulong 6
+wb = ulong 7
+rbar = ulong 7
+yld = false
+next = ulong 0
+if eq kind 1
+stall = 14
+end
+if or eq kind 2 eq kind 3
+stall = 4
+wb = 0
+rbar = 1
+yld = true
+next = 3
+if eq kind 3
+wait = and wait 2
+end
+end
+if eq kind 4
+stall = 4
+wb = 2
+yld = true
+next = 4
+end
+if eq kind 5
+stall = 4
+rbar = 1
+yld = true
+next = 2
+end
+if or eq kind 7 eq kind 8
+stall = 5
+if ne and get s 23 2 0
+next = wait
+end
+end
+if eq kind 9
+stall = 1
+yld = true
+end
+if eq kind 10
+stall = 5
+yld = true
+end
+note kind11/12 SB_B prefetch,13 first takeover; pending never carries SB_B.
+if or eq kind 11 eq kind 12
+stall = 4
+wb = 3
+rbar = 1
+yld = true
+next = 2
+put s 2 or get s 2 8
+if eq kind 12
+wait = and wait 2
+end
+end
+if eq kind 13
+if eq and get s 2 8 0
+put s 3 1
+ret
+end
+wait = or wait 8
+put s 2 xor get s 2 8
+end
+if gt kind 13
+put s 3 1
+ret
+end
+stall = bc_control stall wb rbar wait yld
+put s 22 or and get s 22 4294967295 shl stall 32
+put s 1 next
+bc_append ins s
+end
+fn bc_inst ins edit ulong 8192 s edit ulong 64 op ulong d ulong a ulong imm ulong to void
+bc_node s op d a BCNONE BCNONE
+put s 22 imm
+bc_emit ins s 0
+end
+fn bc_imad ins edit ulong 8192 s edit ulong 64 op ulong d ulong a ulong c ulong to void
+bc_node s op d a BCNONE c
+put s 22 get s 8
+put s 23 shl get s 9 24
+bc_emit ins s 0
+end
+fn bc_mem ins edit ulong 8192 s edit ulong 64 op ulong d ulong a ulong kind ulong to void
+bc_node s op d a BCNONE BCNONE
+put s 21 0
+put s 22 get s 8
+bc_emit ins s kind
+end
+fn bc_ffma ins edit ulong 8192 s edit ulong 64 d ulong a ulong b ulong c ulong to void
+bc_node s 33 d a b c
+put s 23 shl get s 9 32
+bc_emit ins s 0
+end
+fn bc_pred ins edit ulong 8192 s edit ulong 64 a ulong b ulong to void
+bc_node s 28 BCNONE a b BCNONE
+bc_emit ins s 1
+end
+fn bc_branch ins edit ulong 8192 s edit ulong 64 target ulong ispred bool to ulong
+at = get s 0
+bc_node s 46 BCNONE BCNONE BCNONE BCNONE
+put s 22 and sub target at 4294967295
+if ispred
+put s 23 2
+end
+bc_emit ins s 8
+ret at
+end
+fn bc_patch ins edit ulong 8192 at ulong target ulong to void
+note A refused emission can leave branchsite=count=1024; never patch an unallocated slot.
+if ge at 1024
+ret
+end
+k = add mul at 8 6
+put ins k or shl shr get ins k 32 32 and sub target at 4294967295
+end
+fn bc_tail ins edit ulong 8192 at ulong to void
+if ge at 1024
+ret
+end
+put ins add mul at 8 6 shl ulong 1032192 32
+end
+note Typed HMMA component: BF16 A quad,B pair,C/D quads; no raw solved bytes.
+note Component includes existing hmma_wait15+nop14 spacing before any external reader.
+fn bc_mma ins edit ulong 8192 s edit ulong 64 m view ulong 2048 args view ulong 4 to uint
+for j ulong 4
+if ge get args j 256
+ret 1
+end
+end
+if or ne get m get args 0 4 ne get m get args 1 4
+ret 1
+end
+if or ne get m get args 2 2 ne get m get args 3 4
+ret 1
+end
+if gt get s 0 1021
+ret 1
+end
+bc_node s 16 get args 0 get args 1 get args 2 get args 3
+put s 22 shl bc_control 8 7 7 get s 1 false 32
+put s 1 0
+if ge get s 0 1024
+ret 1
+end
+for j ulong 8
+put ins add mul get s 0 8 j get s add j 16
+end
+put s 0 add get s 0 1
+for k ulong 2
+bc_node s 0 BCNONE BCNONE BCNONE BCNONE
+bc_emit ins s 0
+put ins add mul sub get s 0 1 8 6 shl bc_control sub ulong 15 k 7 7 0 false 32
+end
+ret 0
+end

@@ -1,6 +1,6 @@
 # CUDApp architecture: today's layers and the portable-top / thin-backend split
 
-**Status:** PROPOSED design (2026-10-27). Nothing in this file is implemented by it. No code moves until
+**Status:** PROPOSED design (2026-10-27). Only the host-side pieces listed in §3a are implemented. No code moves until
 the gate below is met. The decision record is ADR 0043 in aien-dev/aien-architecture-mv
 (`docs/adr/0043-gpu-stack-portable-top-thin-backend.md`, draft). Read that first; this file is the
 file-level map for CUDApp at main `780a0af1`.
@@ -56,7 +56,7 @@ generators; **DRV** driver client; **MIXED** has to be split logically. Line num
 | KER | `omega_blackwell_codegen_{attn,bf16,dec,gemm,moe,moe2,pattn,pf,pfhost,qg,qmma,router,tc,tc2,tern}`, the matmul generators inside `omega_blackwell_codegen.c`, `omega_gpu_fp8_pack.c`, `omega_gpu_pfgemm.c` |
 | DRV | `nvrm/` (`nvrm.c` 908 lines, RM client against the 580.173.02 headers), `m16/`, `omega_gpu_platform_linux.c`, `omega_blackwell_engine.c`, `omega_blackwell_submit.c` |
 | MIXED | `omega_gpu_session.c` (QMD and pushbuffer construction in `omega_gpu_session_launch` :445; includes qmd/submit :18-19), `omega_gpu_cmdlist.c` (`emit_tail` :199, `emit_stamp` :219, `emit_inline_qmd` :226, PCAS method words :308-309), `omega_native_artifact.c` (packaging is TOP, QMD template bytes are ENC), every `omega_gpu_*_api.c` (tensor lifetime is TOP; inline emitters in `attention_api.c` :69-143 and `elementwise_api.c` :61-145 are KER) |
-| Already `.om` | `native/nvrm/context.om`, `native/blackwell/{trace-emit,trace,vector,launch}.om` |
+| Already `.om` | `native/nvrm/context.om`, `native/blackwell/{trace-emit,trace,vector,launch}.om`; in the default hosted build: `om/encoder/bw_enc_sm121.om` (the instruction encoder and program NOP padding of `omega_blackwell_codegen.c`) and `om/cubin/cubin_elf.om` (the writer of `omega_cubin`), linked through the generated omega-bridge binding `src/cudapp_om_units.c`. Their C bodies build only for the freestanding target and the migration-pending oracle switches (`CUDAPP_ENCODER=c\|diff`, `CUDAPP_MIGRATION_PENDING_C_CUBIN`, `_CUBIN_DIFF`). |
 
 Three structural defects the split removes (in the `.om` stack; the C stack is frozen, not reworked):
 
@@ -85,8 +85,32 @@ Leaving the backend compared with `OmegaGpuPlatform` 1.2: `time_now_ms/ns`, `wai
 `host_alloc`, `host_free` (the top gets them from Omega host words), `mmio_*` and `irq_wait` (NULL on
 Linux today), `queue_submit(words)` (replaced by `ob_dispatch` + `ob_submit`).
 
-Code-object formats accepted by `ob_code_load`: `SM121_RAW`, `AMDGPU_HSACO`, `SPIRV_VK`, `MSL_SOURCE`,
-`AARCH64`. `CUBIN` is reserved and unused while omega-mv #864 is on HOLD.
+Code-object formats accepted by `ob_code_load`: `SM121_RAW`, `AMDGPU_HSACO`, `SPIRV_VK`, `SPIRV_CL`
+(OpenCL-environment SPIR-V: Kernel capability, Physical64 addressing, for OpenCL runtimes),
+`MSL_SOURCE`, `AARCH64`. `CUBIN` is reserved and unused. omega-mv #864 (`seed/sm80/cubin.om`) was closed unmerged; see `docs/CUBIN_WRITERS.md`.
+
+### 3a. First pieces that exist (IMPLEMENTED; host EXERCISED; hardware NOT_RUN off the GB10)
+
+PLAN P3 lets multi-target work that needs no GB10 time start before the gate above; no existing file
+moves. All of it is seeded Omega except one migration-pending C launcher.
+
+| Piece | File | Status |
+|---|---|---|
+| Target table, one row per GPU family; `make doctor OMC=…` prints it | `backend/targets.om` (`targets doctor`) | IMPLEMENTED. GB10 (sm_121) SUPPORTED; every other GPU row PLANNED, hardware NOT_RUN; PoCL and lavapipe rows are HOST-ONLY (not a GPU) |
+| Code-object loader checks for `ob_code_load` | `backend/targets.om` (`targets load FORMAT FILE [ENTRY or gfx]`) | IMPLEMENTED: SPIR-V header, instruction stream, capability/addressing/memory model per environment, entry point; HSACO ELF64, HSA OSABI with code object v4/v5, EM_AMDGPU, e_flags mach, PT_NOTE NT_AMDGPU_METADATA msgpack (`amdhsa.target`, `amdhsa.version`, `amdhsa.kernels`); SM121_RAW shape. MSL_SOURCE and AARCH64 refused (PLANNED), CUBIN refused (reserved) |
+| SPIR-V builder: FP32 vadd and FP32 16-term sum (`fsum16`), OpenCL and Vulkan forms, plus planted-wrong mutants | `backend/spirv/emit.om` | IMPLEMENTED; every module passes `spirv-val`. Hand-built words because the pinned seed omc IR mode lacks the needed floating-point operations. E3 (omega-mv#883) tracks OSC IRv7, a separate compiler path; it does not by itself enable this seed SPIR-V path |
+| Host reference and bit compare | `backend/spirv/conform.om` | IMPLEMENTED; vadd reference digest equals `hello_gpu --sim` output digest |
+| Launcher that hands a module to PoCL (CPU) or Mesa lavapipe (CPU) | `tools/multitarget/spirv-host.c` | migration-pending C, `CUDAPP_MIGRATION_PENDING_SPIRV_HOST` default OFF; reason: no checked shared-library call (E2, omega-mv#888); successors `backend/opencl/host.om`, `backend/vulkan/host.om` |
+| gfx1151 vadd code object | `backend/amd/vadd-gfx1151.s` | ORACLE fixture assembled by `llvm-mc` + `ld.lld` to test the loader (see §6); not a first-party encoder |
+
+`make test-multitarget OMC=…` (`tests/multitarget/run.sh`) runs all of it with negative controls:
+corrupted modules fail `spirv-val` and the loader, wrong environment or entry is refused, planted-wrong
+kernels and a flipped output byte fail the compare, the launcher's isolation scan fails when told to
+forbid the CPU driver it loads, and patched HSACO copies (wrong gfx, e_flags, OSABI, ABI version, note
+type, note target, truncation) are refused. Bit-exact on PoCL and lavapipe means those CPU
+implementations only; no AMD, Intel, Apple, Qualcomm, Arm, Imagination, Broadcom or Vortex device has run
+anything (hardware NOT_RUN). A real AMD run next needs a queue: KFD + AQL through E1 (KFD `devctl`
+allowlist) or the HSA runtime through E2, on a machine with that GPU.
 
 ## 4. Per-token path, today and target (GB10)
 
@@ -116,9 +140,11 @@ faster.
 - Encodings come from Mesa NAK (MIT) plus chip tests (`THIRD_PARTY.md` §2). `docs/HOW_I_DID_IT.md` line 36
   records a preference for nvcc output where it and NAK disagree; every encoder field gets a NAK
   citation or a chip test before the GB10 encoder is declared the backend.
-- Nothing derived from omega-mv #864 (`cubin.om`) enters a backend while #864 is on HOLD.
+- Nothing derived from omega-mv #864 (`seed/sm80/cubin.om`) enters a backend. That pull request was closed unmerged on 2026-10-27. See `docs/CUBIN_WRITERS.md`.
 - AMD encodings come from AMD's published ISA reference guides; LLVM (`llvm-mc`, `llvm-readelf`) is a
   verification oracle only. The terms of the ISA guides are an open item for the IP-lawyer review.
+  `backend/amd/vadd-gfx1151.s` is such an oracle fixture: it exists to test the loader, is labelled
+  ORACLE, and is not the AMD backend's encoder.
 - Apple: MSL text through Apple's public compiler; no AGX reverse engineering.
 
 ## 7. Review

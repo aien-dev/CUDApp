@@ -1,0 +1,67 @@
+note SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+note Existing GROUP has 128 rows and nine contributions/token: reuse bounded token windows.
+note All windows stay in ONE existing session/cmdlist; GROUP/GU/SWIGLU/DN complete in list order.
+note Reuse descriptor/maps only after preceding DN via existing recorder barriers, never inter-CTA spin.
+note Input version,tokens,H,EI,contributions,router_stride,window_capacity,reserved.
+note Each output8: token0,tokens,rows,XP bytes,GU bytes,ACT bytes,DN bytes,router bytes.
+note Meta windows,total_tokens,total_rows,version. Refusals preserve output/meta.
+fn moe_woff c view ulong 8 o edit ulong 1024 z ulong first ulong to void
+b = mul z 8
+v = mul first get c 2
+put o add b 3 mul v 4
+v = mul first get c 4
+v = mul v get c 3
+put o add b 4 mul v 8
+put o add b 5 mul v 4
+v = mul first get c 4
+v = mul v get c 2
+put o add b 6 mul v 4
+put o add b 7 mul first get c 5
+end
+fn moe_wrow c view ulong 8 o edit ulong 1024 z ulong first ulong count ulong to void
+b = mul z 8
+rows = mul count get c 4
+put o b first
+put o add b 1 count
+put o add b 2 rows
+moe_woff c o z first
+end
+fn moe_windows c view ulong 8 o edit ulong 1024 m edit ulong 4 to ulong
+if or ne get c 0 1 gt get c 1 128
+ret 1
+end
+if or ne get c 2 2048 ne get c 3 512
+ret 1
+end
+if ne get c 4 9
+ret 1
+end
+if or eq get c 5 0 gt get c 5 4294967295
+ret 1
+end
+if ne rem get c 5 16 0
+ret 1
+end
+if or gt get c 6 128 ne get c 7 0
+ret 1
+end
+take = div ulong 128 9
+nw = div add get c 1 sub take 1 take
+if gt nw get c 6
+ret 2
+end
+first = ulong 0
+for z ulong nw
+count = sub get c 1 first
+if gt count take
+count = take
+end
+moe_wrow c o z first count
+first = add first count
+end
+put m 0 nw
+put m 1 get c 1
+put m 2 mul get c 1 9
+put m 3 1
+ret 0
+end
