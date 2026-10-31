@@ -44,6 +44,7 @@
 #include "omega_gpu_decode_graph.h"
 #include "omega_gpu_decode_attn256_api.h"
 #include "omega_gpu_gdn_api.h"
+#include "omega_gpu_gdnc_api.h"
 #include "omega_gpu_router_api.h"
 #include <stdint.h>
 #ifdef __cplusplus
@@ -167,7 +168,12 @@ int omega_gpu_q36_graph_read_buf(OmegaGpuQ36Graph *g, int which, float *out, uin
  * kv heads, bf16 HMMA with an online softmax). Not bit-identical to the steps (P rounded to bf16, another summation order):
  * the tolerance and the golden tokens are its gate. AIEN_OMEGA_Q36_PF_FATTN=2: the same with the kernel's variant 2 (the
  * next 16-key block's K / V lines touched into L1 during softmax + PV; same arithmetic, same output bits as variant 1 in
- * the simulator). TEST mutant 8 (with FATTN=1 or 2): its attend kernel without the rescale. */
+ * the simulator). TEST mutant 8 (with FATTN=1 or 2): its attend kernel without the rescale.
+ * DRA-84: AIEN_OMEGA_Q36_PF_GDN_CHUNK=1 (read by prefill_alloc, default off; needs AIEN_OMEGA_Q36_PF_QMMA=1, refused with
+ * AIEN_OMEGA_Q36_PF_GDN=0 and mutants 1|3) runs each GDN layer as ONE chunked tensor-core launch (omega_gpu_gdnc_api.h): the
+ * QMMA mix GEMM writes bf16 rows, the scan writes bf16 o rows, the QMMA o GEMM quantises them. Tolerance-equal to the
+ * multi-token launch, not bit-equal. TEST mutant 9 (only with PF_GDN_CHUNK=1) drops the decay in the scan; must go red.
+ * Off (unset, or anything but "1"): no gdnc call, the paths above unchanged. */
 #define OMEGA_GPU_Q36_PREFILL_MAX_ROWS 128u /* x 8 routed expert rows <= the fp8 gemm's 1024 (the shared expert is its own GEMM) */
 #define OMEGA_GPU_Q36_PREFILL_TC_MAX_ROWS 8192u /* the tensor-core prefill only (DRA-83); the decode GEMV bound is unchanged */
 /* The row bound in force: OMEGA_GPU_Q36_PREFILL_TC_MAX_ROWS when AIEN_OMEGA_Q36_PF_QMMA=1, else
@@ -183,6 +189,23 @@ int omega_gpu_q36_graph_prefill_chunk(uint32_t *chunk);
 int omega_gpu_q36_graph_prefill_bytes(uint32_t cap, uint32_t lb_stride, uint32_t layers, uint64_t *host_bytes, uint64_t *dev_bytes);
 int omega_gpu_q36_graph_prefill_alloc(OmegaGpuQ36Graph *g, uint32_t cap);
 uint32_t omega_gpu_q36_graph_prefill_cap(const OmegaGpuQ36Graph *g);
+/* The GDN prefill route prefill_alloc takes for AIEN_OMEGA_Q36_PF_GDN (gdn_env), AIEN_OMEGA_Q36_PF_GDN_CHUNK (chunk_env),
+ * AIEN_OMEGA_Q36_PF_MUTANT and the QMMA gate; -1 = refused (prefill_alloc returns BAD_ARGS). Host, pure. */
+enum { OMEGA_GPU_Q36_PF_GDN_STEP = 0, OMEGA_GPU_Q36_PF_GDN_MULTI = 1, OMEGA_GPU_Q36_PF_GDN_CHUNK = 2 };
+int omega_gpu_q36_pf_gdn_route(const char *gdn_env, const char *chunk_env, int mutant, int qmma);
+/* DRA-84 / DRA-86: the GDN snapshot slots of the chunked route (NULL or va 0 = none, the default). GDN layer l's slot j (at
+ * va + l * layer_stride_bytes + j * snap_stride_bytes) receives the f32 state | conv tail after absolute token (j + 1) x 64 x
+ * every_chunks of the prompt; a chunk at pos0 off such a boundary writes none. prefill_gdn_snaps: the slots the last GDN
+ * layer's launch wrote. Ignored off the chunked route. */
+int omega_gpu_q36_graph_prefill_set_gdn_snap(OmegaGpuQ36Graph *g, const OmegaGdncSnapOut *s);
+uint32_t omega_gpu_q36_graph_prefill_gdn_snaps(const OmegaGpuQ36Graph *g);
+/* Host, pure (the prefill hook's own plumbing, exported for tests/gpu_q36_gdnc_hook_test.c). snap_slots: the slots a chunk at
+ * pos0 writes of `all` (1, *s set: va advanced to slot pos0 / span, count reduced) or 0 (none: off a span boundary, every slot
+ * behind pos0, or no snapshots). gdnc_rows: the chunked launch rows of an n-token chunk (bf16 mix rows at mix_va, f32 a|b rows
+ * at ab_va, bf16 out rows at out_va; TEST mutant 5: every token reads row 0's a|b). */
+int omega_gpu_q36_pf_gdn_snap_slots(const OmegaGdncSnapOut *all, uint32_t pos0, OmegaGdncSnapOut *s);
+void omega_gpu_q36_pf_gdnc_rows(uint32_t n, uint64_t mix_va, uint64_t ab_va, uint64_t out_va, int mutant, float eps_l2, float eps_norm,
+                                OmegaGdncRows *io);
 /* fp8 GEMM weight bytes every prefill call on g so far streamed (a running count: take the difference around a call).
  * Legacy path: every expert once per 4 of its rows, the dense mix/o once per 8 rows. Tensor-core path (pf qmma, DRA-83
  * G2): every expert a chunk touches once, the shared expert once and the dense mix/o once per layer per chunk (the bytes
