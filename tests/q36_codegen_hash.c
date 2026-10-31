@@ -53,6 +53,18 @@ int main(void) {
                 snprintf(n, sizeof n, "attn256.d%u.m%d.p%u", d, m, p); omega_bw_ir_init(prog);
                 emit(n, omega_blackwell_codegen_decode_attn256_prog(&s, prog));
             }
+    for (uint32_t d = 1; d <= 4; d++) /* L312 lever 5: the heads form (27B shape), and the 35B shape plain and heads */
+        for (int m = 0; m <= 5; m++) {
+            OmegaDecodeAttn256Spec s = {.depth = d, .mutant = m, .heads = 1};
+            snprintf(n, sizeof n, "attn256.d%u.m%d.heads", d, m); omega_bw_ir_init(prog);
+            emit(n, omega_blackwell_codegen_decode_attn256_prog(&s, prog));
+            OmegaDecodeAttn256Spec q = {.depth = d, .mutant = m, .q_heads = 16, .kv_heads = 2, .q_per_cta = 4};
+            snprintf(n, sizeof n, "attn256q36.d%u.m%d", d, m); omega_bw_ir_init(prog);
+            emit(n, omega_blackwell_codegen_decode_attn256_prog(&q, prog));
+            q.heads = 1;
+            snprintf(n, sizeof n, "attn256q36.d%u.m%d.heads", d, m); omega_bw_ir_init(prog);
+            emit(n, omega_blackwell_codegen_decode_attn256_prog(&q, prog));
+        }
     for (int m = 0; m <= 4; m++) {
         OmegaPrefillAttn256Spec s = {.mutant = m};
         snprintf(n, sizeof n, "pattn256.m%d", m); omega_bw_ir_init(prog); emit(n, omega_blackwell_codegen_prefill_attn256_prog(&s, prog));
