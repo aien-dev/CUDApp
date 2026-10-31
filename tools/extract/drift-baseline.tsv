@@ -8,6 +8,7 @@
 # the merged src/ and tests/ files keep the CUDA++ licence header and CUDA++-ahead code with the omega change applied.
 # Blobs omega changed through 4376c2112d7469b6908c6403720c9001de4622b5 (train r3 #979, omega#456 OWN-30B follow-ups) are that commit's (CUDApp sync/drift-omega-4376c21).
 # Blobs omega changed through 6d7b883844a0f17a7a3ceb427108be7e01e4c677 (#984 C6 hazard cross-check through the sm_121 disassembler) are that commit's; the omega deltas were applied to the CUDA++ copies, which keep their SPDX lines and CUDA++ corpus scope (CUDApp sync/drift-omega-6d7b883). tests/bw_hazard_test.c is a byte copy.
+# src/omega_blackwell_codegen_tern.h is omega 613765d2b75383212c50520ff7a7295bff01f1bb's blob (#985 comment: QMD shared cap 32 KiB, as in this tree's omega_blackwell_qmd.h); the comment delta was applied here.
 # Still differ at 4376c21 on purpose: Makefile (CUDA++ build); src/omega_gpu_fp8_api.c (CUDA++ owner-generation upload kept, omega#456 lock-held fill already there);
 # tests/gpu_fp8gemm_test.c (CUDA++ test_out_open 0600 receipt kept over omega's 0644 open); licence headers.
 Makefile	bf39ac9c767da1c0e37500f4568492cb4d6e17b9
@@ -193,7 +194,7 @@ src/omega_blackwell_codegen_tc.h	a27f71f81774f9ee0e9be521ac57b1e935083f71
 src/omega_blackwell_codegen_tc2.c	4feb021fb579af433ac37d0fc37e060a96ac0533
 src/omega_blackwell_codegen_tc2.h	38d17fdd1667afe82ced90d4702b44445fba5058
 src/omega_blackwell_codegen_tern.c	6177d45ad13dc53cdb8cb4b3f7a133240ef3c3c6
-src/omega_blackwell_codegen_tern.h	a9a7472cc5606fc285c330231c2a54a9f6e82490
+src/omega_blackwell_codegen_tern.h	12465d8b6aabcf5bb37de3d86cdaf5935a6abc3b
 src/omega_blackwell_encoder.c	373a98cdac7c8bdbf3921579f013eac4cafe6647
 src/omega_blackwell_encoder.h	9050a2f03dcf7b072775d1182cc558b8d8e5b623
 src/omega_blackwell_engine.c	436de40edfab6b760ebaefe65840d10803497d98
