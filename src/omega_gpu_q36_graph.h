@@ -176,6 +176,10 @@ void omega_q36_perm_table(uint32_t *tab, uint32_t k);
 int omega_gpu_q36_graph_set_batch(OmegaGpuQ36Graph *g, int on);
 int omega_gpu_q36_graph_batch(const OmegaGpuQ36Graph *g);
 int omega_gpu_q36_graph_record_layer_heads(OmegaGpuQ36Graph *g, uint32_t layer, const uint32_t *pos);
+/* The lm_head group plan (lever 1/6): the group starting at head h0 of n stroke heads, groups of up to g heads, reads
+ * omega_gpu_q36_head_group(n, g, h0) rows (0 when h0 >= n or g == 0). Walking h0 = 0, g, 2g, ... covers heads 0..n-1
+ * exactly once with no row past n-1. Pure; record_final_heads uses it and q36_dec_sim_test checks it. */
+uint32_t omega_gpu_q36_head_group(uint32_t n, uint32_t g, uint32_t h0);
 
 enum {
     OMEGA_GPU_Q36_K_NORM = 0, OMEGA_GPU_Q36_K_MIX, OMEGA_GPU_Q36_K_AB, OMEGA_GPU_Q36_K_GDN, OMEGA_GPU_Q36_K_GATHER, OMEGA_GPU_Q36_K_ATTN,

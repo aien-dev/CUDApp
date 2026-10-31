@@ -349,7 +349,7 @@ test-gpu-fp8gemm: $(GPU_FP8GEMM_TEST)
 # 4bbccf08 (tests/fixtures/q36_codegen_hash/main-4bbccf08.txt) to appear verbatim: levers may add programs, never change one.
 .PHONY: test-q36-dec-sim test-q36-codegen-hash
 Q36_DEC_SIM_TEST = $(OUT_DIR)/q36_dec_sim_test
-$(Q36_DEC_SIM_TEST): tests/q36_dec_sim_test.c tests/bw_warp_sim_k.h src/omega_blackwell_codegen_dec.h $(OUT_DIR)/libomega_gpu.a
+$(Q36_DEC_SIM_TEST): tests/q36_dec_sim_test.c tests/bw_warp_sim_k.h src/omega_blackwell_codegen_dec.h src/omega_gpu_q36_graph.h $(OUT_DIR)/libomega_gpu.a
 	$(CC) $(CFLAGS) -ffp-contract=off -DWS_MAX_THREADS=512 -Itests -o $@ tests/q36_dec_sim_test.c $(OUT_DIR)/libomega_gpu.a -lpthread -lm
 test-q36-dec-sim: $(Q36_DEC_SIM_TEST)
 	$(Q36_DEC_SIM_TEST)

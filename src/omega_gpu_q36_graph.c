@@ -889,6 +889,10 @@ int omega_gpu_q36_graph_record_head_final(OmegaGpuQ36Graph *g, uint32_t h) {
     return rc == OMEGA_GPU_DGRAPH_OK ? rc : fail(g, NULL, rc);
 }
 
+uint32_t omega_gpu_q36_head_group(uint32_t n, uint32_t g, uint32_t h0) {
+    if (g == 0 || h0 >= n) return 0;
+    return n - h0 < g ? n - h0 : g;
+}
 /* The batch's final head (v2 lever 1, L312): every head's hidden is ready after the last layer (record_layer_heads), so
  * the bf16 lm_head runs once per group of up to q36_head_xbatch() heads (4; 8 with lever 6) (the XBATCH form: x rows hidden_of(h0..),
  * y rows logits_of(h0..), ystride the logits slot; each row bit-identical to its own one-head launch), then the argmax
@@ -901,7 +905,7 @@ static int record_final_heads(OmegaGpuQ36Graph *g) {
     int rc = OMEGA_GPU_DGRAPH_OK;
     const uint32_t G = q36_head_xbatch();
     for (uint32_t h0 = 0; h0 < N && rc == OMEGA_GPU_DGRAPH_OK; h0 += G) {
-        const uint32_t xb = N - h0 < G ? N - h0 : G;
+        const uint32_t xb = omega_gpu_q36_head_group(N, G, h0);
         rc = after_op(g, OMEGA_GPU_Q36_K_LM_HEAD, omega_gpu_bf16_gemv_xbatch_record(g->cl, g->cfg.lm_head, xb, va_of(g, hidden_of(g, h0)),
                                                                                      va_of(g, logits_of(g, h0)), g->am_ctas * OMEGA_DEC_ARGMAX_SPAN));
     }

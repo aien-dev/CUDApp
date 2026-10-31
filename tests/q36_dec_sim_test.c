@@ -15,6 +15,7 @@
  */
 #include "omega_blackwell_codegen_dec.h"
 #include "bw_warp_sim_k.h"
+#include "omega_gpu_q36_graph.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -248,6 +249,18 @@ static int group_point(int mutant, uint32_t heads, int all_same, uint32_t seed, 
 
 int main(void) {
     char msg[300];
+    for (uint32_t gg = 4; gg <= 8; gg += 4) /* lever 1/6 lm_head groups: every N heads covered once, no row past N-1 */
+        for (uint32_t n = 1; n <= 8; n++) {
+            uint32_t cov = 0, bad = 0, ng = 0;
+            for (uint32_t h0 = 0; h0 < n; h0 += gg) {
+                const uint32_t xb = omega_gpu_q36_head_group(n, gg, h0);
+                if (xb == 0 || xb > gg || h0 + xb > n || h0 != cov) bad++;
+                cov = h0 + xb; ng++;
+            }
+            CHECK(!bad && cov == n && ng == (n + gg - 1) / gg && omega_gpu_q36_head_group(n, gg, n) == 0,
+                  "lm_head groups N %u G %u: %u groups cover %u heads, %u bad", n, gg, ng, cov, bad);
+        }
+    printf("lm_head group plan: N 1..8 x G {4,8} checked\n");
     { OmegaDecSpec sp = { .kind = OMEGA_DEC_RES, .mode = OMEGA_DEC_RES_ADD | OMEGA_DEC_RES_NORM, .groups = 9 }; CHECK(omega_dec_prog_stats(&sp, NULL, NULL) != 0, "groups 9 without COMBINE refused"); }
     { OmegaDecSpec sp = { .kind = OMEGA_DEC_RES, .mode = OMEGA_DEC_RES_COMBINE, .groups = 7 }; CHECK(omega_dec_prog_stats(&sp, NULL, NULL) != 0, "groups 7 refused"); }
     { OmegaDecSpec sp = { .kind = OMEGA_DEC_RES, .mode = OMEGA_DEC_RES_COMBINE, .mutant = 3 }; CHECK(omega_dec_prog_stats(&sp, NULL, NULL) != 0, "mutant 3 without the shared slot refused"); }
